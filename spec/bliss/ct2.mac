@@ -99,6 +99,7 @@ def ct2_config(cnum, type, unit, module, chan) '{
         list_setpar(CT2_MAC_LIST, ctrl_dev, "acq_nb_points", 1)
         list_setpar(CT2_MAC_LIST, ctrl_dev, "timer_freq", 1e6)
         list_setpar(CT2_MAC_LIST, ctrl_dev, "all_channels", ct2_list_init())
+        list_setpar(CT2_MAC_LIST, ctrl_dev, "integ_channels", ct2_list_init())
         return
     } else if (type != "cnt")  {
         printf("CT2: WARNING unknown type=%s, unit=%s\n", type, unit)
@@ -238,17 +239,18 @@ def ct2_get_master_status(ctrl_dev) '{
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 def ct2_prestart_all(ctrl_dev) '{
-    local nb_chan, i, l, acq_chan_list[]
+    local nb_chan, i, chan_l, a_l, chan_arr[]
     CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ct2_list_init()
+    CT2_MAC_HDW[ctrl_dev]["acq_integ_channels"] = ct2_list_init()
     CT2_MAC_HDW[ctrl_dev]["nb_channels"] = 0
-    CT2_MAC_HDW[ctrl_dev]["act_channels"] = 0
+    CT2_MAC_HDW[ctrl_dev]["act_channels"] = ct2_list_init()
     CT2_MAC_HDW[ctrl_dev]["slaves"] = ct2_list_init()
     CT2_MAC_HDW["started_masters"] = 0
-    l = list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels")
-    nb_chan = ct2_list_split(l, acq_chan_list)
+    chan_l = list_getpar(CT2_MAC_LIST, ctrl_dev, "all_channels")
+    nb_chan = ct2_list_split(chan_l, chan_arr)
     for (i = 0; i < nb_chan; i++)
-        if (!counter_par(cnt_num(acq_chan_list[i]), "disable"))
-            CT2_MAC_HDW[ctrl_dev]["act_channels"]++
+        if (!counter_par(cnt_num(chan_arr[i]), "disable"))
+            ++CT2_MAC_HDW[ctrl_dev]["nb_channels"]
     CT2_MAC_HDW_LAST[ctrl_dev]["valid"] = 0
 }'
 
@@ -256,18 +258,27 @@ def ct2_prestart_all(ctrl_dev) '{
 #---------------------------------------------------------------------
 def ct2_start_one(cnum, ctrl_dev, chan, p1, p2) '{
     local FnId addon; FnId="ct2_start_one"
-    local acq_chan, cnt_idx, all_chan_started
+    local chan_l, cnt_idx, all_chan_started, nb_act_chan
     local master_dev, is_master, slaves
 
     __ct2_profile "(trace 1)" 
 
     if (chan != 0) {
-        acq_chan = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
-        cnt_idx = ct2_list_n(acq_chan)
-        CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ct2_list_add(acq_chan, chan)
-	counter_par(cnum, "counter_idx", cnt_idx, "add")
-    }
+        chan_l = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
+        cnt_idx = ct2_list_n(chan_l)
+        CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ct2_list_add(chan_l, chan)
+        chan_l = CT2_MAC_HDW[ctrl_dev]["acq_integ_channels"]
+        chan_l = ct2_list_add(chan_l, counter_par(cnum, "integrator"), 1)
+        CT2_MAC_HDW[ctrl_dev]["acq_integ_channels"] = chan_l
+    } else
+        cnt_idx = -1
+    counter_par(cnum, "counter_idx", cnt_idx, "add")
 
+    chan_l = CT2_MAC_HDW[ctrl_dev]["act_channels"]
+    chan_l = ct2_list_add(chan_l, cnt_mne(cnum))
+    nb_act_chan = ct2_list_n(chan_l)
+    CT2_MAC_HDW[ctrl_dev]["act_channels"] = chan_l
+    
     master_dev = list_getpar(CT2_MAC_LIST, ctrl_dev, "master_dev")
     is_master = (master_dev == ctrl_dev)
     if (!is_master) {
@@ -275,8 +286,7 @@ def ct2_start_one(cnum, ctrl_dev, chan, p1, p2) '{
         CT2_MAC_HDW[master_dev]["slaves"] = slaves
     }
 
-    all_chan_started = (++CT2_MAC_HDW[ctrl_dev]["nb_channels"] == \
-                        CT2_MAC_HDW[ctrl_dev]["act_channels"])
+    all_chan_started = (nb_act_chan == CT2_MAC_HDW[ctrl_dev]["nb_channels"])
     if (is_master && all_chan_started)
        return ct2_start_master(ctrl_dev, chan, p1, p2)
 }'
@@ -303,7 +313,7 @@ def ct2_start_master(ctrl_dev, chan, p1, p2) '{
 def ct2_prepare_master_and_slaves(ctrl_dev, chan, p1, p2) '{
     local FnId addon; FnId ="ct2_prepare_master_and_slaves"
     local nb_ctrls, ctrl_list[], i, j, dev, is_master
-    local factor, acq_mode, acq_chan_list[]
+    local factor, acq_mode, chan_arr[]
     local acq_expo_time, acq_point_period, acq_nb_points
     local is_null_point_period, is_trig_readout, needs_point_period
 
@@ -340,15 +350,21 @@ def ct2_prepare_master_and_slaves(ctrl_dev, chan, p1, p2) '{
         tango_put(dev, "acq_expo_time", acq_expo_time)
         __ct2_profile "start_one" " chan == 0 tango_put expo time"
 
-        ct2_list_split(CT2_MAC_HDW[dev]["acq_channels"], acq_chan_list)
-        tango_put(dev, "acq_channels", acq_chan_list)
+        ct2_list_split(CT2_MAC_HDW[dev]["acq_channels"], chan_arr)
+        tango_put(dev, "acq_channels", chan_arr)
         __ct2_profile "start_one" " tango_put acq_channels"
 
-        # store acq_channels_data_indexes for standard counters
-        tango_get(dev, "acq_channels_data_indexes", acq_chan_list)
-        __ct2_profile "start_one" " tango_get acq_channels_data_indexes"
-        for (j in acq_chan_list)
-            CT2_MAC_HDW[dev][sprintf("idx_%d", j)] = acq_chan_list[j]
+        ct2_list_split(CT2_MAC_HDW[dev]["acq_integ_channels"], chan_arr)
+        tango_put(dev, "integrator_channels", chan_arr)
+        __ct2_profile "start_one" " tango_put acq_channels"
+
+        if (ct2_list_n(CT2_MAC_HDW[dev]["acq_channels"])) {
+            # store acq_channels_data_indexes for standard counters
+            tango_get(dev, "acq_channels_data_indexes", chan_arr)
+            __ct2_profile "start_one" " tango_get acq_channels_data_indexes"
+            for (j in chan_arr)
+                CT2_MAC_HDW[dev][sprintf("idx_%d", j)] = chan_arr[j]
+        }
 
         tango_put(dev, "acq_nb_points", acq_nb_points)
         __ct2_profile "start_one" " tango_put acq_nb_points"
@@ -383,7 +399,8 @@ def ct2_start_master_and_slaves(ctrl_dev) '{
 
 def ct2_counts(cnum, ctrl_dev, chan, p1) '{
     local FnId addon; FnId="ct2_counts"
-    local cnt_idx, arr_key, nb_chan
+    local cnt_idx, arr_key, nb_chan, nb_points, chan_l, chan_arr[]
+    local nb_act_chan, aux_cnum
     __ct2_profile  "(trace 1)"
     nb_chan = ct2_list_n(CT2_MAC_HDW[ctrl_dev]["acq_channels"])
     if (!CT2_MAC_HDW_LAST[ctrl_dev]["valid"]) {
@@ -402,14 +419,25 @@ def ct2_counts(cnum, ctrl_dev, chan, p1) '{
         __ct2_profile " valid tango_get counters (trace 2)"
 
         TANGO_ERR = -1
-        acq_nb_points = list_getpar(CT2_MAC_LIST, ctrl_dev, "acq_nb_points")
-        ulong array v[acq_nb_points][nb_chan + 2]
-        tango_get(ctrl_dev, "data", v)
+        nb_points = list_getpar(CT2_MAC_LIST, ctrl_dev, "acq_nb_points")
+        ulong array v[nb_points][nb_chan + 2]
+        nb_points = tango_get(ctrl_dev, "data", v) / (nb_chan + 2)
         __ct2_profile " valid tango_get data "
         if (TANGO_ERR != "0")
             return -1
-        for (cnt_i = 0; cnt_i < nb_chan + 2; cnt_i++)
-            CT2_MAC_HDW_LAST[ctrl_dev][cnt_i] = array_op("sum", v[:][cnt_i])
+
+        chan_l = CT2_MAC_HDW[ctrl_dev]["act_channels"]
+        nb_act_chan = ct2_list_split(chan_l, chan_arr)
+        for (cnt_i = 0; cnt_i < nb_act_chan; cnt_i++) {
+            aux_cnum = cnt_num(chan_arr[cnt_i])
+	    cnt_idx = counter_par(aux_cnum, "counter_idx")
+	    if (cnt_idx == -1)
+	        cnt_idx = nb_chan
+            if (counter_par(aux_cnum, "integrator"))
+	        CT2_MAC_HDW_LAST[ctrl_dev][cnt_idx] = v[nb_points - 1][cnt_idx]
+	    else
+	        CT2_MAC_HDW_LAST[ctrl_dev][cnt_idx] = array_op("sum", v[:][cnt_idx])
+        }
         CT2_MAC_HDW_LAST[ctrl_dev]["valid"] = 1
     }
     # use acq_channels_data_indexes for standard counters, nb_channels for timers
@@ -422,7 +450,9 @@ def ct2_counts(cnum, ctrl_dev, chan, p1) '{
 #=====================================================================
 
 def ct2_par(cnum, key, action, p1) '{
-    local ctrl_dev chan mne val[] int_cnt acq_mode_table[] acq_mode aux_key
+    local ctrl_dev, chan, mne, val[], int_cnt, acq_mode_table[], acq_mode
+    local chan_l
+
     mne = cnt_mne(cnum)
 
     ctrl_dev = ct2_ADDR
@@ -440,6 +470,20 @@ def ct2_par(cnum, key, action, p1) '{
         if (action == "set")
             CT2_MAC_HDW[ctrl_dev][aux_key] = p1
         return CT2_MAC_HDW[ctrl_dev][aux_key]
+    } else if (key == "integrator") {
+        chan_l = list_getpar(CT2_MAC_LIST, ctrl_dev, "integ_channels")
+        if (action == "set") {
+	    if (p1) {
+	        if (chan == 0) {
+                    printf("Error: timer cannot be integrator\n")
+		    return ".error."
+		}
+                chan_l = ct2_list_add(chan_l, mne)
+	    } else
+	        chan_l = ct2_list_del(chan_l, mne)
+	    list_setpar(CT2_MAC_LIST, ctrl_dev, "integ_channels", chan_l)
+        }
+        return ct2_list_includes(chan_l, mne)
     } else if (key == "status") {
         ct2_get(cnum, "counters_status", val)
         int_cnt = list_getpar(CT2_MAC_LIST, ctrl_dev, "int_cnt")

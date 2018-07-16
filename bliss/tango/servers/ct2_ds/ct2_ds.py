@@ -186,6 +186,19 @@ class CT2(Device):
         return tuple(self.device.acq_channels_data_indexes)
 
     @attribute(
+        dtype=("int16",),
+        max_dim_x=12,
+        label="Integrator channels",
+        doc="List indicating if corresponding acq_channel is integrator",
+    )
+    def integrator_channels(self):
+        return tuple(self.device.integrator_channels)
+
+    @integrator_channels.setter
+    def integrator_channels(self, integrator_channels):
+        self.device.integrator_channels = integrator_channels
+
+    @attribute(
         dtype="float64",
         label="Timer clock freq.",
         unit="Hz",

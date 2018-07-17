@@ -22,10 +22,7 @@ from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
 from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
-try:
-  import EdfFile
-except ImportError:
-  EdfFile = None
+from bliss.data.edffile import EdfFile
 
 def test_parent_node(beacon, scan_tmpdir):
     session = beacon.get("test_session")
@@ -236,12 +233,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     view_iterator2 = iter(view)
 
     # retrieve from file
-    if EdfFile is None:
-        # no Edf file module => we just check data is retrieved from file, not
-        # from server memory
-        assert pytest.raises(RuntimeError, view_iterator2.next)
-    else:
-        assert view_iterator2.next() == img0
+    assert view_iterator2.next() == img0
 
 
 def test_ttl_on_data_node(beacon, redis_data_conn):

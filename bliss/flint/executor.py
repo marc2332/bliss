@@ -74,6 +74,8 @@ def concurrent_to_gevent(future):
             asyncresult.set_exception(exc, info)
         else:
             asyncresult.set(result)
+        finally:
+            watcher.stop()
 
     watcher.start(gevent_callback)
     future.add_done_callback(lambda _: watcher.send())

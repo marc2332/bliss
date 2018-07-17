@@ -14,11 +14,8 @@ from bliss.common.tango import DeviceProxy
 from bliss.common.task import task
 from bliss.data.node import DataNode
 from bliss.config.settings import HashSetting, QueueObjSetting
+from bliss.data.edffile import EdfFile
 
-try:
-    import EdfFile
-except ImportError:
-    EdfFile = None
 try:
     import h5py
 except ImportError:
@@ -181,7 +178,7 @@ class LimaImageChannelDataNode(DataNode):
                     if file_format == 'EDFConcat':
                         image_index = 0
                     if EdfFile is not None:
-                        f = EdfFile.EdfFile(filename)
+                        f = EdfFile(filename)
                         return f.GetData(image_index)
                     else:
                         raise RuntimeError("EdfFile module is not available, "

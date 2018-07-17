@@ -144,7 +144,7 @@ Example to add a simple label, the position of a motor and a function to display
             return time.ctime()
         
         @configure
-        def config(repl):
+        def config_widgets(repl):
             repl.bliss_bar.items.append(LabelWidget("BL=ID245c"))
             repl.bliss_bar.items.append(AxisStatus('simot1'))
             repl.bliss_bar.items.append(DynamicWidget(what_time_is_it))
@@ -173,7 +173,7 @@ This code will make a session to look like:
      
      
      
-     simot1: 12.05 | salut | Wed Apr 25 17:08:21 CEST 2018
+     BL=ID245c | simot1: 12.05 | Wed Apr 25 17:08:21 CEST 2018
 
 
 More widgets can be defined using the same model:

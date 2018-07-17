@@ -34,7 +34,6 @@ class Writer(FileWriter):
         self.scan_entry = self.file.create_group(scan_recorder.name)
         self.scan_entry.attrs['NX_class'] = 'NXentry'
         scan_title = scan_recorder.scan_info.get("title", "untitled")
-        utf8_dt = h5py.special_dtype(vlen=unicode)
         self.scan_entry['title'] = scan_title.encode('utf-8')
         timestamp = scan_recorder.scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
@@ -61,6 +60,11 @@ class Writer(FileWriter):
 
     def new_master(self, master, scan):
         return self.measurement.create_group(master.name + '_master')
+
+    def add_reference(self, master_entry, referenced_master_entry):
+        ref_path = referenced_master_entry.name
+        ref_name = ref_path.split('/')[-1]
+        master_entry[ref_name] = referenced_master_entry.ref
 
     def _on_event(self, parent, event_dict, signal, sender):
         if signal == 'start':

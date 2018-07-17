@@ -66,6 +66,9 @@ class FileWriter(object):
     def new_master(self, master, scan_file_dir):
         raise NotImplementedError
 
+    def add_reference(self, master_entry, referenced_master_entry):
+        pass
+
     def _prepare_callbacks(self, device, master_entry, callback):
         ev_receiver = _EventReceiver(master_entry, callback)
         for signal in ('start', 'end'):
@@ -82,13 +85,18 @@ class FileWriter(object):
         scan_file_dir = self.create_path(scan_recorder)
 
         self.new_file(scan_file_dir, scan_recorder)
-
+        master_entries = {}
+  
         self._event_receivers = []
 
         for dev, node in scan_recorder.nodes.iteritems():
             if isinstance(dev, AcquisitionMaster):
-                master_entry = self.new_master(dev, scan_file_dir)
-
+                try:
+                    master_entry = master_entries[dev]
+                except KeyError:
+                    master_entry = self.new_master(dev, scan_file_dir)
+                    master_entries[dev] = master_entry
+                
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 
                 dev.prepare_saving(scan_recorder.node.name, scan_file_dir)
@@ -97,6 +105,13 @@ class FileWriter(object):
                     if isinstance(slave, AcquisitionDevice) and \
                         callable(self._device_event_callback):
                         self._prepare_callbacks(slave, master_entry, self._device_event_callback)
+                    elif isinstance(slave, AcquisitionMaster):
+                        try:
+                            referenced_master_entry = master_entries[slave]
+                        except KeyError:
+                            referenced_master_entry = self.new_master(slave, scan_file_dir)
+                            master_entries[slave] = master_entry
+                        self.add_reference(master_entry, referenced_master_entry)
         self._closed = False
 
     def close(self):

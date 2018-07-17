@@ -233,7 +233,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     view_iterator2 = iter(view)
 
     # retrieve from file
-    assert view_iterator2.next() == img0
+    assert numpy.allclose(view_iterator2.next(), img0)
 
 
 def test_ttl_on_data_node(beacon, redis_data_conn):

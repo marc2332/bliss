@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from bliss.common import event
 from ..chain import AcquisitionDevice, AcquisitionMaster
-from ..scan import FileWriter, \
+from .file import FileWriter, \
     AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 import numpy
 import csv

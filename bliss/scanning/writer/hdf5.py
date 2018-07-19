@@ -4,7 +4,7 @@ import h5py
 import numpy
 import time
 import datetime
-from ..scan import FileWriter, \
+from .file import FileWriter, \
     AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
 
 

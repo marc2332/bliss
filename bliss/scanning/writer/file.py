@@ -110,7 +110,7 @@ class FileWriter(object):
                             referenced_master_entry = master_entries[slave]
                         except KeyError:
                             referenced_master_entry = self.new_master(slave, scan_file_dir)
-                            master_entries[slave] = master_entry
+                            master_entries[slave] = referenced_master_entry
                         self.add_reference(master_entry, referenced_master_entry)
         self._closed = False
 

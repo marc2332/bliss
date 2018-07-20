@@ -37,10 +37,12 @@ _log = logging.getLogger('bliss.scans')
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
-def step_scan(chain, scan_info, name=None, save=True):
+def step_scan(chain, scan_info, name=None, save=True, save_images=True):
     scan_data_watch = scan_module.StepScanDataWatch()
     config = scan_module.ScanSaving().get()
     writer = config.get("writer") if save else None
+    if writer:
+        writer._save_images = save_images
     return scan_module.Scan(chain,
                             name=name,
                             parent=config['parent'],
@@ -75,11 +77,14 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ascan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
+        save_images (bool): save image files [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    save_images = kwargs.pop('save_images', True)
+
     scan_info = {'type': kwargs.get('type', 'ascan'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
@@ -105,7 +110,10 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                       'count_time': count_time,
                       'estimation': estimation})
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=LinearStepTriggerMaster(npoints, motor, start, stop))
+    chain = DEFAULT_CHAIN.get(scan_info, counter_args,
+                              top_master=LinearStepTriggerMaster(npoints,
+                                                                 motor, start,
+                                                                 stop))
 
     _log.info("Scanning %s from %f to %f in %d points",
               motor.name, start, stop, npoints)
@@ -116,7 +124,8 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         name=kwargs.setdefault(
             "name",
             "ascan"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
 
     if kwargs.get('run', True):
         scan.run()
@@ -210,6 +219,8 @@ def amesh(
 
     :param backnforth if True do back and forth on the first motor
     """
+    save_images = kwargs.pop('save_images', True)
+
     scan_info = {'type': kwargs.get('type', 'amesh'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
@@ -252,7 +263,8 @@ def amesh(
 
     backnforth = kwargs.pop('backnforth', False)
     chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
-                                       motor2, start2, stop2, npoints2,backnforth=backnforth))
+                                       motor2, start2, stop2,
+                                                                                        npoints2,backnforth=backnforth))
 
     _log.info(
         "Scanning (%s, %s) from (%f, %f) to (%f, %f) in (%d, %d) points",
@@ -271,7 +283,8 @@ def amesh(
         name=kwargs.setdefault(
             "name",
             "amesh"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
 
     if kwargs.get('run', True):
         scan.run()
@@ -334,11 +347,14 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
+        save_images (bool): save image files [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    save_images = kwargs.pop('save_images', True)
+
     scan_info = {'type': kwargs.get('type', 'a2scan'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
@@ -386,7 +402,8 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         name=kwargs.setdefault(
             "name",
             "a2scan"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
 
     if kwargs.get('run', True):
         scan.run()
@@ -430,6 +447,7 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
+        save_images (bool): save image files [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -476,6 +494,7 @@ def timescan(count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'timescan <count_time>']
         save (bool): save scan data to file [default: True]
+        save_images (bool): save image files [default: True]
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -485,6 +504,8 @@ def timescan(count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
+    save_images = kwargs.get('save_images', True)
+
     scan_info = {'type': kwargs.get('type', 'timescan'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title'),
@@ -519,7 +540,8 @@ def timescan(count_time, *counter_args, **kwargs):
         name=kwargs.setdefault(
             "name",
             "timescan"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
 
     if kwargs.get('run', True):
         scan.run()
@@ -612,8 +634,11 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'pointscan <motor> <positions>']
         save (bool): save scan data to file [default: True]
+        save_images (bool): save image files [default: True]
         return_scan (bool): True by default
     """
+    save_images = kwargs.pop('save_images', True)
+
     scan_info = {'type': kwargs.get('type', 'pointscan'),
                  'save': kwargs.get('save', True),
                  'title': kwargs.get('title')}
@@ -631,7 +656,9 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
          'stop': positions[npoints - 1],
          'count_time': count_time})
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=VariableStepTriggerMaster(motor, positions))
+    chain = DEFAULT_CHAIN.get(scan_info, counter_args,
+                              top_master=VariableStepTriggerMaster(motor,
+                                                                   positions))
 
     _log.info("Scanning %s from %f to %f in %d points",
               motor.name, positions[0], positions[npoints - 1], npoints)
@@ -642,7 +669,9 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         name=kwargs.setdefault(
             "name",
             "pointscan"),
-        save=scan_info['save'])
+        save=scan_info['save'],
+        save_images=save_images)
+
     scan.run()
     if kwargs.get('return_scan', True):
         return scan

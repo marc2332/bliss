@@ -109,8 +109,8 @@ class ScanSaving(Parameters):
                                             'user_name': getpass.getuser(),
                                             'template': '{session}/',
                                             'images_path_relative': True,
-                                            'images_path_template': '{session}/{scan}',
-                                            'images_prefix': '{device}',
+                                            'images_path_template': '{scan}',
+                                            'images_prefix': '{device}_',
                                             'date_format': '%Y%m%d',
                                             '_writer_module': 'hdf5'},
                             **keys)

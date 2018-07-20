@@ -66,5 +66,5 @@ def test_software_position_trigger_master(beacon):
     # Typical position error is +0.025 in position unit
     # That's because of redis + gevent delays (~2.5 ms)
     expected_triggers = [0.01, 0.03, 0.05, 0.07, 0.09]
-    assert data['roby'] == pytest.approx(data['debug_pos'], abs=0.08)
-    assert data['debug_time'] == pytest.approx(expected_triggers, abs=0.008)
+    assert data['roby'] == pytest.approx(data['debug_pos'], abs=0.2)
+    assert data['debug_time'] == pytest.approx(expected_triggers, abs=0.02)

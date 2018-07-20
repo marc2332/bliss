@@ -802,7 +802,18 @@ class Parameters(object):
 
     def __dir__(self):
         keys = [x for x in self._proxy.keys() if not x.startswith('_')]
-        return keys + ['add', 'remove', 'switch', 'configs']
+        return keys + ['add', 'remove', 'switch', 'configs', 'to_dict',
+                       'from_dict']
+
+    def to_dict(self):
+        d = self._proxy.get_all()
+        for k in d.keys():
+            if k.startswith("_"):
+                d.pop(k)
+        return d
+
+    def from_dict(self, d):
+        self._proxy.update(d)
 
     def __repr__(self):
         d = dict(self._proxy.iteritems())

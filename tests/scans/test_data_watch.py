@@ -45,15 +45,19 @@ def test_scan_saving(beacon, scan_saving):
 
     assert repr(scan_saving) == """\
 Parameters (default)
-  .base_path      = '/tmp/scans'
-  .date           = '{}'
-  .date_format    = '%Y%m%d'
-  .session        = '{}'
-  .template       = 'toto'
-  .user_name      = '{}'
-  .writer         = 'hdf5'
-""".format(scan_saving.date, scan_saving.session, scan_saving.user_name)
-
+  .base_path            = '/tmp/scans'
+  .date                 = '{date}'
+  .date_format          = '%Y%m%d'
+  .device               = '<images_* only> acquisition device name'
+  .images_path_relative = True
+  .images_path_template = '{{session}}/{{scan}}'
+  .images_prefix        = '{{device}}'
+  .scan                 = '<images_* only> scan node name'
+  .session              = '{session}'
+  .template             = 'toto'
+  .user_name            = '{user_name}'
+  .writer               = 'hdf5'
+""".format(date=scan_saving.date, session=scan_saving.session, user_name=scan_saving.user_name)
 
     scan_saving.template = "toto/{session}"
     parent_node = scan_saving.get()["parent"]

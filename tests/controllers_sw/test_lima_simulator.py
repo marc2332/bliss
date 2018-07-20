@@ -127,24 +127,89 @@ def test_lima_mapping_and_saving(beacon, lima_simulator):
     simulator = beacon.get("lima_simulator")
     session.setup()
     scan_saving = setup_globals.SCAN_SAVING
+    scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path="/tmp/scans"
+    scan_saving.images_path_template=""
+    scan_saving.images_prefix="toto"
+
     saving_directory = None
     try:
         simulator.select_directories_mapping('fancy')
         mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
         ct = setup_globals.ct(0.1, simulator, save=True, run=False)
-        mapped_directory = os.path.join(mapped_directory, ct.name)
 
         try:
             ct.run()
         except Exception, e:
             # this will fail because directory is not likely to exist
             saving_directory = e.args[0].desc.split("Directory :")[-1].split()[0]
-
     finally:
+        scan_saving.from_dict(scan_saving_dump)
         simulator.select_directories_mapping('identity')
 
     # cannot use simulator.proxy.saving_directory because it is reset to ''
-    assert saving_directory == mapped_directory
+    assert mapped_directory.startswith(saving_directory)
+
+def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir):
+    session = beacon.get("test_session")
+    simulator = beacon.get("lima_simulator")
+    session.setup()
+    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving_dump = scan_saving.to_dict()
+
+    scan_saving.base_path=str(scan_tmpdir)
+    scan_saving.template='test'
+    scan_saving.images_path_template='{scan}/toto'
+    scan_saving.images_prefix='{device}'
+
+    try:
+        scan_config = scan_saving.get()
+        assert scan_config['root_path'] == os.path.join(scan_saving.base_path,
+                                                        scan_saving.template)
+        assert scan_config['images_path'] == os.path.join(scan_config['root_path'],
+                                                          scan_saving.images_path_template,
+                                                          scan_saving.images_prefix)
+
+        setup_globals.loopscan(1, 0.1, simulator)
+
+        assert os.path.isdir(scan_config['root_path'])
+        assert os.path.isdir(os.path.join(scan_config['root_path'],
+                                          'loopscan_1/toto'))
+        assert os.path.exists(os.path.join(scan_config['root_path'],
+                                           'loopscan_1/toto/lima_simulator0000.edf'))
+    finally:
+        scan_saving.from_dict(scan_saving_dump)
+
+
+def test_images_dir_prefix_saving_absolute(beacon, lima_simulator, scan_tmpdir):
+    session = beacon.get("test_session")
+    simulator = beacon.get("lima_simulator")
+    session.setup()
+    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving_dump = scan_saving.to_dict()
+
+    scan_saving.base_path=str(scan_tmpdir)
+    scan_saving.template='test'
+    scan_saving.images_path_relative=False
+    scan_saving.images_path_template='{base_path}/test/{scan}/toto'
+    scan_saving.images_prefix='{device}'
+
+    try:
+        scan_config = scan_saving.get()
+        assert scan_config['root_path'] == os.path.join(scan_saving.base_path,
+                                                        scan_saving.template)
+        assert scan_config['images_path'] == \
+            os.path.join(scan_saving.base_path, scan_saving.template,
+                     "{scan}/toto/{device}")
+
+        setup_globals.timescan(0.1, simulator, npoints=1)
+
+        assert os.path.isdir(scan_config['root_path'])
+        assert os.path.isdir(os.path.join(scan_config['root_path'],
+                                          'timescan_1/toto'))
+        assert os.path.exists(os.path.join(scan_config['root_path'],
+                                           'timescan_1/toto/lima_simulator0000.edf'))
+    finally:
+        scan_saving.from_dict(scan_saving_dump)
 

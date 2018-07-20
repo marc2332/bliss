@@ -9,21 +9,15 @@ from bliss.scanning.writer.file import FileWriter
 
 class Writer(FileWriter):
     def __init__(self, *args, **keys):
-        FileWriter.__init__(self, '',
-                            master_event_receiver=None,
-                            device_event_receiver=None,
-                            **keys)
+        FileWriter.__init__(self, '', '')
 
-    def prepare(self, scan_recorder, scan_info, devices_tree):
+    def new_scan(self, scan):
         return
 
     def create_path(self, scan_recorder):
-        return scan_recorder.path
-
-    def new_file(self, scan_file_dir, scan_recorder):
         return
 
-    def new_master(self, master, scan):
+    def new_master(self, *args):
         return
 
     def close(self):

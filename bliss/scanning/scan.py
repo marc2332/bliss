@@ -108,21 +108,12 @@ class ScanSaving(Parameters):
                             default_values={'base_path': '/tmp/scans',
                                             'user_name': getpass.getuser(),
                                             'template': '{session}/',
-                                            'date_format': '%Y%m%d'},
+                                            'images_path_relative': True,
+                                            'images_path_template': '{session}/{scan}',
+                                            'images_prefix': '{device}',
+                                            'date_format': '%Y%m%d',
+                                            '_writer_module': 'hdf5'},
                             **keys)
-
-        cache_dict = self._proxy.get_all()
-        if '_writer_module' not in cache_dict:
-            #Check if hdf5 is available as a default
-            try:
-                self._get_writer_object('hdf5', os.getcwd())
-            except:
-                sys.excepthook(*sys.exc_info())
-                default_module_name = None
-            else:
-                default_module_name = 'hdf5'
-
-            self.add('_writer_module', default_module_name)
 
     def __dir__(self):
         keys = Parameters.__dir__(self)
@@ -133,7 +124,17 @@ class ScanSaving(Parameters):
         d['writer'] = d.get('_writer_module')
         d['session'] = self.session
         d['date'] = self.date
+        d['scan'] = '<images_* only> scan node name'
+        d['device'] = '<images_* only> acquisition device name'
         return self._repr(d)
+
+    @property
+    def scan(self):
+        return '{scan}'
+
+    @property
+    def device(self):
+        return '{device}'
 
     @property
     def session(self):
@@ -150,13 +151,13 @@ class ScanSaving(Parameters):
         """
         Scan writer object.
         """
-        return self._get_writer()
+        return self._proxy['_writer_module']
 
     @writer.setter
     def writer(self, value):
         try:
             if value is not None:
-                self._get_writer_object(value, os.getcwd())
+                self._get_writer_class(value)
         except ImportError, exc:
             raise ImportError('Writer module **%s** does not'
                               ' exist or cannot be loaded (%s)'
@@ -172,14 +173,21 @@ class ScanSaving(Parameters):
         This method will compute all configurations needed for a new acquisition.
         It will return a dictionary with:
             root_path -- compute root path with *base_path* and *template* attribute
+            images_path -- compute images path with *base_path* and *images_path_template* attribute
+                If images_path_relative is set to True (default), the path
+                template is relative to the scan path, otherwise the
+                image_path_template has to be an absolute path.
             parent -- DataNodeContainer to be used as a parent for new acquisition
         """
         try:
             template = self.template
+            images_template = self.images_path_template
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
             cache_dict['session'] = self.session
             cache_dict['date'] = self.date
+            cache_dict['scan'] = self.scan
+            cache_dict['device'] = self.device
             writer_module = cache_dict.get('_writer_module')
             template_keys = [key[1] for key in formatter.parse(template)]
 
@@ -189,6 +197,8 @@ class ScanSaving(Parameters):
                     value = value(self)  # call the function
                     cache_dict[key] = value
             sub_path = template.format(**cache_dict)
+            images_sub_path = images_template.format(**cache_dict)
+
             parent = _get_or_create_node(self.session, "container")
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
                 parent = _get_or_create_node(path_item, "container",
@@ -197,10 +207,16 @@ class ScanSaving(Parameters):
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             path = os.path.join(cache_dict.get('base_path'), sub_path)
+            if self.images_path_relative:
+                images_path = os.path.join(path, images_sub_path,
+                                           self.images_prefix)
+            else:
+                images_path = os.path.join(images_sub_path, self.images_prefix)
+
             return {'root_path': path,
+                    'images_path': images_path,
                     'parent': parent,
-                    'writer': self._get_writer_object(writer_module=writer_module,
-                                                      path=path)}
+                    'writer': self._get_writer_object(path, images_path)}
 
     def get_path(self):
         """
@@ -216,18 +232,16 @@ class ScanSaving(Parameters):
         """
         return self.get()['parent']
 
-    def _get_writer(self, writer_module=None, path=None):
-        if writer_module is None or path is None:
-            return self.get()['writer']
-        return self._get_writer_object(writer_module, path)
-
-    def _get_writer_object(self, writer_module, path):
-        if writer_module is None:
-            return None
+    def _get_writer_class(self, writer_module):
         module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
         writer_module = __import__(module_name, fromlist=[''])
-        klass = getattr(writer_module, 'Writer')
-        return klass(path)
+        return getattr(writer_module, 'Writer')
+        
+    def _get_writer_object(self, path, images_path):
+        if self.writer is None:
+            return
+        klass = self._get_writer_class(self.writer)
+        return klass(path, images_path)
 
 
 class ScanDisplay(Parameters):
@@ -588,7 +602,7 @@ class Scan(object):
                     connect(dev, signal, self._device_event)
 
         if self._writer:
-            self._writer.prepare(self, scan_info, devices_tree)
+            self._writer.prepare(self)
 
     def run(self):
         if hasattr(self._data_watch_callback, 'on_state'):

@@ -86,18 +86,14 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def save_flag(self):
         return bool(self._save_flag and self._image_channel)
 
-    def prepare_saving(self, scan_name, scan_file_dir):
-        camera_name = self.device.camera_type
-        full_path = os.path.join(scan_file_dir, self.device.user_detector_name)
-
+    def prepare_image_saving(self, directory, prefix):
         if self.save_flag:
             self.parameters.setdefault('saving_mode', 'AUTO_FRAME')
             self.parameters.setdefault('saving_format', 'EDF')
             self.parameters.setdefault('saving_frame_per_file', 1)
             self.parameters.setdefault('saving_directory',
-                                       self._lima_controller.get_mapped_path(full_path))
-            self.parameters.setdefault(
-                'saving_prefix', '%s_%s' % (scan_name, camera_name))
+                                       self._lima_controller.get_mapped_path(directory))
+            self.parameters.setdefault('saving_prefix', prefix)
             self.parameters.setdefault('saving_suffix', '.edf')
         else:
             self.parameters.setdefault('saving_mode', 'MANUAL')

@@ -424,27 +424,21 @@ class AcquisitionDevice(object):
 
 
 class AcquisitionChainIter(object):
-    def __init__(self, acquisition_chain, parallel_prepare=True):
+    def __init__(
+        self, acquisition_chain, sub_tree, presets_list, parallel_prepare=True
+    ):
         self.__sequence_index = -1
         self._parallel_prepare = parallel_prepare
         self.__acquisition_chain_ref = weakref.ref(acquisition_chain)
         self._preset_iterators_list = list()
         self._current_preset_iterators_list = list()
-
-        # set all slaves into master
-        for master in (
-            x
-            for x in acquisition_chain._tree.expand_tree()
-            if isinstance(x, AcquisitionMaster)
-        ):
-            del master.slaves[:]
-            master.slaves.extend(acquisition_chain._tree.get_node(master).fpointer)
+        self._presets_list = presets_list
 
         # create iterators tree
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
         device2iter = dict()
-        for dev in acquisition_chain._tree.expand_tree():
+        for dev in sub_tree.expand_tree():
             if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
@@ -470,17 +464,15 @@ class AcquisitionChainIter(object):
             preset_tasks.extend(
                 [
                     gevent.spawn(preset.prepare, self.acquisition_chain)
-                    for preset in self.acquisition_chain._presets_list
+                    for preset in self._presets_list
                 ]
             )
-
-            scan.prepare(scan_info, self.acquisition_chain._tree)
 
             gevent.joinall(preset_tasks, raise_error=True)
 
             self._preset_iterators_list = list()
 
-            for preset in self.acquisition_chain._presets_list:
+            for preset in self._presets_list:
                 iterator = preset.get_iterator(self.acquisition_chain)
                 if isinstance(iterator, collections.Iterable):
                     self._preset_iterators_list.append(iterator)
@@ -509,7 +501,7 @@ class AcquisitionChainIter(object):
         if self.__sequence_index == 0:
             preset_tasks = [
                 gevent.spawn(preset.start, self.acquisition_chain)
-                for preset in self.acquisition_chain._presets_list
+                for preset in self._presets_list
             ]
 
         preset_tasks.extend(
@@ -538,7 +530,7 @@ class AcquisitionChainIter(object):
         finally:
             preset_tasks = [
                 gevent.spawn(preset.stop, self.acquisition_chain)
-                for preset in self.acquisition_chain._presets_list
+                for preset in self._presets_list
             ]
             preset_tasks.extend(
                 [gevent.spawn(i.stop) for i in self._current_preset_iterators_list]
@@ -607,6 +599,9 @@ class AcquisitionChainIter(object):
 
         gevent.joinall(tasks, raise_error=True)
 
+    def __iter__(self):
+        return self
+
 
 class AcquisitionChain(object):
     def __init__(self, parallel_prepare=False):
@@ -671,8 +666,34 @@ class AcquisitionChain(object):
         """
         self._device2one_shot_flag[device] = not stop_flag
 
-    def __iter__(self):
+    def get_iter_list(self):
         if len(self._tree) > 1:
-            return AcquisitionChainIter(self, parallel_prepare=self._parallel_prepare)
+            # set all slaves into master
+            for master in (
+                x for x in self._tree.expand_tree() if isinstance(x, AcquisitionMaster)
+            ):
+                del master.slaves[:]
+                master.slaves.extend(self._tree.get_node(master).fpointer)
+
+            sub_trees = [
+                self._tree.subtree(x.identifier) for x in self._tree.children("root")
+            ]
+            iterators = [
+                AcquisitionChainIter(
+                    self,
+                    sub_trees.pop(0),
+                    self._presets_list,
+                    parallel_prepare=self._parallel_prepare,
+                )
+            ]
+            iterators.extend(
+                [
+                    AcquisitionChainIter(
+                        self, sub_tree, list(), parallel_prepare=self._parallel_prepare
+                    )
+                    for sub_tree in sub_trees
+                ]
+            )
+            return iterators
         else:
-            return iter(())
+            return []

@@ -721,25 +721,41 @@ class Scan(object):
         else:
             set_watch_event = None
 
+        current_iters = list()
         try:
-            i = None
-            for i in self.acq_chain:
-                self._state = self.PREPARE_STATE
-                with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
-                    i.prepare(self, self.scan_info)
-                self._state = self.START_STATE
-                i.start()
+            iter_list = self.acq_chain.get_iter_list()
+            current_iters = [x.next() for x in iter_list]
+            self._state = self.PREPARE_STATE
+            with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
+                self.prepare(self.scan_info, self.acq_chain._tree)
+
+                prepare_tasks = [
+                    gevent.spawn(i.prepare, self, self.scan_info) for i in current_iters
+                ]
+                gevent.joinall(prepare_tasks, raise_error=True)
+
+            self._state = self.START_STATE
+            # The first top_master will end the loop
+            try:
+                run_next_task = [gevent.spawn(self._run_next, i) for i in iter_list]
+                gevent.joinall(run_next_task, raise_error=True, count=1)
+            finally:
+                gevent.killall(run_next_task)
         except BaseException as exc:
             self._state = self.STOP_STATE
             with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                if i is not None:
-                    i.stop()
+                stop_task = [
+                    gevent.spawn(i.stop) for i in current_iters if i is not None
+                ]
+                gevent.joinall(stop_task)
             raise
         else:
             self._state = self.STOP_STATE
-            if i is not None:
-                with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                    i.stop()
+            with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
+                stop_task = [
+                    gevent.spawn(i.stop) for i in current_iters if i is not None
+                ]
+                gevent.joinall(stop_task, raise_error=True)
         finally:
             self.set_ttl()
 
@@ -756,6 +772,12 @@ class Scan(object):
                 self._data_watch_task.kill()
             # Close nodes
             self.close_nodes()
+
+    def _run_next(self, next_iter):
+        next_iter.start()
+        for i in next_iter:
+            i.prepare(self, self.scan_info)
+            i.start()
 
     @staticmethod
     def _data_watch(scan, event, event_done):

@@ -84,28 +84,37 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
 
     vars = { "new_scan_cb_called": False, "scan_acq_chain": None, "scan_children":[], "scan_data":[] }
 
-    def new_scan(scan_info, vars=vars):
-      assert scan_info['session_name']==scan_saving.session
-      assert scan_info['user_name']==scan_saving.user_name
-      vars["scan_acq_chain"] = scan_info['acquisition_chain']
-      vars["new_scan_cb_called"] = True
+    new_scan_args = []
+    new_child_args = []
+    new_data_args = []
+    session_watcher = watch_session_scans(
+        scan_saving.session,
+        lambda *args: new_scan_args.append(args),
+        lambda *args: new_child_args.append(args),
+        lambda *args: new_data_args.append(args),
+        wait=False)
+    try:
+        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
+        scan = Scan(chain, parent=scan_saving.get_parent_node(), writer=None)
+        scan.run()
+    finally:
+        session_watcher.kill()
 
-    def scan_new_child(scan_info, data_channel, vars=vars):
-      vars["scan_children"].append(data_channel.name)
+    for scan_info, in new_scan_args:
+        assert scan_info['session_name'] == scan_saving.session
+        assert scan_info['user_name'] == scan_saving.user_name
+        vars["scan_acq_chain"] = scan_info['acquisition_chain']
+        vars["new_scan_cb_called"] = True
 
-    def scan_data(type, master_name, data, vars=vars):
-      assert type=='0d'
-      assert master_name==master.name
-      assert data["master_channels"] == ["%s:m1" % master_name]
-      vars["scan_data_m1"] = data["data"][data["master_channels"][0]]
-      vars["scan_data_diode"] = data["data"]["diode:diode"]
+    for scan_info, data_channel in new_child_args:
+        vars["scan_children"].append(data_channel.name)
 
-    session_watcher = watch_session_scans(scan_saving.session, new_scan, scan_new_child, scan_data, wait=False)
-
-    gevent.sleep(0.1) #wait a bit to have session watcher greenlet started
-
-    scan = Scan(chain, parent=scan_saving.get_parent_node(), writer=None)
-    scan.run()
+    for dtype, master_name, data in new_data_args:
+        assert dtype == '0d'
+        assert master_name == master.name
+        assert data["master_channels"] == ["%s:m1" % master_name]
+        vars["scan_data_m1"] = data["data"][data["master_channels"][0]]
+        vars["scan_data_diode"] = data["data"]["diode:diode"]
 
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {master.name: {'scalars': ['diode:diode'],
@@ -114,5 +123,4 @@ def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
                                                                    ['%s:m1' %
                                                                     master.name], 'images': [], 'spectra': []}}}
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
-
     assert pytest.approx(m1.position(), end_pos)

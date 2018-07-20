@@ -107,7 +107,7 @@ def test_hdf5_file_items(beacon):
             in_scan = l == s.name or l.startswith(s.name+'/')
         if in_scan:
             if l.startswith(s.name+'/measurement/group_'):
-                group_name = l.replace(s.name+'/measurement/','').split('/')[0].replace('_master', '')
+                group_name = l.replace(s.name + '/measurement/', '').split('/')[0]
         else:
             continue
         if 'positioner' in l:
@@ -120,5 +120,5 @@ def test_hdf5_file_items(beacon):
 
     f = h5py.File(scan_file)
     assert (
-        f[f[s.name]['measurement'][group_name+"_master"]['timer_master'].value]
-        == f[s.name]['measurement']['timer_master'])
+        f[f[s.name]['measurement'][group_name]['timer'].value]
+        == f[s.name]['measurement']['timer'])

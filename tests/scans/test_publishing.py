@@ -48,9 +48,9 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m, 0, 1, 5), SamplingCounterAcquisitionDevice(diode, 0.01, npoints=5))
 
-    s = Scan(chain, "test_scan", parent, { "metadata": 42 })
+    s = Scan(chain, "test_scan", scan_info={ "metadata": 42 })
     assert s.name == "test_scan_1"
-    assert s.root_node == parent
+    assert s.root_node.db_name == parent.db_name
     assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
     assert s.node.db_name == s.root_node.db_name+":"+s.name
@@ -91,7 +91,7 @@ def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m, 0, 1, 5), SamplingCounterAcquisitionDevice(diode, 0.01, npoints=5))
 
-    s = Scan(chain, "test_scan", parent)
+    s = Scan(chain, "test_scan")
     scan_task = gevent.spawn(s.run)
     gevent.sleep(0.5)
     assert pytest.raises(KeyboardInterrupt, 'scan_task.kill(KeyboardInterrupt)')
@@ -142,7 +142,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m, 0, 1, npts), SamplingCounterAcquisitionDevice(diode, 0.01, npoints=npts))
 
-    s = Scan(chain, "test_scan", parent)
+    s = Scan(chain, "test_scan")
 
     channels_data = dict()
     iteration_greenlet = gevent.spawn(iterate_channel_events, s.node.db_name, channels_data)

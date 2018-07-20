@@ -51,7 +51,7 @@ def test_sweep_motor_master(beacon):
     chain = AcquisitionChain()
     chain.add(SweepMotorMaster(roby, 0, 10, 5, 0.025), 
               DebugMotorMockupPositionAcquisitionDevice('debug', roby))
-    s = Scan(chain)
+    s = Scan(chain, writer=None)
     with gevent.Timeout(10):
         s.run()
 

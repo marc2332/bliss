@@ -58,7 +58,7 @@ def test_software_position_trigger_master(beacon):
     chain.add(SoftwarePositionTriggerMaster(roby, 0, 1, 5),
               DebugMotorMockupAcquisitionDevice('debug', roby))
     # Run scan
-    s = Scan(chain)
+    s = Scan(chain, writer=None)
     with gevent.Timeout(5):
         s.run()
     # Check data

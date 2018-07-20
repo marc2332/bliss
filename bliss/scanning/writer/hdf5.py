@@ -1,91 +1,39 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import os
 import errno
 import h5py
 import numpy
 import time
 import datetime
-from ..scan import FileWriter, \
-    AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
-
-
-def _on_event(obj, event_dict, signal, sender):
-    device = sender
-    if signal == 'start':
-        for channel in device.channels:
-            maxshape = tuple([None] + list(channel.shape))
-            npoints = device.npoints or 1
-            shape = tuple([npoints] + list(channel.shape))
-            if not channel.reference and channel.name not in obj.dataset:
-                obj.dataset[channel.name] = obj.parent.create_dataset(device.name.replace('/', '_') +
-                                                                      ':' + channel.name,
-                                                                      shape=shape,
-                                                                      dtype=channel.dtype,
-                                                                      compression='gzip',
-                                                                      maxshape=maxshape)
-                obj.dataset[channel.name].last_point_index = 0
-    elif signal == 'new_data':
-        channel = device
-        data = event_dict.get('data')
-
-        channel_name = channel.name
-        dataset = obj.dataset.get(channel_name)
-        if dataset is None:
-            return
-        elif not dataset.id.valid:
-            print('writer is closed. Spurious data point ignored')
-            return
-
-        last_point_index = dataset.last_point_index
-
-        data_len = data.shape[0]
-        new_point_index = dataset.last_point_index + data_len
-
-        if dataset.shape[0] < new_point_index:
-            dataset.resize(new_point_index, axis=0)
-
-        dataset[last_point_index:new_point_index] = data
-
-        dataset.last_point_index += data_len
-
-
-class Hdf5MasterEventReceiver(AcquisitionMasterEventReceiver):
-    def __init__(self, *args, **kwargs):
-        AcquisitionMasterEventReceiver.__init__(self, *args, **kwargs)
-
-        self.dataset = dict()
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        return _on_event(self, event_dict, signal, sender)
-
-
-class Hdf5DeviceEventReceiver(AcquisitionDeviceEventReceiver):
-    def __init__(self, *args, **kwargs):
-        AcquisitionDeviceEventReceiver.__init__(self, *args, **kwargs)
-
-        self.dataset = dict()
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        return _on_event(self, event_dict, signal, sender)
+from bliss.scanning.writer.file import FileWriter
 
 
 class Writer(FileWriter):
     def __init__(self, root_path, **keys):
         FileWriter.__init__(self, root_path,
-                            master_event_receiver=Hdf5MasterEventReceiver,
-                            device_event_receiver=Hdf5DeviceEventReceiver,
+                            master_event_callback=self._on_event,
+                            device_event_callback=self._on_event,
                             **keys)
 
         self.file = None
         self.scan_entry = None
         self.measurement = None
+        self.last_point_index = {}
 
     def new_file(self, scan_file_dir, scan_recorder):
         self.close()
+        self.last_point_index = {}
+
         self.file = h5py.File(os.path.join(scan_file_dir, '..', 'data.h5'))
         self.scan_entry = self.file.create_group(scan_recorder.name)
         self.scan_entry.attrs['NX_class'] = 'NXentry'
         scan_title = scan_recorder.scan_info.get("title", "untitled")
-        utf8_dt = h5py.special_dtype(vlen=unicode)
         self.scan_entry['title'] = scan_title.encode('utf-8')
         timestamp = scan_recorder.scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
@@ -111,7 +59,50 @@ class Writer(FileWriter):
                 positioners_dial.create_dataset(pname, dtype='float64', data=ppos)
 
     def new_master(self, master, scan):
-        return self.measurement.create_group(master.name.replace('/', '_') + '_master')
+        return self.measurement.create_group(master.name + '_master')
+
+    def add_reference(self, master_entry, referenced_master_entry):
+        ref_path = referenced_master_entry.name
+        ref_name = ref_path.split('/')[-1]
+        master_entry[ref_name] = referenced_master_entry.ref
+
+    def _on_event(self, parent, event_dict, signal, sender):
+        if signal == 'start':
+            device = sender
+            for channel in device.channels:
+                maxshape = tuple([None] + list(channel.shape))
+                npoints = device.npoints or 1
+                shape = tuple([npoints] + list(channel.shape))
+                if not channel.reference and channel.fullname not in parent:
+                    dataset = parent.create_dataset(channel.fullname,
+                                                    shape=shape,
+                                                    dtype=channel.dtype,
+                                                    compression='gzip',
+                                                    maxshape=maxshape)
+                    self.last_point_index[channel] = 0
+        elif signal == 'new_data':
+            channel = sender
+            if channel.reference:
+                return
+
+            data = event_dict.get('data')
+            
+            dataset = parent[channel.fullname]
+            if not dataset.id.valid:
+                print('writer is closed. Spurious data point ignored')
+                return
+
+            last_point_index = self.last_point_index[channel]
+
+            data_len = data.shape[0]
+            new_point_index = last_point_index + data_len
+
+            if dataset.shape[0] < new_point_index:
+                dataset.resize(new_point_index, axis=0)
+
+            dataset[last_point_index:new_point_index] = data
+
+            self.last_point_index[channel] += data_len
 
     def close(self):
         super(Writer, self).close()

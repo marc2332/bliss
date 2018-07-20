@@ -1,32 +1,24 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 from __future__ import absolute_import
 from bliss.common import event
-from ..chain import AcquisitionDevice, AcquisitionMaster
-from ..scan import FileWriter, \
-    AcquisitionMasterEventReceiver, AcquisitionDeviceEventReceiver
+from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
+from bliss.scanning.writer.file import FileWriter
 import numpy
 import csv
 import os
 
-class CsvMasterEventReceiver(AcquisitionMasterEventReceiver):
-    def __init__(self, *args, **kwargs):
-        AcquisitionMasterEventReceiver.__init__(self, *args, **kwargs)
-    
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        device = sender
-        if signal == 'start':
-            pass
-
-
-class CsvDeviceEventReceiver(AcquisitionDeviceEventReceiver):
-    def __init__(self,  *args, **kwargs):
-        AcquisitionDeviceEventReceiver.__init__(self, *args, **kwargs)
-
-    def on_event(self, event_dict=None, signal=None, sender=None):
-        device = sender
-        if signal == 'start':
-            self.parent.add_channels(device.channels)
-        elif signal == "new_data":
-            self.parent.handle_data(event_dict["channel_data"])
+def on_event(parent, event_dict, signal, sender):
+    device = sender
+    if signal == 'start':
+        parent.add_channels(device.channels)
+    elif signal == "new_data":
+        parent.handle_data(event_dict["channel_data"])
 
 
 class CsvMasterFile(object):
@@ -60,9 +52,7 @@ class CsvMasterFile(object):
                 self.write_header = False
                 self.csvwriter.writerow(self.channel_names)
             rows = numpy.zeros((nlines, len(self.channel_names)), dtype = numpy.double)
-            print 'channel names=',self.channel_names
             for i, channel_name in enumerate(self.channel_names):
-                print channel_name
                 data = self.channel_data[channel_name]
                 rows[:,i] = data[:nlines]
                 next_data = data[nlines:]
@@ -76,8 +66,8 @@ class CsvMasterFile(object):
 class Writer(FileWriter):
     def __init__(self, root_path, **keys):
         FileWriter.__init__(self, root_path, 
-                            master_event_receiver=CsvMasterEventReceiver,
-                            device_event_receiver=CsvDeviceEventReceiver,
+                            master_event_receiver=None,
+                            device_event_receiver=on_event,
                             **keys)
  
     def new_master(self, master, scan_file_dir):

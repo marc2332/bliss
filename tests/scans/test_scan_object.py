@@ -4,7 +4,7 @@ from bliss.scanning.scan import Scan
 
 def test_scan_object():
     m = MagicMock()
-    s = Scan(m, name='bla', run_number=3)
+    s = Scan(m, name='bla', run_number=3, writer=None)
     assert s.name == 'bla_3'
     assert s.run_number == 3
     assert s.path is None

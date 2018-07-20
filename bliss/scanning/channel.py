@@ -43,10 +43,16 @@ class AcquisitionChannel(object):
 
         if isinstance(description, dict):
             self.__description.update(description)
+        
+        self._device_name = None
 
     @property
     def name(self):
         return self.__name
+
+    @property
+    def fullname(self):
+        return self._device_name+":"+self.name
 
     @property
     def description(self):

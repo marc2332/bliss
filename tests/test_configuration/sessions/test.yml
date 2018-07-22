@@ -27,6 +27,8 @@
   - falconx1
   - p201
   - simu1
+  - spec_m0
+  - spec_m1
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

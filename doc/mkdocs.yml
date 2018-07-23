@@ -81,6 +81,7 @@ markdown_extensions:
         - toc:
                 permalink: true
         - sane_lists
+        - inline_graphviz
 extra_javascript:
   - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
   - redirect.js

@@ -1,0 +1,192 @@
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....l.h....l.h....l.h....l.d.", period: 0.5, },
+        { node: "..e....f", period: 0.5},
+        { node: "..c......d", period: 0.5},
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4;",
+              "c<->d Point period", "e<->f Exp. time" ],
+
+      head: {
+        text: "Internal Trigger Single",
+        tick:-1,
+      },
+
+      foot: {
+        text: "1 soft. start; 0 soft. triggers",
+      }
+    }
+
+
+
+    {
+      signal: [
+        { node: "..a.........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "soft. trigger",
+         wave: "l........Pl..Pl.......Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H...l..H...lH...l.....H...l", period: 0.5 },
+        { node: "..c...d", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4",
+              "c<->d Exp. time" ],
+
+      head: {
+        text: "Internal Trigger Multi",
+        tick:-1,
+      },
+
+      foot:{
+        text: "1 soft. start; N-1 soft. triggers",
+      },
+    }
+
+
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H......H......H......H......l", period: 0.5 },
+        { node: "..c......d", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4",
+              "c<->d Exp. time" ],
+
+      head: {
+        text: "Internal Trigger Readout",
+        tick:-1,
+      },
+
+      foot:{
+        text: "1 soft. start; 0 soft. triggers",
+      },
+    }
+
+
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "soft. start",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "soft. trigger",
+         wave: "l.........Pl..Pl........Pl.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H.......H....H..........H...L", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4"],
+
+      head: {
+        text: "Software Trigger Readout",
+        tick:-1,
+      },
+
+      foot:{
+        text: "1 soft. start; N soft. triggers",
+      },
+    }
+
+
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. trigger",
+          wave: "l.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....l.h....l.h....l.h....l.d.", period: 0.5, },
+        { node: "..e....f", period: 0.5},
+        { node: "..c......d", period: 0.5},
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4;",
+              "c<->d Point period", "e<->f Exp. time" ],
+
+      head: {
+        text: "External Trigger Single",
+        tick:-1,
+      },
+
+      foot: {
+        text: "1 ext. trigger start",
+      }
+    }
+
+
+    {
+      signal: [
+        { node: "..a..........................b", period: 0.5 },
+        { name: "ext. trigger",
+          wave: "l.Pl....Pl..Pl........Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H...l..H...lH...l......H...l", period: 0.5 },
+        { node: "..c...d", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4",
+              "c<->d Exp. time" ],
+
+      head: {
+        text: "External Trigger Multi",
+        tick:-1,
+      },
+
+      foot:{
+        text: "N ext. triggers",
+      },
+    }
+
+
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. gate",
+          wave: "l.H....L...H...LH.L.....H.....L", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H....L...H...LH.L.....H.....L", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4" ],
+
+      head: {
+        text: "External gate",
+        tick:-1,
+      },
+
+      foot:{
+        text: "N ext. gates",
+      },
+    }
+
+
+    {
+      signal: [
+        { node: "..a...........................b", period: 0.5 },
+        { name: "ext. trigger",
+         wave: "l.Pl.....Pl..Pl........Pl.Pd.", period: 0.5 },
+        { name: "out. gate",
+          wave: "l.H.......H....H..........H...L", period: 0.5 },
+      ],
+
+      edge: [ "a<->b Nb. points (N) = 4"],
+
+      head: {
+        text: "External Trigger Readout",
+        tick:-1,
+      },
+
+      foot:{
+        text: "N+1 ext. triggers",
+      },
+    }
+

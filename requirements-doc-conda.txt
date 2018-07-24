@@ -1,0 +1,5 @@
+# Conda requirement file (python 2.7)
+# Documentation requirements
+sphinx
+graphviz
+pygments

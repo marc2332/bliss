@@ -25,6 +25,7 @@ build_doc:
   before_script:
     - source activate tango2.7
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt
+    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
     - pip install -r requirements-doc.txt
   script: python setup.py build_sphinx
   artifacts:
@@ -35,6 +36,7 @@ build_doc:
 build_user_doc:
   stage: build_user_doc
   before_script:
+          - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
           - pip install -r requirements-doc.txt
   script:
           - cd doc && mkdocs build

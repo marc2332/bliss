@@ -71,6 +71,7 @@ Antonia Beteva ESRF BCU
 """
 from bliss.controllers.motor import CalcController
 import math
+import numpy
 
 
 class tab3(CalcController):
@@ -133,8 +134,8 @@ class tab3(CalcController):
             xtan = math.tan(math.radians(positions_dict["xtilt"]))
             ytan = math.tan(math.radians(positions_dict["ytilt"]))
         else:
-            xtan = math.tan(positions_dict["xtilt"] / 1000)
-            ytan = math.tan(positions_dict["ytilt"] / 1000)
+            xtan = numpy.tan(positions_dict["xtilt"] / 1000)
+            ytan = numpy.tan(positions_dict["ytilt"] / 1000)
 
         d1 = self.d1 - self.d4
         if self.geometry in (3, 6):

@@ -254,7 +254,9 @@ class ScanDisplay(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self, '%s:scan_display_params' % self.session,
-                            default_values={ 'auto': False },
+                            default_values={ 'auto': False,
+                                             'motor_position': True,
+                            },
                             **keys)
 
     def __dir__(self):
@@ -307,6 +309,14 @@ def _get_masters_and_channels(acq_chain):
             _get_channels_dict(acq_object, channels)
     return chain_dict
 
+def display_motor(func):
+    def f(self, *args, **kwargs):
+        axis = func(self, *args, **kwargs)
+        scan_display_params = ScanDisplay()
+        if scan_display_params.auto and scan_display_params.motor_position:
+            p = self.get_plot(axis)
+            p.qt.addXMarker(axis.position(), legend=axis.name, text=axis.name)
+    return f
 
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
@@ -543,24 +553,31 @@ class Scan(object):
             return cfwhm, fwhm, axis_name
         else:
             return cfwhm
+
+    @display_motor
     def goto_peak(self, counter):
         pk, axis_name = self.peak(counter, return_axis_name=True)
         axis = getattr(setup_globals, axis_name)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(pk)
-
+        return axis
+    
+    @display_motor
     def goto_com(self, counter):
         com, axis_name = self.com(counter, return_axis_name=True)
         axis = getattr(setup_globals, axis_name)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(com)
-
+        return axis
+    
+    @display_motor
     def goto_cen(self, counter):
         cen, fwhm, axis_name = self.cen(counter, return_axis_name=True)
         axis = getattr(setup_globals, axis_name)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(cen)
-
+        return axis
+    
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())

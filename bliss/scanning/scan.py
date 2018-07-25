@@ -491,30 +491,9 @@ class Scan(object):
 
         return x_data, y_data, axis_name
 
-    def _peak_gaussian_fit(self, x, y, bkgd_substraction=False, thres=0.3,
-                           min_dist=1, width=10):
-        """Return gaussian fit params for the peak found in (x,y) data"""
-        if bkgd_substraction:
-            base = peakutils.baseline(y, 2)
-            y -= base
-
-        indexes = peakutils.indexes(y, thres=thres, min_dist=min_dist)
-
-        if len(indexes) > 1:
-            raise RuntimeError("Multiple peaks detected, use your own \
-                               calculation routine to detect peaks.")
-
-        slice_ = slice(indexes[0] - width, indexes[0] + width + 1)
-
-        amp, cen, sig = peakutils.gaussian_fit(x[slice_], y[slice_],
-                                               center_only=False)
-
-        return amp, cen, sig
-
-    def fwhm(self, counter, axis=None, bkgd_substraction=False):
-        x, y, _ = self._get_x_y_data(counter, axis)
-        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
-        return 2 * sig * (2 * math.log(2)) ** 0.5
+    def fwhm(self, counter, axis=None):
+        _, fwhm, _ = self.cen(counter, axis=axis, return_axis_name=True)
+        return fwhm
 
     def peak(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)

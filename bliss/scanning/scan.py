@@ -516,14 +516,13 @@ class Scan(object):
         amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
         return 2 * sig * (2 * math.log(2)) ** 0.5
 
-    def peak(self, counter, axis=None, bkgd_substraction=False,
-             return_axis_name=False):
+    def peak(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        max_value = x[y.argmax()]
         if return_axis_name:
-            return cen, axis_name
+            return max_value, axis_name
         else:
-            return cen
+            return max_value
 
     def com(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)

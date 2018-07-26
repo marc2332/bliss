@@ -97,14 +97,15 @@ class Lima(object):
         config_tree -- controller configuration
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs)
+        optional:
+        tango_timeout -- tango timeout (s)
         """
-        self._proxy = DeviceProxy(config_tree.get("tango_url"))
-        self.__tg_timeout = config_tree.get("tango_timeout")        
-        if self.__tg_timeout is not None:
-            self._proxy.set_timeout_millis(1000*self.__tg_timeout)
         self.name = name
+        self.__tg_url = config_tree.get("tango_url")
+        self.__tg_timeout = config_tree.get("tango_timeout", 3)
         self.__bpm = None
         self.__roi_counters = None
+        self._proxy = self._get_proxy()
         self._camera = None
         self._image = None
         self._acquisition = None
@@ -231,20 +232,23 @@ class Lima(object):
     def stopAcq(self):
         self._proxy.stopAcq()
 
-    def _get_proxy(self,type_name):
-        device_name = self._proxy.getPluginDeviceNameFromType(type_name)
-        if not device_name:
-            raise RuntimeError("%s: '%s` proxy cannot be found" %
-                               (self.name, type_name))
-        if not device_name.startswith("//"):
-            # build 'fully qualified domain' name
-            # '.get_fqdn()' doesn't work
-            db_host = self._proxy.get_db_host()
-            db_port = self._proxy.get_db_port()
-            device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
+    def _get_proxy(self,type_name='LimaCCDs'):
+        if type_name == 'LimaCCDs':
+            device_name = self.__tg_url
+        else:
+            main_proxy = self.proxy
+            device_name = main_proxy.getPluginDeviceNameFromType(type_name)
+            if not device_name:
+                raise RuntimeError("%s: '%s` proxy cannot be found" %
+                                   (self.name, type_name))
+            if not device_name.startswith("//"):
+                # build 'fully qualified domain' name
+                # '.get_fqdn()' doesn't work
+                db_host = main_proxy.get_db_host()
+                db_port = main_proxy.get_db_port()
+                device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
         device_proxy = DeviceProxy(device_name)
-        if self.__tg_timeout is not None:
-            device_proxy.set_timeout_millis(1000*self.__tg_timeout)         
+        device_proxy.set_timeout_millis(1000*self.__tg_timeout)
         return device_proxy
 
     def __repr__(self):

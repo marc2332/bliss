@@ -123,6 +123,8 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
             scan_new_child_callback(scan_info, data_channel)
         elif event_type == scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
             data = data_channel.get(data_indexes.setdefault(data_channel.db_name, 0), -1)
+            if not data:        # already received
+                continue
             data_indexes[data_channel.db_name] += len(data)
 
             for master, channels in scan_info["acquisition_chain"].iteritems():

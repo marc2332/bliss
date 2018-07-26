@@ -675,6 +675,26 @@ class Scan(object):
         """
         return get_data(self)
 
+    def _find_plot_type_index(self, scan_item_name, channels):
+        channel_name_match = lambda scan_item_name, channel_name: \
+            ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
+
+        scalars = channels.get('scalars', [])
+        spectra = channels.get('spectra', [])
+        images = channels.get('images', [])
+        
+        for i, channel_name in enumerate(scalars):
+            if channel_name_match(scan_item_name, channel_name):
+                return ('0d', 0)
+        for i, channel_name in enumerate(spectra):
+            if channel_name_match(scan_item_name, channel_name):
+                return ('1d', i)
+        for i, channel_name in enumerate(images):
+            if channel_name_match(scan_item_name, channel_name):
+                return ('2d', i)
+
+        return None
+
     def get_plot(self, scan_item, wait=False):
         """Return plot object showing 'scan_item' from Flint live scan view
 
@@ -684,40 +704,31 @@ class Scan(object):
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
         """
-        args = None
-
-        channel_name_match = lambda scan_item_name, channel_name: \
-            ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
-
         for master, channels in self.scan_info['acquisition_chain'].iteritems():
-            scalars = channels.get('scalars', [])
-            spectra = channels.get('spectra', [])
-            images = channels.get('images', [])
-
             if scan_item.name == master:
-                # return scalar plot(s) with this channel master
+                # return scalar plot(s) with this master
                 args = (master, '0d', 0)
+                break
             else:
-                for i, channel_name in enumerate(scalars):
-                    if channel_name_match(scan_item.name, channel_name):
-                        args = (master, '0d', 0)
-                for i, channel_name in enumerate(spectra):
-                    if channel_name_match(scan_item.name, channel_name):
-                        args = (master, '1d', i)
-                for i, channel_name in enumerate(images):
-                    if channel_name_match(scan_item.name, channel_name):
-                        args = (master, '2d', i)
-       
-        if not args:
+                # find plot within this master slave channels
+                args = self._find_plot_type_index(scan_item.name, channels)
+                if args is None:
+                    # hopefully scan item is one of this master channels
+                    args = self._find_plot_type_index(scan_item.name, channels['master'])
+                if args:
+                    break
+        else:
             raise ValueError("Cannot find plot with '%s`" % scan_item.name)
+
+        plot_type, index = args
 
         flint = get_flint()
         if wait:
-            flint.wait_data(*args)
-        plot_id = flint.get_live_scan_plot(*args)
-        if args[1] == '0d':
+            flint.wait_data(master, plot_type, index)
+        plot_id = flint.get_live_scan_plot(master, plot_type, index)
+        if plot_type == '0d':
             return CurvePlot(existing_id=plot_id)
-        elif args[1] == '1d':
+        elif plot_type == '1d':
             return CurvePlot(existing_id=plot_id)
         else:
             return ImagePlot(existing_id=plot_id)

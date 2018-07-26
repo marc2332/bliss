@@ -577,6 +577,22 @@ class Scan(object):
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(cen)
         return axis
+
+    @display_motor
+    def where(self, axis=None):
+        if axis is None:
+            try:
+                acq_chain = self._scan_info['acquisition_chain']
+                for top_level_master in acq_chain.keys():
+                    for scalar_master in acq_chain[top_level_master]['master']['scalars']:
+                        axis_name = scalar_master.split(':')[-1]
+                        if axis_name in self._scan_info['positioners']:
+                            raise StopIteration
+            except StopIteration:
+                axis = getattr(setup_globals, axis_name)                
+            else:
+                RuntimeError("Can't find axis in this scan")
+        return axis
     
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:

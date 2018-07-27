@@ -96,6 +96,9 @@ def test_move_done(roby, robz):
     assert robz.position() == robz_pos+2
     assert roby.position() == roby_pos+3
 
+    event.disconnect(grp, "move_done", callback)
+
+
 def test_bad_startall(robz, robz2):
     # robz and robz2 are on the same controller
     grp = Group(robz, robz2)

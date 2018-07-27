@@ -262,10 +262,14 @@ class _TTL_setter(object):
         self._disable = True
 
     def __del__(self):
-        if not self._disable:
+        if self._disable:
+            return
+        try:
             node = get_node(self._db_name)
             if node is not None:
                 node.set_ttl()
+        except TypeError:
+            pass
 
 
 class DataNode(object):

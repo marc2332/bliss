@@ -64,7 +64,7 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
 
     tg.move_to_end()
 
-def test_traj_from_calc_from_calc(calc_mot2):
+def test_traj_from_calc_from_calc(calc_mot2, calc_mot1, roby):
     tg = calc_mot2.scan_on_trajectory(0, 1, 100, 0.1)
     trajectories = tg.trajectories
 

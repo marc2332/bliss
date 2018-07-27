@@ -73,45 +73,47 @@ def test_pseudo_axes_move(s1b, s1f, s1hg, s1ho):
     assert s1b.position() == pytest.approx(2 + (hgap / 2.0))
     assert s1f.position() == pytest.approx((hgap / 2.0) - 2)
 
-def test_pseudo_axis_scan(s1ho, s1b, s1f, s1hg): 
+def test_pseudo_axis_scan(s1ho, s1b, s1f, s1hg):
     hgap = 0.5
     s1hg.move(hgap)
 
     # scan the slits under the motors resolution
     ho_step = (1.0/s1b.steps_per_unit) / 10.0
-    for i in range(100):
+    for i in range(10):
         s1ho.rmove(ho_step)
 
     assert s1hg.position() == pytest.approx(hgap)
-    
+
 def test_set_position(s1ho, s1b, s1f, s1hg):
+    s1hg.no_offset = False
     s1hg.move(4)
     assert s1b.position() == pytest.approx(2)
     assert s1f.position() == pytest.approx(2)
     assert s1ho.position() == pytest.approx(0)
     s1hg.position(0)
+    assert s1hg.position() == pytest.approx(0)
+    assert s1ho.position() == pytest.approx(0)
+    assert s1f.position() == pytest.approx(2)
+    assert s1b.position() == pytest.approx(2)
     s1hg.move(1)
-    assert s1b.position() == pytest.approx(2.5)
-    assert s1f.position() == pytest.approx(2.5)
     assert s1hg.position() == pytest.approx(1)
     assert s1ho.position() == pytest.approx(0)
+    assert s1f.position() == pytest.approx(2.5)
+    assert s1b.position() == pytest.approx(2.5)
 
 def test_dial(s1hg, s1b, s1f):
+    s1hg.no_offset = False
     s1hg.move(4)
     s1hg.dial(0)
     assert s1hg.position() == pytest.approx(4)
     assert s1hg.dial() == pytest.approx(0)
-    assert s1b.position() == pytest.approx(0)
     assert s1f.position() == pytest.approx(0)
+    assert s1b.position() == pytest.approx(0)
 
 def test_keep_zero_offset(s1hg, s1b, s1f):
-    try:
-        s1hg.no_offset = True
-        s1hg.move(4)
-        s1hg.dial(0)
-    finally:
-        s1hg.no_offset = False
-
+    s1hg.no_offset = True
+    s1hg.move(4)
+    s1hg.dial(0)
     assert s1hg.position() == pytest.approx(0)
     assert s1hg.dial() == pytest.approx(0)
     assert s1b.position() == pytest.approx(0)
@@ -122,7 +124,7 @@ def test_limits(s1hg):
         s1hg.move(40)
     with pytest.raises(ValueError):
         s1hg.move(-16)
- 
+
 def test_hw_limits_and_set_pos(s1f, s1b, s1hg):
     try:
         s1f.controller.set_hw_limits(s1f,-2,2)
@@ -166,4 +168,3 @@ def test_ascan_limits(s1hg, s1f, s1b):
     s1b.limits(-1,1)
     assert pytest.raises(ValueError, "s1hg.move(2.1)")
     assert pytest.raises(ValueError, "ascan(s1hg, -1, 2.1, 10, 0.1, run=False)")
-

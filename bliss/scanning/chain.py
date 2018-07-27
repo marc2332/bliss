@@ -200,7 +200,7 @@ class AcquisitionMaster(object):
 
     def set_image_saving(self, directory, prefix, force_no_saving=False):
         pass
-    
+
     def start(self):
         raise NotImplementedError
 
@@ -260,10 +260,10 @@ class AcquisitionMaster(object):
             raise ValueError(
                 'The device {} does not have a channel called {}'
                 .format(device, name))
-        new_channel = duplicate_channel(
+        new_channel, cleanup = duplicate_channel(
             source, name=rename, conversion=conversion, dtype=dtype)
         self.channels.append(new_channel)
-
+        return cleanup
 
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)

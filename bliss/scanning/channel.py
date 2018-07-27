@@ -43,7 +43,7 @@ class AcquisitionChannel(object):
 
         if isinstance(description, dict):
             self.__description.update(description)
-        
+
         self._device_name = None
 
     @property
@@ -141,4 +141,4 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     # Louie does not seem to like closure...
     dest._callback = callback
     dispatcher.connect(callback, "new_data", source)
-    return dest
+    return dest, lambda: dispatcher.disconnect(callback, 'new_data', source)

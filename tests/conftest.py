@@ -7,7 +7,6 @@
 
 import os
 import time
-import multiprocessing
 
 import redis
 import pytest
@@ -27,6 +26,25 @@ CFGAPP_PORT = 7656
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BEACON = [sys.executable, '-m', 'bliss.config.conductor.server']
 BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
+
+
+@pytest.fixture
+def clean_louie():
+    import louie.dispatcher as disp
+
+    assert not disp.connections
+    assert not disp.senders
+    assert not disp.senders_back
+    assert not disp.plugins
+    try:
+        yield disp
+        assert disp.connections == {}
+        assert disp.senders == {}
+        assert disp.senders_back == {}
+        assert disp.plugins == []
+    finally:
+        disp.reset()
+
 
 @pytest.fixture(scope="session")
 def config_app_port():

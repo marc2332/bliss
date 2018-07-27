@@ -43,7 +43,11 @@ def flint(xvfb, beacon):
         yield flint_pid
     finally:
         os.kill(flint_pid, signal.SIGTERM)
-        os.waitpid(flint_pid, 0)
+        try:
+            os.waitpid(flint_pid, 0)
+        # It happens sometimes, for some reason
+        except OSError:
+            pass
 
 
 @pytest.fixture

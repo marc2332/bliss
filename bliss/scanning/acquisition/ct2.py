@@ -26,6 +26,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
                  acq_mode=AcqMode.IntTrigMulti,
                  prepare_once=True, start_once=True):
         name = type(device).__name__
+        self._connected = False
         self.acq_expo_time = acq_expo_time
         self.acq_mode = acq_mode
         self.acq_point_period = acq_point_period
@@ -44,7 +45,6 @@ class CT2AcquisitionMaster(AcquisitionMaster):
                       start_once=prepare_once,
                       trigger_type=trigger_type)
         super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
-        dispatcher.connect(self.__on_event, sender=device)
 
     def __on_event(self, value, signal):
         if signal == StatusSignal:
@@ -58,7 +58,20 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         elif signal == ErrorSignal:
             self.last_error = value
 
+    def connect(self):
+        if self._connected:
+            return
+        dispatcher.connect(self.__on_event, sender=self.device)
+        self._connected = True
+
+    def disconnect(self):
+        if not self._connected:
+            return
+        dispatcher.disconnect(self.__on_event, sender=self.device)
+        self._connected = False
+
     def prepare(self):
+        self.connect()
         self.first_trigger = True
         device = self.device
         device.acq_mode = self.acq_mode
@@ -74,6 +87,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
 
     def stop(self):
         self.device.stop_acq()
+        self.disconnect()
 
     def trigger(self):
         self.trigger_slaves()

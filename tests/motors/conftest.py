@@ -6,21 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import gevent
-from contextlib import contextmanager
+
 
 def motor_fixture(name):
     def get_motor(beacon):
         m = beacon.get(name)
+        m.position()
         yield m
-        m.stop()
-        m.apply_config()
-        m.controller.set_hw_limits(m, None, None)
-        m.dial(0)
-        m.position(0)
-        for hook in m.motion_hooks:
-            hook.nb_pre_move = 0
-            hook.nb_post_move = 0
+        m.close()
     get_motor.__name__ = name
     return pytest.fixture(get_motor)
 
@@ -28,9 +21,9 @@ def motor_fixture(name):
 def calc_motor_fixture(name):
     def get_motor(beacon):
         m = beacon.get(name)
-        m.no_offset = False
+        m.position()
         yield m
-        m.stop()
+        m.close()
     get_motor.__name__ = name
     return pytest.fixture(get_motor)
 

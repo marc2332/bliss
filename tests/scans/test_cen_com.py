@@ -42,6 +42,7 @@ def test_pkcom_ascan_gauss(session):
     #m1.move(1)
     #scans.lineup(m1, -2, 2, 20, 0, counter, save=False)
     #assert pytest.approx(m1, 0)
+    counter.close()
 
 def test_pkcom_a2scan_gauss(session):
 
@@ -56,6 +57,7 @@ def test_pkcom_a2scan_gauss(session):
 
     p = s.peak(counter, roby)
     assert pytest.approx(p, 5)
+    counter.close()
 
 def test_pkcom_timescan_gauss(session):
 

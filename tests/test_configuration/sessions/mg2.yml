@@ -1,0 +1,4 @@
+- class: MeasurementGroup
+  name: MG2
+  counters:
+  - diode3

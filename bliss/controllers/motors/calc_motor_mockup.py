@@ -34,12 +34,19 @@ from bliss.controllers.motor import CalcController; from bliss.common import eve
 class calc_motor_mockup(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
-
+        self._axis = None
         self.axis_settings.add("s_param", float)
 
     def initialize_axis(self, axis):
+        self._axis = axis
         CalcController.initialize_axis(self, axis)
         event.connect(axis, "s_param", self._calc_from_real)
+
+    def close(self):
+        if self._axis is not None:
+            event.disconnect(self._axis, "s_param", self._calc_from_real)
+            self._axis = None
+        super(calc_motor_mockup, self).close()
 
     """
     #Example to use s_param as property instead of settings.

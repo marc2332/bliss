@@ -303,6 +303,14 @@ class Axis(object):
         self._lock = gevent.lock.Semaphore()
         self.no_offset = False
 
+    def close(self):
+        try:
+            controller_close = self.__controller.close
+        except AttributeError:
+            pass
+        else:
+            controller_close()
+
     @property
     def name(self):
         """Axis name"""

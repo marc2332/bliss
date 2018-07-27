@@ -20,8 +20,5 @@ class Writer(FileWriter):
     def new_master(self, *args):
         return
 
-    def close(self):
-        return
-
     def get_scan_entries(self):
         return []

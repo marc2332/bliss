@@ -178,13 +178,14 @@ class _StreamServerObject(_ServerObject):
         super(_StreamServerObject, self).__init__(obj)
         self._metadata['stream'] = True
         self._streams = weakref.WeakSet()
+        self._dispatchers = weakref.WeakSet()
 
     @zerorpc.stream
     def zerorpc_stream__(self):
         stream = gevent.queue.Queue()
+        dispatcher = lambda value, signal: stream.put((signal, value))
         self._streams.add(stream)
-        def dispatcher(value, signal):
-            stream.put((signal, value))
+        self._dispatchers.add(dispatcher)
         louie.connect(dispatcher, sender=self._object)
         debug = self._log.debug
         for message in stream:
@@ -197,7 +198,9 @@ class _StreamServerObject(_ServerObject):
     def __dir__(self):
         return super(_StreamServerObject, self).__dir__() + ['zerorpc_stream__']
 
-    def __del__(self):
+    def close(self):
+        for dispatcher in self._dispatchers:
+            louie.disconnect(dispatcher, sender=self._object)
         for stream in self._streams:
             stream.put(None)
 
@@ -215,8 +218,16 @@ def Server(obj, stream=False, **kwargs):
 
     It accepts the same keyword arguments as :class:`zerorpc.Server`.
     """
-    klass = _StreamServerObject if stream else _ServerObject
-    return zerorpc.Server(klass(obj), **kwargs)
+    instance = _StreamServerObject(obj) if stream else _ServerObject(obj)
+    server = zerorpc.Server(instance, **kwargs)
+
+    def close():
+        server_close()
+        instance.close()
+
+    # Patch close method with instance.close()
+    server_close, server.close = server.close, close
+    return server
 
 
 # Client code

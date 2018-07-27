@@ -32,6 +32,7 @@ def test_ascan_gauss(session):
     assert m1.position() == 10
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussianCurve'], counter.data)
+    counter.close()
 
 def test_dscan(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
@@ -66,9 +67,9 @@ def test_dscan_move_done(session):
     scan_data = s.get_data()
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
-    assert positions[0] == 8.0
-    assert positions[-2] == 12.0
-    assert positions[-1] == 10.0
+    assert positions[0] == -2
+    assert positions[-2] == 2
+    assert positions[-1] == 0
 
     event.disconnect(m1, 'move_done', target)
 

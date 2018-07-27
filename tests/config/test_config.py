@@ -60,7 +60,7 @@ def test_config_save(beacon):
           assert f.read() == test_cfg2
   finally:
       rw_cfg2['one'][0]['red'] = 'apples'
-  
+
       rw_cfg2.save()
 
 def test_references(beacon):
@@ -76,4 +76,7 @@ def test_references(beacon):
   assert refs_cfg['slits'][1]['position'] == 1
   assert refs_cfg['m0'].__repr__() == repr(m0)
 
-
+  # Clean-up
+  m0.close()
+  s1hg.close()
+  s1vo.close()

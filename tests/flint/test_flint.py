@@ -35,7 +35,7 @@ def xvfb():
             os.environ['DISPLAY'] = display
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
 def flint(xvfb, beacon):
     try:
         flint = plot.get_flint()

@@ -18,6 +18,7 @@ from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
+from bliss.config.channels import clear_cache, Bus
 
 REDIS_PORT = 7654
 TANGO_PORT = 12345
@@ -50,8 +51,9 @@ def clean_louie():
 def config_app_port():
     yield CFGAPP_PORT
 
+
 @pytest.fixture(scope="session")
-def beacon():
+def _beacon():
     args = [
         '--port=%d' % BEACON_PORT,
         '--redis_port=%d' % REDIS_PORT,
@@ -70,14 +72,25 @@ def beacon():
     os.environ["TANGO_HOST"] = "localhost:%d" % TANGO_PORT
     os.environ["BEACON_HOST"] = "localhost:%d" % BEACON_PORT
     try:
-        yield cfg
+        yield (cfg, redis_db)
     finally:
         proc.terminate()
 
 
 @pytest.fixture
+def beacon(_beacon):
+    cfg, redis_db = _beacon
+    yield cfg
+    clear_cache()
+    Bus.clear_cache()
+    redis_db.flushall()
+    cfg._clear_instances()
+
+
+@pytest.fixture
 def beacon_host_port():
     return "localhost", BEACON_PORT
+
 
 @pytest.fixture
 def redis_data_conn():
@@ -92,7 +105,7 @@ def scan_tmpdir(tmpdir):
     tmpdir.remove()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def lima_simulator(beacon):
     from Lima.Server.LimaCCDs import main
     from tango import DeviceProxy, DevFailed
@@ -113,13 +126,14 @@ def lima_simulator(beacon):
             else:
                 break
 
+    gevent.sleep(0.5)
     try:
         yield device_fqdn, dev_proxy
     finally:
         p.terminate()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def bliss_tango_server(beacon):
     from tango import DeviceProxy, DevFailed
 

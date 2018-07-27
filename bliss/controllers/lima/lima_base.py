@@ -32,7 +32,7 @@ class CameraBase(object):
         "IMAGE" => synchronization with **last_image_ready**
         """
         return "TRIGGER"
-        
+
 class Lima(object):
     """
     Lima controller.
@@ -70,7 +70,7 @@ class Lima(object):
             default_trigger_mode = 'INTERNAL_TRIGGER_MULTI'
         else:
             default_trigger_mode = 'INTERNAL_TRIGGER'
-            
+
         acq_trigger_mode = scan_pars.get('acq_trigger_mode', default_trigger_mode)
 
         prepare_once = acq_trigger_mode in ('INTERNAL_TRIGGER_MULTI','EXTERNAL_GATE',
@@ -111,7 +111,7 @@ class Lima(object):
         self._acquisition = None
         self._directories_mapping = config_tree.get('directories_mapping', dict())
         self._active_dir_mapping = settings.SimpleSetting('%s:directories_mapping' % name)
-    
+
     @property
     def directories_mapping_names(self):
         return self._directories_mapping.keys()
@@ -132,7 +132,7 @@ class Lima(object):
                 pass
 
         return mapping_name
-  
+
     @property
     def directories_mapping(self):
         mapping_name = self.current_directories_mapping
@@ -237,7 +237,8 @@ class Lima(object):
             device_name = self.__tg_url
         else:
             main_proxy = self.proxy
-            device_name = main_proxy.getPluginDeviceNameFromType(type_name)
+            device_name = main_proxy.command_inout(
+                "getPluginDeviceNameFromType", type_name)
             if not device_name:
                 raise RuntimeError("%s: '%s` proxy cannot be found" %
                                    (self.name, type_name))
@@ -306,4 +307,3 @@ class Lima(object):
 
         # Return namespace
         return namespace(dct)
-

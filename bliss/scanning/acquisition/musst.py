@@ -62,7 +62,8 @@ class MusstAcquisitionMaster(AcquisitionMaster):
             while True:
                 yield self
                 self._iter_index += 1
-
+                if not self.parent:
+                    break
     def prepare(self):
         if self._iter_index == 0:
             self.musst.upload_file(self.program,

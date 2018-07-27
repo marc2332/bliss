@@ -5,21 +5,11 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-try:
-    from louie import dispatcher
-    from louie import robustapply
-    from louie import saferef
-    louie = 1
-except ImportError:
-    from pydispatch import dispatcher
-    from pydispatch import robustapply
-    from pydispatch import saferef
-    saferef.safe_ref = saferef.safeRef
-    robustapply.robust_apply = robustapply.robustApply
-    louie = 0
-
-
 import sys
+
+from louie import dispatcher
+from louie import robustapply
+from louie import saferef
 
 
 if not hasattr(robustapply, "_robust_apply"):
@@ -34,11 +24,7 @@ if not hasattr(robustapply, "_robust_apply"):
             return robustapply._robust_apply(*args, **kwargs)
         except:
             sys.excepthook(*sys.exc_info())
-    if louie:
-        robustapply.robust_apply = __my_robust_apply
-    else:
-        robustapply.robustApply = __my_robust_apply
-    del louie
+    robustapply.robust_apply = __my_robust_apply
     del __my_robust_apply
 
 
@@ -48,6 +34,7 @@ def send(sender, signal, *args, **kwargs):
 
 def connect(sender, signal, callback):
     dispatcher.connect(callback, signal, sender)
+
 
 def disconnect(sender, signal, callback):
     try:

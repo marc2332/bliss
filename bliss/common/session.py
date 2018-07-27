@@ -174,6 +174,7 @@ class Session(object):
     def __init__(self, name, config_tree):
         self.__name = name
         self.__config = static.get_config()
+        self.__env_dict = {}
 
         self.init(config_tree)
 
@@ -306,6 +307,10 @@ class Session(object):
                 child._build_children_tree(tree, child, children)
         return tree
 
+    @property
+    def env_dict(self):
+        return self.__env_dict
+
     def setup(self, env_dict=None, verbose=False):
         if env_dict is None:
             # does Python run in interactive mode?
@@ -368,6 +373,19 @@ class Session(object):
             raise ValueError("Session: setup-file %s cannot be found" %
                              self.setup_file)
 
+    def close(self):
+        for obj_name, obj in self.__env_dict.iteritems():
+            if obj is self:
+                continue
+            if hasattr(setup_globals, obj_name):
+                delattr(setup_globals, obj_name)
+            if hasattr(obj, 'close'):
+                try:
+                    obj.close()
+                except TypeError:
+                    pass
+        self.__env_dict.clear()
+
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
             if hasattr(setup_globals, item_name):
@@ -397,9 +415,15 @@ class Session(object):
         for name in self.object_names:
             delattr(setup_globals, name)
             try:
-                del env_dict[name]
+                obj = env_dict.pop(name)
             except KeyError:
                 pass
+            else:
+                if hasattr(obj, 'close'):
+                    try:
+                        obj.close()
+                    except TypeError:
+                        pass
 
         self.config.reload()
 

@@ -48,7 +48,8 @@ def test_include_sessions(beacon, capsys):
 
   session = beacon.get("test_session2")
   session.setup()
-  assert capsys.readouterr()[0] == 'TEST_SESSION INITIALIZED\nTEST_SESSION2 INITIALIZED\n'
+  out, err = capsys.readouterr()
+  out.endswith('TEST_SESSION INITIALIZED\nTEST_SESSION2 INITIALIZED\n')
 
   assert getattr(setup_globals, "m2")
   assert getattr(setup_globals, "m0")

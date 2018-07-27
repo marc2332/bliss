@@ -11,10 +11,8 @@ from bliss.common import scans
 import numpy
 
 
-def test_timescan(beacon):
+def test_timescan(session):
     # test with sampling counter defined in setup file
-    session = beacon.get("test_session")
-    session.setup()
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0.1)
     s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)

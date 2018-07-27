@@ -14,9 +14,7 @@ from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 
-def test_pkcom_ascan_gauss(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_pkcom_ascan_gauss(session):
 
     counter_class = getattr(setup_globals, 'AutoScanGaussianCounter')
     roby = getattr(setup_globals, 'roby')
@@ -45,9 +43,7 @@ def test_pkcom_ascan_gauss(beacon):
     #scans.lineup(m1, -2, 2, 20, 0, counter, save=False)
     #assert pytest.approx(m1, 0)
 
-def test_pkcom_a2scan_gauss(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_pkcom_a2scan_gauss(session):
 
     counter_class = getattr(setup_globals, 'AutoScanGaussianCounter')
     roby = getattr(setup_globals, 'roby')
@@ -61,9 +57,7 @@ def test_pkcom_a2scan_gauss(beacon):
     p = s.peak(counter, roby)
     assert pytest.approx(p, 5)
 
-def test_pkcom_timescan_gauss(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_pkcom_timescan_gauss(session):
 
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     center = 0.1*10/2

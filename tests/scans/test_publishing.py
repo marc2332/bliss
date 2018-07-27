@@ -24,9 +24,7 @@ from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
 from bliss.data.edffile import EdfFile
 
-def test_parent_node(beacon, scan_tmpdir):
-    session = beacon.get("test_session")
-    session.setup()
+def test_parent_node(session, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     scan_saving.template="{date}/test"
@@ -35,9 +33,7 @@ def test_parent_node(beacon, scan_tmpdir):
     assert parent_node.type == "container"
     assert isinstance(parent_node, DataNodeContainer)
 
-def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan_node(session, redis_data_conn, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
@@ -78,9 +74,7 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     for child_node_name in scan_children_node+m0_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
 
-def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
-    session = beacon.get("test_session")
-    session.setup()
+def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
@@ -106,9 +100,7 @@ def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
-def test_scan_data_0d(beacon, redis_data_conn):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan_data_0d(session, redis_data_conn):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0.1)
     s = scans.timescan(0.1, counter, npoints=10, return_scan = True, save=False)
@@ -118,15 +110,13 @@ def test_scan_data_0d(beacon, redis_data_conn):
 
     assert numpy.array_equal(redis_data, counter.data)
 
-def test_data_iterator(beacon, redis_data_conn):
-    session = beacon.get("test_session")
     redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
     session_node = get_node(session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
 
-def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
+def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     def iterate_channel_events(scan_db_name, channels):
       for e, n in DataNodeIterator(get_node(scan_db_name)).walk_events():
         if n.type == 'channel':

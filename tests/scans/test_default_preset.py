@@ -10,15 +10,14 @@ from bliss.scanning.chain import AcquisitionChain, ChainPreset, \
     ChainIterationPreset
 from bliss.common import scans
 
-def test_simple_preset(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_simple_preset(session):
+
     class SimplePreset(ChainPreset):
         def __init__(self):
             self.prepare_called = 0
             self.start_called = 0
             self.stop_called = 0
-            
+
         def prepare(self, chain):
             if not isinstance(chain, AcquisitionChain):
                 raise ValueError("Expected an AcquisitionChain object")
@@ -44,9 +43,8 @@ def test_simple_preset(beacon):
     assert preset.start_called == 1
     assert preset.stop_called == 1
 
-def test_iteration_preset(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_iteration_preset(session):
+
     class IterationPreset(ChainPreset):
         class Iteration(ChainIterationPreset):
             def __init__(self, cnt):

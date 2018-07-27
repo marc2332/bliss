@@ -126,3 +126,11 @@ def bliss_tango_server(beacon):
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
     p.terminate()
+
+
+@pytest.fixture
+def session(beacon):
+    session = beacon.get("test_session")
+    session.setup()
+    yield session
+    session.close()

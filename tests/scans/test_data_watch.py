@@ -69,9 +69,7 @@ Parameters (default)
     assert parent_node.db_name == '%s:%s' % (parent_node.parent.db_name,
                                              scan_saving.session)
 
-def test_simple_continuous_scan_with_session_watcher(beacon, scan_saving):
-    session = beacon.get("test_session")
-    session.setup()
+def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
 
     m1 = getattr(setup_globals, "m1")
     counter = getattr(setup_globals, "diode")

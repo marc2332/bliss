@@ -17,7 +17,7 @@ import re
 import numpy
 
 from bliss import setup_globals
-from bliss.common.event import connect, send
+from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
@@ -235,7 +235,7 @@ class ScanSaving(Parameters):
         module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
         writer_module = __import__(module_name, fromlist=[''])
         return getattr(writer_module, 'Writer')
-        
+
     def _get_writer_object(self, path, images_path):
         if self.writer is None:
             return
@@ -373,6 +373,7 @@ class Scan(object):
         self.__run_number = run_number
         self.__name = '%s_%d%s' % (name, run_number, name_suffix)
         self._nodes = dict()
+        self._devices = []
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info['scan_nb'] = run_number
         start_timestamp = time.time()
@@ -627,8 +628,9 @@ class Scan(object):
         parent_node = self._node
         prev_level = 1
         self._nodes = dict()
+        self._devices = list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]
 
-        for dev in list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]:
+        for dev in self._devices:
             dev_node = devices_tree.get_node(dev)
             level = devices_tree.depth(dev_node)
             if prev_level != level:
@@ -651,6 +653,15 @@ class Scan(object):
 
         if self._writer:
             self._writer.prepare(self)
+
+    def disconnect_all(self):
+        for dev in self._devices:
+            if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
+                for channel in dev.channels:
+                    disconnect(channel, 'new_data', self._channel_event)
+                for signal in ('start', 'end'):
+                    disconnect(dev, signal, self._device_event)
+        self._devices = []
 
     def run(self):
         if hasattr(self._data_watch_callback, 'on_state'):
@@ -695,6 +706,8 @@ class Scan(object):
                 self._writer.close()
             # Add scan to the globals
             SCANS.append(self)
+            # Disconnect events
+            self.disconnect_all()
 
     @staticmethod
     def _data_watch(scan, event, event_done):
@@ -730,7 +743,7 @@ class Scan(object):
         scalars = channels.get('scalars', [])
         spectra = channels.get('spectra', [])
         images = channels.get('images', [])
-        
+
         for i, channel_name in enumerate(scalars):
             if channel_name_match(scan_item_name, channel_name):
                 return ('0d', 0)

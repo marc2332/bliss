@@ -114,6 +114,20 @@ class Bus(AdvancedInstantiationInterface):
         self._send_task = gevent.spawn(self._send)
         self._send_event = gevent.event.Event()
 
+    # Close
+
+    def close(self):
+        if self._send_task:
+            self._send_task.kill()
+        if self._listen_task:
+            self._listen_task.kill()
+
+    @classmethod
+    def clear_cache(cls):
+        for bus in cls._CACHE.values():
+            bus.close()
+        cls._CACHE.clear()
+
     # Cache management
 
     def get_channel(self, name):

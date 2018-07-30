@@ -14,7 +14,6 @@ from treelib import Tree
 import time
 import datetime
 import re
-import peakutils
 import numpy
 
 from bliss import setup_globals
@@ -515,7 +514,7 @@ class Scan(object):
 
     def com(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        com = peakutils.peak.centroid(x, y)
+        com = numpy.sum(x * y) / numpy.sum(y)
         if return_axis_name:
             return com, axis_name
         else:

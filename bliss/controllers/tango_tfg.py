@@ -107,9 +107,10 @@ class TangoTfg2(object):
         else:
             try:
                 self._control.ping()
+                self._control.clearStarts()
             except tango.ConnectionFailed:
                 self._control = None
-                raise RuntimeError("Connection error")
+#                raise RuntimeError("Connection error")
 
     @property
     def current_lap(self):
@@ -132,6 +133,10 @@ class TangoTfg2(object):
         return self._control.armedStatus
 
     @property
+    def start_count(self):
+        return self._control.startCount
+
+    @property
     def maximum_frames(self):
         return self._control.maximumFrames
 
@@ -149,11 +154,12 @@ class TangoTfg2(object):
 
     def prepare(self, timing_info):
         self._control.init()
+        self.clear()
         self.__cycles = timing_info.get('cycles', 1)
         self.__external_inhibit = timing_info.get('extInhibit', False)
 
         start_trigger = timing_info.get('startTrigger', {'name': 'Software'})
-        print(start_trigger['name'])
+#        print(start_trigger['name'])
         self.set_start_trigger(start_trigger['name'],
                                start_trigger.get('edge', 'rising'),
                                start_trigger.get('debounce', 0.0),
@@ -172,18 +178,18 @@ class TangoTfg2(object):
         live_pause = 0
         trigger = self.TriggerNameList[pause_trigger['name']]
         if pause_trigger.get('period', None) == 'dead':
-            dead_pause = trigger
+            dead_pause = trigger + 1
         elif pause_trigger.get('period', None) == 'live':
-            live_pause = trigger
+            live_pause = trigger + 1
         elif pause_trigger.get('period', None) == 'both':
-            dead_pause = trigger
-            live_pause = trigger
+            dead_pause = trigger + 1
+            live_pause = trigger + 1
 
         inversion = 0
         drive_strength = 0
         for frameset in timing_info['framesets']:
             frame_count += frameset['nb_frames']
-            if (pause_trigger.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
+            if (pause_trigger.get('trig_when', self.ALL_FRAMES) == [self.ALL_FRAMES]) or \
                     (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
                 dpause = dead_pause
                 lpause = live_pause
@@ -191,6 +197,7 @@ class TangoTfg2(object):
                 dpause = 0
                 lpause = 0
 
+            dpause = -1
             live_port = 0
             dead_port = 0
             inversion = 0
@@ -213,10 +220,10 @@ class TangoTfg2(object):
                                dead_port, live_port, dpause, lpause))
         self.__setup_groups(self.__compress(frame_list))
         self.__setup_port(inversion, drive_strength)
+        self._control.setupVeto([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
         self.__setup_scaler_channels(timing_info)
 
     def start(self):
-        self.clear()
         self.enable()
         if self.__external_start:
             self._control.arm()
@@ -229,7 +236,11 @@ class TangoTfg2(object):
         self.disable()
         self._control.stop()
 
+    def resume(self):
+        self._control.cont()
+
     def clear(self):
+        self._control.clearStarts()
         self._control.clear([0, 0, 0, self.maximum_frames, 1, self.MAX_CHAN])
 
     def read_frame(self, frame):
@@ -268,7 +279,11 @@ class TangoTfg2(object):
         args.extend(framesets)
         args.append(-1)
         print(args)
-        self.__nframes = self._control.setupGroups(args)
+        self._control.set_timeout_millis(10000)
+        id = self._control.command_inout_asynch("setupGroups",args)
+        reply = self._control.command_inout_reply(id, 8000)
+        print("reply",reply)
+#        self.__nframes = self._control.setupGroups(args)
 
     def __setup_port(self, invert, drive_strength):
         # invert 8bit inversion 1 to invert
@@ -309,7 +324,6 @@ class TangoTfg2(object):
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("threshold")
                     args[3] = threshold
-            print(args)
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):

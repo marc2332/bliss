@@ -420,7 +420,7 @@ class Scan(object):
         self._scan_info["user_name"] = scan_config.user_name
         self._scan_info["positioners"] = {}
         self._scan_info["positioners_dial"] = {}
-        for axis_name, axis_pos, axis_dial_pos in get_axes_positions_iter(
+        for axis_name, axis_pos, axis_dial_pos, unit in get_axes_positions_iter(
             on_error="ERR"
         ):
             self._scan_info["positioners"][axis_name] = axis_pos

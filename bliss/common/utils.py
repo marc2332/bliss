@@ -440,6 +440,7 @@ def get_axes_positions_iter(on_error=None):
             axis.name,
             safe_get(axis, "position", on_error),
             safe_get(axis, "dial", on_error),
+            axis.config.get("unit", default=None),
         )
 
     tasks = list()

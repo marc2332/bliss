@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from multiprocessing import Process
 import enum
 import gevent
+import errno
+import sys
 
 axis = enum.Enum('axis', 'POS VEL ACC LIM')
 lima = enum.Enum('lima', 'VIDEO_LIVE')

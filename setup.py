@@ -121,7 +121,6 @@ def main():
         'psutil',
         'subprocess32',
         'requests',
-        'peakutils'
     ]
 
     tests_require = [

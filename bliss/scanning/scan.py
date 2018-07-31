@@ -14,8 +14,7 @@ from treelib import Tree
 import time
 import datetime
 import re
-import peakutils
-import math
+import numpy
 
 from bliss import setup_globals
 from bliss.common.event import connect, send
@@ -254,7 +253,9 @@ class ScanDisplay(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
         Parameters.__init__(self, '%s:scan_display_params' % self.session,
-                            default_values={ 'auto': False },
+                            default_values={ 'auto': False,
+                                             'motor_position': True,
+                            },
                             **keys)
 
     def __dir__(self):
@@ -307,6 +308,14 @@ def _get_masters_and_channels(acq_chain):
             _get_channels_dict(acq_object, channels)
     return chain_dict
 
+def display_motor(func):
+    def f(self, *args, **kwargs):
+        axis = func(self, *args, **kwargs)
+        scan_display_params = ScanDisplay()
+        if scan_display_params.auto and scan_display_params.motor_position:
+            p = self.get_plot(axis)
+            p.qt.addXMarker(axis.position(), legend=axis.name, text=axis.name)
+    return f
 
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
@@ -491,60 +500,99 @@ class Scan(object):
 
         return x_data, y_data, axis_name
 
-    def _peak_gaussian_fit(self, x, y, bkgd_substraction=False, thres=0.3,
-                           min_dist=1, width=10):
-        """Return gaussian fit params for the peak found in (x,y) data"""
-        if bkgd_substraction:
-            base = peakutils.baseline(y, 2)
-            y -= base
+    def fwhm(self, counter, axis=None):
+        _, fwhm, _ = self.cen(counter, axis=axis, return_axis_name=True)
+        return fwhm
 
-        indexes = peakutils.indexes(y, thres=thres, min_dist=min_dist)
-
-        if len(indexes) > 1:
-            raise RuntimeError("Multiple peaks detected, use your own \
-                               calculation routine to detect peaks.")
-
-        slice_ = slice(indexes[0] - width, indexes[0] + width + 1)
-
-        amp, cen, sig = peakutils.gaussian_fit(x[slice_], y[slice_],
-                                               center_only=False)
-
-        return amp, cen, sig
-
-    def fwhm(self, counter, axis=None, bkgd_substraction=False):
-        x, y, _ = self._get_x_y_data(counter, axis)
-        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
-        return 2 * sig * (2 * math.log(2)) ** 0.5
-
-    def peak(self, counter, axis=None, bkgd_substraction=False,
-             return_axis_name=False):
+    def peak(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        amp, cen, sig = self._peak_gaussian_fit(x, y, bkgd_substraction)
+        max_value = x[y.argmax()]
         if return_axis_name:
-            return cen, axis_name
+            return max_value, axis_name
         else:
-            return cen
+            return max_value
 
     def com(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        com = peakutils.peak.centroid(x, y)
+        com = numpy.sum(x * y) / numpy.sum(y)
         if return_axis_name:
             return com, axis_name
         else:
             return com
 
+    def cen(self, counter, axis=None, return_axis_name=False):
+        x, y, axis_name = self._get_x_y_data(counter, axis)
+        half_val = (max(y)-min(y))/2.
+        nb_value = len(x)
+        index_above_half = numpy.where(y >= half_val)[0]
+        slope = numpy.gradient(y,x)
+
+        if index_above_half[0] != 0 and index_above_half[-1] != (nb_value - 1):
+            #standard peak
+            if len(index_above_half) == 1: # only one point above half_value
+                indexes = [index_above_half[0]-1,index_above_half[0]+1]
+            else:
+                indexes = [index_above_half[0],index_above_half[-1]]
+        elif index_above_half[0] == 0 and index_above_half[-1] == (nb_value - 1):
+            index_below_half = numpy.where(y <= half_val)[0]
+            if len(index_below_half) == 1:
+                indexes = [index_below_half[0]-1,index_below_half[0]+1]
+            else:
+                indexes = [index_below_half[0],index_below_half[-1]]
+        elif index_above_half[0] == 0: #falling edge
+            indexes = [index_above_half[-1]]
+        else:                    # rising edge
+            indexes = [index_above_half[0]]
+            
+        fwhms = numpy.array([x[i] + ((half_val - y[i]) / slope[i])
+                             for i in indexes])
+        fwhm = fwhms.max() - fwhms.min()
+        cfwhm = fwhms.mean()
+        if return_axis_name:
+            return cfwhm, fwhm, axis_name
+        else:
+            return cfwhm
+
+    @display_motor
     def goto_peak(self, counter):
         pk, axis_name = self.peak(counter, return_axis_name=True)
         axis = getattr(setup_globals, axis_name)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(pk)
-
+        return axis
+    
+    @display_motor
     def goto_com(self, counter):
         com, axis_name = self.com(counter, return_axis_name=True)
         axis = getattr(setup_globals, axis_name)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(com)
+        return axis
+    
+    @display_motor
+    def goto_cen(self, counter):
+        cen, fwhm, axis_name = self.cen(counter, return_axis_name=True)
+        axis = getattr(setup_globals, axis_name)
+        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
+            axis.move(cen)
+        return axis
 
+    @display_motor
+    def where(self, axis=None):
+        if axis is None:
+            try:
+                acq_chain = self._scan_info['acquisition_chain']
+                for top_level_master in acq_chain.keys():
+                    for scalar_master in acq_chain[top_level_master]['master']['scalars']:
+                        axis_name = scalar_master.split(':')[-1]
+                        if axis_name in self._scan_info['positioners']:
+                            raise StopIteration
+            except StopIteration:
+                axis = getattr(setup_globals, axis_name)                
+            else:
+                RuntimeError("Can't find axis in this scan")
+        return axis
+    
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())

@@ -160,6 +160,8 @@ class LivePlot1D(qt.QWidget):
         self.update_add_plot_button()
         self.update_plots()
 
+    def addXMarker(self, *args, **kwargs):
+        return self.silx_plot.addXMarker(*args, **kwargs)
 
 # Ugly copy paste! Shame!
 

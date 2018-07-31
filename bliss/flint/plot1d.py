@@ -10,7 +10,6 @@ import logging
 import weakref
 import redis
 import numpy
-from bliss.config.conductor.client import get_cache_address
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
@@ -25,19 +24,26 @@ with warnings.catch_warnings():
     from silx.gui.plot import LegendSelector
 
 Plot1D = silx_plot.Plot1D
-REDIS_CACHE = get_cache_address()
 
 
 class LivePlot1D(qt.QWidget):
+    REDIS_CACHE = None
+
     def __init__(self, *args, **kw):
         self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
-        host, port = REDIS_CACHE
-        if host != "localhost":
-            self.redis_cnx = redis.Redis(host=host, port=port)
+        if LivePlot1D.REDIS_CACHE:
+            host, port = LivePlot1D.REDIS_CACHE
+            if host != "localhost":
+                self.redis_cnx = redis.Redis(host=host, port=port)
+            else:
+                self.redis_cnx = redis.Redis(unix_socket_path=port)
         else:
-            self.redis_cnx = redis.Redis(unix_socket_path=port)
+            raise RuntimeError(
+                "LivePlot1D is not initialized properly, missing \
+                               redis connection information (REDIS_CACHE)."
+            )
 
         qt.QWidget.__init__(self, *args, **kw)
 

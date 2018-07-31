@@ -31,6 +31,7 @@ from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import qt_safe
 from bliss.flint.executor import QtSignalQueue
 from bliss.config.conductor.client import get_default_connection
+from bliss.config.conductor.client import get_cache_address
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
@@ -110,6 +111,7 @@ def get_flint_key():
 
 
 def background_task(flint, stop):
+    LivePlot1D.REDIS_CACHE = get_cache_address()
     key = get_flint_key()
     stop = concurrent_to_gevent(stop)
     with safe_rpc_server(flint) as (task, url):

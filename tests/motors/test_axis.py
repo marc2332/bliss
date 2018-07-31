@@ -424,18 +424,6 @@ def test_hardware_limits(roby):
         roby.controller.set_hw_limits(roby, None, None)
 
 
-def test_bad_start(roby):
-    try:
-        roby.controller.set_error(True)
-
-        with pytest.raises(RuntimeError):
-            roby.move(1)
-
-        assert roby.state().READY
-        assert roby.position() == 0
-    finally:
-        roby.controller.set_error(False)
-
 def test_no_offset(roby):
     try:
         roby.no_offset = True

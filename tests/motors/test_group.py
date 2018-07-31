@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
+import gevent
 from bliss.common import event
 from bliss.common.standard import Group
 
@@ -17,8 +17,8 @@ def test_group_move(robz, roby):
 
     assert grp.state().READY
 
-    target_robz = robz_pos + 50
-    target_roby = roby_pos + 50
+    target_robz = robz_pos + 10
+    target_roby = roby_pos + 10
 
     grp.move(robz, target_robz, roby, target_roby, wait=False)
 
@@ -48,6 +48,8 @@ def test_stop(roby, robz):
     assert grp.state().READY
     assert robz.state().READY
     assert roby.state().READY
+    assert pytest.approx(robz.position(), 1)
+    assert pytest.approx(roby.position(), 1)
 
 def test_ctrlc(roby, robz):
     grp = Group(robz, roby)
@@ -57,7 +59,7 @@ def test_ctrlc(roby, robz):
 
     grp.move({robz: -10, roby: -10}, wait=False)
     
-    time.sleep(0.01)
+    gevent.sleep(0.01)
     
     grp._Group__move_task.kill(KeyboardInterrupt, block=False)
 
@@ -98,21 +100,6 @@ def test_move_done(roby, robz):
 
     event.disconnect(grp, "move_done", callback)
 
-
-def test_bad_startall(robz, robz2):
-    # robz and robz2 are on the same controller
-    grp = Group(robz, robz2)
-
-    try:
-        robz.controller.set_error(True)
-        with pytest.raises(RuntimeError):
-           grp.move({ robz: 1, robz2: 2 })
-        assert grp.state().READY
-        assert robz.position() == 0
-        assert robz2.position() == 0
-    finally:
-        robz.controller.set_error(False) 
-
 def test_hardlimits_set_pos(robz, robz2):
     assert robz._set_position() == 0
     grp = Group(robz, robz2)
@@ -121,3 +108,11 @@ def test_hardlimits_set_pos(robz, robz2):
     with pytest.raises(RuntimeError):
         grp.move({robz:3,robz2:1})
     assert robz._set_position() == robz.position()
+
+def test_no_move(robz):
+    robz.move(0)
+    grp = Group(robz)
+    with gevent.Timeout(1):
+        grp.move(robz, 0)
+    assert not grp.is_moving
+

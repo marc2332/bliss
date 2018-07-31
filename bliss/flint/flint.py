@@ -297,7 +297,9 @@ class Flint:
                 window_titles.append(window_title)
                 scalars_plot_win = self.mdi_windows_dict.get(window_title)
                 if not scalars_plot_win:
-                    scalars_plot_win = LivePlot1D(data_dict=self.data_dict)
+                    scalars_plot_win = LivePlot1D(
+                        data_dict=self.data_dict, session_name=self._session_name
+                    )
                     scalars_plot_win.setWindowTitle(window_title)
                     scalars_plot_win.plot_id = next(self._id_generator)
                     self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win

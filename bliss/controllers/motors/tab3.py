@@ -13,64 +13,56 @@ All distances and motor positions are in mm
 * d3: (depends on geometry) distance between front leg and reference height
   point
 * d4: (depends on geometry) distance between back1 leg and reference height
-  point geometry: number 0..8
+* geometry: number 0 please explain these
+                   1 ?
+                   2 ?
+                   3 ?
+                   4 ?
+                   5 ?
+                   6 ?
+                   7 ?
+                   8 ?
 
 
-Example configuration (from ID30)::
-
-    <config>
-      <controller class="IcePAP">
-        <host value="iceid305" />
-        <libdebug value="1" />
-        <axis name="tz1">
-          <address value="34" />
-          <steps_per_unit value="52500" />
-          <backlash value="0.1" />
-          <velocity value="6000" />
-        </axis>
-        <axis name="tz2">
-          <address value="35" />
-          <steps_per_unit value="52500" />
-          <backlash value="0.1" />
-          <velocity value="6000" />
-        </axis>
-        <axis name="tz3">
-          <address value="36" />
-          <steps_per_unit value="52500" />
-          <backlash value="0.1" />
-          <velocity value="6000" />
-        </axis>
-        <axis name="tyf">
-          <address value="37" />
-          <steps_per_unit value="100000" />
-          <backlash value="0.1" />
-          <velocity value="8000" />
-        </axis>
-        <axis name="tyb">
-          <address value="38" />
-          <steps_per_unit value="100000" />
-          <backlash value="0.1" />
-          <velocity value="8000" />
-        </axis>
-      </controller>
-      <controller class="tab3">
-        <axis name="tz2" tags="real back1" />
-        <axis name="tz3" tags="real back2" />
-        <axis name="tz1" tags="real front" />
-        <axis name="thgt" tags="z"/>
-        <axis name="txtilt" tags="xtilt"/>
-        <axis name="tytilt" tags="ytilt"/>
-        <geometry value="5" />
-        <d1 value="1140" />
-        <d2 value="1714" />
-        <d3 value="675" />
-      </controller>
-    </config>
-
-Antonia Beteva ESRF BCU
+Example configuration
+  controller:
+    class: tab3
+    d1: 660
+    d2: 1600
+    d4: 1070
+    geometry: 0
+    axes:
+        -
+            name: $BackMotor1
+            tags: real back1
+        -
+            name: $BackMotor2
+            tags: real back2
+        -
+            name: $FrontMotor
+            tags: real front
+        -
+            name: tableheight
+            tags: z
+            low_limit: -180.0
+            high_limit: 180.0
+            unit: mm
+        -
+            name: tabletiltx
+            tags: xtilt
+            low_limit: -2.0
+            high_limit: 2.0
+            unit: mrad
+        -
+            name: tabletilty
+            tags: ytilt
+            low_limit: -5.0
+            high_limit: 0.2
+            unit: mrad
 """
 from bliss.controllers.motor import CalcController
 import math
+import numpy
 
 
 class tab3(CalcController):
@@ -133,8 +125,8 @@ class tab3(CalcController):
             xtan = math.tan(math.radians(positions_dict["xtilt"]))
             ytan = math.tan(math.radians(positions_dict["ytilt"]))
         else:
-            xtan = math.tan(positions_dict["xtilt"] / 1000)
-            ytan = math.tan(positions_dict["ytilt"] / 1000)
+            xtan = numpy.tan(positions_dict["xtilt"] / 1000)
+            ytan = numpy.tan(positions_dict["ytilt"] / 1000)
 
         d1 = self.d1 - self.d4
         if self.geometry in (3, 6):

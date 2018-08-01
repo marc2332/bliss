@@ -66,7 +66,7 @@ class TangoTfg2(object):
     MAX_CHAN = 9
     ALL_FRAMES = -1
 
-    TriggerNameList = {"Software": 0, "BMTrigger": 1, "ADCchan0": 2, "ADCchan1": 3,
+    TriggerNameList = {"Software": -1, "NoPause": 0, "BMTrigger": 1, "ADCchan0": 2, "ADCchan1": 3,
                        "ADCchan2": 4, "ADCchan3": 5, "ADCchan4": 6, "ADCchan5": 7,
                        "TTLtrig0": 8, "TTLtrig1": 9, "TTLtrig2": 10, "TTLtrig3": 11,
                        "LVDSLemo": 12, "TFG cable 1": 13, "TFGCable2": 14,
@@ -178,18 +178,18 @@ class TangoTfg2(object):
         live_pause = 0
         trigger = self.TriggerNameList[pause_trigger['name']]
         if pause_trigger.get('period', None) == 'dead':
-            dead_pause = trigger + 1
+            dead_pause = trigger 
         elif pause_trigger.get('period', None) == 'live':
-            live_pause = trigger + 1
+            live_pause = trigger
         elif pause_trigger.get('period', None) == 'both':
-            dead_pause = trigger + 1
-            live_pause = trigger + 1
+            dead_pause = trigger
+            live_pause = trigger
 
         inversion = 0
         drive_strength = 0
         for frameset in timing_info['framesets']:
             frame_count += frameset['nb_frames']
-            if (pause_trigger.get('trig_when', self.ALL_FRAMES) == [self.ALL_FRAMES]) or \
+            if (pause_trigger.get('trig_when', [self.ALL_FRAMES]) == [self.ALL_FRAMES]) or \
                     (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
                 dpause = dead_pause
                 lpause = live_pause
@@ -197,7 +197,7 @@ class TangoTfg2(object):
                 dpause = 0
                 lpause = 0
 
-            dpause = -1
+#            dpause = -1
             live_port = 0
             dead_port = 0
             inversion = 0
@@ -281,9 +281,7 @@ class TangoTfg2(object):
         print(args)
         self._control.set_timeout_millis(10000)
         id = self._control.command_inout_asynch("setupGroups",args)
-        reply = self._control.command_inout_reply(id, 8000)
-        print("reply",reply)
-#        self.__nframes = self._control.setupGroups(args)
+        self.__nframes = self._control.command_inout_reply(id, 8000)
 
     def __setup_port(self, invert, drive_strength):
         # invert 8bit inversion 1 to invert

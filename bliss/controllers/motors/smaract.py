@@ -33,9 +33,9 @@ YAML_ configuration example:
    * PowerSave : used to avoid unnecessary heat generation (useful for
                  in-vacuum motors)
 2. steps_per_unit:
-   For rotary sensors, position in given in micro-degree so if you want to work
+   For rotary sensors, position is given in micro-degree so if you want to work
    in degrees you need to put steps_per_unit to 1.000.000.
-   For linear sensors, position in given in nano-meter so if you want to work
+   For linear sensors, position is given in nano-meter so if you want to work
    in milimeter you need to put steps_per_unit to 1.000.000.
 3. velocity: setting to 0 disables velocity control and implicitly acceleration
    control and low vibration mode as well.
@@ -98,7 +98,7 @@ class SensorType(enum.IntEnum):
     SCT = 35  # like SCD, but with even larger actuator
 
 
-RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF
+RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF, SensorType.G775S
 
 
 @enum.unique

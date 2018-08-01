@@ -44,6 +44,10 @@ can be done like this:
     $ cd bliss
     $ conda env create -n bliss -f ./requirements-conda.txt
 
+!!! note
+    The ESRF BCU Conda channel needs to be configured beforehand:
+    `conda config --add channels esrf-bcu`
+
 Not all packages are available on standard Conda repositories. Remaining packages can then be
 installed via `pip` to complete installation:
 

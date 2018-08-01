@@ -368,14 +368,13 @@ class Channel(object):
                            reaching target (default: the currently configured
                            hold time. If not configured it defaults to 60
                            meaning hold forever
-        revolution (int): only for rotary sensors. The absolute revolution to
-                          move to (default: 0)
         """
         position = int(position)
         hold_time = min(self.hold_time if hold_time is None else hold_time, 60)
         hold_time = int(hold_time * 1000)
         if self.is_rotary_sensor:
-            revolution = int(kwargs.get("revolution", 0))
+            revolution = int(position // 360e6)
+            position = int(position % 360e6)
             self.command("MAA", position, revolution, hold_time)
         else:
             self.command("MPA", position, hold_time)
@@ -503,7 +502,7 @@ class SmarAct(Controller):
     def read_position(self, axis):
         if axis.channel.is_rotary_sensor:
             position, revolution = axis.channel.position
-            return position
+            return position + (revolution * 360e6)
         else:
             return axis.channel.position
 

@@ -179,7 +179,7 @@ def check_flint(session_name):
     redis = beacon.get_redis_connection()
 
     # get existing flint, if any
-    for key in redis.scan_iter("flint:%s:*" % platform.node()):
+    for key in redis.scan_iter("flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))):
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
@@ -203,7 +203,7 @@ def attach_flint(pid):
         raise RuntimeError("No current session, cannot attach flint")
 
     # Current URL
-    key = "flint:{}:{}".format(platform.node(), pid)
+    key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
     value = redis.brpoplpush(key, key, timeout=3000)
     url = value.split()[-1]
 

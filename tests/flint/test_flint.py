@@ -2,13 +2,14 @@
 
 import os
 import signal
-import numpy
+from random import randint
 from distutils.spawn import find_executable
 
 import pytest
 
 from bliss.common import plot
 from bliss.common import subprocess
+
 
 @pytest.fixture(scope='session')
 def xvfb():
@@ -20,10 +21,11 @@ def xvfb():
     # Control DISPLAY variable
     try:
         display = os.environ.get('DISPLAY')
-        os.environ['DISPLAY'] = ':99'
+        new_display = ':{}'.format(randint(100, 1000000000))
+        os.environ['DISPLAY'] = new_display
         # Control xvbf process
         try:
-            p = subprocess.Popen([xvfb, ':99'])
+            p = subprocess.Popen([xvfb, new_display])
             yield p.pid
         # Teardown process
         finally:

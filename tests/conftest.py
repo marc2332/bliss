@@ -33,18 +33,38 @@ BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
 def clean_louie():
     import louie.dispatcher as disp
 
-    assert not disp.connections
-    assert not disp.senders
-    assert not disp.senders_back
-    assert not disp.plugins
-    try:
-        yield disp
-        assert disp.connections == {}
-        assert disp.senders == {}
-        assert disp.senders_back == {}
-        assert disp.plugins == []
-    finally:
-        disp.reset()
+    assert disp.connections == {}
+    assert disp.senders == {}
+    assert disp.senders_back == {}
+    assert disp.plugins == []
+    yield disp
+    assert disp.connections == {}
+    assert disp.senders == {}
+    assert disp.senders_back == {}
+    assert disp.plugins == []
+    disp.reset()
+
+
+@pytest.fixture
+def clean_gevent():
+    import gc
+    from gevent import Greenlet
+
+    for ob in gc.get_objects():
+        if not isinstance(ob, Greenlet):
+            continue
+        if ob.ready():
+            continue
+        ob.kill()
+
+    yield
+
+    for ob in gc.get_objects():
+        if not isinstance(ob, Greenlet):
+            continue
+        if not ob.ready():
+            print(ob)  # Better printouts
+        assert ob.ready()
 
 
 @pytest.fixture(scope="session")

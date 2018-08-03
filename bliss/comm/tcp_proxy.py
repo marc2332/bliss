@@ -39,10 +39,18 @@ class Proxy(object):
             raise NotImplemented("Proxy: Not managed yet")
 
         self._cnx = None
+        self._join_task = None
         self._url_channel = Channel("proxy:%s" % self.name)
 
     def kill_proxy_server(self):
         self._url_channel.value = None
+
+    def close(self):
+        self.kill_proxy_server()
+        if self._join_task is not None:
+            self._join_task.join()
+        self._join_task = None
+
 
     def __getattr__(self,name):
         if name.startswith("__"):
@@ -91,7 +99,7 @@ class Proxy(object):
                 self._url_channel.register_callback(port_cbk)
                 local_url = self._url_channel.value
                 if local_url is None:
-                    self._real_server_fork(host,port)
+                    self._join_task = self._real_server_fork(host, port)
                     gevent.sleep(0)
                     sync.wait()
                     local_url = self._url_channel.value
@@ -114,6 +122,7 @@ class Proxy(object):
             os.close(write)
             wait_greenlet = gevent.spawn(_wait_pid,read,pid)
             wait_greenlet.start()
+            return wait_greenlet
 
 def main():      # proxy server part
     import signal,os

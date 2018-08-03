@@ -10,8 +10,6 @@ from bliss.controllers.mca import XIA, XMAP
 @pytest.fixture(
     params=['xia', 'mercury', 'xmap', 'falconx'])
 def xia(request, beacon, mocker):
-    beacon.reload()
-
     # Mocking
     m = mocker.patch('bliss.controllers.mca.xia.zerorpc.Client')
     client = m.return_value
@@ -242,7 +240,6 @@ def test_xia_finalization(xia):
     ['xia', 'mercury', 'xmap', 'falconx'])
 def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
     # ZeroRPC error
-    beacon.reload()
     m = mocker.patch('bliss.controllers.mca.xia.zerorpc.Client')
     m.side_effect = IOError('Cannot connect!')
     with pytest.raises(IOError):

@@ -159,7 +159,6 @@ class TangoTfg2(object):
         self.__external_inhibit = timing_info.get('extInhibit', False)
 
         start_trigger = timing_info.get('startTrigger', {'name': 'Software'})
-#        print(start_trigger['name'])
         self.set_start_trigger(start_trigger['name'],
                                start_trigger.get('edge', 'rising'),
                                start_trigger.get('debounce', 0.0),
@@ -178,7 +177,7 @@ class TangoTfg2(object):
         live_pause = 0
         trigger = self.TriggerNameList[pause_trigger['name']]
         if pause_trigger.get('period', None) == 'dead':
-            dead_pause = trigger 
+            dead_pause = trigger
         elif pause_trigger.get('period', None) == 'live':
             live_pause = trigger
         elif pause_trigger.get('period', None) == 'both':
@@ -197,7 +196,6 @@ class TangoTfg2(object):
                 dpause = 0
                 lpause = 0
 
-#            dpause = -1
             live_port = 0
             dead_port = 0
             inversion = 0
@@ -220,7 +218,8 @@ class TangoTfg2(object):
                                dead_port, live_port, dpause, lpause))
         self.__setup_groups(self.__compress(frame_list))
         self.__setup_port(inversion, drive_strength)
-        self._control.setupVeto([1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+        self._control.setupVeto([1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0, 0, 0, 0, 0])
         self.__setup_scaler_channels(timing_info)
 
     def start(self):
@@ -254,14 +253,14 @@ class TangoTfg2(object):
 
     def __compress(self, framelist):
         compressed = []
-        for i in range(0,len(framelist),7):
-           if i == 0:
-               last = framelist[0:7]
-           elif framelist[i+1:i+7] == last[1:7]:
-               last[0] += framelist[i]
-           else:
-               compressed.extend(last)
-               last = framelist[i:i+7]
+        for i in range(0, len(framelist), 7):
+            if i == 0:
+                last = framelist[0:7]
+            elif framelist[i+1:i+7] == last[1:7]:
+                last[0] += framelist[i]
+            else:
+                compressed.extend(last)
+                last = framelist[i:i+7]
         compressed.extend(last)
         return compressed
 
@@ -278,9 +277,8 @@ class TangoTfg2(object):
         args.append(self.__cycles)
         args.extend(framesets)
         args.append(-1)
-        print(args)
         self._control.set_timeout_millis(10000)
-        id = self._control.command_inout_asynch("setupGroups",args)
+        id = self._control.command_inout_asynch("setupGroups", args)
         self.__nframes = self._control.command_inout_reply(id, 8000)
 
     def __setup_port(self, invert, drive_strength):

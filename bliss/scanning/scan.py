@@ -663,6 +663,11 @@ class Scan(object):
                     disconnect(dev, signal, self._device_event)
         self._devices = []
 
+    def close_nodes(self):
+        for node in self._nodes.values():
+            if hasattr(node, 'close'):
+                node.close()
+
     def run(self):
         if hasattr(self._data_watch_callback, 'on_state'):
             call_on_prepare = self._data_watch_callback.on_state(
@@ -708,6 +713,11 @@ class Scan(object):
             SCANS.append(self)
             # Disconnect events
             self.disconnect_all()
+            # Kill data watch task
+            if self._data_watch_task is not None:
+                self._data_watch_task.kill()
+            # Close nodes
+            self.close_nodes()
 
     @staticmethod
     def _data_watch(scan, event, event_done):

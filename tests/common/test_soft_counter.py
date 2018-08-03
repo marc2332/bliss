@@ -35,7 +35,7 @@ class Controller(object):
         self.name = name
 
 
-def test_soft_counter_read():
+def test_soft_counter_read(beacon):
 
     null_no_name = NullObject()
     null_no_name.value = 45.67
@@ -66,7 +66,7 @@ def test_soft_counter_read():
     assert counter.read() == 23.45*100 + 5.4
 
 
-def test_soft_counter_name():
+def test_soft_counter_name(beacon):
 
     null_no_name = NullObject()
     null_no_name.value = 45.67
@@ -130,7 +130,7 @@ def test_soft_counter_name():
     assert counter.fullname == 'ctrl1.pressure'
 
 
-def test_soft_counter_scan():
+def test_soft_counter_scan(beacon):
 
     null_name = NullObject()
     null_name.name = 'n1'
@@ -145,7 +145,7 @@ def test_soft_counter_scan():
     c4 = SoftCounter(o1, value='get_pressure')
     c5 = SoftCounter(o1, apply=lambda v: v*9.0/5 + 32, name='temp_f')
 
-    scan = loopscan(10, 0.01, c1, c2, c3, c4, c5)
+    scan = loopscan(10, 0.01, c1, c2, c3, c4, c5, save=False)
 
     data = scan.get_data()
 

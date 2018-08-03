@@ -182,7 +182,7 @@ def lima_simulator(ports, beacon):
                 dev_proxy.ping()
                 dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.5)
+                gevent.sleep(0.1)
             else:
                 break
 
@@ -210,7 +210,7 @@ def bliss_tango_server(ports, beacon):
                 dev_proxy.ping()
                 dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.5)
+                gevent.sleep(0.1)
             else:
                 break
 

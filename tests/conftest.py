@@ -7,7 +7,7 @@
 
 import os
 import sys
-import time
+import uuid
 import socket
 from collections import namedtuple
 
@@ -103,6 +103,7 @@ def config_app_port(ports):
 
 @pytest.fixture(scope="session")
 def ports():
+    redis_uds = '/tmp/redis_test_{}.sock'.format(uuid.uuid1())
     ports = namedtuple(
         'Ports',
         'redis_port tango_port beacon_port cfgapp_port',
@@ -110,7 +111,7 @@ def ports():
     args = [
         '--port=%d' % ports.beacon_port,
         '--redis_port=%d' % ports.redis_port,
-        '--redis_socket=/tmp/redis_test.sock',
+        '--redis_socket=' + redis_uds,
         '--db_path=' + BEACON_DB_PATH,
         '--posix_queue=0',
         '--tango_port=%d' % ports.tango_port,
@@ -118,7 +119,7 @@ def ports():
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     wait_for(
         proc.stderr,
-        "The server is now ready to accept connections at /tmp/redis_test.sock"
+        "The server is now ready to accept connections at /tmp/redis_test_"
     )
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port

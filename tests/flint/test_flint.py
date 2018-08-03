@@ -36,18 +36,17 @@ def xvfb():
 
 
 @pytest.fixture
-def flint(xvfb, beacon):
+def flint(xvfb, beacon, session):
+    flint = plot.get_flint()
+    flint_pid = plot.FLINT['process']
+    yield flint_pid
+    plot.reset_flint()
+    os.kill(flint_pid, signal.SIGTERM)
     try:
-        flint = plot.get_flint()
-        flint_pid = plot.FLINT['process']
-        yield flint_pid
-    finally:
-        os.kill(flint_pid, signal.SIGTERM)
-        try:
-            os.waitpid(flint_pid, 0)
-        # It happens sometimes, for some reason
-        except OSError:
-            pass
+        os.waitpid(flint_pid, 0)
+    # It happens sometimes, for some reason
+    except OSError:
+        pass
 
 
 @pytest.fixture
@@ -99,7 +98,6 @@ def test_image_plot(flint_session):
     data = p.get_data()
     assert data == {
         'default': pytest.approx(grey_image)}
-
     colored_image = flint_session['colored_image']
     p = plot.plot(colored_image)
     assert 'ImagePlot' in repr(p)

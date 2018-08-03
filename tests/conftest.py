@@ -7,8 +7,8 @@
 
 import os
 import sys
-import uuid
 import socket
+import shutil
 from collections import namedtuple
 
 import redis
@@ -102,8 +102,12 @@ def config_app_port(ports):
 
 
 @pytest.fixture(scope="session")
-def ports():
-    redis_uds = '/tmp/redis_test_{}.sock'.format(uuid.uuid1())
+def ports(tmpdir_factory):
+    tmpdir = str(tmpdir_factory.mktemp('beacon'))
+    beacon_dir = os.path.join(tmpdir, 'test_configuration')
+    shutil.copytree(BEACON_DB_PATH, beacon_dir)
+
+    redis_uds = os.path.join(tmpdir, 'redis.sock')
     ports = namedtuple(
         'Ports',
         'redis_port tango_port beacon_port cfgapp_port',
@@ -112,14 +116,14 @@ def ports():
         '--port=%d' % ports.beacon_port,
         '--redis_port=%d' % ports.redis_port,
         '--redis_socket=' + redis_uds,
-        '--db_path=' + BEACON_DB_PATH,
+        '--db_path=' + beacon_dir,
         '--posix_queue=0',
         '--tango_port=%d' % ports.tango_port,
         '--webapp_port=%d' % ports.cfgapp_port]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     wait_for(
         proc.stderr,
-        "The server is now ready to accept connections at /tmp/redis_test_"
+        "The server is now ready to accept connections at {}".format(redis_uds)
     )
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port

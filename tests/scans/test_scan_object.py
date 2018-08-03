@@ -2,7 +2,7 @@ from mock import MagicMock
 from bliss.scanning.scan import Scan
 
 
-def test_scan_object():
+def test_scan_object(beacon):
     m = MagicMock()
     s = Scan(m, name='bla', run_number=3, writer=None)
     assert s.name == 'bla_3'

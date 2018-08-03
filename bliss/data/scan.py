@@ -184,23 +184,26 @@ def safe_watch_data(*args):
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
     session_node = _get_or_create_node(session_name, node_type='session')
 
-    if session_node is not None:
-        data_iterator = DataNodeIterator(session_node)
+    if session_node is None:
+        return
 
-        watch_data_task = None
+    data_iterator = DataNodeIterator(session_node)
+    watch_data_task = None
 
-        try:
-            for scan_node in data_iterator.walk_from_last(filter="scan", include_last=False, ready_event=ready_event):
-                if watch_data_task:
-                    watch_data_task.kill()
+    try:
+        for scan_node in data_iterator.walk_from_last(
+                filter="scan", include_last=False, ready_event=ready_event):
+            if watch_data_task:
+                watch_data_task.kill()
 
-                scan_info = scan_node.info.get_all()
+            scan_info = scan_node.info.get_all()
 
-                scan_new_callback(scan_info)
+            scan_new_callback(scan_info)
 
-                watch_data_task = gevent.spawn(safe_watch_data, scan_node,
-                                               scan_info,
-                                               scan_new_child_callback,
-                                               scan_data_callback)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
+            watch_data_task = gevent.spawn(safe_watch_data, scan_node,
+                                           scan_info,
+                                           scan_new_child_callback,
+                                           scan_data_callback)
+    finally:
+        if watch_data_task is not None:
+            watch_data_task.kill()

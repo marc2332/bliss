@@ -224,7 +224,13 @@ class LimaImageChannelDataNode(DataNode):
                                     connection=cnx)
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
-        self._storage_task = self._do_store(wait=False, wait_started=True)
+        self._storage_task = None
+
+    def close(self):
+        if self._storage_task is None:
+            return
+        self._storage_task.kill()
+        self._storage_task = None
 
     def get(self, from_index, to_index=None):
         """
@@ -241,6 +247,8 @@ class LimaImageChannelDataNode(DataNode):
     def store(self, event_dict):
         desc = event_dict['description']
         data = event_dict['data']
+        if self._storage_task is None:
+            self._storage_task = self._do_store(wait=False, wait_started=True)
 
         try:
             self.data[0]

@@ -117,6 +117,8 @@ class Bus(AdvancedInstantiationInterface):
     # Close
 
     def close(self):
+        for channel in self._channels.values():
+            channel.close()
         if self._send_task:
             self._send_task.kill()
         if self._listen_task:
@@ -338,6 +340,11 @@ class Channel(AdvancedInstantiationInterface):
 
         if self._raw_value is None:
             self._start_query()
+
+    def close(self):
+        if self._query_task is None:
+            return
+        self._query_task.kill()
 
     # Read-only properties
 

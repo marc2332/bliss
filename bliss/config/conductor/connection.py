@@ -138,6 +138,7 @@ class Connection(object):
         if self._fd:
             self._fd.close()
             self._fd = None
+        if self._raw_read_task is not None:
             self._raw_read_task.join()
             self._raw_read_task = None
 

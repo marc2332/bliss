@@ -102,12 +102,16 @@ def config_app_port(ports):
 
 
 @pytest.fixture(scope="session")
-def ports(tmpdir_factory):
+def beacon_directory(tmpdir_factory):
     tmpdir = str(tmpdir_factory.mktemp('beacon'))
     beacon_dir = os.path.join(tmpdir, 'test_configuration')
     shutil.copytree(BEACON_DB_PATH, beacon_dir)
+    yield beacon_dir
 
-    redis_uds = os.path.join(tmpdir, 'redis.sock')
+
+@pytest.fixture(scope="session")
+def ports(beacon_directory):
+    redis_uds = os.path.join(beacon_directory, 'redis.sock')
     ports = namedtuple(
         'Ports',
         'redis_port tango_port beacon_port cfgapp_port',
@@ -116,7 +120,7 @@ def ports(tmpdir_factory):
         '--port=%d' % ports.beacon_port,
         '--redis_port=%d' % ports.redis_port,
         '--redis_socket=' + redis_uds,
-        '--db_path=' + beacon_dir,
+        '--db_path=' + beacon_directory,
         '--posix_queue=0',
         '--tango_port=%d' % ports.tango_port,
         '--webapp_port=%d' % ports.cfgapp_port]

@@ -374,6 +374,9 @@ class Session(object):
                              self.setup_file)
 
     def close(self):
+        if get_current() is self:
+            global CURRENT_SESSION
+            CURRENT_SESSION = None
         for obj_name, obj in self.__env_dict.iteritems():
             if obj is self:
                 continue

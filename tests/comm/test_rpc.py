@@ -121,3 +121,6 @@ def test_api(rpc_server):
     assert client_car.position == car.position == 11
     client_car.move(21, relative=True)
     assert client_car.position == car.position == 32
+
+    # close client
+    client_car.close()

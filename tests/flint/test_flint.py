@@ -59,6 +59,7 @@ def flint_session(beacon, flint):
         yield env_dict
     finally:
         pass
+    session.close()
 
 
 def test_empty_plot(flint):

@@ -182,6 +182,7 @@ class _StreamServerObject(_ServerObject):
 
     @zerorpc.stream
     def zerorpc_stream__(self):
+        yield (None, None)  # Signal the stream has started
         stream = gevent.queue.Queue()
         dispatcher = lambda value, signal: stream.put((signal, value))
         self._streams.add(stream)
@@ -222,8 +223,8 @@ def Server(obj, stream=False, **kwargs):
     server = zerorpc.Server(instance, **kwargs)
 
     def close():
-        server_close()
         instance.close()
+        server_close()
 
     # Patch close method with instance.close()
     server_close, server.close = server.close, close
@@ -336,9 +337,12 @@ def Client(address, **kwargs):
 
         def dispatch(proxy):
             while True:
-                for signal, value in client.zerorpc_stream__(timeout=None):
-                    client._log.debug('dispatching stream event signal=%r value=%r',
-                                      signal, StripIt(value))
+                for signal, value in client.zerorpc_stream__():
+                    if signal is None:
+                        continue
+                    client._log.debug(
+                        'dispatching stream event signal=%r value=%r',
+                        signal, StripIt(value))
                     louie.send(signal, proxy, value)
         client._stream_task = gevent.spawn(dispatch, proxy)
         client._stream_task.link(stream_task_ended)

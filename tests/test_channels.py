@@ -204,6 +204,9 @@ def test_channels_advanced(beacon):
     c1 = channels.Channel('test_chan7', bus=bus1)
     assert c1.value == 3
 
+    # Close bus 2
+    bus2.close()
+
 
 def test_channels_cache(beacon):
     # Make sure the cache is clear
@@ -266,4 +269,3 @@ def test_2processes_set_channel_value_constructor(beacon, beacon_host_port):
         finally:
             parent_end.put(".")
             p.join()
-

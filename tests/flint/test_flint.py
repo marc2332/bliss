@@ -38,12 +38,11 @@ def xvfb():
 @pytest.fixture
 def flint(xvfb, beacon, session):
     flint = plot.get_flint()
-    flint_pid = plot.FLINT['process']
-    yield flint_pid
+    yield flint._pid
     plot.reset_flint()
-    os.kill(flint_pid, signal.SIGTERM)
+    os.kill(flint._pid, signal.SIGTERM)
     try:
-        os.waitpid(flint_pid, 0)
+        os.waitpid(flint._pid, 0)
     # It happens sometimes, for some reason
     except OSError:
         pass

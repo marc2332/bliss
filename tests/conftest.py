@@ -16,10 +16,12 @@ import pytest
 import gevent
 
 from bliss.common import subprocess
+from bliss.common import session as session_module
+
 from bliss.config import static
 from bliss.config.conductor import client
-from bliss.config.conductor.client import get_default_connection
 from bliss.config.channels import clear_cache, Bus
+from bliss.config.conductor.client import get_default_connection
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -49,11 +51,10 @@ def wait_for(stream, target, data=''):
 @pytest.fixture
 def clean_louie():
     import louie.dispatcher as disp
-
-    assert disp.connections == {}
-    assert disp.senders == {}
-    assert disp.senders_back == {}
-    assert disp.plugins == []
+    disp.connections = {}
+    disp.senders = {}
+    disp.senders_back = {}
+    disp.plugins = []
     yield disp
     assert disp.connections == {}
     assert disp.senders == {}
@@ -82,6 +83,17 @@ def clean_gevent():
         if not ob.ready():
             print(ob)  # Better printouts
         assert ob.ready()
+
+
+@pytest.fixture
+def clean_session():
+    session_module.CURRENT_SESSION = None
+    yield
+    current_session = session_module.get_current()
+    if current_session is not None:
+        current_session.close()
+        assert False
+    assert session_module.CURRENT_SESSION is None
 
 
 @pytest.fixture(scope="session")

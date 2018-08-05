@@ -292,7 +292,7 @@ class Axis(object):
         self.__move_done.set()
         self.__move_done_callback.set()
         self.__move_task = None
-        self.__stopped = False
+        self._user_stopped = False
         motion_hooks = []
         for hook_ref in config.get('motion_hooks', ()):
             hook = get_motion_hook(hook_ref)
@@ -757,7 +757,7 @@ class Axis(object):
         if state.LIMPOS or state.LIMNEG:
             raise RuntimeError(str(state))
 
-        if not self.__stopped and motion.backlash:
+        if not self._user_stopped and motion.backlash:
             # broadcast reached position before backlash correction
             backlash_start = motion.target_pos
             elog.debug("doing backlash (%g)" % motion.backlash)
@@ -900,7 +900,7 @@ class Axis(object):
         return motion
 
     def _set_moving_state(self, from_channel=False, move_type=""):
-        self.__stopped = False
+        self._user_stopped = False
         self.__move_done.clear()
         self.__move_done_callback.clear()
         self.__jog_move = move_type=='jog'
@@ -954,7 +954,7 @@ class Axis(object):
 
                 # update position if motor has been stopped
                 with capture():
-                    if self.__stopped:
+                    if self._user_stopped: # or state.LIMPOS or state.LIMNEG:
                         self._update_dial()
                         self._set_position(self.position())
 
@@ -1135,10 +1135,7 @@ class Axis(object):
             self.__controller.stop_jog(self)
         else:
             self.__controller.stop(self)
-        self._set_stopped()
-
-    def _set_stopped(self):
-        self.__stopped = True
+        self._user_stopped = True
 
     @lazy_init
     def stop(self, wait=True):
@@ -1155,11 +1152,6 @@ class Axis(object):
             self._do_stop()
             if wait:
                 self.wait_move()
-        else:
-            # it is important to clean the move task,
-            # even if the moving flag is not set;
-            # otherwise wait_move may raise a previous exception
-            self._set_stopped()
 
     @lazy_init
     def home(self, switch=1, wait=True):

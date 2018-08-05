@@ -23,8 +23,8 @@ def test_group_move(robz, roby):
     grp.move(robz, target_robz, roby, target_roby, wait=False)
 
     assert grp.state().MOVING
-    #assert robz.state().MOVING
-    #assert roby.state().MOVING
+    assert robz.state().MOVING
+    assert roby.state().MOVING
 
     grp.wait_move()
 
@@ -61,7 +61,7 @@ def test_ctrlc(roby, robz):
     
     gevent.sleep(0.01)
     
-    grp._Group__move_task.kill(KeyboardInterrupt, block=False)
+    grp._group_move._GroupMove__move_task.kill(KeyboardInterrupt, block=False)
 
     with pytest.raises(KeyboardInterrupt):
         grp.wait_move()

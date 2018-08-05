@@ -215,10 +215,6 @@ def test_limits3(robz):
 def test_backlash(roby):
     roby.move(-10, wait=False)
 
-    ## why?
-    time.sleep(0)
-    ##
-
     assert roby.backlash_move == -12
 
     roby.wait_move()
@@ -234,7 +230,6 @@ def test_backlash(roby):
 
 def test_backlash2(roby):
     roby.move(10, wait=False)
-    time.sleep(0) ## why is this needed?
     assert roby.backlash_move == 0
     roby.wait_move()
     assert roby.position() == 10
@@ -244,7 +239,6 @@ def test_backlash3(roby):
     assert roby.position() == 1
 
     roby.move(1, wait=False)
-    time.sleep(0)
 
     assert roby.backlash_move == 0
 

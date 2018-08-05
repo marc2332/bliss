@@ -474,15 +474,15 @@ class MockupAxis(Axis):
         Axis.__init__(self, *args, **kwargs)
 
     def prepare_move(self, *args, **kwargs):
-        self.backlash_move = 0
-        return Axis.prepare_move(self, *args, **kwargs)
-
-    def _handle_move(self, motion, polling_time):
-        self.target_pos = motion.target_pos
-        self.backlash_move = motion.target_pos / \
-            self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion, polling_time)
-
+        motion = Axis.prepare_move(self, *args, **kwargs)
+        if motion is None:
+            self.backlash_move = 0
+            self.target_pos = None
+        else:
+            self.target_pos = motion.target_pos
+            self.backlash_move = motion.target_pos / \
+                self.steps_per_unit if motion.backlash else 0
+        return motion
 
 class MockupHook(MotionHook):
     """Motion hook used for pytest"""

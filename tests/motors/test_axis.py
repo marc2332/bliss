@@ -244,6 +244,16 @@ def test_backlash3(roby):
 
     assert roby.state().READY
 
+def test_backlash_stop(roby):
+    roby.move(-10,wait=False)
+    assert roby.backlash_move == -12
+    time.sleep(0.1)
+    pos = roby.position()
+    roby.stop()
+    assert pytest.approx(roby.position(), pos, 1e-3)
+    assert pytest.approx(roby._set_position(), pos, 1e-3)
+    assert roby.state().READY
+
 def test_axis_steps_per_unit(roby):
     roby.move(180, wait=False)
     roby.wait_move()

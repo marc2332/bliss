@@ -757,30 +757,16 @@ class Axis(object):
         if state.LIMPOS or state.LIMNEG:
             raise RuntimeError(str(state))
 
-        # gevent-atomic
-        stopped, self.__stopped = self.__stopped, False
-        if stopped or motion.backlash:
-            dial_pos = self._update_dial()
-            user_pos = self.dial2user(dial_pos)
-
-        if motion.backlash:
+        if not self.__stopped and motion.backlash:
             # broadcast reached position before backlash correction
             backlash_start = motion.target_pos
-            if stopped:
-                self._set_position(user_pos + self.backlash)
-                backlash_start = dial_pos * self.steps_per_unit
-            # axis has moved to target pos - backlash (or shorter, if stopped);
-            # now do the final motion (backlash) relative to current/theo. pos
             elog.debug("doing backlash (%g)" % motion.backlash)
             return self._backlash_move(
                 backlash_start, motion.backlash, polling_time)
-        elif stopped:
-            self._set_position(user_pos)
-            return state
         elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
-        else:
-            return state
+
+        return state
 
     def _jog_move(self, velocity, direction, polling_time):
         self._move_loop(polling_time)

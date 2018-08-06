@@ -664,7 +664,10 @@ class Aerotech(Controller):
         return reply
 
     def _aero_name(self, axis):
-        return self._aero_axis[axis.name]
+        aero_axis = self._aero_axis.get(axis.name, None)
+        if aero_axis is None:
+            raise ValueError("Aerotech axis [%s] not initialised"%axis.name)
+        return aero_axis
   
     def clear_error(self, axis):
         self.raw_write("FAULTACK %s"%self._aero_name(axis))
@@ -853,14 +856,67 @@ class Aerotech(Controller):
             if aero_name is None:
                 raise ValueError("Missing aero_name key in %s encoder config"%encoder.name)
             self._aero_enc[encoder.name]= aero_name
+            enc_divider = encoder.config.get("divider", int, None)
+            if enc_divider is not None:
+                param = AerotechParameter["Encoderdivider"]
+                cmd = "SETPARM %s, %d, %d"%(aero_name, param.value, enc_divider)
+                self.raw_write(cmd)
 
     def _aero_encoder_axis(self, encoder):
-        return self._aero_enc[encoder.name]
+        aero_enc = self._aero_enc.get(encoder.name, None)
+        if aero_enc is None:
+            raise ValueError("Aerotech Encoder [%s] not initialised"%encoder.name)
+        return aero_enc
 
     def read_encoder(self, encoder):
         reply = self.raw_write_read("PFBK(%s)"%self._aero_encoder_axis(encoder))
         return float(reply)
 
+    @object_method(types_info=("None", "int"))
+    def get_encoder_divider(self, axis):
+        value = self.get_param(axis, "EncoderDivider")
+        return int(value)
+
+    @object_method(types_info=("int", "None"))
+    def set_encoder_divider(self, axis, divider):
+        value = int(divider)
+        if value <= 0:
+            raise ValueError("Aerotech Encoder Divider musst be >= 1")
+        self.set_param(axis, "EncoderDivider", divider)
+            
+    def start_output_pulse(self, axis, start_pos, stop_pos, npoints):
+        name = self._aero_name(axis)
+        value = self.get_param(axis, "CountsPerUnit")
+        enc_units = float(value)
+
+        start_enc = int(start_pos * enc_units + 0.5)
+        stop_enc = int(stop_pos * enc_units + 0.5)
+        step_pos = (stop_pos - start_pos) / npoints
+        step_enc = int(step_pos * enc_units + 0.5)
+
+        # --- reset previous control
+        self.raw_write("PSOCONTROL %s RESET"%name)
+
+        # --- define mask window
+        self.raw_write("PSOWINDOW %s 1 INPUT 1"%name)
+        self.raw_write("PSOWINDOW %s 1 RANGE %d, %d"%(name, start_enc, stop_enc))
+
+        # --- define pulse 10usec up
+        self.raw_write("PSOPULSE %s TIME 10,10"%name)
+
+        # --- define distance tracking
+        self.raw_write("PSOTRACK %s INPUT 1"%name)
+        self.raw_write("PSOTRACK %s RESET %d"%(name, 0x40))
+        self.raw_write("PSODISTANCE %s FIXED %d"%(name, step_enc))
+
+        # --- activate output mode
+        self.raw_write("PSOOUTPUT %s PULSE WINDOW MASK EDGE 2"%name)
+        self.raw_write("PSOCONTROL %s ARM"%name)
+
+    def stop_output_pulse(self, axis):
+        name = self._aero_name(axis)
+        self.raw_write("PSOCONTROL %s OFF"%name)
+        
     @object_method(types_info=("str", "str"))
     def get_param(self, axis, name):
         try:
@@ -882,9 +938,14 @@ class Aerotech(Controller):
             cmd = "SETPARM %s, %d, %f"%(self._aero_name(axis), param.value, value)
         self.raw_write(cmd)
 
-    @object_method(types_info=("None","list"))
-    def get_param_list(self, axis):
-        names = [ par.name for idx,par in enumerate(AerotechParameter) ]
+    @object_method(types_info=("str","list"))
+    def get_param_list(self, axis, search_string=None):
+        if search_string is not None and len(search_string)!=0:
+             search_lower= search_string.lower()
+             names = [ par.name for idx,par in enumerate(AerotechParameter) \
+                       if search_lower in par.name.lower() ]
+        else:
+             names = [ par.name for idx,par in enumerate(AerotechParameter) ]
         return names
 
     @object_method(types_info=("str","str"))

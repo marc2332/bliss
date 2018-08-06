@@ -14,6 +14,7 @@ import enum
 import gevent
 import errno
 import sys
+import six
 
 axis = enum.Enum('axis', 'POS VEL ACC LIM')
 lima = enum.Enum('lima', 'VIDEO_LIVE')
@@ -188,3 +189,57 @@ class post_mortem_cleanup(object):
                         sys.excepthook(*sys.exc_info())
 
             sys.exit(0)
+
+
+@contextmanager
+def capture_exceptions(raise_index=-1, excepthook=None):
+    """A context manager to capture and manage multiple exceptions.
+
+    Usage:
+
+        with capture_exceptions() as capture:
+            with capture():
+                do_A()
+            with capture():
+                do_B()
+            with capture():
+                do_C()
+
+    The inner contexts protect the execution by capturing any exception
+    raised. This allows the next contexts to run. When leaving the main
+    context, the last exception is raised, if any. If the `raise_index`
+    argument is set to `0`, the first exception is raised instead. This
+    behavior can also be disabled by setting `raise_index` to None. The
+    other exceptions are processed through the given excepthook, which
+    defaults to `sys.excepthook`. A list containing the information about
+    the raised exception can be retreived using the `exception_infos`
+    attribute of the `capture` object or the raised exception.
+    """
+    assert raise_index in (0, -1, None)
+
+    if excepthook is None:
+        excepthook = sys.excepthook
+    
+    @contextmanager
+    def capture():
+        try:
+            yield
+        except BaseException:
+            infos.append(sys.exc_info())
+            if excepthook:
+                if raise_index is None or raise_index == 0 and len(infos) > 1:
+                    excepthook(*infos[-1])
+                elif raise_index == -1 and len(infos) > 1:
+                    excepthook(*infos[-2])
+
+    infos = capture.exception_infos = []
+    with capture():
+        yield capture
+
+    if not infos or raise_index is None:
+        return
+
+    etype, value, tb = infos[raise_index]
+    value.exception_infos = infos
+    six.reraise(etype, value, tb)
+

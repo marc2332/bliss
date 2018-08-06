@@ -66,7 +66,7 @@ class TangoTfg2(object):
     MAX_CHAN = 9
     ALL_FRAMES = -1
 
-    TriggerNameList = {"Software": 0, "BMTrigger": 1, "ADCchan0": 2, "ADCchan1": 3,
+    TriggerNameList = {"Software": -1, "NoPause": 0, "BMTrigger": 1, "ADCchan0": 2, "ADCchan1": 3,
                        "ADCchan2": 4, "ADCchan3": 5, "ADCchan4": 6, "ADCchan5": 7,
                        "TTLtrig0": 8, "TTLtrig1": 9, "TTLtrig2": 10, "TTLtrig3": 11,
                        "LVDSLemo": 12, "TFG cable 1": 13, "TFGCable2": 14,
@@ -107,9 +107,10 @@ class TangoTfg2(object):
         else:
             try:
                 self._control.ping()
+                self._control.clearStarts()
             except tango.ConnectionFailed:
                 self._control = None
-                raise RuntimeError("Connection error")
+#                raise RuntimeError("Connection error")
 
     @property
     def current_lap(self):
@@ -132,6 +133,10 @@ class TangoTfg2(object):
         return self._control.armedStatus
 
     @property
+    def start_count(self):
+        return self._control.startCount
+
+    @property
     def maximum_frames(self):
         return self._control.maximumFrames
 
@@ -149,11 +154,11 @@ class TangoTfg2(object):
 
     def prepare(self, timing_info):
         self._control.init()
+        self.clear()
         self.__cycles = timing_info.get('cycles', 1)
         self.__external_inhibit = timing_info.get('extInhibit', False)
 
         start_trigger = timing_info.get('startTrigger', {'name': 'Software'})
-        print(start_trigger['name'])
         self.set_start_trigger(start_trigger['name'],
                                start_trigger.get('edge', 'rising'),
                                start_trigger.get('debounce', 0.0),
@@ -183,7 +188,7 @@ class TangoTfg2(object):
         drive_strength = 0
         for frameset in timing_info['framesets']:
             frame_count += frameset['nb_frames']
-            if (pause_trigger.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
+            if (pause_trigger.get('trig_when', [self.ALL_FRAMES]) == [self.ALL_FRAMES]) or \
                     (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
                 dpause = dead_pause
                 lpause = live_pause
@@ -213,10 +218,11 @@ class TangoTfg2(object):
                                dead_port, live_port, dpause, lpause))
         self.__setup_groups(self.__compress(frame_list))
         self.__setup_port(inversion, drive_strength)
+        self._control.setupVeto([1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                 0, 0, 0, 0, 0, 0, 0, 0, 0])
         self.__setup_scaler_channels(timing_info)
 
     def start(self):
-        self.clear()
         self.enable()
         if self.__external_start:
             self._control.arm()
@@ -229,7 +235,11 @@ class TangoTfg2(object):
         self.disable()
         self._control.stop()
 
+    def resume(self):
+        self._control.cont()
+
     def clear(self):
+        self._control.clearStarts()
         self._control.clear([0, 0, 0, self.maximum_frames, 1, self.MAX_CHAN])
 
     def read_frame(self, frame):
@@ -243,14 +253,14 @@ class TangoTfg2(object):
 
     def __compress(self, framelist):
         compressed = []
-        for i in range(0,len(framelist),7):
-           if i == 0:
-               last = framelist[0:7]
-           elif framelist[i+1:i+7] == last[1:7]:
-               last[0] += framelist[i]
-           else:
-               compressed.extend(last)
-               last = framelist[i:i+7]
+        for i in range(0, len(framelist), 7):
+            if i == 0:
+                last = framelist[0:7]
+            elif framelist[i+1:i+7] == last[1:7]:
+                last[0] += framelist[i]
+            else:
+                compressed.extend(last)
+                last = framelist[i:i+7]
         compressed.extend(last)
         return compressed
 
@@ -267,8 +277,9 @@ class TangoTfg2(object):
         args.append(self.__cycles)
         args.extend(framesets)
         args.append(-1)
-        print(args)
-        self.__nframes = self._control.setupGroups(args)
+        self._control.set_timeout_millis(10000)
+        id = self._control.command_inout_asynch("setupGroups", args)
+        self.__nframes = self._control.command_inout_reply(id, 8000)
 
     def __setup_port(self, invert, drive_strength):
         # invert 8bit inversion 1 to invert
@@ -309,7 +320,6 @@ class TangoTfg2(object):
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("threshold")
                     args[3] = threshold
-            print(args)
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):

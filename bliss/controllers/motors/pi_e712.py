@@ -541,26 +541,76 @@ class PI_E712(Controller):
             pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt
             time = pvt['time']
             positions = pvt['position']
+            velocities = pvt['velocity']
             axis = traj.axis
             cmd_format = "WAV %d " % axis.channel
             cmd_format += "{cont} LIN {seglength} {amp} "\
-                          "{offset} {seglength} {startpoint} 0"
+                          "{offset} {seglength} {startpoint} {speed_up_down}"
             commmands.append("WSL {channel} {channel}".format(channel=axis.channel))
             offset = traj.origin if is_cyclic_traj else 0
             commmands.append("WOS {channel} {offset}".format(channel=axis.channel,offset=offset))
             cont = 'X'
-            for start_time, end_time,\
-                start_position, end_position in zip(time, time[1:],
-                                                    positions, positions[1:]):
+            index = 0
+            while True:
+                try:
+                    p1,v1,t1 = positions[index], velocities[index], time[index]
+                except IndexError: # End loop
+                    break
+
+                try:
+                    p2,v2,t2 = positions[index+1], velocities[index+1], time[index+1]
+                except IndexError: # End loop
+                    break
+                #default
+                start_time = t1
+                end_time = t2
+                start_position = p1
+                end_position = p2
+                speed_up_down = 0
+                inc_index = 1
+                try:
+                    p3,v3,t3 = positions[index+2], velocities[index+2], time[index+2]
+                except IndexError:
+                    pass
+                else:
+                    try:
+                        p4,v4,t4 = positions[index+3], velocities[index+3], time[index+3]
+                    except IndexError:
+                        if abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
+                            start_time = t1
+                            end_time = t3
+                            start_position = p1
+                            end_position = p3
+                            speed_up_down = min(t2 - t1,t3 - t2)
+                    else:
+                        if abs(v1 - v4) < 1e-6 and abs(v2 - v3) < 1e-6:
+                            start_time = t1
+                            end_time = t4
+                            start_position = p1
+                            end_position = p4
+                            speed_up_down = min(t2 - t1,t4 - t3)
+                            inc_index = 3
+                        elif abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
+                            start_time = t1
+                            end_time = t3
+                            start_position = p1
+                            end_position = p3
+                            speed_up_down = min(t2 - t1,t3 - t2)
+                            inc_index = 2
+
+                index += inc_index
                 start_time /= servo_cycle
                 end_time /= servo_cycle
                 seglength = int(end_time-start_time)
                 if seglength <= 0:
                     continue
+                speed_up_down = int(speed_up_down / servo_cycle)
+                if speed_up_down > seglength/2.:
+                    speed_up_down = seglength/2.
                 start_time = start_time if cont == 'X' else 0
                 cmd = cmd_format.format(cont=cont,seglength=seglength,
                                         amp=end_position-start_position, offset=start_position,
-                                        startpoint=int(start_time))
+                                        startpoint=int(start_time), speed_up_down=speed_up_down)
                 commmands.append(cmd)
                 cont = '&'
             #trajectories events

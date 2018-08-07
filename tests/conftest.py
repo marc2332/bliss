@@ -44,7 +44,9 @@ def wait_for(stream, target, data=''):
     while target not in data:
         char = stream.read(1)
         if not char:
-            raise RuntimeError('Target not found')
+            raise RuntimeError(
+                'Target {!r} not found in the following stream:\n{}'
+                .format(target, data))
         data += char
 
 

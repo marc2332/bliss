@@ -15,6 +15,7 @@ __all__ = [
     'ascan',
     'a2scan',
     'amesh',
+    'dmesh',
     'dscan',
     'lineup',
     'd2scan',

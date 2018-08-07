@@ -105,8 +105,12 @@ def maintain_value(key, value):
         redis.delete(key)
 
 
+def get_flint_key():
+   return "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), os.getpid())
+
+
 def background_task(flint, stop):
-    key = "flint:{}:{}".format(platform.node(), os.getpid())
+    key = get_flint_key()
     stop = concurrent_to_gevent(stop)
     with safe_rpc_server(flint) as (task, url):
         with maintain_value(key, url):
@@ -243,7 +247,7 @@ class Flint:
     
         beacon = get_default_connection()
         redis = beacon.get_redis_connection()
-        key = "flint:{}:{}".format(platform.node(), os.getpid())
+        key = get_flint_key()
         current_value = redis.lindex(key, 0)
         value = session_name+" "+current_value.split()[-1]
         redis.lpush(key, value)

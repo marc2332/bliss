@@ -391,3 +391,10 @@ def common_prefix(paths, sep=os.path.sep):
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal,
                                                       bydirectorylevels))
 
+
+def closable(obj):
+    """Return True if the given object is closable, False otherwise."""
+    return (
+        hasattr(obj, 'close') and
+        inspect.ismethod(obj.close) and
+        obj.close.im_self is not None)

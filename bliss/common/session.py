@@ -13,6 +13,7 @@ from treelib import Tree
 
 from bliss import setup_globals
 from bliss.config import static
+from bliss.common.utils import closable
 from bliss.config.conductor.client import get_config_file, get_python_modules, get_file
 
 CURRENT_SESSION = None
@@ -382,11 +383,8 @@ class Session(object):
                 continue
             if hasattr(setup_globals, obj_name):
                 delattr(setup_globals, obj_name)
-            if hasattr(obj, 'close'):
-                try:
-                    obj.close()
-                except TypeError:
-                    pass
+            if closable(obj):
+                obj.close()
         self.__env_dict.clear()
 
     def _load_config(self, env_dict, verbose=True):
@@ -422,11 +420,8 @@ class Session(object):
             except KeyError:
                 pass
             else:
-                if hasattr(obj, 'close'):
-                    try:
-                        obj.close()
-                    except TypeError:
-                        pass
+                if closable(obj):
+                    obj.close()
 
         self.config.reload()
 

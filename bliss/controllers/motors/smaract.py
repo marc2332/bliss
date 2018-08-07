@@ -402,12 +402,8 @@ class SmarAct(Controller):
 
     DEFAULT_PORT = 5000
 
-    def __init__(self, name, config, axes, *args, **kwargs):
-        super(SmarAct, self).__init__(name, config, axes, *args, **kwargs)
-        self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
-        for axis_name, axis, axis_config in axes:
-            axis.channel = Channel(self, axis_config.get("channel", int))
-        #        self.comm._logger.setLevel('DEBUG')
+    def __init__(self, *args, **kwargs):
+        super(SmarAct, self).__init__(*args, **kwargs)
         self.log = logging.getLogger(type(self).__name__)
 
     def __getitem__(self, item):
@@ -448,6 +444,10 @@ class SmarAct(Controller):
             value = SensorEnabled[enabled]
         self["SE"] = int(value)
 
+    def initialize(self):
+        self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
+        # self.comm._logger.setLevel('DEBUG')
+
     def initialize_hardware(self):
         # set communication mode to synchronous
         self["CM"] = 0
@@ -456,6 +456,7 @@ class SmarAct(Controller):
         )
 
     def initialize_axis(self, axis):
+        axis.channel = Channel(self, axis.config.get("channel", int))
         if "hold_time" in axis.config.config_dict:
             axis.channel.hold_time = axis.config.get("hold_time", float)
 

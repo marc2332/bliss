@@ -354,7 +354,7 @@ class Channel(object):
         position (int): micro-degree for rotary sensors or nano-meter for
                         linear sensors
         """
-        self["P"] = int(position)
+        self.command("SP", int(position))
 
     def stop(self):
         self.command("S")

@@ -462,7 +462,7 @@ class Flint:
                                                              {}).setdefault(data["channel_index"],
                                                                             gevent.event.Event())
         data_event.set()
-        QtGui.QApplication.processEvents()
+        qt.QApplication.processEvents()
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()

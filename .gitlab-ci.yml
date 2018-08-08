@@ -9,7 +9,8 @@ stages:
 tests:
   stage: tests
   before_script:
-    - source activate tango2.7
+    - conda create --name testenv python=2
+    - source activate testenv
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-test-conda.txt
   script:

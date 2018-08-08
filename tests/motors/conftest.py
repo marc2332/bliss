@@ -21,7 +21,6 @@ def motor_fixture(name):
 def calc_motor_fixture(name):
     def get_motor(beacon):
         m = beacon.get(name)
-        m.position()
         yield m
         m.close()
     get_motor.__name__ = name

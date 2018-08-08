@@ -1,6 +1,7 @@
 import os
 import signal
 from random import randint
+from contextlib import contextmanager
 from distutils.spawn import find_executable
 
 import pytest
@@ -35,8 +36,8 @@ def xvfb():
             os.environ['DISPLAY'] = display
 
 
-@pytest.fixture
-def flint(xvfb, beacon, session):
+@contextmanager
+def flint_context():
     flint = plot.get_flint()
     yield flint._pid
     plot.reset_flint()
@@ -49,12 +50,18 @@ def flint(xvfb, beacon, session):
 
 
 @pytest.fixture
-def flint_session(beacon, flint):
-    env_dict = dict()
+def test_session_with_flint(beacon, xvfb, session):
+    with flint_context():
+        yield session
+
+
+@pytest.fixture
+def flint_session(beacon, xvfb):
     session = beacon.get("flint")
-    session.setup(env_dict)
+    session.setup()
     try:
-        yield env_dict
+        with flint_context():
+            yield session
     finally:
         pass
     session.close()

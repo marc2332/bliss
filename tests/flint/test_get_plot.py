@@ -3,13 +3,13 @@
 import numpy
 
 
-def test_get_plot(beacon, lima_simulator, flint, session):
+def test_get_plot(beacon, lima_simulator, test_session_with_flint):
     lima = beacon.get("lima_simulator")
     simu1 = beacon.get("simu1")
 
-    ascan = session.env_dict['ascan']
-    roby = session.env_dict['roby']
-    diode = session.env_dict['diode']
+    ascan = test_session_with_flint.env_dict['ascan']
+    roby = test_session_with_flint.env_dict['roby']
+    diode = test_session_with_flint.env_dict['diode']
 
     s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
 

@@ -10,7 +10,7 @@ import datetime
 import numpy
 import pickle
 import gevent
-import contextlib
+from bliss.common.cleanup import excepthook
 from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 import logging
@@ -112,13 +112,6 @@ def get_data(scan):
         data[channel_name] = result[i]
 
     return data
-
-@contextlib.contextmanager
-def excepthook():
-    try:
-        yield
-    except:
-        sys.excepthook(*sys.exc_info())
 
 def _watch_data(scan_node, scan_info, scan_new_child_callback,
                 scan_data_callback):

@@ -110,7 +110,8 @@ class LimaImageChannelDataNode(DataNode):
                 yield self.get_image(image_nb, proxy=proxy)
 
         def __len__(self):
-            return self.last_index - self.from_index
+            length = self.last_index - self.from_index
+            return 0 if length < 0 else length
 
         def _update(self):
             ref_status = self.ref_status

@@ -10,6 +10,7 @@ import datetime
 import numpy
 import pickle
 import gevent
+import contextlib
 from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 import logging
@@ -112,6 +113,13 @@ def get_data(scan):
 
     return data
 
+@contextlib.contextmanager
+def excepthook():
+    try:
+        yield
+    except:
+        sys.excepthook(*sys.exc_info())
+
 def _watch_data(scan_node, scan_info, scan_new_child_callback,
                 scan_data_callback):
     scan_data = dict()
@@ -144,41 +152,33 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
                         scan_data.setdefault(channel_name, [])
                         if data_channel.db_name.endswith(channel_name):
                             scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
-                            try:
+                            with excepthook():
                                 scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
                                                                    "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": scan_data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
 
                     for i, channel_name in enumerate(spectra):
                         if data_channel.db_name.endswith(channel_name):
-                            try:
+                            with excepthook():
                                 scan_data_callback("1d", master, { "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
                     for i, channel_name in enumerate(images):
                         if data_channel.db_name.endswith(channel_name):
-                            try:
+                            with excepthook():
                                 scan_data_callback("2d", master, { "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
                 except StopIteration:
                     break
 
 def safe_watch_data(*args):
-    try:
+    with excepthook():
         _watch_data(*args)
-    except Exception:
-        sys.excepthook(*sys.exc_info())
 
 @task
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
@@ -197,13 +197,14 @@ def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback
                 watch_data_task.kill()
 
             scan_info = scan_node.info.get_all()
+           
+            with excepthook():
+                scan_new_callback(scan_info)
 
-            scan_new_callback(scan_info)
-
-            watch_data_task = gevent.spawn(safe_watch_data, scan_node,
-                                           scan_info,
-                                           scan_new_child_callback,
-                                           scan_data_callback)
+                watch_data_task = gevent.spawn(safe_watch_data, scan_node,
+                                               scan_info,
+                                               scan_new_child_callback,
+                                               scan_data_callback)
     finally:
         if watch_data_task is not None:
             watch_data_task.kill()

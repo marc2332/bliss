@@ -191,9 +191,15 @@ def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback
 
             scan_info = scan_node.info.get_all()
            
+            # call user callbacks and start data watch task for this scan
             with excepthook():
+                # call 'scan_new' callback, if an exception happens in user
+                # code the data watch task is *not* started -- it will be
+                # retried at next scan
                 scan_new_callback(scan_info)
 
+                # spawn watching task: incoming scan data triggers
+                # corresponding user callbacks (see code in '_watch_data')
                 watch_data_task = gevent.spawn(safe_watch_data, scan_node,
                                                scan_info,
                                                scan_new_child_callback,

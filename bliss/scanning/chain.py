@@ -148,6 +148,8 @@ class AcquisitionMaster(object):
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
+        self.__duplicated_channels = {}
+        self.__prepared = False
 
     @property
     def trigger_type(self):
@@ -190,8 +192,12 @@ class AcquisitionMaster(object):
         return self.__npoints
 
     def _prepare(self):
-        for channel in self.channels:
-            channel._device_name = self.name
+        if not self.__prepared:
+            for channel in self.channels:
+                channel._device_name = self.name
+            for connect, _ in self.__duplicated_channels.values():
+                connect()
+            self.__prepared = True
 
         return self.prepare()
 
@@ -211,6 +217,13 @@ class AcquisitionMaster(object):
         dispatcher.send("start", self)
         return_value = self.start()
         return return_value
+
+    def _stop(self):
+        if self.__prepared:
+            for _, cleanup in self.__duplicated_channels.values():
+                cleanup()
+            self.__prepared = False
+        return self.stop()
 
     def trigger_ready(self):
         return True
@@ -260,10 +273,11 @@ class AcquisitionMaster(object):
             raise ValueError(
                 'The device {} does not have a channel called {}'
                 .format(device, name))
-        new_channel, cleanup = duplicate_channel(
+        new_channel, connect, cleanup = duplicate_channel(
             source, name=rename, conversion=conversion, dtype=dtype)
+        self.__duplicated_channels[new_channel] = connect, cleanup
         self.channels.append(new_channel)
-        return cleanup
+
 
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)
@@ -338,6 +352,9 @@ class AcquisitionDevice(object):
 
     def stop(self):
         raise NotImplementedError
+
+    def _stop(self):
+        self.stop()
 
     def trigger_ready(self):
         return True
@@ -463,7 +480,7 @@ class AcquisitionChainIter(object):
 
     def stop(self):
         try:
-            self._execute("stop", master_to_slave=True, wait_all_tasks=True)
+            self._execute("_stop", master_to_slave=True, wait_all_tasks=True)
             self.wait_all_devices()
         finally:
             preset_tasks = [gevent.spawn(preset.stop, self.acquisition_chain)

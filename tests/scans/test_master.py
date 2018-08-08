@@ -43,7 +43,7 @@ class DummySlave(AcquisitionDevice):
         super(DummySlave, self).__init__(*args, **kwargs)
         self.channels.append(AcquisitionChannel('nb', float, ()))
         self.nb_trigger = 0
-        
+
     def prepare(self):
         pass
 
@@ -78,10 +78,10 @@ def test_dummy_scan_with_external_channel(beacon):
     device = DummyDevice(None, 'device', npoints=1)
     chain.add(master, device)
     # Add external channel
-    cleanup1 = master.add_external_channel(
+    master.add_external_channel(
         device, 'pi', 'to', lambda x: 2*x)
-    cleanup2 = master.add_external_channel(
-        device, 'pi', 'to_int', lambda x: 2*x,dtype=int)
+    master.add_external_channel(
+        device, 'pi', 'to_int', lambda x: 2*x, dtype=int)
     # Run scan
     scan = Scan(chain, 'test', writer=None)
     scan.run()
@@ -89,9 +89,7 @@ def test_dummy_scan_with_external_channel(beacon):
     assert scan.get_data()['pi'] == [3.14]
     assert scan.get_data()['to'] == [6.28]
     assert scan.get_data()['to_int'] == [6]
-    # Cleanup
-    cleanup1()
-    cleanup2()
+
 
 def test_stopiter_with_top_master(beacon, lima_simulator):
     chain = AcquisitionChain()
@@ -103,8 +101,7 @@ def test_stopiter_with_top_master(beacon, lima_simulator):
 
     device = DummySlave(None, 'device', npoints=1)
     chain.add(lima_master,device)
-   
+
     scan = Scan(chain, 'test')
     scan.run()
     assert device.nb_trigger == 2
-

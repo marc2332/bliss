@@ -23,7 +23,7 @@ def test_output_ramp(temp_tout):
     assert SP == pytest.approx(myval, temp_tout.deadband)
 
 def test_output_ramp_with_kwarg(temp_tout):
-    SP=1
+    SP=2
     KWRAMP=20
     KWSTEP=3
     KWDWELL=5

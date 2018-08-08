@@ -21,17 +21,29 @@ class CalcAcquisitionDevice(AcquisitionDevice):
     def __init__(self, name, src_acq_devices_list, func, output_channels_list):
         AcquisitionDevice.__init__(
             self, None, name, trigger_type=AcquisitionDevice.HARDWARE)
+        self._connected = False
         self.src_acq_devices_list = src_acq_devices_list
         self.func = func
-        self._already_prepared = False
         self.channels.extend(output_channels_list)
 
+    def connect(self):
+        if self._connected:
+            return
+        for acq_device in self.src_acq_devices_list:
+            for channel in acq_device.channels:
+                dispatcher.connect(self.new_data_received, "new_data", channel)
+        self._connected = True
+
+    def disconnect(self):
+        if not self._connected:
+            return
+        for acq_device in self.src_acq_devices_list:
+            for channel in acq_device.channels:
+                dispatcher.disconnect(self.new_data_received, "new_data", channel)
+        self._connected = False
+
     def prepare(self):
-        if not self._already_prepared:
-            for acq_device in self.src_acq_devices_list:
-                for channel in acq_device.channels:
-                    dispatcher.connect(self.new_data_received, "new_data", channel)
-            self._already_prepared = True
+        self.connect()
 
     def trigger(self):
         pass                    # nothing to do
@@ -53,4 +65,4 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         return
 
     def stop(self):
-        return
+        self.disconnect()

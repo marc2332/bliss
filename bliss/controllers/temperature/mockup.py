@@ -17,9 +17,9 @@ from bliss.common.utils import object_method, object_method_type
 from bliss.common.utils import object_attribute_get, object_attribute_type_get
 from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
-DEGREE_PER_SECOND=0.5
+DEGREE_PER_SECOND = 0.5
 """ all channels will start at this temperature """
-INITIAL_TEMP=random.random()*10-random.random()*10
+INITIAL_TEMP = 0
 
 class mockup(Controller):
     __material = "Hg"
@@ -37,7 +37,6 @@ class mockup(Controller):
         # host becomes mandatory
         log.debug("mockup: initialize ")
         self.host = self.config.get("host",str)
-        print "host is: %s" % self.host
 
     def initialize_input(self, tinput):
         log.debug("mockup: initialize_input: %s" % (tinput))
@@ -215,7 +214,6 @@ class mockup(Controller):
 
         """
         log.debug("mockup: state Input")
-        print "host is %s" %self.host
         return "READY"
 
     def state_output(self, toutput):
@@ -226,7 +224,7 @@ class mockup(Controller):
         log.debug("mockup: ramp : %s" % self.read_ramprate(toutput))
         log.debug("mockup: step : %s" % self.read_step(toutput))
         log.debug("mockup: dwell : %s" % self.read_dwell(toutput))
-        log.debug("mockup: host : %s" % self.host)       
+        log.debug("mockup: host : %s" % self.host)
         return "READY"
 
 
@@ -307,4 +305,3 @@ class mockup(Controller):
     @object_attribute_type_set(type_info=("str"), type=Output)
     def set_material(self, toutput, value):
         self.__material = value
-

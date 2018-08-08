@@ -2,13 +2,14 @@
 
 import os
 import signal
-import numpy
+from random import randint
 from distutils.spawn import find_executable
 
 import pytest
 
 from bliss.common import plot
 from bliss.common import subprocess
+
 
 @pytest.fixture(scope='session')
 def xvfb():
@@ -20,10 +21,11 @@ def xvfb():
     # Control DISPLAY variable
     try:
         display = os.environ.get('DISPLAY')
-        os.environ['DISPLAY'] = ':99'
+        new_display = ':{}'.format(randint(100, 1000000000))
+        os.environ['DISPLAY'] = new_display
         # Control xvbf process
         try:
-            p = subprocess.Popen([xvfb, ':99'])
+            p = subprocess.Popen([xvfb, new_display])
             yield p.pid
         # Teardown process
         finally:
@@ -35,15 +37,17 @@ def xvfb():
             os.environ['DISPLAY'] = display
 
 
-@pytest.fixture(scope='session')
-def flint(xvfb, beacon):
+@pytest.fixture
+def flint(xvfb, beacon, session):
+    flint = plot.get_flint()
+    yield flint._pid
+    plot.reset_flint()
+    os.kill(flint._pid, signal.SIGTERM)
     try:
-        flint = plot.get_flint()
-        flint_pid = plot.FLINT['process']
-        yield flint_pid
-    finally:
-        os.kill(flint_pid, signal.SIGTERM)
-        os.waitpid(flint_pid, 0)
+        os.waitpid(flint._pid, 0)
+    # It happens sometimes, for some reason
+    except OSError:
+        pass
 
 
 @pytest.fixture
@@ -55,6 +59,7 @@ def flint_session(beacon, flint):
         yield env_dict
     finally:
         pass
+    session.close()
 
 
 def test_empty_plot(flint):
@@ -95,7 +100,6 @@ def test_image_plot(flint_session):
     data = p.get_data()
     assert data == {
         'default': pytest.approx(grey_image)}
-
     colored_image = flint_session['colored_image']
     p = plot.plot(colored_image)
     assert 'ImagePlot' in repr(p)

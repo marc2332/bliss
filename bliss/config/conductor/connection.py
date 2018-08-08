@@ -129,6 +129,7 @@ class Connection(object):
         self._g_event = event.Event()
         self._message_key = 0
         self._message_queue = {}
+        self._redis_connection = {}
         self._clean()
         self._fd = None
         self._raw_read_task = None
@@ -138,6 +139,7 @@ class Connection(object):
         if self._fd:
             self._fd.close()
             self._fd = None
+        if self._raw_read_task is not None:
             self._raw_read_task.join()
             self._raw_read_task = None
 
@@ -374,7 +376,7 @@ class Connection(object):
                     module_name,full_path = self._get_msg_key(rx_msg)
                     return_module.append((module_name,full_path))
         return return_module
-    
+
     def _lock_mgt(self,fd,messageType,message):
         if messageType == protocol.LOCK_OK_REPLY:
             events = self._pending_lock.get(message,[])
@@ -488,11 +490,8 @@ class Connection(object):
     def _clean(self):
         self._redis_host = None
         self._redis_port = None
-        try:
-            for db,redis_cnx in self._redis_connection.iteritems():
-                redis_cnx.disconnect()
-        except:
-            pass
+        for db, redis_cnx in self._redis_connection.iteritems():
+            redis_cnx.connection_pool.disconnect()
         self._redis_connection = {}
 
     @check_connect

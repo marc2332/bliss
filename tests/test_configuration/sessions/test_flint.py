@@ -5,11 +5,11 @@ from bliss.common.plot import *
 
 # Test data
 
-colored_image = scipy.misc.face()
+colored_image = scipy.misc.face()[:10, :10, :]
 grey_image = colored_image[:, :, 0]
 image_stack = [colored_image[:, :, i] for i in range(3)]
 
-x_data = numpy.linspace(0, 10, 1000)
+x_data = numpy.linspace(0, 10, 100)
 cos_data = numpy.cos(x_data)
 sin_data = numpy.sin(x_data)
 

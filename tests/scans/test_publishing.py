@@ -24,9 +24,17 @@ from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
 from bliss.data.edffile import EdfFile
 
-def test_parent_node(beacon, scan_tmpdir):
-    session = beacon.get("test_session")
+
+@pytest.fixture
+def lima_session(beacon, scan_tmpdir, lima_simulator):
+    session = beacon.get("lima_test_session")
     session.setup()
+    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    yield session
+    session.close()
+
+
+def test_parent_node(session, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     scan_saving.template="{date}/test"
@@ -35,9 +43,7 @@ def test_parent_node(beacon, scan_tmpdir):
     assert parent_node.type == "container"
     assert isinstance(parent_node, DataNodeContainer)
 
-def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan_node(session, redis_data_conn, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
@@ -78,9 +84,7 @@ def test_scan_node(beacon, redis_data_conn, scan_tmpdir):
     for child_node_name in scan_children_node+m0_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
 
-def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
-    session = beacon.get("test_session")
-    session.setup()
+def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path=str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
@@ -106,9 +110,7 @@ def test_interrupted_scan(beacon, redis_data_conn, scan_tmpdir):
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
-def test_scan_data_0d(beacon, redis_data_conn):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan_data_0d(session, redis_data_conn):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0.1)
     s = scans.timescan(0.1, counter, npoints=10, return_scan = True, save=False)
@@ -118,15 +120,13 @@ def test_scan_data_0d(beacon, redis_data_conn):
 
     assert numpy.array_equal(redis_data, counter.data)
 
-def test_data_iterator(beacon, redis_data_conn):
-    session = beacon.get("test_session")
     redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
     session_node = get_node(session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
 
-def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
+def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     def iterate_channel_events(scan_db_name, channels):
       for e, n in DataNodeIterator(get_node(scan_db_name)).walk_events():
         if n.type == 'channel':
@@ -163,11 +163,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir):
 
 @pytest.mark.parametrize(
   "with_roi", [False, True], ids=['without ROI', 'with ROI'])
-def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
-                             lima_simulator, with_roi):
-    session = beacon.get("lima_test_session")
-    session.setup()
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     # Roi handling
@@ -177,8 +173,7 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
 
     timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
 
-    redis_keys = set(redis_scan(session.name+"*", connection=redis_data_conn))
-    session_node = get_node(session.name)
+    session_node = get_node(lima_session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
 
     image_node_db_name = '%s:timer:lima_simulator:image' % timescan.node.db_name
@@ -190,15 +185,9 @@ def test_reference_with_lima(beacon, redis_data_conn, scan_tmpdir,
 
 @pytest.mark.parametrize(
   "with_roi", [False, True], ids=['without ROI', 'with ROI'])
-def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
-                                           scan_tmpdir, lima_simulator,
-                                           with_roi):
+def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_roi):
     npoints = 5
     exp_time = 1
-
-    session = beacon.get("lima_test_session")
-    session.setup()
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
     lima_sim = getattr(setup_globals, "lima_simulator")
 
     # Roi handling
@@ -206,7 +195,7 @@ def test_iterator_over_reference_with_lima(beacon, redis_data_conn,
     if with_roi:
         lima_sim.roi_counters['myroi'] = [0, 0, 1, 1]
 
-    session_node = _get_or_create_node(session.name, node_type='session')
+    session_node = _get_or_create_node(lima_session.name, node_type='session')
     iterator = DataNodeIterator(session_node)
 
     with gevent.Timeout(10 + 2 * (npoints+1) * exp_time):

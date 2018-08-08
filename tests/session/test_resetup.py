@@ -12,10 +12,8 @@ from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement
 
-def test_resetup(beacon):
-  session = beacon.get("test_session")
-  env_dict = {}
-  session.setup(env_dict=env_dict)
+def test_resetup(session):
+  env_dict = session.env_dict
   assert "load_script" in env_dict
   assert getattr(setup_globals, "test_session")
   assert getattr(setup_globals, "test_mg")

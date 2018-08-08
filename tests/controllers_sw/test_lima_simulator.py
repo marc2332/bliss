@@ -122,10 +122,8 @@ def test_directories_mapping(beacon, lima_simulator):
     assert pytest.raises(ValueError, \
                          "simulator.select_directories_mapping('invalid')")
 
-def test_lima_mapping_and_saving(beacon, lima_simulator):
-    session = beacon.get("test_session")
+def test_lima_mapping_and_saving(beacon, lima_simulator, session):
     simulator = beacon.get("lima_simulator")
-    session.setup()
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 
@@ -151,10 +149,8 @@ def test_lima_mapping_and_saving(beacon, lima_simulator):
     # cannot use simulator.proxy.saving_directory because it is reset to ''
     assert mapped_directory.startswith(saving_directory)
 
-def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir):
-    session = beacon.get("test_session")
+def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir, session):
     simulator = beacon.get("lima_simulator")
-    session.setup()
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 
@@ -182,10 +178,8 @@ def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_prefix_saving_absolute(beacon, lima_simulator, scan_tmpdir):
-    session = beacon.get("test_session")
+def test_images_dir_prefix_saving_absolute(beacon, lima_simulator, scan_tmpdir, session):
     simulator = beacon.get("lima_simulator")
-    session.setup()
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 

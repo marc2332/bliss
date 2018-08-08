@@ -425,6 +425,19 @@ class CalcController(Controller):
             event.connect(real_axis, 'internal_position', self._calc_from_real)
             event.connect(real_axis, 'internal__set_position', self._real_setpos_update)
 
+    def close(self):
+        event.disconnect(self._reals_group, 'move_done', self._real_move_done)
+        for pseudo_axis in self.pseudos:
+            event.disconnect(pseudo_axis, 'sync_hard', self._pseudo_sync_hard)
+
+        for real_axis in self.reals:
+            event.disconnect(real_axis, 'internal_position', self._calc_from_real)
+            event.disconnect(real_axis, 'internal__set_position', self._real_setpos_update)
+
+        self._reals_group = None
+        self.reals = []
+        self.pseudos = []
+
     def initialize_axis(self, axis):
         pass
 

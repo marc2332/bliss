@@ -20,11 +20,11 @@ from bliss.shell.cli.main import print_sessions_list
 BLISS = [sys.executable, '-m', 'bliss.shell.cli.main']
 
 
-@pytest.fixture(scope="module")
-def session99():
-    session_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'session99.yml'))
-    session_setup_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'session99_setup.py'))
-    session_scripts_file = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'test_configuration', 'sessions', 'scripts', 'session99.py'))
+@pytest.fixture
+def session99(beacon_directory):
+    session_file = os.path.join(beacon_directory, 'sessions', 'session99.yml')
+    session_setup_file = os.path.join(beacon_directory, 'sessions', 'session99_setup.py')
+    session_scripts_file = os.path.join(beacon_directory, 'sessions', 'scripts', 'session99.py')
     init_file = os.path.join(os.path.dirname(session_file), "__init__.yml")
     os.rename(init_file, os.path.join(os.path.dirname(session_file), "__init__.sav"))
 
@@ -67,7 +67,7 @@ def test_invalid_arg(beacon):
     assert subprocess.call(["bliss", "-z"]) == 1
 
 
-def test_create_session(beacon, session99):
+def test_create_then_delete_session(beacon, session99):
     session_file, session_setup_file, session_scripts_file, init_file = session99
     bliss_shell = subprocess.Popen(BLISS + ['-c', 'session99'], stdout=subprocess.PIPE)
     bliss_shell.wait()
@@ -81,11 +81,8 @@ def test_create_session(beacon, session99):
     sess = beacon.get("session99")
     assert isinstance(sess, Session)
 
-
-def test_delete_session(beacon, session99):
-    session_file, session_setup_file, session_scripts_file, init_file = session99
     bliss_shell = subprocess.Popen(BLISS + ['-d', 'session99'], stdout=subprocess.PIPE)
-    bliss_cmd_output = bliss_shell.communicate()
+    bliss_shell.wait()
     assert not os.path.exists(session_file)
     assert not os.path.exists(session_setup_file)
     assert not os.path.exists(session_scripts_file)

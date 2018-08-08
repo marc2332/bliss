@@ -10,6 +10,7 @@ import datetime
 import numpy
 import pickle
 import gevent
+from bliss.common.cleanup import excepthook
 from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 import logging
@@ -144,63 +145,65 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback,
                         scan_data.setdefault(channel_name, [])
                         if data_channel.db_name.endswith(channel_name):
                             scan_data[channel_name] = numpy.concatenate((scan_data.get(channel_name, []), data))
-                            try:
+                            with excepthook():
                                 scan_data_callback("0d", master, { "master_channels": master_channels["scalars"],
                                                                    "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": scan_data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
 
                     for i, channel_name in enumerate(spectra):
                         if data_channel.db_name.endswith(channel_name):
-                            try:
+                            with excepthook():
                                 scan_data_callback("1d", master, { "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
                     for i, channel_name in enumerate(images):
                         if data_channel.db_name.endswith(channel_name):
-                            try:
+                            with excepthook():
                                 scan_data_callback("2d", master, { "channel_index": i,
                                                                    "channel_name": channel_name,
                                                                    "data": data })
-                            except:
-                                sys.excepthook(*sys.exc_info())
                             raise StopIteration
                 except StopIteration:
                     break
 
 def safe_watch_data(*args):
-    try:
+    with excepthook():
         _watch_data(*args)
-    except Exception:
-        sys.excepthook(*sys.exc_info())
 
 @task
 def watch_session_scans(session_name, scan_new_callback, scan_new_child_callback, scan_data_callback, ready_event=None):
     session_node = _get_or_create_node(session_name, node_type='session')
 
-    if session_node is not None:
-        data_iterator = DataNodeIterator(session_node)
+    if session_node is None:
+        return
 
-        watch_data_task = None
+    data_iterator = DataNodeIterator(session_node)
+    watch_data_task = None
 
-        try:
-            for scan_node in data_iterator.walk_from_last(filter="scan", include_last=False, ready_event=ready_event):
-                if watch_data_task:
-                    watch_data_task.kill()
+    try:
+        for scan_node in data_iterator.walk_from_last(
+                filter="scan", include_last=False, ready_event=ready_event):
+            if watch_data_task:
+                watch_data_task.kill()
 
-                scan_info = scan_node.info.get_all()
-
+            scan_info = scan_node.info.get_all()
+           
+            # call user callbacks and start data watch task for this scan
+            with excepthook():
+                # call 'scan_new' callback, if an exception happens in user
+                # code the data watch task is *not* started -- it will be
+                # retried at next scan
                 scan_new_callback(scan_info)
 
+                # spawn watching task: incoming scan data triggers
+                # corresponding user callbacks (see code in '_watch_data')
                 watch_data_task = gevent.spawn(safe_watch_data, scan_node,
                                                scan_info,
                                                scan_new_child_callback,
                                                scan_data_callback)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
+    finally:
+        if watch_data_task is not None:
+            watch_data_task.kill()

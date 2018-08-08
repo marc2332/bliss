@@ -48,7 +48,7 @@ class Writer(FileWriter):
         positioners_dial.attrs['NX_class'] = 'NXcollection'
         positioners_dict = scan_info.get('positioners', {})
         for pname, ppos in positioners_dict.iteritems():
-            if isinstance(ppos, float):  
+            if isinstance(ppos, float):
                 positioners.create_dataset(pname, dtype='float64', data=ppos)
         positioners_dial_dict = scan_info.get('positioners_dial', {})
         for pname, ppos in positioners_dial_dict.iteritems():
@@ -83,7 +83,7 @@ class Writer(FileWriter):
                 return
 
             data = event_dict.get('data')
-            
+
             dataset = parent[channel.fullname]
             if not dataset.id.valid:
                 print('writer is closed. Spurious data point ignored')
@@ -102,6 +102,7 @@ class Writer(FileWriter):
             self.last_point_index[channel] += data_len
 
     def close(self):
+        super(Writer, self).close()
         if self.file is not None:
             self.file.close()
             self.file = None

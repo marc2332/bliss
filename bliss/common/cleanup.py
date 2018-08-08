@@ -19,6 +19,17 @@ axis = enum.Enum('axis', 'POS VEL ACC LIM')
 lima = enum.Enum('lima', 'VIDEO_LIVE')
 
 @contextmanager
+def excepthook(custom_hook=None):
+    try:
+        yield
+    except:
+        if custom_hook:
+            custom_hook(*sys.exc_info())
+        else:
+            sys.excepthook(*sys.exc_info())
+
+
+@contextmanager
 def cleanup(*args, **kwargs):
     """
     This cleanup context manager can handle either device like

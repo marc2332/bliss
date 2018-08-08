@@ -13,6 +13,7 @@ from treelib import Tree
 
 from bliss import setup_globals
 from bliss.config import static
+from bliss.common.utils import closable
 from bliss.config.conductor.client import get_config_file, get_python_modules, get_file
 
 CURRENT_SESSION = None
@@ -174,6 +175,7 @@ class Session(object):
     def __init__(self, name, config_tree):
         self.__name = name
         self.__config = static.get_config()
+        self.__env_dict = {}
 
         self.init(config_tree)
 
@@ -306,6 +308,10 @@ class Session(object):
                 child._build_children_tree(tree, child, children)
         return tree
 
+    @property
+    def env_dict(self):
+        return self.__env_dict
+
     def setup(self, env_dict=None, verbose=False):
         if env_dict is None:
             # does Python run in interactive mode?
@@ -368,6 +374,19 @@ class Session(object):
             raise ValueError("Session: setup-file %s cannot be found" %
                              self.setup_file)
 
+    def close(self):
+        if get_current() is self:
+            global CURRENT_SESSION
+            CURRENT_SESSION = None
+        for obj_name, obj in self.__env_dict.iteritems():
+            if obj is self:
+                continue
+            if hasattr(setup_globals, obj_name):
+                delattr(setup_globals, obj_name)
+            if closable(obj):
+                obj.close()
+        self.__env_dict.clear()
+
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
             if hasattr(setup_globals, item_name):
@@ -397,9 +416,12 @@ class Session(object):
         for name in self.object_names:
             delattr(setup_globals, name)
             try:
-                del env_dict[name]
+                obj = env_dict.pop(name)
             except KeyError:
                 pass
+            else:
+                if closable(obj):
+                    obj.close()
 
         self.config.reload()
 

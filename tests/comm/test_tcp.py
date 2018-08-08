@@ -8,63 +8,61 @@
 import time
 import pytest
 import gevent
-from bliss.comm import tcp
 
 
-def test_connect(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    assert s.connect() == True
+def test_connect(command):
+    assert command.connect() is True
 
-def test_write_read_n_bytes(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    data = s.write_read("A" * 1024, size=1024)
+
+def test_write_read_n_bytes(command):
+    data = command.write_read("A" * 1024, size=1024)
     assert len(data) == 1024
 
-def test_write_readline(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
+
+def test_write_readline(command):
     msg = "HELLO\nWORLD\n"
-    transaction = s._write(msg)
-    assert s._readline(transaction,clear_transaction=False) == "HELLO"
-    assert s._readline(transaction) == "WORLD"
+    transaction = command._write(msg)
+    assert command._readline(transaction, clear_transaction=False) == "HELLO"
+    assert command._readline(transaction) == "WORLD"
 
-def test_write_readline2(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    assert s.write_readline("HELLO\n") == "HELLO"
-    assert s.write_readline("WORLD\n") == "WORLD"
 
-def test_write_readlines(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    assert s.write_readlines("HELLO\nWORLD\n", 2) == ["HELLO", "WORLD"]
+def test_write_readline2(command):
+    assert command.write_readline("HELLO\n") == "HELLO"
+    assert command.write_readline("WORLD\n") == "WORLD"
 
-def test_readline_timeout(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
+
+def test_write_readlines(command):
+    assert command.write_readlines("HELLO\nWORLD\n", 2) == ["HELLO", "WORLD"]
+
+
+def test_readline_timeout(command):
     t0 = time.time()
-    transaction = s.new_transaction()
+    transaction = command.new_transaction()
     try:
-        s._readline(transaction, timeout=1)
+        command._readline(transaction, timeout=1)
     except RuntimeError:
         t = time.time() - t0
         assert t - 1 < 0.1
 
-def test_tryconnect(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    assert s.write_read("X") == "X"
 
-def test_concurency(server_port):
-    s = tcp.Command("127.0.0.1", server_port)
-    s.connect()
+def test_tryconnect(command):
+    assert command.write_read("X") == "X"
+
+
+def test_concurency(command):
+    command.connect()
 
     def task_function(msg, i):
-        assert s.write_readline(msg + '\n') == msg
+        assert command.write_readline(msg + '\n') == msg
 
     def task_with_exception(msg, i):
         msg += '_exception'
         try:
-            transaction = s._write(msg)
-            s._readline(transaction, timeout=0.01, eol='\r',
-                        clear_transaction=False)
+            transaction = command._write(msg)
+            command._readline(
+                transaction, timeout=0.01, eol='\r', clear_transaction=False)
         except RuntimeError:  # timeout
-            rxmsg = s._read(transaction, size=len(msg))
+            rxmsg = command._read(transaction, size=len(msg))
             assert rxmsg == msg
 
     tasks = []
@@ -78,42 +76,42 @@ def test_concurency(server_port):
     for t in tasks:
         t.join(3)
 
-def test_connect_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
-    assert s.connect() == True
 
-def test_write_read_n_bytes_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
-    data = s.write_read("A" * 1024, size=1024)
+def test_connect_socket(socket):
+    assert socket.connect() is True
+
+
+def test_write_read_n_bytes_socket(socket):
+    data = socket.write_read("A" * 1024, size=1024)
     assert len(data) == 1024
 
-def test_write_readline_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
+
+def test_write_readline_socket(socket):
     msg = "HELLO\nWORLD\n"
-    s.write(msg)
-    assert s.readline() == "HELLO"
-    assert s.readline() == "WORLD"
+    socket.write(msg)
+    assert socket.readline() == "HELLO"
+    assert socket.readline() == "WORLD"
 
-def test_write_readline2_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
-    assert s.write_readline("HELLO\n") == "HELLO"
-    assert s.write_readline("WORLD\n") == "WORLD"
 
-def test_write_readlines_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
-    assert s.write_readlines("HELLO\nWORLD\n", 2) == ["HELLO", "WORLD"]
+def test_write_readline2_socket(socket):
+    assert socket.write_readline("HELLO\n") == "HELLO"
+    assert socket.write_readline("WORLD\n") == "WORLD"
 
-def test_readline_timeout_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
+
+def test_write_readlines_socket(socket):
+    assert socket.write_readlines("HELLO\nWORLD\n", 2) == ["HELLO", "WORLD"]
+
+
+def test_readline_timeout_socket(socket):
     t0 = time.time()
     try:
-        s.readline(timeout=1)
+        socket.readline(timeout=1)
     except RuntimeError:
         t = time.time() - t0
         assert t - 1 < 0.1
 
-def test_tryconnect_socket(server_port):
-    s = tcp.Socket("127.0.0.1", server_port)
-    s.connect()
-    s.close()
-    assert s.write_read("X") == "X"
+
+def test_tryconnect_socket(socket):
+    socket.connect()
+    socket.close()
+    assert socket.write_read("X") == "X"

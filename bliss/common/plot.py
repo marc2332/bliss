@@ -239,6 +239,15 @@ def get_flint(start_new=False):
     else:
         return FLINT['proxy']
 
+
+def reset_flint():
+    proxy = FLINT.get('proxy')
+    if proxy is not None:
+        proxy.close()
+    FLINT['proxy'] = None
+    FLINT['process'] = None
+
+
 # Simple Qt interface
 
 class QtInterface(object):

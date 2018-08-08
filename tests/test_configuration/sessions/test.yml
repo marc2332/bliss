@@ -1,11 +1,3 @@
-- class: MeasurementGroup
-  name: MG2
-  counters:
-  - diode3
-- class: Session
-  name: test_session3
-  config-objects:
-  - test_session2
 - class: Session
   name: test_session4
   setup-file: ./test_setup4.py
@@ -56,10 +48,6 @@
     - svg-id: sslits2
       top: m1
       bottom:
-- class: MeasurementGroup
-  name: test_mg
-  counters:
-  - diode
 - class: Session
   name: test_session2
   setup-file: ./test_setup2.py
@@ -67,9 +55,7 @@
   - m2
   include-sessions:
   - test_session
-- class: MeasurementGroup
-  name: MG1
-  counters:
-  - diode
-  - diode2
-  - diode3
+- class: Session
+  name: test_session3
+  config-objects:
+  - test_session2

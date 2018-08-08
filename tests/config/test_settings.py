@@ -12,20 +12,15 @@ import cPickle
 class DummyObject(object):
     pass
 
-def test_simple_setting(beacon):
-    session = beacon.get("test_session")
-    session.setup()
 
+def test_simple_setting(session):
     myValue = "valval"
     sss = settings.SimpleSetting('mySkey', default_value=myValue)
     assert sss.get()=='valval'
     sss.set("V2")  # 'V2' key exists now in redis
     assert sss.get() == 'V2'
 
-def test_simple_setting_types(beacon):
-    session = beacon.get("test_session")
-    session.setup()
-
+def test_simple_setting_types(session):
     # INT
     anIntValue = 666
     iii = settings.SimpleSetting('myIntkey', default_value=anIntValue)
@@ -67,10 +62,7 @@ def test_simple_setting_types(beacon):
     assert ttt.get() == "('a', 'b', 'c')"
     assert type(ttt.get()) is str
 
-def test_hash_setting(beacon):
-    session = beacon.get("test_session")
-    session.setup()
-
+def test_hash_setting(session):
     myDict = {"C1":"riri", "C2":"fifi"}
     shs = settings.HashSetting('myHkey', default_values=myDict)  # note the s :)
     assert myDict.items() == shs.items()
@@ -97,10 +89,7 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
 
-def test_queue_setting(beacon):
-    session = beacon.get("test_session")
-    session.setup()
-
+def test_queue_setting(session):
     myList = ["a", "b", "c", "d"]
 
     sqs = settings.QueueSetting('myQkey')

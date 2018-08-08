@@ -15,9 +15,7 @@ from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 
-def test_ascan(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_ascan(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     m1 = getattr(setup_globals, 'm1')
     counter = counter_class("gaussian", 10, cnt_time=0)
@@ -26,9 +24,7 @@ def test_ascan(beacon):
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
-def test_ascan_gauss(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_ascan_gauss(session):
     counter_class = getattr(setup_globals, 'AutoScanGaussianCounter')
     m1 = getattr(setup_globals, 'm1')
     counter = counter_class("gaussianCurve")
@@ -36,10 +32,9 @@ def test_ascan_gauss(beacon):
     assert m1.position() == 10
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussianCurve'], counter.data)
+    counter.close()
 
-def test_dscan(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_dscan(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0)
     m1 = getattr(setup_globals, 'm1')
@@ -51,9 +46,7 @@ def test_dscan(beacon):
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
-def test_dscan_move_done(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_dscan_move_done(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0)
     m1 = getattr(setup_globals, 'm1')
@@ -74,16 +67,14 @@ def test_dscan_move_done(beacon):
     scan_data = s.get_data()
     assert numpy.allclose(scan_data['m1'], numpy.linspace(start_pos-2, start_pos+2, 10), atol=5e-4)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
-    assert positions[0] == 8.0
-    assert positions[-2] == 12.0
-    assert positions[-1] == 10.0
+    assert positions[0] == -2
+    assert positions[-2] == 2
+    assert positions[-1] == 0
 
     event.disconnect(m1, 'move_done', target)
 
 
-def test_pointscan(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_pointscan(session):
     m0 = getattr(setup_globals, 'm0')
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     counter = counter_class("gaussian", 10, cnt_time=0)
@@ -95,9 +86,7 @@ def test_pointscan(beacon):
     assert numpy.array_equal(scan_data['m0'], points)
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
-def test_scan_callbacks(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan_callbacks(session):
 
     res = {"new": False, "end": False, "values": []}
 
@@ -121,9 +110,7 @@ def test_scan_callbacks(beacon):
     assert res["end"]
     assert numpy.array_equal(numpy.array(res["values"]), counter.data)
 
-def test_calc_counters(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_calc_counters(session):
     m1 = getattr(setup_globals, 'm1')
     c = chain.AcquisitionChain()
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
@@ -143,9 +130,7 @@ def test_calc_counters(beacon):
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data['gaussian']**2,scan_data['pow'])
 
-def test_amesh(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_amesh(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     roby = getattr(setup_globals, 'roby')
     robz = getattr(setup_globals, 'robz')
@@ -163,9 +148,7 @@ def test_amesh(beacon):
     assert scan_data["robz"][-1] == 5
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
-def test_dmesh(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_dmesh(session):
     counter_class = getattr(setup_globals, 'TestScanGaussianCounter')
     roby = getattr(setup_globals, 'roby')
     robz = getattr(setup_globals, 'robz')
@@ -184,9 +167,7 @@ def test_dmesh(beacon):
     assert scan_data["robz"][-1] == start_robz+3
     assert numpy.array_equal(scan_data['gaussian'], counter.data)
 
-def test_save_images(beacon, lima_simulator, scan_tmpdir):
-    session = beacon.get('test_session')
-    session.setup()
+def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
 
     lima_sim = beacon.get("lima_simulator")
     roby = getattr(setup_globals, 'roby')

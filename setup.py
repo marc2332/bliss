@@ -110,7 +110,7 @@ def main():
         "h5py",
         "gevent == 1.2.2",
         "pygments",
-        "numpy",
+        "numpy >= 1.13",
         'enum34 ; python_version < "3.4"',
         "h5py",
         "mendeleev",

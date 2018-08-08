@@ -310,15 +310,15 @@ def test_simultaneous_move(robz):
       move_started.set()
       robz.wait_move()
 
-    move_greenlet = gevent.spawn(start_move, 10)
-
-    move_started.wait()
-
-    assert robz.state().MOVING
     try:
-      robz.move(-10)
-    except Exception, e:
-      assert 'MOVING' in str(e)
+        move_greenlet = gevent.spawn(start_move, 10)
+        move_started.wait()
+        assert robz.state().MOVING
+        with pytest.raises(Exception) as e:
+            robz.move(-10)
+        assert 'MOVING' in str(e)
+    finally:
+        move_greenlet.get()
 
 def test_simultaneous_waitmove_exception(robz):
     robz.move(100, wait=False)
@@ -337,23 +337,20 @@ def test_simultaneous_waitmove_exception(robz):
 
 
 def test_on_off(robz):
-    try:
-        robz.off()
-        assert robz.state().OFF
-        with pytest.raises(RuntimeError):
-            robz.move(1)
-        robz.on()
-        assert robz.state().READY
+    robz.off()
+    assert robz.state().OFF
+    with pytest.raises(RuntimeError):
         robz.move(1)
-        assert robz.position() == pytest.approx(1)
-        robz.move(2, wait=False)
-        with pytest.raises(RuntimeError):
-            robz.off()
-        robz.wait_move()
+    robz.on()
+    assert robz.state().READY
+    robz.move(1)
+    assert robz.position() == pytest.approx(1)
+    robz.move(2, wait=False)
+    with pytest.raises(RuntimeError):
         robz.off()
-        assert robz.state().OFF
-    finally:
-        robz.on()
+    robz.wait_move()
+    robz.off()
+    assert robz.state().OFF
 
 def test_dial(robz):
     robz.position(1)

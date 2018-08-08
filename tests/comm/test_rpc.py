@@ -10,7 +10,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import louie
 import gevent
 import pytest
 
@@ -122,3 +121,6 @@ def test_api(rpc_server):
     assert client_car.position == car.position == 11
     client_car.move(21, relative=True)
     assert client_car.position == car.position == 32
+
+    # close client
+    client_car.close()

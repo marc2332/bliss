@@ -52,9 +52,7 @@ ascan_dump="""{ascan}
 """
 
 
-def test_hdf5_metadata(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_hdf5_metadata(beacon, session):
 
     all_motors = dict([(name, pos) for name, pos, _ in get_axes_positions_iter(on_error='ERR') if pos!='ERR'])
 
@@ -78,9 +76,7 @@ def test_hdf5_metadata(beacon):
         assert len(all_motors) == 0
 
 
-def test_hdf5_file_items(beacon):
-    session = beacon.get('test_session')
-    session.setup()
+def test_hdf5_file_items(beacon, session):
 
     roby = beacon.get("roby")
     diode = beacon.get("diode")

@@ -10,16 +10,33 @@ import errno
 import os
 
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
-from bliss.common.event import connect
+from bliss.common.event import connect, disconnect
 
 class _EventReceiver(object):
-    def __init__(self, parent_entry, callback):
+    def __init__(self, device, parent_entry, callback):
+        self.device = device
         self.parent_entry = parent_entry
         self.callback = callback
 
     def __call__(self, event_dict=None, signal=None, sender=None):
         if callable(self.callback):
             self.callback(self.parent_entry, event_dict, signal, sender)
+
+    def connect(self):
+        for signal in ('start', 'end'):
+            connect(self.device, signal, self)
+        for channel in self.device.channels:
+            connect(self.device, 'new_data', self)
+
+    def disconnect(self):
+        if self.device is None:
+            return
+        for signal in ('start', 'end'):
+            disconnect(self.device, signal, self)
+        for channel in self.device.channels:
+            disconnect(self.device, 'new_data', self)
+        self.device = None
+
 
 class FileWriter(object):
     def __init__(self, root_path, images_root_path,
@@ -80,12 +97,14 @@ class FileWriter(object):
             device.set_image_saving(None, None, force_no_saving=True)
 
     def _prepare_callbacks(self, device, master_entry, callback):
-        ev_receiver = _EventReceiver(master_entry, callback)
-        for signal in ('start', 'end'):
-            connect(device, signal, ev_receiver)
-        for channel in device.channels:
-            connect(channel, 'new_data', ev_receiver)
+        ev_receiver = _EventReceiver(device, master_entry, callback)
+        ev_receiver.connect()
         self._event_receivers.append(ev_receiver)
+
+    def _remove_callbacks(self):
+        for ev_receiver in self._event_receivers:
+            ev_receiver.disconnect()
+        self._event_receivers = []
 
     def prepare(self, scan):
         self.new_scan(scan)
@@ -100,9 +119,9 @@ class FileWriter(object):
                 except KeyError:
                     master_entry = self.new_master(dev, scan.path)
                     master_entries[dev] = master_entry
-                
+
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
-                    
+
                 images_path = self._images_root_path.format(scan=scan.node.name, device=dev.name)
                 self.prepare_saving(dev, images_path)
 
@@ -120,7 +139,7 @@ class FileWriter(object):
         self._closed = False
 
     def close(self):
-        pass
+        self._remove_callbacks()
 
     def get_scan_entries(self):
         """

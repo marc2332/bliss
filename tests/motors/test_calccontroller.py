@@ -51,78 +51,12 @@ def test_real_axis_is_right_object(s1f, s1ho, m1):
     assert s1f == controller.axes['s1f']
     assert s1f.controller == m1.controller
 
-def test_pseudo_axes_position(s1f, s1b, s1u, s1d, s1vg, s1vo, s1hg, s1ho):
-    s1f.position(0)
-    s1b.position(1)
-    s1u.position(0)
-    s1d.position(1)
-    assert s1vg.position() == 1
-    assert s1hg.position() == 1
-    assert s1vo.position() == -0.5
-    assert s1ho.position() == 0.5
-
-def test_pseudo_axes_move(s1b, s1f, s1hg, s1ho):
-    s1hg.move(.5)
-    assert s1hg.position() == pytest.approx(.5)
-    hgap = s1hg.position()
-    s1ho.move(2)
-    assert s1b.state().READY
-    assert s1f.state().READY
-    assert s1hg.position() == pytest.approx(hgap)
-    assert s1ho.position() == pytest.approx(2)
-    assert s1b.position() == pytest.approx(2 + (hgap / 2.0))
-    assert s1f.position() == pytest.approx((hgap / 2.0) - 2)
-
-def test_pseudo_axis_scan(s1ho, s1b, s1f, s1hg): 
-    hgap = 0.5
-    s1hg.move(hgap)
-
-    # scan the slits under the motors resolution
-    ho_step = (1.0/s1b.steps_per_unit) / 10.0
-    for i in range(100):
-        s1ho.rmove(ho_step)
-
-    assert s1hg.position() == pytest.approx(hgap)
-    
-def test_set_position(s1ho, s1b, s1f, s1hg):
-    s1hg.move(4)
-    assert s1b.position() == pytest.approx(2)
-    assert s1f.position() == pytest.approx(2)
-    assert s1ho.position() == pytest.approx(0)
-    s1hg.position(0)
-    s1hg.move(1)
-    assert s1b.position() == pytest.approx(2.5)
-    assert s1f.position() == pytest.approx(2.5)
-    assert s1hg.position() == pytest.approx(1)
-    assert s1ho.position() == pytest.approx(0)
-
-def test_dial(s1hg, s1b, s1f):
-    s1hg.move(4)
-    s1hg.dial(0)
-    assert s1hg.position() == pytest.approx(4)
-    assert s1hg.dial() == pytest.approx(0)
-    assert s1b.position() == pytest.approx(0)
-    assert s1f.position() == pytest.approx(0)
-
-def test_keep_zero_offset(s1hg, s1b, s1f):
-    try:
-        s1hg.no_offset = True
-        s1hg.move(4)
-        s1hg.dial(0)
-    finally:
-        s1hg.no_offset = False
-
-    assert s1hg.position() == pytest.approx(0)
-    assert s1hg.dial() == pytest.approx(0)
-    assert s1b.position() == pytest.approx(0)
-    assert s1f.position() == pytest.approx(0)
-
 def test_limits(s1hg):
     with pytest.raises(ValueError):
         s1hg.move(40)
     with pytest.raises(ValueError):
         s1hg.move(-16)
- 
+
 def test_hw_limits_and_set_pos(s1f, s1b, s1hg):
     try:
         s1f.controller.set_hw_limits(s1f,-2,2)
@@ -143,12 +77,30 @@ def test_real_move_and_set_pos(s1f, s1b, s1hg):
     assert s1hg.position() == pytest.approx(2.5)
     assert s1hg._set_position() == pytest.approx(2.5)
 
-def test_offset_set_position(s1hg):
-    s1hg.dial(0)
-    s1hg.position(1)
-    assert s1hg._set_position() == pytest.approx(1)
-    s1hg.move(0.1)
-    assert s1hg._set_position() == pytest.approx(0.1)
+def test_set_dial(roby, calc_mot1):
+    calc_mot1.move(4)
+    assert pytest.approx(roby.position(), 2)
+    calc_mot1.dial(0)
+    assert pytest.approx(calc_mot1.position(), 4)
+    assert pytest.approx(calc_mot1.dial(), 4)
+    assert pytest.approx(roby.position(), 0)
+
+def test_set_position(roby, calc_mot1):
+    calc_mot1.move(1)
+    assert pytest.approx(calc_mot1.offset, 0)
+    assert pytest.approx(roby.position(), 0.5)
+    calc_mot1.position(0)
+    assert pytest.approx(calc_mot1.offset, -1)
+    assert pytest.approx(calc_mot1.position(), 0)
+    assert pytest.approx(calc_mot1.dial(), 1)
+    assert pytest.approx(roby.position(), 0.5)
+
+def test_offset_set_position(calc_mot1):
+    calc_mot1.dial(0)
+    calc_mot1.position(1)
+    assert calc_mot1._set_position() == pytest.approx(1)
+    calc_mot1.move(0.1)
+    assert calc_mot1._set_position() == pytest.approx(0.1)
 
 def test_calc_in_calc(roby, calc_mot1, calc_mot2):
     calc_mot1.move(1)
@@ -166,4 +118,3 @@ def test_ascan_limits(s1hg, s1f, s1b):
     s1b.limits(-1,1)
     assert pytest.raises(ValueError, "s1hg.move(2.1)")
     assert pytest.raises(ValueError, "ascan(s1hg, -1, 2.1, 10, 0.1, run=False)")
-

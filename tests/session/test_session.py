@@ -14,30 +14,21 @@ from bliss.common import measurement
 from bliss.common.session import get_current
 from treelib import Tree
 
-def test_session_does_not_load_session(beacon):
-  session = beacon.get("test_session")
-  session.setup()
+def test_session_does_not_load_session(session):
   assert getattr(setup_globals, "test_session")
   assert getattr(setup_globals, "test_mg")
   assert pytest.raises(AttributeError, getattr, setup_globals, "freddy")
   assert get_current() == session
 
-def test_session_does_not_contain_default_plugin_objs(beacon):
-  session = beacon.get("test_session")
-  session.setup()
+def test_session_does_not_contain_default_plugin_objs(session, beacon):
   assert beacon.get("refs_test")
   assert pytest.raises(AttributeError, getattr, setup_globals, "refs_test")
 
-def test_session_exclude_objects(beacon):
-  session = beacon.get("test_session")
-  session.setup()
+def test_session_exclude_objects(session):
   assert pytest.raises(AttributeError, getattr, setup_globals, "m2")
 
-def test_current_session(beacon):
-  env_dict = dict()
-  session = beacon.get("test_session")
-  session.setup(env_dict)
-  assert env_dict['SESSION_NAME'] == 'test_session'
+def test_current_session(session):
+  assert session.env_dict['SESSION_NAME'] == 'test_session'
 
 def test_session_tree(beacon, capsys):
   session = beacon.get("test_session2")
@@ -57,7 +48,8 @@ def test_include_sessions(beacon, capsys):
 
   session = beacon.get("test_session2")
   session.setup()
-  assert capsys.readouterr()[0] == 'TEST_SESSION INITIALIZED\nTEST_SESSION2 INITIALIZED\n'
+  out, err = capsys.readouterr()
+  out.endswith('TEST_SESSION INITIALIZED\nTEST_SESSION2 INITIALIZED\n')
 
   assert getattr(setup_globals, "m2")
   assert getattr(setup_globals, "m0")
@@ -65,20 +57,23 @@ def test_include_sessions(beacon, capsys):
   assert get_current().name == setup_globals.SESSION_NAME
   assert get_current() == session
 
+  session.close()
+
 def test_no_session_in_objects_list(beacon):
   session = beacon.get("test_session3")
   assert pytest.raises(RuntimeError, session.setup)
+  session.close()
 
 def test_load_script(beacon, capsys):
   env_dict = dict()
-  session = beacon.get("test_session2")
-  session.setup(env_dict)
+  session1 = beacon.get("test_session2")
+  session1.setup(env_dict)
   assert env_dict.get('_hidden_func') is None
   assert env_dict.get('visible_func') is not None
 
   env_dict = dict()
-  session = beacon.get("test_session4")
-  session.setup(env_dict)
+  session2 = beacon.get("test_session4")
+  session2.setup(env_dict)
   assert env_dict["load_script"] is not None
   load_script = env_dict["load_script"]
   load_script("script3", "test_session5")
@@ -88,15 +83,20 @@ def test_load_script(beacon, capsys):
   assert script3.test_func
 
   env_dict = dict()
-  session = beacon.get("test_session4")
-  session.setup(env_dict)
+  session3 = beacon.get("test_session4")
+  session3.setup(env_dict)
   assert 'RuntimeError' in capsys.readouterr()[1]
+
+  session1.close()
+  session2.close()
+  session3.close()
 
 def test_load_script_namespace(beacon):
   env_dict = dict()
   session = beacon.get("test_session4")
   session.setup(env_dict)
   assert env_dict['a'] == 2
+  session.close()
 
 def test_prdef(beacon, capsys):
   visible_func_code="\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n  \x1b[34;01mpass\x1b[39;49;00m\n\n"
@@ -109,4 +109,4 @@ def test_prdef(beacon, capsys):
   env_dict['prdef'](script1.visible_func)
   output = capsys.readouterr()[0]
   assert output.endswith(visible_func_code)
-
+  session.close()

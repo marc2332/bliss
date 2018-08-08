@@ -16,9 +16,7 @@ from bliss.common import measurement
 # in tests/test_configuration/sessions/test.yml
 
 
-def test_mg(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_mg(session):
     measurementgroup.set_active_name("test_mg")
     current_mg = getattr(setup_globals, 'ACTIVE_MG')
     test_mg = getattr(setup_globals, 'test_mg')
@@ -28,9 +26,7 @@ def test_mg(beacon):
     assert current_mg.name == 'test_mg'
 
 
-def test_active_MG(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_active_MG(session):
     measurementgroup.set_active_name("test_mg")
 
     assert measurementgroup.get_active_name() == 'test_mg'
@@ -60,9 +56,7 @@ def test_active_MG(beacon):
         scans.ct(0.1)
 
 
-def test_mg_states(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_mg_states(session):
     measurementgroup.set_active_name('test_mg')
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
     # default state is 'default'.
@@ -87,9 +81,7 @@ def test_mg_states(beacon):
     assert default_mg.active_state_name == 'default'
 
 
-def test_mg_enable_disable(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_mg_enable_disable(session, beacon):
     measurementgroup.set_active_name('MG1')    # use MG1 as active MG
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
     counters_list = ['diode', 'diode2', 'diode3'].sort()
@@ -116,9 +108,7 @@ def test_mg_enable_disable(beacon):
     assert list(default_mg.disabled).sort() == counters_list
 
 
-def test_scan(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_scan(session):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
     default_mg.enable_all()
@@ -134,17 +124,13 @@ def test_scan(beacon):
 
 
 
-def test_print(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_print(session):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
     repr_string = 'MeasurementGroup: test_mg (state=\'default\')\n  - Existing states : \'default\'\n\n  Enabled  Disabled\n  -------  -------\n  diode    \n'
     assert repr(default_mg) == repr_string
 
-def test_exceptions(beacon):
-    session = beacon.get("test_session")
-    session.setup()
+def test_exceptions(session):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
 
@@ -154,9 +140,7 @@ def test_exceptions(beacon):
     with pytest.raises(ValueError):
         default_mg.remove_states('default')
 
-def test_add(beacon, capsys):
-    session = beacon.get("test_session")
-    session.setup()
+def test_add(session, capsys):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, 'ACTIVE_MG')
     default_mg.enable_all()

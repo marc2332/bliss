@@ -1,3 +1,5 @@
+import sys
+
 from gevent import greenlet
 from gevent import hub
 import gevent
@@ -52,9 +54,16 @@ def _patched_kill(greenlet, exception, waiter) :
     else:        
         saved_kill(greenlet, exception, waiter)
 
-greenlet._kill = _patched_kill
 
-#gevent.hub module patch
+# Alter the true scope of the greenlet module.
+# With gevent >= 1.3, the module would be typically be 'gevent._greenlet',
+# with its globals copied to 'gevent.greenlet'. That means patching
+# 'greenlet._kill' doesn't work since the methods of the 'Greenlet' class
+# are looking for '_kill' in the 'gevent._greenlet' namespace.
+sys.modules[greenlet.__name__]._kill = _patched_kill
+
+
+# gevent.hub module patch
 
 def _hub_patched_kill(greenlet, exception):
     masks = MASKED_GREENLETS.get(greenlet)

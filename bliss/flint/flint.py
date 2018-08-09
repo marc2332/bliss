@@ -29,8 +29,7 @@ from bliss.data.scan import watch_session_scans
 from bliss.flint.executor import QtExecutor
 from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import qt_safe
-from bliss.flint.executor import create_queue_from_qt_signal
-from bliss.flint.executor import disconnect_queue_from_qt_signal
+from bliss.flint.executor import QtSignalQueue
 from bliss.config.conductor.client import get_default_connection
 
 try:
@@ -556,11 +555,11 @@ class Flint:
         dock = self._create_roi_dock_widget(plot, initial_shapes)
         roi_widget = dock.widget()
         try:
-            queue = create_queue_from_qt_signal(roi_widget.selectionFinished)
+            queue = QtSignalQueue(roi_widget.selectionFinished)
             try:
                 selections, = queue.get()
             finally:
-                disconnect_queue_from_qt_signal(queue)
+                queue.disconnect()
             shapes = [dict(origin=select.getOrigin(),
                            size=select.getSize(),
                            label=select.getLabel(),
@@ -595,12 +594,12 @@ class Flint:
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection
-        queue = create_queue_from_qt_signal(selector.selectionFinished)
+        queue = QtSignalQueue(selector.selectionFinished)
         qt_safe(selector.start)(*args)
         try:
             positions, = queue.get()
         finally:
-            disconnect_queue_from_qt_signal(queue)
+            queue.disconnect()
         return positions
 
     @qt_unsafe

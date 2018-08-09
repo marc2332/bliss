@@ -106,7 +106,11 @@ class Mockup(Controller):
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = None
         self.__encoders[encoder]["steps"] = None
-        self.__encoders[encoder]["axis"] = ENCODER_AXIS[encoder.name]
+        axis_name = ENCODER_AXIS[encoder.name]
+        self.__encoders[encoder]["axis"] = axis_name
+        axis = get_axis(axis_name)
+        if not axis in self._axis_moves:
+            self.initialize_axis(axis)
 
     """
     Actions to perform at controller closing.
@@ -119,6 +123,7 @@ class Mockup(Controller):
            Also updates the motor hardware position setting if a motion is
            occuring"""
         motion = self._axis_moves[axis]['motion']
+
         if motion:
             if t is None:
                 t = time.time()

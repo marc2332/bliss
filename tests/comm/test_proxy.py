@@ -16,6 +16,7 @@ from gevent.server import StreamServer
 
 from bliss.comm.tcp_proxy import Proxy
 
+
 def echo(socket, address):
     # using a makefile because we want to use readline()
     rfileobj = socket.makefile(mode='rb')
@@ -50,7 +51,7 @@ def test_proxy(beacon, echo_server):
     host, port = proxy._url_channel.value.split(":")
 
     client_socket = gevent.socket.socket()
-    client_socket.connect((host, port))
+    client_socket.connect((host, int(port)))
     client_socket.sendall('HELLO PROXY\n')
     assert client_socket.recv(1024) == 'HELLO PROXY\n'
 

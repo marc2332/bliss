@@ -9,9 +9,12 @@ import pytest
 
 
 def pytest_collection_modifyitems(config, items):
-    if config.getoption('--pepu') is None:
-        for item in list(items):
-            if 'pepu' in item.keywords:
-                items.remove(item)
-
-
+    try:
+        if config.getoption('--pepu'):
+            return
+    except ValueError:
+        return
+    # Remove pepu tests if no pepu option is provided
+    for item in list(items):
+        if 'pepu' in item.keywords:
+            items.remove(item)

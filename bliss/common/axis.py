@@ -933,9 +933,6 @@ class Axis(object):
                                "%r" % (self.name, str(initial_state)))
 
     def _start_move_task(self, funct, *args, **kwargs):
-        kwargs['wait'] = False
-
-        @task
         def move_task(funct, *args, **kwargs):
             with capture_exceptions(raise_index=0) as capture:
                 # 'funct' is supposed to be a move loop
@@ -975,7 +972,7 @@ class Axis(object):
         for _, chan in self._beacon_channels.iteritems():
             chan.unregister_callback(chan._setting_update_cb)
         
-        self.__move_task = move_task(funct, *args, **kwargs)
+        self.__move_task = gevent.spawn(move_task, funct, *args, **kwargs)
 
         return self.__move_task
 

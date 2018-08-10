@@ -15,9 +15,9 @@ import functools
  
 class TaskException:
 
-    def __init__(self, exception, error_string, tb):
+    def __init__(self, exc_type, exception, tb):
+        self.exc_type = exc_type
         self.exception = exception
-        self.error_string = error_string
         self.tb = tb
 
 
@@ -53,7 +53,7 @@ def special_get(self, *args, **kwargs):
     ret = self._get(*args, **kwargs)
     
     if isinstance(ret, TaskException):
-        raise ret.exception, ret.error_string, ret.tb
+        raise ret.exc_type, ret.exception, ret.tb
     else:
         return ret
 
@@ -68,18 +68,21 @@ def task(func):
         started_event = gevent.event.Event() if wait_started else None
         t = gevent.spawn(wrap_errors(func, started_event), *args, **kwargs)
         t._get = t.get
+        setattr(t, "get", types.MethodType(special_get, t))
 
         if wait_started:
-            started_event.wait()
+            try:
+                started_event.wait()
+            except:
+                t.kill()
+
+        if not wait:
+            return t
 
         try:
-            setattr(t, "get", types.MethodType(special_get, t))
-
-            if wait:
-                return t.get(timeout=timeout)
-            else:
-                return t
+            return t.get(timeout=timeout)
         except:
+            # kill task in case of timeout, for example
             t.kill()
             raise
 

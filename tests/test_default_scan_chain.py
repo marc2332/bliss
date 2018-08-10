@@ -5,14 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-from bliss.scanning.chain import AcquisitionChain
+
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionDevice
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice, IntegratingCounterAcquisitionDevice
-from bliss.controllers.simulation_diode import CONTROLLER as diode23_controller
-from bliss.common.scans import DEFAULT_CHAIN
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+from bliss.controllers.simulation_diode import DEFAULT_CONTROLLER as diode_controller
+
 
 def test_default_chain_with_sampling_counter(beacon):
     """Want to build the following acquisition chain:
@@ -62,8 +62,8 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode2
     assert diode3
 
-    #assert diode.controller is None
-    #assert diode2.controller == diode3.controller == diode23_controller
+    assert diode.controller is None
+    assert diode2.controller == diode3.controller == diode_controller
 
     scan_pars = {"npoints": 10,
                  "count_time": 0.1}
@@ -195,7 +195,7 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
 
         chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1,
                                               lima_sim])
-        timer = chain.timer 
+        timer = chain.timer
 
         nodes = chain.nodes_list
         assert len(nodes) == 3
@@ -233,7 +233,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
                  "count_time": 0.1}
 
     try:
-        DEFAULT_CHAIN.set_settings([{"device": diode, "master": lima_sim }, 
+        DEFAULT_CHAIN.set_settings([{"device": diode, "master": lima_sim },
                                     {"device": lima_sim, "acquisition_settings":
                                         {'acq_trigger_mode':'EXTERNAL_GATE'}
                                     } ])
@@ -351,4 +351,3 @@ def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
         assert nodes[2].trigger_mode == McaAcquisitionDevice.GATE
     finally:
         DEFAULT_CHAIN.set_settings([])
-

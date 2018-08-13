@@ -236,3 +236,9 @@ def session(beacon):
     session.setup()
     yield session
     session.close()
+
+
+def pytest_addoption(parser):
+    parser.addoption("--pepu", help="pepu host name")
+
+

@@ -8,10 +8,6 @@
 import pytest
 
 
-def pytest_addoption(parser):
-    parser.addoption("--pepu", help="pepu host name")
-
-
 def pytest_collection_modifyitems(config, items):
     if config.getoption('--pepu') is None:
         for item in list(items):

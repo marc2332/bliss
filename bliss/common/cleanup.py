@@ -232,7 +232,7 @@ def capture_exceptions(raise_index=-1, excepthook=None):
                 elif raise_index == -1 and len(infos) > 1:
                     excepthook(*infos[-2])
 
-    infos = capture.exception_infos = []
+    infos = capture.exception_infos = capture.failed = []
     with capture():
         yield capture
 

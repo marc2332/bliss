@@ -185,7 +185,7 @@ def lima_simulator(ports, beacon):
 
     p = subprocess.Popen(['LimaCCDs', 'simulator'])
 
-    with gevent.Timeout(3, RuntimeError("Lima simulator is not running")):
+    with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
         while True:
             try:
                 dev_proxy = DeviceProxy(device_fqdn)
@@ -213,7 +213,7 @@ def bliss_tango_server(ports, beacon):
     bliss_ds = [sys.executable, '-m', 'bliss.tango.servers.bliss_ds']
     p = subprocess.Popen(bliss_ds+["test"])
 
-    with gevent.Timeout(3, RuntimeError("Bliss tango server is not running")):
+    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         while True:
             try:
                 dev_proxy = DeviceProxy(device_fqdn)
@@ -240,5 +240,3 @@ def session(beacon):
 
 def pytest_addoption(parser):
     parser.addoption("--pepu", help="pepu host name")
-
-

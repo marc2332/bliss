@@ -954,7 +954,7 @@ class Axis(object):
 
                 # update position if motor has been stopped
                 with capture():
-                    if self._user_stopped: # or state.LIMPOS or state.LIMNEG:
+                    if self._user_stopped or state.LIMPOS or state.LIMNEG:
                         self._update_dial()
                         self._set_position(self.position())
 

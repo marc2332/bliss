@@ -51,7 +51,7 @@ class GroupMove(object):
     @property
     def parent(self):
         return self.__parent
-    
+
     def __monitor_move(self, motions_dict, polling_time=DEFAULT_POLLING_TIME):
         monitor_move = []
         for controller, motions in motions_dict.iteritems():
@@ -70,11 +70,11 @@ class GroupMove(object):
          stop = [gevent.spawn(self._stop_one_controller_motions, controller, motions)
                  for controller, motions in motions_dict.iteritems()]
          gevent.joinall(stop)
-         
+
     def __move(self, motions_dict, started_event=None, polling_time=DEFAULT_POLLING_TIME):
         all_motions = [motion for motions in motions_dict.itervalues()
                        for motion in motions]
-        
+
         try:
             # put axis in MOVING state => wait_move will wait until moving state
             # is cleared, at '_start_move_task' cleanup
@@ -83,7 +83,7 @@ class GroupMove(object):
 
             if started_event is not None:
                 started_event.set()
-            
+
             start = [gevent.spawn(self._start_one_controller_motions, controller, motions)
                      for controller, motions in motions_dict.iteritems()]
             try:
@@ -102,7 +102,7 @@ class GroupMove(object):
         finally:
                 self.__move_done.set()
                 event.send(self.parent, "move_done", True)
-    
+
     def start(self, motions_dict, relative=False, wait=True, polling_time=DEFAULT_POLLING_TIME):
         if len(motions_dict) == 0:
             return
@@ -186,7 +186,7 @@ class _Group(object):
             for motion in motions:
                 controller.stop(motion.axis)
                 motion.axis._user_stopped = True
-                
+
     def state(self):
         if self.is_moving:
             return AxisState("MOVING")
@@ -230,7 +230,7 @@ class _Group(object):
     def rmove(self, *args, **kwargs):
         kwargs["relative"] = True
         return self.move(*args, **kwargs)
-        
+
     def move(self, *args, **kwargs):
         self._check_ready()
 
@@ -239,13 +239,13 @@ class _Group(object):
         polling_time = kwargs.pop("polling_time", DEFAULT_POLLING_TIME)
         axis_pos_dict = {}
         motions_dict = {}
-        
+
         if len(args) == 1:
             axis_pos_dict.update(args[0])
         else:
             for axis, target_pos in grouped(args, 2):
                 axis_pos_dict[axis] = target_pos
-        
+
         for axis, target_pos in axis_pos_dict.iteritems():
             motion = axis.prepare_move(target_pos, relative=relative)
             # motion can be None if axis is not supposed to move
@@ -279,7 +279,7 @@ class TrajectoryGroup(object):
         self.__calc_axis = calc_axis
         self.__disabled_axes = set()
         self.trajectories = trajectories
-        
+
     @property
     def trajectories(self):
         """
@@ -347,13 +347,13 @@ class TrajectoryGroup(object):
             return self.__group.is_moving
         else:
             return False
-        
+
     def state(self):
         if self.__group:
             return self.__group.state()
         else:
             return AxisState("OFF")
-    
+
     def prepare(self):
         """
         prepare/load trajectories in controllers
@@ -363,7 +363,7 @@ class TrajectoryGroup(object):
             for trajectory in self.trajectories:
                 trajectories.append(trajectory.convert_to_dial())
             self.__trajectories_dialunit = trajectories
-            
+
         prepare = [gevent.spawn(controller.prepare_trajectory, *trajectories)
                    for controller, trajectories in self.trajectories_by_controller.iteritems()]
         try:
@@ -383,7 +383,7 @@ class TrajectoryGroup(object):
     def _start_trajectory(self, controller, motions):
         trajectories = self.trajectories_by_controller[controller]
         controller.start_trajectory(*trajectories)
-        
+
     def move_to_start(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
         Move all enabled motors to the first point of the trajectory
@@ -430,7 +430,7 @@ class TrajectoryGroup(object):
         """
         if self.__group and self.__group._group_move:
             self.__group._group_move.stop(wait)
-        
+
     def wait_move(self):
         if self.__group and self.__group._group_move:
             self.__group._group_move.wait()

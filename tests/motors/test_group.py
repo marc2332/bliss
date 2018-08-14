@@ -60,8 +60,8 @@ def test_ctrlc(roby, robz):
     grp.move({robz: -10, roby: -10}, wait=False)
     
     gevent.sleep(0.01)
-    
-    grp._group_move._GroupMove__move_task.kill(KeyboardInterrupt, block=False)
+
+    grp._group_move._move_task.kill(KeyboardInterrupt, block=False)
 
     with pytest.raises(KeyboardInterrupt):
         grp.wait_move()

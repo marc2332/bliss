@@ -7,11 +7,10 @@
 
 import gevent
 import itertools
-import numpy
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME
-from bliss.common.axis import Trajectory
 from bliss.common import event
 from bliss.common.utils import grouped
+from bliss.common.cleanup import capture_exceptions
 
 GROUP_ID = itertools.count()
 GROUP_NAMES = {}
@@ -35,24 +34,45 @@ def Group(*axes_list):
 
 
 class GroupMove(object):
-    def __init__(self, parent, start_one_controller_motions, stop_one_controller_motions):
-        self.__parent = parent
-        self.__move_done = gevent.event.Event()
-        self.__move_done.set()
-        self.__move_task = None
 
-        self._start_one_controller_motions = start_one_controller_motions
-        self._stop_one_controller_motions = stop_one_controller_motions
+    def __init__(self, parent):
+        self.parent = parent
+        self._move_task = None
+
+    # Public API
 
     @property
     def is_moving(self):
-        return not self.__move_done.is_set()
+        # A greenlet evaluates to True when not dead
+        return bool(self._move_task)
 
-    @property
-    def parent(self):
-        return self.__parent
+    def move(self, motions_dict, start_motion, stop_motion,
+             wait=True, polling_time=DEFAULT_POLLING_TIME):
+        started = gevent.event.Event()
+        self._move_task = gevent.spawn(
+            self._move, motions_dict, start_motion, stop_motion, started, polling_time)
 
-    def __monitor_move(self, motions_dict, polling_time=DEFAULT_POLLING_TIME):
+        try:
+            # Wait for the move to be started (or finished)
+            gevent.wait([started, self._move_task], count=1)
+            # Wait if necessary and raise the move task exception if any
+            if wait or self._move_task.ready():
+                self._move_task.get()
+        except BaseException:
+            self._move_task.kill()
+            raise
+
+    def wait(self):
+        if self._move_task is not None:
+            self._move_task.join()
+
+    def stop(self, wait=True):
+        if self._move_task is not None:
+            self._move_task.kill(block=wait)
+
+    # Internal methods
+
+    def _monitor_move(self, motions_dict, polling_time):
         monitor_move = []
         for controller, motions in motions_dict.iteritems():
             for motion in motions:
@@ -60,102 +80,68 @@ class GroupMove(object):
                                                     motion, polling_time)
                 task._motions = [motion]
                 monitor_move.append(gevent.spawn(motion.axis.wait_move))
+        # Stop at first exception, and kill all the remaining tasks
         try:
             gevent.joinall(monitor_move, raise_error=True)
-        except:
+        except BaseException:
             gevent.killall(monitor_move)
             raise
 
-    def __stop_move(self, motions_dict):
-         stop = [gevent.spawn(self._stop_one_controller_motions, controller, motions)
-                 for controller, motions in motions_dict.iteritems()]
-         gevent.joinall(stop)
+    def _stop_move(self, motions_dict, stop_motion):
+        stop = [
+            gevent.spawn(stop_motion, controller, motions)
+            for controller, motions in motions_dict.iteritems()]
+        # Raise exception if any, when all the stop tasks are finished
+        for task in gevent.joinall(stop):
+            task.get()
 
-    def __move(self, motions_dict, started_event=None, polling_time=DEFAULT_POLLING_TIME):
-        all_motions = [motion for motions in motions_dict.itervalues()
-                       for motion in motions]
-
-        try:
-            # put axis in MOVING state => wait_move will wait until moving state
-            # is cleared, at '_start_move_task' cleanup
-            for motion in all_motions:
+    def _move(self, motions_dict, start_motion, stop_motion, started_event, polling_time):
+        # Set axis moving state
+        # (wait_move will wait until moving state is cleared,
+        #  at '_start_move_task' cleanup)
+        for motions in motions_dict.itervalues():
+            for motion in motions:
                 motion.axis._set_moving_state(move_type=motion.type)
 
-            if started_event is not None:
-                started_event.set()
+        # Spawn start motion for all controllers
+        start = [gevent.spawn(start_motion, controller, motions)
+                 for controller, motions in motions_dict.iteritems()]
 
-            start = [gevent.spawn(self._start_one_controller_motions, controller, motions)
-                     for controller, motions in motions_dict.iteritems()]
-            try:
+        # Wait for the controllers to be started
+        with capture_exceptions(raise_index=0) as capture:
+            with capture():
                 gevent.joinall(start, raise_error=True)
-                self.__monitor_move(motions_dict, polling_time)
-            except:
-                # something went wrong when starting motors: stop
-                # everything !
-                # it is important to kill the tasks, otherwise it may send
-                # unwanted 'start' to motors
+            if capture.failed:
                 gevent.killall(start)
-                # send stop to axes
-                self.__stop_move(motions_dict)
-                self.__monitor_move(motions_dict)
-                raise
-        finally:
-                self.__move_done.set()
-                event.send(self.parent, "move_done", True)
+                with capture():
+                    self._stop_move(motions_dict, stop_motion)
+                with capture():
+                    self._monitor_move(motions_dict, polling_time)
 
-    def start(self, motions_dict, relative=False, wait=True, polling_time=DEFAULT_POLLING_TIME):
-        if len(motions_dict) == 0:
-            return
+        # All the controllers are now started
+        started_event.set()
 
-        started = gevent.event.Event()
-
-        self.__move_task = gevent.spawn(self.__move, motions_dict, started, polling_time)
-
-        try:
-            started.wait()
-        except:
-            self.__move_task.kill()
-            raise
-        else:
-            if self.__move_task.ready():
-                # move task already finished,
-                # this can happen if motions_dict is empty
-                # (now protected with test on top of this
-                # function), but we can imagine it can
-                # happen in case of a very small move ?
-                # or if something changes in the future in
-                # the underlying code ?
-                return
-
-        self.__move_done.clear()
+        # Spawn the monitoring for all motions
         event.send(self.parent, "move_done", False)
+        monitor_task = gevent.spawn(self._monitor_move, motions_dict, polling_time)
 
-        if wait:
-            self.wait()
-
-    def wait(self):
-        if self.__move_task:
-            move_task = self.__move_task
-            self.__move_done.wait()
-            self.__move_task = None
-            try:
-                move_task.get()
-            except gevent.GreenletExit:
-                # ignore if task has been killed (by user)
-                pass
-
-    def stop(self, wait=True):
-        if self.__move_task is not None:
-            self.__move_task.kill()
-            if wait:
-                self.wait()
+        # Wait for the motions to stop
+        with capture_exceptions(raise_index=0) as capture:
+            with capture():
+                monitor_task.get()
+            if capture.failed:
+                with capture():
+                    self._stop_move(motions_dict, stop_motion)
+                with capture():
+                    monitor_task.get()
+            event.send(self.parent, "move_done", True)
 
 
 class _Group(object):
 
     def __init__(self, name, axes_dict):
         self.__name = name
-        self._group_move = None
+        self._group_move = GroupMove(self)
         self._axes = dict(axes_dict)
 
     @property
@@ -168,7 +154,7 @@ class _Group(object):
 
     @property
     def is_moving(self):
-        return self._group_move.is_moving if self._group_move else False
+        return self._group_move.is_moving
 
     def _start_one_controller_motions(self, controller, motions):
         try:
@@ -252,18 +238,17 @@ class _Group(object):
             if motion is not None:
                 motions_dict.setdefault(axis.controller, []).append(motion)
 
-        self._group_move = GroupMove(self,
-                                     self._start_one_controller_motions,
-                                     self._stop_one_controller_motions)
-        self._group_move.start(motions_dict, relative=relative, wait=wait, polling_time=polling_time)
+        self._group_move.move(
+            motions_dict,
+            self._start_one_controller_motions,
+            self._stop_one_controller_motions,
+            wait=wait, polling_time=polling_time)
 
     def wait_move(self):
-        if self._group_move:
-            self._group_move.wait()
+        self._group_move.wait()
 
     def stop(self, wait=True):
-        if self._group_move:
-            self._group_move.stop(wait)
+        self._group_move.stop(wait)
 
 
 class TrajectoryGroup(object):
@@ -273,12 +258,11 @@ class TrajectoryGroup(object):
 
     def __init__(self, *trajectories, **kwargs):
         calc_axis = kwargs.pop('calc_axis', None)
-        self.__trajectories = None
+        self.__trajectories = trajectories
         self.__trajectories_dialunit = None
-        self.__group = None
+        self.__group = Group(*self.axes)
         self.__calc_axis = calc_axis
         self.__disabled_axes = set()
-        self.trajectories = trajectories
 
     @property
     def trajectories(self):
@@ -292,7 +276,6 @@ class TrajectoryGroup(object):
         self.__trajectories = trajectories
         self.__trajectories_dialunit = None
         self.__group = Group(*self.axes)
-        self.__group._group_move = None
 
     @property
     def axes(self):
@@ -343,16 +326,10 @@ class TrajectoryGroup(object):
 
     @property
     def is_moving(self):
-        if self.__group:
-            return self.__group.is_moving
-        else:
-            return False
+        return self.__group.is_moving
 
     def state(self):
-        if self.__group:
-            return self.__group.state()
-        else:
-            return AxisState("OFF")
+        return self.__group.state()
 
     def prepare(self):
         """
@@ -403,8 +380,12 @@ class TrajectoryGroup(object):
             motion.backlash = 0
             motions_dict.setdefault(motion.axis.controller, []).append(motion)
 
-        self.__group._group_move = GroupMove(self, self._move_to_trajectory, self._stop_trajectory)
-        self.__group._group_move.start(motions_dict, wait=wait, polling_time=polling_time)
+        self.__group._group_move.move(
+            motions_dict,
+            self._move_to_trajectory,
+            self._stop_trajectory,
+            wait=wait,
+            polling_time=polling_time)
 
     def move_to_end(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
@@ -421,16 +402,18 @@ class TrajectoryGroup(object):
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)
 
-        self.__group._group_move = GroupMove(self, self._start_trajectory, self._stop_trajectory)
-        self.__group._group_move.start(motions_dict, wait=wait, polling_time=polling_time)
+        self.__group._group_move.move(
+            motions_dict,
+            self._start_trajectory,
+            self._stop_trajectory,
+            wait=wait,
+            polling_time=polling_time)
 
     def stop(self, wait=True):
         """
         Stop the motion on all motors
         """
-        if self.__group and self.__group._group_move:
-            self.__group._group_move.stop(wait)
+        self.__group.stop(wait)
 
     def wait_move(self):
-        if self.__group and self.__group._group_move:
-            self.__group._group_move.wait()
+        self.__group.wait_move()

@@ -162,6 +162,11 @@ class Controller(object):
                     chan = Channel(chan_name, default_value=setting_value, callback=cb)
                 chan._setting_update_cb = cb
                 axis._beacon_channels[setting_name] = chan
+ 
+                # register 'move_stop' channel
+                move_stop_chan_name = "axis.%s.move_stop" % axis.name
+                axis._move_stop_channel = Channel(move_stop_chan_name, default_value=False, callback=axis._external_stop)
+
 
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()

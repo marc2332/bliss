@@ -50,9 +50,9 @@ def test_state_failure(bad_motor, monkeypatch):
         bad_motor.move(1)
     state_index = bad_motor.controller.state_msg_index
 
-    assert str(exc.value)=='BAD STATE %d' % (state_index-1)
-    assert len(infos) == 1
-    assert str(infos[0][1]) == 'BAD STATE %d' % state_index
+    assert str(exc.value)=='BAD STATE 1'
+    assert len(infos) == 2
+    assert str(infos[0][1]) == 'BAD STATE %d' % (state_index-1)
     assert 'FAULT' in bad_motor.state()
 
     with pytest.raises(RuntimeError):
@@ -70,10 +70,6 @@ def test_stop_failure(bad_motor):
    
     with pytest.raises(RuntimeError):
         bad_motor.stop()
-
-    assert 'MOVING' in bad_motor.state()
-
-    bad_motor.wait_move()
 
     assert 'READY' in bad_motor.state()
 

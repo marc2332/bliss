@@ -7,7 +7,7 @@
 
 import gevent
 import itertools
-from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME
+from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.common.cleanup import capture_exceptions
@@ -61,12 +61,9 @@ class _Group(object):
     def _stop_one_controller_motions(self, controller, motions):
         try:
             controller.stop_all(*motions)
-            for motion in motions:
-                motion.axis._user_stopped = True
         except NotImplementedError:
             for motion in motions:
                 controller.stop(motion.axis)
-                motion.axis._user_stopped = True
 
     def state(self):
         if self.is_moving:

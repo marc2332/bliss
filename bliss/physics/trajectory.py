@@ -178,7 +178,11 @@ class LinearTrajectory(object):
         self.dp = abs(self.p)
         self.positive = pf > pi
 
-        full_accel_time = velocity / acceleration
+        try:
+            full_accel_time = velocity / acceleration
+        except ZeroDivisionError:
+            # piezo motors have 0 acceleration
+            full_accel_time = 0
         full_accel_dp = 0.5 * acceleration * full_accel_time**2
 
         full_dp_non_const_vel = 2 * full_accel_dp
@@ -201,7 +205,10 @@ class LinearTrajectory(object):
             self.top_vel_dp = 0
             self.top_vel_time = 0
             self.accel_dp = self.dp / 2
-            self.accel_time = math.sqrt(2 * self.accel_dp / acceleration)
+            try:
+                self.accel_time = math.sqrt(2 * self.accel_dp / acceleration)
+            except ZeroDivisionError:
+                self.accel_time = 0
             self.duration = 2 * self.accel_time
             self.velocity = acceleration * self.accel_time
             self.ta = self.tb = self.ti + self.accel_time

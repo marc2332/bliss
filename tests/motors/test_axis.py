@@ -30,7 +30,6 @@ def test_state_callback(robz):
     assert ready_event.get(timeout=0.1)
     assert robz.state().READY
 
-
 def test_move_done_callback(robz):
     ready_event = gevent.event.AsyncResult()
     dial_event = gevent.event.AsyncResult()

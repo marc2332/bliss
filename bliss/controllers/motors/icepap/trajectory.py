@@ -140,15 +140,13 @@ class TrajectoryAxis(Axis):
         axes_str = ' '.join(('%s' % axis.address for axis in self.enabled_axes))
         motion = self.prepare_move(user_target_pos, relative)
 
-        _command(self.controller._cnx,
-                 "#MOVEP {} {}".format(motion.target_pos, axes_str))
-
-        motion_task = self._start_move_task(self._do_handle_move, motion,
-                                            polling_time, being_waited=wait)
-        motion_task._motions = [motion]
-
-        self._set_moving_state()
-
+        def start_one(controller, motions):
+            _command(controller._cnx,
+                     "#MOVEP {} {}".format(motions[0].target_pos, axes_str))
+        def stop_one(controller, motions):
+            controller.stop(motions[0].axis)
+        self._group_move.move({ self.controller: [motion] }, start_one, stop_one, wait=False, polling_time=polling_time)
+            
         if wait:
             self.wait_move()
 

@@ -5,7 +5,9 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import pytest
+import mock
 from bliss.common import cleanup
+from bliss.common.cleanup import capture_exceptions
 
 def test_motor_stop_movement_cleanup(robz):
     pos = robz.position()
@@ -89,3 +91,80 @@ def test_functions_call():
     
     assert test_flags['test1_called'] == 2
     assert not test_flags['test2_called']
+
+def test_exceptions_capture(capsys):
+    m = mock.Mock()
+    with capture_exceptions() as capture:
+        with capture():
+            m()
+    m.assert_called_once_with()
+
+    m = mock.Mock()
+    with pytest.raises(ZeroDivisionError) as exc:
+        with capture_exceptions() as capture:
+            with capture():
+                1/0
+            with capture():
+                m()
+    m.assert_called_once_with()
+    assert len(exc.value.exception_infos) == 1
+    assert len(capture.exception_infos) == 1
+
+    m = mock.Mock()
+    with pytest.raises(ZeroDivisionError) as exc:
+        with capture_exceptions() as capture:
+            with capture():
+                m()
+            1/0
+    m.assert_called_once_with()
+    assert len(exc.value.exception_infos) == 1
+    assert len(capture.exception_infos) == 1
+
+    m = mock.Mock()
+    with pytest.raises(ZeroDivisionError) as exc:
+        with capture_exceptions() as capture:
+            with capture():
+                raise RuntimeError
+            with capture():
+                raise ZeroDivisionError
+            out, err = capsys.readouterr()
+            assert 'RuntimeError' in err
+            assert out == ''
+            with capture():
+                m()
+    m.assert_called_once_with()
+    assert len(exc.value.exception_infos) == 2
+    assert len(capture.exception_infos) == 2
+
+    m = mock.Mock()
+    with pytest.raises(RuntimeError) as exc:
+        with capture_exceptions(raise_index=0) as capture:
+            with capture():
+                raise RuntimeError
+            with capture():
+                raise ZeroDivisionError
+            out, err = capsys.readouterr()
+            assert 'ZeroDivisionError' in err
+            assert out == ''
+            with capture():
+                m()
+    m.assert_called_once_with()
+    assert len(exc.value.exception_infos) == 2
+    assert len(capture.exception_infos) == 2
+
+    m = mock.Mock()
+    with capture_exceptions(raise_index=None) as capture:
+        with capture():
+            raise RuntimeError
+        out, err = capsys.readouterr()
+        assert 'RuntimeError' in err
+        assert out == ''
+        with capture():
+            raise ZeroDivisionError
+        out, err = capsys.readouterr()
+        assert 'ZeroDivisionError' in err
+        assert out == ''
+        with capture():
+            m()
+    m.assert_called_once_with()
+    assert len(capture.exception_infos) == 2

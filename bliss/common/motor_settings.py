@@ -14,7 +14,7 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
     #print 'setting update from channel', axis.name, setting_name, str(value)
     if setting_name == 'state':
         if 'MOVING' in str(value):
-            axis._set_moving_state(from_channel=True, move_type=value.move_type)
+            axis._set_moving_state(from_channel=True)
         else:
             if axis.is_moving:
                 axis._set_move_done()

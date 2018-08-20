@@ -55,7 +55,6 @@ class Mockup(Controller):
         self.__voltages = {}
         self.__cust_attr_float = {}
 
-        self.__error_mode = False
         self._hw_state = AxisState("READY")
         self.__hw_limit = float('-inf'), float('+inf')
 
@@ -106,7 +105,11 @@ class Mockup(Controller):
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = None
         self.__encoders[encoder]["steps"] = None
-        self.__encoders[encoder]["axis"] = ENCODER_AXIS[encoder.name]
+        axis_name = ENCODER_AXIS[encoder.name]
+        self.__encoders[encoder]["axis"] = axis_name
+        axis = get_axis(axis_name)
+        if not axis in self._axis_moves:
+            self.initialize_axis(axis)
 
     """
     Actions to perform at controller closing.
@@ -119,6 +122,7 @@ class Mockup(Controller):
            Also updates the motor hardware position setting if a motion is
            occuring"""
         motion = self._axis_moves[axis]['motion']
+
         if motion:
             if t is None:
                 t = time.time()
@@ -144,15 +148,11 @@ class Mockup(Controller):
         self.__hw_limit = (ll, hl)
 
     def start_all(self, *motion_list):
-        if self.__error_mode:
-            raise RuntimeError("Cannot start because error mode is set")
         t0 = time.time()
         for motion in motion_list:
             self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
-        if self.__error_mode:
-            raise RuntimeError("Cannot start because error mode is set")
         axis = motion.axis
         if self._get_axis_motion(axis):
             raise RuntimeError('Cannot start motion. Motion already in place')
@@ -423,9 +423,6 @@ class Mockup(Controller):
         self.__encoders[axis.encoder]["measured_noise"] = noise
         self.__encoders[axis.encoder]["axis"] = axis.name
 
-    def set_error(self, error_mode):
-        self.__error_mode = error_mode
-
     """
     Custom attributes methods
     """
@@ -469,15 +466,15 @@ class MockupAxis(Axis):
         Axis.__init__(self, *args, **kwargs)
 
     def prepare_move(self, *args, **kwargs):
-        self.backlash_move = 0
-        return Axis.prepare_move(self, *args, **kwargs)
-
-    def _handle_move(self, motion, polling_time):
-        self.target_pos = motion.target_pos
-        self.backlash_move = motion.target_pos / \
-            self.steps_per_unit if motion.backlash else 0
-        return Axis._handle_move(self, motion, polling_time)
-
+        motion = Axis.prepare_move(self, *args, **kwargs)
+        if motion is None:
+            self.backlash_move = 0
+            self.target_pos = None
+        else:
+            self.target_pos = motion.target_pos
+            self.backlash_move = motion.target_pos / \
+                self.steps_per_unit if motion.backlash else 0
+        return motion
 
 class MockupHook(MotionHook):
     """Motion hook used for pytest"""
@@ -506,3 +503,39 @@ class MockupHook(MotionHook):
             raise self.Error('cannot post_move')
         self.nb_post_move += 1
         self.last_post_move_args = motion_list
+
+class FaultyMockup(Mockup):
+    def __init__(self, *args, **kwargs):
+        Mockup.__init__(self, *args, **kwargs)
+
+        self.bad_state = False
+        self.bad_start = False
+        self.bad_state_after_start = False
+        self.bad_stop = False
+        self.state_recovery_delay = 1
+        self.state_msg_index = 0
+
+    def state(self, axis):
+        if self.bad_state:
+            self.state_msg_index += 1
+            raise RuntimeError("BAD STATE %d" % self.state_msg_index)
+        else:
+            return Mockup.state(self, axis)
+
+    def start_one(self, motion, **kw):
+        self.state_msg_index = 0
+        if self.bad_start:
+            raise RuntimeError("BAD START")
+        else:
+            try:
+                return Mockup.start_one(self, motion, **kw)
+            finally:
+                if self.bad_state_after_start:
+                    self.bad_state = True
+                    gevent.spawn_later(self.state_recovery_delay, setattr, self, "bad_state", False)
+
+    def stop(self, axis, **kw):
+        if self.bad_stop:
+            raise RuntimeError("BAD STOP")
+        else:
+            return Mockup.stop(self, axis, **kw)

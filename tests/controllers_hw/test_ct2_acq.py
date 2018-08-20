@@ -76,7 +76,7 @@ def data_tests(device, expected_data):
 
     # get all data (does not consume it)
     data = device.get_data()
-    assert pytest.approx(data, expected_data)
+    assert data == pytest.approx(expected_data)
 
     from_index = 3
     if expected_nb_points > from_index:

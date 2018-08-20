@@ -79,21 +79,21 @@ def test_real_move_and_set_pos(s1f, s1b, s1hg):
 
 def test_set_dial(roby, calc_mot1):
     calc_mot1.move(4)
-    assert pytest.approx(roby.position(), 2)
+    assert roby.position() == pytest.approx(2)
     calc_mot1.dial(0)
-    assert pytest.approx(calc_mot1.position(), 4)
-    assert pytest.approx(calc_mot1.dial(), 4)
-    assert pytest.approx(roby.position(), 0)
+    assert calc_mot1.position() == pytest.approx(4)
+    assert calc_mot1.dial() == pytest.approx(0)
+    assert roby.position() == pytest.approx(0)
 
 def test_set_position(roby, calc_mot1):
     calc_mot1.move(1)
-    assert pytest.approx(calc_mot1.offset, 0)
-    assert pytest.approx(roby.position(), 0.5)
+    assert calc_mot1.offset == pytest.approx(0)
+    assert roby.position() == pytest.approx(0.5)
     calc_mot1.position(0)
-    assert pytest.approx(calc_mot1.offset, -1)
-    assert pytest.approx(calc_mot1.position(), 0)
-    assert pytest.approx(calc_mot1.dial(), 1)
-    assert pytest.approx(roby.position(), 0.5)
+    assert calc_mot1.offset == pytest.approx(-1)
+    assert calc_mot1.position() == pytest.approx(0)
+    assert calc_mot1.dial() == pytest.approx(1)
+    assert roby.position() == pytest.approx(0.5)
 
 def test_offset_set_position(calc_mot1):
     calc_mot1.dial(0)
@@ -104,12 +104,12 @@ def test_offset_set_position(calc_mot1):
 
 def test_calc_in_calc(roby, calc_mot1, calc_mot2):
     calc_mot1.move(1)
-    assert pytest.approx(calc_mot1.position(), 1)
-    assert pytest.approx(roby.position(), 0.5)
+    assert calc_mot1.position() == pytest.approx(1)
+    assert roby.position() == pytest.approx(0.5)
     calc_mot2.move(1)
-    assert pytest.approx(calc_mot1.position(), 0.5)
-    assert pytest.approx(calc_mot2.position(), 1)
-    assert pytest.approx(roby.position(), 0.25)
+    assert calc_mot1.position() == pytest.approx(0.5)
+    assert calc_mot2.position() == pytest.approx(1)
+    assert roby.position() == pytest.approx(0.25)
 
 def test_ascan_limits(s1hg, s1f, s1b):
     s1hg.position(0)

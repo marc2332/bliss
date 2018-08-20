@@ -1,4 +1,11 @@
 controller:
+- module: mockup
+  class: FaultyMockup
+  axes:
+  - name: bad
+    steps_per_unit: 1000
+    velocity: 100
+    acceleration: 100
 - class: mockup
   name: test
   axes:
@@ -140,3 +147,4 @@ hooks:
   class: MockupHook
   module: motors.mockup
   pre_move_error: true
+

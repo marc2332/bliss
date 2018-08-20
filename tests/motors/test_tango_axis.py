@@ -46,7 +46,7 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
 
     s1hg.wait_move()
 
-    assert pytest.approx(s1hg.position(), 2)
+    assert s1hg.position() == pytest.approx(2)
 
     s1hg.rmove(1)
 

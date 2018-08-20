@@ -116,26 +116,26 @@ class LinkedAxis(Axis):
         return r
 
     @lazy_init
-    def home(self,switch=1,wait=True):
+    def home(self, switch=1, wait=True,
+             polling_time=DEFAULT_POLLING_TIME):
         with self._lock:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, 'MOVING'))
 
             # create motion object for hooks
-            motion = Motion(self, None, None, "homing")
+            motion = Motion(self, switch, None, "homing")
             self.__execute_pre_move_hook(motion)
 
-            cnx = self.controller._cnx
-            cmd = "HOME STRICT %s %s" % (self.address,("+1" if switch > 0 else "-1"))
-            _ackcommand(cnx,cmd)
-            # IcePAP status is not immediately MOVING after home search command is sent
-            gevent.sleep(0.2)
+            def start_one(controller, motions):
+                cnx = controller._cnx
+                cmd = "HOME STRICT %s %s" % (motions[0].axis.address, ("+1" if motions[0].target_pos > 0 else "-1"))
+                _ackcommand(cnx, cmd)
+                # IcePAP status is not immediately MOVING after home search command is sent
+                gevent.sleep(0.2)
+            def stop_one(controller, motions):
+                controller.stop(motions[0].axis)
 
-            self._start_move_task(self._wait_home, switch)
-            
-            self.__move_task._motions = [motion]
-
-            self._set_moving_state()
+            self._group_move.move({ self.controller: [motion] }, start_one, stop_one, '_wait_home', wait=False, polling_time=polling_time)
 
         if wait:
             self.wait_move()

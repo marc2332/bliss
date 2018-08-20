@@ -30,7 +30,6 @@ def test_state_callback(robz):
     assert ready_event.get(timeout=0.1)
     assert robz.state().READY
 
-
 def test_move_done_callback(robz):
     ready_event = gevent.event.AsyncResult()
     dial_event = gevent.event.AsyncResult()
@@ -215,10 +214,6 @@ def test_limits3(robz):
 def test_backlash(roby):
     roby.move(-10, wait=False)
 
-    ## why?
-    time.sleep(0)
-    ##
-
     assert roby.backlash_move == -12
 
     roby.wait_move()
@@ -234,7 +229,6 @@ def test_backlash(roby):
 
 def test_backlash2(roby):
     roby.move(10, wait=False)
-    time.sleep(0) ## why is this needed?
     assert roby.backlash_move == 0
     roby.wait_move()
     assert roby.position() == 10
@@ -244,10 +238,19 @@ def test_backlash3(roby):
     assert roby.position() == 1
 
     roby.move(1, wait=False)
-    time.sleep(0)
 
     assert roby.backlash_move == 0
 
+    assert roby.state().READY
+
+def test_backlash_stop(roby):
+    roby.move(-10,wait=False)
+    assert roby.backlash_move == -12
+    time.sleep(0.1)
+    pos = roby.position()
+    roby.stop()
+    assert pytest.approx(roby.position(), pos, 1e-3)
+    assert pytest.approx(roby._set_position(), pos, 1e-3)
     assert roby.state().READY
 
 def test_axis_steps_per_unit(roby):
@@ -293,8 +296,9 @@ def test_home_search(roby):
 def test_ctrlc(robz):
     robz.move(100, wait=False)
     assert robz.state().MOVING
+    assert robz.is_moving
     time.sleep(0.1)
-    robz._Axis__move_task.kill(KeyboardInterrupt, block=False)
+    robz._group_move._move_task.kill(KeyboardInterrupt, block=False)
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
     assert not robz.is_moving
@@ -325,7 +329,7 @@ def test_simultaneous_waitmove_exception(robz):
     w1 = gevent.spawn(robz.wait_move)
     w2 = gevent.spawn(robz.wait_move)
     time.sleep(0.2)
-    robz._Axis__move_task.kill(RuntimeError, block=False)
+    robz._group_move._move_task.kill(RuntimeError, block=False)
     with pytest.raises(RuntimeError):
       w1.get()
     with pytest.raises(RuntimeError):
@@ -389,7 +393,7 @@ def test_set_position(m0):
     assert m0.position() == m0._set_position()
     m0.move(2, wait=False)
     time.sleep(0.01)
-    m0._Axis__move_task.kill(KeyboardInterrupt, block=False)
+    m0._group_move._move_task.kill(KeyboardInterrupt, block=False)
     try:
         m0.wait_move()
     except KeyboardInterrupt:
@@ -429,18 +433,6 @@ def test_hardware_limits(roby):
     finally:
         roby.controller.set_hw_limits(roby, None, None)
 
-
-def test_bad_start(roby):
-    try:
-        roby.controller.set_error(True)
-
-        with pytest.raises(RuntimeError):
-            roby.move(1)
-
-        assert roby.state().READY
-        assert roby.position() == 0
-    finally:
-        roby.controller.set_error(False)
 
 def test_no_offset(roby):
     try:

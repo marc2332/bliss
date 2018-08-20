@@ -476,6 +476,8 @@ class AcquisitionChainIter(object):
                              isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))):
             if hasattr(acq_dev_iter, 'wait_reading'):
                 acq_dev_iter.wait_reading()
+            if isinstance(acq_dev_iter.device, AcquisitionMaster):
+                acq_dev_iter.wait_slaves()
             dispatcher.send("end", acq_dev_iter.device)
 
     def stop(self):

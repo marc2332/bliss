@@ -13,9 +13,7 @@ from concurrent.futures import Future
 
 # Global
 
-__all__ = ['submit_to_qt_application', 'qt_safe',
-           'connect_to_qt_signal', 'disconnect_from_qt_signal',
-           'create_queue_from_qt_signal', 'disconnect_queue_from_qt_signal']
+__all__ = ['submit_to_qt_application', 'qt_safe', 'QtSignalQueue']
 
 EXECUTOR = None
 
@@ -101,47 +99,6 @@ def submit_to_qt_application(fn, *args, **kwargs):
     return concurrent_to_gevent(future).get()
 
 
-def connect_to_qt_signal(signal, callback):
-    """Connect to a given qt signal.
-
-    The callback safely runs in the current gevent loop.
-    """
-    watcher = gevent.get_hub().loop.async()
-
-    def slot(*args):
-        watcher.start(callback, *args)
-        watcher.send()
-
-    callback._qt_slot = slot
-    submit_to_qt_application(signal.connect, slot)
-
-
-def disconnect_from_qt_signal(signal, callback):
-    """Disconnect from the given qt signal."""
-    slot = callback._qt_slot
-    submit_to_qt_application(signal.disconnect, slot)
-
-
-def create_queue_from_qt_signal(signal, maxsize=None):
-    """Return a queue accumulating the emitted arguments
-    of the given qt signal.
-    """
-    queue = gevent.queue.Queue(maxsize=maxsize)
-
-    def callback(*args):
-        queue.put(args)
-
-    queue._qt_args = signal, callback
-    connect_to_qt_signal(*queue._qt_args)
-    return queue
-
-
-def disconnect_queue_from_qt_signal(queue):
-    """Disconnect the given queue from its qt signal
-    and interrupt the iterating process.
-    """
-    disconnect_from_qt_signal(*queue._qt_args)
-    queue.put(StopIteration)
 
 
 def qt_safe(func):
@@ -150,3 +107,30 @@ def qt_safe(func):
     def wrapper(*args, **kwargs):
         return submit_to_qt_application(func, *args, **kwargs)
     return wrapper
+
+
+# Qt signal gevent queue
+
+class QtSignalQueue(gevent.queue.Queue):
+    """A queue accumulating the emitted arguments of the provided qt signal."""
+
+    def __init__(self, signal, maxsize=None):
+        super(QtSignalQueue, self).__init__(maxsize=maxsize)
+        self._qt_signal = signal
+        self._qt_watcher = gevent.get_hub().loop.async()
+        submit_to_qt_application(signal.connect, self._qt_slot)
+
+    def _qt_slot(self, *args):
+        self._qt_watcher.start(lambda: self.put_nowait(args))
+        self._qt_watcher.send()
+
+    def disconnect(self):
+        """Disconnect the given queue from its qt signal
+        and interrupt the iterating process.
+        """
+        if self._qt_signal is None:
+            return
+        submit_to_qt_application(self._qt_signal.disconnect, self._qt_slot)
+        self._qt_watcher.stop()
+        self._qt_signal = None
+        self.put(StopIteration)

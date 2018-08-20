@@ -21,3 +21,4 @@ dump.rdb
 htmlcov/
 .eggs
 .coverage*
+.pytest_cache/

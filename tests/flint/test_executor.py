@@ -7,9 +7,7 @@ import gevent
 import pytest
 
 from silx.gui import qt
-from bliss.flint.executor import submit_to_qt_application
-from bliss.flint.executor import create_queue_from_qt_signal
-from bliss.flint.executor import disconnect_queue_from_qt_signal
+from bliss.flint.executor import submit_to_qt_application, QtSignalQueue
 
 
 def thread_target(queue):
@@ -48,10 +46,12 @@ def test_submit_to_qt_application(qtapp):
 def test_queue_from_qt_signal(qtapp):
     submit = submit_to_qt_application
     timer = submit(qt.QTimer, parent=qtapp)
-    queue = create_queue_from_qt_signal(timer.timeout)
+    queue = QtSignalQueue(timer.timeout)
     submit(timer.start, 100)
     assert queue.get(timeout=0.150) == ()
     submit(timer.start, 100)
     gevent.sleep(0.150)
-    disconnect_queue_from_qt_signal(queue)
+    queue.disconnect()
     assert list(queue) == [()]
+    # Test idempotency
+    queue.disconnect()

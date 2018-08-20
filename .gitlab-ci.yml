@@ -15,7 +15,7 @@ tests:
     - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-test-conda.txt
   script:
       - pip install .
-      - python setup.py test
+      - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
   artifacts:
     paths:
       - htmlcov/

@@ -11,7 +11,7 @@ how to use motion hooks in your system"""
 import weakref
 
 
-__all__ = ['MotionHook']
+__all__ = ["MotionHook"]
 
 
 class MotionHook(object):

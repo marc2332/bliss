@@ -4,8 +4,7 @@ from __future__ import absolute_import
 
 from enum import IntEnum
 
-__all__ = ['AttrQuality', 'EventType', 'DevState',
-           'AttributeProxy', 'DeviceProxy']
+__all__ = ["AttrQuality", "EventType", "DevState", "AttributeProxy", "DeviceProxy"]
 
 
 class AttrQuality(IntEnum):
@@ -47,12 +46,14 @@ class DevState(IntEnum):
 
 def DeviceProxy(*args, **kwargs):
     raise RuntimeError(
-        "Tango is not imported. Hint: is tango Python module installed ?")
+        "Tango is not imported. Hint: is tango Python module installed ?"
+    )
 
 
 def AttributeProxy(*args, **kwargs):
     raise RuntimeError(
-        "Tango is not imported. Hint: is tango Python module installed ?")
+        "Tango is not imported. Hint: is tango Python module installed ?"
+    )
 
 
 try:
@@ -76,7 +77,7 @@ def get_fqn(proxy):
         name = proxy.dev_name()
     except AttributeError:
         name = get_fqn(proxy.get_device_proxy())
-        return '{}/{}'.format(name, proxy.name())
+        return "{}/{}".format(name, proxy.name())
     host = proxy.get_db_host()
     port = proxy.get_db_port()
-    return 'tango://{}:{}/{}'.format(host, port, name)
+    return "tango://{}:{}/{}".format(host, port, name)

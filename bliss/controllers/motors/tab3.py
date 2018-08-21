@@ -66,7 +66,6 @@ import numpy
 
 
 class tab3(CalcController):
-
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
@@ -80,7 +79,7 @@ class tab3(CalcController):
         if self.geometry in (5, 8):
             self.d3 = self.config.get("d3", float)
 
-        self.no_offset = self.config.get('no_offset', bool, True)
+        self.no_offset = self.config.get("no_offset", bool, True)
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
@@ -92,11 +91,11 @@ class tab3(CalcController):
         if self.geometry in (1, 2):
             back = positions_dict["back1"]
         else:
-            back = positions_dict["back1"] + (self.d4 / self.d1) * \
-                (positions_dict["back1"] - positions_dict["back2"])
+            back = positions_dict["back1"] + (self.d4 / self.d1) * (
+                positions_dict["back1"] - positions_dict["back2"]
+            )
 
-        xtilt = math.atan(
-            (positions_dict["back2"] - positions_dict["back1"]) / self.d1)
+        xtilt = math.atan((positions_dict["back2"] - positions_dict["back1"]) / self.d1)
 
         ytilt = math.atan((back - positions_dict["front"]) / self.d2)
 
@@ -116,9 +115,7 @@ class tab3(CalcController):
         else:
             z = (front + back) / 2
 
-        return {"z": z,
-                "xtilt": xtilt,
-                "ytilt": ytilt}
+        return {"z": z, "xtilt": xtilt, "ytilt": ytilt}
 
     def calc_to_real(self, positions_dict):
         if self.geometry in (2, 6):
@@ -156,6 +153,4 @@ class tab3(CalcController):
             back1 = positions_dict["z"] - (self.d4 * xtan) + (sign * dback * ytan)
         back2 = positions_dict["z"] + (d1 * xtan) + (sign * dback * ytan)
 
-        return {"back1": back1,
-                "back2": back2,
-                "front": front}
+        return {"back1": back1, "back2": back2, "front": front}

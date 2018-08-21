@@ -12,19 +12,22 @@ import redis
 import functools
 import cPickle
 
+
 def data_to_bytes(data):
     if isinstance(data, numpy.ndarray):
         return data.dumps()
     else:
         return data
 
+
 def data_from_pipeline(data, shape=None, dtype=None):
     if len(shape) == 0:
         return numpy.array(data, dtype=dtype)
     else:
         a = numpy.array([numpy.loads(x) for x in data], dtype=dtype)
-        a.shape = (-1,)+shape
+        a.shape = (-1,) + shape
         return a
+
 
 def data_from_bytes(data, shape=None, dtype=None):
     if isinstance(data, redis.client.Pipeline):
@@ -35,29 +38,32 @@ def data_from_bytes(data, shape=None, dtype=None):
     except cPickle.UnpicklingError:
         return float(data)
 
+
 class ChannelDataNode(DataNode):
     def __init__(self, name, **keys):
-        shape = keys.pop('shape', None)
-        dtype = keys.pop('dtype', None)
+        shape = keys.pop("shape", None)
+        dtype = keys.pop("dtype", None)
 
-        DataNode.__init__(self, 'channel', name, **keys)
-    
-        if keys.get('create', False):
+        DataNode.__init__(self, "channel", name, **keys)
+
+        if keys.get("create", False):
             if shape is not None:
                 self.info["shape"] = shape
             if dtype is not None:
                 self.info["dtype"] = dtype
 
-        self._queue = QueueSetting("%s_data" % self.db_name,
-                                   connection=self.db_connection,
-                                   read_type_conversion=functools.partial(data_from_bytes,
-                                                                          shape=self.shape,
-                                                                          dtype=self.dtype),
-                                   write_type_conversion=data_to_bytes)
+        self._queue = QueueSetting(
+            "%s_data" % self.db_name,
+            connection=self.db_connection,
+            read_type_conversion=functools.partial(
+                data_from_bytes, shape=self.shape, dtype=self.dtype
+            ),
+            write_type_conversion=data_to_bytes,
+        )
 
     def store(self, event_dict):
         data = event_dict.get("data")
-        shape = event_dict['description']['shape']
+        shape = event_dict["description"]["shape"]
         if len(shape) == data.ndim:
             self._queue.append(data)
         else:
@@ -65,11 +71,9 @@ class ChannelDataNode(DataNode):
 
     def get(self, from_index, to_index=None):
         if to_index is None:
-            return self._queue.get(from_index, from_index,
-                                   cnx=self.db_connection)
+            return self._queue.get(from_index, from_index, cnx=self.db_connection)
         else:
-            return self._queue.get(from_index, to_index,
-                                  cnx=self.db_connection)
+            return self._queue.get(from_index, to_index, cnx=self.db_connection)
 
     def __len__(self):
         return len(self._queue)
@@ -84,6 +88,5 @@ class ChannelDataNode(DataNode):
 
     def _get_db_names(self):
         db_names = DataNode._get_db_names(self)
-        db_names.append(self.db_name+"_data")
+        db_names.append(self.db_name + "_data")
         return db_names
-

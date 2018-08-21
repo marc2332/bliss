@@ -27,6 +27,7 @@ import types
 ATTENUATION_TABLE = []
 ALL_ATTENUATION = {}
 
+
 def _readArrayFromFile(datafile):
     global MIN_ATT_INDEX
     global MAX_ATT_INDEX
@@ -36,28 +37,28 @@ def _readArrayFromFile(datafile):
 
         array = []
         variablesToDeclare = []
-	for line in f:
-            if not line.startswith('#'):
+        for line in f:
+            if not line.startswith("#"):
                 array.append(map(float, line.split()))
-    	    else:
+            else:
                 variablesToDeclare.append(line[1:])
     except:
         return []
     else:
-	variablesDeclaration = ''.join(variablesToDeclare)
-        exec(variablesDeclaration) in globals()
+        variablesDeclaration = "".join(variablesToDeclare)
+        exec (variablesDeclaration) in globals()
 
         return array
 
 
 def _getCombinations(items, n):
     """Return an iterator for lazy evaluation of all the possible unique combinations of 'n' elements in 'items'."""
-    if n==0:
+    if n == 0:
         yield []
     else:
         for i in xrange(len(items)):
-            for cc in _getCombinations(items[i+1:], n-1):
-                yield [items[i]]+cc
+            for cc in _getCombinations(items[i + 1 :], n - 1):
+                yield [items[i]] + cc
 
 
 def loadAttenuationTable(fname):
@@ -65,7 +66,7 @@ def loadAttenuationTable(fname):
 
     ATTENUATION_TABLE = _readArrayFromFile(fname)
     ALL_ATTENUATION = {}
-    
+
 
 def selectEnergy(egy, att_array, precision=0.25):
     for egy_array in att_array:
@@ -79,10 +80,15 @@ def getExactAttenuation(transmitted_rate, egy_array):
     if len(egy_array) > 0:
         for i, j in enumerate(egy_array):
             if j == transmitted_rate:
-                return (j, [i]) 
+                return (j, [i])
+
 
 def getAttenuatorsCombinations(egy_array):
-    if len(egy_array) == 0 or len(egy_array) < MIN_ATT_INDEX or len(egy_array) < MAX_ATT_INDEX:
+    if (
+        len(egy_array) == 0
+        or len(egy_array) < MIN_ATT_INDEX
+        or len(egy_array) < MAX_ATT_INDEX
+    ):
         return []
     if egy_array[0] in ALL_ATTENUATION:
         return ALL_ATTENUATION[egy_array[0]]
@@ -91,61 +97,81 @@ def getAttenuatorsCombinations(egy_array):
     allIndexes = range(MIN_ATT_INDEX, MAX_ATT_INDEX + 1)
     for i in range(MAX_ATT_INDEX - MIN_ATT_INDEX + 1):
         for allAttenuatorCombination in _getCombinations(allIndexes, i + 1):
-            allAttenuatorsCombinations.append( (reduce(lambda x,y:x*y/100, [egy_array[j] for j in allAttenuatorCombination]), allAttenuatorCombination))
-    ALL_ATTENUATION[egy_array[0]] = allAttenuatorsCombinations #store list
+            allAttenuatorsCombinations.append(
+                (
+                    reduce(
+                        lambda x, y: x * y / 100,
+                        [egy_array[j] for j in allAttenuatorCombination],
+                    ),
+                    allAttenuatorCombination,
+                )
+            )
+    ALL_ATTENUATION[egy_array[0]] = allAttenuatorsCombinations  # store list
     return allAttenuatorsCombinations
+
 
 def getAttenuation(egy, transmitted_rate, fname):
     if transmitted_rate > 100:
-        print 'Transmission must be between 0 and 100'
-	return [100,[]]
+        print "Transmission must be between 0 and 100"
+        return [100, []]
 
     if len(ATTENUATION_TABLE) == 0:
         loadAttenuationTable(fname)
-        
+
     egy_array = selectEnergy(egy, ATTENUATION_TABLE)
-    #first check if there is no exact attenuation in the table we are asking for 
+    # first check if there is no exact attenuation in the table we are asking for
     exact_attenuation = getExactAttenuation(transmitted_rate, egy_array)
     if exact_attenuation is not None:
-      return [exact_attenuation[0],[exact_attenuation[1][0]-MIN_ATT_INDEX]]
+        return [exact_attenuation[0], [exact_attenuation[1][0] - MIN_ATT_INDEX]]
 
-    allAttCombinations = [(abs((x[0])-transmitted_rate), x[1]) for x in getAttenuatorsCombinations(egy_array)]
+    allAttCombinations = [
+        (abs((x[0]) - transmitted_rate), x[1])
+        for x in getAttenuatorsCombinations(egy_array)
+    ]
 
     try:
-        attCombination =  min(allAttCombinations)[1]
-        #print attCombination
+        attCombination = min(allAttCombinations)[1]
+        # print attCombination
     except ValueError:
         attCombination = []
         attFactor = 0
     else:
-        attFactor =  reduce(lambda x,y:x*y/100, [egy_array[i] for i in attCombination])
+        attFactor = reduce(
+            lambda x, y: x * y / 100, [egy_array[i] for i in attCombination]
+        )
 
     resultList = []
-    resultList.insert(0,attFactor)
-    resultList.append([x-MIN_ATT_INDEX for x in attCombination])
+    resultList.insert(0, attFactor)
+    resultList.append([x - MIN_ATT_INDEX for x in attCombination])
     return resultList
 
 
 def getAttenuationFactor(egy, attCombination, fname):
-    #attCombination must be a dictionary of attenuators combinations
-    #(like it is returned by getAttenuation for key 'attCombination')
-    #or a string with attenuators indexes separated by spaces
+    # attCombination must be a dictionary of attenuators combinations
+    # (like it is returned by getAttenuation for key 'attCombination')
+    # or a string with attenuators indexes separated by spaces
     if len(ATTENUATION_TABLE) == 0:
         loadAttenuationTable(fname)
     egy_array = selectEnergy(egy, ATTENUATION_TABLE)
     if len(egy_array) == 0:
-      #there is no corresponding energy !
-      return -1
+        # there is no corresponding energy !
+        return -1
 
     if type(attCombination) == types.DictType:
-       return reduce(lambda x,y:x*y/100, [egy_array[i+MIN_ATT_INDEX] for i in attCombination.itervalues()])
+        return reduce(
+            lambda x, y: x * y / 100,
+            [egy_array[i + MIN_ATT_INDEX] for i in attCombination.itervalues()],
+        )
     elif type(attCombination) == types.StringType:
-       return reduce(lambda x,y:x*y/100, [egy_array[int(i)+MIN_ATT_INDEX] for i in attCombination.split()])
+        return reduce(
+            lambda x, y: x * y / 100,
+            [egy_array[int(i) + MIN_ATT_INDEX] for i in attCombination.split()],
+        )
     else:
-       return -1
+        return -1
 
 
-if __name__ == '__main__' :
+if __name__ == "__main__":
 
     def printUsage():
         print "Usage:  %s ",
@@ -157,10 +183,10 @@ if __name__ == '__main__' :
     import os
     import sys
 
-    if len(sys.argv) < 4 :
+    if len(sys.argv) < 4:
         printUsage()
 
-    egy   = float(sys.argv[2])
+    egy = float(sys.argv[2])
     try:
         fname = sys.argv[4]
     except:
@@ -172,14 +198,14 @@ if __name__ == '__main__' :
     egy_array = selectEnergy(egy, ATTENUATION_TABLE)
 
     if sys.argv[1] == "-t":
-        transm  = float(sys.argv[3])
-        abb     = getAttenuation(egy, transm,fname)
-        print " Table: ",abb
+        transm = float(sys.argv[3])
+        abb = getAttenuation(egy, transm, fname)
+        print " Table: ", abb
         print " result: transmission ", abb[0], "attenuators ", abb[1:]
-    elif sys.argv[1] == "-a" :
-        attstr  = sys.argv[3]
+    elif sys.argv[1] == "-a":
+        attstr = sys.argv[3]
         print "transmission: %f %%" % getAttenuationFactor(egy, attstr, fname)
-    else: 
+    else:
         printUsage()
 
     sys.exit(0)

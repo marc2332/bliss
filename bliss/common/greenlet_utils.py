@@ -21,14 +21,12 @@ class KillMask:
             return
         MASKED_GREENLETS.pop(self.__greenlet)
         if self.__func:
-            self.__greenlet.parent.loop.run_callback(self.__func,
-                                                     self.__greenlet,
-                                                     self.__exception,
-                                                     self.__waiter)
+            self.__greenlet.parent.loop.run_callback(
+                self.__func, self.__greenlet, self.__exception, self.__waiter
+            )
             gevent.sleep(0)
         elif self.__exception is not None:
-            gevent.get_hub().loop.run_callback(
-                self.__greenlet.throw, self.__exception)
+            gevent.get_hub().loop.run_callback(self.__greenlet.throw, self.__exception)
 
     def set_kill(self, func, exception, waiter):
         self.__func = func
@@ -43,6 +41,7 @@ def protect_from_kill(fu):
     def func(*args, **kwargs):
         with KillMask():
             return fu(*args, **kwargs)
+
     return func
 
 
@@ -69,6 +68,7 @@ sys.modules[greenlet.__name__]._kill = _patched_kill
 
 
 # gevent.hub module patch
+
 
 def _hub_patched_kill(greenlet, exception):
     masks = MASKED_GREENLETS.get(greenlet)

@@ -17,6 +17,7 @@ import functools
 import gevent
 from bliss.common.tango import DeviceProxy
 
+
 def output(stream, msg):
     if not msg or not stream:
         return
@@ -26,7 +27,7 @@ def output(stream, msg):
 
 class Bliss(object):
 
-    LOOP_TIME = 1/25. # 25x per second
+    LOOP_TIME = 1 / 25.  # 25x per second
 
     def __init__(self, dev_name, out_stream=sys.stdout, err_stream=sys.stderr):
         self.__dev = DeviceProxy(dev_name)
@@ -34,15 +35,16 @@ class Bliss(object):
         self.__err_stream = err_stream
         self.__curr_cmd = None
 
-        for cmd in ('execute', 'is_running', 'stop', 'init'):
+        for cmd in ("execute", "is_running", "stop", "init"):
             setattr(self, cmd, functools.partial(self.__dev.command_inout, cmd))
 
     def output(self, msg):
         output(self.__out_stream, msg)
 
     def error(self, msg):
-        if not msg: return
-        msg = '\033[31m' + msg + '\033[39m'
+        if not msg:
+            return
+        msg = "\033[31m" + msg + "\033[39m"
         output(self.__err_stream, msg)
 
     def update_output(self):
@@ -65,7 +67,7 @@ class Bliss(object):
 
     def run(self, cmd):
         if self.__curr_cmd:
-            raise RuntimeError('Old command is still executing')
+            raise RuntimeError("Old command is still executing")
         try:
             self.__run(cmd)
         except KeyboardInterrupt:

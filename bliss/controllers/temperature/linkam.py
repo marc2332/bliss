@@ -13,7 +13,8 @@ from bliss.comm.util import get_comm, SERIAL
 from bliss.common.event import dispatcher
 from bliss.common.data_manager import ScanFile
 
-__all__ = ['LinkamDsc', 'LinkamScanFile', 'LinkamScan']
+__all__ = ["LinkamDsc", "LinkamScanFile", "LinkamScan"]
+
 
 class LinkamScanFile(ScanFile):
     def __init__(self, filename):
@@ -22,40 +23,55 @@ class LinkamScanFile(ScanFile):
         # find next scan number
         if os.path.exists(filename):
             with file(filename) as f:
-                for line in iter(f.readline, ''):
+                for line in iter(f.readline, ""):
                     if line.startswith("#S"):
                         self.scan_n += 1
 
         self.file_obj = file(filename, "a+")
 
     def write_header(self):
-        self.file_obj.write("#S %d\n#D %s\n" % (self.scan_n, datetime.datetime.now().strftime(
-                "%a %b %d %H:%M:%S %Y")))
+        self.file_obj.write(
+            "#S %d\n#D %s\n"
+            % (self.scan_n, datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y"))
+        )
         self.file_obj.flush()
+
 
 class LinkamScan:
     def __init__(self, linkamDevice, filename):
         self._linkamDevice = linkamDevice
         self._scanFile = LinkamScanFile(filename)
-        dispatcher.connect(self.handle_data_event, 'linkam_profile_data', linkamDevice)
-        dispatcher.connect(self.handle_startstop_event, 'linkam_profile_start', linkamDevice)
-        dispatcher.connect(self.handle_startstop_event, 'linkam_profile_end', linkamDevice)
+        dispatcher.connect(self.handle_data_event, "linkam_profile_data", linkamDevice)
+        dispatcher.connect(
+            self.handle_startstop_event, "linkam_profile_start", linkamDevice
+        )
+        dispatcher.connect(
+            self.handle_startstop_event, "linkam_profile_end", linkamDevice
+        )
 
     def handle_data_event(self, data, signal=None, sender=None):
-        if signal == 'linkam_profile_data':
-            self._scanFile.write("{0} {1} {2} {3}\n".format(data[0], data[1], data[2], data[3]))
+        if signal == "linkam_profile_data":
+            self._scanFile.write(
+                "{0} {1} {2} {3}\n".format(data[0], data[1], data[2], data[3])
+            )
 
     def handle_startstop_event(self, signal=None, sender=None):
-        if signal == 'linkam_profile_start':
+        if signal == "linkam_profile_start":
             self._scanFile.write_header()
-        elif signal == 'linkam_profile_end':
+        elif signal == "linkam_profile_end":
             self._scanFile.close()
-            dispatcher.disconnect(self.handle_data_event, 'linkam_profile_data', self._linkamDevice)
-            dispatcher.disconnect(self.handle_startstop_event, 'linkam_profile_start', self._linkamDevice)
-            dispatcher.disconnect(self.handle_startstop_event, 'linkam_profile_end', self._linkamDevice)
+            dispatcher.disconnect(
+                self.handle_data_event, "linkam_profile_data", self._linkamDevice
+            )
+            dispatcher.disconnect(
+                self.handle_startstop_event, "linkam_profile_start", self._linkamDevice
+            )
+            dispatcher.disconnect(
+                self.handle_startstop_event, "linkam_profile_end", self._linkamDevice
+            )
+
 
 class LinkamDsc(object):
-
     def __init__(self, name, config):
         """ Linkam controller with either hot stage or dsc stage
             config_-- controller configuration,
@@ -64,18 +80,19 @@ class LinkamDsc(object):
         self._logger = logging.getLogger(str(self))
         logging.basicConfig(level=10)
         try:
-            self._cnx = get_comm(config, SERIAL, baudrate=19200, eol='\r',
-                                 timeout=10)
+            self._cnx = get_comm(config, SERIAL, baudrate=19200, eol="\r", timeout=10)
         except ValueError:
             if "serial_url" in config:
-                warn("'serial_url' keyword is deprecated. Use 'serial' instead",
-                     DeprecationWarning)
-                comm_cfg = {'serial': {'url': config['serial_url'] }}
-                self._cnx = get_comm(comm_cfg, baudrate=19200, eol='\r', timeout=10)
+                warn(
+                    "'serial_url' keyword is deprecated. Use 'serial' instead",
+                    DeprecationWarning,
+                )
+                comm_cfg = {"serial": {"url": config["serial_url"]}}
+                self._cnx = get_comm(comm_cfg, baudrate=19200, eol="\r", timeout=10)
             else:
                 raise ValueError, "Must specify serial"
 
-        #Possible values of the status byte
+        # Possible values of the status byte
         self.STOPPED = 0x1
         self.HEATING = 0x10
         self.COOLING = 0x20
@@ -104,12 +121,12 @@ class LinkamDsc(object):
             self.LINKAM_POWER_SURGE: "Current protection due to overload",
             self.LINKAM_EXIT_300: "No Exit (300 TS 1500 tried to exit profile at a temperature > 300 degrees)",
             self.LINKAM_LINK_ERROR: "Problems with RS-232 data transmission - RESET Linkam !",
-            self.LINKAM_OK: "OK"
+            self.LINKAM_OK: "OK",
         }
 
-        self._maximumTemp = config.get('max_temp', 1500.0)
-        self._minimumTemp = config.get('min_temp', -196.0)
-        self._model = config.get('model', "T95")
+        self._maximumTemp = config.get("max_temp", 1500.0)
+        self._minimumTemp = config.get("min_temp", -196.0)
+        self._model = config.get("model", "T95")
         self._profile_task = None
         self._lock = lock.Semaphore()
         self._hasDSC = self._hasDscStage()
@@ -119,15 +136,15 @@ class LinkamDsc(object):
         self._rampNb = 1
         self._rate = 10
         self._holdTime = 1
-        self._dscSamplingRate = 0.3;
+        self._dscSamplingRate = 0.3
         self._statusString = None
         self._pumpSpeed = 0
         self._dscValue = 0.
         self._startingRamp = 1
         self._pollTime = 0.1
         self._pipe = os.pipe()
-        self._hold = True;
-        self._tstamp=0
+        self._hold = True
+        self._tstamp = 0
         self._profileCompleteCallback = None
         self._profileData = [[]]
 
@@ -153,39 +170,39 @@ class LinkamDsc(object):
 
     def stop(self):
         """ Informs the controller to stop heating or cooling. """
-        self._logger.debug("stop() called");
+        self._logger.debug("stop() called")
         if self._profile_task is None:
             self._doStop()
         else:
-            os.write(self._pipe[1],'|')
+            os.write(self._pipe[1], "|")
 
     def _doStop(self):
-        self._cnx.write_readline("E\r");
+        self._cnx.write_readline("E\r")
 
     def heat(self):
         """ Forces heating. If while heating the controller finds that the temperature
             is at the limit it will hold at that value, otherwise it will heat up to the
             maximum temperature and stop.
         """
-        self._logger.debug("heat() called");
-        self._cnx.write_readline("H\r");
+        self._logger.debug("heat() called")
+        self._cnx.write_readline("H\r")
 
     def cool(self):
         """ Forces cooling. If while cooling the controller finds that the temperature
             is at the limit it will hold at that value, otherwise it will cool to the
             minimum temperature and stop. 
         """
-        self._logger.debug("cool() called");
-        self._cnx.write_readline("C\r");
+        self._logger.debug("cool() called")
+        self._cnx.write_readline("C\r")
 
     def setPumpAutomatic(self):
         """ Set pump in automatic mode, where the pump speed is controlled by the controller """
-        self._logger.debug("pump automatic() called");
+        self._logger.debug("pump automatic() called")
         self._cnx.write_readline("Pa0\r")
 
     def setPumpManual(self):
         """ Set pump in manual mode, where the pump speed is controlled by the PumpSpeed setting """
-        self._logger.debug("pumpManual() called");
+        self._logger.debug("pumpManual() called")
         self._cnx.write_readline("Pm0\r")
 
     @property
@@ -193,7 +210,7 @@ class LinkamDsc(object):
         return self._pollTime
 
     @pollTime.setter
-    def pollTime(self,time):
+    def pollTime(self, time):
         self._pollTime = time
 
     @property
@@ -201,7 +218,7 @@ class LinkamDsc(object):
         return self._startingRamp
 
     @startingRamp.setter
-    def startingRamp(self,ramp):
+    def startingRamp(self, ramp):
         self._startingRamp = ramp
 
     @property
@@ -222,10 +239,10 @@ class LinkamDsc(object):
             The speed can be 0 to 30
         """
         if speed < 0 or speed > 30:
-            raise ValueError ("speed {0} out of range (0-30)".format(speed))
+            raise ValueError("speed {0} out of range (0-30)".format(speed))
         self._pumpSpeed = speed
-        self._logger.debug("pump speed() P{0}".format(chr(speed+48)))
-        self._cnx.write_readline("P{0}\r".format(chr(speed+48)))
+        self._logger.debug("pump speed() P{0}".format(chr(speed + 48)))
+        self._cnx.write_readline("P{0}\r".format(chr(speed + 48)))
 
     @property
     def rampNumber(self):
@@ -241,7 +258,7 @@ class LinkamDsc(object):
             The limit is expressed to a resolution of 0.1degC, max value 99.9
         """
         if limit > self._maximumTemp or limit < self._minimumTemp:
-            raise ValueError ("Temperature ramp limit {0} out of range ".format(limit))
+            raise ValueError("Temperature ramp limit {0} out of range ".format(limit))
         self._limit = limit
         self._logger.debug("rampLimit() Set limit to {0}".format(self._limit))
         self._cnx.write_readline(("L1%d\r" % int(round(limit * 10.0))))
@@ -267,10 +284,12 @@ class LinkamDsc(object):
             The maximum is 99.99degC/min.
          """
         if rate > 99.99:  # check this
-            raise ValueError ("Temperature ramp limit {0} out of range (max is 99.99)".format(rate))
+            raise ValueError(
+                "Temperature ramp limit {0} out of range (max is 99.99)".format(rate)
+            )
         self._rate = rate
-        self._logger.debug("rampRate() set to {0}".format(rate));
-        self._cnx.write_readline(("R1%d\r" % int(round(rate * 100))));
+        self._logger.debug("rampRate() set to {0}".format(rate))
+        self._cnx.write_readline(("R1%d\r" % int(round(rate * 100))))
 
     def _hasDscStage(self):
         reply = self._cnx.write_readline(chr(0xef) + "S\r").strip()
@@ -279,11 +298,16 @@ class LinkamDsc(object):
 
     def setTemperature(self, temp):
         # This might not work for all controllers
-        if self._profile_task is not None or self._state == self.HEATING or self._state == self.COOLING:
+        if (
+            self._profile_task is not None
+            or self._state == self.HEATING
+            or self._state == self.COOLING
+        ):
             self._logger.error("already running")
         else:
             self.rampLimit = temp
-#            self.start();
+
+    #            self.start();
 
     def _extractTemperature(self, hexString):
         """ Extracts the current temperature from a four byte string (from either a T or D reply)
@@ -300,14 +324,16 @@ class LinkamDsc(object):
             # catch the normally uncaught ValueError to deal with this
         except ValueError:
             self._logger.error("invalid literal for int() with base 16: %s" % hexString)
-            raise ValueError ("invalid literal for int() with base 16: %s" % hexString)
+            raise ValueError("invalid literal for int() with base 16: %s" % hexString)
 
     def _temperatureData(self):
         reply = self._getRawStatus()
         temperature = self._extractTemperature(reply[6:])
         if temperature < -273:
-            raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
-#        self._logger.debug("getTemperature() returned {0}".format(temperature))
+            raise ValueError(
+                "temperature reading less than -273, check that the heating stage is connected and switched on"
+            )
+        #        self._logger.debug("getTemperature() returned {0}".format(temperature))
         return temperature
 
     def getTemperature(self):
@@ -332,10 +358,10 @@ class LinkamDsc(object):
             value = int(hexString, 16)
             if value > 32768:
                 value -= 65536
-            return value;
+            return value
         except ValueError:
             self._logger.error("invalid literal for int() with base 16: %s" % hexString)
-            raise ValueError ("invalid literal for int() with base 16: %s" % hexString)
+            raise ValueError("invalid literal for int() with base 16: %s" % hexString)
 
     def _dscData(self):
         reply = self._cnx.write_readline("D\r")
@@ -343,18 +369,20 @@ class LinkamDsc(object):
         temperature = self._extractTemperature(reply[0:4])
         dscValue = self._extractDscValue(reply[4:8])
         if temperature < -273:
-            raise ValueError ("temperature reading less than -273, check that the heating stage is connected and switched on")
-        if dscValue == 32765: #if the buffer is full then clear it
+            raise ValueError(
+                "temperature reading less than -273, check that the heating stage is connected and switched on"
+            )
+        if dscValue == 32765:  # if the buffer is full then clear it
             self._clearBuffer()
         return (temperature, dscValue, tstamp)
 
     def getDscData(self):
         """ Get temperature & DSC Data  """
         if not self._hasDSC:
-            raise Exception ("No DSC stage connected")
+            raise Exception("No DSC stage connected")
 
         if self._profile_task is None:
-            temperature, dscValue,_ = self._dscData()
+            temperature, dscValue, _ = self._dscData()
             return (temperature, dscValue, -1.0)
         else:
             return (self._temperature, self._dscValue, self._tstamp)
@@ -373,7 +401,7 @@ class LinkamDsc(object):
         state = ord(reply[0])
         errcode = ord(reply[1])
         temperature = self._extractTemperature(reply[6:])
-#        self._logger.debug("state {0}, errcode {1}".format(state, errcode))
+        #        self._logger.debug("state {0}, errcode {1}".format(state, errcode))
         return (state, errcode, temperature, tstamp)
 
     def isProfileRunning(self):
@@ -381,9 +409,9 @@ class LinkamDsc(object):
 
     def _getStatusString(self, state, err):
         if err == self.LINKAM_OK:
-            return self.StatusToString.get(state,"")
+            return self.StatusToString.get(state, "")
         else:
-            return self.ErrorToString.get(err,"")
+            return self.ErrorToString.get(err, "")
 
     def _updateState(self, state, errcode, temperature, dsc, tstamp):
         """ Use this to set state whilst profile is running """
@@ -396,8 +424,12 @@ class LinkamDsc(object):
                 self._dscValue = dsc
         if tstamp is not None:
             self._tstamp = self._tstamp - self._start_tstamp
-#            self._logger.debug("sending ts, temp, dsc {0},{1},{2}".format(self._tstamp, self._temperature, self._dscValue))
-            dispatcher.send('linkam_profile_data', self, (tstamp, self._tstamp, self._temperature, self._dscValue))
+            #            self._logger.debug("sending ts, temp, dsc {0},{1},{2}".format(self._tstamp, self._temperature, self._dscValue))
+            dispatcher.send(
+                "linkam_profile_data",
+                self,
+                (tstamp, self._tstamp, self._temperature, self._dscValue),
+            )
 
     def _getState(self):
         """ return the Linkam state, errorcode and current temperature whilst profile is running """
@@ -409,11 +441,14 @@ class LinkamDsc(object):
 
     def status(self):
         if self._profile_task is None:
-            (state,errcode,_,_) = self._getStatus()
+            (state, errcode, _, _) = self._getStatus()
             status = self._getStatusString(state, errcode)
         else:
-            status = self._getStatusString(self._state, self._errCode) + ": Profile is running"
-#        self._logger.debug("status() {0}".format(status))
+            status = (
+                self._getStatusString(self._state, self._errCode)
+                + ": Profile is running"
+            )
+        #        self._logger.debug("status() {0}".format(status))
         return status
 
     @property
@@ -424,7 +459,7 @@ class LinkamDsc(object):
     def dscSamplingRate(self, rate):
         """ Set sampling rate for DSC (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, or 150) """
         if not self._hasDSC:
-            raise Exception ("No DSC stage connected")
+            raise Exception("No DSC stage connected")
 
         possible_range = (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, 150)
         index = bisect.bisect_right(possible_range, rate, 0, 11)
@@ -446,16 +481,24 @@ class LinkamDsc(object):
 
     def _run_profile(self, ramps):
         currentRamp = 1
-        abort = '+'
+        abort = "+"
         self._start_tstamp = 0.0
         try:
             state, errcode, temperature, _ = self._getState()  # get initial state
             if errcode != self.LINKAM_OK:
-                self._logger.error("Profile received Linkam errcode: {0}".format(self.ErrorToString.get(errCode)))
+                self._logger.error(
+                    "Profile received Linkam errcode: {0}".format(
+                        self.ErrorToString.get(errCode)
+                    )
+                )
                 temperature = -273.15
-            self._updateState(state,errcode,temperature, 0.0, None)
+            self._updateState(state, errcode, temperature, 0.0, None)
             for (rate, limit, holdTime) in ramps:  # get ramp and load it
-                self._logger.debug("loading rate={0} limit={1} holdtime={2}".format(rate, limit, holdTime))
+                self._logger.debug(
+                    "loading rate={0} limit={1} holdtime={2}".format(
+                        rate, limit, holdTime
+                    )
+                )
                 with self._lock:
                     self._rampNb = currentRamp
                     self.rampRate = rate
@@ -464,86 +507,128 @@ class LinkamDsc(object):
                 if self._startingRamp == currentRamp:
                     self._clearBuffer()  # empty Linkam buffer ready to collect data
                 if currentRamp == 1:
-                    dispatcher.send('linkam_profile_start', self)
+                    dispatcher.send("linkam_profile_start", self)
                     self.start()  # start ramping
-                    state, errcode, temperature, self._start_tstamp = self._getState()  # get initial state
+                    state, errcode, temperature, self._start_tstamp = (
+                        self._getState()
+                    )  # get initial state
                     if errcode != self.LINKAM_OK:
-                        self._logger.error("Profile received Linkam errcode: {0}".format(self.ErrorToString.get(errCode)))
+                        self._logger.error(
+                            "Profile received Linkam errcode: {0}".format(
+                                self.ErrorToString.get(errCode)
+                            )
+                        )
                         temperature = -273.15
-                    self._updateState(state,errcode,temperature, 0.0, None)
-                while (1):
+                    self._updateState(state, errcode, temperature, 0.0, None)
+                while 1:
                     fd, _, _ = gevent.select.select([self._pipe[0]], [], [], 0.1)
                     if fd:
                         abort = os.read(self._pipe[0], 1)
                         break  # abort profile
                     newState, errcode, temperature, tstamp = self._getState()
                     if errcode != self.LINKAM_OK:
-                        self._logger.error("Profile received Linkam errcode: {0}".format(self.ErrorToString.get(errCode)))
+                        self._logger.error(
+                            "Profile received Linkam errcode: {0}".format(
+                                self.ErrorToString.get(errCode)
+                            )
+                        )
                         temperature = -273.15
                     if self._hasDSC:
                         temperature, dsc, tstamp = self._dscData()
                         if currentRamp >= self._startingRamp:
-                            if temperature != 32767 and dsc != 32767:  # no valid data we're sampling too quickly
-                                self._updateState(newState,errcode,temperature, dsc, tstamp)
+                            if (
+                                temperature != 32767 and dsc != 32767
+                            ):  # no valid data we're sampling too quickly
+                                self._updateState(
+                                    newState, errcode, temperature, dsc, tstamp
+                                )
                         else:
-                            self._updateState(newState,errcode,temperature, 0.0, tstamp)
+                            self._updateState(
+                                newState, errcode, temperature, 0.0, tstamp
+                            )
                     else:
-                        self._updateState(newState,errcode,temperature, 0.0, tstamp)
+                        self._updateState(newState, errcode, temperature, 0.0, tstamp)
 
-                    if newState != state and (newState == self.HOLDINGLIMIT or newState == self.HOLDINGTEMP):
+                    if newState != state and (
+                        newState == self.HOLDINGLIMIT or newState == self.HOLDINGTEMP
+                    ):
                         self._logger.debug("changed state to {0}".format(newState))
                         if holdTime > 0.0:
-                            state = newState;
-                            self._logger.debug("start to do hold for {0}seconds".format(holdTime))
+                            state = newState
+                            self._logger.debug(
+                                "start to do hold for {0}seconds".format(holdTime)
+                            )
                             self._hold = True
                             gevent.spawn(self._run_hold_timer, holdTime)
-                            while(self._hold):
-                                fd, _, _ = gevent.select.select([self._pipe[0]], [], [], 0.1)
+                            while self._hold:
+                                fd, _, _ = gevent.select.select(
+                                    [self._pipe[0]], [], [], 0.1
+                                )
                                 if fd:
                                     abort = os.read(self._pipe[0], 1)
                                     break
-                                newState, errcode, temperature, tstamp = self._getState()
+                                newState, errcode, temperature, tstamp = (
+                                    self._getState()
+                                )
                                 if errcode != self.LINKAM_OK:
-                                    self._logger.error("Profile received Linkam errcode: {0}".format(self.ErrorToString.get(errCode)))
+                                    self._logger.error(
+                                        "Profile received Linkam errcode: {0}".format(
+                                            self.ErrorToString.get(errCode)
+                                        )
+                                    )
                                     temperature = -273.15
                                 if self._hasDSC:
                                     if currentRamp >= self._startingRamp:
                                         temperature, dsc, tstamp = self._dscData()
-                                        if temperature != 32767 and dsc != 32767:  # no valid data we're sampling too quickly
-                                            self._updateState(newState,errcode,temperature, dsc, tstamp)
+                                        if (
+                                            temperature != 32767 and dsc != 32767
+                                        ):  # no valid data we're sampling too quickly
+                                            self._updateState(
+                                                newState,
+                                                errcode,
+                                                temperature,
+                                                dsc,
+                                                tstamp,
+                                            )
                                     else:
-                                        self._updateState(newState,errcode,temperature, 0.0, tstamp)
+                                        self._updateState(
+                                            newState, errcode, temperature, 0.0, tstamp
+                                        )
                                 else:
-                                    self._updateState(newState,errcode,temperature, 0.0, tstamp)
-                        self._logger.debug("starting next ramp {0} state {1} newstate {2}".format(currentRamp+1,state,newState))
+                                    self._updateState(
+                                        newState, errcode, temperature, 0.0, tstamp
+                                    )
+                        self._logger.debug(
+                            "starting next ramp {0} state {1} newstate {2}".format(
+                                currentRamp + 1, state, newState
+                            )
+                        )
                         break  # start the next ramp
                     state = newState
 
                 currentRamp += 1
-                if abort == '|':
+                if abort == "|":
                     break  # abort the profile
         except:
             print "CAUGHT Exception--------------------------------------"
-#            self._logger.error(self.ErrorToString.get(errCode))
+            #            self._logger.error(self.ErrorToString.get(errCode))
             self.rampLimit = self._temperature
         finally:
             self._logger.debug("doing finally")
             self.rampLimit = self._temperature
-            dispatcher.send('linkam_profile_end', self)
+            dispatcher.send("linkam_profile_end", self)
             self._profileCompleteCallback()
             with self._lock:
                 self._profile_task = None
 
-
     def _run_hold_timer(self, holdTime):
         self._logger.debug("starting hold timer")
-        rc = gevent.select.select([self._pipe[0]],[],[],holdTime)
+        rc = gevent.select.select([self._pipe[0]], [], [], holdTime)
         with self._lock:
-            self._logger.debug("select finished rc = {0}".format(rc))            
-            self._hold=False;
+            self._logger.debug("select finished rc = {0}".format(rc))
+            self._hold = False
 
     def _timeStamp(self):
-        theDate=str(datetime.datetime.now())
+        theDate = str(datetime.datetime.now())
         dt = datetime.datetime.strptime(theDate, "%Y-%m-%d %H:%M:%S.%f")
         return time.mktime(dt.timetuple()) + (dt.microsecond / 1000000.0)
- 

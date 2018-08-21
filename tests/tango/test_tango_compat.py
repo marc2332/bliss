@@ -1,5 +1,3 @@
-
-
 def test_tango_imports():
     from bliss.common import tango as compat
     import tango.gevent

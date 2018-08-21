@@ -5,8 +5,15 @@ from bliss.controllers.temperature.lakeshore.lakeshore330 import LakeShore330
 
 
 class LakeShore332(LakeShore330):
-    MODE332 = ('Off', 'Manual PID', 'Zone', 'Open Loop', 'Auto Tune PID',
-               'Auto Tune PI', 'Auto Tune P')
+    MODE332 = (
+        "Off",
+        "Manual PID",
+        "Zone",
+        "Open Loop",
+        "Auto Tune PID",
+        "Auto Tune PI",
+        "Auto Tune P",
+    )
 
     def __init__(self, comm_type, url, **kwargs):
         _ls = LakeShore330(comm_type, url, **kwargs)
@@ -26,12 +33,12 @@ class LakeShore332(LakeShore330):
                off (bool): control loop on/off
         """
         self._channel = channel
-        inp = kwargs.get('input', '')
-        off = kwargs.get('off')
+        inp = kwargs.get("input", "")
+        off = kwargs.get("off")
         if isinstance(off, bool):
-            self.send_cmd('CSET', inp, 1, int(off))
+            self.send_cmd("CSET", inp, 1, int(off))
         else:
-            asw = send_cmd('CSET?').split(',')
+            asw = send_cmd("CSET?").split(",")
             return asw[1], bool(asw[3])
 
     def cmode(self, channel, mode=None):
@@ -47,32 +54,31 @@ class LakeShore332(LakeShore330):
         """
         self._channel = channel
         if mode:
-            self.send_cmd('CMODE', mode)
+            self.send_cmd("CMODE", mode)
         else:
-            return LakeShore332.MODE332[int(self.send_cmd('CMODE?'))]
+            return LakeShore332.MODE332[int(self.send_cmd("CMODE?"))]
 
 
 class lakeshore332(Base):
     def __init__(self, config, *args):
         comm_type = None
         extra_param = None
-        if 'gpib' in config:
-            comm_type = 'gpib'
-            url = config['gpib']['url']
-            extra_param = config['gpib']['pad']
-            eos = config.get('gpib').get('eos', "\r\n")
-        elif 'serial' in config:
-            comm_type = 'serial'
-            url = config['serial']['url']
-            extra_param = config.get('serial').get('baudrate')
-            eos = config.get('serial').get('eos', "\r\n")
-        elif 'tcp' in config:
-            comm_type = 'tcp'
-            url = config['tcp']['url']
-            eos = config.get('tcp').get('eos', "\r\n")
+        if "gpib" in config:
+            comm_type = "gpib"
+            url = config["gpib"]["url"]
+            extra_param = config["gpib"]["pad"]
+            eos = config.get("gpib").get("eos", "\r\n")
+        elif "serial" in config:
+            comm_type = "serial"
+            url = config["serial"]["url"]
+            extra_param = config.get("serial").get("baudrate")
+            eos = config.get("serial").get("eos", "\r\n")
+        elif "tcp" in config:
+            comm_type = "tcp"
+            url = config["tcp"]["url"]
+            eos = config.get("tcp").get("eos", "\r\n")
         else:
             raise ValueError("Must specify gpib or serial url")
 
-        _lakeshore = LakeShore332(comm_type, url,
-                                  extra_param=extra_param, eos=eos)
+        _lakeshore = LakeShore332(comm_type, url, extra_param=extra_param, eos=eos)
         Base.__init__(self, _lakeshore, config, *args)

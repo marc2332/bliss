@@ -6,7 +6,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 #
-# test-enet -- 
+# test-enet --
 #
 # Copyright (C) 2005 Robert Jordens <jordens@debian.org>
 #
@@ -28,7 +28,7 @@
 # $Id$
 # arch-tag: acc2a56e-ea5d-4a47-ba55-ffacd359270b
 #
-# TODO: 
+# TODO:
 #
 #  * all the _not_impl()s
 #  * non-blocking IO
@@ -36,370 +36,394 @@
 import socket, sys
 from struct import *
 
-#debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
+# debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
 debug = ["ignore_not_impl"]
 
+
 def _dbg(f, name=None):
-  if not name:
-    name = f.__name__
-  def wrap(self, *a, **k):
-    print "DBG: %s: enter: %s %s" % (name, `a`, `k`),
-    r = f(self, *a, **k)
-    print "exit: %s" % `r`
-    return r
-  wrap._dummy = True
-  return wrap
+    if not name:
+        name = f.__name__
+
+    def wrap(self, *a, **k):
+        print "DBG: %s: enter: %s %s" % (name, ` a `, ` k `),
+        r = f(self, *a, **k)
+        print "exit: %s" % ` r `
+        return r
+
+    wrap._dummy = True
+    return wrap
+
 
 def _not_impl(name):
-  def wrap(self, *a, **k):
-    if "ignore_not_impl" in debug:
-      return None
-    else:
-      raise NotImplementedError, "%s not implemented", name
-  return _dbg(wrap, name)
+    def wrap(self, *a, **k):
+        if "ignore_not_impl" in debug:
+            return None
+        else:
+            raise NotImplementedError, "%s not implemented", name
+
+    return _dbg(wrap, name)
+
 
 class EnetSocket(object):
-  def __init__(self, host, port=5000):
-    self._host = host
-    self._port = port
-    self._sock = None
-    self._open()
-    self.sta = self.err = self.cnt = 0
-    self.enet1000 = False
-    self._extra_socket = list()
+    def __init__(self, host, port=5000):
+        self._host = host
+        self._port = port
+        self._sock = None
+        self._open()
+        self.sta = self.err = self.cnt = 0
+        self.enet1000 = False
+        self._extra_socket = list()
 
-  def _open(self):
-    self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self._sock.connect((self._host, self._port))
+    def _open(self):
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.connect((self._host, self._port))
 
-  def close(self):
-    if self._sock:
-      self._sock.close()
-    for enet in self._extra_socket:
-      enet.close()
+    def close(self):
+        if self._sock:
+            self._sock.close()
+        for enet in self._extra_socket:
+            enet.close()
 
-  def _send(self, string):
-    return self._sock.send(string)
-  
-  def _recv(self, length):
-    s = ""
-    while len(s) < length:
-      s += self._sock.recv(length-len(s))
-    return s
-    
-  def _close(self):
-    self._sock.close()
-    self._sock = None
+    def _send(self, string):
+        return self._sock.send(string)
 
-  if "dummy_io" in debug:
-    _open = lambda self: None
-    _send = lambda self, s: sys.stderr.write("DBG: > %s" % (`s`))
-    _recv = lambda self, len: raw_input("DBG: < #%s:" % (len))[:len]
-    _close = lambda self: None
-    
-  if "io" in debug:
-    _open = _dbg(_open)
-    _recv = _dbg(_recv)
-    _send = _dbg(_send)
-    _close = _dbg(_close)
-   
-  _headfmt = "!H H"
+    def _recv(self, length):
+        s = ""
+        while len(s) < length:
+            s += self._sock.recv(length - len(s))
+        return s
 
-  def _read_frags(self, many=False):
-    while True:
-      header = self._recv(calcsize(self._headfmt))
-      flags, num = unpack(self._headfmt, header)
-      if not many or not flags:
-	yield self._recv(num)
-      else:
-        break
-      if not many:
-        break
-  
-  def _read(self, many=False):
-    rx = "".join(self._read_frags(many))
-    return rx
+    def _close(self):
+        self._sock.close()
+        self._sock = None
 
-  def _write(self, string):
-    return self._send(string)
-  
-  _respfmt = "!H H 4x L"
+    if "dummy_io" in debug:
+        _open = lambda self: None
+        _send = lambda self, s: sys.stderr.write("DBG: > %s" % (` s `))
+        _recv = lambda self, len: raw_input("DBG: < #%s:" % (len))[:len]
+        _close = lambda self: None
 
-  def _sresp(self):
-    ret = self._read()
-    self.sta, self.err, self.cnt = unpack(self._respfmt, 
-      ret[:calcsize(self._respfmt)])
-    return ret[calcsize(self._respfmt):]
+    if "io" in debug:
+        _open = _dbg(_open)
+        _recv = _dbg(_recv)
+        _send = _dbg(_send)
+        _close = _dbg(_close)
 
-  def _scmd(self, id, argsfmt="", *args):
-    #assert calcsize("!B" + argsfmt) == 12
-    # pad to 12 bytes
-    argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
-    self._write(pack("!B" + argsfmt, *((id,) + args)))
-    return self._sresp()
+    _headfmt = "!H H"
 
-  def ibdev(self, pad, sad=0, tmo=13, eot=1, eos=0):
-    #first check if device is enet1000
-    enet_5000 = EnetSocket(self._host,5000)
-    intro_resp = enet_5000._scmd(0x0b)
-    self.enet1000 = intro_resp.find('ENET/1000') > -1
-    if self.enet1000:
-      i,h = unpack("!IH",enet_5000._scmd(0x63,"B",0x06))
-      client_id = enet_5000._scmd(0x64)
-      enet_5000._scmd(0x65,'BBB4s',0,0,0,client_id)
-      enet_5000._scmd(0x50,'B',0x05)
-      enet_5000._scmd(0x50,'B',0x25)
-      enet_5000._scmd(0x07,"BBBBBBBB",0,0x18,0x01,0,0,0,0,0x0d)
-      enet_5000._scmd(0x50,"BB",0x10,0x01)
-      
-      enet_5015 = EnetSocket(self._host,5015)
-      self._extra_socket.append(enet_5015)
-      enet_5015._scmd(0x55,'B4sHI',0x02,'\0\0\0\0',h,i)
-      enet_5015._scmd(0x65,'BBB4s',0,0,0,client_id)
+    def _read_frags(self, many=False):
+        while True:
+            header = self._recv(calcsize(self._headfmt))
+            flags, num = unpack(self._headfmt, header)
+            if not many or not flags:
+                yield self._recv(num)
+            else:
+                break
+            if not many:
+                break
 
-      enet_5003 = EnetSocket(self._host,5003)
-      self._extra_socket.append(enet_5003)
-      enet_5003._scmd(0x63,"B",0x06)
-      enet_5003._scmd(0x65,'BBB4s',0,0,0,client_id)
+    def _read(self, many=False):
+        rx = "".join(self._read_frags(many))
+        return rx
 
-      enet_5005 = EnetSocket(self._host,5005)
-      self._extra_socket.append(enet_5005)
-      enet_5005._scmd(0x65,'BBB4s',0,0,0,client_id)
-      enet_5005._scmd(0x4f,'B2sIH',0x22,"\0\0",i,h)
+    def _write(self, string):
+        return self._send(string)
 
-      enet_5003._scmd(0x50,'BB',0x10,0x01)
-      enet_5003._scmd(0x55,'B4sHI',0x01,"\0\0\0\0",h,i)
+    _respfmt = "!H H 4x L"
 
-      self._sock.connect()
-      self._extra_socket.append(enet_5000)
-      i,h = unpack("!IH",self._scmd(0x63,"B",0x06))
-      self._scmd(0x65,'BBB4s',0,0,0,client_id)
+    def _sresp(self):
+        ret = self._read()
+        self.sta, self.err, self.cnt = unpack(
+            self._respfmt, ret[: calcsize(self._respfmt)]
+        )
+        return ret[calcsize(self._respfmt) :]
 
-      self._scmd(0x07,"BBBBBBBBBB",0x02,0,eot,pad,sad,eos,0,tmo,0,0x04)
-      self._scmd(0x50,'B',0x05)
-      self._scmd(0x50,'BB',0x10,0x01)
-      self._scmd(0x50,'BB',0x15,0x0b)
+    def _scmd(self, id, argsfmt="", *args):
+        # assert calcsize("!B" + argsfmt) == 12
+        # pad to 12 bytes
+        argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
+        self._write(pack("!B" + argsfmt, *((id,) + args)))
+        return self._sresp()
 
-      enet_5015 = EnetSocket(self._host,5015)
-      self._extra_socket.append(enet_5015)
-      enet_5015._scmd(0x55,'BBBBBHI',0x02,0,0x02,0,0,h,i)
-      enet_5015._scmd(0x65,'BBB4s',0,0,0,client_id)
+    def ibdev(self, pad, sad=0, tmo=13, eot=1, eos=0):
+        # first check if device is enet1000
+        enet_5000 = EnetSocket(self._host, 5000)
+        intro_resp = enet_5000._scmd(0x0b)
+        self.enet1000 = intro_resp.find("ENET/1000") > -1
+        if self.enet1000:
+            i, h = unpack("!IH", enet_5000._scmd(0x63, "B", 0x06))
+            client_id = enet_5000._scmd(0x64)
+            enet_5000._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
+            enet_5000._scmd(0x50, "B", 0x05)
+            enet_5000._scmd(0x50, "B", 0x25)
+            enet_5000._scmd(0x07, "BBBBBBBB", 0, 0x18, 0x01, 0, 0, 0, 0, 0x0d)
+            enet_5000._scmd(0x50, "BB", 0x10, 0x01)
 
-      enet_5003 = EnetSocket(self._host,5003)
-      self._extra_socket.append(enet_5003)
-      enet_5003._scmd(0x63,"B",0x06)
-      enet_5003._scmd(0x65,'BBB4s',0,0,0,client_id)
+            enet_5015 = EnetSocket(self._host, 5015)
+            self._extra_socket.append(enet_5015)
+            enet_5015._scmd(0x55, "B4sHI", 0x02, "\0\0\0\0", h, i)
+            enet_5015._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
 
-      enet_5005 = EnetSocket(self._host,5005)
-      self._extra_socket.append(enet_5005)
-      enet_5005._scmd(0x65,'BBB4s',0,0,0,client_id)
-      enet_5005._scmd(0x4f,'B2sIH',0x22,"\0\0",i,h)
+            enet_5003 = EnetSocket(self._host, 5003)
+            self._extra_socket.append(enet_5003)
+            enet_5003._scmd(0x63, "B", 0x06)
+            enet_5003._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
 
-      enet_5003._scmd(0x55,'BBBBBHI',0x01,0,0x02,0,0,h,i)
-      enet_5003._scmd(0x50,'BB',0x10,0x01)
+            enet_5005 = EnetSocket(self._host, 5005)
+            self._extra_socket.append(enet_5005)
+            enet_5005._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
+            enet_5005._scmd(0x4f, "B2sIH", 0x22, "\0\0", i, h)
 
-      self._scmd(0x58,'BB',0x01,0x01)
-    else:
-      self._extra_socket.append(enet_5000)
-      first_msg = intro_resp.find('\0')
-      client_id = intro_resp[first_msg + 10:first_msg + 10 + 6]
-      i,h = unpack("!IH",client_id)
-      enet_5000._scmd(0x50,'B',0x05)
-      enet_5000._scmd(0x07,"BBBBBBBB",0,0x18,0x01,0,0,0,0,0x0d)
-      enet_5000._scmd(0x50,"BB",0x10,0x01)
+            enet_5003._scmd(0x50, "BB", 0x10, 0x01)
+            enet_5003._scmd(0x55, "B4sHI", 0x01, "\0\0\0\0", h, i)
 
-      enet_5015 = EnetSocket(self._host,5015)
-      self._extra_socket.append(enet_5015)
-      enet_5015._scmd(0x55,'B4sHI',0x02,'\0\0\0\0',h,i)
-      
-      self._sock.connect()
-      self._scmd(0x07,"BBBBBBBBBB",0x02,0,eot,pad,sad,eos,0,tmo,0,0x04)
-      self._scmd(0x50,'B',0x05)
-      self._scmd(0x50,'BB',0x10,0x01)
-      self._scmd(0x50,'BB',0x15,0x0b)
+            self._sock.connect()
+            self._extra_socket.append(enet_5000)
+            i, h = unpack("!IH", self._scmd(0x63, "B", 0x06))
+            self._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
 
-      enet_5015 = EnetSocket(self._host,5015)
-      self._extra_socket.append(enet_5015)
-      enet_5015._scmd(0x55,'BBBBBHI',0x02,0,0x02,0,0,h,i)
+            self._scmd(0x07, "BBBBBBBBBB", 0x02, 0, eot, pad, sad, eos, 0, tmo, 0, 0x04)
+            self._scmd(0x50, "B", 0x05)
+            self._scmd(0x50, "BB", 0x10, 0x01)
+            self._scmd(0x50, "BB", 0x15, 0x0b)
 
-      self._scmd(0x58,'BB',0x01,0x01)
+            enet_5015 = EnetSocket(self._host, 5015)
+            self._extra_socket.append(enet_5015)
+            enet_5015._scmd(0x55, "BBBBBHI", 0x02, 0, 0x02, 0, 0, h, i)
+            enet_5015._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
 
-  def ibask(self, cfg):
-    self._scmd(0x4e, "B", cfg)
-#      "\x00\x00\x10\x00\x00\x00\x40\x63\x16\x40")
-    return self.err
-    
-  def ibconfig(self, cfg, val):
-    self._scmd(0x06, "B B", cfg, val)
-#      "\x08\x00\x00\x00\x00\x00\x54\x00\x00")
+            enet_5003 = EnetSocket(self._host, 5003)
+            self._extra_socket.append(enet_5003)
+            enet_5003._scmd(0x63, "B", 0x06)
+            enet_5003._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
+
+            enet_5005 = EnetSocket(self._host, 5005)
+            self._extra_socket.append(enet_5005)
+            enet_5005._scmd(0x65, "BBB4s", 0, 0, 0, client_id)
+            enet_5005._scmd(0x4f, "B2sIH", 0x22, "\0\0", i, h)
+
+            enet_5003._scmd(0x55, "BBBBBHI", 0x01, 0, 0x02, 0, 0, h, i)
+            enet_5003._scmd(0x50, "BB", 0x10, 0x01)
+
+            self._scmd(0x58, "BB", 0x01, 0x01)
+        else:
+            self._extra_socket.append(enet_5000)
+            first_msg = intro_resp.find("\0")
+            client_id = intro_resp[first_msg + 10 : first_msg + 10 + 6]
+            i, h = unpack("!IH", client_id)
+            enet_5000._scmd(0x50, "B", 0x05)
+            enet_5000._scmd(0x07, "BBBBBBBB", 0, 0x18, 0x01, 0, 0, 0, 0, 0x0d)
+            enet_5000._scmd(0x50, "BB", 0x10, 0x01)
+
+            enet_5015 = EnetSocket(self._host, 5015)
+            self._extra_socket.append(enet_5015)
+            enet_5015._scmd(0x55, "B4sHI", 0x02, "\0\0\0\0", h, i)
+
+            self._sock.connect()
+            self._scmd(0x07, "BBBBBBBBBB", 0x02, 0, eot, pad, sad, eos, 0, tmo, 0, 0x04)
+            self._scmd(0x50, "B", 0x05)
+            self._scmd(0x50, "BB", 0x10, 0x01)
+            self._scmd(0x50, "BB", 0x15, 0x0b)
+
+            enet_5015 = EnetSocket(self._host, 5015)
+            self._extra_socket.append(enet_5015)
+            enet_5015._scmd(0x55, "BBBBBHI", 0x02, 0, 0x02, 0, 0, h, i)
+
+            self._scmd(0x58, "BB", 0x01, 0x01)
+
+    def ibask(self, cfg):
+        self._scmd(0x4e, "B", cfg)
+        #      "\x00\x00\x10\x00\x00\x00\x40\x63\x16\x40")
+        return self.err
+
+    def ibconfig(self, cfg, val):
+        self._scmd(0x06, "B B", cfg, val)
+
+    #      "\x08\x00\x00\x00\x00\x00\x54\x00\x00")
     # return self.err # prevval
 
-  def ibwait(self, mask=0):
-    self._scmd(0x22, "B H", 0x54, mask)
-#      "\x20\xe1\x05\x08\xb4\xe0\x05\x08")
+    def ibwait(self, mask=0):
+        self._scmd(0x22, "B H", 0x54, mask)
 
-  def ibrsp(self):
-    stb, = unpack("!B", self._scmd(0x19))
-#      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
-    return stb
+    #      "\x20\xe1\x05\x08\xb4\xe0\x05\x08")
 
-  def ibonl(self, val=0):
-    self._scmd(0x12, "B", val)
-#      "\x00\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
+    def ibrsp(self):
+        stb, = unpack("!B", self._scmd(0x19))
+        #      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
+        return stb
 
-  def ibclr(self):
-    self._scmd(0x04)
-#      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
+    def ibonl(self, val=0):
+        self._scmd(0x12, "B", val)
 
-  def ibeos(self, val):
-    self._scmd(0x08, "H", val)
-#      "\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
+    #      "\x00\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
 
-  def ibeot(self, val):
-    self._scmd(0x09, "B", val)
-#      "\x00\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
+    def ibclr(self):
+        self._scmd(0x04)
 
-  def iblines(self):
-    lines, = unpack("!H", self._scmd(0x0d)) 
-#      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
-    return lines
-    
-  def ibln(self, pad, sad=0):
-    if sad != 0: pad |= 0x80
-    listen, = unpack("!H", self._scmd(0x0f, "B B", pad, sad))
-#      "\x00\xf0\x38\x06\x08\x03\x00\x00\x00"))
-    return listen
-    
-  def ibloc(self):
-    self._scmd(0x10)
-#      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
-    
-  def ibtmo(self, tmo):
-    self._scmd(0x1f, "B", tmo)
-#      "\x00\x00\x20\xe1\x05\x08\xae\xe0\x05\x08")
- 
-  def ibtrg(self):
-    self._scmd(0x20)
-#      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
-    
-  def ibcac(self, val=1):
-    self._scmd(0x03, "B", val)
-#      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
-    
-  def ibgts(self, val=1):
-    self._scmd(0x0a, "B", val)
-#      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
-    
-  def ibrsc(self, val=1):
-    self._scmd(0x18, "B", val)
-#      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
+    #      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
 
-  def ibsic(self):
-    self._scmd(0x1c) 
-#      "\xe1\x05\x08\xb1\xe0\x05\x08\x88\xf5\xff\xbf")
-    
-  def ibwrt(self, string):
-    argsfmt = "3s I"
-    argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
-    header = pack("!B" + argsfmt,0x62,"\0\0\0",len(string))
-    self._write(header + string)
-    self._sresp()
-    if self.err:
-      raise IOError("No device connected to this address")
-    return self.cnt
+    def ibeos(self, val):
+        self._scmd(0x08, "H", val)
 
-  def ibrd(self, num):
-    argsfmt = "3s I"
-    argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
-    self._write(pack("!B" + argsfmt,0x16,"\0\0\0",num))
-    if not self.enet1000:
-      self._sresp()
-      
-    ret =  self._read(many=True)
-    self._sresp()
-    return ret
+    #      "\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
 
-  if "rw" in debug:
-    ibwrt = _dbg(ibwrt)
-    ibrd = _dbg(ibrd)
+    def ibeot(self, val):
+        self._scmd(0x09, "B", val)
 
-  ibbna = _not_impl("ibbna")
-  ibcmd = _not_impl("ibcmd")
-  ibcmda = _not_impl("ibcmda")
-  ibwrta = _not_impl("ibwrta")
-  ibdiag = _not_impl("ibdiag")
-  ibdma = _not_impl("ibdma")
-  ibevent = _not_impl("ibevent")
-  ibfind = _not_impl("ibfind")
-  ibist = _not_impl("ibist")
-  ibllo = _not_impl("ibllo")
-  ibpad = _not_impl("ibpad")
-  ibpct = _not_impl("ibpct")
-  ibpoke = _not_impl("ibpoke")
-  ibppc = _not_impl("ibppc")
-  ibrda = _not_impl("ibrda")
-  ibrdf = _not_impl("ibrdf")
-  ibrdkey = _not_impl("ibrdkey")
-  ibrpp = _not_impl("ibrpp")
-  ibrsv = _not_impl("ibrsv")
-  ibsad = _not_impl("ibsad")
-  ibsgnl = _not_impl("ibsgnl")
-  ibsre = _not_impl("ibsre")
-  ibsrq = _not_impl("ibsrq")
-  ibstop = _not_impl("ibstop")
-  ibwrta = _not_impl("ibwrta")
-  ibwrtf = _not_impl("ibwrtf")
-  ibwrtkey = _not_impl("ibwrtkey")
-  ibxtrc = _not_impl("ibxtrc")
- 
+    #      "\x00\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
+
+    def iblines(self):
+        lines, = unpack("!H", self._scmd(0x0d))
+        #      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
+        return lines
+
+    def ibln(self, pad, sad=0):
+        if sad != 0:
+            pad |= 0x80
+        listen, = unpack("!H", self._scmd(0x0f, "B B", pad, sad))
+        #      "\x00\xf0\x38\x06\x08\x03\x00\x00\x00"))
+        return listen
+
+    def ibloc(self):
+        self._scmd(0x10)
+
+    #      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
+
+    def ibtmo(self, tmo):
+        self._scmd(0x1f, "B", tmo)
+
+    #      "\x00\x00\x20\xe1\x05\x08\xae\xe0\x05\x08")
+
+    def ibtrg(self):
+        self._scmd(0x20)
+
+    #      "\xf5\xff\xbf\x14\xf5\xff\xbf\xa9\x8f\x04\x08")
+
+    def ibcac(self, val=1):
+        self._scmd(0x03, "B", val)
+
+    #      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
+
+    def ibgts(self, val=1):
+        self._scmd(0x0a, "B", val)
+
+    #      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
+
+    def ibrsc(self, val=1):
+        self._scmd(0x18, "B", val)
+
+    #      "\x00\x00\x20\xe1\x05\x08\xb1\xe0\x05\x08")
+
+    def ibsic(self):
+        self._scmd(0x1c)
+
+    #      "\xe1\x05\x08\xb1\xe0\x05\x08\x88\xf5\xff\xbf")
+
+    def ibwrt(self, string):
+        argsfmt = "3s I"
+        argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
+        header = pack("!B" + argsfmt, 0x62, "\0\0\0", len(string))
+        self._write(header + string)
+        self._sresp()
+        if self.err:
+            raise IOError("No device connected to this address")
+        return self.cnt
+
+    def ibrd(self, num):
+        argsfmt = "3s I"
+        argsfmt += "%dx" % (12 - calcsize("!B" + argsfmt))
+        self._write(pack("!B" + argsfmt, 0x16, "\0\0\0", num))
+        if not self.enet1000:
+            self._sresp()
+
+        ret = self._read(many=True)
+        self._sresp()
+        return ret
+
+    if "rw" in debug:
+        ibwrt = _dbg(ibwrt)
+        ibrd = _dbg(ibrd)
+
+    ibbna = _not_impl("ibbna")
+    ibcmd = _not_impl("ibcmd")
+    ibcmda = _not_impl("ibcmda")
+    ibwrta = _not_impl("ibwrta")
+    ibdiag = _not_impl("ibdiag")
+    ibdma = _not_impl("ibdma")
+    ibevent = _not_impl("ibevent")
+    ibfind = _not_impl("ibfind")
+    ibist = _not_impl("ibist")
+    ibllo = _not_impl("ibllo")
+    ibpad = _not_impl("ibpad")
+    ibpct = _not_impl("ibpct")
+    ibpoke = _not_impl("ibpoke")
+    ibppc = _not_impl("ibppc")
+    ibrda = _not_impl("ibrda")
+    ibrdf = _not_impl("ibrdf")
+    ibrdkey = _not_impl("ibrdkey")
+    ibrpp = _not_impl("ibrpp")
+    ibrsv = _not_impl("ibrsv")
+    ibsad = _not_impl("ibsad")
+    ibsgnl = _not_impl("ibsgnl")
+    ibsre = _not_impl("ibsre")
+    ibsrq = _not_impl("ibsrq")
+    ibstop = _not_impl("ibstop")
+    ibwrta = _not_impl("ibwrta")
+    ibwrtf = _not_impl("ibwrtf")
+    ibwrtkey = _not_impl("ibwrtkey")
+    ibxtrc = _not_impl("ibxtrc")
+
 
 class EnetLib(object):
-  def __init__(self, host, port=5000):
-    self._host = host
-    self._port = port
-    self._uds = {0: None}
+    def __init__(self, host, port=5000):
+        self._host = host
+        self._port = port
+        self._uds = {0: None}
 
-  def _wrap_ud(self, name):
-    def wrapped(ud, *a, **ka):
-	res = getattr(self._uds[ud], name)(*a, **ka)
-	if res == None:
-	    return self._uds[ud].sta
-	else:
-	    return self._uds[ud].sta, res
-    return wrapped
+    def _wrap_ud(self, name):
+        def wrapped(ud, *a, **ka):
+            res = getattr(self._uds[ud], name)(*a, **ka)
+            if res == None:
+                return self._uds[ud].sta
+            else:
+                return self._uds[ud].sta, res
 
-  # TODO: cfg
-  def ibfind(self, name):
-    if name[:3] == "dev":
-	pad = int(name[3:])
-    else:
-	raise ValueError, "configuration not yet implemented. use devX"
-    return self.ibdev(pad)
+        return wrapped
 
-  def ibdev(self, *a, **ka):
-    ud = max(self._uds.keys()) + 1
-    self._uds[ud] = EnetSocket(self._host, self._port)
-    self._uds[ud].ibdev(*a, **ka)
-    return ud
+    # TODO: cfg
+    def ibfind(self, name):
+        if name[:3] == "dev":
+            pad = int(name[3:])
+        else:
+            raise ValueError, "configuration not yet implemented. use devX"
+        return self.ibdev(pad)
 
-  def ibonl(self, ud, val):
-    self._uds[ud].ibonl(val)
-    sta = self._uds[ud].sta
-    if not val:
-      del self._uds[ud]
-    return sta
+    def ibdev(self, *a, **ka):
+        ud = max(self._uds.keys()) + 1
+        self._uds[ud] = EnetSocket(self._host, self._port)
+        self._uds[ud].ibdev(*a, **ka)
+        return ud
 
-  def ibsta(self):
-      return 0
-  def iberr(self):
-      return 0
-  def ibcntl(self):
-      return 0
+    def ibonl(self, ud, val):
+        self._uds[ud].ibonl(val)
+        sta = self._uds[ud].sta
+        if not val:
+            del self._uds[ud]
+        return sta
 
-  ibcnt = ibcntl
+    def ibsta(self):
+        return 0
 
-  def __getattr__(self, name):
-    return self._wrap_ud(name)
+    def iberr(self):
+        return 0
+
+    def ibcntl(self):
+        return 0
+
+    ibcnt = ibcntl
+
+    def __getattr__(self, name):
+        return self._wrap_ud(name)
 
 
 if __name__ == "__main__":
@@ -415,7 +439,7 @@ if __name__ == "__main__":
     print "ibwrt", l.ibwrt(ud, "ID?;")
     print "ibrd", l.ibrd(ud, 10)
     print "ibwrt", l.ibwrt(ud, "SET?;")
-    print "ibrd", `l.ibrd(ud, 640)`
+    print "ibrd", ` l.ibrd(ud, 640) `
     print "ibwrt", l.ibwrt(ud, "DSTB;")
-    print "ibrd", `l.ibrd(ud, 4096)`
+    print "ibrd", ` l.ibrd(ud, 4096) `
     print "ibbna", l.ibbna(ud)

@@ -1,4 +1,4 @@
-'''Repository of controllers
+"""Repository of controllers
 
 Here you will find the complete catalog of available Bliss controllers.
 
@@ -40,4 +40,4 @@ and their common API and functionality can be determined
     temperature
     temp
     wago
-'''
+"""

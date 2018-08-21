@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # This file is part of the bliss project
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
@@ -36,6 +36,7 @@ def spawn_greenlet(func, *args, **kwargs):
             raise ret
         else:
             return ret
+
     setattr(t, "get", types.MethodType(new_get, t))
 
     return t
@@ -43,6 +44,7 @@ def spawn_greenlet(func, *args, **kwargs):
 
 class SpecWaitObject:
     """Helper class for waiting specific events from Spec"""
+
     def __init__(self, connection):
         """Constructor
         Arguments:
@@ -55,8 +57,8 @@ class SpecWaitObject:
         self.spec_reply_arrived_event = gevent.event.Event()
         self.channel_updated_event = gevent.event.Event()
 
-        event.connect(connection, 'connected', self.connected)
-        event.connect(connection, 'disconnected', self.disconnected)
+        event.connect(connection, "connected", self.connected)
+        event.connect(connection, "disconnected", self.disconnected)
 
         if connection.isSpecConnected():
             self.connected()
@@ -114,10 +116,10 @@ class SpecWaitObject:
                 if not channel.registered:
                     self.channelWasUnregistered = True
                     connection.registerChannel(
-                        chanName, self.channelUpdated)  # channel.register()
+                        chanName, self.channelUpdated
+                    )  # channel.register()
                 else:
-                    event.connect(
-                        channel, 'valueChanged', self.channelUpdated)
+                    event.connect(channel, "valueChanged", self.channelUpdated)
 
                 if waitValue is None:
                     try:
@@ -129,8 +131,7 @@ class SpecWaitObject:
                         self.channel_updated_event.wait(timeout)
 
                 if self.channelWasUnregistered:
-                    connection.unregisterChannel(
-                        chanName)  # channel.unregister()
+                    connection.unregisterChannel(chanName)  # channel.unregister()
 
     def waitConnection(self, timeout=None):
         """Wait for the connection to Spec being established
@@ -151,8 +152,8 @@ class SpecWaitObject:
 
         if reply.error:
             raise SpecClientError(
-                'Server request did not complete: %s' %
-                value, reply.error_code)
+                "Server request did not complete: %s" % value, reply.error_code
+            )
 
         self.value = value
 
@@ -193,8 +194,9 @@ def waitChannelUpdate(chanName, connection, waitValue=None, timeout=None):
     """
     w = SpecWaitObject(connection)
 
-    wait_greenlet = spawn_greenlet(w.waitChannelUpdate, chanName,
-                                   waitValue=waitValue, timeout=timeout)
+    wait_greenlet = spawn_greenlet(
+        w.waitChannelUpdate, chanName, waitValue=waitValue, timeout=timeout
+    )
     wait_greenlet.get()
 
     return w.value

@@ -51,11 +51,11 @@ from bliss.controllers.emulator import BaseDevice
 
 
 class SCPIError(enum.Enum):
-    ExecutionError = -200, 'Execution error'
-    InvalidWhileInLocal = -201, 'Invalid while in local'
+    ExecutionError = -200, "Execution error"
+    InvalidWhileInLocal = -201, "Invalid while in local"
 
     def __str__(self):
-        return '{0[0]}, {0[1]}'.format(self.value)
+        return "{0[0]}, {0[1]}".format(self.value)
 
 
 class SCPI(BaseDevice):
@@ -63,31 +63,33 @@ class SCPI(BaseDevice):
     Base class for :term:`SCPI` based bliss emulator devices
     """
 
-    Manufacturer = 'Bliss Team'
-    Model = 'Generic SCPI Device'
-    Version = '0'
-    Firmware = '0.1.0'
-    IDNFieldSep = ', '
+    Manufacturer = "Bliss Team"
+    Model = "Generic SCPI Device"
+    Version = "0"
+    Firmware = "0.1.0"
+    IDNFieldSep = ", "
 
     def __init__(self, name, **opts):
-        super_kwargs = dict(newline=opts.pop('newline', self.DEFAULT_NEWLINE))
+        super_kwargs = dict(newline=opts.pop("newline", self.DEFAULT_NEWLINE))
         super(SCPI, self).__init__(name, **super_kwargs)
         self._data = {}
         self._error_stack = collections.deque()
-        self._commands = Commands(opts.get('commands', {}))
+        self._commands = Commands(opts.get("commands", {}))
         for cmd_expr, cmd_info in self._commands.command_expressions.items():
-            min_name = cmd_info['min_command'].lower().replace('*', '').replace(':', '_')
+            min_name = (
+                cmd_info["min_command"].lower().replace("*", "").replace(":", "_")
+            )
             func = getattr(self, min_name, None)
             if func:
-                cmd_info['func'] = func
-            if 'default' in cmd_info:
-                cmd_info['value'] = cmd_info['default']
+                cmd_info["func"] = func
+            if "default" in cmd_info:
+                cmd_info["value"] = cmd_info["default"]
 
     def handle_line(self, line):
         self._log.info("processing line %r", line)
         line = line.strip()
         responses = []
-        for cmd in line.split(';'):
+        for cmd in line.split(";"):
             cmd = cmd.strip()
             response = self.handle_command(cmd)
             if isinstance(response, SCPIError):
@@ -95,29 +97,29 @@ class SCPI(BaseDevice):
             elif response is not None:
                 responses.append(str(response))
         if responses:
-            return ';'.join(responses) + '\n'
+            return ";".join(responses) + "\n"
 
     def handle_command(self, cmd):
         self._log.debug("processing cmd %r", cmd)
         cmd = cmd.strip()
-        args = cmd.split(' ')
+        args = cmd.split(" ")
         instr = args[0].lower()
         args = args[1:]
-        is_query =  instr.endswith('?')
-        instr = instr.rstrip('?')
+        is_query = instr.endswith("?")
+        instr = instr.rstrip("?")
         cmd_info = self._commands.get(instr)
-        attr = cmd_info.get('func')
+        attr = cmd_info.get("func")
         result = None
         if attr is None:
-            if 'value' in cmd_info:
-                result = cmd_info['value']
+            if "value" in cmd_info:
+                result = cmd_info["value"]
             if is_query:
-                result = self.query(cmd_info['min_command'], *args)
+                result = self.query(cmd_info["min_command"], *args)
             else:
-                result = self.write(cmd_info['min_command'], *args)
+                result = self.write(cmd_info["min_command"], *args)
         elif callable(attr):
             fargs = inspect.getargspec(attr).args
-            if len(fargs) > 1 and fargs[1] == 'is_query':
+            if len(fargs) > 1 and fargs[1] == "is_query":
                 args = [is_query] + args
             result = attr(*args)
         else:
@@ -132,22 +134,21 @@ class SCPI(BaseDevice):
     def query(self, instr, *args):
         try:
             cmd = self._commands.get(instr)
-            return cmd.get('set', str)(cmd['value'])
+            return cmd.get("set", str)(cmd["value"])
         except KeyError:
             return SCPIError.ExecutionError
 
     def write(self, instr, *args):
         if args:
-            self._log.debug('set %r to %r', instr, args[0])
-            self._commands.get(instr)['value'] = args[0]
+            self._log.debug("set %r to %r", instr, args[0])
+            self._commands.get(instr)["value"] = args[0]
 
     def idn(self):
-        args = map(str, (self.Manufacturer, self.Model,
-                         self.Version, self.Firmware))
+        args = map(str, (self.Manufacturer, self.Model, self.Version, self.Firmware))
         return self.IDNFieldSep.join(args)
 
     def cls(self):
-        self._log.debug('clear')
+        self._log.debug("clear")
         # clear SESR
         # clear OPERation Status Register
         # clear QUEStionable Status Register
@@ -155,7 +156,7 @@ class SCPI(BaseDevice):
 
     def opc(self, is_query):
         if is_query:
-            return '1'
+            return "1"
 
     def syst_err(self):
         pass

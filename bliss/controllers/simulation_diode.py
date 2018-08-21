@@ -15,7 +15,7 @@ from bliss.common.measurement import SamplingCounter, IntegratingCounter
 class simulation_diode_controller(object):
     @property
     def name(self):
-        return 'simulation_diode_controller'
+        return "simulation_diode_controller"
 
     def read_all(self, *counters):
         gevent.sleep(0.01)
@@ -27,7 +27,6 @@ class simulation_diode_controller(object):
 
 
 class SimulationDiodeSamplingCounter(SamplingCounter):
-
     def read(self, sleep=True):
         if sleep:
             gevent.sleep(0.01)  # simulate hw reading

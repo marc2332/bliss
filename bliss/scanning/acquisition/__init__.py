@@ -1,4 +1,4 @@
-'''Acquisition module
+"""Acquisition module
 
 This module provides an acquisition interface for existing devices
 
@@ -10,4 +10,4 @@ This module provides an acquisition interface for existing devices
    musst
    pepu
 
-'''
+"""

@@ -18,7 +18,7 @@ class InvalidValue(Null):
         raise ValueError
 
     def __repr__(self):
-        return '#ERR'
+        return "#ERR"
 
 
 class DefaultValue(object):
@@ -31,15 +31,15 @@ class DefaultValue(object):
 
 
 def boolify(s, **keys):
-    if s == 'True' or s == 'true':
+    if s == "True" or s == "true":
         return True
-    if s == 'False' or s == 'false':
+    if s == "False" or s == "false":
         return False
-    raise ValueError('Not Boolean Value!')
+    raise ValueError("Not Boolean Value!")
 
 
 def auto_conversion(var):
-    '''guesses the str representation of the variables type'''
+    """guesses the str representation of the variables type"""
     if var is None:
         return None
     for caster in (boolify, int, float):
@@ -81,7 +81,9 @@ def read_decorator(func):
             elif isinstance(value, dict):
                 for k, v in value.iteritems():
                     value[k] = self._read_type_conversion(v)
-                if hasattr(self, 'default_values') and isinstance(self.default_values, dict):
+                if hasattr(self, "default_values") and isinstance(
+                    self.default_values, dict
+                ):
                     tmp = dict(self._default_values)
                     tmp.update(value)
                     value = tmp
@@ -91,12 +93,14 @@ def read_decorator(func):
                 elif value is not None:
                     value = self._read_type_conversion(value)
         if value is None:
-            if hasattr(self, '_default_value'):
+            if hasattr(self, "_default_value"):
                 value = self._default_value
-            elif(hasattr(self, '_default_values') and
-                 hasattr(self._default_values, 'get')):
+            elif hasattr(self, "_default_values") and hasattr(
+                self._default_values, "get"
+            ):
                 value = self._default_values.get(args[0])
         return value
+
     return _read
 
 
@@ -104,7 +108,7 @@ def write_decorator_dict(func):
     def _write(self, values, **keys):
         if self._write_type_conversion:
             if not isinstance(values, dict) and values is not None:
-                raise TypeError('can only be dict')
+                raise TypeError("can only be dict")
 
             if values is not None:
                 new_dict = dict()
@@ -112,17 +116,22 @@ def write_decorator_dict(func):
                     new_dict[k] = self._write_type_conversion(v)
                 values = new_dict
         return func(self, values, **keys)
+
     return _write
 
 
 def write_decorator_multiple(func):
     def _write(self, values, **keys):
         if self._write_type_conversion:
-            if not isinstance(values, (list, tuple, numpy.ndarray)) and values is not None:
-                raise TypeError('Can only be tuple, list or numpy array')
+            if (
+                not isinstance(values, (list, tuple, numpy.ndarray))
+                and values is not None
+            ):
+                raise TypeError("Can only be tuple, list or numpy array")
             if values is not None:
                 values = [self._write_type_conversion(x) for x in values]
         return func(self, values, **keys)
+
     return _write
 
 
@@ -131,16 +140,16 @@ def write_decorator(func):
         if self._write_type_conversion and value is not None:
             value = self._write_type_conversion(value)
         return func(self, value, **keys)
+
     return _write
 
 
-def scan(match='*', count=1000, connection=None):
+def scan(match="*", count=1000, connection=None):
     if connection is None:
         connection = get_cache()
     cursor = 0
     while 1:
-        cursor, values = connection.scan(cursor=cursor,
-                                         match=match, count=count)
+        cursor, values = connection.scan(cursor=cursor, match=match, count=count)
         for val in values:
             yield val
         if int(cursor) == 0:
@@ -148,10 +157,14 @@ def scan(match='*', count=1000, connection=None):
 
 
 class SimpleSetting(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None,
-                 default_value=None):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+        default_value=None,
+    ):
         if connection is None:
             connection = get_cache()
         self._cnx = weakref.ref(connection)
@@ -163,7 +176,7 @@ class SimpleSetting(object):
     @property
     def name(self):
         return self._name
- 
+
     @read_decorator
     def get(self):
         cnx = self._cnx()
@@ -204,8 +217,9 @@ class SimpleSetting(object):
 
     def __isub__(self, other):
         if isinstance(other, basestring):
-            raise TypeError("unsupported operand type(s) for -=: %s" %
-                            type(other).__name__)
+            raise TypeError(
+                "unsupported operand type(s) for -=: %s" % type(other).__name__
+            )
         return self.__iadd__(-other)
 
     def __getitem__(self, ran):
@@ -218,7 +232,7 @@ class SimpleSetting(object):
             elif isinstance(ran, int):
                 i = j = ran
             else:
-                raise TypeError('indices must be integers')
+                raise TypeError("indices must be integers")
 
             value = cnx.getrange(self._name, i, j)
             if step is not None:
@@ -228,15 +242,19 @@ class SimpleSetting(object):
     def __repr__(self):
         cnx = self._cnx()
         value = cnx.get(self._name)
-        return '<SimpleSetting name=%s value=%s>' % (self._name, value)
+        return "<SimpleSetting name=%s value=%s>" % (self._name, value)
 
 
 class SimpleSettingProp(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None,
-                 default_value=None,
-                 use_object_name=True):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+        default_value=None,
+        use_object_name=True,
+    ):
         self._name = name
         self._cnx = connection or get_cache()
         self._read_type_conversion = read_type_conversion
@@ -250,20 +268,23 @@ class SimpleSettingProp(object):
 
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
-        return SimpleSetting(name, self._cnx,
-                             self._read_type_conversion,
-                             self._write_type_conversion,
-                             self._default_value)
+        return SimpleSetting(
+            name,
+            self._cnx,
+            self._read_type_conversion,
+            self._write_type_conversion,
+            self._default_value,
+        )
 
     def __set__(self, obj, value):
         if isinstance(value, SimpleSetting):
             return
 
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
 
@@ -276,9 +297,13 @@ class SimpleSettingProp(object):
 
 
 class QueueSetting(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+    ):
         if connection is None:
             connection = get_cache()
         self._cnx = weakref.ref(connection)
@@ -376,7 +401,7 @@ class QueueSetting(object):
         if cnx is None:
             cnx = self._cnx()
         value = cnx.lrange(self._name, 0, -1)
-        return '<QueueSetting name=%s value=%s>' % (self._name, value)
+        return "<QueueSetting name=%s value=%s>" % (self._name, value)
 
     def __iadd__(self, other, cnx=None):
         self.extend(other, cnx)
@@ -389,14 +414,14 @@ class QueueSetting(object):
         elif isinstance(ran, int):
             i = j = ran
         else:
-            raise TypeError('indices must be integers')
+            raise TypeError("indices must be integers")
         value = self.get(first=i, last=j, cnx=cnx)
         if value is None:
             raise IndexError
         else:
             return value
 
-    def __iter__(self, cnx = None):
+    def __iter__(self, cnx=None):
         if cnx is None:
             cnx = self._cnx()
         lsize = cnx.llen(self._name)
@@ -414,15 +439,19 @@ class QueueSetting(object):
         elif isinstance(ran, int):
             self.set_item(value, pos=ran, cnx=cnx)
         else:
-            raise TypeError('indices must be integers')
+            raise TypeError("indices must be integers")
         return self
 
 
 class QueueSettingProp(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None,
-                 use_object_name=True):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+        use_object_name=True,
+    ):
         self._name = name
         self._cnx = connection or get_cache()
         self._read_type_conversion = read_type_conversion
@@ -435,34 +464,38 @@ class QueueSettingProp(object):
 
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
 
-        return QueueSetting(name, self._cnx,
-                            self._read_type_conversion,
-                            self._write_type_conversion)
+        return QueueSetting(
+            name, self._cnx, self._read_type_conversion, self._write_type_conversion
+        )
 
     def __set__(self, obj, values):
         if isinstance(values, QueueSetting):
             return
 
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
 
-        proxy = QueueSetting(name, self._cnx,
-                             self._read_type_conversion,
-                             self._write_type_conversion)
+        proxy = QueueSetting(
+            name, self._cnx, self._read_type_conversion, self._write_type_conversion
+        )
         proxy.set(values)
 
 
 class HashSetting(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None,
-                 default_values={}):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+        default_values={},
+    ):
         if connection is None:
             connection = get_cache()
         self._cnx = weakref.ref(connection)
@@ -477,7 +510,7 @@ class HashSetting(object):
 
     def __repr__(self):
         value = self.get_all()
-        return '<HashSetting name=%s value=%s>' % (self._name, value)
+        return "<HashSetting name=%s value=%s>" % (self._name, value)
 
     def __delitem__(self, key):
         cnx = self._cnx()
@@ -511,7 +544,9 @@ class HashSetting(object):
             v = self._read_type_conversion(raw_v)
             if isinstance(v, InvalidValue):
                 raise ValueError(
-                    "%s: Invalid value '%s` (cannot deserialize %r)" % (self._name, k, raw_v))
+                    "%s: Invalid value '%s` (cannot deserialize %r)"
+                    % (self._name, k, raw_v)
+                )
             all_dict[k] = v
         return all_dict
 
@@ -590,7 +625,7 @@ class HashSetting(object):
                     v = self._read_type_conversion(v)
                 seen_keys.add(k)
                 yield k, v
-            if not next_id or next_id is '0':
+            if not next_id or next_id is "0":
                 break
 
         for k, v in self._default_values.iteritems():
@@ -623,11 +658,15 @@ class HashSetting(object):
 
 
 class HashSettingProp(object):
-    def __init__(self, name, connection=None,
-                 read_type_conversion=auto_conversion,
-                 write_type_conversion=None,
-                 default_values={},
-                 use_object_name=True):
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_conversion,
+        write_type_conversion=None,
+        default_values={},
+        use_object_name=True,
+    ):
         self._name = name
         self._cnx = connection or get_cache()
         self._read_type_conversion = read_type_conversion
@@ -641,43 +680,58 @@ class HashSettingProp(object):
 
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
 
-        return HashSetting(name, self._cnx,
-                           self._read_type_conversion,
-                           self._write_type_conversion,
-                           self._default_values)
+        return HashSetting(
+            name,
+            self._cnx,
+            self._read_type_conversion,
+            self._write_type_conversion,
+            self._default_values,
+        )
 
     def __set__(self, obj, values):
         if self._use_object_name:
-            name = obj.name + ':' + self._name
+            name = obj.name + ":" + self._name
         else:
             name = self._name
 
         if isinstance(values, HashSetting):
             return
 
-        proxy = HashSetting(name, self._cnx,
-                            self._read_type_conversion,
-                            self._write_type_conversion,
-                            self._default_values)
+        proxy = HashSetting(
+            name,
+            self._cnx,
+            self._read_type_conversion,
+            self._write_type_conversion,
+            self._default_values,
+        )
         proxy.set(values)
 
     def get_proxy(self):
-        return HashSetting(self._name, self._cnx,
-                           self._read_type_conversion,
-                           self._write_type_conversion,
-                           self._default_values)
+        return HashSetting(
+            self._name,
+            self._cnx,
+            self._read_type_conversion,
+            self._write_type_conversion,
+            self._default_values,
+        )
+
+
 # helper
 
 
 def _change_to_obj_marshalling(keys):
-    read_type_conversion = keys.pop('read_type_conversion', pickle_loads)
-    write_type_conversion = keys.pop('write_type_conversion', pickle.dumps)
-    keys.update({'read_type_conversion': read_type_conversion,
-                 'write_type_conversion': write_type_conversion})
+    read_type_conversion = keys.pop("read_type_conversion", pickle_loads)
+    write_type_conversion = keys.pop("write_type_conversion", pickle.dumps)
+    keys.update(
+        {
+            "read_type_conversion": read_type_conversion,
+            "write_type_conversion": write_type_conversion,
+        }
+    )
 
 
 class HashObjSetting(HashSetting):
@@ -727,19 +781,19 @@ class Struct(object):
         return "<Struct with attributes: %s>" % self._proxy.keys()
 
     def __getattribute__(self, name):
-        if name.startswith('_'):
+        if name.startswith("_"):
             return object.__getattribute__(self, name)
         else:
             return self._proxy.get(name)
 
     def __setattr__(self, name, value):
-        if name.startswith('_'):
+        if name.startswith("_"):
             return object.__setattr__(self, name, value)
         else:
             self._proxy[name] = value
 
     def __delattr__(self, name):
-        if name.startswith('_'):
+        if name.startswith("_"):
             return object.__delattr__(self, name)
         else:
             self._proxy.remove(name)
@@ -747,17 +801,17 @@ class Struct(object):
 
 class ParametersType(type):
     def __call__(cls, *args, **kwargs):
-        class_dict = {'__slots__': tuple(cls.SLOTS), 'SLOTS': cls.SLOTS}
+        class_dict = {"__slots__": tuple(cls.SLOTS), "SLOTS": cls.SLOTS}
         new_cls = type(cls.__name__, (cls,), class_dict)
         return type.__call__(new_cls, *args, **kwargs)
 
     def __new__(cls, name, bases, attrs):
-        attrs['__slots__'] = tuple(attrs['SLOTS'])
+        attrs["__slots__"] = tuple(attrs["SLOTS"])
         return type.__new__(cls, name, bases, attrs)
 
 
 class ParamDescriptor(object):
-    OBJECT_PREFIX = 'object:'
+    OBJECT_PREFIX = "object:"
 
     def __init__(self, proxy, name, value, assign=True):
         self.proxy = proxy
@@ -766,18 +820,19 @@ class ParamDescriptor(object):
             self.assign(value)
 
     def assign(self, value):
-        if hasattr(value, 'name') and hasattr(setup_globals, value.name):
-            value = '%s%s' % (ParamDescriptor.OBJECT_PREFIX, value.name)
+        if hasattr(value, "name") and hasattr(setup_globals, value.name):
+            value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
         try:
             self.proxy[self.name] = value
         except Exception:
-            raise ValueError("%s.%s: cannot set value" %
-                             (self.proxy._name, self.name))
+            raise ValueError("%s.%s: cannot set value" % (self.proxy._name, self.name))
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
-        if isinstance(value, (str, unicode)) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
-            value = value[len(ParamDescriptor.OBJECT_PREFIX):]
+        if isinstance(value, (str, unicode)) and value.startswith(
+            ParamDescriptor.OBJECT_PREFIX
+        ):
+            value = value[len(ParamDescriptor.OBJECT_PREFIX) :]
             return getattr(setup_globals, value)
         return value
 
@@ -791,19 +846,18 @@ class ParamDescriptor(object):
 class Parameters(object):
     __metaclass__ = ParametersType
     DESCRIPTOR = ParamDescriptor
-    SLOTS = ['_proxy', '__current_config']
+    SLOTS = ["_proxy", "__current_config"]
 
     def __init__(self, name, **keys):
-        self.__current_config = SimpleSetting(name, default_value='default')
-        hash_name = '%s:%s' % (name, self.__current_config.get())
+        self.__current_config = SimpleSetting(name, default_value="default")
+        hash_name = "%s:%s" % (name, self.__current_config.get())
         self._proxy = HashSetting(hash_name, **keys)
         for key in self._proxy.iterkeys():
             self.add(key)
 
     def __dir__(self):
-        keys = [x for x in self._proxy.keys() if not x.startswith('_')]
-        return keys + ['add', 'remove', 'switch', 'configs', 'to_dict',
-                       'from_dict']
+        keys = [x for x in self._proxy.keys() if not x.startswith("_")]
+        return keys + ["add", "remove", "switch", "configs", "to_dict", "from_dict"]
 
     def to_dict(self):
         d = self._proxy.get_all()
@@ -818,20 +872,23 @@ class Parameters(object):
     def __repr__(self):
         d = dict(self._proxy.iteritems())
         return self._repr(d)
-    
+
     def _repr(self, d):
         rep_str = "Parameters (%s)\n" % self.__current_config.get()
         max_len = max((len(x) for x in d.keys()))
-        str_format = '  .%-' + '%ds' % max_len + ' = %r\n'
+        str_format = "  .%-" + "%ds" % max_len + " = %r\n"
         for key, value in sorted(d.iteritems()):
-            if key.startswith('_'):
+            if key.startswith("_"):
                 continue
             rep_str += str_format % (key, value)
         return rep_str
 
     def add(self, name, value=None):
-        setattr(self.__class__, name, self.DESCRIPTOR(self._proxy, name, value,
-                                                      value is not None))
+        setattr(
+            self.__class__,
+            name,
+            self.DESCRIPTOR(self._proxy, name, value, value is not None),
+        )
 
     def remove(self, name):
         self._proxy.remove(name)
@@ -844,29 +901,30 @@ class Parameters(object):
 
         self.__current_config.set(name)
 
-        basename = ":".join(self._proxy._name.split(':')[:-1])
-        self._proxy._name = '%s:%s' % (basename, name)
+        basename = ":".join(self._proxy._name.split(":")[:-1])
+        self._proxy._name = "%s:%s" % (basename, name)
 
         for key in self._proxy.keys():
             self.add(key)
 
     @property
     def configs(self):
-        basename = ":".join(self._proxy._name.split(':')[:-1])
-        return list((x.split(':')[-1] for x in scan(match='%s:*' % basename)))
+        basename = ":".join(self._proxy._name.split(":")[:-1])
+        return list((x.split(":")[-1] for x in scan(match="%s:*" % basename)))
 
 
 if __name__ == "__main__":
+
     class A(object):
-        x = SimpleSettingProp('counter')
-        y = SimpleObjSettingProp('obj')
-        q = QueueSettingProp('seb')
-        ol = QueueObjSettingProp('seb-list')
-        h = HashSettingProp('seb-hash')
-        oh = HashObjSettingProp('seb-hash-object')
+        x = SimpleSettingProp("counter")
+        y = SimpleObjSettingProp("obj")
+        q = QueueSettingProp("seb")
+        ol = QueueObjSettingProp("seb-list")
+        h = HashSettingProp("seb-hash")
+        oh = HashObjSettingProp("seb-hash-object")
 
         def __init__(self, name):
             self.name = name
 
-    a = A('m0')
-    p = Struct('optics:zap:params')
+    a = A("m0")
+    p = Struct("optics:zap:params")

@@ -62,7 +62,10 @@ class PMD206(Controller):
 
         self._controller_error_codes = [
             (0x8000, "Abnormal reset detected."),
-            (0x4000, "ComPic cannot communicate internally with MotorPic1 or MotorPic2"),
+            (
+                0x4000,
+                "ComPic cannot communicate internally with MotorPic1 or MotorPic2",
+            ),
             (0x2000, "MotorPic2 has sent an unexpected response (internal error)"),
             (0x1000, "MotorPic1 has sent an unexpected response (internal error)"),
             (0x800, "Error reading ADC. A voltage could not be read"),
@@ -83,11 +86,17 @@ class PMD206(Controller):
             (0x80, "48V low or other critical error, motor is stopped"),
             (0x40, "Temperature limit reached, motor is stopped"),
             (0x20, "Motor is parked"),
-            (0x10, "Max or min encoder limit was reached in target mode, \
-            or motor was stopped due to external limit signal "),
+            (
+                0x10,
+                "Max or min encoder limit was reached in target mode, \
+            or motor was stopped due to external limit signal ",
+            ),
             (0x8, "Target mode is active"),
-            (0x4, "Target position was reached (if target mode is active). \
-            Also set during parking/unparking. "),
+            (
+                0x4,
+                "Target position was reached (if target mode is active). \
+            Also set during parking/unparking. ",
+            ),
             (0x2, "Motor direction"),
             (0x1, "Motor is running"),
         ]
@@ -101,19 +110,19 @@ class PMD206(Controller):
         except ValueError:
             host = self.config.get("host")
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
-            if not host.startswith('command://'):
-                host = 'command://' + host
-            comm_cfg = {'tcp': {'url': host } }
+            if not host.startswith("command://"):
+                host = "command://" + host
+            comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=9760)
 
-        elog.debug ("socket open : %r" % self.sock)
+        elog.debug("socket open : %r" % self.sock)
 
     def finalize(self):
         """
         Closes the controller socket.
         """
         self.sock.close()
-        elog.debug ("socket closed: %r" % self.sock)
+        elog.debug("socket closed: %r" % self.sock)
 
     def initialize_axis(self, axis):
         axis.channel = axis.config.get("channel", int)
@@ -122,7 +131,6 @@ class PMD206(Controller):
         if axis.channel == 1:
             self.ctrl_axis = axis
             elog.debug("AX CH =%r" % axis.channel)
-
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -147,7 +155,9 @@ class PMD206(Controller):
         _ans = self.send(axis, "TP?")
         _pos = hex_to_int(_ans[8:])
         elog.debug(
-            "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
+            "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)"
+            % (_pos, _ans)
+        )
 
         return _pos
 
@@ -156,7 +166,9 @@ class PMD206(Controller):
         _ans = self.send(encoder, "MP?")
         _pos = hex_to_int(_ans[8:])
         elog.debug(
-            "PMD206 position measured (encoder counts) read : %d (_ans=%s)" % (_pos, _ans))
+            "PMD206 position measured (encoder counts) read : %d (_ans=%s)"
+            % (_pos, _ans)
+        )
 
         return _pos
 
@@ -192,7 +204,7 @@ class PMD206(Controller):
         # Removes 9 firsts characters.
         # _acceleration = hex_to_int(_ans[9:])
 
-        return float(axis.settings.get('acctime'))
+        return float(axis.settings.get("acctime"))
 
     def set_acctime(self, axis, new_acctime):
         # !!!! must be converted  ?
@@ -200,7 +212,7 @@ class PMD206(Controller):
         # _nacc = 30
         # self.send(axis, "CP=9,%d" % _nacc)
 
-        axis.settings.set('acctime', new_acctime)
+        axis.settings.set("acctime", new_acctime)
         return new_acctime
 
     def get_id(self, axis):
@@ -211,11 +223,20 @@ class PMD206(Controller):
         _ans = self.send(axis, "XV?")
         _fields = _ans.split(":")[1].split(",")
 
-        _msg = "PiezoMotor PMD%s : Com V.%s ; pic1 V.%s ; pic2 V.%s ; sensor V.%s ; MAC:%s ; IPmode:%s" % (
-             _fields[4], _fields[0], _fields[1], _fields[2], _fields[3], _fields[5], _fields[6] )
+        _msg = (
+            "PiezoMotor PMD%s : Com V.%s ; pic1 V.%s ; pic2 V.%s ; sensor V.%s ; MAC:%s ; IPmode:%s"
+            % (
+                _fields[4],
+                _fields[0],
+                _fields[1],
+                _fields[2],
+                _fields[3],
+                _fields[5],
+                _fields[6],
+            )
+        )
 
         return _msg
-
 
     """
     STATUS
@@ -236,9 +257,15 @@ class PMD206(Controller):
 
         self._axes_status = dict()
 
-        (self._ctrl_status, self._axes_status[1], self._axes_status[2],
-         self._axes_status[3], self._axes_status[4], self._axes_status[5],
-         self._axes_status[6]) = _ans.split(':')[1].split(',')
+        (
+            self._ctrl_status,
+            self._axes_status[1],
+            self._axes_status[2],
+            self._axes_status[3],
+            self._axes_status[4],
+            self._axes_status[5],
+            self._axes_status[6],
+        ) = _ans.split(":")[1].split(",")
 
         elog.debug("ctrl status : %s" % self._ctrl_status)
         elog.debug("mot1 status : %s" % self._axes_status[1])
@@ -280,8 +307,8 @@ class PMD206(Controller):
         _s = hex_to_int(self._axes_status[axis.channel])
 
         elog.debug(
-            "axis %d status : %s" %
-            (axis.channel, self._axes_status[axis.channel]))
+            "axis %d status : %s" % (axis.channel, self._axes_status[axis.channel])
+        )
 
         if self.s_is_parked(_s):
             return AxisState("OFF")
@@ -347,16 +374,16 @@ class PMD206(Controller):
             - None
         """
 
-# unpark only on demand !
+        # unpark only on demand !
 
-#        # unpark the axis motor if needed
-#        # status bit 0x20 : "Motor is parked"
-#        self.pmd206_get_status(motion.axis)
-#        _hex_status_string = self._axes_status[motion.axis.channel]
-#        _status = hex_to_int(_hex_status_string)
-#        if _status & 0x20:
-#            elog.info("Motor is parked. I unpark it")
-#            self.unpark_motor(motion.axis)
+        #        # unpark the axis motor if needed
+        #        # status bit 0x20 : "Motor is parked"
+        #        self.pmd206_get_status(motion.axis)
+        #        _hex_status_string = self._axes_status[motion.axis.channel]
+        #        _status = hex_to_int(_hex_status_string)
+        #        if _status & 0x20:
+        #            elog.info("Motor is parked. I unpark it")
+        #            self.unpark_motor(motion.axis)
 
         # print "targetpos=", motion.target_pos
         _enc_target = int_to_hex(int(motion.target_pos))
@@ -409,7 +436,7 @@ class PMD206(Controller):
 
         _cmd = _prefix + cmd + "\r"
         _t0 = time.time()
-        _ans = self.sock.write_readline(_cmd, eol='\r')
+        _ans = self.sock.write_readline(_cmd, eol="\r")
         elog.debug("send(%s) returns : %s " % (_cmd, _ans))
 
         set_command = cmd[:3] in ["DR=", "CS=", "TP=", "TR=", "RS="]
@@ -423,8 +450,11 @@ class PMD206(Controller):
 
         _duration = time.time() - _t0
         if _duration > 0.006:
-            print "PMD206 Received %s from Send %s (duration : %g ms) " % \
-                  (repr(_ans), repr(_cmd), _duration * 1000)
+            print "PMD206 Received %s from Send %s (duration : %g ms) " % (
+                repr(_ans),
+                repr(_cmd),
+                _duration * 1000,
+            )
 
         return _ans
 
@@ -435,28 +465,28 @@ class PMD206(Controller):
         """
         Sends 'HO' command.
         """
-        self.send("HO=%d,%d,%d,%d,%d,%d" % (freq, max_steps, max_counts,
-                                            first_dir, max_steps, max_counts))
+        self.send(
+            "HO=%d,%d,%d,%d,%d,%d"
+            % (freq, max_steps, max_counts, first_dir, max_steps, max_counts)
+        )
 
     def homing_sequence_status_string(self, status):
         _home_status_table = [
-            ('0c', "initiating"),
-            ('0b', "starting index mode 3"),
-            ('0a', "starting direction 1"),
-            ('09', "running direction 1"),
-            ('08', "starting direction 2"),
-            ('07', "running direction 2"),
-            ('06', "is encoder counting ?"),
-            ('05', "running direction 2"),
-            ('04', "end direction 2"),
-            ('03', "stopped with error"),
-            ('02', "index not found"),
-            ('01', "index was found"),
-            ('00', "not started")
+            ("0c", "initiating"),
+            ("0b", "starting index mode 3"),
+            ("0a", "starting direction 1"),
+            ("09", "running direction 1"),
+            ("08", "starting direction 2"),
+            ("07", "running direction 2"),
+            ("06", "is encoder counting ?"),
+            ("05", "running direction 2"),
+            ("04", "end direction 2"),
+            ("03", "stopped with error"),
+            ("02", "index not found"),
+            ("01", "index was found"),
+            ("00", "not started"),
         ]
         print _home_status_table
-
-
 
     @object_method(types_info=("None", "None"))
     def park_motor(self, axis):
@@ -519,8 +549,7 @@ class PMD206(Controller):
         _axis_status = self.get_motor_status(axis)
 
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % \
-                (i[0], self.send(axis, i[1]))
+            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
         _txt = _txt + "    ctrl status : %s" % _ctrl_status
         _txt = _txt + "    axis status : %s" % _axis_status
         _txt = _txt + "     IP address : %s" % self.get_ip(axis)
@@ -532,8 +561,7 @@ class PMD206(Controller):
         Returns IP address as a 4 decimal numbers string.
         """
         _ans = self.send(axis, "IP?")
-        return ".".join(
-            map(str, map(hex_to_int, _ans.split(':')[1].split(',')[0: 4])))
+        return ".".join(map(str, map(hex_to_int, _ans.split(":")[1].split(",")[0:4])))
 
     def raw_write(self, cmd):
         elog.info("no send_no_ans with PMD206")

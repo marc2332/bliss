@@ -47,7 +47,9 @@ class TangoEMot(Controller):
     def initialize_encoder(self, encoder):
         self.encoder_proxy = DeviceProxy(self.ds_name)
 
-        encoder.config.config_dict.update({"steps_per_unit": {"value": self.encoder_proxy.steps_per_unit}})
+        encoder.config.config_dict.update(
+            {"steps_per_unit": {"value": self.encoder_proxy.steps_per_unit}}
+        )
 
     def read_position(self, axis):
         """

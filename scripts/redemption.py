@@ -6,26 +6,27 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''
+"""
 conversion script to change SPEC config into bliss configuration
-'''
+"""
 
-__author__  = "cyril.guilloud@esrf.fr"
-__date__    = "2015"
+__author__ = "cyril.guilloud@esrf.fr"
+__date__ = "2015"
 __version__ = 0.1
 
-from  SpecConfig.SpecCatalog  import  *
+from SpecConfig.SpecCatalog import *
 import SpecConfig
 import SpecConfig.ConfigFile
 
 
 def isIcepapCtrl(ctrl):
-    if ctrl.id == 'PSE_MAC_MOT' and ctrl.pars[0] == 'icepap':
+    if ctrl.id == "PSE_MAC_MOT" and ctrl.pars[0] == "icepap":
         return True
     else:
         return False
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
@@ -33,7 +34,6 @@ if __name__ == '__main__':
         sys.exit()
 
     config = SpecConfig.ConfigFile.ConfigFile(sys.argv[1])
-
 
     # prints config
     # config.save()
@@ -43,11 +43,10 @@ if __name__ == '__main__':
 
     for controller in config.controllers:
         if isIcepapCtrl(controller):
-            controllers[ii] = ('icepap', controller.pars[2])
+            controllers[ii] = ("icepap", controller.pars[2])
         else:
-            controllers[ii] = ('ctrl', '')
+            controllers[ii] = ("ctrl", "")
         ii += 1
-
 
     print "---------- icepap controllers ------------------------"
     print controllers
@@ -56,17 +55,14 @@ if __name__ == '__main__':
         print ictrl, ":", controllers[ictrl]
     print "----------------------------------------------------"
 
-
     print "---------- icepap motors  ------------------------"
     for mot in config.motors:
-        if mot.pars['controller'] == 'MAC_MOT':
-            if controllers[mot.pars['unit']][0] == 'icepap':
+        if mot.pars["controller"] == "MAC_MOT":
+            if controllers[mot.pars["unit"]][0] == "icepap":
                 print mot.pars
 
 
-
-
-'''
+"""
 
 from  SpecConfig.SpecCatalog  import *
 import SpecConfig
@@ -76,4 +72,4 @@ cc = config.controllers[1]
 
 
 
-'''
+"""

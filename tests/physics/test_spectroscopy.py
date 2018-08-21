@@ -21,10 +21,10 @@ def test_wave_vector():
     energy = 7124.5
     wavevector = 1.81131316216
 
-    q_edge_energy = edge_energy*ur('eV')
-    ev = energy*ur('eV')
-    kev = (energy/1000.)*ur('keV')
-    q_wavevector = 1.81131316216*ur('angstrom ** -1')
+    q_edge_energy = edge_energy * ur("eV")
+    ev = energy * ur("eV")
+    kev = (energy / 1000.) * ur("keV")
+    q_wavevector = 1.81131316216 * ur("angstrom ** -1")
 
     k = energy_to_wavevector(edge_energy, energy)
     assert k == approx(wavevector)

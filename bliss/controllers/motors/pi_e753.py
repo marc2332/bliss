@@ -25,7 +25,6 @@ Cyril Guilloud ESRF BLISS  2014-2016
 
 
 class PI_E753(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -53,9 +52,9 @@ class PI_E753(Controller):
         elog.debug("axis initialization")
 
         ## To purge controller.
-        #try:
+        # try:
         #    self.sock._raw_read()
-        #except:
+        # except:
         #    pass
 
         # Enables the closed-loop.
@@ -68,6 +67,7 @@ class PI_E753(Controller):
     """
     ON / OFF
     """
+
     def set_on(self, axis):
         pass
 
@@ -85,6 +85,7 @@ class PI_E753(Controller):
         return _ans
 
     """ VELOCITY """
+
     def read_velocity(self, axis):
         return self._get_velocity(axis)
 
@@ -95,6 +96,7 @@ class PI_E753(Controller):
         return self.read_velocity(axis)
 
     """ STATE """
+
     def state(self, axis):
         if self._get_closed_loop_status(axis):
             if self._get_on_target_status(axis):
@@ -105,6 +107,7 @@ class PI_E753(Controller):
             raise RuntimeError("closed loop disabled")
 
     """ MOVEMENTS """
+
     def prepare_move(self, motion):
         pass
 
@@ -116,16 +119,15 @@ class PI_E753(Controller):
         # to check : copy of current position into target position ???
         self.send_no_ans(axis, "STP")
 
-
     """ COMMUNICATIONS"""
+
     def send(self, axis, cmd):
         _cmd = cmd + "\n"
-
 
         _ans = self.sock.write_readline(_cmd)
         # "\n" in answer has been removed by tcp lib.
 
-        #self.check_error()
+        # self.check_error()
 
         return _ans
 
@@ -135,16 +137,14 @@ class PI_E753(Controller):
         if _err_nb != 0:
             print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
 
-
-
     def send_no_ans(self, axis, cmd):
         _cmd = cmd + "\n"
         self.sock.write(_cmd)
 
-        #self.check_error()
-
+        # self.check_error()
 
     """ RAW COMMANDS """
+
     def raw_write(self, com):
         self.sock.write(com)
 
@@ -171,7 +171,6 @@ class PI_E753(Controller):
         """ Sets Voltage to the controller."""
         self.send_no_ans(axis, "SVA 1 %g" % new_voltage)
 
-
     def _get_velocity(self, axis):
         """
         Returns velocity taken from controller.
@@ -193,9 +192,8 @@ class PI_E753(Controller):
         _pos = float(_ans[2:])
         return _pos
 
-
-
     """ON TARGET """
+
     def _get_target_pos(self, axis):
         """
         Returns last target position (setpoint value).
@@ -221,6 +219,7 @@ class PI_E753(Controller):
             return -1
 
     """ CLOSED LOOP"""
+
     def _get_closed_loop_status(self, axis):
         _ans = self.send(axis, "SVO?")
 
@@ -272,7 +271,7 @@ class PI_E753(Controller):
             ?
         """
         (error_nb, err_str) = self._get_error()
-        _txt = "      ERR nb=%d  : \"%s\"\n" % (error_nb, err_str)
+        _txt = '      ERR nb=%d  : "%s"\n' % (error_nb, err_str)
 
         _infos = [
             ("Identifier                 ", "IDN?\n"),
@@ -298,27 +297,28 @@ class PI_E753(Controller):
             ("Auto Zero Calibration ?    ", "ATZ?\n"),
             ("Analog input setpoint      ", "AOS?\n"),
             ("Low    Voltage Limit       ", "SPA? 1 0x07000A00\n"),
-            ("High Voltage Limit         ", "SPA? 1 0x07000A01\n")
+            ("High Voltage Limit         ", "SPA? 1 0x07000A01\n"),
         ]
 
-
         for i in _infos:
-            _txt = _txt + "        %s %s\n" % \
-                (i[0], self.send(axis, i[1]))
+            _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, i[1]))
 
-        _txt = _txt + "        %s    \n%s\n" %  \
-            ("Communication parameters",
-             "\n".join(self.sock.write_readlines("IFC?\n", 5)))
+        _txt = _txt + "        %s    \n%s\n" % (
+            "Communication parameters",
+            "\n".join(self.sock.write_readlines("IFC?\n", 5)),
+        )
 
-        _txt = _txt + "        %s    \n%s\n" %  \
-            ("Analog setpoints",
-             "\n".join(self.sock.write_readlines("TSP?\n", 2)))
+        _txt = _txt + "        %s    \n%s\n" % (
+            "Analog setpoints",
+            "\n".join(self.sock.write_readlines("TSP?\n", 2)),
+        )
 
-        _txt = _txt + "        %s    \n%s\n" %   \
-            ("ADC value of analog input",
-             "\n".join(self.sock.write_readlines("TAD?\n", 2)))
+        _txt = _txt + "        %s    \n%s\n" % (
+            "ADC value of analog input",
+            "\n".join(self.sock.write_readlines("TAD?\n", 2)),
+        )
 
-# ###  TAD[1]==131071  => broken cable ??
-# 131071 = pow(2,17)-1
+        # ###  TAD[1]==131071  => broken cable ??
+        # 131071 = pow(2,17)-1
 
         return _txt

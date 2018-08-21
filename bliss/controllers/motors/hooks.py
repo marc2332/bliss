@@ -34,23 +34,23 @@ class SleepHook(MotionHook):
         pre_move_wait: 0.5    # optional (default: 0s)
         post_move_wait: 0.3   # optional (default: 0s)
     """
+
     def __init__(self, name, config):
-        self._log = logging.getLogger('{0}({1})'.format(self.__class__.__name__,
-                                                        name))
+        self._log = logging.getLogger("{0}({1})".format(self.__class__.__name__, name))
         self.debug = self._log.debug
         self.config = config
         self.name = name
         super(SleepHook, self).__init__()
 
     def wait(self, phase):
-        t = float(self.config.get('{0}_wait'.format(phase)))
+        t = float(self.config.get("{0}_wait".format(phase)))
         if t:
-            self.debug('start %s wait (%ss)...', phase, t)
+            self.debug("start %s wait (%ss)...", phase, t)
             sleep(t)
-            self.debug('finished %s wait (%ss)', phase, t)
+            self.debug("finished %s wait (%ss)", phase, t)
 
     def pre_move(self, motion_list):
-        self.wait('pre_move')
+        self.wait("pre_move")
 
     def post_move(self, motion_list):
-        self.wait('post_move')
+        self.wait("post_move")

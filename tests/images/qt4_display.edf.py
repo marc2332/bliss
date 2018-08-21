@@ -12,7 +12,7 @@ import sys
 
 import EdfFile
 
-os.environ['QUB_SUBPATH'] = 'qt4'
+os.environ["QUB_SUBPATH"] = "qt4"
 
 from PyQt4 import QtGui, QtCore
 
@@ -20,7 +20,7 @@ from Qub.CTools import pixmaptools
 
 scaling = pixmaptools.LUT.Scaling()
 
-image = EdfFile.EdfFile('/segfs/bliss/images/edf_test.edf').GetData(0)  # numpy.ndarray
+image = EdfFile.EdfFile("/segfs/bliss/images/edf_test.edf").GetData(0)  # numpy.ndarray
 
 width = image.shape[0]
 height = image.shape[1]

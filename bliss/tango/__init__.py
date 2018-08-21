@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Repository of Bliss TANGO_ :mod:`~bliss.tango.servers` and \
+"""Repository of Bliss TANGO_ :mod:`~bliss.tango.servers` and \
 :mod:`~bliss.tango.clients`
 
 .. autosummary::
@@ -13,4 +13,4 @@
 
     clients
     servers
-'''
+"""

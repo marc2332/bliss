@@ -26,20 +26,20 @@ from .style import bliss_ui_style
 from bliss.shell import initialize, ScanListener
 
 
-__all__ = ('BlissRepl', 'embed', 'cli', 'configure')
+__all__ = ("BlissRepl", "embed", "cli", "configure")
 
 REPL = None
 
-class BlissRepl(PythonRepl):
 
+class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):
-        prompt_label = kwargs.pop('prompt_label', 'BLISS')
-        title = kwargs.pop('title', None)
-        scan_listener = kwargs.pop('scan_listener')
-        session = kwargs.pop('session')
+        prompt_label = kwargs.pop("prompt_label", "BLISS")
+        title = kwargs.pop("title", None)
+        scan_listener = kwargs.pop("scan_listener")
+        session = kwargs.pop("session")
         bliss_bar = status_bar(self)
-        toolbars = list(kwargs.pop('extra_toolbars', ()))
-        kwargs['_extra_toolbars'] = [bliss_bar] + toolbars
+        toolbars = list(kwargs.pop("extra_toolbars", ()))
+        kwargs["_extra_toolbars"] = [bliss_bar] + toolbars
         super(BlissRepl, self).__init__(*args, **kwargs)
 
         self.current_task = None
@@ -48,14 +48,14 @@ class BlissRepl(PythonRepl):
         self.show_status_bar = False
         self.show_bliss_bar = True
         self.bliss_bar = bliss_bar
-        self.bliss_bar_format = 'normal'
+        self.bliss_bar_format = "normal"
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
         self.bliss_scan_listener = scan_listener
-        self.all_prompt_styles[u'bliss'] = BlissPrompt(self)
-        self.install_ui_colorscheme(u'bliss', bliss_ui_style)
-        self.use_ui_colorscheme(u'bliss')
-        self.prompt_style = 'bliss'
+        self.all_prompt_styles[u"bliss"] = BlissPrompt(self)
+        self.install_ui_colorscheme(u"bliss", bliss_ui_style)
+        self.use_ui_colorscheme(u"bliss")
+        self.prompt_style = "bliss"
 
     def _execute_task(self, *args, **kwargs):
         try:
@@ -67,8 +67,11 @@ class BlissRepl(PythonRepl):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
         try:
             return_value = self.current_task.get()
-            if(isinstance(return_value, tuple) and len(return_value) >= 3 and \
-               isinstance(return_value[1], (BaseException, Exception))):
+            if (
+                isinstance(return_value, tuple)
+                and len(return_value) >= 3
+                and isinstance(return_value[1], (BaseException, Exception))
+            ):
                 raise return_value[0], return_value[1], return_value[2]
         except gevent.Timeout:
             self._handle_exception(*args)
@@ -82,6 +85,7 @@ class BlissRepl(PythonRepl):
 
 
 CONFIGS = weakref.WeakValueDictionary()
+
 
 def configure(func):
     """
@@ -108,8 +112,14 @@ def configure(func):
     return func
 
 
-def cli(locals=None, session_name=None, vi_mode=False,
-        startup_paths=None, eventloop=None, refresh_interval=INPUT_TIMEOUT*3):
+def cli(
+    locals=None,
+    session_name=None,
+    vi_mode=False,
+    startup_paths=None,
+    eventloop=None,
+    refresh_interval=INPUT_TIMEOUT * 3,
+):
     """
     Create a command line interface without running it::
 
@@ -132,21 +142,24 @@ def cli(locals=None, session_name=None, vi_mode=False,
     locals = locals or user_ns
 
     def get_globals():
-        return user_ns #, REPL=repl)
+        return user_ns  # , REPL=repl)
 
     def get_locals():
         return locals
 
     if session_name:
         session_id = session_name
-        session_title = u'Bliss shell ({0})'.format(session_name)
-        history_filename = ".%s_%s_history" % (os.path.basename(sys.argv[0]), session_id)
+        session_title = u"Bliss shell ({0})".format(session_name)
+        history_filename = ".%s_%s_history" % (
+            os.path.basename(sys.argv[0]),
+            session_id,
+        )
         prompt_label = session_name.upper()
     else:
-        session_id = 'unnamed'
-        session_title = u'Bliss shell'
+        session_id = "unnamed"
+        session_title = u"Bliss shell"
         history_filename = ".%s_history" % os.path.basename(sys.argv[0])
-        prompt_label = 'BLISS'
+        prompt_label = "BLISS"
 
     history_filename = os.path.join(os.environ["HOME"], history_filename)
 
@@ -156,11 +169,17 @@ def cli(locals=None, session_name=None, vi_mode=False,
     scan_listener = ScanListener()
 
     # Create REPL.
-    repl = BlissRepl(get_globals, get_locals, session=session,
-                     scan_listener=scan_listener, vi_mode=vi_mode,
-                     prompt_label=prompt_label, title=session_title,
-                     history_filename=history_filename,
-                     startup_paths=startup_paths)
+    repl = BlissRepl(
+        get_globals,
+        get_locals,
+        session=session,
+        scan_listener=scan_listener,
+        vi_mode=vi_mode,
+        prompt_label=prompt_label,
+        title=session_title,
+        history_filename=history_filename,
+        startup_paths=startup_paths,
+    )
 
     global REPL
     REPL = repl
@@ -172,8 +191,9 @@ def cli(locals=None, session_name=None, vi_mode=False,
         except:
             sys.excepthook(*sys.exc_info())
 
-    return BlissCommandLineInterface(python_input=repl, eventloop=eventloop,
-                                     refresh_interval=refresh_interval)
+    return BlissCommandLineInterface(
+        python_input=repl, eventloop=eventloop, refresh_interval=refresh_interval
+    )
 
 
 def embed(*args, **kwargs):
@@ -196,10 +216,10 @@ def embed(*args, **kwargs):
                              signals to stop the current task
     """
 
-    stop_signals = kwargs.pop('stop_signals', True)
+    stop_signals = kwargs.pop("stop_signals", True)
 
     # Hide the warnings from the users
-    warnings.filterwarnings('ignore')
+    warnings.filterwarnings("ignore")
     try:
         cmd_line_i = cli(*args, **kwargs)
 
@@ -210,26 +230,28 @@ def embed(*args, **kwargs):
                 repl.stop_current_task(block=False, exception=exception)
 
             stop_with_keyboard_interrupt = functools.partial(
-                stop_current_task,
-                exception=KeyboardInterrupt)
+                stop_current_task, exception=KeyboardInterrupt
+            )
 
-            r,w = os.pipe()
+            r, w = os.pipe()
+
             def stop_current_task_and_exit(signum, frame):
                 stop_current_task(signum, frame)
                 os.close(w)
-                
+
             signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
             signal.signal(signal.SIGTERM, stop_current_task_and_exit)
 
             def watch_pipe(r):
-                gevent.select.select([r],[],[])
+                gevent.select.select([r], [], [])
                 exit()
-            gevent.spawn(watch_pipe,r)
+
+            gevent.spawn(watch_pipe, r)
 
         cmd_line_i.run()
     finally:
-        warnings.filterwarnings('default')
+        warnings.filterwarnings("default")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     embed()

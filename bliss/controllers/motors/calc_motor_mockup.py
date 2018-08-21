@@ -28,7 +28,8 @@ Example of the config file:
                 s_param: 2 #this is optional
 """
 
-from bliss.controllers.motor import CalcController; from bliss.common import event
+from bliss.controllers.motor import CalcController
+from bliss.common import event
 
 
 class calc_motor_mockup(CalcController):

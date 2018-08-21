@@ -19,19 +19,21 @@ def switch_state(tg_dev, state=None, status=None):
     """Helper to switch state and/or status and send event"""
     if state is not None:
         tg_dev.set_state(state)
-#        tg_dev.push_change_event("state")
+        #        tg_dev.push_change_event("state")
         if state in (DevState.ALARM, DevState.UNKNOWN, DevState.FAULT):
             msg = "State changed to " + str(state)
             if status is not None:
                 msg += ": " + status
     if status is not None:
         tg_dev.set_status(status)
+
+
 #        tg_dev.push_change_event("status")
 
 
 class Multimeter(Device):
 
-    name = device_property(dtype=str, doc='keithley bliss object name')
+    name = device_property(dtype=str, doc="keithley bliss object name")
 
     def init_device(self):
         Device.init_device(self)
@@ -79,11 +81,12 @@ def main():
     from tango.server import run
 
     import logging
-    fmt='%(levelname)s %(asctime)-15s %(name)s: %(message)s'
+
+    fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
     logging.basicConfig(format=fmt, level=logging.DEBUG)
 
     run([Multimeter], green_mode=GreenMode.Gevent)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

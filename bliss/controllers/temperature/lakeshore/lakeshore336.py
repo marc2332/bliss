@@ -6,8 +6,17 @@ from bliss.controllers.temperature.lakeshore.lakeshore330 import LakeShore330
 
 class LakeShore336(LakeShore330):
 
-    MODE336 = ('Off', 'Closed Loop', 'Zone', 'Open Loop', 'Monitor Out',
-               'Warmup Supply', 'Auto Tune P', 'Auto Tune PI', 'Auto Tune PID')
+    MODE336 = (
+        "Off",
+        "Closed Loop",
+        "Zone",
+        "Open Loop",
+        "Monitor Out",
+        "Warmup Supply",
+        "Auto Tune P",
+        "Auto Tune PI",
+        "Auto Tune PID",
+    )
 
     def __init__(self, comm_type, url, **kwargs):
         _ls = LakeShore330(comm_type, url, **kwargs)
@@ -33,43 +42,43 @@ class LakeShore336(LakeShore330):
                powerup (int): output state after power cycle
         """
         self._channel = channel
-        mode = kwargs.get('mode')
-        inp = kwargs.get('inp')
+        mode = kwargs.get("mode")
+        inp = kwargs.get("inp")
         if None not in (mode, inp):
-            powerup = kwargs.get('powerup', 0)
-            self.send_cmd('OUTMODE', mode, inp, powerup)
+            powerup = kwargs.get("powerup", 0)
+            self.send_cmd("OUTMODE", mode, inp, powerup)
         else:
-            ret = self.send_cmd('OUTMODE?').split(',')
+            ret = self.send_cmd("OUTMODE?").split(",")
             try:
                 powerup = int(ret[2])
             except (ValueError, IndexError):
                 powerup = None
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
             return LakeShore336.MODE336[int(ret[0])], int(ret[1]), powerup
 
 
 class lakeshore336(Base):
-
     def __init__(self, config, *args):
         comm_type = None
         extra_param = None
-        if 'gpib' in config:
-            comm_type = 'gpib'
-            url = config['gpib']['url']
-            extra_param = config['gpib']['pad']
-            eos = config.get('gpib').get('eos', "\r\n")
-        elif 'serial' in config:
-            comm_type = 'serial'
-            url = config['serial']['url']
-            extra_param = config.get('serial').get('baudrate')
-            eos = config.get('serial').get('eos', "\r\n")
-        elif 'tcp' in config:
-            comm_type = 'tcp'
-            url = config['tcp']['url']
-            eos = config.get('tcp').get('eos', "\r\n")
+        if "gpib" in config:
+            comm_type = "gpib"
+            url = config["gpib"]["url"]
+            extra_param = config["gpib"]["pad"]
+            eos = config.get("gpib").get("eos", "\r\n")
+        elif "serial" in config:
+            comm_type = "serial"
+            url = config["serial"]["url"]
+            extra_param = config.get("serial").get("baudrate")
+            eos = config.get("serial").get("eos", "\r\n")
+        elif "tcp" in config:
+            comm_type = "tcp"
+            url = config["tcp"]["url"]
+            eos = config.get("tcp").get("eos", "\r\n")
         else:
             raise ValueError("Must specify gpib or serial url")
 
-        _lakeshore = LakeShore336(comm_type, url,
-                                  extra_param=extra_param, eos=eos)
+        _lakeshore = LakeShore336(comm_type, url, extra_param=extra_param, eos=eos)
         Base.__init__(self, _lakeshore, config, *args)

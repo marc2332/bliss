@@ -14,9 +14,9 @@ import os
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 from bliss.common.axis import Axis
@@ -35,8 +35,8 @@ config_xml = """
 </config>
 """
 
-class TestSetpointController(unittest.TestCase):
 
+class TestSetpointController(unittest.TestCase):
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
 
@@ -44,5 +44,6 @@ class TestSetpointController(unittest.TestCase):
         sp1 = bliss.get_axis("sp1")
         self.assertTrue(sp1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

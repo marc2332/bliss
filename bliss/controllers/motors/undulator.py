@@ -25,7 +25,7 @@ config :
  'backlash' in unit
 """
 
-config_xml = '''
+config_xml = """
 <config>
   <controller class="undulator">
   <ds_name value="//orion:10000/ID/ID/30" />
@@ -42,7 +42,7 @@ config_xml = '''
     </axis>
   </controller>
 </config>
-'''
+"""
 
 
 class Undulator(Controller):
@@ -54,11 +54,14 @@ class Undulator(Controller):
         try:
             self.ds_name = self.config.get("ds_name")
         except:
-            elog.debug("no 'ds_name' defined in config for %s" % self.config.get('name'))
+            elog.debug(
+                "no 'ds_name' defined in config for %s" % self.config.get("name")
+            )
 
     """
     Controller initialization actions.
     """
+
     def initialize(self):
         # Get a proxy on Insertion Device device server of the beamline.
         self.device = DeviceProxy(self.ds_name)
@@ -66,18 +69,22 @@ class Undulator(Controller):
     """
     Axes initialization actions.
     """
+
     def initialize_axis(self, axis):
         attr_pos_name = axis.config.get("attribute_position", str)
         attr_vel_name = axis.config.get("attribute_velocity", str)
         attr_acc_name = axis.config.get("attribute_acceleration", str)
-        self.axis_info[axis] = {"attr_pos_name": attr_pos_name,
-                                "attr_vel_name": attr_vel_name,
-                                "attr_acc_name": attr_acc_name}
+        self.axis_info[axis] = {
+            "attr_pos_name": attr_pos_name,
+            "attr_vel_name": attr_vel_name,
+            "attr_acc_name": attr_acc_name,
+        }
         elog.debug("axis initilized--------------------------")
 
     """
     Actions to perform at controller closing.
     """
+
     def finalize(self):
         pass
 
@@ -88,8 +95,11 @@ class Undulator(Controller):
         return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
 
     def start_one(self, motion, t0=None):
-        self._set_attribute(motion.axis, "attr_pos_name",
-                            float(motion.target_pos / motion.axis.steps_per_unit))
+        self._set_attribute(
+            motion.axis,
+            "attr_pos_name",
+            float(motion.target_pos / motion.axis.steps_per_unit),
+        )
 
     def read_position(self, axis):
         """
@@ -101,6 +111,7 @@ class Undulator(Controller):
     """
     VELOCITY
     """
+
     def read_velocity(self, axis):
         """
         Returns the current velocity taken from controller
@@ -117,6 +128,7 @@ class Undulator(Controller):
     """
     ACCELERATION
     """
+
     def read_acceleration(self, axis):
         return self._get_attribute(axis, "attr_acc_name")
 
@@ -126,6 +138,7 @@ class Undulator(Controller):
     """
     STATE
     """
+
     def state(self, axis):
         _state = self.device.state()
 
@@ -139,6 +152,7 @@ class Undulator(Controller):
     """
     Must send a command to the controller to abort the motion of given axis.
     """
+
     def stop(self, axis):
         self.device.abort()
 
@@ -149,9 +163,9 @@ class Undulator(Controller):
         info_str = ""
         info_str = "DEVICE SERVER : %s \n" % self.ds_name
         info_str += self.ds.state() + "\n"
-        info_str += "status=\"%s\"\n" % str(self.ds.status()).strip()
+        info_str += 'status="%s"\n' % str(self.ds.status()).strip()
         info_str += "state=%s\n" % self.ds.state()
         info_str += "mode=%s\n" % str(self.ds.mode)
-        info_str += ("undu states= %s" % " ".join(map(str, self.ds.UndulatorStates)))
+        info_str += "undu states= %s" % " ".join(map(str, self.ds.UndulatorStates))
 
         return info_str

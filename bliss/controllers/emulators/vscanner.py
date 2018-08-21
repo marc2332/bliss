@@ -36,7 +36,6 @@ from bliss.controllers.emulator import BaseDevice
 
 
 class VSAxis(object):
-
     def __init__(self, vscanner, channel=None):
         self._vscanner = weakref.ref(vscanner)
         self._channel = channel
@@ -44,31 +43,33 @@ class VSAxis(object):
 
     @property
     def pos(self):
-        return '  {0}'.format(self.__pos)
+        return "  {0}".format(self.__pos)
 
     @pos.setter
     def pos(self, new_pos):
         self.__pos = float(new_pos)
 
+
 class VSCANNER(BaseDevice):
     """
     Dual channel voltage controller 0-10 V
     """
+
     def __init__(self, name, axes=None, **opts):
         super(VSCANNER, self).__init__(name, **opts)
 
         self._model = "VSCANNER"
         self._version = 3.14
-        self._manufacturer = 'ESRF ISG vscanner'
+        self._manufacturer = "ESRF ISG vscanner"
 
         axes_dict = {}
 
         if axes is None:
             n = 2
-            axes = [{'channel': "X"}, {'channel': "Y"}]
+            axes = [{"channel": "X"}, {"channel": "Y"}]
 
         for axis in axes:
-            axes_dict[axis['channel']] = VSAxis(self, **axis)
+            axes_dict[axis["channel"]] = VSAxis(self, **axis)
 
         self._axes = axes_dict
 
@@ -124,12 +125,15 @@ class VSCANNER(BaseDevice):
             arg2 = cmd.split()[2]
             Xrel = float(arg1)
             Yrel = float(arg2)
-            print("  move X by %g Y by %g" % (Xrel, Yrel))
+            print ("  move X by %g Y by %g" % (Xrel, Yrel))
             new_X_pos = float(self._axes["X"].pos) + Xrel
             new_Y_pos = float(self._axes["Y"].pos) + Yrel
             self._axes["X"].pos = new_X_pos
             self._axes["Y"].pos = new_Y_pos
-            print(" new x=%g  y=%g" % (float(self._axes["X"].pos), float(self._axes["Y"].pos)))
+            print (
+                " new x=%g  y=%g"
+                % (float(self._axes["X"].pos), float(self._axes["Y"].pos))
+            )
 
         if cmd.startswith("VXY"):
             xnew = float(cmd.split()[1])
@@ -147,4 +151,3 @@ class VSCANNER(BaseDevice):
             arg = cmd.split()[1]
             self._axes["Y"].pos = float(arg)
             print "moves Y to %g" % float(self._axes["Y"].pos)
-

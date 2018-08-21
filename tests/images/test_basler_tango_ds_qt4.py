@@ -20,10 +20,10 @@ import sys
 import struct
 import numpy
 
-os.environ['QUB_SUBPATH'] = 'qt4'
+os.environ["QUB_SUBPATH"] = "qt4"
 from PyQt4 import QtGui, QtCore
 
-from PyTango import DeviceProxy   # better to use PyTango.gevent ?
+from PyTango import DeviceProxy  # better to use PyTango.gevent ?
 
 from bliss.data.routines.pixmaptools import qt4 as pixmaptools
 
@@ -58,10 +58,16 @@ def refresh():
         header_fmt = ">IHHqiiHHHH"
         header_size = struct.calcsize(header_fmt)
         _, ver, img_mode, frame_number, width, height, _, _, _, _ = struct.unpack(
-            header_fmt, image_data[1][:header_size])
+            header_fmt, image_data[1][:header_size]
+        )
 
         print "ver=%r, img_mode=%r, frame_number=%r, width=%d, height=%d" % (
-            ver, img_mode, frame_number, width, height)
+            ver,
+            img_mode,
+            frame_number,
+            width,
+            height,
+        )
         raw_buffer = numpy.fromstring(image_data[1][header_size:], numpy.uint16)
     else:
         print "No header"
@@ -70,9 +76,12 @@ def refresh():
     scaling.autoscale_min_max(raw_buffer, width, height, lutMode)
     # scaling.set_custom_mapping(12 , 50)
 
-    returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(raw_buffer, width, height, lutMode, scaling)
+    returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+        raw_buffer, width, height, lutMode, scaling
+    )
 
     label.setPixmap(QtGui.QPixmap.fromImage(qimage))
+
 
 app = QtGui.QApplication(sys.argv)  # main application
 
@@ -80,7 +89,7 @@ label = QtGui.QLabel()
 label.resize(800, 600)
 
 timer = QtCore.QTimer(label)
-QtCore.QObject.connect(timer, QtCore.SIGNAL('timeout()'), refresh)
+QtCore.QObject.connect(timer, QtCore.SIGNAL("timeout()"), refresh)
 timer.start(200)
 
 label.show()

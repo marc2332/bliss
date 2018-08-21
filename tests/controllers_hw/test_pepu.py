@@ -17,11 +17,11 @@ pytestmark = pytest.mark.pepu
 
 @pytest.fixture
 def pepu(request):
-    hostname = request.config.getoption('--pepu')
-    pepu = PEPU('test', {'tcp': {'url': hostname}})
+    hostname = request.config.getoption("--pepu")
+    pepu = PEPU("test", {"tcp": {"url": hostname}})
     try:
-        pepu.calc_channels[1].formula = '1.5'
-        pepu.calc_channels[2].formula = '-1.5'
+        pepu.calc_channels[1].formula = "1.5"
+        pepu.calc_channels[2].formula = "-1.5"
         pepu.out_channels[7].source = pepu.calc_channels[1].name
         pepu.out_channels[8].source = pepu.calc_channels[2].name
         yield pepu
@@ -30,14 +30,14 @@ def pepu(request):
 
 
 def test_simple_connection(pepu):
-    assert pepu.app_name == 'PEPU'
-    assert pepu.version == '00.01'
+    assert pepu.app_name == "PEPU"
+    assert pepu.version == "00.01"
     assert pepu.up_time > 0
-    assert pepu.sys_info.startswith('DANCE')
+    assert pepu.sys_info.startswith("DANCE")
     uptime, uname = pepu.dance_info.splitlines()
-    assert uptime.startswith('UPTIME')
-    assert uname.startswith('UNAME')
-    assert pepu.config.startswith('# %APPNAME% PEPU')
+    assert uptime.startswith("UPTIME")
+    assert uname.startswith("UNAME")
+    assert pepu.config.startswith("# %APPNAME% PEPU")
 
 
 @pytest.mark.parametrize("channel_id", range(1, 7))
@@ -66,7 +66,6 @@ def test_in_channel_config(pepu, channel_id):
     assert channel.mode == ChannelMode.BISS
 
 
-
 @pytest.mark.parametrize("channel_id", [7, 8])
 def test_read_out_channels(pepu, channel_id):
     channel = pepu.out_channels[channel_id]
@@ -89,17 +88,19 @@ def test_read_calc_channels(pepu, channel_id):
 def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
     # Create stream
     stream = pepu.create_stream(
-        name='TEST',
+        name="TEST",
         trigger=Trigger(Signal.SOFT, Signal.SOFT),
-        frequency=10, nb_points=blocks * block_size,
-        sources=('CALC2', 'CALC1'),
-        overwrite=True)
+        frequency=10,
+        nb_points=blocks * block_size,
+        sources=("CALC2", "CALC1"),
+        overwrite=True,
+    )
     # Argument testing
-    assert stream.name == 'TEST'
+    assert stream.name == "TEST"
     assert stream.trigger == Trigger(Signal.SOFT, Signal.SOFT)
     assert stream.frequency == 10
     assert stream.nb_points == blocks * block_size
-    assert stream.sources == ['CALC1', 'CALC2']
+    assert stream.sources == ["CALC1", "CALC2"]
     assert not stream.active
     # Loop over acquisitions
     for _ in range(acquisitions):
@@ -112,14 +113,19 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
             # Read block
             assert stream.nb_points_ready == block_size
             data = stream.read(n=block_size)
-            assert data['CALC1'].tolist() == [1.5] * block_size
-            assert data['CALC2'].tolist() == [-1.5] * block_size
+            assert data["CALC1"].tolist() == [1.5] * block_size
+            assert data["CALC2"].tolist() == [-1.5] * block_size
 
 
 def test_timescan(pepu):
     scan = scans.timescan(
-        0.1, pepu.counters.CALC1, pepu.counters.CALC2,
-        npoints=3, return_scan=True, save=False)
+        0.1,
+        pepu.counters.CALC1,
+        pepu.counters.CALC2,
+        npoints=3,
+        return_scan=True,
+        save=False,
+    )
     data = scan.get_data()
-    assert data['CALC1'].tolist() == [1.5] * 3
-    assert data['CALC2'].tolist() == [-1.5] * 3
+    assert data["CALC1"].tolist() == [1.5] * 3
+    assert data["CALC2"].tolist() == [-1.5] * 3

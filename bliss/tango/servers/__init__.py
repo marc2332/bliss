@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Bliss Tango_ server classes
+"""Bliss Tango_ server classes
 
 .. autosummary::
     :toctree:
@@ -17,4 +17,4 @@
     multiplexer_ds
     musst_ds
     TgGevent
-'''
+"""

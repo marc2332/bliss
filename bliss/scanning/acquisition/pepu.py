@@ -103,11 +103,17 @@ class PepuAcquisitionDevice(AcquisitionDevice):
     DI1 = Signal.DI1
     DI2 = Signal.DI2
 
-    def __init__(self, pepu, npoints,
-                 start=Signal.SOFT, trigger=Signal.SOFT,
-                 frequency=None,
-                 prepare_once=True, start_once=True,
-                 counters=()):
+    def __init__(
+        self,
+        pepu,
+        npoints,
+        start=Signal.SOFT,
+        trigger=Signal.SOFT,
+        frequency=None,
+        prepare_once=True,
+        start_once=True,
+        counters=(),
+    ):
 
         # Checking
 
@@ -115,36 +121,32 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         assert prepare_once
 
         if trigger not in (Signal.SOFT, Signal.FREQ, Signal.DI1, Signal.DI2):
-            raise ValueError(
-                '{!r} is not a valid trigger'.format(trigger))
+            raise ValueError("{!r} is not a valid trigger".format(trigger))
 
         if start not in (Signal.SOFT, Signal.DI1, Signal.DI2):
-            raise ValueError(
-                '{!r} is not a valid start trigger'.format(trigger))
+            raise ValueError("{!r} is not a valid start trigger".format(trigger))
 
         if trigger in (Signal.FREQ,) and frequency is None:
-            raise ValueError(
-                'Frequency has to be provided for FREQ trigger')
+            raise ValueError("Frequency has to be provided for FREQ trigger")
 
         if trigger in (Signal.FREQ,) and frequency < 1000:
-            raise ValueError(
-                'Frequency should be greater than or equal to 1000 Hz')
+            raise ValueError("Frequency should be greater than or equal to 1000 Hz")
 
         if trigger not in (Signal.FREQ,) and frequency is not None:
-            raise ValueError(
-                'Frequency does not make sense without a FREQ trigger')
+            raise ValueError("Frequency does not make sense without a FREQ trigger")
 
-        trigger_type = \
-            self.SOFTWARE if trigger == Signal.SOFT else self.HARDWARE
+        trigger_type = self.SOFTWARE if trigger == Signal.SOFT else self.HARDWARE
 
         # Initialize
 
         super(PepuAcquisitionDevice, self).__init__(
-            pepu, pepu.name,
+            pepu,
+            pepu.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
-            start_once=start_once)
+            start_once=start_once,
+        )
 
         self.pepu = pepu
         self.stream = None
@@ -173,8 +175,13 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         """Prepare the acquisition."""
         sources = [counter.name for counter in self.counters]
         self.stream = self.pepu.create_stream(
-            self.name, trigger=self.trig, frequency=self.frequency,
-            nb_points=self.npoints, sources=sources, overwrite=True)
+            self.name,
+            trigger=self.trig,
+            frequency=self.frequency,
+            nb_points=self.npoints,
+            sources=sources,
+            overwrite=True,
+        )
         self.stream.start()
         if self.trig.start == Signal.SOFT and self.trig.clock != Signal.SOFT:
             self.pepu.software_trigger()
@@ -209,9 +216,8 @@ class PepuCounter(BaseCounter):
     # Default chain integration
 
     def create_acquisition_device(self, scan_pars, **settings):
-        npoints = scan_pars['npoints']
-        return PepuAcquisitionDevice(
-            self.controller, npoints=npoints, **settings)
+        npoints = scan_pars["npoints"]
+        return PepuAcquisitionDevice(self.controller, npoints=npoints, **settings)
 
     def __init__(self, channel):
         self.channel = channel
@@ -241,7 +247,8 @@ class PepuCounter(BaseCounter):
         assert device.pepu == self.channel.pepu
         self.acquisition_device = device
         self.acquisition_device.channels.append(
-            AcquisitionChannel(self.name, self.dtype, self.shape))
+            AcquisitionChannel(self.name, self.dtype, self.shape)
+        )
 
     def feed_point(self, stream_data):
         self.emit_data_point(stream_data[self.name])

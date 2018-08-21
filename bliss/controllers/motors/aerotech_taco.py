@@ -13,6 +13,7 @@ class Aerotech_Taco(TacoMaxe):
     Specialisation of TacoMaxe with special command
     to control aerotech controller A3200
     """
+
     ENCODER_DIVIDER_PARAMETER = 209
 
     def __init__(self, *args, **kwargs):
@@ -28,27 +29,21 @@ class Aerotech_Taco(TacoMaxe):
             encoder_divider = axis.encoder.config.get("divider", int)
             axis.encoder.axis = axis
             axis.encoder.divider = encoder_divider
-            self.device.DevSetParam((axis.channel,
-                                     self.ENCODER_DIVIDER_PARAMETER,
-                                     0, encoder_divider))
+            self.device.DevSetParam(
+                (axis.channel, self.ENCODER_DIVIDER_PARAMETER, 0, encoder_divider)
+            )
 
     def start_jog(self, axis, velocity, direction):
         acceleration = axis.acceleration()
-        self.device.DevSetContinuous((axis.channel,
-                                      1,
-                                      direction,
-                                      velocity,
-                                      acceleration))
+        self.device.DevSetContinuous(
+            (axis.channel, 1, direction, velocity, acceleration)
+        )
 
     def stop_jog(self, axis):
-        self.device.DevSetContinuous((axis.channel,
-                                      0,
-                                      0,
-                                      0,
-                                      0))
+        self.device.DevSetContinuous((axis.channel, 0, 0, 0, 0))
 
     def initialize_encoder(self, encoder):
-        pass                    # noting to do
+        pass  # noting to do
 
     def read_encoder(self, encoder):
         return self.read_position(encoder.axis) / encoder.divider

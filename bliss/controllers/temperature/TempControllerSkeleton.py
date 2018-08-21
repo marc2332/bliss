@@ -104,21 +104,18 @@ from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
 
 class MyTemperatureController(Controller):
-
     def __init__(self, config, *args):
         """ 
         controller configuration
         """
         Controller.__init__(self, config, *args)
 
-
     def initialize(self):
         """ 
         Initializes the controller.
         """
 
-
-    def initialize_input(self,tinput):
+    def initialize_input(self, tinput):
         """
         Input type object only
 
@@ -127,9 +124,8 @@ class MyTemperatureController(Controller):
         Args:
            tinput:  Input class type object 
         """
- 
 
-    def initialize_output(self,toutput):
+    def initialize_output(self, toutput):
         """
         Output type object only
 
@@ -138,8 +134,8 @@ class MyTemperatureController(Controller):
         Args:
            toutput:  Output class type object          
         """
- 
-    def initialize_loop(self,tloop):
+
+    def initialize_loop(self, tloop):
         """
         Loop type object only
 
@@ -165,7 +161,6 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
     def read_output(self, toutput):
         """
         Output type object only
@@ -181,7 +176,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def start_ramp(self, toutput, sp, **kwargs):
         """
@@ -200,7 +194,6 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
     def set_ramprate(self, toutput, rate):
         """
         Output type object only
@@ -214,7 +207,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
        """
-
 
     def read_ramprate(self, toutput):
         """
@@ -231,7 +223,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def set_dwell(self, toutput, dwell):
         """
@@ -293,7 +284,6 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
     def set_kp(self, tloop, kp):
         """
         Loop type object only
@@ -307,7 +297,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def read_kp(self, tloop):
         """
@@ -324,7 +313,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def set_ki(self, tloop, ki):
         """
@@ -386,7 +374,6 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
     def set(self, toutput, sp, **kwargs):
         """
         Output type object only
@@ -417,8 +404,7 @@ class MyTemperatureController(Controller):
            (float) setpoint value. Must be None if not setpoint is set
         """
 
-
-    def state_input(self,tinput):
+    def state_input(self, tinput):
         """
         Input type object only
 
@@ -434,8 +420,7 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
-    def state_output(self,toutput):
+    def state_output(self, toutput):
         """
         Output type object only
 
@@ -451,7 +436,7 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-    def setpoint_stop(self,toutput):
+    def setpoint_stop(self, toutput):
         """
         Output type object only
 
@@ -464,8 +449,7 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
-    def setpoint_abort(self,toutput):
+    def setpoint_abort(self, toutput):
         """
         Output type object only
 
@@ -478,8 +462,7 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-
-    def on(self,tloop):
+    def on(self, tloop):
         """
         Loop type object only
 
@@ -492,7 +475,7 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
-    def off(self,tloop):
+    def off(self, tloop):
         """
         Loop type object only
 
@@ -504,7 +487,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def Wraw(self, str):
         """
@@ -518,7 +500,6 @@ class MyTemperatureController(Controller):
         Raises:
            NotImplementedError: when not defined by the inheriting class      
         """
-
 
     def Rraw(self):
         """
@@ -549,13 +530,10 @@ class MyTemperatureController(Controller):
            NotImplementedError: when not defined by the inheriting class      
         """
 
+    #              ---- Example of custom commands ----
+    # It will be possible to access it as a command through generated device server
 
- 
-#              ---- Example of custom commands ----
-# It will be possible to access it as a command through generated device server
-        
-
-# Custom Command for all the objects types (Input/Output/Loop)
+    # Custom Command for all the objects types (Input/Output/Loop)
     @object_method(types_info=("str", "str"))
     def mymethodname(self, tobj, value):
         """
@@ -576,7 +554,7 @@ class MyTemperatureController(Controller):
                             ("float","float") : get a float and returns a float
         """
 
-# Custom Command for Input, Output or Loop type only
+    # Custom Command for Input, Output or Loop type only
     @object_method_type(types_info=("str", "str"), type=Input)
     def mymethodname(self, tinput, value):
         """
@@ -602,13 +580,12 @@ class MyTemperatureController(Controller):
 
          """
 
-#              ---- Example of custom attributes ----
-# It will be possible to access it as an attribute through generated device server.
-# For a Tango device server custom attribute named <myattribute>, you need to define
-# get_<myattribute> and set_<myattribute> methods.
+    #              ---- Example of custom attributes ----
+    # It will be possible to access it as an attribute through generated device server.
+    # For a Tango device server custom attribute named <myattribute>, you need to define
+    # get_<myattribute> and set_<myattribute> methods.
 
-
-# Custom Attribute for all the objects types (Input/Output/Loop)
+    # Custom Attribute for all the objects types (Input/Output/Loop)
     @object_attribute_get(type_info=("str"))
     def get_myattribute(self, tobj):
         """
@@ -683,4 +660,3 @@ class MyTemperatureController(Controller):
                    to one particular object type
 
         """
-

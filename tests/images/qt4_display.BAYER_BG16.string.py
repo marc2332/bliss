@@ -10,7 +10,7 @@ import os
 import time
 import sys
 
-os.environ['QUB_SUBPATH'] = 'qt4'
+os.environ["QUB_SUBPATH"] = "qt4"
 
 from PyQt4 import QtGui, QtCore
 
@@ -23,9 +23,9 @@ image = f.read()
 width = 958
 height = 684
 
-returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(image, width, height,
-                                                       pixmaptools.LUT.Scaling.BAYER_BG16,
-                                                       scaling)
+returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+    image, width, height, pixmaptools.LUT.Scaling.BAYER_BG16, scaling
+)
 
 app = QtGui.QApplication(sys.argv)  # main application
 label = QtGui.QLabel()

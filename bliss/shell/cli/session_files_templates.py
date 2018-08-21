@@ -12,7 +12,8 @@ Templates of configuration files used to create new sessions.
 from jinja2 import Template
 
 
-xxx_setup_py_template = Template("""
+xxx_setup_py_template = Template(
+    """
 from bliss.setup_globals import *
 
 load_script(\"{{ name }}.py\")
@@ -25,8 +26,11 @@ print(\"   * {{ dir }}/{{ name }}_setup.py \")
 print(\"   * {{ dir }}/{{ name }}.yml \")
 print(\"   * {{ dir }}/scripts/{{ name }}.py \")
 print(\"\")
-""")
+"""
+)
 
 
-xxx_py_template = Template("""
-""")
+xxx_py_template = Template(
+    """
+"""
+)

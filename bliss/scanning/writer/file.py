@@ -12,6 +12,7 @@ import os
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
 from bliss.common.event import connect, disconnect
 
+
 class _EventReceiver(object):
     def __init__(self, device, parent_entry, callback):
         self.device = device
@@ -23,26 +24,30 @@ class _EventReceiver(object):
             self.callback(self.parent_entry, event_dict, signal, sender)
 
     def connect(self):
-        for signal in ('start', 'end'):
+        for signal in ("start", "end"):
             connect(self.device, signal, self)
         for channel in self.device.channels:
-            connect(self.device, 'new_data', self)
+            connect(self.device, "new_data", self)
 
     def disconnect(self):
         if self.device is None:
             return
-        for signal in ('start', 'end'):
+        for signal in ("start", "end"):
             disconnect(self.device, signal, self)
         for channel in self.device.channels:
-            disconnect(self.device, 'new_data', self)
+            disconnect(self.device, "new_data", self)
         self.device = None
 
 
 class FileWriter(object):
-    def __init__(self, root_path, images_root_path,
-                 master_event_callback=None,
-                 device_event_callback=None,
-                 **keys):
+    def __init__(
+        self,
+        root_path,
+        images_root_path,
+        master_event_callback=None,
+        device_event_callback=None,
+        **keys
+    ):
         """ A default way to organize file structure
         """
         self._save_images = True
@@ -86,8 +91,8 @@ class FileWriter(object):
 
     def prepare_saving(self, device, images_path):
         any_image = any(
-            channel.reference and len(channel.shape) == 2
-            for channel in device.channels)
+            channel.reference and len(channel.shape) == 2 for channel in device.channels
+        )
         if any_image and self._save_images:
             directory = os.path.dirname(images_path)
             prefix = os.path.basename(images_path)
@@ -122,13 +127,18 @@ class FileWriter(object):
 
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 
-                images_path = self._images_root_path.format(scan=scan.node.name, device=dev.name)
+                images_path = self._images_root_path.format(
+                    scan=scan.node.name, device=dev.name
+                )
                 self.prepare_saving(dev, images_path)
 
                 for slave in dev.slaves:
-                    if isinstance(slave, AcquisitionDevice) and \
-                        callable(self._device_event_callback):
-                        self._prepare_callbacks(slave, master_entry, self._device_event_callback)
+                    if isinstance(slave, AcquisitionDevice) and callable(
+                        self._device_event_callback
+                    ):
+                        self._prepare_callbacks(
+                            slave, master_entry, self._device_event_callback
+                        )
                     elif isinstance(slave, AcquisitionMaster):
                         try:
                             referenced_master_entry = master_entries[slave]

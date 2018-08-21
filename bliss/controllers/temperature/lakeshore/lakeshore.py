@@ -37,7 +37,7 @@ class Base(Controller):
            Returns:
               (float): current temperature
         """
-        channel = tinput.config.get('channel')
+        channel = tinput.config.get("channel")
         return self._lakeshore.read_temperature(channel)
 
     def start_ramp(self, toutput, sp, **kwargs):
@@ -49,7 +49,7 @@ class Base(Controller):
            Returns:
               None
         """
-        channel = toutput.config.get('channel')
+        channel = toutput.config.get("channel")
         try:
             rate = float(kwargs.get("rate", self.__ramp_rate))
         except TypeError:
@@ -79,7 +79,7 @@ class Base(Controller):
            Returns:
               (float): current gas temperature setpoint
         """
-        channel = toutput.config.get('channel')
+        channel = toutput.config.get("channel")
         return self._lakeshore.setpoint(channel, sp)
 
     def get_setpoint(self, toutput):
@@ -87,7 +87,7 @@ class Base(Controller):
            Returns:
               (float): current gas temperature setpoint
         """
-        channel = toutput.config.get('channel')
+        channel = toutput.config.get("channel")
         self.__set_point = self._lakeshore.setpoint(channel)
         return self.__set_point
 
@@ -98,7 +98,7 @@ class Base(Controller):
             Returns:
                None
         """
-        channel = tloop.config.get('channel')
+        channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, P=kp)
         self.__kp = kp
 
@@ -107,8 +107,8 @@ class Base(Controller):
             Returns:
                kp (float): gain value - 0.1 to 1000
         """
-        channel = tloop.config.get('channel')
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
+        channel = tloop.config.get("channel")
+        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kp
 
     def set_ki(self, tloop, ki):
@@ -118,7 +118,7 @@ class Base(Controller):
             Returns:
                None
         """
-        channel = tloop.config.get('channel')
+        channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, I=ki)
         self.__ki = ki
 
@@ -127,8 +127,8 @@ class Base(Controller):
             Returns:
                ki (float): value - 0.1 to 1000
         """
-        channel = tloop.config.get('channel')
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
+        channel = tloop.config.get("channel")
+        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__ki
 
     def set_kd(self, tloop, kd):
@@ -138,7 +138,7 @@ class Base(Controller):
             Returns:
                None
         """
-        channel = tloop.config.get('channel')
+        channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, D=kd)
         self.__kd = kd
 
@@ -147,6 +147,6 @@ class Base(Controller):
             Returns:
                kd (float): value - 0 - 200
         """
-        channel = tloop.config.get('channel')
-        self.__kp, self.__ki,  self.__kd = self._lakeshore.pid(channel)
+        channel = tloop.config.get("channel")
+        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd

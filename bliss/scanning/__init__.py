@@ -1,4 +1,4 @@
-'''Scanning module
+"""Scanning module
 
 This module provides all the scanning interface.
 
@@ -6,4 +6,4 @@ This module provides all the scanning interface.
    :toctree:
 
    acquisition
-'''
+"""

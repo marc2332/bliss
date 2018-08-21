@@ -1,5 +1,6 @@
 import numpy
 
+
 class Leg(object):
     def __init__(self, dof="xyz"):
         self._analyzeDegreesOfFreedom(dof)
@@ -15,7 +16,7 @@ class Leg(object):
             self.fixDof[1] = 0
         if "z" in dof:
             self.fixDof[2] = 0
-        self._dof = dof    
+        self._dof = dof
 
     def get_dof(self):
         return self._dof
@@ -40,7 +41,6 @@ class Leg(object):
         v = numpy.asarray(sequence, dtype=numpy.float64).reshape(3, 1)
         self._s = v
 
-    
     dof = property(get_dof, doc="Degrees of freedom as string")
     cmpOrd = property(get_cmpOrd, doc="Doc to be written")
     fixDof = property(get_fixDof, doc="Degrees of freedom as list")

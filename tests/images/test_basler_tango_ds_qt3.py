@@ -19,11 +19,11 @@ import sys
 import struct
 import numpy
 
-os.environ['QUB_SUBPATH'] = 'qt3'
+os.environ["QUB_SUBPATH"] = "qt3"
 from bliss.data.routines.pixmaptools import qt3 as pixmaptools
 import qt
 
-from PyTango import DeviceProxy   # better to use PyTango.gevent ?
+from PyTango import DeviceProxy  # better to use PyTango.gevent ?
 
 device = DeviceProxy("id13/limaccds/eh3-vlm1")
 
@@ -56,10 +56,16 @@ def refresh():
         header_fmt = ">IHHqiiHHHH"
         header_size = struct.calcsize(header_fmt)
         _, ver, img_mode, frame_number, width, height, _, _, _, _ = struct.unpack(
-            header_fmt, image_data[1][:header_size])
+            header_fmt, image_data[1][:header_size]
+        )
 
         print "ver=%r, img_mode=%r, frame_number=%r, width=%d, height=%d" % (
-            ver, img_mode, frame_number, width, height)
+            ver,
+            img_mode,
+            frame_number,
+            width,
+            height,
+        )
         raw_buffer = numpy.fromstring(image_data[1][header_size:], numpy.uint16)
     else:
         print "No header"
@@ -68,9 +74,12 @@ def refresh():
     scaling.autoscale_min_max(raw_buffer, width, height, lutMode)
     # scaling.set_custom_mapping(12 , 50)
 
-    returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(raw_buffer, width, height, lutMode, scaling)
+    returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+        raw_buffer, width, height, lutMode, scaling
+    )
 
     label.setPixmap(qt.QPixmap(qimage))
+
 
 app = qt.QApplication(sys.argv)
 label = qt.QLabel("dd", None)
@@ -78,7 +87,7 @@ label = qt.QLabel("dd", None)
 label.resize(800, 600)
 
 timer = qt.QTimer(label)
-qt.QObject.connect(timer, qt.SIGNAL('timeout()'), refresh)
+qt.QObject.connect(timer, qt.SIGNAL("timeout()"), refresh)
 
 timer.start(200)
 

@@ -13,21 +13,25 @@ from tango.gevent import DeviceProxy
 import cPickle as pickle
 import base64
 
+
 def decode_tango_eval(x):
     return pickle.loads(base64.b64decode(x))
 
+
 def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
-    s1hg.dial(1); s1hg.position(1)
+    s1hg.dial(1)
+    s1hg.position(1)
     assert s1f.position() == 0.5
     assert s1b.position() == 0.5
     assert s1hg.position() == 1
 
     dev_name, proxy = bliss_tango_server
     tango_s1hg = DeviceProxy(
-        "tango://localhost:{}/id00/bliss_test/s1hg".format(ports.tango_port))
+        "tango://localhost:{}/id00/bliss_test/s1hg".format(ports.tango_port)
+    )
 
-    assert tango_s1hg.read_attribute('position').value == 1
-    assert tango_s1hg.read_attribute('offset').value == 0
+    assert tango_s1hg.read_attribute("position").value == 1
+    assert tango_s1hg.read_attribute("offset").value == 0
 
     s1f.velocity(0.1)
     s1b.velocity(0.1)
@@ -50,5 +54,5 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
 
     s1hg.rmove(1)
 
-    value = tango_s1hg.read_attribute('position').value
+    value = tango_s1hg.read_attribute("position").value
     assert pytest.approx(value, 3)

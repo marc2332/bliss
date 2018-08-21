@@ -10,9 +10,9 @@ import time
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 
@@ -85,6 +85,7 @@ class TestFlexDCController(unittest.TestCase):
         # close peacefully its sockets...
         time.sleep(0.05)
 
+
 #    def test_axis_move(self):
 #        fd = bliss.get_axis("fd")
 #        self.assertEqual(fd.state(), "READY")
@@ -93,7 +94,7 @@ class TestFlexDCController(unittest.TestCase):
 #        move_greenlet.join()
 #        self.assertEqual(fd.state(), "READY")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
 
 

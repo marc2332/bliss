@@ -12,17 +12,18 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 """
 
 __all__ = [
-    'ascan',
-    'a2scan',
-    'amesh',
-    'dmesh',
-    'dscan',
-    'lineup',
-    'd2scan',
-    'timescan',
-    'loopscan',
-    'ct',
-    'DEFAULT_CHAIN']
+    "ascan",
+    "a2scan",
+    "amesh",
+    "dmesh",
+    "dscan",
+    "lineup",
+    "d2scan",
+    "timescan",
+    "loopscan",
+    "ct",
+    "DEFAULT_CHAIN",
+]
 
 import logging
 
@@ -32,11 +33,15 @@ from bliss.common.axis import estimate_duration
 from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning import scan as scan_module
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MeshStepTriggerMaster
+from bliss.scanning.acquisition.motor import (
+    LinearStepTriggerMaster,
+    MeshStepTriggerMaster,
+)
 
-_log = logging.getLogger('bliss.scans')
+_log = logging.getLogger("bliss.scans")
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
+
 
 def step_scan(chain, scan_info, name=None, save=True, save_images=True):
     scan_data_watch = scan_module.StepScanDataWatch()
@@ -44,12 +49,14 @@ def step_scan(chain, scan_info, name=None, save=True, save_images=True):
     writer = config.get("writer") if save else None
     if writer:
         writer._save_images = save_images
-    return scan_module.Scan(chain,
-                            name=name,
-                            parent=config['parent'],
-                            scan_info=scan_info,
-                            writer=writer,
-                            data_watch_callback=scan_data_watch)
+    return scan_module.Scan(
+        chain,
+        name=name,
+        parent=config["parent"],
+        scan_info=scan_info,
+        writer=writer,
+        data_watch_callback=scan_data_watch,
+    )
 
 
 def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
@@ -84,17 +91,19 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    save_images = kwargs.pop('save_images', True)
+    save_images = kwargs.pop("save_images", True)
 
-    scan_info = {'type': kwargs.get('type', 'ascan'),
-                 'save': kwargs.get('save', True),
-                 'title': kwargs.get('title'),
-                 'sleep_time': kwargs.get('sleep_time')}
+    scan_info = {
+        "type": kwargs.get("type", "ascan"),
+        "save": kwargs.get("save", True),
+        "title": kwargs.get("title"),
+        "sleep_time": kwargs.get("sleep_time"),
+    }
 
-    if scan_info['title'] is None:
-        args = scan_info['type'], motor.name, start, stop, npoints, count_time
-        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        scan_info['title'] = template.format(*args)
+    if scan_info["title"] is None:
+        args = scan_info["type"], motor.name, start, stop, npoints, count_time
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
 
     # estimate scan time
     step_size = abs(stop - start) / float(npoints)
@@ -102,36 +111,45 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     n_motion_t = estimate_duration(motor, start, start + step_size)
     total_motion_t = i_motion_t + npoints * n_motion_t
     total_count_t = npoints * count_time
-    estimation = {'total_motion_time': total_motion_t,
-                  'total_count_time': total_count_t,
-                  'total_time': total_motion_t + total_count_t}
+    estimation = {
+        "total_motion_time": total_motion_t,
+        "total_count_time": total_count_t,
+        "total_time": total_motion_t + total_count_t,
+    }
 
-    scan_info.update({'npoints': npoints, 'total_acq_time': total_count_t,
-                      'start': [start], 'stop': [stop],
-                      'count_time': count_time,
-                      'estimation': estimation})
+    scan_info.update(
+        {
+            "npoints": npoints,
+            "total_acq_time": total_count_t,
+            "start": [start],
+            "stop": [stop],
+            "count_time": count_time,
+            "estimation": estimation,
+        }
+    )
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args,
-                              top_master=LinearStepTriggerMaster(npoints,
-                                                                 motor, start,
-                                                                 stop))
+    chain = DEFAULT_CHAIN.get(
+        scan_info,
+        counter_args,
+        top_master=LinearStepTriggerMaster(npoints, motor, start, stop),
+    )
 
-    _log.info("Scanning %s from %f to %f in %d points",
-              motor.name, start, stop, npoints)
+    _log.info(
+        "Scanning %s from %f to %f in %d points", motor.name, start, stop, npoints
+    )
 
     scan = step_scan(
         chain,
         scan_info,
-        name=kwargs.setdefault(
-            "name",
-            "ascan"),
-        save=scan_info['save'],
-        save_images=save_images)
+        name=kwargs.setdefault("name", "ascan"),
+        save=scan_info["save"],
+        save_images=save_images,
+    )
 
-    if kwargs.get('run', True):
+    if kwargs.get("run", True):
         scan.run()
 
-    if kwargs.get('return_scan', True):
+    if kwargs.get("return_scan", True):
         return scan
 
 
@@ -169,13 +187,12 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    kwargs['type'] = 'dscan'
-    kwargs.setdefault('name', 'dscan')
+    kwargs["type"] = "dscan"
+    kwargs.setdefault("name", "dscan")
     start += motor.position()
     stop += motor.position()
     with cleanup(motor, restore_list=(cleanup_axis.POS,)):
-        scan = ascan(motor, start, stop, npoints, count_time,
-                     *counter_args, **kwargs)
+        scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
     return scan
 
 
@@ -185,25 +202,26 @@ def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     if len(counter_args) > 1:
         raise ValueError("lineup: too many counters")
 
-    kwargs['type'] = 'lineup'
-    kwargs['name'] = kwargs.get('name', 'lineup')
-    kwargs['return_scan'] = True
-    scan = dscan(motor, start, stop, npoints, count_time, counter_args[0],
-                 **kwargs)
+    kwargs["type"] = "lineup"
+    kwargs["name"] = kwargs.get("name", "lineup")
+    kwargs["return_scan"] = True
+    scan = dscan(motor, start, stop, npoints, count_time, counter_args[0], **kwargs)
     scan.goto_peak(counter_args[0])
 
+
 def amesh(
-        motor1,
-        start1,
-        stop1,
-        npoints1,
-        motor2,
-        start2,
-        stop2,
-        npoints2,
-        count_time,
-        *counter_args,
-        **kwargs):
+    motor1,
+    start1,
+    stop1,
+    npoints1,
+    motor2,
+    start2,
+    stop2,
+    npoints2,
+    count_time,
+    *counter_args,
+    **kwargs
+):
     """
     Mesh scan
 
@@ -220,18 +238,30 @@ def amesh(
 
     :param backnforth if True do back and forth on the first motor
     """
-    save_images = kwargs.pop('save_images', True)
+    save_images = kwargs.pop("save_images", True)
 
-    scan_info = {'type': kwargs.get('type', 'amesh'),
-                 'save': kwargs.get('save', True),
-                 'title': kwargs.get('title'),
-                 'sleep_time': kwargs.get('sleep_time')}
+    scan_info = {
+        "type": kwargs.get("type", "amesh"),
+        "save": kwargs.get("save", True),
+        "title": kwargs.get("title"),
+        "sleep_time": kwargs.get("sleep_time"),
+    }
 
-    if scan_info['title'] is None:
-        args = scan_info['type'], motor1.name, start1, stop1, npoints1, \
-            motor2.name, start2, stop2, npoints2, count_time
-        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        scan_info['title'] = template.format(*args)
+    if scan_info["title"] is None:
+        args = (
+            scan_info["type"],
+            motor1.name,
+            start1,
+            stop1,
+            npoints1,
+            motor2.name,
+            start2,
+            stop2,
+            npoints2,
+            count_time,
+        )
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / float(npoints1)
@@ -241,31 +271,51 @@ def amesh(
 
     step_size2 = abs(stop2 - start2) / float(npoints2)
     i_motion_t2 = estimate_duration(motor2, start2)
-    n_motion_t2 = max(estimate_duration(motor2, start2, start2 + step_size2),
-                      estimate_duration(motor1, stop1, start1))
+    n_motion_t2 = max(
+        estimate_duration(motor2, start2, start2 + step_size2),
+        estimate_duration(motor1, stop1, start1),
+    )
     total_motion_t2 = npoints2 * n_motion_t2
 
     imotion_t = max(i_motion_t1, i_motion_t2)
 
     total_motion_t = imotion_t + total_motion_t1 + total_motion_t2
     total_count_t = npoints1 * npoints2 * count_time
-    estimation = {'total_motion_time': total_motion_t,
-                  'total_count_time': total_count_t,
-                  'total_time': total_motion_t + total_count_t}
+    estimation = {
+        "total_motion_time": total_motion_t,
+        "total_count_time": total_count_t,
+        "total_time": total_motion_t + total_count_t,
+    }
 
-    scan_info.update({'npoints1': npoints1,
-                      'npoints2': npoints2,
-                      'npoints': npoints1 * npoints2,
-                      'total_acq_time': total_count_t,
-                      'start': [start1, start2],
-                      'stop': [stop1, stop2],
-                      'count_time': count_time,
-                      'estimation': estimation})
+    scan_info.update(
+        {
+            "npoints1": npoints1,
+            "npoints2": npoints2,
+            "npoints": npoints1 * npoints2,
+            "total_acq_time": total_count_t,
+            "start": [start1, start2],
+            "stop": [stop1, stop2],
+            "count_time": count_time,
+            "estimation": estimation,
+        }
+    )
 
-    backnforth = kwargs.pop('backnforth', False)
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=MeshStepTriggerMaster(motor1, start1, stop1, npoints1,
-                                       motor2, start2, stop2,
-                                                                                        npoints2,backnforth=backnforth))
+    backnforth = kwargs.pop("backnforth", False)
+    chain = DEFAULT_CHAIN.get(
+        scan_info,
+        counter_args,
+        top_master=MeshStepTriggerMaster(
+            motor1,
+            start1,
+            stop1,
+            npoints1,
+            motor2,
+            start2,
+            stop2,
+            npoints2,
+            backnforth=backnforth,
+        ),
+    )
 
     _log.info(
         "Scanning (%s, %s) from (%f, %f) to (%f, %f) in (%d, %d) points",
@@ -276,49 +326,74 @@ def amesh(
         stop1,
         stop2,
         npoints1,
-        npoints2)
+        npoints2,
+    )
 
     scan = step_scan(
         chain,
         scan_info,
-        name=kwargs.setdefault(
-            "name",
-            "amesh"),
-        save=scan_info['save'],
-        save_images=save_images)
+        name=kwargs.setdefault("name", "amesh"),
+        save=scan_info["save"],
+        save_images=save_images,
+    )
 
-    if kwargs.get('run', True):
+    if kwargs.get("run", True):
         scan.run()
 
-    if kwargs.get('return_scan', True):
+    if kwargs.get("return_scan", True):
         return scan
 
+
 def dmesh(
-        motor1,
-        start1,
-        stop1,
-        npoints1,
-        motor2,
-        start2,
-        stop2,
-        npoints2,
-        count_time,
-        *counter_args,
-        **kwargs):
+    motor1,
+    start1,
+    stop1,
+    npoints1,
+    motor2,
+    start2,
+    stop2,
+    npoints2,
+    count_time,
+    *counter_args,
+    **kwargs
+):
     """Relative amesh
     """
-    kwargs['type'] = 'dmesh'
+    kwargs["type"] = "dmesh"
     kwargs.setdefault("name", "dmesh")
     start1 += motor1.position()
     stop1 += motor1.position()
     start2 += motor2.position()
     stop2 += motor2.position()
 
-    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS, )):
-        return amesh(motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count_time, *counter_args, **kwargs)
+    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
+        return amesh(
+            motor1,
+            start1,
+            stop1,
+            npoints1,
+            motor2,
+            start2,
+            stop2,
+            npoints2,
+            count_time,
+            *counter_args,
+            **kwargs
+        )
 
-def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *counter_args, **kwargs):
+
+def a2scan(
+    motor1,
+    start1,
+    stop1,
+    motor2,
+    start2,
+    stop2,
+    npoints,
+    count_time,
+    *counter_args,
+    **kwargs
+):
     """
     Absolute 2 motor scan
 
@@ -354,18 +429,29 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    save_images = kwargs.pop('save_images', True)
+    save_images = kwargs.pop("save_images", True)
 
-    scan_info = {'type': kwargs.get('type', 'a2scan'),
-                 'save': kwargs.get('save', True),
-                 'title': kwargs.get('title'),
-                 'sleep_time': kwargs.get('sleep_time')}
+    scan_info = {
+        "type": kwargs.get("type", "a2scan"),
+        "save": kwargs.get("save", True),
+        "title": kwargs.get("title"),
+        "sleep_time": kwargs.get("sleep_time"),
+    }
 
-    if scan_info['title'] is None:
-        args = scan_info['type'], motor1.name, start1, stop1, \
-            motor2.name, start2, stop2, npoints, count_time
-        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        scan_info['title'] = template.format(*args)
+    if scan_info["title"] is None:
+        args = (
+            scan_info["type"],
+            motor1.name,
+            start1,
+            stop1,
+            motor2.name,
+            start2,
+            stop2,
+            npoints,
+            count_time,
+        )
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
 
     # estimate scan time
     step_size1 = abs(stop1 - start1) / float(npoints)
@@ -380,41 +466,69 @@ def a2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
     n_motion_t = max(n_motion1_t, n_motion2_t)
     total_motion_t = i_motion_t + npoints * n_motion_t
     total_count_t = npoints * count_time
-    estimation = {'total_motion_time': total_motion_t,
-                  'total_count_time': total_count_t,
-                  'total_time': total_motion_t + total_count_t}
+    estimation = {
+        "total_motion_time": total_motion_t,
+        "total_count_time": total_count_t,
+        "total_time": total_motion_t + total_count_t,
+    }
 
-    scan_info.update({'npoints': npoints, 'total_acq_time': total_count_t,
-                      'start': [start1, start2], 'stop': [stop1, stop2],
-                      'count_time': count_time,
-                      'estimation': estimation})
+    scan_info.update(
+        {
+            "npoints": npoints,
+            "total_acq_time": total_count_t,
+            "start": [start1, start2],
+            "stop": [stop1, stop2],
+            "count_time": count_time,
+            "estimation": estimation,
+        }
+    )
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args, top_master=LinearStepTriggerMaster(npoints,
-                                         motor1, start1, stop1,
-                                         motor2, start2, stop2))
+    chain = DEFAULT_CHAIN.get(
+        scan_info,
+        counter_args,
+        top_master=LinearStepTriggerMaster(
+            npoints, motor1, start1, stop1, motor2, start2, stop2
+        ),
+    )
 
     _log.info(
         "Scanning %s from %f to %f and %s from %f to %f in %d points",
-        motor1.name, start1, stop1, motor2.name, start2, stop2, npoints)
+        motor1.name,
+        start1,
+        stop1,
+        motor2.name,
+        start2,
+        stop2,
+        npoints,
+    )
 
     scan = step_scan(
         chain,
         scan_info,
-        name=kwargs.setdefault(
-            "name",
-            "a2scan"),
-        save=scan_info['save'],
-        save_images=save_images)
+        name=kwargs.setdefault("name", "a2scan"),
+        save=scan_info["save"],
+        save_images=save_images,
+    )
 
-    if kwargs.get('run', True):
+    if kwargs.get("run", True):
         scan.run()
 
-    if kwargs.get('return_scan', True):
+    if kwargs.get("return_scan", True):
         return scan
 
 
-def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
-           *counter_args, **kwargs):
+def d2scan(
+    motor1,
+    start1,
+    stop1,
+    motor2,
+    start2,
+    stop2,
+    npoints,
+    count_time,
+    *counter_args,
+    **kwargs
+):
     """
     Relative 2 motor scan
 
@@ -454,12 +568,12 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    kwargs['type'] = 'd2scan'
+    kwargs["type"] = "d2scan"
 
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    kwargs.setdefault('name', 'd2scan')
+    kwargs.setdefault("name", "d2scan")
 
     scan = a2scan(
         motor1,
@@ -471,7 +585,8 @@ def d2scan(motor1, start1, stop1, motor2, start2, stop2, npoints, count_time,
         npoints,
         count_time,
         *counter_args,
-        **kwargs)
+        **kwargs
+    )
 
     group = Group(motor1, motor2)
     group.move(motor1, oldpos1, motor2, oldpos2)
@@ -505,49 +620,59 @@ def timescan(count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
-    save_images = kwargs.get('save_images', True)
+    save_images = kwargs.get("save_images", True)
 
-    scan_info = {'type': kwargs.get('type', 'timescan'),
-                 'save': kwargs.get('save', True),
-                 'title': kwargs.get('title'),
-                 'sleep_time': kwargs.get('sleep_time'),
-                 'output_mode': kwargs.get('output_mode', 'tail')}
+    scan_info = {
+        "type": kwargs.get("type", "timescan"),
+        "save": kwargs.get("save", True),
+        "title": kwargs.get("title"),
+        "sleep_time": kwargs.get("sleep_time"),
+        "output_mode": kwargs.get("output_mode", "tail"),
+    }
 
-    if scan_info['title'] is None:
-        args = scan_info['type'], count_time
-        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        scan_info['title'] = template.format(*args)
+    if scan_info["title"] is None:
+        args = scan_info["type"], count_time
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
 
     npoints = kwargs.get("npoints", 0)
     total_count_t = npoints * count_time
 
-    scan_info.update({'npoints': npoints, 'total_acq_time': total_count_t,
-                      'start': [], 'stop': [], 'count_time': count_time})
+    scan_info.update(
+        {
+            "npoints": npoints,
+            "total_acq_time": total_count_t,
+            "start": [],
+            "stop": [],
+            "count_time": count_time,
+        }
+    )
 
     if npoints > 0:
         # estimate scan time
-        estimation = {'total_motion_time': 0,
-                      'total_count_time': total_count_t,
-                      'total_time': total_count_t}
-        scan_info['estimation'] = estimation
+        estimation = {
+            "total_motion_time": 0,
+            "total_count_time": total_count_t,
+            "total_time": total_count_t,
+        }
+        scan_info["estimation"] = estimation
 
-    _log.info("Doing %s", scan_info['type'])
+    _log.info("Doing %s", scan_info["type"])
 
     chain = DEFAULT_CHAIN.get(scan_info, counter_args)
 
     scan = step_scan(
         chain,
         scan_info,
-        name=kwargs.setdefault(
-            "name",
-            "timescan"),
-        save=scan_info['save'],
-        save_images=save_images)
+        name=kwargs.setdefault("name", "timescan"),
+        save=scan_info["save"],
+        save_images=save_images,
+    )
 
-    if kwargs.get('run', True):
+    if kwargs.get("run", True):
         scan.run()
 
-    if kwargs.get('return_scan', True):
+    if kwargs.get("return_scan", True):
         return scan
 
 
@@ -577,8 +702,8 @@ def loopscan(npoints, count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
-    kwargs.setdefault('npoints', npoints)
-    kwargs.setdefault('name', 'loopscan')
+    kwargs.setdefault("npoints", npoints)
+    kwargs.setdefault("name", "loopscan")
     return timescan(count_time, *counter_args, **kwargs)
 
 
@@ -606,9 +731,9 @@ def ct(count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    kwargs['type'] = 'ct'
-    kwargs.setdefault('save', False)
-    kwargs['npoints'] = 1
+    kwargs["type"] = "ct"
+    kwargs.setdefault("save", False)
+    kwargs["npoints"] = 1
 
     kwargs.setdefault("name", "ct")
 
@@ -638,41 +763,57 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         save_images (bool): save image files [default: True]
         return_scan (bool): True by default
     """
-    save_images = kwargs.pop('save_images', True)
+    save_images = kwargs.pop("save_images", True)
 
-    scan_info = {'type': kwargs.get('type', 'pointscan'),
-                 'save': kwargs.get('save', True),
-                 'title': kwargs.get('title')}
+    scan_info = {
+        "type": kwargs.get("type", "pointscan"),
+        "save": kwargs.get("save", True),
+        "title": kwargs.get("title"),
+    }
 
     npoints = len(positions)
-    if scan_info['title'] is None:
-        args = scan_info['type'], motor.name, positions[0], positions[npoints -
-                                                                      1], npoints, count_time
-        template = " ".join(['{{{0}}}'.format(i) for i in range(len(args))])
-        scan_info['title'] = template.format(*args)
+    if scan_info["title"] is None:
+        args = (
+            scan_info["type"],
+            motor.name,
+            positions[0],
+            positions[npoints - 1],
+            npoints,
+            count_time,
+        )
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
 
     scan_info.update(
-        {'npoints': npoints, 'total_acq_time': npoints * count_time,
-         'start': positions[0],
-         'stop': positions[npoints - 1],
-         'count_time': count_time})
+        {
+            "npoints": npoints,
+            "total_acq_time": npoints * count_time,
+            "start": positions[0],
+            "stop": positions[npoints - 1],
+            "count_time": count_time,
+        }
+    )
 
-    chain = DEFAULT_CHAIN.get(scan_info, counter_args,
-                              top_master=VariableStepTriggerMaster(motor,
-                                                                   positions))
+    chain = DEFAULT_CHAIN.get(
+        scan_info, counter_args, top_master=VariableStepTriggerMaster(motor, positions)
+    )
 
-    _log.info("Scanning %s from %f to %f in %d points",
-              motor.name, positions[0], positions[npoints - 1], npoints)
+    _log.info(
+        "Scanning %s from %f to %f in %d points",
+        motor.name,
+        positions[0],
+        positions[npoints - 1],
+        npoints,
+    )
 
     scan = step_scan(
         chain,
         scan_info,
-        name=kwargs.setdefault(
-            "name",
-            "pointscan"),
-        save=scan_info['save'],
-        save_images=save_images)
+        name=kwargs.setdefault("name", "pointscan"),
+        save=scan_info["save"],
+        save_images=save_images,
+    )
 
     scan.run()
-    if kwargs.get('return_scan', True):
+    if kwargs.get("return_scan", True):
         return scan

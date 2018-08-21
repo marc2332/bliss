@@ -102,7 +102,7 @@ class BaseSpecCommand:
         self.command = command
 
     def __repr__(self):
-        return '<SpecCommand object, command=%s>' % self.command or ''
+        return "<SpecCommand object, command=%s>" % self.command or ""
 
     def __call__(self, *args, **kwargs):
         if self.command is None:
@@ -116,8 +116,8 @@ class BaseSpecCommand:
         if self.connection.serverVersion < 3:
             func = False
 
-            if 'function' in kwargs:
-                func = kwargs['function']
+            if "function" in kwargs:
+                func = kwargs["function"]
 
             # convert args list to string args list
             # it is much more convenient using .call('psvo', 12) than .call('psvo', '12')
@@ -126,17 +126,17 @@ class BaseSpecCommand:
 
             if func:
                 # macro function
-                command = self.command + '(' + ','.join(args) + ')'
+                command = self.command + "(" + ",".join(args) + ")"
             else:
                 # macro
-                command = self.command + ' ' + ' '.join(args)
+                command = self.command + " " + " ".join(args)
         else:
             # Spec knows
             command = [self.command] + list(args)
 
         return self.executeCommand(
-            command, kwargs.get("wait", False),
-            kwargs.get("timeout"))
+            command, kwargs.get("wait", False), kwargs.get("timeout")
+        )
 
     def executeCommand(self, command, wait=False, timeout=None):
         pass
@@ -154,17 +154,14 @@ class SpecCommandA(BaseSpecCommand):
 
     def connectToSpec(self, specVersion, timeout=None):
         if self.connection is not None:
-            event.disconnect(self.connection, 'connected', self._connected)
-            event.disconnect(
-                self.connection,
-                'disconnected',
-                self._disconnected)
+            event.disconnect(self.connection, "connected", self._connected)
+            event.disconnect(self.connection, "disconnected", self._disconnected)
 
         self.connection = connection.SpecConnection(specVersion)
         self.specVersion = specVersion
 
-        event.connect(self.connection, 'connected', self._connected)
-        event.connect(self.connection, 'disconnected', self._disconnected)
+        event.connect(self.connection, "connected", self._connected)
+        event.connect(self.connection, "disconnected", self._disconnected)
 
         if self.connection.isSpecConnected():
             self._connected()
@@ -200,15 +197,18 @@ class SpecCommandA(BaseSpecCommand):
             waiter.waitConnection()
 
             if self.connection.serverVersion < 3:
-                id = self.connection.send_msg_cmd_with_return(command,
-                                                              self.replyArrived)
+                id = self.connection.send_msg_cmd_with_return(
+                    command, self.replyArrived
+                )
             else:
                 if isinstance(command, str):
-                    id = self.connection.send_msg_cmd_with_return(command,
-                                                                  self.replyArrived)
+                    id = self.connection.send_msg_cmd_with_return(
+                        command, self.replyArrived
+                    )
                 else:
-                    id = self.connection.send_msg_func_with_return(command,
-                                                                   self.replyArrived)
+                    id = self.connection.send_msg_func_with_return(
+                        command, self.replyArrived
+                    )
 
             t = gevent.spawn(wrap_errors(wait_end_of_spec_cmd), self)
 
@@ -233,6 +233,7 @@ class SpecCommandA(BaseSpecCommand):
                         raise
                     else:
                         return ret
+
                 setattr(t, "get", types.MethodType(special_get, t))
 
                 return t

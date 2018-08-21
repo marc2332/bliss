@@ -51,38 +51,42 @@ from bliss.config.settings import Struct, QueueSetting, HashObjSetting
 
 
 def is_zerod(node):
-    return node.type == 'channel' and len(node.shape) == 0
+    return node.type == "channel" and len(node.shape) == 0
 
 
 def to_timestamp(dt, epoch=None):
     if epoch is None:
         epoch = datetime.datetime(1970, 1, 1)
     td = dt - epoch
-    return td.microseconds / float(10**6) + td.seconds + td.days * 86400
+    return td.microseconds / float(10 ** 6) + td.seconds + td.days * 86400
 
 
 # make list of available plugins for generating DataNode objects
 node_plugins = dict()
-for importer, module_name, _ in pkgutil.iter_modules([os.path.dirname(__file__)],
-                                                     prefix="bliss.data."):
+for importer, module_name, _ in pkgutil.iter_modules(
+    [os.path.dirname(__file__)], prefix="bliss.data."
+):
     node_type = module_name.replace("bliss.data.", "")
     node_plugins[node_type] = module_name
 
 
-def _get_node_object(node_type, name, parent,
-                     connection, create=False, **keys):
+def _get_node_object(node_type, name, parent, connection, create=False, **keys):
     module_name = node_plugins.get(node_type)
     if module_name is None:
         return DataNodeContainer(
-            node_type, name, parent, connection=connection, create=create, **keys)
+            node_type, name, parent, connection=connection, create=create, **keys
+        )
     else:
-        m = __import__(module_name, globals(), locals(), [''], -1)
-        classes = inspect.getmembers(m, lambda x: inspect.isclass(x) and issubclass(x, DataNode) and
-                                     x not in (DataNode, DataNodeContainer))
+        m = __import__(module_name, globals(), locals(), [""], -1)
+        classes = inspect.getmembers(
+            m,
+            lambda x: inspect.isclass(x)
+            and issubclass(x, DataNode)
+            and x not in (DataNode, DataNodeContainer),
+        )
         # there should be only 1 class inheriting from DataNode in the plugin
         klass = classes[0][-1]
-        return klass(name, parent=parent, connection=connection,
-                     create=create, **keys)
+        return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
 def get_node(db_name, connection=None):
@@ -90,7 +94,7 @@ def get_node(db_name, connection=None):
         connection = client.get_cache(db=1)
     data = Struct(db_name, connection=connection)
     name = data.name
-    if name is None:       # node has been deleted
+    if name is None:  # node has been deleted
         return None
 
     node_type = data.node_type
@@ -101,12 +105,10 @@ def get_node(db_name, connection=None):
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
-    return _get_node_object(node_type, name, parent,
-                            connection, create=True, **keys)
+    return _get_node_object(node_type, name, parent, connection, create=True, **keys)
 
 
-def _get_or_create_node(name, node_type=None,
-                        parent=None, connection=None, **keys):
+def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_cache(db=1)
     db_name = DataNode.exists(name, parent, connection)
@@ -134,7 +136,7 @@ class DataNodeIterator(object):
             raise ValueError("Invalid node: node is None.")
 
         if isinstance(filter, (str, unicode)):
-            filter = (filter, )
+            filter = (filter,)
         elif filter:
             filter = tuple(filter)
 
@@ -149,8 +151,7 @@ class DataNodeIterator(object):
 
         if isinstance(self.node, DataNodeContainer):
             for i, child in enumerate(self.node.children()):
-                iterator = DataNodeIterator(
-                    child, last_child_id=self.last_child_id)
+                iterator = DataNodeIterator(child, last_child_id=self.last_child_id)
                 for n in iterator.walk(filter, wait=False):
                     self.last_child_id[db_name] = i + 1
                     if filter is None or n.type in filter:
@@ -164,8 +165,9 @@ class DataNodeIterator(object):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield value
 
-    def walk_from_last(self, filter=None, wait=True,
-                       include_last=True, ready_event=None):
+    def walk_from_last(
+        self, filter=None, wait=True, include_last=True, ready_event=None
+    ):
         """Walk from the last child node (see walk)
         """
         pubsub = self.children_event_register()
@@ -199,57 +201,54 @@ class DataNodeIterator(object):
         if ready_event is not None:
             ready_event.set()
 
-        for event_type, event_data in self.wait_for_event(
-                pubsub, filter=filter):
+        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
             yield event_type, event_data
 
     def children_event_register(self):
         redis = self.node.db_connection
         pubsub = redis.pubsub()
-        pubsub.psubscribe("__keyspace@1__:%s*_children_list" %
-                          self.node.db_name)
+        pubsub.psubscribe("__keyspace@1__:%s*_children_list" % self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):
         if isinstance(filter, (str, unicode)):
-            filter = (filter, )
+            filter = (filter,)
         elif filter:
             filter = tuple(filter)
 
         for msg in pubsub.listen():
-            if msg['data'] == 'rpush':
-                channel = msg['channel']
-                new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(
-                    channel)
+            if msg["data"] == "rpush":
+                channel = msg["channel"]
+                new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
                 if new_child_event:
                     parent_db_name = new_child_event.groups()[0]
                     parent_node = get_node(parent_db_name)
-                    first_child = self.last_child_id.setdefault(
-                        parent_db_name, 0)
-                    for i, child in enumerate(
-                            parent_node.children(first_child, -1)):
+                    first_child = self.last_child_id.setdefault(parent_db_name, 0)
+                    for i, child in enumerate(parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
                             yield self.NEW_CHILD_EVENT, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
-                        channel)
+                        channel
+                    )
                     if new_channel_event:
                         channel_db_name = new_channel_event.group(1)
                         channel_node = get_node(channel_db_name)
-                        if channel_node and \
-                           (filter is None or channel_node.type in filter):
+                        if channel_node and (
+                            filter is None or channel_node.type in filter
+                        ):
                             yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
-            elif msg['data'] == 'lset':
-                channel = msg['channel']
-                new_channel_event = DataNodeIterator.\
-                    NEW_DATA_IN_CHANNEL_REGEX.match(channel)
+            elif msg["data"] == "lset":
+                channel = msg["channel"]
+                new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
+                    channel
+                )
                 if new_channel_event:
                     channel_db_name = new_channel_event.group(1)
                     channel_node = get_node(channel_db_name)
-                    if channel_node and \
-                       (filter is None or channel_node.type in filter):
+                    if channel_node and (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
 
 
@@ -279,21 +278,20 @@ class DataNode(object):
     def exists(name, parent=None, connection=None):
         if connection is None:
             connection = client.get_cache(db=1)
-        db_name = '%s:%s' % (parent.db_name, name) if parent else name
+        db_name = "%s:%s" % (parent.db_name, name) if parent else name
         return db_name if connection.exists(db_name) else None
 
-    def __init__(self, node_type, name, parent=None,
-                 connection=None, create=False, **keys):
+    def __init__(
+        self, node_type, name, parent=None, connection=None, create=False, **keys
+    ):
         info_dict = keys.pop("info", {})
         if connection is None:
             connection = client.get_cache(db=1)
-        db_name = '%s:%s' % (parent.db_name, name) if parent else name
-        self._data = Struct(db_name,
-                            connection=connection)
-        info_hash_name = '%s_info' % db_name
-        self._info = HashObjSetting(info_hash_name,
-                                    connection=connection)
-        info_dict['node_name'] = db_name
+        db_name = "%s:%s" % (parent.db_name, name) if parent else name
+        self._data = Struct(db_name, connection=connection)
+        info_hash_name = "%s_info" % db_name
+        self._info = HashObjSetting(info_hash_name, connection=connection)
+        info_dict["node_name"] = db_name
         self._info.update(info_dict)
 
         self.db_connection = connection
@@ -359,8 +357,8 @@ class DataNode(object):
 
     def _get_db_names(self):
         db_name = self.db_name
-        children_queue_name = '%s_children_list' % db_name
-        info_hash_name = '%s_info' % db_name
+        children_queue_name = "%s_children_list" % db_name
+        info_hash_name = "%s_info" % db_name
         db_names = [db_name, children_queue_name, info_hash_name]
         parent = self.parent
         if parent:
@@ -369,14 +367,21 @@ class DataNode(object):
 
 
 class DataNodeContainer(DataNode):
-    def __init__(self, node_type, name, parent=None,
-                 connection=None, create=False, **keys):
-        DataNode.__init__(self, node_type, name,
-                          parent=parent, connection=connection, create=create, **keys)
+    def __init__(
+        self, node_type, name, parent=None, connection=None, create=False, **keys
+    ):
+        DataNode.__init__(
+            self,
+            node_type,
+            name,
+            parent=parent,
+            connection=connection,
+            create=create,
+            **keys
+        )
 
-        children_queue_name = '%s_children_list' % self.db_name
-        self._children = QueueSetting(
-            children_queue_name, connection=connection)
+        children_queue_name = "%s_children_list" % self.db_name
+        self._children = QueueSetting(children_queue_name, connection=connection)
 
     def add_children(self, *child):
         if len(child) > 1:

@@ -12,26 +12,32 @@ from .connection import StolenLockException
 
 _default_connection = None
 
+
 def get_default_connection():
     global _default_connection
     if _default_connection is None:
         _default_connection = connection.Connection()
     return _default_connection
 
+
 class _StringIO(StringIO.StringIO):
-    def __enter__(self,*args,**kwags):
+    def __enter__(self, *args, **kwags):
         return self
-    def __exit__(self,*args,**kwags):
+
+    def __exit__(self, *args, **kwags):
         pass
 
+
 def check_connection(func):
-    def f(*args,**keys):
+    def f(*args, **keys):
         keys["connection"] = keys.get("connection") or get_default_connection()
-        return func(*args,**keys)
+        return func(*args, **keys)
+
     return f
 
+
 class Lock(object):
-    def __init__(self,*devices,**params):
+    def __init__(self, *devices, **params):
         """
         This class is an helper to lock object using context manager
         :params timeout default 10s
@@ -41,11 +47,12 @@ class Lock(object):
         self._params = params
 
     def __enter__(self):
-        lock(*self._devices,**self._params)
+        lock(*self._devices, **self._params)
         return self
 
-    def __exit__(self,*args,**kwags):
-        unlock(*self._devices,**self._params)
+    def __exit__(self, *args, **kwags):
+        unlock(*self._devices, **self._params)
+
 
 def synchronized(**params):
     """ 
@@ -54,23 +61,27 @@ def synchronized(**params):
     This is an helper to lock during the method call.
     :params are the lock's parameters (see Lock helper)
     """
+
     def wrap(f):
-        def func(self,*args,**keys):
-            with Lock(self,**params):
-                return f(self,*args,**keys)
+        def func(self, *args, **keys):
+            with Lock(self, **params):
+                return f(self, *args, **keys)
+
         return func
+
     return wrap
 
+
 @check_connection
-def lock(*devices,**params):
+def lock(*devices, **params):
     devices_name = [d.name for d in devices]
-    params["connection"].lock(devices_name,**params)
+    params["connection"].lock(devices_name, **params)
 
 
 @check_connection
-def unlock(*devices,**params):
+def unlock(*devices, **params):
     devices_name = [d.name for d in devices]
-    params["connection"].unlock(devices_name,**params)
+    params["connection"].unlock(devices_name, **params)
 
 
 @check_connection
@@ -84,10 +95,11 @@ def get_cache(db=0, connection=None):
 
 
 @check_connection
-def get_config_file(file_path, connection=None) :
+def get_config_file(file_path, connection=None):
     return connection.get_config_file(file_path)
 
-def get_file(config_node,key,local=False,base_path=None,raise_on_none_path=True) :
+
+def get_file(config_node, key, local=False, base_path=None, raise_on_none_path=True):
     """
     return an open file object in read only mode.
 
@@ -105,24 +117,26 @@ def get_file(config_node,key,local=False,base_path=None,raise_on_none_path=True)
     path = config_node.get(key)
     if path is not None:
         if base_path is not None:
-            path = os.path.join(base_path,path)
-        elif path.startswith('.'): # relative from current config_node
+            path = os.path.join(base_path, path)
+        elif path.startswith("."):  # relative from current config_node
             base_path = os.path.dirname(config_node.filename)
-            path = os.path.join(base_path,path)
+            path = os.path.join(base_path, path)
     elif raise_on_none_path:
         raise KeyError(key)
-    return _open_file(path,local)
+    return _open_file(path, local)
 
-def remote_open(file_path,local=False):
+
+def remote_open(file_path, local=False):
     """
     return an open file object in read only mode
     
     :params file_path the full path to the file if None return an empty file
     :params local if set to True, just use python *open*
     """
-    return _open_file(file_path,local)
+    return _open_file(file_path, local)
 
-def _open_file(file_path,local) :
+
+def _open_file(file_path, local):
     if file_path is None:
         return _StringIO()
 
@@ -130,14 +144,15 @@ def _open_file(file_path,local) :
         return open(file_path)
 
     try:
-        file_content = get_config_file(file_path.strip('/'))
+        file_content = get_config_file(file_path.strip("/"))
     except RuntimeError:
         return open(file_path)
     else:
         return _StringIO(file_content)
 
+
 @check_connection
-def get_config_db_files(base_path='', timeout=3., connection=None):
+def get_config_db_files(base_path="", timeout=3., connection=None):
     """
        Gives a sequence of pairs: (file name<str>, file content<str>)
 
@@ -152,22 +167,24 @@ def get_config_db_files(base_path='', timeout=3., connection=None):
        :return:
            a sequence of pairs: (file name<str>, file content<str>)
     """
-    path2files = connection.get_config_db(base_path=base_path,timeout=timeout)
+    path2files = connection.get_config_db(base_path=base_path, timeout=timeout)
     return path2files
 
+
 @check_connection
-def get_config_db_tree(base_path='', timeout=3., connection=None):
+def get_config_db_tree(base_path="", timeout=3., connection=None):
     """
     """
     return connection.get_config_db_tree(base_path, timeout=timeout)
 
+
 @check_connection
-def set_config_db_file(filepath,content,timeout=3.,connection = None):
-    connection.set_config_db_file(filepath,content,timeout=timeout)
+def set_config_db_file(filepath, content, timeout=3., connection=None):
+    connection.set_config_db_file(filepath, content, timeout=timeout)
 
 
 @check_connection
-def remove_config_file(file_path, connection=None) :
+def remove_config_file(file_path, connection=None):
     return connection.remove_config_file(file_path)
 
 
@@ -175,6 +192,7 @@ def remove_config_file(file_path, connection=None) :
 def move_config_path(src_path, dst_path, connection=None):
     return connection.move_config_path(src_path, dst_path)
 
+
 @check_connection
-def get_python_modules(base_path = '',timeout=3.,connection=None):
-    return connection.get_python_modules(base_path,timeout)
+def get_python_modules(base_path="", timeout=3., connection=None):
+    return connection.get_python_modules(base_path, timeout)

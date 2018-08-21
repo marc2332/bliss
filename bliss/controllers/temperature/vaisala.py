@@ -50,13 +50,13 @@ class HMT330(Controller):
 
     def initialize(self):
         config = dict(self.config)
-        config['counters'] = counters = []
-        for inp_cfg in self.config.get('inputs', ()):
-            inp_cfg['counter name'] = inp_cfg['name']
+        config["counters"] = counters = []
+        for inp_cfg in self.config.get("inputs", ()):
+            inp_cfg["counter name"] = inp_cfg["name"]
             counters.append(inp_cfg)
-        name = config.setdefault('name', 'hmt330')
+        name = config.setdefault("name", "hmt330")
         self.dev = vaisala.HMT330(name, config)
 
     def read_input(self, tinput):
-        channel = tinput.config['channel']
+        channel = tinput.config["channel"]
         return self.dev[channel]

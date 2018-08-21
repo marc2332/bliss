@@ -31,14 +31,20 @@ class AcquisitionChannelList(list):
 
 
 class AcquisitionChannel(object):
-
-    def __init__(self, name, dtype, shape,
-                 description=None, reference=False, data_node_type="channel"):
+    def __init__(
+        self,
+        name,
+        dtype,
+        shape,
+        description=None,
+        reference=False,
+        data_node_type="channel",
+    ):
         self.__name = name
         self.__dtype = dtype
         self.__shape = shape
         self.__reference = reference
-        self.__description = {'reference': reference}
+        self.__description = {"reference": reference}
         self.__data_node_type = data_node_type
 
         if isinstance(description, dict):
@@ -52,7 +58,7 @@ class AcquisitionChannel(object):
 
     @property
     def fullname(self):
-        return self._device_name+":"+self.name
+        return self._device_name + ":" + self.name
 
     @property
     def description(self):
@@ -87,11 +93,9 @@ class AcquisitionChannel(object):
             data = self._check_and_reshape(data)
             if data.size == 0:
                 return
-        self.__description['dtype'] = self.dtype
-        self.__description['shape'] = self.shape
-        data_dct = {"name": self.name,
-                    "description": self.__description,
-                    "data": data }
+        self.__description["dtype"] = self.dtype
+        self.__description["shape"] = self.shape
+        data_dct = {"name": self.name, "description": self.__description, "data": data}
         dispatcher.send("new_data", self, data_dct)
 
     def _check_and_reshape(self, data):
@@ -103,25 +107,29 @@ class AcquisitionChannel(object):
             return numpy.empty((0,) + self.shape)
 
         # Invalid dimensions
-        if data.ndim not in (ndim, ndim+1):
+        if data.ndim not in (ndim, ndim + 1):
             raise ValueError(
-                "Data should either be of {} or {} dimensions"
-                .format(ndim, ndim+1))
+                "Data should either be of {} or {} dimensions".format(ndim, ndim + 1)
+            )
 
         # Single point case
         if data.ndim == ndim and data.shape != self.shape:
             raise ValueError(
-                "Single point of shape {} does not match expected shape {}"
-                .format(data.shape, self.shape))
+                "Single point of shape {} does not match expected shape {}".format(
+                    data.shape, self.shape
+                )
+            )
 
         # Block case
-        if data.ndim == ndim+1 and data.shape[1:] != self.shape:
+        if data.ndim == ndim + 1 and data.shape[1:] != self.shape:
             raise ValueError(
-                "Multiple points of shape {} does not match expected shape {}"
-                .format(data.shape[1:], self.shape))
+                "Multiple points of shape {} does not match expected shape {}".format(
+                    data.shape[1:], self.shape
+                )
+            )
 
         # Permissive reshaping
-        data.shape = (-1, ) + self.shape
+        data.shape = (-1,) + self.shape
         return data
 
 
@@ -129,11 +137,16 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     name = source.name if name is None else name
     dtype = source.dtype if dtype is None else dtype
     dest = AcquisitionChannel(
-        name, dtype, source.shape, source.description,
-        source.reference, source.data_node_type)
+        name,
+        dtype,
+        source.shape,
+        source.description,
+        source.reference,
+        source.data_node_type,
+    )
 
     def callback(data_dct, sender=None, signal=None):
-        data = data_dct['data']
+        data = data_dct["data"]
         if conversion is not None:
             data = conversion(data)
         dest.emit(data)
@@ -142,7 +155,7 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     dest._callback = callback
 
     connect = lambda: dispatcher.connect(callback, "new_data", source)
-    connect.__name__ = 'connect_' + name
-    cleanup = lambda: dispatcher.disconnect(callback, 'new_data', source)
-    cleanup.__name__ = 'cleanup_' + name
+    connect.__name__ = "connect_" + name
+    cleanup = lambda: dispatcher.disconnect(callback, "new_data", source)
+    cleanup.__name__ = "cleanup_" + name
     return dest, connect, cleanup

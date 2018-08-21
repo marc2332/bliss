@@ -21,7 +21,6 @@ Bliss controller for XXX.
 
 
 class XXX(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -81,7 +80,7 @@ class XXX(Controller):
     def start_one(self, motion):
         """
         """
-        self.comm.write('MOVE')
+        self.comm.write("MOVE")
 
     def stop(self, axis):
         # Halt a scan (not a movement ?)
@@ -103,4 +102,4 @@ class XXX(Controller):
         """
         Returns information about controller.
         """
-        return ''
+        return ""

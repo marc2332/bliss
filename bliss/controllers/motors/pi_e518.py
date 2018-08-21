@@ -26,14 +26,15 @@ Cyril Guilloud ESRF BLISS
 Thu 13 Feb 2014 15:51:41
 """
 
-class PI_E518(PI_E51X):
 
+class PI_E518(PI_E51X):
     def __init__(self, *args, **kwargs):
         PI_E51X.__init__(self, *args, **kwargs)
 
     def _get_cto(self, axis):
-        _ans = self.sock.write_readlines("CTO?\n", 24)       # 24 also for 518 ????
+        _ans = self.sock.write_readlines("CTO?\n", 24)  # 24 also for 518 ????
         return _ans
+
     """
     CTO?
 

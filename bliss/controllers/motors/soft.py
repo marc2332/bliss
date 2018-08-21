@@ -20,11 +20,15 @@ def get_position_func(obj, position):
     otype = type(obj)
     pos = getattr(otype, position, None)
     if pos is None or not callable(pos):
+
         def position_func():
             return getattr(obj, position)
+
     else:
+
         def position_func():
             return pos(obj)
+
     position_func.__name__ = position
     return position_func
 
@@ -35,11 +39,15 @@ def get_move_func(obj, move):
     otype = type(obj)
     mv = getattr(otype, move, None)
     if mv is None or not callable(mv):
+
         def move_func(new_mv):
             return setattr(obj, move, new_mv)
+
     else:
+
         def move_func(new_mv):
             return mv(obj, new_mv)
+
     move_func.__name__ = move
     return move_func
 
@@ -49,35 +57,36 @@ def get_stop_func(obj, stop):
         return None
     if callable(stop):
         return stop
+
     def stop_func():
         return getattr(obj, stop)()
+
     stop_func.__name__ = stop
     return stop_func
 
 
 class _Config(dict):
-
     def to_dict(self):
         return dict(self)
 
 
 class SoftController(Controller):
-
     def __init__(self, axis_name, obj, axis_config):
         axis_config = _Config(axis_config)
         axes = ((axis_name, NoSettingsAxis, axis_config),)
-        super(SoftController, self).__init__('__soft_controller__', {},
-                                             axes, (), (), ())
+        super(SoftController, self).__init__(
+            "__soft_controller__", {}, axes, (), (), ()
+        )
         self.obj = obj
-        self._position = get_position_func(obj, axis_config['position'])
-        self._move = get_move_func(obj, axis_config['move'])
-        self._stop = get_stop_func(obj, axis_config['stop'])
+        self._position = get_position_func(obj, axis_config["position"])
+        self._move = get_move_func(obj, axis_config["move"])
+        self._stop = get_stop_func(obj, axis_config["stop"])
 
     def initialize_axis(self, axis):
         pass
 
     def state(self, axis):
-        return AxisState('READY')
+        return AxisState("READY")
 
     def start_one(self, motion):
         self._move(motion.target_pos)
@@ -88,9 +97,3 @@ class SoftController(Controller):
 
     def read_position(self, axis):
         return self._position()
-
-
-
-
-
-

@@ -11,10 +11,24 @@ from bliss.common.axis import SoftAxis
 from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 
-__all__ = ['wa', 'wm', 'sta', 'mv', 'umv', 'mvr', 'umvr', 'move',
-           'prdef', 'set_log_level', 'sync'] + scans.__all__ + \
-           ['cleanup', 'error_cleanup', 'plot', 'lscnt'] + \
-           ['SoftAxis', 'SoftCounter', 'edit_roi_counters']
+__all__ = (
+    [
+        "wa",
+        "wm",
+        "sta",
+        "mv",
+        "umv",
+        "mvr",
+        "umvr",
+        "move",
+        "prdef",
+        "set_log_level",
+        "sync",
+    ]
+    + scans.__all__
+    + ["cleanup", "error_cleanup", "plot", "lscnt"]
+    + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
+)
 
 import collections
 import itertools
@@ -33,29 +47,35 @@ from pygments.formatters import TerminalFormatter
 
 from bliss import setup_globals
 from bliss.common.motor_group import Group
-from bliss.common.utils import OrderedDict, get_objects_iter, \
-        get_objects_type_iter, get_axes_iter, get_axes_positions_iter, safe_get
+from bliss.common.utils import (
+    OrderedDict,
+    get_objects_iter,
+    get_objects_type_iter,
+    get_axes_iter,
+    get_axes_positions_iter,
+    safe_get,
+)
 from bliss.common.measurement import BaseCounter
 from bliss.shell.cli import repl
 
-_ERR = '!ERR'
+_ERR = "!ERR"
 _MAX_COLS = 9
-_MISSING_VAL = '-----'
-_FLOAT_FORMAT = '.05f'
+_MISSING_VAL = "-----"
+_FLOAT_FORMAT = ".05f"
 
 
-_log = logging.getLogger('bliss.standard')
+_log = logging.getLogger("bliss.standard")
 
 
 def __tabulate(data, **kwargs):
-    kwargs.setdefault('headers', 'firstrow')
-    kwargs.setdefault('floatfmt', _FLOAT_FORMAT)
-    kwargs.setdefault('numalign', 'right')
+    kwargs.setdefault("headers", "firstrow")
+    kwargs.setdefault("floatfmt", _FLOAT_FORMAT)
+    kwargs.setdefault("numalign", "right")
 
     return str(tabulate(data, **kwargs))
 
 
-def __pyhighlight(code, bg='dark', outfile=None):
+def __pyhighlight(code, bg="dark", outfile=None):
     formatter = TerminalFormatter(bg=bg)
     return highlight(code, PythonLexer(), formatter, outfile=outfile)
 
@@ -80,14 +100,14 @@ def wa(**kwargs):
     """
     Displays all positions (Where All) in both user and dial units
     """
-    max_cols = kwargs.get('max_cols', _MAX_COLS)
-    err = kwargs.get('err', _ERR)
+    max_cols = kwargs.get("max_cols", _MAX_COLS)
+    err = kwargs.get("err", _ERR)
     get = functools.partial(safe_get, on_error=err)
 
     print_("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
-    for axis_name, position, dial_position in get_axes_positions_iter(on_error=_ERR): 
+    for axis_name, position, dial_position in get_axes_positions_iter(on_error=_ERR):
         if len(header) == max_cols:
             header, pos, dial = [], [], []
             tables.append((header, pos, dial))
@@ -108,25 +128,47 @@ def wm(*axes, **kwargs):
         axis (~bliss.common.axis.Axis): motor axis
     """
     if not axes:
-        print_('need at least one axis name/object')
+        print_("need at least one axis name/object")
         return
-    max_cols = kwargs.get('max_cols', _MAX_COLS)
-    err = kwargs.get('err', _ERR)
+    max_cols = kwargs.get("max_cols", _MAX_COLS)
+    err = kwargs.get("err", _ERR)
     get = functools.partial(safe_get, on_error=err)
 
     header = [""]
     User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
     Dial, high_dial, dial, low_dial = ["Dial"], [" High"], [" Current"], [" Low"]
-    tables = [(header, User, high_user, user, low_user,
-               Dial, high_dial, dial, low_dial)]
+    tables = [
+        (header, User, high_user, user, low_user, Dial, high_dial, dial, low_dial)
+    ]
     for axis in get_objects_iter(*axes):
         low, high = safe_get(axis, "limits", on_error=(err, err))
         if len(header) == max_cols:
             header = [None]
-            User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
-            Dial, high_dial, dial, low_dial = ["Dial"], [" High"], [" Current"], [" Low"]
-            tables.append((header, User, high_user, user, low_user,
-                           Dial, high_dial, dial, low_dial))
+            User, high_user, user, low_user = (
+                ["User"],
+                [" High"],
+                [" Current"],
+                [" Low"],
+            )
+            Dial, high_dial, dial, low_dial = (
+                ["Dial"],
+                [" High"],
+                [" Current"],
+                [" Low"],
+            )
+            tables.append(
+                (
+                    header,
+                    User,
+                    high_user,
+                    user,
+                    low_user,
+                    Dial,
+                    high_dial,
+                    dial,
+                    low_dial,
+                )
+            )
         header.append(axis.name)
         User.append(None)
         high_user.append(high if high != None else _MISSING_VAL)
@@ -157,10 +199,13 @@ def sta(read_hw=False):
     """
     global __axes
     table = [("Axis", "Status")]
-    table += [(axis.name, safe_get(axis, "state",
-                                   on_error="<status not available>",
-                                   read_hw=read_hw))
-              for axis in get_axes_iter()]
+    table += [
+        (
+            axis.name,
+            safe_get(axis, "state", on_error="<status not available>", read_hw=read_hw),
+        )
+        for axis in get_axes_iter()
+    ]
     print_(__tabulate(table))
 
 
@@ -224,42 +269,42 @@ def move(*args, **kwargs):
     __move(*args, **kwargs)
 
 
-def __row_positions(positions, motors, fmt, sep=' '):
+def __row_positions(positions, motors, fmt, sep=" "):
     positions = [positions[m] for m in motors]
-    return __row(positions, fmt, sep='  ')
+    return __row(positions, fmt, sep="  ")
 
 
-def __row(cols, fmt, sep=' '):
+def __row(cols, fmt, sep=" "):
     return sep.join([format(col, fmt) for col in cols])
 
 
 def __umove(*args, **kwargs):
-    kwargs['wait'] = False
+    kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
         motor_names = [axis.name for axis in motor_pos]
         col_len = max(max(map(len, motor_names)), 8)
-        hfmt = '^{width}'.format(width=col_len)
-        rfmt = '>{width}.03f'.format(width=col_len)
+        hfmt = "^{width}".format(width=col_len)
+        rfmt = ">{width}.03f".format(width=col_len)
         print_()
-        print_(__row(motor_names, hfmt, sep='  '))
+        print_(__row(motor_names, hfmt, sep="  "))
 
         while group.is_moving:
             positions = group.position()
-            row = __row_positions(positions, motor_pos, rfmt, sep='  ')
-            print_("\r" + row, end='', flush=True)
+            row = __row_positions(positions, motor_pos, rfmt, sep="  ")
+            print_("\r" + row, end="", flush=True)
             sleep(0.1)
         # print last time for final positions
         positions = group.position()
-        row = __row_positions(positions, motor_pos, rfmt, sep='  ')
-        print_("\r" + row, end='', flush=True)
+        row = __row_positions(positions, motor_pos, rfmt, sep="  ")
+        print_("\r" + row, end="", flush=True)
         print_()
 
     return group, motor_pos
 
 
 def __move(*args, **kwargs):
-    wait, relative = kwargs.get('wait', True), kwargs.get('relative', False)
+    wait, relative = kwargs.get("wait", True), kwargs.get("relative", False)
     motor_pos = OrderedDict()
     for m, p in zip(get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
@@ -286,10 +331,15 @@ def prdef(obj_or_name):
     if name is None:
         name = real_name
 
-    if inspect.ismodule(obj) or inspect.isclass(obj) or \
-       inspect.ismethod(obj) or inspect.isfunction(obj) or \
-       inspect.istraceback(obj) or inspect.isframe(obj) or \
-       inspect.iscode(obj):
+    if (
+        inspect.ismodule(obj)
+        or inspect.isclass(obj)
+        or inspect.ismethod(obj)
+        or inspect.isfunction(obj)
+        or inspect.istraceback(obj)
+        or inspect.isframe(obj)
+        or inspect.iscode(obj)
+    ):
         pass
     else:
         try:
@@ -299,15 +349,15 @@ def prdef(obj_or_name):
 
     fname = inspect.getfile(obj)
     lines, line_nb = inspect.getsourcelines(obj)
-    
+
     if name == real_name or is_arg_str:
-        header = "'{0}' is defined in:\n{1}:{2}\n". \
-                 format(name, fname, line_nb)
+        header = "'{0}' is defined in:\n{1}:{2}\n".format(name, fname, line_nb)
     else:
-        header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n". \
-                 format(name, real_name, fname, line_nb)
+        header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n".format(
+            name, real_name, fname, line_nb
+        )
     print_(header)
-    print_(__pyhighlight(''.join(lines)))
+    print_(__pyhighlight("".join(lines)))
 
 
 def _check_log_level(level):
@@ -331,33 +381,41 @@ def set_log_level(level=logging.root.level):
     """
     logging.root.setLevel(_check_log_level(level))
 
+
 def cntdict():
     """
     Return a dict of counters
     """
     counters_dict = dict()
-    shape = ['0D','1D','2D']
+    shape = ["0D", "1D", "2D"]
 
     if repl.REPL is None:
         env_dict = dict()
     else:
         env_dict = repl.REPL.get_globals()
 
-    for name, obj in itertools.chain(inspect.getmembers(setup_globals),
-                                     env_dict.iteritems() if env_dict is not
-                                     None else {}):
+    for name, obj in itertools.chain(
+        inspect.getmembers(setup_globals),
+        env_dict.iteritems() if env_dict is not None else {},
+    ):
         if isinstance(obj, BaseCounter):
-            counters_dict[obj.fullname] = (shape[len(obj.shape)], obj.controller.name if
-                                           obj.controller else "None")
-        elif hasattr(obj, "counters") and isinstance(obj.counters,
-                                                     collections.Iterable):
+            counters_dict[obj.fullname] = (
+                shape[len(obj.shape)],
+                obj.controller.name if obj.controller else "None",
+            )
+        elif hasattr(obj, "counters") and isinstance(
+            obj.counters, collections.Iterable
+        ):
             for cnt in obj.counters:
                 if isinstance(cnt, BaseCounter):
-                    tmp = cnt.fullname.split('.')
-                    controller_name = '.'.join(tmp[:-1])
-                    counters_dict[cnt.fullname] = (shape[len(cnt.shape)],
-                                                   controller_name)
+                    tmp = cnt.fullname.split(".")
+                    controller_name = ".".join(tmp[:-1])
+                    counters_dict[cnt.fullname] = (
+                        shape[len(cnt.shape)],
+                        controller_name,
+                    )
     return counters_dict
+
 
 def lscnt():
     """
@@ -365,7 +423,7 @@ def lscnt():
     """
     table_info = []
     for counter_name, counter_info in sorted(cntdict().iteritems()):
-      table_info.append(itertools.chain([counter_name],counter_info))
+        table_info.append(itertools.chain([counter_name], counter_info))
     print_()
     print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
 
@@ -381,37 +439,40 @@ def edit_roi_counters(detector, acq_time=None):
         BLISS [2]: edit_roi_counters(pilatus1)
     """
     roi_counters = detector.roi_counters
-    name = '{} [{}]'.format(detector.name, roi_counters.config_name)
+    name = "{} [{}]".format(detector.name, roi_counters.config_name)
 
     if acq_time:
         setup_globals.SCAN_DISPLAY.auto = True
         scan = ct(acq_time, detector, return_scan=True)
     else:
         scan = setup_globals.SCANS[-1]
- 
+
     plot = scan.get_plot(detector, wait=True)
 
     selections = []
     for roi_name, roi in roi_counters.items():
-        selection = dict(kind='Rectangle', origin=(roi.x, roi.y),
-                         size=(roi.width, roi.height), label=roi_name)
+        selection = dict(
+            kind="Rectangle",
+            origin=(roi.x, roi.y),
+            size=(roi.width, roi.height),
+            label=roi_name,
+        )
         selections.append(selection)
-    print('Waiting for ROI edition to finish on {}...'.format(name))
+    print("Waiting for ROI edition to finish on {}...".format(name))
     selections = plot.select_shapes(selections)
     roi_labels, rois = [], []
     ignored = 0
     for selection in selections:
-        label = selection['label']
+        label = selection["label"]
         if not label:
             ignored += 1
             continue
-        x, y = map(int, map(round, selection['origin']))
-        w, h = map(int, map(round, selection['size']))
+        x, y = map(int, map(round, selection["origin"]))
+        w, h = map(int, map(round, selection["size"]))
         rois.append((x, y, w, h))
         roi_labels.append(label)
     if ignored:
-        print('{} ROI(s) ignored (no name)'.format(ignored))
+        print("{} ROI(s) ignored (no name)".format(ignored))
     roi_counters.clear()
     roi_counters[roi_labels] = rois
-    print('Applied ROIS {} to {}'.format(', '.join(sorted(roi_labels)),
-                                         name))
+    print("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name))

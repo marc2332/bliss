@@ -21,7 +21,6 @@ import math
 
 
 class id16beam(CalcController):
-
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
@@ -29,11 +28,10 @@ class id16beam(CalcController):
         self.theta_y = self.config.get("theta_y", float)
         self.theta_z = self.config.get("theta_z", float)
 
-#     def initialize_axis(self, axis):
-#         CalcController.initialize_axis(self, axis)
-#         print "initialize_axis"
-#
-
+    #     def initialize_axis(self, axis):
+    #         CalcController.initialize_axis(self, axis)
+    #         print "initialize_axis"
+    #
 
     def calc_from_real(self, positions_dict):
         """calculates the energy pseudo from the real position of atheh1"""
@@ -48,14 +46,17 @@ class id16beam(CalcController):
         """returns real motors positions (as a dictionary) given virtual"""
         xes_en_eh1 = positions_dict["xes_en_eh1"]
         _mot_list = ene2mots(xes_en_eh1, pp=False)
-        _real_dict = {"m1": _mot_list[0],
-                      "m2": _mot_list[1],
-                      "m3": _mot_list[2],
-                      "m4": _mot_list[3],
-                      "m5": _mot_list[4]}
+        _real_dict = {
+            "m1": _mot_list[0],
+            "m2": _mot_list[1],
+            "m3": _mot_list[2],
+            "m4": _mot_list[3],
+            "m5": _mot_list[4],
+        }
 
         return _real_dict
 
+
 # FOR TESTS #
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

@@ -13,9 +13,9 @@ import time
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 
@@ -66,14 +66,15 @@ class TestPI_E517Controller(unittest.TestCase):
 
     def test_get_closed_loop_status(self):
         pz = bliss.get_axis("pz")
-        print "PI_E517 pz closed loop enabled :", \
-              pz.controller._get_closed_loop_status(pz)
+        print "PI_E517 pz closed loop enabled :", pz.controller._get_closed_loop_status(
+            pz
+        )
 
     def test_very_small_move(self):
         pz = bliss.get_axis("pz")
         _pos = pz.position()
         _new_pos = _pos + 0.001
-        print "PI_E517 move to ",  _new_pos
+        print "PI_E517 move to ", _new_pos
         pz.move(_new_pos)
 
     def test_encoder(self):
@@ -81,118 +82,117 @@ class TestPI_E517Controller(unittest.TestCase):
         self.assertTrue(encA)
         print "PI_E517 encoder : ", encA.read()
 
-#    def test_multiple_move(self):
-#        pz = bliss.get_axis("pz")
-#        _pos = pz.position()
-#        for i in range(1000):
-#            print i,
-#            pz.move(_pos, wait=True)
-#
-#    def test_multiple_raw_move(self):
-#        pz = bliss.get_axis("pz")
-#        _pos = pz.position()
-#        _cmd = "SVA %s %g \n" % (pz.chan_letter, _pos)
-#        for i in range(1000):
-#            print i,
-#            pz.controller.sock.write(_cmd)
-#            # time.sleep(0.001)
-#        _pos = pz.position()
-#        print "PI_E517 pos=", _pos
-#
-#
-#    def test_multiple_raw_read_pos(self):
-#        '''
-#        25 mar.2014 :
-#        nb_cmd=10000, mean=1.217250ms, max=2.267838 Ran 1 test in 12.414s
-#        nb_cmd=100000,mean=1.242071ms, max=919.186115
-#               val> 4ms : 627.511 919.186 887.565
-#        '''
-#        pz = bliss.get_axis("pz")
-#        _cmd = "SVA? %s\n" % pz.chan_letter
-#        _sum_time = 0
-#        _nb_cmd = 100000
-#        _max_duration = 0
-#        _errors = 0
-#        for i in range(_nb_cmd):
-#            _t0 = time.time()
-#            try:
-#                _pos = pz.controller.sock.write_readline(_cmd, timeout=0.1),
-#            except:
-#                import pdb
-#                pdb.set_trace()
-#                print "TIMEOUT"
-#            _duration = (time.time() - _t0) *1000
-#            _sum_time = _sum_time + _duration
-#            if _duration > _max_duration:
-#                _max_duration = _duration
-#            if _duration > 5:
-#                print "i=%d  %6.3f" % (i, _duration)
-#                _errors = _errors + 1
-#            if (i % 100) == 0:
-#                print ".",
-#        print "nb_cmd=%d, mean=%fms, max=%f" % (_nb_cmd, _sum_time / _nb_cmd, _max_duration)
-#
-#
-#     def test_multiple_raw_read_pos_and_move(self):
-#         print " \n\n"
-#         pz = bliss.get_axis("pz")
-#         _pos = pz.position()
-#         _cmd_move = "SVA %s %g \n" % (pz.chan_letter, _pos)
-#         _cmd_pos = "SVA? %s\n" % pz.chan_letter
-#         for i in range(100):
-#             print i,
-#             print pz.controller.sock.write_readline(_cmd_pos),
-#             # time.sleep(0.01)
-#             pz.controller.sock.write(_cmd_move)
-#
-#
-#    def test_multiple_raw_read_pos_and_move_3chan(self):
-#        print " \n\n"
-#        px = bliss.get_axis("px")
-#        py = bliss.get_axis("py")
-#        pz = bliss.get_axis("pz")
-#        _pos_x = px.position()
-#        _pos_y = py.position()
-#        _pos_z = pz.position()
-#        _cmd_move_x = "SVA %s %g \n" % (px.chan_letter, _pos_x)
-#        _cmd_pos_x = "SVA? %s\n" % px.chan_letter
-#        _cmd_move_y = "SVA %s %g \n" % (py.chan_letter, _pos_y)
-#        _cmd_pos_y = "SVA? %s\n" % py.chan_letter
-#        _cmd_move_z = "SVA %s %g \n" % (pz.chan_letter, _pos_z)
-#        _cmd_pos_z = "SVA? %s\n" % pz.chan_letter
-#
-#        _respire = 0
-#
-#        for i in range(100):
-#            print i,
-#
-#            _t0 = time.time()
-#            px.controller.sock.write(_cmd_move_x)
-#            _ans = px.controller.sock.write_readline(_cmd_pos_x)
-#            _duration = 1000 * (time.time() - _t0)
-#            print _ans,
-#            if _duration > 5:
-#                print "oups duration : ", _duration
-#            time.sleep(_respire)
-#
-#            _t0 = time.time()
-#            py.controller.sock.write(_cmd_move_y)
-#            _ans = py.controller.sock.write_readline(_cmd_pos_y)
-#            _duration = 1000 * (time.time() - _t0)
-#            print _ans,
-#            if _duration > 5:
-#                print "oups duration : ", _duration
-#            time.sleep(_respire)
-#
-#            _t0 = time.time()
-#            pz.controller.sock.write(_cmd_move_z)
-#            _ans =  pz.controller.sock.write_readline(_cmd_pos_z)
-#            _duration = 1000 * (time.time() - _t0)
-#            print _ans,
-#            if _duration > 5:
-#                print "oups duration : ", _duration
-#            time.sleep(_respire)
-
+    #    def test_multiple_move(self):
+    #        pz = bliss.get_axis("pz")
+    #        _pos = pz.position()
+    #        for i in range(1000):
+    #            print i,
+    #            pz.move(_pos, wait=True)
+    #
+    #    def test_multiple_raw_move(self):
+    #        pz = bliss.get_axis("pz")
+    #        _pos = pz.position()
+    #        _cmd = "SVA %s %g \n" % (pz.chan_letter, _pos)
+    #        for i in range(1000):
+    #            print i,
+    #            pz.controller.sock.write(_cmd)
+    #            # time.sleep(0.001)
+    #        _pos = pz.position()
+    #        print "PI_E517 pos=", _pos
+    #
+    #
+    #    def test_multiple_raw_read_pos(self):
+    #        '''
+    #        25 mar.2014 :
+    #        nb_cmd=10000, mean=1.217250ms, max=2.267838 Ran 1 test in 12.414s
+    #        nb_cmd=100000,mean=1.242071ms, max=919.186115
+    #               val> 4ms : 627.511 919.186 887.565
+    #        '''
+    #        pz = bliss.get_axis("pz")
+    #        _cmd = "SVA? %s\n" % pz.chan_letter
+    #        _sum_time = 0
+    #        _nb_cmd = 100000
+    #        _max_duration = 0
+    #        _errors = 0
+    #        for i in range(_nb_cmd):
+    #            _t0 = time.time()
+    #            try:
+    #                _pos = pz.controller.sock.write_readline(_cmd, timeout=0.1),
+    #            except:
+    #                import pdb
+    #                pdb.set_trace()
+    #                print "TIMEOUT"
+    #            _duration = (time.time() - _t0) *1000
+    #            _sum_time = _sum_time + _duration
+    #            if _duration > _max_duration:
+    #                _max_duration = _duration
+    #            if _duration > 5:
+    #                print "i=%d  %6.3f" % (i, _duration)
+    #                _errors = _errors + 1
+    #            if (i % 100) == 0:
+    #                print ".",
+    #        print "nb_cmd=%d, mean=%fms, max=%f" % (_nb_cmd, _sum_time / _nb_cmd, _max_duration)
+    #
+    #
+    #     def test_multiple_raw_read_pos_and_move(self):
+    #         print " \n\n"
+    #         pz = bliss.get_axis("pz")
+    #         _pos = pz.position()
+    #         _cmd_move = "SVA %s %g \n" % (pz.chan_letter, _pos)
+    #         _cmd_pos = "SVA? %s\n" % pz.chan_letter
+    #         for i in range(100):
+    #             print i,
+    #             print pz.controller.sock.write_readline(_cmd_pos),
+    #             # time.sleep(0.01)
+    #             pz.controller.sock.write(_cmd_move)
+    #
+    #
+    #    def test_multiple_raw_read_pos_and_move_3chan(self):
+    #        print " \n\n"
+    #        px = bliss.get_axis("px")
+    #        py = bliss.get_axis("py")
+    #        pz = bliss.get_axis("pz")
+    #        _pos_x = px.position()
+    #        _pos_y = py.position()
+    #        _pos_z = pz.position()
+    #        _cmd_move_x = "SVA %s %g \n" % (px.chan_letter, _pos_x)
+    #        _cmd_pos_x = "SVA? %s\n" % px.chan_letter
+    #        _cmd_move_y = "SVA %s %g \n" % (py.chan_letter, _pos_y)
+    #        _cmd_pos_y = "SVA? %s\n" % py.chan_letter
+    #        _cmd_move_z = "SVA %s %g \n" % (pz.chan_letter, _pos_z)
+    #        _cmd_pos_z = "SVA? %s\n" % pz.chan_letter
+    #
+    #        _respire = 0
+    #
+    #        for i in range(100):
+    #            print i,
+    #
+    #            _t0 = time.time()
+    #            px.controller.sock.write(_cmd_move_x)
+    #            _ans = px.controller.sock.write_readline(_cmd_pos_x)
+    #            _duration = 1000 * (time.time() - _t0)
+    #            print _ans,
+    #            if _duration > 5:
+    #                print "oups duration : ", _duration
+    #            time.sleep(_respire)
+    #
+    #            _t0 = time.time()
+    #            py.controller.sock.write(_cmd_move_y)
+    #            _ans = py.controller.sock.write_readline(_cmd_pos_y)
+    #            _duration = 1000 * (time.time() - _t0)
+    #            print _ans,
+    #            if _duration > 5:
+    #                print "oups duration : ", _duration
+    #            time.sleep(_respire)
+    #
+    #            _t0 = time.time()
+    #            pz.controller.sock.write(_cmd_move_z)
+    #            _ans =  pz.controller.sock.write_readline(_cmd_pos_z)
+    #            _duration = 1000 * (time.time() - _t0)
+    #            print _ans,
+    #            if _duration > 5:
+    #                print "oups duration : ", _duration
+    #            time.sleep(_respire)
 
     def test_get_on_target_status(self):
         pz = bliss.get_axis("pz")
@@ -205,8 +205,7 @@ class TestPI_E517Controller(unittest.TestCase):
         time.sleep(0.2)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
 
 

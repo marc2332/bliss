@@ -38,6 +38,7 @@ def bind_key(repl, action, *keys, **kwargs):
         kwargs: any argument (ex: filter, eager) supported by 
                 prompt-toolkit repl.add_key_binding()
     """
+
     @repl.add_key_binding(*keys, **kwargs)
     def _(event):
         if callable(action):
@@ -46,4 +47,4 @@ def bind_key(repl, action, *keys, **kwargs):
             buff = event.cli.current_buffer
             buff.insert_text(action)
             if buff.accept_action.is_returnable:
-                buff.accept_action.validate_and_handle(event.cli, buff)   
+                buff.accept_action.validate_and_handle(event.cli, buff)

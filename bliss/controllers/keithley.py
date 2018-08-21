@@ -116,45 +116,49 @@ class KeithleySCPI(BaseDeviceSCPI):
 
     def __init__(self, *args, **kwargs):
         commands = SCPICommands(SCPI_COMMANDS)
-        model = str(kwargs.pop('model'))
+        model = str(kwargs.pop("model"))
         commands.update(SCPI_MODEL_COMMANDS.get(model, {}))
-        kwargs['commands'] = commands
+        kwargs["commands"] = commands
         super(KeithleySCPI, self).__init__(*args, **kwargs)
 
 
 class Sensor(SamplingCounter):
-
     def __init__(self, config, controller):
-        name = config['name']
+        name = config["name"]
         SamplingCounter.__init__(self, name, controller)
         self.__controller = controller
         self.config = config
-        self.address = int(config['address'])
+        self.address = int(config["address"])
         self.index = self.address - 1
         self.controller.initialize_sensor(self)
         self.__init()
-        
+
     @property
     def controller(self):
         return self.__controller
-    
+
     def __int__(self):
         return self.address
 
     def __init(self):
-        for attr_name in ['get_auto_range', 'set_auto_range',
-                          'get_nplc', 'set_nplc',
-                          'get_range', 'set_range']:
+        for attr_name in [
+            "get_auto_range",
+            "set_auto_range",
+            "get_nplc",
+            "set_nplc",
+            "get_range",
+            "set_range",
+        ]:
             try:
                 attr = getattr(self, attr_name)
             except AttributeError:
                 pass
             else:
                 setattr(self, attr_name, attr)
-        
+
     def __getattr__(self, name):
         attr = getattr(self.controller, name)
-        return functools.partial(attr,self)
+        return functools.partial(attr, self)
 
     def measure(self, func=None):
         return self.controller.measure(func=func)[self.index]
@@ -164,7 +168,6 @@ class Sensor(SamplingCounter):
 
 
 class BaseAcquisition(object):
-
     def __init__(self, keithley, acq_time, channel):
         self.keithley = keithley
         self.channel = channel
@@ -178,11 +181,11 @@ class BaseAcquisition(object):
     @property
     def total_time(self):
         return self.end_time - self.start_time
-        
+
     def prepare(self):
         self._prepare()
         self.__prepared = True
-    
+
     def _do_acq(self):
         raise NotImplementedError
 
@@ -198,7 +201,7 @@ class BaseAcquisition(object):
 
     def start(self):
         if not self.__prepared:
-            raise RuntimeError('Need prepare before start')
+            raise RuntimeError("Need prepare before start")
         self.__prepared = False
         self.start_time = time.time()
         self.acq_task = gevent.spawn(self._do_acq)
@@ -215,7 +218,7 @@ class BaseAcquisition(object):
     def get_value(self):
         if self.acq_task is not None:
             return self.acq_task.get()
-        raise ValueError('no value')
+        raise ValueError("no value")
 
 
 class HardwareAcquisition(BaseAcquisition):
@@ -234,16 +237,19 @@ class HardwareAcquisition(BaseAcquisition):
             nb_points = max(1, nb_points)
             acq_time = acq_time + 3 * 20 * nplc / 1000
         if nb_points > 2499:
-            raise ValueError("cannot perform an acquisition of more "
-                             "than 2499 points (calculated %d)" % nb_points)
+            raise ValueError(
+                "cannot perform an acquisition of more "
+                "than 2499 points (calculated %d)" % nb_points
+            )
         return nb_points, acq_time
 
     def _prepare(self):
         nb_points, acq_time = self._calc(self.acq_time)
         self.nb_points, self.real_acq_time = nb_points, acq_time
         keithley = self.keithley
-        keithley._logger.info("nb points=%s; effective acq. time=%s",
-                              nb_points, acq_time)
+        keithley._logger.info(
+            "nb points=%s; effective acq. time=%s", nb_points, acq_time
+        )
 
         if nb_points == 0:
             raise RuntimeError("continuous acquisition not supported")
@@ -252,38 +258,41 @@ class HardwareAcquisition(BaseAcquisition):
             # activate one-shot measurement
             self.keithley("CONF")
         else:
-            keithley("ABOR",     # abort whatever keithley is doing
-                     "TRAC:CLE", # empty buffer
-                     "*OPC?")    # synchronize
-            keithley("TRIG:DEL 0",          # no trigger delay
-                     "TRIG:COUN %d" % nb_points, # nb of points to trig
-                     "TRAC:POIN %d" % nb_points, # nb of points to store
-                     "TRAC:FEED:CONT NEXT", # use buffer
-                     "*OPC?")               # synchronize
+            keithley(
+                "ABOR",  # abort whatever keithley is doing
+                "TRAC:CLE",  # empty buffer
+                "*OPC?",
+            )  # synchronize
+            keithley(
+                "TRIG:DEL 0",  # no trigger delay
+                "TRIG:COUN %d" % nb_points,  # nb of points to trig
+                "TRAC:POIN %d" % nb_points,  # nb of points to store
+                "TRAC:FEED:CONT NEXT",  # use buffer
+                "*OPC?",
+            )  # synchronize
 
     def _do_acq(self):
         if self.nb_points == 0:
             pass
         else:
             # start acquisition
-            self.keithley('INIT')
-        gevent.sleep(max(0, self.real_acq_time-0.5))
+            self.keithley("INIT")
+        gevent.sleep(max(0, self.real_acq_time - 0.5))
         # synchronize
-        self.keithley['*OPC']
+        self.keithley["*OPC"]
         try:
             if self.nb_points == 1:
-                value = self.keithley['FETCH']
+                value = self.keithley["FETCH"]
             else:
-                value = self.keithley['CALC3:DATA']
+                value = self.keithley["CALC3:DATA"]
         except ValueError:
-            value = float('nan')
-#        finally:
-#            self.keithley('TRAC:FEED:CONT NEV')
+            value = float("nan")
+        #        finally:
+        #            self.keithley('TRAC:FEED:CONT NEV')
         return value
 
 
 class SoftwareAcquisition(BaseAcquisition):
-
     def _prepare(self):
         self.keithley.set_meas_func()
 
@@ -292,21 +301,22 @@ class SoftwareAcquisition(BaseAcquisition):
         t0, acq_time = time.time(), self.acq_time
         while (time.time() - t0) < acq_time:
             try:
-                data = self.keithley['READ']
+                data = self.keithley["READ"]
             except ValueError:
-                data = float('nan')
+                data = float("nan")
             buff.append(data)
         self.buffer = numpy.array(buff)
         return numpy.average(self.buffer)
 
-        
+
 def read_cmd(name, settings=None):
     def read(self):
         value = self[name]
         if settings:
             self.settings[settings] = value
         return value
-    read.__name__ = 'get_' + name.lower().replace(':', '_')
+
+    read.__name__ = "get_" + name.lower().replace(":", "_")
     return read
 
 
@@ -317,7 +327,8 @@ def write_cmd(name, settings=None):
         self[name] = value
         if settings:
             self.settings[settings] = value
-    write.__name__ = 'set_' + name.lower().replace(':', '_')
+
+    write.__name__ = "set_" + name.lower().replace(":", "_")
     return write
 
 
@@ -333,7 +344,8 @@ def read_sensor_cmd(name, settings=None):
         if settings:
             value = self.sensor_settings[address][settings]
         return value
-    read.__name__ = 'get_' + name
+
+    read.__name__ = "get_" + name
     return read
 
 
@@ -347,12 +359,15 @@ def write_sensor_cmd(name, settings=None):
         self[cmd] = value
         if settings:
             self.sensor_settings[address][settings] = value
+
     return write
 
 
 def sensor_cmd(name, settings=None):
-    return (read_sensor_cmd(name, settings=settings),
-            write_sensor_cmd(name, settings=settings))
+    return (
+        read_sensor_cmd(name, settings=settings),
+        write_sensor_cmd(name, settings=settings),
+    )
 
 
 def read_sensor_meas_cmd(name, settings=None):
@@ -364,7 +379,8 @@ def read_sensor_meas_cmd(name, settings=None):
             sname = self._meas_func_settings_name(settings, func)
             value = self.sensor_settings[address][sname]
         return value
-    read.__name__ = 'get_' + name
+
+    read.__name__ = "get_" + name
     return read
 
 
@@ -382,68 +398,70 @@ def write_sensor_meas_cmd(name, settings=None):
         self[cmd] = value
         if sname:
             self.sensor_settings[address][sname] = value
-    write.__name__ = 'set_' + name
+
+    write.__name__ = "set_" + name
     return write
 
 
 def sensor_meas_cmd(name, settings=None):
-    return (read_sensor_meas_cmd(name, settings=settings),
-            write_sensor_meas_cmd(name, settings=settings))
+    return (
+        read_sensor_meas_cmd(name, settings=settings),
+        write_sensor_meas_cmd(name, settings=settings),
+    )
 
 
 class BaseMultimeter(KeithleySCPI):
     """"""
 
-    HARD_INTEG, SOFT_INTEG = 'HARDWARE', 'SOFTWARE'
+    HARD_INTEG, SOFT_INTEG = "HARDWARE", "SOFTWARE"
 
     DefaultConfig = {
-        'auto_zero': False,
-        'display_enable': False,
-        'meas_func': 'CURR:DC',
-        'integration_mode': SOFT_INTEG,
+        "auto_zero": False,
+        "display_enable": False,
+        "meas_func": "CURR:DC",
+        "integration_mode": SOFT_INTEG,
     }
 
-    DefaultSensorConfig = {
-    }
-    
+    DefaultSensorConfig = {}
+
     MeasureFunctions = SCPICommands()
 
     Sensor = Sensor
     SoftwareAcquisition = SoftwareAcquisition
     HardwareAcquisition = HardwareAcquisition
-    
+
     def __init__(self, config, interface=None):
         kwargs = dict(config)
         if interface:
-            kwargs['interface'] = interface
-        self.name = config['name']
+            kwargs["interface"] = interface
+        self.name = config["name"]
         self.config = config
         self.__active_acq = None
         super(BaseMultimeter, self).__init__(**kwargs)
         defaults = {}
         for key, value in self.DefaultConfig.items():
             defaults[key] = config.get(key, value)
-        k_setting_name = 'multimeter.' + self.name
+        k_setting_name = "multimeter." + self.name
         self.settings = HashSetting(k_setting_name, default_values=defaults)
         self.sensor_settings = {}
 
     def __str__(self):
-        return '{0}({1})'.format(self.__class__.__name__, self.name)
+        return "{0}({1})".format(self.__class__.__name__, self.name)
 
     def initialize(self):
-        self('*RST', '*OPC?')
+        self("*RST", "*OPC?")
         with self:
             self.set_meas_func()
             self.set_display_enable()
             self.set_auto_zero()
         self._initialize()
-        self('*OPC?')
+        self("*OPC?")
 
     def initialize_sensor(self, sensor):
         address = int(sensor)
         if address in self.sensor_settings:
             return
-        setting_name = 'multimeter.{0}'.format(sensor.name)
+        setting_name = "multimeter.{0}".format(sensor.name)
         defaults = {}
         for key, value in self.DefaultSensorConfig.items():
             defaults[key] = sensor.config.get(key, value)
@@ -457,59 +475,57 @@ class BaseMultimeter(KeithleySCPI):
 
     def _meas_func(self, func=None):
         if func is None:
-            func = self.settings['meas_func']
-        return self.MeasureFunctions[func]['max_command']
+            func = self.settings["meas_func"]
+        return self.MeasureFunctions[func]["max_command"]
 
     def _meas_func_settings_name(self, name, func=None):
-        func = self._meas_func(func).replace(':', '_')
-        return '{0}_{1}'.format(func, name).lower()
+        func = self._meas_func(func).replace(":", "_")
+        return "{0}_{1}".format(func, name).lower()
 
     def _meas_func_sensor_cmd(self, sensor, param, func=None):
         func = self._meas_func(func)
-        return 'SENS%d:%s:%s' % (sensor, func, param)
+        return "SENS%d:%s:%s" % (sensor, func, param)
 
     def _sensor_cmd(self, sensor, param):
-        return 'SENS%d:%s' % (sensor, param)
-    
+        return "SENS%d:%s" % (sensor, param)
+
     def get_meas_func(self):
-        func = self['CONF']
-        return self.MeasureFunctions[func]['max_command']
+        func = self["CONF"]
+        return self.MeasureFunctions[func]["max_command"]
 
     def set_meas_func(self, func=None):
         func = self._meas_func(func)
-        self('CONF:' + func)
-        self.settings['meas_func'] = func
+        self("CONF:" + func)
+        self.settings["meas_func"] = func
 
-    get_display_enable, set_display_enable = cmd('DISP:ENAB', 'display_enable')
-    get_auto_zero, set_auto_zero = cmd('SYST:AZER', 'auto_zero')
+    get_display_enable, set_display_enable = cmd("DISP:ENAB", "display_enable")
+    get_auto_zero, set_auto_zero = cmd("SYST:AZER", "auto_zero")
 
-    get_nplc, set_nplc = \
-        sensor_meas_cmd('NPLC', 'nplc')
-    get_auto_range, set_auto_range = \
-        sensor_meas_cmd('RANG:AUTO', 'auto_range')
+    get_nplc, set_nplc = sensor_meas_cmd("NPLC", "nplc")
+    get_auto_range, set_auto_range = sensor_meas_cmd("RANG:AUTO", "auto_range")
 
     def measure(self, func=None):
         func = self._meas_func(func)
-        return self['MEAS:' + func]
-    
-    def read(self):
-        return self['READ']
+        return self["MEAS:" + func]
 
-    def read_all(self,*counters):
+    def read(self):
+        return self["READ"]
+
+    def read_all(self, *counters):
         values = self.read()
         return [values[int(cnt) - 1] for cnt in counters]
 
     def data(self):
-        return self['DATA']
+        return self["DATA"]
 
     def abort(self):
-        return self('ABOR', 'OPC?')
+        return self("ABOR", "OPC?")
 
     def set_integration_mode(self, mode):
-        self.settings['integration_mode'] = mode
+        self.settings["integration_mode"] = mode
 
     def get_integration_mode(self):
-        return self.settings['integration_mode']
+        return self.settings["integration_mode"]
 
     def create_acq(self, acq_time=None, channel=1, integ_mode=None):
         integ_mode = integ_mode or self.get_integration_mode()
@@ -521,73 +537,78 @@ class BaseMultimeter(KeithleySCPI):
 
     def pprint(self):
         values = self.settings.get_all()
-        settings = '\n'.join(('    {0}={1}'.format(k, v)
-                              for k, v in values.items()))
-        idn = '\n'.join(('    {0}={1}'.format(k, v)
-                              for k, v in self['*IDN'].items()))
-        print('{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}'
-              .format(self, self.name, idn, settings))
+        settings = "\n".join(("    {0}={1}".format(k, v) for k, v in values.items()))
+        idn = "\n".join(("    {0}={1}".format(k, v) for k, v in self["*IDN"].items()))
+        print(
+            "{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}".format(
+                self, self.name, idn, settings
+            )
+        )
 
 
 class BaseAmmeter(BaseMultimeter):
 
-    MeasureFunctions = SCPICommands({'CURRent[:DC]': SCPICmd()})
+    MeasureFunctions = SCPICommands({"CURRent[:DC]": SCPICmd()})
 
-    DefaultSensorConfig = dict(BaseMultimeter.DefaultSensorConfig,
+    DefaultSensorConfig = dict(
+        BaseMultimeter.DefaultSensorConfig,
         current_dc_auto_range=False,
-        current_dc_nplc=0.1
+        current_dc_nplc=0.1,
     )
 
-    get_current_dc_nplc, set_current_dc_nplc = \
-        sensor_cmd('CURR:DC:NPLC', 'current_dc_nplc')
-    get_current_dc_auto_range, set_current_dc_auto_range = \
-        sensor_cmd('CURR:DC:RANG:AUTO', 'current_dc_auto_range')
+    get_current_dc_nplc, set_current_dc_nplc = sensor_cmd(
+        "CURR:DC:NPLC", "current_dc_nplc"
+    )
+    get_current_dc_auto_range, set_current_dc_auto_range = sensor_cmd(
+        "CURR:DC:RANG:AUTO", "current_dc_auto_range"
+    )
 
     def _initialize_sensor(self, sensor):
         super(BaseAmmeter, self)._initialize_sensor(sensor)
         self.set_current_dc_auto_range(sensor)
         self.set_current_dc_nplc(sensor)
 
-    get_range = read_sensor_cmd('CURRent:RANGe')
+    get_range = read_sensor_cmd("CURRent:RANGe")
+
 
 class Ammeter6485(BaseAmmeter):
 
-    DefaultConfig = dict(BaseAmmeter.DefaultConfig,
-                         zero_check=False,
-                         zero_correct=False)
+    DefaultConfig = dict(
+        BaseAmmeter.DefaultConfig, zero_check=False, zero_correct=False
+    )
 
     def _initialize(self):
         with self:
-            self['FORM:ELEM'] = ['READ'] # just get the current when you read (no timestamp)
-            self['CALC3:FORM'] = 'MEAN'  # buffer statistics is mean
-            self['TRAC:FEED'] = 'SENS'   # source of reading is sensor
+            self["FORM:ELEM"] = [
+                "READ"
+            ]  # just get the current when you read (no timestamp)
+            self["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
+            self["TRAC:FEED"] = "SENS"  # source of reading is sensor
             self.set_zero_check()
             self.set_zero_correct()
 
-    get_zero_check, set_zero_check = cmd('SYST:ZCH', 'zero_check')
-    get_zero_correct, set_zero_correct = cmd('SYST:ZCOR', 'zero_correct')
+    get_zero_check, set_zero_check = cmd("SYST:ZCH", "zero_check")
+    get_zero_correct, set_zero_correct = cmd("SYST:ZCOR", "zero_correct")
 
     def zero_correct(self):
-        '''Zero correct procedure'''
-        zero_check = self.settings['zero_check']
-        zero_correct = self.settings['zero_correct']
+        """Zero correct procedure"""
+        zero_check = self.settings["zero_check"]
+        zero_correct = self.settings["zero_correct"]
         with self:
-            self.set_zero_check(True)             # zero check must be enabled
-            self.set_zero_correct(False)          # zero correct state must be disabled
-            self('INIT')                          # trigger a reading
-            self('SYST:ZCOR:ACQ')                 # acquire zero correct value
-            self.set_zero_correct(zero_correct)   # restore zero correct state
-            self.set_zero_check(zero_check)       # restore zero check
+            self.set_zero_check(True)  # zero check must be enabled
+            self.set_zero_correct(False)  # zero correct state must be disabled
+            self("INIT")  # trigger a reading
+            self("SYST:ZCOR:ACQ")  # acquire zero correct value
+            self.set_zero_correct(zero_correct)  # restore zero correct state
+            self.set_zero_check(zero_check)  # restore zero check
 
     def set_range(self, sensor, range_value):
         """
         Select a fixed measure range
         """
         address = int(sensor)
-        cmd = self._sensor_cmd(sensor, 'CURRent:RANGe:UPPer')
-        possible_range = [2e-9, 20e-9, 200e-9,
-                          2e-6, 20e-6, 200e-6,
-                          2e-3, 20e-3]
+        cmd = self._sensor_cmd(sensor, "CURRent:RANGe:UPPer")
+        possible_range = [2e-9, 20e-9, 200e-9, 2e-6, 20e-6, 200e-6, 2e-3, 20e-3]
         for value in possible_range:
             if value >= range_value:
                 break
@@ -596,47 +617,50 @@ class Ammeter6485(BaseAmmeter):
         self[cmd] = value
         return value
 
-class Ammeter6482(BaseAmmeter):
 
+class Ammeter6482(BaseAmmeter):
     def _initialize(self):
         with self:
             # should it not be FORM:ELEM instead of FORM:ELEM:TRAC ?
-            self['FORM:ELEM:TRAC'] = ['CURR1', 'CURR2']
-            self['CALC8:FORM'] = 'MEAN'  # buffer statistics is mean
+            self["FORM:ELEM:TRAC"] = ["CURR1", "CURR2"]
+            self["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
 
 
 class Multimeter2000(BaseMultimeter):
 
-    MeasureFunctions = SCPICommands({
-        'CURRent[:DC]': SCPICmd(),
-        'CURRent:AC': SCPICmd(),
-        'VOLTage[:DC]': SCPICmd(),
-        'VOLTage:AC': SCPICmd(),
-        'RESistance': SCPICmd(),
-        'FRESistance': SCPICmd(),
-        'PERiod': SCPICmd(),
-        'FREQuency': SCPICmd(),
-        'TEMPerature': SCPICmd(),})
+    MeasureFunctions = SCPICommands(
+        {
+            "CURRent[:DC]": SCPICmd(),
+            "CURRent:AC": SCPICmd(),
+            "VOLTage[:DC]": SCPICmd(),
+            "VOLTage:AC": SCPICmd(),
+            "RESistance": SCPICmd(),
+            "FRESistance": SCPICmd(),
+            "PERiod": SCPICmd(),
+            "FREQuency": SCPICmd(),
+            "TEMPerature": SCPICmd(),
+        }
+    )
 
 
 def Multimeter(config):
-    class_name = config['class']
-    model = config.get('model')
+    class_name = config["class"]
+    model = config.get("model")
     kwargs = {}
     if model is None:
         # Discover model
         interface, _, _ = get_interface(**config)
-        decode_IDN = SCPI_COMMANDS['*IDN'].get('get')
-        idn = decode_IDN(interface.write_readline('*IDN?\n'))
-        model = idn['model']
-        kwargs['interface'] = interface
-        config['model'] = model
+        decode_IDN = SCPI_COMMANDS["*IDN"].get("get")
+        idn = decode_IDN(interface.write_readline("*IDN?\n"))
+        model = idn["model"]
+        kwargs["interface"] = interface
+        config["model"] = model
     else:
         model = str(model)
-    if class_name in ('Multimeter', 'Ammeter'):
+    if class_name in ("Multimeter", "Ammeter"):
         class_name += model
     elif not class_name.endswith(model):
-        raise ValueError('class: {0} != model: {1}'.format(class_name, model))
+        raise ValueError("class: {0} != model: {1}".format(class_name, model))
     klass = globals()[class_name]
     obj = klass(config, **kwargs)
     obj.initialize()
@@ -644,8 +668,8 @@ def Multimeter(config):
 
 
 def create_objects_from_config_node(config, node):
-    name = node['name']
-    if 'sensors' in node:
+    name = node["name"]
+    if "sensors" in node:
         # controller node
         obj = Multimeter(node)
     else:
@@ -656,9 +680,9 @@ def create_objects_from_config_node(config, node):
 
 def create_sensor(config, node):
     ctrl_node = node.parent
-    while ctrl_node and 'sensors' not in ctrl_node:
+    while ctrl_node and "sensors" not in ctrl_node:
         ctrl_node = ctrl_node.parent
-    ctrl = config.get(ctrl_node['name'])
+    ctrl = config.get(ctrl_node["name"])
     with ctrl:
         obj = Sensor(node, ctrl)
     return obj
@@ -687,111 +711,163 @@ def main():
         serial = None
 
     parser = argparse.ArgumentParser(description=main.__doc__)
-    parser.add_argument('--model', type=str, default=None,
-                        help='keithley model (ex: 6482) [default: auto discover]')
-    parser.add_argument('--log-level', type=str, default='info',
-                        choices=['debug', 'info', 'warning', 'error'],
-                        help='log level [default: info]')
-    parser.add_argument('--scpi-log-level', type=str, default='info',
-                        choices=['trace', 'debug', 'info', 'warning', 'error'],
-                        help='log level for scpi object [default: info]')
-    parser.add_argument('--keithley-log-level', type=str, default='info',
-                        choices=['trace', 'debug', 'info', 'warning', 'error'],
-                        help='log level for keithley object [default: info]')
-    parser.add_argument('--gevent', action='store_true', default=False,
-                        help='enable gevent in console [default: False]')
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="keithley model (ex: 6482) [default: auto discover]",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        choices=["debug", "info", "warning", "error"],
+        help="log level [default: info]",
+    )
+    parser.add_argument(
+        "--scpi-log-level",
+        type=str,
+        default="info",
+        choices=["trace", "debug", "info", "warning", "error"],
+        help="log level for scpi object [default: info]",
+    )
+    parser.add_argument(
+        "--keithley-log-level",
+        type=str,
+        default="info",
+        choices=["trace", "debug", "info", "warning", "error"],
+        help="log level for keithley object [default: info]",
+    )
+    parser.add_argument(
+        "--gevent",
+        action="store_true",
+        default=False,
+        help="enable gevent in console [default: False]",
+    )
 
-    subparsers = parser.add_subparsers(title='object/connection', dest='connection',
-        description='config object name or valid type of connections',
-        help='choose keithley config object name or type of connection')
-    config_parser = subparsers.add_parser('config', help='keithey config object')
-    config_parser.add_argument('name', help='config object name')
+    subparsers = parser.add_subparsers(
+        title="object/connection",
+        dest="connection",
+        description="config object name or valid type of connections",
+        help="choose keithley config object name or type of connection",
+    )
+    config_parser = subparsers.add_parser("config", help="keithey config object")
+    config_parser.add_argument("name", help="config object name")
 
-    gpib_parser = subparsers.add_parser('gpib', help='GPIB connection')
+    gpib_parser = subparsers.add_parser("gpib", help="GPIB connection")
     add = gpib_parser.add_argument
-    add('url', type=str,
-        help='gpib instrument url (ex: gpibhost, enet://gpibhost:5000)')
-    add('--pad', type=int, required=True, help='primary address')
-    add('--sad', type=int, default=0, help='secondary address [default: 0]')
-    add('--tmo', type=int, default=10,
-        help='GPIB timeout (GPIB tmo unit) [default: 11 (=1s)]')
-    add('--eos', type=str, default='\n', help=r"end of string [default: '\n']")
-    add('--timeout', type=float, default=1.1,
-        help='socket timeout [default: 1.1]')
+    add(
+        "url", type=str, help="gpib instrument url (ex: gpibhost, enet://gpibhost:5000)"
+    )
+    add("--pad", type=int, required=True, help="primary address")
+    add("--sad", type=int, default=0, help="secondary address [default: 0]")
+    add(
+        "--tmo",
+        type=int,
+        default=10,
+        help="GPIB timeout (GPIB tmo unit) [default: 11 (=1s)]",
+    )
+    add("--eos", type=str, default="\n", help=r"end of string [default: '\n']")
+    add("--timeout", type=float, default=1.1, help="socket timeout [default: 1.1]")
 
-    tcp_parser = subparsers.add_parser('tcp', help='TCP connection')
+    tcp_parser = subparsers.add_parser("tcp", help="TCP connection")
     add = tcp_parser.add_argument
-    add('url', type=str, help='TCP instrument url (ex: keith6485:25000)')
+    add("url", type=str, help="TCP instrument url (ex: keith6485:25000)")
 
     if serial:
-        serial_parser = subparsers.add_parser('serial',
-                                              help='serial line connection')
+        serial_parser = subparsers.add_parser("serial", help="serial line connection")
         add = serial_parser.add_argument
-        add('port', type=str,
-            help='serial instrument port (ex: rfc2217://.., ser2net://..)')
-        add('--baudrate', type=int, default=9600, help='baud rate')
-        add('--bytesize', type=int, choices=[6, 7, 8],
-            default=serial.EIGHTBITS, help='byte size')
-        add('--parity', choices=serial.PARITY_NAMES.keys(),
-            default=serial.PARITY_NONE, help='parity type')
-        add('--timeout', type=float, default=5, help='timeout')
-        add('--stopbits', type=float, choices=[1, 1.5, 2],
-            default=serial.STOPBITS_ONE, help='stop bits')
-        add('--xonxoff', action='store_true', default=False, help='')
-        add('--rtscts', action='store_true', default=False, help='')
-        add('--write-timeout', dest='writeTimeout', type=float, default=None,
-            help='')
-        add('--dsrdtr', action='store_true', default=False, help='')
-        add('--interchar-timeout', dest='interCharTimeout', type=float,
-            default=None, help='')
-        add('--eol', type=str, default='\n',
-            help="end of line [default: '\\n']")
+        add(
+            "port",
+            type=str,
+            help="serial instrument port (ex: rfc2217://.., ser2net://..)",
+        )
+        add("--baudrate", type=int, default=9600, help="baud rate")
+        add(
+            "--bytesize",
+            type=int,
+            choices=[6, 7, 8],
+            default=serial.EIGHTBITS,
+            help="byte size",
+        )
+        add(
+            "--parity",
+            choices=serial.PARITY_NAMES.keys(),
+            default=serial.PARITY_NONE,
+            help="parity type",
+        )
+        add("--timeout", type=float, default=5, help="timeout")
+        add(
+            "--stopbits",
+            type=float,
+            choices=[1, 1.5, 2],
+            default=serial.STOPBITS_ONE,
+            help="stop bits",
+        )
+        add("--xonxoff", action="store_true", default=False, help="")
+        add("--rtscts", action="store_true", default=False, help="")
+        add("--write-timeout", dest="writeTimeout", type=float, default=None, help="")
+        add("--dsrdtr", action="store_true", default=False, help="")
+        add(
+            "--interchar-timeout",
+            dest="interCharTimeout",
+            type=float,
+            default=None,
+            help="",
+        )
+        add("--eol", type=str, default="\n", help="end of line [default: '\\n']")
 
     args = parser.parse_args()
     vargs = vars(args)
 
-    model = vargs.pop('model', None)
-    log_level = getattr(logging, vargs.pop('log_level').upper())
-    keithley_log_level = vargs.pop('keithley_log_level').upper()
-    scpi_log_level = vargs.pop('scpi_log_level').upper()
-    logging.basicConfig(level=log_level,
-                        format='%(asctime)s %(levelname)s %(name)s: %(message)s')
-    gevent_arg = vargs.pop('gevent')
+    model = vargs.pop("model", None)
+    log_level = getattr(logging, vargs.pop("log_level").upper())
+    keithley_log_level = vargs.pop("keithley_log_level").upper()
+    scpi_log_level = vargs.pop("scpi_log_level").upper()
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    gevent_arg = vargs.pop("gevent")
 
-    conn = vargs.pop('connection')
+    conn = vargs.pop("connection")
     local = {}
-    if conn == 'config':
+    if conn == "config":
         from bliss.config.static import get_config
+
         config = get_config()
-        name = vargs['name']
-        keithley = create_objects_from_config_node(config, config.get_config(name))[name]
+        name = vargs["name"]
+        keithley = create_objects_from_config_node(config, config.get_config(name))[
+            name
+        ]
         if isinstance(keithley, Sensor):
             sensor = keithley
             keithley = sensor.controller
-            local['s'] = sensor
+            local["s"] = sensor
     else:
-        kwargs = { conn: vargs , 'model': model }
+        kwargs = {conn: vargs, "model": model}
         keithley = KeithleySCPI(**kwargs)
-    local['k'] = keithley
+    local["k"] = keithley
     keithley._logger.setLevel(keithley_log_level)
     keithley.language._logger.setLevel(scpi_log_level)
     keithley.interface._logger.setLevel(scpi_log_level)
 
-    sys.ps1 = 'keithley> '
-    sys.ps2 = len(sys.ps1)*'.'
+    sys.ps1 = "keithley> "
+    sys.ps2 = len(sys.ps1) * "."
 
     if gevent_arg:
         try:
             from gevent.monkey import patch_sys
         except ImportError:
-            mode = 'no gevent'
+            mode = "no gevent"
         else:
             patch_sys()
 
     import code
-    mode = not gevent_arg and 'interactive, no gevent' or 'gevent'
-    banner = '\nWelcome to Keithley console ' \
-             '(connected to {0}) ({1})\n'.format(keithley, mode)
+
+    mode = not gevent_arg and "interactive, no gevent" or "gevent"
+    banner = "\nWelcome to Keithley console " "(connected to {0}) ({1})\n".format(
+        keithley, mode
+    )
     code.interact(banner=banner, local=local)
 
 

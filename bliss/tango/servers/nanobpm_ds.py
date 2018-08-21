@@ -29,6 +29,7 @@ from gevent import lock
 from functools import wraps
 from bliss.controllers.nano_bpm import NanoBpm as nanoBpm
 
+
 def is_cmd_allowed(fisallowed):
     def is_allowed(func):
         @wraps(func)
@@ -37,7 +38,9 @@ def is_cmd_allowed(fisallowed):
                 return func(self, *args, **keys)
             else:
                 raise Exception("Command not allowed")
+
         return rfunc
+
     return is_allowed
 
 
@@ -49,8 +52,8 @@ class NanoBpm(Device):
     # -------------------------------------------------------------------------
     # Device Properties
     # -------------------------------------------------------------------------
-    CommandUrl = device_property(dtype=str,doc='use socket://192.999.999.999:2222')
-    ControlUrl = device_property(dtype=str, doc='use socket://192.999.999.999:2223')
+    CommandUrl = device_property(dtype=str, doc="use socket://192.999.999.999:2222")
+    ControlUrl = device_property(dtype=str, doc="use socket://192.999.999.999:2223")
     Name = device_property(dtype=str, default_value="NanoBpm")
 
     # -------------------------------------------------------------------------
@@ -67,19 +70,13 @@ class NanoBpm(Device):
     @DebugIt()
     def init_device(self):
         Device.init_device(self)
-        kwargs = {
-                  'command_url': self.CommandUrl,
-                  'control_url': self.ControlUrl,
-        }
+        kwargs = {"command_url": self.CommandUrl, "control_url": self.ControlUrl}
         self._nanoBpm = nanoBpm(self.Name, kwargs)
-        self._AcqMode2String = {
-            self.CONTINUOUS : 'continuous',
-            self.STREAMING  : 'stream'
-        }
+        self._AcqMode2String = {self.CONTINUOUS: "continuous", self.STREAMING: "stream"}
         self.imageDepth2String = {
-            self.BPP8 : "bpp8",
-            self.BPP16 : "bpp16",
-            self.BPP32 : "bpp32"
+            self.BPP8: "bpp8",
+            self.BPP16: "bpp16",
+            self.BPP32: "bpp32",
         }
         self._logger = logging.getLogger(str(self))
         logging.basicConfig(level=logging.INFO)
@@ -132,8 +129,9 @@ class NanoBpm(Device):
     # -------------------------------------------------------------------------
     # Attributes
     # -------------------------------------------------------------------------
-    @attribute(label="AcqMode", dtype=str,
-                description="Acquisition mode (continuous/stream)")
+    @attribute(
+        label="AcqMode", dtype=str, description="Acquisition mode (continuous/stream)"
+    )
     @DebugIt()
     def acqMode(self):
         return self._AcqMode2String[self._acqMode]
@@ -144,8 +142,15 @@ class NanoBpm(Device):
         ind = self._AcqMode2String.values().index(mode)
         self._acqMode = self._AcqMode2String.keys()[ind]
 
-    @attribute(label="Integration time", dtype=float, unit="s", min_value="0.0", memorized=True,
-                description="Integration time in seconds", fisallowed="is_attr_rw_allowed")
+    @attribute(
+        label="Integration time",
+        dtype=float,
+        unit="s",
+        min_value="0.0",
+        memorized=True,
+        description="Integration time in seconds",
+        fisallowed="is_attr_rw_allowed",
+    )
     @DebugIt()
     def integrationTime(self):
         return self._nanoBpm.getIntegrationTime()
@@ -155,8 +160,13 @@ class NanoBpm(Device):
     def integrationTime(self, time):
         self._nanoBpm.setIntegrationTime(time)
 
-    @attribute(label=" Subtract Background", dtype=bool, memorized=True, fisallowed="is_attr_rw_allowed",
-               description="To activate background subtraction (true = ON)")
+    @attribute(
+        label=" Subtract Background",
+        dtype=bool,
+        memorized=True,
+        fisallowed="is_attr_rw_allowed",
+        description="To activate background subtraction (true = ON)",
+    )
     @DebugIt()
     def subtractBackground(self):
         return self._nanoBpm.SUBTRACTDARK
@@ -166,8 +176,14 @@ class NanoBpm(Device):
     def subtractBackground(self, enable):
         self._nanoBpm.SUBTRACTDARK = 1 if enable else 0
 
-    @attribute(label="NbFramesToSum", dtype=int, hw_memorized=False, memorized=True, fisallowed="is_attr_rw_allowed",
-               description="Number frames to average or sum (must be power of 2. default=4")
+    @attribute(
+        label="NbFramesToSum",
+        dtype=int,
+        hw_memorized=False,
+        memorized=True,
+        fisallowed="is_attr_rw_allowed",
+        description="Number frames to average or sum (must be power of 2. default=4",
+    )
     @DebugIt()
     def nbFramesToSum(self):
         return self._nanoBpm.nbFramesToSum
@@ -177,8 +193,12 @@ class NanoBpm(Device):
     def nbFramesToSum(self, num):
         self._nanoBpm.nbFramesToSum = num
 
-    @attribute(label="Gain", dtype=int, fisallowed="is_attr_rw_allowed",
-               description="Gain of the device")
+    @attribute(
+        label="Gain",
+        dtype=int,
+        fisallowed="is_attr_rw_allowed",
+        description="Gain of the device",
+    )
     def gain(self):
         return self._nanoBpm.GAIN
 
@@ -186,8 +206,12 @@ class NanoBpm(Device):
     def gain(self, val):
         self._nanoBpm.GAIN = val
 
-    @attribute(label="Offset", dtype=int, fisallowed="is_attr_rw_allowed",
-               description="Offset of the device")
+    @attribute(
+        label="Offset",
+        dtype=int,
+        fisallowed="is_attr_rw_allowed",
+        description="Offset of the device",
+    )
     def offset(self):
         return self._nanoBpm.OFFSET
 
@@ -195,8 +219,12 @@ class NanoBpm(Device):
     def offset(self, val):
         self._nanoBpm.OFFSET = val
 
-    @attribute(label="Maximum Iterations", dtype=int, fisallowed="is_attr_rw_allowed",
-               description="Maximum number of iterations for the fitting algorithm")
+    @attribute(
+        label="Maximum Iterations",
+        dtype=int,
+        fisallowed="is_attr_rw_allowed",
+        description="Maximum number of iterations for the fitting algorithm",
+    )
     def maxIter(self):
         return self._nanoBpm.MAXITER
 
@@ -204,8 +232,12 @@ class NanoBpm(Device):
     def maxIter(self, val):
         self._nanoBpm.MAXITER = val
 
-    @attribute(label="Horizontal Minimum Amplitude", dtype=float, fisallowed="is_attr_rw_allowed",
-               description="")
+    @attribute(
+        label="Horizontal Minimum Amplitude",
+        dtype=float,
+        fisallowed="is_attr_rw_allowed",
+        description="",
+    )
     def horizMinAmp(self):
         return self._nanoBpm.H_MINAMP
 
@@ -213,8 +245,12 @@ class NanoBpm(Device):
     def horizMinAmp(self, val):
         self._nanoBpm.H_MINAMP = val
 
-    @attribute(label="Vertical Minimum Amplitude", dtype=float, fisallowed="is_attr_rw_allowed",
-               description="Fitting minimum amplitude in vertical direction")
+    @attribute(
+        label="Vertical Minimum Amplitude",
+        dtype=float,
+        fisallowed="is_attr_rw_allowed",
+        description="Fitting minimum amplitude in vertical direction",
+    )
     def vertMinAmp(self):
         return self._nanoBpm.V_MINAMP
 
@@ -222,8 +258,12 @@ class NanoBpm(Device):
     def vertMinAmp(self, val):
         self._nanoBpm.V_MINAMP = val
 
-    @attribute(label="Vertical Minimum Chi-squared", dtype=float, fisallowed="is_attr_rw_allowed",
-               description="Minimum chi-squared value for fitting in vertical direction")
+    @attribute(
+        label="Vertical Minimum Chi-squared",
+        dtype=float,
+        fisallowed="is_attr_rw_allowed",
+        description="Minimum chi-squared value for fitting in vertical direction",
+    )
     def vertMinRSQ(self):
         return self._nanoBpm.V_MINRSQ
 
@@ -231,8 +271,12 @@ class NanoBpm(Device):
     def vertMinRSQ(self, val):
         self._nanoBpm.V_MINRSQ = val
 
-    @attribute(label="Horizontal Minimum Chi-squared", dtype=float, fisallowed="is_attr_rw_allowed",
-               description="Minimum chi-squared value for fitting in horizontal direction")
+    @attribute(
+        label="Horizontal Minimum Chi-squared",
+        dtype=float,
+        fisallowed="is_attr_rw_allowed",
+        description="Minimum chi-squared value for fitting in horizontal direction",
+    )
     def horizMinRSQ(self):
         return self._nanoBpm.H_MINRSQ
 
@@ -240,14 +284,15 @@ class NanoBpm(Device):
     def horizMinRSQ(self, val):
         self._nanoBpm.H_MINRSQ = val
 
-#    @attribute(label="Last frame number acquired", dtype=int, fisallowed="is_attr_allowed",
-#               description="")
-#    @DebugIt()
-#    def last_image_acquired(self):
-#        return -1 if self._imageData is None else self._imageData[0]
+    #    @attribute(label="Last frame number acquired", dtype=int, fisallowed="is_attr_allowed",
+    #               description="")
+    #    @DebugIt()
+    #    def last_image_acquired(self):
+    #        return -1 if self._imageData is None else self._imageData[0]
 
-    @attribute(label="Image depth",dtype=str, fisallowed="is_attr_allowed",
-               description="")
+    @attribute(
+        label="Image depth", dtype=str, fisallowed="is_attr_allowed", description=""
+    )
     @DebugIt()
     def imageDepth(self):
         return self.imageDepth2String[self._imageDepth]
@@ -256,110 +301,174 @@ class NanoBpm(Device):
     def imageDepth(self, depth):
         try:
             ind = self.imageDepth2String.values().index(depth)
-            self._imageDepth =  self.imageDepth2String.keys()[ind]
+            self._imageDepth = self.imageDepth2String.keys()[ind]
         except ValueError:
             pass
 
-    @attribute(label="Centre",dtype=[float,], fisallowed="is_attr_allowed",max_dim_x=2, max_dim_y=1,
-               description="Centre of Gravity [x,y]")
+    @attribute(
+        label="Centre",
+        dtype=[float],
+        fisallowed="is_attr_allowed",
+        max_dim_x=2,
+        max_dim_y=1,
+        description="Centre of Gravity [x,y]",
+    )
     @DebugIt()
     def centre(self):
         if self._CoG is None:
             raise AttributeError("No valid centre of gravity has been collected")
         return self._CoG
 
-    @attribute(label="XProfile",dtype=[float,], fisallowed="is_attr_allowed",max_dim_x=2000, max_dim_y=1,
-               description="X Profile")
+    @attribute(
+        label="XProfile",
+        dtype=[float],
+        fisallowed="is_attr_allowed",
+        max_dim_x=2000,
+        max_dim_y=1,
+        description="X Profile",
+    )
     @DebugIt()
     def xprofile(self):
         if self._yprofile is None:
             raise AttributeError("No valid x profile has been collected")
         return self._xprofile
 
-    @attribute(label="YProfile",dtype=[float,], fisallowed="is_attr_allowed",max_dim_x=2000, max_dim_y=1,
-               description="Y Profile")
+    @attribute(
+        label="YProfile",
+        dtype=[float],
+        fisallowed="is_attr_allowed",
+        max_dim_x=2000,
+        max_dim_y=1,
+        description="Y Profile",
+    )
     @DebugIt()
     def yprofile(self):
         if self._yprofile is None:
             raise AttributeError("No valid y profile has been collected")
         return self._yprofile
 
-    @attribute(label="XFit",dtype=[float,], fisallowed="is_attr_allowed",max_dim_x=20, max_dim_y=1,
-               description="X fit gaussian parameters")
+    @attribute(
+        label="XFit",
+        dtype=[float],
+        fisallowed="is_attr_allowed",
+        max_dim_x=20,
+        max_dim_y=1,
+        description="X fit gaussian parameters",
+    )
     @DebugIt()
     def xfit(self):
         if self._xfit is None:
-             raise AttributeError("No valid x fit has been collected")
+            raise AttributeError("No valid x fit has been collected")
         return self._xfit
 
-    @attribute(label="YFit",dtype=[float,], fisallowed="is_attr_allowed",max_dim_x=20, max_dim_y=1,
-               description="Y Fit gaussian parameters")
+    @attribute(
+        label="YFit",
+        dtype=[float],
+        fisallowed="is_attr_allowed",
+        max_dim_x=20,
+        max_dim_y=1,
+        description="Y Fit gaussian parameters",
+    )
     @DebugIt()
     def yfit(self):
         if self._yfit is None:
-             raise AttributeError("No valid y fit has been collected")
+            raise AttributeError("No valid y fit has been collected")
         return self._yfit
 
-    @attribute(label="Image8",dtype=[['byte']], fisallowed="is_attr_allowed", max_dim_x=10000, max_dim_y=10000,
-               description="")
+    @attribute(
+        label="Image8",
+        dtype=[["byte"]],
+        fisallowed="is_attr_allowed",
+        max_dim_x=10000,
+        max_dim_y=10000,
+        description="",
+    )
     @DebugIt()
     def readImage8(self):
         if self._imageData is None:
-             raise AttributeError("No valid image collected")
+            raise AttributeError("No valid image collected")
         if self._imageData[0] != self.BPP8:
-             raise AttributeError("This is not a 8 bit image")
+            raise AttributeError("This is not a 8 bit image")
         return self._imageData[1]
 
-    @attribute(label="Image16",dtype=[['uint16']], fisallowed="is_attr_allowed", max_dim_x=2000, max_dim_y=2000,
-               description="")
+    @attribute(
+        label="Image16",
+        dtype=[["uint16"]],
+        fisallowed="is_attr_allowed",
+        max_dim_x=2000,
+        max_dim_y=2000,
+        description="",
+    )
     @DebugIt()
     def readImage16(self):
         if self._imageData is None:
-             raise AttributeError("No valid image collected")
+            raise AttributeError("No valid image collected")
         if self._imageData[0] != self.BPP16:
-             raise AttributeError("This is not a 16 bit image")
+            raise AttributeError("This is not a 16 bit image")
         return self._imageData[1]
 
-    @attribute(label="Image32",dtype=[['uint32']], fisallowed="is_attr_allowed", max_dim_x=2000, max_dim_y=2000,
-               description="")
+    @attribute(
+        label="Image32",
+        dtype=[["uint32"]],
+        fisallowed="is_attr_allowed",
+        max_dim_x=2000,
+        max_dim_y=2000,
+        description="",
+    )
     @DebugIt()
     def readImage32(self):
         if self._imageData is None:
-             raise AttributeError("No valid image collected")
+            raise AttributeError("No valid image collected")
         if self._imageData[0] != self.BPP32:
-             raise AttributeError("This is not a 16 bit image")
+            raise AttributeError("This is not a 16 bit image")
         return self._imageData[1]
 
     @DebugIt()
     def is_attr_allowed(self, attr):
         """ Allow reading but not writing of attributes whilst running
         """
-        if attr==tango.AttReqType.READ_REQ:
-            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT]
+        if attr == tango.AttReqType.READ_REQ:
+            return self.get_state() not in [
+                tango.DevState.UNKNOWN,
+                tango.DevState.FAULT,
+            ]
         else:
-            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
-                                            tango.DevState.RUNNING]
+            return self.get_state() not in [
+                tango.DevState.UNKNOWN,
+                tango.DevState.FAULT,
+                tango.DevState.RUNNING,
+            ]
+
     @DebugIt()
     def is_attr_rw_allowed(self, attr):
         """ Prohibit reading & writing of attributes whilst running
         """
-        if attr==tango.AttReqType.READ_REQ:
-            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
-                                            tango.DevState.RUNNING]
+        if attr == tango.AttReqType.READ_REQ:
+            return self.get_state() not in [
+                tango.DevState.UNKNOWN,
+                tango.DevState.FAULT,
+                tango.DevState.RUNNING,
+            ]
         else:
-            return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
-                                            tango.DevState.RUNNING]
-
+            return self.get_state() not in [
+                tango.DevState.UNKNOWN,
+                tango.DevState.FAULT,
+                tango.DevState.RUNNING,
+            ]
 
     def bpmCallback(self, cog, xprofile, yprofile, xfit, yfit, imageData):
-        if cog is not None :
-            if self._CoG is None or int(self._CoG[0]) != int(cog[0]) or int(self._CoG[1]) != int(cog[1]):
+        if cog is not None:
+            if (
+                self._CoG is None
+                or int(self._CoG[0]) != int(cog[0])
+                or int(self._CoG[1]) != int(cog[1])
+            ):
                 self._logger.debug("bpmCallback(): pushing COG {0}".format(cog))
                 self.push_change_event("Centre", cog)
                 with self._lock:
                     self._CoG = cog
             else:
-               self._logger.debug("bpmCallback(): CoG is the same {0}".format(cog))
+                self._logger.debug("bpmCallback(): CoG is the same {0}".format(cog))
         if xprofile is not None:
             xp = [float(p) for p in xprofile]
             self.push_change_event("XProfile", xp)
@@ -382,11 +491,11 @@ class NanoBpm(Device):
             depth = imageData[0]
             image = imageData[1]
             if depth == self.BPP32:
-                self.push_change_event("ReadImage32",image)
+                self.push_change_event("ReadImage32", image)
             elif depth == self.BPP16:
-                self.push_change_event("ReadImage16",image)
+                self.push_change_event("ReadImage16", image)
             else:
-                self.push_change_event("ReadImage8",image)
+                self.push_change_event("ReadImage8", image)
             with self._lock:
                 self._imageData = imageData
 
@@ -400,14 +509,17 @@ class NanoBpm(Device):
         """
         self._nanoBpm.deviceReset()
 
-    @command(dtype_out=(str,), doc_out="Get the hardware and software configuration of the device")
+    @command(
+        dtype_out=(str,),
+        doc_out="Get the hardware and software configuration of the device",
+    )
     @DebugIt()
     @is_cmd_allowed("is_command_allowed")
     def GetDeviceInfo(self):
         """ Get the hardware and software configuration of the device.
         """
-        deviceInfo =  self._nanoBpm.getDeviceInfo()
-        return ["{0}={1}".format(key,value) for key, value in deviceInfo.iteritems()]
+        deviceInfo = self._nanoBpm.getDeviceInfo()
+        return ["{0}={1}".format(key, value) for key, value in deviceInfo.iteritems()]
 
     @command(dtype_out=(str,), doc_out="Get the current device configuration")
     @DebugIt()
@@ -416,7 +528,7 @@ class NanoBpm(Device):
         """ Get the current device configuration.
         """
         deviceConfig = self._nanoBpm.getDeviceConfig()
-        return ["{0}={1}".format(key,value) for key, value in deviceConfig.iteritems()]
+        return ["{0}={1}".format(key, value) for key, value in deviceConfig.iteritems()]
 
     @command(dtype_out=(str,), doc_out="Get the current device parameters")
     @DebugIt()
@@ -425,7 +537,9 @@ class NanoBpm(Device):
         """ Get the current device parameters.
         """
         deviceParameters = self._nanoBpm.getDeviceParameters()
-        return ["{0}={1}".format(key,value) for key, value in deviceParameters.iteritems()]
+        return [
+            "{0}={1}".format(key, value) for key, value in deviceParameters.iteritems()
+        ]
 
     @command
     @DebugIt()
@@ -495,8 +609,12 @@ class NanoBpm(Device):
 
     @DebugIt()
     def is_command_allowed(self):
-        return self.get_state() not in [tango.DevState.UNKNOWN, tango.DevState.FAULT,
-                                        tango.DevState.RUNNING]
+        return self.get_state() not in [
+            tango.DevState.UNKNOWN,
+            tango.DevState.FAULT,
+            tango.DevState.RUNNING,
+        ]
+
 
 # -------------------------------------------------------------------------
 # Run server
@@ -504,7 +622,9 @@ class NanoBpm(Device):
 def main():
     from tango import GreenMode
     from tango.server import run
-    run([NanoBpm,], green_mode=GreenMode.Gevent)
+
+    run([NanoBpm], green_mode=GreenMode.Gevent)
+
 
 if __name__ == "__main__":
     main()

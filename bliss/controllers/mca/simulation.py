@@ -26,7 +26,7 @@ class SimulatedMCA(BaseMCA):
         self._trigger_mode = TriggerMode.SOFTWARE
         self._current_data = None
         self._current_stats = None
-        self._realtime = float('inf')
+        self._realtime = float("inf")
 
     def initialize_hardware(self):
         gevent.sleep(self._init_time)
@@ -59,7 +59,7 @@ class SimulatedMCA(BaseMCA):
 
     @property
     def supported_preset_modes(self):
-        return PresetMode.NONE,
+        return (PresetMode.NONE,)
 
     def set_preset_mode(self, mode, value=None):
         assert mode is PresetMode.REALTIME
@@ -146,8 +146,8 @@ class SimulatedMCA(BaseMCA):
         # A new pixel has been generated
         if current > 0 and new_pixel:
             a, b = self._generate_pixel(delta)
-            self._data_buffer[current-1] = a
-            self._stats_buffer[current-1] = b
+            self._data_buffer[current - 1] = a
+            self._stats_buffer[current - 1] = b
         # Available data
         if new_pixel and (full_buffer or finished):
             a, b = self._data_buffer, self._stats_buffer
@@ -164,17 +164,16 @@ class SimulatedMCA(BaseMCA):
         for i in self.elements:
             realtime = delta
             livetime = realtime * numpy.random.normal(0.9, 0.01)
-            triggers = int(10000 * numpy.random.normal(livetime, livetime*0.2))
+            triggers = int(10000 * numpy.random.normal(livetime, livetime * 0.2))
             events = triggers // 2
             icr = triggers / realtime if realtime else 0.
             ocr = events / livetime if livetime else 0.
             deadtime = 1 - ocr / icr if icr else 0.
-            stats[i] = Stats(
-                realtime, livetime, triggers, events, icr, ocr, deadtime)
+            stats[i] = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
             size = self._spectrum_size
             data[i] = numpy.zeros(size, dtype=int)
             for _ in range(events):
-                loc = numpy.random.normal(size//2, size//16)
-                e = int(numpy.random.normal(loc, size//16))
+                loc = numpy.random.normal(size // 2, size // 16)
+                e = int(numpy.random.normal(loc, size // 16))
                 data[i][e] += 1
         return data, stats

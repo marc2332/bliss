@@ -8,7 +8,7 @@
 from bliss.physics.units import ur, units
 
 
-@units(edge_energy='eV', energy='eV', result='angstrom ** -1')
+@units(edge_energy="eV", energy="eV", result="angstrom ** -1")
 def energy_to_wavevector(edge_energy, energy):
     """
     Calculate the photo electron wavevector k from:
@@ -25,12 +25,12 @@ def energy_to_wavevector(edge_energy, energy):
     Returns:
         float: wavevector (angstrom ** -1)
     """
-    energy_diff = (energy - edge_energy)
-    sqroot = ((2.0 * ur('electron_mass')) * energy_diff) ** 0.5
-    return sqroot / (1.0 * ur('hbar'))
+    energy_diff = energy - edge_energy
+    sqroot = ((2.0 * ur("electron_mass")) * energy_diff) ** 0.5
+    return sqroot / (1.0 * ur("hbar"))
 
 
-@units(edge_energy='eV', k='angstrom ** -1', result='eV')
+@units(edge_energy="eV", k="angstrom ** -1", result="eV")
 def wavevector_to_energy(edge_energy, k):
     """
     Calculate the photo electron wavevector k from:
@@ -47,6 +47,6 @@ def wavevector_to_energy(edge_energy, k):
     Returns:
         float: energy (eV)
     """
-    khbar = k * (1.0 * ur('hbar'))
-    result = (khbar * khbar) / (2.0 * ur('electron_mass'))
+    khbar = k * (1.0 * ur("hbar"))
+    result = (khbar * khbar) / (2.0 * ur("electron_mass"))
     return result + edge_energy

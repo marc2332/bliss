@@ -8,10 +8,18 @@
 """Communication tools (:func:`~bliss.comm.util.get_interface`,
 :func:`~bliss.comm.util.HexMsg`)"""
 
-__all__ = ['get_interface', 'get_comm_type', 'get_comm', 'HexMsg',
-           'TCP', 'SERIAL', 'GPIB', 'UDP']
+__all__ = [
+    "get_interface",
+    "get_comm_type",
+    "get_comm",
+    "HexMsg",
+    "TCP",
+    "SERIAL",
+    "GPIB",
+    "UDP",
+]
 
-TCP, SERIAL, GPIB, UDP = 'tcp', 'serial', 'gpib', 'udp'
+TCP, SERIAL, GPIB, UDP = "tcp", "serial", "gpib", "udp"
 
 
 def get_interface(*args, **kwargs):
@@ -48,8 +56,8 @@ def get_interface(*args, **kwargs):
         interpreted arguments.
 
     """
-    if 'interface' in kwargs:
-        interface = kwargs.pop('interface')
+    if "interface" in kwargs:
+        interface = kwargs.pop("interface")
     else:
         if args:
             interface, args = args[0], args[1:]
@@ -58,6 +66,7 @@ def get_interface(*args, **kwargs):
             from .gpib import Gpib
             from .serial import Serial
             from .udp import Udp
+
             interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp)
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
@@ -88,25 +97,25 @@ def get_comm_type(config):
                     channel is found in config
     """
     comm_type = None
-    if 'tcp-proxy' in config:
-        config = config.get('tcp-proxy')
+    if "tcp-proxy" in config:
+        config = config.get("tcp-proxy")
 
-    if 'tcp' in config:
+    if "tcp" in config:
         comm_type = TCP
-    if 'gpib' in config:
+    if "gpib" in config:
         if comm_type:
-            raise ValueError('More than one communication channel found')
+            raise ValueError("More than one communication channel found")
         comm_type = GPIB
-    if 'serial' in config:
+    if "serial" in config:
         if comm_type:
-            raise ValueError('More than one communication channel found')
+            raise ValueError("More than one communication channel found")
         comm_type = SERIAL
-    if 'udp' in config:
+    if "udp" in config:
         if comm_type:
-            raise ValueError('More than one communication channel found')
+            raise ValueError("More than one communication channel found")
         comm_type = UDP
     if comm_type is None:
-        raise ValueError('No communication channel found in config')
+        raise ValueError("No communication channel found in config")
     return comm_type
 
 
@@ -144,46 +153,50 @@ def get_comm(config, ctype=None, **opts):
     """
     comm_type = get_comm_type(config)
     if ctype is not None and ctype != comm_type:
-        raise TypeError('Expected {0!r} communication channel. Got {1!r}'
-                        .format(ctype, comm_type))
+        raise TypeError(
+            "Expected {0!r} communication channel. Got {1!r}".format(ctype, comm_type)
+        )
     klass = None
-    if 'tcp-proxy' in config:
-        proxy_config = config['tcp-proxy']
+    if "tcp-proxy" in config:
+        proxy_config = config["tcp-proxy"]
         config = proxy_config
     else:
         proxy_config = None
 
     if comm_type == TCP or comm_type == UDP:
-        default_port = opts.pop('port', None)
+        default_port = opts.pop("port", None)
         opts.update(config[comm_type])
-        url = opts['url']
+        url = opts["url"]
         if isinstance(url, (str, unicode)):
-            url = url.rsplit(':', 1)
+            url = url.rsplit(":", 1)
         if len(url) == 1:
             if default_port is None:
-                raise KeyError('Cannot create %s object without port' % comm_type.upper())
+                raise KeyError(
+                    "Cannot create %s object without port" % comm_type.upper()
+                )
             url.append(default_port)
-        opts['url'] = '{0[0]}:{0[1]}'.format(url)
+        opts["url"] = "{0[0]}:{0[1]}".format(url)
         if comm_type == TCP:
             from .tcp import Tcp as klass
         else:
             from .udp import Udp as klass
     elif comm_type == GPIB:
-        opts.update(config['gpib'])
+        opts.update(config["gpib"])
         from .gpib import Gpib as klass
     elif comm_type == SERIAL:
-        opts.update(config['serial'])
-        opts['port'] = opts.pop('url')
+        opts.update(config["serial"])
+        opts["port"] = opts.pop("url")
         from .serial import Serial as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
-        raise ValueError('No communication channel found in config')
+        raise ValueError("No communication channel found in config")
 
     if proxy_config is None:
         return klass(**opts)
     else:
         com_config = {comm_type: opts}
         from .tcp_proxy import Proxy
+
         return Proxy(com_config)
 
 
@@ -201,13 +214,14 @@ class HexMsg:
         msg_from_socket = '\x00\x00\x00\x021\n'
         logging.debug('Rx: %r', HexMsg(msg_from_socket))
     """
-    __slots__ = ['msg']
+
+    __slots__ = ["msg"]
 
     def __init__(self, msg):
         self.msg = msg
 
     def __str__(self):
-        return ' '.join(map(hex, map(ord, self.msg)))
+        return " ".join(map(hex, map(ord, self.msg)))
 
     def __repr__(self):
-        return '[{0}]'.format(self)
+        return "[{0}]".format(self)

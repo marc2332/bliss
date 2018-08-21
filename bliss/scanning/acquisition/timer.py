@@ -15,14 +15,14 @@ import weakref
 
 class SoftwareTimerMaster(AcquisitionMaster):
     def __init__(self, count_time, sleep_time=None, **keys):
-        AcquisitionMaster.__init__(self, None, 'timer', **keys)
+        AcquisitionMaster.__init__(self, None, "timer", **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
-        self.channels.append(AcquisitionChannel('elapsed_time', numpy.double, ()))
+        self.channels.append(AcquisitionChannel("elapsed_time", numpy.double, ()))
 
         self._nb_point = 0
         self._started_time = None
-        
+
     def __iter__(self):
         npoints = self.npoints
         if npoints > 0:
@@ -52,7 +52,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
         if not self._nb_point:
             self._started_time = start_trigger
 
-        self.channels[0].emit(start_trigger-self._started_time)
+        self.channels[0].emit(start_trigger - self._started_time)
 
         elapsed_trigger = time.time() - start_trigger
         gevent.sleep(self.count_time - elapsed_trigger)

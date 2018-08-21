@@ -13,31 +13,31 @@ from bliss.controllers.emulator import BaseDevice
 class AH501D(BaseDevice):
     """The AH501D Bliss emulator device"""
 
-    DEFAULT_NEWLINE='\n'
+    DEFAULT_NEWLINE = "\n"
 
     #: Baudrate command default value
-    BDR = '921600'
+    BDR = "921600"
 
     def handle_line(self, line):
         try:
             return self.__handle_line(line)
         except:
-            self._log.error('Unrecognized command: %r', line)
-            return 'NAK\r\n'
+            self._log.error("Unrecognized command: %r", line)
+            return "NAK\r\n"
 
     def __handle_line(self, line):
-        self._log.debug('received: %r', line)
+        self._log.debug("received: %r", line)
 
         line = line.strip()
         pars = line.split()
         cmd = pars[0].upper()
-        if pars[-1] == '?':  # get parameter
+        if pars[-1] == "?":  # get parameter
             value = getattr(self, cmd)
-            result = '{0} {1}'.format(cmd, value)
-        else:                # set parameter
+            result = "{0} {1}".format(cmd, value)
+        else:  # set parameter
             setattr(self, cmd, pars[1])
-            result = 'ACK'
-        result += '\r\n'
+            result = "ACK"
+        result += "\r\n"
 
-	self._log.debug('answering with: %r', result)
-	return result
+        self._log.debug("answering with: %r", result)
+        return result

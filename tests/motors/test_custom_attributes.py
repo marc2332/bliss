@@ -7,9 +7,11 @@
 
 import pytest
 
+
 def test_custom_attribute_read(roby, robz):
     assert roby.get_cust_attr_float() == pytest.approx(6.28, 1e-3)
     assert robz.get_cust_attr_float() == pytest.approx(3.14, 1e-3)
+
 
 def test_custom_attribute_rw(robz):
     assert robz.get_voltage() == 220

@@ -85,53 +85,77 @@ class MattWagoMapping:
         n_mod = 1
         if stat_m == "750-402" or stat_m == "750-408":
             nstat = 1
-            n_mod = nstat*2
+            n_mod = nstat * 2
 
         if ctrl_m == "750-530":
             nctrl = 2
 
-        STATUS = ["attstatus"]*nstat
+        STATUS = ["attstatus"] * nstat
         if nctrl == 2:
-            CONTROL = ["attctrl,_"]*nctrl
+            CONTROL = ["attctrl,_"] * nctrl
         else:
-            CONTROL = ["attctrl"]*nctrl
+            CONTROL = ["attctrl"] * nctrl
 
         mapping = []
         nb_chan = self.nb_filter
-        ch_ctrl = nb_chan/4
-        ch_stat = ch_ctrl*n_mod
+        ch_ctrl = nb_chan / 4
+        ch_stat = ch_ctrl * n_mod
         ch = nb_chan % 4
 
         if nb_chan > 4:
             if att_alternate is True:
                 for i in range(ch_ctrl):
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*4)]
-                    mapping += [STATUS_MODULE % ",".join(STATUS*4)]
+                    mapping += [CONTROL_MODULE % ",".join(CONTROL * 4)]
+                    mapping += [STATUS_MODULE % ",".join(STATUS * 4)]
                 if ch > 0:
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+["_"]*(4*nctrl-ch*nctrl))]
-                    mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
+                    mapping += [
+                        CONTROL_MODULE
+                        % ",".join(CONTROL * (ch) + ["_"] * (4 * nctrl - ch * nctrl))
+                    ]
+                    mapping += [
+                        STATUS_MODULE
+                        % ",".join(STATUS * ch + ["_"] * (4 * nstat - ch * nstat))
+                    ]
             else:
                 for i in range(ch_ctrl):
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*4)]
+                    mapping += [CONTROL_MODULE % ",".join(CONTROL * 4)]
                 if ch > 0:
-                    mapping += [CONTROL_MODULE % ",".join(CONTROL*(ch)+["_"]*(4*nctrl-ch*nctrl))]
+                    mapping += [
+                        CONTROL_MODULE
+                        % ",".join(CONTROL * (ch) + ["_"] * (4 * nctrl - ch * nctrl))
+                    ]
                 for i in range(ch_stat):
-                    mapping += [STATUS_MODULE % ",".join(STATUS*4)]
+                    mapping += [STATUS_MODULE % ",".join(STATUS * 4)]
                 if ch > 0:
-                    mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
+                    mapping += [
+                        STATUS_MODULE
+                        % ",".join(STATUS * ch + ["_"] * (4 * nstat - ch * nstat))
+                    ]
         else:
-            mapping += [CONTROL_MODULE % ",".join(CONTROL*nb_chan+["_"]*(4-nb_chan))]
+            mapping += [
+                CONTROL_MODULE % ",".join(CONTROL * nb_chan + ["_"] * (4 - nb_chan))
+            ]
             if ch > 0:
-                mapping += [STATUS_MODULE % ",".join(STATUS*ch+["_"]*(4*nstat-ch*nstat))]
+                mapping += [
+                    STATUS_MODULE
+                    % ",".join(STATUS * ch + ["_"] * (4 * nstat - ch * nstat))
+                ]
             else:
-                mapping += [STATUS_MODULE % ",".join(STATUS*nb_chan)]
+                mapping += [STATUS_MODULE % ",".join(STATUS * nb_chan)]
 
         self.mapping = mapping
 
 
 class MattControl:
-    def __init__(self, wago_ip, nb_filter, att_type=0, att_alternate=False,
-                 stat_m="750-436", ctrl_m="750-530"):
+    def __init__(
+        self,
+        wago_ip,
+        nb_filter,
+        att_type=0,
+        att_alternate=False,
+        stat_m="750-436",
+        ctrl_m="750-530",
+    ):
         self.wago_ip = wago_ip
         self.nb_filter = nb_filter
         self.att_type = att_type
@@ -142,8 +166,9 @@ class MattControl:
 
     def connect(self):
         self.wago = wago.WagoController(self.wago_ip)
-        mapping = MattWagoMapping(self.nb_filter, self.att_type,
-                                  self.att_alternate, self.stat_m, self.ctrl_m)
+        mapping = MattWagoMapping(
+            self.nb_filter, self.att_type, self.att_alternate, self.stat_m, self.ctrl_m
+        )
         self.wago.set_mapping(str(mapping), ignore_missing=True)
 
     def exit(self):
@@ -154,7 +179,7 @@ class MattControl:
         ret = 0
         nstat = 2
 
-        del stat[(self.nb_filter*nstat):]
+        del stat[(self.nb_filter * nstat) :]
 
         if self.att_type == 1:
             ret = self.read_1posbit(stat)
@@ -169,15 +194,15 @@ class MattControl:
     def read_1posbit(self, stat):
         ret = 0
         for i in range(self.nb_filter):
-            ret += stat[i]<<i
+            ret += stat[i] << i
         return ret
 
     def read_2posbit_odd(self, stat):
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
-            if stat[nstat*i+1]:
-                pos = 1<<i
+            if stat[nstat * i + 1]:
+                pos = 1 << i
             else:
                 pos = 0
             ret += pos
@@ -187,12 +212,12 @@ class MattControl:
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
-            if not stat[nstat*i] and stat[nstat*i+1]:
+            if not stat[nstat * i] and stat[nstat * i + 1]:
                 pos = 0
-            elif stat[nstat*i] and not stat[nstat*i+1]:
-                pos = 1<<i
+            elif stat[nstat * i] and not stat[nstat * i + 1]:
+                pos = 1 << i
             else:
-                pos = 1<<(i+self.nb_filter)
+                pos = 1 << (i + self.nb_filter)
             ret += pos
         return ret
 
@@ -211,7 +236,7 @@ class MattControl:
         valarr = [False] * self.nb_filter
 
         for i in range(self.nb_filter):
-            if value&(1<<i) > 0:
+            if value & (1 << i) > 0:
                 valarr[i] = True
 
         valarr.insert(0, "attctrl")
@@ -222,7 +247,7 @@ class MattControl:
         value = self.pos_read()
 
         for i in range(self.nb_filter):
-            if value&(1<<i) > 0:
+            if value & (1 << i) > 0:
                 mystr += "%d " % i
         return mystr
 
@@ -231,7 +256,7 @@ class MattControl:
         mystr = ""
         lbl = "F"
         for i in range(self.nb_filter):
-            mystr += lbl+str(i+1) + "  "
+            mystr += lbl + str(i + 1) + "  "
         stat.append(mystr)
 
         value = self.pos_read()
@@ -241,9 +266,9 @@ class MattControl:
             if i > 8:
                 lbl1 = "  "
             lbl = "OUT"
-            if value&(1<<i) > 0:
+            if value & (1 << i) > 0:
                 lbl = "IN "
-            if value&(1<<i+self.nb_filter) > 0:
+            if value & (1 << i + self.nb_filter) > 0:
                 lbl = "***"
             mystr += lbl + lbl1
         stat.append(mystr)
@@ -251,7 +276,7 @@ class MattControl:
 
     def matt_set(self, val):
         oldvalue = self.pos_read()
-        if oldvalue >= (1<<self.nb_filter):
+        if oldvalue >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
 
         if oldvalue == val:
@@ -275,9 +300,9 @@ class MattControl:
 
     def filter_set(self, filt, put_in):
         value = self.pos_read()
-        if value >= (1<<self.nb_filter):
+        if value >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
-        ff = 1<<filt
+        ff = 1 << filt
         if put_in is True:
             if (value & ff) == 0:
                 value += ff
@@ -292,7 +317,10 @@ class MattControl:
             time.sleep(0.5)
             check = self.pos_read()
             if time.time() - t0 > self.exec_timeout:
-                raise RuntimeError("Timeout waiting for filter to be %s" % ("in" if put_in is True else "out"))
+                raise RuntimeError(
+                    "Timeout waiting for filter to be %s"
+                    % ("in" if put_in is True else "out")
+                )
 
     def mattin(self, filt):
         if filt >= self.nb_filter:
@@ -308,7 +336,7 @@ class MattControl:
         value = 0
         if flag is True:
             for i in range(self.nb_filter):
-                value += (1<<i)
+                value += 1 << i
         self.mattstatus_set(value)
 
     def mattstatus_get(self):
@@ -352,7 +380,9 @@ class matt:
         except:
             ctrl_m = "750-530"
 
-        self.__control = MattControl(wago_ip, nb_filter, att_type, wago_alternate, stat_m, ctrl_m)
+        self.__control = MattControl(
+            wago_ip, nb_filter, att_type, wago_alternate, stat_m, ctrl_m
+        )
 
         self.__control.connect()
         wrap_methods(self.__control, self)

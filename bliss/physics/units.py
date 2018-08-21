@@ -61,7 +61,7 @@ from inspect import getargspec
 
 import pint
 
-__all__ = ['ur', 'units']
+__all__ = ["ur", "units"]
 
 #: unit registry
 ur = pint.UnitRegistry()
@@ -119,14 +119,13 @@ def units(**kwarg_units):
     of the arguments is a Quantity the result is a float with a value in the
     units specified by *result*
     """
-    result_unit = to_unit(kwarg_units.pop('result', None))
+    result_unit = to_unit(kwarg_units.pop("result", None))
     kwarg_units = values_to_units(kwarg_units)
 
     def decorator(func):
         arg_spec = getargspec(func).args
         if not set(arg_spec).issuperset(kwarg_units):
-            raise TypeError(
-                'units argument names differ from function argument names')
+            raise TypeError("units argument names differ from function argument names")
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -136,19 +135,20 @@ def units(**kwarg_units):
             all_magnitude = all(
                 not is_quantity(value)
                 for key, value in kwargs.items()
-                if key in kwarg_units)
+                if key in kwarg_units
+            )
             # Kwargs conversion
             kwargs = {
                 key: convert_to(value, kwarg_units.get(key))
-                for key, value in kwargs.items()}
+                for key, value in kwargs.items()
+            }
             # Call the actual func
             result = func(**kwargs)
             if not result_unit:
                 return result
             # Safety check
             if not is_quantity(result):
-                raise TypeError(
-                    'Function {!r} did not return a quantity'.format(func))
+                raise TypeError("Function {!r} did not return a quantity".format(func))
             # Convert the result and return magnitude or quantity
             result = convert_to(result, result_unit)
             return result.magnitude if all_magnitude else result

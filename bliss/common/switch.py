@@ -12,24 +12,26 @@ from gevent import lock
 from bliss.config.conductor.client import Lock
 from bliss.config.channels import Cache
 
+
 class Switch(object):
     """
     Generic interface for switch object.
     """
+
     def lazy_init(func):
         @functools.wraps(func)
-        def func_wrapper(self,*args,**kwargs):
+        def func_wrapper(self, *args, **kwargs):
             self.init()
             with Lock(self):
-                return func(self,*args,**kwargs)
+                return func(self, *args, **kwargs)
+
         return func_wrapper
 
-    def __init__(self,name,config):
+    def __init__(self, name, config):
         self.__name = name
         self.__config = config
-        self.__initialized_hw = Cache(self,"initialized",
-                                      default_value = False)
-        self.__state = Cache(self,"state")
+        self.__initialized_hw = Cache(self, "initialized", default_value=False)
+        self.__state = Cache(self, "state")
         self._init_flag = False
         self.__lock = lock.Semaphore()
 
@@ -62,7 +64,7 @@ class Switch(object):
         """
         This method should contains all software initialization
         """
-        pass 
+        pass
 
     def _initialize_hardware(self):
         """
@@ -73,7 +75,7 @@ class Switch(object):
         pass
 
     @lazy_init
-    def set(self,state):
+    def set(self, state):
         state_upper = state.upper()
         if self.__state.value != state_upper:
             try:
@@ -84,7 +86,7 @@ class Switch(object):
             else:
                 self.__state.value = state_upper
 
-    def _set(self,state):
+    def _set(self, state):
         raise NotImplementedError
 
     @lazy_init
@@ -102,4 +104,3 @@ class Switch(object):
 
     def _states_list(self):
         raise NotImplementedError
-

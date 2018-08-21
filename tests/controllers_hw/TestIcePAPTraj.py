@@ -21,9 +21,9 @@ Bliss generic library
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 
@@ -78,28 +78,27 @@ config_xml = """
 Global resources, yes, I know it's bad
 """
 hostname = ""
-address  = ""
+address = ""
 address2 = ""
 
 """
 """
 
 
-#def signal_handler(signal, frame):
+# def signal_handler(signal, frame):
 def signal_handler(*args):
     print "\nAbort request taken into account\n"
     finalize()
 
     # needed to stop unittest sequence of tests
-    #raise KeyboardInterrupt()
+    # raise KeyboardInterrupt()
 
 
 def finalize():
     mymot = bliss.get_axis("mymot")
-    #mymot.controller.log_level(bliss.common.log.INFO)
+    # mymot.controller.log_level(bliss.common.log.INFO)
     # needed to stop threads of Deep module
     mymot.controller.finalize()
-
 
 
 """
@@ -125,19 +124,19 @@ class TestIcePAPController(unittest.TestCase):
 
         # If motors are moving, the power can not be switched on
         # therefore hide exception
-        mymot  = bliss.get_axis("mymot")
+        mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
-        #mymot.controller.log_level(bliss.common.log.INFO)
+        # mymot.controller.log_level(bliss.common.log.INFO)
         mymot.controller.stop(mymot)
         mymot2.controller.stop(mymot2)
-        #mymot.controller.log_level(bliss.common.log.ERROR)
+        # mymot.controller.log_level(bliss.common.log.ERROR)
 
         # NOTE MP: 2015Mar17: the current eMotion doesn't call the
         # controller stop() if it doesn't know that a motion is taking
         # place on the hardware. Therefore bypass eMotion
-        while mymot.state() == 'MOVING':
+        while mymot.state() == "MOVING":
             gevent.sleep(0.1)
-        while mymot2.state() == 'MOVING':
+        while mymot2.state() == "MOVING":
             gevent.sleep(0.1)
 
         # the IcePAP will move, therefore put it close to the
@@ -150,7 +149,6 @@ class TestIcePAPController(unittest.TestCase):
     def test_axis_creation(self):
         mypar = bliss.get_axis("mypar")
         self.assertTrue(mypar)
-
 
     def test_set_parameter(self):
         mypar = bliss.get_axis("mypar")
@@ -195,42 +193,42 @@ class TestIcePAPController(unittest.TestCase):
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         self.assertRaises(ValueError, mypar.set_trajectory, mymot, pos_list)
-        
+
     def test_load_trajectory(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
         par_list = range(100)
-        pos_list = [ x *10 for x in range(100) ]
+        pos_list = [x * 10 for x in range(100)]
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
 
     def test_load_multi_axes_trajectory(self):
-        mypar  = bliss.get_axis("mypar")
-        mymot  = bliss.get_axis("mymot")
+        mypar = bliss.get_axis("mypar")
+        mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
         par_list = range(100)
         mypar.set_parameter(par_list)
 
-        pos_list = [ x *10 for x in range(100) ]
-        mypar.set_trajectory(mymot,  pos_list)
-        pos_list = [ x *20 for x in range(100) ]
+        pos_list = [x * 10 for x in range(100)]
+        mypar.set_trajectory(mymot, pos_list)
+        pos_list = [x * 20 for x in range(100)]
         mypar.set_trajectory(mymot2, pos_list)
 
         mypar.load()
 
     def test_put_all_axes_on_trajectory(self):
-        mypar  = bliss.get_axis("mypar")
-        mymot  = bliss.get_axis("mymot")
+        mypar = bliss.get_axis("mypar")
+        mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
         par_list = range(100)
         mypar.set_parameter(par_list)
 
-        pos_list = [ x * 1.5 for x in range(100) ]
-        mypar.set_trajectory(mymot,  pos_list)
-        pos_list2 = [ x * 2 for x in range(100) ]
+        pos_list = [x * 1.5 for x in range(100)]
+        mypar.set_trajectory(mymot, pos_list)
+        pos_list2 = [x * 2 for x in range(100)]
         mypar.set_trajectory(mymot2, pos_list2)
 
         mypar.load()
@@ -238,7 +236,7 @@ class TestIcePAPController(unittest.TestCase):
         # IcePAP motors will move, blocking call
         mypar.sync(1)
 
-        self.assertEqual(mymot.position(),  pos_list[1])
+        self.assertEqual(mymot.position(), pos_list[1])
         self.assertEqual(mymot2.position(), pos_list2[1])
 
     def test_get_parameter_velocity_empty(self):
@@ -306,16 +304,16 @@ class TestIcePAPController(unittest.TestCase):
         self.assertEqual(mypar.acctime(acc), acc)
 
     def test_move_all_axes_on_trajectory(self):
-        mypar  = bliss.get_axis("mypar")
-        mymot  = bliss.get_axis("mymot")
+        mypar = bliss.get_axis("mypar")
+        mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
         par_list = range(100)
         mypar.set_parameter(par_list)
 
-        pos_list = [ x * 1.5 for x in range(100) ]
-        mypar.set_trajectory(mymot,  pos_list)
-        pos_list2 = [ x * 2 for x in range(100) ]
+        pos_list = [x * 1.5 for x in range(100)]
+        mypar.set_trajectory(mymot, pos_list)
+        pos_list2 = [x * 2 for x in range(100)]
         mypar.set_trajectory(mymot2, pos_list2)
 
         mypar.load()
@@ -324,20 +322,20 @@ class TestIcePAPController(unittest.TestCase):
         # IcePAP motors will move, blocking call
         mypar.move(2)
 
-        self.assertEqual(mymot.position(),  pos_list[2])
+        self.assertEqual(mymot.position(), pos_list[2])
         self.assertEqual(mymot2.position(), pos_list2[2])
 
     def test_stop_move(self):
-        mypar  = bliss.get_axis("mypar")
-        mymot  = bliss.get_axis("mymot")
+        mypar = bliss.get_axis("mypar")
+        mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
         par_list = range(100)
         mypar.set_parameter(par_list)
 
-        pos_list = [ x * 1.5 for x in range(100) ]
-        mypar.set_trajectory(mymot,  pos_list)
-        pos_list2 = [ x * 2 for x in range(100) ]
+        pos_list = [x * 1.5 for x in range(100)]
+        mypar.set_trajectory(mymot, pos_list)
+        pos_list2 = [x * 2 for x in range(100)]
         mypar.set_trajectory(mymot2, pos_list2)
 
         mypar.load()
@@ -350,10 +348,10 @@ class TestIcePAPController(unittest.TestCase):
 """
 Main entry point
 """
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # Get arguments
-    usage  = "Usage  : %prog hostname motor_address motor_address\n"
+    usage = "Usage  : %prog hostname motor_address motor_address\n"
     usage += "Example: python %prog iceeu2 2 3"
     parser = optparse.OptionParser(usage)
     argv = sys.argv
@@ -366,7 +364,7 @@ if __name__ == '__main__':
 
     # Mandatory argument is the IcePAP hostname
     hostname = args[1]
-    address  = args[2]
+    address = args[2]
     address2 = args[3]
 
     # Avoid interaction of our arguments with unittest class
@@ -376,18 +374,17 @@ if __name__ == '__main__':
     gevent.signal(signal.SIGINT, signal_handler)
 
     # Launch the tests sequence
-    print "\nTesting IcePAP control on system \"%s\"\n" % hostname
+    print '\nTesting IcePAP control on system "%s"\n' % hostname
     print "\n".rjust(70, "-")
 
     # Change the default unittest test sequence order from cmp() to line number
     loader = unittest.TestLoader()
-    ln = lambda f: getattr(TestIcePAPController, f).\
-        im_func.func_code.co_firstlineno
+    ln = lambda f: getattr(TestIcePAPController, f).im_func.func_code.co_firstlineno
     lncmp = lambda a, b: cmp(ln(a), ln(b))
     loader.sortTestMethodsUsing = lncmp
 
     # NOTE: unittest.main(verbosity=2) not supported under Python 2.6
-    suite  = loader.loadTestsFromTestCase(TestIcePAPController)
+    suite = loader.loadTestsFromTestCase(TestIcePAPController)
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # normal end

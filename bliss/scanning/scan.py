@@ -23,7 +23,12 @@ from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
-from bliss.data.node import _get_or_create_node, _create_node, DataNodeContainer, is_zerod
+from bliss.data.node import (
+    _get_or_create_node,
+    _create_node,
+    DataNodeContainer,
+    is_zerod,
+)
 from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
 from .chain import AcquisitionDevice, AcquisitionMaster
@@ -68,17 +73,20 @@ class StepScanDataWatch(object):
 
         point_nb = self._last_point_display
         for point_nb in range(self._last_point_display, min_nb_points):
-            values = dict([(ch_name, ch.get(point_nb))
-                           for ch_name, ch in self._channel_name_2_channel.iteritems()])
-            send(current_module, "scan_data",
-                 scan_info, values)
+            values = dict(
+                [
+                    (ch_name, ch.get(point_nb))
+                    for ch_name, ch in self._channel_name_2_channel.iteritems()
+                ]
+            )
+            send(current_module, "scan_data", scan_info, values)
         if min_nb_points is not None:
             self._last_point_display = min_nb_points
 
 
 class ScanSaving(Parameters):
     SLOTS = []
-    WRITER_MODULE_PATH='bliss.scanning.writer'
+    WRITER_MODULE_PATH = "bliss.scanning.writer"
 
     def __init__(self):
         """
@@ -103,43 +111,48 @@ class ScanSaving(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
 
-        Parameters.__init__(self, '%s:scan_data' % self.session,
-                            default_values={'base_path': '/tmp/scans',
-                                            'user_name': getpass.getuser(),
-                                            'template': '{session}/',
-                                            'images_path_relative': True,
-                                            'images_path_template': '{scan}',
-                                            'images_prefix': '{device}_',
-                                            'date_format': '%Y%m%d',
-                                            '_writer_module': 'hdf5'},
-                            **keys)
+        Parameters.__init__(
+            self,
+            "%s:scan_data" % self.session,
+            default_values={
+                "base_path": "/tmp/scans",
+                "user_name": getpass.getuser(),
+                "template": "{session}/",
+                "images_path_relative": True,
+                "images_path_template": "{scan}",
+                "images_prefix": "{device}_",
+                "date_format": "%Y%m%d",
+                "_writer_module": "hdf5",
+            },
+            **keys
+        )
 
     def __dir__(self):
         keys = Parameters.__dir__(self)
-        return keys + ['session', 'get', 'get_path', 'get_parent_node', 'writer']
+        return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
 
     def __repr__(self):
         d = self._proxy.get_all()
-        d['writer'] = d.get('_writer_module')
-        d['session'] = self.session
-        d['date'] = self.date
-        d['scan'] = '<images_* only> scan node name'
-        d['device'] = '<images_* only> acquisition device name'
+        d["writer"] = d.get("_writer_module")
+        d["session"] = self.session
+        d["date"] = self.date
+        d["scan"] = "<images_* only> scan node name"
+        d["device"] = "<images_* only> acquisition device name"
         return self._repr(d)
 
     @property
     def scan(self):
-        return '{scan}'
+        return "{scan}"
 
     @property
     def device(self):
-        return '{device}'
+        return "{device}"
 
     @property
     def session(self):
         """ This give the name of the default session or unnamed if no default session is defined """
         session = _current_session()
-        return session.name if session is not None else 'unnamed'
+        return session.name if session is not None else "unnamed"
 
     @property
     def date(self):
@@ -150,7 +163,7 @@ class ScanSaving(Parameters):
         """
         Scan writer object.
         """
-        return self._proxy['_writer_module']
+        return self._proxy["_writer_module"]
 
     @writer.setter
     def writer(self, value):
@@ -158,14 +171,18 @@ class ScanSaving(Parameters):
             if value is not None:
                 self._get_writer_class(value)
         except ImportError, exc:
-            raise ImportError('Writer module **%s** does not'
-                              ' exist or cannot be loaded (%s)'
-                              ' possible module are %s' % (value, exc, writer.__all__))
+            raise ImportError(
+                "Writer module **%s** does not"
+                " exist or cannot be loaded (%s)"
+                " possible module are %s" % (value, exc, writer.__all__)
+            )
         except AttributeError, exc:
-            raise AttributeError('Writer module **%s** does have'
-                                 ' class named Writer (%s)' % (value, exc))
+            raise AttributeError(
+                "Writer module **%s** does have"
+                " class named Writer (%s)" % (value, exc)
+            )
         else:
-            self._proxy['_writer_module'] = value
+            self._proxy["_writer_module"] = value
 
     def get(self):
         """
@@ -183,11 +200,11 @@ class ScanSaving(Parameters):
             images_template = self.images_path_template
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
-            cache_dict['session'] = self.session
-            cache_dict['date'] = self.date
-            cache_dict['scan'] = self.scan
-            cache_dict['device'] = self.device
-            writer_module = cache_dict.get('_writer_module')
+            cache_dict["session"] = self.session
+            cache_dict["date"] = self.date
+            cache_dict["scan"] = self.scan
+            cache_dict["device"] = self.device
+            writer_module = cache_dict.get("_writer_module")
             template_keys = [key[1] for key in formatter.parse(template)]
 
             for key in template_keys:
@@ -200,22 +217,22 @@ class ScanSaving(Parameters):
 
             parent = _get_or_create_node(self.session, "container")
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
-                parent = _get_or_create_node(path_item, "container",
-                                             parent=parent)
+                parent = _get_or_create_node(path_item, "container", parent=parent)
         except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
-            path = os.path.join(cache_dict.get('base_path'), sub_path)
+            path = os.path.join(cache_dict.get("base_path"), sub_path)
             if self.images_path_relative:
-                images_path = os.path.join(path, images_sub_path,
-                                           self.images_prefix)
+                images_path = os.path.join(path, images_sub_path, self.images_prefix)
             else:
                 images_path = os.path.join(images_sub_path, self.images_prefix)
 
-            return {'root_path': path,
-                    'images_path': images_path,
-                    'parent': parent,
-                    'writer': self._get_writer_object(path, images_path)}
+            return {
+                "root_path": path,
+                "images_path": images_path,
+                "parent": parent,
+                "writer": self._get_writer_object(path, images_path),
+            }
 
     def get_path(self):
         """
@@ -223,18 +240,18 @@ class ScanSaving(Parameters):
         The path is compute with *base_path* and follow the *template* attribute
         to generate it.
         """
-        return self.get()['root_path']
+        return self.get()["root_path"]
 
     def get_parent_node(self):
         """
         This method return the parent node which should be used to publish new data
         """
-        return self.get()['parent']
+        return self.get()["parent"]
 
     def _get_writer_class(self, writer_module):
-        module_name = '%s.%s' % (self.WRITER_MODULE_PATH, writer_module)
-        writer_module = __import__(module_name, fromlist=[''])
-        return getattr(writer_module, 'Writer')
+        module_name = "%s.%s" % (self.WRITER_MODULE_PATH, writer_module)
+        writer_module = __import__(module_name, fromlist=[""])
+        return getattr(writer_module, "Writer")
 
     def _get_writer_object(self, path, images_path):
         if self.writer is None:
@@ -252,30 +269,31 @@ class ScanDisplay(Parameters):
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
-        Parameters.__init__(self, '%s:scan_display_params' % self.session,
-                            default_values={ 'auto': False,
-                                             'motor_position': True,
-                            },
-                            **keys)
+        Parameters.__init__(
+            self,
+            "%s:scan_display_params" % self.session,
+            default_values={"auto": False, "motor_position": True},
+            **keys
+        )
 
     def __dir__(self):
         keys = Parameters.__dir__(self)
-        return keys + ['session', 'auto']
+        return keys + ["session", "auto"]
 
     @property
     def session(self):
         """ This give the name of the default session or unnamed if no default session is defined """
         session = _current_session()
-        return session.name if session is not None else 'unnamed'
+        return session.name if session is not None else "unnamed"
 
 
 def _get_channels_dict(acq_object, channels_dict):
-    scalars = channels_dict.setdefault('scalars', [])
-    spectra = channels_dict.setdefault('spectra', [])
-    images = channels_dict.setdefault('images', [])
+    scalars = channels_dict.setdefault("scalars", [])
+    spectra = channels_dict.setdefault("spectra", [])
+    images = channels_dict.setdefault("images", [])
 
     for acq_chan in acq_object.channels:
-        name = acq_object.name+":"+acq_chan.name
+        name = acq_object.name + ":" + acq_chan.name
         shape = acq_chan.shape
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
@@ -302,11 +320,12 @@ def _get_masters_and_channels(acq_chain):
                 if master is None or acq_object.npoints != npoints:
                     master = acq_object.name
                     npoints = acq_object.npoints
-                    channels = chain_dict.setdefault(master, { "master": {} })
+                    channels = chain_dict.setdefault(master, {"master": {}})
                     _get_channels_dict(acq_object, channels["master"])
                     continue
             _get_channels_dict(acq_object, channels)
     return chain_dict
+
 
 def display_motor(func):
     def f(self, *args, **kwargs):
@@ -315,14 +334,24 @@ def display_motor(func):
         if scan_display_params.auto and scan_display_params.motor_position:
             p = self.get_plot(axis)
             p.qt.addXMarker(axis.position(), legend=axis.name, text=axis.name)
+
     return f
+
 
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
 
-    def __init__(self, chain, name=None,
-                 parent="<SCAN_SAVING>", scan_info=None, writer="<SCAN_SAVING>",
-                 data_watch_callback=None, run_number=None, name_suffix=""):
+    def __init__(
+        self,
+        chain,
+        name=None,
+        parent="<SCAN_SAVING>",
+        scan_info=None,
+        writer="<SCAN_SAVING>",
+        data_watch_callback=None,
+        run_number=None,
+        name_suffix="",
+    ):
         """
         This class publish data and trig the writer if any.
 
@@ -354,8 +383,7 @@ class Scan(object):
             if isinstance(parent, DataNodeContainer):
                 self.root_node = parent
             else:
-                raise ValueError(
-                    "parent must be a DataNodeContainer object, or None")
+                raise ValueError("parent must be a DataNodeContainer object, or None")
 
         if writer is None:
             self._writer = NullWriter()
@@ -371,43 +399,48 @@ class Scan(object):
         if run_number is None:
             run_number = self._next_run_number(name, parent)
         self.__run_number = run_number
-        self.__name = '%s_%d%s' % (name, run_number, name_suffix)
+        self.__name = "%s_%d%s" % (name, run_number, name_suffix)
         self._nodes = dict()
         self._devices = []
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
-        self._scan_info['scan_nb'] = run_number
+        self._scan_info["scan_nb"] = run_number
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-        self._scan_info['start_time'] = start_time
-        self._scan_info['start_time_str'] = start_time_str
-        self._scan_info['start_timestamp'] = start_timestamp
+        self._scan_info["start_time"] = start_time
+        self._scan_info["start_time_str"] = start_time_str
+        self._scan_info["start_timestamp"] = start_timestamp
         scan_config = ScanSaving()
         if writer is not None:
-            self._scan_info['save'] = True
-            self._scan_info['root_path'] = writer.root_path
+            self._scan_info["save"] = True
+            self._scan_info["root_path"] = writer.root_path
         else:
-            self._scan_info['save'] = False
-        self._scan_info['session_name'] = scan_config.session
-        self._scan_info['user_name'] = scan_config.user_name
-        self._scan_info['positioners'] = {}
-        self._scan_info['positioners_dial'] = {}
-        for axis_name, axis_pos, axis_dial_pos in \
-            get_axes_positions_iter(on_error="ERR"):
-            self._scan_info['positioners'][axis_name] = axis_pos
-            self._scan_info['positioners_dial'][axis_name] = axis_dial_pos
+            self._scan_info["save"] = False
+        self._scan_info["session_name"] = scan_config.session
+        self._scan_info["user_name"] = scan_config.user_name
+        self._scan_info["positioners"] = {}
+        self._scan_info["positioners_dial"] = {}
+        for axis_name, axis_pos, axis_dial_pos in get_axes_positions_iter(
+            on_error="ERR"
+        ):
+            self._scan_info["positioners"][axis_name] = axis_pos
+            self._scan_info["positioners_dial"][axis_name] = axis_dial_pos
 
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
-        self._scan_info['acquisition_chain'] = _get_masters_and_channels(self._acq_chain)
+        self._scan_info["acquisition_chain"] = _get_masters_and_channels(
+            self._acq_chain
+        )
 
         scan_display_params = ScanDisplay()
         if scan_display_params.auto:
             get_flint()
 
         self._state = self.IDLE_STATE
-        self._node = _create_node(self.__name, "scan", parent=self.root_node, info=self._scan_info)
+        self._node = _create_node(
+            self.__name, "scan", parent=self.root_node, info=self._scan_info
+        )
 
         if data_watch_callback is not None:
             if not callable(data_watch_callback):
@@ -417,11 +450,14 @@ class Scan(object):
 
             def trig(*args):
                 data_watch_callback_event.set()
+
             self._data_watch_running = False
-            self._data_watch_task = gevent.spawn(Scan._data_watch,
-                                                 weakref.proxy(self, trig),
-                                                 data_watch_callback_event,
-                                                 data_watch_callback_done)
+            self._data_watch_task = gevent.spawn(
+                Scan._data_watch,
+                weakref.proxy(self, trig),
+                data_watch_callback_event,
+                data_watch_callback_done,
+            )
             self._data_watch_callback_event = data_watch_callback_event
             self._data_watch_callback_done = data_watch_callback_done
         else:
@@ -429,10 +465,10 @@ class Scan(object):
 
     def __repr__(self):
         if not self.path:
-            return 'Scan(name={}, run_number={})'.format(
-                self.name, self.run_number)
-        return 'Scan(name={}, run_number={}, path={})'.format(
-            self.name, self.run_number, self.path)
+            return "Scan(name={}, run_number={})".format(self.name, self.run_number)
+        return "Scan(name={}, run_number={}, path={})".format(
+            self.name, self.run_number, self.path
+        )
 
     @property
     def name(self):
@@ -468,26 +504,28 @@ class Scan(object):
 
     @property
     def path(self):
-        return self.scan_info['root_path'] if self.scan_info['save'] else None
+        return self.scan_info["root_path"] if self.scan_info["save"] else None
 
     def _get_x_y_data(self, counter, axis=None):
-        acq_chain = self._scan_info['acquisition_chain']
+        acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
         for top_level_master in acq_chain.keys():
-            for scalar_master in acq_chain[top_level_master]['master']['scalars']:
-                ma = scalar_master.split(':')[-1]
-                if ma in self._scan_info['positioners']:
+            for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
+                ma = scalar_master.split(":")[-1]
+                if ma in self._scan_info["positioners"]:
                     master_axes.append(ma)
 
         if len(master_axes) == 0:
-            if self._scan_info.get('type')=='timescan':
-                axis_name = 'elapsed_time'
+            if self._scan_info.get("type") == "timescan":
+                axis_name = "elapsed_time"
             else:
                 raise RuntimeError("No axis detected in scan.")
         else:
             if len(master_axes) > 1 and axis is None:
-                raise ValueError("Multiple axes detected, please provide axis for \
-                                 calculation.")
+                raise ValueError(
+                    "Multiple axes detected, please provide axis for \
+                                 calculation."
+                )
             if axis is None:
                 axis_name = master_axes[0]
             else:
@@ -523,30 +561,29 @@ class Scan(object):
 
     def cen(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        half_val = (max(y)-min(y))/2.
+        half_val = (max(y) - min(y)) / 2.
         nb_value = len(x)
         index_above_half = numpy.where(y >= half_val)[0]
-        slope = numpy.gradient(y,x)
+        slope = numpy.gradient(y, x)
 
         if index_above_half[0] != 0 and index_above_half[-1] != (nb_value - 1):
-            #standard peak
-            if len(index_above_half) == 1: # only one point above half_value
-                indexes = [index_above_half[0]-1,index_above_half[0]+1]
+            # standard peak
+            if len(index_above_half) == 1:  # only one point above half_value
+                indexes = [index_above_half[0] - 1, index_above_half[0] + 1]
             else:
-                indexes = [index_above_half[0],index_above_half[-1]]
+                indexes = [index_above_half[0], index_above_half[-1]]
         elif index_above_half[0] == 0 and index_above_half[-1] == (nb_value - 1):
             index_below_half = numpy.where(y <= half_val)[0]
             if len(index_below_half) == 1:
-                indexes = [index_below_half[0]-1,index_below_half[0]+1]
+                indexes = [index_below_half[0] - 1, index_below_half[0] + 1]
             else:
-                indexes = [index_below_half[0],index_below_half[-1]]
-        elif index_above_half[0] == 0: #falling edge
+                indexes = [index_below_half[0], index_below_half[-1]]
+        elif index_above_half[0] == 0:  # falling edge
             indexes = [index_above_half[-1]]
-        else:                    # rising edge
+        else:  # rising edge
             indexes = [index_above_half[0]]
-            
-        fwhms = numpy.array([x[i] + ((half_val - y[i]) / slope[i])
-                             for i in indexes])
+
+        fwhms = numpy.array([x[i] + ((half_val - y[i]) / slope[i]) for i in indexes])
         fwhm = fwhms.max() - fwhms.min()
         cfwhm = fwhms.mean()
         if return_axis_name:
@@ -561,7 +598,7 @@ class Scan(object):
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(pk)
         return axis
-    
+
     @display_motor
     def goto_com(self, counter):
         com, axis_name = self.com(counter, return_axis_name=True)
@@ -569,7 +606,7 @@ class Scan(object):
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(com)
         return axis
-    
+
     @display_motor
     def goto_cen(self, counter):
         cen, fwhm, axis_name = self.cen(counter, return_axis_name=True)
@@ -582,18 +619,20 @@ class Scan(object):
     def where(self, axis=None):
         if axis is None:
             try:
-                acq_chain = self._scan_info['acquisition_chain']
+                acq_chain = self._scan_info["acquisition_chain"]
                 for top_level_master in acq_chain.keys():
-                    for scalar_master in acq_chain[top_level_master]['master']['scalars']:
-                        axis_name = scalar_master.split(':')[-1]
-                        if axis_name in self._scan_info['positioners']:
+                    for scalar_master in acq_chain[top_level_master]["master"][
+                        "scalars"
+                    ]:
+                        axis_name = scalar_master.split(":")[-1]
+                        if axis_name in self._scan_info["positioners"]:
                             raise StopIteration
             except StopIteration:
-                axis = getattr(setup_globals, axis_name)                
+                axis = getattr(setup_globals, axis_name)
             else:
                 RuntimeError("Can't find axis in this scan")
         return axis
-    
+
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())
@@ -604,7 +643,7 @@ class Scan(object):
                 while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-                self._scan_info['state'] = self._state
+                self._scan_info["state"] = self._state
                 self._data_watch_callback(data_events, self._nodes, self._scan_info)
             else:
                 self._data_watch_callback_event.set()
@@ -621,7 +660,7 @@ class Scan(object):
         self._node.end()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
-        if signal == 'end':
+        if signal == "end":
             self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
@@ -638,17 +677,18 @@ class Scan(object):
                 parent_node = self._nodes[dev_node.bpointer]
 
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
-                data_container_node = _create_node(
-                    dev.name, parent=parent_node)
+                data_container_node = _create_node(dev.name, parent=parent_node)
                 self._nodes[dev] = data_container_node
                 for channel in dev.channels:
-                    self._nodes[channel] = _get_or_create_node(channel.name,
-                                                               channel.data_node_type,
-                                                               data_container_node,
-                                                               shape=channel.shape,
-                                                               dtype=channel.dtype)
-                    connect(channel, 'new_data', self._channel_event)
-                for signal in ('start', 'end'):
+                    self._nodes[channel] = _get_or_create_node(
+                        channel.name,
+                        channel.data_node_type,
+                        data_container_node,
+                        shape=channel.shape,
+                        dtype=channel.dtype,
+                    )
+                    connect(channel, "new_data", self._channel_event)
+                for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)
 
         if self._writer:
@@ -658,20 +698,19 @@ class Scan(object):
         for dev in self._devices:
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 for channel in dev.channels:
-                    disconnect(channel, 'new_data', self._channel_event)
-                for signal in ('start', 'end'):
+                    disconnect(channel, "new_data", self._channel_event)
+                for signal in ("start", "end"):
                     disconnect(dev, signal, self._device_event)
         self._devices = []
 
     def close_nodes(self):
         for node in self._nodes.values():
-            if hasattr(node, 'close'):
+            if hasattr(node, "close"):
                 node.close()
 
     def run(self):
-        if hasattr(self._data_watch_callback, 'on_state'):
-            call_on_prepare = self._data_watch_callback.on_state(
-                self.PREPARE_STATE)
+        if hasattr(self._data_watch_callback, "on_state"):
+            call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
             call_on_stop = self._data_watch_callback.on_state(self.STOP_STATE)
         else:
             call_on_prepare, call_on_stop = False, False
@@ -728,9 +767,8 @@ class Scan(object):
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
-                scan.scan_info['state'] = scan._state
-                scan._data_watch_callback(data_events, scan.nodes,
-                                          scan.scan_info)
+                scan.scan_info["state"] = scan._state
+                scan._data_watch_callback(data_events, scan.nodes, scan.scan_info)
                 scan._data_watch_running = False
             except ReferenceError:
                 break
@@ -747,22 +785,24 @@ class Scan(object):
         return get_data(self)
 
     def _find_plot_type_index(self, scan_item_name, channels):
-        channel_name_match = lambda scan_item_name, channel_name: \
-            ':'+scan_item_name in channel_name or scan_item_name+':' in channel_name
+        channel_name_match = (
+            lambda scan_item_name, channel_name: ":" + scan_item_name in channel_name
+            or scan_item_name + ":" in channel_name
+        )
 
-        scalars = channels.get('scalars', [])
-        spectra = channels.get('spectra', [])
-        images = channels.get('images', [])
+        scalars = channels.get("scalars", [])
+        spectra = channels.get("spectra", [])
+        images = channels.get("images", [])
 
         for i, channel_name in enumerate(scalars):
             if channel_name_match(scan_item_name, channel_name):
-                return ('0d', 0)
+                return ("0d", 0)
         for i, channel_name in enumerate(spectra):
             if channel_name_match(scan_item_name, channel_name):
-                return ('1d', i)
+                return ("1d", i)
         for i, channel_name in enumerate(images):
             if channel_name_match(scan_item_name, channel_name):
-                return ('2d', i)
+                return ("2d", i)
 
         return None
 
@@ -775,17 +815,19 @@ class Scan(object):
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
         """
-        for master, channels in self.scan_info['acquisition_chain'].iteritems():
+        for master, channels in self.scan_info["acquisition_chain"].iteritems():
             if scan_item.name == master:
                 # return scalar plot(s) with this master
-                args = (master, '0d', 0)
+                args = (master, "0d", 0)
                 break
             else:
                 # find plot within this master slave channels
                 args = self._find_plot_type_index(scan_item.name, channels)
                 if args is None:
                     # hopefully scan item is one of this master channels
-                    args = self._find_plot_type_index(scan_item.name, channels['master'])
+                    args = self._find_plot_type_index(
+                        scan_item.name, channels["master"]
+                    )
                 if args:
                     break
         else:
@@ -797,9 +839,9 @@ class Scan(object):
         if wait:
             flint.wait_data(master, plot_type, index)
         plot_id = flint.get_live_scan_plot(master, plot_type, index)
-        if plot_type == '0d':
+        if plot_type == "0d":
             return CurvePlot(existing_id=plot_id)
-        elif plot_type == '1d':
+        elif plot_type == "1d":
             return CurvePlot(existing_id=plot_id)
         else:
             return ImagePlot(existing_id=plot_id)
@@ -809,28 +851,33 @@ class Scan(object):
             key = self.root_node.db_name
             cnx = client.get_cache(db=1)
             pipeline = cnx.pipeline()
-            pipeline.exists('%s__children_list')
+            pipeline.exists("%s__children_list")
             pipeline.hincrby(key, "%s_last_run_number" % name, 1)
             exist, run_number = pipeline.execute()
             # synchronize with writer
             if not exist and self._writer is not None:
                 scan_names = dict()
-                match_re = re.compile('(.+?)_(\d+).*')
+                match_re = re.compile("(.+?)_(\d+).*")
                 for scan_entry in self._writer.get_scan_entries():
                     g = match_re.match(scan_entry)
                     if g:
                         scan_name = g.group(1)
                         run_number = int(g.group(2))
-                        previous_run_number = \
-                        scan_names.setdefault(scan_name, run_number)
+                        previous_run_number = scan_names.setdefault(
+                            scan_name, run_number
+                        )
                         if run_number > previous_run_number:
                             scan_names[scan_name] = run_number
                 if scan_names:
                     run_number = scan_names.get(name, 0) + 1
                     scan_names[name] = run_number
-                    cnx.hmset(key, {"%s_last_run_number" % scan_name:run_number
-                                    for scan_name, run_number in scan_names.iteritems()})
+                    cnx.hmset(
+                        key,
+                        {
+                            "%s_last_run_number" % scan_name: run_number
+                            for scan_name, run_number in scan_names.iteritems()
+                        },
+                    )
         else:
-            run_number = client.get_cache(db=1).incrby(
-                "%s_last_run_number" % name, 1)
+            run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
         return run_number

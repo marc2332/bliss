@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Communication (:class:`~bliss.comm.gpib.Gpib`, :class:`~bliss.comm.tcp.Tcp`, \
+"""Communication (:class:`~bliss.comm.gpib.Gpib`, :class:`~bliss.comm.tcp.Tcp`, \
 :class:`~bliss.comm.serial.Serial`, etc)
 
 This module gathers different communication interfaces
@@ -20,4 +20,4 @@ This module gathers different communication interfaces
    serial
    tcp
    util
-'''
+"""

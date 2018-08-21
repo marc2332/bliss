@@ -24,7 +24,7 @@ except ImportError:
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
-        DataArrayMagic = struct.unpack('>I', 'DTAY')[0]
+        DataArrayMagic = struct.unpack(">I", "DTAY")[0]
 
         def __init__(self, data, from_index, to_index):
             self.data = data
@@ -55,7 +55,7 @@ class LimaImageChannelDataNode(DataNode):
             self._update()
             if self.to_index >= 0:
                 return self.to_index
-            return self.last_image_ready+1
+            return self.last_image_ready + 1
 
         @property
         def current_lima_acq(self):
@@ -70,7 +70,7 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = DeviceProxy(self.server_url) if self.server_url else None
             except Exception:
                 proxy = None
-            return proxy 
+            return proxy
 
         def get_image(self, image_nb, proxy=0):
             self._update()
@@ -94,15 +94,20 @@ class LimaImageChannelDataNode(DataNode):
                 item_index = slice(*item_index)
             if isinstance(item_index, slice):
                 proxy = self._get_proxy()
-                return tuple((self.get_image(self.from_index+image_nb, proxy=proxy) for image_nb in item_index))
+                return tuple(
+                    (
+                        self.get_image(self.from_index + image_nb, proxy=proxy)
+                        for image_nb in item_index
+                    )
+                )
             else:
                 if item_index < 0:
                     start = self.last_index
                     if start == 0:
-                        raise IndexError('No image available')
+                        raise IndexError("No image available")
                 else:
                     start = self.from_index
-                return self.get_image(start+item_index)
+                return self.get_image(start + item_index)
 
         def __iter__(self):
             proxy = self._get_proxy()
@@ -115,17 +120,26 @@ class LimaImageChannelDataNode(DataNode):
 
         def _update(self):
             ref_status = self.ref_status
-            for key in ('server_url', 'lima_acq_nb', 'buffer_max_number', 'last_image_acquired',
-                 'last_image_ready', 'last_counter_ready', 'last_image_saved'):
+            for key in (
+                "server_url",
+                "lima_acq_nb",
+                "buffer_max_number",
+                "last_image_acquired",
+                "last_image_ready",
+                "last_counter_ready",
+                "last_image_saved",
+            ):
                 if key in ref_status:
                     setattr(self, key, ref_status[key])
 
         def _get_from_server_memory(self, proxy, image_nb):
-            if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
+            if (
+                self.current_lima_acq == self.lima_acq_nb
+            ):  # current acquisition is this one
                 if self.last_image_ready < 0:
-                    raise RuntimeError('No image has been taken yet')
-                if self.last_image_ready < image_nb:      # image not yet available
-                    raise RuntimeError('Image is not available yet')
+                    raise RuntimeError("No image has been taken yet")
+                if self.last_image_ready < image_nb:  # image not yet available
+                    raise RuntimeError("Image is not available yet")
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
@@ -138,25 +152,29 @@ class LimaImageChannelDataNode(DataNode):
                         return self._tango_unpack(raw_msg[-1])
 
         def _get_filenames(self, ref_data, *image_nbs):
-            saving_mode = ref_data.get('saving_mode', 'MANUAL')
-            if saving_mode == 'MANUAL': # files are not saved
+            saving_mode = ref_data.get("saving_mode", "MANUAL")
+            if saving_mode == "MANUAL":  # files are not saved
                 raise RuntimeError("Images were not saved")
 
-            overwrite_policy = ref_data.get('saving_overwrite',
-                                              'ABORT').lower()
-            if overwrite_policy == 'multiset':
-                nb_image_per_file = ref_data['acq_nb_frames']
+            overwrite_policy = ref_data.get("saving_overwrite", "ABORT").lower()
+            if overwrite_policy == "multiset":
+                nb_image_per_file = ref_data["acq_nb_frames"]
             else:
-                nb_image_per_file = ref_data.get('saving_frame_per_file', 1)
+                nb_image_per_file = ref_data.get("saving_frame_per_file", 1)
 
             last_image_saved = self.last_image_saved
-            first_file_number = ref_data.get('saving_next_number', 0)
-            path_format = os.path.join(ref_data['saving_directory'],
-                                       '%s%s%s' % (ref_data['saving_prefix'],
-                                                   ref_data.get('saving_index_format', '%04d'),
-                                                   ref_data['saving_suffix']))
+            first_file_number = ref_data.get("saving_next_number", 0)
+            path_format = os.path.join(
+                ref_data["saving_directory"],
+                "%s%s%s"
+                % (
+                    ref_data["saving_prefix"],
+                    ref_data.get("saving_index_format", "%04d"),
+                    ref_data["saving_suffix"],
+                ),
+            )
             returned_params = list()
-            file_format = ref_data['saving_format']
+            file_format = ref_data["saving_format"]
             for image_nb in image_nbs:
                 if image_nb > last_image_saved:
                     raise RuntimeError("Image %d was not saved" % image_nb)
@@ -164,12 +182,14 @@ class LimaImageChannelDataNode(DataNode):
                 image_index_in_file = image_nb % nb_image_per_file
                 file_nb = first_file_number + image_index_in_file
                 file_path = path_format % file_nb
-                if file_format == 'HDF5':
-                    returned_params.append((file_path, "/entry_%04d" % 1,
-                                            image_index_in_file, file_format))
+                if file_format == "HDF5":
+                    returned_params.append(
+                        (file_path, "/entry_%04d" % 1, image_index_in_file, file_format)
+                    )
                 else:
-                    returned_params.append((file_path, '',
-                                            image_index_in_file, file_format))
+                    returned_params.append(
+                        (file_path, "", image_index_in_file, file_format)
+                    )
             return returned_params
 
         def _get_from_file(self, image_nb):
@@ -177,16 +197,18 @@ class LimaImageChannelDataNode(DataNode):
                 values = self._get_filenames(ref_data, image_nb)
                 filename, path_in_file, image_index, file_format = values[0]
 
-                if file_format in ('EDF', 'EDFGZ', 'EDFConcat'):
-                    if file_format == 'EDFConcat':
+                if file_format in ("EDF", "EDFGZ", "EDFConcat"):
+                    if file_format == "EDFConcat":
                         image_index = 0
                     if EdfFile is not None:
                         f = EdfFile(filename)
                         return f.GetData(image_index)
                     else:
-                        raise RuntimeError("EdfFile module is not available, "
-                                           "cannot return image data.")
-                elif file_format == 'HDF5':
+                        raise RuntimeError(
+                            "EdfFile module is not available, "
+                            "cannot return image data."
+                        )
+                elif file_format == "HDF5":
                     if h5py is not None:
                         with h5py.File(filename) as f:
                             dataset = f[path_in_file]
@@ -194,35 +216,33 @@ class LimaImageChannelDataNode(DataNode):
                 else:
                     raise RuntimeError("Format not managed yet")
             else:
-                raise RuntimeError(
-                    "Cannot retrieve image %d from file" % image_nb)
+                raise RuntimeError("Cannot retrieve image %d from file" % image_nb)
 
         def _tango_unpack(self, msg):
-            struct_format = '<IHHIIHHHHHHHHHHHHHHHHHHIII'
+            struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
             header_size = struct.calcsize(struct_format)
             values = struct.unpack(struct_format, msg[:header_size])
             if values[0] != self.DataArrayMagic:
-                raise RuntimeError('No Lima data')
+                raise RuntimeError("No Lima data")
             header_offset = values[2]
             data = numpy.fromstring(
-                msg[header_offset:], dtype=self._image_mode.get(values[4]))
+                msg[header_offset:], dtype=self._image_mode.get(values[4])
+            )
             data.shape = values[8], values[7]
             return data
 
-
     def __init__(self, name, **keys):
-        shape = keys.pop('shape', None)
-        dtype = keys.pop('dtype', None)
+        shape = keys.pop("shape", None)
+        dtype = keys.pop("dtype", None)
 
-        DataNode.__init__(self, 'lima', name, **keys)
+        DataNode.__init__(self, "lima", name, **keys)
 
-        if keys.get('create', False):
-            self.info['shape'] = shape
-            self.info['dtype'] = dtype
+        if keys.get("create", False):
+            self.info["shape"] = shape
+            self.info["dtype"] = dtype
 
         cnx = self.db_connection
-        self.data = QueueObjSetting('%s_data' % self.db_name,
-                                    connection=cnx)
+        self.data = QueueObjSetting("%s_data" % self.db_name, connection=cnx)
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
         self._storage_task = None
@@ -242,12 +262,13 @@ class LimaImageChannelDataNode(DataNode):
             if to_index is None => only one image which as index from_index
             if to_index < 0 => to the end of acquisition
         """
-        return self.LimaDataView(self.data, from_index, 
-                                 to_index if to_index is not None else from_index + 1)
+        return self.LimaDataView(
+            self.data, from_index, to_index if to_index is not None else from_index + 1
+        )
 
     def store(self, event_dict):
-        desc = event_dict['description']
-        data = event_dict['data']
+        desc = event_dict["description"]
+        data = event_dict["data"]
         if self._storage_task is None:
             self._storage_task = self._do_store(wait=False, wait_started=True)
 
@@ -255,13 +276,13 @@ class LimaImageChannelDataNode(DataNode):
             self.data[0]
         except IndexError:
             ref_status = data
-            ref_status['lima_acq_nb'] = self.db_connection.incr(data['server_url'])
+            ref_status["lima_acq_nb"] = self.db_connection.incr(data["server_url"])
             self.data.append(ref_status)
             self.add_reference_data(desc)
         else:
             self._new_image_status.update(data)
             self._new_image_status_event.set()
-    
+
     @task
     def _do_store(self):
         while True:
@@ -291,37 +312,41 @@ class LimaImageChannelDataNode(DataNode):
         # take the last in list because it's should be the final
         final_ref_data = self.data[-1]
         # in that case only one reference will be returned
-        overwrite_policy = final_ref_data['overwritePolicy'].lower()
-        if overwrite_policy == 'multiset':
-            last_file_number = final_ref_data['nextNumber'] + 1
+        overwrite_policy = final_ref_data["overwritePolicy"].lower()
+        if overwrite_policy == "multiset":
+            last_file_number = final_ref_data["nextNumber"] + 1
         else:
-            nb_files = int(math.ceil(float(final_ref_data['acqNbFrames']) /
-                                     final_ref_data['framesPerFile']))
-            last_file_number = final_ref_data['nextNumber'] + nb_files
+            nb_files = int(
+                math.ceil(
+                    float(final_ref_data["acqNbFrames"])
+                    / final_ref_data["framesPerFile"]
+                )
+            )
+            last_file_number = final_ref_data["nextNumber"] + nb_files
 
-        path_format = '%s%s%s%s' % (final_ref_data['directory'],
-                                    final_ref_data['prefix'],
-                                    final_ref_data['indexFormat'],
-                                    final_ref_data['suffix'])
+        path_format = "%s%s%s%s" % (
+            final_ref_data["directory"],
+            final_ref_data["prefix"],
+            final_ref_data["indexFormat"],
+            final_ref_data["suffix"],
+        )
         references = []
-        file_format = final_ref_data['fileFormat'].lower()
-        for next_number in xrange(final_ref_data['nextNumber'],
-                                  last_file_number):
+        file_format = final_ref_data["fileFormat"].lower()
+        for next_number in xrange(final_ref_data["nextNumber"], last_file_number):
             full_path = path_format % next_number
-            if file_format == 'hdf5':
-                #@todo see what's is needed for hdf5 dataset link
+            if file_format == "hdf5":
+                # @todo see what's is needed for hdf5 dataset link
                 pass
             references.append(full_path)
         return references
 
     def _get_db_names(self):
         db_names = DataNode._get_db_names(self)
-        db_names.append(self.db_name+"_data")
+        db_names.append(self.db_name + "_data")
         try:
-            url = self.data[0].get('server_url')
+            url = self.data[0].get("server_url")
         except IndexError:
             url = None
         if url is not None:
             db_names.append(url)
         return db_names
-

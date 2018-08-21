@@ -18,24 +18,24 @@ def test_config(hooked_m0, hooked_m1):
     """test hooked axes configuration"""
     assert len(hooked_m0.motion_hooks) == 1
     hook0 = hooked_m0.motion_hooks[0]
-    assert hook0.name == 'hook0'
+    assert hook0.name == "hook0"
     assert hook0.nb_pre_move == 0
     assert hook0.nb_post_move == 0
 
     assert len(hooked_m1.motion_hooks) == 2
     assert hook0 == hooked_m1.motion_hooks[0]
     hook1 = hooked_m1.motion_hooks[1]
-    assert hook1.name == 'hook1'
+    assert hook1.name == "hook1"
     assert hook1.nb_pre_move == 0
     assert hook1.nb_post_move == 0
 
     assert len(hook0.axes) == 3
-    assert 'hooked_m0' in hook0.axes
-    assert 'hooked_m1' in hook0.axes
-    assert 'hooked_error_m0' in hook0.axes
+    assert "hooked_m0" in hook0.axes
+    assert "hooked_m1" in hook0.axes
+    assert "hooked_error_m0" in hook0.axes
 
     assert len(hook1.axes) == 1
-    assert 'hooked_m1' in hook1.axes
+    assert "hooked_m1" in hook1.axes
 
 
 def test_axis_move(hooked_m0):
@@ -55,8 +55,8 @@ def test_axis_move(hooked_m0):
     assert isinstance(hook0.last_pre_move_args[0], Motion)
 
     hooked_m0.wait_move()
-    
-    assert hook0.last_post_move_args[-1].type == 'move'
+
+    assert hook0.last_post_move_args[-1].type == "move"
     assert hook0.nb_pre_move == 1
     assert hook0.nb_post_move == 1
     assert hooked_m0.state().READY
@@ -68,19 +68,21 @@ def test_axis_move(hooked_m0):
 
 def test_axis_homing(hooked_m0):
     hook0 = hooked_m0.motion_hooks[0]
-   
+
     hooked_m0.home()
 
-    assert hook0.last_post_move_args[-1].type == 'homing'
- 
+    assert hook0.last_post_move_args[-1].type == "homing"
+
+
 def test_axis_limit(hooked_m0):
     hook0 = hooked_m0.motion_hooks[0]
 
     hooked_m0.controller.set_hw_limits(hooked_m0, -2, 2)
     hooked_m0.hw_limit(1)
 
-    assert hook0.last_post_move_args[-1].type == 'limit_search'
-    
+    assert hook0.last_post_move_args[-1].type == "limit_search"
+
+
 def test_axis_move2(hooked_m1):
     """test multiple motion hooks works in single axis motion"""
     assert hooked_m1.state().READY
@@ -119,13 +121,13 @@ def test_axis_multiple_move(hooked_m0):
         assert hooked_m0.state().READY
         assert hook0.nb_pre_move == i
         assert hook0.nb_post_move == i
-        hooked_m0.move((i+1)*2, wait=False)
-        assert hook0.nb_pre_move == i+1
+        hooked_m0.move((i + 1) * 2, wait=False)
+        assert hook0.nb_pre_move == i + 1
         assert hook0.nb_post_move == i
         assert hooked_m0.state().MOVING
         hooked_m0.wait_move()
-        assert hook0.nb_pre_move == i+1
-        assert hook0.nb_post_move == i+1
+        assert hook0.nb_pre_move == i + 1
+        assert hook0.nb_post_move == i + 1
         assert hooked_m0.state().READY
 
 
@@ -191,9 +193,7 @@ def test_group_move(hooked_m0, hooked_m1):
     target_hooked_m0 = hooked_m0_pos + 50
     target_hooked_m1 = hooked_m1_pos + 50
 
-    grp.move(hooked_m0, target_hooked_m0,
-             hooked_m1, target_hooked_m1,
-             wait=False)
+    grp.move(hooked_m0, target_hooked_m0, hooked_m1, target_hooked_m1, wait=False)
 
     assert hook0.nb_pre_move == 2
     assert hook0.nb_post_move == 0

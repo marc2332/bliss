@@ -22,19 +22,28 @@ import functools
 
 
 class MD2S(object):
-
     def __init__(self, name, config):
-        self.phases = {"Centring": 1, "BeamLocation": 2,
-                       "DataCollection": 3, "Transfer": 4}
+        self.phases = {
+            "Centring": 1,
+            "BeamLocation": 2,
+            "DataCollection": 3,
+            "Transfer": 4,
+        }
         self.timeout = 3  # s by default
         nn, port = config.get("exporter_addr").split(":")
         self._exporter = Exporter(nn, int(port))
 
         fshutter = config.get("fshutter")
         if fshutter:
-            fshutter.set_external_control(functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "true"),
-                                          functools.partial(self._exporter.writeProperty, "FastShutterIsOpen", "false"),
-                                          lambda: self._exporter.readProperty("FastShutterIsOpen") == "true")
+            fshutter.set_external_control(
+                functools.partial(
+                    self._exporter.writeProperty, "FastShutterIsOpen", "true"
+                ),
+                functools.partial(
+                    self._exporter.writeProperty, "FastShutterIsOpen", "false"
+                ),
+                lambda: self._exporter.readProperty("FastShutterIsOpen") == "true",
+            )
 
     def get_hwstate(self):
         """Read the hardware state (if implemented)
@@ -96,8 +105,8 @@ class MD2S(object):
              values(list): pixel per mm on Y and Z axis
         """
         # the value depends on the zoom
-        px_mm_y = 1./self._exporter.readProperty("CoaxCamScaleX")
-        px_mm_z = 1./self._exporter.readProperty("CoaxCamScaleY")
+        px_mm_y = 1. / self._exporter.readProperty("CoaxCamScaleX")
+        px_mm_z = 1. / self._exporter.readProperty("CoaxCamScaleY")
         return [px_mm_y, px_mm_z]
 
     def move_motors(self, *args):
@@ -243,8 +252,9 @@ class MD2S(object):
         if what == "data_collect":
             self.set_phase("DataCollection", wait=True, timeout=100)
             if "zoom_level" in kwargs:
-                self._exporter.writeProperty("CoaxialCameraZoomValue",
-                                             kwargs["zoom_level"])
+                self._exporter.writeProperty(
+                    "CoaxialCameraZoomValue", kwargs["zoom_level"]
+                )
                 self._wait_ready(20)
 
         if what == "see_beam":

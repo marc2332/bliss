@@ -11,16 +11,15 @@ from bliss.common.measurement import BaseCounter, namespace, counter_namespace
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from .card import MODE
 
-INTS_NAMES = ('intensity_A', 'intensity_B', 'acq_time')
+INTS_NAMES = ("intensity_A", "intensity_B", "acq_time")
+
 
 def get_counters(flex):
     mode = flex.mode
-    if (mode == flex.MODE.SINGLE_AUTO or
-        mode == flex.MODE.SINGLE_CROSS):
+    if mode == flex.MODE.SINGLE_AUTO or mode == flex.MODE.SINGLE_CROSS:
         spectrum_size = 1088
         nb_channel = 2
-    elif (mode == flex.MODE.DUAL_AUTO or
-          mode == flex.MODE.DUAL_CROSS):
+    elif mode == flex.MODE.DUAL_AUTO or mode == flex.MODE.DUAL_CROSS:
         spectrum_size = 608
         nb_channel = 3
     else:
@@ -31,6 +30,7 @@ def get_counters(flex):
     intensities = [Intensity(flex, name) for name in INTS_NAMES]
     return intensities + datas
 
+
 class Data(BaseCounter):
     def __init__(self, flex, chan_nb, spectrum_size):
         self._flex = weakref.ref(flex)
@@ -40,13 +40,13 @@ class Data(BaseCounter):
     @property
     def controller(self):
         return self._flex()
-    
+
     @property
     def name(self):
         if self._chan_nb:
-            return 'channel_{}'.format(self._chan_nb)
-        else:                   # channel 0 == delay
-            return 'delay'
+            return "channel_{}".format(self._chan_nb)
+        else:  # channel 0 == delay
+            return "delay"
 
     @property
     def dtype(self):
@@ -58,6 +58,7 @@ class Data(BaseCounter):
 
     def create_acquisition_device(self, scan_pars):
         return AcqDevice(self.controller, **scan_pars)
+
 
 class Intensity(BaseCounter):
     def __init__(self, flex, name):
@@ -71,6 +72,7 @@ class Intensity(BaseCounter):
     @property
     def name(self):
         return self._name
+
     @property
     def dtype(self):
         return numpy.float
@@ -82,16 +84,21 @@ class Intensity(BaseCounter):
     def create_acquisition_device(self, scan_pars):
         return AcqDevice(self.controller, **scan_pars)
 
+
 class AcqDevice(AcquisitionDevice):
     MODE = MODE
 
-    def __init__(self, flex, count_time=1, mode=None,
-                 counters=(), **kwargs):
-        prepare_once = kwargs.get('prepare_once', True)
-        start_once = kwargs.get('start_once', False)
-        AcquisitionDevice.__init__(self, flex, flex.name,
-                                   npoints=kwargs.get('npoints', 1),
-                                   prepare_once=prepare_once, start_once=start_once)
+    def __init__(self, flex, count_time=1, mode=None, counters=(), **kwargs):
+        prepare_once = kwargs.get("prepare_once", True)
+        start_once = kwargs.get("start_once", False)
+        AcquisitionDevice.__init__(
+            self,
+            flex,
+            flex.name,
+            npoints=kwargs.get("npoints", 1),
+            prepare_once=prepare_once,
+            start_once=start_once,
+        )
         self._count_time = count_time
         self._mode = mode
         self.counters = list()
@@ -101,12 +108,13 @@ class AcqDevice(AcquisitionDevice):
 
     def add_counter(self, counter):
         self.counters.append(counter)
-        self.channels.append(AcquisitionChannel(counter.name,
-                                                counter.dtype, counter.shape))
+        self.channels.append(
+            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+        )
+
     def add_counters(self, counters):
         self.counters.extend(counters)
-        channels = [AcquisitionChannel(c.name, c.dtype, c.shape)
-                    for c in counters]
+        channels = [AcquisitionChannel(c.name, c.dtype, c.shape) for c in counters]
         self.channels.extend(channels)
 
     def prepare(self):
@@ -124,8 +132,9 @@ class AcqDevice(AcquisitionDevice):
 
     def trigger(self):
         self.device.start_acquisition()
-        self._stop_task = gevent.spawn_later(self._count_time,
-                                             self.device.stop_acquisition)
+        self._stop_task = gevent.spawn_later(
+            self._count_time, self.device.stop_acquisition
+        )
         self._event.set()
 
     def wait_ready(self):
@@ -133,18 +142,20 @@ class AcqDevice(AcquisitionDevice):
             self._reading_task.join()
 
     def reading(self):
-        #trigger wait
+        # trigger wait
         self._event.wait()
         self._event.clear()
-        with gevent.Timeout(max(1., self._count_time*2),
-                            "Weird timeouterror (waiting stop_acquisition)"):
+        with gevent.Timeout(
+            max(1., self._count_time * 2),
+            "Weird timeouterror (waiting stop_acquisition)",
+        ):
             self._stop_task.join()
 
         data_names = [Data(self, chan_nb, -1).name for chan_nb in range(5)]
-        values_dict = {name:data
-                       for name, data in zip(data_names, self.device.data)}
+        values_dict = {name: data for name, data in zip(data_names, self.device.data)}
         ints_and_acq_time = self.device.intensities_and_acqtime
-        values_dict.update({name:data for name, data in zip(INTS_NAMES,
-                                                            ints_and_acq_time)})
+        values_dict.update(
+            {name: data for name, data in zip(INTS_NAMES, ints_and_acq_time)}
+        )
 
         self.channels.update(values_dict)

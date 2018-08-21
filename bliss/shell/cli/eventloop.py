@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-__all__ = ['PosixGeventEventLoop']
+__all__ = ["PosixGeventEventLoop"]
 
 import os
 
@@ -39,32 +39,33 @@ class PosixGeventEventLoop(EventLoop):
             ctx = call_on_sigwinch(self.received_winch)
         else:
             ctx = DummyContext()
-        
+
         select_timeout = INPUT_TIMEOUT
         with ctx:
             while self._running:
-              r, _, _ = select.select([stdin.fileno(),self._schedule_pipe_read],
-                                      [], [],select_timeout)
-              if stdin.fileno() in r:
-                  select_timeout = INPUT_TIMEOUT
-                  data = stdin_reader.read()
-                  inputstream.feed(data)
-                  if stdin_reader.closed:
-                      break
-              elif self._schedule_pipe_read in r:
-                  os.read(self._schedule_pipe_read,8192)
-                  while True:
-                      try:
-                          task = self._calls_from_executor.pop(0)
-                      except IndexError:
-                          break
-                      else:
-                          task()
-              else:
-                  # timeout
-                  inputstream.flush()
-                  callbacks.input_timeout()
-                  select_timeout = None
+                r, _, _ = select.select(
+                    [stdin.fileno(), self._schedule_pipe_read], [], [], select_timeout
+                )
+                if stdin.fileno() in r:
+                    select_timeout = INPUT_TIMEOUT
+                    data = stdin_reader.read()
+                    inputstream.feed(data)
+                    if stdin_reader.closed:
+                        break
+                elif self._schedule_pipe_read in r:
+                    os.read(self._schedule_pipe_read, 8192)
+                    while True:
+                        try:
+                            task = self._calls_from_executor.pop(0)
+                        except IndexError:
+                            break
+                        else:
+                            task()
+                else:
+                    # timeout
+                    inputstream.flush()
+                    callbacks.input_timeout()
+                    select_timeout = None
 
         self._callbacks = None
 
@@ -86,7 +87,7 @@ class PosixGeventEventLoop(EventLoop):
         """
         self._running = False
         try:
-            os.write(self._schedule_pipe_write,'x')
+            os.write(self._schedule_pipe_write, "x")
         except (AttributeError, IndexError, OSError):
             pass
 
@@ -115,10 +116,10 @@ class PosixGeventEventLoop(EventLoop):
         Stop watching the file descriptor for read availability.
         """
         fd = fd_to_int(fd)
-        task = self.readers.pop(fd,None)
+        task = self.readers.pop(fd, None)
         if task is not None:
             task.kill()
-        
+
     def run_in_executor(self, callback):
         """
         Run a long running function in a background thread. (This is
@@ -138,17 +139,21 @@ class PosixGeventEventLoop(EventLoop):
             repaint is done using low priority.)
         """
         if _max_postpone_until is None:
+
             def start_executor():
                 gevent.spawn(callback)
+
             self._calls_from_executor.append(start_executor)
         else:
+
             def postpone():
                 sleep_time = _max_postpone_until - time.time()
                 if sleep_time > 0:
                     gevent.sleep(sleep_time)
                 callback()
+
             self._calls_from_executor.append(postpone)
         try:
-            os.write(self._schedule_pipe_write, 'x')
+            os.write(self._schedule_pipe_write, "x")
         except (AttributeError, IndexError, OSError):
             pass

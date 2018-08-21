@@ -23,7 +23,6 @@ Cyril Guilloud ESRF BLISS  2016
 
 
 class PI_C663(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -50,7 +49,10 @@ class PI_C663(Controller):
                 print "zero"
                 elog.debug("*IDN? -> %r" % _ans)
         except:
-            self._status = "communication error : no PI C663 found on serial \"%s\"" % self.serial_line
+            self._status = (
+                'communication error : no PI C663 found on serial "%s"'
+                % self.serial_line
+            )
             print self._status
             elog.debug(self._status)
 
@@ -81,7 +83,6 @@ class PI_C663(Controller):
         else:
             print "axis '%s' is referenced." % axis.name
 
-
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
         """
@@ -90,11 +91,13 @@ class PI_C663(Controller):
         * Activates manual referencing mode.
         * Sets <current_pos> as current position.
         * Synchronizes axis position.
-        """ 
+        """
         elog.debug("custom axis initialization , current_pos=%g" % current_pos)
         self.send_no_ans(axis, "%d RON %s 0" % (axis.address, axis.axis_id))
         self._check_error(axis)
-        self.send_no_ans(axis, "%d POS %s %g" % (axis.address, axis.axis_id, current_pos))
+        self.send_no_ans(
+            axis, "%d POS %s %g" % (axis.address, axis.axis_id, current_pos)
+        )
         self._check_error(axis)
         axis.sync_hard()
 
@@ -104,6 +107,7 @@ class PI_C663(Controller):
     """
     ON / OFF
     """
+
     def set_on(self, axis):
         pass
 
@@ -115,31 +119,33 @@ class PI_C663(Controller):
         elog.debug("read_position = %f" % _ans)
         return _ans
 
+    #     def set_position(self, axis, new_pos):
+    #         """Set axis position to a new value given in motor units"""
+    #         elog.debug("set_position = %g" % new_pos)
+    #         #l = libicepap.PosList()
+    #         #l[axis.libaxis] = new_pos
+    #         #self.libgroup.pos(l)
+    #         #return self.read_position(axis)
 
-#     def set_position(self, axis, new_pos):
-#         """Set axis position to a new value given in motor units"""
-#         elog.debug("set_position = %g" % new_pos)
-#         #l = libicepap.PosList()
-#         #l[axis.libaxis] = new_pos
-#         #self.libgroup.pos(l)
-#         #return self.read_position(axis)
-
-
-#    def read_encoder(self, encoder):
-#        _ans = self._get_pos(encoder.axis)
-#        elog.debug("read_position measured = %f" % _ans)
-#        return _ans
+    #    def read_encoder(self, encoder):
+    #        _ans = self._get_pos(encoder.axis)
+    #        elog.debug("read_position measured = %f" % _ans)
+    #        return _ans
 
     """ VELOCITY """
+
     def read_velocity(self, axis):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
         elog.debug("set_velocity new_velocity = %f" % new_velocity)
-        self.send_no_ans(axis, "%d VEL %s %f" % (axis.address, axis.axis_id, new_velocity))
+        self.send_no_ans(
+            axis, "%d VEL %s %f" % (axis.address, axis.axis_id, new_velocity)
+        )
         return self.read_velocity(axis)
 
     """ ACCELERATION """
+
     def read_acceleration(self, axis):
         """Returns axis current acceleration in uu/sec2"""
         _acc = self._get_acceleration(axis)
@@ -151,6 +157,7 @@ class PI_C663(Controller):
         return self.read_acceleration(axis)
 
     """ STATE """
+
     def state(self, axis):
         elog.debug("in state(%s)" % axis.name)
 
@@ -164,12 +171,17 @@ class PI_C663(Controller):
             return AxisState("MOVING")
 
     """ MOVEMENTS """
+
     def prepare_move(self, motion):
         pass
 
     def start_one(self, motion):
         elog.debug("start_one target_pos = %g" % motion.target_pos)
-        self.send_no_ans(motion.axis, "%d MOV %s %g" % (motion.axis.address, motion.axis.axis_id, motion.target_pos))
+        self.send_no_ans(
+            motion.axis,
+            "%d MOV %s %g"
+            % (motion.axis.address, motion.axis.axis_id, motion.target_pos),
+        )
 
     def stop(self, axis):
         # to check : copy of current position into target position ???
@@ -193,19 +205,19 @@ class PI_C663(Controller):
         return _ans
 
     def get_id(self, axis):
-        return self.send(axis, "%d IDN?", axis.address )
-
+        return self.send(axis, "%d IDN?", axis.address)
 
     """
     C663 specific
     """
+
     def _get_velocity(self, axis):
         """
         Returns velocity read from controller. (physical unit/s)
         """
         try:
-            _ans = self.send(axis, "%d VEL?" %  axis.address)
-            _velocity = float(_ans.split('=')[1])
+            _ans = self.send(axis, "%d VEL?" % axis.address)
+            _velocity = float(_ans.split("=")[1])
         except:
             _velocity = 0
 
@@ -217,7 +229,7 @@ class PI_C663(Controller):
         """
         try:
             _ans = self.send(axis, "%d POS?" % axis.address)
-            _pos = float(_ans.split('=')[1])
+            _pos = float(_ans.split("=")[1])
         except:
             _pos = 0
 
@@ -229,7 +241,7 @@ class PI_C663(Controller):
         """
         try:
             _ans = self.send(axis, "%d ACC?" % axis.address)
-            _acc = float(_ans.split('=')[1])
+            _acc = float(_ans.split("=")[1])
         except:
             _acc = 0
 
@@ -248,7 +260,7 @@ class PI_C663(Controller):
         _ans = self.send(axis, "%d MOV?" % axis.address)
 
         # _ans should looks like "<axis_id>=-8.45709419e+01\n"
-        _pos = float(_ans.split('=')[1])
+        _pos = float(_ans.split("=")[1])
 
         return _pos
 
@@ -256,7 +268,7 @@ class PI_C663(Controller):
         _ans = self.send(axis, "%d ONT?" % axis.address)
         # print "_ans on target=", _ans
         # "0 1 M1=1"
-        _ans = _ans.split('=')[1]
+        _ans = _ans.split("=")[1]
 
         if _ans == "1":
             return True
@@ -276,12 +288,11 @@ class PI_C663(Controller):
         """
         try:
             _ans = self.send(axis, "%d FRF?" % axis.address)
-            _ref = int(_ans.split('=')[1])
+            _ref = int(_ans.split("=")[1])
         except:
             _ref = 0
 
         return _ref
-
 
     @object_method(types_info=("None", "None"))
     def reference_axis_ref_switch(self, axis):
@@ -339,14 +350,13 @@ class PI_C663(Controller):
         """
         _error_number = int(self.send(axis, "%d ERR?" % axis.address).split(" ")[2])
         _error_str = pi_gcs.get_error_str(_error_number)
-        return ("ERR %d : %s" % (_error_number, _error_str))
+        return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
         print "_check_error: axis %s got %s" % (axis.name, self._get_error(axis))
 
     def _stop(self):
         self.serial.write("STP\n")
-
 
     def send(self, axis, cmd):
         """
@@ -382,7 +392,7 @@ class PI_C663(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         """
-        elog.debug("cmd=\"%s\" " % cmd)
+        elog.debug('cmd="%s" ' % cmd)
         _cmd = cmd + "\n"
         self.serial.write(_cmd)
 
@@ -399,49 +409,50 @@ class PI_C663(Controller):
             _txt += _ans
 
         return _txt
+
     # result of this command:
 
-    # 0 1 The following parameters are valid: 
-    # 0xA=	0	1	FLOAT	motorcontroller	step velocity maximum 
-    # 0xB=	0	1	FLOAT	motorcontroller	step acceleration 
-    # 0xC=	0	1	FLOAT	motorcontroller	step deceleration 
-    # 0xE=	0	1	INT	motorcontroller	numerator 
-    # 0xF=	0	1	INT	motorcontroller	denominator 
-    # 0x13=	0	1	INT	motorcontroller	rotary stage	(0=no 1=yes) 
-    # 0x14=	0	1	INT	motorcontroller	has reference 
-    # 0x15=	0	1	FLOAT	motorcontroller	travel range maximum 
-    # 0x16=	0	1	FLOAT	motorcontroller	reference position 
-    # 0x17=	0	1	FLOAT	motorcontroller	distance between reference and negative limit 
-    # 0x18=	0	1	INT	motorcontroller	limit mode 
-    # 0x1A=	0	1	INT	motorcontroller	has brake 
-    # 0x2F=	0	1	FLOAT	motorcontroller	distance between reference and positive limit 
-    # 0x30=	0	1	FLOAT	motorcontroller	travel range minimum 
-    # 0x31=	0	1	INT	motorcontroller	invert reference 
-    # 0x32=	0	1	INT	motorcontroller	has limits	(0=limitswitchs 1=no limitswitchs) 
-    # 0x3C=	0	1	CHAR	motorcontroller	stage name 
-    # 0x40=	0	1	INT	motorcontroller	holding current 
-    # 0x41=	0	1	INT	motorcontroller	operating current 
-    # 0x42=	0	1	INT	motorcontroller	holding current delay 
-    # 0x47=	0	1	INT	motorcontroller	reference travel direction 
-    # 0x49=	0	1	FLOAT	motorcontroller	step velocity 
-    # 0x4A=	0	1	FLOAT	motorcontroller	step acceleration maximum 
-    # 0x4B=	0	1	FLOAT	motorcontroller	step deceleration maximum 
-    # 0x50=	0	1	FLOAT	motorcontroller	referencing velocity 
+    # 0 1 The following parameters are valid:
+    # 0xA=	0	1	FLOAT	motorcontroller	step velocity maximum
+    # 0xB=	0	1	FLOAT	motorcontroller	step acceleration
+    # 0xC=	0	1	FLOAT	motorcontroller	step deceleration
+    # 0xE=	0	1	INT	motorcontroller	numerator
+    # 0xF=	0	1	INT	motorcontroller	denominator
+    # 0x13=	0	1	INT	motorcontroller	rotary stage	(0=no 1=yes)
+    # 0x14=	0	1	INT	motorcontroller	has reference
+    # 0x15=	0	1	FLOAT	motorcontroller	travel range maximum
+    # 0x16=	0	1	FLOAT	motorcontroller	reference position
+    # 0x17=	0	1	FLOAT	motorcontroller	distance between reference and negative limit
+    # 0x18=	0	1	INT	motorcontroller	limit mode
+    # 0x1A=	0	1	INT	motorcontroller	has brake
+    # 0x2F=	0	1	FLOAT	motorcontroller	distance between reference and positive limit
+    # 0x30=	0	1	FLOAT	motorcontroller	travel range minimum
+    # 0x31=	0	1	INT	motorcontroller	invert reference
+    # 0x32=	0	1	INT	motorcontroller	has limits	(0=limitswitchs 1=no limitswitchs)
+    # 0x3C=	0	1	CHAR	motorcontroller	stage name
+    # 0x40=	0	1	INT	motorcontroller	holding current
+    # 0x41=	0	1	INT	motorcontroller	operating current
+    # 0x42=	0	1	INT	motorcontroller	holding current delay
+    # 0x47=	0	1	INT	motorcontroller	reference travel direction
+    # 0x49=	0	1	FLOAT	motorcontroller	step velocity
+    # 0x4A=	0	1	FLOAT	motorcontroller	step acceleration maximum
+    # 0x4B=	0	1	FLOAT	motorcontroller	step deceleration maximum
+    # 0x50=	0	1	FLOAT	motorcontroller	referencing velocity
 
-    # 0x5C=	0	1	INT	motorcontroller	DIO as REF 
-    # 0x5D=	0	1	INT	motorcontroller	DIO as NLIM 
-    # 0x5E=	0	1	INT	motorcontroller	DIO as PLIM 
-    # 0x5F=	0	1	INT	motorcontroller	invert DIO-NLIM 
-    # 0x60=	0	1	INT	motorcontroller	invert DIO-PLIM 
-    # 0x61=	0	1	INT	motorcontroller	invert joystick 
-    # 0x63=	0	1	FLOAT	motorcontroller	distance between limit and hard stop 
-    # 0x72=	0	1	INT	motorcontroller	macro ignore error 
-    # 0x9A=	0	1	INT	motorcontroller	external sensor numerator 
-    # 0x9B=	0	1	INT	motorcontroller	external sensor denominator 
+    # 0x5C=	0	1	INT	motorcontroller	DIO as REF
+    # 0x5D=	0	1	INT	motorcontroller	DIO as NLIM
+    # 0x5E=	0	1	INT	motorcontroller	DIO as PLIM
+    # 0x5F=	0	1	INT	motorcontroller	invert DIO-NLIM
+    # 0x60=	0	1	INT	motorcontroller	invert DIO-PLIM
+    # 0x61=	0	1	INT	motorcontroller	invert joystick
+    # 0x63=	0	1	FLOAT	motorcontroller	distance between limit and hard stop
+    # 0x72=	0	1	INT	motorcontroller	macro ignore error
+    # 0x9A=	0	1	INT	motorcontroller	external sensor numerator
+    # 0x9B=	0	1	INT	motorcontroller	external sensor denominator
 
-    # 0x7000601=	0	1	CHAR	motorcontroller	axis unit 
-    # 0x7000000=	0	1	FLOAT	motorcontroller	travel range minimum 
-    # 0x7000001=	0	1	FLOAT	motorcontroller	travel range maximum 
+    # 0x7000601=	0	1	CHAR	motorcontroller	axis unit
+    # 0x7000000=	0	1	FLOAT	motorcontroller	travel range minimum
+    # 0x7000001=	0	1	FLOAT	motorcontroller	travel range maximum
     # end of help
 
     def get_info(self, axis):
@@ -460,61 +471,265 @@ class PI_C663(Controller):
         _txt = ""
         _txt = _txt + "###############################\n"
         _txt = _txt + "id                 : " + self.send(axis, "*IDN?") + "\n"
-        _txt = _txt + "Firmware Ver.      : " + self.send(axis, "%d VER?" % axis.address) + "\n"
-        _txt = _txt + "Syntax Ver.        : " + self.send(axis, "%d CSV?" % axis.address) + "\n"
-        _txt = _txt + "axis ID            : " + self.send(axis, "%d SAI?" % axis.address) + "\n"
-        _txt = _txt + "error              : " + self.send(axis, "%d ERR?" % axis.address) + "\n"
-        _txt = _txt + "servo ON?          : " + self.send(axis, "%d SVO?" % axis.address) + "\n"
-        _txt = _txt + "Position           : " + self.send(axis, "%d POS?" % axis.address) + "\n"
-        _txt = _txt + "Target Pos         : " + self.send(axis, "%d MOV?" % axis.address) + "\n"
-        _txt = _txt + "On Target          : " + self.send(axis, "%d ONT?" % axis.address) + "\n"
-        _txt = _txt + "Velocity           : " + self.send(axis, "%d VEL?" % axis.address) + "\n"
-        _txt = _txt + "SVO?               : " + self.send(axis, "%d SVO?" % axis.address) + "\n"
-        _txt = _txt + "LIM?               : " + self.send(axis, "%d LIM?" % axis.address) + "\n"
-        _txt = _txt + "Brake?             : " + self.send(axis, "%d BRA?" % axis.address) + "\n"
-        _txt = _txt + "ref mode (RON?) 1:FRF or F(N/P)L : " + self.send(axis, "%d RON?" % axis.address) + "\n"
-        _txt = _txt + "referenced?           : " + self.send(axis, "%d FRF?" % axis.address) + "\n"
-        _txt = _txt + "has ref switch     : " + self.send(axis, "%d TRS?" % axis.address) + "\n"
-        _txt = _txt + "max velocity          : " + self.send(axis, "%d SPA? %s  0xA" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "acceleration          : " + self.send(axis, "%d SPA? %s  0xB" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "deceleration          : " + self.send(axis, "%d SPA? %s  0xC" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "cppu (num)            : " + self.send(axis, "%d SPA? %s  0xE" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "cppu (denom)          : " + self.send(axis, "%d SPA? %s  0xF" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "rotation              : " + self.send(axis, "%d SPA? %s 0x13" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "has built-in ref      : " + self.send(axis, "%d SPA? %s 0x14" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "MAX_TRAVEL_RANGE_POS  : " + self.send(axis, "%d SPA? %s 0x15" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "VALUE_AT_REF_POS      : " + self.send(axis, "%d SPA? %s 0x16" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "DISTANCE_REF_TO_N_LIM : " + self.send(axis, "%d SPA? %s 0x17" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "Axis limit mode       : " + self.send(axis, "%d SPA? %s 0x18" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "Has breake            : " + self.send(axis, "%d SPA? %s 0x1A" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "DISTANCE_REF_TO_P_LIM : " + self.send(axis, "%d SPA? %s 0x2F" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "MAX_TRAVEL_RANGE_NEG  : " + self.send(axis, "%d SPA? %s 0x30" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "invert ref            : " + self.send(axis, "%d SPA? %s 0x31" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "stage has limit sw.   : " + self.send(axis, "%d SPA? %s 0x32" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "stage name            : " + self.send(axis, "%d SPA? %s 0x3c" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "holding current(mA)   : " + self.send(axis, "%d SPA? %s 0x40" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "operating current(mA) : " + self.send(axis, "%d SPA? %s 0x41" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "holding current delay : " + self.send(axis, "%d SPA? %s 0x42" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "default dir. for ref. : " + self.send(axis, "%d SPA? %s 0x47" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "step velocity         : " + self.send(axis, "%d SPA? %s 0x49" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "max acceleration      : " + self.send(axis, "%d SPA? %s 0x4A" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "max deceleration      : " + self.send(axis, "%d SPA? %s 0x4B" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "velocity for ref move : " + self.send(axis, "%d SPA? %s 0x50" % (axis.address, axis.axis_id)) + "\n"
-        _txt = _txt + "axis unit             : " + self.send(axis, "%d SPA? %s 0x07000601" % (axis.address, axis.axis_id)) + "\n"
+        _txt = (
+            _txt
+            + "Firmware Ver.      : "
+            + self.send(axis, "%d VER?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Syntax Ver.        : "
+            + self.send(axis, "%d CSV?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "axis ID            : "
+            + self.send(axis, "%d SAI?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "error              : "
+            + self.send(axis, "%d ERR?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "servo ON?          : "
+            + self.send(axis, "%d SVO?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Position           : "
+            + self.send(axis, "%d POS?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Target Pos         : "
+            + self.send(axis, "%d MOV?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "On Target          : "
+            + self.send(axis, "%d ONT?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Velocity           : "
+            + self.send(axis, "%d VEL?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "SVO?               : "
+            + self.send(axis, "%d SVO?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "LIM?               : "
+            + self.send(axis, "%d LIM?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Brake?             : "
+            + self.send(axis, "%d BRA?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "ref mode (RON?) 1:FRF or F(N/P)L : "
+            + self.send(axis, "%d RON?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "referenced?           : "
+            + self.send(axis, "%d FRF?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "has ref switch     : "
+            + self.send(axis, "%d TRS?" % axis.address)
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "max velocity          : "
+            + self.send(axis, "%d SPA? %s  0xA" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "acceleration          : "
+            + self.send(axis, "%d SPA? %s  0xB" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "deceleration          : "
+            + self.send(axis, "%d SPA? %s  0xC" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "cppu (num)            : "
+            + self.send(axis, "%d SPA? %s  0xE" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "cppu (denom)          : "
+            + self.send(axis, "%d SPA? %s  0xF" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "rotation              : "
+            + self.send(axis, "%d SPA? %s 0x13" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "has built-in ref      : "
+            + self.send(axis, "%d SPA? %s 0x14" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "MAX_TRAVEL_RANGE_POS  : "
+            + self.send(axis, "%d SPA? %s 0x15" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "VALUE_AT_REF_POS      : "
+            + self.send(axis, "%d SPA? %s 0x16" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "DISTANCE_REF_TO_N_LIM : "
+            + self.send(axis, "%d SPA? %s 0x17" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Axis limit mode       : "
+            + self.send(axis, "%d SPA? %s 0x18" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "Has breake            : "
+            + self.send(axis, "%d SPA? %s 0x1A" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "DISTANCE_REF_TO_P_LIM : "
+            + self.send(axis, "%d SPA? %s 0x2F" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "MAX_TRAVEL_RANGE_NEG  : "
+            + self.send(axis, "%d SPA? %s 0x30" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "invert ref            : "
+            + self.send(axis, "%d SPA? %s 0x31" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "stage has limit sw.   : "
+            + self.send(axis, "%d SPA? %s 0x32" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "stage name            : "
+            + self.send(axis, "%d SPA? %s 0x3c" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "holding current(mA)   : "
+            + self.send(axis, "%d SPA? %s 0x40" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "operating current(mA) : "
+            + self.send(axis, "%d SPA? %s 0x41" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "holding current delay : "
+            + self.send(axis, "%d SPA? %s 0x42" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "default dir. for ref. : "
+            + self.send(axis, "%d SPA? %s 0x47" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "step velocity         : "
+            + self.send(axis, "%d SPA? %s 0x49" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "max acceleration      : "
+            + self.send(axis, "%d SPA? %s 0x4A" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "max deceleration      : "
+            + self.send(axis, "%d SPA? %s 0x4B" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "velocity for ref move : "
+            + self.send(axis, "%d SPA? %s 0x50" % (axis.address, axis.axis_id))
+            + "\n"
+        )
+        _txt = (
+            _txt
+            + "axis unit             : "
+            + self.send(axis, "%d SPA? %s 0x07000601" % (axis.address, axis.axis_id))
+            + "\n"
+        )
 
         _txt = _txt + "###############################\n"
 
         return _txt
 
-
-# ###  TAD[1]==131071  => broken cable ??
-# 131071 = pow(2,17)-1
+        # ###  TAD[1]==131071  => broken cable ??
+        # 131071 = pow(2,17)-1
 
         return _txt
 
 
 # After init with PI MikroMove  AXIS M1  BM32
-# 
+#
 # ###############################
 # id                 : (c)2013 Physik Instrumente(PI) Karlsruhe, C-663.11,0,1.2.1.0
 # Firmware Ver.      : 0 1 FW_DSP: V1.2.1.0

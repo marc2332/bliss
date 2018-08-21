@@ -12,7 +12,7 @@ from .session import get_current as _current_session
 
 class _active_mg_proxy(object):
     def __getattribute__(self, attr):
-        if attr == '__class__':
+        if attr == "__class__":
             return MeasurementGroup
         return getattr(get_active(), attr)
 
@@ -31,18 +31,22 @@ def get_all():
     Return a list of all measurement groups found in the global environment.
     Exclude one instance of ACTIVE_MG to avoid to return duplicated ACTIVE_MG.
     """
-    return [x
-            for x in setup_globals.__dict__.values()
-            if isinstance(x, MeasurementGroup) and x != ACTIVE_MG]
+    return [
+        x
+        for x in setup_globals.__dict__.values()
+        if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
+    ]
 
 
 def get_all_names():
     """
     Return a list of all measurement groups NAMES found in the global environment.
     """
-    return [x.name
-            for x in setup_globals.__dict__.values()
-            if isinstance(x, MeasurementGroup) and x != ACTIVE_MG]
+    return [
+        x.name
+        for x in setup_globals.__dict__.values()
+        if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
+    ]
 
 
 def get_active():
@@ -77,10 +81,8 @@ def get_active_name():
     * !! this is only the name, the MG object may not exist.
     """
     session = _current_session()
-    session_name = session.name if session is not None else 'unnamed'
-    active_mg_name = settings.SimpleSetting(
-        '%s:active_measurementgroup' %
-        session_name)
+    session_name = session.name if session is not None else "unnamed"
+    active_mg_name = settings.SimpleSetting("%s:active_measurementgroup" % session_name)
     return active_mg_name.get()
 
 
@@ -91,9 +93,8 @@ def set_active_name(name):
         raise ValueError
 
     session = _current_session()
-    session_name = session.name if session is not None else 'unnamed'
-    active_mg_name = settings.SimpleSetting('%s:active_measurementgroup' %
-                                            session_name)
+    session_name = session.name if session is not None else "unnamed"
+    active_mg_name = settings.SimpleSetting("%s:active_measurementgroup" % session_name)
     active_mg_name.set(name)
 
 
@@ -111,14 +112,15 @@ class MeasurementGroup(object):
         self.__name = name
         self.__config = config_tree
 
-        counters_list = config_tree.get('counters')
+        counters_list = config_tree.get("counters")
         if counters_list is None:
             raise ValueError("MeasurementGroup: should have a counters list")
         self._available_counters = list(counters_list)
 
         # Current State
         self._current_state = settings.SimpleSetting(
-            '%s' % name, default_value='default')
+            "%s" % name, default_value="default"
+        )
 
         # list of states ; at least one "default" state
         self._all_states = settings.QueueSetting("%s:MG_states" % name)
@@ -149,7 +151,7 @@ class MeasurementGroup(object):
 
     def disabled_setting(self):
         # key is : "<MG name>:<state_name>"  ex : "MG1:default"
-        _key = '%s:%s' % (self.name, self._current_state.get())
+        _key = "%s:%s" % (self.name, self._current_state.get())
         return settings.QueueSetting(_key)
 
     def disable(self, *counters):
@@ -181,9 +183,7 @@ class MeasurementGroup(object):
         return [cname for cname in self.available if cname not in self.disabled]
 
     def enable(self, *counters):
-        counters_names = [
-            c if isinstance(c, str) else c.name
-            for c in counters]
+        counters_names = [c if isinstance(c, str) else c.name for c in counters]
 
         to_enable = set(counters_names)
         disabled = set(self.disabled)
@@ -234,37 +234,36 @@ class MeasurementGroup(object):
         state_names = ['repare', 'bidouille']
         result : ['def', 'align']
         """
-        if 'default' in state_names:
+        if "default" in state_names:
             raise ValueError("Cannot remove 'default' state")
 
         if self._current_state.get() in state_names:
-            self.switch_state('default')
+            self.switch_state("default")
 
         states_list_old = self._all_states.get()
 
-        states_list_new = [sn for sn in states_list_old
-                           if sn not in state_names]
+        states_list_new = [sn for sn in states_list_old if sn not in state_names]
         self._all_states.set(states_list_new)
 
     def __repr__(self):
         """ function used when printing a measurement group.
         """
-        s = "MeasurementGroup: %s (state='%s')\n" % (
-            self.name, self.active_state_name)
+        s = "MeasurementGroup: %s (state='%s')\n" % (self.name, self.active_state_name)
         s += "  - Existing states : "
         for name in self.state_names:
-            s += "'%s'" % name + '; '
-        s = s.strip('; ')
-        s += '\n\n'
+            s += "'%s'" % name + "; "
+        s = s.strip("; ")
+        s += "\n\n"
 
-        enabled = list(self.enabled) + ['Enabled']
+        enabled = list(self.enabled) + ["Enabled"]
 
         max_len = max((len(x) for x in enabled))
-        str_format = '  %-' + '%ds' % max_len + '  %s\n'
-        s += str_format % ('Enabled', 'Disabled')
-        s += str_format % ('-' * max_len, '-' * max_len)
+        str_format = "  %-" + "%ds" % max_len + "  %s\n"
+        s += str_format % ("Enabled", "Disabled")
+        s += str_format % ("-" * max_len, "-" * max_len)
         for enable, disable in itertools.izip_longest(
-                self.enabled, self.disabled, fillvalue=''):
+            self.enabled, self.disabled, fillvalue=""
+        ):
             s += str_format % (enable, disable)
         return s
 
@@ -272,16 +271,14 @@ class MeasurementGroup(object):
         """
         Add counter(s) in measurement group, and enable them
         """
-        counters_names = [
-            c if isinstance(c, str) else c.name
-            for c in cnt_or_names]
+        counters_names = [c if isinstance(c, str) else c.name for c in cnt_or_names]
 
         to_enable = set(counters_names)
         new_cnt = to_enable.difference(set(self.available))
 
         self._available_counters.extend(new_cnt)
-        self.__config['counters'] = self._available_counters
-        
+        self.__config["counters"] = self._available_counters
+
         self.enable(*new_cnt)
 
         self.__config.save()
@@ -290,16 +287,12 @@ class MeasurementGroup(object):
         """
         Remove counters from measurement group
         """
-        counters_names = [
-            c if isinstance(c, str) else c.name
-            for c in cnt_or_names]
+        counters_names = [c if isinstance(c, str) else c.name for c in cnt_or_names]
 
         for cnt in counters_names:
             if cnt in self._available_counters:
                 self._available_counters.remove(cnt)
 
-        self.__config['counters'] = self._available_counters
+        self.__config["counters"] = self._available_counters
 
         self.__config.save()
-
-

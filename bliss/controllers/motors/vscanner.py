@@ -27,7 +27,6 @@ Mon 17 Nov 2014 16:53:47
 
 
 class VSCANNER(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
         self._status = "uninitialized"
@@ -43,9 +42,11 @@ class VSCANNER(Controller):
         except ValueError:
             try:
                 serial_line = self.config.get("serial_line")
-                warn("'serial_line' keyword is deprecated. Use 'serial' instead",
-                     DeprecationWarning)
-                comm_cfg = {'serial': {'url': serial_line } }
+                warn(
+                    "'serial_line' keyword is deprecated. Use 'serial' instead",
+                    DeprecationWarning,
+                )
+                comm_cfg = {"serial": {"url": serial_line}}
                 self.serial = get_comm(comm_cfg, timeout=1)
             except:
                 self._status = "Cannot find serial configuration"
@@ -62,15 +63,22 @@ class VSCANNER(Controller):
             elog.error(self._status)
         except:
             _ans = "no ans"
-            self._status = "communication error : cannot communicate with serial \"%s\"" % self.serial
+            self._status = (
+                'communication error : cannot communicate with serial "%s"'
+                % self.serial
+            )
             elog.error(self._status)
             traceback.print_exc()
 
         try:
             _ans.index("VSCANNER")
-            self._status += "VSCANNER found (substring VSCANNER found in answer to ?VER)."
+            self._status += (
+                "VSCANNER found (substring VSCANNER found in answer to ?VER)."
+            )
         except:
-            self._status = "communication error : no VSCANNER found on serial \"%s\"" % self.serial
+            self._status = (
+                'communication error : no VSCANNER found on serial "%s"' % self.serial
+            )
 
         elog.debug(self._status)
 
@@ -189,7 +197,12 @@ class VSCANNER(Controller):
 
             number_of_pixel = 1
             line_mode = "C"  # mode continuous (S for stepping)
-            _cmd = "LINE %g %g %d %s" % (scan_val1, scan_val2, number_of_pixel, line_mode)
+            _cmd = "LINE %g %g %d %s" % (
+                scan_val1,
+                scan_val2,
+                number_of_pixel,
+                line_mode,
+            )
             elog.debug("_cmd_LINE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
@@ -266,8 +279,10 @@ class VSCANNER(Controller):
         _txt = _txt + "unit state         : " + self.send(axis, "?STATE") + "\n"
         _txt = _txt + "###############################\n"
         self.send_no_ans(axis, "?INFO")
-        _txt = _txt + "    %s  \n%s\n" % ("Communication parameters",
-                                          " ".join(self.serial.readlines()))
+        _txt = _txt + "    %s  \n%s\n" % (
+            "Communication parameters",
+            " ".join(self.serial.readlines()),
+        )
         _txt = _txt + "###############################\n"
 
         return _txt
@@ -275,6 +290,7 @@ class VSCANNER(Controller):
     """
     VSCANNER Com
     """
+
     def send(self, axis, cmd):
         """
         - Adds the 'newline' terminator character : "\\\\r\\\\n"
@@ -317,4 +333,3 @@ class VSCANNER(Controller):
         elog.debug("send_no_ans : cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd)
-

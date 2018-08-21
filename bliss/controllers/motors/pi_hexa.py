@@ -40,9 +40,10 @@ config example:
       channel: W
 """
 
+
 class PI_HEXA(Controller):
-    COMMAND = enum.Enum('PI_HEXA.COMMAND',
-                        'POSITIONS MOVE_STATE MOVE_SEP INIT')
+    COMMAND = enum.Enum("PI_HEXA.COMMAND", "POSITIONS MOVE_STATE MOVE_SEP INIT")
+
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -55,39 +56,47 @@ class PI_HEXA(Controller):
         Initialize the communication to the hexapod controller
         """
         comm_type = get_comm_type(self.config.config_dict)
-        comm_option = {'timeout':30.}
+        comm_option = {"timeout": 30.}
         if comm_type == TCP:
-            comm_option['ctype'] = TCP
-            comm_option.setdefault('port', 50000)
-            controler_model = self.config.get('model', int, 887)
+            comm_option["ctype"] = TCP
+            comm_option.setdefault("port", 50000)
+            controler_model = self.config.get("model", int, 887)
         elif comm_type == SERIAL:
-            comm_option.setdefault('baudrate', 57600)
-            comm_option['ctype'] = SERIAL
-            controler_model = self.config.get('model', int, 850)
+            comm_option.setdefault("baudrate", 57600)
+            comm_option["ctype"] = SERIAL
+            controler_model = self.config.get("model", int, 850)
         else:
-            raise ValueError("PI_HEXA: communication of type (%s) "
-                             "not yet managed" % comm_type)
+            raise ValueError(
+                "PI_HEXA: communication of type (%s) " "not yet managed" % comm_type
+            )
 
         model_list = [850, 887]
         if controler_model not in model_list:
-            raise ValueError("PI_HEXA: model %r not managed,"
-                             "only managed model %r" % (controler_model, model_list))
+            raise ValueError(
+                "PI_HEXA: model %r not managed,"
+                "only managed model %r" % (controler_model, model_list)
+            )
         self.controler_model = controler_model
 
         self._cnx = get_comm(self.config.config_dict, **comm_option)
 
-        commands = {850 : {self.COMMAND.POSITIONS : "POS?",
-#                           self.COMMAND.MOVE_STATE : ("MOV?", lambda x: 0 if x == '1' else 1),
-                           self.COMMAND.MOVE_STATE : ("\5", lambda x: int(x)),
-                           self.COMMAND.MOVE_SEP : "",
-                           self.COMMAND.INIT : "INI X"},
-                    887 : {self.COMMAND.POSITIONS : "\3",
-                           self.COMMAND.MOVE_STATE : ("\5", lambda x: int(x)),
-                           self.COMMAND.MOVE_SEP : " ",
-                           self.COMMAND.INIT : "FRF X"}}
+        commands = {
+            850: {
+                self.COMMAND.POSITIONS: "POS?",
+                #                           self.COMMAND.MOVE_STATE : ("MOV?", lambda x: 0 if x == '1' else 1),
+                self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x)),
+                self.COMMAND.MOVE_SEP: "",
+                self.COMMAND.INIT: "INI X",
+            },
+            887: {
+                self.COMMAND.POSITIONS: "\3",
+                self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x)),
+                self.COMMAND.MOVE_SEP: " ",
+                self.COMMAND.INIT: "FRF X",
+            },
+        }
 
         self._commands = commands[controler_model]
-
 
     def finalize(self):
         if self._cnx is not None:
@@ -123,8 +132,12 @@ class PI_HEXA(Controller):
 
     def start_all(self, *motions):
         sep = self._commands[self.COMMAND.MOVE_SEP]
-        cmd = 'MOV ' + ' '.join(['%s%s%g' % (motion.axis.channel, sep, motion.target_pos)\
-                                 for motion in motions])
+        cmd = "MOV " + " ".join(
+            [
+                "%s%s%g" % (motion.axis.channel, sep, motion.target_pos)
+                for motion in motions
+            ]
+        )
         self.command(cmd)
         self._check_error_and_raise()
 
@@ -134,18 +147,18 @@ class PI_HEXA(Controller):
     def stop_all(self, *motions):
         self.command("STP")
 
-    def command(self, cmd, nb_line=None,**kwargs):
+    def command(self, cmd, nb_line=None, **kwargs):
         """
         Send raw command to the controller
         """
         cmd = cmd.strip()
-        need_reply = cmd.find('?') > -1 if nb_line is None else nb_line
+        need_reply = cmd.find("?") > -1 if nb_line is None else nb_line
         if need_reply:
             if nb_line > 1:
-                return self._cnx.write_readlines(cmd + '\n', nb_line, **kwargs)
+                return self._cnx.write_readlines(cmd + "\n", nb_line, **kwargs)
             else:
-                return self._cnx.write_readline(cmd + '\n', **kwargs)
-        return self._cnx.write(cmd + '\n')
+                return self._cnx.write_readline(cmd + "\n", **kwargs)
+        return self._cnx.write(cmd + "\n")
 
     def home_search(self, axis, switch):
         init_cmd = self._commands[self.COMMAND.INIT]
@@ -157,7 +170,7 @@ class PI_HEXA(Controller):
         answer = self.command(cmd, nb_line=6)
         positions = dict()
         try:
-            for channel_name, ans in zip(['%s=' % x for x in 'XYZUVW'], answer):
+            for channel_name, ans in zip(["%s=" % x for x in "XYZUVW"], answer):
                 if not ans.startswith(channel_name):
                     raise RuntimeError("PI_HEXA: error parsing position answer")
                 positions[channel_name[0]] = float(ans[2:])
@@ -167,8 +180,8 @@ class PI_HEXA(Controller):
         else:
             return positions
 
-    def _check_error_and_raise(self,**kwargs):
-        err = int(self.command("ERR?",**kwargs))
+    def _check_error_and_raise(self, **kwargs):
+        err = int(self.command("ERR?", **kwargs))
         if err > 0:
             human_error = get_error_str(err)
             errors = [self.name, err, human_error]

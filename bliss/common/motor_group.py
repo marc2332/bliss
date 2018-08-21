@@ -32,8 +32,8 @@ def Group(*axes_list):
     g = _Group("group_%d" % gid, axes)
     return g
 
-class _Group(object):
 
+class _Group(object):
     def __init__(self, name, axes_dict):
         self.__name = name
         self._group_move = GroupMove(self)
@@ -69,22 +69,23 @@ class _Group(object):
         if self.is_moving:
             return AxisState("MOVING")
         grp_state = AxisState("READY")
-        for i, (name, state) in enumerate([(axis.name, axis.state())
-                                           for axis in self._axes.itervalues()]):
+        for i, (name, state) in enumerate(
+            [(axis.name, axis.state()) for axis in self._axes.itervalues()]
+        ):
             if state.MOVING:
-                new_state = "MOVING"+" "*i
+                new_state = "MOVING" + " " * i
                 grp_state.create_state(
-                    new_state, "%s: %s" %
-                    (name, grp_state._state_desc["MOVING"]))
+                    new_state, "%s: %s" % (name, grp_state._state_desc["MOVING"])
+                )
                 grp_state.set("MOVING")
                 grp_state.set(new_state)
             for axis_state in state._current_states:
                 if axis_state == "READY":
                     continue
-                new_state = axis_state+" "*i
+                new_state = axis_state + " " * i
                 grp_state.create_state(
-                    new_state, "%s: %s" %
-                    (name, state._state_desc[axis_state]))
+                    new_state, "%s: %s" % (name, state._state_desc[axis_state])
+                )
                 grp_state.set(new_state)
         return grp_state
 
@@ -134,7 +135,9 @@ class _Group(object):
             motions_dict,
             self._start_one_controller_motions,
             self._stop_one_controller_motions,
-            wait=wait, polling_time=polling_time)
+            wait=wait,
+            polling_time=polling_time,
+        )
 
     def wait_move(self):
         self._group_move.wait()
@@ -149,7 +152,7 @@ class TrajectoryGroup(object):
     """
 
     def __init__(self, *trajectories, **kwargs):
-        calc_axis = kwargs.pop('calc_axis', None)
+        calc_axis = kwargs.pop("calc_axis", None)
         self.__trajectories = trajectories
         self.__trajectories_dialunit = None
         self.__group = Group(*self.axes)
@@ -195,8 +198,8 @@ class TrajectoryGroup(object):
         """
         try:
             self.__disabled_axes.remove(axis)
-        except KeyError:        # was already enable
-            pass                # should we raise?
+        except KeyError:  # was already enable
+            pass  # should we raise?
 
     @property
     def calc_axis(self):
@@ -212,8 +215,7 @@ class TrajectoryGroup(object):
             for traj in self.__trajectories_dialunit:
                 if traj.axis in self.__disabled_axes:
                     continue
-                tlist = controller_trajectories.setdefault(
-                    traj.axis.controller, [])
+                tlist = controller_trajectories.setdefault(traj.axis.controller, [])
                 tlist.append(traj)
         return controller_trajectories
 
@@ -234,8 +236,10 @@ class TrajectoryGroup(object):
                 trajectories.append(trajectory.convert_to_dial())
             self.__trajectories_dialunit = trajectories
 
-        prepare = [gevent.spawn(controller._prepare_trajectory, *trajectories)
-                   for controller, trajectories in self.trajectories_by_controller.iteritems()]
+        prepare = [
+            gevent.spawn(controller._prepare_trajectory, *trajectories)
+            for controller, trajectories in self.trajectories_by_controller.iteritems()
+        ]
         try:
             gevent.joinall(prepare, raise_error=True)
         except:
@@ -263,7 +267,7 @@ class TrajectoryGroup(object):
         motions_dict = {}
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
-            final_pos = pvt['position'][0]
+            final_pos = pvt["position"][0]
             motion = trajectory.axis.prepare_move(final_pos)
             if not motion:
                 # already at final pos
@@ -278,7 +282,8 @@ class TrajectoryGroup(object):
             self._move_to_trajectory,
             self._stop_trajectory,
             wait=wait,
-            polling_time=polling_time)
+            polling_time=polling_time,
+        )
 
     def move_to_end(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
@@ -289,9 +294,8 @@ class TrajectoryGroup(object):
         motions_dict = {}
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
-            final_pos = pvt['position'][-1]
-            motion = trajectory.axis.prepare_move(final_pos,
-                                                  trajectory=True)
+            final_pos = pvt["position"][-1]
+            motion = trajectory.axis.prepare_move(final_pos, trajectory=True)
             if not motion:
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)
@@ -301,7 +305,8 @@ class TrajectoryGroup(object):
             self._start_trajectory,
             self._stop_trajectory,
             wait=wait,
-            polling_time=polling_time)
+            polling_time=polling_time,
+        )
 
     def stop(self, wait=True):
         """

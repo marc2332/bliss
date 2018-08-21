@@ -49,13 +49,14 @@ import functools
 import numpy
 import mock
 import warnings
-warnings.simplefilter('once', DeprecationWarning)
+
+warnings.simplefilter("once", DeprecationWarning)
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
 
-class GroupMove(object):
 
+class GroupMove(object):
     def __init__(self, parent=None):
         self.parent = parent
         self._move_task = None
@@ -67,11 +68,25 @@ class GroupMove(object):
         # A greenlet evaluates to True when not dead
         return bool(self._move_task)
 
-    def move(self, motions_dict, start_motion, stop_motion,
-             move_func=None, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def move(
+        self,
+        motions_dict,
+        start_motion,
+        stop_motion,
+        move_func=None,
+        wait=True,
+        polling_time=DEFAULT_POLLING_TIME,
+    ):
         started = gevent.event.Event()
         self._move_task = gevent.spawn(
-            self._move, motions_dict, start_motion, stop_motion, move_func, started, polling_time)
+            self._move,
+            motions_dict,
+            start_motion,
+            stop_motion,
+            move_func,
+            started,
+            polling_time,
+        )
 
         # Wait for the move to be started (or finished)
         gevent.wait([started, self._move_task], count=1)
@@ -96,8 +111,10 @@ class GroupMove(object):
         for controller, motions in motions_dict.iteritems():
             for motion in motions:
                 if move_func is None:
-                    move_func = "_handle_move" 
-                task = gevent.spawn(getattr(motion.axis, move_func), motion, polling_time)
+                    move_func = "_handle_move"
+                task = gevent.spawn(
+                    getattr(motion.axis, move_func), motion, polling_time
+                )
                 monitor_move.append(task)
         # Stop at first exception, and kill all the remaining tasks
         try:
@@ -129,7 +146,15 @@ class GroupMove(object):
             with exception_capture():
                 task.get()
 
-    def _move(self, motions_dict, start_motion, stop_motion, move_func, started_event, polling_time):
+    def _move(
+        self,
+        motions_dict,
+        start_motion,
+        stop_motion,
+        move_func,
+        started_event,
+        polling_time,
+    ):
         # Set axis moving state
         for motions in motions_dict.itervalues():
             for motion in motions:
@@ -140,8 +165,10 @@ class GroupMove(object):
         with capture_exceptions(raise_index=0) as capture:
             try:
                 # Spawn start motion for all controllers
-                start = [gevent.spawn(start_motion, controller, motions)
-                         for controller, motions in motions_dict.iteritems()]
+                start = [
+                    gevent.spawn(start_motion, controller, motions)
+                    for controller, motions in motions_dict.iteritems()
+                ]
 
                 # Wait for the controllers to be started
                 with capture():
@@ -154,7 +181,7 @@ class GroupMove(object):
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
                     return
- 
+
                 # All the controllers are now started
                 started_event.set()
 
@@ -193,14 +220,16 @@ class GroupMove(object):
                 # of pseudo axis)
                 # -- jog move is a special case
                 sync_hard = bool(capture.failed)
-                if len(motions_dict) == 1: 
+                if len(motions_dict) == 1:
                     motion = motions_dict[motions_dict.keys().pop()][0]
-                    if motion.type == 'jog':
+                    if motion.type == "jog":
                         sync_hard = False
-                        motion.axis._jog_cleanup(motion.saved_velocity, motion.reset_position)
-                    elif motion.type == 'homing':
+                        motion.axis._jog_cleanup(
+                            motion.saved_velocity, motion.reset_position
+                        )
+                    elif motion.type == "homing":
                         sync_hard = True
-                    elif motion.type == 'limit_search':
+                    elif motion.type == "limit_search":
                         sync_hard = True
                 if sync_hard:
                     with capture():
@@ -240,7 +269,7 @@ def get_axis(name):
 
 def get_motion_hook(name):
     cfg = get_config()
-    if name.startswith('$'):
+    if name.startswith("$"):
         name = name[1:]
     hook = cfg.get(name)
     if not isinstance(hook, MotionHook):
@@ -303,9 +332,10 @@ class Trajectory(object):
         """
         self.__axis = axis
         self.__pvt = pvt
-        self._events_positions = numpy.empty(0, dtype=[('position', 'f8'), ('velocity', 'f8'),
-                                                       ('time', 'f8')])
-        
+        self._events_positions = numpy.empty(
+            0, dtype=[("position", "f8"), ("velocity", "f8"), ("time", "f8")]
+        )
+
     @property
     def axis(self):
         return self.__axis
@@ -317,10 +347,11 @@ class Trajectory(object):
     @property
     def events_positions(self):
         return self._events_positions
+
     @events_positions.setter
     def events_positions(self, events):
         self._events_positions = events
- 
+
     def has_events(self):
         return self._events_positions.size
 
@@ -331,20 +362,20 @@ class Trajectory(object):
         """
         Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
         """
-        user_pos = self.__pvt['position']
-        user_velocity = self.__pvt['velocity']
+        user_pos = self.__pvt["position"]
+        user_velocity = self.__pvt["velocity"]
         pvt = numpy.copy(self.__pvt)
-        pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
-        pvt['velocity'] *= self.axis.steps_per_unit
+        pvt["position"] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
+        pvt["velocity"] *= self.axis.steps_per_unit
         new_obj = self.__class__(self.axis, pvt)
         pattern_evts = numpy.copy(self._events_positions)
-        pattern_evts['position'] *= self.axis.steps_per_unit
-        pattern_evts['velocity'] *= self.axis.steps_per_unit
+        pattern_evts["position"] *= self.axis.steps_per_unit
+        pattern_evts["velocity"] *= self.axis.steps_per_unit
         new_obj._events_positions = pattern_evts
         return new_obj
 
-class CyclicTrajectory(Trajectory):
 
+class CyclicTrajectory(Trajectory):
     def __init__(self, axis, pvt, nb_cycles=1, origin=0):
         """
         Args:
@@ -363,6 +394,7 @@ class CyclicTrajectory(Trajectory):
     @property
     def events_pattern_positions(self):
         return super(CyclicTrajectory, self).events_positions
+
     @events_pattern_positions.setter
     def events_pattern_positions(self, values):
         self._events_positions = values
@@ -371,8 +403,10 @@ class CyclicTrajectory(Trajectory):
     def is_closed(self):
         """True if the trajectory is closed (first point == last point)"""
         pvt = self.pvt_pattern
-        return pvt['time'][0] == 0 and \
-            pvt['position'][0] == pvt['position'][len(self.pvt_pattern)-1]
+        return (
+            pvt["time"][0] == 0
+            and pvt["position"][0] == pvt["position"][len(self.pvt_pattern) - 1]
+        )
 
     @property
     def pvt(self):
@@ -392,17 +426,17 @@ class CyclicTrajectory(Trajectory):
         pvt = numpy.empty(size, dtype=raw_pvt.dtype)
         last_time, last_position = 0, self.origin
         for cycle in range(self.nb_cycles):
-            start = cycle_size*cycle + offset
+            start = cycle_size * cycle + offset
             end = start + cycle_size
             pvt[start:end] = raw_pvt
-            pvt['time'][start:end] += last_time
-            last_time = pvt['time'][end-1]
-            pvt['position'][start:end] += last_position
-            last_position = pvt['position'][end-1]
+            pvt["time"][start:end] += last_time
+            last_time = pvt["time"][end - 1]
+            pvt["position"][start:end] += last_position
+            last_position = pvt["position"][end - 1]
 
         if self.is_closed:
-            pvt['time'][0] = pvt_pattern['time'][0]
-            pvt['position'][0] = pvt_pattern['position'][0] + self.origin
+            pvt["time"][0] = pvt_pattern["time"][0]
+            pvt["position"][0] = pvt_pattern["position"][0] + self.origin
 
         return pvt
 
@@ -410,15 +444,17 @@ class CyclicTrajectory(Trajectory):
     def events_positions(self):
         pattern_evts = self.events_pattern_positions
         time_offset = 0.
-        last_time = self.pvt_pattern['time'][-1]
+        last_time = self.pvt_pattern["time"][-1]
         nb_pattern_evts = len(pattern_evts)
-        all_events = numpy.empty(self.nb_cycles * len(pattern_evts),
-                                 dtype=pattern_evts.dtype)
+        all_events = numpy.empty(
+            self.nb_cycles * len(pattern_evts), dtype=pattern_evts.dtype
+        )
         for i in range(self.nb_cycles):
-            sub_evts = all_events[i*nb_pattern_evts:
-                                  i*nb_pattern_evts+nb_pattern_evts]
+            sub_evts = all_events[
+                i * nb_pattern_evts : i * nb_pattern_evts + nb_pattern_evts
+            ]
             sub_evts[:] = pattern_evts
-            sub_evts['time'] += time_offset
+            sub_evts["time"] += time_offset
             time_offset += last_time
         return all_events
 
@@ -465,6 +501,7 @@ def lazy_init(func):
     def func_wrapper(self, *args, **kwargs):
         self.controller._initialize_axis(self)
         return func(self, *args, **kwargs)
+
     return func_wrapper
 
 
@@ -487,7 +524,7 @@ class Axis(object):
         self.__move_done.set()
         self.__move_done_callback.set()
         motion_hooks = []
-        for hook_ref in config.get('motion_hooks', ()):
+        for hook_ref in config.get("motion_hooks", ()):
             hook = get_motion_hook(hook_ref)
             hook.add_axis(self)
             motion_hooks.append(hook)
@@ -542,7 +579,7 @@ class Axis(object):
         offset = self.settings.get("offset")
         if offset is None:
             offset = 0
-            self.settings.set('offset', 0)
+            self.settings.set("offset", 0)
         return offset
 
     @property
@@ -702,8 +739,9 @@ class Axis(object):
             return dial_pos
 
         if self.is_moving:
-            raise RuntimeError("%s: can't set axis dial position "
-                               "while moving" % self.name)
+            raise RuntimeError(
+                "%s: can't set axis dial position " "while moving" % self.name
+            )
 
         return self.__do_set_dial(new_dial, no_offset=self.no_offset)
 
@@ -734,8 +772,9 @@ class Axis(object):
             return pos
 
         if self.is_moving:
-            raise RuntimeError("%s: can't set axis user position "
-                               "while moving" % self.name)
+            raise RuntimeError(
+                "%s: can't set axis user position " "while moving" % self.name
+            )
 
         return self.__do_set_position(new_pos, self.no_offset)
 
@@ -751,8 +790,7 @@ class Axis(object):
     @lazy_init
     def _hw_position(self):
         try:
-            curr_pos = self.__controller.read_position(
-                self) / self.steps_per_unit
+            curr_pos = self.__controller.read_position(self) / self.steps_per_unit
         except NotImplementedError:
             # this controller does not have a 'position'
             # (e.g like some piezo controllers)
@@ -770,8 +808,10 @@ class Axis(object):
         # update limits
         ll, hl = self.limits()
         lim_delta = self.offset - prev_offset
-        self.limits(ll + lim_delta if ll is not None else ll,
-                    hl + lim_delta if hl is not None else hl)
+        self.limits(
+            ll + lim_delta if ll is not None else ll,
+            hl + lim_delta if hl is not None else hl,
+        )
         self.settings.set("position", new_pos)
         return new_pos
 
@@ -791,7 +831,7 @@ class Axis(object):
         else:
             if self.is_moving:
                 return AxisState("MOVING")
-            state = self.settings.get('state')
+            state = self.settings.get("state")
         if state is None:
             # really read from hw
             state = self.__controller.state(self)
@@ -831,16 +871,17 @@ class Axis(object):
         if new_velocity is not None:
             # Write -> Converts into motor units to change velocity of axis."
             self.__controller.set_velocity(
-                self, new_velocity * abs(self.steps_per_unit))
-            _user_vel = self.__controller.read_velocity(
-                self) / abs(self.steps_per_unit)
+                self, new_velocity * abs(self.steps_per_unit)
+            )
+            _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
             self.settings.set("velocity", _user_vel)
         else:
             # Read -> Returns velocity read from motor axis.
-            _user_vel = self.settings.get('velocity')
+            _user_vel = self.settings.get("velocity")
             if _user_vel is None:
-                _user_vel = self.__controller.read_velocity(
-                    self) / abs(self.steps_per_unit)
+                _user_vel = self.__controller.read_velocity(self) / abs(
+                    self.steps_per_unit
+                )
 
         return _user_vel
 
@@ -855,17 +896,16 @@ class Axis(object):
         if new_acc is not None:
             if self.is_moving:
                 raise RuntimeError(
-                    "Cannot set acceleration while axis '%s` is moving." %
-                    self.name)
+                    "Cannot set acceleration while axis '%s` is moving." % self.name
+                )
 
             # Converts into motor units to change acceleration of axis.
-            self.__controller.set_acceleration(
-                self, new_acc * abs(self.steps_per_unit))
+            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
             _ctrl_acc = self.__controller.read_acceleration(self)
             _acceleration = _ctrl_acc / abs(self.steps_per_unit)
             self.settings.set("acceleration", _acceleration)
         else:
-            _acceleration = self.settings.get('acceleration')
+            _acceleration = self.settings.get("acceleration")
             if _acceleration is None:
                 _ctrl_acc = self.__controller.read_acceleration(self)
                 _acceleration = _ctrl_acc / abs(self.steps_per_unit)
@@ -889,9 +929,7 @@ class Axis(object):
             float: current acceleration time (second)
         """
         if from_config:
-            return self.velocity(
-                from_config=True) / self.acceleration(
-                from_config=True)
+            return self.velocity(from_config=True) / self.acceleration(from_config=True)
 
         if new_acctime is not None:
             # Converts acctime into acceleration.
@@ -921,19 +959,19 @@ class Axis(object):
             tuple<float, float>: axis software limits (user units)
         """
         if from_config:
-            ll = self.config.get("low_limit", float, float('-inf'))
-            hl = self.config.get("high_limit", float, float('+inf'))
+            ll = self.config.get("low_limit", float, float("-inf"))
+            hl = self.config.get("high_limit", float, float("+inf"))
             return map(self.dial2user, (ll, hl))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
             self.settings.set("high_limit", high_limit)
-        low_limit = self.settings.get('low_limit')
+        low_limit = self.settings.get("low_limit")
         if low_limit is None:
-            low_limit = float('-inf')
-        high_limit = self.settings.get('high_limit')
+            low_limit = float("-inf")
+        high_limit = self.settings.get("high_limit")
         if high_limit is None:
-            high_limit = float('+inf')
+            high_limit = float("+inf")
         return low_limit, high_limit
 
     def _update_settings(self, state):
@@ -1019,9 +1057,15 @@ class Axis(object):
                 backlash = 0
 
         if target_pos < low_limit:
-            raise ValueError(low_limit_msg % (self.name, user_target_pos, backlash_str, user_low_limit))
+            raise ValueError(
+                low_limit_msg
+                % (self.name, user_target_pos, backlash_str, user_low_limit)
+            )
         if target_pos > high_limit:
-            raise ValueError(high_limit_msg % (self.name, user_target_pos, backlash_str, user_high_limit))
+            raise ValueError(
+                high_limit_msg
+                % (self.name, user_target_pos, backlash_str, user_high_limit)
+            )
 
         motion = Motion(self, target_pos, delta)
         motion.backlash = backlash
@@ -1031,15 +1075,18 @@ class Axis(object):
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
-        elog.debug("prepare_move: user_target_pos=%g, relative=%r" %
-                   (user_target_pos, relative))
+        elog.debug(
+            "prepare_move: user_target_pos=%g, relative=%r"
+            % (user_target_pos, relative)
+        )
         dial_initial_pos = self.dial()
         hw_pos = self._hw_position()
 
         if abs(dial_initial_pos - hw_pos) > self.tolerance:
             raise RuntimeError(
-                "%s: discrepancy between dial (%f) and controller position (%f), aborting" % (
-                    self.name, dial_initial_pos, hw_pos))
+                "%s: discrepancy between dial (%f) and controller position (%f), aborting"
+                % (self.name, dial_initial_pos, hw_pos)
+            )
 
         if relative:
             # start from last set position
@@ -1052,7 +1099,7 @@ class Axis(object):
                 motion = None
 
         self.__execute_pre_move_hook(motion)
-        
+
         if not trajectory:
             self.__controller.prepare_move(motion)
 
@@ -1085,12 +1132,18 @@ class Axis(object):
             self._update_settings(state=initial_state)
 
         if not initial_state.READY:
-            raise RuntimeError("axis %s state is "
-                               "%r" % (self.name, str(initial_state)))
+            raise RuntimeError(
+                "axis %s state is " "%r" % (self.name, str(initial_state))
+            )
 
     @lazy_init
-    def move(self, user_target_pos, wait=True, relative=False,
-             polling_time=DEFAULT_POLLING_TIME):
+    def move(
+        self,
+        user_target_pos,
+        wait=True,
+        relative=False,
+        polling_time=DEFAULT_POLLING_TIME,
+    ):
         """
         Move axis to the given absolute/relative position
 
@@ -1102,12 +1155,13 @@ class Axis(object):
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
         """
-        elog.debug("user_target_pos=%g  wait=%r relative=%r" %
-                   (user_target_pos, wait, relative))
+        elog.debug(
+            "user_target_pos=%g  wait=%r relative=%r"
+            % (user_target_pos, wait, relative)
+        )
         with self._lock:
             if self.is_moving:
-                raise RuntimeError("axis %s state is %r" %
-                                   (self.name, 'MOVING'))
+                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             motion = self.prepare_move(user_target_pos, relative)
             if motion is None:
@@ -1115,21 +1169,28 @@ class Axis(object):
 
             def start_one(controller, motions):
                 controller.start_one(motions[0])
+
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
-            self._group_move.move({ self.controller: [motion] }, start_one, stop_one, wait=False, polling_time=polling_time)
-            
+
+            self._group_move.move(
+                {self.controller: [motion]},
+                start_one,
+                stop_one,
+                wait=False,
+                polling_time=polling_time,
+            )
+
         if wait:
             self.wait_move()
-    
+
     def _handle_move(self, motion, polling_time):
         state = self._move_loop(polling_time)
 
         if motion.backlash:
             backlash_start = motion.target_pos
             elog.debug("doing backlash (%g)" % motion.backlash)
-            return self._backlash_move(
-                backlash_start, motion.backlash, polling_time)
+            return self._backlash_move(backlash_start, motion.backlash, polling_time)
         elif self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
 
@@ -1141,18 +1202,18 @@ class Axis(object):
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
         return self._handle_move(backlash_motion, polling_time)
-    
+
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
         curr_pos = self._update_dial()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError(
-                "'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)" %
-                (self.name, enc_dial, curr_pos))
+                "'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)"
+                % (self.name, enc_dial, curr_pos)
+            )
 
     @lazy_init
-    def jog(self, velocity, reset_position=None,
-            polling_time=DEFAULT_POLLING_TIME):
+    def jog(self, velocity, reset_position=None, polling_time=DEFAULT_POLLING_TIME):
         """
         Start to move axis at constant velocity
 
@@ -1161,8 +1222,7 @@ class Axis(object):
         """
         with self._lock:
             if self.is_moving:
-                raise RuntimeError("axis %s state is %r" %
-                                   (self.name, 'MOVING'))
+                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             if velocity == 0:
                 return
@@ -1180,10 +1240,19 @@ class Axis(object):
             def start_jog(controller, motions):
                 motions[0].axis.velocity(abs(velocity))
                 controller.start_jog(motions[0].axis, abs(velocity_in_steps), direction)
+
             def stop_one(controller, motions):
                 controller.stop_jog(motions[0].axis)
-            self._group_move.move({ self.controller: [motion] }, start_jog, stop_one, '_jog_move', wait=False, polling_time=polling_time)
-    
+
+            self._group_move.move(
+                {self.controller: [motion]},
+                start_jog,
+                stop_one,
+                "_jog_move",
+                wait=False,
+                polling_time=polling_time,
+            )
+
     def _jog_move(self, motion, polling_time):
         velocity = motion.target_pos
         direction = motion.delta
@@ -1210,8 +1279,7 @@ class Axis(object):
         elif callable(reset_position):
             reset_position(self)
 
-    def rmove(self, user_delta_pos, wait=True,
-              polling_time=DEFAULT_POLLING_TIME):
+    def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
         Move axis to the given relative position.
 
@@ -1224,8 +1292,7 @@ class Axis(object):
             polling_time (float): motion loop polling time (seconds)
         """
         elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
-        return self.move(user_delta_pos, wait, relative=True,
-                         polling_time=polling_time)
+        return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):
         """
@@ -1247,8 +1314,12 @@ class Axis(object):
                     self.__move_done_callback.wait()
                     raise
 
-    def _move_loop(self, polling_time=DEFAULT_POLLING_TIME,
-                   ctrl_state_funct='state', limit_error=True):
+    def _move_loop(
+        self,
+        polling_time=DEFAULT_POLLING_TIME,
+        ctrl_state_funct="state",
+        limit_error=True,
+    ):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -1276,7 +1347,7 @@ class Axis(object):
             else:
                 # move started externally
                 self._move_stop_channel.value = True
-                
+
             if wait:
                 self.wait_move()
 
@@ -1286,8 +1357,7 @@ class Axis(object):
                 self.stop()
 
     @lazy_init
-    def home(self, switch=1, wait=True,
-             polling_time=DEFAULT_POLLING_TIME):
+    def home(self, switch=1, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
         Searches the home switch
 
@@ -1296,8 +1366,7 @@ class Axis(object):
         """
         with self._lock:
             if self.is_moving:
-                raise RuntimeError("axis %s state is %r" %
-                                   (self.name, 'MOVING'))
+                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             # create motion object for hooks
             motion = Motion(self, switch, None, "homing")
@@ -1305,18 +1374,26 @@ class Axis(object):
 
             def start_one(controller, motions):
                 controller.home_search(motions[0].axis, motions[0].target_pos)
+
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
-            self._group_move.move({ self.controller: [motion] }, start_one, stop_one, '_wait_home', wait=False, polling_time=polling_time)
+
+            self._group_move.move(
+                {self.controller: [motion]},
+                start_one,
+                stop_one,
+                "_wait_home",
+                wait=False,
+                polling_time=polling_time,
+            )
         if wait:
             self.wait_move()
 
     def _wait_home(self, *args):
-        self._move_loop(ctrl_state_funct='home_state')
+        self._move_loop(ctrl_state_funct="home_state")
 
     @lazy_init
-    def hw_limit(self, limit, wait=True,
-                 polling_time=DEFAULT_POLLING_TIME):
+    def hw_limit(self, limit, wait=True, polling_time=DEFAULT_POLLING_TIME):
         """
         Go to a hardware limit
 
@@ -1328,17 +1405,25 @@ class Axis(object):
         limit = int(limit)
         with self._lock:
             if self.is_moving:
-                raise RuntimeError("axis %s state is %r" %
-                                   (self.name, 'MOVING'))
+                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             motion = Motion(self, limit, None, "limit_search")
             self.__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):
                 controller.limit_search(motions[0].axis, motions[0].target_pos)
+
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
-            self._group_move.move({ self.controller: [motion] }, start_one, stop_one, '_wait_limit_search', wait=False, polling_time=polling_time)
+
+            self._group_move.move(
+                {self.controller: [motion]},
+                start_one,
+                stop_one,
+                "_wait_limit_search",
+                wait=False,
+                polling_time=polling_time,
+            )
 
         if wait:
             self.wait_move()
@@ -1346,21 +1431,22 @@ class Axis(object):
     def _wait_limit_search(self, *args):
         return self._move_loop(limit_error=False)
 
-    def settings_to_config(
-            self, velocity=True, acceleration=True, limits=True):
+    def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """
         Saves settings (velo acc limits) into config (XML file or beacon YML).
         """
         if velocity:
-            self.__config.set('velocity', self.velocity())
+            self.__config.set("velocity", self.velocity())
         if acceleration:
-            self.__config.set('acceleration', self.acceleration())
+            self.__config.set("acceleration", self.acceleration())
         if limits:
+
             def limit2config(l):
                 return self.user2dial(l) if l is not None else l
+
             ll, hl = map(limit2config, self.limits())
-            self.__config.set('low_limit', ll)
-            self.__config.set('high_limit', hl)
+            self.__config.set("low_limit", ll)
+            self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):
             self.__config.save()
 
@@ -1372,32 +1458,30 @@ class Axis(object):
             self.config.reload()
         # Applies velocity and acceleration only if possible.
         # Try to execute <config_name> function to check if axis supports it.
-        for config_param in ['velocity', 'acceleration']:
+        for config_param in ["velocity", "acceleration"]:
             rw_function = getattr(self, config_param)
             try:
                 rw_function(rw_function(from_config=True))
             except (NotImplementedError, KeyError):
                 elog.debug(
-                    "'%s' for '%s' is not implemented" %
-                    (config_param, self.name))
+                    "'%s' for '%s' is not implemented" % (config_param, self.name)
+                )
             else:
-                elog.debug("set '%s' for '%s' done." %
-                           (config_param, self.name))
+                elog.debug("set '%s' for '%s' done." % (config_param, self.name))
 
         self.limits(*self.limits(from_config=True))
 
     @lazy_init
     def set_event_positions(self, positions):
-        dial_positions = self.user2dial(
-            numpy.array(positions, dtype=numpy.float))
+        dial_positions = self.user2dial(numpy.array(positions, dtype=numpy.float))
         step_positions = dial_positions * self.steps_per_unit
         return self.__controller.set_event_positions(self, step_positions)
 
     @lazy_init
     def get_event_positions(self):
         step_positions = numpy.array(
-            self.__controller.get_event_positions(self),
-            dtype=numpy.float)
+            self.__controller.get_event_positions(self), dtype=numpy.float
+        )
         dial_positions = self.dial2user(step_positions)
         return dial_positions / self.steps_per_unit
 
@@ -1447,7 +1531,7 @@ class AxisState(object):
         "LIMPOS": "Hardware high limit active",
         "LIMNEG": "Hardware low limit active",
         "HOME": "Home signal active",
-        "OFF": "Axis is disabled (must be enabled to move (not ready ?))"
+        "OFF": "Axis is disabled (must be enabled to move (not ready ?))",
     }
 
     @property
@@ -1512,9 +1596,12 @@ class AxisState(object):
         return list(self._state_desc)
 
     def _check_state_name(self, state_name):
-        if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(state_name):
+        if not isinstance(state_name, str) or not AxisState.STATE_VALIDATOR.match(
+            state_name
+        ):
             raise ValueError(
-                "Invalid state: a state must be a string containing only block letters")
+                "Invalid state: a state must be a string containing only block letters"
+            )
 
     def _has_custom_states(self):
         return not self._state_desc is AxisState._STANDARD_STATES
@@ -1533,9 +1620,10 @@ class AxisState(object):
         """
         # Raises ValueError if state_name is invalid.
         self._check_state_name(state_name)
-        if state_desc is not None and '|' in state_desc:
+        if state_desc is not None and "|" in state_desc:
             raise ValueError(
-                "Invalid state: description contains invalid character '|'")
+                "Invalid state: description contains invalid character '|'"
+            )
 
         # if it is the first time we are creating a new state, create a
         # private copy of standard states to be able to modify locally
@@ -1598,11 +1686,15 @@ class AxisState(object):
             if there is no current state
         """
         states = [
-            "%s%s" %
-            (state.rstrip(),
-             " (%s)" % self._state_desc[state]
-             if self._state_desc.get(state) else "")
-            for state in map(str, list(self._current_states))]
+            "%s%s"
+            % (
+                state.rstrip(),
+                " (%s)" % self._state_desc[state]
+                if self._state_desc.get(state)
+                else "",
+            )
+            for state in map(str, list(self._current_states))
+        ]
 
         if len(states) == 0:
             return "UNKNOWN"
@@ -1612,9 +1704,9 @@ class AxisState(object):
     def _set_state_from_string(self, state):
         # is state_name a full list of states returned by self.current_states() ?
         # (copy constructor)
-        if '(' in state:
-            full_states = [s.strip() for s in state.split('|')]
-            p = re.compile('^([A-Z0-9]+)\s\((.+)\)', re.DOTALL)
+        if "(" in state:
+            full_states = [s.strip() for s in state.split("|")]
+            p = re.compile("^([A-Z0-9]+)\s\((.+)\)", re.DOTALL)
             for full_state in full_states:
                 m = p.match(full_state)
                 try:
@@ -1625,7 +1717,7 @@ class AxisState(object):
                 self.create_state(state, desc)
                 self.set(state)
         else:
-            if state != 'UNKNOWN':
+            if state != "UNKNOWN":
                 self.create_state(state)
                 self.set(state)
 
@@ -1645,19 +1737,16 @@ class AxisState(object):
 
     def __eq__(self, other):
         if isinstance(other, str):
-            warnings.warn('Use: **%s in state** instead' % other,
-                          DeprecationWarning)
+            warnings.warn("Use: **%s in state** instead" % other, DeprecationWarning)
             return self.__contains__(other)
         elif isinstance(other, AxisState):
-            return set(self._current_states) == \
-                set(other._current_states)
+            return set(self._current_states) == set(other._current_states)
         else:
             return NotImplemented
 
     def __ne__(self, other):
         if isinstance(other, str):
-            warnings.warn('Use: **%s in state** instead' % other,
-                          DeprecationWarning)
+            warnings.warn("Use: **%s in state** instead" % other, DeprecationWarning)
         x = self.__eq__(other)
         if x is not NotImplemented:
             return not x
@@ -1716,15 +1805,23 @@ class ModuloAxis(Axis):
 
 
 class NoSettingsAxis(Axis):
-    def __init__(self,*args,**kwags):
-        Axis.__init__(self,*args,**kwags)
-        self.settings.get = mock.MagicMock(return_value = None)
-        self.settings.set = mock.MagicMock(return_value = None)
+    def __init__(self, *args, **kwags):
+        Axis.__init__(self, *args, **kwags)
+        self.settings.get = mock.MagicMock(return_value=None)
+        self.settings.set = mock.MagicMock(return_value=None)
 
 
-def SoftAxis(name, obj, position='position', move='position', stop=None,
-             low_limit=float('-inf'), high_limit=float('+inf')):
+def SoftAxis(
+    name,
+    obj,
+    position="position",
+    move="position",
+    stop=None,
+    low_limit=float("-inf"),
+    high_limit=float("+inf"),
+):
     from bliss.controllers.motors.soft import SoftController
+
     config = get_config()
     if callable(position):
         position = position.__name__
@@ -1732,12 +1829,18 @@ def SoftAxis(name, obj, position='position', move='position', stop=None,
         move = move.__name__
     if callable(stop):
         stop = stop.__name__
- 
-    controller = SoftController(name, obj, {'position': position,
-                                            'move': move,
-                                            'stop': stop,
-                                            'limits': (low_limit, high_limit),
-                                            'name': name})
+
+    controller = SoftController(
+        name,
+        obj,
+        {
+            "position": position,
+            "move": move,
+            "stop": stop,
+            "limits": (low_limit, high_limit),
+            "name": name,
+        },
+    )
 
     controller._init()
     axis = controller.get_axis(name)

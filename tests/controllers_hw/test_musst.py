@@ -6,14 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.musst import musst
+
 config = {
-    'gpib_url': "prologix://148.79.215.54:1234",
-    'gpib_pad': 13,
-    'gpib_timeout': 8.0,
-    'gpib_eos' : "\r\n"
+    "gpib_url": "prologix://148.79.215.54:1234",
+    "gpib_pad": 13,
+    "gpib_timeout": 8.0,
+    "gpib_eos": "\r\n",
 }
 for i in range(10):
-    dev=musst("bm26_musst", config)
+    dev = musst("bm26_musst", config)
     print "Loop ", i
     print dev.STATE
     print dev.TMRCFG
@@ -27,4 +28,3 @@ for i in range(10):
     print dev.get_event_memory_pointer()
     print dev.NAME
     print dev.TIMER
-

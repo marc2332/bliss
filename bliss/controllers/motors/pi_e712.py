@@ -54,12 +54,13 @@ config example:
     servo_mode: 1
 """
 
+
 class PI_E712(Controller):
-    #POSSIBLE DATA TRIGGER SOURCE
-    WAVEFORM=0
-    MOTION=1
-    EXTERNAL=3
-    IMMEDIATELY=4
+    # POSSIBLE DATA TRIGGER SOURCE
+    WAVEFORM = 0
+    MOTION = 1
+    EXTERNAL = 3
+    IMMEDIATELY = 4
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -97,7 +98,6 @@ class PI_E712(Controller):
 
         self._hw_status = AxisState("READY")
 
-
         """ Documentation uses the word AxisID instead of channel
             Note: any function used as axis method must accept axis as an argument! Otherwise
                   you will see:
@@ -108,47 +108,47 @@ class PI_E712(Controller):
         self._gate_enabled = False
 
         # Updates cached value of closed loop status.
-        closed_loop_cache = Cache(axis,"closed_loop")
+        closed_loop_cache = Cache(axis, "closed_loop")
         self.__axis_closed_loop[axis] = closed_loop_cache
         if closed_loop_cache.value is None:
             closed_loop_cache.value = self._get_closed_loop_status(axis)
 
-        add_property(axis,'closed_loop',lambda x: self.__axis_closed_loop[x].value)
+        add_property(axis, "closed_loop", lambda x: self.__axis_closed_loop[x].value)
         self.check_power_cut()
 
         elog.debug("axis = %r" % axis.name)
-        #elog.debug("axis.encoder = %r" % axis.encoder)
-        #if axis.encoder:
-            #elog.debug("axis = %r" % axis)
+        # elog.debug("axis.encoder = %r" % axis.encoder)
+        # if axis.encoder:
+        # elog.debug("axis = %r" % axis)
 
-        #POSSIBLE DATA RECORDER TYPE
-        axis.TARGET_POSITION_OF_AXIS=1
-        axis.CURRENT_POSITION_OF_AXIS=2
-        axis.POSITION_ERROR_OF_AXIS=3
-        axis.CONTROL_VOLTAGE_OF_OUTPUT_CHAN=7
-        axis.DDL_OUTPUT_OF_AXIS=13
-        axis.OPEN_LOOP_CONTROL_OF_AXIS=14
-        axis.CONTROL_OUTPUT_OF_AXIS=15
-        axis.VOLTAGE_OF_OUTPUT_CHAN=16
-        axis.SENSOR_NORMALIZED_OF_INPUT_CHAN=17
-        axis.SENSOR_FILTERED_OF_INPUT_CHAN=18
-        axis.SENSOR_ELECLINEAR_OF_INPUT_CHAN=19
-        axis.SENSOR_MECHLINEAR_OF_INPUT_CHAN=20
-        axis.SLOWED_TARGET_OF_AXIS=22
+        # POSSIBLE DATA RECORDER TYPE
+        axis.TARGET_POSITION_OF_AXIS = 1
+        axis.CURRENT_POSITION_OF_AXIS = 2
+        axis.POSITION_ERROR_OF_AXIS = 3
+        axis.CONTROL_VOLTAGE_OF_OUTPUT_CHAN = 7
+        axis.DDL_OUTPUT_OF_AXIS = 13
+        axis.OPEN_LOOP_CONTROL_OF_AXIS = 14
+        axis.CONTROL_OUTPUT_OF_AXIS = 15
+        axis.VOLTAGE_OF_OUTPUT_CHAN = 16
+        axis.SENSOR_NORMALIZED_OF_INPUT_CHAN = 17
+        axis.SENSOR_FILTERED_OF_INPUT_CHAN = 18
+        axis.SENSOR_ELECLINEAR_OF_INPUT_CHAN = 19
+        axis.SENSOR_MECHLINEAR_OF_INPUT_CHAN = 20
+        axis.SLOWED_TARGET_OF_AXIS = 22
 
-        #POSSIBLE DATA TRIGGER SOURCE
-        axis.WAVEFORM=0
-        axis.MOTION=1
-        axis.EXTERNAL=3
-        axis.IMMEDIATELY=4
+        # POSSIBLE DATA TRIGGER SOURCE
+        axis.WAVEFORM = 0
+        axis.MOTION = 1
+        axis.EXTERNAL = 3
+        axis.IMMEDIATELY = 4
 
         # supposed that we are on target on init
         axis._last_on_target = True
 
-        #check servo mode (default true)
-        servo_mode = axis.config.get('servo_mode',lambda x: x,True)
+        # check servo mode (default true)
+        servo_mode = axis.config.get("servo_mode", lambda x: x, True)
         if axis.closed_loop != servo_mode:
-            #spawn if to avoid recursion
+            # spawn if to avoid recursion
             gevent.spawn(self.activate_closed_loop, axis, servo_mode)
 
     def read_position(self, axis):
@@ -167,13 +167,13 @@ class PI_E712(Controller):
         if axis._last_on_target:
             _pos = self._get_target_pos(axis)
             elog.debug("position read : %g" % _pos)
-        else:                   # if moving return real position
+        else:  # if moving return real position
             _pos = self._get_pos(axis)
-
 
         return _pos
 
     """ VELOCITY """
+
     def read_velocity(self, axis):
         """
         """
@@ -184,13 +184,12 @@ class PI_E712(Controller):
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        self.command("VEL %s %f" %
-                     (axis.channel, new_velocity))
+        self.command("VEL %s %f" % (axis.channel, new_velocity))
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
     def read_acceleration(self, axis):
-        if hasattr(axis, '_acceleration_value'):
+        if hasattr(axis, "_acceleration_value"):
             return axis._acceleration_value
         else:
             return 1.
@@ -199,11 +198,12 @@ class PI_E712(Controller):
         axis._acceleration_value = acceleration
 
     """ STATE """
+
     def state(self, axis):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
         with self.sock.lock:
-            #check if WAV motion is active
-            if self.sock.write_readline(chr(9)) != '0':
+            # check if WAV motion is active
+            if self.sock.write_readline(chr(9)) != "0":
                 return AxisState("MOVING")
 
             if axis.closed_loop:
@@ -217,6 +217,7 @@ class PI_E712(Controller):
                 return AxisState("READY")
 
     """ MOVEMENTS """
+
     def prepare_move(self, motion):
         elog.debug("pass")
         pass
@@ -232,30 +233,32 @@ class PI_E712(Controller):
             - None
         """
         self.start_all(motion)
-        
+
     def start_all(self, *motions):
-###
-###  hummm a bit dangerous to mix voltage and microns for the same command isnt'it ?
-###
+        ###
+        ###  hummm a bit dangerous to mix voltage and microns for the same command isnt'it ?
+        ###
         mov_cmd = list()
         voltage_cmd = list()
         for motion in motions:
             l_cmd = mov_cmd if motion.axis.closed_loop else voltage_cmd
             l_cmd.append((motion.axis.channel, motion.target_pos))
-            cmd = ''
+            cmd = ""
             if mov_cmd:
-                cmd += 'MOV ' + ' '.join(['%s %g' % (chan,pos)\
-                                          for chan,pos in mov_cmd])
+                cmd += "MOV " + " ".join(
+                    ["%s %g" % (chan, pos) for chan, pos in mov_cmd]
+                )
             if voltage_cmd:
-                if cmd: cmd += '\n'
-                cmd += 'SVA ' + ' '.join(['%s %g' % (chan,pos)\
-                                          for chan,pos in voltage_cmd])
+                if cmd:
+                    cmd += "\n"
+                cmd += "SVA " + " ".join(
+                    ["%s %g" % (chan, pos) for chan, pos in voltage_cmd]
+                )
         self.command(cmd)
 
-        
     def stop(self, axis):
         self.stop_all()
-        
+
     def stop_all(self, *motions):
         """
         * HLT -> stop smoothly
@@ -268,29 +271,32 @@ class PI_E712(Controller):
         stopped axes to the previous value before the stop command.
         """
         with self.sock.lock:
-            channels = [str(x.channel) for x in self.axes.values()
-                        if hasattr(x,'channel')]
-            channels_str = ' '.join(channels)
-            cmd = '\n'.join(['%s %s' % (cmd,channels_str)
-                             for cmd in ('ONT?','MOV?')])
-            cmd += '\n%c' % 24      # Char to stop all movement
-            reply = self.sock.write_readlines(cmd,len(channels)*2)
-            error = self.sock.write_readline('ERR?\n') # should be 10 -> Controller was stopped by command
+            channels = [
+                str(x.channel) for x in self.axes.values() if hasattr(x, "channel")
+            ]
+            channels_str = " ".join(channels)
+            cmd = "\n".join(["%s %s" % (cmd, channels_str) for cmd in ("ONT?", "MOV?")])
+            cmd += "\n%c" % 24  # Char to stop all movement
+            reply = self.sock.write_readlines(cmd, len(channels) * 2)
+            error = self.sock.write_readline(
+                "ERR?\n"
+            )  # should be 10 -> Controller was stopped by command
             channel_on_target = set()
-            for channel_target in reply[:len(channels)]:
-                channel, ont = channel_target.strip().split('=')
+            for channel_target in reply[: len(channels)]:
+                channel, ont = channel_target.strip().split("=")
                 if int(ont):
                     channel_on_target.add(channel)
             channels_position = list()
-            for chan_pos in reply[len(channels):]:
-                channel,position = chan_pos.strip().split('=')
+            for chan_pos in reply[len(channels) :]:
+                channel, position = chan_pos.strip().split("=")
                 if channel in channel_on_target:
-                    channels_position.extend([channel,position])
+                    channels_position.extend([channel, position])
             if channels_position:
-                reset_target_cmd = 'MOV ' + ' '.join(channels_position)
+                reset_target_cmd = "MOV " + " ".join(channels_position)
                 self.command(reset_target_cmd)
-        
+
     """ RAW COMMANDS """
+
     def raw_write(self, axis, com):
         self.sock.write("%s\n" % com)
 
@@ -303,53 +309,56 @@ class PI_E712(Controller):
         """
         return self.command("*IDN?")
 
-
     def command(self, cmd, nb_line=1):
         """
         Method to send command to the controller
         """
         with self.sock.lock:
             cmd = cmd.strip()
-            need_reply = cmd.find('?') > -1
+            need_reply = cmd.find("?") > -1
             if need_reply:
                 if nb_line > 1:
-                    reply = self.sock.write_readlines(cmd + '\n', nb_line)
+                    reply = self.sock.write_readlines(cmd + "\n", nb_line)
                 else:
-                    reply = self.sock.write_readline(cmd + '\n')
+                    reply = self.sock.write_readline(cmd + "\n")
 
-                if not reply:       # it's an error
+                if not reply:  # it's an error
                     errors = [self.name] + list(self.get_error())
-                    raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))
+                    raise RuntimeError(
+                        "Device {0} error nb {1} => ({2})".format(*errors)
+                    )
 
                 if nb_line > 1:
                     parsed_reply = list()
-                    commands = cmd.split('\n')
-                    if len(commands) == nb_line: # one reply per command
+                    commands = cmd.split("\n")
+                    if len(commands) == nb_line:  # one reply per command
                         for cmd, rep in zip(commands, reply):
-                            space_pos = cmd.find(' ')
+                            space_pos = cmd.find(" ")
                             if space_pos > -1:
-                                args = cmd[space_pos+1:]
+                                args = cmd[space_pos + 1 :]
                                 parsed_reply.append(self._parse_reply(rep, args))
                             else:
                                 parsed_reply.append(rep)
-                    else:           # a command with several replies
-                        space_pos = cmd.find(' ')
+                    else:  # a command with several replies
+                        space_pos = cmd.find(" ")
                         if space_pos > -1:
-                            args = cmd[space_pos+1:]
+                            args = cmd[space_pos + 1 :]
                             for arg, rep in zip(args.split(), reply):
                                 parsed_reply.append(self._parse_reply(rep, arg))
                     reply = parsed_reply
                 else:
-                    space_pos = cmd.find(' ')
+                    space_pos = cmd.find(" ")
                     if space_pos > -1:
-                        reply = self._parse_reply(reply, cmd[space_pos+1:])
+                        reply = self._parse_reply(reply, cmd[space_pos + 1 :])
                 return reply
             else:
-                self.sock.write(cmd + '\n')
+                self.sock.write(cmd + "\n")
                 errno, error_message = self.get_error()
                 if errno:
                     errors = [self.name, cmd] + [errno, error_message]
-                    raise RuntimeError("Device {0} command {1} error nb {2} => ({3})".format(*errors))
+                    raise RuntimeError(
+                        "Device {0} command {1} error nb {2} => ({3})".format(*errors)
+                    )
 
     def get_data_len(self):
         """
@@ -368,18 +377,18 @@ class PI_E712(Controller):
          - from_event_id from which point id you want to read
          - rec_table_id list of table you want to read, None means all
         """
-        if rec_table_id is None: # All table
-            #just ask the first table because they have the same synchronization
+        if rec_table_id is None:  # All table
+            # just ask the first table because they have the same synchronization
             nb_availabe_points = int(self.command("DRL? 1"))
             nb_availabe_points -= from_event_id
             if npoints is None:
                 npoints = nb_availabe_points
             else:
-                npoints = min(nb_availabe_points,npoints)
-            cmd = "DRR? %d %d\n" % ((from_event_id + 1),npoints)
+                npoints = min(nb_availabe_points, npoints)
+            cmd = "DRR? %d %d\n" % ((from_event_id + 1), npoints)
         else:
-            rec_tables = ' '.join((str(x) for x in rec_table_id))
-            nb_points = self.command("DRL? %s" % rec_tables,len(rec_table_id))
+            rec_tables = " ".join((str(x) for x in rec_table_id))
+            nb_points = self.command("DRL? %s" % rec_tables, len(rec_table_id))
             if isinstance(nb_points, list):
                 nb_points = min([int(x) for x in nb_points])
             else:
@@ -387,53 +396,53 @@ class PI_E712(Controller):
             point_2_read = nb_points - from_event_id
             if point_2_read < 0:
                 point_2_read = 0
-            elif(npoints is not None and
-                 point_2_read > npoints):
+            elif npoints is not None and point_2_read > npoints:
                 point_2_read = npoints
-            cmd = "DRR? %d %d %s\n" % (from_event_id + 1, point_2_read,
-                                       rec_tables)
+            cmd = "DRR? %d %d %s\n" % (from_event_id + 1, point_2_read, rec_tables)
 
         try:
             with self.sock.lock:
                 self.sock._write(cmd)
-                #HEADER
+                # HEADER
                 header = dict()
                 while 1:
                     line = self.sock.readline()
                     if not line:
-                        return      # no data available
+                        return  # no data available
                     if line.find("END_HEADER") > -1:
                         break
 
-                    key,value = (x.strip() for x in line[1:].split('='))
+                    key, value = (x.strip() for x in line[1:].split("="))
                     header[key] = value
 
-                ndata = int(header['NDATA'])
-                separator = chr(int(header['SEPARATOR']))
-                sample_time = float(header['SAMPLE_TIME'])
-                dim = int(header['DIM'])
+                ndata = int(header["NDATA"])
+                separator = chr(int(header["SEPARATOR"]))
+                sample_time = float(header["SAMPLE_TIME"])
+                dim = int(header["DIM"])
                 column_info = dict()
-                keep_axes = {x.channel : x for x in self.axes.values() if hasattr(x,'channel')}
+                keep_axes = {
+                    x.channel: x for x in self.axes.values() if hasattr(x, "channel")
+                }
                 for name_id in range(8):
                     try:
-                        desc = header['NAME%d' % name_id]
+                        desc = header["NAME%d" % name_id]
                     except KeyError:
                         break
                     else:
-                        axis_pos = desc.find('axis')
+                        axis_pos = desc.find("axis")
                         if axis_pos < 0:
-                            axis_pos = desc.find('chan')
-                        axis_id = int(desc[axis_pos+len('axis'):])
+                            axis_pos = desc.find("chan")
+                        axis_id = int(desc[axis_pos + len("axis") :])
                         if axis_id in keep_axes:
-                             new_desc = desc[:axis_pos] + \
-                                        keep_axes[axis_id].name
-                             column_info[name_id] = new_desc.replace(' ','_')
+                            new_desc = desc[:axis_pos] + keep_axes[axis_id].name
+                            column_info[name_id] = new_desc.replace(" ", "_")
 
-                dtype = [('timestamp','f8')]
-                dtype += [(name,'f8') for name in column_info.values()]
-                data = numpy.zeros(ndata,dtype=dtype)
-                data['timestamp'] = numpy.arange(from_event_id,
-                                                 from_event_id + ndata) * sample_time
+                dtype = [("timestamp", "f8")]
+                dtype += [(name, "f8") for name in column_info.values()]
+                data = numpy.zeros(ndata, dtype=dtype)
+                data["timestamp"] = (
+                    numpy.arange(from_event_id, from_event_id + ndata) * sample_time
+                )
                 for line_id in range(ndata):
                     line = self.sock.readline().strip()
                     values = line.split(separator)
@@ -441,10 +450,10 @@ class PI_E712(Controller):
                         data[name][line_id] = values[column_id]
                 return data
         except:
-            self.sock.close()   # safe in case of ctrl-c
+            self.sock.close()  # safe in case of ctrl-c
             raise
-        
-    def set_recorder_data_type(self,*motor_data_type):
+
+    def set_recorder_data_type(self, *motor_data_type):
         """
         Configure the data recorder
 
@@ -455,18 +464,25 @@ class PI_E712(Controller):
         """
         nb_recorder_table = len(motor_data_type) / 2
         if nb_recorder_table * 2 != len(motor_data_type):
-            raise RuntimeError("Argument must be grouped by 2 "
-                               "(motor1,data_type1,motor2,data_type2...)")
-        
+            raise RuntimeError(
+                "Argument must be grouped by 2 "
+                "(motor1,data_type1,motor2,data_type2...)"
+            )
+
         self.command("SPA 1 0x16000300 %d" % nb_recorder_table)
         max_nb_recorder = int(self.command("TNR?"))
         if nb_recorder_table > max_nb_recorder:
-            raise RuntimeError("Device %s too many recorder data, can only record %d" %
-                               (self.name,max_nb_recorder))
+            raise RuntimeError(
+                "Device %s too many recorder data, can only record %d"
+                % (self.name, max_nb_recorder)
+            )
         cmd = "DRC "
-        cmd += ' '.join(('%d %s %d' % (rec_id+1,motor.channel,data_type)
-                         for rec_id,(motor,data_type) in
-                         enumerate(grouped(motor_data_type,2))))
+        cmd += " ".join(
+            (
+                "%d %s %d" % (rec_id + 1, motor.channel, data_type)
+                for rec_id, (motor, data_type) in enumerate(grouped(motor_data_type, 2))
+            )
+        )
         self.command(cmd)
 
     def start_recording(self, trigger_source, value=0, recorder_rate=None):
@@ -479,34 +495,43 @@ class PI_E712(Controller):
           - value for EXTERNAL value is the trigger input line (0 mean all)
           - recorder_rate if None max speed otherwise the period in seconds
         """
-        if trigger_source not in (self.WAVEFORM,self.MOTION,
-                                  self.EXTERNAL,self.IMMEDIATELY):
-            raise RuntimeError("Device %s trigger source can only be:"
-                               "WAVEFORM,MOTION,EXTERNAL or IMMEDIATELY")
+        if trigger_source not in (
+            self.WAVEFORM,
+            self.MOTION,
+            self.EXTERNAL,
+            self.IMMEDIATELY,
+        ):
+            raise RuntimeError(
+                "Device %s trigger source can only be:"
+                "WAVEFORM,MOTION,EXTERNAL or IMMEDIATELY"
+            )
 
         if recorder_rate is not None:
             cycle_time = float(self.command("SPA? 1 0xe000200"))
-            rate = int(recorder_rate / cycle_time) # should be faster than asked
+            rate = int(recorder_rate / cycle_time)  # should be faster than asked
         else:
             rate = 1
 
         self.command("RTR %d" % rate)
-        
+
         nb_recorder = int(self.command("TNR?"))
         cmd = "DRT "
-        cmd += ' '.join(('%d %d %d' % (rec_id,trigger_source,value)
-                         for rec_id in range(1,nb_recorder+1)))
+        cmd += " ".join(
+            (
+                "%d %d %d" % (rec_id, trigger_source, value)
+                for rec_id in range(1, nb_recorder + 1)
+            )
+        )
         self.command(cmd)
 
     def get_recorder_data_rate(self):
         """
         return the rate of the data recording in seconds
         """
-        cycle_time,rtr = self.command("SPA? 1 0xe000200\nRTR?",2)
+        cycle_time, rtr = self.command("SPA? 1 0xe000200\nRTR?", 2)
         return float(cycle_time) * int(rtr)
 
-    def output_position_gate(self, axis,
-                             position_1, position_2, output=1):
+    def output_position_gate(self, axis, position_1, position_2, output=1):
         """
         This program an external gate on the specified output.
         If the motor position is in between the programmed positions,
@@ -515,8 +540,9 @@ class PI_E712(Controller):
         Args:
           - output by default first external output
         """
-        cmd = "CTO {0} 2 {1} {0} 3 3 {0} 5 {2} {0} 6 {3} {0} 7 1".\
-        format(output,axis.channel,position_1,position_2)
+        cmd = "CTO {0} 2 {1} {0} 3 3 {0} 5 {2} {0} 6 {3} {0} 7 1".format(
+            output, axis.channel, position_1, position_2
+        )
         self.command(cmd)
 
     def has_trajectory(self):
@@ -529,39 +555,46 @@ class PI_E712(Controller):
         number_of_points = int(self.command("SPA? 1 0x13000004"))
         is_cyclic_traj = isinstance(trajectories[0], CyclicTrajectory)
         pvt = trajectories[0].pvt_pattern if is_cyclic_traj else trajectories[0].pvt
-        last_time = pvt['time'][-1]
+        last_time = pvt["time"][-1]
         calc_servo_cycle = (last_time * len(trajectories)) / number_of_points
-        table_generator_rate = int(numpy.ceil(calc_servo_cycle/servo_cycle))
+        table_generator_rate = int(numpy.ceil(calc_servo_cycle / servo_cycle))
         servo_cycle *= table_generator_rate
         nb_traj_cycles = trajectories[0].nb_cycles if is_cyclic_traj else 1
-        commmands = ["TWC",     # clear trig settings
-                     "WTR 0 {} 1".format(table_generator_rate),
-                     "WGC 1 {}".format(nb_traj_cycles)]
+        commmands = [
+            "TWC",  # clear trig settings
+            "WTR 0 {} 1".format(table_generator_rate),
+            "WGC 1 {}".format(nb_traj_cycles),
+        ]
         for traj in trajectories:
             pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt
-            time = pvt['time']
-            positions = pvt['position']
-            velocities = pvt['velocity']
+            time = pvt["time"]
+            positions = pvt["position"]
+            velocities = pvt["velocity"]
             axis = traj.axis
             cmd_format = "WAV %d " % axis.channel
-            cmd_format += "{cont} LIN {seglength} {amp} "\
-                          "{offset} {seglength} {startpoint} {speed_up_down}"
+            cmd_format += "{cont} LIN {seglength} {amp} " "{offset} {seglength} {startpoint} {speed_up_down}"
             commmands.append("WSL {channel} {channel}".format(channel=axis.channel))
             offset = traj.origin if is_cyclic_traj else 0
-            commmands.append("WOS {channel} {offset}".format(channel=axis.channel,offset=offset))
-            cont = 'X'
+            commmands.append(
+                "WOS {channel} {offset}".format(channel=axis.channel, offset=offset)
+            )
+            cont = "X"
             index = 0
             while True:
                 try:
-                    p1,v1,t1 = positions[index], velocities[index], time[index]
-                except IndexError: # End loop
+                    p1, v1, t1 = positions[index], velocities[index], time[index]
+                except IndexError:  # End loop
                     break
 
                 try:
-                    p2,v2,t2 = positions[index+1], velocities[index+1], time[index+1]
-                except IndexError: # End loop
+                    p2, v2, t2 = (
+                        positions[index + 1],
+                        velocities[index + 1],
+                        time[index + 1],
+                    )
+                except IndexError:  # End loop
                     break
-                #default
+                # default
                 start_time = t1
                 end_time = t2
                 start_position = p1
@@ -569,89 +602,106 @@ class PI_E712(Controller):
                 speed_up_down = 0
                 inc_index = 1
                 try:
-                    p3,v3,t3 = positions[index+2], velocities[index+2], time[index+2]
+                    p3, v3, t3 = (
+                        positions[index + 2],
+                        velocities[index + 2],
+                        time[index + 2],
+                    )
                 except IndexError:
                     pass
                 else:
                     try:
-                        p4,v4,t4 = positions[index+3], velocities[index+3], time[index+3]
+                        p4, v4, t4 = (
+                            positions[index + 3],
+                            velocities[index + 3],
+                            time[index + 3],
+                        )
                     except IndexError:
                         if abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
                             start_time = t1
                             end_time = t3
                             start_position = p1
                             end_position = p3
-                            speed_up_down = min(t2 - t1,t3 - t2)
+                            speed_up_down = min(t2 - t1, t3 - t2)
                     else:
                         if abs(v1 - v4) < 1e-6 and abs(v2 - v3) < 1e-6:
                             start_time = t1
                             end_time = t4
                             start_position = p1
                             end_position = p4
-                            speed_up_down = min(t2 - t1,t4 - t3)
+                            speed_up_down = min(t2 - t1, t4 - t3)
                             inc_index = 3
                         elif abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
                             start_time = t1
                             end_time = t3
                             start_position = p1
                             end_position = p3
-                            speed_up_down = min(t2 - t1,t3 - t2)
+                            speed_up_down = min(t2 - t1, t3 - t2)
                             inc_index = 2
 
                 index += inc_index
                 start_time /= servo_cycle
                 end_time /= servo_cycle
-                seglength = int(end_time-start_time)
+                seglength = int(end_time - start_time)
                 if seglength <= 0:
                     continue
                 speed_up_down = int(speed_up_down / servo_cycle)
-                if speed_up_down > seglength/2.:
-                    speed_up_down = seglength/2.
-                start_time = start_time if cont == 'X' else 0
-                cmd = cmd_format.format(cont=cont,seglength=seglength,
-                                        amp=end_position-start_position, offset=start_position,
-                                        startpoint=int(start_time), speed_up_down=speed_up_down)
+                if speed_up_down > seglength / 2.:
+                    speed_up_down = seglength / 2.
+                start_time = start_time if cont == "X" else 0
+                cmd = cmd_format.format(
+                    cont=cont,
+                    seglength=seglength,
+                    amp=end_position - start_position,
+                    offset=start_position,
+                    startpoint=int(start_time),
+                    speed_up_down=speed_up_down,
+                )
                 commmands.append(cmd)
-                cont = '&'
-            #trajectories events
-            events = traj.events_pattern_positions if is_cyclic_traj else traj.events_positions
+                cont = "&"
+            # trajectories events
+            events = (
+                traj.events_pattern_positions
+                if is_cyclic_traj
+                else traj.events_positions
+            )
             for evt in events:
-                commmands.append("TWS 1 %d 1" % (round(evt['time']/servo_cycle)))
+                commmands.append("TWS 1 %d 1" % (round(evt["time"] / servo_cycle)))
 
         for cmd in commmands:
             self.command(cmd)
 
     def has_trajectory_event(self):
         return True
-    
+
     def set_trajectory_events(self, *trajectories):
         # In prepare_trajectory we programmed the trigger positions
         # (see TWC and TWS command)
         # Just link external trigger with programmed TWS
         self.command("CTO 1 3 4")
-                
+
     def move_to_trajectory(self, *trajectories):
-        motions = [Motion(t.axis, t.pvt['position'][0], 0) for t in trajectories]
+        motions = [Motion(t.axis, t.pvt["position"][0], 0) for t in trajectories]
         self.start_all(*motions)
 
     def start_trajectory(self, *trajectories):
         is_cyclic_traj = isinstance(trajectories[0], CyclicTrajectory)
         mode = 0x101 if is_cyclic_traj else 0x1
-        axes_str = ' '.join(['%d %d' % (t.axis.channel, mode) for t in trajectories])
+        axes_str = " ".join(["%d %d" % (t.axis.channel, mode) for t in trajectories])
         self.command("WGO " + axes_str)
 
     def stop_trajectory(self, *trajectories):
-        axes_str = ' '.join(['%d 0' % t.axis.channel for t in trajectories])
+        axes_str = " ".join(["%d 0" % t.axis.channel for t in trajectories])
         self.command("WGO " + axes_str)
 
     def _parse_reply(self, reply, args):
-        args_pos = reply.find('=')
-        if reply[:args_pos] != args: # weird
-            print 'Weird thing happens with connection of %s' % self.name
+        args_pos = reply.find("=")
+        if reply[:args_pos] != args:  # weird
+            print "Weird thing happens with connection of %s" % self.name
             return reply
         else:
-            return reply[args_pos+1:]
-        
+            return reply[args_pos + 1 :]
+
     def _get_pos(self, axis):
         """
         Args:
@@ -683,7 +733,6 @@ class PI_E712(Controller):
         """
         return float(self.command("SVA? %s" % axis.channel))
 
-
     def _get_voltage(self, axis):
         """
         Returns Read Voltage Of Output Signal Channel (VOL? command)
@@ -704,22 +753,27 @@ class PI_E712(Controller):
             cl_timeout = .5
 
             _ont_state = self._get_on_target_status(axis)
-            elog.info(u'axis {0:s} waiting to be ONTARGET'.format(axis.name))
+            elog.info(u"axis {0:s} waiting to be ONTARGET".format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
                 _ont_state = self._get_on_target_status(axis)
             if not _ont_state:
-                elog.error('axis {0:s} NOT on-target'.format(axis.name))
-                raise RuntimeError("Unable to close the loop : "
-                                   "not ON-TARGET after %gs :( " % cl_timeout)
+                elog.error("axis {0:s} NOT on-target".format(axis.name))
+                raise RuntimeError(
+                    "Unable to close the loop : "
+                    "not ON-TARGET after %gs :( " % cl_timeout
+                )
             else:
-                elog.info('axis {0:s} ONT ok after {1:g} s'.format(axis.name, time.time() - _t0))
+                elog.info(
+                    "axis {0:s} ONT ok after {1:g} s".format(
+                        axis.name, time.time() - _t0
+                    )
+                )
 
         # Updates bliss setting (internal cached) position.
         self.__axis_closed_loop[axis].value = onoff
 
         axis._update_dial()
-
 
     def _get_closed_loop_status(self, axis):
         """
@@ -785,13 +839,9 @@ class PI_E712(Controller):
             ("sensor gain 2nd order      ", "SPA? %s 0x2000400" % axis.channel),
             ("sensor gain 3rd order      ", "SPA? %s 0x2000500" % axis.channel),
             ("sensor gain 4th order      ", "SPA? %s 0x2000600" % axis.channel),
-
-            ("Digital filter type        ", "SPA? %s 0x5000000" %
-             axis.channel),
-            ("Digital filter Bandwidth   ", "SPA? %s 0x5000001" %
-             axis.channel),
-            ("Digital filter order       ", "SPA? %s 0x5000002" %
-             axis.channel),
+            ("Digital filter type        ", "SPA? %s 0x5000000" % axis.channel),
+            ("Digital filter Bandwidth   ", "SPA? %s 0x5000001" % axis.channel),
+            ("Digital filter order       ", "SPA? %s 0x5000002" % axis.channel),
         ]
 
         _txt = ""
@@ -799,9 +849,10 @@ class PI_E712(Controller):
         for text, cmd in _infos:
             _txt = _txt + "    %s %s\n" % (text, self.command(cmd))
 
-        _txt = _txt + "    %s  \n%s\n" % \
-            ("\nCommunication parameters",
-             "\n".join(self.command("IFC?", 5)))
+        _txt = _txt + "    %s  \n%s\n" % (
+            "\nCommunication parameters",
+            "\n".join(self.command("IFC?", 5)),
+        )
 
         return _txt
 
@@ -824,8 +875,9 @@ class PI_E712(Controller):
         * Gain 3rd order
         * Gain 4th order
         """
-        commands = '\n'.join(("SPA? %d 0x2000%d00" % (axis.channel, i+2))
-                             for i in range(5))
+        commands = "\n".join(
+            ("SPA? %d 0x2000%d00" % (axis.channel, i + 2)) for i in range(5)
+        )
         axis.coeffs = [float(x) for x in self.command(commands, 5)]
         return axis.coeffs
 
@@ -839,7 +891,7 @@ class PI_E712(Controller):
         * Gain 3rd order
         * Gain 4th order
         """
-        self.command("SPA %s 0x2000%d00 %f" % (axis.channel, coeff+2, value))
+        self.command("SPA %s 0x2000%d00 %f" % (axis.channel, coeff + 2, value))
 
     def _get_tns(self, axis):
         """Get Normalized Input Signal Value. Loop 10 times to straighten out noise"""
@@ -847,24 +899,30 @@ class PI_E712(Controller):
         for _ in range(10):
             time.sleep(0.01)
             _ans = self.command("TNS? %s" % axis.channel)
-            #elog.debug("TNS? %d : %r" % (axis.channel, _ans))
-            if _ans != '0':
+            # elog.debug("TNS? %d : %r" % (axis.channel, _ans))
+            if _ans != "0":
                 accu += float(_ans)
                 accu /= 2
         elog.debug("TNS? %r" % accu)
         # during tests with the piezojack, problems with a blocked socket
-        # towards the controller were encountered. Usually, that was 
+        # towards the controller were encountered. Usually, that was
         # manifesting with 0 TNS readings. If The accumulated value of
         # TNS is 0, we're pretty sure the connection is broken.
         # Use self.finalize() to close the socket, it should be reopened
         # by the next communication attempt.
         if accu == 0:
-            elog.info("%s##########################################################%s" %
-                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
-            elog.info("%sPIEZO READ TNS, accu is zero, resetting socket connection!%s" %
-                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
-            elog.info("%s##########################################################%s" %
-                      (bcolors.GREEN+bcolors.BOLD, bcolors.ENDC))
+            elog.info(
+                "%s##########################################################%s"
+                % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
+            )
+            elog.info(
+                "%sPIEZO READ TNS, accu is zero, resetting socket connection!%s"
+                % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
+            )
+            elog.info(
+                "%s##########################################################%s"
+                % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
+            )
             self.finalize()
         return accu
 
@@ -908,24 +966,26 @@ class PI_E712(Controller):
         for _ in range(10):
             time.sleep(0.01)
             _ans = self.command("TAD? %s" % axis.channel)
-            if _ans != '0':
+            if _ans != "0":
                 accu += float(_ans)
                 accu /= 2
         elog.debug("TAD? %r" % accu)
         return accu
 
+
 class bcolors:
-    CSI="\x1B["
-    BOLD = CSI + '1m'
-    GREY = CSI + '100m'
-    RED = CSI + '101m'
-    GREEN = CSI + '102m'
-    YELLOW = CSI + '103m'
-    BLUE = CSI + '104m'
-    MAGENTA = CSI + '105m'
-    LIGHTBLUE = CSI + '106m'
-    WHITE = CSI + '107m'
-    ENDC = CSI + '0m'
+    CSI = "\x1B["
+    BOLD = CSI + "1m"
+    GREY = CSI + "100m"
+    RED = CSI + "101m"
+    GREEN = CSI + "102m"
+    YELLOW = CSI + "103m"
+    BLUE = CSI + "104m"
+    MAGENTA = CSI + "105m"
+    LIGHTBLUE = CSI + "106m"
+    WHITE = CSI + "107m"
+    ENDC = CSI + "0m"
+
 
 class Switch(BaseSwitch):
     """
@@ -936,6 +996,7 @@ class Switch(BaseSwitch):
         output-type: POSITION   # POSITION (default) or CONTROL_VOLTAGE
         output-range: [-10,10]  # -10 Volts to 10 Volts is the default
     """
+
     def __init__(self, name, controller, config):
         BaseSwitch.__init__(self, name, config)
         self.__controller = weakref.proxy(controller)
@@ -943,53 +1004,75 @@ class Switch(BaseSwitch):
         self.__output_type = None
         self.__output_range = None
         self.__axes = weakref.WeakValueDictionary()
-        
+
     def _init(self):
         config = self.config
         try:
-            self.__output_channel = config['output-channel']
+            self.__output_channel = config["output-channel"]
         except KeyError:
-            raise KeyError("output-channel is mandatory in switch '{}` "
-                           "in PI_E712 **{}**".format(self.name, self.__controller.name))
-        possible_type = {'POSITION':2, 'CONTROL_VOLTAGE':1}
-        output_type = config.get('output-type', 'POSITION').upper()
+            raise KeyError(
+                "output-channel is mandatory in switch '{}` "
+                "in PI_E712 **{}**".format(self.name, self.__controller.name)
+            )
+        possible_type = {"POSITION": 2, "CONTROL_VOLTAGE": 1}
+        output_type = config.get("output-type", "POSITION").upper()
         if output_type not in possible_type:
-            raise ValueError('output-type can only be: %s' % possible_type)
+            raise ValueError("output-type can only be: %s" % possible_type)
         self.__output_type = possible_type.get(output_type)
-        self.__output_range = config.get('output-range', [-10, 10])
-        self.__axes = weakref.WeakValueDictionary({name.upper():axis
-        for name, axis in self.__controller._axes.items()})
+        self.__output_range = config.get("output-range", [-10, 10])
+        self.__axes = weakref.WeakValueDictionary(
+            {name.upper(): axis for name, axis in self.__controller._axes.items()}
+        )
 
     def _set(self, state):
         if state == "DISABLED":  # DON'T KNOW HOW TO DISABLE
             return
         axis = self.__axes.get(state)
         if axis is None:
-            raise ValueError("State %s doesn't exist in the switch %s" % (state, self.name))
+            raise ValueError(
+                "State %s doesn't exist in the switch %s" % (state, self.name)
+            )
         with self.__controller.sock.lock:
-            low_position = float(self.__controller.command("TMN? {}".format(axis.channel)))
-            high_position = float(self.__controller.command("TMX? {}".format(axis.channel)))
+            low_position = float(
+                self.__controller.command("TMN? {}".format(axis.channel))
+            )
+            high_position = float(
+                self.__controller.command("TMX? {}".format(axis.channel))
+            )
             low_voltage, high_voltage = self.__output_range
-            position_scaling = round(((float(high_voltage) - low_voltage) /
-                                      (high_position - low_position)), 3)
+            position_scaling = round(
+                ((float(high_voltage) - low_voltage) / (high_position - low_position)),
+                3,
+            )
             position_offset = -((high_position + low_position) / 2.)
-            self.__controller.command("SPA {axis_channel} 0x7001005 {position_scaling}".\
-                                      format(axis_channel=axis.channel,
-                                             position_scaling=position_scaling))
-            self.__controller.command("SPA {axis_channel} 0x7001006 {position_offset}".\
-                                      format(axis_channel=axis.channel,
-                                             position_offset=position_offset))
-            #Link the output to the axis
-            self.__controller.command("SPA {output_chan} 0xA000003 {output_type}".\
-                                      format(output_chan=self.__output_channel,
-                                             output_type=self.__output_type))
-            self.__controller.command("SPA {output_chan} 0xA000004 {axis_channel}".\
-                                      format(output_chan=self.__output_channel,
-                                             axis_channel=axis.channel))
+            self.__controller.command(
+                "SPA {axis_channel} 0x7001005 {position_scaling}".format(
+                    axis_channel=axis.channel, position_scaling=position_scaling
+                )
+            )
+            self.__controller.command(
+                "SPA {axis_channel} 0x7001006 {position_offset}".format(
+                    axis_channel=axis.channel, position_offset=position_offset
+                )
+            )
+            # Link the output to the axis
+            self.__controller.command(
+                "SPA {output_chan} 0xA000003 {output_type}".format(
+                    output_chan=self.__output_channel, output_type=self.__output_type
+                )
+            )
+            self.__controller.command(
+                "SPA {output_chan} 0xA000004 {axis_channel}".format(
+                    output_chan=self.__output_channel, axis_channel=axis.channel
+                )
+            )
 
     def _get(self):
-        axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
-                                                     format(output_chan=self.__output_channel)))
+        axis_channel = int(
+            self.__controller.command(
+                "SPA? {output_chan} 0xa000004".format(output_chan=self.__output_channel)
+            )
+        )
         for name, axis in self.__axes.items():
             if axis.channel == axis_channel:
                 return name
@@ -1002,10 +1085,21 @@ class Switch(BaseSwitch):
     def scaling_and_offset(self):
         self.init()
         with self.__controller.sock.lock:
-            axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
-                                                             format(output_chan=self.__output_channel)))
-            scaling = float(self.__controller.command("SPA? {axis_channel} 0x7001005".\
-                                                          format(axis_channel=axis_channel)))
-            offset = float(self.__controller.command("SPA? {axis_channel} 0x7001006".\
-                                                         format(axis_channel=axis_channel)))
-            return scaling,offset
+            axis_channel = int(
+                self.__controller.command(
+                    "SPA? {output_chan} 0xa000004".format(
+                        output_chan=self.__output_channel
+                    )
+                )
+            )
+            scaling = float(
+                self.__controller.command(
+                    "SPA? {axis_channel} 0x7001005".format(axis_channel=axis_channel)
+                )
+            )
+            offset = float(
+                self.__controller.command(
+                    "SPA? {axis_channel} 0x7001006".format(axis_channel=axis_channel)
+                )
+            )
+            return scaling, offset

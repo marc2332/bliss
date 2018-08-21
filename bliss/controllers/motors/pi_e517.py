@@ -35,6 +35,7 @@ class PI_E517(PI_E51X):
     def _get_cto(self, axis):
         _ans = self.sock.write_readlines("CTO?\n", 24)
         return _ans
+
     """
     CTO?
 
@@ -78,10 +79,22 @@ class PI_E517(PI_E51X):
         _ch = axis.channel
         if state:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
-                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+                _ch,
+                _ch,
+                self.low_limit,
+                _ch,
+                self.high_limit,
+                _ch,
+            )
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
-                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+                _ch,
+                _ch,
+                self.low_limit,
+                _ch,
+                self.high_limit,
+                _ch,
+            )
 
         elog.debug("set_gate :  _cmd = %s" % _cmd)
 

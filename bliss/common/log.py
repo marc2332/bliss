@@ -17,22 +17,22 @@ NOTSET
 
 
 class bcolors:
-    CSI="\x1B["
-    BOLD = CSI + '1m'
-    RGREY = CSI + '100m'
-    RRED = CSI + '101m'
-    RGREEN = CSI + '102m'
-    RYELLOW = CSI + '103m'
-    RBLUE = CSI + '104m'
-    RMAGENTA = CSI + '105m'
-    RLIGHTBLUE = CSI + '106m'
-    WHITE = CSI + '107m'
-    BLUE = CSI + '94m'
-    PINK = CSI + '95m'
-    YELLOW = CSI + '93m'
-    GREEN = CSI + '92m'
-    RED = CSI + '91m'
-    ENDC = CSI + '0m'
+    CSI = "\x1B["
+    BOLD = CSI + "1m"
+    RGREY = CSI + "100m"
+    RRED = CSI + "101m"
+    RGREEN = CSI + "102m"
+    RYELLOW = CSI + "103m"
+    RBLUE = CSI + "104m"
+    RMAGENTA = CSI + "105m"
+    RLIGHTBLUE = CSI + "106m"
+    WHITE = CSI + "107m"
+    BLUE = CSI + "94m"
+    PINK = CSI + "95m"
+    YELLOW = CSI + "93m"
+    GREEN = CSI + "92m"
+    RED = CSI + "91m"
+    ENDC = CSI + "0m"
 
 
 # LOG LEVELS :
@@ -67,7 +67,7 @@ def _caller(up=1):
             return f[0]
     except:
         pass
-    return ('', 0, '', None)
+    return ("", 0, "", None)
 
 
 # By default only print errors
@@ -149,7 +149,13 @@ def debug(debug_msg):
     short_filename = "%s" % "/".join(path)
     # short_filename = bcolors.BLUE + short_filename + bcolors.ENDC
     # debug_msg = bcolors.PINK + debug_msg + bcolors.ENDC
-    msg = "%.3f %s() (%s, l.%d): %s" % (time.time() - time0, func_name, short_filename, lineno, debug_msg)
+    msg = "%.3f %s() (%s, l.%d): %s" % (
+        time.time() - time0,
+        func_name,
+        short_filename,
+        lineno,
+        debug_msg,
+    )
 
     ret = log(DEBUG, msg)
     return ret

@@ -5,7 +5,8 @@ A. Beteva, M. Guijarro, ESRF BCU
 import time
 from warnings import warn
 
-from bliss.controllers.motor import Controller; from bliss.common import log
+from bliss.controllers.motor import Controller
+from bliss.common import log
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.common import event
@@ -15,7 +16,6 @@ DELAY = 0.02  # delay between 2 commands
 
 
 class NF8753(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -29,11 +29,13 @@ class NF8753(Controller):
         except ValueError:
             host = self.config.get("host")
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
-            comm_cfg = {'tcp': {'url': host } }
+            comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=23)
 
-        if '=2' in self._write_read(None, "DRT", raw=True):
-            raise RuntimeError("Uncompatible closed-loop driver detected in daisy chain")
+        if "=2" in self._write_read(None, "DRT", raw=True):
+            raise RuntimeError(
+                "Uncompatible closed-loop driver detected in daisy chain"
+            )
 
     def finalize(self):
         self.sock.close()
@@ -60,18 +62,18 @@ class NF8753(Controller):
 
     def _write_no_reply(self, axis, cmd_string):
         with self.lock:
-            if not cmd_string.endswith('\r\n'):
-                cmd_string += '\r\n'
+            if not cmd_string.endswith("\r\n"):
+                cmd_string += "\r\n"
             if axis is not None:
                 self._select_channel(axis)
             # print 'sending', cmd_string
-            self.sock.write_readline(cmd_string, eol='>')
+            self.sock.write_readline(cmd_string, eol=">")
             time.sleep(DELAY)
 
-    def _write_read(self, axis, cmd_string, eol='\r\n>', raw=False):
+    def _write_read(self, axis, cmd_string, eol="\r\n>", raw=False):
         with self.lock:
-            if not cmd_string.endswith('\r\n'):
-                cmd_string += '\r\n'
+            if not cmd_string.endswith("\r\n"):
+                cmd_string += "\r\n"
 
             if axis is not None:
                 self._select_channel(axis)
@@ -97,7 +99,7 @@ class NF8753(Controller):
     def state(self, axis):
         if self.__busy:
             return AxisState("BUSY")
-        sta = self._write_read(axis, "STA", eol='\r\n>', raw=True)
+        sta = self._write_read(axis, "STA", eol="\r\n>", raw=True)
         for line in sta.split("\n"):
             if line.startswith(axis.driver):
                 status_byte = int(line.split("=")[-1], 16)
@@ -110,7 +112,10 @@ class NF8753(Controller):
         self.__busy = True
         self.__moving_axis = motion.axis
         if self.__moving_axis.accumulator is None:
-            _accu = self.__moving_axis.settings.get("offset") * self.__moving_axis.steps_per_unit
+            _accu = (
+                self.__moving_axis.settings.get("offset")
+                * self.__moving_axis.steps_per_unit
+            )
             self.__moving_axis.accumulator = _accu
         self.__moving_axis.accumulator += motion.delta
 
@@ -118,11 +123,15 @@ class NF8753(Controller):
         if done:
             # print ">"*10, "AXIS MOVE DONE"
             self.__busy = False
-            self.__moving_axis.position(self.__moving_axis.accumulator / self.__moving_axis.steps_per_unit)
+            self.__moving_axis.position(
+                self.__moving_axis.accumulator / self.__moving_axis.steps_per_unit
+            )
 
     def start_one(self, motion):
         # print "in motion start_one for axis", motion.axis.name
-        self._write_no_reply(motion.axis, "REL %s=%d G" % (motion.axis.driver, motion.delta))
+        self._write_no_reply(
+            motion.axis, "REL %s=%d G" % (motion.axis.driver, motion.delta)
+        )
 
     def stop(self, axis):
         self._write_no_reply(axis, "HAL")

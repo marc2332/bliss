@@ -24,9 +24,9 @@ from bliss.config.channels import clear_cache, Bus
 from bliss.config.conductor.client import get_default_connection
 
 
-BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-BEACON = [sys.executable, '-m', 'bliss.config.conductor.server']
-BEACON_DB_PATH = os.path.join(BLISS, 'tests', 'test_configuration')
+BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
+BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
 
 
 def get_open_ports(n):
@@ -40,19 +40,22 @@ def get_open_ports(n):
             s.close()
 
 
-def wait_for(stream, target, data=''):
+def wait_for(stream, target, data=""):
     while target not in data:
         char = stream.read(1)
         if not char:
             raise RuntimeError(
-                'Target {!r} not found in the following stream:\n{}'
-                .format(target, data))
+                "Target {!r} not found in the following stream:\n{}".format(
+                    target, data
+                )
+            )
         data += char
 
 
 @pytest.fixture
 def clean_louie():
     import louie.dispatcher as disp
+
     disp.connections = {}
     disp.senders = {}
     disp.senders_back = {}
@@ -105,31 +108,31 @@ def config_app_port(ports):
 
 @pytest.fixture(scope="session")
 def beacon_directory(tmpdir_factory):
-    tmpdir = str(tmpdir_factory.mktemp('beacon'))
-    beacon_dir = os.path.join(tmpdir, 'test_configuration')
+    tmpdir = str(tmpdir_factory.mktemp("beacon"))
+    beacon_dir = os.path.join(tmpdir, "test_configuration")
     shutil.copytree(BEACON_DB_PATH, beacon_dir)
     yield beacon_dir
 
 
 @pytest.fixture(scope="session")
 def ports(beacon_directory):
-    redis_uds = os.path.join(beacon_directory, 'redis.sock')
-    ports = namedtuple(
-        'Ports',
-        'redis_port tango_port beacon_port cfgapp_port',
-        )(*get_open_ports(4))
+    redis_uds = os.path.join(beacon_directory, "redis.sock")
+    ports = namedtuple("Ports", "redis_port tango_port beacon_port cfgapp_port")(
+        *get_open_ports(4)
+    )
     args = [
-        '--port=%d' % ports.beacon_port,
-        '--redis_port=%d' % ports.redis_port,
-        '--redis_socket=' + redis_uds,
-        '--db_path=' + beacon_directory,
-        '--posix_queue=0',
-        '--tango_port=%d' % ports.tango_port,
-        '--webapp_port=%d' % ports.cfgapp_port]
+        "--port=%d" % ports.beacon_port,
+        "--redis_port=%d" % ports.redis_port,
+        "--redis_socket=" + redis_uds,
+        "--db_path=" + beacon_directory,
+        "--posix_queue=0",
+        "--tango_port=%d" % ports.tango_port,
+        "--webapp_port=%d" % ports.cfgapp_port,
+    ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     wait_for(
         proc.stderr,
-        "The server is now ready to accept connections at {}".format(redis_uds)
+        "The server is now ready to accept connections at {}".format(redis_uds),
     )
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
@@ -183,7 +186,7 @@ def lima_simulator(ports, beacon):
     device_name = "id00/limaccds/simulator1"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(['LimaCCDs', 'simulator'])
+    p = subprocess.Popen(["LimaCCDs", "simulator"])
 
     with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
         while True:
@@ -210,8 +213,8 @@ def bliss_tango_server(ports, beacon):
     device_name = "id00/bliss/test"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    bliss_ds = [sys.executable, '-m', 'bliss.tango.servers.bliss_ds']
-    p = subprocess.Popen(bliss_ds+["test"])
+    bliss_ds = [sys.executable, "-m", "bliss.tango.servers.bliss_ds"]
+    p = subprocess.Popen(bliss_ds + ["test"])
 
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         while True:

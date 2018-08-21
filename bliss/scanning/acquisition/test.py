@@ -16,25 +16,25 @@ class TestAcquisitionDevice(AcquisitionDevice):
         self.sleep_time = sleep_time
 
     def __str__(self):
-        return '(acq.dev) ' + self.device
+        return "(acq.dev) " + self.device
 
     def prepare(self):
-        print 'preparing device', self.device
+        print "preparing device", self.device
         gevent.sleep(self.sleep_time)
-        print 'done preparing device', self.device
+        print "done preparing device", self.device
 
     def start(self):
-        print 'starting device', self.device
+        print "starting device", self.device
         gevent.sleep(self.sleep_time)
-        print 'done starting device', self.device
+        print "done starting device", self.device
 
     def stop(self):
-        print 'stopping device', self.device
+        print "stopping device", self.device
         gevent.sleep(self.sleep_time)
-        print 'done stopping device', self.device
+        print "done stopping device", self.device
 
     def trigger(self):
-        print 'triggered', self.device, time.time()
+        print "triggered", self.device, time.time()
 
 
 class TestAcquisitionMaster(AcquisitionMaster):
@@ -42,15 +42,15 @@ class TestAcquisitionMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(self, device, device.name)
 
     def __str__(self):
-        return '(master) ' + self.device
+        return "(master) " + self.device
 
     def prepare(self):
-        print 'preparing master', self.device
-        print 'my slaves are', self.slaves
+        print "preparing master", self.device
+        print "my slaves are", self.slaves
         gevent.sleep(2)
-        print 'done preparing master', self.device
+        print "done preparing master", self.device
 
     def start(self):
-        print 'starting master', self.device
+        print "starting master", self.device
         gevent.sleep(2)
-        print 'done starting master', self.device
+        print "done starting master", self.device

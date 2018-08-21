@@ -17,7 +17,7 @@ from bliss.comm.rpc import Server, Client
 
 
 def null():
-    return 'null'
+    return "null"
 
 
 class Car(object):
@@ -59,9 +59,9 @@ class Car(object):
     def move(self, value, relative=False):
         """needless to say this one as well"""
         if relative:
-             self.__position += value
+            self.__position += value
         else:
-             self.__position = value
+            self.__position = value
         return self.__position
 
     def __int__(self):
@@ -77,14 +77,14 @@ class Car(object):
         return self.move(*args, **kwargs)
 
     def __str__(self):
-        return 'DumbCar(color={0})'.format(self.color)
+        return "DumbCar(color={0})".format(self.color)
 
 
 @pytest.fixture
 def rpc_server():
-    obj = Car('yellow', 120, turbo=True)
+    obj = Car("yellow", 120, turbo=True)
     server = Server(obj, stream=True)
-    server.bind('inproc://test')
+    server.bind("inproc://test")
     task = gevent.spawn(server.run)
     yield server, obj
     server.close()
@@ -93,24 +93,24 @@ def rpc_server():
 
 def test_api(rpc_server):
     server, car = rpc_server
-    client_car = Client('inproc://test')
+    client_car = Client("inproc://test")
 
     # class name
-    assert type(client_car).__name__ == type(car).__name__ == 'Car'
+    assert type(client_car).__name__ == type(car).__name__ == "Car"
     # doc
     assert client_car.__doc__ == car.__doc__
     # class member
     assert client_car.wheels == car.wheels == 4
     # object member
-    assert client_car.color == car.color == 'yellow'
+    assert client_car.color == car.color == "yellow"
     # property
     assert client_car.position == car.position == 0
 
     # python protocol methods
     assert int(client_car) == int(car) == 120
     assert len(client_car) == len(car) == 4
-    assert client_car['turbo'] == car['turbo'] == True
-    assert str(client_car) == str(car) == 'DumbCar(color=yellow)'
+    assert client_car["turbo"] == car["turbo"] == True
+    assert str(client_car) == str(car) == "DumbCar(color=yellow)"
 
     # set property
     client_car.watts = 735.499 * 100

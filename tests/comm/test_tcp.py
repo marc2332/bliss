@@ -53,22 +53,23 @@ def test_concurency(command):
     command.connect()
 
     def task_function(msg, i):
-        assert command.write_readline(msg + '\n') == msg
+        assert command.write_readline(msg + "\n") == msg
 
     def task_with_exception(msg, i):
-        msg += '_exception'
+        msg += "_exception"
         try:
             transaction = command._write(msg)
             command._readline(
-                transaction, timeout=0.01, eol='\r', clear_transaction=False)
+                transaction, timeout=0.01, eol="\r", clear_transaction=False
+            )
         except RuntimeError:  # timeout
             rxmsg = command._read(transaction, size=len(msg))
             assert rxmsg == msg
 
     tasks = []
-    for i, msg in enumerate(['HELLO', 'WORLD', 'HOUPPI',
-                             'tagada', 'super', 'mario',
-                             'ludgi']):
+    for i, msg in enumerate(
+        ["HELLO", "WORLD", "HOUPPI", "tagada", "super", "mario", "ludgi"]
+    ):
         tasks.append(gevent.spawn(task_function, msg, i))
         if i % 2:
             tasks.append(gevent.spawn(task_with_exception, msg, i))

@@ -66,29 +66,83 @@ class TangoTfg2(object):
     MAX_CHAN = 9
     ALL_FRAMES = -1
 
-    TriggerNameList = {"Software": -1, "NoPause": 0, "BMTrigger": 1, "ADCchan0": 2, "ADCchan1": 3,
-                       "ADCchan2": 4, "ADCchan3": 5, "ADCchan4": 6, "ADCchan5": 7,
-                       "TTLtrig0": 8, "TTLtrig1": 9, "TTLtrig2": 10, "TTLtrig3": 11,
-                       "LVDSLemo": 12, "TFG cable 1": 13, "TFGCable2": 14,
-                       "TFGcable3": 15, "VarThrshld": 16}
-    TriggerOutputs = {"UserOut0": 1, "UserOut1": 2, "UserOut2": 4, "UserOut3": 8,
-                      "UserOut4": 16, "UserOut5": 32, "UserOut6": 64, "UserOut7": 128}
-    Group = {"help": 1, "ext_start": 2, "ext_inh": 4, "cycles": 8, "file": 16, "no_min_20us": 32,
-             "silent": 64, "sequence": 128, "auto_rearm": 256, "ext_falling": 512}
-    TrigOptions = {"help": 1, "start": 2, "pause": 4, "pause_next_dead": 8, "falling": 16,
-                   "debounce": 32, "threshold": 64, "now": 128, "raw": 256, "alternate": 512}
-    ScalerInput = {"ScalIn0": 0, "ScalIn1": 1, "ScalIn2": 2, "ScalIn3": 3,
-                   "ScalIn4": 4, "ScalIn5": 5, "ScalIn6": 6, "ScalIn7": 7}
-    ScalerMode = {"All": 1,
-                  "Scaler64": 2,        # 64 bit scalers
-                  "Adcs6": 4,
-                  "ShortMixed": 8,     # (Hit, Live, 6 ADCs/Hit, Live, 4 Scalers, 4 ADCs)
-                  "ShortScalers": 16,  # (Hit, Live, Scal 0..3 64 bot, Scal4..7 32 bit)
-                  "Adcs8": 32}         # (8 ADCs)
-    ScalerOptions = {"count_while_input_high": 1,
-                     "count_rising_edges": 2,
-                     "count_while_input_low": 4
-                     }
+    TriggerNameList = {
+        "Software": -1,
+        "NoPause": 0,
+        "BMTrigger": 1,
+        "ADCchan0": 2,
+        "ADCchan1": 3,
+        "ADCchan2": 4,
+        "ADCchan3": 5,
+        "ADCchan4": 6,
+        "ADCchan5": 7,
+        "TTLtrig0": 8,
+        "TTLtrig1": 9,
+        "TTLtrig2": 10,
+        "TTLtrig3": 11,
+        "LVDSLemo": 12,
+        "TFG cable 1": 13,
+        "TFGCable2": 14,
+        "TFGcable3": 15,
+        "VarThrshld": 16,
+    }
+    TriggerOutputs = {
+        "UserOut0": 1,
+        "UserOut1": 2,
+        "UserOut2": 4,
+        "UserOut3": 8,
+        "UserOut4": 16,
+        "UserOut5": 32,
+        "UserOut6": 64,
+        "UserOut7": 128,
+    }
+    Group = {
+        "help": 1,
+        "ext_start": 2,
+        "ext_inh": 4,
+        "cycles": 8,
+        "file": 16,
+        "no_min_20us": 32,
+        "silent": 64,
+        "sequence": 128,
+        "auto_rearm": 256,
+        "ext_falling": 512,
+    }
+    TrigOptions = {
+        "help": 1,
+        "start": 2,
+        "pause": 4,
+        "pause_next_dead": 8,
+        "falling": 16,
+        "debounce": 32,
+        "threshold": 64,
+        "now": 128,
+        "raw": 256,
+        "alternate": 512,
+    }
+    ScalerInput = {
+        "ScalIn0": 0,
+        "ScalIn1": 1,
+        "ScalIn2": 2,
+        "ScalIn3": 3,
+        "ScalIn4": 4,
+        "ScalIn5": 5,
+        "ScalIn6": 6,
+        "ScalIn7": 7,
+    }
+    ScalerMode = {
+        "All": 1,
+        "Scaler64": 2,  # 64 bit scalers
+        "Adcs6": 4,
+        "ShortMixed": 8,  # (Hit, Live, 6 ADCs/Hit, Live, 4 Scalers, 4 ADCs)
+        "ShortScalers": 16,  # (Hit, Live, Scal 0..3 64 bot, Scal4..7 32 bit)
+        "Adcs8": 32,
+    }  # (8 ADCs)
+    ScalerOptions = {
+        "count_while_input_high": 1,
+        "count_rising_edges": 2,
+        "count_while_input_low": 4,
+    }
 
     def __init__(self, name, config):
         self.name = name
@@ -102,7 +156,7 @@ class TangoTfg2(object):
             self._control = tango.DeviceProxy(tango_uri)
         except tango.DevFailed, traceback:
             last_error = traceback[-1]
-            print("%s: %s" % (tango_uri, last_error['desc']))
+            print("%s: %s" % (tango_uri, last_error["desc"]))
             self._control = None
         else:
             try:
@@ -110,7 +164,8 @@ class TangoTfg2(object):
                 self._control.clearStarts()
             except tango.ConnectionFailed:
                 self._control = None
-#                raise RuntimeError("Connection error")
+
+    #                raise RuntimeError("Connection error")
 
     @property
     def current_lap(self):
@@ -155,41 +210,49 @@ class TangoTfg2(object):
     def prepare(self, timing_info):
         self._control.init()
         self.clear()
-        self.__cycles = timing_info.get('cycles', 1)
-        self.__external_inhibit = timing_info.get('extInhibit', False)
+        self.__cycles = timing_info.get("cycles", 1)
+        self.__external_inhibit = timing_info.get("extInhibit", False)
 
-        start_trigger = timing_info.get('startTrigger', {'name': 'Software'})
-        self.set_start_trigger(start_trigger['name'],
-                               start_trigger.get('edge', 'rising'),
-                               start_trigger.get('debounce', 0.0),
-                               start_trigger.get('threshold', 0.0))
+        start_trigger = timing_info.get("startTrigger", {"name": "Software"})
+        self.set_start_trigger(
+            start_trigger["name"],
+            start_trigger.get("edge", "rising"),
+            start_trigger.get("debounce", 0.0),
+            start_trigger.get("threshold", 0.0),
+        )
 
-        pause_trigger = timing_info.get('pauseTrigger', {'name': 'Software'})
-        if pause_trigger['name']:
-            self.set_pause_trigger(pause_trigger['name'],
-                                   pause_trigger.get('edge', 'rising'),
-                                   pause_trigger.get('debounce', 0.0),
-                                   pause_trigger.get('threshold', 0.0))
+        pause_trigger = timing_info.get("pauseTrigger", {"name": "Software"})
+        if pause_trigger["name"]:
+            self.set_pause_trigger(
+                pause_trigger["name"],
+                pause_trigger.get("edge", "rising"),
+                pause_trigger.get("debounce", 0.0),
+                pause_trigger.get("threshold", 0.0),
+            )
 
         frame_list = []
         frame_count = 0
         dead_pause = 0
         live_pause = 0
-        trigger = self.TriggerNameList[pause_trigger['name']]
-        if pause_trigger.get('period', None) == 'dead':
+        trigger = self.TriggerNameList[pause_trigger["name"]]
+        if pause_trigger.get("period", None) == "dead":
             dead_pause = trigger
-        elif pause_trigger.get('period', None) == 'live':
+        elif pause_trigger.get("period", None) == "live":
             live_pause = trigger
-        elif pause_trigger.get('period', None) == 'both':
+        elif pause_trigger.get("period", None) == "both":
             dead_pause = trigger
             live_pause = trigger
 
         inversion = 0
         drive_strength = 0
-        for frameset in timing_info['framesets']:
-            frame_count += frameset['nb_frames']
-            if (pause_trigger.get('trig_when', [self.ALL_FRAMES]) == [self.ALL_FRAMES]) or \
-                    (frameset['nb_frames'] == 1 and frame_count in pause_trigger.get('trig_when', [])):
+        for frameset in timing_info["framesets"]:
+            frame_count += frameset["nb_frames"]
+            if (
+                pause_trigger.get("trig_when", [self.ALL_FRAMES]) == [self.ALL_FRAMES]
+            ) or (
+                frameset["nb_frames"] == 1
+                and frame_count in pause_trigger.get("trig_when", [])
+            ):
                 dpause = dead_pause
                 lpause = live_pause
             else:
@@ -200,26 +263,40 @@ class TangoTfg2(object):
             dead_port = 0
             inversion = 0
             drive_strength = 0
-            for trigger_out in timing_info.get('triggers', []):
-                port = trigger_out['port']
-                if trigger_out.get('invert', False) is True:
+            for trigger_out in timing_info.get("triggers", []):
+                port = trigger_out["port"]
+                if trigger_out.get("invert", False) is True:
                     inversion |= self.TriggerOutputs[port]
-                if trigger_out.get('series_terminated', False) is True:
+                if trigger_out.get("series_terminated", False) is True:
                     drive_strength |= self.TriggerOutputs[port]
-                if (trigger_out.get('trig_when', self.ALL_FRAMES) == self.ALL_FRAMES) or \
-                        (frameset['nb_frames'] == 1 and frame_count in trigger_out.get('trig_when', [])):
-                    trig = self.TriggerOutputs[trigger_out['port']]
-                    if trigger_out.get('period', None) == 'dead':
+                if (
+                    trigger_out.get("trig_when", self.ALL_FRAMES) == self.ALL_FRAMES
+                ) or (
+                    frameset["nb_frames"] == 1
+                    and frame_count in trigger_out.get("trig_when", [])
+                ):
+                    trig = self.TriggerOutputs[trigger_out["port"]]
+                    if trigger_out.get("period", None) == "dead":
                         dead_port |= trig
-                    elif trigger_out.get('period', None) == 'live':
+                    elif trigger_out.get("period", None) == "live":
                         live_port |= trig
 
-            frame_list.extend((frameset['nb_frames'], frameset['latency'], frameset['acq_time'],
-                               dead_port, live_port, dpause, lpause))
+            frame_list.extend(
+                (
+                    frameset["nb_frames"],
+                    frameset["latency"],
+                    frameset["acq_time"],
+                    dead_port,
+                    live_port,
+                    dpause,
+                    lpause,
+                )
+            )
         self.__setup_groups(self.__compress(frame_list))
         self.__setup_port(inversion, drive_strength)
-        self._control.setupVeto([1, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        self._control.setupVeto(
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        )
         self.__setup_scaler_channels(timing_info)
 
     def start(self):
@@ -256,11 +333,11 @@ class TangoTfg2(object):
         for i in range(0, len(framelist), 7):
             if i == 0:
                 last = framelist[0:7]
-            elif framelist[i+1:i+7] == last[1:7]:
+            elif framelist[i + 1 : i + 7] == last[1:7]:
                 last[0] += framelist[i]
             else:
                 compressed.extend(last)
-                last = framelist[i:i+7]
+                last = framelist[i : i + 7]
         compressed.extend(last)
         return compressed
 
@@ -286,19 +363,25 @@ class TangoTfg2(object):
         # drive_strength 8bit drive strength 0=> full drive, 1=> series terminated
         self._control.setupPort([invert & 0xff, drive_strength & 0xff])
 
-    def set_start_trigger(self, trigger_name, edge="rising", debounce=0.0, threshold=0.0):
+    def set_start_trigger(
+        self, trigger_name, edge="rising", debounce=0.0, threshold=0.0
+    ):
         self.__setup_trig("start", trigger_name, edge, debounce, threshold)
 
-    def set_pause_trigger(self, trigger_name, edge="rising", debounce=0.0, threshold=0.0):
+    def set_pause_trigger(
+        self, trigger_name, edge="rising", debounce=0.0, threshold=0.0
+    ):
         self.__setup_trig("pause", trigger_name, edge, debounce, threshold)
 
     def __setup_trig(self, action, trigger_name, edge, debounce, threshold):
         trigger_nb = self.TriggerNameList.get(trigger_name)
-        args = [self.TrigOptions.get(action),
-                trigger_nb,  # trigger input number 1..16
-                0,           # debounce value
-                0,           # threshold value
-                0]           # not used (Alternate trigger)
+        args = [
+            self.TrigOptions.get(action),
+            trigger_nb,  # trigger input number 1..16
+            0,  # debounce value
+            0,  # threshold value
+            0,
+        ]  # not used (Alternate trigger)
         args[0] |= self.TrigOptions.get("now")
         if trigger_name == "Software":
             if action == "start":
@@ -310,7 +393,9 @@ class TangoTfg2(object):
                 args[0] |= self.TrigOptions.get("falling")
             if debounce != 0.0:
                 if trigger_nb == 16 and threshold != 0.0:
-                    args[0] |= (self.TrigOptions.get("debounce") | self.TrigOptions.get("threshold"))
+                    args[0] |= self.TrigOptions.get("debounce") | self.TrigOptions.get(
+                        "threshold"
+                    )
                     args[2] = debounce
                     args[3] = threshold
                 else:
@@ -323,15 +408,23 @@ class TangoTfg2(object):
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):
-        scaler_mode = timing_info.get('scalerMode', 'Scaler64')
+        scaler_mode = timing_info.get("scalerMode", "Scaler64")
         self._control.setupCCMode(self.ScalerMode[scaler_mode])
 
-        scaler_channels = timing_info.get('scalerChannels', self.ALL_CHAN)
+        scaler_channels = timing_info.get("scalerChannels", self.ALL_CHAN)
         if scaler_channels == self.ALL_CHAN:
-            self._control.setupCCChan([self.ScalerOptions['count_rising_edges'], self.ALL_CHAN])
+            self._control.setupCCChan(
+                [self.ScalerOptions["count_rising_edges"], self.ALL_CHAN]
+            )
         else:
             # set all channels to default in case options for every channel not specified
-            self._control.setupCCChan([self.ScalerOptions['count_rising_edges'], self.ALL_CHAN])
+            self._control.setupCCChan(
+                [self.ScalerOptions["count_rising_edges"], self.ALL_CHAN]
+            )
             for channel in scaler_channels:
-                self._control.setupCCChan([self.ScalerOptions[channel.get('option', 'count_rising_edges')],
-                                           self.ScalerInput[channel.get('name', self.ALL_CHAN)]])
+                self._control.setupCCChan(
+                    [
+                        self.ScalerOptions[channel.get("option", "count_rising_edges")],
+                        self.ScalerInput[channel.get("name", self.ALL_CHAN)],
+                    ]
+                )

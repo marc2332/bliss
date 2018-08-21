@@ -6,4 +6,5 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from .ct2_ds import main
+
 main()

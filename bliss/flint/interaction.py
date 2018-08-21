@@ -16,25 +16,33 @@ class DrawModeAction(PlotAction):
     """Action that control drawing mode"""
 
     _MODES = {  # shape: (icon, text, tooltip
-        'rectangle': ('shape-rectangle', 'Rectangle selection', 'Select a rectangular region'),
-        'line': ('shape-diagonal', 'Line selection', 'Select a line'),
-        'hline': ('shape-horizontal', 'H. line selection', 'Select a horizontal line'),
-        'vline': ('shape-vertical', 'V. line selection', 'Select a vertical line'),
-        'polygon': ('shape-polygon', 'Polygon selection', 'Select a polygon'),
+        "rectangle": (
+            "shape-rectangle",
+            "Rectangle selection",
+            "Select a rectangular region",
+        ),
+        "line": ("shape-diagonal", "Line selection", "Select a line"),
+        "hline": ("shape-horizontal", "H. line selection", "Select a horizontal line"),
+        "vline": ("shape-vertical", "V. line selection", "Select a vertical line"),
+        "polygon": ("shape-polygon", "Polygon selection", "Select a polygon"),
     }
 
     def __init__(self, plot, parent=None):
-        self._shape = 'polygon'
+        self._shape = "polygon"
         self._label = None
-        self._color = 'black'
+        self._color = "black"
         self._width = None
         icon, text, tooltip = self._MODES[self._shape]
 
         super(DrawModeAction, self).__init__(
-            plot, icon=icon, text=text,
+            plot,
+            icon=icon,
+            text=text,
             tooltip=tooltip,
             triggered=self._actionTriggered,
-            checkable=True, parent=parent)
+            checkable=True,
+            parent=parent,
+        )
 
         # Listen to mode change
         self.plot.sigInteractiveModeChanged.connect(self._modeChanged)
@@ -80,18 +88,22 @@ class DrawModeAction(PlotAction):
     def _modeChanged(self, source):
         modeDict = self.plot.getInteractiveMode()
         old = self.blockSignals(True)
-        self.setChecked(modeDict['mode'] == 'draw' and
-                        modeDict['shape'] == self._shape and
-                        modeDict['label'] == self._label)
+        self.setChecked(
+            modeDict["mode"] == "draw"
+            and modeDict["shape"] == self._shape
+            and modeDict["label"] == self._label
+        )
         self.blockSignals(old)
 
     def _actionTriggered(self, checked=False):
-        self.plot.setInteractiveMode('draw',
-                                     source=self,
-                                     shape=self._shape,
-                                     color=self._color,
-                                     label=self._label,
-                                     width=self._width)
+        self.plot.setInteractiveMode(
+            "draw",
+            source=self,
+            shape=self._shape,
+            color=self._color,
+            label=self._label,
+            width=self._width,
+        )
 
 
 class ShapeSelector(qt.QObject):
@@ -120,10 +132,10 @@ class ShapeSelector(qt.QObject):
         self._itemId = "%s-%s" % (self.__class__.__name__, id(self))
 
         # Add a toolbar to plot
-        self._toolbar = qt.QToolBar('Selection')
+        self._toolbar = qt.QToolBar("Selection")
         self._modeAction = DrawModeAction(plot=parent)
         self._modeAction.setLabel(self._itemId)
-        self._modeAction.setColor(rgba('red'))
+        self._modeAction.setColor(rgba("red"))
         toolButton = qt.QToolButton()
         toolButton.setDefaultAction(self._modeAction)
         toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
@@ -187,12 +199,12 @@ class ShapeSelector(qt.QObject):
         """
         plot = self.parent()
         if plot is None:
-            raise RuntimeError('No plot to perform selection')
+            raise RuntimeError("No plot to perform selection")
 
         self.stop()
         self.reset()
 
-        assert shape in ('rectangle', 'line', 'polygon', 'hline', 'vline')
+        assert shape in ("rectangle", "line", "polygon", "hline", "vline")
 
         self._modeAction.setShape(shape)
         self._modeAction.trigger()  # To set the interaction mode
@@ -214,8 +226,8 @@ class ShapeSelector(qt.QObject):
             return
 
         mode = plot.getInteractiveMode()
-        if mode['mode'] == 'draw' and mode['label'] == self._itemId:
-            plot.setInteractiveMode('zoom')  # This disconnects draw handler
+        if mode["mode"] == "draw" and mode["label"] == self._itemId:
+            plot.setInteractiveMode("zoom")  # This disconnects draw handler
 
         plot.sigPlotSignal.disconnect(self._handleDraw)
 
@@ -226,9 +238,11 @@ class ShapeSelector(qt.QObject):
 
     def _handleDraw(self, event):
         """Handle shape drawing event"""
-        if (event['event'] == 'drawingFinished' and
-                event['parameters']['label'] == self._itemId):
-            self._setSelection(event['xdata'], event['ydata'])
+        if (
+            event["event"] == "drawingFinished"
+            and event["parameters"]["label"] == self._itemId
+        ):
+            self._setSelection(event["xdata"], event["ydata"])
             self.stop()
 
     def _updateShape(self):
@@ -236,20 +250,22 @@ class ShapeSelector(qt.QObject):
         plot = self.parent()
         if plot is not None:
             if not self._selection:
-                plot.remove(legend=self._itemId, kind='item')
+                plot.remove(legend=self._itemId, kind="item")
 
             else:
                 x, y = self._selection
                 shape = self._modeAction.getShape()
-                if shape == 'line':
-                    shape = 'polylines'
+                if shape == "line":
+                    shape = "polylines"
 
-                plot.addItem(x, y,
-                             legend=self._itemId,
-                             shape=shape,
-                             color=rgba(self._modeAction.getColor()),
-                             fill=False)
-
+                plot.addItem(
+                    x,
+                    y,
+                    legend=self._itemId,
+                    shape=shape,
+                    color=rgba(self._modeAction.getColor()),
+                    fill=False,
+                )
 
 
 class PointsSelector(qt.QObject):
@@ -266,7 +282,6 @@ class PointsSelector(qt.QObject):
     
     It provides the selection.
     """
-
 
     def __init__(self, parent):
         assert isinstance(parent, PlotWidget)
@@ -287,12 +302,13 @@ class PointsSelector(qt.QObject):
 
         elif event.type() == qt.QEvent.KeyPress:
             if event.key() in (qt.Qt.Key_Delete, qt.Qt.Key_Backspace) or (
-                    event.key() == qt.Qt.Key_Z and event.modifiers() & qt.Qt.ControlModifier):
+                event.key() == qt.Qt.Key_Z and event.modifiers() & qt.Qt.ControlModifier
+            ):
                 if len(self._markersAndPos) > 0:
                     plot = self.parent()
                     if plot is not None:
                         legend, _ = self._markersAndPos.pop()
-                        plot.remove(legend=legend, kind='marker')
+                        plot.remove(legend=legend, kind="marker")
 
                         self._updateStatusBar()
                         self.selectionChanged.emit(self.getSelection())
@@ -314,15 +330,14 @@ class PointsSelector(qt.QObject):
 
         plot = self.parent()
         if plot is None:
-            raise RuntimeError('No plot to perform selection')
+            raise RuntimeError("No plot to perform selection")
 
         self._totalPoints = nbPoints
         self._isSelectionRunning = True
 
-        plot.setInteractiveMode(mode='zoom')
+        plot.setInteractiveMode(mode="zoom")
         self._handleInteractiveModeChanged(None)
-        plot.sigInteractiveModeChanged.connect(
-            self._handleInteractiveModeChanged)
+        plot.sigInteractiveModeChanged.connect(self._handleInteractiveModeChanged)
 
         plot.installEventFilter(self)
 
@@ -339,11 +354,10 @@ class PointsSelector(qt.QObject):
 
         plot.removeEventFilter(self)
 
-        plot.sigInteractiveModeChanged.disconnect(
-            self._handleInteractiveModeChanged)
+        plot.sigInteractiveModeChanged.disconnect(self._handleInteractiveModeChanged)
 
         currentMode = plot.getInteractiveMode()
-        if currentMode['mode'] == 'zoom':  # Stop handling mouse click
+        if currentMode["mode"] == "zoom":  # Stop handling mouse click
             plot.sigPlotSignal.disconnect(self._handleSelect)
 
         plot.statusBar().clearMessage()
@@ -357,7 +371,7 @@ class PointsSelector(qt.QObject):
             return
 
         for legend, _ in self._markersAndPos:
-            plot.remove(legend=legend, kind='marker')
+            plot.remove(legend=legend, kind="marker")
         self._markersAndPos = []
         self.selectionChanged.emit(self.getSelection())
 
@@ -367,32 +381,36 @@ class PointsSelector(qt.QObject):
         if plot is None:
             return
 
-        msg = 'Select %d/%d input points' % (len(self._markersAndPos),
-                                             self._totalPoints)
+        msg = "Select %d/%d input points" % (
+            len(self._markersAndPos),
+            self._totalPoints,
+        )
 
         currentMode = plot.getInteractiveMode()
-        if currentMode['mode'] != 'zoom':
-            msg += ' (Use zoom mode to add/remove points)'
+        if currentMode["mode"] != "zoom":
+            msg += " (Use zoom mode to add/remove points)"
 
         plot.statusBar().showMessage(msg)
 
     def _handleSelect(self, event):
         """Handle mouse events"""
-        if event['event'] == 'mouseClicked' and event['button'] == 'left':
+        if event["event"] == "mouseClicked" and event["button"] == "left":
             plot = self.parent()
             if plot is None:
                 return
 
-            x, y = event['x'], event['y']
+            x, y = event["x"], event["y"]
 
             # Add marker
             legend = "sx.ginput %d" % len(self._markersAndPos)
             plot.addMarker(
-                x, y,
+                x,
+                y,
                 legend=legend,
-                text='%d' % len(self._markersAndPos),
-                color='red',
-                draggable=False)
+                text="%d" % len(self._markersAndPos),
+                color="red",
+                draggable=False,
+            )
 
             self._markersAndPos.append((legend, (x, y)))
             self._updateStatusBar()
@@ -409,7 +427,7 @@ class PointsSelector(qt.QObject):
             return
 
         mode = plot.getInteractiveMode()
-        if mode['mode'] == 'zoom':  # Handle click events
+        if mode["mode"] == "zoom":  # Handle click events
             plot.sigPlotSignal.connect(self._handleSelect)
         else:  # Do not handle click event
             plot.sigPlotSignal.disconnect(self._handleSelect)
@@ -428,7 +446,7 @@ class BlissPlot(PlotWindow):
 
     def __init__(self, parent=None, **kwargs):
         super(BlissPlot, self).__init__(parent=parent, **kwargs)
-        self._selectionColor = rgba('red')
+        self._selectionColor = rgba("red")
         self._selectionMode = None
         self._markers = []
         self._pointNames = ()
@@ -469,11 +487,13 @@ class BlissPlot(PlotWindow):
         legend = "BlissPlotSelection-%d" % index
 
         self.addMarker(
-            x, y,
+            x,
+            y,
             legend=legend,
             text=name,
             color=self._selectionColor,
-            draggable=self._selectionMode is not None)
+            draggable=self._selectionMode is not None,
+        )
         return legend
 
     def _updateMarkers(self):
@@ -504,12 +524,11 @@ class BlissPlot(PlotWindow):
         self._pointNames = points
 
         self._markers = []
-        self._selectionMode = 'points'
+        self._selectionMode = "points"
 
-        self.setInteractiveMode(mode='zoom')
+        self.setInteractiveMode(mode="zoom")
         self._handleInteractiveModeChanged(None)
-        self.sigInteractiveModeChanged.connect(
-            self._handleInteractiveModeChanged)
+        self.sigInteractiveModeChanged.connect(self._handleInteractiveModeChanged)
 
     def stopSelection(self):
         """Stop current selection.
@@ -519,14 +538,15 @@ class BlissPlot(PlotWindow):
         """
         if self._selectionMode is not None:
             currentMode = self.getInteractiveMode()
-            if currentMode['mode'] == 'zoom':  # Stop handling mouse click
+            if currentMode["mode"] == "zoom":  # Stop handling mouse click
                 self.sigPlotSignal.disconnect(self._handleSelect)
 
             self.sigInteractiveModeChanged.disconnect(
-                self._handleInteractiveModeChanged)
+                self._handleInteractiveModeChanged
+            )
 
             self._selectionMode = None
-            self.statusBar().showMessage('Selection done')
+            self.statusBar().showMessage("Selection done")
 
             self._updateMarkers()  # To make them not draggable
 
@@ -537,13 +557,15 @@ class BlissPlot(PlotWindow):
 
         :rtype: tuple
         """
-        return tuple(self._getItem(kind='marker', legend=legend).getPosition()
-                     for legend in self._markers)
+        return tuple(
+            self._getItem(kind="marker", legend=legend).getPosition()
+            for legend in self._markers
+        )
 
     def resetSelection(self):
         """Clear current selection"""
         for legend in self._markers:
-            self.remove(legend, kind='marker')
+            self.remove(legend, kind="marker")
         self._markers = []
 
         if self._selectionMode is not None:
@@ -557,7 +579,7 @@ class BlissPlot(PlotWindow):
         :param source: Objects that triggered the mode change
         """
         mode = self.getInteractiveMode()
-        if mode['mode'] == 'zoom':  # Handle click events
+        if mode["mode"] == "zoom":  # Handle click events
             self.sigPlotSignal.connect(self._handleSelect)
         else:  # Do not handle click event
             self.sigPlotSignal.disconnect(self._handleSelect)
@@ -565,11 +587,11 @@ class BlissPlot(PlotWindow):
 
     def _handleSelect(self, event):
         """Handle mouse events"""
-        if event['event'] == 'mouseClicked' and event['button'] == 'left':
+        if event["event"] == "mouseClicked" and event["button"] == "left":
             if len(self._markers) == len(self._pointNames):
                 return
 
-            x, y = event['x'], event['y']
+            x, y = event["x"], event["y"]
             legend = self._setSelectedPointMarker(x, y, len(self._markers))
             self._markers.append(legend)
             self._updateStatusBar()
@@ -578,11 +600,11 @@ class BlissPlot(PlotWindow):
         """Handle keys for undo/done actions"""
         if self._selectionMode is not None:
             if event.key() in (qt.Qt.Key_Delete, qt.Qt.Key_Backspace) or (
-                    event.key() == qt.Qt.Key_Z and
-                    event.modifiers() & qt.Qt.ControlModifier):
+                event.key() == qt.Qt.Key_Z and event.modifiers() & qt.Qt.ControlModifier
+            ):
                 if len(self._markers) > 0:
                     legend = self._markers.pop()
-                    self.remove(legend, kind='marker')
+                    self.remove(legend, kind="marker")
 
                     self._updateStatusBar()
                     return  # Stop processing the event
@@ -597,33 +619,36 @@ class BlissPlot(PlotWindow):
         """Update status bar message"""
         if len(self._markers) < len(self._pointNames):
             name = self._pointNames[len(self._markers)]
-            msg = 'Select point: %s (%d/%d)' % (
-                name, len(self._markers), len(self._pointNames))
+            msg = "Select point: %s (%d/%d)" % (
+                name,
+                len(self._markers),
+                len(self._pointNames),
+            )
         else:
-            msg = 'Selection ready. Press Enter to validate'
+            msg = "Selection ready. Press Enter to validate"
 
         currentMode = self.getInteractiveMode()
-        if currentMode['mode'] != 'zoom':
-            msg += ' (Use zoom mode to add/edit points)'
+        if currentMode["mode"] != "zoom":
+            msg += " (Use zoom mode to add/edit points)"
 
         self.statusBar().showMessage(msg)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = qt.QApplication([])
 
-    #plot = BlissPlot()
-    #plot.startPointSelection(('first', 'second', 'third'))
+    # plot = BlissPlot()
+    # plot.startPointSelection(('first', 'second', 'third'))
 
     def dumpChanged(selection):
-        print('selectionChanged', selection)
+        print("selectionChanged", selection)
 
     def dumpFinished(selection):
-        print('selectionFinished', selection)
+        print("selectionFinished", selection)
 
     plot = PlotWindow()
     selector = ShapeSelector(plot)
-    #selector.start(shape='rectangle')
+    # selector.start(shape='rectangle')
     selector.selectionChanged.connect(dumpChanged)
     selector.selectionFinished.connect(dumpFinished)
     plot.show()
@@ -632,4 +657,4 @@ if __name__ == '__main__':
     points.start(3)
     points.selectionChanged.connect(dumpChanged)
     points.selectionFinished.connect(dumpFinished)
-    #app.exec_()
+    # app.exec_()

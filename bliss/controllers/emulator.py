@@ -44,10 +44,17 @@ from gevent.baseserver import BaseServer
 from gevent.server import StreamServer
 from gevent.fileobject import FileObject
 
-_log = logging.getLogger('emulator')
+_log = logging.getLogger("emulator")
 
-__all__ = ['Server', 'BaseDevice', 'EmulatorServerMixin',
-           'SerialServer', 'TCPServer', 'main', 'create_server_from_config']
+__all__ = [
+    "Server",
+    "BaseDevice",
+    "EmulatorServerMixin",
+    "SerialServer",
+    "TCPServer",
+    "main",
+    "create_server_from_config",
+]
 
 
 class EmulatorServerMixin(object):
@@ -62,14 +69,19 @@ class EmulatorServerMixin(object):
         self.newline = device.newline if newline is None else newline
         self.special_messages = set(device.special_messages)
         self.connections = {}
-        name = '{0}({1}, device={2})'.format(type(self).__name__, self.address,
-                                             device.name)
-        self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
-        self._log.info('listening on %s (newline=%r) (baudrate=%s)',
-                       self.address, self.newline, self.baudrate)
+        name = "{0}({1}, device={2})".format(
+            type(self).__name__, self.address, device.name
+        )
+        self._log = logging.getLogger("{0}.{1}".format(_log.name, name))
+        self._log.info(
+            "listening on %s (newline=%r) (baudrate=%s)",
+            self.address,
+            self.newline,
+            self.baudrate,
+        )
 
     def handle(self, sock, addr):
-        file_obj = sock.makefile(mode='rb')
+        file_obj = sock.makefile(mode="rb")
         self.connections[addr] = file_obj, sock
         try:
             return self.__handle(sock, file_obj)
@@ -85,13 +97,13 @@ class EmulatorServerMixin(object):
             sock (gevent.socket.socket): new socket resulting from an accept
             addr tuple): address (tuple of host, port)
         """
-        if self.newline == '\n' and not self.special_messages:
+        if self.newline == "\n" and not self.special_messages:
             for line in file_obj:
                 self.handle_line(sock, line)
         else:
             # warning: in this mode read will block even if client
             # disconnects. Need to find a better way to handle this
-            buff = ''
+            buff = ""
             finish = False
             while not finish:
                 readout = file_obj.read(1)
@@ -99,8 +111,8 @@ class EmulatorServerMixin(object):
                     return
                 buff += readout
                 if buff in self.special_messages:
-                    lines = buff,
-                    buff = ''
+                    lines = (buff,)
+                    buff = ""
                 else:
                     lines = buff.split(self.newline)
                     buff, lines = lines[-1], lines[:-1]
@@ -150,7 +162,7 @@ class EmulatorServerMixin(object):
             try:
                 sock.sendall(msg)
             except:
-                self._log.exception('error in broadcast')
+                self._log.exception("error in broadcast")
 
 
 class SerialServer(BaseServer, EmulatorServerMixin):
@@ -160,10 +172,11 @@ class SerialServer(BaseServer, EmulatorServerMixin):
     """
 
     def __init__(self, *args, **kwargs):
-        device = kwargs.pop('device')
-        self.link_name = kwargs.pop('url')
-        e_kwargs = dict(baudrate=kwargs.pop('baudrate', None),
-                        newline=kwargs.pop('newline', None))
+        device = kwargs.pop("device")
+        self.link_name = kwargs.pop("url")
+        e_kwargs = dict(
+            baudrate=kwargs.pop("baudrate", None), newline=kwargs.pop("newline", None)
+        )
         BaseServer.__init__(self, None, *args, **kwargs)
         EmulatorServerMixin.__init__(self, device, **e_kwargs)
 
@@ -176,7 +189,10 @@ class SerialServer(BaseServer, EmulatorServerMixin):
 
     def terminate(self):
         try:
-            print("terminate of SerialServer : Removing pseudo terminal link : %s" % self.link_name)
+            print(
+                "terminate of SerialServer : Removing pseudo terminal link : %s"
+                % self.link_name
+            )
             os.remove(self.link_name)
         except:
             print("pseudo terminal link no more present ?")
@@ -187,12 +203,18 @@ class SerialServer(BaseServer, EmulatorServerMixin):
         initialize a pty and properly fill the address
         """
         if listener is None:
-            self.master, self.slave = pty.openpty()  # returns the 2 file descriptors within the current process.
+            self.master, self.slave = (
+                pty.openpty()
+            )  # returns the 2 file descriptors within the current process.
         else:
             self.master, self.slave = listener
 
-        self.address = os.ttyname(self.slave)              # /dev/pts/N : slave pts to use to communicate with emulator.
-        self.fileobj = FileObject(self.master, mode='rb')  # <FileObjectPosix <SocketAdapter at 0x1723490 (7, 'rb')>>
+        self.address = os.ttyname(
+            self.slave
+        )  # /dev/pts/N : slave pts to use to communicate with emulator.
+        self.fileobj = FileObject(
+            self.master, mode="rb"
+        )  # <FileObjectPosix <SocketAdapter at 0x1723490 (7, 'rb')>>
 
         # Make a link to the randomly named pseudo-terminal with a known name.
         link_path, link_fname = os.path.split(self.link_name)
@@ -203,8 +225,10 @@ class SerialServer(BaseServer, EmulatorServerMixin):
         if not os.path.exists(link_path):
             os.makedirs(link_path)
         os.symlink(self.address, self.link_name)
-        print("Created symbolic link \"%s\" to emulator pseudo terminal \"%s\" " % (self.link_name, self.address) )
-
+        print(
+            'Created symbolic link "%s" to emulator pseudo terminal "%s" '
+            % (self.link_name, self.address)
+        )
 
     @property
     def socket(self):
@@ -233,20 +257,21 @@ class TCPServer(StreamServer, EmulatorServerMixin):
     """
 
     def __init__(self, *args, **kwargs):
-        listener = kwargs.pop('url')
+        listener = kwargs.pop("url")
         if isinstance(listener, list):
             listener = tuple(listener)
-        device = kwargs.pop('device')
-        e_kwargs = dict(baudrate=kwargs.pop('baudrate', None),
-                        newline=kwargs.pop('newline', None))
+        device = kwargs.pop("device")
+        e_kwargs = dict(
+            baudrate=kwargs.pop("baudrate", None), newline=kwargs.pop("newline", None)
+        )
         StreamServer.__init__(self, listener, *args, **kwargs)
         EmulatorServerMixin.__init__(self, device, **e_kwargs)
 
     def handle(self, sock, addr):
         info = self._log.info
-        info('new connection from %s', addr)
+        info("new connection from %s", addr)
         EmulatorServerMixin.handle(self, sock, addr)
-        info('client disconnected %s', addr)
+        info("client disconnected %s", addr)
 
 
 class BaseDevice(object):
@@ -255,18 +280,19 @@ class BaseDevice(object):
     device
     """
 
-    DEFAULT_NEWLINE='\n'
+    DEFAULT_NEWLINE = "\n"
 
     special_messages = set()
 
     def __init__(self, name, newline=None, **kwargs):
         self.name = name
         self.newline = self.DEFAULT_NEWLINE if newline is None else newline
-        self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
+        self._log = logging.getLogger("{0}.{1}".format(_log.name, name))
         self.__transports = weakref.WeakKeyDictionary()
         if kwargs:
-            self._log.warning('constructor keyword args ignored: %s',
-                              ', '.join(kwargs.keys()))
+            self._log.warning(
+                "constructor keyword args ignored: %s", ", ".join(kwargs.keys())
+            )
 
     @property
     def transports(self):
@@ -305,32 +331,37 @@ class Server(object):
     Handles a set of devices
     """
 
-    def __init__(self, name='', devices=(), backdoor=None):
+    def __init__(self, name="", devices=(), backdoor=None):
         self.name = name
-        self._log = logging.getLogger('{0}.{1}'.format(_log.name, name))
-        self._log.info('Bootstraping server')
+        self._log = logging.getLogger("{0}.{1}".format(_log.name, name))
+        self._log.info("Bootstraping server")
         if backdoor:
             from gevent.backdoor import BackdoorServer
-            banner = 'Welcome to Bliss emulator server console.\n' \
-                     'My name is {0!r}. You can access me through the ' \
-                     '\'server()\' function. Have fun!'.format(name)
-            self.backdoor = BackdoorServer(backdoor, banner=banner,
-                                           locals=dict(server=weakref.ref(self)))
+
+            banner = (
+                "Welcome to Bliss emulator server console.\n"
+                "My name is {0!r}. You can access me through the "
+                "'server()' function. Have fun!".format(name)
+            )
+            self.backdoor = BackdoorServer(
+                backdoor, banner=banner, locals=dict(server=weakref.ref(self))
+            )
             self.backdoor.start()
-            self._log.info('Backdoor opened at %r', backdoor)
+            self._log.info("Backdoor opened at %r", backdoor)
 
         else:
-            self._log.info('no backdoor declared')
+            self._log.info("no backdoor declared")
 
         self.devices = {}
         for device in devices:
             try:
                 self.create_device(device)
             except Exception as error:
-                dname = device.get('name', device.get('class', 'unknown'))
-                self._log.error('error creating device %s (will not be available): %s',
-                                dname, error)
-                self._log.debug('details: %s', error, exc_info=1)
+                dname = device.get("name", device.get("class", "unknown"))
+                self._log.error(
+                    "error creating device %s (will not be available): %s", dname, error
+                )
+                self._log.debug("details: %s", error, exc_info=1)
 
     def terminate(self):
         for device in self.devices:
@@ -338,9 +369,9 @@ class Server(object):
                 tp.terminate()
 
     def create_device(self, device_info):
-        klass_name = device_info.get('class')
-        name = device_info.get('name', klass_name)
-        self._log.info('Creating device %s (%r)', name, klass_name)
+        klass_name = device_info.get("class")
+        name = device_info.get("name", klass_name)
+        self._log.info("Creating device %s (%r)", name, klass_name)
         device, transports = create_device(device_info)
         self.devices[device] = transports
         return device, transports
@@ -372,34 +403,34 @@ class Server(object):
             self.stop()
 
     def __str__(self):
-        return '{0}({1})'.format(self.__class__.__name__, self.name)
+        return "{0}({1})".format(self.__class__.__name__, self.name)
 
 
 def create_device(device_info):
     device_info = dict(device_info)
-    class_name = device_info.pop('class')
-    module_name = device_info.pop('module', class_name.lower())
-    package_name = device_info.pop('package', None)
-    name = device_info.pop('name', class_name)
+    class_name = device_info.pop("class")
+    module_name = device_info.pop("module", class_name.lower())
+    package_name = device_info.pop("package", None)
+    name = device_info.pop("name", class_name)
 
     if package_name is None:
-        package_name = 'bliss.controllers.emulators.' + module_name
+        package_name = "bliss.controllers.emulators." + module_name
 
     __import__(package_name)
     package = sys.modules[package_name]
     klass = getattr(package, class_name)
     device = klass(name, **device_info)
 
-    transports_info = device_info.pop('transports', ())
+    transports_info = device_info.pop("transports", ())
     transports = []
     for interface_info in transports_info:
         ikwargs = dict(interface_info)
-        itype = ikwargs.pop('type', 'tcp')
-        if itype == 'tcp':
+        itype = ikwargs.pop("type", "tcp")
+        if itype == "tcp":
             iklass = TCPServer
-        elif itype == 'serial':
+        elif itype == "serial":
             iklass = SerialServer
-        ikwargs['device'] = device
+        ikwargs["device"] = device
         transports.append(iklass(**ikwargs))
     device.transports = transports
     return device, transports
@@ -407,7 +438,7 @@ def create_device(device_info):
 
 def create_server_from_config(config, name):
     cfg = config.get_config(name)
-    backdoor, devices = cfg.get('backdoor', None), cfg.get('devices', ())
+    backdoor, devices = cfg.get("backdoor", None), cfg.get("devices", ())
     return Server(name=name, devices=devices, backdoor=backdoor)
 
 
@@ -415,14 +446,19 @@ def main():
     import argparse
     from bliss.config.static import get_config
 
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[1])
-    parser.add_argument('name',
-                        help='server name as defined in the static configuration')
-    parser.add_argument('--log-level', default='WARNING', help='log level',
-                        choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    parser.add_argument(
+        "name", help="server name as defined in the static configuration"
+    )
+    parser.add_argument(
+        "--log-level",
+        default="WARNING",
+        help="log level",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+    )
     args = parser.parse_args()
 
-    fmt = '%(asctime)-15s %(levelname)-5s %(name)s: %(message)s'
+    fmt = "%(asctime)-15s %(levelname)-5s %(name)s: %(message)s"
     level = getattr(logging, args.log_level.upper())
     logging.basicConfig(format=fmt, level=level)
     config = get_config()
@@ -435,9 +471,10 @@ def main():
         print("\nCtrl-C Pressed. Bailing out...")
         try:
             server.terminate()
-            print ("Server terminated... I'll be back.")
+            print("Server terminated... I'll be back.")
         except:
-            print ("No terminate function for server or error in terminating.")
+            print("No terminate function for server or error in terminating.")
+
 
 if __name__ == "__main__":
     main()

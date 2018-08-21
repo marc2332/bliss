@@ -7,7 +7,7 @@
 
 from bliss.controllers.tango_attr_as_counter import TangoAttrCounter
 
+
 class tango_fe(TangoAttrCounter):
     def __init__(self, name, config):
         TangoAttrCounter.__init__(self, name, config)
-

@@ -45,29 +45,29 @@ class CarnacHook(MotionHook):
                 motion_hooks:
                   - $carnac_hook
     """
+
     def __init__(self, name, config):
-        self._log = logging.getLogger('{0}({1})'.format(self.__class__.__name__,
-                                                        name))
+        self._log = logging.getLogger("{0}({1})".format(self.__class__.__name__, name))
         self.debug = self._log.debug
         self.config = config
         self.name = name
         super(CarnacHook, self).__init__()
 
     def _wait_ready(self, axes):
-        with gevent.Timeout(1, RuntimeError('not all motors ready after timeout')):
+        with gevent.Timeout(1, RuntimeError("not all motors ready after timeout")):
             while True:
                 ready = [axis for axis in axes if axis.state(read_hw=True).READY]
                 if len(ready) == len(axes):
                     break
-        self._log.debug('All motors ready!')
+        self._log.debug("All motors ready!")
 
     def pre_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
-        axes_names = ', '.join([axis.name for axis in axes])
-        self._log.debug('Start power ON for %s', axes_names)
+        axes_names = ", ".join([axis.name for axis in axes])
+        self._log.debug("Start power ON for %s", axes_names)
         tasks = [gevent.spawn(axis.controller.set_on, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        self._log.debug('Finished power ON for %s', axes_names)
+        self._log.debug("Finished power ON for %s", axes_names)
         # we know empirically that the carnac takes ~1.3s to reply it is
         # ready after a power on
         gevent.sleep(1.2)
@@ -75,9 +75,9 @@ class CarnacHook(MotionHook):
 
     def post_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
-        axes_names = ', '.join([axis.name for axis in axes])
-        self._log.debug('Start power OFF for %s', axes_names)
+        axes_names = ", ".join([axis.name for axis in axes])
+        self._log.debug("Start power OFF for %s", axes_names)
         tasks = [gevent.spawn(axis.controller.set_off, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        self._log.debug('Finished power OFF for %s', axes_names)
+        self._log.debug("Finished power OFF for %s", axes_names)
         self._wait_ready(axes)

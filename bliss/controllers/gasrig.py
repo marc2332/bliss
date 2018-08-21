@@ -116,32 +116,36 @@ def _get_wago_channel_names(wago, name_filter=None):
         wago.connect()
     channels = []
     for module in wago.controller.mapping:
-      channels.extend(filter(name_filter, module['channels'][1]))
+        channels.extend(filter(name_filter, module["channels"][1]))
     return channels
 
 
 def _get_gasrig_valve_names(wago):
     def filt(n):
-        if not n.startswith('p'):
+        if not n.startswith("p"):
             return False
         try:
             int(n[1:])
             return True
         except ValueError:
             return False
+
     return _get_wago_channel_names(wago, name_filter=filt)
 
 
 class MKS910Counter(WagoCounter):
     def __init__(self, wago_counter):
-        WagoCounter.__init__(self, wago_counter.cntname,
-                             wago_counter.parent,
-                             index=wago_counter.index,
-                             conversion_function = MKS910Counter.adc_to_mbar)
+        WagoCounter.__init__(
+            self,
+            wago_counter.cntname,
+            wago_counter.parent,
+            index=wago_counter.index,
+            conversion_function=MKS910Counter.adc_to_mbar,
+        )
 
     @staticmethod
     def adc_to_mbar(adcval):
-        return 10**(adcval - 6.0) * 1.33322368
+        return 10 ** (adcval - 6.0) * 1.33322368
 
 
 class GasRig(object):
@@ -152,41 +156,45 @@ class GasRig(object):
     def __init__(self, name, config):
         self.config = config
         self.name = name
-        self._log = logging.getLogger('{0}.{1}'.format(self.__class__.__name__,
-                                                       name))
-        wago = config['wago']
+        self._log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, name))
+        wago = config["wago"]
         self.valve_names = set(_get_gasrig_valve_names(wago))
         for counter in wago.counters:
             if hasattr(self, counter.cntname):
-                self._log.error('Skipped gasrig wago counter %r (controller ' \
-                                'already has a member with that name)',
-                                counter.cntname)
+                self._log.error(
+                    "Skipped gasrig wago counter %r (controller "
+                    "already has a member with that name)",
+                    counter.cntname,
+                )
                 continue
-            if config.get('mks_wago_counter') == counter.cntname:
+            if config.get("mks_wago_counter") == counter.cntname:
                 counter = MKS910Counter(counter)
             setattr(self, counter.cntname, counter)
 
-        for keller in self.config['kellers']:
+        for keller in self.config["kellers"]:
             for name, counter in keller.counters.items():
                 if hasattr(self, counter.name):
-                    self._log.error('Skipped gasrig keller counter %r ' \
-                                    '(controller already has a member with ' \
-                                    'that name)', name)
+                    self._log.error(
+                        "Skipped gasrig keller counter %r "
+                        "(controller already has a member with "
+                        "that name)",
+                        name,
+                    )
                     continue
                 setattr(self, name, counter)
 
     def _set_valve(self, valve, value=0):
-        if 'p'+str(valve) not in self.valve_names:
-            raise ValueError('Unknown valve {0!r}'.format(valve))
-        self.wago.set('p{0}'.format(valve), value)
+        if "p" + str(valve) not in self.valve_names:
+            raise ValueError("Unknown valve {0!r}".format(valve))
+        self.wago.set("p{0}".format(valve), value)
 
     open_valve = functools.partial(_set_valve, value=1)
     close_valve = functools.partial(_set_valve, value=0)
 
     def close_all_valves(self):
         valves = self.valve_names
-        self.wago.set(*zip(valves, len(valves)*(0,)))
+        self.wago.set(*zip(valves, len(valves) * (0,)))
 
     def open_all_valves(self):
         valves = self.valve_names
-        self.wago.set(*zip(valves, len(valves)*(1,)))
+        self.wago.set(*zip(valves, len(valves) * (1,)))

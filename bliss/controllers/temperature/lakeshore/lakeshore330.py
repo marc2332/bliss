@@ -48,22 +48,25 @@ from bliss.controllers.temperature.lakeshore.lakeshore import Base
 
 
 class LakeShore330(object):
-
     def __init__(self, comm_type, url, **kwargs):
-        self.eos = kwargs.get('eos', '\r\n')
-        timeout = kwargs.get('timeout', 0.5)
-        if 'gpib' in comm_type:
-            self._comm = Gpib(url, pad=kwargs['extra_param'], eos=self.eos,
-                              timeout=timeout)
-        elif ('serial' or 'usb') in comm_type:
-            baudrate = kwargs.get('extra_param', 9600)
-            self._comm = serial.Serial(url, baudrate=baudrate,
-                                       bytesize=serial.SEVENBITS,
-                                       parity=serial.PARITY_ODD,
-                                       stopbits=serial.STOPBITS_ONE,
-                                       timeout=timeout,
-                                       eol=self.eos)
-        elif 'tcp' in comm_type:
+        self.eos = kwargs.get("eos", "\r\n")
+        timeout = kwargs.get("timeout", 0.5)
+        if "gpib" in comm_type:
+            self._comm = Gpib(
+                url, pad=kwargs["extra_param"], eos=self.eos, timeout=timeout
+            )
+        elif ("serial" or "usb") in comm_type:
+            baudrate = kwargs.get("extra_param", 9600)
+            self._comm = serial.Serial(
+                url,
+                baudrate=baudrate,
+                bytesize=serial.SEVENBITS,
+                parity=serial.PARITY_ODD,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=timeout,
+                eol=self.eos,
+            )
+        elif "tcp" in comm_type:
             self._comm = Tcp(url, eol=self.eos, timeout=timeout)
         else:
             return RuntimeError("Unknown communication  protocol")
@@ -83,7 +86,7 @@ class LakeShore330(object):
             Returns:
               model (int): model number
         """
-        model = self.send_cmd("*IDN?").split(',')[1]
+        model = self.send_cmd("*IDN?").split(",")[1]
         return int(model[5:])
 
     def read_temperature(self, channel):
@@ -137,7 +140,7 @@ class LakeShore330(object):
         """
         self._channel = channel
         try:
-            value = self.send_cmd("RAMP?").split(',')[1]
+            value = self.send_cmd("RAMP?").split(",")[1]
             return float(value)
         except (ValueError, AttributeError):
             raise RuntimeError("Invalid answer from the controller")
@@ -182,14 +185,14 @@ class LakeShore330(object):
               d (float): D
         """
         self._channel = channel
-        kp = kwargs.get('P')
-        ki = kwargs.get('I')
-        kd = kwargs.get('D')
+        kp = kwargs.get("P")
+        ki = kwargs.get("I")
+        kd = kwargs.get("D")
         if None not in (kp, ki, kd):
             self.send_cmd("PID", kp, ki, kd)
         else:
             try:
-                kp, ki, kd = self.send_cmd("PID?").split(',')
+                kp, ki, kd = self.send_cmd("PID?").split(",")
                 return float(kp), float(ki), float(kd)
             except (ValueError, AttributeError):
                 raise RuntimeError("Invalid answer from the controller")
@@ -202,52 +205,49 @@ class LakeShore330(object):
            Returns:
               None
         """
-        if command.startswith('*'):
-            if '?' in command:
+        if command.startswith("*"):
+            if "?" in command:
                 return self._comm.write_readline(command + self.eos)
             else:
                 self._comm.write(command + self.eos)
-        elif '?' in command:
+        elif "?" in command:
             if isinstance(self._channel, str):
-                cmd = command + ' %s' % self._channel
+                cmd = command + " %s" % self._channel
             else:
-                cmd = command + ' %r' % self._channel
+                cmd = command + " %r" % self._channel
             return self._comm.write_readline(cmd + self.eos)
         else:
-            inp = ','.join(str(x) for x in args)
-            self._comm.write(command + ' %d,%s *OPC' %
-                             (self._channel, inp) + self.eos)
+            inp = ",".join(str(x) for x in args)
+            self._comm.write(command + " %d,%s *OPC" % (self._channel, inp) + self.eos)
 
 
 class lakeshore330(Base):
     def __init__(self, config, *args):
         comm_type = None
         extra_param = None
-        if 'gpib' in config:
-            comm_type = 'gpib'
-            url = config['gpib']['url']
-            extra_param = config['gpib']['pad']
-            eos = config.get('gpib').get('eos', "\r\n")
-        elif 'serial' in config:
-            comm_type = 'serial'
-            url = config['serial']['url']
-            extra_param = config.get('serial').get('baudrate')
-            eos = config.get('serial').get('eos', "\r\n")
-        elif 'tcp' in config:
-            comm_type = 'tcp'
-            url = config['tcp']['url']
-            eos = config.get('tcp').get('eos', "\r\n")
+        if "gpib" in config:
+            comm_type = "gpib"
+            url = config["gpib"]["url"]
+            extra_param = config["gpib"]["pad"]
+            eos = config.get("gpib").get("eos", "\r\n")
+        elif "serial" in config:
+            comm_type = "serial"
+            url = config["serial"]["url"]
+            extra_param = config.get("serial").get("baudrate")
+            eos = config.get("serial").get("eos", "\r\n")
+        elif "tcp" in config:
+            comm_type = "tcp"
+            url = config["tcp"]["url"]
+            eos = config.get("tcp").get("eos", "\r\n")
         else:
             raise ValueError("Must specify gpib or serial url")
 
-        _lakeshore = LakeShore330(comm_type, url,
-                                  extra_param=extra_param,
-                                  eos=eos)
+        _lakeshore = LakeShore330(comm_type, url, extra_param=extra_param, eos=eos)
         Base.__init__(self, _lakeshore, config, *args)
 
 
-if __name__ == '__main__':
-    ls_obj = LakeShore330('gpib', 'id30oh3ls335', addr=12)
+if __name__ == "__main__":
+    ls_obj = LakeShore330("gpib", "id30oh3ls335", addr=12)
 
     for i in range(100):
         print ls_obj.read_temperature()

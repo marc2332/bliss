@@ -14,6 +14,7 @@ from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.measurement import GroupedReadMixin, Counter
 from bliss.common.utils import all_equal
 
+
 def _get_group_reader(counters_or_groupreadhandler):
     try:
         list_iter = iter(counters_or_groupreadhandler)
@@ -25,29 +26,37 @@ def _get_group_reader(counters_or_groupreadhandler):
         for cnt in list_iter:
             cnt_reader = Counter.GROUPED_READ_HANDLERS.get(cnt)
             if cnt_reader != reader:
-                raise RuntimeError("Counters %s doesn't belong to the same group" %\
-                                   counters_or_groupreadhandler)
+                raise RuntimeError(
+                    "Counters %s doesn't belong to the same group"
+                    % counters_or_groupreadhandler
+                )
         return reader, counters_or_groupreadhandler
+
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, count_time, **keys):
-        npoints = max(1, keys.pop('npoints', 1))
-        prepare_once = keys.pop('prepare_once', True)
-        start_once = keys.pop('start_once', npoints > 1)
+        npoints = max(1, keys.pop("npoints", 1))
+        prepare_once = keys.pop("prepare_once", True)
+        start_once = keys.pop("start_once", npoints > 1)
 
-        AcquisitionDevice.__init__(self, counter, counter.name,
-                                   npoints=npoints,
-                                   trigger_type=AcquisitionDevice.SOFTWARE,
-                                   prepare_once=prepare_once,
-                                   start_once=start_once)
+        AcquisitionDevice.__init__(
+            self,
+            counter,
+            counter.name,
+            npoints=npoints,
+            trigger_type=AcquisitionDevice.SOFTWARE,
+            prepare_once=prepare_once,
+            start_once=start_once,
+        )
 
         self.__count_time = count_time
         self.__grouped_read_counters_list = list()
         self._nb_acq_points = 0
 
         if not isinstance(counter, GroupedReadMixin):
-            self.channels.append(AcquisitionChannel(
-                counter.name, counter.dtype, counter.shape))
+            self.channels.append(
+                AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+            )
 
     @property
     def count_time(self):
@@ -63,11 +72,13 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
             if self.device == counter:
                 return
             raise RuntimeError(
-                "Cannot add counter to single-read counter acquisition device")
+                "Cannot add counter to single-read counter acquisition device"
+            )
 
         self.__grouped_read_counters_list.append(counter)
-        self.channels.append(AcquisitionChannel(
-            counter.name, counter.dtype, counter.shape))
+        self.channels.append(
+            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+        )
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
@@ -76,8 +87,9 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = range(3)
 
-    def __init__(self, counters_or_groupreadhandler,
-                 count_time=None, mode=SIMPLE_AVERAGE, **keys):
+    def __init__(
+        self, counters_or_groupreadhandler, count_time=None, mode=SIMPLE_AVERAGE, **keys
+    ):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -95,8 +107,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
           * start_once --
         """
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
-        BaseCounterAcquisitionDevice.__init__(
-            self, reader, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(self, reader, count_time, **keys)
 
         self._event = event.Event()
         self._stop_flag = False
@@ -146,8 +157,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._ready_event.clear()
 
     def reading(self):
-        while not self._stop_flag and \
-              self._nb_acq_points < self.npoints:
+        while not self._stop_flag and self._nb_acq_points < self.npoints:
             # trigger wait
             self._event.wait()
             self._event.clear()
@@ -165,8 +175,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             # Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
-                read_value = numpy.array(self.device.read(
-                    *self.grouped_read_counters), dtype=numpy.double)
+                read_value = numpy.array(
+                    self.device.read(*self.grouped_read_counters), dtype=numpy.double
+                )
                 end_read = time.time()
                 read_time = end_read - start_read
 
@@ -200,8 +211,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def __init__(self, counters_or_groupreadhandler, count_time=None, **keys):
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
-        BaseCounterAcquisitionDevice.__init__(
-            self, reader, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(self, reader, count_time, **keys)
         for cnt in counters:
             self.add_counter(cnt)
 

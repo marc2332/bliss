@@ -43,10 +43,9 @@ import numpy
 
 
 class energy_wl(CalcController):
-
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
-        self.no_offset = self.config.get('no_offset', bool, True)
+        self.no_offset = self.config.get("no_offset", bool, True)
         self.axis_settings.add("dspace", float)
 
     def initialize_axis(self, axis):
@@ -72,7 +71,9 @@ class energy_wl(CalcController):
         dspace = energy_axis.settings.get("dspace")
         evs = positions_dict["energy"]
         if energy_axis.unit == "eV":
-            monoangle = numpy.degrees(numpy.arcsin(12.3984 * 1000.0 / (evs * 2 * dspace)))
+            monoangle = numpy.degrees(
+                numpy.arcsin(12.3984 * 1000.0 / (evs * 2 * dspace))
+            )
         else:
             monoangle = numpy.degrees(numpy.arcsin(12.3984 / (evs * 2 * dspace)))
         return {"monoang": monoangle}

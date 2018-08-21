@@ -55,8 +55,9 @@ from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 
-ROLES = 'tx', 'ty', 'tz', 'rx', 'ry', 'rz'
-Pose = namedtuple('Pose', ROLES)
+ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
+Pose = namedtuple("Pose", ROLES)
+
 
 class BaseHexapodProtocol(object):
 
@@ -65,11 +66,10 @@ class BaseHexapodProtocol(object):
     Pose = Pose
 
     def __init__(self, config):
-        self._log = logging.getLogger('SHexapod')
+        self._log = logging.getLogger("SHexapod")
         self.config = config
-        self.eol = '\r\n'
-        self.comm = get_comm(config, ctype=TCP, port=self.DEFAULT_PORT,
-                             eol=self.eol)
+        self.eol = "\r\n"
+        self.comm = get_comm(config, ctype=TCP, port=self.DEFAULT_PORT, eol=self.eol)
 
     #
     # To be overwritten by sub-class
@@ -204,17 +204,17 @@ class SHexapod(Controller):
     """Symetrie hexapod controller"""
 
     def protocol(self):
-        if hasattr(self, '_protocol'):
+        if hasattr(self, "_protocol"):
             return self._protocol
 
-        version= self.config.config_dict.get("version", None)
+        version = self.config.config_dict.get("version", None)
         if version == 1:
             all_klass = (HexapodProtocolV1,)
         elif version == 2:
             all_klass = (HexapodProtocolV2,)
         else:
             all_klass = (HexapodProtocolV2, HexapodProtocolV1)
-            
+
         for klass in all_klass:
             try:
                 protocol = klass(self.config.config_dict)
@@ -226,7 +226,7 @@ class SHexapod(Controller):
             except SocketTimeout:
                 pass
         else:
-            raise ValueError('Could not find Hexapod (is it connected?)')
+            raise ValueError("Could not find Hexapod (is it connected?)")
         return self._protocol
 
     def initialize_hardware(self):
@@ -235,10 +235,10 @@ class SHexapod(Controller):
     def initialize_axis(self, axis):
         role = self.__get_axis_role(axis)
         if role not in ROLES:
-            raise ValueError('Invalid role {0!r} for axis {1}'.format(role, axis.name))
+            raise ValueError("Invalid role {0!r} for axis {1}".format(role, axis.name))
 
     def __get_axis_role(self, axis):
-        return axis.config.get('role')
+        return axis.config.get("role")
 
     def __get_hw_set_position(self, axis):
         user_set_pos = axis._set_position()
@@ -247,17 +247,27 @@ class SHexapod(Controller):
         return hw_set_pos
 
     def __get_hw_set_positions(self):
-        return dict(((self.__get_axis_role(axis), self.__get_hw_set_position(axis))
-                     for axis in self.axes.values()))
+        return dict(
+            (
+                (self.__get_axis_role(axis), self.__get_hw_set_position(axis))
+                for axis in self.axes.values()
+            )
+        )
 
     def start_one(self, motion):
         return self.start_all(motion)
 
     def start_all(self, *motion_list):
-        pose_dict = dict(((r,None) for r in ROLES))
+        pose_dict = dict(((r, None) for r in ROLES))
         pose_dict.update(self.__get_hw_set_positions())
-        pose_dict.update(dict(((self.__get_axis_role(motion.axis), motion.target_pos)
-                          for motion in motion_list)))
+        pose_dict.update(
+            dict(
+                (
+                    (self.__get_axis_role(motion.axis), motion.target_pos)
+                    for motion in motion_list
+                )
+            )
+        )
         pose = Pose(**pose_dict)
 
         self.protocol().start_move(pose)
@@ -270,13 +280,13 @@ class SHexapod(Controller):
 
     def state(self, axis):
         status = self.protocol().system_status
-        state = 'READY'
+        state = "READY"
         if status.moving:
-            state = 'MOVING'
+            state = "MOVING"
         if not status.control:
-            state = 'OFF'
+            state = "OFF"
         if status.error:
-            state = 'FAULT'
+            state = "FAULT"
         state = AxisState(state)
         return state
 
@@ -296,19 +306,20 @@ class SHexapod(Controller):
         self.protocol().control = False
 
     def read_velocity(self, axis):
-        if self.__get_axis_role(axis).startswith('t'):
+        if self.__get_axis_role(axis).startswith("t"):
             return self.protocol().tspeed
         else:
             return self.protocol().rspeed
 
-#    def set_velocity(self, axis, new_velocity):
-#        raise NotImplementedError
+    #    def set_velocity(self, axis, new_velocity):
+    #        raise NotImplementedError
 
     def read_acceleration(self, axis):
-        if self.__get_axis_role(axis).startswith('t'):
+        if self.__get_axis_role(axis).startswith("t"):
             return self.protocol().tacceleration
         else:
             return self.protocol().racceleration
+
 
 #    def set_acceleration(self, axis, new_acc):
 #        raise NotImplementedError
@@ -316,5 +327,3 @@ class SHexapod(Controller):
 
 from bliss.controllers.motors.shexapodV1 import HexapodProtocolV1
 from bliss.controllers.motors.shexapodV2 import HexapodProtocolV2
-
-

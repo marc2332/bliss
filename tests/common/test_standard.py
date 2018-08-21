@@ -44,6 +44,7 @@ simu1.triggers_det3  0D       simu1
 @pytest.fixture
 def setup_globals():
     from bliss import setup_globals
+
     save = dict(setup_globals.__dict__)
     try:
         setup_globals.__dict__.clear()
@@ -54,7 +55,7 @@ def setup_globals():
 
 
 def test_lscnt(beacon, setup_globals, capsys):
-    setup_globals.simu1 = beacon.get('simu1')
+    setup_globals.simu1 = beacon.get("simu1")
     assert lscnt() is None
     captured = capsys.readouterr()
     assert captured.out == EXPECTED

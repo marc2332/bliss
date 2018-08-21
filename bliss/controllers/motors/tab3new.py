@@ -9,11 +9,12 @@ from bliss.controllers.motors.threelegtable.Leg import Leg
 import math
 import numpy
 
+
 class Sample(object):
     pass
 
-class tab3new(CalcController):
 
+class tab3new(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
@@ -25,22 +26,20 @@ class tab3new(CalcController):
         back2 = positions_dict["back2"]
 
         if not self._legs:
-            for leg in ('front', 'back1', 'back2'):
-              leg_config = self.config.get(leg+"_leg", dict)
-              
-              new_leg = Leg(leg_config["dof"])
-              new_leg.w = leg_config["world"]
-              new_leg.s = leg_config["sample"]
-              self._legs.append(new_leg)
+            for leg in ("front", "back1", "back2"):
+                leg_config = self.config.get(leg + "_leg", dict)
 
-        for i, leg in enumerate(('front', 'back1', 'back2')):
+                new_leg = Leg(leg_config["dof"])
+                new_leg.w = leg_config["world"]
+                new_leg.s = leg_config["sample"]
+                self._legs.append(new_leg)
+
+        for i, leg in enumerate(("front", "back1", "back2")):
             self._legs[i].u = positions_dict.get(leg)
 
-        [z, rx, ry, rz] = fwdKin(*self._legs)        
+        [z, rx, ry, rz] = fwdKin(*self._legs)
 
-        return { "z": z,
-                 "xtilt": rx,
-                 "ytilt": ry }
+        return {"z": z, "xtilt": rx, "ytilt": ry}
 
     def calc_to_real(self, positions_dict):
         xtilt = positions_dict["xtilt"]
@@ -48,12 +47,10 @@ class tab3new(CalcController):
         z = positions_dict["z"]
 
         sample = Sample()
-        sample.z = z   
+        sample.z = z
         sample.rx = xtilt
         sample.ry = ytilt
 
         [l1, l2, l3] = invKin(self._legs[0], self._legs[1], self._legs[2], sample)
 
-        return {"back1": l2.u,
-                "back2": l3.u,
-                "front": l1.u }
+        return {"back1": l2.u, "back2": l3.u, "front": l1.u}

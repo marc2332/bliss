@@ -6,4 +6,3 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from .lima_base import Lima
-

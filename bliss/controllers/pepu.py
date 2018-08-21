@@ -169,49 +169,49 @@ def idint_to_float(value, integer=40, decimal=8):
 
 def frequency_fromstring(text):
     text = text.upper()
-    if 'MHZ' in text:
-        frequency = float(text.replace('MHZ', '')) * 1e6
-    elif 'KHZ' in text:
-        frequency = float(text.replace('KHZ', '')) * 1e3
-    elif 'HZ' in text:
-        frequency = float(text.replace('HZ', ''))
+    if "MHZ" in text:
+        frequency = float(text.replace("MHZ", "")) * 1e6
+    elif "KHZ" in text:
+        frequency = float(text.replace("KHZ", "")) * 1e3
+    elif "HZ" in text:
+        frequency = float(text.replace("HZ", ""))
     else:
-        ValueError('Unrecognized frequency {0!r}'.format(text))
+        ValueError("Unrecognized frequency {0!r}".format(text))
     return int(frequency)
 
 
 class Scope(enum.Enum):
-    GLOBAL = 'GLOBAL'
-    LOCAL = 'LOCAL'
+    GLOBAL = "GLOBAL"
+    LOCAL = "LOCAL"
 
 
 class ChannelMode(enum.Enum):
-    OFF = 'OFF'         # not configured
-    QUAD = 'QUAD'
-    PULSE = 'PULSE'
-    SSI = 'SSI'
-    BISS = 'BISS'
-    ENDAT = 'ENDAT'
+    OFF = "OFF"  # not configured
+    QUAD = "QUAD"
+    PULSE = "PULSE"
+    SSI = "SSI"
+    BISS = "BISS"
+    ENDAT = "ENDAT"
 
 
 class QuadConfig(enum.Enum):
-    X1 = 'X1'
-    X2 = 'X2'
-    X4 = 'X4'
+    X1 = "X1"
+    X2 = "X2"
+    X4 = "X4"
 
 
 class Signal(enum.Enum):
-    SOFT = 'SOFT'
-    DI1 = 'DI1'
-    DI2 = 'DI2'
-    FREQ = 'FREQ'
+    SOFT = "SOFT"
+    DI1 = "DI1"
+    DI2 = "DI2"
+    FREQ = "FREQ"
 
 
 class PEPUError(Exception):
     pass
 
 
-ChannelConfig = collections.namedtuple('ChannelConfig', 'mode state')
+ChannelConfig = collections.namedtuple("ChannelConfig", "mode state")
 
 
 def ChannelConfig_fromstring(text):
@@ -219,40 +219,40 @@ def ChannelConfig_fromstring(text):
         try:
             mode = ChannelMode(elem)
         except ValueError:
-            state = elem.lower() == 'enable'
+            state = elem.lower() == "enable"
     return ChannelConfig(mode, state)
 
 
 def ChannelConfig_tostring(cfg):
-    return ' '.join((cfg.mode.value, 'ENABLE' if cfg.state else 'DISABLE'))
+    return " ".join((cfg.mode.value, "ENABLE" if cfg.state else "DISABLE"))
 
 
 ChannelConfig.fromstring = staticmethod(ChannelConfig_fromstring)
 ChannelConfig.tostring = ChannelConfig_tostring
 
 
-BissConfig = collections.namedtuple('BissConfig', 'bits frequency')
+BissConfig = collections.namedtuple("BissConfig", "bits frequency")
 
 
 def BissConfig_fromstring(text):
     for elem in text.split():
         elem = elem.upper()
-        if 'BITS' in elem:
-            bits = int(elem.replace('BITS', ''))
+        if "BITS" in elem:
+            bits = int(elem.replace("BITS", ""))
         else:
             frequency = frequency_fromstring(elem)
     return BissConfig(bits, frequency)
 
 
 def BissConfig_tostring(cfg):
-    return '{0}BITS {1}HZ'.format(cfg.bits, cfg.frequency)
+    return "{0}BITS {1}HZ".format(cfg.bits, cfg.frequency)
 
 
 BissConfig.fromstring = staticmethod(BissConfig_fromstring)
 BissConfig.tostring = BissConfig_tostring
 
 
-Trigger = collections.namedtuple('Trigger', 'start clock')
+Trigger = collections.namedtuple("Trigger", "start clock")
 
 
 def Trigger_fromstring(text):
@@ -260,7 +260,7 @@ def Trigger_fromstring(text):
 
 
 def Trigger_tostring(trigger):
-    return '{0} {1}'.format(trigger.start.value, trigger.clock.value)
+    return "{0} {1}".format(trigger.start.value, trigger.clock.value)
 
 
 Trigger.fromstring = staticmethod(Trigger_fromstring)
@@ -268,47 +268,55 @@ Trigger.tostring = Trigger_tostring
 
 
 StreamInfo = collections.namedtuple(
-    'StreamInfo', 'name active scope trigger frequency nb_points sources')
+    "StreamInfo", "name active scope trigger frequency nb_points sources"
+)
 
 
 def StreamInfo_fromstring(text):
     args = text.strip().split()
     (name, state, scope), args = args[:3], args[3:]
-    active = state.upper() == 'ON'
+    active = state.upper() == "ON"
     scope = Scope(scope)
-    items = dict(name=name, active=active, scope=scope,
-                 trigger=None, frequency=None, nb_points=None, sources=None)
+    items = dict(
+        name=name,
+        active=active,
+        scope=scope,
+        trigger=None,
+        frequency=None,
+        nb_points=None,
+        sources=None,
+    )
     i = 0
     while i < len(args):
         item = args[i]
-        if item == 'TRIG':
-            items['trigger'] = Trigger.fromstring(args[i+1] + ' ' + args[i+2])
+        if item == "TRIG":
+            items["trigger"] = Trigger.fromstring(args[i + 1] + " " + args[i + 2])
             i += 1
-        elif item == 'FSAMPL':
-            items['frequency'] = frequency_fromstring(args[i+1])
-        elif item == 'NSAMPL':
-            items['nb_points'] = int(args[i+1])
-        elif item == 'SRC':
-            items['sources'] = args[i+1:]
+        elif item == "FSAMPL":
+            items["frequency"] = frequency_fromstring(args[i + 1])
+        elif item == "NSAMPL":
+            items["nb_points"] = int(args[i + 1])
+        elif item == "SRC":
+            items["sources"] = args[i + 1 :]
             break
         else:
-            raise ValueError('Unrecognized {0!r} in DSTREAM'.format(item))
+            raise ValueError("Unrecognized {0!r} in DSTREAM".format(item))
         i += 2
     return StreamInfo(**items)
 
 
 def StreamInfo_tostring(s):
-    result = [s.name, 'ON' if s.active else 'OFF', s.scope.value]
+    result = [s.name, "ON" if s.active else "OFF", s.scope.value]
     if s.trigger is not None:
-        result += 'TRIG', s.trigger.tostring()
+        result += "TRIG", s.trigger.tostring()
     if s.frequency is not None:
-        result += 'FSAMPL', '{0}HZ'.format(int(s.frequency))
+        result += "FSAMPL", "{0}HZ".format(int(s.frequency))
     if s.nb_points is not None:
-        result += 'NSAMPL', str(s.nb_points)
+        result += "NSAMPL", str(s.nb_points)
     if s.sources is not None:
-        result.append('SRC')
+        result.append("SRC")
         result += s.sources
-    return ' '.join(result)
+    return " ".join(result)
 
 
 StreamInfo.fromstring = staticmethod(StreamInfo_fromstring)
@@ -316,7 +324,6 @@ StreamInfo.tostring = StreamInfo_tostring
 
 
 class BaseAttr(object):
-
     def __init__(self, name, decode=str, encode=str):
         self.name = name
         self.decode = decode
@@ -324,44 +331,42 @@ class BaseAttr(object):
 
 
 class DeviceAttr(BaseAttr):
-
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise PEPUError('Cannot get {0}'.format(self.name))
-        request = '?{0}'.format(self.name)
+            raise PEPUError("Cannot get {0}".format(self.name))
+        request = "?{0}".format(self.name)
         reply = instance.raw_write(request)
         return self.decode(reply)
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise PEPUError('Cannot set {0}'.format(self.name))
+            raise PEPUError("Cannot set {0}".format(self.name))
         value = self.encode(value)
-        command = '{0} {1}'.format(self.name, value)
+        command = "{0} {1}".format(self.name, value)
         return instance.raw_write_read(command)
 
 
 class ChannelAttr(BaseAttr):
-
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise PEPUError('Cannot get {0}'.format(self.name))
-        request = '?{0} {1}'.format(self.name, instance.name)
+            raise PEPUError("Cannot get {0}".format(self.name))
+        request = "?{0} {1}".format(self.name, instance.name)
         reply = instance.pepu.raw_write(request)
         return self.decode(reply)
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise PEPUError('Cannot set {0}'.format(self.name))
+            raise PEPUError("Cannot set {0}".format(self.name))
         value = self.encode(value)
-        command = '{0} {1} {2}'.format(self.name, instance.name, value)
+        command = "{0} {1} {2}".format(self.name, instance.name, value)
         return instance.pepu.raw_write_read(command)
 
 
 class BaseChannel(object):
 
-    value = ChannelAttr('CHVAL', float, None)
+    value = ChannelAttr("CHVAL", float, None)
 
-    set_value = ChannelAttr('CHSET', None, str)
+    set_value = ChannelAttr("CHSET", None, str)
 
     def __init__(self, pepu, ctype, id):
         self._pepu = weakref.ref(pepu)
@@ -370,7 +375,7 @@ class BaseChannel(object):
 
     @property
     def name(self):
-        return '{0}{1}'.format(self.ctype, self.id)
+        return "{0}{1}".format(self.ctype, self.id)
 
     @property
     def pepu(self):
@@ -381,17 +386,16 @@ class BaseChannel(object):
     @property
     def counters(self):
         from bliss.scanning.acquisition.pepu import PepuCounter
+
         return PepuCounter(self)
 
 
 class BaseChannelINOUT(BaseChannel):
 
-    value = ChannelAttr('CHVAL', float, str)
-    error = ChannelAttr('CHERR', str, None)
-    _config = ChannelAttr('CHCFG',
-                          ChannelConfig.fromstring,
-                          ChannelConfig.tostring)
-    quad_config = ChannelAttr('QUADCFG', QuadConfig, lambda x: x.value)
+    value = ChannelAttr("CHVAL", float, str)
+    error = ChannelAttr("CHERR", str, None)
+    _config = ChannelAttr("CHCFG", ChannelConfig.fromstring, ChannelConfig.tostring)
+    quad_config = ChannelAttr("QUADCFG", QuadConfig, lambda x: x.value)
 
     @property
     def enabled(self):
@@ -410,50 +414,48 @@ class BaseChannelINOUT(BaseChannel):
         self._config = self._config._replace(mode=mode)
 
     def reset(self):
-        command = 'CHRESET {0}'.format(self.name)
+        command = "CHRESET {0}".format(self.name)
         return self.pepu.raw_write_read(command)
 
 
 class ChannelIN(BaseChannelINOUT):
 
-    biss_config = ChannelAttr(
-        'BISSCFG', BissConfig.fromstring, BissConfig.tostring)
+    biss_config = ChannelAttr("BISSCFG", BissConfig.fromstring, BissConfig.tostring)
 
     # TODO: SSI, ENDAT, HSSL
 
     def __init__(self, pepu, id):
-        super(ChannelIN, self).__init__(pepu, 'IN', id)
+        super(ChannelIN, self).__init__(pepu, "IN", id)
 
 
 class ChannelOUT(BaseChannelINOUT):
 
-    source = ChannelAttr('CHSRC')
+    source = ChannelAttr("CHSRC")
 
     biss_config = ChannelAttr(
-        'BISSCFG',
-        BissConfig.fromstring,
-        lambda x: x.tostring().rsplit(' ', 1)[0])
+        "BISSCFG", BissConfig.fromstring, lambda x: x.tostring().rsplit(" ", 1)[0]
+    )
 
     # TODO: SSI, ENDAT, HSSL
 
     def __init__(self, pepu, id):
-        super(ChannelOUT, self).__init__(pepu, 'OUT', id)
+        super(ChannelOUT, self).__init__(pepu, "OUT", id)
 
 
 class ChannelCALC(BaseChannel):
 
-    formula = ChannelAttr('CALCCFG')
+    formula = ChannelAttr("CALCCFG")
 
     def __init__(self, pepu, id):
-        super(ChannelCALC, self).__init__(pepu, 'CALC', id)
+        super(ChannelCALC, self).__init__(pepu, "CALC", id)
 
 
 class ChannelAUX(BaseChannel):
 
-    value = ChannelAttr('CHVAL', float, None)
+    value = ChannelAttr("CHVAL", float, None)
 
     def __init__(self, pepu, id):
-        super(ChannelAUX, self).__init__(pepu, 'AUX', id)
+        super(ChannelAUX, self).__init__(pepu, "AUX", id)
 
 
 class StreamAttr(BaseAttr):
@@ -464,7 +466,7 @@ class StreamAttr(BaseAttr):
 
     def __get__(self, instance, owner):
         if self.decode is None:
-            raise PEPUError('Cannot get {0}'.format(self.name))
+            raise PEPUError("Cannot get {0}".format(self.name))
         request = instance._cmd(query=True)
         reply = instance.pepu.raw_write(request)
         new_info = StreamInfo.fromstring(reply)
@@ -473,14 +475,13 @@ class StreamAttr(BaseAttr):
 
     def __set__(self, instance, value):
         if self.encode is None:
-            raise PEPUError('Cannot set {0}'.format(self.name))
+            raise PEPUError("Cannot set {0}".format(self.name))
         value = self.encode(value)
         command = instance._cmd(self.name, value)
         return instance.pepu.raw_write_read(command)
 
 
 class NbPointsStreamAttr(StreamAttr):
-
     def __get__(self, instance, owner):
         request = instance._cmd(self.name, query=True)
         reply = instance.pepu.raw_write(request)
@@ -490,36 +491,24 @@ class NbPointsStreamAttr(StreamAttr):
 class Stream(object):
 
     active = StreamAttr(
-        '',
-        decode=lambda x: x.active,
-        encode=lambda x: 'ON' if x else 'OFF')
+        "", decode=lambda x: x.active, encode=lambda x: "ON" if x else "OFF"
+    )
 
-    status = StreamAttr('STATUS', str, None)
+    status = StreamAttr("STATUS", str, None)
 
     trigger = StreamAttr(
-        'TRIG',
-        decode=lambda x: x.trigger,
-        encode=lambda x: x.tostring())
+        "TRIG", decode=lambda x: x.trigger, encode=lambda x: x.tostring()
+    )
 
     frequency = StreamAttr(
-        'FSAMPL',
-        decode=lambda x: x.frequency,
-        encode=lambda x: '{0}HZ'.format(int(x)))
+        "FSAMPL", decode=lambda x: x.frequency, encode=lambda x: "{0}HZ".format(int(x))
+    )
 
-    nb_points = StreamAttr(
-        'NSAMPL',
-        decode=lambda x: x.nb_points,
-        encode=str)
+    nb_points = StreamAttr("NSAMPL", decode=lambda x: x.nb_points, encode=str)
 
-    nb_points_ready = NbPointsStreamAttr(
-        'NSAMPL',
-        decode=int,
-        encode=None)
+    nb_points_ready = NbPointsStreamAttr("NSAMPL", decode=int, encode=None)
 
-    sources = StreamAttr(
-        'SRC',
-        decode=lambda x: x.sources,
-        encode=' '.join)
+    sources = StreamAttr("SRC", decode=lambda x: x.sources, encode=" ".join)
 
     def __init__(self, pepu, info):
         self._pepu = weakref.ref(pepu)
@@ -539,32 +528,33 @@ class Stream(object):
         return Stream(pepu, info=info)
 
     def add_source(self, channel):
-        command = 'DSTREAM {0} SRC {1}'.format(self.name, channel.name)
+        command = "DSTREAM {0} SRC {1}".format(self.name, channel.name)
         return self.pepu.raw_write_read(command)
 
     def _cmd(self, *args, **kwargs):
-        query = kwargs.get('query', False)
-        return ' '.join(['?DSTREAM' if query else 'DSTREAM', self.name] +
-                        list(map(str, args)))
+        query = kwargs.get("query", False)
+        return " ".join(
+            ["?DSTREAM" if query else "DSTREAM", self.name] + list(map(str, args))
+        )
 
     def start(self):
         self._buffer = []
-        return self.pepu.raw_write_read(self._cmd('APPLY'))
+        return self.pepu.raw_write_read(self._cmd("APPLY"))
 
     def stop(self):
-        return self.pepu.raw_write_read(self._cmd('STOP'))
+        return self.pepu.raw_write_read(self._cmd("STOP"))
 
     def flush(self):
-        return self.pepu.raw_write_read(self._cmd('FLUSH'))
+        return self.pepu.raw_write_read(self._cmd("FLUSH"))
 
     def read(self, n=None):
         if n is None:
             n = self.nb_points_ready
         if n == 0:
             return numpy.array([])
-        command = '?*DSTREAM {0} READ {1}'.format(self.name, n)
+        command = "?*DSTREAM {0} READ {1}".format(self.name, n)
         raw_data = self.pepu.raw_write_read(command)
-        raw_data.dtype = '<i8'
+        raw_data.dtype = "<i8"
         array = idint_to_float(raw_data)
         array.dtype = [(source, array.dtype) for source in self.info.sources]
         return array
@@ -578,15 +568,14 @@ class Stream(object):
             yield data
 
     def __repr__(self):
-        return '{0}(pepu={1!r}, {2})'.format(type(self).__name__,
-                                             self.pepu.name,
-                                             self.info.tostring())
+        return "{0}(pepu={1!r}, {2})".format(
+            type(self).__name__, self.pepu.name, self.info.tostring()
+        )
 
 
 class DeviceConfigAttr(DeviceAttr):
-
     def __init__(self):
-        super(DeviceAttr, self).__init__('DCONFIG')
+        super(DeviceAttr, self).__init__("DCONFIG")
 
     def __set__(self, instance, value):
         return instance.raw_write(value)
@@ -597,17 +586,17 @@ class PEPU(object):
     ESRF - PePU controller
     """
 
-    IN_CHANNELS = range(1, 7)     # 7 and 8 are development only
+    IN_CHANNELS = range(1, 7)  # 7 and 8 are development only
     OUT_CHANNELS = range(7, 9)
     AUX_CHANNELS = range(1, 9)
     CALC_CHANNELS = range(1, 9)
-    F_IN_CHANNELS = range(1, 7)   # 7 and 8 are development only
+    F_IN_CHANNELS = range(1, 7)  # 7 and 8 are development only
 
-    app_name = DeviceAttr('APPNAME', str, None)
-    version = DeviceAttr('VERSION', str, None)
-    up_time = DeviceAttr('UPTIME', float, None)
-    sys_info = DeviceAttr('SYSINFO', str, None)
-    dance_info = DeviceAttr('DINFO', str, None)
+    app_name = DeviceAttr("APPNAME", str, None)
+    version = DeviceAttr("VERSION", str, None)
+    up_time = DeviceAttr("UPTIME", float, None)
+    sys_info = DeviceAttr("SYSINFO", str, None)
+    dance_info = DeviceAttr("DINFO", str, None)
     config = DeviceConfigAttr()
 
     def __init__(self, name, config):
@@ -615,32 +604,34 @@ class PEPU(object):
         self.bliss_config = config
         self.streams = collections.OrderedDict()
 
-        url = config['tcp']['url'] + ':5000'
-        if not url.startswith('command://'):
-            url = 'command://' + url
-        config['tcp']['url'] = url
+        url = config["tcp"]["url"] + ":5000"
+        if not url.startswith("command://"):
+            url = "command://" + url
+        config["tcp"]["url"] = url
 
-        self._log = logging.getLogger('PEPU({0})'.format(url))
+        self._log = logging.getLogger("PEPU({0})".format(url))
 
-        self.conn = get_comm(config, TCP, eol='\n')
+        self.conn = get_comm(config, TCP, eol="\n")
 
-        self.in_channels = collections.OrderedDict([
-            (i, ChannelIN(self, i)) for i in self.IN_CHANNELS])
-        self.out_channels = collections.OrderedDict([
-            (i, ChannelOUT(self, i)) for i in self.OUT_CHANNELS])
-        self.calc_channels = collections.OrderedDict([
-            (i, ChannelCALC(self, i)) for i in self.CALC_CHANNELS])
+        self.in_channels = collections.OrderedDict(
+            [(i, ChannelIN(self, i)) for i in self.IN_CHANNELS]
+        )
+        self.out_channels = collections.OrderedDict(
+            [(i, ChannelOUT(self, i)) for i in self.OUT_CHANNELS]
+        )
+        self.calc_channels = collections.OrderedDict(
+            [(i, ChannelCALC(self, i)) for i in self.CALC_CHANNELS]
+        )
 
-        if 'template' in config:
-            template_name = 'TEMPLATE_' + config['template'].upper()
+        if "template" in config:
+            template_name = "TEMPLATE_" + config["template"].upper()
             template = globals()[template_name]
             self.config = template.format(pepu=self)
 
         # initialize with existing streams
         str_streams = (
-            stream
-            for stream in self.raw_write_read('?DSTREAM').split('\n')
-            if stream)
+            stream for stream in self.raw_write_read("?DSTREAM").split("\n") if stream
+        )
         for str_stream in str_streams:
             stream_info = StreamInfo.fromstring(str_stream)
             self._create_stream(stream_info, write=False)
@@ -651,11 +642,11 @@ class PEPU(object):
         items = []
         for text in text_or_seq:
             text = text.upper()
-            if text.startswith('IN'):
+            if text.startswith("IN"):
                 item = self.in_channels[int(text[2:])]
-            elif text.startswith('OUT'):
+            elif text.startswith("OUT"):
                 item = self.out_channels[int(text[3:])]
-            elif text.startswith('CALC'):
+            elif text.startswith("CALC"):
                 item = self.calc_channels[int(text[4:])]
             else:
                 item = self.streams[text]
@@ -669,11 +660,11 @@ class PEPU(object):
         return _ackcommand(self.conn, message, data=data)
 
     def reboot(self):
-        self.raw_write('REBOOT')
+        self.raw_write("REBOOT")
         self.conn.close()
 
     def software_trigger(self):
-        return self.raw_write_read('STRIG')
+        return self.raw_write_read("STRIG")
 
     def _create_stream(self, stream_info, write=True):
         if write:
@@ -681,9 +672,9 @@ class PEPU(object):
             active = stream_info.active
             # global streams must be created active
             stream_info = stream_info._replace(active=True)
-            self.raw_write_read('DSTREAM ' + stream_info.tostring())
+            self.raw_write_read("DSTREAM " + stream_info.tostring())
             # read back stream info because it may not be exactly what we asked for
-            raw_stream_info = self.raw_write_read('?DSTREAM ' + stream_info.name)
+            raw_stream_info = self.raw_write_read("?DSTREAM " + stream_info.name)
             stream_info = StreamInfo.fromstring(raw_stream_info)
             stream = Stream(self, stream_info)
             # deactivate if necessary
@@ -694,16 +685,23 @@ class PEPU(object):
         self.streams[stream.name] = stream
         return stream
 
-    def create_stream(self, name, active=False,
-                      scope=Scope.GLOBAL, trigger=None, frequency=None,
-                      nb_points=None, sources=None, overwrite=False):
+    def create_stream(
+        self,
+        name,
+        active=False,
+        scope=Scope.GLOBAL,
+        trigger=None,
+        frequency=None,
+        nb_points=None,
+        sources=None,
+        overwrite=False,
+    ):
         name = name.upper()
         if overwrite:
             self.remove_stream(name)
         elif name in self.streams:
-            raise ValueError('Stream {0!r} already exists'.format(name))
-        info = StreamInfo(name, active, scope, trigger, frequency, nb_points,
-                          sources)
+            raise ValueError("Stream {0!r} already exists".format(name))
+        info = StreamInfo(name, active, scope, trigger, frequency, nb_points, sources)
         return self._create_stream(info)
 
     def remove_stream(self, stream):
@@ -713,15 +711,16 @@ class PEPU(object):
             name = stream.upper()
         if name in self.streams:
             stream = self.streams.pop(name)
-            cmd = 'DSTREAM {0.name} DEL {0.scope.value}'.format(stream.info)
+            cmd = "DSTREAM {0.name} DEL {0.scope.value}".format(stream.info)
             return self.raw_write_read(cmd)
 
     def __repr__(self):
-        return '{0}(name={1!r})'.format(type(self).__name__, self.name)
+        return "{0}(name={1!r})".format(type(self).__name__, self.name)
 
     # Counter shortcut
 
     @property
     def counters(self):
         from bliss.scanning.acquisition.pepu import pepu_counters
+
         return pepu_counters(self)

@@ -16,8 +16,7 @@ from __future__ import absolute_import
 import inspect
 
 from tango import DevState, CmdArgType, AttrWriteType, AttrDataFormat
-from tango.server import (Device, attribute, command,
-                            device_property, get_worker)
+from tango.server import Device, attribute, command, device_property, get_worker
 
 from bliss.config.static import get_config
 from bliss.controllers.fuelcell import FuelCell as _FuelCell
@@ -26,11 +25,11 @@ from bliss.controllers.fuelcell import Ptc, Fcs, Attr
 
 _TYPE_MAP = {
     bool: CmdArgType.DevBoolean,
-    str:  CmdArgType.DevString,
-    int:  CmdArgType.DevLong,
-    float:  CmdArgType.DevDouble,
-    'feedback': CmdArgType.DevString,
-    'fuse_status': CmdArgType.DevLong,
+    str: CmdArgType.DevString,
+    int: CmdArgType.DevLong,
+    float: CmdArgType.DevDouble,
+    "feedback": CmdArgType.DevString,
+    "fuse_status": CmdArgType.DevLong,
 }
 
 
@@ -49,9 +48,14 @@ def fuelcell_device(klass):
         member = getattr(_FuelCell, member_name)
         if inspect.isdatadescriptor(member):
             if isinstance(member, Attr):
-                wwrite = AttrWriteType.READ_WRITE if member.encode else AttrWriteType.READ
-                cfg = dict(unit=member.unit if member.unit else '')
-                attr_info = [[_TYPE_MAP[member.decode], AttrDataFormat.SCALAR, wwrite], cfg]
+                wwrite = (
+                    AttrWriteType.READ_WRITE if member.encode else AttrWriteType.READ
+                )
+                cfg = dict(unit=member.unit if member.unit else "")
+                attr_info = [
+                    [_TYPE_MAP[member.decode], AttrDataFormat.SCALAR, wwrite],
+                    cfg,
+                ]
                 klass.TangoClassClass.attr_list[member_name] = attr_info
                 setattr(klass, "read_" + member_name, read)
                 if wwrite == AttrWriteType.READ_WRITE:
@@ -64,7 +68,7 @@ def fuelcell_device(klass):
 @fuelcell_device
 class FuelCell(Device):
 
-    url = device_property(dtype=str, doc='fuell cell hostname')
+    url = device_property(dtype=str, doc="fuell cell hostname")
     name = device_property(dtype=str, default_value=None)
 
     def init_device(self):
@@ -74,12 +78,12 @@ class FuelCell(Device):
                 config = get_config()
                 self.fuelcell = config.get(self.name)
             else:
-                self.fuelcell = _FuelCell('Fuel Cell', dict(tcp=dict(url=self.url)))
+                self.fuelcell = _FuelCell("Fuel Cell", dict(tcp=dict(url=self.url)))
             self.set_state(DevState.ON)
-            self.set_status('Ready!')
+            self.set_status("Ready!")
         except Exception as e:
             self.set_state(DevState.FAULT)
-            self.set_status('Error:\n' + str(e))
+            self.set_status("Error:\n" + str(e))
 
     # ----------
     # Commands
@@ -92,17 +96,16 @@ class FuelCell(Device):
     @command(dtype_in=[str], doc_in=Ptc.cv.__doc__)
     def cv(self, par_list):
         if len(par_list) < 7:
-            raise RuntimeError('not enough parameters')
+            raise RuntimeError("not enough parameters")
         channel = par_list[0]
         start = float(par_list[1])
         stop = float(par_list[2])
         margin1 = float(par_list[3])
         margin2 = float(par_list[4])
-        speed  = float(par_list[5])
-        sweeps  = int(par_list[6])
+        speed = float(par_list[5])
+        sweeps = int(par_list[6])
 
-        self.fuelcell.ptc.cv(channel, start, stop, margin1, margin2,
-                             speed, sweeps)
+        self.fuelcell.ptc.cv(channel, start, stop, margin1, margin2, speed, sweeps)
 
     @command(doc_in=Ptc.stop.__doc__)
     def stop(self):
@@ -119,8 +122,11 @@ def main():
     from tango import GreenMode
     from tango.server import run
     import logging
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(threadName)s %(asctime)s %(levelname)s %(name)s: %(message)s')
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(threadName)s %(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
     run([FuelCell], green_mode=GreenMode.Gevent)
 

@@ -13,9 +13,9 @@ import time
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 
@@ -62,6 +62,7 @@ class TestPI_E753Controller(unittest.TestCase):
         # close peacefully its sockets ???
         time.sleep(0.05)
 
+
 #     def test_axis_move(self):
 #         pz = bliss.get_axis("pz")
 #         self.assertEqual(pz.state(), "READY")
@@ -70,7 +71,7 @@ class TestPI_E753Controller(unittest.TestCase):
 #         move_greenlet.join()
 #         self.assertEqual(pz.state(), "READY")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
 
 

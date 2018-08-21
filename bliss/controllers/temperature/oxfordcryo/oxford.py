@@ -9,6 +9,7 @@ from bliss.controllers.temp import Controller
 from bliss.common.temperature import Output
 from bliss.common.utils import object_method_type
 
+
 class Base(Controller):
     def __init__(self, handler, config, *args):
         Controller.__init__(self, config, *args)
@@ -115,5 +116,3 @@ class Base(Controller):
               rate (int): ramp rate [K/hour]
         """
         self._oxford.end(rate)
-
-

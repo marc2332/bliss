@@ -27,13 +27,14 @@ Thu 13 Feb 2014 15:51:41
 
 
 class PI_E51X(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
-        elog.info("move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name))
+        elog.info(
+            "move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name)
+        )
         if self.auto_gate_enabled:
             if state is True:
                 elog.info("PI_E51X.py : movement is finished")
@@ -74,7 +75,7 @@ class PI_E51X(Controller):
         # NO automatic gating by default.
         self.auto_gate_enabled = False
 
-        '''end of move event'''
+        """end of move event"""
         event.connect(axis, "move_done", self.move_done_event_received)
 
         # Enables the closed-loop.
@@ -99,13 +100,16 @@ class PI_E51X(Controller):
     """
     ON / OFF
     """
+
     def set_on(self, axis):
         pass
 
     def set_off(self, axis):
         pass
 
-    def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None, None]}):
+    def read_position(
+        self, axis, last_read={"t": time.time(), "pos": [None, None, None]}
+    ):
         """
         Returns position's setpoint.
         Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
@@ -130,7 +134,9 @@ class PI_E51X(Controller):
 
         return _pos[axis.channel - 1]
 
-    def read_encoder(self, encoder, last_read={"t": time.time(), "pos": [None, None, None]}):
+    def read_encoder(
+        self, encoder, last_read={"t": time.time(), "pos": [None, None, None]}
+    ):
         cache = last_read
 
         if time.time() - cache["t"] < 0.005:
@@ -161,8 +167,7 @@ class PI_E51X(Controller):
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        self.send_no_ans(axis, "VEL %s %f" %
-                         (axis.chan_letter, new_velocity))
+        self.send_no_ans(axis, "VEL %s %f" % (axis.chan_letter, new_velocity))
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
@@ -196,12 +201,14 @@ class PI_E51X(Controller):
         """
         if self.closed_loop:
             # Command in position.
-            self.send_no_ans(motion.axis, "MOV %s %g" %
-                             (motion.axis.chan_letter, motion.target_pos))
+            self.send_no_ans(
+                motion.axis, "MOV %s %g" % (motion.axis.chan_letter, motion.target_pos)
+            )
         else:
             # Command in voltage.
-            self.send_no_ans(motion.axis, "SVA %s %g" %
-                             (motion.axis.chan_letter, motion.target_pos))
+            self.send_no_ans(
+                motion.axis, "SVA %s %g" % (motion.axis.chan_letter, motion.target_pos)
+            )
 
     def stop(self, axis):
         """
@@ -218,8 +225,8 @@ class PI_E51X(Controller):
     Communication
     """
 
-#    def flush(self, axis):
-#        self.sock.flush()
+    #    def flush(self, axis):
+    #        self.sock.flush()
 
     def raw_write(self, cmd):
         self.send_no_ans(self.ctrl_axis, cmd)
@@ -251,8 +258,10 @@ class PI_E51X(Controller):
         _ans = self.sock.write_readline(_cmd)
         _duration = time.time() - _t0
         if _duration > 0.005:
-            elog.info("PI_E51X.py : Received %r from Send %s (duration : %g ms) " % (
-                _ans, _cmd, _duration * 1000))
+            elog.info(
+                "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
+                % (_ans, _cmd, _duration * 1000)
+            )
 
         # self.check_error(axis)
 
@@ -280,6 +289,7 @@ class PI_E51X(Controller):
     """
     E51X specific
     """
+
     def _get_pos(self):
         """
         Args:
@@ -360,6 +370,7 @@ class PI_E51X(Controller):
     """
     DCO : Drift Compensation Offset.
     """
+
     @object_method(types_info=("None", "None"))
     def activate_dco(self, axis):
         self.send_no_ans(axis, "DCO %s 1" % axis.chan_letter)
@@ -411,8 +422,10 @@ class PI_E51X(Controller):
         if value:
             # auto gating
             self.auto_gate_enabled = True
-            elog.info("PI_E51X.py : enable_gate %s for axis.channel %s " % (
-                str(value), axis.channel))
+            elog.info(
+                "PI_E51X.py : enable_gate %s for axis.channel %s "
+                % (str(value), axis.channel)
+            )
         else:
             self.auto_gate_enabled = False
 
@@ -446,10 +459,22 @@ class PI_E51X(Controller):
         _ch = axis.channel
         if state:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
-                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+                _ch,
+                _ch,
+                self.low_limit,
+                _ch,
+                self.high_limit,
+                _ch,
+            )
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
-                _ch, _ch, self.low_limit, _ch, self.high_limit, _ch)
+                _ch,
+                _ch,
+                self.low_limit,
+                _ch,
+                self.high_limit,
+                _ch,
+            )
 
         elog.debug("set_gate :  _cmd = %s" % _cmd)
 
@@ -504,30 +529,26 @@ class PI_E51X(Controller):
             ("Input Signal Position value", "TSP? %s" % axis.channel),
             ("Velocity control mode      ", "VCO? %s" % axis.chan_letter),
             ("Velocity                   ", "VEL? %s" % axis.chan_letter),
-            ("Osensor                    ", "SPA? %s 0x02000200" %
-             axis.channel),
-            ("Ksensor                    ", "SPA? %s 0x02000300" %
-             axis.channel),
-            ("Digital filter type        ", "SPA? %s 0x05000000" %
-             axis.channel),
-            ("Digital filter Bandwidth   ", "SPA? %s 0x05000001" %
-             axis.channel),
-            ("Digital filter order       ", "SPA? %s 0x05000002" %
-             axis.channel),
+            ("Osensor                    ", "SPA? %s 0x02000200" % axis.channel),
+            ("Ksensor                    ", "SPA? %s 0x02000300" % axis.channel),
+            ("Digital filter type        ", "SPA? %s 0x05000000" % axis.channel),
+            ("Digital filter Bandwidth   ", "SPA? %s 0x05000001" % axis.channel),
+            ("Digital filter order       ", "SPA? %s 0x05000002" % axis.channel),
         ]
 
         _txt = ""
 
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % \
-                (i[0], self.send(axis, i[1]))
+            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
 
-        _txt = _txt + "    %s  \n%s\n" % \
-            ("Communication parameters",
-             "\n".join(self.sock.write_readlines("IFC?\n", 6)))
+        _txt = _txt + "    %s  \n%s\n" % (
+            "Communication parameters",
+            "\n".join(self.sock.write_readlines("IFC?\n", 6)),
+        )
 
-        _txt = _txt + "    %s  \n%s\n" % \
-            ("Firmware version",
-                "\n".join(self.sock.write_readlines("VER?\n", 3)))
+        _txt = _txt + "    %s  \n%s\n" % (
+            "Firmware version",
+            "\n".join(self.sock.write_readlines("VER?\n", 3)),
+        )
 
         return _txt

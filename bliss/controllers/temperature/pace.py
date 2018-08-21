@@ -36,9 +36,8 @@ from bliss.comm.tcp import Tcp
 class Pace(object):
     def __init__(self, url=None, timeout=3, debug=False):
         self.timeout = timeout
-        self._units = ('ATM', 'BAR', 'MBAR', 'PA', 'HPA',
-                       'KPA', 'MPA', 'TORR', 'KG/M2')
-        self._eol = '\r'
+        self._units = ("ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2")
+        self._eol = "\r"
 
         self._sock = Tcp(url, timeout=self.timeout)
 
@@ -47,14 +46,15 @@ class Pace(object):
 
     def init(self):
         # check if the device replies correctly
-        resp = self._sock.write_readline('*IDN?' + self._eol,
-                                         eol=self._eol, timeout=self.timeout)
-        if 'PACE' in resp:
-            model = resp.split(',')[1]
+        resp = self._sock.write_readline(
+            "*IDN?" + self._eol, eol=self._eol, timeout=self.timeout
+        )
+        if "PACE" in resp:
+            model = resp.split(",")[1]
         else:
             model = str(self)
 
-        self._logger = logging.getLogger('%s' % model)
+        self._logger = logging.getLogger("%s" % model)
         self._logger.setLevel(logging.DEBUG)
         logging.basicConfig(level=logging.INFO)
 
@@ -67,17 +67,17 @@ class Pace(object):
           Returns:
               (str): current rate mode
         """
-        cmd = 'SOUR%1d:SLEW:MODE' % channel
+        cmd = "SOUR%1d:SLEW:MODE" % channel
         if mode:
             try:
-                self._send_comm(cmd + ' %s' % mode)
+                self._send_comm(cmd + " %s" % mode)
             except RuntimeError as e:
-                self._logger.error('Mode not set: ' + str(e))
+                self._logger.error("Mode not set: " + str(e))
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error('Mode not read: ' + str(e))
+                self._logger.error("Mode not read: " + str(e))
 
     def _setpoint(self, channel=1, pressure=None):
         """Set/Read the pressure set-point
@@ -87,17 +87,17 @@ class Pace(object):
         Returns:
            (float): Current pressure set-point value.
         """
-        cmd = ':SOUR%1d:PRES' % channel
+        cmd = ":SOUR%1d:PRES" % channel
         if pressure:
             try:
-                self._send_comm(cmd + ' %f' % pressure)
+                self._send_comm(cmd + " %f" % pressure)
             except RuntimeError as e:
-                self._logger.error('Pressure set-pointnot set: ' + str(e))
+                self._logger.error("Pressure set-pointnot set: " + str(e))
         else:
             try:
                 return float(self._query_comm(cmd))
             except Exception as e:
-                self._logger.error('Pressure set-point not read: ' + str(e))
+                self._logger.error("Pressure set-point not read: " + str(e))
 
     def _ramprate(self, channel=1, rate=None):
         """Set/Read the rate the controller should use to achieve setpoint
@@ -107,18 +107,17 @@ class Pace(object):
         Returns:
             (float): Current rate in selected pressure units per second
         """
-        cmd = 'SOUR%1d:PRES:SLEW' % channel
+        cmd = "SOUR%1d:PRES:SLEW" % channel
         if rate:
             try:
-                self._send_comm(cmd + ' %f' % rate)
+                self._send_comm(cmd + " %f" % rate)
             except RuntimeError as e:
-                self._logger.error('Ramp rate not set: ' + str(e))
+                self._logger.error("Ramp rate not set: " + str(e))
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error('Cannot read the current ramp rate: ' +
-                                   str(e))
+                self._logger.error("Cannot read the current ramp rate: " + str(e))
 
     def _unit(self, channel=1, unit=None):
         """Set/Read the pressure unit
@@ -127,24 +126,22 @@ class Pace(object):
         Returns:
            (string): The pressure in the current units
         """
-        cmd = ':UNIT%1d:PRES' % channel
+        cmd = ":UNIT%1d:PRES" % channel
         if unit:
             if unit.upper() in self._units:
                 try:
-                    self._send_comm(cmd + ' %s' % unit)
+                    self._send_comm(cmd + " %s" % unit)
                 except RuntimeError as e:
-                    self._logger.error('Cannot set the pressure unit: %s'
-                                       % str(e))
+                    self._logger.error("Cannot set the pressure unit: %s" % str(e))
             else:
-                msg = 'Cannot set the pressure unit: wrong input'
+                msg = "Cannot set the pressure unit: wrong input"
                 self._logger.error(msg)
                 raise (msg)
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error('Cannot read the current pressure unit: ' +
-                                   str(e))
+                self._logger.error("Cannot read the current pressure unit: " + str(e))
 
     def setpoint(self, pressure, channel=1):
         """Set the pressure to a value at maximum speed
@@ -153,10 +150,10 @@ class Pace(object):
            (int): channel number (default 1)
         """
         try:
-            self._mode(channel, 'MAX')
+            self._mode(channel, "MAX")
             self._setpoint(channel, pressure)
         except Exception as e:
-            self._logger.error('setpoint: ' + str(e))
+            self._logger.error("setpoint: " + str(e))
 
     def ramp(self, pressure=None, rate=None, channel=1):
         """Start ramping to the pressure setpoint
@@ -169,10 +166,10 @@ class Pace(object):
         """
         try:
             self._ramprate(channel, rate)
-            self._mode(channel, 'LIN')
+            self._mode(channel, "LIN")
             self._setpoint(channel, pressure)
         except RuntimeError as e:
-            self._logger.error('ramp: ' + str(e))
+            self._logger.error("ramp: " + str(e))
 
     def read_ramp(self, channel=1):
         """Read the current ramping parameters
@@ -191,11 +188,11 @@ class Pace(object):
         Returns:
            (float): The pressure in the current units
         """
-        cmd = ':SENS%1d:PRES' % channel
+        cmd = ":SENS%1d:PRES" % channel
         try:
             return float(self._query_comm(cmd))
         except Exception as e:
-            self._logger.error('Cannot read the pressure:' + str(e))
+            self._logger.error("Cannot read the pressure:" + str(e))
 
     def _query_comm(self, msg):
         """Send a query command. Read the responce
@@ -204,13 +201,12 @@ class Pace(object):
         Returns:
            (string): The responce
         """
-        if not msg.endswith('?'):
-            msg += '?'
-        self._logger.debug('Command %s' % msg)
+        if not msg.endswith("?"):
+            msg += "?"
+        self._logger.debug("Command %s" % msg)
 
         msg += self._eol
-        resp = self._sock.write_readline(msg, eol=self._eol,
-                                         timeout=self.timeout)
+        resp = self._sock.write_readline(msg, eol=self._eol, timeout=self.timeout)
         try:
             _, val = resp.split()
             return val.strip(self._eol)
@@ -223,18 +219,17 @@ class Pace(object):
            Returns:
               (string): Error string if error
         """
-        msg = 'SYST:ERR?' + self._eol
-        resp = self._sock.write_readline(msg, eol=self._eol,
-                                         timeout=self.timeout)
-        if 'No error' not in resp:
-            return resp.split(',')[1]
+        msg = "SYST:ERR?" + self._eol
+        resp = self._sock.write_readline(msg, eol=self._eol, timeout=self.timeout)
+        if "No error" not in resp:
+            return resp.split(",")[1]
 
     def _send_comm(self, cmd):
         """Send a command.
         Args:
            (string): The comamnd
         """
-        self._logger.debug('Command %s' % cmd)
+        self._logger.debug("Command %s" % cmd)
         self._sock.write(cmd + self._eol)
         err = self._read_error()
         if err:
@@ -244,10 +239,10 @@ class Pace(object):
 
 class pace(Controller):
     def __init__(self, config, *args):
-        if 'url' not in config:
-            raise RuntimeError('pace: should give a communication url')
+        if "url" not in config:
+            raise RuntimeError("pace: should give a communication url")
 
-        self._pace = Pace(config['url'], config.get('timeout'))
+        self._pace = Pace(config["url"], config.get("timeout"))
 
         Controller.__init__(self, config, *args)
 
@@ -258,9 +253,9 @@ class pace(Controller):
         self.__ramp_rate = None
         self.__set_point = None
         # set the default channel
-        self.channel = toutput.config.get('channel') or 1
+        self.channel = toutput.config.get("channel") or 1
         # set the default pressure unit
-        self.unit = toutput.config.get('default_unit') or 'BAR'
+        self.unit = toutput.config.get("default_unit") or "BAR"
         self.set_units(self.channel, self.unit)
 
     def __del__(self):
@@ -277,9 +272,9 @@ class pace(Controller):
            RuntimeError: the ramp rate is not set
         """
         try:
-            rate = int(kwargs.get('rate', self.__ramp_rate))
+            rate = int(kwargs.get("rate", self.__ramp_rate))
         except TypeError:
-            raise RuntimeError('Cannot start ramping, ramp rate not set')
+            raise RuntimeError("Cannot start ramping, ramp rate not set")
 
         self._pace.ramp(self.channel, sp, rate)
 
@@ -341,9 +336,9 @@ class pace(Controller):
         Returns:
            (string): The controller state
         """
-        return 'READY'
+        return "READY"
 
-    @object_attribute_type_get(type_info=('str'), type=Output)
+    @object_attribute_type_get(type_info=("str"), type=Output)
     def get_units(self, toutput):
         """ Read the current units
         Args:
@@ -353,7 +348,7 @@ class pace(Controller):
         """
         return self._pace._unit(self.channel)
 
-    @object_attribute_type_set(type_info=('str'), type=Output)
+    @object_attribute_type_set(type_info=("str"), type=Output)
     def set_units(self, toutput, unit):
         """ Read the current units
         Args:
@@ -364,8 +359,8 @@ class pace(Controller):
         return self._pace._unit(self.channel, unit)
 
 
-if __name__ == '__main__':
-    _pace = Pace('id29pace1:5025')
+if __name__ == "__main__":
+    _pace = Pace("id29pace1:5025")
 
     _pace.init()
 

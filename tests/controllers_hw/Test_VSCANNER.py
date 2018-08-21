@@ -13,9 +13,9 @@ import time
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 from bliss.common import log as elog
@@ -100,7 +100,8 @@ class Test_VSCANNER_Controller(unittest.TestCase):
         px.move(_new_pos)
         print "VSCANNER new pos : ", px.position()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
 
 

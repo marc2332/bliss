@@ -21,9 +21,9 @@ Bliss generic library
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            os.path.pardir, os.path.pardir)))
+        os.path.join(os.path.dirname(__file__), os.path.pardir, os.path.pardir)
+    ),
+)
 
 import bliss
 from bliss.common import log
@@ -87,8 +87,6 @@ config_xml = """
 """
 
 
-
-
 """
 UnitTest list of tests
 """
@@ -99,7 +97,7 @@ class TestTacoMaxeController(unittest.TestCase):
     # called for each test
     def setUp(self):
         bliss.load_cfg_fromstring(config_xml)
-        #bliss.load_cfg_fromstring(config_xml_IcePAP)
+        # bliss.load_cfg_fromstring(config_xml_IcePAP)
 
     # called at the end of each individual test
     def tearDown(self):
@@ -110,9 +108,9 @@ class TestTacoMaxeController(unittest.TestCase):
         self.assertTrue(mymot)
 
     def test_axes_creation(self):
-        #log.level(log.INFO)
-        mymot  = bliss.get_axis("mot0")
-        #log.level(log.ERROR)
+        # log.level(log.INFO)
+        mymot = bliss.get_axis("mot0")
+        # log.level(log.ERROR)
         self.assertTrue(mymot)
         mymot2 = bliss.get_axis("mot1")
         self.assertTrue(mymot2)
@@ -123,11 +121,11 @@ class TestTacoMaxeController(unittest.TestCase):
         mymot.velocity(newvel)
         self.assertEqual(mymot.velocity(), newvel)
 
+
 """
 Main entry point
 """
-if __name__ == '__main__':
-
+if __name__ == "__main__":
 
     # Launch the tests sequence
     print "\nTesting TacoMaxe controller\n"
@@ -135,13 +133,12 @@ if __name__ == '__main__':
 
     # Change the default unittest test sequence order from cmp() to line number
     loader = unittest.TestLoader()
-    ln = lambda f: getattr(TestTacoMaxeController, f).\
-        im_func.func_code.co_firstlineno
+    ln = lambda f: getattr(TestTacoMaxeController, f).im_func.func_code.co_firstlineno
     lncmp = lambda a, b: cmp(ln(a), ln(b))
     loader.sortTestMethodsUsing = lncmp
 
     # NOTE: unittest.main(verbosity=2) not supported under Python 2.6
-    suite  = loader.loadTestsFromTestCase(TestTacoMaxeController)
+    suite = loader.loadTestsFromTestCase(TestTacoMaxeController)
     unittest.TextTestRunner(verbosity=3).run(suite)
 
     # normal end

@@ -44,8 +44,8 @@ Example yml file:
 """
 from bliss.controllers.motor import CalcController
 
-class Slitbox(CalcController):
 
+class Slitbox(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
         self.orientation = str(self.config.get("orientation"))

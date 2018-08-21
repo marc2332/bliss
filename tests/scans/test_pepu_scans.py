@@ -28,31 +28,34 @@ def pepu():
     trigger = gevent.queue.Queue()
 
     def idata(n):
-        nb_points = pepu.create_stream.call_args[1]['nb_points']
+        nb_points = pepu.create_stream.call_args[1]["nb_points"]
         assert n == nb_points
-        points = [[y+x/10. for y in range(1, 15)] for x in range(n)]
+        points = [[y + x / 10. for y in range(1, 15)] for x in range(n)]
         for point in points:
             data = np.array(point)
             data.dtype = [(counter.name, float) for counter in pepu.counters]
-            mode = pepu.create_stream.call_args[1]['trigger']
+            mode = pepu.create_stream.call_args[1]["trigger"]
             if mode.clock == Signal.SOFT:
                 trigger.get()
             yield data
 
     def assert_data(data, n):
         for i, counter in enumerate(pepu.counters, 1):
-            expecting = [i+x/10. for x in range(n)]
+            expecting = [i + x / 10. for x in range(n)]
             assert list(data[counter.name]) == expecting
 
-    with mock.patch('bliss.controllers.pepu.PEPU', autospec=True) as PEPU:
+    with mock.patch("bliss.controllers.pepu.PEPU", autospec=True) as PEPU:
         pepu = PEPU.return_value
-        pepu.name = 'pepu1'
-        pepu.in_channels = OrderedDict([
-            (i, ChannelIN(pepu, i)) for i in PepuClass.IN_CHANNELS])
-        pepu.out_channels = OrderedDict([
-            (i, ChannelOUT(pepu, i)) for i in PepuClass.OUT_CHANNELS])
-        pepu.calc_channels = OrderedDict([
-            (i, ChannelCALC(pepu, i)) for i in PepuClass.CALC_CHANNELS])
+        pepu.name = "pepu1"
+        pepu.in_channels = OrderedDict(
+            [(i, ChannelIN(pepu, i)) for i in PepuClass.IN_CHANNELS]
+        )
+        pepu.out_channels = OrderedDict(
+            [(i, ChannelOUT(pepu, i)) for i in PepuClass.OUT_CHANNELS]
+        )
+        pepu.calc_channels = OrderedDict(
+            [(i, ChannelCALC(pepu, i)) for i in PepuClass.CALC_CHANNELS]
+        )
         pepu.counters = PepuClass.counters.__get__(pepu)
         stream = pepu.create_stream.return_value
         stream.idata.side_effect = idata
@@ -73,7 +76,7 @@ def test_pepu_soft_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(10, m0, 0, 1), device)
     # Run scan
-    scan = Scan(chain, 'pepu_test', writer=None)
+    scan = Scan(chain, "pepu_test", writer=None)
     scan.run()
     gevent.sleep(0.)
     # Checks
@@ -91,7 +94,7 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 10, time=1.0), device)
     # Run scan
-    scan = Scan(chain, 'pepu_test', writer=None)
+    scan = Scan(chain, "pepu_test", writer=None)
     scan.run()
     gevent.sleep(0.)
     # Checks
@@ -101,10 +104,11 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
 
 def test_pepu_default_chain_with_counters(beacon, pepu):
     # Get controllers
-    m0 = beacon.get('m0')
+    m0 = beacon.get("m0")
     # Run scan
     scan = scans.ascan(
-        m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False)
+        m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False
+    )
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)
@@ -112,10 +116,9 @@ def test_pepu_default_chain_with_counters(beacon, pepu):
 
 def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
     # Get controllers
-    m0 = beacon.get('m0')
+    m0 = beacon.get("m0")
     # Run scan
-    scan = scans.ascan(
-        m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
+    scan = scans.ascan(m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)
@@ -123,14 +126,13 @@ def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
 
 def test_pepu_default_chain_with_measurement_group(beacon, pepu):
     # Get controllers
-    m0 = beacon.get('m0')
+    m0 = beacon.get("m0")
     # Add pepu1 to globals
     setup_globals.pepu1 = pepu
     # Measurement group
-    mg = MeasurementGroup('mygroup', {'counters': ['pepu1']})
+    mg = MeasurementGroup("mygroup", {"counters": ["pepu1"]})
     # Run scan
-    scan = scans.ascan(
-        m0, 0, 10, 10, 0.01, mg, return_scan=True, save=False)
+    scan = scans.ascan(m0, 0, 10, 10, 0.01, mg, return_scan=True, save=False)
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)
@@ -146,7 +148,7 @@ def test_pepu_continuous_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), device)
     # Run scan
-    scan = Scan(chain, 'test', writer=None)
+    scan = Scan(chain, "test", writer=None)
     scan.run()
     # Checks
     data = scan.get_data()

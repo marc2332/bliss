@@ -1,4 +1,4 @@
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # This file is part of the bliss project
 #
@@ -22,10 +22,11 @@ with warnings.catch_warnings():
 
 Plot1D = silx_plot.Plot1D
 
+
 class LivePlot1D(qt.QWidget):
     def __init__(self, *args, **kw):
         self._data_dict = kw.pop("data_dict")
-        self.plot_id = None #filled by caller
+        self.plot_id = None  # filled by caller
 
         qt.QWidget.__init__(self, *args, **kw)
 
@@ -39,15 +40,18 @@ class LivePlot1D(qt.QWidget):
         self.silx_plot = silx_plot.Plot1D(self)
 
         qt.QHBoxLayout(self.axes_selection)
-        self.axes_selection.layout().addWidget(qt.QLabel("X axis: ",
-                                                         self.axes_selection))
+        self.axes_selection.layout().addWidget(
+            qt.QLabel("X axis: ", self.axes_selection)
+        )
         self.axes_selection.layout().addWidget(self.x_axis)
-        self.axes_selection.layout().addWidget(qt.QLabel("Y axis: ",
-                                                         self.axes_selection))
+        self.axes_selection.layout().addWidget(
+            qt.QLabel("Y axis: ", self.axes_selection)
+        )
         self.axes_selection.layout().addWidget(self.y_axis)
         self.axes_selection.layout().addWidget(self.add_plot)
-        self.axes_selection.layout().addSpacerItem(qt.QSpacerItem(1,1,qt.QSizePolicy.Expanding,
-                                                                  qt.QSizePolicy.Minimum))
+        self.axes_selection.layout().addSpacerItem(
+            qt.QSpacerItem(1, 1, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
+        )
 
         qt.QVBoxLayout(self)
         self.layout().addWidget(self.axes_selection)
@@ -77,7 +81,7 @@ class LivePlot1D(qt.QWidget):
         for axis_names in list(self._enabled_plots.keys()):
             if axis_names[0] not in axis_names_list:
                 x_axis, y_axis = axis_names
-                legend = '%s -> %s' % (x_axis, y_axis)
+                legend = "%s -> %s" % (x_axis, y_axis)
                 del self._enabled_plots[(x_axis, y_axis)]
                 self.silx_plot.removeCurve(legend)
             else:
@@ -89,7 +93,7 @@ class LivePlot1D(qt.QWidget):
         for axis_names in list(self._enabled_plots.keys()):
             if axis_names[1] not in axis_names_list:
                 x_axis, y_axis = axis_names
-                legend = '%s -> %s' % (x_axis, y_axis)
+                legend = "%s -> %s" % (x_axis, y_axis)
                 del self._enabled_plots[(x_axis, y_axis)]
                 self.silx_plot.removeCurve(legend)
             else:
@@ -111,7 +115,7 @@ class LivePlot1D(qt.QWidget):
     def _add_plot(self):
         x_axis = self.x_axis.currentText()
         y_axis = self.y_axis.currentText()
-        legend = '%s -> %s' % (x_axis, y_axis)
+        legend = "%s -> %s" % (x_axis, y_axis)
         x_data, y_data = self._get_data(x_axis, y_axis)
         curve = self.silx_plot.getCurve(legend)
         if curve:
@@ -140,7 +144,7 @@ class LivePlot1D(qt.QWidget):
     def update_plots(self):
         for axis_names, data_len in self._enabled_plots.iteritems():
             x_axis, y_axis = axis_names
-            legend = '%s -> %s' % (x_axis, y_axis)
+            legend = "%s -> %s" % (x_axis, y_axis)
             plot = self.silx_plot.getCurve(legend)
             if plot is not None:
                 # plot is displayed
@@ -153,7 +157,8 @@ class LivePlot1D(qt.QWidget):
                     if x_data is not None:
                         self._curves[plot] = data_len
                         self.silx_plot.addCurve(
-                            x_data, y_data, legend=legend, copy=False)
+                            x_data, y_data, legend=legend, copy=False
+                        )
 
     def update_all(self):
         self.update_enabled_plots()
@@ -163,13 +168,14 @@ class LivePlot1D(qt.QWidget):
     def addXMarker(self, *args, **kwargs):
         return self.silx_plot.addXMarker(*args, **kwargs)
 
+
 # Ugly copy paste! Shame!
 
-class LiveScatterPlot(qt.QWidget):
 
+class LiveScatterPlot(qt.QWidget):
     def __init__(self, *args, **kw):
         self._data_dict = kw.pop("data_dict")
-        self.plot_id = None #filled by caller
+        self.plot_id = None  # filled by caller
 
         qt.QWidget.__init__(self, *args, **kw)
 
@@ -185,18 +191,22 @@ class LiveScatterPlot(qt.QWidget):
         self.silx_plot = silx_plot.Plot1D(self)
 
         qt.QHBoxLayout(self.axes_selection)
-        self.axes_selection.layout().addWidget(qt.QLabel("X axis: ",
-                                                         self.axes_selection))
+        self.axes_selection.layout().addWidget(
+            qt.QLabel("X axis: ", self.axes_selection)
+        )
         self.axes_selection.layout().addWidget(self.x_axis)
-        self.axes_selection.layout().addWidget(qt.QLabel("Y axis: ",
-                                                         self.axes_selection))
+        self.axes_selection.layout().addWidget(
+            qt.QLabel("Y axis: ", self.axes_selection)
+        )
         self.axes_selection.layout().addWidget(self.y_axis)
-        self.axes_selection.layout().addWidget(qt.QLabel("Z axis: ",
-                                                         self.axes_selection))
+        self.axes_selection.layout().addWidget(
+            qt.QLabel("Z axis: ", self.axes_selection)
+        )
         self.axes_selection.layout().addWidget(self.z_axis)
         self.axes_selection.layout().addWidget(self.add_plot)
-        self.axes_selection.layout().addSpacerItem(qt.QSpacerItem(
-            1, 1, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum))
+        self.axes_selection.layout().addSpacerItem(
+            qt.QSpacerItem(1, 1, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
+        )
 
         qt.QVBoxLayout(self)
         self.layout().addWidget(self.axes_selection)
@@ -233,7 +243,7 @@ class LiveScatterPlot(qt.QWidget):
         for axis_names in list(self._enabled_plots.keys()):
             if axis_names[0] not in axis_names_list:
                 x_axis, y_axis, z_axis = axis_names
-                legend = '%s -> %s -> %s' % (x_axis, y_axis, z_axis)
+                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
                 del self._enabled_plots[(x_axis, y_axis, z_axis)]
                 self.silx_plot.removeCurve(legend)
             else:
@@ -245,7 +255,7 @@ class LiveScatterPlot(qt.QWidget):
         for axis_names in list(self._enabled_plots.keys()):
             if axis_names[1] not in axis_names_list:
                 x_axis, y_axis, z_axis = axis_names
-                legend = '%s -> %s -> %s' % (x_axis, y_axis, z_axis)
+                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
                 del self._enabled_plots[(x_axis, y_axis, z_axis)]
                 self.silx_plot.removeCurve(legend)
             else:
@@ -259,7 +269,7 @@ class LiveScatterPlot(qt.QWidget):
         for axis_names in list(self._enabled_plots.keys()):
             if axis_names[2] not in axis_names_list:
                 x_axis, y_axis, z_axis = axis_names
-                legend = '%s -> %s -> %s' % (x_axis, y_axis, z_axis)
+                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
                 del self._enabled_plots[(x_axis, y_axis, z_axis)]
                 self.silx_plot.removeCurve(legend)
             else:
@@ -277,7 +287,7 @@ class LiveScatterPlot(qt.QWidget):
         x_axis = self.x_axis.currentText()
         y_axis = self.y_axis.currentText()
         z_axis = self.z_axis.currentText()
-        legend = '%s -> %s -> %s' % (x_axis, y_axis, z_axis)
+        legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
         x_data, y_data, z_data = self._get_data(x_axis, y_axis, z_axis)
         self.add_scatter(x_data, y_data, z_data, legend=legend)
 
@@ -306,7 +316,7 @@ class LiveScatterPlot(qt.QWidget):
     def update_plots(self):
         for axis_names, data_len in self._enabled_plots.iteritems():
             x_axis, y_axis, z_axis = axis_names
-            legend = '%s -> %s -> %s' % (x_axis, y_axis, z_axis)
+            legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
             plot = self.silx_plot.getScatter(legend)
             if plot is not None:
                 # plot is displayed
@@ -315,24 +325,21 @@ class LiveScatterPlot(qt.QWidget):
                     self._curves[plot] = 0
                 if self._curves.get(plot, 0) < data_len:
                     # update plot
-                    x_data, y_data, z_data = self._get_data(
-                        x_axis, y_axis, z_axis)
+                    x_data, y_data, z_data = self._get_data(x_axis, y_axis, z_axis)
                     self._curves[plot] = data_len
                     self.add_scatter(x_data, y_data, z_data, legend)
 
     def add_scatter(self, x, y, z, legend):
         current = self.silx_plot.getScatter()
         if current is not None and current.getLegend() != legend:
-            self.remove(kind='scatter')
-        self.silx_plot.getDefaultColormap().setName('viridis')
-        self.silx_plot.addScatter(
-            x, y, z,
-            legend=legend, copy=False, symbol='s')
-        self.silx_plot.resetZoom((self._margin,)*4)
+            self.remove(kind="scatter")
+        self.silx_plot.getDefaultColormap().setName("viridis")
+        self.silx_plot.addScatter(x, y, z, legend=legend, copy=False, symbol="s")
+        self.silx_plot.resetZoom((self._margin,) * 4)
         _, _, w, h = self.silx_plot.getPlotBoundsInPixels()
         pixels = min(w / len(set(x)), h / len(set(y)))
         current = self.silx_plot.getScatter()
-        current.setSymbolSize(pixels*25)
+        current.setSymbolSize(pixels * 25)
         self.silx_plot.getColorBarWidget().setVisible(True)
 
     def update_all(self):

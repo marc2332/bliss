@@ -15,7 +15,7 @@ from bliss.common.event import saferef
 
 try:
     from collections import OrderedDict
-except ImportError:             # python2.6 compatibility
+except ImportError:  # python2.6 compatibility
     from ordereddict import OrderedDict
 
 
@@ -31,19 +31,30 @@ class WrappedMethod(object):
 def wrap_methods(from_object, target_object):
     for name in dir(from_object):
         if inspect.ismethod(getattr(from_object, name)):
-            if hasattr(target_object, name) and inspect.ismethod(getattr(target_object, name)):
+            if hasattr(target_object, name) and inspect.ismethod(
+                getattr(target_object, name)
+            ):
                 continue
-            setattr(target_object, name, types.MethodType(WrappedMethod(
-                from_object, name), target_object, target_object.__class__))
+            setattr(
+                target_object,
+                name,
+                types.MethodType(
+                    WrappedMethod(from_object, name),
+                    target_object,
+                    target_object.__class__,
+                ),
+            )
 
 
 def add_conversion_function(obj, method_name, function):
     meth = getattr(obj, method_name)
     if inspect.ismethod(meth):
         if callable(function):
+
             def new_method(*args, **kwargs):
                 values = meth(*args, **kwargs)
                 return function(values)
+
             setattr(obj, method_name, new_method)
         else:
             raise ValueError("conversion function must be callable")
@@ -54,7 +65,7 @@ def add_conversion_function(obj, method_name, function):
 def add_property(inst, name, method):
     cls = type(inst)
     module = cls.__module__
-    if not hasattr(cls, '__perinstance'):
+    if not hasattr(cls, "__perinstance"):
         cls = type(cls.__name__, (cls,), {})
         cls.__perinstance = True
         cls.__module__ = module
@@ -77,7 +88,9 @@ functions to add custom attributes and commands to an object.
 """
 
 
-def add_object_method(obj, method, pre_call, name=None, args=[], types_info=(None, None)):
+def add_object_method(
+    obj, method, pre_call, name=None, args=[], types_info=(None, None)
+):
 
     if name is None:
         name = method.im_func.func_name
@@ -89,11 +102,15 @@ def add_object_method(obj, method, pre_call, name=None, args=[], types_info=(Non
         return method.im_func(method.im_self, *args, **kwargs)
 
     obj._add_custom_method(
-        types.MethodType(functools.partial(call, *([obj] + args)),
-                         obj), name, types_info)
+        types.MethodType(functools.partial(call, *([obj] + args)), obj),
+        name,
+        types_info,
+    )
 
 
-def object_method(method=None, name=None, args=[], types_info=(None, None), filter=None):
+def object_method(
+    method=None, name=None, args=[], types_info=(None, None), filter=None
+):
     """
     Decorator to add a custom method to an object.
 
@@ -103,23 +120,33 @@ def object_method(method=None, name=None, args=[], types_info=(None, None), filt
     if method is None:
         # Passes here if decorator parameters are not present ???.
         # ...
-        return functools.partial(object_method, name=name, args=args,
-                                 types_info=types_info, filter=filter)
+        return functools.partial(
+            object_method, name=name, args=args, types_info=types_info, filter=filter
+        )
 
     # Returns a method where _object_method_ attribute is filled with a
     # dict of elements to characterize it.
     method._object_method_ = dict(
-        name=name, args=args, types_info=types_info, filter=filter)
+        name=name, args=args, types_info=types_info, filter=filter
+    )
 
     return method
 
 
-def object_method_type(method=None, name=None, args=[], types_info=(None, None), type=None):
-    def f(x): return isinstance(x, type)
-    return object_method(method=method, name=name, args=args, types_info=types_info, filter=f)
+def object_method_type(
+    method=None, name=None, args=[], types_info=(None, None), type=None
+):
+    def f(x):
+        return isinstance(x, type)
+
+    return object_method(
+        method=method, name=name, args=args, types_info=types_info, filter=f
+    )
 
 
-def add_object_attribute(obj, name=None, fget=None, fset=None, args=[], type_info=None, filter=None):
+def add_object_attribute(
+    obj, name=None, fget=None, fset=None, args=[], type_info=None, filter=None
+):
     obj._add_custom_attribute(name, fget, fset, type_info)
 
 
@@ -128,15 +155,28 @@ decorators for set/get methods to access to custom attributes
 """
 
 
-def object_attribute_type_get(get_method=None, name=None, args=[], type_info=None, type=None):
-    def f(x): return isinstance(x, type)
-    return object_attribute_get(get_method=get_method, name=name, args=args, type_info=type_info, filter=f)
+def object_attribute_type_get(
+    get_method=None, name=None, args=[], type_info=None, type=None
+):
+    def f(x):
+        return isinstance(x, type)
+
+    return object_attribute_get(
+        get_method=get_method, name=name, args=args, type_info=type_info, filter=f
+    )
 
 
-def object_attribute_get(get_method=None, name=None, args=[], type_info=None, filter=None):
+def object_attribute_get(
+    get_method=None, name=None, args=[], type_info=None, filter=None
+):
     if get_method is None:
-        return functools.partial(object_attribute_get, name=name, args=args,
-                                 type_info=type_info, filter=filter)
+        return functools.partial(
+            object_attribute_get,
+            name=name,
+            args=args,
+            type_info=type_info,
+            filter=filter,
+        )
 
     if name is None:
         name = get_method.func_name
@@ -145,25 +185,40 @@ def object_attribute_get(get_method=None, name=None, args=[], type_info=None, fi
         attr_name = attr_name[4:]  # removes leading "get_"
 
     get_method._object_method_ = dict(
-        name=name, args=args, types_info=("None", type_info), filter=filter)
+        name=name, args=args, types_info=("None", type_info), filter=filter
+    )
 
     if not hasattr(get_method, "_object_attribute_"):
         get_method._object_attribute_ = dict()
     get_method._object_attribute_.update(
-        name=attr_name, fget=get_method, args=args, type_info=type_info, filter=filter)
+        name=attr_name, fget=get_method, args=args, type_info=type_info, filter=filter
+    )
 
     return get_method
 
 
-def object_attribute_type_set(set_method=None, name=None, args=[], type_info=None, type=None):
-    def f(x): return isinstance(x, type)
-    return object_attribute_set(set_method=set_method, name=name, args=args, type_info=type_info, filter=f)
+def object_attribute_type_set(
+    set_method=None, name=None, args=[], type_info=None, type=None
+):
+    def f(x):
+        return isinstance(x, type)
+
+    return object_attribute_set(
+        set_method=set_method, name=name, args=args, type_info=type_info, filter=f
+    )
 
 
-def object_attribute_set(set_method=None, name=None, args=[], type_info=None, filter=None):
+def object_attribute_set(
+    set_method=None, name=None, args=[], type_info=None, filter=None
+):
     if set_method is None:
-        return functools.partial(object_attribute_set, name=name, args=args,
-                                 type_info=type_info, filter=filter)
+        return functools.partial(
+            object_attribute_set,
+            name=name,
+            args=args,
+            type_info=type_info,
+            filter=filter,
+        )
 
     if name is None:
         name = set_method.func_name
@@ -172,12 +227,14 @@ def object_attribute_set(set_method=None, name=None, args=[], type_info=None, fi
         attr_name = attr_name[4:]  # removes leading "set_"
 
     set_method._object_method_ = dict(
-        name=name, args=args, types_info=(type_info, "None"), filter=filter)
+        name=name, args=args, types_info=(type_info, "None"), filter=filter
+    )
 
     if not hasattr(set_method, "_object_attribute_"):
         set_method._object_attribute_ = dict()
     set_method._object_attribute_.update(
-        name=attr_name, fset=set_method, args=args, type_info=type_info, filter=filter)
+        name=attr_name, fset=set_method, args=args, type_info=type_info, filter=filter
+    )
 
     return set_method
 
@@ -191,16 +248,16 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         # Just fills the list.
         if hasattr(member, "_object_attribute_"):
             attribute_info = dict(member._object_attribute_)
-            filter = attribute_info.pop('filter', None)
+            filter = attribute_info.pop("filter", None)
             if filter is None or filter(target_obj):
-                add_object_attribute(target_obj,  **member._object_attribute_)
+                add_object_attribute(target_obj, **member._object_attribute_)
 
         # For each method of <src_obj>: try to add it as a
         # custom method or as methods to set/get custom
         # attributes.
         try:
             method_info = dict(member._object_method_)
-            filter = method_info.pop('filter', None)
+            filter = method_info.pop("filter", None)
             if filter is None or filter(target_obj):
                 add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:
@@ -247,17 +304,16 @@ def with_custom_members(klass):
         attr_info = custom_attrs.get(name)
         if attr_info:
             orig_type_info, access_mode = attr_info
-            if fget and not 'r' in access_mode:
-                access_mode = 'rw'
-            if fset and not 'w' in access_mode:
-                access_mode = 'rw'
-            assert type_info == orig_type_info, '%s get/set types mismatch' % name
+            if fget and not "r" in access_mode:
+                access_mode = "rw"
+            if fset and not "w" in access_mode:
+                access_mode = "rw"
+            assert type_info == orig_type_info, "%s get/set types mismatch" % name
         else:
-            access_mode = 'r' if fget else ''
-            access_mode += 'w' if fset else ''
+            access_mode = "r" if fget else ""
+            access_mode += "w" if fset else ""
             if fget is None and fset is None:
-                raise RuntimeError(
-                    "impossible case: must have fget or fset...")
+                raise RuntimeError("impossible case: must have fget or fset...")
         custom_attrs[name] = type_info, access_mode
 
     klass._get_custom_methods = _get_custom_methods
@@ -289,7 +345,8 @@ class StripIt(object):
         >>> logging.debug('Received: %s', StripIt(msg_from_socket))
         DEBUG:root:Received: Here it is my testament: bla bla bla bla bla [...]
     """
-    __slots__ = 'obj', 'max_len'
+
+    __slots__ = "obj", "max_len"
 
     def __init__(self, obj, max_len=50):
         self.obj = obj
@@ -298,8 +355,8 @@ class StripIt(object):
     def __strip(self, s):
         max_len = self.max_len
         if len(s) > max_len:
-            suffix = ' [...]'
-            s = s[:max_len - len(suffix)] + suffix
+            suffix = " [...]"
+            s = s[: max_len - len(suffix)] + suffix
         return s
 
     def __str__(self):
@@ -310,6 +367,7 @@ class StripIt(object):
 
     def __format__(self, format_spec):
         return self.__strip(format(self.obj, format_spec))
+
 
 class periodic_exec(object):
     def __init__(self, period_in_s, func):
@@ -338,8 +396,10 @@ class periodic_exec(object):
                 del func
                 gevent.sleep(self.period)
 
+
 def get_objects_iter(*names_or_objs):
     from bliss import setup_globals
+
     for i in names_or_objs:
         if isinstance(i, (str, unicode)):
             i = getattr(setup_globals, i)
@@ -348,6 +408,7 @@ def get_objects_iter(*names_or_objs):
 
 def get_objects_type_iter(typ):
     from bliss import setup_globals
+
     for name in dir(setup_globals):
         elem = getattr(setup_globals, name)
         if isinstance(elem, typ):
@@ -356,6 +417,7 @@ def get_objects_type_iter(typ):
 
 def get_axes_iter():
     from bliss.common.axis import Axis
+
     return get_objects_type_iter(Axis)
 
 
@@ -371,11 +433,14 @@ def safe_get(obj, member, on_error=None, **kwargs):
         if on_error:
             return on_error
 
+
 def get_axes_positions_iter(on_error=None):
     def request(axis):
-        return axis.name, \
-               safe_get(axis, "position", on_error), \
-               safe_get(axis, "dial", on_error)
+        return (
+            axis.name,
+            safe_get(axis, "position", on_error),
+            safe_get(axis, "dial", on_error),
+        )
 
     tasks = list()
     for axis in get_axes_iter():
@@ -384,17 +449,19 @@ def get_axes_positions_iter(on_error=None):
     for task in tasks:
         yield task.get()
 
+
 def common_prefix(paths, sep=os.path.sep):
     def allnamesequal(name):
-        return all(n==name[0] for n in name[1:])
+        return all(n == name[0] for n in name[1:])
+
     bydirectorylevels = zip(*[p.split(sep) for p in paths])
-    return sep.join(x[0] for x in itertools.takewhile(allnamesequal,
-                                                      bydirectorylevels))
+    return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
 def closable(obj):
     """Return True if the given object is closable, False otherwise."""
     return (
-        hasattr(obj, 'close') and
-        inspect.ismethod(obj.close) and
-        obj.close.im_self is not None)
+        hasattr(obj, "close")
+        and inspect.ismethod(obj.close)
+        and obj.close.im_self is not None
+    )

@@ -106,18 +106,18 @@ class trans4(CalcController):
         CalcController.__init__(self, *args, **kwargs)
 
     def calc_from_real(self, positions_dict):
-        '''
+        """
         Returns calculated/virtual motor positions (as a dictionary) given real ones.
 
         Units
             Distances d1 and d2, real motors positions and calculated/virtual z and y
             motor positions are in millimeters.
             Calculated/virtual rotation around y and z axis in milliradians
-        '''
+        """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = math.atan(d2/d1)
-        cos2_alpha = math.cos(alpha)**2
+        alpha = math.atan(d2 / d1)
+        cos2_alpha = math.cos(alpha) ** 2
 
         dh = positions_dict["dh"]
         dr = positions_dict["dr"]
@@ -130,7 +130,7 @@ class trans4(CalcController):
         p2z = (ur + uh) / 2.
 
         ty = (p1y + p2y * cos2_alpha) / (1 + cos2_alpha)
-        thetaz = - math.atan((p1y - p2y) / d1 * (cos2_alpha/(1 + cos2_alpha)))
+        thetaz = -math.atan((p1y - p2y) / d1 * (cos2_alpha / (1 + cos2_alpha)))
         tz = (p2z + p1z) / 2.
         thetay = math.atan((p2z - p1z) / (2 * d1))
 
@@ -140,22 +140,22 @@ class trans4(CalcController):
         return dict(thetaz=thetaz, thetay=thetay, ty=ty, tz=tz)
 
     def calc_to_real(self, positions_dict):
-        '''
+        """
         Returns real motors positions (as a dictionary) given virtual ones.
         Units:
         Distances d1 and d2, real motors positions and calculated/virtual z and y
         motor positions are in millimeters.
         Rotation around Y-axis(thetay) and Z-axis(thetaz) are in milliradians.
-        '''
+        """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = math.atan(d2/d1)
-        cos2_alpha = math.cos(alpha)**2
+        alpha = math.atan(d2 / d1)
+        cos2_alpha = math.cos(alpha) ** 2
 
         ty = positions_dict["ty"]
         tz = positions_dict["tz"]
         thetay = positions_dict["thetay"] / 1000.
-        thetaz = - positions_dict["thetaz"] / 1000.
+        thetaz = -positions_dict["thetaz"] / 1000.
 
         p1y = ty + d1 * math.tan(thetaz)
         p2y = ty - d1 * math.tan(thetaz) / cos2_alpha

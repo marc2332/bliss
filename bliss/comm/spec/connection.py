@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # This file is part of the bliss project
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
@@ -29,6 +29,7 @@ import sys
 (DISCONNECTED, PORTSCANNING, WAITINGFORHELLO, CONNECTED) = (1, 2, 3, 4)
 (MIN_PORT, MAX_PORT) = (6510, 6530)
 
+
 def makeConnection(conn):
     """Establish a connection to Spec
     If we are in port scanning mode, try to connect using
@@ -45,10 +46,9 @@ def makeConnection(conn):
                 raise SpecClientNotConnectedError
 
         try:
-            s = gevent.socket.create_connection(
-                (conn.host, conn.port), timeout=0.2)
+            s = gevent.socket.create_connection((conn.host, conn.port), timeout=0.2)
         except socket.error:
-            if not conn.scanport: 
+            if not conn.scanport:
                 raise
         else:
             with gevent.Timeout(1, SpecClientNotConnectedError):
@@ -62,15 +62,16 @@ def makeConnection(conn):
                         conn.serverVersion = m.vers
                         return gevent.spawn(connectionHandler, conn, s)
         if conn.scanport:
-           conn.port += 1
+            conn.port += 1
 
 
 def try_connect(fu):
     def rfunc(self, *args, **kwargs):
         if self.connection_greenlet is None or self.connection_greenlet.ready():
             self.connection_greenlet = makeConnection(self)
-            self.registerChannel('error', self.error)
+            self.registerChannel("error", self.error)
         return fu(self, *args, **kwargs)
+
     return rfunc
 
 
@@ -92,7 +93,7 @@ def connectionHandler(conn, socket_to_spec):
             conn.handle_close()
             break
 
-        s = ''.join(receivedStrings)
+        s = "".join(receivedStrings)
         consumedBytes = 0
         offset = 0
 
@@ -118,22 +119,20 @@ def connectionHandler(conn, socket_to_spec):
                                     reply = conn.registeredReplies[replyID]
                                 except BaseException:
                                     logging.getLogger("SpecClient").exception(
-                                        "Unexpected error while receiving a message from server")
+                                        "Unexpected error while receiving a message from server"
+                                    )
                                 else:
                                     del conn.registeredReplies[replyID]
                                     reply.update(
-                                        message.data,
-                                        message.type == ERROR,
-                                        message.err)
+                                        message.data, message.type == ERROR, message.err
+                                    )
                         elif message.cmd == EVENT:
                             try:
                                 channel = conn.registeredChannels[message.name]
                             except KeyError:
                                 pass
                             else:
-                                channel.update(
-                                    message.data,
-                                    message.flags == DELETED)
+                                channel.update(message.data, message.flags == DELETED)
                     except BaseException:
                         receivedStrings = [s[offset:]]
                         raise
@@ -161,7 +160,7 @@ class SpecConnection:
         self.connection_greenlet = None
         self.connected = False
         self.scanport = False
-        self.scanname = ''
+        self.scanname = ""
         self.registeredChannels = {}
         self.registeredReplies = {}
         self.connected_event = gevent.event.Event()
@@ -169,7 +168,7 @@ class SpecConnection:
         self.outgoing_queue = []
         self.socket_write_event = None
 
-        tmp = str(specVersion).split(':')
+        tmp = str(specVersion).split(":")
         self.host = tmp[0]
 
         if len(tmp) > 1:
@@ -185,8 +184,10 @@ class SpecConnection:
             self.scanport = True
 
     def __str__(self):
-        return '<connection to Spec, host=%s, port=%s>' % (
-            self.host, self.port or self.scanname)
+        return "<connection to Spec, host=%s, port=%s>" % (
+            self.host,
+            self.port or self.scanname,
+        )
 
     def __del__(self):
         self.disconnect()
@@ -209,17 +210,15 @@ class SpecConnection:
 
         try:
             if chanName not in self.registeredChannels:
-                channel = SpecChannel(
-                    self, chanName, register)
+                channel = SpecChannel(self, chanName, register)
                 self.registeredChannels[chanName] = channel
                 if channel.spec_chan_name != chanName:
-                    self.registerChannel(
-                        channel.spec_chan_name, channel.update)
+                    self.registerChannel(channel.spec_chan_name, channel.update)
                 channel.registered = True
             else:
                 channel = self.registeredChannels[chanName]
 
-            event.connect(channel, 'valueChanged', receiverSlot)
+            event.connect(channel, "valueChanged", receiverSlot)
 
             # channel.spec_chan_name].value
             channelValue = self.registeredChannels[channel.spec_chan_name].value
@@ -228,8 +227,9 @@ class SpecConnection:
                 channel.update(channelValue, force=True)
         except BaseException:
             logging.getLogger("SpecClient").exception(
-                "Uncaught exception in SpecConnection.registerChannel")
-    
+                "Uncaught exception in SpecConnection.registerChannel"
+            )
+
     @try_connect
     def unregisterChannel(self, chanName):
         """Unregister a channel
@@ -260,9 +260,9 @@ class SpecConnection:
 
     def error(self, error):
         """Emit the 'error' signal when the remote Spec version signals an error."""
-        logging.getLogger('SpecClient').error('Error from Spec: %s', error)
+        logging.getLogger("SpecClient").error("Error from Spec: %s", error)
 
-        event.send(self, 'error', (error, ))
+        event.send(self, "error", (error,))
 
     def isSpecConnected(self):
         """Return True if the remote Spec version is connected."""
@@ -273,13 +273,15 @@ class SpecConnection:
         old_state = self.state
         self.state = CONNECTED
         if old_state != CONNECTED:
-            logging.getLogger('SpecClient').info(
-                'Connected to %s:%s', self.host,
-                (self.scanport and self.scanname) or self.port)
+            logging.getLogger("SpecClient").info(
+                "Connected to %s:%s",
+                self.host,
+                (self.scanport and self.scanname) or self.port,
+            )
 
             self.connected_event.set()
 
-            event.send(self, 'connected')
+            event.send(self, "connected")
 
     def specDisconnected(self):
         """Emit the 'disconnected' signal when the remote Spec
@@ -288,11 +290,13 @@ class SpecConnection:
         old_state = self.state
         self.state = DISCONNECTED
         if old_state == CONNECTED:
-            logging.getLogger('SpecClient').info(
-                'Disconnected from %s:%s', self.host,
-                (self.scanport and self.scanname) or self.port)
+            logging.getLogger("SpecClient").info(
+                "Disconnected from %s:%s",
+                self.host,
+                (self.scanport and self.scanname) or self.port,
+            )
 
-            event.send(self, 'disconnected')
+            event.send(self, "disconnected")
 
             self.connected_event.clear()
 
@@ -332,10 +336,8 @@ class SpecConnection:
         """
         return self.__send_msg_with_reply(
             replyCallback=callback,
-            *
-            msg_cmd_with_return(
-                cmd,
-                version=self.serverVersion))
+            *msg_cmd_with_return(cmd, version=self.serverVersion)
+        )
 
     @try_connect
     def send_msg_func_with_return(self, cmd, callback=None):
@@ -345,13 +347,12 @@ class SpecConnection:
         cmd -- command string
         """
         if self.serverVersion < 3:
-            logging.getLogger('SpecClient').error(
-                'Cannot execute command in Spec : feature is available since Spec server v3 only')
+            logging.getLogger("SpecClient").error(
+                "Cannot execute command in Spec : feature is available since Spec server v3 only"
+            )
         else:
-            message = msg_func_with_return(
-                cmd, version=self.serverVersion)
-            return self.__send_msg_with_reply(
-                replyCallback=callback, *message)
+            message = msg_func_with_return(cmd, version=self.serverVersion)
+            return self.__send_msg_with_reply(replyCallback=callback, *message)
 
     @try_connect
     def send_msg_cmd(self, cmd):
@@ -359,8 +360,7 @@ class SpecConnection:
         Arguments:
         cmd -- command string, i.e. 'mv psvo 1.2'
         """
-        self.__send_msg_no_reply(msg_cmd(
-            cmd, version=self.serverVersion))
+        self.__send_msg_no_reply(msg_cmd(cmd, version=self.serverVersion))
 
     @try_connect
     def send_msg_func(self, cmd):
@@ -369,11 +369,11 @@ class SpecConnection:
         cmd -- command string
         """
         if self.serverVersion < 3:
-            logging.getLogger('SpecClient').error(
-                'Cannot execute command in Spec : feature is available since Spec server v3 only')
+            logging.getLogger("SpecClient").error(
+                "Cannot execute command in Spec : feature is available since Spec server v3 only"
+            )
         else:
-            self.__send_msg_no_reply(msg_func(
-                cmd, version=self.serverVersion))
+            self.__send_msg_no_reply(msg_func(cmd, version=self.serverVersion))
 
     @try_connect
     def send_msg_chan_read(self, chanName, callback=None):
@@ -382,11 +382,8 @@ class SpecConnection:
         chanName -- a string representing the channel name, i.e. 'var/toto'
         """
         return self.__send_msg_with_reply(
-            replyCallback=callback,
-            *
-            msg_chan_read(
-                chanName,
-                version=self.serverVersion))
+            replyCallback=callback, *msg_chan_read(chanName, version=self.serverVersion)
+        )
 
     @try_connect
     def send_msg_chan_send(self, chanName, value, wait=False):
@@ -395,8 +392,9 @@ class SpecConnection:
         chanName -- a string representing the channel name, i.e. 'var/toto'
         value -- channel value
         """
-        self.__send_msg_no_reply(msg_chan_send(
-            chanName, value, version=self.serverVersion), wait)
+        self.__send_msg_no_reply(
+            msg_chan_send(chanName, value, version=self.serverVersion), wait
+        )
 
     @try_connect
     def send_msg_register(self, chanName):
@@ -404,8 +402,7 @@ class SpecConnection:
         Arguments:
         chanName -- a string representing the channel name, i.e. 'var/toto'
         """
-        self.__send_msg_no_reply(msg_register(
-            chanName, version=self.serverVersion))
+        self.__send_msg_no_reply(msg_register(chanName, version=self.serverVersion))
 
     @try_connect
     def send_msg_unregister(self, chanName):
@@ -413,20 +410,17 @@ class SpecConnection:
         Arguments:
         chanName -- a string representing the channel name, i.e. 'var/toto'
         """
-        self.__send_msg_no_reply(msg_unregister(
-            chanName, version=self.serverVersion))
+        self.__send_msg_no_reply(msg_unregister(chanName, version=self.serverVersion))
 
     @try_connect
     def send_msg_close(self):
         """Send a close message."""
-        self.__send_msg_no_reply(
-            msg_close(version=self.serverVersion))
+        self.__send_msg_no_reply(msg_close(version=self.serverVersion))
 
     @try_connect
     def send_msg_abort(self, wait=False):
         """Send an abort message."""
-        self.__send_msg_no_reply(msg_abort(
-            version=self.serverVersion), wait)
+        self.__send_msg_no_reply(msg_abort(version=self.serverVersion), wait)
 
     def send_msg_hello(self):
         """Send a hello message."""
@@ -475,4 +469,3 @@ class SpecConnection:
             self.socket_write_event.start(self.__do_send_data)
             if wait:
                 self._completed_writing_event.wait()
-

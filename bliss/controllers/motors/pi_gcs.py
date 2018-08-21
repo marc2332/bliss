@@ -20,25 +20,26 @@ def get_pi_comm(config, ctype=None, **opts):
     """
     config = config.config_dict
     if get_comm_type(config) == TCP:
-        opts.setdefault('port', 50000)
-    opts.setdefault('timeout', 1)
+        opts.setdefault("port", 50000)
+    opts.setdefault("timeout", 1)
     try:
         return get_comm(config, ctype=ctype, **opts)
     except ValueError:
-        if config.has_key('host'):
-            warn("'host' keyword is deprecated. Use 'tcp' instead",
-                 DeprecationWarning)
+        if config.has_key("host"):
+            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
             host = config.get("host")
-            opts.setdefault('port', 50000)
-            config = {'tcp': {'url': host } }
+            opts.setdefault("port", 50000)
+            config = {"tcp": {"url": host}}
             return get_comm(config, ctype=ctype, **opts)
-        elif config.has_key('serial_line'):
+        elif config.has_key("serial_line"):
             serial_line = self.config.get("serial_line")
-            warn("'serial_line' keyword is deprecated. Use 'serial' instead",
-                 DeprecationWarning)
-            config = {'serial': {'url': serial_line } }
+            warn(
+                "'serial_line' keyword is deprecated. Use 'serial' instead",
+                DeprecationWarning,
+            )
+            config = {"serial": {"url": serial_line}}
             return get_comm(config, ctype=ctype, **opts)
-    raise ValueError('No communication channel found in config')
+    raise ValueError("No communication channel found in config")
 
 
 def get_error_str(err_nb):
@@ -202,9 +203,9 @@ pi_gcs_errors = {
     404: "Wave parameter number error",
     405: "Wave parameter out of range",
     406: "WGO command bit not supported",
-    500: "The \"red knob\" is still set and disables system",
-    501: "The \"red knob\" was activated and still disables system -\
-    reanimation required",
+    500: 'The "red knob" is still set and disables system',
+    501: 'The "red knob" was activated and still disables system -\
+    reanimation required',
     502: "Position consistency check failed",
     503: "Hardware collision sensor(s) are activated",
     504: "Strut following error occurred, e.g. caused by overload or encoder\
@@ -426,4 +427,5 @@ pi_gcs_errors = {
     -1079: "Cannot create parameter DAT file to store user defined stage \
     type.",
     -1080: "Parameter DAT file does not have correct revision.",
-    -1081: "User stages DAT file does not have correct revision."}
+    -1081: "User stages DAT file does not have correct revision.",
+}

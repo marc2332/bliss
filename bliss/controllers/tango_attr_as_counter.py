@@ -26,31 +26,33 @@ from bliss.common.tango import DeviceProxy
 
 _CtrGroupReadDict = weakref.WeakValueDictionary()
 
+
 class _CtrGroupRead(object):
-    def __init__(self,tango_uri):
+    def __init__(self, tango_uri):
         self._tango_uri = tango_uri
         self._control = None
         self._counter_names = list()
 
     @property
     def name(self):
-        return ','.join(self._counter_names)
+        return ",".join(self._counter_names)
 
-    def read_all(self,*counters):
+    def read_all(self, *counters):
         if self._control is None:
             self._control = DeviceProxy(self._tango_uri)
 
         dev_attrs = self._control.read_attributes([cnt.attribute for cnt in counters])
-        #Check error
+        # Check error
         for attr in dev_attrs:
             error = attr.get_err_stack()
             if error:
                 raise PyTango.DevFailed(*error)
 
         return [dev_attr.value for dev_attr in dev_attrs]
-    
-    def add_counter(self,counter_name):
+
+    def add_counter(self, counter_name):
         self._counter_names.append(counter_name)
+
 
 class tango_attr_as_counter(SamplingCounter):
     def __init__(self, name, config):
@@ -58,11 +60,11 @@ class tango_attr_as_counter(SamplingCounter):
         if tango_uri is None:
             raise KeyError("uri")
 
-        self.unit = config.get('unit')
+        self.unit = config.get("unit")
         self.attribute = config["attr_name"]
-        self._ctrl = _CtrGroupReadDict.setdefault(tango_uri,_CtrGroupRead(tango_uri))
+        self._ctrl = _CtrGroupReadDict.setdefault(tango_uri, _CtrGroupRead(tango_uri))
         self._ctrl.add_counter(name)
         SamplingCounter.__init__(self, name, self._ctrl)
 
-TangoAttrCounter = tango_attr_as_counter
 
+TangoAttrCounter = tango_attr_as_counter

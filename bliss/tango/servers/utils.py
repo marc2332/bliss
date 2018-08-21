@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-'''
+"""
 tango server utilities
-'''
+"""
 from __future__ import absolute_import
 
 import os
@@ -12,25 +12,25 @@ import tango
 
 
 def get_server_info(argv=None):
-    '''
+    """
     Returns a tuple with three elements: server type, server instance, server name
 
     Example: ('Bliss', 'sixc', 'Bliss/sixc')
-    '''
+    """
 
     argv = argv or sys.argv
 
     file_name = os.path.basename(argv[0])
     server_type = os.path.splitext(file_name)[0]
     instance_name = argv[1]
-    server_instance = '/'.join((server_type, instance_name))
+    server_instance = "/".join((server_type, instance_name))
     return server_type, instance_name, server_instance
 
 
 def get_devices_from_server(argv=None, db=None):
-    '''
+    """
     Returns the devices already registered. dict< str(tango class name): list(device names) >
-    '''
+    """
     argv = argv or sys.argv
     db = db or tango.Database()
 
@@ -46,6 +46,6 @@ def get_devices_from_server(argv=None, db=None):
         devs = class_dict.setdefault(class_name, [])
         devs.append(dev)
 
-    class_dict.pop('DServer', None)
+    class_dict.pop("DServer", None)
 
     return class_dict

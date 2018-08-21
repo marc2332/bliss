@@ -11,15 +11,15 @@ import gevent
 
 from ptpython.python_input import PythonCommandLineInterface
 
-__all__ = ('BlissCommandLineInterface',)
+__all__ = ("BlissCommandLineInterface",)
 
 
 class BlissCommandLineInterface(PythonCommandLineInterface):
     """A python command line interface with a refresh loop"""
 
     def __init__(self, *args, **kwargs):
-        self._refresh_interval = kwargs.pop('refresh_interval', None)
-        self.python_input = kwargs['python_input']
+        self._refresh_interval = kwargs.pop("refresh_interval", None)
+        self.python_input = kwargs["python_input"]
         self.python_input.show_signature = True
         super(BlissCommandLineInterface, self).__init__(*args, **kwargs)
         self._refresh_task = None
@@ -40,4 +40,3 @@ class BlissCommandLineInterface(PythonCommandLineInterface):
         while self._refresh_interval:
             self.invalidate()
             gevent.sleep(self._refresh_interval)
-

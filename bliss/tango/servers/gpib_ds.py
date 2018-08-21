@@ -17,27 +17,24 @@ the direct Gpib class from Salsa directly.
 """
 from __future__ import absolute_import
 
-from tango.server import (Device, attribute, command,
-                            device_property)
+from tango.server import Device, attribute, command, device_property
 
 from bliss.comm.gpib import Gpib as _Gpib
 
 
 class Gpib(Device):
 
-    url = device_property(dtype=str,
-                          doc='* `enet://<host>:<port>` for NI ENET adapter\n'
-                              '* `prologix://<host>:<port>` for prologix adapter')
-    pad = device_property(dtype=int, default_value=0,
-                          doc='primary address')
-    sad = device_property(dtype=int, default_value=0,
-                          doc='secondary address')
-    timeout = device_property(dtype=float, default_value=1.,
-                              doc='socket timeout')
-    tmo = device_property(dtype=int, default_value=13,
-                          doc='gpib time limit')
+    url = device_property(
+        dtype=str,
+        doc="* `enet://<host>:<port>` for NI ENET adapter\n"
+        "* `prologix://<host>:<port>` for prologix adapter",
+    )
+    pad = device_property(dtype=int, default_value=0, doc="primary address")
+    sad = device_property(dtype=int, default_value=0, doc="secondary address")
+    timeout = device_property(dtype=float, default_value=1., doc="socket timeout")
+    tmo = device_property(dtype=int, default_value=13, doc="gpib time limit")
     eot = device_property(dtype=int, default_value=1)
-    eos = device_property(dtype=str, default_value='\n')
+    eos = device_property(dtype=str, default_value="\n")
 
     def __init__(self, *args, **kwargs):
         self.gpib = None
@@ -49,8 +46,9 @@ class Gpib(Device):
 
     def init_device(self):
         Device.init_device(self)
-        kwargs = dict(url=self.url, pad=self.pad, sad=self.sad,
-                      timeout=self.timeout, tmo=self.tmo)
+        kwargs = dict(
+            url=self.url, pad=self.pad, sad=self.sad, timeout=self.timeout, tmo=self.tmo
+        )
         self.gpib = _Gpib(**kwargs)
         self.gpib.open()
 
@@ -66,7 +64,7 @@ class Gpib(Device):
     def close(self):
         self.gpib.close()
 
-    @command(dtype_in='int32', dtype_out=str)
+    @command(dtype_in="int32", dtype_out=str)
     def read(self, size):
         return self.gpib.read(size=size)
 
@@ -74,7 +72,7 @@ class Gpib(Device):
     def write(self, msg):
         self.gpib.write(msg)
 
-    @command(dtype_in=[str], dtype_out=str, doc_in='(msg, size)')
+    @command(dtype_in=[str], dtype_out=str, doc_in="(msg, size)")
     def write_read(self, msg_and_size):
         msg, size = msg_and_size
         return self.gpib.write_read(msg, size=int(size))
@@ -83,7 +81,7 @@ class Gpib(Device):
     def write_readline(self, msg):
         return self.gpib.write_readline(msg)
 
-    @command(dtype_in=[str], dtype_out=[str], doc_in='(msg, nb_lines)')
+    @command(dtype_in=[str], dtype_out=[str], doc_in="(msg, nb_lines)")
     def write_readlines(self, msg_and_nb_lines):
         msg, nb_lines = msg_and_nb_lines
         return self.gpib.write_readlines(msg, int(nb_lines))
@@ -110,7 +108,8 @@ class Gpib(Device):
 def main():
     from tango import GreenMode
     from tango.server import run
-    run([Gpib,], green_mode=GreenMode.Gevent)
+
+    run([Gpib], green_mode=GreenMode.Gevent)
 
 
 if __name__ == "__main__":

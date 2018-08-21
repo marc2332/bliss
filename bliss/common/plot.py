@@ -157,29 +157,40 @@ from bliss.common import subprocess
 from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
-__all__ = ['plot', 'plot_curve', 'plot_curve_list', 'plot_image',
-           'plot_scatter', 'plot_image_with_histogram', 'plot_image_stack']
+__all__ = [
+    "plot",
+    "plot_curve",
+    "plot_curve_list",
+    "plot_image",
+    "plot_scatter",
+    "plot_image_with_histogram",
+    "plot_image_stack",
+]
 
 # Globals
 
-FLINT = { 'process': None, 'proxy': None }
+FLINT = {"process": None, "proxy": None}
 
 # Connection helpers
 
+
 def get_beacon_config():
     beacon = get_default_connection()
-    return '{}:{}'.format(beacon._host, beacon._port)
+    return "{}:{}".format(beacon._host, beacon._port)
+
 
 def check_flint(session_name):
-    pid = FLINT.get('process')
+    pid = FLINT.get("process")
     if pid is not None and psutil.pid_exists(pid):
         return pid
-    
+
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
 
     # get existing flint, if any
-    for key in redis.scan_iter("flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))):
+    for key in redis.scan_iter(
+        "flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))
+    ):
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
@@ -188,12 +199,14 @@ def check_flint(session_name):
         else:
             redis.delete(key)
     return None
-    
+
+
 def start_flint():
     env = dict(os.environ)
-    env['BEACON_HOST'] = get_beacon_config()
-    args = [sys.executable, '-m', 'bliss.flint']
+    env["BEACON_HOST"] = get_beacon_config()
+    args = [sys.executable, "-m", "bliss.flint"]
     return subprocess.Popen(args, env=env, start_new_session=True).pid
+
 
 def attach_flint(pid):
     beacon = get_default_connection()
@@ -213,6 +226,7 @@ def attach_flint(pid):
     proxy._pid = pid
     return proxy
 
+
 def get_flint(start_new=False):
     old_pid = None
     pid = None
@@ -220,7 +234,7 @@ def get_flint(start_new=False):
     session = session_module.get_current()
     if session is None:
         raise RuntimeError("No current session, cannot get flint")
-    
+
     # Get redis connection
     if start_new:
         pid = start_flint()
@@ -230,25 +244,26 @@ def get_flint(start_new=False):
         if pid is None:
             pid = start_flint()
         else:
-            old_pid = FLINT.get('process', pid)
-            
+            old_pid = FLINT.get("process", pid)
+
     if pid != old_pid:
         proxy = attach_flint(pid)
-        FLINT.update({'proxy': proxy, 'process': pid })
+        FLINT.update({"proxy": proxy, "process": pid})
         return proxy
     else:
-        return FLINT['proxy']
+        return FLINT["proxy"]
 
 
 def reset_flint():
-    proxy = FLINT.get('proxy')
+    proxy = FLINT.get("proxy")
     if proxy is not None:
         proxy.close()
-    FLINT['proxy'] = None
-    FLINT['process'] = None
+    FLINT["proxy"] = None
+    FLINT["process"] = None
 
 
 # Simple Qt interface
+
 
 class QtInterface(object):
     """Isolate the qt interface of the plot windows
@@ -269,6 +284,7 @@ class QtInterface(object):
 
 
 # Base plot class
+
 
 class BasePlot(object):
 
@@ -302,8 +318,9 @@ class BasePlot(object):
         self.qt = QtInterface(interface, self.submit)
 
     def __repr__(self):
-        return '{}(plot_id={!r}, flint_pid={!r}, name={!r})'.format(
-            self.__class__.__name__, self.plot_id, self.flint_pid, self.name)
+        return "{}(plot_id={!r}, flint_pid={!r}, name={!r})".format(
+            self.__class__.__name__, self.plot_id, self.flint_pid, self.name
+        )
 
     def submit(self, method, *args, **kwargs):
         return self._flint.run_method(self.plot_id, method, args, kwargs)
@@ -328,11 +345,13 @@ class BasePlot(object):
         data = numpy.array(data)
         if data.ndim not in self.DATA_DIMENSIONS:
             raise ValueError(
-                'Data dimension must be in {} (got {})'
-                .format(self.DATA_DIMENSIONS, data.ndim))
+                "Data dimension must be in {} (got {})".format(
+                    self.DATA_DIMENSIONS, data.ndim
+                )
+            )
         return self._flint.update_data(self._plot_id, field, data)
 
-    def add_data(self, data, field='default'):
+    def add_data(self, data, field="default"):
         # Get fields
         if isinstance(data, dict):
             fields = list(data)
@@ -354,8 +373,7 @@ class BasePlot(object):
         return self._flint.remove_data(self._plot_id, field)
 
     def select_data(self, *names, **kwargs):
-        return self._flint.select_data(
-            self._plot_id, self.METHOD, names, kwargs)
+        return self._flint.select_data(self._plot_id, self.METHOD, names, kwargs)
 
     def deselect_data(self, *names):
         return self._flint.deselect_data(self._plot_id, names)
@@ -370,7 +388,7 @@ class BasePlot(object):
 
     def plot(self, data, **kwargs):
         fields = list(self.add_data(data))
-        names = fields[:self.DATA_INPUT_NUMBER]
+        names = fields[: self.DATA_INPUT_NUMBER]
         self.select_data(*names, **kwargs)
 
     # Clean up
@@ -395,8 +413,9 @@ class BasePlot(object):
     # Instanciation
 
     @classmethod
-    def instanciate(cls, data=None, name=None, existing_id=None,
-                    flint_pid=None, **kwargs):
+    def instanciate(
+        cls, data=None, name=None, existing_id=None, flint_pid=None, **kwargs
+    ):
         plot = cls(name=name, existing_id=existing_id, flint_pid=flint_pid)
         if data is not None:
             plot.plot(data=data, **kwargs)
@@ -405,16 +424,17 @@ class BasePlot(object):
 
 # Plot classes
 
+
 class CurvePlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'Plot1D'
+    WIDGET = "Plot1D"
 
     # Name of the method to add data to the plot
-    METHOD = 'addCurve'
+    METHOD = "addCurve"
 
     # The dimension of the data to plot
-    DATA_DIMENSIONS = 1,
+    DATA_DIMENSIONS = (1,)
 
     # Single / Multiple data handling
     MULTIPLE = True
@@ -428,8 +448,8 @@ class CurvePlot(BasePlot):
         # Add data
         data_dict = self.add_data(data)
         # Get x field
-        x = kwargs.pop('x', None)
-        x_field = x if isinstance(x, str) else 'x'
+        x = kwargs.pop("x", None)
+        x_field = x if isinstance(x, str) else "x"
         # Get provided x
         if x_field in data_dict:
             x = data_dict[x_field]
@@ -450,13 +470,13 @@ class CurvePlot(BasePlot):
 class ScatterPlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'Plot1D'
+    WIDGET = "Plot1D"
 
     # Name of the method to add data to the plot
-    METHOD = 'addScatter'
+    METHOD = "addScatter"
 
     # The dimension of the data to plot
-    DATA_DIMENSIONS = 1,
+    DATA_DIMENSIONS = (1,)
 
     # Single / Multiple data handling
     MULTIPLE = True
@@ -468,13 +488,13 @@ class ScatterPlot(BasePlot):
 class CurveListPlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'CurvesView'
+    WIDGET = "CurvesView"
 
     # Name of the method to add data to the plot
     METHOD = None
 
     # The dimension of the data to plot
-    DATA_DIMENSIONS = 2,
+    DATA_DIMENSIONS = (2,)
 
     # Single / Multiple data handling
     MULTIPLE = False
@@ -486,10 +506,10 @@ class CurveListPlot(BasePlot):
 class ImagePlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'Plot2D'
+    WIDGET = "Plot2D"
 
     # Name of the method to add data to the plot
-    METHOD = 'addImage'
+    METHOD = "addImage"
 
     # The dimension of the data to plot
     DATA_DIMENSIONS = 2, 3
@@ -504,13 +524,13 @@ class ImagePlot(BasePlot):
 class HistogramImagePlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'ImageView'
+    WIDGET = "ImageView"
 
     # Name of the method to add data to the plot
-    METHOD = 'setImage'
+    METHOD = "setImage"
 
     # The dimension of the data to plot
-    DATA_DIMENSIONS = 2,
+    DATA_DIMENSIONS = (2,)
 
     # Single / Multiple data handling
     MULTIPLE = False
@@ -522,10 +542,10 @@ class HistogramImagePlot(BasePlot):
 class ImageStackPlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = 'StackView'
+    WIDGET = "StackView"
 
     # Name of the method to add data to the plot
-    METHOD = 'setStack'
+    METHOD = "setStack"
 
     # The dimension of the data to plot
     DATA_DIMENSIONS = 3, 4
@@ -548,7 +568,7 @@ plot_image_stack = ImageStackPlot.instanciate
 
 
 def default_plot(data=None, **kwargs):
-    kwargs['data'] = data
+    kwargs["data"] = data
     # No data available
     if data is None:
         return plot_curve(**kwargs)
@@ -580,13 +600,11 @@ def default_plot(data=None, **kwargs):
             return plot_curve(**kwargs)
         # Assume multiple plots
         return tuple(
-                default_plot(data=data[field], **kwargs)
-                for field in data.dtype.fields)
+            default_plot(data=data[field], **kwargs) for field in data.dtype.fields
+        )
     # Not recognized
-    raise ValueError('Not recognized data')
+    raise ValueError("Not recognized data")
 
 
 # Alias
 plot = default_plot
-
-

@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-__all__ = ['cleanup', 'axis', 'lima']
+__all__ = ["cleanup", "axis", "lima"]
 
 import os
 import inspect
@@ -16,8 +16,9 @@ import errno
 import sys
 import six
 
-axis = enum.Enum('axis', 'POS VEL ACC LIM')
-lima = enum.Enum('lima', 'VIDEO_LIVE')
+axis = enum.Enum("axis", "POS VEL ACC LIM")
+lima = enum.Enum("lima", "VIDEO_LIVE")
+
 
 @contextmanager
 def excepthook(custom_hook=None):
@@ -51,12 +52,12 @@ def cleanup(*args, **kwargs):
     Args:
         can be device (Axis, Lima...) or cleanup function
     """
-    
+
     from .axis import Axis
     from . import motor_group
 
-    restore_list = kwargs.pop('restore_list', list())
-    error_cleanup = kwargs.pop('error_cleanup', False)
+    restore_list = kwargs.pop("restore_list", list())
+    error_cleanup = kwargs.pop("error_cleanup", False)
     finally_cleanup = not error_cleanup
     motors = list()
     lima_device = list()
@@ -65,17 +66,20 @@ def cleanup(*args, **kwargs):
     for arg in args:
         if isinstance(arg, Axis):
             motors.append(arg)
-        elif type(arg).__name__ == 'Lima':
+        elif type(arg).__name__ == "Lima":
             lima_device.append(arg)
         elif callable(arg):
             functions.append(arg)
         else:
-            stop_methods = [x[0] for x in inspect.getmembers(arg, predicate=inspect.ismethod)
-                            if x[0].startswith('stop')]
+            stop_methods = [
+                x[0]
+                for x in inspect.getmembers(arg, predicate=inspect.ismethod)
+                if x[0].startswith("stop")
+            ]
             if len(stop_methods) != 1:
-                stop_methods = [x for x in stop_methods if x.find('acq') > -1]
+                stop_methods = [x for x in stop_methods if x.find("acq") > -1]
                 if len(stop_methods) != 1:
-                    raise RuntimeError('Cannot manage this object {}'.format(arg))
+                    raise RuntimeError("Cannot manage this object {}".format(arg))
             stoppable_device.append(getattr(arg, stop_methods[0]))
 
     mot_group = motor_group.Group(*motors) if motors else None
@@ -85,14 +89,17 @@ def cleanup(*args, **kwargs):
         for mot in motors:
             previous_motor_position.extend((mot, mot.position()))
     if axis.VEL in restore_list:
-        previous_motor_velocity = [(mot, mot.velocity())
-                                   for mot in motors if hasattr(mot, 'velocity')]
+        previous_motor_velocity = [
+            (mot, mot.velocity()) for mot in motors if hasattr(mot, "velocity")
+        ]
     if axis.ACC in restore_list:
-        previous_motor_acc = [(mot, mot.acceleration())
-                              for mot in motors if hasattr(mot, 'acceleration')]
+        previous_motor_acc = [
+            (mot, mot.acceleration()) for mot in motors if hasattr(mot, "acceleration")
+        ]
     if axis.LIM in restore_list:
-        previous_motor_limits = [(mot, mot.limits())
-                                 for mot in motors if hasattr(mot, 'limits')]
+        previous_motor_limits = [
+            (mot, mot.limits()) for mot in motors if hasattr(mot, "limits")
+        ]
     try:
         yield
     except:
@@ -117,21 +124,33 @@ def cleanup(*args, **kwargs):
                 try:
                     ldev.stopAcq()
                     if lima.VIDEO_LIVE in restore_list:
-                        pass #todo
+                        pass  # todo
                 except Exception as exc:
                     exceptions.append(exc)
 
             if mot_group is not None:
                 gevent.joinall([gevent.spawn(motor.stop) for motor in motors])
                 if axis.VEL in restore_list:
-                    gevent.joinall([gevent.spawn(motor.velocity, value)
-                                    for motor, value in previous_motor_velocity])
+                    gevent.joinall(
+                        [
+                            gevent.spawn(motor.velocity, value)
+                            for motor, value in previous_motor_velocity
+                        ]
+                    )
                 if axis.ACC in restore_list:
-                    gevent.joinall([gevent.spawn(motor.acceleration, value)
-                                    for motor, value in previous_motor_acc])
+                    gevent.joinall(
+                        [
+                            gevent.spawn(motor.acceleration, value)
+                            for motor, value in previous_motor_acc
+                        ]
+                    )
                 if axis.LIM in restore_list:
-                    gevent.joinall([gevent.spawn(motor.limits, *values)
-                                    for motor, values in previous_motor_limits])
+                    gevent.joinall(
+                        [
+                            gevent.spawn(motor.limits, *values)
+                            for motor, values in previous_motor_limits
+                        ]
+                    )
                 if axis.POS in restore_list:
                     mot_group.move(*previous_motor_position)
 
@@ -139,7 +158,7 @@ def cleanup(*args, **kwargs):
                 if len(exceptions) == 1:
                     raise exceptions[0]
                 else:
-                    msg = '\n'.join((str(e) for e in exceptions))
+                    msg = "\n".join((str(e) for e in exceptions))
                     raise RuntimeError("Multiple cleanup errors\n{}".format(msg))
 
 
@@ -148,26 +167,28 @@ def error_cleanup(*args, **kwargs):
     cleanup executed in case of exception.
     for more detail see **cleanup**
     """
-    kwargs.setdefault('error_cleanup', True)
+    kwargs.setdefault("error_cleanup", True)
     return cleanup(*args, **kwargs)
+
 
 class post_mortem_cleanup(object):
     """ This cleanup call the cleanup functions only if your programm crash.
     """
-    def __init__(self,*args,**keys):
+
+    def __init__(self, *args, **keys):
         self._error_funcs = args
         self._keys = keys
         self._process = None
 
     def __enter__(self):
-        self._read,self._write = os.pipe()
+        self._read, self._write = os.pipe()
         self.p = Process(target=self._run)
         self.p.start()
         os.close(self._read)
         return self
 
-    def __exit__(self,*args):
-        os.write(self._write,'|')
+    def __exit__(self, *args):
+        os.write(self._write, "|")
         self.p.join()
         os.close(self._write)
 
@@ -175,7 +196,7 @@ class post_mortem_cleanup(object):
         os.close(self._write)
         while True:
             try:
-                value = os.read(self._read,1024)
+                value = os.read(self._read, 1024)
             except OSError as err:
                 if err.errno == errno.EAGAIN:
                     continue
@@ -219,7 +240,7 @@ def capture_exceptions(raise_index=-1, excepthook=None):
 
     if excepthook is None:
         excepthook = sys.excepthook
-    
+
     @contextmanager
     def capture():
         try:
@@ -242,4 +263,3 @@ def capture_exceptions(raise_index=-1, excepthook=None):
     etype, value, tb = infos[raise_index]
     value.exception_infos = infos
     six.reraise(etype, value, tb)
-

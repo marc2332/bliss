@@ -24,6 +24,7 @@ class TempControllerCounter(SamplingCounter):
     """ Implements access to counter object for
         Input and Output type objects
     """
+
     def __init__(self, name, parent):
         SamplingCounter.__init__(self, name, parent)
         self.parent = parent
@@ -37,11 +38,12 @@ class TempControllerCounter(SamplingCounter):
 class Input(object):
     """ Implements the access to temperature sensors
     """
+
     def __init__(self, controller, config):
         """ Constructor """
         log.debug("On Input")
-        #log.debug("  config type is: %s" % type(config))
-        #log.debug("  controller type is: %s" % type(controller))
+        # log.debug("  config type is: %s" % type(config))
+        # log.debug("  controller type is: %s" % type(controller))
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
@@ -88,6 +90,7 @@ class Input(object):
 @with_custom_members
 class Output(object):
     """ Implements the access to temperature heaters """
+
     def __init__(self, controller, config):
         """ Constructor """
         log.debug("On Output")
@@ -96,7 +99,7 @@ class Output(object):
         try:
             self.__limits = (config.get("low_limit"), config.get("high_limit"))
         except:
-            self.__limits = (None,None)
+            self.__limits = (None, None)
         self.__setpoint_task = None
         self.__setpoint_event_poll = 0.02
         try:
@@ -168,7 +171,7 @@ class Output(object):
             - setpoint_abort
             - start_ramp
         """
-        log.debug( "On Output:ramp %s" % new_setpoint)
+        log.debug("On Output:ramp %s" % new_setpoint)
         self.__mode = 1
         return self._ramp(new_setpoint, wait, **kwargs)
 
@@ -184,22 +187,26 @@ class Output(object):
             - setpoint_abort
             - set
         """
-        log.debug( "On Output:set %s" % new_setpoint)
+        log.debug("On Output:set %s" % new_setpoint)
         self.__mode = 0
         return self._ramp(new_setpoint, wait, **kwargs)
 
     def _ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ starts the ramp tasks.
         """
-        log.debug( "On Output:_ramp %s" % new_setpoint)
+        log.debug("On Output:_ramp %s" % new_setpoint)
         if new_setpoint is not None:
             ll, hl = self.limits
             if ll is not None and new_setpoint < ll:
-                raise RuntimeError("Invalid setpoint `%f', below low limit (%f)" % (new_setpoint, ll))
+                raise RuntimeError(
+                    "Invalid setpoint `%f', below low limit (%f)" % (new_setpoint, ll)
+                )
             if hl is not None and new_setpoint > hl:
-                raise RuntimeError("Invalid setpoint `%f', above high limit (%f)" % (new_setpoint, hl))
+                raise RuntimeError(
+                    "Invalid setpoint `%f', above high limit (%f)" % (new_setpoint, hl)
+                )
 
-            self.__setpoint_task = self._start_setpoint(new_setpoint,**kwargs)
+            self.__setpoint_task = self._start_setpoint(new_setpoint, **kwargs)
 
             if wait:
                 self.wait()
@@ -283,7 +290,7 @@ class Output(object):
         """
         log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
         try:
-            while self._setpoint_state() == 'RUNNING':
+            while self._setpoint_state() == "RUNNING":
                 gevent.sleep(self.__setpoint_event_poll)
         finally:
             self.__ramping = 0
@@ -293,6 +300,7 @@ class Output(object):
         """
         log.debug("On Output:_start_setpoint")
         sync_event = gevent.event.Event()
+
         @task
         def setpoint_task(setpoint):
             sync_event.set()
@@ -302,6 +310,7 @@ class Output(object):
                 self.controller.set(self, setpoint, **kwargs)
             self.__ramping = 1
             self._do_setpoint(setpoint)
+
         sp_task = setpoint_task(setpoint, wait=False)
         sync_event.wait()
         return sp_task
@@ -318,9 +327,9 @@ class Output(object):
         default is 0.02 sec
         """
         if new_poll:
-           self.__setpoint_event_poll = new_poll
+            self.__setpoint_event_poll = new_poll
         else:
-           return self.__setpoint_event_poll
+            return self.__setpoint_event_poll
 
     def ramprate(self, new_ramp=None):
         """
@@ -329,9 +338,9 @@ class Output(object):
         """
         log.debug("On Output:ramprate: %s " % (new_ramp))
         if new_ramp:
-           self.controller.set_ramprate(self,new_ramp)
+            self.controller.set_ramprate(self, new_ramp)
         else:
-           return self.controller.read_ramprate(self)
+            return self.controller.read_ramprate(self)
 
     def step(self, new_step=None):
         """
@@ -340,9 +349,9 @@ class Output(object):
         """
         log.debug("On Output:step: %s " % (new_step))
         if new_step:
-           self.controller.set_step(self,new_step)
+            self.controller.set_step(self, new_step)
         else:
-           return self.controller.read_step(self)
+            return self.controller.read_step(self)
 
     def dwell(self, new_dwell=None):
         """
@@ -351,10 +360,9 @@ class Output(object):
         """
         log.debug("On Output:setpoint dwell: %s " % (new_dwell))
         if new_dwell:
-           self.controller.set_dwell(self,new_dwell)
+            self.controller.set_dwell(self, new_dwell)
         else:
-           return self.controller.read_dwell(self)
-
+            return self.controller.read_dwell(self)
 
     def _add_custom_method(self, method, name, types_info=(None, None)):
         """ necessary to add custom methods to this class """
@@ -365,13 +373,14 @@ class Output(object):
 @with_custom_members
 class Loop(object):
     """ Implements the access to temperature regulation loop """
+
     def __init__(self, controller, config):
         """ Constructor """
         log.debug("On Loop")
         self.__controller = controller
-	self.__name = config["name"]
+        self.__name = config["name"]
         self.__config = config
-        self.__input  = controller.get_object(config["input"][1:])
+        self.__input = controller.get_object(config["input"][1:])
         self.__output = controller.get_object(config["output"][1:])
         self._Pval = None
         self._Ival = None
@@ -405,12 +414,12 @@ class Loop(object):
         """ returns the loop output object """
         return self.__output
 
-    def set(self, new_setpoint=None, wait=False,**kwargs):
+    def set(self, new_setpoint=None, wait=False, **kwargs):
         """ same as a call to the the method set on its output object """
         log.debug(("On Loop: set %s") % new_setpoint)
         return self.__output.set(new_setpoint, wait, **kwargs)
 
-    def ramp(self, new_setpoint=None, wait=False,**kwargs):
+    def ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ same as the call to the method ramp on its output object """
         log.debug(("On Loop: ramp %s") % new_setpoint)
         return self.__output.ramp(new_setpoint, wait, **kwargs)
@@ -434,7 +443,6 @@ class Loop(object):
         log.debug("On Loop: off")
         self.controller.off(self)
 
-
     def kp(self, new_kp=None):
         """
         Setting/reading the P value (for PID)
@@ -442,10 +450,9 @@ class Loop(object):
         """
         log.debug("On Loop: kp (PID): ")
         if new_kp:
-           self.controller.set_kp(self,new_kp)
+            self.controller.set_kp(self, new_kp)
         else:
-           return self.controller.read_kp(self)
-
+            return self.controller.read_kp(self)
 
     def ki(self, new_ki=None):
         """
@@ -454,9 +461,9 @@ class Loop(object):
         """
         log.debug("On Loop: ki (PID): ")
         if new_ki:
-           self.controller.set_ki(self,new_ki)
+            self.controller.set_ki(self, new_ki)
         else:
-           return self.controller.read_ki(self)
+            return self.controller.read_ki(self)
 
     def kd(self, new_kd=None):
         """
@@ -465,6 +472,6 @@ class Loop(object):
         """
         log.debug("On Loop: kd (PID): ")
         if new_kd:
-           self.controller.set_kd(self,new_kd)
+            self.controller.set_kd(self, new_kd)
         else:
-           return self.controller.read_kd(self)
+            return self.controller.read_kd(self)

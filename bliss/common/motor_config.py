@@ -9,6 +9,7 @@ from bliss.config import channels
 from bliss.common.utils import Null
 from bliss.config.static import get_config
 
+
 class StaticConfig(object):
 
     NO_VALUE = Null()
@@ -18,17 +19,20 @@ class StaticConfig(object):
         self.config_channel = None
 
         try:
-            config_chan_name = "config.%s" % config_dict['name']
+            config_chan_name = "config.%s" % config_dict["name"]
         except KeyError:
             # can't have config channel is there is no name
             pass
         else:
-            if not 'axes' in config_dict and not 'encoders' in config_dict:
+            if not "axes" in config_dict and not "encoders" in config_dict:
                 # axis config
-                self.config_channel = channels.Channel(config_chan_name, config_dict.to_dict(), callback=self._config_changed)
+                self.config_channel = channels.Channel(
+                    config_chan_name,
+                    config_dict.to_dict(),
+                    callback=self._config_changed,
+                )
 
-    def get(self, property_name, converter=str, default=NO_VALUE,
-            inherited=False):
+    def get(self, property_name, converter=str, default=NO_VALUE, inherited=False):
         """Get static property
 
         Args:
@@ -43,7 +47,7 @@ class StaticConfig(object):
         Raises:
             KeyError, ValueError
         """
-        get_method = 'get_inherited' if inherited else 'get'
+        get_method = "get_inherited" if inherited else "get"
         property_value = getattr(self.config_dict, get_method)(property_name)
         if property_value is not None:
             return converter(property_value)
@@ -52,7 +56,6 @@ class StaticConfig(object):
                 return default
 
             raise KeyError("no property '%s` in config" % property_name)
-
 
     def set(self, property_name, value):
         self.config_dict[property_name] = value
@@ -68,7 +71,7 @@ class StaticConfig(object):
         # we could selectively reload only parts of the config (e.g one
         # single object yml file)
         cfg.reload()
-        self.config_dict = cfg.get_config(self.config_dict['name'])
+        self.config_dict = cfg.get_config(self.config_dict["name"])
         self._update_channel()
 
     def _update_channel(self):
@@ -78,6 +81,4 @@ class StaticConfig(object):
 
     def _config_changed(self, config_dict):
         for key, value in config_dict.iteritems():
-            self.config_dict[key]=value
-
-
+            self.config_dict[key] = value

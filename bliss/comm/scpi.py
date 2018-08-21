@@ -38,7 +38,7 @@ from __future__ import absolute_import
 import re
 import inspect
 import logging
-from  functools import partial
+from functools import partial
 
 import numpy
 
@@ -47,21 +47,25 @@ from .exceptions import CommunicationError, CommunicationTimeout
 
 
 def decode_IDN(s):
-    manuf, model, serial, version = map(str.strip, s.split(','))
+    manuf, model, serial, version = map(str.strip, s.split(","))
     return dict(manufacturer=manuf, model=model, serial=serial, version=version)
 
+
 def __decode_Err(s):
-    code, desc = map(str.strip, s.split(',', 1))
+    code, desc = map(str.strip, s.split(",", 1))
     return dict(code=int(code), desc=desc[1:-1])
 
+
 def __decode_ErrArray(s):
-    msgs = map(str.strip, s.split(','))
+    msgs = map(str.strip, s.split(","))
     result = []
     for i in range(0, len(msgs), 2):
-        code, desc = int(msgs[i]), msgs[i+1][1:-1]
-        if code == 0: continue
+        code, desc = int(msgs[i]), msgs[i + 1][1:-1]
+        if code == 0:
+            continue
         result.append(dict(code=code, desc=desc))
     return result
+
 
 def __decode_OnOff(s):
     su = s.upper()
@@ -72,6 +76,7 @@ def __decode_OnOff(s):
     else:
         raise ValueError("Cannot decode OnOff value {0}".format(s))
 
+
 def __encode_OnOff(s):
     if s in (0, False, "off", "OFF"):
         return "OFF"
@@ -80,8 +85,9 @@ def __encode_OnOff(s):
     else:
         raise ValueError("Cannot encode OnOff value {0}".format(s))
 
-__decode_IntArray = partial(numpy.fromstring, dtype=int, sep=',')
-__decode_FloatArray = partial(numpy.fromstring, dtype=float, sep=',')
+
+__decode_IntArray = partial(numpy.fromstring, dtype=int, sep=",")
+__decode_FloatArray = partial(numpy.fromstring, dtype=float, sep=",")
 
 #: SCPI command
 #: accepts the following keys:
@@ -112,8 +118,8 @@ StrCmdWO = partial(Cmd, set=str)
 
 IntArrayCmdRO = partial(Cmd, get=__decode_IntArray)
 FloatArrayCmdRO = partial(Cmd, get=__decode_FloatArray)
-StrArrayCmd = partial(Cmd, get=lambda x: x.split(','), set=lambda x: ",".join(x))
-StrArrayCmdRO = partial(Cmd, get=lambda x: x.split(','))
+StrArrayCmd = partial(Cmd, get=lambda x: x.split(","), set=lambda x: ",".join(x))
+StrArrayCmdRO = partial(Cmd, get=lambda x: x.split(","))
 
 OnOffCmd = partial(Cmd, get=__decode_OnOff, set=__encode_OnOff)
 OnOffCmdRO = partial(Cmd, get=__decode_OnOff)
@@ -122,7 +128,7 @@ BoolCmd = OnOffCmd
 BoolCmdRO = OnOffCmdRO
 BoolCmdWO = OnOffCmdWO
 
-IDNCmd = partial(Cmd, get=decode_IDN, doc='identification query')
+IDNCmd = partial(Cmd, get=decode_IDN, doc="identification query")
 
 ErrCmd = partial(Cmd, get=__decode_Err)
 ErrArrayCmd = partial(Cmd, get=__decode_ErrArray)
@@ -137,21 +143,21 @@ def min_max_cmd(cmd_expr):
     >>> min_max_cmd('SYSTem:ERRor[:NEXT]')
     ('SYST:ERR', 'SYSTEM:ERROR:NEXT')
     """
-    result_min, optional = '', 0
+    result_min, optional = "", 0
     for c in cmd_expr:
         if c.islower():
             continue
-        if c == '[':
+        if c == "[":
             optional += 1
             continue
-        if c == ']':
+        if c == "]":
             optional -= 1
             continue
         if optional:
             continue
         result_min += c
-    result_min = result_min.lstrip(':')
-    result_max = cmd_expr.replace('[', '').replace(']', '').upper().lstrip(':')
+    result_min = result_min.lstrip(":")
+    result_max = cmd_expr.replace("[", "").replace("]", "").upper().lstrip(":")
     return result_min, result_max
 
 
@@ -162,32 +168,32 @@ def cmd_expr_to_reg_expr_str(cmd_expr):
     # Basicaly we replace [] -> ()?, and LOWercase -> LOW(ercase)?
     # Also we add :? optional to the start and $ to the end to make sure we have
     # exact match
-    reg_expr, low_zone = '\:?', False
+    reg_expr, low_zone = "\:?", False
     for c in cmd_expr:
         cl = c.islower()
         if not cl:
             if low_zone:
-                reg_expr += ')?'
+                reg_expr += ")?"
             low_zone = False
-        if c == '[':
-            reg_expr += '('
-        elif c == ']':
-            reg_expr += ')?'
+        if c == "[":
+            reg_expr += "("
+        elif c == "]":
+            reg_expr += ")?"
         elif cl:
             if not low_zone:
-                reg_expr += '('
+                reg_expr += "("
             low_zone = True
             reg_expr += c.upper()
-        elif c in '*:':
-            reg_expr += '\\' + c
+        elif c in "*:":
+            reg_expr += "\\" + c
         else:
             reg_expr += c
 
     # if cmd expr ends in lower case we close the optional zone 'by hand'
     if low_zone:
-        reg_expr += ')?'
+        reg_expr += ")?"
 
-    return reg_expr + '$'
+    return reg_expr + "$"
 
 
 def cmd_expr_to_reg_expr(cmd_expr):
@@ -249,9 +255,12 @@ class Commands(object):
 
     def __setitem__(self, cmd_expr, command):
         min_cmd, max_cmd = min_max_cmd(cmd_expr)
-        cmd_info = dict(command,
-                        re=cmd_expr_to_reg_expr(cmd_expr),
-                        min_command=min_cmd, max_command=max_cmd)
+        cmd_info = dict(
+            command,
+            re=cmd_expr_to_reg_expr(cmd_expr),
+            min_command=min_cmd,
+            max_command=max_cmd,
+        )
         self.command_expressions[cmd_expr] = cmd_info
         return cmd_info
 
@@ -277,7 +286,7 @@ class Commands(object):
             return self._command_cache[cmd_name_u]
         except KeyError:
             for cmd_expr, cmd_info in self.command_expressions.items():
-                reg_expr = cmd_info['re']
+                reg_expr = cmd_info["re"]
                 if reg_expr.match(cmd_name):
                     self._command_cache[cmd_name.upper()] = cmd_expr
                     return cmd_expr
@@ -301,31 +310,32 @@ class Commands(object):
                 self[cmd_expr] = cmd
 
 
-COMMANDS = Commands({
-    '*CLS': FuncCmd(doc='clear status'),
-    '*ESE': IntCmd(doc='standard event status enable register'),
-    '*ESR': IntCmdRO(doc='standard event event status register'),
-    '*IDN': IDNCmd(),
-    '*OPC': IntCmdRO(set=None, doc='operation complete'),
-    '*OPT': IntCmdRO(doc='return model number of any installed options'),
-    '*RCL': IntCmdWO(set=int, doc='return to user saved setup'),
-    '*RST': FuncCmd(doc='reset'),
-    '*SAV': IntCmdWO(doc='save the preset setup as the user-saved setup'),
-    '*SRE': IntCmdWO(doc='service request enable register'),
-    '*STB': StrCmdRO(doc='status byte register'),
-    '*TRG': FuncCmd(doc='bus trigger'),
-    '*TST': Cmd(get=lambda x : not decode_OnOff(x),
-                doc='self-test query'),
-    '*WAI': FuncCmd(doc='wait to continue'),
-
-    'SYSTem:ERRor[:NEXT]': ErrCmd(doc='return and clear oldest system error'),
-})
+COMMANDS = Commands(
+    {
+        "*CLS": FuncCmd(doc="clear status"),
+        "*ESE": IntCmd(doc="standard event status enable register"),
+        "*ESR": IntCmdRO(doc="standard event event status register"),
+        "*IDN": IDNCmd(),
+        "*OPC": IntCmdRO(set=None, doc="operation complete"),
+        "*OPT": IntCmdRO(doc="return model number of any installed options"),
+        "*RCL": IntCmdWO(set=int, doc="return to user saved setup"),
+        "*RST": FuncCmd(doc="reset"),
+        "*SAV": IntCmdWO(doc="save the preset setup as the user-saved setup"),
+        "*SRE": IntCmdWO(doc="service request enable register"),
+        "*STB": StrCmdRO(doc="status byte register"),
+        "*TRG": FuncCmd(doc="bus trigger"),
+        "*TST": Cmd(get=lambda x: not decode_OnOff(x), doc="self-test query"),
+        "*WAI": FuncCmd(doc="wait to continue"),
+        "SYSTem:ERRor[:NEXT]": ErrCmd(doc="return and clear oldest system error"),
+    }
+)
 
 
 class SCPIError(CommunicationError):
     """
     Base :term:`SCPI` error
     """
+
 
 def sanitize_msgs(*msgs, **opts):
     """
@@ -340,9 +350,9 @@ def sanitize_msgs(*msgs, **opts):
         msgs = ('*rst', '*idn?;*cls') =>
             (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?;*CLS')
     """
-    eol = opts.get('eol', '\n')
-    sep = opts.get('sep', ';')
-    strict_query = opts.get('strict_query', True)
+    eol = opts.get("eol", "\n")
+    sep = opts.get("sep", ";")
+    strict_query = opts.get("strict_query", True)
     # in case a single message comes with several eol separated commands
     msgs = eol.join(msgs).split(eol)
     result, commands, queries = [], [], []
@@ -353,7 +363,7 @@ def sanitize_msgs(*msgs, **opts):
             if not cmd:
                 continue
             commands.append(cmd)
-            is_query = '?' in cmd
+            is_query = "?" in cmd
             if is_query:
                 queries.append(cmd)
             if is_query and strict_query:
@@ -401,7 +411,7 @@ class SCPI(object):
     def __init__(self, *args, **kwargs):
         interface, args, kwargs = get_interface(*args, **kwargs)
         self.interface = interface
-        self._strict_query = kwargs.get('strict_query', True)
+        self._strict_query = kwargs.get("strict_query", True)
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self._contexts = []
@@ -409,25 +419,27 @@ class SCPI(object):
             self._eol = interface._eol
         except AttributeError:
             self._eol = interface._eos
-        self.commands = Commands(kwargs.get('commands', COMMANDS))
+        self.commands = Commands(kwargs.get("commands", COMMANDS))
 
     def enter_context(self):
         context = dict(commands=[], result=None)
         self._contexts.append(context)
         return context
+
     __enter__ = enter_context
 
     def exit_context(self, etype, evalue, etraceback):
         context = self._contexts.pop()
-        commands = context['commands']
+        commands = context["commands"]
         if commands and etype is None:
-            context['result'] = self(*commands, sep=';')
+            context["result"] = self(*commands, sep=";")
+
     __exit__ = exit_context
 
     def __getitem__(self, cmd):
         command = self.commands[cmd]
-        if not 'get' in command:
-            raise SCPIError('command {0} is not gettable'.format(cmd))
+        if not "get" in command:
+            raise SCPIError("command {0} is not gettable".format(cmd))
         result = self.command(cmd + "?")
         if result:
             return result[0][1]
@@ -467,10 +479,10 @@ class SCPI(object):
         Transform <command> [<value>] into a string to be sent over the wire
         """
         command = self.commands[cmd]
-        is_set = 'set' in command
+        is_set = "set" in command
         if not is_set:
-            raise SCPIError('command {0!r} is not settable'.format(cmd))
-        setter = command['set']
+            raise SCPIError("command {0!r} is not settable".format(cmd))
+        setter = command["set"]
         if setter is not None:
             cmd = "{0} {1}".format(cmd, setter(value))
         return cmd
@@ -557,11 +569,11 @@ class SCPI(object):
             CommunicationTimeout: in case device does not respond
         """
         if self._contexts:
-            context = self._contexts[-1]['commands'].extend(msgs)
+            context = self._contexts[-1]["commands"].extend(msgs)
             return
-        raw = kwargs.get('raw', False)
-        eol = kwargs.setdefault('eol', self._eol)
-        strict_query = kwargs.setdefault('strict_query', self._strict_query)
+        raw = kwargs.get("raw", False)
+        eol = kwargs.setdefault("eol", self._eol)
+        strict_query = kwargs.setdefault("strict_query", self._strict_query)
         cmds, queries, msg = sanitize_msgs(*msgs, **kwargs)
         self._logger.debug("[start] read %r", msg)
         raw_results = self.interface.write_readlines(msg, len(queries))
@@ -573,16 +585,15 @@ class SCPI(object):
             raise SCPIError(msg)
         results = []
         for query, result in zip(queries, raw_results):
-            query_cmd = query.split(' ', 1)[0].rstrip('?')
+            query_cmd = query.split(" ", 1)[0].rstrip("?")
             command = self.commands.get(query_cmd)
             if command:
-                getf = command.get('get', None)
+                getf = command.get("get", None)
                 if getf:
                     try:
                         result = getf(result)
                     except:
-                        self._debug('Failed to convert result. Details:',
-                                    exc_info=1)
+                        self._debug("Failed to convert result. Details:", exc_info=1)
             results.append((query, result))
         return results
 
@@ -610,7 +621,7 @@ class SCPI(object):
 
         """
         if self._contexts:
-            context = self._contexts[-1]['commands'].extend(msgs)
+            context = self._contexts[-1]["commands"].extend(msgs)
             return
         msg = self.__to_write_commands(*msgs, **kwargs)
         self._logger.debug("[start] write %r", msg)
@@ -618,6 +629,7 @@ class SCPI(object):
         self._logger.debug("[ end ] write %r", msg)
 
     _MAX_ERR_STACK_SIZE = 20
+
     def get_errors(self):
         """
         Return error stack or None if no errors in instrument queue
@@ -631,13 +643,13 @@ class SCPI(object):
         while fix_retries:
             try:
                 err = self.get_syst_err()
-            except CommunicationTimeout: # timeout: there's no comm: bail out
+            except CommunicationTimeout:  # timeout: there's no comm: bail out
                 raise
             except:
                 fix_retries -= 1
                 continue
             break
-        while err['code'] != 0 and len(stack) < self._MAX_ERR_STACK_SIZE:
+        while err["code"] != 0 and len(stack) < self._MAX_ERR_STACK_SIZE:
             stack.append(err)
             err = self.get_syst_err()
         return stack or None
@@ -648,16 +660,17 @@ class BaseDevice(object):
 
     def __init__(self, *args, **kwargs):
         interface, args, kwargs = get_interface(*args, **kwargs)
-        commands = kwargs.pop('commands', {})
+        commands = kwargs.pop("commands", {})
         self.interface = interface
         self.language = SCPI(interface=interface, commands=commands)
         self._logger = logging.getLogger(str(self))
 
     def __str__(self):
-        return '{0}({1})'.format(type(self).__name__, self.language)
+        return "{0}({1})".format(type(self).__name__, self.language)
 
     def __call__(self, *args, **kwargs):
         return self.language(*args, **kwargs)
+
     __call__.__doc__ = SCPI.__call__.__doc__
 
     def __getattr__(self, name):
@@ -698,83 +711,121 @@ def main(argv=None):
 
     parser = argparse.ArgumentParser(description=main.__doc__)
 
-    parser.add_argument('--log-level', type=str, default='info',
-                        choices=['trace', 'debug', 'info', 'warning', 'error'],
-                        help='global log level [default: info]')
-    parser.add_argument('--scpi-log-level', type=str, default='info',
-                        choices=['trace', 'debug', 'info', 'warning', 'error'],
-                        help='log level for scpi object[default: info]')
-    parser.add_argument('--gevent', action='store_true', default=False,
-                        help='enable gevent in console [default: False]')
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        choices=["trace", "debug", "info", "warning", "error"],
+        help="global log level [default: info]",
+    )
+    parser.add_argument(
+        "--scpi-log-level",
+        type=str,
+        default="info",
+        choices=["trace", "debug", "info", "warning", "error"],
+        help="log level for scpi object[default: info]",
+    )
+    parser.add_argument(
+        "--gevent",
+        action="store_true",
+        default=False,
+        help="enable gevent in console [default: False]",
+    )
 
-    subparsers = parser.add_subparsers(title="connection", dest="connection",
-                                       description="valid type of connections",
-                                       help="choose one type of connection")
+    subparsers = parser.add_subparsers(
+        title="connection",
+        dest="connection",
+        description="valid type of connections",
+        help="choose one type of connection",
+    )
 
-    gpib_parser = subparsers.add_parser('gpib', help='GPIB connection')
+    gpib_parser = subparsers.add_parser("gpib", help="GPIB connection")
     add = gpib_parser.add_argument
-    add('url', type=str,
-        help='gpib instrument url (ex: gpibhost, enet://gpibhost:5000)')
-    add('--pad', type=int, required=True, help='primary address')
-    add('--sad', type=int, default=0, help='secondary address [default: 0]')
-    add('--tmo', type=int, default=10,
-        help='gpib timeout (gpib tmo unit) [default: 10 (=300ms)]')
-    add('--eos', type=str, default='\n', help=r"end of string [default: '\n']")
-    add('--timeout', type=float, default=0.4,
-        help='socket timeout [default: 0.4]')
+    add(
+        "url", type=str, help="gpib instrument url (ex: gpibhost, enet://gpibhost:5000)"
+    )
+    add("--pad", type=int, required=True, help="primary address")
+    add("--sad", type=int, default=0, help="secondary address [default: 0]")
+    add(
+        "--tmo",
+        type=int,
+        default=10,
+        help="gpib timeout (gpib tmo unit) [default: 10 (=300ms)]",
+    )
+    add("--eos", type=str, default="\n", help=r"end of string [default: '\n']")
+    add("--timeout", type=float, default=0.4, help="socket timeout [default: 0.4]")
 
-    tcp_parser = subparsers.add_parser('tcp', help='TCP connection')
+    tcp_parser = subparsers.add_parser("tcp", help="TCP connection")
     add = tcp_parser.add_argument
-    add('url', type=str,
-        help='tcp instrument url (ex: host:5000, socket://host:5000)')
-    add('--timeout', type=float, default=5, help='timeout')
-    add('--eol', type=str, default='\n',
-        help=r"end of line [default: '\n']")
+    add("url", type=str, help="tcp instrument url (ex: host:5000, socket://host:5000)")
+    add("--timeout", type=float, default=5, help="timeout")
+    add("--eol", type=str, default="\n", help=r"end of line [default: '\n']")
 
     if serial:
-        serial_parser = subparsers.add_parser('serial',
-                                              help='serial line connection')
+        serial_parser = subparsers.add_parser("serial", help="serial line connection")
         add = serial_parser.add_argument
-        add('port', type=str,
-            help='serial instrument port (ex: rfc2217://.., ser2net://..)')
-        add('--baudrate', type=int, default=9600, help='baud rate')
-        add('--bytesize', type=int, choices=[6, 7, 8],
-            default=serial.EIGHTBITS, help='byte size')
-        add('--parity', choices=serial.PARITY_NAMES.keys(),
-            default=serial.PARITY_NONE, help='parity type')
-        add('--timeout', type=float, default=5, help='timeout')
-        add('--stopbits', type=float, choices=[1, 1.5, 2],
-            default=serial.STOPBITS_ONE, help='stop bits')
-        add('--xonxoff', action='store_true', default=False, help='')
-        add('--rtscts', action='store_true', default=False, help='')
-        add('--write-timeout', dest='writeTimeout', type=float, default=None,
-            help='')
-        add('--dsrdtr', action='store_true', default=False, help='')
-        add('--interchar-timeout', dest='interCharTimeout', type=float,
-            default=None, help='')
-        add('--eol', type=str, default='\n',
-            help="end of line [default: '\\n']")
+        add(
+            "port",
+            type=str,
+            help="serial instrument port (ex: rfc2217://.., ser2net://..)",
+        )
+        add("--baudrate", type=int, default=9600, help="baud rate")
+        add(
+            "--bytesize",
+            type=int,
+            choices=[6, 7, 8],
+            default=serial.EIGHTBITS,
+            help="byte size",
+        )
+        add(
+            "--parity",
+            choices=serial.PARITY_NAMES.keys(),
+            default=serial.PARITY_NONE,
+            help="parity type",
+        )
+        add("--timeout", type=float, default=5, help="timeout")
+        add(
+            "--stopbits",
+            type=float,
+            choices=[1, 1.5, 2],
+            default=serial.STOPBITS_ONE,
+            help="stop bits",
+        )
+        add("--xonxoff", action="store_true", default=False, help="")
+        add("--rtscts", action="store_true", default=False, help="")
+        add("--write-timeout", dest="writeTimeout", type=float, default=None, help="")
+        add("--dsrdtr", action="store_true", default=False, help="")
+        add(
+            "--interchar-timeout",
+            dest="interCharTimeout",
+            type=float,
+            default=None,
+            help="",
+        )
+        add("--eol", type=str, default="\n", help="end of line [default: '\\n']")
 
     args = parser.parse_args()
     vargs = vars(args)
 
-    log_level = vargs.pop('log_level').upper()
-    scpi_log_level = vargs.pop('scpi_log_level').upper()
-    logging.basicConfig(level=log_level,
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    gevent_arg = vargs.pop('gevent')
+    log_level = vargs.pop("log_level").upper()
+    scpi_log_level = vargs.pop("scpi_log_level").upper()
+    logging.basicConfig(
+        level=log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    )
+    gevent_arg = vargs.pop("gevent")
 
-    conn = vargs.pop('connection')
-    kwargs = { conn: vargs, 'commands': COMMANDS }
+    conn = vargs.pop("connection")
+    kwargs = {conn: vargs, "commands": COMMANDS}
     mode = not gevent_arg and "interactive, no gevent" or "gevent"
     scpi = SCPI(**kwargs)
     scpi._logger.setLevel(scpi_log_level)
     local = dict(s=scpi)
-    banner = "\nWelcome to SCPI console " \
-             "(connected to {0}) ({1})\n".format(scpi, mode)
+    banner = "\nWelcome to SCPI console " "(connected to {0}) ({1})\n".format(
+        scpi, mode
+    )
 
     sys.ps1 = "scpi> "
-    sys.ps2 = len(sys.ps1)*"."
+    sys.ps2 = len(sys.ps1) * "."
 
     if gevent_arg:
         try:
@@ -785,8 +836,9 @@ def main(argv=None):
             patch_sys()
 
     import code
+
     code.interact(banner=banner, local=local)
 
 
 if __name__ == "__main__":
-  main()
+    main()

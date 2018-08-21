@@ -9,6 +9,7 @@ from .roi import Roi
 from .properties import LimaProperty
 from bliss.common.measurement import BaseCounter
 
+
 class ImageCounter(BaseCounter):
     def __init__(self, controller, proxy):
         self._proxy = proxy
@@ -18,7 +19,7 @@ class ImageCounter(BaseCounter):
 
     @property
     def name(self):
-        return 'image'
+        return "image"
 
     @property
     def master_controller(self):
@@ -43,15 +44,16 @@ class ImageCounter(BaseCounter):
     @LimaProperty
     def roi(self):
         return Roi(*self._proxy.image_roi)
+
     @roi.setter
-    def roi(self,roi_values):
+    def roi(self, roi_values):
         if len(roi_values) == 4:
             self._proxy.image_roi = roi_values
-        elif isinstance(roi_values[0],Roi):
+        elif isinstance(roi_values[0], Roi):
             roi = roi_values[0]
-            self._proxy.image_roi = (roi.x,roi.y,
-                                     roi.width,roi.height)
+            self._proxy.image_roi = (roi.x, roi.y, roi.width, roi.height)
         else:
-            raise TypeError("Lima.image: set roi only accepts roi (class)"
-                            " or (x,y,width,height) values")
-
+            raise TypeError(
+                "Lima.image: set roi only accepts roi (class)"
+                " or (x,y,width,height) values"
+            )

@@ -20,10 +20,10 @@ from .conductor import client
 from bliss.common.event import saferef
 
 
-_NotProvided = type('_NotProvided', (), {})()
-_Query = namedtuple('_Query', 'id')
-_Reply = namedtuple('_Reply', 'id value')
-_Value = namedtuple("_Value", 'timestamp value')
+_NotProvided = type("_NotProvided", (), {})()
+_Query = namedtuple("_Query", "id")
+_Reply = namedtuple("_Reply", "id value")
+_Value = namedtuple("_Value", "timestamp value")
 
 
 class AdvancedInstantiationInterface(object):
@@ -231,13 +231,13 @@ class Bus(AdvancedInstantiationInterface):
         for event in self._pubsub.listen():
 
             # Filter events
-            event_type = event.get('type')
-            if event_type != 'message':
+            event_type = event.get("type")
+            if event_type != "message":
                 continue
 
             # Extract info
-            name = event.get('channel')
-            data = cPickle.loads(event.get('data'))
+            name = event.get("channel")
+            data = cPickle.loads(event.get("data"))
             channel = self._channels.get(name)
 
             # Run the corresponding handler
@@ -288,9 +288,9 @@ class Channel(AdvancedInstantiationInterface):
 
     def __new__(cls, name, *args, **kwargs):
         # Get the bus
-        bus = kwargs.get('bus')
+        bus = kwargs.get("bus")
         if bus is None:
-            bus = Bus(kwargs.get('redis'))
+            bus = Bus(kwargs.get("redis"))
 
         # Get the channel
         channel = bus.get_channel(name)
@@ -318,13 +318,16 @@ class Channel(AdvancedInstantiationInterface):
         self._value_event = gevent.event.Event()
         self._subscribed_event = gevent.event.Event()
 
-    def __init__(self, name,
-                 value=_NotProvided,
-                 default_value=_NotProvided,
-                 callback=None,
-                 timeout=None,
-                 redis=None,
-                 bus=None):
+    def __init__(
+        self,
+        name,
+        value=_NotProvided,
+        default_value=_NotProvided,
+        callback=None,
+        timeout=None,
+        redis=None,
+        bus=None,
+    ):
         if timeout is not None:
             self._timeout = timeout
 
@@ -358,8 +361,7 @@ class Channel(AdvancedInstantiationInterface):
 
     @property
     def ready(self):
-        return (self._value_event.is_set() and
-                self._subscribed_event.is_set())
+        return self._value_event.is_set() and self._subscribed_event.is_set()
 
     # Timeout
 
@@ -373,7 +375,8 @@ class Channel(AdvancedInstantiationInterface):
 
     def wait_ready(self):
         timeout_error = RuntimeError(
-            "Timeout: channel {} is not ready".format(self._name))
+            "Timeout: channel {} is not ready".format(self._name)
+        )
         with gevent.Timeout(self.timeout, timeout_error):
             self._subscribed_event.wait()
             self._value_event.wait()
@@ -389,8 +392,8 @@ class Channel(AdvancedInstantiationInterface):
     def value(self, new_value):
         if self._firing_callbacks:
             raise RuntimeError(
-                "Channel {}: can't set value while running a callback"
-                .format(self.name))
+                "Channel {}: can't set value while running a callback".format(self.name)
+            )
         self.wait_ready()
         self._set_raw_value(new_value)
         self._bus.schedule_update(self)
@@ -402,8 +405,7 @@ class Channel(AdvancedInstantiationInterface):
         if not isinstance(value, _Value):
             value = _Value(time.time(), value)
         # Discard older values
-        if self._raw_value is not None and \
-           self._raw_value.timestamp >= value.timestamp:
+        if self._raw_value is not None and self._raw_value.timestamp >= value.timestamp:
             return
         # Set value and notify everyone
         self._raw_value = value
@@ -442,7 +444,8 @@ class Channel(AdvancedInstantiationInterface):
     def register_callback(self, callback):
         if not callable(callback):
             raise ValueError(
-                "Channel {}: {!r} is not callable".format(self.name, callback))
+                "Channel {}: {!r} is not callable".format(self.name, callback)
+            )
         cb_ref = saferef.safe_ref(callback)
         self._callback_refs.add(cb_ref)
 
@@ -471,16 +474,15 @@ class Channel(AdvancedInstantiationInterface):
                 self._firing_callbacks = False
 
         # Clean up
-        self._callbacks = {
-            ref for ref in self._callback_refs if ref() is not None}
+        self._callbacks = {ref for ref in self._callback_refs if ref() is not None}
 
     # Representation
 
     def __repr__(self):
         value = self._raw_value
         if value is None:
-            value = '<initializing>'
-        return '{}->{}'.format(self.name, value)
+            value = "<initializing>"
+        return "{}->{}".format(self.name, value)
 
 
 # Device cache
@@ -501,11 +503,11 @@ def Cache(device, key, **kwargs):
     except AttributeError:
         raise TypeError(
             "Cache: can't create a cache value for key {}, "
-            "the device {} has no name"
-            .format(key, device))
+            "the device {} has no name".format(key, device)
+        )
 
     cached_channels = DEVICE_CACHE.setdefault(device, [])
-    name = '%s:%s' % (device_name, key)
+    name = "%s:%s" % (device_name, key)
     channel = Channel(name, **kwargs)
     cached_channels.append(channel)
     return channel

@@ -149,9 +149,9 @@ level.
 def create_objects_from_config_node(config, node):
     name = node.get("name")
     klass = node.get("class")
-    if klass == 'CT2':
-        address = node['address']
-        if address.startswith('tcp://'):
+    if klass == "CT2":
+        address = node["address"]
+        if address.startswith("tcp://"):
             from . import client as module
         else:
             from . import device as module

@@ -44,7 +44,7 @@ class Controller(object):
     """
 
     def __init__(self, config, inputs, outputs, loops):
-        #log.info("on Controller")
+        # log.info("on Controller")
         self.__config = config
         self._objects = dict()
         self._inputs = dict()
@@ -85,7 +85,7 @@ class Controller(object):
             log.debug("  loops name: %s" % (name))
             log.debug("  loops config: %s" % (cfg))
             self._objects[name] = Loop(self, cfg)
-            self._loops [name] = Loop(self, cfg)
+            self._loops[name] = Loop(self, cfg)
 
             # Loop object is got from call of get_object
             # and not as self._objects[name]
@@ -95,14 +95,12 @@ class Controller(object):
             set_custom_members(self, self._loops[name])
             set_custom_members(self, self._objects[name])
 
-
     @property
     def config(self):
         """
         returns the config structure
         """
         return self.__config
-
 
     def get_object(self, name):
         """
@@ -115,7 +113,7 @@ class Controller(object):
            the object
         """
         log.info("Controller:get_object: %s" % (name))
-        #it is used by Loop class
+        # it is used by Loop class
         return self._objects.get(name)
 
     def initialize(self):
@@ -124,25 +122,25 @@ class Controller(object):
         """
         pass
 
-    def initialize_input(self,tinput):
+    def initialize_input(self, tinput):
         """
         Initializes an Input class type object
 
         Args:
            tinput:  Input class type object          
         """
-        pass 
+        pass
 
-    def initialize_output(self,toutput):
+    def initialize_output(self, toutput):
         """
         Initializes an Output class type object
 
         Args:
            toutput:  Output class type object          
         """
-        pass 
+        pass
 
-    def initialize_loop(self,tloop):
+    def initialize_loop(self, tloop):
         """
         Initializes a Loop class type object
 
@@ -348,7 +346,6 @@ class Controller(object):
         log.info("Controller:read_kd: %s" % (toutput))
         raise NotImplementedError
 
-
     def set(self, toutput, sp, **kwargs):
         """
         Send the command to go to a setpoint as quickly as possible
@@ -376,7 +373,7 @@ class Controller(object):
         log.info("Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError
 
-    def state_input(self,tinput):
+    def state_input(self, tinput):
         """
         Return a string representing state of an 'inputs' object.
            Raises NotImplementedError if not defined by inheriting class
@@ -387,10 +384,10 @@ class Controller(object):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        log.info("Controller:state_input:" )
+        log.info("Controller:state_input:")
         raise NotImplementedError
 
-    def state_output(self,toutput):
+    def state_output(self, toutput):
         """
         Return a string representing state of an 'outputs' object.
            Raises NotImplementedError if not defined by inheriting class
@@ -401,12 +398,13 @@ class Controller(object):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        log.info("Controller:state_output:" )
+        log.info("Controller:state_output:")
         raise NotImplementedError
 
-    def _f(self): pass
+    def _f(self):
+        pass
 
-    def setpoint_stop(self,toutput):
+    def setpoint_stop(self, toutput):
         """
         Stops the setpoint
            Raises NotImplementedError if not defined by inheriting class
@@ -417,7 +415,7 @@ class Controller(object):
         log.info("Controller:setpoint_stop")
         raise NotImplementedError
 
-    def setpoint_abort(self,toutput):
+    def setpoint_abort(self, toutput):
         """
 	Aborts the setpoint (emergency stop)
            Raises NotImplementedError if not defined by inheriting class
@@ -428,7 +426,7 @@ class Controller(object):
         log.info("Controller:setpoint_stop")
         raise NotImplementedError
 
-    def on(self,tloop):
+    def on(self, tloop):
         """
         Starts the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
@@ -436,10 +434,10 @@ class Controller(object):
         Args: 
            tloop:  Loop class type object
         """
-        log.info("Controller:on:" )
+        log.info("Controller:on:")
         raise NotImplementedError
 
-    def off(self,tloop):
+    def off(self, tloop):
         """
         Stops the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
@@ -447,7 +445,7 @@ class Controller(object):
         Args: 
            tloop:  Loop class type object
         """
-        log.info("Controller:on:" )
+        log.info("Controller:on:")
         raise NotImplementedError
 
     def Wraw(self, str):
@@ -458,7 +456,7 @@ class Controller(object):
         Args:
            str:  the string to write
         """
-        log.info("Controller:Wraw:" )
+        log.info("Controller:Wraw:")
         raise NotImplementedError
 
     def Rraw(self):
@@ -469,7 +467,7 @@ class Controller(object):
         returns:
            response from the controller
         """
-        log.info("Controller:Rraw:" )
+        log.info("Controller:Rraw:")
         raise NotImplementedError
 
     def WRraw(self, str):
@@ -482,9 +480,5 @@ class Controller(object):
         returns:
            response from the controller
         """
-        log.info("Controller:WRraw:" )
+        log.info("Controller:WRraw:")
         raise NotImplementedError
-
-
-
-

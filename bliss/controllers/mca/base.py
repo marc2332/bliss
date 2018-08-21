@@ -20,28 +20,26 @@ from .roi import RoiConfig
 # Enums
 
 Brand = enum.Enum(
-    'Brand',
-    'XIA OCEAN_OPTICS ISG HAMAMATSU AMPTEK VANTEC CANBERRA RONTEC')
+    "Brand", "XIA OCEAN_OPTICS ISG HAMAMATSU AMPTEK VANTEC CANBERRA RONTEC"
+)
 
 DetectorType = enum.Enum(
-    'DetectorType',
-    'FALCONX XMAP MERCURY MICRO_DXP DXP_2X '
-    'MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX')
+    "DetectorType",
+    "FALCONX XMAP MERCURY MICRO_DXP DXP_2X "
+    "MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX",
+)
 
-TriggerMode = enum.Enum(
-    'TriggerMode',
-    'SOFTWARE SYNC GATE')
+TriggerMode = enum.Enum("TriggerMode", "SOFTWARE SYNC GATE")
 
-PresetMode = enum.Enum(
-    'PresetMode',
-    'NONE REALTIME LIVETIME EVENTS TRIGGERS')
+PresetMode = enum.Enum("PresetMode", "NONE REALTIME LIVETIME EVENTS TRIGGERS")
 
 Stats = collections.namedtuple(
-    'Stats',
-    'realtime livetime triggers events icr ocr deadtime')
+    "Stats", "realtime livetime triggers events icr ocr deadtime"
+)
 
 
 # Base class
+
 
 class BaseMCA(object):
     """Generic MCA controller."""
@@ -157,11 +155,13 @@ class BaseMCA(object):
     @property
     def counters(self):
         from bliss.scanning.acquisition.mca import mca_counters
+
         return mca_counters(self)
 
     @property
     def counter_groups(self):
         from bliss.scanning.acquisition.mca import mca_counter_groups
+
         return mca_counter_groups(self)
 
     # Roi handling
@@ -175,9 +175,8 @@ class BaseMCA(object):
     def software_controlled_run(self, acquisition_number, polling_time):
         # Loop over acquisitions
         indexes = (
-            itertools.count()
-            if acquisition_number == 0
-            else range(acquisition_number))
+            itertools.count() if acquisition_number == 0 else range(acquisition_number)
+        )
         for _ in indexes:
             # Start and wait
             try:
@@ -188,15 +187,13 @@ class BaseMCA(object):
             finally:
                 self.stop_acquisition()
             # Send the data
-            yield (self.get_acquisition_data(),
-                   self.get_acquisition_statistics())
+            yield (self.get_acquisition_data(), self.get_acquisition_statistics())
 
     def hardware_controlled_run(self, acquisition_number, polling_time):
         # Start acquisition
         try:
             self.start_acquisition()
-            for point in self.hardware_poll_points(
-                    acquisition_number, polling_time):
+            for point in self.hardware_poll_points(acquisition_number, polling_time):
                 yield point
         # Stop in any case
         finally:
@@ -214,8 +211,7 @@ class BaseMCA(object):
             sent += len(data)
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
-                raise RuntimeError(
-                    'The polled data overlapped during the acquisition')
+                raise RuntimeError("The polled data overlapped during the acquisition")
             # Send the data
             for n in points:
                 yield data[n], statistics[n]
@@ -228,24 +224,27 @@ class BaseMCA(object):
             # Interrupted
             if done:
                 raise RuntimeError(
-                    'The device is no longer acquiring '
-                    'but {} points are missing.'
-                    .format(acquisition_number - sent))
+                    "The device is no longer acquiring "
+                    "but {} points are missing.".format(acquisition_number - sent)
+                )
 
-    def run_software_acquisition(self, acquisition_number,
-                                 acquisition_time=1., polling_time=0.1):
+    def run_software_acquisition(
+        self, acquisition_number, acquisition_time=1., polling_time=0.1
+    ):
         # Trigger mode
         self.set_trigger_mode(TriggerMode.SOFTWARE)
         # Preset mode
         self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
         # Run acquisition
-        data, statistics = zip(*self.software_controlled_run(
-            acquisition_number, polling_time))
+        data, statistics = zip(
+            *self.software_controlled_run(acquisition_number, polling_time)
+        )
         # Return result
         return list(data), list(statistics)
 
-    def run_gate_acquisition(self, acquisition_number,
-                             block_size=None, polling_time=0.1):
+    def run_gate_acquisition(
+        self, acquisition_number, block_size=None, polling_time=0.1
+    ):
         # Trigger mode
         self.set_trigger_mode(TriggerMode.GATE)
         # Acquisition number
@@ -253,22 +252,25 @@ class BaseMCA(object):
         # Block size
         self.set_block_size(block_size)
         # Run acquisition
-        data, statistics = zip(*self.hardware_controlled_run(
-            acquisition_number, polling_time))
+        data, statistics = zip(
+            *self.hardware_controlled_run(acquisition_number, polling_time)
+        )
         # Return result
         return list(data), list(statistics)
 
-    def run_synchronized_acquisition(self, acquisition_number,
-                                     block_size=None, polling_time=0.1):
+    def run_synchronized_acquisition(
+        self, acquisition_number, block_size=None, polling_time=0.1
+    ):
         # Trigger mode
         self.set_trigger_mode(TriggerMode.SYNC)
         # Acquisition number
-        self.set_hardware_points(acquisition_number+1)
+        self.set_hardware_points(acquisition_number + 1)
         # Block size
         self.set_block_size(block_size)
         # Create generator
         data_generator = self.hardware_controlled_run(
-            acquisition_number+1, polling_time)
+            acquisition_number + 1, polling_time
+        )
         # Discard first point
         next(data_generator)
         # Get all the points

@@ -7,9 +7,9 @@ def test_get_plot(beacon, lima_simulator, test_session_with_flint):
     lima = beacon.get("lima_simulator")
     simu1 = beacon.get("simu1")
 
-    ascan = test_session_with_flint.env_dict['ascan']
-    roby = test_session_with_flint.env_dict['roby']
-    diode = test_session_with_flint.env_dict['diode']
+    ascan = test_session_with_flint.env_dict["ascan"]
+    roby = test_session_with_flint.env_dict["roby"]
+    diode = test_session_with_flint.env_dict["diode"]
 
     s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
 
@@ -25,7 +25,7 @@ def test_get_plot(beacon, lima_simulator, test_session_with_flint):
     p4 = s.get_plot(simu1, wait=True)
 
     assert p3.plot_id == p4.plot_id
-    assert p3.get_data()['simu1:spectrum_det0'].shape[0] == 1024
+    assert p3.get_data()["simu1:spectrum_det0"].shape[0] == 1024
 
     p5 = s.get_plot(lima)
-    assert len(p5.get_data()['lima_simulator:image'].shape) == 2
+    assert len(p5.get_data()["lima_simulator:image"].shape) == 2

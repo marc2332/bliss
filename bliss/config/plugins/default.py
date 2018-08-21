@@ -7,9 +7,10 @@
 
 from .utils import replace_reference_by_object
 
+
 def create_objects_from_config_node(config, item_cfg_node):
     item_name = item_cfg_node["name"]
-    
-    replace_reference_by_object(config,item_cfg_node)
-    
-    return { item_name: item_cfg_node }
+
+    replace_reference_by_object(config, item_cfg_node)
+
+    return {item_name: item_cfg_node}

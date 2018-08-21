@@ -39,7 +39,6 @@ as rampe generator for hexapiezo for example.
 
 
 class setpoint(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -82,6 +81,7 @@ class setpoint(Controller):
     """
     Controller initialization actions.
     """
+
     def initialize(self):
         pass
 
@@ -90,9 +90,7 @@ class setpoint(Controller):
     """
 
     def initialize_axis(self, axis):
-        self._axis_moves[axis] = {
-            "end_t": 0,
-            "end_pos": self._pos0}
+        self._axis_moves[axis] = {"end_t": 0, "end_pos": self._pos0}
 
         # "end of move" event
         event.connect(axis, "move_done", self.move_done_event_received)
@@ -119,11 +117,9 @@ class setpoint(Controller):
             "start_pos": pos,
             "delta": motion.delta,
             "end_pos": motion.target_pos,
-            "end_t": t0 +
-            math.fabs(
-                motion.delta) /
-            float(v),
-            "t0": t0}
+            "end_t": t0 + math.fabs(motion.delta) / float(v),
+            "t0": t0,
+        }
 
     def read_position(self, axis):
         """
@@ -156,7 +152,7 @@ class setpoint(Controller):
         Returns the current velocity taken from controller
         in motor units.
         """
-        _user_velocity = axis.settings.get('velocity')
+        _user_velocity = axis.settings.get("velocity")
         _mot_velocity = _user_velocity * axis.steps_per_unit
         return float(_mot_velocity)
 
@@ -166,7 +162,7 @@ class setpoint(Controller):
         Returns velocity in motor units.
         """
         _user_velocity = new_velocity / axis.steps_per_unit
-        axis.settings.set('velocity', _user_velocity)
+        axis.settings.set("velocity", _user_velocity)
 
         return new_velocity
 
@@ -182,10 +178,10 @@ class setpoint(Controller):
     """
 
     def read_acctime(self, axis):
-        return float(axis.settings.get('acctime'))
+        return float(axis.settings.get("acctime"))
 
     def set_acctime(self, axis, new_acctime):
-        axis.settings.set('acctime', new_acctime)
+        axis.settings.set("acctime", new_acctime)
         return new_acctime
 
     """
@@ -217,8 +213,8 @@ class setpoint(Controller):
         self._axis_moves[axis]["end_t"] = 0
         self._axis_moves[axis]["home_search_start_time"] = time.time()
 
-#    def home_set_hardware_position(self, axis, home_pos):
-#        raise NotImplementedError
+    #    def home_set_hardware_position(self, axis, home_pos):
+    #        raise NotImplementedError
 
     def home_state(self, axis):
         if (time.time() - self._axis_moves[axis]["home_search_start_time"]) > 2:

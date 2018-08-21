@@ -19,6 +19,7 @@ class Encoder(object):
         def func_wrapper(self, *args, **kwargs):
             self.controller._initialize_encoder(self)
             return func(self, *args, **kwargs)
+
         return func_wrapper
 
     def __init__(self, name, controller, config):
@@ -51,21 +52,20 @@ class Encoder(object):
         """
         Returns encoder value *in user units*.
         """
-        return self.controller.read_encoder(self)/float(self.steps_per_unit)
+        return self.controller.read_encoder(self) / float(self.steps_per_unit)
 
     @lazy_init
     def set(self, new_value):
         """
         <new_value> is in *user units*.
         """
-        self.controller.set_encoder(self, new_value*self.steps_per_unit)
+        self.controller.set_encoder(self, new_value * self.steps_per_unit)
         return self.read()
 
     @lazy_init
     def set_event_positions(self, positions):
-      return self.__controller.set_event_positions(self,positions)
+        return self.__controller.set_event_positions(self, positions)
 
     @lazy_init
     def get_event_positions(self, positions):
-      return self.__controller.get_event_positions(self)
-
+        return self.__controller.get_event_positions(self)

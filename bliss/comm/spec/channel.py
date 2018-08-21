@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # This file is part of the bliss project
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
@@ -36,8 +36,8 @@ class SpecChannel:
         self.connection = weakref.ref(connection)
         self.name = channelName
 
-        if channelName.startswith("var/") and '/' in channelName[4:]:
-            l = channelName.split('/')
+        if channelName.startswith("var/") and "/" in channelName[4:]:
+            l = channelName.split("/")
             self.spec_chan_name = "/".join((l[0], l[1]))
 
             if len(l) == 3:
@@ -55,9 +55,8 @@ class SpecChannel:
         self.registered = False
         self.value = None
 
-        event.connect(connection, 'connected', self.connected)
-        event.connect(
-            connection, 'disconnected', self.disconnected)
+        event.connect(connection, "connected", self.connected)
+        event.connect(connection, "disconnected", self.disconnected)
 
         if connection.isSpecConnected():
             self.connected()
@@ -118,46 +117,44 @@ class SpecChannel:
 
     def update(self, channelValue, deleted=False, force=False):
         """Update channel's value and emit the 'valueChanged' signal."""
-        if isinstance(
-                channelValue,
-                types.DictType) and self.access1 is not None:
+        if isinstance(channelValue, types.DictType) and self.access1 is not None:
             if self.access1 in channelValue:
                 if deleted:
-                    event.send(
-                        self, 'valueChanged', (None, self.name, ))
+                    event.send(self, "valueChanged", (None, self.name))
                 else:
                     if self.access2 is None:
-                        if force or self.value is None or self.value != channelValue[self.access1]:
-                            if isinstance(
-                                    channelValue[self.access1],
-                                    types.DictType):
+                        if (
+                            force
+                            or self.value is None
+                            or self.value != channelValue[self.access1]
+                        ):
+                            if isinstance(channelValue[self.access1], types.DictType):
                                 self.value = channelValue[self.access1].copy()
                             else:
-                                self.value = self._coerce(
-                                    channelValue[self.access1])
-                            event.send(
-                                self, 'valueChanged', (self.value, self.name, ))
+                                self.value = self._coerce(channelValue[self.access1])
+                            event.send(self, "valueChanged", (self.value, self.name))
                     else:
                         if self.access2 in channelValue[self.access1]:
                             if deleted:
-                                event.send(
-                                    self, 'valueChanged', (None, self.name, ))
+                                event.send(self, "valueChanged", (None, self.name))
                             else:
-                                if force or self.value is None or self.value != channelValue[
-                                        self.access1][self.access2]:
+                                if (
+                                    force
+                                    or self.value is None
+                                    or self.value
+                                    != channelValue[self.access1][self.access2]
+                                ):
                                     self.value = self._coerce(
-                                        channelValue[self.access1]
-                                        [self.access2])
+                                        channelValue[self.access1][self.access2]
+                                    )
                                     event.send(
-                                        self, 'valueChanged',
-                                        (self.value, self.name,))
+                                        self, "valueChanged", (self.value, self.name)
+                                    )
             return
 
-        if isinstance(
-                self.value,
-                types.DictType) and isinstance(
-                channelValue,
-                types.DictType):
+        if isinstance(self.value, types.DictType) and isinstance(
+            channelValue, types.DictType
+        ):
             # update dictionary
             if deleted:
                 for key, val in channelValue.iteritems():
@@ -167,8 +164,7 @@ class SpecChannel:
                                 del self.value[key][k]
                             except KeyError:
                                 pass
-                        if len(
-                                self.value[key]) == 1 and None in self.value[key]:
+                        if len(self.value[key]) == 1 and None in self.value[key]:
                             self.value[key] = self.value[key][None]
                     else:
                         try:
@@ -187,7 +183,8 @@ class SpecChannel:
                             self.value[k1].update(v1)
                     else:
                         if k1 in self.value and isinstance(
-                                self.value[k1], types.DictType):
+                            self.value[k1], types.DictType
+                        ):
                             self.value[k1][None] = v1
                         else:
                             self.value[k1] = v1
@@ -199,8 +196,7 @@ class SpecChannel:
                 self.value = channelValue
             value2emit = self.value
 
-        event.send(
-            self, 'valueChanged', (value2emit, self.name, ))
+        event.send(self, "valueChanged", (value2emit, self.name))
 
     def read(self, timeout=3, force_read=False):
         """Read the channel value
@@ -220,11 +216,13 @@ class SpecChannel:
             # make sure spec is connected, we give a short timeout
             # because it is supposed to be the case already
             value = waitReply(
-                connection, 'send_msg_chan_read', (self.spec_chan_name, ), timeout=timeout)
+                connection,
+                "send_msg_chan_read",
+                (self.spec_chan_name,),
+                timeout=timeout,
+            )
             if value is None:
-                raise RuntimeError(
-                    "could not read channel %r" %
-                    self.spec_chan_name)
+                raise RuntimeError("could not read channel %r" % self.spec_chan_name)
             self.update(value)
             return self.value
 

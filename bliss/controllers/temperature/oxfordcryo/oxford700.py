@@ -33,6 +33,7 @@ from warnings import warn
 
 from bliss.controllers.temperature.oxfordcryo.oxford import Base
 
+
 class OxfordCryostream(object):
     """
     OXCRYO_ALARM = {0:"No Alarms",
@@ -77,7 +78,7 @@ class OxfordCryostream(object):
     def __init__(self, port=None):
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
-        self.serial = Serial(port, baudrate=9600, eol='\r')
+        self.serial = Serial(port, baudrate=9600, eol="\r")
 
     def __exit__(self, etype, evalue, etb):
         self.serial.close()
@@ -143,7 +144,7 @@ class OxfordCryostream(object):
               (float): current gas temperature setpoint
         """
         if temp:
-            temp = int(temp*100)
+            temp = int(temp * 100)
             self.send_cmd(4, CSCOMMAND.COOL, temp)
         else:
             self.update_cmd()
@@ -229,7 +230,7 @@ class OxfordCryostream(object):
                 data.append(lbyte)
             except Exception:
                 pass
-        data_str = ''.join(data)
+        data_str = "".join(data)
         self.serial.write(data_str)
 
     def update_cmd(self):
@@ -247,7 +248,7 @@ class OxfordCryostream(object):
 
         # check if data
         if not data.__len__():
-            raise RuntimeError('Invalid answer from Cryostream')
+            raise RuntimeError("Invalid answer from Cryostream")
 
         if data.__len__() != 32:
             data = ""
@@ -264,14 +265,12 @@ class OxfordCryostream(object):
 class oxford700(Base):
     def __init__(self, config, *args):
         try:
-            port = config['serial']['url']
+            port = config["serial"]["url"]
         except KeyError:
-            port = config['SLdevice']
-            warn("'SLdevice' is deprecated. Use serial instead",
-                 DeprecationWarning)
+            port = config["SLdevice"]
+            warn("'SLdevice' is deprecated. Use serial instead", DeprecationWarning)
         self._oxford = OxfordCryostream(port)
         Base.__init__(self, self._oxford, config, *args)
-
 
     def state_output(self, toutput):
         """Read the state parameters of the controller
@@ -287,7 +286,8 @@ class oxford700(Base):
         self._oxford.update_cmd()
         return self._oxford.statusPacket
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     cryo_obj = OxfordCryostream("rfc2217://lid292:28003")
 
     for i in range(100):

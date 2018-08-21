@@ -35,6 +35,7 @@ def test_gpib(gpib_pars):
         logging.error("[FAIL] %s (%s)", gpib, e1)
         logging.debug("Details:", exc_info=1)
 
+
 def test_url(url, gpib_pars, concurrent=False):
     gpib_pars = dict(gpib_pars, url=url)
     if concurrent:
@@ -62,17 +63,27 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('url', type=str, nargs="+",
-                        help='gpib address (ex: gpibbcu2, gpibbcu2:5000)')
-    parser.add_argument('--tmo', type=int, default=9,
-                        help='gpib timeout [default: 9 (=100ms)]')
-    parser.add_argument('--no-url-concurrent', action="store_true",
-                        help='disable url concurrent scans')
-    parser.add_argument('--pad-concurrent', action="store_true",
-                        help='enable pad concurrent scans for the same url')
-    parser.add_argument('--log-level', type=str, default='info',
-                        choices=['debug', 'info', 'warning', 'error'],
-                        help='log level [default: info]')
+    parser.add_argument(
+        "url", type=str, nargs="+", help="gpib address (ex: gpibbcu2, gpibbcu2:5000)"
+    )
+    parser.add_argument(
+        "--tmo", type=int, default=9, help="gpib timeout [default: 9 (=100ms)]"
+    )
+    parser.add_argument(
+        "--no-url-concurrent", action="store_true", help="disable url concurrent scans"
+    )
+    parser.add_argument(
+        "--pad-concurrent",
+        action="store_true",
+        help="enable pad concurrent scans for the same url",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        choices=["debug", "info", "warning", "error"],
+        help="log level [default: info]",
+    )
 
     args = parser.parse_args()
 
@@ -90,6 +101,7 @@ def main():
     scan(urls, gpib_pars, not args.no_url_concurrent, args.pad_concurrent)
     dt = time.time() - start
     logging.info("Took {0}s".format(datetime.timedelta(seconds=dt)))
+
 
 if __name__ == "__main__":
     try:

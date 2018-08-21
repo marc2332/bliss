@@ -10,6 +10,7 @@ import gevent
 from bliss.common import event
 from bliss.common.standard import Group
 
+
 def test_group_move(robz, roby):
     robz_pos = robz.position()
     roby_pos = roby.position()
@@ -32,6 +33,7 @@ def test_group_move(robz, roby):
     assert roby.state().READY
     assert grp.state().READY
 
+
 def test_stop(roby, robz):
     grp = Group(robz, roby)
     grp.move(robz, 1, roby, 1)
@@ -51,6 +53,7 @@ def test_stop(roby, robz):
     assert pytest.approx(robz.position(), 1)
     assert pytest.approx(roby.position(), 1)
 
+
 def test_ctrlc(roby, robz):
     grp = Group(robz, roby)
     assert robz.state().READY
@@ -58,7 +61,7 @@ def test_ctrlc(roby, robz):
     assert grp.state().READY
 
     grp.move({robz: -10, roby: -10}, wait=False)
-    
+
     gevent.sleep(0.01)
 
     grp._group_move._move_task.kill(KeyboardInterrupt, block=False)
@@ -70,6 +73,7 @@ def test_ctrlc(roby, robz):
     assert robz.state().READY
     assert grp.state().READY
 
+
 def test_position_reading(beacon, robz, roby):
     grp = Group(robz, roby)
     positions_dict = grp.position()
@@ -78,7 +82,8 @@ def test_position_reading(beacon, robz, roby):
         group_axis = beacon.get(axis.name)
         assert axis == group_axis
         assert axis.position() == axis_pos
-    
+
+
 def test_move_done(roby, robz):
     grp = Group(robz, roby)
     res = {"ok": False}
@@ -95,19 +100,21 @@ def test_move_done(roby, robz):
     grp.rmove({robz: 2, roby: 3})
 
     assert res["ok"] == True
-    assert robz.position() == robz_pos+2
-    assert roby.position() == roby_pos+3
+    assert robz.position() == robz_pos + 2
+    assert roby.position() == roby_pos + 3
 
     event.disconnect(grp, "move_done", callback)
+
 
 def test_hardlimits_set_pos(robz, robz2):
     assert robz._set_position() == 0
     grp = Group(robz, robz2)
-    robz.controller.set_hw_limits(robz,-2,2)
-    robz2.controller.set_hw_limits(robz2,-2,2)
+    robz.controller.set_hw_limits(robz, -2, 2)
+    robz2.controller.set_hw_limits(robz2, -2, 2)
     with pytest.raises(RuntimeError):
-        grp.move({robz:3,robz2:1})
+        grp.move({robz: 3, robz2: 1})
     assert robz._set_position() == robz.position()
+
 
 def test_no_move(robz):
     robz.move(0)
@@ -115,4 +122,3 @@ def test_no_move(robz):
     with gevent.Timeout(1):
         grp.move(robz, 0)
     assert not grp.is_moving
-

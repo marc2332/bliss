@@ -18,9 +18,11 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         This function should return a dictionary with the name of the destination channel as key,
         and the value as its data.
     """
+
     def __init__(self, name, src_acq_devices_list, func, output_channels_list):
         AcquisitionDevice.__init__(
-            self, None, name, trigger_type=AcquisitionDevice.HARDWARE)
+            self, None, name, trigger_type=AcquisitionDevice.HARDWARE
+        )
         self._connected = False
         self.src_acq_devices_list = src_acq_devices_list
         self.func = func
@@ -46,14 +48,14 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         self.connect()
 
     def trigger(self):
-        pass                    # nothing to do
+        pass  # nothing to do
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
         channel_data = event_dict.get("data")
         if channel_data is None:
             return
         channel = sender
-        output_channels_data_dict = self.func(sender, {channel.name:channel_data})
+        output_channels_data_dict = self.func(sender, {channel.name: channel_data})
 
         if output_channels_data_dict:
             for channel in self.channels:

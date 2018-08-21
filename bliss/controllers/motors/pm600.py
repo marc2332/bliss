@@ -26,8 +26,9 @@ MIN_CREEP_SPEED = 1
 Bliss controller for McLennan PM600/PM1000 motor controller.
 
 """
-class PM600(Controller):
 
+
+class PM600(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -40,9 +41,11 @@ class PM600(Controller):
         except ValueError:
             host = config.get("host")
             port = int(config.get("port"))
-            warn("'host' and 'port' keywords are deprecated. " \
-                 "Use 'tcp' instead", DeprecationWarning)
-            comm_cfg = {'tcp': {'url': '{0}:{1}'.format(host, port)}}
+            warn(
+                "'host' and 'port' keywords are deprecated. " "Use 'tcp' instead",
+                DeprecationWarning,
+            )
+            comm_cfg = {"tcp": {"url": "{0}:{1}".format(host, port)}}
             self.sock = get_comm(comm_cfg)
 
         log.info("initialize() create socket %s" % str(self.sock))
@@ -70,7 +73,7 @@ class PM600(Controller):
         axis.creep_steps = axis.config.get("creep_steps", int, default=0)
         axis.limit_decel = axis.config.get("limit_decel", int, default=2000000)
         axis.settling_time = axis.config.get("settling_time", int, default=100)
-#        axis.backoff_steps = axis.config.get("backoff_steps", int, default=0)
+        #        axis.backoff_steps = axis.config.get("backoff_steps", int, default=0)
         axis.window = axis.config.get("window", int, default=4)
         axis.threshold = axis.config.get("threshold", int, default=50)
         axis.tracking = axis.config.get("tracking", int, default=4000)
@@ -78,10 +81,18 @@ class PM600(Controller):
         axis.soft_limit_enable = axis.config.get("soft_limit_enable", int, default=1)
         axis.low_limit = axis.config.get("low_limit", int, default=-2000000000)
         axis.high_limit = axis.config.get("high_limit", int, default=2000000000)
-        axis.gearbox_ratio_numerator = axis.config.get("gearbox_ratio_numerator", int, default=1)
-        axis.gearbox_ratio_denominator = axis.config.get("gearbox_ratio_denominator", int, default=1)
-        axis.encoder_ratio_numerator = axis.config.get("encoder_ratio_numerator", int, default=1)
-        axis.encoder_ratio_denominator = axis.config.get("encoder_ratio_denominator", int, default=1)
+        axis.gearbox_ratio_numerator = axis.config.get(
+            "gearbox_ratio_numerator", int, default=1
+        )
+        axis.gearbox_ratio_denominator = axis.config.get(
+            "gearbox_ratio_denominator", int, default=1
+        )
+        axis.encoder_ratio_numerator = axis.config.get(
+            "encoder_ratio_numerator", int, default=1
+        )
+        axis.encoder_ratio_denominator = axis.config.get(
+            "encoder_ratio_denominator", int, default=1
+        )
         """
         # Set velocity feedforward on axis
         self.io_command("KF", axis.channel, axis.kf)
@@ -98,7 +109,7 @@ class PM600(Controller):
         self.io_command("SV", axis.channel, axis.slewrate)
         # Set acceleration of axis (steps/sec/sec)
         self.io_command("SA", axis.channel, axis.accel)
-         # Set deceleration of axis (steps/sec/sec)
+        # Set deceleration of axis (steps/sec/sec)
         self.io_command("SD", axis.channel, axis.decel)
         # Set creep speed of axis (steps/sec/sec)
         self.io_command("SC", axis.channel, axis.creep_speed)
@@ -116,7 +127,7 @@ class PM600(Controller):
         self.io_command("TR", axis.channel, axis.tracking)
         # Set the axis time out (millisecond)
         self.io_command("TO", axis.channel, axis.timeout)
-        #Sets the soft limits (enable = 1, disable = 0)
+        # Sets the soft limits (enable = 1, disable = 0)
         self.io_command("SL", axis.channel, axis.soft_limit_enable)
         if axis.soft_limit_enable == 1:
             # Set the axis upper soft limit position (steps)
@@ -131,7 +142,6 @@ class PM600(Controller):
         # Set gearbox ratio denominator
         self.io_command("GD", axis.channel, axis.gearbox_ratio_denominator)
 
-
     def finalize_axis(self):
         log.debug("finalize_axis() called")
         pass
@@ -139,7 +149,7 @@ class PM600(Controller):
     def initialize_encoder(self, encoder):
         log.debug("initialize_encoder() called")
         encoder.channel = encoder.config.get("address")
-        log.debug("Encoder channel "+encoder.channel)
+        log.debug("Encoder channel " + encoder.channel)
 
     def read_position(self, axis):
         log.debug("read_position() called")
@@ -147,7 +157,7 @@ class PM600(Controller):
 
     def read_encoder(self, encoder):
         log.debug("read_encoder() called")
-        log.debug("Encoder channel "+encoder.channel)
+        log.debug("Encoder channel " + encoder.channel)
         return float(self.io_command("OA", encoder.channel))
 
     def read_acceleration(self, axis):
@@ -213,7 +223,6 @@ class PM600(Controller):
         if reply != "OK":
             log.error("PM600 Error: Unexpected response to set_position" + reply)
 
-
     def state(self, axis):
         """
         PM600 status = "abcdefgh" where:
@@ -229,16 +238,16 @@ class PM600(Controller):
         log.debug("state() called")
         status = self.io_command("OS", axis.channel)
         log.debug("state() status:" + status)
-        if status[1:2] == '1' or (status[2:3] == '1' and status[3:4] == '1'):
+        if status[1:2] == "1" or (status[2:3] == "1" and status[3:4] == "1"):
             log.debug("state() is fault")
             return AxisState("FAULT")
-        if status[2:3] == '1':
+        if status[2:3] == "1":
             log.debug("state() is positive limit")
             return AxisState("LIMPOS")
-        if status[3:4] == '1':
+        if status[3:4] == "1":
             log.debug("state() is negative limit")
             return AxisState("LIMNEG")
-        if status[0:1] == '0':
+        if status[0:1] == "0":
             log.debug("state() is moving")
             return AxisState("MOVING")
         else:
@@ -282,18 +291,18 @@ class PM600(Controller):
     def home_state(self, axis):
         log.debug("home_state() called")
         return self.state(axis)
-    
+
     def get_info(self, axis):
         log.debug("get_info() called")
         nlines = 23
         cmd = axis.channel + "QA\r"
-        replyList = self.sock.write_readlines(cmd, nlines, eol="\r\n",timeout=5)
+        replyList = self.sock.write_readlines(cmd, nlines, eol="\r\n", timeout=5)
         # Strip the echoed command from the first reply
-        idx = replyList[0].find('\r')
+        idx = replyList[0].find("\r")
         if idx == -1:
             log.error("PM600 Error: No echoed command")
-        answer = replyList[0][idx+1:]
-        for i in range(1,nlines):
+        answer = replyList[0][idx + 1 :]
+        for i in range(1, nlines):
             answer = answer + "\n" + replyList[i]
         log.debug(answer)
         return answer
@@ -306,28 +315,28 @@ class PM600(Controller):
         else:
             cmd = channel + command + "\r"
             log.debug("io_command() sending command " + cmd[:-1])
-        
+
         reply = self.sock.write_readline(cmd, eol="\r\n")
         # The response from the PM600 is terminated with CR/LF.  Remove these
         newreply = reply.rstrip("\r\n")
         # The PM600 always echoes the command sent to it, before sending the response.  It is terminated
         # with a carriage return.  So we need to delete all characters up to and including the first
         # carriage return
-        idx = newreply.find('\r')
+        idx = newreply.find("\r")
         if idx == -1:
             log.error("PM600 Error: No echoed command")
-        answer = newreply[idx+1:]
+        answer = newreply[idx + 1 :]
         # check for the error character !
         idx = answer.find("!")
         if idx != -1:
             log.error("PM600 Error: " + answer[idx:])
         # Now remove the channel from the reply and check against the requested channel
-        idx = answer.find(':')
+        idx = answer.find(":")
         repliedChannel = int(answer[:idx])
         if int(channel) != repliedChannel:
             log.error("PM600 Error: Wrong channel replied %s" % repliedChannel)
-        log.debug("io_command() reply " + answer[idx+1:])
-        return answer[idx+1:]
+        log.debug("io_command() reply " + answer[idx + 1 :])
+        return answer[idx + 1 :]
 
     def abort(self):
         log.debug("abort() called")
@@ -348,10 +357,11 @@ class PM600(Controller):
     """
     PM600 added commands
     """
+
     @object_method(types_info=("None", "None"))
     def Reset(self, axis):
         log.debug("Reset() called")
-        #Reset the controller
+        # Reset the controller
         self.io_command("RS", axis.channel)
 
     @object_method(types_info=("None", "float"))

@@ -104,6 +104,7 @@ class StatusPacket(object):
     bytes 0 to 31
     L T GS 2GT 2GE R P 2RR 2TT 2ET 2ST 2R GF GH EH SH LP AC 2RT 2CN SV EA
     """
+
     Length_c_idx = 0
     Type_c_idx = 1
     GasSetPoint_s_idx = 2
@@ -127,53 +128,85 @@ class StatusPacket(object):
     SoftwareVersion_c_idx = 30
     EvapAdjust_c_idx = 31
 
-    RUNMODE_CODES = ['StartUp',
-                     'StartUpFail',
-                     'StartUpOK',
-                     'Run',
-                     'SetUp',
-                     'ShutdownOK',
-                     'ShutdownFail']
+    RUNMODE_CODES = [
+        "StartUp",
+        "StartUpFail",
+        "StartUpOK",
+        "Run",
+        "SetUp",
+        "ShutdownOK",
+        "ShutdownFail",
+    ]
 
-    PHASE_CODES = ['Ramp', 'Cool', 'Plat',
-                   'Hold', 'End', 'Purge',
-                   'DeletePhase', 'LoadProgram', 'SaveProgram',
-                   'Soak', 'Wait']
+    PHASE_CODES = [
+        "Ramp",
+        "Cool",
+        "Plat",
+        "Hold",
+        "End",
+        "Purge",
+        "DeletePhase",
+        "LoadProgram",
+        "SaveProgram",
+        "Soak",
+        "Wait",
+    ]
 
-    ALARM_CODES = ['AlarmConditionNone', 'AlarmConditionStopPressed',
-                   'AlarmConditionStopCommand', 'AlarmConditionEnd',
-                   'AlarmConditionPurge', 'AlarmConditionTempWarning',
-                   'AlarmConditionHighPressure', 'AlarmConditionVacuum',
-                   'AlarmConditionStartUpFail', 'AlarmConditionLowFlow',
-                   'AlarmConditionTempFail', 'AlarmConditionTempReadingError',
-                   'AlarmConditionSensorFail', 'AlarmConditionBrownOut',
-                   'AlarmConditionHeatsinkOverheat',
-                   'AlarmConditionPsuOverheat', 'AlarmConditionPowerLoss']
+    ALARM_CODES = [
+        "AlarmConditionNone",
+        "AlarmConditionStopPressed",
+        "AlarmConditionStopCommand",
+        "AlarmConditionEnd",
+        "AlarmConditionPurge",
+        "AlarmConditionTempWarning",
+        "AlarmConditionHighPressure",
+        "AlarmConditionVacuum",
+        "AlarmConditionStartUpFail",
+        "AlarmConditionLowFlow",
+        "AlarmConditionTempFail",
+        "AlarmConditionTempReadingError",
+        "AlarmConditionSensorFail",
+        "AlarmConditionBrownOut",
+        "AlarmConditionHeatsinkOverheat",
+        "AlarmConditionPsuOverheat",
+        "AlarmConditionPowerLoss",
+    ]
 
     def __init__(self, data):
         self.length = data[self.Length_c_idx]
         self.type = data[self.Type_c_idx]
-        self.gas_set_point = self.get_short(
-            data[self.GasSetPoint_s_idx:self.GasSetPoint_s_idx+2])/100.
-        self.gas_temp = self.get_short(
-            data[self.GasTemp_s_idx:self.GasTemp_s_idx+2])/100.
-        self.gas_error = self.get_signed_short(
-            data[self.GasError_s_idx:self.GasError_s_idx+2])/100.
+        self.gas_set_point = (
+            self.get_short(data[self.GasSetPoint_s_idx : self.GasSetPoint_s_idx + 2])
+            / 100.
+        )
+        self.gas_temp = (
+            self.get_short(data[self.GasTemp_s_idx : self.GasTemp_s_idx + 2]) / 100.
+        )
+        self.gas_error = (
+            self.get_signed_short(data[self.GasError_s_idx : self.GasError_s_idx + 2])
+            / 100.
+        )
         self.run_mode_code = data[self.RunMode_c_idx]
         self.run_mode = self.RUNMODE_CODES[self.run_mode_code]
         self.phase_code = data[self.PhaseId_c_idx]
         self.phase = self.PHASE_CODES[self.phase_code]
         self.ramp_rate = self.get_short(
-            data[self.RampRate_s_idx:self.RampRate_s_idx+2])
-        self.target_temp = self.get_short(
-            data[self.TargetTemp_s_idx:self.TargetTemp_s_idx+2])/100.
-        self.evap_temp = self.get_short(
-            data[self.EvapTemp_s_idx:self.EvapTemp_s_idx+2])/100.
-        self.suct_temp = self.get_short(
-            data[self.SuctTemp_s_idx:self.SuctTemp_s_idx+2])/100.
+            data[self.RampRate_s_idx : self.RampRate_s_idx + 2]
+        )
+        self.target_temp = (
+            self.get_short(data[self.TargetTemp_s_idx : self.TargetTemp_s_idx + 2])
+            / 100.
+        )
+        self.evap_temp = (
+            self.get_short(data[self.EvapTemp_s_idx : self.EvapTemp_s_idx + 2]) / 100.
+        )
+        self.suct_temp = (
+            self.get_short(data[self.SuctTemp_s_idx : self.SuctTemp_s_idx + 2]) / 100.
+        )
         self.remaining = self.get_short(
-            data[self.Remaining_s_idx:self.Remaining_s_idx+2])
-        self.gas_flow = data[self.GasFlow_c_idx]/10.
+            data[self.Remaining_s_idx : self.Remaining_s_idx + 2]
+        )
+        self.gas_flow = data[self.GasFlow_c_idx] / 10.
         self.gas_heat = data[self.GasHeat_c_idx]
         self.evap_heat = data[self.EvapHeat_c_idx]
         self.suct_heat = data[self.SuctHeat_c_idx]
@@ -181,13 +214,16 @@ class StatusPacket(object):
         self.alarm_code = data[self.AlarmCode_c_idx]
         self.alarm = self.ALARM_CODES[self.alarm_code]
         self.run_time = self.get_short(
-            data[self.RunTime_s_idx:self.RunTime_s_idx+2])
-        self.run_days = self.run_time / (60*24)
+            data[self.RunTime_s_idx : self.RunTime_s_idx + 2]
+        )
+        self.run_days = self.run_time / (60 * 24)
         self.run_hours = (self.run_time - (self.run_days * 24 * 60)) / 60
-        self.run_mins = self.run_time - (self.run_days * 24 * 60) - \
-            (self.run_hours * 60)
+        self.run_mins = (
+            self.run_time - (self.run_days * 24 * 60) - (self.run_hours * 60)
+        )
         self.controller_nb = self.get_short(
-            data[self.ControllerNumber_s_idx:self.ControllerNumber_s_idx+2])
+            data[self.ControllerNumber_s_idx : self.ControllerNumber_s_idx + 2]
+        )
         self.software_version = data[self.SoftwareVersion_c_idx]
         self.evap_adjust = data[self.EvapAdjust_c_idx]
 
@@ -218,45 +254,61 @@ class StatusPacket(object):
         return short
 
     def __repr__(self):
-        pretty_print = 'Status Packet:'
-        pretty_print += '\nlength: %d' % self.length
-        pretty_print += '\ntype: %d' % self.type
-        pretty_print += '\ngas set point: %.2f (K)' % self.gas_set_point
-        pretty_print += '\ngas temp: %.2f (K)' % self.gas_temp
-        pretty_print += '\ngas error: %.2f (K)' % self.gas_error
-        pretty_print += '\nrun mode code: %d' % self.run_mode_code
-        pretty_print += '\nrun mode: %s' % self.run_mode
-        pretty_print += '\nphase code: %d' % self.phase_code
-        pretty_print += '\nphase: %s' % self.phase
-        pretty_print += '\nramp rate: %d (K/h)' % self.ramp_rate
-        pretty_print += '\ntarget temp: %.2f (K)' % self.target_temp
-        pretty_print += '\nevap temp: %.2f (K)' % self.evap_temp
-        pretty_print += '\nsuct temp: %.2f (K)' % self.suct_temp
-        pretty_print += '\nremaining: %d' % self.remaining
-        pretty_print += '\ngas flow: %f (l/min)' % self.gas_flow
-        pretty_print += '\ngas heat: %d %%' % self.gas_heat
-        pretty_print += '\nevap heat: %d %%' % self.evap_heat
-        pretty_print += '\nsuct heat: %d %%' % self.suct_heat
-        pretty_print += '\nline pressure: %d (100*bar)' % self.line_pressure
-        pretty_print += '\nalarm code: %d' % self.alarm_code
-        pretty_print += '\nalarm: %s' % self.alarm
-        pretty_print += '\nrun time: %d (min): %dd %dh %dm' % \
-                        (self.run_time, self.run_days,
-                         self.run_hours, self.run_mins)
-        pretty_print += '\ncontroller number: %d' % self.controller_nb
-        pretty_print += '\nsoftware version: %d' % self.software_version
-        pretty_print += '\nevap adjust: %d' % self.evap_adjust
+        pretty_print = "Status Packet:"
+        pretty_print += "\nlength: %d" % self.length
+        pretty_print += "\ntype: %d" % self.type
+        pretty_print += "\ngas set point: %.2f (K)" % self.gas_set_point
+        pretty_print += "\ngas temp: %.2f (K)" % self.gas_temp
+        pretty_print += "\ngas error: %.2f (K)" % self.gas_error
+        pretty_print += "\nrun mode code: %d" % self.run_mode_code
+        pretty_print += "\nrun mode: %s" % self.run_mode
+        pretty_print += "\nphase code: %d" % self.phase_code
+        pretty_print += "\nphase: %s" % self.phase
+        pretty_print += "\nramp rate: %d (K/h)" % self.ramp_rate
+        pretty_print += "\ntarget temp: %.2f (K)" % self.target_temp
+        pretty_print += "\nevap temp: %.2f (K)" % self.evap_temp
+        pretty_print += "\nsuct temp: %.2f (K)" % self.suct_temp
+        pretty_print += "\nremaining: %d" % self.remaining
+        pretty_print += "\ngas flow: %f (l/min)" % self.gas_flow
+        pretty_print += "\ngas heat: %d %%" % self.gas_heat
+        pretty_print += "\nevap heat: %d %%" % self.evap_heat
+        pretty_print += "\nsuct heat: %d %%" % self.suct_heat
+        pretty_print += "\nline pressure: %d (100*bar)" % self.line_pressure
+        pretty_print += "\nalarm code: %d" % self.alarm_code
+        pretty_print += "\nalarm: %s" % self.alarm
+        pretty_print += "\nrun time: %d (min): %dd %dh %dm" % (
+            self.run_time,
+            self.run_days,
+            self.run_hours,
+            self.run_mins,
+        )
+        pretty_print += "\ncontroller number: %d" % self.controller_nb
+        pretty_print += "\nsoftware version: %d" % self.software_version
+        pretty_print += "\nevap adjust: %d" % self.evap_adjust
         return pretty_print
 
 
 class Struct(object):
     """Make an enum"""
+
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
+
 Enum = Struct
-CSCOMMAND = Enum(RESTART=10, RAMP=11, PLAT=12, HOLD=13, COOL=14,
-                 END=15, PURGE=16, PAUSE=17, RESUME=18, STOP=19, TURBO=20)
+CSCOMMAND = Enum(
+    RESTART=10,
+    RAMP=11,
+    PLAT=12,
+    HOLD=13,
+    COOL=14,
+    END=15,
+    PURGE=16,
+    PAUSE=17,
+    RESUME=18,
+    STOP=19,
+    TURBO=20,
+)
 
 
 def split_bytes(number):

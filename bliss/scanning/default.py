@@ -15,12 +15,14 @@ from bliss.common import measurementgroup
 from bliss.common.measurement import BaseCounter
 from bliss.common.utils import OrderedDict as ordereddict
 
+
 def _get_object_from_name(name):
     """Get the bliss object corresponding to the given name."""
     try:
         return operator.attrgetter(name)(setup_globals)
     except AttributeError:
         raise AttributeError(name)
+
 
 def _get_counters_from_measurement_group(mg):
     """Get the counters from a measurement group."""
@@ -37,6 +39,7 @@ def _get_counters_from_measurement_group(mg):
         raise AttributeError(*missing)
     return counters
 
+
 def _get_counters_from_object(arg, recursive=True):
     """Get the counters from a bliss object (typically a scan function
     positional counter argument).
@@ -51,8 +54,7 @@ def _get_counters_from_object(arg, recursive=True):
     """
     if isinstance(arg, measurementgroup.MeasurementGroup):
         if not recursive:
-            raise ValueError(
-                'Measurement groups cannot point to other groups')
+            raise ValueError("Measurement groups cannot point to other groups")
         return _get_counters_from_measurement_group(arg)
     try:
         return arg.counter_groups.default
@@ -73,8 +75,7 @@ def get_all_counters(counter_args):
     if not counter_args:
         active = measurementgroup.get_active()
         if active is None:
-            raise ValueError(
-                'No measurement group is currently active')
+            raise ValueError("No measurement group is currently active")
         counter_args = [active]
 
     # Initialize
@@ -91,14 +92,15 @@ def get_all_counters(counter_args):
     if missing:
         raise ValueError(
             "Missing counters, not in setup_globals: {}.\n"
-            "Hint: disable inactive counters."
-            .format(', '.join(missing)))
+            "Hint: disable inactive counters.".format(", ".join(missing))
+        )
 
     return all_counters
 
 
-def master_to_devices_mapping(root, counters, scan_pars,
-                              acquisition_settings, master_settings):
+def master_to_devices_mapping(
+    root, counters, scan_pars, acquisition_settings, master_settings
+):
     """Create the mapping between acquisition masters and acquisition devices
 
     It relies on four standard methods:
@@ -119,9 +121,11 @@ def master_to_devices_mapping(root, counters, scan_pars,
             return master_dict[master_controller]
         # Create master
         settings = acquisition_settings.get(master_controller, {})
-        master_dict[master_controller] = acquisition_master = \
-            master_controller.create_master_device(
-                scan_pars, **settings)
+        master_dict[
+            master_controller
+        ] = acquisition_master = master_controller.create_master_device(
+            scan_pars, **settings
+        )
         # Parent handling
         parent_controller = master_settings.get(master_controller)
         parent = add_master(parent_controller)
@@ -138,9 +142,11 @@ def master_to_devices_mapping(root, counters, scan_pars,
             return device_dict[device_controller]
         # Create acquisition_device
         settings = acquisition_settings.get(device_controller, {})
-        device_dict[device_controller] = acquisition_device = \
-            counter.create_acquisition_device(
-                scan_pars, **settings)
+        device_dict[
+            device_controller
+        ] = acquisition_device = counter.create_acquisition_device(
+            scan_pars, **settings
+        )
         # Parent handling
         if master_controller is None:
             master_controller = master_settings.get(device_controller)
@@ -156,15 +162,14 @@ def master_to_devices_mapping(root, counters, scan_pars,
         # Master settings shortcuts
         if counter in master_settings and counter.controller:
             if counter.controller in master_settings:
-                raise ValueError('Conflict in master settings')
+                raise ValueError("Conflict in master settings")
             master_settings[counter.controller] = master_settings[counter]
 
         # Acquisition settings shortcuts
         if counter in acquisition_settings and counter.controller:
             if counter.controller in acquisition_settings:
-                raise ValueError('Conflict in acquisition settings')
-            acquisition_settings[counter.controller] = \
-                acquisition_settings[counter]
+                raise ValueError("Conflict in acquisition settings")
+            acquisition_settings[counter.controller] = acquisition_settings[counter]
 
         # Get acquisition master
         master_controller = counter.master_controller
@@ -182,11 +187,11 @@ def master_to_devices_mapping(root, counters, scan_pars,
 
         # Special case: counters without controllers
         else:
-            warnings.warn(
-                'Counter {!r} has no associated controller'.format(counter))
+            warnings.warn("Counter {!r} has no associated controller".format(counter))
             add_device(counter, None)
 
     return mapping_dict
+
 
 class DefaultAcquisitionChain(object):
     def __init__(self):
@@ -219,59 +224,59 @@ class DefaultAcquisitionChain(object):
         for device_settings in settings_list:
             acq_settings = device_settings.get("acquisition_settings", {})
             master = device_settings.get("master")
-            default_settings[device_settings['device']] = {"acquisition_settings": acq_settings, "master": master }
+            default_settings[device_settings["device"]] = {
+                "acquisition_settings": acq_settings,
+                "master": master,
+            }
         self._settings = default_settings
-        
+
     def add_preset(self, preset):
-        self._presets[id(preset)]=preset
+        self._presets[id(preset)] = preset
 
     def get(self, scan_pars, counter_args, top_master=None, chain=None):
         # Scan parameters
-        count_time = scan_pars.get('count_time', 1)
-        sleep_time = scan_pars.get('sleep_time')
-        npoints = scan_pars.get('npoints', 1)
+        count_time = scan_pars.get("count_time", 1)
+        sleep_time = scan_pars.get("sleep_time")
+        npoints = scan_pars.get("npoints", 1)
 
         settings = self._settings
         acquisition_settings = {
-            controller: settings['acquisition_settings']
+            controller: settings["acquisition_settings"]
             for controller, settings in settings.items()
-            if 'acquisition_settings' in settings}
+            if "acquisition_settings" in settings
+        }
         master_settings = {
-            controller: settings['master']
+            controller: settings["master"]
             for controller, settings in settings.items()
-            if 'master' in settings}
+            if "master" in settings
+        }
 
         # Issue warning for non BaseCounter instance (for the moment)
         def get_name(counter):
             if not isinstance(counter, BaseCounter):
-                warnings.warn('{!r} is not a counter'.format(counter))
+                warnings.warn("{!r} is not a counter".format(counter))
                 return counter.name
             return counter.fullname
 
         # Remove duplicates
         counter_dct = {
-            get_name(counter): counter
-            for counter in get_all_counters(counter_args)}
+            get_name(counter): counter for counter in get_all_counters(counter_args)
+        }
 
         # Sort counters
-        counters = [
-            counter for name, counter in
-            sorted(counter_dct.items())]
+        counters = [counter for name, counter in sorted(counter_dct.items())]
 
         # No counters
         if not counters:
-            raise ValueError(
-                "No counters for scan. Hint: are all counters disabled ?")
+            raise ValueError("No counters for scan. Hint: are all counters disabled ?")
 
         # Build default master
-        timer = SoftwareTimerMaster(
-            count_time,
-            npoints=npoints,
-            sleep_time=sleep_time)
+        timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
         # Build counter tree
         mapping = master_to_devices_mapping(
-            timer, counters, scan_pars, acquisition_settings, master_settings)
+            timer, counters, scan_pars, acquisition_settings, master_settings
+        )
 
         if chain is None:
             chain = AcquisitionChain(parallel_prepare=True)

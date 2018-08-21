@@ -12,9 +12,9 @@ import types
 import gevent
 import signal
 import functools
- 
-class TaskException:
 
+
+class TaskException:
     def __init__(self, exc_type, exception, tb):
         self.exc_type = exc_type
         self.exception = exception
@@ -22,7 +22,6 @@ class TaskException:
 
 
 class wrap_errors(object):
-
     def __init__(self, func, started_event):
         """Make a new function from `func', such that it catches all exceptions
         and return it as a TaskException object
@@ -51,7 +50,7 @@ class wrap_errors(object):
 
 def special_get(self, *args, **kwargs):
     ret = self._get(*args, **kwargs)
-    
+
     if isinstance(ret, TaskException):
         raise ret.exc_type, ret.exception, ret.tb
     else:
@@ -87,4 +86,3 @@ def task(func):
             raise
 
     return start_task
-

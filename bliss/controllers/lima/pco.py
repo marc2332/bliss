@@ -7,6 +7,7 @@
 
 from .properties import LimaProperty
 
+
 class Camera(object):
     def __init__(self, lima_device, name, proxy):
         self.name = name
@@ -20,12 +21,14 @@ class Camera(object):
         return int(self._proxy.pixelRate)
 
     @pixel_rate.setter
-    def pixel_rate(self,value):
+    def pixel_rate(self, value):
         int_val = int(value)
         possible_pixel_rate = self.pixel_rate_valid_values
         if int_val not in possible_pixel_rate:
-            raise ValueError("Pixel rate on this camera "
-                             "can only be those values: " + ','.join(pixel_rate_valid_values))
+            raise ValueError(
+                "Pixel rate on this camera "
+                "can only be those values: " + ",".join(pixel_rate_valid_values)
+            )
         else:
             self._proxy.pixelRate = str(int_val)
 
@@ -38,5 +41,4 @@ class Camera(object):
         if values == "invalid":
             return [self.pixel_rate]
         else:
-            return [int(x) for x in values.split(' ') if x]
-
+            return [int(x) for x in values.split(" ") if x]

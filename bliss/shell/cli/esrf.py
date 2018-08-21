@@ -19,18 +19,18 @@ from bliss.common.session import get_current as current_session
 from .layout import StatusToken, Separator
 
 
-BEAMLINE = environ.get('BEAMLINENAME', 'ID99')
-BEAMLINE_TYPE, BEAMLINE_NUMBER = '', '00'
+BEAMLINE = environ.get("BEAMLINENAME", "ID99")
+BEAMLINE_TYPE, BEAMLINE_NUMBER = "", "00"
 for i, c in enumerate(BEAMLINE):
     if c.isdigit():
         BEAMLINE_TYPE = BEAMLINE[:i]
         BEAMLINE_NUMBER = BEAMLINE[i:]
         break
 
-FE_DEVICE = 'orion:10000/fe/{0}/{1}'.format(BEAMLINE_TYPE, BEAMLINE_NUMBER)
-ID_DEVICE = 'orion:10000/id/id/{0}'.format(BEAMLINE_NUMBER)
+FE_DEVICE = "orion:10000/fe/{0}/{1}".format(BEAMLINE_TYPE, BEAMLINE_NUMBER)
+ID_DEVICE = "orion:10000/id/id/{0}".format(BEAMLINE_NUMBER)
 
-Attribute = namedtuple('Attribute', 'label attr_name unit display')
+Attribute = namedtuple("Attribute", "label attr_name unit display")
 
 
 QMAP = {
@@ -41,11 +41,14 @@ QMAP = {
 }
 
 
-
 def tango_value(attr, value):
-    if value is None or value.has_failed or value.is_empty or \
-       value.quality == AttrQuality.ATTR_INVALID:
-        token, v = StatusToken.Error, '-----'
+    if (
+        value is None
+        or value.has_failed
+        or value.is_empty
+        or value.quality == AttrQuality.ATTR_INVALID
+    ):
+        token, v = StatusToken.Error, "-----"
     elif attr.display is None:
         token, v = QMAP[value.quality], value.value
     else:
@@ -65,46 +68,53 @@ class DeviceStatus(object):
     def __call__(self, cli):
         n = len(self.attributes)
         try:
-            values = self.device.read_attributes([a.attr_name
-                                                  for a in self.attributes])
+            values = self.device.read_attributes([a.attr_name for a in self.attributes])
         except Exception as e:
-            values = n*[None]
+            values = n * [None]
         result = []
         for i, (attr, value) in enumerate(zip(self.attributes, values)):
             if i > 0:
                 result.append(Separator)
             token, value = tango_value(attr, value)
-            if cli.python_input.bliss_bar_format != 'compact':
+            if cli.python_input.bliss_bar_format != "compact":
                 result.append((StatusToken, attr.label))
-            value = '{0}{1}'.format(value, attr.unit)
+            value = "{0}{1}".format(value, attr.unit)
             result.append((token, value))
         return result
 
 
 class FEStatus(DeviceStatus):
-    
     def decode_fe_state(value):
         lvalue = value.value.lower()
-        if 'open' in lvalue:
-            return Token.Toolbar.Status.Open, 'OPEN'
-        elif 'close' in lvalue:
-            return Token.Toolbar.Status.Close, 'CLOSED'
-        elif 'fault' in lvalue:
-            return Token.Toolbar.Status.Error, 'FAULT'
+        if "open" in lvalue:
+            return Token.Toolbar.Status.Open, "OPEN"
+        elif "close" in lvalue:
+            return Token.Toolbar.Status.Close, "CLOSED"
+        elif "fault" in lvalue:
+            return Token.Toolbar.Status.Error, "FAULT"
         return QMAP[value.quality], value.value
 
-    current = Attribute('SRCurr: ', 'SR_Current', 'mA',
-                        lambda x: (QMAP[x.quality], 
-                                   '{0:07.3f}'.format(x.value)))
-    lifetime = Attribute('Lifetime: ', 'SR_Lifetime', '',
-                         lambda x: (QMAP[x.quality],
-                                    str(timedelta(seconds=max(x.value, 0)))))
-    mode = Attribute('Mode: ', 'SR_Filling_Mode', '', None)
-    refill = Attribute('Refill in ', 'SR_Refill_Countdown', '',
-                       lambda x: (QMAP[x.quality],
-                                  str(timedelta(seconds=max(x.value, 0)))))
-    state = Attribute('FE: ', 'FE_State', '', decode_fe_state)
-    message = Attribute('', 'SR_Operator_Mesg', '', None)
+    current = Attribute(
+        "SRCurr: ",
+        "SR_Current",
+        "mA",
+        lambda x: (QMAP[x.quality], "{0:07.3f}".format(x.value)),
+    )
+    lifetime = Attribute(
+        "Lifetime: ",
+        "SR_Lifetime",
+        "",
+        lambda x: (QMAP[x.quality], str(timedelta(seconds=max(x.value, 0)))),
+    )
+    mode = Attribute("Mode: ", "SR_Filling_Mode", "", None)
+    refill = Attribute(
+        "Refill in ",
+        "SR_Refill_Countdown",
+        "",
+        lambda x: (QMAP[x.quality], str(timedelta(seconds=max(x.value, 0)))),
+    )
+    state = Attribute("FE: ", "FE_State", "", decode_fe_state)
+    message = Attribute("", "SR_Operator_Mesg", "", None)
 
     attributes = current, lifetime, mode, refill, state, message
 
@@ -113,21 +123,20 @@ class FEStatus(DeviceStatus):
 
 
 class IDStatus(DeviceStatus):
-
     def __init__(self, device=ID_DEVICE, **kwargs):
         super(IDStatus, self).__init__(device, **kwargs)
         session = current_session()
         if session:
-            name = ' ' + session.name.upper()
+            name = " " + session.name.upper()
         else:
-            name = ''
-        self.title = u'ESRF-{beamline}{session}'.format(beamline=BEAMLINE,
-                                                          session=name)
+            name = ""
+        self.title = u"ESRF-{beamline}{session}".format(beamline=BEAMLINE, session=name)
 
     def __call__(self, cli):
         if cli.python_input.bliss_session:
-            session = ' ' + cli.python_input.bliss_session.name.upper()
+            session = " " + cli.python_input.bliss_session.name.upper()
         else:
-            session = ''
-        return [(Token.Toolbar.Status.Name, self.title), Separator] + \
-               super(IDStatus, self).__call__(cli)
+            session = ""
+        return [(Token.Toolbar.Status.Name, self.title), Separator] + super(
+            IDStatus, self
+        ).__call__(cli)

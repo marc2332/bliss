@@ -23,6 +23,7 @@ from bliss.comm.serial import Serial
 @enum.unique
 class MCA_STATE(enum.Enum):
     """ MCA States enumeration """
+
     UNKNOWN = 0
     RUNNING = 1
     STOP = 2
@@ -30,24 +31,25 @@ class MCA_STATE(enum.Enum):
 
 class Rontec(object):
 
-    ERANGE = {0: '10keV', 1: '20keV', 2: '40keV', 3: '80keV'}
-    MCA_DEFAULTS = {'chmin': 0, 'chmax': 4095}
-    MCA_ERROR = {0: "General error or buffer overflow",
-                 1: "Unknown command",
-                 2: "Numeric parameter expected",
-                 4: "Boolean parameter expected",
-                 5: "Additional parameter expected",
-                 6: "Unexpected parameter or character",
-                 7: "Illegal numeric value",
-                 8: "Unknown subcommand",
-                 9: "Function not implemented or no hardware support",
-                 13: "Hardware error",
-                 14: "Illegal baud rate"}
+    ERANGE = {0: "10keV", 1: "20keV", 2: "40keV", 3: "80keV"}
+    MCA_DEFAULTS = {"chmin": 0, "chmax": 4095}
+    MCA_ERROR = {
+        0: "General error or buffer overflow",
+        1: "Unknown command",
+        2: "Numeric parameter expected",
+        4: "Boolean parameter expected",
+        5: "Additional parameter expected",
+        6: "Unexpected parameter or character",
+        7: "Illegal numeric value",
+        8: "Unknown subcommand",
+        9: "Function not implemented or no hardware support",
+        13: "Hardware error",
+        14: "Illegal baud rate",
+    }
 
-    def __init__(self, port=None, calib_file=None, calib_c=[0, 1, 0],
-                 debug=False):
+    def __init__(self, port=None, calib_file=None, calib_c=[0, 1, 0], debug=False):
 
-        self.sl = Serial(port, baudrate=38400, eol='\r')
+        self.sl = Serial(port, baudrate=38400, eol="\r")
         self.calib_done = False
         self.preset_erange = None
         self.live_t = False
@@ -84,21 +86,31 @@ class Rontec(object):
     def _calib_getch(self, energy):
         if not self.calib_c[2]:
             if self.calib_c[1]:
-                return int((energy - self.calib_c[0])/self.calib_c[1])
+                return int((energy - self.calib_c[0]) / self.calib_c[1])
             else:
                 return 0
         cc = 1
         if self.calib_c[1] > 0:
             cc = -1
-        res = int((self.calib_c[1] -
-                   cc * math.sqrt(math.pow(self.calib_c[1], 2) -
-                                  4 * (self.calib_c[0] - energy) *
-                                  self.calib_c[2])) / (2 * self.calib_c[2]))
+        res = int(
+            (
+                self.calib_c[1]
+                - cc
+                * math.sqrt(
+                    math.pow(self.calib_c[1], 2)
+                    - 4 * (self.calib_c[0] - energy) * self.calib_c[2]
+                )
+            )
+            / (2 * self.calib_c[2])
+        )
         return res
 
     def _calib_getE(self, chan):
-        res = self.calib_c[0] + self.calib_c[1]*chan + \
-              self.calib_c[2]*math.pow(chan, 2)
+        res = (
+            self.calib_c[0]
+            + self.calib_c[1] * chan
+            + self.calib_c[2] * math.pow(chan, 2)
+        )
         return res
 
     def set_calibration(self, calib=None):
@@ -120,7 +132,7 @@ class Rontec(object):
             try:
                 f = open(calib)
                 for line in f:
-                    if not line.startswith('#'):
+                    if not line.startswith("#"):
                         self.calib_c = map(float, line.split())
                     else:
                         pass
@@ -163,9 +175,9 @@ class Rontec(object):
         try:
             type.__len__() > 1
             # check if MAX/MMAX...
-            if type[3] == 'MMAX' or type[3] == 'XDN':
+            if type[3] == "MMAX" or type[3] == "XDN":
                 self.type = 2
-            elif type[3] == 'MAX':
+            elif type[3] == "MAX":
                 self.type = 1
         except Exception:
             raise RuntimeError("Invalid answer from reset")
@@ -180,8 +192,8 @@ class Rontec(object):
             print e
             self.live_t = False
 
-        self.chmin = Rontec.MCA_DEFAULTS['chmin']
-        self.chmax = Rontec.MCA_DEFAULTS['chmax']
+        self.chmin = Rontec.MCA_DEFAULTS["chmin"]
+        self.chmax = Rontec.MCA_DEFAULTS["chmax"]
         self.set_calibration(calib)
         self.emin = self._calib_getE(self.chmin)
         self.emax = self._calib_getE(self.chmax)
@@ -208,9 +220,9 @@ class Rontec(object):
         self._check_answer(asw, "read_acqstatus")
         try:
             _, state = asw.split()
-            if state == '+':
+            if state == "+":
                 return MCA_STATE.STOP
-            elif state == '-':
+            elif state == "-":
                 return MCA_STATE.RUNNING
             else:
                 return MCA_STATE.UNKNOWN
@@ -225,9 +237,9 @@ class Rontec(object):
                              0: 10 keV, 1: 20 keV, 2: 40 keV, 3: 80 keV
               fname (str): file name (full path) to save the raw data
         """
-        if 'ctime' in kwargs:
+        if "ctime" in kwargs:
             # we want ms or cps - this is the IC/OC counters time(gate)
-            ms_time = kwargs['ctime'] * 1000
+            ms_time = kwargs["ctime"] * 1000
             if ms_time < 0.001 or ms_time > 2000:
                 gate_time = 1000  # 1s - we want ICR and OCR in cps
             else:
@@ -235,19 +247,18 @@ class Rontec(object):
             asw = str(self.sl.write_readline("$CT %u\r" % gate_time))
             self._check_answer(asw, "set_presets: ctime")
 
-            self.times['real_t_preset'] = kwargs['ctime']
-            self.times['cycle_t_preset'] = gate_time/1000
+            self.times["real_t_preset"] = kwargs["ctime"]
+            self.times["cycle_t_preset"] = gate_time / 1000
 
-        if 'erange' in kwargs:
+        if "erange" in kwargs:
             # set the energy range
-            if kwargs['erange'] in Rontec.ERANGE:
-                asw = str(self.sl.write_readline("$SE %d\r" %
-                                                 kwargs['erange']))
+            if kwargs["erange"] in Rontec.ERANGE:
+                asw = str(self.sl.write_readline("$SE %d\r" % kwargs["erange"]))
                 self._check_answer(asw, "set_presets: erange")
-                self.preset_erange = kwargs['erange']
+                self.preset_erange = kwargs["erange"]
 
-        if 'fname' in kwargs:
-            self.fname = kwargs['fname']
+        if "fname" in kwargs:
+            self.fname = kwargs["fname"]
 
     def clear_spectrum(self):
         """Clear the acquired spectrum"""
@@ -270,11 +281,11 @@ class Rontec(object):
         if ctime is not None:
             self.set_presets(ctime=abs(ctime))
         else:
-            ctime = self.times['real_t_preset']
+            ctime = self.times["real_t_preset"]
 
         # cnt_time is in s, firmware needs ms
         self.sl.flush()
-        asw = str(self.sl.write_readline("$MT %d\r" % (ctime*1000)))
+        asw = str(self.sl.write_readline("$MT %d\r" % (ctime * 1000)))
         self._check_answer(asw, "start_acq")
 
     def set_roi(self, emin, emax, **kwargs):
@@ -307,36 +318,43 @@ class Rontec(object):
             if self.calib_done:
                 self.chmin = self._calib_getch(self.emin)
                 self.chmax = self._calib_getch(self.emax)
-        if 'channel' in kwargs and self.type == 2:
-            roi_channel = int(kwargs['channel'])
+        if "channel" in kwargs and self.type == 2:
+            roi_channel = int(kwargs["channel"])
             # test if channel is between 1 and 8
             if roi_channel < 1 or roi_channel > 8:
                 raise KeyError("Channel number is should be between 1 and 8")
-            self.roi_dict[roi_channel] = "%2.4f(%d) %2.4f(%d)" % \
-                                         (self.emin, self.chmin,
-                                          self.emax, self.chmax)
-            roi_str = "$SK %d %d %s %d %d\r" % \
-                      (roi_channel, kwargs.get('atomic_nb', 34),
-                       kwargs.get('element', 'Se'), emin*1000, emax*1000)
+            self.roi_dict[roi_channel] = "%2.4f(%d) %2.4f(%d)" % (
+                self.emin,
+                self.chmin,
+                self.emax,
+                self.chmax,
+            )
+            roi_str = "$SK %d %d %s %d %d\r" % (
+                roi_channel,
+                kwargs.get("atomic_nb", 34),
+                kwargs.get("element", "Se"),
+                emin * 1000,
+                emax * 1000,
+            )
             self.sl.flush()
             asw = str(self.sl.write_readline(roi_str))
-            self._check_answer(asw, 'set_roi')
+            self._check_answer(asw, "set_roi")
 
     def clear_roi(self, **kwargs):
         """Clear ROI settings
         Keyword Args:
             channel (int): optional output connector channel number (1-8)
         """
-        self.chmin = Rontec.MCA_DEFAULTS['chmin']
-        self.chmax = Rontec.MCA_DEFAULTS['chmax']
+        self.chmin = Rontec.MCA_DEFAULTS["chmin"]
+        self.chmax = Rontec.MCA_DEFAULTS["chmax"]
         if self.calib_done:
             self.emin = self._calib_getE(self.chmin)
             self.emax = self._calib_getE(self.chmax)
-        if 'channel' in kwargs and self.type == 2:
+        if "channel" in kwargs and self.type == 2:
             self.sl.flush()
-            roi_channel = int(kwargs['channel'])
+            roi_channel = int(kwargs["channel"])
             asw = str(self.sl.write_readline("$SK %d 0 0 0\r" % roi_channel))
-            self._check_answer(asw, 'clear_roi')
+            self._check_answer(asw, "clear_roi")
             try:
                 self.roi_dict.pop(roi_channel)
             except KeyError:
@@ -349,9 +367,9 @@ class Rontec(object):
         Returns:
             params (dict): ROI settingsdictionary.
         """
-        argout = {'chmin': self.chmin, 'chmax': self.chmax}
-        if 'channel' in kwargs:
-            roi_channel = int(kwargs['channel'])
+        argout = {"chmin": self.chmin, "chmax": self.chmax}
+        if "channel" in kwargs:
+            roi_channel = int(kwargs["channel"])
             # test if channel is between 1 and 8
             if roi_channel < 1 or roi_channel > 8:
                 return argout
@@ -362,29 +380,32 @@ class Rontec(object):
             asw = str(self.sl.write_readline("$GK %d\r" % roi_channel))
             if self.debug:
                 print asw
-            self._check_answer(asw, 'get_roi')
+            self._check_answer(asw, "get_roi")
             asw = asw[4:]
-            argout['ext_roi'] = asw
+            argout["ext_roi"] = asw
             _, _, self.emin, self.emax = asw.split()
             self.emin = float(self.emin) / 1000
             self.emax = float(self.emax) / 1000
-            self.roi_dict[roi_channel] = "%2.4f(%d) %2.4f(%d)" % \
-                                         (self.emin, self.chmin,
-                                          self.emax, self.chmax)
+            self.roi_dict[roi_channel] = "%2.4f(%d) %2.4f(%d)" % (
+                self.emin,
+                self.chmin,
+                self.emax,
+                self.chmax,
+            )
         else:
             try:
-                argout.pop('ext_roi')
+                argout.pop("ext_roi")
             except KeyError:
                 pass
 
         if self.calib_done:
-            argout.update({'chmin': self._calib_getch(self.emin)})
-            argout.update({'chmax': self._calib_getch(self.emax)})
+            argout.update({"chmin": self._calib_getch(self.emin)})
+            argout.update({"chmax": self._calib_getch(self.emax)})
         else:
             self.emin = self._calib_getE(self.chmin)
             self.emax = self._calib_getE(self.chmax)
 
-        argout.update({'emin': self.emin, 'emax': self.emax})
+        argout.update({"emin": self.emin, "emax": self.emax})
         return argout
 
     def get_times(self):
@@ -404,11 +425,11 @@ class Rontec(object):
         try:
             _, rt = asw.split()
             # the answer is in ms, we return time in s
-            self.times['real_t_elapsed'] = float(rt)/1000
-            if self.times['real_t_preset']:
-                self.times['real_t_elapsed'] = \
-                                               self.times['real_t_preset'] - \
-                                               self.times['real_t_elapsed']
+            self.times["real_t_elapsed"] = float(rt) / 1000
+            if self.times["real_t_preset"]:
+                self.times["real_t_elapsed"] = (
+                    self.times["real_t_preset"] - self.times["real_t_elapsed"]
+                )
 
         except:
             raise RuntimeError("Cannot get the elapsed real time")
@@ -417,10 +438,10 @@ class Rontec(object):
         # get the ICR
         self.sl.flush()
         asw = str(self.sl.write_readline("$BC\r"))
-        self._check_answer(asw, 'get_times: ICR')
+        self._check_answer(asw, "get_times: ICR")
         try:
             _, icr = asw.split()
-            self.times['ICR'] = float(icr)
+            self.times["ICR"] = float(icr)
         except:
             raise RuntimeError("Cannot get the ICR")
 
@@ -431,18 +452,19 @@ class Rontec(object):
         try:
             _, ocr = asw.split()
             # correct with the cycle time
-            if ocr > self.times['cycle_t_preset']:
-                ocr = float(ocr) - self.times['cycle_t_preset']
-            self.times['OCR'] = float(ocr)
+            if ocr > self.times["cycle_t_preset"]:
+                ocr = float(ocr) - self.times["cycle_t_preset"]
+            self.times["OCR"] = float(ocr)
         except:
             raise RuntimeError("Cannot get the OCR")
 
         # calculate the dead time in %
-        if self.times['ICR'] < 1000 or self.times['ICR'] < self.times['OCR']:
-            self.times['dead_time'] = 0
+        if self.times["ICR"] < 1000 or self.times["ICR"] < self.times["OCR"]:
+            self.times["dead_time"] = 0
         else:
-            self.times['deat_time'] = ((self.times['ICR']-self.times['OCR']) /
-                                       self.times['ICR']) * 100.
+            self.times["deat_time"] = (
+                (self.times["ICR"] - self.times["OCR"]) / self.times["ICR"]
+            ) * 100.
 
         # live time elapsed
         if self.live_t:
@@ -452,7 +474,7 @@ class Rontec(object):
             try:
                 _, lt = asw.split()
                 # the answer is in ms, we return time in s
-                self.times['live_time'] = float(lt)/1000
+                self.times["live_time"] = float(lt) / 1000
             except:
                 raise RuntimeError("Cannot get the elapsed live time")
         return self.times
@@ -468,12 +490,12 @@ class Rontec(object):
         Raises:
             RuntimeError
         """
-        if 'ctime' in kwargs:
+        if "ctime" in kwargs:
             try:
-                return self.times['real_t_preset']
+                return self.times["real_t_preset"]
             except:
                 raise RuntimeError("Count time not set")
-        if 'erange' in kwargs:
+        if "erange" in kwargs:
             if self.preset_erange:
                 return Rontec.ERANGE[self.preset_erange]
             else:
@@ -513,8 +535,7 @@ class Rontec(object):
         y = self.read_raw_data(chmin, chmax, save_data)
         x = numpy.arange(y.__len__()).astype(numpy.float)
         if calib:
-            x = self.calib_c[0] + self.calib_c[1]*x + \
-                self.calib_c[2]*math.pow(x, 2)
+            x = self.calib_c[0] + self.calib_c[1] * x + self.calib_c[2] * math.pow(x, 2)
         y = numpy.array(y).astype(numpy.float)
         data = numpy.array([x, y])
         # data = data.transpose()
@@ -535,34 +556,39 @@ class Rontec(object):
         asw = str(self.sl.write_readline("$SS %d,1,1,%d\r" % (chmin, size)))
         self._check_answer(asw, "read_raw_data: handshake answer reading")
         # read again to get the data
-        raw_data = self.sl.read(size=size*4, timeout=10)
-        data = ' '.join(['%02x' % ord(i) for i in raw_data]).split()
+        raw_data = self.sl.read(size=size * 4, timeout=10)
+        data = " ".join(["%02x" % ord(i) for i in raw_data]).split()
         if self.debug:
             print "read %d characters" % data.__len__()
         # we read 4 bytes/ch (hhhhhhhh ........ ........ llllllll)
-        dd = [int('0x'+i+j+k+l, 16) for i, j, k, l in
-              zip(data[::4], data[1::4], data[2::4], data[3::4])]
+        dd = [
+            int("0x" + i + j + k + l, 16)
+            for i, j, k, l in zip(data[::4], data[1::4], data[2::4], data[3::4])
+        ]
 
         if save_data:
-            fd = open(self.fname, 'a+')
-            fd.write("#\n#S 1  mcaacq %d\n" % self.times['real_t_preset'])
+            fd = open(self.fname, "a+")
+            fd.write("#\n#S 1  mcaacq %d\n" % self.times["real_t_preset"])
             if self.calib_done:
-                fd.write("#@CALIB %g %g %g\n@A" %
-                         (self.calib_c[0], self.calib_c[1], self.calib_c[2]))
-                fd.write(' '.join(map(str, dd)) + '\n')
+                fd.write(
+                    "#@CALIB %g %g %g\n@A"
+                    % (self.calib_c[0], self.calib_c[1], self.calib_c[2])
+                )
+                fd.write(" ".join(map(str, dd)) + "\n")
         return dd
 
 
 class rontec:
     def __init__(self, name, config):
         try:
-            port = config['serial']['url']
+            port = config["serial"]["url"]
         except KeyError:
-            port = config['SLdevice']
-            warnings.warn("'SLdevice' is deprecated. Use serial instead",
-                          DeprecationWarning)
-        calib_c = config.get('calib_c', [0, 1, 0])
-        calib_file = config.get('calib_file')
+            port = config["SLdevice"]
+            warnings.warn(
+                "'SLdevice' is deprecated. Use serial instead", DeprecationWarning
+            )
+        calib_c = config.get("calib_c", [0, 1, 0])
+        calib_file = config.get("calib_file")
         self.mca = Rontec(port, calib_file=calib_file, calib_c=calib_c)
 
     def read_raw_data(self, chmin=0, chmax=4095, save_data=False):
@@ -608,7 +634,7 @@ class rontec:
         self.mca.clear_spectrum()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     det = Rontec('/dev/ttyR8')
     det = Rontec('ser2net://lid30b2:8800/dev/ttyR8')
@@ -623,8 +649,8 @@ if __name__ == '__main__':
     cd = det.get_roi(channel=1)
     print cd
     det.set_presets(erange=1, ctime=5, fname="/tmp/newdata.mca")
-    print 'erange ', det.get_presets(erange='erange')
-    print 'ctime', det.get_presets(ctime='ctime')
+    print "erange ", det.get_presets(erange="erange")
+    print "ctime", det.get_presets(ctime="ctime")
     det.start_acq()
     bbb = det.get_times()
     print bbb
@@ -635,4 +661,4 @@ if __name__ == '__main__':
     print aaa
     # bbb = det.read_raw_data(0, 100)
     bbb = det.read_raw_data(save_data=True)
-    print sum(bbb)/cc['real_t_elapsed']
+    print sum(bbb) / cc["real_t_elapsed"]

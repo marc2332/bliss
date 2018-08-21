@@ -34,17 +34,19 @@ __this_path = os.path.dirname(__this_file)
 
 def check_config(f):
     functools.wraps(f)
+
     def wrapper(self, *args, **kwargs):
         self.get_config()
         return f(self, *args, **kwargs)
+
     return wrapper
 
 
 class WebConfig(object):
 
     EXT_MAP = {
-        'yml': dict(type='yaml', icon='file-text-o'),
-        'py': dict(type='python', icon='file-code-o'),
+        "yml": dict(type="yaml", icon="file-text-o"),
+        "py": dict(type="python", icon="file-code-o"),
     }
 
     def __init__(self):
@@ -56,9 +58,9 @@ class WebConfig(object):
         self.__tree_plugins = None
         self.__tree_tags = None
         self.__tree_sessions = None
-        beacon_conn = connection.Connection('localhost', beacon_port)
+        beacon_conn = connection.Connection("localhost", beacon_port)
         client._default_connection = beacon_conn
-        event.connect(server.__name__, 'config_changed', self.__on_config_changed)
+        event.connect(server.__name__, "config_changed", self.__on_config_changed)
 
     def __on_config_changed(self):
         with self.__lock:
@@ -128,9 +130,9 @@ class WebConfig(object):
                     pass
             if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
-            item['name'] = name
-            item['tags'] = _get_config_user_tags(config)
-            item['plugin'] = config.get('plugin')
+            item["name"] = name
+            item["tags"] = _get_config_user_tags(config)
+            item["plugin"] = config.get("plugin")
             items[name] = item
         return items
 
@@ -139,10 +141,10 @@ class WebConfig(object):
         sessions = {}
         for name, item in self.items.items():
             config = cfg.get_config(name)
-            if config.plugin != 'session':
+            if config.plugin != "session":
                 continue
             session_items = {}
-#            for iname, item in self.items.items():
+            #            for iname, item in self.items.items():
 
             sessions[name] = item, session_items
         return sessions
@@ -152,14 +154,16 @@ class WebConfig(object):
         result = {}
         for name, item in items.items():
             current_level = result
-            db_file = item['path']
+            db_file = item["path"]
             parts = db_file.split(os.path.sep)
             full_part = ""
             for part in parts[:-1]:
                 full_part = os.path.join(full_part, part)
                 p_item = items.get(full_part)
                 if p_item is None:
-                    p_item = dict(type="folder", path=full_part, icon="fa fa-folder-open")
+                    p_item = dict(
+                        type="folder", path=full_part, icon="fa fa-folder-open"
+                    )
                 current_level.setdefault(part, [p_item, dict()])
                 current_level = current_level[part][1]
             current_level.setdefault(parts[-1], [item, dict()])
@@ -170,12 +174,14 @@ class WebConfig(object):
         result = {}
         for name, item in self.items.items():
             config = cfg.get_config(name)
-            plugin_name = config.plugin or '__no_plugin__'
+            plugin_name = config.plugin or "__no_plugin__"
             plugin_data = result.get(plugin_name)
             if plugin_data is None:
-                 plugin_data = [dict(type="folder", path=plugin_name,
-                                     icon="fa fa-folder-open"), {}]
-                 result[plugin_name] = plugin_data
+                plugin_data = [
+                    dict(type="folder", path=plugin_name, icon="fa fa-folder-open"),
+                    {},
+                ]
+                result[plugin_name] = plugin_data
             plugin_items = plugin_data[1]
             plugin_items[name] = [item, {}]
         return result
@@ -185,11 +191,13 @@ class WebConfig(object):
         result = {}
         for name, item in self.items.items():
             config = cfg.get_config(name)
-            for tag in (item['tags'] or ['__no_tag__']):
+            for tag in item["tags"] or ["__no_tag__"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
-                    tag_data = [dict(type="folder", path=tag,
-                                     icon="fa fa-folder-open"), {}]
+                    tag_data = [
+                        dict(type="folder", path=tag, icon="fa fa-folder-open"),
+                        {},
+                    ]
                     result[tag] = tag_data
                 tag_items = tag_data[1]
                 tag_items[name] = [item, {}]
@@ -212,16 +220,19 @@ class WebConfig(object):
                 except:
                     pass
             if item is None:
-                item = dict(type="item", path=os.path.join(config.filename, name),
-                            icon="fa fa-question")
+                item = dict(
+                    type="item",
+                    path=os.path.join(config.filename, name),
+                    icon="fa fa-question",
+                )
 
-            item['name'] = name
-            item['tags'] = _get_config_user_tags(config)
-            items[item['path']] = name, item
+            item["name"] = name
+            item["tags"] = _get_config_user_tags(config)
+            items[item["path"]] = name, item
 
         for path in sorted(items):
             name, item = items[path]
-            path = item['path']
+            path = item["path"]
             parent = dst
             # search file node where item is defined
             for pitem in path.split(os.path.sep):
@@ -232,15 +243,17 @@ class WebConfig(object):
             parent[name] = [item, {}]
         return dst
 
-    def __build_tree_files__(self, src, dst, path=''):
+    def __build_tree_files__(self, src, dst, path=""):
         for name, data in src.items():
-            if name.startswith('.') or name.endswith('~') or name.endswith('.rdb'):
+            if name.startswith(".") or name.endswith("~") or name.endswith(".rdb"):
                 continue
             item_path = os.path.join(path, name)
             sub_items = {}
-            if data is None: # a file
+            if data is None:  # a file
                 ext_info = self.get_file_info(name)
-                meta = dict(type="file", path=item_path, icon="fa fa-" + ext_info['icon'])
+                meta = dict(
+                    type="file", path=item_path, icon="fa fa-" + ext_info["icon"]
+                )
             else:
                 meta = dict(type="folder", path=item_path, icon="fa fa-folder-open")
                 self.__build_tree_files__(data, sub_items, path=item_path)
@@ -250,7 +263,7 @@ class WebConfig(object):
     @check_config
     def get_file_info(self, file_name):
         ext = file_name.rsplit(os.path.extsep, 1)[1]
-        return self.EXT_MAP.setdefault(ext, dict(type=ext, icon='question'))
+        return self.EXT_MAP.setdefault(ext, dict(type=ext, icon="question"))
 
 
 __config = WebConfig()
@@ -264,6 +277,7 @@ def __get_jinja2():
         __environment = Environment(loader=FileSystemLoader(__this_path))
     return __environment
 
+
 def _get_config_plugin(cfg, member=None):
     if cfg is None:
         return
@@ -271,9 +285,10 @@ def _get_config_plugin(cfg, member=None):
         return
     return __get_plugin(cfg.plugin, member=member)
 
+
 def __get_plugin(name, member=None):
     try:
-        mod_name = 'bliss.config.plugins.%s' % name
+        mod_name = "bliss.config.plugins.%s" % name
         mod = __import__(mod_name, fromlist=[None])
     except ImportError:
         # plugin has an error
@@ -287,12 +302,15 @@ def __get_plugin(name, member=None):
             return
     return mod
 
+
 def __get_plugin_importer():
     plugins_path = os.path.dirname(plugins.__file__)
     return pkgutil.ImpImporter(path=plugins_path)
 
+
 def __get_plugin_names():
     return [name for name, _ in __get_plugin_importer().iter_modules()]
+
 
 def __get_plugins():
     result = {}
@@ -302,11 +320,13 @@ def __get_plugins():
             result[name] = plugin
     return result
 
+
 def _get_config_user_tags(config_item):
     user_tag = config_item.get(static.Config.USER_TAG_KEY, [])
     if not isinstance(user_tag, (tuple, list)):
         user_tag = [user_tag]
     return user_tag
+
 
 @web_app.route("/")
 def index():
@@ -322,12 +342,21 @@ def index():
             full_name += " - "
         full_name += laboratory
     icon = node.get("icon", "res/logo.png")
-    return template.render(dict(name=full_name, institute=institute,
-                                laboratory=laboratory, icon=icon, config=cfg))
+    return template.render(
+        dict(
+            name=full_name,
+            institute=institute,
+            laboratory=laboratory,
+            icon=icon,
+            config=cfg,
+        )
+    )
+
 
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
     return flask.send_from_directory(os.path.join(__this_path, dir), filename)
+
 
 @web_app.route("/main/")
 def main():
@@ -338,11 +367,13 @@ def main():
     else:
         return flask.json.dumps(dict(html="<h1>ups!</h1>"))
 
+
 @web_app.route("/db_files")
 def db_files():
     cfg = __config.get_config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
+
 
 @web_app.route("/db_tree")
 def db_tree():
@@ -350,19 +381,20 @@ def db_tree():
     db_tree = client.get_config_db_tree()
     return flask.json.dumps(db_tree)
 
-@web_app.route("/db_file/<path:filename>", methods=['PUT', 'GET'])
+
+@web_app.route("/db_file/<path:filename>", methods=["PUT", "GET"])
 def get_db_file(filename):
-    if flask.request.method == 'PUT':
+    if flask.request.method == "PUT":
         # browsers encode newlines as '\r\n' so we have to undo that crap
-        content = flask.request.form['file_content'].replace('\r\n', '\n')
+        content = flask.request.form["file_content"].replace("\r\n", "\n")
         client.set_config_db_file(filename, content)
-        event.send(server.__name__, 'config_changed')
-        return flask.json.dumps(dict(message="%s successfully saved",
-                                     type="success"))
+        event.send(server.__name__, "config_changed")
+        return flask.json.dumps(dict(message="%s successfully saved", type="success"))
     else:
         cfg = __config.get_config()
         content = client.get_config_file(filename)
         return flask.json.dumps(dict(name=filename, content=content))
+
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
@@ -372,8 +404,11 @@ def get_db_file_editor(filename):
 
     file_info = __config.get_file_info(filename)
     template = __get_jinja2().select_template(("editor.html",))
-    html = template.render(dict(name=filename, ftype=file_info['type'], content=content))
+    html = template.render(
+        dict(name=filename, ftype=file_info["type"], content=content)
+    )
     return flask.json.dumps(dict(html=html, name=filename))
+
 
 @web_app.route("/items/")
 def items():
@@ -393,19 +428,22 @@ def items():
             current_level = current_level[part][1]
     return flask.json.dumps(result)
 
+
 def get_item(cfg):
-    name = cfg.get('name')
+    name = cfg.get("name")
     item = dict(name=name, tags=_get_config_user_tags(cfg))
-    plugin = _get_config_plugin(cfg, 'get_item')
+    plugin = _get_config_plugin(cfg, "get_item")
     if plugin:
         item.update(plugin(cfg))
     return item
+
 
 @web_app.route("/item/<name>")
 def item(name):
     cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)
     return flask.json.dumps(get_item(obj_cfg))
+
 
 @web_app.route("/tree/<view>")
 def tree(view):
@@ -420,8 +458,9 @@ def tree(view):
     elif view == "sessions":
         result = __config.tree_sessions
     else:
-        result = dict(message='unknown view', type='error')
+        result = dict(message="unknown view", type="error")
     return flask.json.dumps(result)
+
 
 @web_app.route("/tree/<view>/<item>")
 def sub_tree(view, item):
@@ -436,7 +475,8 @@ def sub_tree(view, item):
     elif view == "sessions":
         result = __config.tree_sessions
     else:
-        return flask.json.dumps(dict(message='unknown view', type='error'))
+        return flask.json.dumps(dict(message="unknown view", type="error"))
+
 
 @web_app.route("/page/<name>")
 def get_item_config(name):
@@ -449,17 +489,21 @@ def get_item_config(name):
         obj_cfg = "<h1>TODO</h1>"
     return flask.json.dumps(dict(html=obj_cfg, name=name))
 
+
 @web_app.route("/config/reload")
 def reload_config():
     cfg = __config.get_config()
     cfg.reload()
-    event.send(server.__name__, 'config_changed')
-    return flask.json.dumps(dict(message="Configuration fully reloaded!",
-                                 type="success"))
+    event.send(server.__name__, "config_changed")
+    return flask.json.dumps(
+        dict(message="Configuration fully reloaded!", type="success")
+    )
+
 
 @web_app.route("/plugins")
 def list_plugins():
     return flask.json.dumps(__get_plugin_names())
+
 
 @web_app.route("/plugin/<name>/<action>", methods=["GET", "POST", "PUT"])
 def handle_plugin_action(name, action):
@@ -468,36 +512,40 @@ def handle_plugin_action(name, action):
         return ""
     return plugin(__config.get_config(), flask.request)
 
+
 @web_app.route("/add_folder", methods=["POST"])
 def add_folder():
     cfg = __config.get_config()
-    folder = flask.request.form['folder']
+    folder = flask.request.form["folder"]
 
     filename = os.path.join(folder, "__init__.yml")
     node = static.Node(cfg, filename=filename)
     node.save()
     return flask.json.dumps(dict(message="Folder created!", type="success"))
 
+
 @web_app.route("/add_file", methods=["POST"])
 def add_file():
     cfg = __config.get_config()
-    filename = flask.request.form['file']
+    filename = flask.request.form["file"]
     node = static.Node(cfg, filename=filename)
     node.save()
     return flask.json.dumps(dict(message="File created!", type="success"))
 
+
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
     cfg = __config.get_config()
-    filename = flask.request.form['file']
+    filename = flask.request.form["file"]
     client.remove_config_file(filename)
     return flask.json.dumps(dict(message="File deleted!", type="success"))
+
 
 @web_app.route("/copy_file", methods=["POST"])
 def copy_file():
     cfg = __config.get_config()
-    src_path = flask.request.form['src_path']
-    dst_path = flask.request.form['dst_path']
+    src_path = flask.request.form["src_path"]
+    dst_path = flask.request.form["dst_path"]
 
     # if destination is a directory (ends in '/'), append the
     # filename coming from source
@@ -511,20 +559,24 @@ def copy_file():
 
     template = __get_jinja2().select_template(("editor.html",))
     html = template.render(dict(name=dst_path, content=db_files[src_path]))
-    result = dict(name=dst_path, html=html, type="warning",
-                  message="File copied from <i>{0}</i> to <i>{1}</i>. <br/>" \
-                          "You <b>must</b> edit content and change element " \
-                          "names to clear name conflicts<br/>" \
-                          "Don't forget to <b>save</b> in order for the changes " \
-                          "to take effect!".format(src_path, dst_path))
+    result = dict(
+        name=dst_path,
+        html=html,
+        type="warning",
+        message="File copied from <i>{0}</i> to <i>{1}</i>. <br/>"
+        "You <b>must</b> edit content and change element "
+        "names to clear name conflicts<br/>"
+        "Don't forget to <b>save</b> in order for the changes "
+        "to take effect!".format(src_path, dst_path),
+    )
     return flask.json.dumps(result)
+
 
 @web_app.route("/move_path", methods=["POST"])
 def move_path():
     cfg = __config.get_config()
-    src_path = flask.request.form['src_path']
-    dst_path = flask.request.form['dst_path']
+    src_path = flask.request.form["src_path"]
+    dst_path = flask.request.form["dst_path"]
     client.move_config_path(src_path, dst_path)
     msg = "Moved from <i>{0}</i> to <i>{1}</i>".format(src_path, dst_path)
     return flask.json.dumps(dict(message=msg, type="success"))
-

@@ -12,7 +12,7 @@ from bliss.flint.executor import submit_to_qt_application, QtSignalQueue
 
 def thread_target(queue):
     try:
-        app = qt.QCoreApplication(['some', 'args'])
+        app = qt.QCoreApplication(["some", "args"])
     except Exception as e:
         queue.put(e)
         raise
@@ -20,7 +20,7 @@ def thread_target(queue):
     app.exec_()
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def qtapp():
     queue = Queue.Queue()
     th = threading.Thread(target=thread_target, args=(queue,))
@@ -36,11 +36,11 @@ def qtapp():
 
 def test_submit_to_qt_application(qtapp):
     submit = submit_to_qt_application
-    assert submit(qtapp.arguments) == ['some', 'args']
+    assert submit(qtapp.arguments) == ["some", "args"]
     with pytest.raises(TypeError):
-        submit(qtapp.arguments, 'not supported')
-    assert submit(qtapp.setApplicationName, 'test') is None
-    assert submit(qtapp.applicationName) == 'test'
+        submit(qtapp.arguments, "not supported")
+    assert submit(qtapp.setApplicationName, "test") is None
+    assert submit(qtapp.applicationName) == "test"
 
 
 def test_queue_from_qt_signal(qtapp):

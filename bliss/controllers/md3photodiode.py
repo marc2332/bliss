@@ -13,6 +13,7 @@ from bliss.comm.Exporter import *
 import time
 import numpy
 
+
 class md3photodiode(SamplingCounter, Actuator):
     def __init__(self, name, config):
         SamplingCounter.__init__(self, name, None)
@@ -25,7 +26,10 @@ class md3photodiode(SamplingCounter, Actuator):
         if self._exporter is None:
             self._exporter = Exporter(self.host, int(self.port))
 
-        if self._exporter.readProperty("State") == "Ready" and self._exporter.readProperty("HardwareState") == "Ready":
+        if (
+            self._exporter.readProperty("State") == "Ready"
+            and self._exporter.readProperty("HardwareState") == "Ready"
+        ):
             return True
 
         return False
@@ -41,16 +45,15 @@ class md3photodiode(SamplingCounter, Actuator):
 
     def _is_in(self):
         if self._ready():
-            return self._exporter.readProperty("ScintillatorPosition") == 'PHOTODIODE'
+            return self._exporter.readProperty("ScintillatorPosition") == "PHOTODIODE"
         return False
 
     def _is_out(self):
         if self._ready():
-            return self._exporter.readProperty("ScintillatorPosition") == 'PARK'
+            return self._exporter.readProperty("ScintillatorPosition") == "PARK"
         return False
 
     def read(self):
         if self._ready():
             return self._exporter.execute("readPhotodiodeSignal", 0)
         return None
-

@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''Helpers to make TANGO_ & gevent_ work together'''
+"""Helpers to make TANGO_ & gevent_ work together"""
 
 from gevent import _threading
 import threading
@@ -25,13 +25,14 @@ objs = {}
 stop_event = gevent.event.Event()
 
 if not hasattr(gevent, "wait"):
+
     def gevent_wait(timeout=None):
         return gevent.run(timeout)
+
     gevent.wait = gevent_wait
 
 
 class CallException:
-
     def __init__(self, exception, error_string, tb):
         self.exception = exception
         self.error_string = error_string
@@ -40,7 +41,8 @@ class CallException:
 
 def terminate_thread():
     if read_event_watcher:
-        execute('exit')
+        execute("exit")
+
 
 atexit.register(terminate_thread)
 
@@ -69,11 +71,7 @@ def deal_with_job(req, args, kwargs):
         queue = _threading.Queue()
         watcher = gevent.get_hub().loop.async()
         watcher.start(functools.partial(read_from_queue, queue))
-        objs[
-            id(new_obj)] = {
-            "queue": queue,
-            "watcher": watcher,
-            "obj": new_obj}
+        objs[id(new_obj)] = {"queue": queue, "watcher": watcher, "obj": new_obj}
 
         req.set_result(new_obj)
     elif req.method == "exit":
@@ -83,15 +81,15 @@ def deal_with_job(req, args, kwargs):
     else:
         obj = objs[req.obj_id]["obj"]
         try:
-            prop = getattr(obj.__class__,req.method)
+            prop = getattr(obj.__class__, req.method)
         except AttributeError:
             pass
         else:
-            if isinstance(prop,property):
-                if args:            # must be setter
-                    run(req,prop.fset,[obj] + list(args),kwargs)
+            if isinstance(prop, property):
+                if args:  # must be setter
+                    run(req, prop.fset, [obj] + list(args), kwargs)
                 else:
-                    run(req,prop.fget,[obj],kwargs)
+                    run(req, prop.fget, [obj], kwargs)
                 return
 
         try:
@@ -135,7 +133,6 @@ def process_requests(main_queue):
 
 
 class threadSafeRequest(object):
-
     def __init__(self, method, obj_id=None, queue=None, watcher=None):
         self.obj_id = obj_id
         self.method = method
@@ -164,10 +161,9 @@ class threadSafeRequest(object):
 
 
 class objectProxy:
-
     @staticmethod
     def exit():
-        threadSafeRequest('exit')()
+        threadSafeRequest("exit")()
 
     def __init__(self, obj):
         self.obj_id = id(obj)
@@ -190,13 +186,13 @@ class objectProxy:
         if d:
             return d.get("obj")
 
+
 def check_gevent_thread():
     global gevent_thread
 
     if gevent_thread is None:
         with gevent_thread_lock:
-            gevent_thread = _threading.start_new_thread(
-                process_requests, (main_queue,))
+            gevent_thread = _threading.start_new_thread(process_requests, (main_queue,))
 
     gevent_thread_started.wait()
 
@@ -214,7 +210,7 @@ def get_proxy(object_class, *args, **kwargs):
        dedicated gevent thread"""
     check_gevent_thread()
 
-    new_obj_request = threadSafeRequest('new')
+    new_obj_request = threadSafeRequest("new")
     new_obj = new_obj_request(object_class, *args, **kwargs)
     proxy = objectProxy(new_obj)
     return proxy

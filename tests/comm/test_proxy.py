@@ -19,12 +19,12 @@ from bliss.comm.tcp_proxy import Proxy
 
 def echo(socket, address):
     # using a makefile because we want to use readline()
-    rfileobj = socket.makefile(mode='rb')
+    rfileobj = socket.makefile(mode="rb")
     while True:
         line = rfileobj.readline()
         if not line:
             break
-        if line.strip().lower() == b'quit':
+        if line.strip().lower() == b"quit":
             break
         socket.sendall(line)
     rfileobj.close()
@@ -42,9 +42,9 @@ def echo_server():
 def test_proxy(beacon, echo_server):
     port = echo_server.address[1]
     client_socket = gevent.socket.socket()
-    client_socket.connect(('localhost', port))
-    client_socket.sendall('HELLO\n')
-    assert client_socket.recv(1024) == 'HELLO\n'
+    client_socket.connect(("localhost", port))
+    client_socket.sendall("HELLO\n")
+    assert client_socket.recv(1024) == "HELLO\n"
 
     proxy = Proxy({"tcp": {"url": "socket://localhost:{}".format(port)}})
     proxy._check_connection()
@@ -52,7 +52,7 @@ def test_proxy(beacon, echo_server):
 
     client_socket = gevent.socket.socket()
     client_socket.connect((host, int(port)))
-    client_socket.sendall('HELLO PROXY\n')
-    assert client_socket.recv(1024) == 'HELLO PROXY\n'
+    client_socket.sendall("HELLO PROXY\n")
+    assert client_socket.recv(1024) == "HELLO PROXY\n"
 
     proxy.close()

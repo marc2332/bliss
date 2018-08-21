@@ -18,9 +18,17 @@ except ImportError:
     from select import select
 
 
-from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig, \
-                                        OutputSrc, CtClockSrc, CtGateSrc,
-                                        CtHardStartSrc, CtHardStopSrc)
+from bliss.controllers.ct2.card import (
+    P201Card,
+    Clock,
+    Level,
+    CtConfig,
+    OutputSrc,
+    CtClockSrc,
+    CtGateSrc,
+    CtHardStartSrc,
+    CtHardStopSrc,
+)
 
 
 def configure(device, channels):
@@ -31,23 +39,25 @@ def configure(device, channels):
     device.reset_FIFO_error_flags()
 
     # -------------------------------------------------------------------------
-    # Channel configuration (could be loaded from beacon, for example. We 
+    # Channel configuration (could be loaded from beacon, for example. We
     # choose to hard code it here)
     # -------------------------------------------------------------------------
-    
+
     # for counters we only care about clock source, gate source here. The rest
     # will be up to the actual acquisition to setup according to the type of
     # acquisition
     for _, ch_nb in channels.items():
-        ct_config = CtConfig(clock_source=CtClockSrc(ch_nb % 5),
-                             # anything will do for the remaining fields. It
-                             # will be properly setup in the acquisition slave 
-                             # setup
-                             gate_source=CtGateSrc.CT_11_GATE_ENVELOP,
-                             hard_start_source=CtHardStartSrc.SOFTWARE, 
-                             hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
-                             reset_from_hard_soft_stop=True, 
-                             stop_from_hard_stop=True)
+        ct_config = CtConfig(
+            clock_source=CtClockSrc(ch_nb % 5),
+            # anything will do for the remaining fields. It
+            # will be properly setup in the acquisition slave
+            # setup
+            gate_source=CtGateSrc.CT_11_GATE_ENVELOP,
+            hard_start_source=CtHardStartSrc.SOFTWARE,
+            hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
+            reset_from_hard_soft_stop=True,
+            stop_from_hard_stop=True,
+        )
         device.set_counter_config(ch_nb, ct_config)
 
     # TODO: Set input and output channel configuration (TTL/NIM level, 50ohm,
@@ -58,20 +68,24 @@ def configure(device, channels):
 
 
 def prepare_master(device, acq_time, nb_points):
-    ct_11_config = CtConfig(clock_source=CtClockSrc.CLK_100_MHz,
-                            gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
-                            hard_start_source=CtHardStartSrc.CT_12_START,
-                            hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
-                            reset_from_hard_soft_stop=True,
-                            stop_from_hard_stop=False)
+    ct_11_config = CtConfig(
+        clock_source=CtClockSrc.CLK_100_MHz,
+        gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
+        hard_start_source=CtHardStartSrc.CT_12_START,
+        hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
+        reset_from_hard_soft_stop=True,
+        stop_from_hard_stop=False,
+    )
     device.set_counter_config(11, ct_11_config)
 
-    ct_12_config = CtConfig(clock_source=CtClockSrc.INC_CT_11_STOP,
-                            gate_source=CtGateSrc.GATE_CMPT,
-                            hard_start_source=CtHardStartSrc.SOFTWARE,
-                            hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
-                            reset_from_hard_soft_stop=True,
-                            stop_from_hard_stop=True)
+    ct_12_config = CtConfig(
+        clock_source=CtClockSrc.INC_CT_11_STOP,
+        gate_source=CtGateSrc.GATE_CMPT,
+        hard_start_source=CtHardStartSrc.SOFTWARE,
+        hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,
+        reset_from_hard_soft_stop=True,
+        stop_from_hard_stop=True,
+    )
     device.set_counter_config(12, ct_12_config)
 
     device.set_counter_comparator_value(11, int(acq_time * 1E8))
@@ -96,12 +110,14 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
 
     for ch_name, ch_nb in channels.iteritems():
         ct_config = device.get_counter_config(ch_nb)
-        ct_config = CtConfig(clock_source=ct_config['clock_source'],
-                             gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
-                             hard_start_source=CtHardStartSrc.CT_12_START,
-                             hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
-                             reset_from_hard_soft_stop=True, 
-                             stop_from_hard_stop=False)
+        ct_config = CtConfig(
+            clock_source=ct_config["clock_source"],
+            gate_source=CtGateSrc.CT_12_GATE_ENVELOP,
+            hard_start_source=CtHardStartSrc.CT_12_START,
+            hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,
+            reset_from_hard_soft_stop=True,
+            stop_from_hard_stop=False,
+        )
         device.set_counter_config(ch_nb, ct_config)
 
     # counter 11 will latch all active counters/channels
@@ -115,8 +131,8 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
 
     device.enable_counters_software(channel_nbs)
 
-def main():
 
+def main():
     def to_str(values, fmt="9d"):
         fmt = "%" + fmt
         return "[" + "".join([fmt % value for value in values]) + "]"
@@ -125,27 +141,25 @@ def main():
         sys.stdout.write(msg)
         sys.stdout.flush()
 
-    channels = { 
-        "I0": 1,
-        "V2F": 5,
-        "SCA": 7,
-        "SCA2": 8,
-    }
-    
+    channels = {"I0": 1, "V2F": 5, "SCA": 7, "SCA2": 8}
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--log-level', type=str, default='info',
-                        help='log level (debug, info, warning, error) [default: info]')
-    parser.add_argument('--nb-points', type=int,
-                        help='number of points', default=10)
-    parser.add_argument('--acq-time', type=float, default=1,
-                        help='acquisition time')
-    parser.add_argument('--nb-acq', type=int, default=1,
-                        help='number of acquisitions')
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        help="log level (debug, info, warning, error) [default: info]",
+    )
+    parser.add_argument("--nb-points", type=int, help="number of points", default=10)
+    parser.add_argument("--acq-time", type=float, default=1, help="acquisition time")
+    parser.add_argument("--nb-acq", type=int, default=1, help="number of acquisitions")
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()),
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
     nb_points = args.nb_points
     acq_time = args.acq_time
@@ -168,11 +182,12 @@ def main():
     except:
         sys.excepthook(*sys.exc_info())
     finally:
-        print ("Clean up!")
+        print("Clean up!")
         device.set_interrupts()
         device.reset()
         device.software_reset()
         device.relinquish_exclusive_access()
+
 
 def go(device, channels):
     channelid2name = [(nb, name) for name, nb in channels.iteritems()]
@@ -194,20 +209,25 @@ def go(device, channels):
         loop += 1
         read, write, error = events = select((device,), (), (device,))
         if read:
-            (counters, channels, dma, fifo_half_full, error), tstamp = \
-                device.acknowledge_interrupt()
+            (
+                counters,
+                channels,
+                dma,
+                fifo_half_full,
+                error,
+            ), tstamp = device.acknowledge_interrupt()
             if 12 in counters:
                 stop = True
             if dma:
                 fifo, fifo_status = device.read_fifo()
-                print(str(fifo))#, to_str(device.get_latches_values()))
+                print(str(fifo))  # , to_str(device.get_latches_values()))
                 fifo.shape = -1, len(channelid2name)
                 ch_data = {}
                 for i, (ch_id, ch_name) in enumerate(channelid2name):
-                    ch_data[ch_name] = fifo[:,i]
+                    ch_data[ch_name] = fifo[:, i]
                 new_event = {"type": "0D", "channel_data": ch_data}
-                #dispatcher.send("new_data", self, new_event)
-                #print("new event: {0}".format(new_event))
+                # dispatcher.send("new_data", self, new_event)
+                # print("new event: {0}".format(new_event))
         if stop:
             print("Acquisition finished. Bailing out!")
 

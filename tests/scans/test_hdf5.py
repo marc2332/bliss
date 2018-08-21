@@ -31,10 +31,10 @@ def _h5dump(scan_file):
 
 
 def h5dump(scan_file):
-    return '\n'.join(_h5dump(scan_file))
+    return "\n".join(_h5dump(scan_file))
 
 
-ascan_dump="""{ascan}
+ascan_dump = """{ascan}
     NX_class: NXentry
 {ascan}/measurement
     NX_class: NXcollection
@@ -54,7 +54,13 @@ ascan_dump="""{ascan}
 
 def test_hdf5_metadata(beacon, session):
 
-    all_motors = dict([(name, pos) for name, pos, _ in get_axes_positions_iter(on_error='ERR') if pos!='ERR'])
+    all_motors = dict(
+        [
+            (name, pos)
+            for name, pos, _ in get_axes_positions_iter(on_error="ERR")
+            if pos != "ERR"
+        ]
+    )
 
     roby = beacon.get("roby")
     diode = beacon.get("diode")
@@ -62,7 +68,9 @@ def test_hdf5_metadata(beacon, session):
     s = scans.ascan(roby, 0, 10, 10, 0.01, diode, save=True, return_scan=True)
     assert s is setup_globals.SCANS[-1]
 
-    iso_start_time = datetime.datetime.fromtimestamp(s.scan_info["start_timestamp"]).isoformat()
+    iso_start_time = datetime.datetime.fromtimestamp(
+        s.scan_info["start_timestamp"]
+    ).isoformat()
 
     scan_file = os.path.join(s.path, "data.h5")
     with h5py.File(scan_file, "r") as f:
@@ -82,30 +90,40 @@ def test_hdf5_file_items(beacon, session):
     diode = beacon.get("diode")
     simu1 = beacon.get("simu1")
 
-    s = scans.ascan(roby, 0, 5, 5, 0.001, diode, simu1.counters.spectrum_det0, save=True, return_scan=True)
+    s = scans.ascan(
+        roby,
+        0,
+        5,
+        5,
+        0.001,
+        diode,
+        simu1.counters.spectrum_det0,
+        save=True,
+        return_scan=True,
+    )
 
     scan_file = os.path.join(s.path, "data.h5")
 
     scan_dump = h5dump(scan_file)
 
-    ref_ascan_dump = ascan_dump.split('\n')
+    ref_ascan_dump = ascan_dump.split("\n")
 
     i = 0
     in_positioner = False
     in_scan = False
     group_name = None
-    for l in scan_dump.split('\n'):
-        if l.startswith(' '):
+    for l in scan_dump.split("\n"):
+        if l.startswith(" "):
             if in_positioner:
                 continue
         else:
-            in_scan = l == s.name or l.startswith(s.name+'/')
+            in_scan = l == s.name or l.startswith(s.name + "/")
         if in_scan:
-            if l.startswith(s.name+'/measurement/group_'):
-                group_name = l.replace(s.name + '/measurement/', '').split('/')[0]
+            if l.startswith(s.name + "/measurement/group_"):
+                group_name = l.replace(s.name + "/measurement/", "").split("/")[0]
         else:
             continue
-        if 'positioner' in l:
+        if "positioner" in l:
             in_positioner = True
             continue
         else:
@@ -115,5 +133,6 @@ def test_hdf5_file_items(beacon, session):
 
     f = h5py.File(scan_file)
     assert (
-        f[f[s.name]['measurement'][group_name]['timer'].value]
-        == f[s.name]['measurement']['timer'])
+        f[f[s.name]["measurement"][group_name]["timer"].value]
+        == f[s.name]["measurement"]["timer"]
+    )

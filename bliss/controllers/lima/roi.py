@@ -32,12 +32,10 @@ class Roi(object):
         return (self.x + self.width, self.y + self.height)
 
     def is_valid(self):
-        return (self.x >= 0 and self.y >= 0 and
-                self.width >= 0 and self.height >= 0)
+        return self.x >= 0 and self.y >= 0 and self.width >= 0 and self.height >= 0
 
     def __repr__(self):
-        return "<%s,%s> <%s x %s>" % (self.x, self.y,
-                                      self.width, self.height)
+        return "<%s,%s> <%s x %s>" % (self.x, self.y, self.width, self.height)
 
     def __eq__(self, other):
         return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
@@ -69,11 +67,10 @@ class RoiStatCounter(IntegratingCounter):
     def __init__(self, roi_name, stat, **kwargs):
         self.roi_name = roi_name
         self.stat = stat
-        name = self.roi_name + '.' + stat.name.lower()
-        controller = kwargs.pop('controller')
-        master_controller = kwargs.pop('master_controller')
-        IntegratingCounter.__init__(
-            self, name, controller, master_controller, **kwargs)
+        name = self.roi_name + "." + stat.name.lower()
+        controller = kwargs.pop("controller")
+        master_controller = kwargs.pop("master_controller")
+        IntegratingCounter.__init__(self, name, controller, master_controller, **kwargs)
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
@@ -88,7 +85,6 @@ class RoiStatCounter(IntegratingCounter):
 
 
 class SingleRoiCounters(object):
-
     def __init__(self, name, **keys):
         self.name = name
         self.factory = functools.partial(RoiStatCounter, name, **keys)
@@ -122,7 +118,6 @@ class SingleRoiCounters(object):
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
-
     def prepare(self, *counters):
         self.controller.upload_rois()
 
@@ -178,29 +173,30 @@ class RoiCounters(object):
     def __init__(self, name, proxy, acquisition_proxy):
         self._proxy = proxy
         self._acquisition_proxy = acquisition_proxy
-        self.name = 'roi_counters'
-        full_name = '%s:%s' % (name,self.name)
-        self._current_config = settings.SimpleSetting(full_name,
-                                                      default_value='default')
-        settings_name = '%s:%s' % (full_name, self._current_config.get())
+        self.name = "roi_counters"
+        full_name = "%s:%s" % (name, self.name)
+        self._current_config = settings.SimpleSetting(
+            full_name, default_value="default"
+        )
+        settings_name = "%s:%s" % (full_name, self._current_config.get())
         self._save_rois = settings.HashObjSetting(settings_name)
         self._roi_ids = {}
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)
 
-    def _set_roi(self,name,roi_values):
-        if isinstance(roi_values,Roi):
+    def _set_roi(self, name, roi_values):
+        if isinstance(roi_values, Roi):
             roi = roi_values
         elif len(roi_values) == 4:
             roi = Roi(*roi_values, name=name)
         else:
-            raise TypeError("Lima.RoiCounters: roi accepts roi (class)"
-                            " or (x,y,width,height) values")
+            raise TypeError(
+                "Lima.RoiCounters: roi accepts roi (class)"
+                " or (x,y,width,height) values"
+            )
         roi.name = name
         roi_id = self._proxy.addNames((name,))[0]
         self._proxy.Start()
-        self._proxy.setRois((roi_id,
-                             roi.x,roi.y,
-                             roi.width,roi.height,))
+        self._proxy.setRois((roi_id, roi.x, roi.y, roi.width, roi.height))
         self._set_roi_settings(roi_id, roi)
 
     def _set_roi_settings(self, roi_id, roi):
@@ -218,7 +214,7 @@ class RoiCounters(object):
                 del self._roi_ids[name]
         self._proxy.removeRois(names)
 
-    def set(self,name,roi_values):
+    def set(self, name, roi_values):
         """alias to: <lima obj>.roi_counters[name] = roi_values"""
         self[name] = roi_values
 
@@ -231,7 +227,7 @@ class RoiCounters(object):
         del self[name]
 
     def get_saved_config_names(self):
-        return list(settings.scan(match='%s:*' % self.name))
+        return list(settings.scan(match="%s:*" % self.name))
 
     @property
     def config_name(self):
@@ -240,7 +236,7 @@ class RoiCounters(object):
     @config_name.setter
     def config_name(self, name):
         self._current_config.set(name)
-        self._save_rois = settings.HashObjSetting('%s:%s' % (self.name, name))
+        self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
         self._proxy.clearAllRois()
@@ -248,9 +244,7 @@ class RoiCounters(object):
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
         rois_values = list()
         for roi_id, roi in zip(roi_id_list, roi_list):
-            rois_values.extend((roi_id,
-                                roi.x, roi.y,
-                                roi.width, roi.height))
+            rois_values.extend((roi_id, roi.x, roi.y, roi.width, roi.height))
             self._roi_ids[roi.name] = roi_id
         if rois_values:
             self._proxy.Start()
@@ -264,9 +258,9 @@ class RoiCounters(object):
         roi_names = self._proxy.getNames()
         rois = self._proxy.getRois(roi_names)
         for i, name in enumerate(roi_names):
-            roi_id = rois[i*5]
-            idx = i*5 + 1
-            x, y, w, h = rois[idx:idx + 4]
+            roi_id = rois[i * 5]
+            idx = i * 5 + 1
+            x, y, w, h = rois[idx : idx + 4]
             roi = Roi(x, y, w, h, name=name)
             self._set_roi_settings(roi_id, roi)
 
@@ -294,7 +288,7 @@ class RoiCounters(object):
         self._remove_rois(names)
 
     def __contains__(self, name):
-        return self.has_key(name)
+        return name in self._save_rois
 
     def __len__(self):
         return len(self._save_rois)
@@ -339,11 +333,13 @@ class RoiCounters(object):
 
     def get_single_roi_counters(self, name):
         if self._save_rois.get(name) is None:
-            raise AttributeError('Unknown ROI counter {!r}'.format(name))
+            raise AttributeError("Unknown ROI counter {!r}".format(name))
         return SingleRoiCounters(
-            name, controller=self,
+            name,
+            controller=self,
             master_controller=self._acquisition_proxy,
-            grouped_read_handler=self._grouped_read_handler)
+            grouped_read_handler=self._grouped_read_handler,
+        )
 
     def iter_single_roi_counters(self):
         for roi in self.get_rois():
@@ -354,7 +350,8 @@ class RoiCounters(object):
         return [
             counter
             for counters in self.iter_single_roi_counters()
-            for counter in counters]
+            for counter in counters
+        ]
 
     def __getattr__(self, name):
         return self.get_single_roi_counters(name)
@@ -362,23 +359,31 @@ class RoiCounters(object):
     # Representation
 
     def __repr__(self):
-        name = self.name.rsplit(':', 1)[-1]
-        lines = ['[{0}]\n'.format(self.config_name)]
+        name = self.name.rsplit(":", 1)[-1]
+        lines = ["[{0}]\n".format(self.config_name)]
         rois = [self[name] for name in sorted(self.keys())]
         if rois:
-            header = 'Name', 'ROI (<X, Y> <W x H>)'
+            header = "Name", "ROI (<X, Y> <W x H>)"
             x = max((len(str(roi.x)) for roi in rois))
             y = max((len(str(roi.y)) for roi in rois))
             w = max((len(str(roi.width)) for roi in rois))
             h = max((len(str(roi.height)) for roi in rois))
-            roi_template = '<{{0.x: >{0}}}, {{0.y: >{1}}}> ' \
-                           '<{{0.width: >{2}}} x {{0.height: >{3}}}>'.format(x, y, w, h)
+            roi_template = (
+                "<{{0.x: >{0}}}, {{0.y: >{1}}}> "
+                "<{{0.width: >{2}}} x {{0.height: >{3}}}>".format(x, y, w, h)
+            )
             name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
-            roi_len = x + y + w + h + 10 # 10 is surrounding characters (<,>,x and spaces)
-            template = '{{0: >{0}}}  {{1: >{1}}}'.format(name_len, roi_len)
-            lines += [template.format(*header),
-                      template.format(name_len*'-', roi_len*'-')]
-            lines += [template.format(roi.name, roi_template.format((roi))) for roi in rois]
+            roi_len = (
+                x + y + w + h + 10
+            )  # 10 is surrounding characters (<,>,x and spaces)
+            template = "{{0: >{0}}}  {{1: >{1}}}".format(name_len, roi_len)
+            lines += [
+                template.format(*header),
+                template.format(name_len * "-", roi_len * "-"),
+            ]
+            lines += [
+                template.format(roi.name, roi_template.format((roi))) for roi in rois
+            ]
         else:
-            lines.append('*** no ROIs defined ***')
-        return '\n'.join(lines)
+            lines.append("*** no ROIs defined ***")
+        return "\n".join(lines)

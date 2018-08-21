@@ -12,8 +12,8 @@ from bliss.common import log
 from bliss.common import event
 import sys
 
-class leica(Controller):
 
+class leica(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -30,7 +30,9 @@ class leica(Controller):
             self.usb_controller = leica_usb.LeicaFocus()
         except Exception:
             sys.excepthook(*sys.exc_info())
-            raise RuntimeError("Could not initialize Leica controller (hint: is microscope switched on ? Or try to re-plug USB)")
+            raise RuntimeError(
+                "Could not initialize Leica controller (hint: is microscope switched on ? Or try to re-plug USB)"
+            )
 
     def finalize(self):
         if self.usb_controller:
@@ -40,14 +42,14 @@ class leica(Controller):
         pass
 
     def read_position(self, axis):
-        mot_num = axis.config.get("channel",int)
-        if self.state(axis)=='MOVING':
+        mot_num = axis.config.get("channel", int)
+        if self.state(axis) == "MOVING":
             return 0
         return self.usb_controller.read_mot_pos(mot_num)
 
     def state(self, axis):
-        mot_num = axis.config.get("channel",int)
-        #print 'calling state for',mot_num
+        mot_num = axis.config.get("channel", int)
+        # print 'calling state for',mot_num
         if self.usb_controller.curr_move and not self.usb_controller.curr_move.ready():
             return AxisState("MOVING")
         mot_group = self.usb_controller.read_mot_pos_status(mot_num)
@@ -67,5 +69,5 @@ class leica(Controller):
 
     def start_one(self, motion):
         axis = motion.axis
-        mot_num = axis.config.get("channel",int)
+        mot_num = axis.config.get("channel", int)
         self.usb_controller.start_mot_move(mot_num, motion.target_pos, False)

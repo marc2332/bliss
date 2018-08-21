@@ -20,11 +20,21 @@ import select
 from select import epoll
 
 
-from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
-                                        OutputSrc, FilterOutput, FilterClock,
-                                        FilterInput, FilterInputSelection,
-                                        CtClockSrc, CtGateSrc,
-                                        CtHardStartSrc, CtHardStopSrc)
+from bliss.controllers.ct2.card import (
+    P201Card,
+    Clock,
+    Level,
+    CtConfig,
+    OutputSrc,
+    FilterOutput,
+    FilterClock,
+    FilterInput,
+    FilterInputSelection,
+    CtClockSrc,
+    CtGateSrc,
+    CtHardStartSrc,
+    CtHardStopSrc,
+)
 
 # s_si  ... scan initiation signal
 # s_en  ... encoder signal
@@ -43,10 +53,10 @@ from bliss.controllers.ct2.card import (P201Card, Clock, Level, CtConfig,
 # impulse rate which results in (roughly) 500 counts for c_t_2 per
 # interval.
 
-n_so = 4000 # scan origin count
-n_e = 44000 # end count
-i = 20      # displacement interval count
-d = 2000    # displacement interval size
+n_so = 4000  # scan origin count
+n_e = 44000  # end count
+i = 20  # displacement interval count
+d = 2000  # displacement interval size
 
 # counters:
 c_so = 1
@@ -64,7 +74,7 @@ def out(msg):
 def main():
     logging.basicConfig(level=logging.DEBUG)
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description="Process some integers.")
 
     p201 = P201Card()
     try:
@@ -74,12 +84,13 @@ def main():
     finally:
         clean_up(p201)
 
+
 def go(card):
 
-    n_so = 4000 # scan origin count
-    n_e = 44000 # end count
-    i = 20      # displacement interval count
-    d = 2000    # displacement interval size
+    n_so = 4000  # scan origin count
+    n_e = 44000  # end count
+    i = 20  # displacement interval count
+    d = 2000  # displacement interval size
 
     # counters:
     c_so = 1
@@ -107,69 +118,77 @@ def go(card):
     # (3) started by s_si
     # (4) halted by ccl 1/egal ...
     # (5) ... while keeping its value ...
-    config = CtConfig(clock_source=CtClockSrc.CH_1_RISING_EDGE,          # (1)
-                      gate_source=CtGateSrc.GATE_CMPT,                   # (2)
-                      hard_start_source=CtHardStartSrc.CH_2_RISING_EDGE, # (3)
-                      hard_stop_source=CtHardStopSrc.CT_1_EQ_CMP_1,      # (4)
-                      reset_from_hard_soft_stop=False,                   # (5)
-                      stop_from_hard_stop=True)                          # (4)
+    config = CtConfig(
+        clock_source=CtClockSrc.CH_1_RISING_EDGE,  # (1)
+        gate_source=CtGateSrc.GATE_CMPT,  # (2)
+        hard_start_source=CtHardStartSrc.CH_2_RISING_EDGE,  # (3)
+        hard_stop_source=CtHardStopSrc.CT_1_EQ_CMP_1,  # (4)
+        reset_from_hard_soft_stop=False,  # (5)
+        stop_from_hard_stop=True,
+    )  # (4)
     card.set_counter_config(c_so, config)
 
     card.set_counter_comparator_value(c_so, n_so)
 
     # ... and signaling its end to the outside world.
     counter_interrupts[c_so] = True
-    
+
     # Configure counter 11 aka c_i:
     # (1) clock source is ccl 12/end aka c_d/end
     # (2) gate wide open
     # (3) started by ccl 1/end aka c_so/end
     # (4) halted by ccl 11/egal ...
-    # (5) ... while keeping its value ...    
-    config = CtConfig(clock_source=CtClockSrc.INC_CT_12_STOP,            # (1)
-                      gate_source=CtGateSrc.GATE_CMPT,                   # (2)
-                      hard_start_source=CtHardStartSrc.CT_1_STOP,        # (3)
-                      hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,    # (4)
-                      reset_from_hard_soft_stop=False,                   # (5)
-                      stop_from_hard_stop=True)                          # (4)
+    # (5) ... while keeping its value ...
+    config = CtConfig(
+        clock_source=CtClockSrc.INC_CT_12_STOP,  # (1)
+        gate_source=CtGateSrc.GATE_CMPT,  # (2)
+        hard_start_source=CtHardStartSrc.CT_1_STOP,  # (3)
+        hard_stop_source=CtHardStopSrc.CT_11_EQ_CMP_11,  # (4)
+        reset_from_hard_soft_stop=False,  # (5)
+        stop_from_hard_stop=True,
+    )  # (4)
     card.set_counter_config(c_i, config)
 
     card.set_counter_comparator_value(c_i, i)
-    
+
     # ... and signaling its end to the outside world.
     counter_interrupts[c_i] = True
-    
+
     # Configure counter 12 aka c_d:
     # (1) clock source is s_en
     # (2) gate wide open
     # (3) started by ccl 1/end aka c_so/end
     # (4) reset by ccl 12/egal ...
     # (5) ... while running continuously ...
-    config = CtConfig(clock_source=CtClockSrc.CH_1_RISING_EDGE,          # (1)
-                      gate_source=CtGateSrc.GATE_CMPT,                   # (2)
-                      hard_start_source=CtHardStartSrc.CT_1_STOP,        # (3)
-                      hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,    # (4)
-                      reset_from_hard_soft_stop=True,                    # (5)
-                      stop_from_hard_stop=False)                         # (4)
+    config = CtConfig(
+        clock_source=CtClockSrc.CH_1_RISING_EDGE,  # (1)
+        gate_source=CtGateSrc.GATE_CMPT,  # (2)
+        hard_start_source=CtHardStartSrc.CT_1_STOP,  # (3)
+        hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,  # (4)
+        reset_from_hard_soft_stop=True,  # (5)
+        stop_from_hard_stop=False,
+    )  # (4)
     card.set_counter_config(c_d, config)
 
     card.set_counter_comparator_value(c_d, d)
 
     # ... and having us tell when it wraps.
     counter_interrupts[c_d] = True
-  
+
     # Configure counter 2 aka c_t_1:
     # (1) clock source is s_t_1
     # (2) gate wide open
     # (3) started by ccl 1/end aka c_so/end
     # (4) reset by ccl 12/egal aka c_d/egal
     # (5) ... while running continuously
-    config = CtConfig(clock_source=CtClockSrc.CLK_10_KHz,                # (1)
-                      gate_source=CtGateSrc.GATE_CMPT,                   # (2)
-                      hard_start_source=CtHardStartSrc.CT_1_STOP,        # (3)
-                      hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,    # (4)
-                      reset_from_hard_soft_stop=True,                    # (5)
-                      stop_from_hard_stop=False)                         # (4)
+    config = CtConfig(
+        clock_source=CtClockSrc.CLK_10_KHz,  # (1)
+        gate_source=CtGateSrc.GATE_CMPT,  # (2)
+        hard_start_source=CtHardStartSrc.CT_1_STOP,  # (3)
+        hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,  # (4)
+        reset_from_hard_soft_stop=True,  # (5)
+        stop_from_hard_stop=False,
+    )  # (4)
     card.set_counter_config(c_t_1, config)
 
     # The latch signal shall be generated from ccl 12/stop + disable
@@ -183,14 +202,16 @@ def go(card):
     # (3) started by ccl 1/end aka c_so/end
     # (4) reset by ccl 12/egal aka c_d/egal
     # (5) ... while running continuously
-    config = CtConfig(clock_source=CtClockSrc.CLK_1_25_KHz,              # (1)
-                      gate_source=CtGateSrc.GATE_CMPT,                   # (2)
-                      hard_start_source=CtHardStartSrc.CT_1_STOP,        # (3)
-                      hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,    # (4)
-                      reset_from_hard_soft_stop=True,                    # (5)
-                      stop_from_hard_stop=False)                         # (4)
+    config = CtConfig(
+        clock_source=CtClockSrc.CLK_1_25_KHz,  # (1)
+        gate_source=CtGateSrc.GATE_CMPT,  # (2)
+        hard_start_source=CtHardStartSrc.CT_1_STOP,  # (3)
+        hard_stop_source=CtHardStopSrc.CT_12_EQ_CMP_12,  # (4)
+        reset_from_hard_soft_stop=True,  # (5)
+        stop_from_hard_stop=False,
+    )  # (4)
     card.set_counter_config(c_t_2, config)
-    
+
     latch_sources[c_t_2] = [c_d]
 
     # write all latch sources
@@ -200,33 +221,41 @@ def go(card):
     # while it should suffice that the transfer is triggered by
     # c_t_1's latch (1).  But first and foremost, we enable the
     # transfer (3).
-    card.set_DMA_enable_trigger_latch({c_t_1:True}, {c_t_1:True, c_t_2:True})
+    card.set_DMA_enable_trigger_latch({c_t_1: True}, {c_t_1: True, c_t_2: True})
 
     # Set output cell 1's signal source to ic 1 (1) and
     # output cell 2's signal source to ic 2(2).
-    card.set_output_channels_source({9: OutputSrc.CH_1_INPUT,
-                                     10: OutputSrc.CH_2_INPUT})
+    card.set_output_channels_source({9: OutputSrc.CH_1_INPUT, 10: OutputSrc.CH_2_INPUT})
 
     # Set the filter configuration for both outputs.  Neither cell's signal
     # shall be inverted nor filters used
-    card.set_output_channels_filter({9: FilterOutput(polarity=0, enable=False, 
-                                                     clock=FilterClock.CLK_100_MHz),
-                                     10: FilterOutput(polarity=0, enable=False, 
-                                                      clock=FilterClock.CLK_100_MHz)})
+    card.set_output_channels_filter(
+        {
+            9: FilterOutput(polarity=0, enable=False, clock=FilterClock.CLK_100_MHz),
+            10: FilterOutput(polarity=0, enable=False, clock=FilterClock.CLK_100_MHz),
+        }
+    )
 
     # Set both output cells' levels to TTL.
     card.set_output_channels_level({9: Level.TTL, 10: Level.TTL})
 
     # Enable input termination on all inputs except ic 9 and ic10.
     card.set_input_channels_50ohm_adapter(dict([(i, True) for i in range(1, 9)]))
-    
+
     # Set input cells 1's (1) and 2's (2) filter configuration
     # to short pulse capture.
     card.set_input_channels_filter(
-        {1: FilterInput(clock=FilterClock.CLK_100_MHz,
-                        selection=FilterInputSelection.SINGLE_SHORT_PULSE_CAPTURE),
-         2:  FilterInput(clock=FilterClock.CLK_100_MHz,
-                         selection=FilterInputSelection.SINGLE_SHORT_PULSE_CAPTURE)})
+        {
+            1: FilterInput(
+                clock=FilterClock.CLK_100_MHz,
+                selection=FilterInputSelection.SINGLE_SHORT_PULSE_CAPTURE,
+            ),
+            2: FilterInput(
+                clock=FilterClock.CLK_100_MHz,
+                selection=FilterInputSelection.SINGLE_SHORT_PULSE_CAPTURE,
+            ),
+        }
+    )
 
     card.set_input_channels_level({1: Level.TTL, 2: Level.TTL})
 
@@ -234,13 +263,14 @@ def go(card):
 
     poll = epoll()
     poll.register(card, select.EPOLLIN | select.EPOLLHUP | select.EPOLLERR)
-    
-    card.set_interrupts(counters=counter_interrupts,
-                        dma=True, fifo_half_full=True, error=True)
+
+    card.set_interrupts(
+        counters=counter_interrupts, dma=True, fifo_half_full=True, error=True
+    )
 
     # enable counters
     card.enable_counters_software([1, 11, 12, 2, 3])
-    
+
     stop, finish = False, False
     while not stop:
         events = poll.poll(timeout=1)
@@ -260,8 +290,7 @@ def go(card):
             else:
                 stop = True
                 break
-    
-                
+
 
 def handle_event(card, fifo, fd, event):
     if event & (select.EPOLLHUP):
@@ -272,15 +301,20 @@ def handle_event(card, fifo, fd, event):
         return 3
 
     print("epoll event {0} on {1}".format(event, fd))
-    (counters, channels, dma, fifo_half_full, error), tstamp = \
-        card.acknowledge_interrupt()
-    
+    (
+        counters,
+        channels,
+        dma,
+        fifo_half_full,
+        error,
+    ), tstamp = card.acknowledge_interrupt()
+
     if counters[c_so]:
         print("c_so/end asserted, we have begun!")
-    
+
     if counters[c_d]:
         print("c_d/end asserted")
-    
+
     if dma:
         print("received latch-FIFO transfer success notice")
 
@@ -296,7 +330,7 @@ def handle_event(card, fifo, fd, event):
         print("FIFO[%d] = %d" % (i, fifo[i]))
 
     if counters[c_i]:
-        print("c_i/end asserted, we're done here")        
+        print("c_i/end asserted, we're done here")
         return 1
 
     return 0
@@ -305,7 +339,7 @@ def handle_event(card, fifo, fd, event):
 def clean_up(card):
     card.set_interrupts()
     card.disable_counters_software(card.COUNTERS)
-    
+
 
 if __name__ == "__main__":
     main()

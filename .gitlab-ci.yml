@@ -1,10 +1,19 @@
 image: docker-registry.esrf.fr/bcu/ci-conda
 
 stages:
+  - style
   - tests
   - build_user_doc
   - build_doc
   - deploy
+
+style:
+  stage: style
+  before_script:
+    - source activate tango3.6
+    - pip install black
+  script:
+    - LC_ALL=C.UTF-8 black .
 
 tests:
   stage: tests

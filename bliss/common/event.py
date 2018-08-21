@@ -24,6 +24,7 @@ if not hasattr(robustapply, "_robust_apply"):
             return robustapply._robust_apply(*args, **kwargs)
         except:
             sys.excepthook(*sys.exc_info())
+
     robustapply.robust_apply = __my_robust_apply
     del __my_robust_apply
 

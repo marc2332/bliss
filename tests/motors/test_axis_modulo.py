@@ -11,6 +11,7 @@ import gevent
 import gevent.event
 from bliss.common import event
 
+
 def test_axis_modulo(omega):
     omega.move(10)
     assert omega.position() == pytest.approx(10)
@@ -31,6 +32,3 @@ def test_axis_modulo(omega):
     omega.move(0)
     assert omega.position() == pytest.approx(0)
     assert omega.dial() == pytest.approx(0)
-
-
-

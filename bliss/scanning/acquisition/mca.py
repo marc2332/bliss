@@ -42,30 +42,44 @@ class StateMachine(object):
 
 # Acquisition device
 
+
 class McaAcquisitionDevice(AcquisitionDevice):
 
-    READY = 'READY'
-    TRIGGERED = 'TRIGGERED'
+    READY = "READY"
+    TRIGGERED = "TRIGGERED"
 
     SOFT = TriggerMode.SOFTWARE
     SYNC = TriggerMode.SYNC
     GATE = TriggerMode.GATE
 
-    def __init__(self, mca, npoints, trigger_mode=SOFT,
-                 preset_time=1., block_size=None, polling_time=0.1,
-                 spectrum_size=None, counters=(),
-                 prepare_once=True, start_once=True):
+    def __init__(
+        self,
+        mca,
+        npoints,
+        trigger_mode=SOFT,
+        preset_time=1.,
+        block_size=None,
+        polling_time=0.1,
+        spectrum_size=None,
+        counters=(),
+        prepare_once=True,
+        start_once=True,
+    ):
         # Checks
         assert start_once
         assert prepare_once
 
         # Trigger type
         if isinstance(trigger_mode, basestring):
-            trigger_mode = eval(trigger_mode, {
-                'TriggerMode': TriggerMode,
-                'SOFTWARE': McaAcquisitionDevice.SOFT,
-                'SYNC': McaAcquisitionDevice.SYNC,
-                'GATE': McaAcquisitionDevice.GATE})
+            trigger_mode = eval(
+                trigger_mode,
+                {
+                    "TriggerMode": TriggerMode,
+                    "SOFTWARE": McaAcquisitionDevice.SOFT,
+                    "SYNC": McaAcquisitionDevice.SYNC,
+                    "GATE": McaAcquisitionDevice.GATE,
+                },
+            )
         if trigger_mode == self.SOFT:
             trigger_type = McaAcquisitionDevice.SOFTWARE
         else:
@@ -73,11 +87,13 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
         # Parent call
         super(McaAcquisitionDevice, self).__init__(
-            mca, mca.name,
+            mca,
+            mca.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
-            start_once=start_once)
+            start_once=start_once,
+        )
 
         # Internals
         self.mca = mca
@@ -172,8 +188,9 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def _hard_reading(self):
         npoints = self.npoints + 1 if self.sync_trigger_mode else self.npoints
         # Safe point generator
-        with closing(self.device.hardware_poll_points(
-                npoints, self.polling_time)) as generator:
+        with closing(
+            self.device.hardware_poll_points(npoints, self.polling_time)
+        ) as generator:
             # Discard first point in synchronized mode
             if self.sync_trigger_mode:
                 next(generator)
@@ -183,13 +200,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def _soft_reading(self):
         # Safe point generator
-        with closing(self.device.software_controlled_run(
-                self.npoints, self.polling_time)) as generator:
+        with closing(
+            self.device.software_controlled_run(self.npoints, self.polling_time)
+        ) as generator:
             # Acquire data
-            indexes = (
-                itertools.count()
-                if self.npoints == 0
-                else range(self.npoints))
+            indexes = itertools.count() if self.npoints == 0 else range(self.npoints)
             for i in indexes:
                 # Software sync
                 self.acquisition_state.wait(self.TRIGGERED)
@@ -207,17 +222,18 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
 # Mca counters
 
+
 class BaseMcaCounter(BaseCounter):
 
     # Default chain integration
 
     def create_acquisition_device(self, scan_pars, **settings):
-        npoints = scan_pars['npoints']
-        count_time = scan_pars['count_time']
+        npoints = scan_pars["npoints"]
+        count_time = scan_pars["count_time"]
 
         return McaAcquisitionDevice(
-            self.controller, npoints=npoints, preset_time=count_time,
-            **settings)
+            self.controller, npoints=npoints, preset_time=count_time, **settings
+        )
 
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca
@@ -236,7 +252,7 @@ class BaseMcaCounter(BaseCounter):
     def name(self):
         if self.detector_channel is None:
             return self.base_name
-        return '{}_det{}'.format(self.base_name, self.detector_channel)
+        return "{}_det{}".format(self.base_name, self.detector_channel)
 
     @property
     def dtype(self):
@@ -258,7 +274,8 @@ class BaseMcaCounter(BaseCounter):
             assert self.detector_channel in self.controller.elements
         # Acquisition channel
         self.acquisition_device.channels.append(
-            AcquisitionChannel(self.name, self.dtype, self.shape))
+            AcquisitionChannel(self.name, self.dtype, self.shape)
+        )
 
     def feed_point(self, spectrums, stats):
         raise NotImplementedError
@@ -269,16 +286,14 @@ class BaseMcaCounter(BaseCounter):
 
 
 class StatisticsMcaCounter(BaseMcaCounter):
-
     def __init__(self, mca, stat_name, detector):
         self.stat_name = stat_name
         assert stat_name in Stats._fields
-        super(StatisticsMcaCounter, self).__init__(
-            mca, stat_name, detector)
+        super(StatisticsMcaCounter, self).__init__(mca, stat_name, detector)
 
     @property
     def dtype(self):
-        if self.stat_name in ('triggers', 'events'):
+        if self.stat_name in ("triggers", "events"):
             return numpy.int
         return numpy.float
 
@@ -288,10 +303,8 @@ class StatisticsMcaCounter(BaseMcaCounter):
 
 
 class SpectrumMcaCounter(BaseMcaCounter):
-
     def __init__(self, mca, detector):
-        super(SpectrumMcaCounter, self).__init__(
-            mca, 'spectrum', detector)
+        super(SpectrumMcaCounter, self).__init__(mca, "spectrum", detector)
 
     @property
     def dtype(self):
@@ -308,11 +321,9 @@ class SpectrumMcaCounter(BaseMcaCounter):
 
 
 class RoiMcaCounter(BaseMcaCounter):
-
     def __init__(self, mca, roi_name, detector):
         self.roi_name = roi_name
-        super(RoiMcaCounter, self).__init__(
-            mca, roi_name, detector)
+        super(RoiMcaCounter, self).__init__(mca, roi_name, detector)
 
     @property
     def dtype(self):
@@ -328,7 +339,6 @@ class RoiMcaCounter(BaseMcaCounter):
 
 
 class RoiSumMcaCounter(RoiMcaCounter):
-
     def __init__(self, mca, roi_name):
         super(RoiSumMcaCounter, self).__init__(mca, roi_name, None)
 
@@ -350,20 +360,22 @@ def mca_counters(mca):
     - counters.deadtime_det<N>
     """
     # Spectrum
-    counters = [SpectrumMcaCounter(mca, element)
-                for element in mca.elements]
+    counters = [SpectrumMcaCounter(mca, element) for element in mca.elements]
     # Stats
-    counters += [StatisticsMcaCounter(mca, stat, element)
-                 for element in mca.elements
-                 for stat in Stats._fields]
+    counters += [
+        StatisticsMcaCounter(mca, stat, element)
+        for element in mca.elements
+        for stat in Stats._fields
+    ]
     # Rois
-    counters += [RoiMcaCounter(mca, roi, element)
-                 for element in mca.elements
-                 for roi in mca.rois.get_names()]
+    counters += [
+        RoiMcaCounter(mca, roi, element)
+        for element in mca.elements
+        for roi in mca.rois.get_names()
+    ]
 
     # Roi sums
-    counters += [RoiSumMcaCounter(mca, roi)
-                 for roi in mca.rois.get_names()]
+    counters += [RoiSumMcaCounter(mca, roi) for roi in mca.rois.get_names()]
 
     # Instantiate
     return counter_namespace(counters)
@@ -387,18 +399,18 @@ def mca_counter_groups(mca):
     roi_names = list(mca.rois.get_names())
 
     # Prefix groups
-    prefixes = list(Stats._fields) + ['spectrum'] + roi_names
+    prefixes = list(Stats._fields) + ["spectrum"] + roi_names
     for prefix in prefixes:
         dct[prefix] = counter_namespace(
-            [counter for counter in counters
-             if counter.name.startswith(prefix)])
+            [counter for counter in counters if counter.name.startswith(prefix)]
+        )
 
     # Suffix groups
-    suffixes = ['det{}'.format(e) for e in mca.elements]
+    suffixes = ["det{}".format(e) for e in mca.elements]
     for suffix in suffixes:
         dct[suffix] = counter_namespace(
-            [counter for counter in counters
-             if counter.name.endswith(suffix)])
+            [counter for counter in counters if counter.name.endswith(suffix)]
+        )
 
     # Instantiate group namespace
     return namespace(dct)

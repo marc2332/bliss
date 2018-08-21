@@ -16,10 +16,14 @@ from bliss.scanning.writer.file import FileWriter
 
 class Writer(FileWriter):
     def __init__(self, root_path, images_root_path, **keys):
-        FileWriter.__init__(self, root_path, images_root_path,
-                            master_event_callback=self._on_event,
-                            device_event_callback=self._on_event,
-                            **keys)
+        FileWriter.__init__(
+            self,
+            root_path,
+            images_root_path,
+            master_event_callback=self._on_event,
+            device_event_callback=self._on_event,
+            **keys
+        )
 
         self.file = None
         self.scan_entry = None
@@ -28,65 +32,67 @@ class Writer(FileWriter):
 
     def new_file(self, scan_file_dir, scan_name, scan_info):
         self.close()
-        self.file = h5py.File(os.path.join(scan_file_dir, 'data.h5'))
+        self.file = h5py.File(os.path.join(scan_file_dir, "data.h5"))
         self.scan_entry = self.file.create_group(scan_name)
-        self.scan_entry.attrs['NX_class'] = 'NXentry'
+        self.scan_entry.attrs["NX_class"] = "NXentry"
         scan_title = scan_info.get("title", "untitled")
         utf8_dt = h5py.special_dtype(vlen=unicode)
-        self.scan_entry['title'] = scan_title.encode('utf-8')
+        self.scan_entry["title"] = scan_title.encode("utf-8")
         timestamp = scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
-        utc_time = local_time+'%+03d:00' % (time.altzone / 3600)
-        self.scan_entry['start_time'] = utc_time.encode('utf-8')
-        self.measurement = self.scan_entry.create_group('measurement')
-        self.measurement.attrs['NX_class'] = 'NXcollection'
-        instrument = self.measurement.create_group('instrument')
-        instrument.attrs['NX_class'] = 'NXinstrument'
-        positioners = instrument.create_group('positioners')
-        positioners.attrs['NX_class'] = 'NXcollection'
-        positioners_dial = instrument.create_group('positioners_dial')
-        positioners_dial.attrs['NX_class'] = 'NXcollection'
-        positioners_dict = scan_info.get('positioners', {})
+        utc_time = local_time + "%+03d:00" % (time.altzone / 3600)
+        self.scan_entry["start_time"] = utc_time.encode("utf-8")
+        self.measurement = self.scan_entry.create_group("measurement")
+        self.measurement.attrs["NX_class"] = "NXcollection"
+        instrument = self.measurement.create_group("instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
+        positioners = instrument.create_group("positioners")
+        positioners.attrs["NX_class"] = "NXcollection"
+        positioners_dial = instrument.create_group("positioners_dial")
+        positioners_dial.attrs["NX_class"] = "NXcollection"
+        positioners_dict = scan_info.get("positioners", {})
         for pname, ppos in positioners_dict.iteritems():
             if isinstance(ppos, float):
-                positioners.create_dataset(pname, dtype='float64', data=ppos)
-        positioners_dial_dict = scan_info.get('positioners_dial', {})
+                positioners.create_dataset(pname, dtype="float64", data=ppos)
+        positioners_dial_dict = scan_info.get("positioners_dial", {})
         for pname, ppos in positioners_dial_dict.iteritems():
             if isinstance(ppos, float):
-                positioners_dial.create_dataset(pname, dtype='float64', data=ppos)
+                positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
 
     def new_master(self, master, scan_file_dir):
         return self.measurement.create_group(master.name)
 
     def add_reference(self, master_entry, referenced_master_entry):
         ref_path = referenced_master_entry.name
-        ref_name = ref_path.split('/')[-1]
+        ref_name = ref_path.split("/")[-1]
         master_entry[ref_name] = referenced_master_entry.ref
 
     def _on_event(self, parent, event_dict, signal, sender):
-        if signal == 'start':
+        if signal == "start":
             device = sender
             for channel in device.channels:
                 maxshape = tuple([None] + list(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
                 if not channel.reference and channel.fullname not in parent:
-                    dataset = parent.create_dataset(channel.fullname,
-                                                    shape=shape,
-                                                    dtype=channel.dtype,
-                                                    compression='gzip',
-                                                    maxshape=maxshape)
+                    dataset = parent.create_dataset(
+                        channel.fullname,
+                        shape=shape,
+                        dtype=channel.dtype,
+                        compression="gzip",
+                        maxshape=maxshape,
+                    )
                     self.last_point_index[channel] = 0
-        elif signal == 'new_data':
+        elif signal == "new_data":
             channel = sender
             if channel.reference:
                 return
 
-            data = event_dict.get('data')
+            data = event_dict.get("data")
 
             dataset = parent[channel.fullname]
             if not dataset.id.valid:
-                print('writer is closed. Spurious data point ignored')
+                print("writer is closed. Spurious data point ignored")
                 return
 
             last_point_index = self.last_point_index[channel]
@@ -110,9 +116,9 @@ class Writer(FileWriter):
         self.measurement = None
 
     def get_scan_entries(self):
-        file_name = os.path.join(self.root_path, 'data.h5')
+        file_name = os.path.join(self.root_path, "data.h5")
         try:
-            with h5py.File(file_name, mode='r') as f:
+            with h5py.File(file_name, mode="r") as f:
                 return f.keys()
-        except IOError:         # file doesn't exist
+        except IOError:  # file doesn't exist
             return []

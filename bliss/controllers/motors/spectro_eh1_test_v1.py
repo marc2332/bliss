@@ -18,20 +18,20 @@ import math
 
 # GLOBAL VARIABLES #
 HC = 1.2398418743309972e-06  # eV * m
-ALAT_SI = 5.431065   # Ang at 25C
+ALAT_SI = 5.431065  # Ang at 25C
 ALAT_GE = 5.6579060  # Ang at 25C
 
 # USER SETTINGS #
-CRYST_MAT = 'Si'       # or 'Ge' : analyser crystal material
+CRYST_MAT = "Si"  # or 'Ge' : analyser crystal material
 CRYST_HKL = [4, 4, 4]  # analyser crystal reflection [h,k,l]
-CRYST_ALPHA = 0.0      # miscut angle in degrees
-CRYST_R = 1000.        # analyser bending radius in mm (=2*Rm)
+CRYST_ALPHA = 0.0  # miscut angle in degrees
+CRYST_R = 1000.  # analyser bending radius in mm (=2*Rm)
 
 
 # UTILITY FUNCTIONS #
 def kev2wlen(energy):
     """ convert photon energy (E, keV) to wavelength ($\lambda$, \AA$^{-1}$)"""
-    return((HC / energy) * 1e7)
+    return (HC / energy) * 1e7
 
 
 def wlen2kev(wlen):
@@ -40,7 +40,7 @@ def wlen2kev(wlen):
 
 
 def sqrt1over(d2m):
-    if (d2m == 0):
+    if d2m == 0:
         return 0
     else:
         return math.sqrt(1 / d2m)
@@ -69,9 +69,9 @@ def bragg_kev(theta, d):
 
 def get_dspacing(mat, hkl):
     """get d-spacing for given crystal material and reflection (hkl)"""
-    if mat == 'Si':
+    if mat == "Si":
         dspacing = d_cubic(ALAT_SI, hkl)
-    elif mat == 'Ge':
+    elif mat == "Ge":
         dspacing = d_cubic(ALAT_GE, hkl)
     else:
         print("ERROR: available materials -> 'Si' 'Ge'")
@@ -112,7 +112,7 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
         # pretty print (= for humans)
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10} {4:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f} {4:^ 10.4f}"
-        print(_tmpl_head.format('ath', 'ax', 'dth', 'dx', 'dy'))
+        print(_tmpl_head.format("ath", "ax", "dth", "dx", "dy"))
         print(_tmpl_data.format(*_mot_list))
     else:
         return _mot_list
@@ -135,7 +135,7 @@ def mots2steps(mot_list, conv_list=None, pp=True):
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10} {4:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f} {4:^ 10.4f}"
         _tmpl_step = "STP: {0:^ 10.0f} {1:^ 10.0f} {2:^ 10.0f} {3:^ 10.0f} {4:^ 10.0f}"
-        print(_tmpl_head.format('ath', 'ax', 'dth', 'dx', 'dy'))
+        print(_tmpl_head.format("ath", "ax", "dth", "dx", "dy"))
         print(_tmpl_data.format(*mot_list))
         print(_tmpl_step.format(*_step_list))
     else:
@@ -144,7 +144,6 @@ def mots2steps(mot_list, conv_list=None, pp=True):
 
 # CLASS #
 class spectro_eh1_test_V1(CalcController):
-
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
 
@@ -152,11 +151,9 @@ class spectro_eh1_test_V1(CalcController):
         # self.CRYST_R = self.config.get("CRYST_R", float)
         # or use global variable
 
-#     def initialize_axis(self, axis):
-#         CalcController.initialize_axis(self, axis)
-#         print "initialize_axis"
-
-
+    #     def initialize_axis(self, axis):
+    #         CalcController.initialize_axis(self, axis)
+    #         print "initialize_axis"
 
     def set_CRYST_R(self, axis, new_radius):
         self.CRYST_R = float(new_radius)
@@ -175,14 +172,17 @@ class spectro_eh1_test_V1(CalcController):
         """returns real motors positions (as a dictionary) given virtual"""
         xes_en_eh1 = positions_dict["xes_en_eh1"]
         _mot_list = ene2mots(xes_en_eh1, pp=False)
-        _real_dict = {"m1": _mot_list[0],
-                      "m2": _mot_list[1],
-                      "m3": _mot_list[2],
-                      "m4": _mot_list[3],
-                      "m5": _mot_list[4]}
+        _real_dict = {
+            "m1": _mot_list[0],
+            "m2": _mot_list[1],
+            "m3": _mot_list[2],
+            "m4": _mot_list[3],
+            "m5": _mot_list[4],
+        }
 
         return _real_dict
 
+
 # FOR TESTS #
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

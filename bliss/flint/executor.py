@@ -13,12 +13,13 @@ from concurrent.futures import Future
 
 # Global
 
-__all__ = ['submit_to_qt_application', 'qt_safe', 'QtSignalQueue']
+__all__ = ["submit_to_qt_application", "qt_safe", "QtSignalQueue"]
 
 EXECUTOR = None
 
 
 # Executor class
+
 
 class QtExecutor(qt.QObject):
 
@@ -59,6 +60,7 @@ class QtExecutor(qt.QObject):
 
 # Concurrent helper
 
+
 def concurrent_to_gevent(future):
     asyncresult = gevent.event.AsyncResult()
     watcher = gevent.get_hub().loop.async()
@@ -83,6 +85,7 @@ def concurrent_to_gevent(future):
 
 # Exposed functions
 
+
 def submit_to_qt_application(fn, *args, **kwargs):
     """Submit a task to safely run in the qt loop
     and return the task result.
@@ -99,17 +102,18 @@ def submit_to_qt_application(fn, *args, **kwargs):
     return concurrent_to_gevent(future).get()
 
 
-
-
 def qt_safe(func):
     """Use a decorator to make a function qt safe"""
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         return submit_to_qt_application(func, *args, **kwargs)
+
     return wrapper
 
 
 # Qt signal gevent queue
+
 
 class QtSignalQueue(gevent.queue.Queue):
     """A queue accumulating the emitted arguments of the provided qt signal."""

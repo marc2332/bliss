@@ -25,7 +25,7 @@ def tcp_echo_func(socket, address):
 
 @pytest.fixture
 def server_port():
-    server = StreamServer(('', 0), handle=tcp_echo_func, spawn=1)
+    server = StreamServer(("", 0), handle=tcp_echo_func, spawn=1)
     server.family = gevent.socket.AF_INET
     server.start()
     yield server.address[1]
@@ -40,7 +40,7 @@ class UdpEcho(object):
 @pytest.fixture
 def udp_port():
     callback = UdpEcho()
-    server = DatagramServer(('', 0), handle=callback, spawn=1)
+    server = DatagramServer(("", 0), handle=callback, spawn=1)
     callback.server = server
     server.family = gevent.socket.AF_INET
     server.start()

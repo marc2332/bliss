@@ -14,19 +14,18 @@ cos_data = numpy.cos(x_data)
 sin_data = numpy.sin(x_data)
 
 
-sin_cos_dict = {
-    'x': x_data,
-    'sin': sin_data,
-    'cos': cos_data}
+sin_cos_dict = {"x": x_data, "sin": sin_data, "cos": cos_data}
 
 sin_cos_struct = numpy.array(
     (x_data, sin_data, cos_data),
-    dtype=[('x', float, x_data.shape),
-           ('sin', float, sin_data.shape),
-           ('cos', float, cos_data.shape)])
+    dtype=[
+        ("x", float, x_data.shape),
+        ("sin", float, sin_data.shape),
+        ("cos", float, cos_data.shape),
+    ],
+)
 
 sin_cos_scan = numpy.array(
     list(zip(x_data, sin_data, cos_data)),
-    dtype=[('x', float),
-           ('sin', float),
-           ('cos', float)])
+    dtype=[("x", float), ("sin", float), ("cos", float)],
+)

@@ -33,7 +33,7 @@ class FlexDC(Controller):
         except ValueError:
             host = config.get("host")
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
-            comm_cfg = {'tcp': {'url': host } }
+            comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=4000)
 
     def finalize(self):
@@ -53,8 +53,6 @@ class FlexDC(Controller):
         axis.max_dead_zone = axis.config.get("max_dead_zone", int)
         axis.smoothing = axis.config.get("smoothing", int)
         axis.deceleration = axis.config.get("deceleration", float)
-
-
 
         # Enabling servo mode.
         self._flexdc_query("%sMO=1" % axis.channel)
@@ -138,7 +136,7 @@ class FlexDC(Controller):
         # bit 6 : 0x40 : Waiting for end of WT period.
         _ansMS = int(self._flexdc_query("%sMS" % axis.channel))
 
-        if(_ansMS & 0x01):
+        if _ansMS & 0x01:
             _ret = AxisState("MOVING")
         else:
             _ret = AxisState("READY")
@@ -149,8 +147,7 @@ class FlexDC(Controller):
     def prepare_move(self, motion):
         elog.debug("prepare_move, motion.target_pos=%g" % motion.target_pos)
         # Prepare axis movement.
-        self._flexdc_query("%sAP=%d" % (motion.axis.channel,
-                                        int(motion.target_pos)))
+        self._flexdc_query("%sAP=%d" % (motion.axis.channel, int(motion.target_pos)))
 
     def start_one(self, motion):
         elog.debug("start_one, motion.target_pos=%g" % motion.target_pos)
@@ -226,7 +223,7 @@ class FlexDC(Controller):
         if value:
             _cmd = "%s%s=%d" % (axis.channel, param, value)
             self._flexdc_query(_cmd)
-            return(value)
+            return value
         else:
             _cmd = "%s%s" % (axis.channel, param)
             return self._flexdc_query(_cmd)
@@ -262,8 +259,7 @@ class FlexDC(Controller):
             ("EM_MF", "Last Motion ended due to Motor Fault (see MF)."),
             ("EM_USER_STOP", "Last Motion ended due to User Stop (ST or AB)."),
             ("EM_MOTOR_OFF", "Last Motion ended due to Motor OFF (MO=0)."),
-            ("EM_BAD_PROFILE_PARAM",
-             "Last Motion ended due to Bad ECAM Parameters.")
+            ("EM_BAD_PROFILE_PARAM", "Last Motion ended due to Bad ECAM Parameters."),
         ]
 
         return _reasons[_ans]
@@ -275,7 +271,6 @@ class FlexDC(Controller):
         """
         # list of commands and descriptions
         _infos = [
-
             ("VR,0", "VR,0"),
             ("VR,1", "VR,1"),
             ("VR,2", "VR,2"),
@@ -283,7 +278,6 @@ class FlexDC(Controller):
             ("VR,4", "VR,4"),
             ("VR,5", "VR,5"),
             ("VR,6", "VR,6"),
-
             ("AC", "Acceleration"),
             ("AD", "Analog Input Dead Band"),
             ("AF", "Analog Input Gain Factor"),
@@ -327,14 +321,14 @@ class FlexDC(Controller):
             ("TL", "Torque Limit"),
             ("TR", "Target Radius"),
             ("TT", "Target Time"),
-            ("VL", "Actual Velocity"),   # Is this true?
-            ("WW", "Smoothing")]
+            ("VL", "Actual Velocity"),  # Is this true?
+            ("WW", "Smoothing"),
+        ]
 
         _txt = ""
         for i in _infos:
             _cmd = "%s%s" % (axis.channel, i[0])
-            _txt = _txt + "%35s %8s = %s \n" % (
-                i[1], i[0], self._flexdc_query(_cmd))
+            _txt = _txt + "%35s %8s = %s \n" % (i[1], i[0], self._flexdc_query(_cmd))
 
         (_emc, _emstr) = self.flexdc_em(axis)
         _txt = _txt + "%35s %8s = %s \n" % (_emstr, "EM", _emc)

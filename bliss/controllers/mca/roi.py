@@ -6,7 +6,6 @@ from bliss.config.settings import HashSetting
 
 
 class RoiConfig(object):
-
     def __init__(self, mca):
         self._mca = mca
         self._name = mca.name
@@ -18,15 +17,17 @@ class RoiConfig(object):
 
         template = "{:<10} {:>8} {:>8} {:>8} {:>8} {:>8}\n"
 
-        roi_listing = template.format("Name", "(center", "left", "right)", "(start", "stop)")
-        roi_listing += "-" * 10 +(" " + "-" * 8 ) * 5 + "\n"
+        roi_listing = template.format(
+            "Name", "(center", "left", "right)", "(start", "stop)"
+        )
+        roi_listing += "-" * 10 + (" " + "-" * 8) * 5 + "\n"
 
         for roi_name in self.get_names():
             center, left, right = self.get_roi(roi_name)
             start, stop = self._resolve(center, left, right)
             roi_listing += template.format(roi_name, center, left, right, start, stop)
 
-        return (roi_listing)
+        return roi_listing
 
     @property
     def mca(self):
@@ -39,7 +40,7 @@ class RoiConfig(object):
     @property
     def config(self):
         if self._setting is None:
-            name = self.name + '_roi_config'
+            name = self.name + "_roi_config"
             self._setting = HashSetting(name)
         return self._setting
 
@@ -77,4 +78,4 @@ class RoiConfig(object):
         """
         Returns start stop indexes for the given (c,l,r) energies(indexes for now).
         """
-        return int(center-left), int(center + right)
+        return int(center - left), int(center + right)

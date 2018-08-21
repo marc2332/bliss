@@ -15,13 +15,12 @@ SP = 20
 PyTest list of tests
 """
 
+
 def test_custom_attr(temp_tout):
     assert temp_tout.get_material() == "Hg"
     temp_tout.set_material("CH4OH")
     assert temp_tout.get_material() == "CH4OH"
 
+
 def test_custom_cmd(temp_tin):
-    assert temp_tin.get_double_str("calor") ==  "calor_calor"
-
-
-
+    assert temp_tin.get_double_str("calor") == "calor_calor"

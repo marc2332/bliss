@@ -5,7 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.controllers.motor import CalcController; from bliss.common import log
+from bliss.controllers.motor import CalcController
+from bliss.common import log
 
 """
 example for single VERTICAL slits:
@@ -54,16 +55,14 @@ example for single VERTICAL slits:
               default value : both
 """
 
-class Slits(CalcController):
 
+class Slits(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
-
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
         axis.no_offset = True
-
 
     def calc_from_real(self, positions_dict):
         log.info("[SLITS] calc_from_real()")
@@ -72,21 +71,21 @@ class Slits(CalcController):
         calc_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
 
-        if slit_type not in ['vertical']:
+        if slit_type not in ["vertical"]:
             calc_dict.update(
-                { "hoffset":
-                  (positions_dict["back"] - positions_dict["front"]) / 2.0,
-                  "hgap":
-                  positions_dict["back"] + positions_dict["front"]
-                  } )
+                {
+                    "hoffset": (positions_dict["back"] - positions_dict["front"]) / 2.0,
+                    "hgap": positions_dict["back"] + positions_dict["front"],
+                }
+            )
 
-        if slit_type not in ['horizontal']:
+        if slit_type not in ["horizontal"]:
             calc_dict.update(
-                { "voffset":
-                  (positions_dict["up"] - positions_dict["down"]) / 2.0,
-                  "vgap":
-                  positions_dict["up"] + positions_dict["down"]
-                  } )
+                {
+                    "voffset": (positions_dict["up"] - positions_dict["down"]) / 2.0,
+                    "vgap": positions_dict["up"] + positions_dict["down"],
+                }
+            )
 
         log.info("[SLITS]\tcalc: %s" % calc_dict)
 
@@ -99,21 +98,21 @@ class Slits(CalcController):
         real_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
 
-        if slit_type not in ['vertical']:
+        if slit_type not in ["vertical"]:
             real_dict.update(
-                { "back":
-                  (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
-                  "front":
-                  (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"]
-                  } )
+                {
+                    "back": (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
+                    "front": (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"],
+                }
+            )
 
-        if slit_type not in ['horizontal']:
+        if slit_type not in ["horizontal"]:
             real_dict.update(
-                { "up":
-                  (positions_dict["vgap"] / 2.0) + positions_dict["voffset"],
-                  "down":
-                  (positions_dict["vgap"] / 2.0) - positions_dict["voffset"]
-                  } )
+                {
+                    "up": (positions_dict["vgap"] / 2.0) + positions_dict["voffset"],
+                    "down": (positions_dict["vgap"] / 2.0) - positions_dict["voffset"],
+                }
+            )
 
         log.info("[SLITS]\treal: %s" % real_dict)
 

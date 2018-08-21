@@ -11,20 +11,29 @@ import gevent.event
 
 from bliss.common.event import dispatcher
 from bliss.scanning.chain import AcquisitionMaster
-from bliss.controllers.ct2.device import (AcqMode, AcqStatus,
-                                          StatusSignal, PointNbSignal,
-                                          ErrorSignal)
+from bliss.controllers.ct2.device import (
+    AcqMode,
+    AcqStatus,
+    StatusSignal,
+    PointNbSignal,
+    ErrorSignal,
+)
 
 
 class CT2AcquisitionMaster(AcquisitionMaster):
 
     SoftTrigModes = AcqMode.IntTrigMulti, AcqMode.SoftTrigReadout
 
-
-    def __init__(self, device, npoints=1, acq_expo_time=1.,
-                 acq_point_period=None,
-                 acq_mode=AcqMode.IntTrigMulti,
-                 prepare_once=True, start_once=True):
+    def __init__(
+        self,
+        device,
+        npoints=1,
+        acq_expo_time=1.,
+        acq_point_period=None,
+        acq_mode=AcqMode.IntTrigMulti,
+        prepare_once=True,
+        start_once=True,
+    ):
         name = type(device).__name__
         self._connected = False
         self.acq_expo_time = acq_expo_time
@@ -41,9 +50,12 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         else:
             trigger_type = self.HARDWARE
         self.use_internal_clock = acq_mode == AcqMode.IntTrigSingle
-        kwargs = dict(npoints=npoints, prepare_once=prepare_once,
-                      start_once=prepare_once,
-                      trigger_type=trigger_type)
+        kwargs = dict(
+            npoints=npoints,
+            prepare_once=prepare_once,
+            start_once=prepare_once,
+            trigger_type=trigger_type,
+        )
         super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
 
     def __on_event(self, value, signal):
@@ -81,8 +93,10 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         self.device.prepare_acq()
 
     def start(self):
-        if(self.parent is None or # top master
-           self.trigger_type == AcquisitionMaster.HARDWARE):
+        if (
+            self.parent is None
+            or self.trigger_type == AcquisitionMaster.HARDWARE  # top master
+        ):
             self.trigger()
 
     def stop(self):

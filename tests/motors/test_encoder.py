@@ -8,16 +8,20 @@
 import pytest
 import time
 
+
 def test_get_encoder(m0, m1enc, m1):
     assert m1enc.steps_per_unit == 50
     assert m0.encoder == None
     assert m1.encoder == m1enc
 
+
 def test_encoder_read(m1, m1enc):
-    assert m1enc.read() == m1.dial()/m1enc.steps_per_unit
+    assert m1enc.read() == m1.dial() / m1enc.steps_per_unit
+
 
 def test_encoder_set(m1enc):
     assert m1enc.set(133) == 133
+
 
 def test_axis_get_noisy_measured_position(m1):
     try:
@@ -28,14 +32,16 @@ def test_axis_get_noisy_measured_position(m1):
         # switch back to normal mode.
         m1.custom_set_measured_noise(0.0)
 
+
 def test_tolerance(m1enc):
     assert m1enc.tolerance == 0.001
-    
+
+
 def test_maxee(m1):
-    #m1enc.read() #make sure encoder is initialized
+    # m1enc.read() #make sure encoder is initialized
     try:
         m1.custom_set_measured_noise(0.1)
-    
+
         with pytest.raises(RuntimeError):
             m1.move(5)
     finally:
@@ -44,8 +50,8 @@ def test_maxee(m1):
     m1.encoder.set(2)
     m1.move(2)
     assert m1.position() == 2
-    
+
+
 def test_move(m1):
     m1.move(5)
     assert m1.position() == pytest.approx(m1.encoder.read())
-

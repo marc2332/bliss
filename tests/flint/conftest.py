@@ -10,18 +10,18 @@ from bliss.common import plot
 from bliss.common import subprocess
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def xvfb():
-    xvfb = find_executable('Xvfb')
+    xvfb = find_executable("Xvfb")
     # Xvfb not found
     if xvfb is None:
         yield
         return
     # Control DISPLAY variable
     try:
-        display = os.environ.get('DISPLAY')
-        new_display = ':{}'.format(randint(100, 1000000000))
-        os.environ['DISPLAY'] = new_display
+        display = os.environ.get("DISPLAY")
+        new_display = ":{}".format(randint(100, 1000000000))
+        os.environ["DISPLAY"] = new_display
         # Control xvbf process
         try:
             p = subprocess.Popen([xvfb, new_display])
@@ -33,7 +33,7 @@ def xvfb():
     # Restore DISPLAY variable
     finally:
         if display:
-            os.environ['DISPLAY'] = display
+            os.environ["DISPLAY"] = display
 
 
 @contextmanager

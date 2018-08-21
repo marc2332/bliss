@@ -30,21 +30,18 @@ _SESSION_IMPORTERS = set()
 
 
 class _StringImporter(object):
-    BASE_MODULE_NAMESPACE = 'bliss.session'
+    BASE_MODULE_NAMESPACE = "bliss.session"
 
     def __init__(self, path, session_name, in_load_script=False):
         self._modules = dict()
-        session_module_namespace = '%s.%s' % (self.BASE_MODULE_NAMESPACE,
-                                              session_name)
+        session_module_namespace = "%s.%s" % (self.BASE_MODULE_NAMESPACE, session_name)
         for module_name, file_path in get_python_modules(path):
-            self._modules['%s.%s' %
-                          (session_module_namespace, module_name)] = file_path
+            self._modules["%s.%s" % (session_module_namespace, module_name)] = file_path
             if in_load_script:
                 self._modules[module_name] = file_path
         if self._modules:
             self._modules[self.BASE_MODULE_NAMESPACE] = None
-            self._modules['%s.%s' %
-                          (self.BASE_MODULE_NAMESPACE, session_name)] = None
+            self._modules["%s.%s" % (self.BASE_MODULE_NAMESPACE, session_name)] = None
 
     def find_module(self, fullname, path):
         if fullname in self._modules:
@@ -59,23 +56,22 @@ class _StringImporter(object):
         if filename:
             s_code = get_config_file(filename)
         else:
-            filename = '%s (__init__ memory)' % fullname
-            s_code = ''         # empty __init__.py
+            filename = "%s (__init__ memory)" % fullname
+            s_code = ""  # empty __init__.py
 
-        new_module = sys.modules.get(fullname,
-                                     ModuleType(fullname))
+        new_module = sys.modules.get(fullname, ModuleType(fullname))
         new_module.__loader__ = self
-        module_filename = 'beacon://%s' % filename
+        module_filename = "beacon://%s" % filename
         new_module.__file__ = module_filename
         new_module.__name__ = fullname
-        if filename.find('__init__') > -1:
+        if filename.find("__init__") > -1:
             new_module.__path__ = []
             new_module.__package__ = fullname
         else:
-            new_module.__package__ = fullname.rpartition('.')[0]
+            new_module.__package__ = fullname.rpartition(".")[0]
         sys.modules.setdefault(fullname, new_module)
-        c_code = compile(s_code, module_filename, 'exec')
-        exec(c_code, new_module.__dict__)
+        c_code = compile(s_code, module_filename, "exec")
+        exec (c_code, new_module.__dict__)
         return new_module
 
     def get_source(self, fullname):
@@ -83,7 +79,8 @@ class _StringImporter(object):
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
-        return get_config_file(filename) if filename else ''
+        return get_config_file(filename) if filename else ""
+
 
 def load_script(env_dict, script_module_name, session=None):
     """
@@ -103,32 +100,37 @@ def load_script(env_dict, script_module_name, session=None):
         session = static.get_config().get(session)
 
     if session._scripts_module_path:
-        importer = _StringImporter(session._scripts_module_path, session.name, in_load_script=True)
+        importer = _StringImporter(
+            session._scripts_module_path, session.name, in_load_script=True
+        )
         try:
             sys.meta_path.insert(0, importer)
 
-            module_name = '%s.%s.%s' % (_StringImporter.BASE_MODULE_NAMESPACE,
-                                        session.name,
-                                        os.path.splitext(script_module_name)[0])
+            module_name = "%s.%s.%s" % (
+                _StringImporter.BASE_MODULE_NAMESPACE,
+                session.name,
+                os.path.splitext(script_module_name)[0],
+            )
             filename = importer._modules.get(module_name)
             if not filename:
                 raise RuntimeError("Cannot find module %s" % module_name)
 
             s_code = get_config_file(filename)
-            c_code = compile(s_code, filename, 'exec')
+            c_code = compile(s_code, filename, "exec")
 
             globals_dict = env_dict.copy()
             try:
-                exec(c_code, globals_dict)
+                exec (c_code, globals_dict)
             except Exception:
                 sys.excepthook(*sys.exc_info())
         finally:
             sys.meta_path.remove(importer)
 
     for k in globals_dict.iterkeys():
-        if k.startswith('_'):
+        if k.startswith("_"):
             continue
         env_dict[k] = globals_dict[k]
+
 
 class Session(object):
     """
@@ -172,6 +174,7 @@ class Session(object):
        synoptic:
          svg-file: super_mario.svg
     """
+
     def __init__(self, name, config_tree):
         self.__name = name
         self.__config = static.get_config()
@@ -181,7 +184,9 @@ class Session(object):
 
     def init(self, config_tree):
         try:
-            self.__scripts_module_path = os.path.normpath(os.path.join(os.path.dirname(config_tree.filename), "scripts"))
+            self.__scripts_module_path = os.path.normpath(
+                os.path.join(os.path.dirname(config_tree.filename), "scripts")
+            )
         except AttributeError:
             # config_tree has no .filename
             self.__scripts_module_path = None
@@ -192,12 +197,15 @@ class Session(object):
             self.__setup_file = None
         else:
             try:
-                self.__setup_file = os.path.normpath(os.path.join(
-                    os.path.dirname(config_tree.filename), setup_file_path))
+                self.__setup_file = os.path.normpath(
+                    os.path.join(os.path.dirname(config_tree.filename), setup_file_path)
+                )
             except TypeError:
                 self.__setup_file = None
             else:
-                self.__scripts_module_path = os.path.join(os.path.dirname(self.__setup_file), "scripts")
+                self.__scripts_module_path = os.path.join(
+                    os.path.dirname(self.__setup_file), "scripts"
+                )
 
         try:
             self.__synoptic_file = config_tree.get("synoptic").get("svg-file")
@@ -208,7 +216,7 @@ class Session(object):
         self.__exclude_objects_names = config_tree.get("exclude-objects", list())
         self.__objects_names = None
         self.__children_tree = None
-        self.__include_sessions = config_tree.get('include-sessions')
+        self.__include_sessions = config_tree.get("include-sessions")
 
     @property
     def name(self):
@@ -235,31 +243,37 @@ class Session(object):
         if self.__objects_names is None:
             names_list = list()
             sessions_tree = self.sessions_tree
-            for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
+            for child_session in reversed(
+                list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]
+            ):
                 names_list.extend(child_session.object_names)
 
             if self.__config_objects_names is None:
                 names_list = list()
                 for name in self.config.names_list:
                     cfg = self.config.get_config(name)
-                    if cfg.get('class', '').lower() == 'session':
-                      continue
-                    if cfg.get_inherited('plugin') == 'default':
-                      continue
+                    if cfg.get("class", "").lower() == "session":
+                        continue
+                    if cfg.get_inherited("plugin") == "default":
+                        continue
                     names_list.append(name)
             else:
                 names_list.extend(self.__config_objects_names[:])
-                #Check if other session in config-objects
+                # Check if other session in config-objects
                 for name in names_list:
                     object_config = self.config.get_config(name)
                     if object_config is None:
-                        raise RuntimeError("Session %s contains object %s which doesn't exist" %
-                                           (self.name, name))
+                        raise RuntimeError(
+                            "Session %s contains object %s which doesn't exist"
+                            % (self.name, name)
+                        )
 
-                    class_name = object_config.get('class', '')
-                    if class_name.lower() == 'session':
-                        raise RuntimeError('Session %s contains session %s in config-objects' %
-                                           (self.name, name))
+                    class_name = object_config.get("class", "")
+                    if class_name.lower() == "session":
+                        raise RuntimeError(
+                            "Session %s contains session %s in config-objects"
+                            % (self.name, name)
+                        )
 
             for name in self.__exclude_objects_names:
                 try:
@@ -267,8 +281,9 @@ class Session(object):
                 except (ValueError, AttributeError):
                     pass
             seen = set()
-            self.__objects_names = [x for x in names_list\
-                                    if not (x in seen or seen.add(x))]
+            self.__objects_names = [
+                x for x in names_list if not (x in seen or seen.add(x))
+            ]
 
         return self.__objects_names
 
@@ -278,16 +293,19 @@ class Session(object):
         return children session as a tree
         """
         if self.__children_tree is None:
-            children = {self.name : (1, list())}
+            children = {self.name: (1, list())}
             tree = Tree()
             tree.create_node(tag=self.name, identifier=self)
             tree = self._build_children_tree(tree, self, children)
-            multiple_ref_child = [(name, parents) for name, (ref, parents) in \
-                                  children.items() if ref > 1]
+            multiple_ref_child = [
+                (name, parents) for name, (ref, parents) in children.items() if ref > 1
+            ]
             if multiple_ref_child:
                 msg = "Session %s as cyclic references to sessions:\n" % self.name
-                msg += '\n'.join('session %s is referenced in %r' % (session_name, parents)\
-                                 for session_name, parents in multiple_ref_child)
+                msg += "\n".join(
+                    "session %s is referenced in %r" % (session_name, parents)
+                    for session_name, parents in multiple_ref_child
+                )
                 raise RuntimeError(msg)
             self.__children_tree = tree
         return self.__children_tree
@@ -303,8 +321,9 @@ class Session(object):
                     continue
 
                 child = self.config.get(session_name)
-                child_node = tree.create_node(tag=session_name,
-                                              identifier=child, parent=parent)
+                child_node = tree.create_node(
+                    tag=session_name, identifier=child, parent=parent
+                )
                 child._build_children_tree(tree, child, children)
         return tree
 
@@ -316,7 +335,8 @@ class Session(object):
         if env_dict is None:
             # does Python run in interactive mode?
             import __main__ as main
-            if not hasattr(main, '__file__'):
+
+            if not hasattr(main, "__file__"):
                 # interactive interpreter
                 self.__env_dict = main.__dict__
             else:
@@ -334,20 +354,28 @@ class Session(object):
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
-        if not 'load_script' in env_dict:
-            env_dict['load_script'] = functools.partial(load_script, env_dict)
+        if not "load_script" in env_dict:
+            env_dict["load_script"] = functools.partial(load_script, env_dict)
 
             from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
-            env_dict['SCANS'] = SCANS
-            env_dict['SCAN_SAVING'] = ScanSaving()
-            env_dict['SCAN_DISPLAY'] = ScanDisplay()
+
+            env_dict["SCANS"] = SCANS
+            env_dict["SCAN_SAVING"] = ScanSaving()
+            env_dict["SCAN_DISPLAY"] = ScanDisplay()
             from bliss.common.measurementgroup import ACTIVE_MG
-            env_dict['ACTIVE_MG'] = ACTIVE_MG
+
+            env_dict["ACTIVE_MG"] = ACTIVE_MG
 
         sessions_tree = self.sessions_tree
-        for child_session in reversed(list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]):
+        for child_session in reversed(
+            list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]
+        ):
             if child_session.name not in _SESSION_IMPORTERS:
-                sys.meta_path.append(_StringImporter(child_session._scripts_module_path, child_session.name))
+                sys.meta_path.append(
+                    _StringImporter(
+                        child_session._scripts_module_path, child_session.name
+                    )
+                )
             _SESSION_IMPORTERS.add(self.name)
 
             child_session._setup(env_dict)
@@ -362,17 +390,16 @@ class Session(object):
             return
 
         try:
-            with get_file({"setup_file": self.setup_file}, 'setup_file') as setup_file:
-                code = compile(setup_file.read(), self.setup_file, 'exec')
-                exec(code, env_dict)
+            with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
+                code = compile(setup_file.read(), self.setup_file, "exec")
+                exec (code, env_dict)
 
                 for obj_name, obj in env_dict.iteritems():
                     setattr(setup_globals, obj_name, obj)
 
                 return True
         except IOError:
-            raise ValueError("Session: setup-file %s cannot be found" %
-                             self.setup_file)
+            raise ValueError("Session: setup-file %s cannot be found" % self.setup_file)
 
     def close(self):
         if get_current() is self:
@@ -432,8 +459,9 @@ class Session(object):
 
 class DefaultSession(Session):
     def __init__(self):
-        Session.__init__(self, "default", {"exclude-objects":
-                                           static.get_config().names_list})
+        Session.__init__(
+            self, "default", {"exclude-objects": static.get_config().names_list}
+        )
 
     def _load_config(self, env_dict, verbose=True):
         return

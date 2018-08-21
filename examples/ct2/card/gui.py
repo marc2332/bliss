@@ -25,8 +25,8 @@ _FMT = """\
 <span>%(message)s</span>\
 """
 
-class Handler(logging.Handler):
 
+class Handler(logging.Handler):
     def __init__(self, *args, **kwargs):
         self.__log_widget = kwargs.pop("widget")
         logging.Handler.__init__(self, *args, **kwargs)
@@ -46,7 +46,6 @@ class Handler(logging.Handler):
 
 
 class Label(Qt.QLabel):
-
     def __init__(self, *args, **kargs):
         super(Label, self).__init__(*args, **kargs)
         f = self.font()
@@ -93,19 +92,18 @@ class CtPanel(Qt.QWidget):
             for row in range(row_nb):
                 lbl = layout.itemAtPosition(row, self.LatchColumn).widget()
                 lbl.setText("{0}".format(latches[row]))
-    
+
     def getStartCounters(self):
         layout = self.layout()
         result = []
         for row in range(layout.rowCount()):
             cb = layout.itemAtPosition(row, self.SoftwareStart).widget()
             if cb.isChecked():
-                result.append(row+1)
+                result.append(row + 1)
         return result
 
 
 class CT2Window(Qt.QMainWindow):
-
     def __init__(self, *args, **kwargs):
         self.__card = None
         self.__console = None
@@ -113,7 +111,7 @@ class CT2Window(Qt.QMainWindow):
         refresh = kwargs.pop("refresh", 0)
 
         super(CT2Window, self).__init__(*args, **kwargs)
-        
+
         widget = Qt.QWidget(self)
         self.setCentralWidget(widget)
         layout = Qt.QGridLayout(widget)
@@ -159,7 +157,7 @@ class CT2Window(Qt.QMainWindow):
         self.__exclusive = tb.addAction(icon, "exclusive access")
         self.__exclusive.setCheckable(True)
         self.__exclusive.toggled.connect(self.__onExclusive)
-        
+
         self.__reconfig = tb.addAction(icon, "reconfig")
         self.__reconfig.triggered.connect(self.__onReconfigure)
 
@@ -190,7 +188,7 @@ class CT2Window(Qt.QMainWindow):
         else:
             counters = len(card.COUNTERS)
             title = "ct2 - {0} ({1})".format(card.name, card.address)
-            # Only add console after the card has been added 
+            # Only add console after the card has been added
             # in order for it to have the card as local
             if self.__console is None and pyqtconsole:
                 self.__addConsole()
@@ -205,7 +203,7 @@ class CT2Window(Qt.QMainWindow):
         if period < 0.001:
             self.__refresh_timer.stop()
         else:
-            self.__refresh_timer.start(int(period*1000))
+            self.__refresh_timer.start(int(period * 1000))
 
     def __onRefresh(self):
         if self.__card is None:
@@ -216,8 +214,14 @@ class CT2Window(Qt.QMainWindow):
 
     def __updateGUIStatus(self):
         enable = not self.__card is None
-        for w in (self.__start, self.__stop, self.__software_reset,
-                  self.__reset, self.__exclusive, self.__reconfig):
+        for w in (
+            self.__start,
+            self.__stop,
+            self.__software_reset,
+            self.__reset,
+            self.__exclusive,
+            self.__reconfig,
+        ):
             w.setEnabled(enable)
         if self.__card:
             self.__exclusive.setChecked(self.__card.has_exclusive_access())
@@ -237,10 +241,10 @@ class CT2Window(Qt.QMainWindow):
 
     def __onSoftwareReset(self):
         self.__card.software_reset()
-    
+
     def __onReset(self):
         self.__card.reset()
-    
+
     def __onExclusive(self, exclusive):
         if exclusive:
             self.__card.request_exclusive_access()
@@ -270,6 +274,7 @@ def get_config(reload=False):
         return cfg
     except NameError:
         from bliss.config.static import get_config
+
         __config = get_config()
     return __config
 
@@ -287,18 +292,24 @@ def GUI():
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description='ct2 GUI')
-    parser.add_argument('--card', type=str, default='p201',
-                        help='name of the card in the configuration')
-    parser.add_argument('--log-level', type=str, default='info',
-                        help='log level (debug, info, warning, error) [default: info]')
-    parser.add_argument('--refresh', type=float, default=0.2,
-                        help='refresh period (s)')
+    parser = argparse.ArgumentParser(description="ct2 GUI")
+    parser.add_argument(
+        "--card", type=str, default="p201", help="name of the card in the configuration"
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="info",
+        help="log level (debug, info, warning, error) [default: info]",
+    )
+    parser.add_argument("--refresh", type=float, default=0.2, help="refresh period (s)")
 
     args = parser.parse_args()
 
-    logging.basicConfig(level=getattr(logging, args.log_level.upper()),
-                        format="%(asctime)s %(levelname)s %(name)s: %(message)s")    
+    logging.basicConfig(
+        level=getattr(logging, args.log_level.upper()),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
 
     app = Qt.QApplication([])
     window = CT2Window()

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 
+#
 # This file is part of the bliss project
 #
 # Copyright (c) 2016 Beamline Control Unit, ESRF
@@ -9,7 +9,7 @@
 This module defines the SpecReply class
 """
 
-REPLY_ID_LIMIT = 2**30
+REPLY_ID_LIMIT = 2 ** 30
 current_id = 0
 
 
@@ -25,6 +25,7 @@ class SpecReply:
     Signals:
     replyFromSpec(self) - - emitted on update
     """
+
     def __init__(self):
         """Constructor."""
         self.data = None

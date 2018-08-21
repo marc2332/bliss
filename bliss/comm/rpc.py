@@ -79,12 +79,30 @@ from bliss.common import zerorpc
 from bliss.common.utils import StripIt
 
 
-SPECIAL_METHODS = set((
-    'new', 'init', 'del', 'hash', 'class', 'dict', 'sizeof', 'weakref',
-    'metaclass', 'subclasshook',
-    'getattr', 'setattr', 'delattr', 'getattribute',
-    'instancecheck', 'subclasscheck',
-    'reduce', 'reduce_ex', 'getstate', 'setstate'))
+SPECIAL_METHODS = set(
+    (
+        "new",
+        "init",
+        "del",
+        "hash",
+        "class",
+        "dict",
+        "sizeof",
+        "weakref",
+        "metaclass",
+        "subclasshook",
+        "getattr",
+        "setattr",
+        "delattr",
+        "getattribute",
+        "instancecheck",
+        "subclasscheck",
+        "reduce",
+        "reduce_ex",
+        "getstate",
+        "setstate",
+    )
+)
 
 
 class ServerError(Exception):
@@ -98,49 +116,50 @@ def _discover_object(obj):
         info = dict(name=name, doc=inspect.getdoc(member))
         if callable(member):
             if inspect.ismethod(member) and member.__self__ == otype:
-                member_type = 'classmethod'
+                member_type = "classmethod"
             elif inspect.isfunction(member):
-                member_type = 'staticmethod'
+                member_type = "staticmethod"
             else:
-                member_type = 'method'
+                member_type = "method"
         elif inspect.isdatadescriptor(member):
-            member_type = 'attribute'
+            member_type = "attribute"
         else:
-            member_type = 'attribute'
-            info['doc'] = None
-        info['type'] = member_type
+            member_type = "attribute"
+            info["doc"] = None
+        info["type"] = member_type
         members[name] = info
 
     for name in dir(obj):
-        if name.startswith('__') or name in members:
+        if name.startswith("__") or name in members:
             continue
         member = getattr(obj, name)
         info = dict(name=name, doc=inspect.getdoc(member))
         if callable(member):
-            member_type = 'method'
+            member_type = "method"
         else:
-            member_type = 'attribute'
-            info['doc'] = None
-        info['type'] = member_type
+            member_type = "attribute"
+            info["doc"] = None
+        info["type"] = member_type
         members[name] = info
 
-    return dict(name=otype.__name__,
-                module=inspect.getmodule(obj).__name__,
-                doc=inspect.getdoc(obj),
-                members=members)
+    return dict(
+        name=otype.__name__,
+        module=inspect.getmodule(obj).__name__,
+        doc=inspect.getdoc(obj),
+        members=members,
+    )
 
 
 class _ServerObject(object):
-
     def __init__(self, obj):
         self._object = obj
-        self._log = logging.getLogger('zerorpc.' + type(obj).__name__)
+        self._log = logging.getLogger("zerorpc." + type(obj).__name__)
         self._metadata = _discover_object(obj)
 
     def __dir__(self):
-        result = ['zerorpc_call__']
-        for name, info in self._metadata['members'].items():
-            if 'method' in info['type']:
+        result = ["zerorpc_call__"]
+        for name, info in self._metadata["members"].items():
+            if "method" in info["type"]:
                 result.append(name)
         return result
 
@@ -148,35 +167,34 @@ class _ServerObject(object):
         return getattr(self._object, name)
 
     def zerorpc_call__(self, code, args, kwargs):
-        if code == 'introspect':
+        if code == "introspect":
             self._log.debug("zerorpc 'introspect'")
             return self._metadata
         else:
             name = args[0]
-            if code == 'call':
+            if code == "call":
                 value = getattr(self._object, name)(*args[1:], **kwargs)
                 self._log.debug("zerorpc call %s() = %r", name, StripIt(value))
                 return value
-            elif code == 'getattr':
+            elif code == "getattr":
                 value = getattr(self._object, name)
                 self._log.debug("zerorpc get %s = %r", name, StripIt(value))
                 return value
-            elif code == 'setattr':
+            elif code == "setattr":
                 value = args[1]
                 self._log.debug("zerorpc set %s = %r", name, StripIt(value))
                 return setattr(self._object, name, value)
-            elif code == 'delattr':
+            elif code == "delattr":
                 self._log.debug("zerorpc del %s", name)
                 return delattr(self._object, name)
             else:
-                raise ServerError('Unknown call type {0!r}'.format(code))
+                raise ServerError("Unknown call type {0!r}".format(code))
 
 
 class _StreamServerObject(_ServerObject):
-
     def __init__(self, obj):
         super(_StreamServerObject, self).__init__(obj)
-        self._metadata['stream'] = True
+        self._metadata["stream"] = True
         self._streams = weakref.WeakSet()
         self._dispatchers = weakref.WeakSet()
 
@@ -193,11 +211,11 @@ class _StreamServerObject(_ServerObject):
             if message is None:
                 break
             signal, value = message
-            debug('streaming signal=%r value=%s', signal, StripIt(value))
+            debug("streaming signal=%r value=%s", signal, StripIt(value))
             yield message
 
     def __dir__(self):
-        return super(_StreamServerObject, self).__dir__() + ['zerorpc_stream__']
+        return super(_StreamServerObject, self).__dir__() + ["zerorpc_stream__"]
 
     def close(self):
         for dispatcher in self._dispatchers:
@@ -233,25 +251,32 @@ def Server(obj, stream=False, **kwargs):
 
 # Client code
 
+
 def _property(name, doc):
     def fget(self):
-        return self._client.zerorpc_call__('getattr', (name,), {})
+        return self._client.zerorpc_call__("getattr", (name,), {})
+
     def fset(self, value):
-        self._client.zerorpc_call__('setattr', (name, value), {})
+        self._client.zerorpc_call__("setattr", (name, value), {})
+
     def fdel(self):
-        return self._client.zerorpc_call__('delattr', (name,), {})
+        return self._client.zerorpc_call__("delattr", (name,), {})
+
     return property(fget=fget, fset=fset, fdel=fdel, doc=doc)
 
 
 def _method(name, doc):
-    if name == '__dir__':
+    if name == "__dir__":
         # need to handle __dir__ to make sure it returns a list, not a tuple
         def method(self):
-            return list(self._client.zerorpc_call__('call', [name], {}))
+            return list(self._client.zerorpc_call__("call", [name], {}))
+
     else:
+
         def method(self, *args, **kwargs):
             args = [name] + list(args)
-            return self._client.zerorpc_call__('call', args, kwargs)
+            return self._client.zerorpc_call__("call", args, kwargs)
+
     method.__name__ = name
     method.__doc__ = doc
     return method
@@ -260,7 +285,8 @@ def _method(name, doc):
 def _static_method(client, name, doc):
     def method(*args, **kwargs):
         args = [name] + list(args)
-        return client.zerorpc_call__('call', args, kwargs)
+        return client.zerorpc_call__("call", args, kwargs)
+
     method.__name__ = name
     method.__doc__ = doc
     return staticmethod(method)
@@ -269,21 +295,22 @@ def _static_method(client, name, doc):
 def _class_method(client, name, doc):
     def method(cls, *args, **kwargs):
         args = [name] + list(args)
-        return client.zerorpc_call__('call', args, kwargs)
+        return client.zerorpc_call__("call", args, kwargs)
+
     method.__name__ = name
     method.__doc__ = doc
     return classmethod(method)
 
 
 def _member(client, member_info):
-    name, mtype, doc = info['name'], info['type'], info['doc']
-    if mtype == 'attribute':
+    name, mtype, doc = info["name"], info["type"], info["doc"]
+    if mtype == "attribute":
         members[name] = _property(name, doc)
-    elif mtype == 'method':
+    elif mtype == "method":
         members[name] = _method(name, doc)
-    elif mtype == 'staticmethod':
+    elif mtype == "staticmethod":
         members[name] = _static_method(client, name, doc)
-    elif mtype == 'classmethod':
+    elif mtype == "classmethod":
         members[name] = _class_method(client, name, doc)
 
 
@@ -298,42 +325,45 @@ def Client(address, **kwargs):
 
     It accepts the same keyword arguments as :class:`zerorpc.Client`.
     """
-    kwargs['connect_to'] = address
+    kwargs["connect_to"] = address
     client = zerorpc.Client(**kwargs)
-    metadata = client.zerorpc_call__('introspect', (), {})
-    client._log = logging.getLogger('zerorpc.' + metadata['name'])
-    stream = metadata.get('stream', False)
+    metadata = client.zerorpc_call__("introspect", (), {})
+    client._log = logging.getLogger("zerorpc." + metadata["name"])
+    stream = metadata.get("stream", False)
     members = dict(_client=client)
 
-    for name, info in metadata['members'].items():
-        if name.startswith('__') and name[2:-2] in SPECIAL_METHODS:
+    for name, info in metadata["members"].items():
+        if name.startswith("__") and name[2:-2] in SPECIAL_METHODS:
             continue
-        name, mtype, doc = info['name'], info['type'], info['doc']
-        if mtype == 'attribute':
+        name, mtype, doc = info["name"], info["type"], info["doc"]
+        if mtype == "attribute":
             members[name] = _property(name, doc)
-        elif mtype == 'method':
+        elif mtype == "method":
             members[name] = _method(name, doc)
-        elif mtype == 'staticmethod':
+        elif mtype == "staticmethod":
             members[name] = _static_method(client, name, doc)
-        elif mtype == 'classmethod':
+        elif mtype == "classmethod":
             members[name] = _class_method(client, name, doc)
 
     def close(self):
         self._client.close()
-        if hasattr(self._client, '_stream_task'):
+        if hasattr(self._client, "_stream_task"):
             self._client._stream_task.kill()
-    members['close'] = close
 
-    klass = type(metadata['name'], (object,), members)
+    members["close"] = close
+
+    klass = type(metadata["name"], (object,), members)
     proxy = klass()
 
     if stream:
+
         def stream_task_ended(task):
             if task.exception:
-                client._log.warning('stream task terminated in error: %s',
-                                    task.exception)
+                client._log.warning(
+                    "stream task terminated in error: %s", task.exception
+                )
             else:
-                client._log.debug('stream task terminated')
+                client._log.debug("stream task terminated")
 
         def dispatch(proxy):
             while True:
@@ -341,9 +371,12 @@ def Client(address, **kwargs):
                     if signal is None:
                         continue
                     client._log.debug(
-                        'dispatching stream event signal=%r value=%r',
-                        signal, StripIt(value))
+                        "dispatching stream event signal=%r value=%r",
+                        signal,
+                        StripIt(value),
+                    )
                     louie.send(signal, proxy, value)
+
         client._stream_task = gevent.spawn(dispatch, proxy)
         client._stream_task.link(stream_task_ended)
     return proxy

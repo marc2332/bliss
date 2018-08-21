@@ -40,14 +40,12 @@ from .scpi import SCPI
 
 
 class PI(SCPI):
-
     def __init__(self, *args, **kwargs):
         super(PI, self).__init__(*args, **kwargs)
-        self._manufacturer = '(c)2013 Physik Instrumente(PI) Karlsruhe'
+        self._manufacturer = "(c)2013 Physik Instrumente(PI) Karlsruhe"
 
 
 class PIAxis(object):
-
     def __init__(self, pi, channel=None):
         self._pi = weakref.ref(pi)
         self._channel = channel
@@ -61,11 +59,11 @@ class PIAxis(object):
 
     @property
     def pos(self):
-        return '  {0}'.format(self.__pos)
+        return "  {0}".format(self.__pos)
 
     @property
     def mov(self):
-        return '  {0}'.format(self.__set_mov)
+        return "  {0}".format(self.__set_mov)
 
     @mov.setter
     def mov(self, new_pos):
@@ -74,7 +72,7 @@ class PIAxis(object):
 
     @property
     def sva(self):
-        return '  {0}'.format(self.__set_sva)
+        return "  {0}".format(self.__set_sva)
 
     @sva.setter
     def sva(self, new_pos):
@@ -83,11 +81,11 @@ class PIAxis(object):
 
     @property
     def vol(self):
-        return 'VOL={0}'.format(self.__vol)
+        return "VOL={0}".format(self.__vol)
 
     @property
     def svo(self):
-        return '  {0}'.format(self.__svo)
+        return "  {0}".format(self.__svo)
 
     @svo.setter
     def svo(self, yesno):
@@ -95,7 +93,7 @@ class PIAxis(object):
 
     @property
     def ont(self):
-        return '  {0}'.format(self.__ont)
+        return "  {0}".format(self.__ont)
 
     def cto(self, *args):
         self.__cto = args
@@ -108,15 +106,15 @@ class PI_E712(PI):
     """
 
     def __init__(self, name, axes=None, **opts):
-        model = opts.pop('model', 'E-712.3CD')
+        model = opts.pop("model", "E-712.3CD")
         super(PI_E712, self).__init__(name, **opts)
         self._model = model
         axes_dict = {}
         if axes is None:
-            n = 3 if '3C' in model else 6
-            axes = [dict(channel=c) for c in range(1, n+1)]
+            n = 3 if "3C" in model else 6
+            axes = [dict(channel=c) for c in range(1, n + 1)]
         for axis in axes:
-            axes_dict[axis['channel']] = PIAxis(self, **axis)
+            axes_dict[axis["channel"]] = PIAxis(self, **axis)
         self._axes = axes_dict
         for k, v in opts.items():
             setattr(self, "_" + k, v)
@@ -146,5 +144,4 @@ class PI_E712(PI):
         return self._axes[int(channel)].ont
 
     def cto(self, channel, trig_mode, min_threshold, max_threshold, polarity):
-        self._axes[int(channel)].cto(trig_mode, min_threshold,
-                                     max_threshold, polarity)
+        self._axes[int(channel)].cto(trig_mode, min_threshold, max_threshold, polarity)

@@ -28,11 +28,12 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 TEN_KHz = 10000
-ERROR_MARGIN = 10E-2   # 100ms
+ERROR_MARGIN = 10E-2  # 100ms
 
 
 class EventReceiver(object):
     """Context manager which accumulates data"""
+
     def __init__(self, device):
         self.device = device
         self.finish = Event()
@@ -55,7 +56,7 @@ class EventReceiver(object):
         dispatcher.disconnect(self, sender=self.device)
 
 
-@pytest.fixture(params=[1, 10, 100], ids=['1 point', '10 points', '100 points'])
+@pytest.fixture(params=[1, 10, 100], ids=["1 point", "10 points", "100 points"])
 def device(request, beacon):
     """
     Requirements to run this fixture:
@@ -64,7 +65,7 @@ def device(request, beacon):
     software: Running bliss-ct2-server on tcp::/lid00c:8909
     """
     beacon.reload()
-    device = beacon.get('p201')
+    device = beacon.get("p201")
     device.timer_freq = 12.5E6
     device.acq_nb_points = request.param
     yield device
@@ -97,7 +98,7 @@ def data_tests(device, expected_data):
 def soft_trigger_points(device, n, period):
     i, start = 0, time.time()
     while i < n:
-        sleep((start + (i+1)*period) - time.time())
+        sleep((start + (i + 1) * period) - time.time())
         device.trigger_point()
         i += 1
 
@@ -129,7 +130,7 @@ def test_internal_trigger_single(device):
     device.acq_mode = AcqMode.IntTrigSingle
     device.acq_expo_time = expo_time
     device.acq_point_period = point_period
-    device.acq_channels = 3,
+    device.acq_channels = (3,)
 
     with EventReceiver(device) as receiver:
         device.prepare_acq()
@@ -142,8 +143,9 @@ def test_internal_trigger_single(device):
 
     timer_ticks = int(freq * expo_time)
     ch_3_value = int(TEN_KHz * expo_time)
-    expected_data = numpy.array([(ch_3_value, timer_ticks, i)
-                                 for i in range(nb_points)])
+    expected_data = numpy.array(
+        [(ch_3_value, timer_ticks, i) for i in range(nb_points)]
+    )
     data_tests(device, expected_data)
 
 
@@ -159,7 +161,7 @@ def test_internal_trigger_single_stop_acq(device):
     device.acq_mode = AcqMode.IntTrigSingle
     device.acq_expo_time = expo_time
     device.acq_point_period = point_period
-    device.acq_channels = 3,
+    device.acq_channels = (3,)
 
     expected_elapsed = nb_points * point_period
 
@@ -202,14 +204,15 @@ def test_internal_trigger_multi(device):
     device.acq_mode = AcqMode.IntTrigMulti
     device.acq_expo_time = expo_time
     device.acq_point_period = None
-    device.acq_channels = 3,
+    device.acq_channels = (3,)
     nb_triggers = nb_points - 1
 
     with EventReceiver(device) as receiver:
         device.prepare_acq()
         device.start_acq()
-        trigger_task = spawn(soft_trigger_points, device,
-                             nb_triggers, soft_point_period)
+        trigger_task = spawn(
+            soft_trigger_points, device, nb_triggers, soft_point_period
+        )
         receiver.finish.wait()
 
     assert trigger_task.ready()
@@ -221,8 +224,9 @@ def test_internal_trigger_multi(device):
 
     timer_ticks = int(freq * expo_time)
     ch_3_value = int(TEN_KHz * expo_time)
-    expected_data = numpy.array([(ch_3_value, timer_ticks, i)
-                                 for i in range(nb_points)])
+    expected_data = numpy.array(
+        [(ch_3_value, timer_ticks, i) for i in range(nb_points)]
+    )
     data_tests(device, expected_data)
 
 
@@ -248,14 +252,15 @@ def test_software_trigger_readout(device):
     device.acq_mode = AcqMode.SoftTrigReadout
     device.acq_expo_time = expo_time
     device.acq_point_period = None
-    device.acq_channels = 3,
+    device.acq_channels = (3,)
     nb_triggers = nb_points
 
     with EventReceiver(device) as receiver:
         device.prepare_acq()
         device.start_acq()
-        trigger_task = spawn(soft_trigger_points, device,
-                             nb_triggers, soft_point_period)
+        trigger_task = spawn(
+            soft_trigger_points, device, nb_triggers, soft_point_period
+        )
         receiver.finish.wait()
 
     assert trigger_task.ready()
@@ -267,6 +272,7 @@ def test_software_trigger_readout(device):
 
     timer_ticks = int(freq * soft_point_period)
     ch_3_value = int(TEN_KHz * soft_point_period)
-    expected_data = numpy.array([(ch_3_value, timer_ticks, i)
-                                 for i in range(nb_points)])
+    expected_data = numpy.array(
+        [(ch_3_value, timer_ticks, i) for i in range(nb_points)]
+    )
     data_tests(device, expected_data)

@@ -64,56 +64,57 @@ from bliss.controllers.motor import Controller
 #   position persistently (like the IcePAP does)
 # * Rotary and linear positioners have different ways to get position
 
+
 @enum.unique
 class SensorType(enum.IntEnum):
-    S = 1       # linear positioner with nano sensor
-    SR = 2      # rotary positioner with nano sensor
-    SP = 5      # linear positioner with nano sensor, large actuator
-    SC = 6      # linear positioner with nano sensor, distance coded reference marks
-    SR20 = 8    # rotary positioner with nano sensor (used on ESRF-ID13)
-    M = 9       # linear positioner with micro sensor
-    GD = 11     # goniometer with micro sensor (60.5mm radius)
-    GE = 12     # goniometer with micro sensor (77.5mm radius)
-    GF = 14     # rotary positioner with micro sensor
+    S = 1  # linear positioner with nano sensor
+    SR = 2  # rotary positioner with nano sensor
+    SP = 5  # linear positioner with nano sensor, large actuator
+    SC = 6  # linear positioner with nano sensor, distance coded reference marks
+    SR20 = 8  # rotary positioner with nano sensor (used on ESRF-ID13)
+    M = 9  # linear positioner with micro sensor
+    GD = 11  # goniometer with micro sensor (60.5mm radius)
+    GE = 12  # goniometer with micro sensor (77.5mm radius)
+    GF = 14  # rotary positioner with micro sensor
     G605S = 16  # goniometer with nano sensor (60.5mm radius)
     G775S = 17  # goniometer with nano sensor (77.5mm radius)
     SC500 = 18  # linear positioner with nano sensor, distance coded reference marks
     G955S = 19  # goniometer with nano sensor (95.5mm radius)
-    SR77 = 20   # rotary positioner with nano sensor
-    SD = 21     # like S, but with extended scanning Range
+    SR77 = 20  # rotary positioner with nano sensor
+    SD = 21  # like S, but with extended scanning Range
     R20ME = 22  # rotary positioner with MicroE sensor
-    SR2 = 23    # like SR, for high applied masses
-    SCD = 24    # like SP, but with distance coded reference marks
-    SRC = 25    # like SR, but with distance coded reference marks
+    SR2 = 23  # like SR, for high applied masses
+    SCD = 24  # like SP, but with distance coded reference marks
+    SRC = 25  # like SR, but with distance coded reference marks
     SR36M = 26  # rotary positioner, no end stops
-    SR36ME = 27 # rotary positioner with end stops
+    SR36ME = 27  # rotary positioner with end stops
     SR50M = 28  # rotary positioner, no end stops
-    SR50ME = 29 # rotary positioner with end stops
-    G1045S = 30 # goniometer with nano sensor (104.5mm radius)
-    G1395S = 31 # goniometer with nano sensor (139.5mm radius)
-    MD = 32     # like M, but with large actuator
+    SR50ME = 29  # rotary positioner with end stops
+    G1045S = 30  # goniometer with nano sensor (104.5mm radius)
+    G1395S = 31  # goniometer with nano sensor (139.5mm radius)
+    MD = 32  # like M, but with large actuator
     G935M = 33  # goniometer with micro sensor (93.5mm radius)
     SHL20 = 34  # high load vertical positioner
-    SCT = 35    # like SCD, but with even larger actuator
+    SCT = 35  # like SCD, but with even larger actuator
+
 
 RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF
 
 
 @enum.unique
 class ChannelStatus(enum.IntEnum):
-    Stopped = 0               # stopped (S)
-    Stepping = 1              # stepping, open-loop motion (MST)
-    Scanning = 2              # scanning, (MSCA or MCSR)
-    Holding = 3               # holding, target or reference pos (MPA MAA FRM)
-    Targeting = 4             # targeting, closed-loop motion (MPA MAA)
-    MoveDelay = 5             # move delay (power save mode)
-    Calibrating = 6           # calibrating, (CS)
+    Stopped = 0  # stopped (S)
+    Stepping = 1  # stepping, open-loop motion (MST)
+    Scanning = 2  # scanning, (MSCA or MCSR)
+    Holding = 3  # holding, target or reference pos (MPA MAA FRM)
+    Targeting = 4  # targeting, closed-loop motion (MPA MAA)
+    MoveDelay = 5  # move delay (power save mode)
+    Calibrating = 6  # calibrating, (CS)
     FindingReferenceMark = 7  # moving to find reference mark (FRM)
-    Locked = 8                # emergency stop occured (SESM)
+    Locked = 8  # emergency stop occured (SESM)
 
 
-StoppedStatuses = {ChannelStatus.Stopped, ChannelStatus.Holding,
-                   ChannelStatus.Locked}
+StoppedStatuses = {ChannelStatus.Stopped, ChannelStatus.Holding, ChannelStatus.Locked}
 MovingStatuses = {s for s in ChannelStatus if s not in StoppedStatuses}
 
 
@@ -139,49 +140,50 @@ class Direction(enum.IntEnum):
 NoHoldTime = 0
 InfiniteHoldTime = 60
 
+
 class SmarActError(Exception):
 
     ERRORS = {
-        1: 'Syntax Error',
-        2: 'Invalid Command',
-        3: 'Overflow',
-        4: 'Parse',
-        5: 'Too Few Parameters',
-        6: 'Too Many Parameters',
-        7: 'Invalid Parameter',
-        8: 'Wrong Mode',
-        129: 'No Sensor Present',
-        140: 'Sensor Disabled',
-        141: 'Command Overridden',
-        142: 'End Stop Reached',
-        143: 'Wrong Sensor Type',
-        144: 'Could Not Find Reference Mark',
-        145: 'Wrong End Effector Type',
-        146: 'Movement Locked',
-        147: 'Range Limit Reached',
-        148: 'Physical Position Unknown',
-        150: 'Command Not Processable',
-        151: 'Waiting For Trigger',
-        152: 'Command Not Triggerable',
-        153: 'Command Queue Full',
-        154: 'Invalid Component',
-        155: 'Invalid Sub Component',
-        156: 'Invalid Property',
-        157: 'Permission Denied',
+        1: "Syntax Error",
+        2: "Invalid Command",
+        3: "Overflow",
+        4: "Parse",
+        5: "Too Few Parameters",
+        6: "Too Many Parameters",
+        7: "Invalid Parameter",
+        8: "Wrong Mode",
+        129: "No Sensor Present",
+        140: "Sensor Disabled",
+        141: "Command Overridden",
+        142: "End Stop Reached",
+        143: "Wrong Sensor Type",
+        144: "Could Not Find Reference Mark",
+        145: "Wrong End Effector Type",
+        146: "Movement Locked",
+        147: "Range Limit Reached",
+        148: "Physical Position Unknown",
+        150: "Command Not Processable",
+        151: "Waiting For Trigger",
+        152: "Command Not Triggerable",
+        153: "Command Queue Full",
+        154: "Invalid Component",
+        155: "Invalid Sub Component",
+        156: "Invalid Property",
+        157: "Permission Denied",
     }
 
     def __init__(self, code, channel=-1):
         try:
             code = int(code)
-            msg = self.ERRORS.setdefault(code, 'Unknown error')
+            msg = self.ERRORS.setdefault(code, "Unknown error")
         except ValueError:
             msg = code
             code = -1000
         channel = int(channel)
         if channel == -1:
-            msg = 'Error {}: {}'.format(code, msg)
+            msg = "Error {}: {}".format(code, msg)
         else:
-            msg = 'Error {} on channel {}: {}'.format(code, channel, msg)
+            msg = "Error {} on channel {}: {}".format(code, channel, msg)
         super(SmarActError, self).__init__(msg)
 
 
@@ -196,8 +198,8 @@ def parse_reply_item(reply):
 
 
 def parse_reply(reply, cmd):
-    if reply.startswith(':E'):
-        channel, code = map(int, reply[2:].split(',', 1))
+    if reply.startswith(":E"):
+        channel, code = map(int, reply[2:].split(",", 1))
         if code:
             raise SmarActError(code, channel)
         return 0
@@ -210,20 +212,20 @@ def parse_reply(reply, cmd):
         except ValueError:
             is_channel_cmd = False
         if is_channel_cmd:
-            reply = reply.split(',', 1)[1]
+            reply = reply.split(",", 1)[1]
         else:
             # strip ':' + cmd name so all is left is reply
-            reply = reply[len(cmd)+1:]
-        if ',' in reply:
-            data = [parse_reply_item(item) for item in reply.split(',')]
+            reply = reply[len(cmd) + 1 :]
+        if "," in reply:
+            data = [parse_reply_item(item) for item in reply.split(",")]
         else:
             data = parse_reply_item(reply)
         return data
 
 
-Features = collections.namedtuple('Features',
-                                  ('low_vibration_mode',
-                                   'periodic_sensor_error_correction'))
+Features = collections.namedtuple(
+    "Features", ("low_vibration_mode", "periodic_sensor_error_correction")
+)
 
 
 class Channel(object):
@@ -239,9 +241,9 @@ class Channel(object):
     def __getitem__(self, item):
         single = isinstance(item, str)
         if single:
-            return self.ctrl['{}{}'.format(item, self.channel)]
+            return self.ctrl["{}{}".format(item, self.channel)]
         else:
-            return self.ctrl[['{}{}'.format(i, self.channel) for i in item]]
+            return self.ctrl[["{}{}".format(i, self.channel) for i in item]]
 
     def __setitem__(self, item, value):
         args = [self.channel]
@@ -257,7 +259,7 @@ class Channel(object):
     @property
     def features(self):
         if self._features is None:
-            fbin = self.ctrl['FP{},0'.format(self.channel)]
+            fbin = self.ctrl["FP{},0".format(self.channel)]
             args = [bool((1 << i) & fbin) for i in range(len(Features._fields))]
             self._features = Features(*args)
         return self._features
@@ -265,17 +267,17 @@ class Channel(object):
     @property
     def sensor_type(self):
         if self._sensor_type is None:
-            self._sensor_type = SensorType(self['ST'])
+            self._sensor_type = SensorType(self["ST"])
         return self._sensor_type
 
     @sensor_type.setter
     def sensor_type(self, stype):
-        '''Accepts SensorType, int or string'''
+        """Accepts SensorType, int or string"""
         if isinstance(stype, int):
             self._sensor_type = SensorType(stype)
         else:
             self._sensor_type = SensorType[stype]
-        self['ST'] = int(self._sensor_type)
+        self["ST"] = int(self._sensor_type)
 
     @property
     def is_rotary_sensor(self):
@@ -297,7 +299,7 @@ class Channel(object):
     def closed_loop_speed(self):
         """Returns closed loop speed in micro-degree/s for rotary sensors or
         nano-meter/s for linear sensors. 0 means speed control is disabled"""
-        return self['CLS']
+        return self["CLS"]
 
     @closed_loop_speed.setter
     def closed_loop_speed(self, speed):
@@ -309,14 +311,14 @@ class Channel(object):
         speed (int): micro-degree/s for rotary sensors or
                      nano-meter/s for linear sensors
         """
-        self['CLS'] = int(speed)
+        self["CLS"] = int(speed)
 
     @property
     def closed_loop_acceleration(self):
         """Returns closed loop acceleration in micro-degree/s/s for rotary
         sensors or nano-meter/s/s for linear sensors. 0 means acceleration
         control is disabled"""
-        return self['CLA']
+        return self["CLA"]
 
     @closed_loop_acceleration.setter
     def closed_loop_acceleration(self, acceleration):
@@ -328,34 +330,34 @@ class Channel(object):
         acceleration (int): micro-degree/s/s for rotary sensors or
                             nano-meter/s/s for linear sensors
         """
-        self['CLA'] = int(acceleration)
+        self["CLA"] = int(acceleration)
 
     @property
     def is_physical_position_known(self):
-        return bool(self['PPK'])
+        return bool(self["PPK"])
 
     @property
     def position(self):
-        return self['A' if self.is_rotary_sensor else 'P']
+        return self["A" if self.is_rotary_sensor else "P"]
 
     @property
     def status(self):
-        return ChannelStatus(self['S'])
+        return ChannelStatus(self["S"])
 
     @property
     def voltage_level(self):
         """Returns voltage (V)"""
-        return self['VL'] / 4095.
+        return self["VL"] / 4095.
 
     def set_position(self, position):
         """Set position
         position (int): micro-degree for rotary sensors or nano-meter for
                         linear sensors
         """
-        self['P'] = int(position)
+        self["P"] = int(position)
 
     def stop(self):
-        self.command('S')
+        self.command("S")
 
     def move_absolute(self, position, hold_time=None, **kwargs):
         """Start moving to the given absolute position
@@ -373,10 +375,10 @@ class Channel(object):
         hold_time = min(self.hold_time if hold_time is None else hold_time, 60)
         hold_time = int(hold_time * 1000)
         if self.is_rotary_sensor:
-            revolution = int(kwargs.get('revolution', 0))
-            self.command('MAA', position, revolution, hold_time)
+            revolution = int(kwargs.get("revolution", 0))
+            self.command("MAA", position, revolution, hold_time)
         else:
-            self.command('MPA', position, hold_time)
+            self.command("MPA", position, hold_time)
 
     def find_reference_mark(self, direction, hold_time=None, auto_zero=False):
         """
@@ -391,10 +393,10 @@ class Channel(object):
         auto_zero = 1 if auto_zero else 0
         hold_time = min(self.hold_time if hold_time is None else hold_time, 60)
         hold_time = int(hold_time * 1000)
-        self.command('FRM', direction, hold_time, auto_zero)
+        self.command("FRM", direction, hold_time, auto_zero)
 
     def calibrate_sensor(self):
-        self.command('CS')
+        self.command("CS")
 
 
 class SmarAct(Controller):
@@ -405,35 +407,35 @@ class SmarAct(Controller):
         super(SmarAct, self).__init__(name, config, axes, *args, **kwargs)
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
         for axis_name, axis, axis_config in axes:
-            axis.channel = Channel(self, axis_config.get('channel', int))
-#        self.comm._logger.setLevel('DEBUG')
+            axis.channel = Channel(self, axis_config.get("channel", int))
+        #        self.comm._logger.setLevel('DEBUG')
         self.log = logging.getLogger(type(self).__name__)
 
     def __getitem__(self, item):
         single = isinstance(item, (str))
         items = (item,) if single else tuple(item)
         n = len(items)
-        request = ''.join([':G{}\n'.format(i) for i in items])
+        request = "".join([":G{}\n".format(i) for i in items])
         replies = self.comm.write_readlines(request, n)
         replies = [parse_reply(r, i) for r, i in zip(replies, items)]
         return replies[0] if single else replies
 
     def __setitem__(self, item, value):
         if isinstance(value, (tuple, list)):
-            value = ','.join(map(str, value))
-        request = ':S{}{}\n'.format(item, value)
+            value = ",".join(map(str, value))
+        request = ":S{}{}\n".format(item, value)
         reply = self.comm.write_readline(request)
         parse_reply(reply, item)
 
     def command(self, name, *args):
-        value = ','.join(map(str, args))
-        request = ':{}{}\n'.format(name, value)
+        value = ",".join(map(str, args))
+        request = ":{}{}\n".format(name, value)
         reply = self.comm.write_readline(request)
         return parse_reply(reply, name)
 
     @property
     def sensor_enabled(self):
-        return SensorEnabled(self['SE'])
+        return SensorEnabled(self["SE"])
 
     @sensor_enabled.setter
     def sensor_enabled(self, enabled):
@@ -445,50 +447,54 @@ class SmarAct(Controller):
             value = SensorEnabled(enabled)
         else:
             value = SensorEnabled[enabled]
-        self['SE'] = int(value)
+        self["SE"] = int(value)
 
     def initialize_hardware(self):
         # set communication mode to synchronous
-        self['CM'] = 0
-        self.sensor_enabled = self.config.get('sensor_enabled',
-                                              default=SensorEnabled.Enabled)
+        self["CM"] = 0
+        self.sensor_enabled = self.config.get(
+            "sensor_enabled", default=SensorEnabled.Enabled
+        )
 
     def initialize_axis(self, axis):
-        if 'hold_time' in axis.config.config_dict:
-            axis.channel.hold_time = axis.config.get('hold_time', float)
+        if "hold_time" in axis.config.config_dict:
+            axis.channel.hold_time = axis.config.get("hold_time", float)
 
     def initialize_hardware_axis(self, axis):
-        if 'sensor_type' in axis.config.config_dict:
-            new_sensor_type = SensorType[axis.config.get('sensor_type')]
+        if "sensor_type" in axis.config.config_dict:
+            new_sensor_type = SensorType[axis.config.get("sensor_type")]
             curr_sensor_type = axis.channel.sensor_type
             # writing sensor type loses the position (even if it is the same)
             # so we only write if we know it is not the correct one.
             if new_sensor_type != curr_sensor_type:
                 axis.channel.sensor_type = new_sensor_type
         if not axis.channel.is_physical_position_known:
-            self.log.warning('%r physical position unknown (hint: do a ' \
-                             'homing to find reference mark)', axis.name)
+            self.log.warning(
+                "%r physical position unknown (hint: do a "
+                "homing to find reference mark)",
+                axis.name,
+            )
 
     def state(self, axis):
         status = axis.channel.status
         enabled = self.sensor_enabled
         if enabled == SensorEnabled.Disabled:
-            states = ['OFF']
+            states = ["OFF"]
         if status == ChannelStatus.Locked:
-            states = ['OFF']
+            states = ["OFF"]
         elif status in MovingStatuses:
-            states = ['MOVING']
+            states = ["MOVING"]
         else:
-            states = ['READY']
+            states = ["READY"]
         states.extend([status.name.upper(), enabled.name.upper()])
         return AxisState(*states)
 
     def stop(self, axis):
         axis.channel.stop()
 
-#    def stop_all(self, *motion_list):
-#        # TODO: only stop all if motion moves all existing channels
-#        self['S']
+    #    def stop_all(self, *motion_list):
+    #        # TODO: only stop all if motion moves all existing channels
+    #        self['S']
 
     def set_position(self, axis, pos):
         axis.channel.set_position(pos)
@@ -547,4 +553,3 @@ class SmarAct(Controller):
 
     def set_off(self, axis):
         self.sensor_enabled = SensorEnabled.Disabled
-

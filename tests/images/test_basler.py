@@ -20,13 +20,13 @@ import sys
 from Lima import Core
 from Lima import Basler
 
-os.environ['QUB_SUBPATH'] = 'qt4'
+os.environ["QUB_SUBPATH"] = "qt4"
 
 from bliss.data.routines.pixmaptools import qt4 as pixmaptools
 
 from PyQt4 import QtGui, QtCore
 
-cam = Basler.Camera('sn://21661817', 8000)   # gc750 id13
+cam = Basler.Camera("sn://21661817", 8000)  # gc750 id13
 # cam = Basler.Camera('sn://21790015', 8000)  # gc3800 id16
 
 # cam.setInterPacketDelay(100)  # units ??
@@ -36,7 +36,7 @@ ct = Core.CtControl(hwint)
 video = ct.video()
 image = ct.image()
 display = ct.display()
-display.setNames('basler', 'basler')
+display.setNames("basler", "basler")
 display.setActive(True)
 
 acq = ct.acquisition()
@@ -64,35 +64,44 @@ def refresh():
         print "not ready..."
         return
 
-    if (False):    # scaling.set_custom_mapping(0,255)
-        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(image.buffer(),
-                                                               image.width(), image.height(),
-                                                               pixmaptools.LUT.Scaling.Y8,
-                                                               scaling)
-        if (dump_image):
-            ff = open('dump_img_as_str_Y8.dat', "a+")
+    if False:  # scaling.set_custom_mapping(0,255)
+        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+            image.buffer(),
+            image.width(),
+            image.height(),
+            pixmaptools.LUT.Scaling.Y8,
+            scaling,
+        )
+        if dump_image:
+            ff = open("dump_img_as_str_Y8.dat", "a+")
             ff.write(image.buffer())
             ff.close()
             dump_image = False
 
-    if (True):
-        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(image.buffer(),
-                                                               image.width(), image.height(),
-                                                               pixmaptools.LUT.Scaling.YUV422PACKED,
-                                                               scaling)
-        if (dump_image):
-            ff = open('dump_img_as_str_YUV422PACKED.dat', "a+")
+    if True:
+        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+            image.buffer(),
+            image.width(),
+            image.height(),
+            pixmaptools.LUT.Scaling.YUV422PACKED,
+            scaling,
+        )
+        if dump_image:
+            ff = open("dump_img_as_str_YUV422PACKED.dat", "a+")
             ff.write(image.buffer())
             ff.close()
             dump_image = False
 
-    if (False):
-        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(image.buffer(),
-                                                               image.width(), image.height(),
-                                                               pixmaptools.LUT.Scaling.BAYER_BG16,
-                                                               scaling)
-        if (dump_image):
-            ff = open('dump_img_as_str_BAYER_BG16.dat', "a+")
+    if False:
+        returnFlag, qimage = pixmaptools.LUT.raw_video_2_image(
+            image.buffer(),
+            image.width(),
+            image.height(),
+            pixmaptools.LUT.Scaling.BAYER_BG16,
+            scaling,
+        )
+        if dump_image:
+            ff = open("dump_img_as_str_BAYER_BG16.dat", "a+")
             ff.write(image.buffer())
             ff.close()
             dump_image = False
@@ -100,12 +109,13 @@ def refresh():
     print video.getLastImageCounter(), image
     label.setPixmap(QtGui.QPixmap.fromImage(qimage))
 
+
 app = QtGui.QApplication(sys.argv)  # main application
 
 label = QtGui.QLabel()
 label.resize(1800, 1600)
 timer = QtCore.QTimer(label)
-QtCore.QObject.connect(timer, QtCore.SIGNAL('timeout()'), refresh)
+QtCore.QObject.connect(timer, QtCore.SIGNAL("timeout()"), refresh)
 timer.start(100)
 label.show()
 

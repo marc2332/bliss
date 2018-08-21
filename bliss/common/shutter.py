@@ -14,9 +14,10 @@ from bliss.config.channels import Cache, Channel
 from bliss.config.settings import HashObjSetting
 from bliss.common.switch import Switch as BaseSwitch
 
+
 class ShutterSwitch(BaseSwitch):
     def __init__(self, set_open, set_closed, is_opened):
-        BaseSwitch.__init__(self, "ShutterSwitch"+str(id(self)), {})
+        BaseSwitch.__init__(self, "ShutterSwitch" + str(id(self)), {})
 
         self._set_open = set_open
         self._set_closed = set_closed
@@ -39,16 +40,18 @@ class ShutterSwitch(BaseSwitch):
 
 
 class Shutter(object):
-    MANUAL,EXTERNAL,CONFIGURATION = range(3)  # modes
-    MODE2STR = {MANUAL:        ("MANUAL",        "Manual mode"),
-                EXTERNAL:      ("EXTERNAL",      "External trigger mode"),
-                CONFIGURATION: ("CONFIGURATION", "Configuration mode"),
-             }
-    OPEN,CLOSED,UNKNOWN = range(3) # state
-    STATE2STR = { OPEN:  ("OPEN",    "Shutter is open"),
-                  CLOSED:  ("CLOSED",   "Shutter is closed"),
-                  UNKNOWN: ("UNKNOWN", "Unknown shutter state"),
-              }
+    MANUAL, EXTERNAL, CONFIGURATION = range(3)  # modes
+    MODE2STR = {
+        MANUAL: ("MANUAL", "Manual mode"),
+        EXTERNAL: ("EXTERNAL", "External trigger mode"),
+        CONFIGURATION: ("CONFIGURATION", "Configuration mode"),
+    }
+    OPEN, CLOSED, UNKNOWN = range(3)  # state
+    STATE2STR = {
+        OPEN: ("OPEN", "Shutter is open"),
+        CLOSED: ("CLOSED", "Shutter is closed"),
+        UNKNOWN: ("UNKNOWN", "Unknown shutter state"),
+    }
 
     """
     Generic shutter object
@@ -61,24 +64,26 @@ class Shutter(object):
     This external control should be compatible with the Switch object
     and have an OPEN/CLOSED states.
     """
+
     def lazy_init(func):
         @functools.wraps(func)
-        def func_wrapper(self,*args,**kwargs):
+        def func_wrapper(self, *args, **kwargs):
             self.init()
             with Lock(self):
-                return func(self,*args,**kwargs)
+                return func(self, *args, **kwargs)
+
         return func_wrapper
 
-    def __init__(self,name,config):
+    def __init__(self, name, config):
         self.__name = name
         self.__config = config
-        self._external_ctrl = config.get('external-control')
-        self.__settings = HashObjSetting('shutter:%s' % name)
-        self.__initialized_hw = Cache(self,"initialized",
-                                      default_value = False)
-        self.__state = Cache(self,"state",
-                              default_value = Shutter.UNKNOWN)
-        self.__shutter_state = Channel(name+":shutter_state", default_value=Shutter.UNKNOWN)
+        self._external_ctrl = config.get("external-control")
+        self.__settings = HashObjSetting("shutter:%s" % name)
+        self.__initialized_hw = Cache(self, "initialized", default_value=False)
+        self.__state = Cache(self, "state", default_value=Shutter.UNKNOWN)
+        self.__shutter_state = Channel(
+            name + ":shutter_state", default_value=Shutter.UNKNOWN
+        )
         self._init_flag = False
         self.__lock = lock.Semaphore()
 
@@ -91,20 +96,23 @@ class Shutter(object):
             # Check if the external control is compatible
             # with a switch object and if it has open/close state
             ext_ctrl = self._external_ctrl
-            name = ext_ctrl.name if hasattr(ext_ctrl,'name') else "unknown"
+            name = ext_ctrl.name if hasattr(ext_ctrl, "name") else "unknown"
             try:
                 states = ext_ctrl.states_list()
                 ext_ctrl.set
                 ext_ctrl.get
             except AttributeError:
-                raise ValueError('external-ctrl : {0} is not compatible '
-                                 'with a switch object'.format(name))
+                raise ValueError(
+                    "external-ctrl : {0} is not compatible "
+                    "with a switch object".format(name)
+                )
             else:
-                if(not 'OPEN' in states or
-                   not 'CLOSED' in states):
-                    raise ValueError("external-ctrl : {0} doesn't"
-                                     " have 'OPEN' and 'CLOSED' states".format(name))
-            
+                if not "OPEN" in states or not "CLOSED" in states:
+                    raise ValueError(
+                        "external-ctrl : {0} doesn't"
+                        " have 'OPEN' and 'CLOSED' states".format(name)
+                    )
+
         if not self._init_flag:
             self._init_flag = True
             try:
@@ -136,7 +144,7 @@ class Shutter(object):
     @property
     def name(self):
         return self.__name
-        
+
     @property
     def config(self):
         return self.__config
@@ -159,19 +167,21 @@ class Shutter(object):
         If no external control is configured open/close
         won't be authorized.
         """
-        return self.__settings.get('mode',Shutter.MANUAL)
+        return self.__settings.get("mode", Shutter.MANUAL)
 
     @mode.setter
-    def mode(self,value):
+    def mode(self, value):
         if value not in self.MODE2STR:
-            raise ValueError("Mode can only be: %s" %\
-                             ','.join((x[0] for x in self.MODE2STR.values())))
+            raise ValueError(
+                "Mode can only be: %s"
+                % ",".join((x[0] for x in self.MODE2STR.values()))
+            )
         self.init()
         self._set_mode(value)
-        if value in (self.CONFIGURATION,self.EXTERNAL):
+        if value in (self.CONFIGURATION, self.EXTERNAL):
             # Can't cache the state if external or configuration
             self.__state.value = self.UNKNOWN
-        self.__settings['mode'] = value
+        self.__settings["mode"] = value
 
     def _set_mode(self, value):
         raise NotImplementedError
@@ -200,7 +210,7 @@ class Shutter(object):
 
     @property
     def state_string(self):
-        return self.STATE2STR.get(self.state,self.STATE2STR[self.UNKNOWN])
+        return self.STATE2STR.get(self.state, self.STATE2STR[self.UNKNOWN])
 
     @property
     def external_control(self):
@@ -214,7 +224,7 @@ class Shutter(object):
         return self._opening_time()
 
     def _opening_time(self):
-        return self.__settings.get('opening_time')
+        return self.__settings.get("opening_time")
 
     @lazy_init
     def closing_time(self):
@@ -224,7 +234,7 @@ class Shutter(object):
         return self._closing_time()
 
     def _closing_time(self):
-        return self.__settings.get('closing_time')
+        return self.__settings.get("closing_time")
 
     def measure_open_close_time(self):
         """
@@ -237,10 +247,10 @@ class Shutter(object):
         try:
             if previous_mode != self.MANUAL:
                 self.mode(self.MANUAL)
-            opening_time,closing_time = self._measure_open_close_time()
-            self.__settings['opening_time'] = opening_time
-            self.__settings['closing_time'] = closing_time
-            return open_time,close_time
+            opening_time, closing_time = self._measure_open_close_time()
+            self.__settings["opening_time"] = opening_time
+            self.__settings["closing_time"] = closing_time
+            return open_time, close_time
         finally:
             if previous_mode != self.MANUAL:
                 self.mode(previous_mode)
@@ -250,7 +260,7 @@ class Shutter(object):
         This method can be overloaded if needed.
         Basic timing on 
         """
-        self.close()            # ensure it's closed
+        self.close()  # ensure it's closed
         start_time = time.time()
         self.open()
         opening_time = time.time() - start_time
@@ -258,20 +268,23 @@ class Shutter(object):
         start_time = time.time()
         self.close()
         closing_time = time.time() - start_time
-        return opening_time,closing_time
+        return opening_time, closing_time
 
     @lazy_init
     def open(self):
         mode = self.mode
         if mode == self.EXTERNAL:
             if self._external_ctrl is None:
-                raise RuntimeError("Can't open the shutter because no "
-                                   "external-control is configured")
+                raise RuntimeError(
+                    "Can't open the shutter because no "
+                    "external-control is configured"
+                )
             else:
                 ret = self._external_ctrl.set("OPEN")
         elif mode != self.MANUAL:
-            raise RuntimeError("Can't open the shutter, in %s" %\
-                               self.MODE2STR.get(mode,"Unknown"))
+            raise RuntimeError(
+                "Can't open the shutter, in %s" % self.MODE2STR.get(mode, "Unknown")
+            )
         else:
             ret = self._open()
         self.__shutter_state.value = self.state
@@ -285,13 +298,16 @@ class Shutter(object):
         mode = self.mode
         if mode == self.EXTERNAL:
             if self._external_ctrl is None:
-                raise RuntimeError("Can't close the shutter because no "
-                                   "external-control is configured")
+                raise RuntimeError(
+                    "Can't close the shutter because no "
+                    "external-control is configured"
+                )
             else:
                 ret = self._external_ctrl.set("CLOSED")
         elif mode != self.MANUAL:
-            raise RuntimeError("Can't close the shutter, in %s" %\
-                               self.MODE2STR.get(mode,"Unknown"))
+            raise RuntimeError(
+                "Can't close the shutter, in %s" % self.MODE2STR.get(mode, "Unknown")
+            )
         else:
             ret = self._close()
         self.__shutter_state.value = self.state
@@ -306,8 +322,10 @@ class Shutter(object):
         and create _external_ctrl switch using callback functions
         """
         if not all(map(callable, (set_open, set_closed, is_opened))):
-            raise TypeError("%s.set_external_control: set_open, set_closed, is_opened functions must be callable" % self.name)
+            raise TypeError(
+                "%s.set_external_control: set_open, set_closed, is_opened functions must be callable"
+                % self.name
+            )
         switch = ShutterSwitch(set_open, set_closed, is_opened)
         self._external_ctrl = switch
         self.init()
-

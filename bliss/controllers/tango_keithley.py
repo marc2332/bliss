@@ -10,6 +10,7 @@ from bliss.common.tango import DeviceProxy
 import time
 import numpy
 
+
 class tango_keithley(SamplingCounter):
     def __init__(self, name, config):
         SamplingCounter.__init__(self, name, None)
@@ -20,16 +21,16 @@ class tango_keithley(SamplingCounter):
         self.__control.MeasureSingle()
         self.__control.WaitAcq()
         value = self.__control.ReadData
-        if isinstance(value,  numpy.ndarray):
+        if isinstance(value, numpy.ndarray):
             value = value[0]
         return value
 
     def autorange(self, autorange_on=None):
         if autorange_on is None:
-            return self.__control.autorange   
+            return self.__control.autorange
         else:
             self.__control.autorange = autorange_on
- 
+
     @property
     def range(self):
         return self.__control.range

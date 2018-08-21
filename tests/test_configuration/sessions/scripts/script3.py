@@ -1,8 +1,6 @@
-
-
 def _hidden_func():
-  pass
+    pass
+
 
 def visible_func():
-  pass
-
+    pass

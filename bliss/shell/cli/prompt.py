@@ -12,7 +12,7 @@ import time
 from prompt_toolkit.token import Token
 from ptpython.prompt_style import PromptStyle
 
-__all__ = ('BlissPrompt',)
+__all__ = ("BlissPrompt",)
 
 
 class BlissPrompt(PromptStyle):
@@ -24,6 +24,7 @@ class BlissPrompt(PromptStyle):
     def configure(repl):
         repl.prompt_style = 'bliss'
     """
+
     def __init__(self, python_input, prompt_label=None):
         self.python_input = python_input
         self._prompt_label = prompt_label
@@ -31,7 +32,7 @@ class BlissPrompt(PromptStyle):
     @property
     def prompt_label(self):
         return self._prompt_label or self.python_input.bliss_prompt_label
-        
+
     @property
     def current_statement_index(self):
         return self.python_input.current_statement_index
@@ -39,21 +40,19 @@ class BlissPrompt(PromptStyle):
     def in_tokens(self, cli):
         return [
             (Token.In, self.prompt_label),
-            (Token.In, ' ['),
-            (Token.In.Number, '%s' % self.current_statement_index),
-            (Token.In, ']: '),
+            (Token.In, " ["),
+            (Token.In.Number, "%s" % self.current_statement_index),
+            (Token.In, "]: "),
         ]
 
     def in2_tokens(self, cli, width):
-        return [
-            (Token.In, '...: '.rjust(width)),
-        ]
+        return [(Token.In, "...: ".rjust(width))]
 
     def out_tokens(self, cli):
         return [
-            (Token.Out, '{0:>{width}}'.format('Out', width=len(self.prompt_label))),
-            (Token.Out, ' ['),
-            (Token.Out.Number, '%s' % self.current_statement_index),
-            (Token.Out, ']:'),
-            (Token, ' '),
-        ]    
+            (Token.Out, "{0:>{width}}".format("Out", width=len(self.prompt_label))),
+            (Token.Out, " ["),
+            (Token.Out.Number, "%s" % self.current_statement_index),
+            (Token.Out, "]:"),
+            (Token, " "),
+        ]

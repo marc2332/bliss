@@ -42,9 +42,9 @@ def test_soft_axis_creation(beacon):
     o0.position = 1.2345
     assert o0.nb_pos_write == 1
 
-    m0 = SoftAxis('a_unique_motor', o0)
+    m0 = SoftAxis("a_unique_motor", o0)
 
-    assert m0.name == 'a_unique_motor'
+    assert m0.name == "a_unique_motor"
     assert hasattr(setup_globals, m0.name)
 
     assert m0.position() == o0.position
@@ -59,7 +59,7 @@ def test_soft_axis_creation(beacon):
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 0
 
-    m1 = SoftAxis('a_second_motor', o0, move='move_me')
+    m1 = SoftAxis("a_second_motor", o0, move="move_me")
 
     m1.move(-12.23)
     assert o0.position == -12.23
@@ -70,7 +70,7 @@ def test_soft_axis_creation(beacon):
 
     nb_pos_read = o0.nb_pos_read
 
-    m2 = SoftAxis('a_third_motor', o0, position='_position', move=o0.move_me)
+    m2 = SoftAxis("a_third_motor", o0, position="_position", move=o0.move_me)
 
     m2.move(456.789)
     assert o0.position == 456.789
@@ -85,17 +85,17 @@ def test_soft_axis_scan(beacon):
     o0 = Object()
     o0.position = 1.2345
 
-    m0 = SoftAxis('another_motor', o0)
-    c0 = SoftCounter(o0, value='position', name='motor_counter')
+    m0 = SoftAxis("another_motor", o0)
+    c0 = SoftCounter(o0, value="position", name="motor_counter")
 
     scan = ascan(m0, -200, 200, 100, 0.001, c0)
 
     data = scan.get_data()
 
     # TODO: names should be full counter names after issue #395 is solved
-    channel_names = {'elapsed_time', 'motor_counter', 'another_motor' }
+    channel_names = {"elapsed_time", "motor_counter", "another_motor"}
     assert set(data.dtype.fields.keys()) == channel_names
 
     positions = numpy.linspace(-200, 200, 100)
-    numpy.testing.assert_array_almost_equal(data['motor_counter'], positions)
-    numpy.testing.assert_array_almost_equal(data['another_motor'], positions)
+    numpy.testing.assert_array_almost_equal(data["motor_counter"], positions)
+    numpy.testing.assert_array_almost_equal(data["another_motor"], positions)

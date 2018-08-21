@@ -25,7 +25,6 @@ CG+MP ESRF BLISS  2014-2017
 
 
 class PI_E727(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
         self.cname = "E727"
@@ -58,7 +57,7 @@ class PI_E727(Controller):
             pass
 
     def trace(self, str):
-        elog.debug('{s:{c}<{n}}'.format(s=str, n=80, c='-'))
+        elog.debug("{s:{c}<{n}}".format(s=str, n=80, c="-"))
 
     # Init of each axis.
     def initialize_axis(self, axis):
@@ -70,7 +69,7 @@ class PI_E727(Controller):
         try:
             _ans = self.get_identifier(axis, 0.1)
         except Exception as ex:
-            _str = "%r\nERROR on \"%s\": switch on the controller" % (ex, self.host)
+            _str = '%r\nERROR on "%s": switch on the controller' % (ex, self.host)
             # by default, an exception will be raised
             elog.error(_str)
 
@@ -83,6 +82,7 @@ class PI_E727(Controller):
     """
     ON / OFF
     """
+
     def set_on(self, axis):
         pass
 
@@ -100,6 +100,7 @@ class PI_E727(Controller):
         return _ans
 
     """ VELOCITY """
+
     def read_velocity(self, axis):
         return self._get_velocity(axis)
 
@@ -112,6 +113,7 @@ class PI_E727(Controller):
         return self.read_velocity(axis)
 
     """ STATE """
+
     def state(self, axis):
         self.trace("axis state")
         if self._get_closed_loop_status(axis):
@@ -123,6 +125,7 @@ class PI_E727(Controller):
             raise RuntimeError("closed loop disabled")
 
     """ MOVEMENTS """
+
     def prepare_move(self, motion):
         pass
 
@@ -143,6 +146,7 @@ class PI_E727(Controller):
         self.send_no_ans(axis, "STP %s" % (axis.channel))
 
     """ COMMUNICATIONS"""
+
     def send(self, axis, cmd, timeout=None):
         _cmd = self._append_eoc(cmd)
         _ans = self.sock.write_readline(_cmd, timeout=timeout)
@@ -156,7 +160,7 @@ class PI_E727(Controller):
         # Check error code
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
-            _str = "ERROR on cmd \"%s\": #%d(%s)" % (cmd, _err_nb, _err_str)
+            _str = 'ERROR on cmd "%s": #%d(%s)' % (cmd, _err_nb, _err_str)
             # by default, an exception will be raised
             elog.error(_str)
 
@@ -169,6 +173,7 @@ class PI_E727(Controller):
         self.sock.flush()
 
     """ RAW COMMANDS """
+
     def raw_write(self, cmd):
         _cmd = self._append_eoc(cmd)
         self.sock.write(_cmd)
@@ -209,6 +214,7 @@ class PI_E727(Controller):
     """
     E727 specific
     """
+
     @object_method(types_info=("None", "str"))
     def get_identifier(self, axis, timeout=None):
         return self.send(axis, "IDN?", timeout)
@@ -243,6 +249,7 @@ class PI_E727(Controller):
         return _pos
 
     """ ON TARGET """
+
     def _get_target_pos(self, axis):
         """
         Returns last target position (setpoint value).
@@ -263,11 +270,13 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error("ERROR on _get_on_target_status, _ans=%r" %
-                       _ans, raise_exception=False)
+            elog.error(
+                "ERROR on _get_on_target_status, _ans=%r" % _ans, raise_exception=False
+            )
             return -1
 
     """ CLOSED LOOP"""
+
     def _get_closed_loop_status(self, axis):
         _ans = self.send(axis, "SVO? %s" % (axis.channel))
 
@@ -278,8 +287,10 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error("ERROR on _get_closed_loop_status, _ans=%r" %
-                       _ans, raise_exception=False)
+            elog.error(
+                "ERROR on _get_closed_loop_status, _ans=%r" % _ans,
+                raise_exception=False,
+            )
             return -1
 
     def _set_closed_loop(self, axis, state):
@@ -317,29 +328,29 @@ class PI_E727(Controller):
 
         # use command "HDA?" to get add parameters address + description
         _infos = [
-            ("Identifier",                  "IDN?"),
-            ("Com level",                   "CCL?"),
-            ("Firmware developer",          "SEP? 1 0xffff000f"),
-            ("Firmware name",               "SEP? 1 0xffff0007"),
-            ("Firmware version",            "SEP? 1 0xffff0008"),
-            ("Firmware description",        "SEP? 1 0xffff000d"),
-            ("Firmware date",               "SEP? 1 0xffff000e"),
-            ("Firmware developer",          "SEP? 1 0xffff000f"),
-            ("Real Position",               "POS? %s"),
-            ("Setpoint Position",           "MOV? %s"),
-            ("On target",                   "ONT? %s"),
-            ("Velocity",                    "VEL? %s"),
-            ("Closed loop status",          "SVO? %s"),
-            ("Auto Zero Calibration ?",     "ATZ? %s"),
-            ("Analog input setpoint",       "AOS? %s"),
-            ("ADC value of analog input",   "TAD? %s"),
-            ("Analog setpoints",            "TSP? %s"),
-            ("AutoZero Low Voltage",        "SPA? 1 0x07000A00"),
-            ("AutoZero High Voltage",       "SPA? 1 0x07000A01"),
-            ("Range Limit min",             "SPA? 1 0x07000000"),
-            ("Range Limit max",             "SPA? 1 0x07000001"),
-            ("ON Target Tolerance",         "SPA? 1 0x07000900"),
-            ("Settling time",               "SPA? 1 0X07000901")
+            ("Identifier", "IDN?"),
+            ("Com level", "CCL?"),
+            ("Firmware developer", "SEP? 1 0xffff000f"),
+            ("Firmware name", "SEP? 1 0xffff0007"),
+            ("Firmware version", "SEP? 1 0xffff0008"),
+            ("Firmware description", "SEP? 1 0xffff000d"),
+            ("Firmware date", "SEP? 1 0xffff000e"),
+            ("Firmware developer", "SEP? 1 0xffff000f"),
+            ("Real Position", "POS? %s"),
+            ("Setpoint Position", "MOV? %s"),
+            ("On target", "ONT? %s"),
+            ("Velocity", "VEL? %s"),
+            ("Closed loop status", "SVO? %s"),
+            ("Auto Zero Calibration ?", "ATZ? %s"),
+            ("Analog input setpoint", "AOS? %s"),
+            ("ADC value of analog input", "TAD? %s"),
+            ("Analog setpoints", "TSP? %s"),
+            ("AutoZero Low Voltage", "SPA? 1 0x07000A00"),
+            ("AutoZero High Voltage", "SPA? 1 0x07000A01"),
+            ("Range Limit min", "SPA? 1 0x07000000"),
+            ("Range Limit max", "SPA? 1 0x07000001"),
+            ("ON Target Tolerance", "SPA? 1 0x07000900"),
+            ("Settling time", "SPA? 1 0X07000901"),
         ]
 
         for i in _infos:
@@ -350,8 +361,10 @@ class PI_E727(Controller):
             _txt = _txt + "%*s: %s\n" % (_tab, i[0], _ans)
             self.check_error(_cmd)
 
-        _txt = _txt + "%*s:\n%s\n" %  \
-            (_tab, "Communication parameters",
-             self.raw_write_read("IFC?"))
+        _txt = _txt + "%*s:\n%s\n" % (
+            _tab,
+            "Communication parameters",
+            self.raw_write_read("IFC?"),
+        )
 
         return _txt

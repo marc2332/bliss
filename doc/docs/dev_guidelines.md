@@ -1,12 +1,24 @@
-# Developer\'s Guide
+Developer\'s Guide
+==================
 
 The BLISS project is hosted on the [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss).
 
-## Cloning
+Cloning
+-------
 
 To clone bliss:
 
     $ git clone git@gitlab.esrf.fr:bliss/bliss.git
+
+The first thing to do after cloning bliss is to set up the pre-commit hook:
+
+    $ ./pre-commit.sh
+    pre-commit installed at /home/user/bliss/.git/hooks/pre-commit
+
+This will cause black to run before any commit is made, ensuring a consistent
+code style in the project. For more information, see the
+[code formatting](dev_guidelines.md#code-formatting) section.
+
 
 Bliss has some dependencies on third-party software. The complete list
 of dependencies can be obtained from the `setup.py` script:
@@ -18,7 +30,8 @@ of dependencies can be obtained from the `setup.py` script:
 Your work environment is a matter of taste. If you want to isolate your
 bliss development it is a good idea to use virtualenv or Conda.
 
-## Workflow
+Workflow
+--------
 
 Bliss project promotes a development based on [Feature Branch
 Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-branch-workflow):
@@ -86,7 +99,8 @@ from Alibaba Inc, in their experiments.
     [issue](http://gitlab.esrf.fr/bliss/bliss/issues/new?issue) on
     gitlab and the process repeats again
 
-## Contributing
+Contributing
+------------
 
 You can contribute to Bliss in many ways: from simple (or hard) bug
 fixes to writting new controller extensions, introduce new features or
@@ -99,7 +113,156 @@ principles apply:
     where appropriate
 -   Add appropriate unit tests
 
-## Bliss Module Template
+
+
+Bliss Style Guide
+-----------------
+
+The Bliss style guide summarizes the Bliss coding guidelines. When
+adding code to Bliss (new feature, new extension or simply a patch) make
+sure you follow these guide lines.
+
+In general the Bliss Style Guide closely follows [PEP8](https://www.python.org/dev/peps/pep-0008/) with
+some small differences and extensions.
+
+
+Code formatting
+---------------
+
+Code formatting is automatically managed by [black](https://black.readthedocs.io/en/stable/).
+
+There is 3 complementary ways to work with black:
+
+- [Integrate it in your editor](https://black.readthedocs.io/en/stable/editor_integration.html)
+  (Emacs, Vim, etc.)
+
+- Run it using the command line interface:
+
+        $ pip3 install black
+		[...]
+        $ black .
+        All done! ✨ 🍰 ✨
+        466 files left unchanged.
+
+- Let the pre-commit hook format your changes. Make sure it is properly set up by running:
+
+        $ ./pre-commit
+
+      **Note:** If black changed any of the staged code during the pre-commit phase, the commit
+	  will abort. This lets you check the changes black made before re-applying the commit:
+
+	  ```bash
+	  $ git commit demo.py -m "Some message"
+      black..........................................................Failed
+      Files were modified by this hook. Additional output:
+      reformatted doc/demo.py
+      All done! ✨ 🍰 ✨
+      1 file reformatted.
+      [WARNING] Stashed changes conflicted with hook auto-fixes...
+	  Rolling back fixes...
+      $ git commit demo.py -m "Some message"
+      black..........................................................Passed
+      [branch 89b740f2] Some message
+      1 file changed, 1 insertion(+)
+      ```
+
+Naming Conventions
+------------------
+
+-   Module names: `lowercase_with_underscores`
+-   Class names: `CamelCase`, with acronyms kept uppercase (`HTTPWriter`
+    and not `HttpWriter`)
+-   Variable names: `lowercase_with_underscores`
+-   Method and function names: `lowercase_with_underscores`
+-   Constants: `UPPERCASE_WITH_UNDERSCORES`
+-   precompiled regular expressions: `name_re`
+
+Protected members are prefixed with a single underscore. Double
+underscores are reserved for mixin classes.
+
+On classes with keywords, trailing underscores are appended. Clashes
+with builtins are allowed and **must not** be resolved by appending an
+underline to the variable name. If the function needs to access a
+shadowed builtin, rebind the builtin to a different name instead.
+
+Function and method arguments:
+
+:   -   class methods: `cls` as first parameter
+    -   instance methods: `self` as first parameter
+    -   lambdas for properties might have the first parameter replaced
+        with `x` like in
+        `display_name = property(lambda x: x.real_name or x.username)`
+
+
+Docstrings convention
+---------------------
+
+All docstrings are formatted with reStructuredText as understood by
+Sphinx. Depending on the number of lines in the docstring, they are
+laid out differently. If it\'s just one line, the closing triple
+quote is on the same line as the opening, otherwise the text is on
+the same line as the opening quote and the triple quote that closes
+the string on its own line:
+
+```python
+
+    def foo():
+        """This is a simple docstring"""
+
+
+    def bar():
+        """
+        This is a longer docstring with so much information in there
+        that it spans three lines.  In this case the closing triple quote
+        is on its own line.
+        """
+```
+
+Bliss supports *napoleon* sphinx extension. The recommended way to
+document API is to follow the [Google Python Style
+Guide](http://google.github.io/styleguide/pyguide.html):
+
+``` python
+    def move(axis, position, wait=False):
+		"""
+		move the given axis to the given absolute position
+
+		Note:
+			using `wait=True` will block the current :class:`~gevent.Greenlet`.
+
+	    See Also:
+			:func:`rmove`
+
+	    Args:
+			axis (Axis): instance of bliss :class:`bliss.common.axis.Axis`
+			position (float): position (axis units)
+			wait (bool): wait or not for motion to end [default: False]
+
+        Returns:
+			float: actual position where motor is (axis units)
+		"""
+		pass
+```
+
+
+Comments
+--------
+
+Rules for comments are similar to docstrings. Both are formatted with
+reStructuredText. If a comment is used to document an attribute, put a
+colon after the opening pound sign (`#`):
+
+    class User(object):
+
+        #: the name of the user as unicode string
+        name = Column(String)
+
+        #: the sha1 hash of the password + inline salt
+        pw_hash = Column(String)
+
+
+Bliss Module Template
+---------------------
 
 Here is a template that you can use to start writing a new bliss module:
 
@@ -127,7 +290,7 @@ __all__ = [] # list of members to export
 
 Example of a motor controller extension:
 
-```python
+~~~python
 # -*- coding: utf-8 -*-
 #
 # This file is part of the bliss project
@@ -190,235 +353,4 @@ class ExampleController(Controller):
         """
         pass
 
-```
-
-Bliss Style Guide
------------------
-
-The Bliss style guide summarizes the Bliss coding guidelines. When
-adding code to Bliss (new feature, new extension or simply a patch) make
-sure you follow these guide lines.
-
-In general the Bliss Style Guide closely follows [PEP8](https://www.python.org/dev/peps/pep-0008/) with
-some small differences and extensions.
-
-General Layout
---------------
-
-Indentation:
-
-:   4 real spaces. No tabs, no exceptions.
-
-Maximum line length:
-
-:   79 characters with a soft limit for 84 if absolutely necessary. Try
-    to avoid too nested code by cleverly placing break, continue and
-    return statements.
-
-Continuing long statements:
-
-:   To continue a statement you can use backslashes in which case you
-    should align the next line with the last dot or equal sign, or
-    indent four spaces:
-
-        this_is_a_very_long(function_call, 'with many parameters') \
-            .that_returns_an_object_with_an_attribute
-
-        MyModel.query.filter(MyModel.scalar > 120) \
-                     .order_by(MyModel.name.desc()) \
-                     .limit(10)
-
-    If you break in a statement with parentheses or braces, align to the
-    braces:
-
-        this_is_a_very_long(function_call, 'with many parameters',
-                            23, 42, 'and even more')
-
-    For lists or tuples with many items, break immediately after the
-    opening brace:
-
-        items = [
-            'this is the first', 'set of items', 'with more items',
-            'to come in this line', 'like this'
-        ]
-
-Blank lines:
-
-:   Top level functions and classes are separated by two lines,
-    everything else by one. Do not use too many blank lines to separate
-    logical segments in code. Example:
-
-        def hello(name):
-            print 'Hello %s!' % name
-
-
-        def goodbye(name):
-            print 'See you %s.' % name
-
-
-        class MyClass(object):
-            """This is a simple docstring"""
-
-            def __init__(self, name):
-                self.name = name
-
-            def get_annoying_name(self):
-                return self.name.upper() + '!!!!111'
-
-Expressions and Statements
---------------------------
-
-General whitespace rules:
-
-:   -   No whitespace for unary operators that are not words (e.g.: `-`,
-        `~` etc.) as well on the inner side of parentheses.
-    -   Whitespace is placed between binary operators.
-
-    Good:
-
-        exp = -1.05
-        value = (item_value / item_count) * offset / exp
-        value = my_list[index]
-        value = my_dict['key']
-
-    Bad:
-
-        exp = - 1.05
-        value = ( item_value / item_count ) * offset / exp
-        value = (item_value/item_count)*offset/exp
-        value=( item_value/item_count ) * offset/exp
-        value = my_list[ index ]
-        value = my_dict ['key']
-
-Yoda statements are a no-go:
-
-:   Never compare constant with variable, always variable with constant:
-
-    Good:
-
-        if method == 'md5':
-            pass
-
-    Bad:
-
-        if 'md5' == method:
-            pass
-
-Comparisons:
-
-:   -   against arbitrary types: `==` and `!=`
-    -   against singletons with `is` and `is not` (eg:
-        `foo is not None`)
-    -   never compare something with `True` or `False` (for example
-        never do `foo == False`, do `not foo` instead)
-
-Negated containment checks:
-
-:   use `foo not in bar` instead of `not foo in bar`
-
-Instance checks:
-
-:   `isinstance(a, C)` instead of `type(A) is C`, but try to avoid
-    instance checks in general. Check for features.
-
-Naming Conventions
-------------------
-
--   Module names: `lowercase_with_underscores`
--   Class names: `CamelCase`, with acronyms kept uppercase (`HTTPWriter`
-    and not `HttpWriter`)
--   Variable names: `lowercase_with_underscores`
--   Method and function names: `lowercase_with_underscores`
--   Constants: `UPPERCASE_WITH_UNDERSCORES`
--   precompiled regular expressions: `name_re`
-
-Protected members are prefixed with a single underscore. Double
-underscores are reserved for mixin classes.
-
-On classes with keywords, trailing underscores are appended. Clashes
-with builtins are allowed and **must not** be resolved by appending an
-underline to the variable name. If the function needs to access a
-shadowed builtin, rebind the builtin to a different name instead.
-
-Function and method arguments:
-
-:   -   class methods: `cls` as first parameter
-    -   instance methods: `self` as first parameter
-    -   lambdas for properties might have the first parameter replaced
-        with `x` like in
-        `display_name = property(lambda x: x.real_name or x.username)`
-
-Docstrings
-----------
-
-Docstring conventions:
-
-:   All docstrings are formatted with reStructuredText as understood by
-    Sphinx. Depending on the number of lines in the docstring, they are
-    laid out differently. If it\'s just one line, the closing triple
-    quote is on the same line as the opening, otherwise the text is on
-    the same line as the opening quote and the triple quote that closes
-    the string on its own line:
-
-        def foo():
-            """This is a simple docstring"""
-
-
-        def bar():
-            """
-        This is a longer docstring with so much information in there
-            that it spans three lines.  In this case the closing triple quote
-            is on its own line.
-            """
-
-    Bliss supports *napoleon* sphinx extension. The recommended way to
-    document API is to follow the [Google Python Style
-    Guide](http://google.github.io/styleguide/pyguide.html):
-
-        def move(axis, position, wait=False):
-            """
-            move the given axis to the given absolute position
-
-            Note:
-                using `wait=True` will block the current :class:`~gevent.Greenlet`.
-
-            See Also:
-                :func:`rmove`
-
-            Args:
-                axis (Axis): instance of bliss :class:`bliss.common.axis.Axis`
-                position (float): position (axis units)
-                wait (bool): wait or not for motion to end [default: False]
-
-            Returns:
-                float: actual position where motor is (axis units)
-            """
-            pass
-
-Module header:
-
-:   The module header consists of an utf-8 encoding declaration (if non
-    ASCII letters are used, but it is recommended all the time) and a
-    standard docstring:
-
-        # -*- coding: utf-8 -*-
-        #
-        # This file is part of the bliss project
-        #
-        # Copyright (c) 2016 Beamline Control Unit, ESRF
-        # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-Comments
---------
-
-Rules for comments are similar to docstrings. Both are formatted with
-reStructuredText. If a comment is used to document an attribute, put a
-colon after the opening pound sign (`#`):
-
-    class User(object):
-
-        #: the name of the user as unicode string
-        name = Column(String)
-
-        #: the sha1 hash of the password + inline salt
-        pw_hash = Column(String)
+~~~

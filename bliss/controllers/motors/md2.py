@@ -11,7 +11,6 @@ import gevent
 
 
 class MD2(Controller):
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -30,7 +29,7 @@ class MD2(Controller):
         axis.root_name = axis.config.get("root_name")
 
     def read_position(self, axis):
-        cmd = axis.root_name+self.pos_attr_suffix
+        cmd = axis.root_name + self.pos_attr_suffix
         return self._exporter.readProperty(cmd)
 
     def state(self, axis):
@@ -38,11 +37,11 @@ class MD2(Controller):
         return AxisState(state.upper())
 
     def start_one(self, motion):
-        cmd = motion.axis.root_name+self.pos_attr_suffix
+        cmd = motion.axis.root_name + self.pos_attr_suffix
         print motion.target_pos
         self._exporter.writeProperty(cmd, motion.target_pos)
 
-    def stop(self,axis):
+    def stop(self, axis):
         self._exporter.execute("abort")
 
     def home_search(self, axis, switch=None):
@@ -51,7 +50,7 @@ class MD2(Controller):
 
     def home_state(self, axis):
         return self.state(axis)
-        
+
     def _get_hwstate(self):
         try:
             return self._exporter.readProperty("HardwareState")
@@ -69,5 +68,4 @@ class MD2(Controller):
     def _wait_ready(self, timeout=3):
         with gevent.Timeout(timeout):
             while not self._ready():
-                gevent.sleep(0.01)  
-
+                gevent.sleep(0.01)

@@ -41,22 +41,17 @@ class Mechonics(Controller):
          steps_per_unit: 1
          channel: 3
     """
+
     axes_id = {1: 0x00, 2: 0x40, 3: 0x80}
     speeds = {1: 0x30, 2: 0x20, 3: 0x10, 4: 0x00}
     directions = {"pos": 0x00, "neg": 0x08}
-    steps_table = {1: 1,
-                   2: 2,
-                   5: 3,
-                   10: 4,
-                   20: 5,
-                   50: 6,
-                   100: 7}
+    steps_table = {1: 1, 2: 2, 5: 3, 10: 4, 20: 5, 50: 6, 100: 7}
 
-    def __init__(self,  *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
         # Communication
-        comm_option = {'baudrate': 19200}
+        comm_option = {"baudrate": 19200}
         self.serial = get_comm(self.config.config_dict, **comm_option)
 
         self.channels = dict()
@@ -72,8 +67,8 @@ class Mechonics(Controller):
         return _ans
 
     def initialize_axis(self, axis):
-        self.velocities[axis] = self.config.config_dict['axes'][0]['velocity']
-        self.channels[axis] = self.config.config_dict['axes'][0]['channel']
+        self.velocities[axis] = self.config.config_dict["axes"][0]["velocity"]
+        self.channels[axis] = self.config.config_dict["axes"][0]["channel"]
 
         # re-read position saved in settings (Redis db)
         self.positions[axis] = axis.settings.get("dial_position")
@@ -90,7 +85,7 @@ class Mechonics(Controller):
         #      (motion.delta, _steps_target, _direction))
 
         # Split movement in sub-movements.
-        while(_steps_target > 0):
+        while _steps_target > 0:
             if _steps_target >= 100:
                 _steps = 100
                 _steps_code = self.steps_table[100]
@@ -147,7 +142,7 @@ class Mechonics(Controller):
 
         return _speed_code
 
-    def read_position(self,axis):
+    def read_position(self, axis):
         _pos = self.positions[axis]
         return _pos
 

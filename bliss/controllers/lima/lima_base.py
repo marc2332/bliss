@@ -17,6 +17,7 @@ from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
 from bliss.config import settings
 
+
 class CameraBase(object):
     def __init__(self, name, lima_device, proxy):
         pass
@@ -32,6 +33,7 @@ class CameraBase(object):
         "IMAGE" => synchronization with **last_image_ready**
         """
         return "TRIGGER"
+
 
 class Lima(object):
     """
@@ -51,8 +53,9 @@ class Lima(object):
             - path: /data/inhouse
               replace-with: L:/
     """
-    _ROI_COUNTERS = 'roicounter'
-    _BPM = 'beamviewer'
+
+    _ROI_COUNTERS = "roicounter"
+    _BPM = "beamviewer"
 
     # Standard interface
 
@@ -63,20 +66,26 @@ class Lima(object):
         scan_pars.update(settings)
 
         # Extract information
-        npoints = scan_pars.get('npoints', 1)
-        acq_expo_time = scan_pars['count_time']
-        save_flag = scan_pars.get('save', False)
-        if 'INTERNAL_TRIGGER_MULTI' in self.available_triggers:
-            default_trigger_mode = 'INTERNAL_TRIGGER_MULTI'
+        npoints = scan_pars.get("npoints", 1)
+        acq_expo_time = scan_pars["count_time"]
+        save_flag = scan_pars.get("save", False)
+        if "INTERNAL_TRIGGER_MULTI" in self.available_triggers:
+            default_trigger_mode = "INTERNAL_TRIGGER_MULTI"
         else:
-            default_trigger_mode = 'INTERNAL_TRIGGER'
+            default_trigger_mode = "INTERNAL_TRIGGER"
 
-        acq_trigger_mode = scan_pars.get('acq_trigger_mode', default_trigger_mode)
+        acq_trigger_mode = scan_pars.get("acq_trigger_mode", default_trigger_mode)
 
-        prepare_once = acq_trigger_mode in ('INTERNAL_TRIGGER_MULTI','EXTERNAL_GATE',
-                                            'EXTERNAL_TRIGGER_MULTI')
-        start_once = acq_trigger_mode not in ('INTERNAL_TRIGGER', 'INTERNAL_TRIGGER_MULTI')
-        data_synchronisation = scan_pars.get('data_synchronisation', False)
+        prepare_once = acq_trigger_mode in (
+            "INTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_GATE",
+            "EXTERNAL_TRIGGER_MULTI",
+        )
+        start_once = acq_trigger_mode not in (
+            "INTERNAL_TRIGGER",
+            "INTERNAL_TRIGGER_MULTI",
+        )
+        data_synchronisation = scan_pars.get("data_synchronisation", False)
         if data_synchronisation:
             prepare_once = start_once = False
         acq_nb_frames = npoints if prepare_once else 1
@@ -88,9 +97,10 @@ class Lima(object):
             acq_trigger_mode=acq_trigger_mode,
             save_flag=save_flag,
             prepare_once=prepare_once,
-            start_once=start_once)
+            start_once=start_once,
+        )
 
-    def __init__(self,name,config_tree):
+    def __init__(self, name, config_tree):
         """Lima controller.
 
         name -- the controller's name
@@ -109,8 +119,10 @@ class Lima(object):
         self._camera = None
         self._image = None
         self._acquisition = None
-        self._directories_mapping = config_tree.get('directories_mapping', dict())
-        self._active_dir_mapping = settings.SimpleSetting('%s:directories_mapping' % name)
+        self._directories_mapping = config_tree.get("directories_mapping", dict())
+        self._active_dir_mapping = settings.SimpleSetting(
+            "%s:directories_mapping" % name
+        )
 
     @property
     def directories_mapping_names(self):
@@ -142,16 +154,19 @@ class Lima(object):
         if name in self._directories_mapping:
             self._active_dir_mapping.set(name)
         else:
-            msg = "%s: dir. mapping '%s` does not exist. Should be one of: %s" \
-                        % (self.name, name, ",".join(self.directories_mapping_names))
+            msg = "%s: dir. mapping '%s` does not exist. Should be one of: %s" % (
+                self.name,
+                name,
+                ",".join(self.directories_mapping_names),
+            )
             raise ValueError(msg)
 
     def get_mapped_path(self, path):
         path = os.path.normpath(path)
 
         for mapping in sorted(self.directories_mapping, reverse=True):
-            base_path = mapping['path']
-            replace_with = mapping['replace-with']
+            base_path = mapping["path"]
+            replace_with = mapping["replace-with"]
             # os.path.commonprefix function is broken as it returns common
             # characters, that may not form a valid directory path: hence
             # the use of a custom common_prefix function
@@ -167,17 +182,22 @@ class Lima(object):
     @property
     def image(self):
         if self._image is None:
-            self._image = LimaProperties('LimaImageCounter', self.proxy,
-                                         prefix="image_", strip_prefix=True,
-                                         base_class=ImageCounter,
-                                         base_class_args=(self, self._proxy))
+            self._image = LimaProperties(
+                "LimaImageCounter",
+                self.proxy,
+                prefix="image_",
+                strip_prefix=True,
+                base_class=ImageCounter,
+                base_class_args=(self, self._proxy),
+            )
         return self._image
 
     @property
     def acquisition(self):
         if self._acquisition is None:
-            self._acquisition = LimaProperties('LimaAcquisition', self.proxy,
-                                               prefix='acq_', strip_prefix=True)
+            self._acquisition = LimaProperties(
+                "LimaAcquisition", self.proxy, prefix="acq_", strip_prefix=True
+            )
         return self._acquisition
 
     @property
@@ -194,15 +214,19 @@ class Lima(object):
             proxy = self._get_proxy(camera_type)
             camera_type = camera_type.lower()
             try:
-                camera_module = importlib.import_module('.%s' % camera_type,__package__)
+                camera_module = importlib.import_module(
+                    ".%s" % camera_type, __package__
+                )
             except ImportError:
                 camera_class = CameraBase
             else:
                 camera_class = camera_module.Camera
-            self._camera = LimaProperties('LimaCamera', proxy,
-                                          base_class=camera_class,
-                                          base_class_args=(self.name, self,
-                                                           proxy))
+            self._camera = LimaProperties(
+                "LimaCamera",
+                proxy,
+                base_class=camera_class,
+                base_class_args=(self.name, self, proxy),
+            )
         return self._camera
 
     @property
@@ -232,16 +256,18 @@ class Lima(object):
     def stopAcq(self):
         self._proxy.stopAcq()
 
-    def _get_proxy(self,type_name='LimaCCDs'):
-        if type_name == 'LimaCCDs':
+    def _get_proxy(self, type_name="LimaCCDs"):
+        if type_name == "LimaCCDs":
             device_name = self.__tg_url
         else:
             main_proxy = self.proxy
             device_name = main_proxy.command_inout(
-                "getPluginDeviceNameFromType", type_name)
+                "getPluginDeviceNameFromType", type_name
+            )
             if not device_name:
-                raise RuntimeError("%s: '%s` proxy cannot be found" %
-                                   (self.name, type_name))
+                raise RuntimeError(
+                    "%s: '%s` proxy cannot be found" % (self.name, type_name)
+                )
             if not device_name.startswith("//"):
                 # build 'fully qualified domain' name
                 # '.get_fqdn()' doesn't work
@@ -249,25 +275,30 @@ class Lima(object):
                 db_port = main_proxy.get_db_port()
                 device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
         device_proxy = DeviceProxy(device_name)
-        device_proxy.set_timeout_millis(1000*self.__tg_timeout)
+        device_proxy.set_timeout_millis(1000 * self.__tg_timeout)
         return device_proxy
 
     def __repr__(self):
-        attr_list = ('user_detector_name', 'camera_model',
-                     'camera_type', 'lima_type')
+        attr_list = ("user_detector_name", "camera_model", "camera_type", "lima_type")
         try:
-            data = {attr.name: ('?' if attr.has_failed else attr.value)
-                    for attr in self._proxy.read_attributes(attr_list)}
+            data = {
+                attr.name: ("?" if attr.has_failed else attr.value)
+                for attr in self._proxy.read_attributes(attr_list)
+            }
         except DevFailed:
-            return 'Lima {} (Communication error with {!r})' \
-                .format(self.name, self._proxy.dev_name())
+            return "Lima {} (Communication error with {!r})".format(
+                self.name, self._proxy.dev_name()
+            )
 
-        return '{0[user_detector_name]} - ' \
-               '{0[camera_model]} ({0[camera_type]}) - Lima {0[lima_type]}\n\n' \
-               'Image:\n{1!r}\n\n' \
-               'Acquisition:\n{2!r}\n\n' \
-               'ROI Counters:\n{3!r}' \
-               .format(data, self.image, self.acquisition, self.roi_counters)
+        return (
+            "{0[user_detector_name]} - "
+            "{0[camera_model]} ({0[camera_type]}) - Lima {0[lima_type]}\n\n"
+            "Image:\n{1!r}\n\n"
+            "Acquisition:\n{2!r}\n\n"
+            "ROI Counters:\n{3!r}".format(
+                data, self.image, self.acquisition, self.roi_counters
+            )
+        )
 
     # Expose counters
 
@@ -286,24 +317,24 @@ class Lima(object):
         dct = {}
 
         # Image counter
-        dct['images'] = counter_namespace([self.image])
+        dct["images"] = counter_namespace([self.image])
 
         # BPM counters
         try:
-            dct['bpm'] = counter_namespace(self.bpm.counters)
+            dct["bpm"] = counter_namespace(self.bpm.counters)
         except RuntimeError:
             pass
 
         # Specific ROI counters
         for counters in self.roi_counters.iter_single_roi_counters():
-            dct['roi_counters.' + counters.name] = counter_namespace(counters)
+            dct["roi_counters." + counters.name] = counter_namespace(counters)
 
         # All ROI counters
-        dct['roi_counters'] = counter_namespace(self.roi_counters.counters)
+        dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
 
         # Default grouped
-        default_counters = list(dct['images']) + list(dct['roi_counters'])
-        dct['default'] = counter_namespace(default_counters)
+        default_counters = list(dct["images"]) + list(dct["roi_counters"])
+        dct["default"] = counter_namespace(default_counters)
 
         # Return namespace
         return namespace(dct)

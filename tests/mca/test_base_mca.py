@@ -6,8 +6,8 @@ from bliss.controllers.mca import PresetMode, TriggerMode, Stats
 
 
 def test_mca_enums():
-    assert 'XIA' in dir(Brand)
-    assert 'MERCURY' in dir(DetectorType)
+    assert "XIA" in dir(Brand)
+    assert "MERCURY" in dir(DetectorType)
 
 
 def test_base_mca():
@@ -17,20 +17,18 @@ def test_base_mca():
         pass
 
     with pytest.raises(NotImplementedError):
-        IncompleteMCA1('incomplete', {})
+        IncompleteMCA1("incomplete", {})
 
     # No initialize_hardware method
     class IncompleteMCA2(BaseMCA):
-
         def initialize_attributes(self):
             pass
 
     with pytest.raises(NotImplementedError):
-        IncompleteMCA2('incomplete', {})
+        IncompleteMCA2("incomplete", {})
 
     # Missing methods and properties
     class IncompleteMCA3(BaseMCA):
-
         def initialize_attributes(self):
             pass
 
@@ -39,24 +37,25 @@ def test_base_mca():
 
     # Create an incomplete mca
     config = {}
-    mca = IncompleteMCA3('incomplete', config)
-    assert mca.name == 'incomplete'
+    mca = IncompleteMCA3("incomplete", config)
+    assert mca.name == "incomplete"
     assert mca._config is config
 
     # Method dict
     methods = {
         mca.finalize: (),
-        mca.set_preset_mode: ('some_mode',),
+        mca.set_preset_mode: ("some_mode",),
         mca.set_hardware_points: (12,),
         mca.set_block_size: (6,),
-        mca.set_trigger_mode: ('some_mode',),
-        mca.set_spectrum_range: ('some', 'range'),
+        mca.set_trigger_mode: ("some_mode",),
+        mca.set_spectrum_range: ("some", "range"),
         mca.start_acquisition: (),
         mca.stop_acquisition: (),
         mca.is_acquiring: (),
         mca.get_acquisition_data: (),
         mca.get_acquisition_statistics: (),
-        mca.poll_data: ()}
+        mca.poll_data: (),
+    }
 
     # Test methods
     for method, args in methods.items():
@@ -65,14 +64,15 @@ def test_base_mca():
 
     # Property list
     properties = [
-        'detector_brand',
-        'detector_type',
-        'elements',
-        'hardware_points',
-        'block_size',
-        'supported_preset_modes',
-        'supported_trigger_modes',
-        'calibration_type']
+        "detector_brand",
+        "detector_type",
+        "elements",
+        "hardware_points",
+        "block_size",
+        "supported_preset_modes",
+        "supported_trigger_modes",
+        "calibration_type",
+    ]
 
     # Test properties
     for prop in properties:
@@ -123,11 +123,9 @@ def test_base_mca_logic():
 
     # Create a test mca
     config = {}
-    mca = TestMCA('incomplete', config)
-    assert mca.name == 'incomplete'
+    mca = TestMCA("incomplete", config)
+    assert mca.name == "incomplete"
     assert mca._config is config
 
     # Run a single acquisition
-    assert mca.run_software_acquisition(1, 3.) == (
-        [{0: [3, 2, 1]}],
-        [{0: stats}])
+    assert mca.run_software_acquisition(1, 3.) == ([{0: [3, 2, 1]}], [{0: stats}])

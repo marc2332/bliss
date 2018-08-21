@@ -33,7 +33,7 @@ class DeviceIterator(object):
     def next(self):
         if not self._one_shot:
             if not self.device.prepare_once and not self.device.start_once:
-                if hasattr(self.__device_ref(), 'wait_reading'):
+                if hasattr(self.__device_ref(), "wait_reading"):
                     self.__device_ref().wait_reading()
         else:
             raise StopIteration
@@ -65,7 +65,7 @@ class DeviceIteratorWrapper(object):
         except StopIteration:
             if self.__one_shot:
                 raise
-            if hasattr(self.__device, 'wait_reading'):
+            if hasattr(self.__device, "wait_reading"):
                 self.__device.wait_reading()
             self.__iterator = iter(device)
             self.__current = self.__iterator.next()
@@ -86,6 +86,7 @@ class ChainPreset(object):
     At typical usage of this class is to manage the opening/closing
     by software or to control beam-line multiplexer(s)
     """
+
     def get_iterator(self, chain):
         """Yield ChainIterationPreset instances, if needed"""
         pass
@@ -114,6 +115,7 @@ class ChainIterationPreset(object):
     Same usage of the Preset object except that it will be called
     before and at the end of each iteration of the scan.
     """
+
     def prepare(self):
         """
         Called on the preparation phase of each scan iteration
@@ -136,8 +138,15 @@ class ChainIterationPreset(object):
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = range(2)
 
-    def __init__(self, device, name, npoints=None, trigger_type=SOFTWARE,
-                 prepare_once=False, start_once=False):
+    def __init__(
+        self,
+        device,
+        name,
+        npoints=None,
+        trigger_type=SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+    ):
         self.__device = device
         self.__name = name
         self.__parent = None
@@ -241,12 +250,17 @@ class AcquisitionMaster(object):
                 for slave, task in self.__triggers:
                     if not task.ready():
                         invalid_slaves.append(slave)
-                        task.kill(RuntimeError("%s: Previous trigger is not done, aborting"
-                                               % self.name))
+                        task.kill(
+                            RuntimeError(
+                                "%s: Previous trigger is not done, aborting" % self.name
+                            )
+                        )
                     else:
                         task.kill()
-                raise RuntimeError("%s: Aborted due to bad triggering on slaves: %s"
-                                   % (self.name, invalid_slaves))
+                raise RuntimeError(
+                    "%s: Aborted due to bad triggering on slaves: %s"
+                    % (self.name, invalid_slaves)
+                )
         finally:
             self.__triggers = list()
 
@@ -255,26 +269,28 @@ class AcquisitionMaster(object):
                 self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
     def wait_slaves(self):
-        gevent.joinall(
-            [task for slave, task in self.__triggers], raise_error=True)
+        gevent.joinall([task for slave, task in self.__triggers], raise_error=True)
 
     def wait_ready(self):
         # wait until ready for next acquisition
         # (not considering slave devices)
         return True
 
-    def add_external_channel(self, device, name, rename=None, conversion=None,
-                             dtype=None):
+    def add_external_channel(
+        self, device, name, rename=None, conversion=None, dtype=None
+    ):
         """Add a channel from an external source."""
         try:
             source = next(
-                channel for channel in device.channels if channel.name == name)
+                channel for channel in device.channels if channel.name == name
+            )
         except StopIteration:
             raise ValueError(
-                'The device {} does not have a channel called {}'
-                .format(device, name))
+                "The device {} does not have a channel called {}".format(device, name)
+            )
         new_channel, connect, cleanup = duplicate_channel(
-            source, name=rename, conversion=conversion, dtype=dtype)
+            source, name=rename, conversion=conversion, dtype=dtype
+        )
         self.__duplicated_channels[new_channel] = connect, cleanup
         self.channels.append(new_channel)
 
@@ -282,8 +298,15 @@ class AcquisitionMaster(object):
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = range(2)
 
-    def __init__(self, device, name, npoints=0, trigger_type=SOFTWARE,
-                 prepare_once=False, start_once=False):
+    def __init__(
+        self,
+        device,
+        name,
+        npoints=0,
+        trigger_type=SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+    ):
         self.__device = device
         self.__parent = None
         self.__name = name
@@ -335,8 +358,7 @@ class AcquisitionDevice(object):
             channel._device_name = self.name
 
         if not self._check_ready():
-            raise RuntimeError(
-                "%s: Last reading task is not finished." % self.name)
+            raise RuntimeError("%s: Last reading task is not finished." % self.name)
         return self.prepare()
 
     def prepare(self):
@@ -393,10 +415,13 @@ class AcquisitionChainIter(object):
         self._current_preset_iterators_list = list()
 
         # set all slaves into master
-        for master in (x for x in acquisition_chain._tree.expand_tree() if isinstance(x, AcquisitionMaster)):
+        for master in (
+            x
+            for x in acquisition_chain._tree.expand_tree()
+            if isinstance(x, AcquisitionMaster)
+        ):
             del master.slaves[:]
-            master.slaves.extend(
-                acquisition_chain._tree.get_node(master).fpointer)
+            master.slaves.extend(acquisition_chain._tree.get_node(master).fpointer)
 
         # create iterators tree
         self._tree = Tree()
@@ -415,8 +440,7 @@ class AcquisitionChainIter(object):
             else:
                 dev_iter = DeviceIteratorWrapper(dev, one_shot)
             device2iter[dev] = dev_iter
-            self._tree.create_node(
-                tag=dev.name, identifier=dev_iter, parent=parent)
+            self._tree.create_node(tag=dev.name, identifier=dev_iter, parent=parent)
 
     @property
     def acquisition_chain(self):
@@ -426,8 +450,12 @@ class AcquisitionChainIter(object):
         if self.__sequence_index == 0:
             preset_tasks = list()
 
-            preset_tasks.extend([gevent.spawn(preset.prepare, self.acquisition_chain)
-                                 for preset in self.acquisition_chain._presets_list])
+            preset_tasks.extend(
+                [
+                    gevent.spawn(preset.prepare, self.acquisition_chain)
+                    for preset in self.acquisition_chain._presets_list
+                ]
+            )
 
             scan.prepare(scan_info, self.acquisition_chain._tree)
 
@@ -455,26 +483,32 @@ class AcquisitionChainIter(object):
                 self._current_preset_iterators_list.append(preset)
                 preset_iterators_tasks.append(gevent.spawn(preset.prepare))
 
-        self._execute(
-            "_prepare", wait_between_levels=not self._parallel_prepare)
+        self._execute("_prepare", wait_between_levels=not self._parallel_prepare)
 
         gevent.joinall(preset_iterators_tasks, raise_error=True)
 
     def start(self):
         preset_tasks = list()
         if self.__sequence_index == 0:
-            preset_tasks = [gevent.spawn(preset.start, self.acquisition_chain)
-                            for preset in self.acquisition_chain._presets_list]
+            preset_tasks = [
+                gevent.spawn(preset.start, self.acquisition_chain)
+                for preset in self.acquisition_chain._presets_list
+            ]
 
-        preset_tasks.extend([gevent.spawn(i.start)
-                             for i in self._current_preset_iterators_list])
+        preset_tasks.extend(
+            [gevent.spawn(i.start) for i in self._current_preset_iterators_list]
+        )
         gevent.joinall(preset_tasks, raise_error=True)
         self._execute("_start")
 
     def wait_all_devices(self):
-        for acq_dev_iter in (x for x in self._tree.expand_tree() if x is not 'root' and
-                             isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))):
-            if hasattr(acq_dev_iter, 'wait_reading'):
+        for acq_dev_iter in (
+            x
+            for x in self._tree.expand_tree()
+            if x is not "root"
+            and isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))
+        ):
+            if hasattr(acq_dev_iter, "wait_reading"):
                 acq_dev_iter.wait_reading()
             if isinstance(acq_dev_iter.device, AcquisitionMaster):
                 acq_dev_iter.wait_slaves()
@@ -485,37 +519,50 @@ class AcquisitionChainIter(object):
             self._execute("_stop", master_to_slave=True, wait_all_tasks=True)
             self.wait_all_devices()
         finally:
-            preset_tasks = [gevent.spawn(preset.stop, self.acquisition_chain)
-                            for preset in self.acquisition_chain._presets_list]
-            preset_tasks.extend([gevent.spawn(i.stop)
-                                 for i in self._current_preset_iterators_list])
+            preset_tasks = [
+                gevent.spawn(preset.stop, self.acquisition_chain)
+                for preset in self.acquisition_chain._presets_list
+            ]
+            preset_tasks.extend(
+                [gevent.spawn(i.stop) for i in self._current_preset_iterators_list]
+            )
 
             gevent.joinall(preset_tasks)  # wait to call all stop on preset
             gevent.joinall(preset_tasks, raise_error=True)
 
     def next(self):
         self.__sequence_index += 1
-        gevent.joinall([gevent.spawn(dev_iter.wait_ready) for dev_iter in self._tree.expand_tree()
-                        if dev_iter is not 'root'],
-                       raise_error=True)
+        gevent.joinall(
+            [
+                gevent.spawn(dev_iter.wait_ready)
+                for dev_iter in self._tree.expand_tree()
+                if dev_iter is not "root"
+            ],
+            raise_error=True,
+        )
         try:
             if self.__sequence_index:
                 for dev_iter in self._tree.expand_tree():
-                    if dev_iter is 'root':
+                    if dev_iter is "root":
                         continue
                     dev_iter.next()
-            preset_tasks = [gevent.spawn(i.stop)
-                            for i in self._current_preset_iterators_list]
+            preset_tasks = [
+                gevent.spawn(i.stop) for i in self._current_preset_iterators_list
+            ]
             gevent.joinall(preset_tasks)
             gevent.joinall(preset_tasks, raise_error=True)
-        except StopIteration:                # should we stop all devices?
+        except StopIteration:  # should we stop all devices?
             self.wait_all_devices()
             raise
         return self
 
-    def _execute(self, func_name,
-                 master_to_slave=False, wait_between_levels=True,
-                 wait_all_tasks=False):
+    def _execute(
+        self,
+        func_name,
+        master_to_slave=False,
+        wait_between_levels=True,
+        wait_all_tasks=False,
+    ):
         tasks = list()
 
         prev_level = None
@@ -563,19 +610,25 @@ class AcquisitionChain(object):
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
         if slave_node is not None and isinstance(slave, AcquisitionDevice):
-            if(slave_node.bpointer is not self._root_node and
-               master_node is not slave_node.bpointer):
-                raise RuntimeError("Cannot add acquisition device %s to multiple masters, current master is %s" % (
-                    slave, slave_node._bpointer))
-            else:                 # user error, multiple add, ignore for now
+            if (
+                slave_node.bpointer is not self._root_node
+                and master_node is not slave_node.bpointer
+            ):
+                raise RuntimeError(
+                    "Cannot add acquisition device %s to multiple masters, current master is %s"
+                    % (slave, slave_node._bpointer)
+                )
+            else:  # user error, multiple add, ignore for now
                 return
 
         if master_node is None:
             master_node = self._tree.create_node(
-                tag=master.name, identifier=master, parent="root")
+                tag=master.name, identifier=master, parent="root"
+            )
         if slave_node is None:
             slave_node = self._tree.create_node(
-                tag=slave.name, identifier=slave, parent=master)
+                tag=slave.name, identifier=slave, parent=master
+            )
         else:
             self._tree.move_node(slave, master)
         slave.parent = master

@@ -26,8 +26,7 @@ def test_default_chain_with_sampling_counter(beacon):
     diode = beacon.get("diode")
     assert diode
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
     chain = DEFAULT_CHAIN.get(scan_pars, [diode])
     timer = chain.timer
@@ -65,8 +64,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode.controller is None
     assert diode2.controller == diode3.controller == diode_controller
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
     chain = DEFAULT_CHAIN.get(scan_pars, [diode2, diode, diode3])
     timer = chain.timer
@@ -84,11 +82,11 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert nodes[2] != nodes[1]
 
     counter_names = [c.name for c in nodes[1].channels]
-    assert counter_names == ['diode']
+    assert counter_names == ["diode"]
     # counters order is not important
     # as we use **set** to eliminate duplicated counters
     counter_names = set([c.name for c in nodes[2].channels])
-    assert counter_names == set(['diode2', 'diode3'])
+    assert counter_names == set(["diode2", "diode3"])
 
 
 def test_default_chain_with_roi_counter(beacon, lima_simulator):
@@ -103,12 +101,11 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
           |-roi1
     """
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters['roi1'] = 0,0,10,10
+    lima_sim.roi_counters["roi1"] = 0, 0, 10, 10
     assert lima_sim.counters.roi1
 
     try:
-        scan_pars = {"npoints": 10,
-                     "count_time": 0.1}
+        scan_pars = {"npoints": 10, "count_time": 0.1}
 
         chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1])
         timer = chain.timer
@@ -128,6 +125,7 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
     finally:
         lima_sim.roi_counters.clear()
 
+
 def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
@@ -144,12 +142,11 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
     diode = beacon.get("diode")
     assert diode
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters['roi1'] = (0,0,10,10)
+    lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
     assert lima_sim.counters.roi1
 
     try:
-        scan_pars = {"npoints": 10,
-                     "count_time": 0.1}
+        scan_pars = {"npoints": 10, "count_time": 0.1}
 
         chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1, diode])
         timer = chain.timer
@@ -184,17 +181,13 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
           |-roi1
     """
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters['roi1'] = (0,0,10,10)
+    lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
     assert lima_sim.counters.roi1
 
     try:
-        scan_pars = {"npoints": 10,
-                     "count_time": 0.1,
-                     "save": True,
-                    }
+        scan_pars = {"npoints": 10, "count_time": 0.1, "save": True}
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1,
-                                              lima_sim])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1, lima_sim])
         timer = chain.timer
 
         nodes = chain.nodes_list
@@ -226,17 +219,21 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
     diode = beacon.get("diode2")
     assert diode
     lima_sim = beacon.get("lima_simulator")
-    lima_sim.roi_counters['roi1'] = (0,0,10,10)
+    lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
     assert lima_sim.counters.roi1
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
     try:
-        DEFAULT_CHAIN.set_settings([{"device": diode, "master": lima_sim },
-                                    {"device": lima_sim, "acquisition_settings":
-                                        {'acq_trigger_mode':'EXTERNAL_GATE'}
-                                    } ])
+        DEFAULT_CHAIN.set_settings(
+            [
+                {"device": diode, "master": lima_sim},
+                {
+                    "device": lima_sim,
+                    "acquisition_settings": {"acq_trigger_mode": "EXTERNAL_GATE"},
+                },
+            ]
+        )
 
         chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1.avg, diode])
         timer = chain.timer
@@ -252,10 +249,11 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
         assert nodes[3].parent == nodes[1]
         assert nodes[1].parent == timer
 
-        assert nodes[1].parameters.get('acq_trigger_mode') == 'EXTERNAL_GATE'
+        assert nodes[1].parameters.get("acq_trigger_mode") == "EXTERNAL_GATE"
     finally:
         lima_sim.roi_counters.clear()
         DEFAULT_CHAIN.set_settings([])
+
 
 def test_default_chain_with_recursive_master(beacon, lima_simulator):
     """Want to build the following acquisition chain:
@@ -274,8 +272,7 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
     diode = beacon.get("diode2")
     assert diode
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
     class FakeMaster:
         def __init__(self, name):
@@ -287,16 +284,16 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
     fake_master = FakeMaster("fake")
 
     try:
-        DEFAULT_CHAIN.set_settings([
-            {
-                "device": diode,
-                "master": lima_sim
-            },
-            {
-                "device": lima_sim,
-                "master": fake_master,
-                "acquisition_settings": {'acq_trigger_mode': 'EXTERNAL_GATE'},
-            }])
+        DEFAULT_CHAIN.set_settings(
+            [
+                {"device": diode, "master": lima_sim},
+                {
+                    "device": lima_sim,
+                    "master": fake_master,
+                    "acquisition_settings": {"acq_trigger_mode": "EXTERNAL_GATE"},
+                },
+            ]
+        )
 
         chain = DEFAULT_CHAIN.get(scan_pars, [diode])
         timer = chain.timer
@@ -315,6 +312,7 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
     finally:
         DEFAULT_CHAIN.set_settings([])
 
+
 def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
     """Want to build the following acquisition chain:
 
@@ -329,12 +327,18 @@ def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
     lima_sim = beacon.get("lima_simulator")
     mca = beacon.get("simu1")
 
-    scan_pars = {"npoints": 10,
-                 "count_time": 0.1}
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
     try:
-        DEFAULT_CHAIN.set_settings([{"device": mca, "master": lima_sim,
-                                    "acquisition_settings": {'trigger_mode': 'GATE' }} ])
+        DEFAULT_CHAIN.set_settings(
+            [
+                {
+                    "device": mca,
+                    "master": lima_sim,
+                    "acquisition_settings": {"trigger_mode": "GATE"},
+                }
+            ]
+        )
 
         chain = DEFAULT_CHAIN.get(scan_pars, [mca.counters.spectrum_det0])
         timer = chain.timer

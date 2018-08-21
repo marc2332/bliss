@@ -16,6 +16,7 @@ from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
 # Mercury controller
 
+
 class BaseXIA(BaseMCA):
     """Base controller class for the XIA MCAs.
 
@@ -40,9 +41,9 @@ class BaseXIA(BaseMCA):
     def initialize_attributes(self):
         self._proxy = None
         self._current_config = None
-        self._url = self._config['url']
-        self._config_dir = self._config['configuration_directory']
-        self._default_config = self._config['default_configuration']
+        self._url = self._config["url"]
+        self._config_dir = self._config["configuration_directory"]
+        self._default_config = self._config["default_configuration"]
 
     def initialize_hardware(self):
         self._proxy = zerorpc.Client(self._url)
@@ -139,50 +140,50 @@ class BaseXIA(BaseMCA):
 
     @property
     def spectrum_size(self):
-        return int(self._proxy.get_acquisition_value('number_mca_channels'))
+        return int(self._proxy.get_acquisition_value("number_mca_channels"))
 
     def set_spectrum_size(self, size):
-        self._proxy.set_acquisition_value('number_mca_channels', size)
+        self._proxy.set_acquisition_value("number_mca_channels", size)
         self._proxy.apply_acquisition_values()
 
     # Buffer settings
 
     @property
     def hardware_points(self):
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         if mapping == 0:
             return 1
-        num = self._proxy.get_acquisition_value('num_map_pixels')
+        num = self._proxy.get_acquisition_value("num_map_pixels")
         return int(num)
 
     def set_hardware_points(self, value):
         # Invalid argument
         if value < 1:
-            raise ValueError('Acquisition number should be strictly positive')
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+            raise ValueError("Acquisition number should be strictly positive")
+        mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         # MCA mode
         if mapping == 0 and value not in (None, 1):
-            raise ValueError('None and 1 are the only valid values in MCA mode')
+            raise ValueError("None and 1 are the only valid values in MCA mode")
         elif mapping == 0:
             return
         # Configure
-        self._proxy.set_acquisition_value('num_map_pixels', value)
+        self._proxy.set_acquisition_value("num_map_pixels", value)
         # Apply
         self._proxy.apply_acquisition_values()
 
     @property
     def block_size(self):
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         if mapping == 0:
             return 1
-        size = self._proxy.get_acquisition_value('num_map_pixels_per_buffer')
+        size = self._proxy.get_acquisition_value("num_map_pixels_per_buffer")
         return int(size)
 
     def set_block_size(self, value=None):
-        mapping = int(self._proxy.get_acquisition_value('mapping_mode'))
+        mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         # MCA mode
         if mapping == 0 and value not in (None, 1):
-            raise ValueError('None and 1 are the only valid values in MCA mode')
+            raise ValueError("None and 1 are the only valid values in MCA mode")
         elif mapping == 0:
             return
         # Set the default value
@@ -190,8 +191,7 @@ class BaseXIA(BaseMCA):
             self._proxy.set_maximum_pixels_per_buffer()
         # Set the specified value
         else:
-            self._proxy.set_acquisition_value(
-                'num_map_pixels_per_buffer', value)
+            self._proxy.set_acquisition_value("num_map_pixels_per_buffer", value)
         # Apply
         self._proxy.apply_acquisition_values()
 
@@ -218,10 +218,12 @@ class BaseXIA(BaseMCA):
 
     def poll_data(self):
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
-        spectrums = dict((key, self._convert_spectrums(value))
-                         for key, value in spectrums.items())
-        statistics = dict((key, self._convert_statistics(value))
-                          for key, value in statistics.items())
+        spectrums = dict(
+            (key, self._convert_spectrums(value)) for key, value in spectrums.items()
+        )
+        statistics = dict(
+            (key, self._convert_statistics(value)) for key, value in statistics.items()
+        )
         return current, spectrums, statistics
 
     def _convert_spectrums(self, spectrums):
@@ -239,7 +241,7 @@ class BaseXIA(BaseMCA):
     @property
     def detector_type(self):
         value = self._proxy.get_module_type().upper()
-        if value == 'FALCONXN':
+        if value == "FALCONXN":
             return DetectorType.FALCONX
         return getattr(DetectorType, value)
 
@@ -251,11 +253,13 @@ class BaseXIA(BaseMCA):
 
     @property
     def supported_preset_modes(self):
-        return [PresetMode.NONE,
-                PresetMode.REALTIME,
-                PresetMode.LIVETIME,
-                PresetMode.EVENTS,
-                PresetMode.TRIGGERS]
+        return [
+            PresetMode.NONE,
+            PresetMode.REALTIME,
+            PresetMode.LIVETIME,
+            PresetMode.EVENTS,
+            PresetMode.TRIGGERS,
+        ]
 
     def set_preset_mode(self, mode, value=None):
         # Cast arguments
@@ -263,31 +267,28 @@ class BaseXIA(BaseMCA):
             mode = PresetMode.NONE
         # Check arguments
         if mode not in self.supported_preset_modes:
-            raise ValueError('{!s} preset mode not supported'.format(mode))
+            raise ValueError("{!s} preset mode not supported".format(mode))
         if mode == PresetMode.NONE and value is not None:
-            raise TypeError(
-                'Preset value should be None when no preset mode is set')
+            raise TypeError("Preset value should be None when no preset mode is set")
         if mode != PresetMode.NONE and not isinstance(value, Number):
-            raise TypeError(
-                'Preset value should be a number when a preset mode is set')
+            raise TypeError("Preset value should be a number when a preset mode is set")
         # Get hardware values
         ptype, pcast = {
             PresetMode.NONE: (0, lambda x: 0),
             PresetMode.REALTIME: (1, float),
             PresetMode.LIVETIME: (2, float),
             PresetMode.EVENTS: (3, int),
-            PresetMode.TRIGGERS: (4, int)}[mode]
+            PresetMode.TRIGGERS: (4, int),
+        }[mode]
         pvalue = pcast(value)
         # Configure
-        self._proxy.set_acquisition_value('preset_type', ptype)
-        self._proxy.set_acquisition_value('preset_value', pvalue)
+        self._proxy.set_acquisition_value("preset_type", ptype)
+        self._proxy.set_acquisition_value("preset_value", pvalue)
         self._proxy.apply_acquisition_values()
 
     @property
     def supported_trigger_modes(self):
-        return [TriggerMode.SOFTWARE,
-                TriggerMode.SYNC,
-                TriggerMode.GATE]
+        return [TriggerMode.SOFTWARE, TriggerMode.SYNC, TriggerMode.GATE]
 
     def set_trigger_mode(self, mode, channel=None):
         """Set the trigger mode."""
@@ -296,22 +297,21 @@ class BaseXIA(BaseMCA):
             mode = TriggerMode.SOFTWARE
         # Check arguments
         if mode not in self.supported_trigger_modes:
-            raise ValueError('{!s} trigger mode not supported'.format(mode))
+            raise ValueError("{!s} trigger mode not supported".format(mode))
         # XMAP Trigger
         if self.detector_type == DetectorType.XMAP:
             self.set_xmap_trigger_mode(mode, channel=channel)
         elif channel is not None:
-            raise ValueError(
-                'Channel argument can only provided for XMAP detector')
+            raise ValueError("Channel argument can only provided for XMAP detector")
         # Configure mapping mode and gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
         mapping_mode = 0 if mode == TriggerMode.SOFTWARE else 1
-        self._proxy.set_acquisition_value('gate_ignore', gate_ignore)
-        self._proxy.set_acquisition_value('mapping_mode', mapping_mode)
+        self._proxy.set_acquisition_value("gate_ignore", gate_ignore)
+        self._proxy.set_acquisition_value("mapping_mode", mapping_mode)
         # Configure advance mode
         if mode != TriggerMode.SOFTWARE:
             gate = 1
-            self._proxy.set_acquisition_value('pixel_advance_mode', gate)
+            self._proxy.set_acquisition_value("pixel_advance_mode", gate)
         self._proxy.apply_acquisition_values()
 
     def set_xmap_trigger_mode(self, mode, channel=None):
@@ -320,20 +320,19 @@ class BaseXIA(BaseMCA):
             available = self._proxy.get_trigger_channels()
             # Check available trigger channels
             if not available:
-                raise ValueError(
-                    'This configuration does not support trigger signals')
+                raise ValueError("This configuration does not support trigger signals")
             # Check channel argument
             if channel is not None and channel not in available:
-                raise ValueError(
-                    'The given channel is not a valid trigger channel')
+                raise ValueError("The given channel is not a valid trigger channel")
             # Set default channel value
             if channel is None:
                 channel = available[0]
             # Set gate master parameter
-            self._proxy.set_acquisition_value('gate_master', True, channel)
+            self._proxy.set_acquisition_value("gate_master", True, channel)
 
 
 # Specific XIA classes
+
 
 class XIA(BaseXIA):
     """Generic controller class for a XIA MCA."""

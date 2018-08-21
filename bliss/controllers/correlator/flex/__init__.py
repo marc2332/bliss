@@ -21,18 +21,20 @@ from bliss.comm import rpc
 from . import counters
 from .card import MODE
 
+
 class Flex:
     MODE = MODE
+
     def __init__(self, name, config):
         kwargs = dict()
-        if 'timeout'in config:
-            kwargs['timeout'] = config['timeout']
-        self._proxy = rpc.Client(config['address'],**kwargs)
+        if "timeout" in config:
+            kwargs["timeout"] = config["timeout"]
+        self._proxy = rpc.Client(config["address"], **kwargs)
 
     @property
     def name(self):
         return self._proxy.name
-    
+
     @property
     def counters(self):
         return counters.get_counters(self)
@@ -58,4 +60,3 @@ class Flex:
     @property
     def data(self):
         return self._proxy.data
-    

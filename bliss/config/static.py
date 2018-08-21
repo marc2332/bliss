@@ -53,42 +53,72 @@ import functools
 
 if not hasattr(weakref, "WeakSet"):
     import weakrefset
+
     weakref.WeakSet = weakrefset.WeakSet
 from .conductor import client
 
 try:
     from ruamel import yaml as ordered_yaml
     from bliss.common.utils import OrderedDict as ordereddict
+
     NodeDict = ordereddict
+
     class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
-        def __init__(self,*args,**keys):
-            ordered_yaml.representer.RoundTripRepresenter.__init__(self,*args,**keys)
+        def __init__(self, *args, **keys):
+            ordered_yaml.representer.RoundTripRepresenter.__init__(self, *args, **keys)
+
         def represent_ordereddict(self, data):
-            return self.represent_mapping(u'tag:yaml.org,2002:map', data)
+            return self.represent_mapping(u"tag:yaml.org,2002:map", data)
 
-    RoundTripRepresenter.add_representer(ordereddict,
-                                         RoundTripRepresenter.represent_ordereddict)
+    RoundTripRepresenter.add_representer(
+        ordereddict, RoundTripRepresenter.represent_ordereddict
+    )
 
-    class RoundTripDumper(ordered_yaml.emitter.Emitter,
-                          ordered_yaml.serializer.Serializer,
-                          RoundTripRepresenter,
-                          ordered_yaml.resolver.Resolver):
-        def __init__(self,stream,
-                     default_style=None, default_flow_style=None,
-                     canonical=None, indent=None, width=None,
-                     allow_unicode=None, line_break=None,
-                     encoding=None, explicit_start=None, explicit_end=None,
-                     version=None, tags=None,**keys):
-            ordered_yaml.emitter.Emitter.__init__(self, stream, canonical=canonical,
-                                                  indent=indent, width=width,
-                                                  allow_unicode=allow_unicode, line_break=line_break)
-            ordered_yaml.serializer.Serializer.__init__(self, encoding=encoding,
-                                                     explicit_start=explicit_start,
-                                                     explicit_end=explicit_end,
-                                                     version=version, tags=tags)
-            RoundTripRepresenter.__init__(self, default_style=default_style,
-                                          default_flow_style=default_flow_style)
+    class RoundTripDumper(
+        ordered_yaml.emitter.Emitter,
+        ordered_yaml.serializer.Serializer,
+        RoundTripRepresenter,
+        ordered_yaml.resolver.Resolver,
+    ):
+        def __init__(
+            self,
+            stream,
+            default_style=None,
+            default_flow_style=None,
+            canonical=None,
+            indent=None,
+            width=None,
+            allow_unicode=None,
+            line_break=None,
+            encoding=None,
+            explicit_start=None,
+            explicit_end=None,
+            version=None,
+            tags=None,
+            **keys
+        ):
+            ordered_yaml.emitter.Emitter.__init__(
+                self,
+                stream,
+                canonical=canonical,
+                indent=indent,
+                width=width,
+                allow_unicode=allow_unicode,
+                line_break=line_break,
+            )
+            ordered_yaml.serializer.Serializer.__init__(
+                self,
+                encoding=encoding,
+                explicit_start=explicit_start,
+                explicit_end=explicit_end,
+                version=version,
+                tags=tags,
+            )
+            RoundTripRepresenter.__init__(
+                self, default_style=default_style, default_flow_style=default_flow_style
+            )
             ordered_yaml.resolver.Resolver.__init__(self)
+
 
 except ImportError:
     ordered_yaml = None
@@ -101,20 +131,23 @@ if hasattr(yaml, "CLoader"):
 else:
     yaml_load = yaml.load
 
+
 def load_cfg(filename):
     cfg_string = client.get_config_file(filename)
     if ordered_yaml:
-        return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
+        return ordered_yaml.load(cfg_string, ordered_yaml.RoundTripLoader)
     else:
         return yaml_load(cfg_string)
+
 
 def load_cfg_fromstring(cfg_string):
     if ordered_yaml:
-        return ordered_yaml.load(cfg_string,ordered_yaml.RoundTripLoader)
+        return ordered_yaml.load(cfg_string, ordered_yaml.RoundTripLoader)
     else:
         return yaml_load(cfg_string)
 
-def get_config(base_path='', timeout=3.):
+
+def get_config(base_path="", timeout=3.):
     """
     Return configuration from bliss configuration server
 
@@ -150,6 +183,7 @@ def get_config(base_path='', timeout=3.):
         CONFIG = Config(base_path, timeout)
     return CONFIG
 
+
 class Node(NodeDict):
     """
     Configuration Node. Do not instantiate this class directly.
@@ -171,14 +205,14 @@ class Node(NodeDict):
         500
     """
 
-    def __init__(self,config = None,parent = None,filename = None) :
+    def __init__(self, config=None, parent=None, filename=None):
         NodeDict.__init__(self)
         self._parent = parent
         if config is None:
             config = CONFIG
         if config:
             self._config = weakref.proxy(config)
-        config._create_file_index(self,filename)
+        config._create_file_index(self, filename)
 
     def __hash__(self):
         return id(self)
@@ -196,19 +230,19 @@ class Node(NodeDict):
     @property
     def children(self):
         """List of children Nodes"""
-        return self.get('__children__')
+        return self.get("__children__")
 
     @property
     def plugin(self):
         """Active plugin name for this Node or None if no plugin active"""
         plugin = self.get("plugin")
         if plugin is None:
-          if self == self._config._root_node:
-              return
-          if self._parent is not None:
-              return self._parent.plugin
-          else:
-              return None
+            if self == self._config._root_node:
+                return
+            if self._parent is not None:
+                return self._parent.plugin
+            else:
+                return None
         else:
             return plugin
 
@@ -227,9 +261,9 @@ class Node(NodeDict):
         elif self._parent is not None:
             return self._parent.get_node_filename()
         else:
-            return None,None
+            return None, None
 
-    def get_inherited(self,key):
+    def get_inherited(self, key):
         """
         Returns the value for the given config key. If the key does not exist
         in this Node it is searched recusively up in the Node tree until it
@@ -247,7 +281,7 @@ class Node(NodeDict):
             return self._parent.get_inherited(key)
         return value
 
-    def pprint(self,indent=1, depth = None):
+    def pprint(self, indent=1, depth=None):
         """
         Pretty prints this Node
 
@@ -255,27 +289,28 @@ class Node(NodeDict):
             indent (int): indentation level (default: 1)
             depth (int): max depth (default: None, meaning no max)
         """
-        self._pprint(self,0,indent,0,depth)
+        self._pprint(self, 0, indent, 0, depth)
 
-    def save(self) :
+    def save(self):
         """
         Saves the Node configuration persistently in the server
         """
-        parent,filename = self.get_node_filename()
-        if filename is None: return # Memory
+        parent, filename = self.get_node_filename()
+        if filename is None:
+            return  # Memory
         nodes_2_save = self._config._file2node[filename]
         if len(nodes_2_save) == 1:
             node = tuple(nodes_2_save)[0]
-            save_nodes = self._get_save_dict(node,filename)
+            save_nodes = self._get_save_dict(node, filename)
         else:
-            save_nodes = self._get_save_list(nodes_2_save,filename)
+            save_nodes = self._get_save_list(nodes_2_save, filename)
         if ordered_yaml:
-            file_content = ordered_yaml.dump(save_nodes,
-                                             Dumper=RoundTripDumper,
-                                             default_flow_style=False)
+            file_content = ordered_yaml.dump(
+                save_nodes, Dumper=RoundTripDumper, default_flow_style=False
+            )
         else:
-            file_content = yaml.dump(save_nodes,default_flow_style=False)
-        self._config.set_config_db_file(filename,file_content)
+            file_content = yaml.dump(save_nodes, default_flow_style=False)
+        self._config.set_config_db_file(filename, file_content)
 
     def deep_copy(self):
         """
@@ -284,11 +319,11 @@ class Node(NodeDict):
         node = Node()
         node._config = self._config
         node._parent = self._parent
-        for key,value in self.iteritems():
-            if isinstance(value,Node):
+        for key, value in self.iteritems():
+            if isinstance(value, Node):
                 child_node = value.deep_copy()
                 node[key] = child_node
-            elif isinstance(value,list):
+            elif isinstance(value, list):
                 new_list = Node._copy_list(value)
                 node[key] = new_list
             else:
@@ -302,87 +337,93 @@ class Node(NodeDict):
         the return object is a simple dictionary
         """
         newdict = dict()
-        for key,value in self.iteritems():
-            if isinstance(value,Node):
+        for key, value in self.iteritems():
+            if isinstance(value, Node):
                 child_dict = value.to_dict()
                 newdict[key] = child_dict
-            elif isinstance(value,list):
-                new_list = Node._copy_list(value,dict_mode = True)
+            elif isinstance(value, list):
+                new_list = Node._copy_list(value, dict_mode=True)
                 newdict[key] = new_list
             else:
                 newdict[key] = value
         return newdict
+
     @staticmethod
-    def _copy_list(l,dict_mode = False):
+    def _copy_list(l, dict_mode=False):
         new_list = list()
         for v in l:
-            if isinstance(v,Node):
+            if isinstance(v, Node):
                 new_node = v.deep_copy() if not dict_mode else v.to_dict()
                 new_list.append(new_node)
-            elif isinstance(v,list):
-                child_list = Node._copy_list(v,dict_mode=dict_mode)
+            elif isinstance(v, list):
+                child_list = Node._copy_list(v, dict_mode=dict_mode)
                 new_list.append(child_list)
             else:
                 new_list.append(v)
         return new_list
 
-    def _get_save_dict(self,src_node,filename):
+    def _get_save_dict(self, src_node, filename):
         return_dict = NodeDict()
-        for key,values in src_node.iteritems():
-            if isinstance(values, Node) :
-                if values.filename != filename: continue
-                return_dict[key] = self._get_save_dict(values,filename)
-            elif isinstance(values,list):
-                return_dict[key] = self._get_save_list(values,filename)
+        for key, values in src_node.iteritems():
+            if isinstance(values, Node):
+                if values.filename != filename:
+                    continue
+                return_dict[key] = self._get_save_dict(values, filename)
+            elif isinstance(values, list):
+                return_dict[key] = self._get_save_list(values, filename)
             else:
                 return_dict[key] = values
         return return_dict
 
-    def _get_save_list(self,l,filename):
+    def _get_save_list(self, l, filename):
         return_list = []
         for v in l:
-            if isinstance(v,Node) :
-                if v.filename != filename: break
-                return_list.append(self._get_save_dict(v,filename))
+            if isinstance(v, Node):
+                if v.filename != filename:
+                    break
+                return_list.append(self._get_save_dict(v, filename))
             else:
                 return_list.append(v)
         return return_list
 
     @staticmethod
-    def _pprint(node,cur_indet,indent,cur_depth,depth) :
+    def _pprint(node, cur_indet, indent, cur_depth, depth):
         cfg = node._config
-        space = ' ' * cur_indet
-        print '%s{ filename: %r' % (space,cfg._node2file.get(node))
-        dict_space = ' ' * (cur_indet + 2)
-        for k,v in node.iteritems():
-            print '%s%s:' % (dict_space,k),
-            if isinstance(v, Node) :
+        space = " " * cur_indet
+        print "%s{ filename: %r" % (space, cfg._node2file.get(node))
+        dict_space = " " * (cur_indet + 2)
+        for k, v in node.iteritems():
+            print "%s%s:" % (dict_space, k),
+            if isinstance(v, Node):
                 print
-                Node._pprint(v,cur_indet + indent,indent,
-                                    cur_depth + 1,depth)
-            elif isinstance(v,list):
+                Node._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
+            elif isinstance(v, list):
                 list_ident = cur_indet + indent
-                list_space = ' ' * list_ident
-                print '\n%s[' % list_space
+                list_space = " " * list_ident
+                print "\n%s[" % list_space
                 for item in v:
-                    if isinstance(item, Node) :
+                    if isinstance(item, Node):
                         print
-                        Node._pprint(item,list_ident + indent,indent,
-                                            cur_depth + 1,depth)
+                        Node._pprint(
+                            item, list_ident + indent, indent, cur_depth + 1, depth
+                        )
                     else:
                         print item
-                print '%s]' % list_space
+                print "%s]" % list_space
             else:
                 print v
-        print '%s}' % space
+        print "%s}" % space
 
     def __repr__(self):
         config = self._config
         value = dict.__repr__(self)
-        #filename = config._node2file.get(self)
-        return 'filename:<%s>,plugin:%r,%s' % (self.filename,
-                                               self.plugin, #self.get("plugin"),
-                                               value)
+        # filename = config._node2file.get(self)
+        return "filename:<%s>,plugin:%r,%s" % (
+            self.filename,
+            self.plugin,  # self.get("plugin"),
+            value,
+        )
+
 
 class Config(object):
     """
@@ -393,9 +434,9 @@ class Config(object):
     """
 
     #: key which triggers a YAML_ collection to be identified as a bliss named item
-    NAME_KEY = 'name'
+    NAME_KEY = "name"
 
-    USER_TAG_KEY = 'user_tag'
+    USER_TAG_KEY = "user_tag"
 
     def __init__(self, base_path, timeout=3, connection=None):
         self._base_path = base_path
@@ -429,9 +470,9 @@ class Config(object):
 
         self._clear_instances()
 
-        path2file = client.get_config_db_files(base_path = base_path,
-                                               timeout = timeout,
-                                               connection = self._connection)
+        path2file = client.get_config_db_files(
+            base_path=base_path, timeout=timeout, connection=self._connection
+        )
 
         for path, file_content in path2file:
             if not file_content:
@@ -443,23 +484,23 @@ class Config(object):
 
             if ordered_yaml:
                 try:
-                    d = ordered_yaml.load(file_content,ordered_yaml.RoundTripLoader)
+                    d = ordered_yaml.load(file_content, ordered_yaml.RoundTripLoader)
                 except ordered_yaml.error.MarkedYAMLError, exp:
                     if exp.problem_mark is not None:
-                        exp.problem_mark.name=path
+                        exp.problem_mark.name = path
                     raise
             else:
                 try:
                     d = yaml_load(file_content)
                 except yaml.error.MarkedYAMLError, exp:
                     if exp.problem_mark is not None:
-                        exp.problem_mark.name=path
+                        exp.problem_mark.name = path
                     raise
 
             is_init_file = False
-            if file_name.startswith('__init__'):
-                _,last_path = os.path.split(base_path)
-                is_init_file = not last_path.startswith('@')
+            if file_name.startswith("__init__"):
+                _, last_path = os.path.split(base_path)
+                is_init_file = not last_path.startswith("@")
 
             if is_init_file:
                 if d is None:
@@ -469,31 +510,30 @@ class Config(object):
                 else:
                     parents = fs_node.get(fs_key)
 
-                if isinstance(parents,list):
-                    new_node = Node(self,fs_node,path)
+                if isinstance(parents, list):
+                    new_node = Node(self, fs_node, path)
                     for n in parents:
                         n._parent = new_node
-                    new_node['__children__'] = parents
+                    new_node["__children__"] = parents
                     parents = new_node
                 elif parents:
-                    new_node = Node(self,fs_node,path)
+                    new_node = Node(self, fs_node, path)
                     parents._parent = new_node
-                    new_node['__children__'] = [parents]
+                    new_node["__children__"] = [parents]
                     parents = new_node
                 elif parents is None:
-                    parents = Node(self,fs_node,path)
-                    parents['__children__'] = []
+                    parents = Node(self, fs_node, path)
+                    parents["__children__"] = []
                 else:
-                    parents['__children__'] = []
-                    self._create_file_index(parents,path)
+                    parents["__children__"] = []
+                    self._create_file_index(parents, path)
                 if not fs_key:
                     self._root_node = parents
                 else:
                     fs_node[fs_key] = parents
                 # do not accept a list in case of __init__ file
                 if isinstance(d, list):
-                    raise TypeError("List are not allowed in *%s* file" %
-                                     path)
+                    raise TypeError("List are not allowed in *%s* file" % path)
                 try:
                     self._parse(d, parents)
                 except TypeError:
@@ -502,19 +542,22 @@ class Config(object):
 
                 continue
             else:
-                if isinstance(d,list):
+                if isinstance(d, list):
                     parents = []
                     for item in d:
-                        local_parent = Node(self,fs_node,path)
+                        local_parent = Node(self, fs_node, path)
                         try:
                             self._parse(item, local_parent)
                         except TypeError:
-                            _msg = "Parsing error2 on %s in '%s'" % (self._connection, path)
+                            _msg = "Parsing error2 on %s in '%s'" % (
+                                self._connection,
+                                path,
+                            )
                             raise RuntimeError(_msg)
                         self._create_index(local_parent)
                         parents.append(local_parent)
                 else:
-                    parents = Node(self,fs_node,path)
+                    parents = Node(self, fs_node, path)
                     try:
                         self._parse(d, parents)
                     except TypeError:
@@ -527,16 +570,16 @@ class Config(object):
             else:
                 children = fs_node.get(fs_key)
 
-            if isinstance(children,list):
-                if isinstance(parents,list):
+            if isinstance(children, list):
+                if isinstance(parents, list):
                     children.extend(parents)
                 else:
                     children.append(parents)
             elif children is not None:
-                #check if this node is __init__
-                children_node = children.get('__children__')
-                if isinstance(children_node,list): # it's an init node
-                    if isinstance(parents,list):
+                # check if this node is __init__
+                children_node = children.get("__children__")
+                if isinstance(children_node, list):  # it's an init node
+                    if isinstance(parents, list):
                         for p in parents:
                             p._parent = children
                             children_node.append(p)
@@ -544,15 +587,16 @@ class Config(object):
                         parents._parent = children
                         children_node.append(parents)
                 else:
-                    if isinstance(parents,list):
+                    if isinstance(parents, list):
                         parents.append(children)
                         fs_node[fs_key] = parents
                     else:
-                        fs_node[fs_key] = [children,parents]
+                        fs_node[fs_key] = [children, parents]
             else:
                 fs_node[fs_key] = parents
         while gc.collect():
             pass
+
     @property
     def names_list(self):
         """
@@ -580,7 +624,7 @@ class Config(object):
         """
         return self._root_node
 
-    def set_config_db_file(self,filename,content) :
+    def set_config_db_file(self, filename, content):
         """
         Update the server filename with the given content
 
@@ -593,11 +637,10 @@ class Config(object):
             RuntimeError: in case of connection timeout
         """
 
-        full_filename = os.path.join(self._base_path,filename)
-        client.set_config_db_file(full_filename,content,
-                                  connection=self._connection)
+        full_filename = os.path.join(self._base_path, filename)
+        client.set_config_db_file(full_filename, content, connection=self._connection)
 
-    def _create_file_index(self,node,filename) :
+    def _create_file_index(self, node, filename):
         if filename:
             self._node2file[node] = filename
             weak_set = self._file2node.get(filename)
@@ -609,22 +652,23 @@ class Config(object):
     def _get_or_create_path_node(self, base_path):
         node = self._root_node
         sp_path = base_path.split(os.path.sep)
-        if sp_path[-1].startswith('@'): sp_path.pop()
+        if sp_path[-1].startswith("@"):
+            sp_path.pop()
 
-        for i,p in enumerate(sp_path[:-1]):
-            if p.startswith('@'):
-                rel_init_path = os.path.join(*sp_path[:i + 1])
-                init_path = os.path.join(rel_init_path,'__init__.yml')
-                for c in self._file2node.get(init_path,[]):
+        for i, p in enumerate(sp_path[:-1]):
+            if p.startswith("@"):
+                rel_init_path = os.path.join(*sp_path[: i + 1])
+                init_path = os.path.join(rel_init_path, "__init__.yml")
+                for c in self._file2node.get(init_path, []):
                     child = c
                     break
             else:
                 try:
                     child = node.get(p)
                 except AttributeError:
-                    #because it's a list and we need a dict (reparent)
+                    # because it's a list and we need a dict (reparent)
                     gp = node[0].parent
-                    parent = Node(self,gp)
+                    parent = Node(self, gp)
                     for c in node:
                         c._parent = parent
                     gp[sp_path[i - 1]] = gp
@@ -632,11 +676,11 @@ class Config(object):
                     child = None
 
             if child is None:
-                child = Node(self,node)
+                child = Node(self, node)
                 node[p] = child
             node = child
 
-        sp_path = [x for x in sp_path if not x.startswith('@')]
+        sp_path = [x for x in sp_path if not x.startswith("@")]
 
         return node, sp_path and sp_path[-1]
 
@@ -653,7 +697,7 @@ class Config(object):
             not found
         """
         # '$' means the item is a reference
-        name = name.lstrip('$')
+        name = name.lstrip("$")
         return self._name2node.get(name)
 
     def get_user_tag_configs(self, tag_name):
@@ -687,9 +731,9 @@ class Config(object):
         if name is None:
             raise TypeError("Cannot get object with None name")
 
-        name = name.lstrip('$')
+        name = name.lstrip("$")
         instance_object = self._name2instance.get(name)
-        if instance_object is None: # we will create it
+        if instance_object is None:  # we will create it
             config_node = self.get_config(name)
             if config_node is None:
                 raise RuntimeError("Object '%s' doesn't exist in config" % name)
@@ -697,16 +741,16 @@ class Config(object):
             module_name = config_node.plugin
             if module_name is None:
                 module_name = "default"
-            m = __import__('bliss.config.plugins.%s' % (module_name),fromlist=[None])
+            m = __import__("bliss.config.plugins.%s" % (module_name), fromlist=[None])
             if hasattr(m, "create_object_from_cache"):
-                cache_object = self._name2cache.pop(name,None)
+                cache_object = self._name2cache.pop(name, None)
                 if cache_object is not None:
-                    cache_func = getattr(m,'create_object_from_cache')
+                    cache_func = getattr(m, "create_object_from_cache")
                     instance_object = cache_func(self, name, cache_object)
                     self._name2instance[name] = instance_object
 
             if instance_object is None:
-                func = getattr(m,'create_objects_from_config_node')
+                func = getattr(m, "create_objects_from_config_node")
                 name2itemsAndname2itemcache = func(self, config_node)
                 if len(name2itemsAndname2itemcache) == 2:
                     name2items = name2itemsAndname2itemcache[0]
@@ -719,17 +763,17 @@ class Config(object):
 
         return instance_object
 
-    def _create_index(self,node) :
+    def _create_index(self, node):
         name = node.get(self.NAME_KEY)
         if name is not None and not name.startswith("$"):
             if name in self._name2node:
-                pass    # should raise an error name duplicate
+                pass  # should raise an error name duplicate
             else:
                 self._name2node[name] = node
 
         user_tags = node.get(self.USER_TAG_KEY)
         if user_tags is not None:
-            if not isinstance(user_tags,list):
+            if not isinstance(user_tags, list):
                 user_tags = [user_tags]
             for tag in user_tags:
                 l = self._usertag2node.get(tag)
@@ -738,30 +782,30 @@ class Config(object):
                 else:
                     l.add(node)
 
-    def _parse_list(self,l,parent):
+    def _parse_list(self, l, parent):
         r_list = []
         for value in l:
-            if isinstance(value,dict):
-                node = Node(self,parent)
-                self._parse(value,node)
+            if isinstance(value, dict):
+                node = Node(self, parent)
+                self._parse(value, node)
                 self._create_index(node)
                 r_list.append(node)
-            elif isinstance(value,list):
-                child_list = self._parse_list(value,parent)
+            elif isinstance(value, list):
+                child_list = self._parse_list(value, parent)
                 r_list.append(child_list)
             else:
                 r_list.append(value)
         return r_list
 
-    def _parse(self,d,parent) :
-        for key,value in d.iteritems():
-            if isinstance(value,dict):
-                node = Node(self,parent = parent)
-                self._parse(value,node)
+    def _parse(self, d, parent):
+        for key, value in d.iteritems():
+            if isinstance(value, dict):
+                node = Node(self, parent=parent)
+                self._parse(value, node)
                 self._create_index(node)
                 parent[key] = node
-            elif isinstance(value,list):
-                parent[key] = self._parse_list(value,parent)
+            elif isinstance(value, list):
+                parent[key] = self._parse_list(value, parent)
             else:
                 parent[key] = value
 
@@ -773,4 +817,4 @@ class Config(object):
         self.root.pprint(indent=indent, depth=depth)
 
     def __str__(self):
-        return '{0}({1})'.format(self.__class__.__name__, self._connection)
+        return "{0}({1})".format(self.__class__.__name__, self._connection)

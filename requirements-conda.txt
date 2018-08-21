@@ -1,6 +1,6 @@
 # Conda requirements file (python 2.7)
 enum34
-gevent == 1.2.2
+gevent >= 1.3.5
 redis  >= 2.8
 PyYaml
 jinja2 >= 2.7
@@ -14,7 +14,7 @@ pyserial == 2.7
 h5py
 msgpack-python
 pyzmq
-pytango
+pytango >= 9.2.4
 h5py
 pygments
 sqlalchemy

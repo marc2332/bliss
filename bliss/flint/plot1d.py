@@ -328,58 +328,16 @@ class LiveScatterPlot(qt.QWidget):
 
         qt.QWidget.__init__(self, *args, **kw)
 
-        self._margin = 0.1
-        self._enabled_plots = dict()
-        self._curves = dict()
+        self.silx_plot = silx_plot.ScatterView(self)
 
-        self.axes_selection = qt.QWidget(self)
-        self.x_axis = qt.QComboBox(self.axes_selection)
-        self.y_axis = qt.QComboBox(self.axes_selection)
-        self.z_axis = qt.QComboBox(self.axes_selection)
-        self.add_plot = qt.QPushButton("Add plot", self.axes_selection)
-        self.silx_plot = silx_plot.Plot1D(self)
-
-        qt.QHBoxLayout(self.axes_selection)
-        self.axes_selection.layout().addWidget(
-            qt.QLabel("X axis: ", self.axes_selection)
-        )
-        self.axes_selection.layout().addWidget(self.x_axis)
-        self.axes_selection.layout().addWidget(
-            qt.QLabel("Y axis: ", self.axes_selection)
-        )
-        self.axes_selection.layout().addWidget(self.y_axis)
-        self.axes_selection.layout().addWidget(
-            qt.QLabel("Z axis: ", self.axes_selection)
-        )
-        self.axes_selection.layout().addWidget(self.z_axis)
-        self.axes_selection.layout().addWidget(self.add_plot)
-        self.axes_selection.layout().addSpacerItem(
-            qt.QSpacerItem(1, 1, qt.QSizePolicy.Expanding, qt.QSizePolicy.Minimum)
-        )
+        self.axes_list_view = qt.QTreeView(self)
+        self.axes_list_model = qt.QStandardItemModel(self.axes_list_view)
+        self.axes_list_view.setModel(self.axes_list_model)
+        self.axes_list_model.itemChanged.connect(self._axes_item_changed)
 
         qt.QVBoxLayout(self)
-        self.layout().addWidget(self.axes_selection)
         self.layout().addWidget(self.silx_plot)
-
-        self.add_plot.setEnabled(False)
-        callback = lambda _: self.update_add_plot_button()
-        self.x_axis.activated[str].connect(callback)
-        self.y_axis.activated[str].connect(callback)
-        self.y_axis.activated[str].connect(callback)
-        self.add_plot.clicked.connect(self._add_plot)
-
-    def _get_data(self, x_axis, y_axis, z_axis):
-        x_data = self._data_dict[self.plot_id].get(x_axis, [])
-        y_data = self._data_dict[self.plot_id].get(y_axis, [])
-        z_data = self._data_dict[self.plot_id].get(z_axis, [])
-        data_len = min(map(len, (x_data, y_data, z_data)))
-        return x_data[:data_len], y_data[:data_len], z_data[:data_len]
-
-    def _get_data_length(self, x_axis, y_axis, z_axis):
-        x_data = self._data_dict[self.plot_id].get(x_axis, [])
-        y_data = self._data_dict[self.plot_id].get(y_axis, [])
-        z_data = self._data_dict[self.plot_id].get(z_axis, [])
-        return min(map(len, (x_data, y_data, z_data)))
+        self.layout().addWidget(self.axes_list_view)
 
     def __getattr__(self, attr):
         """Delegate to silx plot widget"""
@@ -388,110 +346,103 @@ class LiveScatterPlot(qt.QWidget):
         return getattr(self.silx_plot, attr)
 
     def set_x_axes(self, axis_names_list):
-        self.x_axis.clear()
-        for axis_names in list(self._enabled_plots.keys()):
-            if axis_names[0] not in axis_names_list:
-                x_axis, y_axis, z_axis = axis_names
-                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
-                del self._enabled_plots[(x_axis, y_axis, z_axis)]
-                self.silx_plot.removeCurve(legend)
-            else:
-                self._enabled_plots[axis_names] = 0
-        self.x_axis.addItems(axis_names_list)
+        self.axes_list_model.clear()
+        self.axes_list_model.setHorizontalHeaderLabels(['Counter','X','Y','Z',''])
+        self.silx_plot.setData([],[],[],copy=False)
 
-    def set_y_axes(self, axis_names_list):
-        self.y_axis.clear()
-        for axis_names in list(self._enabled_plots.keys()):
-            if axis_names[1] not in axis_names_list:
-                x_axis, y_axis, z_axis = axis_names
-                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
-                del self._enabled_plots[(x_axis, y_axis, z_axis)]
-                self.silx_plot.removeCurve(legend)
-            else:
-                self._enabled_plots[axis_names] = 0
-        self.y_axis.addItems(axis_names_list)
-        if len(axis_names_list) >= 2:
-            self.y_axis.setCurrentIndex(1)
+        for i,axis_name in enumerate(sorted(axis_names_list)):
+            item_name = qt.QStandardItem(axis_name)
+            item_name.setEditable(False)
+            
+            item_select_x = qt.QStandardItem('')
+            item_select_x.setEditable(False)
+            item_select_x.setCheckable(True)
 
+            item_select_y = qt.QStandardItem('')
+            item_select_y.setEditable(False)
+            item_select_y.setCheckable(True)
+            if i == 0:
+                item_select_x.setCheckState(qt.Qt.Checked)
+            elif i == 1:
+                item_select_y.setCheckState(qt.Qt.Checked)
+            self.axes_list_model.appendRow([item_name,item_select_x,item_select_y])
+            
     def set_z_axes(self, axis_names_list):
-        self.z_axis.clear()
-        for axis_names in list(self._enabled_plots.keys()):
-            if axis_names[2] not in axis_names_list:
-                x_axis, y_axis, z_axis = axis_names
-                legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
-                del self._enabled_plots[(x_axis, y_axis, z_axis)]
-                self.silx_plot.removeCurve(legend)
-            else:
-                self._enabled_plots[axis_names] = 0
-        self.z_axis.addItems(axis_names_list)
+        for axis_name in sorted(axis_names_list):
+            item_name = qt.QStandardItem(axis_name)
+            item_name.setEditable(False)
 
-    def update_add_plot_button(self):
-        x_axis = self.x_axis.currentText()
-        y_axis = self.y_axis.currentText()
-        z_axis = self.z_axis.currentText()
-        enabled = self._enabled_plots.get((x_axis, y_axis, z_axis), 0) > 0
-        self.add_plot.setEnabled(enabled)
+            items = [item_name]
+            for i in range(2):
+                item = qt.QStandardItem('')
+                item.setEditable(False)
+                items.append(item)
+            item_select_z = qt.QStandardItem('')
+            item_select_z.setEditable(False)
+            item_select_z.setCheckable(True)
+            items.append(item_select_z)
 
-    def _add_plot(self):
-        x_axis = self.x_axis.currentText()
-        y_axis = self.y_axis.currentText()
-        z_axis = self.z_axis.currentText()
-        legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
-        x_data, y_data, z_data = self._get_data(x_axis, y_axis, z_axis)
-        self.add_scatter(x_data, y_data, z_data, legend=legend)
+            self.axes_list_model.appendRow(items)
 
-    @property
-    def x_axis_names(self):
-        for i in range(len(self.x_axis)):
-            yield self.x_axis.itemText(i)
-
-    @property
-    def y_axis_names(self):
-        for i in range(len(self.y_axis)):
-            yield self.y_axis.itemText(i)
-
-    @property
-    def z_axis_names(self):
-        for i in range(len(self.z_axis)):
-            yield self.z_axis.itemText(i)
-
-    def update_enabled_plots(self):
-        for x_axis in self.x_axis_names:
-            for y_axis in self.y_axis_names:
-                for z_axis in self.z_axis_names:
-                    data_length = self._get_data_length(x_axis, y_axis, z_axis)
-                    self._enabled_plots[(x_axis, y_axis, z_axis)] = data_length
+        for i in range(4):
+            self.axes_list_view.resizeColumnToContents(i)
 
     def update_plots(self):
-        for axis_names, data_len in self._enabled_plots.iteritems():
-            x_axis, y_axis, z_axis = axis_names
-            legend = "%s -> %s -> %s" % (x_axis, y_axis, z_axis)
-            plot = self.silx_plot.getScatter(legend)
-            if plot is not None:
-                # plot is displayed
-                if self._curves.get(plot, 0) > data_len:
-                    # existing curve need to be removed
-                    self._curves[plot] = 0
-                if self._curves.get(plot, 0) < data_len:
-                    # update plot
-                    x_data, y_data, z_data = self._get_data(x_axis, y_axis, z_axis)
-                    self._curves[plot] = data_len
-                    self.add_scatter(x_data, y_data, z_data, legend)
-
-    def add_scatter(self, x, y, z, legend):
-        current = self.silx_plot.getScatter()
-        if current is not None and current.getLegend() != legend:
-            self.remove(kind="scatter")
-        self.silx_plot.getDefaultColormap().setName("viridis")
-        self.silx_plot.addScatter(x, y, z, legend=legend, copy=False, symbol="s")
-        self.silx_plot.resetZoom((self._margin,) * 4)
-        _, _, w, h = self.silx_plot.getPlotBoundsInPixels()
-        pixels = min(w / len(set(x)), h / len(set(y)))
-        current = self.silx_plot.getScatter()
-        current.setSymbolSize(pixels * 25)
-        self.silx_plot.getColorBarWidget().setVisible(True)
+        axes = dict()
+        for row in range(self.axes_list_model.rowCount()):
+            for column, axis_key in ((1, 'x_axis'),
+                                     (2, 'y_axis'),
+                                     (3, 'z_axis')):
+                item = self.axes_list_model.item(row,column)
+                if item is not None and item.checkState() == qt.Qt.Checked:
+                    axes[axis_key] = self.axes_list_model.item(row).text()
+                    
+        x_axis = axes.get('x_axis')
+        y_axis = axes.get('y_axis')
+        z_axis = axes.get('z_axis')
+        if x_axis and y_axis and z_axis:
+            data = self._data_dict[self.plot_id]
+            x_data = data.get(x_axis)
+            y_data = data.get(y_axis)
+            z_data = data.get(z_axis)
+            mlen = min((len(x_data),len(y_data),len(z_data)))
+            self.silx_plot.setData(x_data[:mlen],y_data[:mlen],z_data[:mlen],copy=False)
 
     def update_all(self):
-        self.update_enabled_plots()
-        self.update_add_plot_button()
+        self.update_plots()
+
+    def _axes_item_changed(self, changed_item):
+        column = changed_item.column()
+        row = changed_item.row()
+        axis_name = self.axes_list_model.item(row).text()
+        if changed_item.isCheckable():
+            if column == 1 or column == 2:
+                if changed_item.checkState() == qt.Qt.Unchecked:
+                    #check that an other one is checked
+                    for row in range(self.axes_list_model.rowCount()):
+                        item = self.axes_list_model.item(row,column)
+                        if item == changed_item:
+                            continue
+                        if item.checkState() == qt.Qt.Checked:
+                            break
+                        else:
+                            changed_item.setCheckState(qt.Qt.Checked) # always one checked at least
+                            return
+                else:
+                    for row in range(self.axes_list_model.rowCount()):
+                        item = self.axes_list_model.item(row,column)
+                        if item == changed_item:
+                            continue
+                        if item.checkState() == qt.Qt.Checked:
+                            item.setCheckState(qt.Qt.Unchecked)
+                            other_item = self.axes_list_model.item(row,1 if column == 2 else 2)
+                            other_item.setCheckState(qt.Qt.Checked)
+            elif column == 3:
+                if changed_item.checkState() == qt.Qt.Checked:
+                    for row in range(self.axes_list_model.rowCount()):
+                        item = self.axes_list_model.item(row,column)
+                        if item == changed_item or item is None:
+                            continue
+                        if item.checkState() == qt.Qt.Checked:
+                            item.setCheckState(qt.Qt.Unchecked)
         self.update_plots()

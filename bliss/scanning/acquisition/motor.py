@@ -20,6 +20,7 @@ from bliss.common.event import dispatcher
 from bliss.common.cleanup import error_cleanup
 from bliss.common.utils import grouped
 from bliss.common.motor_group import Group, TrajectoryGroup
+from bliss.physics.trajectory import find_pvt
 
 from ..chain import AcquisitionMaster, AcquisitionChannel
 
@@ -449,11 +450,12 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
     def __init__(self, axis1, start1, stop1, nb_points1,
                  axis2, start2, stop2, nb_points2, time_per_point,
                  undershoot=None, undershoot_start_margin=0,
-                 undershoot_stop_margin=0, **kwargs):
+                 undershoot_stop_margin=0,
+                 trigger_type=AcquisitionMaster.SOFTWARE, **kwargs):
 
 
         name = 'mesh_' + axis1.name + '_' + axis2.name
-        AcquisitionMaster.__init__(self, None, name, **kwargs)
+        AcquisitionMaster.__init__(self, None, name, trigger_type=trigger_type, **kwargs)
         UndershootMixin.__init__(self, undershoot, undershoot_start_margin, undershoot_stop_margin)
 
         # Required by undershoot mixin
@@ -534,18 +536,36 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
         # Trajectory group
         self.trajectory = TrajectoryGroup(*cyclic_trajectories)
 
+    def set_event_position(self, axis, position, match_first=True, match_return=False):
+        """
+        set a events on a position.
+        :param match_first if True will add an event on the first part of the trajectory
+        :param match_return if True will add an event on the return.
+        """
+        for t in self.trajectory.trajectories:
+            if t.axis == axis:
+                diff_pos = position - t.origin
+                pvt_trigger = find_pvt(t.pvt_pattern, diff_pos)
+                if len(pvt_trigger) < 1:
+                    raise RuntimeError("Could not find position {} an trajectory for axis {}".\
+                                       format(position, axis))
+                if match_return is False:
+                    pvt_trigger = pvt_trigger[:1]
+                t.events_pattern_positions = pvt_trigger
+                break
+        else:
+            raise RuntimeError("Could not find axis **{}** on trajectory".format(axis))
+
     def prepare(self):
         self.trajectory.prepare()
         self.trajectory.move_to_start()
 
     def start(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            return
-        self.trigger()
+        if self.parent is None:
+            self.trigger()
 
     def trigger(self):
-        if self.trigger_type == AcquisitionMaster.SOFTWARE:
-            self.trigger_slaves()
+        self.trigger_slaves()
 
         self.trajectory.move_to_end()
 

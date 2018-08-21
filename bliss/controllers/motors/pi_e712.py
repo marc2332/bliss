@@ -20,6 +20,7 @@ from bliss.common.utils import add_property
 
 from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
+from bliss.common.switch import Switch as BaseSwitch
 
 import pi_gcs
 from bliss.comm.util import TCP
@@ -103,10 +104,6 @@ class PI_E712(Controller):
                   TypeError: check_power_cut() takes exactly 1 argument (2 given)
         """
         axis.channel = axis.config.get("channel", int)
-        try:
-            axis.paranoia_mode = axis.config.get("paranoia_mode")  # check error after each command
-        except KeyError :
-            axis.paranoia_mode = False
 
         self._gate_enabled = False
 
@@ -191,6 +188,15 @@ class PI_E712(Controller):
                      (axis.channel, new_velocity))
         elog.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
+
+    def read_acceleration(self, axis):
+        if hasattr(axis, '_acceleration_value'):
+            return axis._acceleration_value
+        else:
+            return 1.
+
+    def set_acceleration(self, axis, acceleration):
+        axis._acceleration_value = acceleration
 
     """ STATE """
     def state(self, axis):
@@ -528,38 +534,102 @@ class PI_E712(Controller):
         table_generator_rate = int(numpy.ceil(calc_servo_cycle/servo_cycle))
         servo_cycle *= table_generator_rate
         nb_traj_cycles = trajectories[0].nb_cycles if is_cyclic_traj else 1
-        commmands = ["WTR 0 {} 1".format(table_generator_rate),
+        commmands = ["TWC",     # clear trig settings
+                     "WTR 0 {} 1".format(table_generator_rate),
                      "WGC 1 {}".format(nb_traj_cycles)]
         for traj in trajectories:
             pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt
             time = pvt['time']
             positions = pvt['position']
+            velocities = pvt['velocity']
             axis = traj.axis
             cmd_format = "WAV %d " % axis.channel
             cmd_format += "{cont} LIN {seglength} {amp} "\
-                          "{offset} {seglength} {startpoint} 0"
+                          "{offset} {seglength} {startpoint} {speed_up_down}"
             commmands.append("WSL {channel} {channel}".format(channel=axis.channel))
             offset = traj.origin if is_cyclic_traj else 0
             commmands.append("WOS {channel} {offset}".format(channel=axis.channel,offset=offset))
             cont = 'X'
-            for start_time, end_time,\
-                start_position, end_position in zip(time, time[1:],
-                                                    positions, positions[1:]):
+            index = 0
+            while True:
+                try:
+                    p1,v1,t1 = positions[index], velocities[index], time[index]
+                except IndexError: # End loop
+                    break
+
+                try:
+                    p2,v2,t2 = positions[index+1], velocities[index+1], time[index+1]
+                except IndexError: # End loop
+                    break
+                #default
+                start_time = t1
+                end_time = t2
+                start_position = p1
+                end_position = p2
+                speed_up_down = 0
+                inc_index = 1
+                try:
+                    p3,v3,t3 = positions[index+2], velocities[index+2], time[index+2]
+                except IndexError:
+                    pass
+                else:
+                    try:
+                        p4,v4,t4 = positions[index+3], velocities[index+3], time[index+3]
+                    except IndexError:
+                        if abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
+                            start_time = t1
+                            end_time = t3
+                            start_position = p1
+                            end_position = p3
+                            speed_up_down = min(t2 - t1,t3 - t2)
+                    else:
+                        if abs(v1 - v4) < 1e-6 and abs(v2 - v3) < 1e-6:
+                            start_time = t1
+                            end_time = t4
+                            start_position = p1
+                            end_position = p4
+                            speed_up_down = min(t2 - t1,t4 - t3)
+                            inc_index = 3
+                        elif abs(v1 - v3) < 1e-6 and abs(v2 - v1) > 1e-6:
+                            start_time = t1
+                            end_time = t3
+                            start_position = p1
+                            end_position = p3
+                            speed_up_down = min(t2 - t1,t3 - t2)
+                            inc_index = 2
+
+                index += inc_index
                 start_time /= servo_cycle
                 end_time /= servo_cycle
                 seglength = int(end_time-start_time)
                 if seglength <= 0:
                     continue
+                speed_up_down = int(speed_up_down / servo_cycle)
+                if speed_up_down > seglength/2.:
+                    speed_up_down = seglength/2.
                 start_time = start_time if cont == 'X' else 0
                 cmd = cmd_format.format(cont=cont,seglength=seglength,
                                         amp=end_position-start_position, offset=start_position,
-                                        startpoint=int(start_time))
+                                        startpoint=int(start_time), speed_up_down=speed_up_down)
                 commmands.append(cmd)
                 cont = '&'
+            #trajectories events
+            events = traj.events_pattern_positions if is_cyclic_traj else traj.events_positions
+            for evt in events:
+                commmands.append("TWS 1 %d 1" % (round(evt['time']/servo_cycle)))
 
         for cmd in commmands:
             self.command(cmd)
 
+    def has_trajectory_event(self):
+        return True
+    
+    def set_trajectory_events(self, *trajectories):
+        # In prepare_trajectory we programmed the trigger positions
+        # (see TWC and TWS command)
+        # Just link external trigger with programmed TWS
+        self.command("CTO 1 3 4")
+                
     def move_to_trajectory(self, *trajectories):
         motions = [Motion(t.axis, t.pvt['position'][0], 0) for t in trajectories]
         self.start_all(*motions)
@@ -573,7 +643,7 @@ class PI_E712(Controller):
     def stop_trajectory(self, *trajectories):
         axes_str = ' '.join(['%d 0' % t.axis.channel for t in trajectories])
         self.command("WGO " + axes_str)
-            
+
     def _parse_reply(self, reply, args):
         args_pos = reply.find('=')
         if reply[:args_pos] != args: # weird
@@ -857,3 +927,85 @@ class bcolors:
     WHITE = CSI + '107m'
     ENDC = CSI + '0m'
 
+class Switch(BaseSwitch):
+    """
+    Switch for PI_E712 Analog and piezo amplifier Outputs
+    Basic configuration:
+        name: pi_switch0
+        output-channel: 5       # 5 (first analogue output) 1 (first piezo amplifier)
+        output-type: POSITION   # POSITION (default) or CONTROL_VOLTAGE
+        output-range: [-10,10]  # -10 Volts to 10 Volts is the default
+    """
+    def __init__(self, name, controller, config):
+        BaseSwitch.__init__(self, name, config)
+        self.__controller = weakref.proxy(controller)
+        self.__output_channel = None
+        self.__output_type = None
+        self.__output_range = None
+        self.__axes = weakref.WeakValueDictionary()
+        
+    def _init(self):
+        config = self.config
+        try:
+            self.__output_channel = config['output-channel']
+        except KeyError:
+            raise KeyError("output-channel is mandatory in switch '{}` "
+                           "in PI_E712 **{}**".format(self.name, self.__controller.name))
+        possible_type = {'POSITION':2, 'CONTROL_VOLTAGE':1}
+        output_type = config.get('output-type', 'POSITION').upper()
+        if output_type not in possible_type:
+            raise ValueError('output-type can only be: %s' % possible_type)
+        self.__output_type = possible_type.get(output_type)
+        self.__output_range = config.get('output-range', [-10, 10])
+        self.__axes = weakref.WeakValueDictionary({name.upper():axis
+        for name, axis in self.__controller._axes.items()})
+
+    def _set(self, state):
+        if state == "DISABLED":  # DON'T KNOW HOW TO DISABLE
+            return
+        axis = self.__axes.get(state)
+        if axis is None:
+            raise ValueError("State %s doesn't exist in the switch %s" % (state, self.name))
+        with self.__controller.sock.lock:
+            low_position = float(self.__controller.command("TMN? {}".format(axis.channel)))
+            high_position = float(self.__controller.command("TMX? {}".format(axis.channel)))
+            low_voltage, high_voltage = self.__output_range
+            position_scaling = round(((float(high_voltage) - low_voltage) /
+                                      (high_position - low_position)), 3)
+            position_offset = -((high_position + low_position) / 2.)
+            self.__controller.command("SPA {axis_channel} 0x7001005 {position_scaling}".\
+                                      format(axis_channel=axis.channel,
+                                             position_scaling=position_scaling))
+            self.__controller.command("SPA {axis_channel} 0x7001006 {position_offset}".\
+                                      format(axis_channel=axis.channel,
+                                             position_offset=position_offset))
+            #Link the output to the axis
+            self.__controller.command("SPA {output_chan} 0xA000003 {output_type}".\
+                                      format(output_chan=self.__output_channel,
+                                             output_type=self.__output_type))
+            self.__controller.command("SPA {output_chan} 0xA000004 {axis_channel}".\
+                                      format(output_chan=self.__output_channel,
+                                             axis_channel=axis.channel))
+
+    def _get(self):
+        axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
+                                                     format(output_chan=self.__output_channel)))
+        for name, axis in self.__axes.items():
+            if axis.channel == axis_channel:
+                return name
+        return "DISABLED"
+
+    def _states_list(self):
+        return self.__axes.keys() + ["DISABLED"]
+
+    @property
+    def scaling_and_offset(self):
+        self.init()
+        with self.__controller.sock.lock:
+            axis_channel = int(self.__controller.command("SPA? {output_chan} 0xa000004".\
+                                                             format(output_chan=self.__output_channel)))
+            scaling = float(self.__controller.command("SPA? {axis_channel} 0x7001005".\
+                                                          format(axis_channel=axis_channel)))
+            offset = float(self.__controller.command("SPA? {axis_channel} 0x7001006".\
+                                                         format(axis_channel=axis_channel)))
+            return scaling,offset

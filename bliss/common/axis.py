@@ -303,7 +303,9 @@ class Trajectory(object):
         """
         self.__axis = axis
         self.__pvt = pvt
-
+        self._events_positions = numpy.empty(0, dtype=[('position', 'f8'), ('velocity', 'f8'),
+                                                       ('time', 'f8')])
+        
     @property
     def axis(self):
         return self.__axis
@@ -312,6 +314,16 @@ class Trajectory(object):
     def pvt(self):
         return self.__pvt
 
+    @property
+    def events_positions(self):
+        return self._events_positions
+    @events_positions.setter
+    def events_positions(self, events):
+        self._events_positions = events
+ 
+    def has_events(self):
+        return self._events_positions.size
+
     def __len__(self):
         return len(self.pvt)
 
@@ -319,12 +331,17 @@ class Trajectory(object):
         """
         Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
         """
-        user_pos = self.pvt['position']
-        user_velocity = self.pvt['velocity']
-        pvt = numpy.copy(self.pvt)
+        user_pos = self.__pvt['position']
+        user_velocity = self.__pvt['velocity']
+        pvt = numpy.copy(self.__pvt)
         pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
         pvt['velocity'] *= self.axis.steps_per_unit
-        return self.__class__(self.axis, pvt)
+        new_obj = self.__class__(self.axis, pvt)
+        pattern_evts = numpy.copy(self._events_positions)
+        pattern_evts['position'] *= self.axis.steps_per_unit
+        pattern_evts['velocity'] *= self.axis.steps_per_unit
+        new_obj._events_positions = pattern_evts
+        return new_obj
 
 class CyclicTrajectory(Trajectory):
 
@@ -336,20 +353,19 @@ class CyclicTrajectory(Trajectory):
                     point coordinates are in relative space
         """
         super(CyclicTrajectory, self).__init__(axis, pvt)
-        self.__nb_cycles = nb_cycles
-        self.__origin = origin
-
-    @property
-    def origin(self):
-        return self.__origin
-
-    @property
-    def nb_cycles(self):
-        return self.__nb_cycles
+        self.nb_cycles = nb_cycles
+        self.origin = origin
 
     @property
     def pvt_pattern(self):
         return super(CyclicTrajectory, self).pvt
+
+    @property
+    def events_pattern_positions(self):
+        return super(CyclicTrajectory, self).events_positions
+    @events_pattern_positions.setter
+    def events_pattern_positions(self, values):
+        self._events_positions = values
 
     @property
     def is_closed(self):
@@ -375,7 +391,7 @@ class CyclicTrajectory(Trajectory):
             offset = 0
         pvt = numpy.empty(size, dtype=raw_pvt.dtype)
         last_time, last_position = 0, self.origin
-        for cycle in range(self.__nb_cycles):
+        for cycle in range(self.nb_cycles):
             start = cycle_size*cycle + offset
             end = start + cycle_size
             pvt[start:end] = raw_pvt
@@ -390,17 +406,30 @@ class CyclicTrajectory(Trajectory):
 
         return pvt
 
+    @property
+    def events_positions(self):
+        pattern_evts = self.events_pattern_positions
+        time_offset = 0.
+        last_time = self.pvt_pattern['time'][-1]
+        nb_pattern_evts = len(pattern_evts)
+        all_events = numpy.empty(self.nb_cycles * len(pattern_evts),
+                                 dtype=pattern_evts.dtype)
+        for i in range(self.nb_cycles):
+            sub_evts = all_events[i*nb_pattern_evts:
+                                  i*nb_pattern_evts+nb_pattern_evts]
+            sub_evts[:] = pattern_evts
+            sub_evts['time'] += time_offset
+            time_offset += last_time
+        return all_events
+
     def convert_to_dial(self):
         """
         Return a new trajectory with pvt position, velocity converted to dial units and steps per unit
         """
-        user_pos = self.pvt_pattern['position']
-        user_velocity = self.pvt_pattern['velocity']
-        pvt = numpy.copy(self.pvt_pattern)
-        pvt['position'] = self.axis.user2dial(user_pos) * self.axis.steps_per_unit
-        pvt['velocity'] *= self.axis.steps_per_unit
-        origin = self.axis.user2dial(self.origin) * self.axis.steps_per_unit
-        return self.__class__(self.axis, pvt, self.nb_cycles, origin)
+        new_obj = super(CyclicTrajectory, self).convert_to_dial()
+        new_obj.origin = self.axis.user2dial(self.origin) * self.axis.steps_per_unit
+        new_obj.nb_cycles = self.nb_cycles
+        return new_obj
 
 
 def estimate_duration(axis, target_pos, initial_pos=None):
@@ -960,7 +989,7 @@ class Axis(object):
         dial_target_pos = self.user2dial(user_target_pos)
         delta = dial_target_pos - self.dial()
         if abs(delta) < 1E-6:
-            return
+            delta = 0.
 
         # check software limits
         target_pos = dial_target_pos * self.steps_per_unit
@@ -979,7 +1008,7 @@ class Axis(object):
             high_limit_msg, low_limit_msg = low_limit_msg, high_limit_msg
 
         if backlash:
-            if cmp(delta, 0) != cmp(backlash, 0):
+            if abs(delta) > 1e-6 and cmp(delta, 0) != cmp(backlash, 0):
                 # move and backlash are not in the same direction;
                 # apply backlash correction, the move will happen
                 # in 2 steps
@@ -1000,7 +1029,7 @@ class Axis(object):
         return motion
 
     @lazy_init
-    def prepare_move(self, user_target_pos, relative=False):
+    def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
         elog.debug("prepare_move: user_target_pos=%g, relative=%r" %
                    (user_target_pos, relative))
@@ -1018,10 +1047,14 @@ class Axis(object):
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
+        if not trajectory:
+            if abs(motion.delta) < 1e-6:
+                motion = None
 
         self.__execute_pre_move_hook(motion)
-
-        self.__controller.prepare_move(motion)
+        
+        if not trajectory:
+            self.__controller.prepare_move(motion)
 
         self._set_position(user_target_pos)
 

@@ -208,12 +208,13 @@ class TrajectoryGroup(object):
     @property
     def trajectories_by_controller(self):
         controller_trajectories = dict()
-        for traj in self.__trajectories_dialunit:
-            if traj.axis in self.__disabled_axes:
-                continue
-            tlist = controller_trajectories.setdefault(
-                traj.axis.controller, [])
-            tlist.append(traj)
+        if self.__trajectories_dialunit is not None:
+            for traj in self.__trajectories_dialunit:
+                if traj.axis in self.__disabled_axes:
+                    continue
+                tlist = controller_trajectories.setdefault(
+                    traj.axis.controller, [])
+                tlist.append(traj)
         return controller_trajectories
 
     @property
@@ -233,7 +234,7 @@ class TrajectoryGroup(object):
                 trajectories.append(trajectory.convert_to_dial())
             self.__trajectories_dialunit = trajectories
 
-        prepare = [gevent.spawn(controller.prepare_trajectory, *trajectories)
+        prepare = [gevent.spawn(controller._prepare_trajectory, *trajectories)
                    for controller, trajectories in self.trajectories_by_controller.iteritems()]
         try:
             gevent.joinall(prepare, raise_error=True)
@@ -289,7 +290,8 @@ class TrajectoryGroup(object):
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt['position'][-1]
-            motion = trajectory.axis.prepare_move(final_pos)
+            motion = trajectory.axis.prepare_move(final_pos,
+                                                  trajectory=True)
             if not motion:
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)

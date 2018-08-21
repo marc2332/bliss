@@ -108,8 +108,14 @@ class musst(object):
 
         @property
         def channel_id(self):
+            if self._switch is not None:
+                self._switch.set(self._switch_name)
             return self._channel_id
         
+        @property
+        def switch(self):
+            return self._switch
+
         def run(self, program_name=None):
             if program_name is None:
                 self._cnt_cmd("RUN")
@@ -258,18 +264,17 @@ class musst(object):
                 channel_name = channel_config.get('label')
                 if channel_name is None:
                     raise RuntimeError("musst: channel in config must have a label")
-                self._channels[channel_name.upper()] = self.get_channel(channel_number,type=channel_type)
+                channels = self._channels.setdefault(channel_name.upper(), list())
+                channels.append(self.get_channel(channel_number,type=channel_type))
             elif channel_type == 'switch':
                 ext_switch = channel_config.get('name')
                 if not hasattr(ext_switch,'states_list'):
                     raise RuntimeError("musst: channels (%s) switch object must have states_list method" % channel_number)
 
                 for channel_name in ext_switch.states_list():
-                    if channel_name not in self._channels:
-                        self._channels[channel_name] = self.get_channel(channel_number,
-                                                                        type=channel_type,
-                                                                        switch=ext_switch,
-                                                                        switch_name=channel_name)
+                    channels = self._channels.setdefault(channel_name.upper(), list())
+                    channels.append(self.get_channel(channel_number, type=channel_type,
+                                                     switch=ext_switch, switch_name=channel_name))
             else:
                 raise ValueError("musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)")
         
@@ -547,10 +552,25 @@ class musst(object):
 
     def get_channel_by_name(self,channel_name):
         channel_name = channel_name.upper()
-        channel = self._channels.get(channel_name)
-        if channel is None:
+        channels = self._channels.get(channel_name)
+        if channels is None:
             raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
-        return channel
+        return channels[0]      # first match
+
+    def get_channel_by_names(self, *channel_names):
+        channels = OrderedDict()
+        for channel_name in channel_names:
+            chans = self._channels.get(channel_name.upper())
+            if chans is None:
+                raise RuntimeError("musst doesn't have channel (%s) in his config" % channel_name)
+            else:
+                for chan in chans:
+                    if chan.channel_id not in channels:
+                        channels[chan.channel_id] = chan
+                        break
+                else:
+                    raise RuntimeError("Can't find a free channel for (%s)" % channel_name)
+        return channels.values()
 
     """
     Add read_all function to make Musst object a counter controller

@@ -136,8 +136,8 @@ class TangoTfg2(object):
         "Adcs6": 4,
         "ShortMixed": 8,  # (Hit, Live, 6 ADCs/Hit, Live, 4 Scalers, 4 ADCs)
         "ShortScalers": 16,  # (Hit, Live, Scal 0..3 64 bot, Scal4..7 32 bit)
-        "Adcs8": 32,
-    }  # (8 ADCs)
+        "Adcs8": 32,  # (8 ADCs)
+    }
     ScalerOptions = {
         "count_while_input_high": 1,
         "count_rising_edges": 2,
@@ -380,8 +380,8 @@ class TangoTfg2(object):
             trigger_nb,  # trigger input number 1..16
             0,  # debounce value
             0,  # threshold value
-            0,
-        ]  # not used (Alternate trigger)
+            0,  # not used (Alternate trigger)
+        ]
         args[0] |= self.TrigOptions.get("now")
         if trigger_name == "Software":
             if action == "start":

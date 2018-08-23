@@ -13,14 +13,18 @@ public:
 
 namespace  WindowSystemInterface
 {
+  int _globalPostedEventsCount()
+  {
+    return qGlobalPostedEventsCount();
+  }
 
-  int sendWindowSystemEvents(int flags)
+  int _sendWindowSystemEvents(int flags)
   {
     return QWindowSystemInterface::sendWindowSystemEvents((QEventLoop::ProcessEventsFlags)flags);
   }
 
-  int hasPendingEvents()
+  int _windowSystemEventsQueued()
   {
-    return qGlobalPostedEventsCount() || QWindowSystemInterface::windowSystemEventsQueued();
+    return QWindowSystemInterface::windowSystemEventsQueued();
   }
 }

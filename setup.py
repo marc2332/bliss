@@ -98,7 +98,7 @@ def main():
     cmd_class = find_extensions()
 
     install_requires = [
-        "redis  >= 2.8",
+        "redis >= 3",
         "PyYaml",
         "netifaces < 0.10.5",
         "louie",
@@ -122,15 +122,11 @@ def main():
         "gevent >= 1.3.5",
         "pygments",
         "numpy >= 1.13",
-        'enum34 ; python_version < "3.4"',
         "h5py",
         "mendeleev",
         "pint",
-        'mock ; python_version < "3.3"',
-        "futures",
         'silx >= 0.8 ; platform_machine == "x86_64"',
         "psutil",
-        "subprocess32",
         "requests",
     ]
 

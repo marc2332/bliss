@@ -3,7 +3,6 @@
 
 py
 pytest
-pytest-mock
 pytest-cov
 lima-camera-simulator-tango
 scipy

@@ -335,7 +335,9 @@ class Flint:
                         scatter_plot_win = scatter_plot_win.widget()
                     scatter_plot_win.set_x_axes(channels['master']['scalars'])
                     scatter_plot_win.set_z_axes(scalars)
-
+                    scatter_plot_win.set_scan_info(scan_info.get('title',''),
+                                                   scan_info.get('positioners', dict()))
+                    
             for spectrum in spectra:
                 window_title = "1D: " + master + " -> " + spectrum
                 window_titles.append(window_title)

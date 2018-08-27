@@ -10,6 +10,7 @@ import logging
 import weakref
 import redis
 import numpy
+import re
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
@@ -339,6 +340,8 @@ class LiveScatterPlot(qt.QWidget):
         self.layout().addWidget(self.silx_plot)
         self.layout().addWidget(self.axes_list_view)
 
+        self.motor_2_ranges = dict()
+
     def __getattr__(self, attr):
         """Delegate to silx plot widget"""
         if attr.startswith("__"):
@@ -387,16 +390,30 @@ class LiveScatterPlot(qt.QWidget):
         for i in range(4):
             self.axes_list_view.resizeColumnToContents(i)
 
+    def set_scan_info(self, title, positioners):
+        """
+        In this method, we will guess motors position ranges
+        """
+        scan_name = re.compile('^(d|a?)\w+?\s+')
+        mot_name_params = re.compile("(\w+)\s+(-?\d+\.\d+|-?\d+)\s+(-?\d+\.\d+|-?\d+)\s(\d+)")
+        self.motor_2_ranges = dict()
+
+        m = scan_name.match(title)
+        if m is not None:
+            differential = m.group(1) == 'd'
+            for motor_name, start_position, stop_position, nb_points in\
+                mot_name_params.findall(title):
+                if differential:
+                    current_pos = positioners.get(motor_name)
+                    if current_pos is None:
+                        continue
+                    start_position = float(start_position) + current_pos
+                    stop_position = float(stop_position) + current_pos
+                self.motor_2_ranges[motor_name] = [float(x) for x in (start_position,stop_position)]
+        self.update_range()
+        
     def update_plots(self):
-        axes = dict()
-        for row in range(self.axes_list_model.rowCount()):
-            for column, axis_key in ((1, 'x_axis'),
-                                     (2, 'y_axis'),
-                                     (3, 'z_axis')):
-                item = self.axes_list_model.item(row,column)
-                if item is not None and item.checkState() == qt.Qt.Checked:
-                    axes[axis_key] = self.axes_list_model.item(row).text()
-                    
+        axes = self._get_selected_axes()   
         x_axis = axes.get('x_axis')
         y_axis = axes.get('y_axis')
         z_axis = axes.get('z_axis')
@@ -408,8 +425,33 @@ class LiveScatterPlot(qt.QWidget):
             mlen = min((len(x_data),len(y_data),len(z_data)))
             self.silx_plot.setData(x_data[:mlen],y_data[:mlen],z_data[:mlen],copy=False)
 
+    def update_range(self):
+        axes = self._get_selected_axes()
+        x_axis = axes.get('x_axis','').split(':')[-1]
+        x_ranges = self.motor_2_ranges.get(x_axis)
+        if x_ranges is not None:
+            axis = self.silx_plot.getXAxis()
+            axis.setLimits(*x_ranges)
+
+        y_axis = axes.get('y_axis','').split(':')[-1]
+        y_ranges = self.motor_2_ranges.get(y_axis)
+        if y_ranges is not None:
+            axis = self.silx_plot.getYAxis()
+            axis.setLimits(*y_ranges)
+        
     def update_all(self):
         self.update_plots()
+
+    def _get_selected_axes(self):
+        axes = dict()
+        for row in range(self.axes_list_model.rowCount()):
+            for column, axis_key in ((1, 'x_axis'),
+                                     (2, 'y_axis'),
+                                     (3, 'z_axis')):
+                item = self.axes_list_model.item(row,column)
+                if item is not None and item.checkState() == qt.Qt.Checked:
+                    axes[axis_key] = self.axes_list_model.item(row).text()
+        return axes
 
     def _axes_item_changed(self, changed_item):
         column = changed_item.column()
@@ -445,4 +487,7 @@ class LiveScatterPlot(qt.QWidget):
                             continue
                         if item.checkState() == qt.Qt.Checked:
                             item.setCheckState(qt.Qt.Unchecked)
+
         self.update_plots()
+        if column == 1 or column == 2: # X or Y
+            self.update_range()

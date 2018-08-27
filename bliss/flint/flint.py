@@ -320,7 +320,9 @@ class Flint:
                     window_titles.append(window_title)
                     scatter_plot_win = self.mdi_windows_dict.get(window_title)
                     if not scatter_plot_win:
-                        scatter_plot_win = LiveScatterPlot(data_dict=self.data_dict)
+                        scatter_plot_win = LiveScatterPlot(
+                            data_dict=self.data_dict, session_name=self._session_name
+                        )
                         scatter_plot_win.setWindowTitle(window_title)
                         scatter_plot_win.plot_id = next(self._id_generator)
                         self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
@@ -333,11 +335,12 @@ class Flint:
                         scatter_plot_win.show()
                     else:
                         scatter_plot_win = scatter_plot_win.widget()
-                    scatter_plot_win.set_x_axes(channels['master']['scalars'])
+                    scatter_plot_win.set_x_axes(channels["master"]["scalars"])
                     scatter_plot_win.set_z_axes(scalars)
-                    scatter_plot_win.set_scan_info(scan_info.get('title',''),
-                                                   scan_info.get('positioners', dict()))
-                    
+                    scatter_plot_win.set_scan_info(
+                        scan_info.get("title", ""), scan_info.get("positioners", dict())
+                    )
+
             for spectrum in spectra:
                 window_title = "1D: " + master + " -> " + spectrum
                 window_titles.append(window_title)

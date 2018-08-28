@@ -421,9 +421,7 @@ class LiveScatterPlot(qt.QWidget):
                 start_position,
                 stop_position,
                 nb_points,
-            ) in mot_name_params.findall(
-                title
-            ):
+            ) in mot_name_params.findall(title):
                 if differential:
                     current_pos = positioners.get(motor_name)
                     if current_pos is None:

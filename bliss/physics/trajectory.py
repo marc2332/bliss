@@ -33,9 +33,7 @@ def find_pvt(pvt, position):
         end_position,
         start_velocity,
         end_velocity,
-    ) in zip(
-        time, time[1:], positions, positions[1:], velocities, velocities[1:]
-    ):
+    ) in zip(time, time[1:], positions, positions[1:], velocities, velocities[1:]):
         # segment match
         if (
             start_position <= end_position and start_position <= position < end_position

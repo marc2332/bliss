@@ -14,6 +14,10 @@ from bliss.common.event import dispatcher
 from .channel import AcquisitionChannelList, AcquisitionChannel
 from .channel import duplicate_channel
 
+# Running task for a specific device
+#
+_running_task_on_device = weakref.WeakValueDictionary()
+
 
 class DeviceIterator(object):
     def __init__(self, device, one_shot):
@@ -293,6 +297,19 @@ class AcquisitionMaster(object):
         )
         self.__duplicated_channels[new_channel] = connect, cleanup
         self.channels.append(new_channel)
+
+    def wait_slaves_prepare(self):
+        """
+        This method will wait the end of the **prepare**
+        one slaves.
+        """
+        tasks = filter(None, [_running_task_on_device.get(dev) for dev in self.slaves])
+        try:
+            gevent.joinall(tasks, raise_error=True)
+        except:
+            for t in tasks:
+                t.kill()
+            raise
 
 
 class AcquisitionDevice(object):
@@ -580,7 +597,9 @@ class AcquisitionChainIter(object):
                 tasks = list()
                 prev_level = level
             func = getattr(dev, func_name)
-            tasks.append(gevent.spawn(func))
+            t = gevent.spawn(func)
+            _running_task_on_device[dev.device] = t
+            tasks.append(t)
         # ensure that all tasks are executed
         # (i.e: don't raise the first exception on stop)
         if wait_all_tasks:

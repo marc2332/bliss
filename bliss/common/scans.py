@@ -359,8 +359,24 @@ def dmesh(
 ):
     """Relative amesh
     """
-    kwargs["type"] = "dmesh"
+    kwargs.setdefault("type", "dmesh")
     kwargs.setdefault("name", "dmesh")
+    if kwargs.get("title") is None:
+        args = (
+            kwargs["type"],
+            motor1.name,
+            start1,
+            stop1,
+            npoints1,
+            motor2.name,
+            start2,
+            stop2,
+            npoints2,
+            count_time,
+        )
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        kwargs["title"] = template.format(*args)
+
     start1 += motor1.position()
     stop1 += motor1.position()
     start2 += motor2.position()

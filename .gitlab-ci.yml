@@ -13,7 +13,7 @@ style:
     - source activate tango3.6
     - pip install black
   script:
-    - LC_ALL=C.UTF-8 black .
+    - LC_ALL=C.UTF-8 black --check .
 
 tests:
   stage: tests

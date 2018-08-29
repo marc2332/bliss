@@ -250,8 +250,8 @@ class NewportXPS(Controller):
             71,  # NOTINIT state from scaling calibration
             72,  # NOTINIT state due to a scaling calibration error
             83,  # NOTINIT state due to a group interlock error
-            106,
-        ]:  # Not initialized state due to an error with GroupKill or KillAll command
+            106,  # Not initialized state due to an error with GroupKill or KillAll command
+        ]:
             return AxisState(("NOTINIT", "Not Initialised"))
         if status in [
             10,  # Ready state due to an AbortMove command
@@ -267,8 +267,8 @@ class NewportXPS(Controller):
             56,  # Ready state from clamped
             70,  # Ready state from auto-tuning
             77,  # Ready state from excitation signal generation
-            79,
-        ]:  # Ready state from focus
+            79,  # Ready state from focus
+        ]:
             return AxisState("READY")
         if status in [
             20,  # Disable state
@@ -318,8 +318,8 @@ class NewportXPS(Controller):
             100,  # Disabled state due to a ZYGO error during analog tracking
             101,  # Disable state due to a ZYGO error on auto-tuning state
             102,  # Disable state due to a ZYGO error on excitation signal generation state
-            103,
-        ]:  # Disabled state due to a ZYGO error on ready state
+            103,  # Disabled state due to a ZYGO error on ready state
+        ]:
             return AxisState(("DISABLED", "Disabled"))
         if status in [
             43,  # Homing state
@@ -330,8 +330,8 @@ class NewportXPS(Controller):
             48,  # Analog tracking state due to a TrackingEnable command
             49,  # Analog interpolated encoder calibrating state
             51,  # Spinning state due to a SpinParametersSet command
-            64,
-        ]:  # Referencing state
+            64,  # Referencing state
+        ]:
             return AxisState("BUSY")
         if status in [
             40,  # Emergency braking
@@ -344,8 +344,8 @@ class NewportXPS(Controller):
             73,  # Excitation signal generation state
             78,  # Focus state
             104,  # Driver initialization
-            105,
-        ]:  # Jitter initialization
+            105,  # Jitter initialization
+        ]:
             return AxisState("UNDECIDED", "Not categorised yet")
         return AxisState("UNKNOWN", "This should not happen")
 

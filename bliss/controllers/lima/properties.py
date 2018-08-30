@@ -36,17 +36,20 @@ class LimaAttrGetterSetter(object):
     def _r_attr_func(self, attr, values_enum=None):
         v = self.__proxy.read_attribute(attr).value
         if values_enum:
-            return values_enum[v]
+            # enum values are names from the Tango server,
+            # enum names are valid Python names
+            values = [x.value for x in iter(values_enum)]
+            return list(iter(values_enum))[values.index(v)]
         else:
             return v
 
     def _w_attr_func(self, value, attr, values_enum=None):
         if values_enum:
             if value in values_enum:
-                v = value.name
+                v = value.value
             else:
                 try:
-                    v = values_enum[value].name
+                    v = values_enum[value].value
                 except KeyError:
                     raise ValueError(
                         "'%s` only accepts following values: %s"
@@ -102,7 +105,7 @@ def LimaProperties(
                 if possible_values:
                     values_enum = enum.Enum(
                         attr_username + "_enum",
-                        [(v, v) for v in possible_values],
+                        [(v.replace(" ", "_"), v) for v in possible_values],
                         type=str,
                     )
             r_attr_func = functools.partial(

@@ -16,14 +16,17 @@ class PIAcquisitionDevice(AcquisitionDevice):
     Helper to read **Physik Instrumente** controller data recorder.
     """
 
-    def __init__(self, pi_controller, count_time, **keys):
+    def __init__(self, pi_controller, npoints, count_time, trigger_source=None, **keys):
         """
         Args:
            pi_controller the pi motor controller
            i.e: px.controller if px is a motor
            count_time the sampling time of the data recorder for one point
+           trigger_source if None will use the **trigger_type** to define it.
         """
-        AcquisitionDevice.__init__(self, pi_controller, pi_controller.name, **keys)
+        AcquisitionDevice.__init__(
+            self, pi_controller, pi_controller.name, npoints=npoints, **keys
+        )
         self.__motor_data_type = list()
         self.__external_input = 0
         self.__count_time = count_time
@@ -32,6 +35,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
         self.__event = event.Event()
         self._nb_acq_points = 0
         self.__previous_data_len = None
+        self.__triger_source = trigger_source
 
     @property
     def count_time(self):
@@ -75,7 +79,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
         if not self.__motor_data_type:
             raise RuntimeError("Nothing to prepare, didn't call set_counters")
 
-        self.device.set_recorder_data_type(self.__motor_data_type)
+        self.device.set_recorder_data_type(*self.__motor_data_type)
 
     def start(self):
         self.__started = False
@@ -86,7 +90,10 @@ class PIAcquisitionDevice(AcquisitionDevice):
         self.trigger()
 
     def trigger(self):
-        if self.trigger_type == AcquisitionDevice.SOFTWARE:
+        if self.__triger_source is not None:
+            trigger_source = self.__triger_source
+            data_len = self.device.get_data_len()
+        elif self.trigger_type == AcquisitionDevice.SOFTWARE:
             trigger_source = self.device.IMMEDIATELY
             data_len = None
         else:
@@ -108,6 +115,8 @@ class PIAcquisitionDevice(AcquisitionDevice):
         while not self.__started and not self.__stopped:
             self.__event.wait()
             self.__event.clear()
+        if self.__stopped:
+            return
 
         # Wait data trigger
         if self.__previous_data_len is not None:
@@ -116,6 +125,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
                 # received the trigger so start reading
                 if data_len < self.__previous_data_len:
                     break
+                gevent.sleep(0)
 
         while self._nb_acq_points < self.npoints and not self.__stopped:
             data = self.device.get_data(

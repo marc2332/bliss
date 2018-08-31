@@ -33,9 +33,9 @@ YAML_ configuration example:
    * PowerSave : used to avoid unnecessary heat generation (useful for
                  in-vacuum motors)
 2. steps_per_unit:
-   For rotary sensors, position in given in micro-degree so if you want to work
+   For rotary sensors, position is given in micro-degree so if you want to work
    in degrees you need to put steps_per_unit to 1.000.000.
-   For linear sensors, position in given in nano-meter so if you want to work
+   For linear sensors, position is given in nano-meter so if you want to work
    in milimeter you need to put steps_per_unit to 1.000.000.
 3. velocity: setting to 0 disables velocity control and implicitly acceleration
    control and low vibration mode as well.
@@ -98,7 +98,7 @@ class SensorType(enum.IntEnum):
     SCT = 35  # like SCD, but with even larger actuator
 
 
-RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF
+RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF, SensorType.G775S
 
 
 @enum.unique
@@ -354,7 +354,7 @@ class Channel(object):
         position (int): micro-degree for rotary sensors or nano-meter for
                         linear sensors
         """
-        self["P"] = int(position)
+        self.command("SP", int(position))
 
     def stop(self):
         self.command("S")
@@ -368,14 +368,13 @@ class Channel(object):
                            reaching target (default: the currently configured
                            hold time. If not configured it defaults to 60
                            meaning hold forever
-        revolution (int): only for rotary sensors. The absolute revolution to
-                          move to (default: 0)
         """
         position = int(position)
         hold_time = min(self.hold_time if hold_time is None else hold_time, 60)
         hold_time = int(hold_time * 1000)
         if self.is_rotary_sensor:
-            revolution = int(kwargs.get("revolution", 0))
+            revolution = int(position // 360e6)
+            position = int(position % 360e6)
             self.command("MAA", position, revolution, hold_time)
         else:
             self.command("MPA", position, hold_time)
@@ -403,12 +402,8 @@ class SmarAct(Controller):
 
     DEFAULT_PORT = 5000
 
-    def __init__(self, name, config, axes, *args, **kwargs):
-        super(SmarAct, self).__init__(name, config, axes, *args, **kwargs)
-        self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
-        for axis_name, axis, axis_config in axes:
-            axis.channel = Channel(self, axis_config.get("channel", int))
-        #        self.comm._logger.setLevel('DEBUG')
+    def __init__(self, *args, **kwargs):
+        super(SmarAct, self).__init__(*args, **kwargs)
         self.log = logging.getLogger(type(self).__name__)
 
     def __getitem__(self, item):
@@ -449,6 +444,10 @@ class SmarAct(Controller):
             value = SensorEnabled[enabled]
         self["SE"] = int(value)
 
+    def initialize(self):
+        self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
+        # self.comm._logger.setLevel('DEBUG')
+
     def initialize_hardware(self):
         # set communication mode to synchronous
         self["CM"] = 0
@@ -457,6 +456,7 @@ class SmarAct(Controller):
         )
 
     def initialize_axis(self, axis):
+        axis.channel = Channel(self, axis.config.get("channel", int))
         if "hold_time" in axis.config.config_dict:
             axis.channel.hold_time = axis.config.get("hold_time", float)
 
@@ -503,7 +503,7 @@ class SmarAct(Controller):
     def read_position(self, axis):
         if axis.channel.is_rotary_sensor:
             position, revolution = axis.channel.position
-            return position
+            return position + (revolution * 360e6)
         else:
             return axis.channel.position
 

@@ -21,6 +21,9 @@ try:
 except ImportError:
     h5py = None
 
+VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
+HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
+
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
@@ -73,20 +76,62 @@ class LimaImageChannelDataNode(DataNode):
             return proxy
 
         def get_image(self, image_nb, proxy=0):
+            print "in get image", image_nb
             self._update()
 
             if proxy == 0:
                 # 0 is used to discriminate with None, which can be passed
                 proxy = self._get_proxy()
 
-            if not proxy:
-                data = None
-            else:
-                data = self._get_from_server_memory(proxy, image_nb)
+            data = None
+            if proxy:
+                if image_nb == self.last_index - 1:
+                    # get last video image
+                    print "get video image"
+                    _, raw_data = proxy.video_last_image
+                    if len(raw_data) > HEADER_SIZE:
+                        (
+                            magic,
+                            header_version,
+                            image_mode,
+                            image_frameNumber,
+                            image_width,
+                            image_height,
+                            endian,
+                            header_size,
+                            pad0,
+                            pad1,
+                        ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+
+                        if magic != 0x5644454f or header_version != 1:
+                            raise IndexError("Bad image header.")
+                        if image_frameNumber < 0:
+                            raise IndexError(
+                                "Image (from Lima live interface) not available yet."
+                            )
+
+                        video_modes = (
+                            numpy.uint8,
+                            numpy.uint16,
+                            numpy.int32,
+                            numpy.int64,
+                        )
+                        try:
+                            mode = video_modes[image_mode]
+                        except IndexError:
+                            pass
+                        else:
+                            data = numpy.fromstring(raw_data[HEADER_SIZE:], dtype=mode)
+                            data.shape = image_height, image_width
+                else:
+                    print "get from memory"
+                    data = self._get_from_server_memory(proxy, image_nb)
 
             if data is None:
+                print "get from file"
                 return self._get_from_file(image_nb)
             else:
+                print "returning", len(data)
                 return data
 
         def __getitem__(self, item_index):
@@ -137,9 +182,9 @@ class LimaImageChannelDataNode(DataNode):
                 self.current_lima_acq == self.lima_acq_nb
             ):  # current acquisition is this one
                 if self.last_image_ready < 0:
-                    raise RuntimeError("No image has been taken yet")
+                    raise IndexError("No image has been taken yet")
                 if self.last_image_ready < image_nb:  # image not yet available
-                    raise RuntimeError("Image is not available yet")
+                    raise IndexError("Image is not available yet")
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
@@ -216,7 +261,7 @@ class LimaImageChannelDataNode(DataNode):
                 else:
                     raise RuntimeError("Format not managed yet")
             else:
-                raise RuntimeError("Cannot retrieve image %d from file" % image_nb)
+                raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
         def _tango_unpack(self, msg):
             struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"

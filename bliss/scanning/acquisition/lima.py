@@ -137,6 +137,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             setattr(self.device, param_name, param_value)
 
         self.wait_slaves_prepare()
+        self.device.video_active = True
         self.device.prepareAcq()
 
         signed, depth, w, h = self.device.image_sizes

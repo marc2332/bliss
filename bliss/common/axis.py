@@ -125,6 +125,14 @@ class GroupMove(object):
             raise
         finally:
             gevent.killall(monitor_move)
+            task_index = 0
+            for controller, motions in motions_dict.iteritems():
+                for motion in motions:
+                    try:
+                        motion.last_state = monitor_move[task_index].get()
+                    except:
+                        pass
+                    task_index += 1
 
     def _stop_move(self, motions_dict, stop_motion):
         stop = []
@@ -142,9 +150,12 @@ class GroupMove(object):
             for motion in motions:
                 stop_wait.append(gevent.spawn(motion.axis._move_loop))
         gevent.joinall(stop_wait)
-        for task in stop_wait:
-            with exception_capture():
-                task.get()
+        task_index = 0
+        for controller, motions in motions_dict.iteritems():
+            for motion in motions:
+                with exception_capture():
+                    motion.last_state = stop_wait[task_index].get()
+                task_index += 1
 
     def _move(
         self,
@@ -158,6 +169,7 @@ class GroupMove(object):
         # Set axis moving state
         for motions in motions_dict.itervalues():
             for motion in motions:
+                motion.last_state = None
                 motion.axis._set_moving_state()
 
                 for _, chan in motion.axis._beacon_channels.iteritems():
@@ -203,7 +215,10 @@ class GroupMove(object):
                 # state is set to FAULT
                 for motions in motions_dict.itervalues():
                     for motion in motions:
-                        state = None
+                        state = motion.last_state
+                        if state is not None:
+                            continue
+
                         with capture():
                             state = motion.axis.state(read_hw=True)
                         if state is None:
@@ -235,6 +250,8 @@ class GroupMove(object):
                     with capture():
                         for motions in motions_dict.itervalues():
                             for motion in motions:
+                                if motion.last_state is not None:
+                                    continue
                                 motion.axis._set_position(motion.axis.position())
                                 event.send(motion.axis, "sync_hard")
 

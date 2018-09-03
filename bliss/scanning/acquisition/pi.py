@@ -68,7 +68,13 @@ class PIAcquisitionDevice(AcquisitionDevice):
                 "Arguments must be grouped by 3 "
                 "(counter_name,motor,recorder_type...)"
             )
-
+        if (self.npoints * nb_counters) > self.device.get_data_max_len():
+            raise RuntimeError(
+                "The total number points ({0}) is more "
+                "than the controller can handle ({1})".format(
+                    self.npoints * nb_counters, self.device.get_data_max_len()
+                )
+            )
         self.channels[:] = [AcquisitionChannel("timestamp", numpy.double, ())]
         self.__motor_data_type = list()
         for counter_name, motor, recorder_type in grouped(counters_params, 3):

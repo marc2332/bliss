@@ -366,6 +366,12 @@ class PI_E712(Controller):
         """
         return int(self.command("DRL? 1"))
 
+    def get_data_max_len(self):
+        """
+        return the maximum number of records
+        """
+        return int(self.command("SPA? 1 0x16000200"))
+
     def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
         """
         retrieved store data as a numpy structured array,
@@ -448,6 +454,15 @@ class PI_E712(Controller):
                     values = line.split(separator)
                     for column_id, name in column_info.iteritems():
                         data[name][line_id] = values[column_id]
+                errno, error_message = self.get_error()
+                # If we ask data in advance, ** Out of range **
+                # error is return.
+                # in that case it's not an error
+                if errno > 0 and errno != 17:
+                    errors = [self.name, "get_data"] + [errno, error_message]
+                    raise RuntimeError(
+                        "Device {0} command {1} error nb {2} => ({3})".format(*errors)
+                    )
                 return data
         except:
             self.sock.close()  # safe in case of ctrl-c

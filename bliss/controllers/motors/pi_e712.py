@@ -366,6 +366,12 @@ class PI_E712(Controller):
         """
         return int(self.command("DRL? 1"))
 
+    def get_data_max_len(self):
+        """
+        return the maximum number of records
+        """
+        return int(self.command("SPA? 1 0x16000200"))
+
     def get_data(self, from_event_id=0, npoints=None, rec_table_id=None):
         """
         retrieved store data as a numpy structured array,

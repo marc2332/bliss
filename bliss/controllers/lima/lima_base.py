@@ -12,6 +12,7 @@ from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
+from .bgsub import BgSub
 from bliss.common.utils import common_prefix
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
@@ -56,6 +57,7 @@ class Lima(object):
 
     _ROI_COUNTERS = "roicounter"
     _BPM = "beamviewer"
+    _BG_SUB = "backgroundsubstraction"
 
     # Standard interface
 
@@ -116,6 +118,7 @@ class Lima(object):
         self.__bpm = None
         self.__roi_counters = None
         self._proxy = self._get_proxy()
+        self.__bg_sub = None
         self._camera = None
         self._image = None
         self._acquisition = None
@@ -239,6 +242,13 @@ class Lima(object):
             bpm_proxy = self._get_proxy(Lima._BPM)
             self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
+
+    @property
+    def bg_sub(self):
+        if self.__bg_sub is None:
+            bg_sub_proxy = self._get_proxy(Lima._BG_SUB)
+            self.__bg_sub = BgSub(self.name, bg_sub_proxy, self)
+        return self.__bg_sub
 
     @property
     def available_triggers(self):

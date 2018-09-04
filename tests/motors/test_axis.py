@@ -10,7 +10,8 @@ import time
 import gevent
 import gevent.event
 from bliss.common import event
-from bliss.common.axis import Modulo
+from bliss.common.axis import Modulo, AxisState
+import mock
 
 
 def test_property_setting(robz):
@@ -566,3 +567,16 @@ def test_measured_position(m1, roby):
     assert m1.measured_position() == m1.position()
     with pytest.raises(RuntimeError):
         roby.measured_position()
+
+
+def test_axis_no_state_setting(m1):
+    m1.move(1, relative=True)  # store settings
+    state = m1.state()  # cache
+
+    with mock.patch.object(m1.controller, "state") as new_state:
+        new_state.return_value = AxisState("FAULT")
+        assert m1.state() == state
+        m1.settings.disable_cache("state")
+        assert m1.state() == AxisState("FAULT")
+        m1.settings.disable_cache("state", False)
+        assert m1.state() == state

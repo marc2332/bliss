@@ -27,7 +27,7 @@ class _EventReceiver(object):
         for signal in ("start", "end"):
             connect(self.device, signal, self)
         for channel in self.device.channels:
-            connect(self.device, "new_data", self)
+            connect(channel, "new_data", self)
 
     def disconnect(self):
         if self.device is None:

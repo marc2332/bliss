@@ -136,3 +136,14 @@ def test_hdf5_file_items(beacon, session):
         f[f[s.name]["measurement"][group_name]["timer"].value]
         == f[s.name]["measurement"]["timer"]
     )
+
+
+def test_hdf5_values(beacon, session):
+    roby = beacon.get("roby")
+    diode = beacon.get("diode")
+    s = scans.ascan(roby, 0, 10, 3, 0.01, diode, save=True, return_scan=True)
+    scan_file = os.path.join(s.path, "data.h5")
+    data = s.get_data()["diode"]
+    f = h5py.File(scan_file)
+    dataset = f[s.name]["measurement"]["timer"]["diode:diode"]
+    assert list(dataset) == list(data)

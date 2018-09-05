@@ -57,7 +57,7 @@ def test_hdf5_metadata(beacon, session):
     all_motors = dict(
         [
             (name, pos)
-            for name, pos, _ in get_axes_positions_iter(on_error="ERR")
+            for name, pos, _, _ in get_axes_positions_iter(on_error="ERR")
             if pos != "ERR"
         ]
     )

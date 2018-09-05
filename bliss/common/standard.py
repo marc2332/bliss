@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
@@ -107,11 +112,16 @@ def wa(**kwargs):
     print_("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
-    for axis_name, position, dial_position in get_axes_positions_iter(on_error=_ERR):
+    for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
+        on_error=_ERR
+    ):
         if len(header) == max_cols:
             header, pos, dial = [], [], []
             tables.append((header, pos, dial))
-        header.append(axis_name)
+        axis_label = axis_name
+        if axis_unit:
+            axis_label += "[{0}]".format(axis_unit)
+        header.append(axis_label)
         pos.append(position)
         dial.append(dial_position)
 
@@ -169,7 +179,11 @@ def wm(*axes, **kwargs):
                     low_dial,
                 )
             )
-        header.append(axis.name)
+        unit = axis.config.get("unit", default=None)
+        axis_label = axis.name
+        if unit:
+            axis_label += "[{0}]".format(unit)
+        header.append(axis_label)
         User.append(None)
         high_user.append(high if high != None else _MISSING_VAL)
         user.append(get(axis, "position"))

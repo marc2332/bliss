@@ -169,7 +169,7 @@ class ScanListener:
             # name is in the form 'acq_master:channel_name'
             if channel_short_name == "elapsed_time":
                 # timescan
-                self.col_labels.insert(1, "dt(s)")
+                self.col_labels.insert(1, "dt[s]")
             else:
                 # we can suppose channel_name to be a motor name
                 try:
@@ -188,19 +188,19 @@ class ScanListener:
                         unit = motor.config.get("unit", default=None)
                         motor_label = motor.name
                         if unit:
-                            motor_label += "({0})".format(unit)
+                            motor_label += "[{0}]".format(unit)
                         self.col_labels.append(motor_label)
 
         for channel_name in channels["scalars"]:
             counter_name = channel_name.split(":")[-1]
             if counter_name == "elapsed_time":
-                self.col_labels.insert(1, "dt(s)")
+                self.col_labels.insert(1, "dt[s]")
                 continue
             else:
                 self.counters.append(counter_name)
                 unit = _find_unit(counter_name)
                 if unit:
-                    counter_name += "({0})".format(unit)
+                    counter_name += "[{0}]".format(unit)
                 self.col_labels.append(counter_name)
 
         other_channels = [
@@ -316,7 +316,7 @@ class ScanListener:
             position = "{0:.03f}".format(motor.position())
             unit = motor.config.get("unit", default=None)
             if unit:
-                position += unit
+                position += "[{0}]".format(unit)
             labels.append("{0}: {1}".format(motor.name, position))
 
         print_("\33[2K", end="")

@@ -266,6 +266,7 @@ def pytest_addoption(parser):
     parser.addoption("--pepu", help="pepu host name")
     parser.addoption("--ct2", help="ct2 address")
     parser.addoption("--axis-name", help="axis name")
+    parser.addoption("--mythen", action="store", help="mythen host name")
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ from bliss.scanning.writer.file import FileWriter
 
 class Writer(FileWriter):
     def __init__(self, *args, **keys):
-        FileWriter.__init__(self, "", "")
+        FileWriter.__init__(self, "", "", "")
 
     def new_scan(self, scan):
         return

@@ -44,6 +44,7 @@ class FileWriter(object):
         self,
         root_path,
         images_root_path,
+        data_filename,
         master_event_callback=None,
         device_event_callback=None,
         **keys
@@ -53,6 +54,8 @@ class FileWriter(object):
         self._save_images = True
         self._root_path = root_path
         self._images_root_path = images_root_path
+        self._data_filename_template = data_filename
+        self._data_filename = data_filename
         self._master_event_callback = master_event_callback
         self._device_event_callback = device_event_callback
         self._event_receivers = list()
@@ -67,6 +70,10 @@ class FileWriter(object):
     def images_root_path(self):
         return self._images_root_path
 
+    @property
+    def data_filename(self):
+        return self._data_filename
+
     def create_path(self, full_path):
         try:
             os.makedirs(full_path)
@@ -77,8 +84,10 @@ class FileWriter(object):
                 raise
 
     def new_scan(self, scan):
-        self.create_path(self._root_path)
-        self.new_file(self._root_path, scan.node.name, scan.scan_info)
+        root_path = self._root_path.format(scan=scan.node.name)
+        self.create_path(root_path)
+        self._data_filename = self._data_filename_template.format(scan=scan.node.name)
+        self.new_file(root_path, scan.node.name, scan.scan_info)
 
     def new_file(self, scan_file_dir, scan_name, scan_info):
         pass

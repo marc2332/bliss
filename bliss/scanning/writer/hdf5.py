@@ -15,11 +15,12 @@ from bliss.scanning.writer.file import FileWriter
 
 
 class Writer(FileWriter):
-    def __init__(self, root_path, images_root_path, **keys):
+    def __init__(self, root_path, images_root_path, data_filename, **keys):
         FileWriter.__init__(
             self,
             root_path,
             images_root_path,
+            data_filename,
             master_event_callback=self._on_event,
             device_event_callback=self._on_event,
             **keys
@@ -31,8 +32,9 @@ class Writer(FileWriter):
         self.last_point_index = {}
 
     def new_file(self, scan_file_dir, scan_name, scan_info):
+        filename = os.path.join(scan_file_dir, self.data_filename + ".h5")
         self.close()
-        self.file = h5py.File(os.path.join(scan_file_dir, "data.h5"))
+        self.file = h5py.File(filename)
         self.scan_entry = self.file.create_group(scan_name)
         self.scan_entry.attrs["NX_class"] = "NXentry"
         scan_title = scan_info.get("title", "untitled")
@@ -116,9 +118,9 @@ class Writer(FileWriter):
         self.measurement = None
 
     def get_scan_entries(self):
-        file_name = os.path.join(self.root_path, "data.h5")
+        filename = os.path.join(self.root_path, self.data_filename + ".h5")
         try:
-            with h5py.File(file_name, mode="r") as f:
+            with h5py.File(filename, mode="r") as f:
                 return f.keys()
         except IOError:  # file doesn't exist
             return []

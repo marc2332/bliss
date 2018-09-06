@@ -115,6 +115,7 @@ class ScanSaving(Parameters):
             "%s:scan_data" % self.session,
             default_values={
                 "base_path": "/tmp/scans",
+                "data_filename": "data",
                 "user_name": getpass.getuser(),
                 "template": "{session}/",
                 "images_path_relative": True,
@@ -197,6 +198,8 @@ class ScanSaving(Parameters):
         try:
             template = self.template
             images_template = self.images_path_template
+            images_prefix = self.images_prefix
+            data_filename = self.data_filename
             formatter = string.Formatter()
             cache_dict = self._proxy.get_all()
             cache_dict["session"] = self.session
@@ -213,6 +216,8 @@ class ScanSaving(Parameters):
                     cache_dict[key] = value
             sub_path = template.format(**cache_dict)
             images_sub_path = images_template.format(**cache_dict)
+            images_prefix = images_prefix.format(**cache_dict)
+            data_filename = data_filename.format(**cache_dict)
 
             parent = _get_or_create_node(self.session, "container")
             for path_item in os.path.normpath(sub_path).split(os.path.sep):
@@ -222,15 +227,15 @@ class ScanSaving(Parameters):
         else:
             path = os.path.join(cache_dict.get("base_path"), sub_path)
             if self.images_path_relative:
-                images_path = os.path.join(path, images_sub_path, self.images_prefix)
+                images_path = os.path.join(path, images_sub_path, images_prefix)
             else:
-                images_path = os.path.join(images_sub_path, self.images_prefix)
+                images_path = os.path.join(images_sub_path, images_prefix)
 
             return {
                 "root_path": path,
                 "images_path": images_path,
                 "parent": parent,
-                "writer": self._get_writer_object(path, images_path),
+                "writer": self._get_writer_object(path, images_path, data_filename),
             }
 
     def get_path(self):
@@ -252,11 +257,11 @@ class ScanSaving(Parameters):
         writer_module = __import__(module_name, fromlist=[""])
         return getattr(writer_module, "Writer")
 
-    def _get_writer_object(self, path, images_path):
+    def _get_writer_object(self, path, images_path, data_filename):
         if self.writer is None:
             return
         klass = self._get_writer_class(self.writer)
-        return klass(path, images_path)
+        return klass(path, images_path, data_filename)
 
 
 class ScanDisplay(Parameters):

@@ -552,6 +552,20 @@ class Axis(object):
         self._lock = gevent.lock.Semaphore()
         self.no_offset = False
 
+        try:
+            config.parent
+        # some Axis don't have a controller
+        # like SoftAxis
+        except AttributeError:
+            disabled_cache = list()
+        else:
+            disabled_cache = config.parent.get(
+                "disabled_cache", []
+            )  # get it from controller (parent)
+        disabled_cache.extend(config.get("disabled_cache", []))  # get it for this axis
+        for settings_name in disabled_cache:
+            self.settings.disable_cache(settings_name)
+
     def close(self):
         try:
             controller_close = self.__controller.close

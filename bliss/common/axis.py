@@ -88,15 +88,23 @@ class GroupMove(object):
             polling_time,
         )
 
-        # Wait for the move to be started (or finished)
-        gevent.wait([started, self._move_task], count=1)
+        try:
+            # Wait for the move to be started (or finished)
+            gevent.wait([started, self._move_task], count=1)
+        except:
+            self.stop()
+            raise
         # Wait if necessary and raise the move task exception if any
         if wait or self._move_task.ready():
-            self._move_task.get()
+            self.wait()
 
     def wait(self):
         if self._move_task is not None:
-            self._move_task.get()
+            try:
+                self._move_task.get()
+            except:
+                self.stop()
+                raise
 
     def stop(self, wait=True):
         if self._move_task is not None:
@@ -1331,11 +1339,7 @@ class Axis(object):
         """
         if self.is_moving:
             if self._group_move.is_moving:
-                try:
-                    self._group_move.wait()
-                except BaseException:
-                    self.stop()
-                    raise
+                self._group_move.wait()
             else:
                 # move has been started externally
                 try:

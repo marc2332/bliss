@@ -274,13 +274,13 @@ class Modbus_RTU:
 
 
 def try_connect_modbustcp(fu):
-    def rfunc(self, *args, **kwarg):
-        timeout = kwarg.get("timeout")
+    def rfunc(self, *args, **kwargs):
+        timeout = kwargs.get("timeout")
         if not self._connected:
             self.connect(timeout=timeout)
         try:
             with KillMask():
-                return fu(self, *args, **kwarg)
+                return fu(self, *args, **kwargs)
         except socket.error as e:
             if e.errno == errno.EPIPE:
                 # some modbus controller close the connection
@@ -288,7 +288,7 @@ def try_connect_modbustcp(fu):
                 gevent.sleep(0)
                 self.connect(timeout=timeout)
                 with KillMask():
-                    return fu(self, *args, **kwarg)
+                    return fu(self, *args, **kwargs)
             else:
                 raise
 

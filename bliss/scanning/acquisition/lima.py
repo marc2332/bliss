@@ -82,7 +82,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._save_flag = save_flag
         self._latency = latency_time
         self.__sequence_index = 0
-        self.__new_point_ready = 0
         self.__point_synchro = event.Event()
 
     def __iter__(self):
@@ -128,7 +127,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def prepare(self):
         if self.__sequence_index > 0 and self.prepare_once:
             return
-        self.__new_point_ready = 0.
 
         if self._image_channel:
             self._image_channel.description.update(self.parameters)
@@ -180,14 +178,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 ):
                     gevent.idle()
             else:
-                if self.device.acq_status.lower() == "running":
-                    while (
-                        self.__new_point_ready == 0
-                        and self.device.acq_status.lower() == "running"
-                    ):
-                        self.__point_synchro.clear()
-                        self.__point_synchro.wait()
-                    self.__new_point_ready -= 1
+                while self.device.acq_status.lower() == "running":
+                    self.__point_synchro.wait()
+                    self.__point_synchro.clear()
+                    break
         # Just read if there is an exception
         # in the reading task
         self.wait_reading(block=self.npoints == 1)
@@ -230,7 +224,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         self._last_image_ready = status["last_image_ready"]
                     if status["last_image_acquired"] != last_image_acquired:
                         last_image_acquired = status["last_image_acquired"]
-                        self.__new_point_ready += 1
                         self.__point_synchro.set()
 
                     gevent.sleep(max(self.parameters["acq_expo_time"] / 10.0, 10e-3))

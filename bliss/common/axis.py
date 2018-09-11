@@ -258,8 +258,6 @@ class GroupMove(object):
                     with capture():
                         for motions in motions_dict.itervalues():
                             for motion in motions:
-                                if motion.last_state is not None:
-                                    continue
                                 motion.axis._set_position(motion.axis.position())
                                 event.send(motion.axis, "sync_hard")
 

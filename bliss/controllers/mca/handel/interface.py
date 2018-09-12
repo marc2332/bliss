@@ -741,7 +741,7 @@ def get_config_files(*path):
     ext = b".ini" if isinstance(path, bytes) else ".ini"
     sep = b"/" if isinstance(path, bytes) else "/"
     return [
-        os.path.join(dp, f).lstrip(path).lstrip(sep)
+        os.path.relpath(os.path.join(dp, f), path).lstrip(sep)
         for dp, dn, fn in os.walk(path)
         for f in fn
         if f.endswith(ext)

@@ -48,6 +48,7 @@ s1u = motor_fixture("s1u")
 s1d = motor_fixture("s1d")
 calc_mot1 = calc_motor_fixture("calc_mot1")
 calc_mot2 = calc_motor_fixture("calc_mot2")
+custom_axis = motor_fixture("custom_axis")
 
 
 @pytest.fixture

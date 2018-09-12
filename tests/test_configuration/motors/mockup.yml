@@ -19,6 +19,14 @@ controller:
     steps_per_unit: 10000
     velocity: 1000
     acceleration: 100
+- class: CustomMockup
+  module: mockup
+  axes:
+  - name: custom_axis
+    steps_per_unit: 1000
+    velocity: 2500
+    acceleration: 1000
+    custom_setting1: UNSET
 - class: mockup
   axes:
   - class: MockupAxis

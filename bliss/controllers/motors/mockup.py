@@ -554,3 +554,17 @@ class FaultyMockup(Mockup):
             raise RuntimeError("BAD STOP")
         else:
             return Mockup.stop(self, axis, **kw)
+
+
+class CustomMockup(Mockup):
+    def __init__(self, *args, **kwargs):
+        Mockup.__init__(self, *args, **kwargs)
+
+        self.axis_settings.add("custom_setting1", str)
+
+    @object_method(types_info=(None, str))
+    def set_custom_setting1(self, axis, new_value=None):
+        pass
+
+    def read_custom_setting1(self, axis):
+        pass

@@ -229,6 +229,9 @@ class Controller(object):
 
             self.__initialized_axis[axis] = True
 
+        if isinstance(axis, NoSettingsAxis):
+            return
+
         try:
             for setting_name in axis.settings.config_settings():
                 # check if setting is in config

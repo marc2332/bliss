@@ -30,12 +30,7 @@ def floatOrNone(x):
 def stateSetting(state):
     from bliss.common import axis
 
-    try:
-        move_type = state.move_type
-    except Exception:
-        move_type = ""
     s = axis.AxisState(state)
-    s.move_type = move_type
     return s
 
 

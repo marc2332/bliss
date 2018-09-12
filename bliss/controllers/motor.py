@@ -27,7 +27,8 @@ from gevent import lock
 ENCODER_AXIS = dict()
 
 # apply settings or config parameters
-def get_setting_or_config_value(axis, name, converter=float):
+def get_setting_or_config_value(axis, name):
+    converter = axis.settings.convert_func(name)
     value = axis.settings.get(name)
     if value is None:
         try:
@@ -156,16 +157,10 @@ class Controller(object):
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
 
             for setting_name in axis.settings:
-                setting_value = hash_setting.get(setting_name)
-                if setting_value is None:
-                    # take setting value from config
-                    try:
-                        setting_value = axis.config.get(setting_name)
-                    except:
-                        pass
-                    else:
-                        # write setting to cache
-                        hash_setting[setting_name] = setting_value
+                setting_value = get_setting_or_config_value(axis, setting_name)
+                if setting_value is not None:
+                    # write setting to cache
+                    hash_setting[setting_name] = setting_value
 
                 chan_name = "axis.%s.%s" % (axis.name, setting_name)
                 cb = functools.partial(
@@ -196,12 +191,6 @@ class Controller(object):
         elif max_pos > hl:
             # get motion object, this will raise ValueError exception
             axis._get_motion(max_pos)
-
-    def get_mandatory_config_parameters(self, axis):
-        if isinstance(axis, NoSettingsAxis):
-            return tuple()
-        else:
-            return ("velocity", "acceleration")
 
     def initialize(self):
         pass
@@ -241,24 +230,24 @@ class Controller(object):
             self.__initialized_axis[axis] = True
 
         try:
-            mandatory_config_list = list()
-
-            for config_param in self.get_mandatory_config_parameters(axis):
-                # Try to see if controller supports setting the <config_param> by
-                # checking if it oveloads default set_<config_name> method
-                set_name = "set_%s" % config_param
-                base_set_method = getattr(Controller, set_name)
-                set_method = getattr(axis.controller.__class__, set_name)
-                if base_set_method != set_method:
-                    mandatory_config_list.append(config_param)
-
-            for setting_name in mandatory_config_list:
-                value = get_setting_or_config_value(axis, setting_name)
-                if value is None:
+            for setting_name in axis.settings.config_settings():
+                # check if setting is in config
+                if axis.config.get(setting_name) is None:
                     raise RuntimeError(
-                        "%s is missing in configuration for axis '%s`."
-                        % (setting_name, axis.name)
+                        "Axis %s: missing configuration key '%s`"
+                        % (axis.name, setting_name)
                     )
+                # check if setting has a method to initialize (set) its value
+                try:
+                    getattr(axis, setting_name)
+                except AttributeError:
+                    raise RuntimeError(
+                        "Axis %s: missing method '%s` to set setting value"
+                        % (axis.name, setting_name)
+                    )
+
+            for setting_name in axis.settings.config_settings():
+                value = get_setting_or_config_value(axis, setting_name)
                 meth = getattr(axis, setting_name)
                 meth(value)
 
@@ -446,6 +435,9 @@ class Controller(object):
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
+
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
 
         self._reals_group = None
         self.reals = []
@@ -790,7 +782,6 @@ class CalcController(Controller):
                 )
 
     def _get_real_position(self, real_axes, real_positions, final_real_axes_position):
-
         local_real_positions = dict()
         for axis, dep_real_axes in real_axes:
             axis_position = real_positions.get(self._axis_tag(axis))

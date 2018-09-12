@@ -10,7 +10,9 @@ import time
 import gevent
 import gevent.event
 from bliss.common import event
-from bliss.common.axis import Modulo
+from bliss.common.axis import Modulo, AxisState
+import mock
+import random
 
 
 def test_property_setting(robz):
@@ -566,3 +568,38 @@ def test_measured_position(m1, roby):
     assert m1.measured_position() == m1.position()
     with pytest.raises(RuntimeError):
         roby.measured_position()
+
+
+def test_axis_no_state_setting(m1):
+    m1.move(1, relative=True)  # store settings
+    state = m1.state()  # cache
+
+    with mock.patch.object(m1.controller, "state") as new_state:
+        new_state.return_value = AxisState("FAULT")
+        assert m1.state() == state
+        m1.settings.disable_cache("state")
+        assert m1.state() == AxisState("FAULT")
+        m1.settings.disable_cache("state", False)
+        assert m1.state() == state
+
+
+def test_axis_disable_cache_settings_from_config(beacon):
+    m1 = beacon.get("mot_1_disable_cache")
+    m2 = beacon.get("mot_2_disable_cache")
+
+    mot1_state = m1.state()  # init
+    mot1_position = m1.position()
+    mot2_state = m2.state()  # init
+
+    # test no cache on both motors
+    with mock.patch.object(m1.controller, "state") as new_state:
+        new_state.return_value = AxisState("FAULT")
+        assert m1.state() == AxisState("FAULT")
+        assert m2.state() == AxisState("FAULT")
+
+    # test no cache on position for mot2 and cache for mot1
+    with mock.patch.object(m1.controller, "read_position") as new_position:
+        position = random.random()
+        new_position.return_value = position
+        assert m1.position() == mot1_position
+        assert m2.position() == pytest.approx(position / m2.steps_per_unit)

@@ -64,6 +64,8 @@ class ControllerAxisSettings:
             "acceleration": float,
         }
 
+        self.disabled_settings = dict()
+
     def add(self, setting_name, convert_func=str):
         if setting_name not in self.setting_names:
             self.setting_names.append(setting_name)
@@ -74,6 +76,10 @@ class ControllerAxisSettings:
             raise ValueError(
                 "No setting '%s` for axis '%s`" % (setting_name, axis.name)
             )
+        disabled_settings = self.disabled_settings.get(axis, set())
+        if setting_name in disabled_settings:
+            return None
+
         if setting_name not in ("state", "position"):
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
             value = hash_setting.get(setting_name)
@@ -126,6 +132,21 @@ class AxisSettings:
 
     def get(self, setting_name):
         return self.__axis.controller.axis_settings.get(self.__axis, setting_name)
+
+    def disable_cache(self, setting_name, flag=True):
+        """
+        Remove the cache setting for the a setting_name.
+        """
+        disabled_settings = self.__axis.controller.axis_settings.disabled_settings.setdefault(
+            self.__axis, set()
+        )
+        if flag:
+            disabled_settings.add(setting_name)
+        else:
+            try:
+                disabled_settings.remove(setting_name)
+            except KeyError:
+                pass
 
     def __iter__(self):
         for name in self.__axis.controller.axis_settings.setting_names:

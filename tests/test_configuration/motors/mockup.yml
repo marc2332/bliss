@@ -133,6 +133,18 @@ controller:
   - name: calc_mot2
     tags: calc_mot
     s_param: 2
+- class: mockup
+  disabled_cache: [state]
+  axes:
+  - name: mot_1_disable_cache
+    steps_per_unit: 1000
+    velocity: 100
+    acceleration: 100
+  - name: mot_2_disable_cache
+    disabled_cache: [position]
+    steps_per_unit: 1000
+    velocity: 100
+    acceleration: 100
 hooks:
 - name: hook0
   plugin: bliss

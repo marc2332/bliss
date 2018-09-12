@@ -21,6 +21,8 @@
   - simu1
   - spec_m0
   - spec_m1
+  - mot_1_disable_cache
+  - mot_2_disable_cache
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

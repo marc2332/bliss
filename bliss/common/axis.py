@@ -1128,6 +1128,8 @@ class Axis(object):
         if not trajectory:
             if abs(motion.delta) < 1e-6:
                 motion = None
+        if not motion:
+            return
 
         self.__execute_pre_move_hook(motion)
 

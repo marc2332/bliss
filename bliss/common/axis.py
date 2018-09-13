@@ -242,7 +242,7 @@ class GroupMove(object):
                 # (useful for real motor positions update in case
                 # of pseudo axis)
                 # -- jog move is a special case
-                sync_hard = bool(capture.failed)
+                sync_hard = bool(capture.failed) or killed
                 if len(motions_dict) == 1:
                     motion = motions_dict[motions_dict.keys().pop()][0]
                     if motion.type == "jog":

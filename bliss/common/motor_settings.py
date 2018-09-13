@@ -30,66 +30,61 @@ def floatOrNone(x):
 def stateSetting(state):
     from bliss.common import axis
 
-    try:
-        move_type = state.move_type
-    except Exception:
-        move_type = ""
     s = axis.AxisState(state)
-    s.move_type = move_type
     return s
 
 
 class ControllerAxisSettings:
     def __init__(self):
-        self.setting_names = [
-            "velocity",
-            "position",
-            "dial_position",
-            "_set_position",
-            "state",
-            "offset",
-            "acceleration",
-            "low_limit",
-            "high_limit",
-        ]
-        self.convert_funcs = {
-            "velocity": float,
-            "position": float,
-            "dial_position": float,
-            "_set_position": float,
-            "state": stateSetting,
-            "offset": float,
-            "low_limit": floatOrNone,
-            "high_limit": floatOrNone,
-            "acceleration": float,
-        }
+        self.setting_names = []
+        self.disabled_settings = {}
+        self.convert_func = {}
+        self.persistent_setting = {}
+        self.config_setting = {}
 
-        self.disabled_settings = dict()
+        self.add("velocity", float, config=True)
+        self.add("acceleration", float, config=True)
+        self.add("low_limit", floatOrNone)
+        self.add("high_limit", floatOrNone)
+        self.add("dial_position", float)
+        self.add("offset", float)
+        self.add("_set_position", float)
+        self.add("position", float)
+        self.add("state", stateSetting, persistent=False)
 
-    def add(self, setting_name, convert_func=str):
+    def config_settings(self):
+        return tuple(
+            [setting for setting, config in self.config_setting.iteritems() if config]
+        )
+
+    def add(self, setting_name, convert_func=str, persistent=True, config=False):
         if setting_name not in self.setting_names:
             self.setting_names.append(setting_name)
-            self.convert_funcs[setting_name] = convert_func
+            self.convert_func[setting_name] = convert_func
+            self.persistent_setting[setting_name] = persistent
+            self.config_setting[setting_name] = config
 
     def get(self, axis, setting_name):
         if setting_name not in self.setting_names:
             raise ValueError(
                 "No setting '%s` for axis '%s`" % (setting_name, axis.name)
             )
+
         disabled_settings = self.disabled_settings.get(axis, set())
         if setting_name in disabled_settings:
             return None
 
-        if setting_name not in ("state", "position"):
+        if self.persistent_setting[setting_name]:
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
             value = hash_setting.get(setting_name)
         else:
             value = None
         if value is None:
-            chan = axis._beacon_channels[setting_name]
-            value = chan.value
+            chan = axis._beacon_channels.get(setting_name)
+            if chan:
+                value = chan.value
         if value is not None:
-            convert_func = self.convert_funcs.get(setting_name)
+            convert_func = self.convert_func.get(setting_name)
             if convert_func is not None:
                 value = convert_func(value)
         return value
@@ -104,11 +99,11 @@ class ControllerAxisSettings:
             raise ValueError(
                 "No setting '%s` for axis '%s`" % (setting_name, axis.name)
             )
-        convert_func = self.convert_funcs.get(setting_name)
+        convert_func = self.convert_func.get(setting_name)
         if convert_func is not None:
             value = convert_func(value)
 
-        if setting_name not in ("state", "position"):
+        if self.persistent_setting[setting_name]:
             settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
 
         axis._beacon_channels[setting_name].value = value
@@ -129,6 +124,12 @@ class AxisSettings:
         return self.__axis.controller.axis_settings.set(
             self.__axis, setting_name, value
         )
+
+    def convert_func(self, setting_name):
+        return self.__axis.controller.axis_settings.convert_func[setting_name]
+
+    def config_settings(self):
+        return self.__axis.controller.axis_settings.config_settings()
 
     def get(self, setting_name):
         return self.__axis.controller.axis_settings.get(self.__axis, setting_name)

@@ -337,6 +337,7 @@ def test_ctrlc(robz):
     assert not robz.is_moving
     assert robz.state().READY
     assert robz.position() < 100
+    assert robz._set_position() == robz.position()
 
 
 def test_simultaneous_move(robz):

@@ -88,15 +88,23 @@ class GroupMove(object):
             polling_time,
         )
 
-        # Wait for the move to be started (or finished)
-        gevent.wait([started, self._move_task], count=1)
+        try:
+            # Wait for the move to be started (or finished)
+            gevent.wait([started, self._move_task], count=1)
+        except:
+            self.stop()
+            raise
         # Wait if necessary and raise the move task exception if any
         if wait or self._move_task.ready():
-            self._move_task.get()
+            self.wait()
 
     def wait(self):
         if self._move_task is not None:
-            self._move_task.get()
+            try:
+                self._move_task.get()
+            except:
+                self.stop()
+                raise
 
     def stop(self, wait=True):
         if self._move_task is not None:
@@ -234,7 +242,7 @@ class GroupMove(object):
                 # (useful for real motor positions update in case
                 # of pseudo axis)
                 # -- jog move is a special case
-                sync_hard = bool(capture.failed)
+                sync_hard = bool(capture.failed) or killed
                 if len(motions_dict) == 1:
                     motion = motions_dict[motions_dict.keys().pop()][0]
                     if motion.type == "jog":
@@ -250,8 +258,6 @@ class GroupMove(object):
                     with capture():
                         for motions in motions_dict.itervalues():
                             for motion in motions:
-                                if motion.last_state is not None:
-                                    continue
                                 motion.axis._set_position(motion.axis.position())
                                 event.send(motion.axis, "sync_hard")
 
@@ -1331,11 +1337,7 @@ class Axis(object):
         """
         if self.is_moving:
             if self._group_move.is_moving:
-                try:
-                    self._group_move.wait()
-                except BaseException:
-                    self.stop()
-                    raise
+                self._group_move.wait()
             else:
                 # move has been started externally
                 try:

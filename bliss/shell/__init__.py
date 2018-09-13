@@ -161,6 +161,8 @@ class ScanListener:
         self.real_motors = []
         self.counters = []
         self._point_nb = 0
+        motor_labels = []
+        counter_labels = []
 
         master, channels = next(scan_info["acquisition_chain"].iteritems())
 
@@ -189,7 +191,7 @@ class ScanListener:
                         motor_label = motor.name
                         if unit:
                             motor_label += "[{0}]".format(unit)
-                        self.col_labels.append(motor_label)
+                        motor_labels.append(motor_label)
 
         for channel_name in channels["scalars"]:
             counter_name = channel_name.split(":")[-1]
@@ -201,7 +203,10 @@ class ScanListener:
                 unit = _find_unit(counter_name)
                 if unit:
                     counter_name += "[{0}]".format(unit)
-                self.col_labels.append(counter_name)
+                counter_labels.append(counter_name)
+
+        self.col_labels.extend(sorted(motor_labels))
+        self.col_labels.extend(sorted(counter_labels))
 
         other_channels = [
             channel_name.split(":")[-1]
@@ -255,8 +260,10 @@ class ScanListener:
         if "elapsed_time" in values:
             elapsed_time_col.append(values.pop("elapsed_time"))
 
-        motor_values = [values[motor.name] for motor in self.real_motors]
-        counter_values = [values[counter_name] for counter_name in self.counters]
+        motor_values = [values[motor.name] for motor in sorted(self.real_motors)]
+        counter_values = [
+            values[counter_name] for counter_name in sorted(self.counters)
+        ]
 
         values = elapsed_time_col + motor_values + counter_values
         if scan_type == "ct":

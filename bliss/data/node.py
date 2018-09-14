@@ -44,6 +44,7 @@ import inspect
 import pkgutil
 import os
 import re
+import weakref
 
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
@@ -404,12 +405,22 @@ class DataNodeContainer(DataNode):
         @param from_id start child index
         @param to_id last child index
         """
-        for child_name in self._children.get(from_id, to_id):
-            new_child = get_node(child_name)
-            if new_child is not None:
-                yield new_child
-            else:
-                self._children.remove(child_name)  # clean
+        children_names = self._children.get(from_id, to_id)
+        try:
+            # replace connection with pipeline
+            saved_db_connection = self._children._cnx
+            pipeline = saved_db_connection().pipeline()
+            self._children._cnx = weakref.ref(pipeline)
+            for child_name, new_child in zip(
+                children_names, get_nodes(*children_names)
+            ):
+                if new_child is not None:
+                    yield new_child
+                else:
+                    self._children.remove(child_name)  # clean
+            pipeline.execute()
+        finally:
+            self._children._cnx = saved_db_connection
 
     @property
     def last_child(self):

@@ -69,25 +69,29 @@ for importer, module_name, _ in pkgutil.iter_modules(
     [os.path.dirname(__file__)], prefix="bliss.data."
 ):
     node_type = module_name.replace("bliss.data.", "")
-    node_plugins[node_type] = module_name
+    node_plugins[node_type] = {"name": module_name}
 
 
 def _get_node_object(node_type, name, parent, connection, create=False, **keys):
-    module_name = node_plugins.get(node_type)
-    if module_name is None:
+    module_info = node_plugins.get(node_type)
+    if module_info is None:
         return DataNodeContainer(
             node_type, name, parent, connection=connection, create=create, **keys
         )
     else:
-        m = __import__(module_name, globals(), locals(), [""], -1)
-        classes = inspect.getmembers(
-            m,
-            lambda x: inspect.isclass(x)
-            and issubclass(x, DataNode)
-            and x not in (DataNode, DataNodeContainer),
-        )
-        # there should be only 1 class inheriting from DataNode in the plugin
-        klass = classes[0][-1]
+        klass = module_info.get("class")
+        if klass is None:
+            module_name = module_info.get("name")
+            m = __import__(module_name, globals(), locals(), [""], -1)
+            classes = inspect.getmembers(
+                m,
+                lambda x: inspect.isclass(x)
+                and issubclass(x, DataNode)
+                and x not in (DataNode, DataNodeContainer),
+            )
+            # there should be only 1 class inheriting from DataNode in the plugin
+            klass = classes[0][-1]
+            module_info["class"] = klass
         return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
@@ -300,8 +304,9 @@ class DataNode(object):
         self._data = Struct(db_name, connection=connection)
         info_hash_name = "%s_info" % db_name
         self._info = HashObjSetting(info_hash_name, connection=connection)
-        info_dict["node_name"] = db_name
-        self._info.update(info_dict)
+        if info_dict:
+            info_dict["node_name"] = db_name
+            self._info.update(info_dict)
 
         self.db_connection = connection
 
@@ -388,8 +393,8 @@ class DataNodeContainer(DataNode):
             create=create,
             **keys
         )
-
-        children_queue_name = "%s_children_list" % self.db_name
+        db_name = name if parent is None else self.db_name
+        children_queue_name = "%s_children_list" % db_name
         self._children = QueueSetting(children_queue_name, connection=connection)
 
     def add_children(self, *child):

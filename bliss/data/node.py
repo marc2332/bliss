@@ -46,6 +46,7 @@ import os
 import re
 
 from bliss.common.event import dispatcher
+from bliss.common.utils import grouped
 from bliss.config.conductor import client
 from bliss.config.settings import Struct, QueueSetting, HashObjSetting
 
@@ -90,16 +91,23 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
 
 
 def get_node(db_name, connection=None):
+    return get_nodes(db_name, connection=connection)[0]
+
+def get_nodes(*db_names, **keys):
+    connection = keys.get("connection")
     if connection is None:
         connection = client.get_cache(db=1)
-    data = Struct(db_name, connection=connection)
-    name = data.name
-    if name is None:  # node has been deleted
-        return None
-
-    node_type = data.node_type
-
-    return _get_node_object(node_type, db_name, None, connection)
+    pipeline = connection.pipeline()
+    for db_name in db_names:
+        data = Struct(db_name, connection=pipeline)
+        data.name
+        data.node_type
+    return [
+        _get_node_object(node_type, db_name, None, connection)
+        if name is not None
+        else None
+        for db_name, (name, node_type) in zip(db_names, grouped(pipeline.execute(), 2))
+    ]
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):

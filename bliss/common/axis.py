@@ -38,6 +38,7 @@ from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
+from bliss.config.channels import Channel
 from bliss.physics.trajectory import LinearTrajectory
 from bliss import setup_globals
 import gevent
@@ -548,7 +549,11 @@ class Axis(object):
         self.__motion_hooks = motion_hooks
         self._group_move = GroupMove()
         self._beacon_channels = dict()
-        self._move_stop_channel = None
+        self._move_stop_channel = Channel(
+            "axis.%s.move_stop" % self.name,
+            default_value=False,
+            callback=self._external_stop,
+        )
         self._lock = gevent.lock.Semaphore()
         self.no_offset = False
 

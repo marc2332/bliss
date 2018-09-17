@@ -335,6 +335,8 @@ class DataNodeIterator(object):
                     if last_child > 0:
                         last_child -= 1
                         self.last_child_id[db_name] = last_child
+                    else:  # remove entry
+                        self.last_child_id.pop(db_name, None)
 
 
 class _TTL_setter(object):

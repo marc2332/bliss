@@ -173,14 +173,6 @@ class Controller(object):
                 chan._setting_update_cb = cb
                 axis._beacon_channels[setting_name] = chan
 
-                # register 'move_stop' channel
-                move_stop_chan_name = "axis.%s.move_stop" % axis.name
-                axis._move_stop_channel = Channel(
-                    move_stop_chan_name,
-                    default_value=False,
-                    callback=axis._external_stop,
-                )
-
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()
         max_pos = user_positions.max()
@@ -518,6 +510,7 @@ class CalcController(Controller):
             axis.settings.set("_set_position", axis.dial2user(setpos))
 
     def _check_limits(self, axis, positions):
+        return
         assert axis not in self.reals
         assert axis in self.pseudos
 

@@ -52,6 +52,12 @@ class ChannelDataNode(DataNode):
             if dtype is not None:
                 self.info["dtype"] = dtype
 
+        self._queue = None
+
+    def _create_queue(self):
+        if self._queue is not None:
+            return
+
         self._queue = QueueSetting(
             "%s_data" % self.db_name,
             connection=self.db_connection,
@@ -62,6 +68,8 @@ class ChannelDataNode(DataNode):
         )
 
     def store(self, event_dict):
+        self._create_queue()
+
         data = event_dict.get("data")
         shape = event_dict["description"]["shape"]
         if len(shape) == data.ndim:
@@ -70,12 +78,15 @@ class ChannelDataNode(DataNode):
             self._queue.extend(data)
 
     def get(self, from_index, to_index=None):
+        self._create_queue()
+
         if to_index is None:
             return self._queue.get(from_index, from_index, cnx=self.db_connection)
         else:
             return self._queue.get(from_index, to_index, cnx=self.db_connection)
 
     def __len__(self):
+        self._create_queue()
         return len(self._queue)
 
     @property

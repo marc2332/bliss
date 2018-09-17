@@ -21,6 +21,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         program_abort_name=None,
         vars=None,
         program_template_replacement=None,
+        **keys
     ):
         """
         Acquisition master for the musst card.
@@ -30,7 +31,11 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         vars -- all variable you want to set before the musst program starts
         """
         AcquisitionMaster.__init__(
-            self, musst_dev, musst_dev.name, trigger_type=AcquisitionMaster.HARDWARE
+            self,
+            musst_dev,
+            musst_dev.name,
+            trigger_type=AcquisitionMaster.HARDWARE,
+            **keys
         )
         self.musst = musst_dev
         self.program = program

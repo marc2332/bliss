@@ -53,9 +53,6 @@ class LakeShore336(LakeShore330):
                 powerup = int(ret[2])
             except (ValueError, IndexError):
                 powerup = None
-            import pdb
-
-            pdb.set_trace()
             return LakeShore336.MODE336[int(ret[0])], int(ret[1]), powerup
 
 

@@ -113,7 +113,10 @@ class Icepap(Controller):
         """
         Put the axis power on
         """
-        self._power(axis, True)
+        try:
+            self._power(axis, True)
+        except Exception as e:
+            raise type(e)("Axis '%s`: %s" % (axis.name, e.message))
 
     def set_off(self, axis):
         """

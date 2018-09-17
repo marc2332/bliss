@@ -181,10 +181,10 @@ class DataNodeIterator(object):
             yield n
         pipeline.execute()
 
-        if wait:
-            if ready_event is not None:
-                ready_event.set()
+        if ready_event is not None:
+            ready_event.set()
 
+        if wait:
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
                 if event_type is self.NEW_CHILD_EVENT:

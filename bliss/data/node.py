@@ -174,10 +174,12 @@ class DataNodeIterator(object):
             if node is not None
         }
         # should be convert to yield from
+        pipeline = self.node.db_connection.pipeline()
         for n in self.__internal_walk(
-            db_name, data_nodes, data_node_2_children, filter
+            db_name, data_nodes, data_node_2_children, filter, pipeline
         ):
             yield n
+        pipeline.execute()
 
         if wait:
             if ready_event is not None:
@@ -188,17 +190,20 @@ class DataNodeIterator(object):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield value
 
-    def __internal_walk(self, db_name, data_nodes, data_node_2_children, filter):
+    def __internal_walk(
+        self, db_name, data_nodes, data_node_2_children, filter, pipeline
+    ):
         for i, child_name in enumerate(data_node_2_children.get(db_name, list())):
             self.last_child_id[db_name] = i + 1
             child_node = data_nodes.get(child_name)
             if child_node is None:
+                pipeline.lrem("%s_children_list" % db_name, child_name)
                 continue
             if filter is None or child_node.type in filter:
                 yield child_node
             # walk to the tree leaf
             for n in self.__internal_walk(
-                child_name, data_nodes, data_node_2_children, filter
+                child_name, data_nodes, data_node_2_children, filter, pipeline
             ):
                 yield n
 
@@ -321,6 +326,15 @@ class DataNodeIterator(object):
                     channel_node = get_node(channel_db_name)
                     if channel_node and (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
+            elif msg["data"] == "lrem":
+                channel = msg["channel"]
+                del_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
+                if del_child_event:
+                    db_name = del_child_event.groups()[0]
+                    last_child = self.last_child_id.get(db_name, 0)
+                    if last_child > 0:
+                        last_child -= 1
+                        self.last_child_id[db_name] = last_child
 
 
 class _TTL_setter(object):

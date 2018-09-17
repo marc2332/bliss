@@ -203,7 +203,7 @@ class Shutter(object):
                     return self.UNKNOWN
             elif mode == self.CONFIGURATION:
                 return self.UNKNOWN
-            return self.__state.value
+        return self.__state.value
 
     def _state(self):
         raise NotImplementedError
@@ -301,7 +301,7 @@ class Shutter(object):
             )
         else:
             ret = self._open()
-        self.__shutter_state.value = self.state
+        self.__shutter_state.value = self.OPEN
         return ret
 
     def _open(self):
@@ -324,7 +324,7 @@ class Shutter(object):
             )
         else:
             ret = self._close()
-        self.__shutter_state.value = self.state
+        self.__shutter_state.value = self.CLOSED
         return ret
 
     def _close(self):

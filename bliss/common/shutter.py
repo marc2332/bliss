@@ -190,7 +190,7 @@ class Shutter(object):
     def state(self):
         self.init()
         mode = self.mode
-        if mode == self.MANUAL:  # and self.__state.value == self.UNKNOWN:
+        if mode == self.MANUAL and self.__state.value == self.UNKNOWN:
             return_state = self._state()
             self.__state.value = return_state
             return return_state

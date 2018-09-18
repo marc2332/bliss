@@ -146,9 +146,7 @@ class GroupMove(object):
     def _stop_move(self, motions_dict, stop_motion):
         stop = []
         for controller, motions in motions_dict.iteritems():
-            for motion in motions:
-                motion.axis._user_stopped = True
-        stop.append(gevent.spawn(stop_motion, controller, motions))
+            stop.append(gevent.spawn(stop_motion, controller, motions))
         # Raise exception if any, when all the stop tasks are finished
         for task in gevent.joinall(stop):
             task.get()

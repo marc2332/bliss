@@ -18,7 +18,9 @@ class cs8tango(Controller):
         self._lock = gevent.lock.Semaphore()
 
     def initialize(self):
-        pass
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
 
     def initialize_axis(self, axis):
         axis.settings.set("dial_position", self.read_position(axis))

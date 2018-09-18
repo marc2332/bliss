@@ -26,6 +26,9 @@ class leica(Controller):
             sys.excepthook(*sys.exc_info())
 
     def initialize(self):
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
         try:
             self.usb_controller = leica_usb.LeicaFocus()
         except Exception:

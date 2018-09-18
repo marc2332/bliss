@@ -34,6 +34,8 @@ class PI_E727(Controller):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
 
         self.trace("controller initialize")
         self.host = self.config.get("host")

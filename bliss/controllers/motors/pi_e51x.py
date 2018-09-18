@@ -46,6 +46,9 @@ class PI_E51X(Controller):
                 elog.debug("mvt started, gate set to 1")
 
     def initialize(self):
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
+
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
     def finalize(self):

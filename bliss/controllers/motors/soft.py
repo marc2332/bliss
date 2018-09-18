@@ -82,6 +82,11 @@ class SoftController(Controller):
         self._move = get_move_func(obj, axis_config["move"])
         self._stop = get_stop_func(obj, axis_config["stop"])
 
+    def initialize(self):
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+
     def initialize_axis(self, axis):
         pass
 

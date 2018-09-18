@@ -24,6 +24,9 @@ class NF8753(Controller):
         self.__busy = False
 
     def initialize(self):
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
+
         try:
             self.sock = get_comm(self.config.config_dict, TCP, port=23)
         except ValueError:

@@ -23,6 +23,10 @@ class MD2(Controller):
         """
         Read the state to check if the MD2 application replies
         """
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+
         self._get_swstate()
 
     def initialize_axis(self, axis):

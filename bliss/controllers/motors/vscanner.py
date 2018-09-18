@@ -35,6 +35,9 @@ class VSCANNER(Controller):
         """
         Opens one socket for 2 channels.
         """
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
+
         try:
             self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
             self._status = "SERIAL communication configuration found"

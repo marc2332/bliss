@@ -44,10 +44,12 @@ import inspect
 import pkgutil
 import os
 import re
+import weakref
 
 from bliss.common.event import dispatcher
+from bliss.common.utils import grouped
 from bliss.config.conductor import client
-from bliss.config.settings import Struct, QueueSetting, HashObjSetting
+from bliss.config.settings import Struct, QueueSetting, HashObjSetting, scan
 
 
 def is_zerod(node):
@@ -67,39 +69,51 @@ for importer, module_name, _ in pkgutil.iter_modules(
     [os.path.dirname(__file__)], prefix="bliss.data."
 ):
     node_type = module_name.replace("bliss.data.", "")
-    node_plugins[node_type] = module_name
+    node_plugins[node_type] = {"name": module_name}
 
 
 def _get_node_object(node_type, name, parent, connection, create=False, **keys):
-    module_name = node_plugins.get(node_type)
-    if module_name is None:
+    module_info = node_plugins.get(node_type)
+    if module_info is None:
         return DataNodeContainer(
             node_type, name, parent, connection=connection, create=create, **keys
         )
     else:
-        m = __import__(module_name, globals(), locals(), [""], -1)
-        classes = inspect.getmembers(
-            m,
-            lambda x: inspect.isclass(x)
-            and issubclass(x, DataNode)
-            and x not in (DataNode, DataNodeContainer),
-        )
-        # there should be only 1 class inheriting from DataNode in the plugin
-        klass = classes[0][-1]
+        klass = module_info.get("class")
+        if klass is None:
+            module_name = module_info.get("name")
+            m = __import__(module_name, globals(), locals(), [""], -1)
+            classes = inspect.getmembers(
+                m,
+                lambda x: inspect.isclass(x)
+                and issubclass(x, DataNode)
+                and x not in (DataNode, DataNodeContainer),
+            )
+            # there should be only 1 class inheriting from DataNode in the plugin
+            klass = classes[0][-1]
+            module_info["class"] = klass
         return klass(name, parent=parent, connection=connection, create=create, **keys)
 
 
 def get_node(db_name, connection=None):
+    return get_nodes(db_name, connection=connection)[0]
+
+
+def get_nodes(*db_names, **keys):
+    connection = keys.get("connection")
     if connection is None:
         connection = client.get_cache(db=1)
-    data = Struct(db_name, connection=connection)
-    name = data.name
-    if name is None:  # node has been deleted
-        return None
-
-    node_type = data.node_type
-
-    return _get_node_object(node_type, db_name, None, connection)
+    pipeline = connection.pipeline()
+    for db_name in db_names:
+        data = Struct(db_name, connection=pipeline)
+        data.name
+        data.node_type
+    return [
+        _get_node_object(node_type, db_name, None, connection)
+        if name is not None
+        else None
+        for db_name, (name, node_type) in zip(db_names, grouped(pipeline.execute(), 2))
+    ]
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -149,40 +163,102 @@ class DataNodeIterator(object):
         if filter is None or self.node.type in filter:
             yield self.node
 
-        if isinstance(self.node, DataNodeContainer):
-            for i, child in enumerate(self.node.children()):
-                iterator = DataNodeIterator(child, last_child_id=self.last_child_id)
-                for n in iterator.walk(filter, wait=False):
-                    self.last_child_id[db_name] = i + 1
-                    if filter is None or n.type in filter:
-                        yield n
-        if wait:
-            if ready_event is not None:
-                ready_event.set()
+        data_node_2_children = self._get_children_of_children(db_name)
+        all_nodes_names = list()
+        for children_name in data_node_2_children.values():
+            all_nodes_names.extend(children_name)
 
+        data_nodes = {
+            name: node
+            for name, node in zip(all_nodes_names, get_nodes(*all_nodes_names))
+            if node is not None
+        }
+        # should be convert to yield from
+        pipeline = self.node.db_connection.pipeline()
+        for n in self.__internal_walk(
+            db_name, data_nodes, data_node_2_children, filter, pipeline
+        ):
+            yield n
+        pipeline.execute()
+
+        if ready_event is not None:
+            ready_event.set()
+
+        if wait:
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield value
+
+    def __internal_walk(
+        self, db_name, data_nodes, data_node_2_children, filter, pipeline
+    ):
+        for i, child_name in enumerate(data_node_2_children.get(db_name, list())):
+            self.last_child_id[db_name] = i + 1
+            child_node = data_nodes.get(child_name)
+            if child_node is None:
+                pipeline.lrem("%s_children_list" % db_name, child_name)
+                continue
+            if filter is None or child_node.type in filter:
+                yield child_node
+            # walk to the tree leaf
+            for n in self.__internal_walk(
+                child_name, data_nodes, data_node_2_children, filter, pipeline
+            ):
+                yield n
+
+    def _get_children_of_children(self, db_name):
+        # grouped all redis request here and cache them
+        # get all children queue
+        children_queue = [
+            x
+            for x in scan(
+                "%s*_children_list" % db_name, connection=self.node.db_connection
+            )
+        ]
+        # get all the container node name
+        data_node_containers_names = [
+            x[: x.rfind("_children_list")] for x in children_queue
+        ]
+        # get all children for all container
+        pipeline = self.node.db_connection.pipeline()
+        [pipeline.lrange(name, 0, -1) for name in children_queue]
+        data_node_2_children = {
+            node_name: children
+            for node_name, children in zip(
+                data_node_containers_names, pipeline.execute()
+            )
+        }
+        return data_node_2_children
 
     def walk_from_last(
         self, filter=None, wait=True, include_last=True, ready_event=None
     ):
         """Walk from the last child node (see walk)
         """
-        pubsub = self.children_event_register()
+        if wait:
+            pubsub = self.children_event_register()
+
         last_node = None
-        for last_node in self.walk(filter, wait=False):
-            pass
+        if include_last:
+            for last_node in self.walk(filter, wait=False):
+                pass
+        else:
+            db_name = self.node.db_name
+            data_node_2_children = self._get_children_of_children(db_name)
+            self.last_child_id = {
+                db_name: len(children)
+                for db_name, children in data_node_2_children.items()
+            }
 
         if last_node is not None:
             if include_last:
                 yield last_node
 
-        if wait:
-            if ready_event is not None:
-                ready_event.set()
+        if ready_event is not None:
+            ready_event.set()
 
+        if wait:
             for event_type, node in self.wait_for_event(pubsub, filter=filter):
                 if event_type is self.NEW_CHILD_EVENT:
                     yield node
@@ -250,6 +326,17 @@ class DataNodeIterator(object):
                     channel_node = get_node(channel_db_name)
                     if channel_node and (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
+            elif msg["data"] == "lrem":
+                channel = msg["channel"]
+                del_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
+                if del_child_event:
+                    db_name = del_child_event.groups()[0]
+                    last_child = self.last_child_id.get(db_name, 0)
+                    if last_child > 0:
+                        last_child -= 1
+                        self.last_child_id[db_name] = last_child
+                    else:  # remove entry
+                        self.last_child_id.pop(db_name, None)
 
 
 class _TTL_setter(object):
@@ -291,8 +378,9 @@ class DataNode(object):
         self._data = Struct(db_name, connection=connection)
         info_hash_name = "%s_info" % db_name
         self._info = HashObjSetting(info_hash_name, connection=connection)
-        info_dict["node_name"] = db_name
-        self._info.update(info_dict)
+        if info_dict:
+            info_dict["node_name"] = db_name
+            self._info.update(info_dict)
 
         self.db_connection = connection
 
@@ -309,6 +397,9 @@ class DataNode(object):
             self.__new_node = False
             self._ttl_setter = None
 
+        # node type cache
+        self.node_type = node_type
+
     @property
     def db_name(self):
         return self._data.db_name
@@ -319,6 +410,8 @@ class DataNode(object):
 
     @property
     def type(self):
+        if self.node_type is not None:
+            return self.node_type
         return self._data.node_type
 
     @property
@@ -379,8 +472,8 @@ class DataNodeContainer(DataNode):
             create=create,
             **keys
         )
-
-        children_queue_name = "%s_children_list" % self.db_name
+        db_name = name if parent is None else self.db_name
+        children_queue_name = "%s_children_list" % db_name
         self._children = QueueSetting(children_queue_name, connection=connection)
 
     def add_children(self, *child):
@@ -396,12 +489,22 @@ class DataNodeContainer(DataNode):
         @param from_id start child index
         @param to_id last child index
         """
-        for child_name in self._children.get(from_id, to_id):
-            new_child = get_node(child_name)
-            if new_child is not None:
-                yield new_child
-            else:
-                self._children.remove(child_name)  # clean
+        children_names = self._children.get(from_id, to_id)
+        try:
+            # replace connection with pipeline
+            saved_db_connection = self._children._cnx
+            pipeline = saved_db_connection().pipeline()
+            self._children._cnx = weakref.ref(pipeline)
+            for child_name, new_child in zip(
+                children_names, get_nodes(*children_names)
+            ):
+                if new_child is not None:
+                    yield new_child
+                else:
+                    self._children.remove(child_name)  # clean
+            pipeline.execute()
+        finally:
+            self._children._cnx = saved_db_connection
 
     @property
     def last_child(self):

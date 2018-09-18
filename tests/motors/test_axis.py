@@ -267,6 +267,7 @@ def test_backlash3(roby):
 
     assert roby.backlash_move == 0
 
+    roby.wait_move()
     assert roby.state().READY
 
 

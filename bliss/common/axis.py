@@ -1188,12 +1188,6 @@ class Axis(object):
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
-        if not trajectory:
-            if abs(motion.delta) < 1e-6:
-                motion = None
-        if not motion:
-            return
-
         self.__execute_pre_move_hook(motion)
 
         if not trajectory:

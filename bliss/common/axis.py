@@ -1324,6 +1324,13 @@ class Axis(object):
             motion = Motion(self, velocity, direction, "jog")
             motion.saved_velocity = saved_velocity
             motion.reset_position = reset_position
+            backlash = self.backlash / self.sign * self.steps_per_unit
+            if backlash:
+                if cmp(direction, 0) != cmp(backlash, 0):
+                    motion.backlash = backlash
+            else:
+                # don't do backlash correction
+                motion.backlash = 0
 
             self.__execute_pre_move_hook(motion)
 
@@ -1348,18 +1355,6 @@ class Axis(object):
         direction = motion.delta
 
         self._move_loop(polling_time)
-
-        dial_pos = self._update_dial()
-        user_pos = self.dial2user(dial_pos)
-
-        if self.backlash:
-            backlash = self.backlash / self.sign * self.steps_per_unit
-            if cmp(direction, 0) != cmp(backlash, 0):
-                self._set_position(user_pos + self.backlash)
-                backlash_start = dial_pos * self.steps_per_unit
-                self._backlash_move(backlash_start, backlash, polling_time)
-        else:
-            self._set_position(user_pos)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity(saved_velocity)

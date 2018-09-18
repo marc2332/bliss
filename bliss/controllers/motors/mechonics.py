@@ -66,6 +66,10 @@ class Mechonics(Controller):
         _ans = self.serial.read()
         return _ans
 
+    def initialize(self):
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
+
     def initialize_axis(self, axis):
         self.velocities[axis] = self.config.config_dict["axes"][0]["velocity"]
         self.channels[axis] = self.config.config_dict["axes"][0]["channel"]

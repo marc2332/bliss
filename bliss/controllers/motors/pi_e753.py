@@ -35,6 +35,9 @@ class PI_E753(Controller):
         """
         Controller intialization : opens a single socket for all 3 axes.
         """
+        # acceleration is not mandatory in config
+        self.axis_settings.config_setting["acceleration"] = False
+
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
 
     def finalize(self):

@@ -229,6 +229,11 @@ class SHexapod(Controller):
             raise ValueError("Could not find Hexapod (is it connected?)")
         return self._protocol
 
+    def initialize(self):
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+
     def initialize_hardware(self):
         self.protocol().control = True
 

@@ -133,6 +133,10 @@ class PiezoJack(Controller):
         self.icepap = None
 
     def initialize(self):
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+
         # axes used to drive the piezojack, one icepap and one piezo
         self.piezo = self._tagged["piezo"][0]
         self.icepap = self._tagged["icepap"][0]

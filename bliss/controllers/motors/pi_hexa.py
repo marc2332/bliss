@@ -55,6 +55,10 @@ class PI_HEXA(Controller):
         """
         Initialize the communication to the hexapod controller
         """
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+
         comm_type = get_comm_type(self.config.config_dict)
         comm_option = {"timeout": 30.}
         if comm_type == TCP:

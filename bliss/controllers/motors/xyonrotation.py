@@ -43,6 +43,8 @@ class XYOnRotation(CalcController):
         self.__radian = False
 
     def initialize(self):
+        # add rotation offset in motor settings
+        self.axis_settings.add("rotation_offset", float)
         CalcController.initialize(self)
         try:
             inverted = self.config.get("inverted", bool)
@@ -99,12 +101,8 @@ class XYOnRotation(CalcController):
         virtual axes
         """
         if offset is None:
-            try:
-                rotation_offset = axis.settings.get("rotation_offset")
-            except KeyError:
-                return 0
-            else:
-                return rotation_offset if rotation_offset else 0
+            rotation_offset = axis.settings.get("rotation_offset")
+            return rotation_offset if rotation_offset else 0
         else:
             for axis in self.axes.values():
                 axis.settings.set("rotation_offset", offset)

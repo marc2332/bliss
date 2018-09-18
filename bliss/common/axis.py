@@ -166,6 +166,39 @@ class GroupMove(object):
                     motion.last_state = stop_wait[task_index].get()
                 task_index += 1
 
+    def _do_backlash_move(self, motions_dict, polling_time):
+        backlash_move = []
+        for controller, motions in motions_dict.iteritems():
+            for motion in motions:
+                if motion.backlash:
+                    backlash_motion = Motion(
+                        motion.axis,
+                        motion.target_pos + motion.backlash,
+                        motion.backlash,
+                    )
+                    backlash_move.append(
+                        gevent.spawn(
+                            motion.axis._backlash_move, backlash_motion, polling_time
+                        )
+                    )
+        # Stop at first exception, and kill all the remaining tasks
+        try:
+            gevent.joinall(backlash_move, raise_error=True)
+        except gevent.GreenletExit:
+            return True
+        except:
+            raise
+        finally:
+            gevent.killall(backlash_move)
+            task_index = 0
+            for controller, motions in motions_dict.iteritems():
+                for motion in motions:
+                    try:
+                        motion.last_state = monitor_move[task_index].get()
+                    except:
+                        pass
+                    task_index += 1
+
     def _move(
         self,
         motions_dict,
@@ -184,6 +217,7 @@ class GroupMove(object):
                 for _, chan in motion.axis._beacon_channels.iteritems():
                     chan.unregister_callback(chan._setting_update_cb)
         with capture_exceptions(raise_index=0) as capture:
+            user_stopped = backlash_user_stopped = False
             try:
                 # Spawn start motion for all controllers
                 start = [
@@ -210,14 +244,35 @@ class GroupMove(object):
                     event.send(self.parent, "move_done", False)
 
                 # Spawn the monitoring for all motions
-                killed = False
                 with capture():
-                    killed = self._monitor_move(motions_dict, move_func, polling_time)
-                if killed or capture.failed:
+                    user_stopped = self._monitor_move(
+                        motions_dict, move_func, polling_time
+                    )
+                if user_stopped or capture.failed:
+                    with capture():
+                        self._stop_move(motions_dict, stop_motion)
+                    self._stop_wait(motions_dict, capture)
+
+                    # need to update target pos. for backlash move
+                    for _, motions in motions_dict.iteritems():
+                        for motion in motions:
+                            if motion.backlash:
+                                motion.target_pos = (
+                                    motion.axis.dial() * motion.axis.steps_per_unit
+                                )
+
+                # Do backlash move, if needed
+                with capture():
+                    backlash_user_stopped = self._do_backlash_move(
+                        motions_dict, polling_time
+                    )
+                if backlash_user_stopped or capture.failed:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
             finally:
+                reset_setpos = user_stopped or backlash_user_stopped or capture.failed
+
                 # cleanup
                 # -------
                 # update final state ; in case of exception
@@ -243,19 +298,18 @@ class GroupMove(object):
                 # (useful for real motor positions update in case
                 # of pseudo axis)
                 # -- jog move is a special case
-                sync_hard = bool(capture.failed) or killed
                 if len(motions_dict) == 1:
                     motion = motions_dict[motions_dict.keys().pop()][0]
                     if motion.type == "jog":
-                        sync_hard = False
+                        reset_setpos = False
                         motion.axis._jog_cleanup(
                             motion.saved_velocity, motion.reset_position
                         )
                     elif motion.type == "homing":
-                        sync_hard = True
+                        reset_setpos = True
                     elif motion.type == "limit_search":
-                        sync_hard = True
-                if sync_hard:
+                        reset_setpos = True
+                if reset_setpos:
                     with capture():
                         for motions in motions_dict.itervalues():
                             for motion in motions:
@@ -1231,18 +1285,12 @@ class Axis(object):
     def _handle_move(self, motion, polling_time):
         state = self._move_loop(polling_time)
 
-        if motion.backlash:
-            backlash_start = motion.target_pos
-            elog.debug("doing backlash (%g)" % motion.backlash)
-            return self._backlash_move(backlash_start, motion.backlash, polling_time)
-        elif self.config.get("check_encoder", bool, False) and self.encoder:
+        if self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
 
         return state
 
-    def _backlash_move(self, backlash_start, backlash, polling_time):
-        final_pos = backlash_start + backlash
-        backlash_motion = Motion(self, final_pos, backlash)
+    def _backlash_move(self, backlash_motion, polling_time):
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
         return self._handle_move(backlash_motion, polling_time)

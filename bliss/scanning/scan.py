@@ -311,15 +311,13 @@ def _get_masters_and_channels(acq_chain):
 
     chain_dict = dict()
     for path in tree.paths_to_leaves():
-        npoints = 0
         master = None
         # path[0] is root
         for acq_object in path[1:]:
             # it is mandatory to find an acq. master first
             if isinstance(acq_object, AcquisitionMaster):
-                if master is None or acq_object.npoints != npoints:
+                if master is None or acq_object.parent is None:
                     master = acq_object.name
-                    npoints = acq_object.npoints
                     channels = chain_dict.setdefault(master, {"master": {}})
                     _get_channels_dict(acq_object, channels["master"])
                     continue
@@ -404,6 +402,7 @@ class Scan(object):
         self._devices = []
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info["scan_nb"] = run_number
+        self._scan_info.setdefault("title", name)
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")

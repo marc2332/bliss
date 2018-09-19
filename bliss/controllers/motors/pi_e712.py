@@ -407,6 +407,7 @@ class PI_E712(Controller):
             cmd = "DRR? %d %d %s\n" % (from_event_id + 1, point_2_read, rec_tables)
 
         try:
+            exception_occurred = False
             with self.sock.lock:
                 self.sock._write(cmd)
                 # HEADER
@@ -454,6 +455,14 @@ class PI_E712(Controller):
                     values = line.split(separator)
                     for column_id, name in column_info.iteritems():
                         data[name][line_id] = values[column_id]
+                return data
+        except:
+            exception_occurred = True
+            errno, error_message = self.get_error()
+            self.sock.close()  # safe in case of ctrl-c
+            raise
+        finally:
+            if not exception_occurred:
                 errno, error_message = self.get_error()
                 # If we ask data in advance, ** Out of range **
                 # error is return.
@@ -463,10 +472,6 @@ class PI_E712(Controller):
                     raise RuntimeError(
                         "Device {0} command {1} error nb {2} => ({3})".format(*errors)
                     )
-                return data
-        except:
-            self.sock.close()  # safe in case of ctrl-c
-            raise
 
     def set_recorder_data_type(self, *motor_data_type):
         """

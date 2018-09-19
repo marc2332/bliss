@@ -201,8 +201,8 @@ def _send_config_file(client_id, message):
     file_path = file_path.replace("../", "")  # prevent going up
     full_path = os.path.join(_options.db_path, file_path)
     try:
-        with codecs.open(full_path, "r", "utf-8") as f:
-            buffer = f.read().encode("utf-8")
+        with open(full_path, "rb") as f:
+            buffer = f.read()
             client_id.sendall(
                 protocol.message(
                     protocol.CONFIG_GET_FILE_OK, "%s|%s" % (message_key, buffer)

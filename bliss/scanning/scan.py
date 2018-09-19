@@ -404,6 +404,7 @@ class Scan(object):
         self._devices = []
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._scan_info["scan_nb"] = run_number
+        self._scan_info.setdefault("title", name)
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")

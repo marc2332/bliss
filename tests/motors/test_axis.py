@@ -267,17 +267,18 @@ def test_backlash3(roby):
 
     assert roby.backlash_move == 0
 
+    roby.wait_move()
     assert roby.state().READY
 
 
 def test_backlash_stop(roby):
     roby.move(-10, wait=False)
     assert roby.backlash_move == -12
-    time.sleep(0.1)
-    pos = roby.position()
+    pos = roby._hw_position()
     roby.stop()
-    assert pytest.approx(roby.position(), pos, 1e-3)
-    assert pytest.approx(roby._set_position(), pos, 1e-3)
+
+    assert pytest.approx(roby.dial(), 5e-2) == pos + roby.config.get("backlash", float)
+    assert roby._set_position() == roby.dial()
     assert roby.state().READY
 
 
@@ -471,7 +472,7 @@ def test_hardware_limits(roby):
         with pytest.raises(RuntimeError):
             roby.move(-3)
 
-        assert roby.position() == -2
+        assert roby.position() == 0
     finally:
         roby.controller.set_hw_limits(roby, None, None)
 

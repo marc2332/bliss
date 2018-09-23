@@ -78,6 +78,6 @@ class Writer(FileWriter):
             **keys
         )
 
-    def new_master(self, master, scan_file_dir):
+    def new_master(self, master):
         filename = self.data_filename + "_" + master.name + ".csv"
-        return CsvMasterFile(os.path.join(scan_file_dir, filename))
+        return CsvMasterFile(os.path.join(self.root_path, filename))

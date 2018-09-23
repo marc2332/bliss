@@ -16,6 +16,7 @@ import datetime
 import re
 import numpy
 import collections
+import uuid
 
 from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
@@ -87,7 +88,7 @@ class ScanSaving(Parameters):
     SLOTS = []
     WRITER_MODULE_PATH = "bliss.scanning.writer"
 
-    def __init__(self):
+    def __init__(self, name=None):
         """
         This class hold the saving structure for a session.
 
@@ -112,17 +113,20 @@ class ScanSaving(Parameters):
 
         Parameters.__init__(
             self,
-            "%s:scan_data" % self.session,
+            "scan_saving:%s" % name if name else "scan_saving:%s" % uuid.uuid4().hex,
             default_values={
                 "base_path": "/tmp/scans",
                 "data_filename": "data",
                 "user_name": getpass.getuser(),
                 "template": "{session}/",
                 "images_path_relative": True,
-                "images_path_template": "{scan}",
+                "images_path_template": "scan{scan_number}",
                 "images_prefix": "{device}_",
                 "date_format": "%Y%m%d",
+                "scan_number_format": "%04d",
                 "_writer_module": "hdf5",
+                "_last_scan_number": 0,
+                "_last_scan_file": "",
             },
             **keys
         )
@@ -136,13 +140,18 @@ class ScanSaving(Parameters):
         d["writer"] = d.get("_writer_module")
         d["session"] = self.session
         d["date"] = self.date
-        d["scan"] = "<images_* only> scan node name"
+        d["scan_name"] = "scan name"
+        d["scan_number"] = "scan number"
         d["device"] = "<images_* only> acquisition device name"
         return self._repr(d)
 
     @property
-    def scan(self):
-        return "{scan}"
+    def scan_name(self):
+        return "{scan_name}"
+
+    @property
+    def scan_number(self):
+        return "{scan_number}"
 
     @property
     def device(self):
@@ -204,7 +213,8 @@ class ScanSaving(Parameters):
             cache_dict = self._proxy.get_all()
             cache_dict["session"] = self.session
             cache_dict["date"] = self.date
-            cache_dict["scan"] = self.scan
+            cache_dict["scan_name"] = self.scan_name
+            cache_dict["scan_number"] = self.scan_number
             cache_dict["device"] = self.device
             writer_module = cache_dict.get("_writer_module")
             template_keys = [key[1] for key in formatter.parse(template)]
@@ -220,7 +230,13 @@ class ScanSaving(Parameters):
             data_filename = data_filename.format(**cache_dict)
 
             parent = _get_or_create_node(self.session, "container")
-            for path_item in os.path.normpath(sub_path).split(os.path.sep):
+            sub_items = os.path.normpath(sub_path).split(os.path.sep)
+            try:
+                if parent.name == sub_items[0]:
+                    del sub_items[0]
+            except IndexError:
+                pass
+            for path_item in sub_items:
                 parent = _get_or_create_node(path_item, "container", parent=parent)
         except KeyError, keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
@@ -233,6 +249,7 @@ class ScanSaving(Parameters):
 
             return {
                 "root_path": path,
+                "data_path": os.path.join(path, data_filename),
                 "images_path": images_path,
                 "parent": parent,
                 "writer": self._get_writer_object(path, images_path, data_filename),
@@ -346,13 +363,12 @@ class Scan(object):
     def __init__(
         self,
         chain,
-        name=None,
-        parent="<SCAN_SAVING>",
+        name="scan",
         scan_info=None,
-        writer="<SCAN_SAVING>",
+        save=True,
+        save_images=True,
+        scan_saving=None,
         data_watch_callback=None,
-        run_number=None,
-        name_suffix="",
     ):
         """
         This class publish data and trig the writer if any.
@@ -374,38 +390,45 @@ class Scan(object):
         scan transition state. The return of this method will activate/deactivate
         the calling of the callback during this stage.
         """
-        default_scan_config = None
+        self.__name = name
+        self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
-        if parent is None:
-            self.root_node = None
+        if scan_saving is None:
+            session_obj = _current_session()
+            scan_saving = session_obj.env_dict["SCAN_SAVING"]
+        session_name = scan_saving.session
+        user_name = scan_saving.user_name
+        self.__scan_saving = scan_saving
+        scan_config = scan_saving.get()
+
+        self.root_node = scan_config["parent"]
+
+        self._scan_info["save"] = save
+        if save:
+            self.__writer = scan_config["writer"]
         else:
-            if parent == "<SCAN_SAVING>":
-                default_scan_config = ScanSaving().get()
-                parent = default_scan_config["parent"]
-            if isinstance(parent, DataNodeContainer):
-                self.root_node = parent
-            else:
-                raise ValueError("parent must be a DataNodeContainer object, or None")
+            self.__writer = NullWriter()
+        self.__writer._save_images = save_images
 
-        if writer is None:
-            self._writer = NullWriter()
-        else:
-            if writer == "<SCAN_SAVING>":
-                if default_scan_config is None:
-                    default_scan_config = ScanSaving().get()
-                writer = default_scan_config["writer"]
-            self._writer = writer
+        ### order is important in the next lines...
+        self.writer.template.update(
+            {
+                "scan_name": self.name,
+                "session": session_name,
+                "scan_number": "{scan_number}",
+            }
+        )
 
-        name = name if name else "scan"
+        self.__scan_number = self._next_scan_number()
 
-        if run_number is None:
-            run_number = self._next_run_number(name, parent)
-        self.__run_number = run_number
-        self.__name = "%s_%d%s" % (name, run_number, name_suffix)
+        self.writer.template["scan_number"] = self.scan_number
+
         self._nodes = dict()
         self._devices = []
-        self._scan_info = dict(scan_info) if scan_info is not None else dict()
-        self._scan_info["scan_nb"] = run_number
+
+        self._scan_info["session_name"] = session_name
+        self._scan_info["user_name"] = user_name
+        self._scan_info["scan_nb"] = self.__scan_number
         self._scan_info.setdefault("title", name)
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
@@ -413,14 +436,6 @@ class Scan(object):
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        scan_config = ScanSaving()
-        if writer is not None:
-            self._scan_info["save"] = True
-            self._scan_info["root_path"] = writer.root_path
-        else:
-            self._scan_info["save"] = False
-        self._scan_info["session_name"] = scan_config.session
-        self._scan_info["user_name"] = scan_config.user_name
         self._scan_info["positioners"] = {}
         self._scan_info["positioners_dial"] = {}
         for axis_name, axis_pos, axis_dial_pos, unit in get_axes_positions_iter(
@@ -441,8 +456,9 @@ class Scan(object):
             get_flint()
 
         self._state = self.IDLE_STATE
+        node_name = str(self.__scan_number) + "_" + self.name
         self._node = _create_node(
-            self.__name, "scan", parent=self.root_node, info=self._scan_info
+            node_name, "scan", parent=self.root_node, info=self._scan_info
         )
 
         if data_watch_callback is not None:
@@ -467,10 +483,8 @@ class Scan(object):
             self._data_watch_task = None
 
     def __repr__(self):
-        if not self.path:
-            return "Scan(name={}, run_number={})".format(self.name, self.run_number)
-        return "Scan(name={}, run_number={}, path={})".format(
-            self.name, self.run_number, self.path
+        return "Scan(number={}, name={}, path={})".format(
+            self.__scan_number, self.name, self.writer.filename
         )
 
     @property
@@ -479,11 +493,7 @@ class Scan(object):
 
     @property
     def writer(self):
-        return self._writer
-
-    @writer.setter
-    def writer(self, writer):
-        self._writer = writer
+        return self.__writer
 
     @property
     def node(self):
@@ -502,12 +512,11 @@ class Scan(object):
         return self._scan_info
 
     @property
-    def run_number(self):
-        return self.__run_number
-
-    @property
-    def path(self):
-        return self.scan_info["root_path"] if self.scan_info["save"] else None
+    def scan_number(self):
+        if self.__scan_number:
+            return self.__scan_saving.scan_number_format % self.__scan_number
+        else:
+            return "{scan_number}"
 
     @property
     def statistics(self):
@@ -699,8 +708,8 @@ class Scan(object):
                 for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)
 
-        if self._writer:
-            self._writer.prepare(self)
+        self.writer.prepare(self)
+        self._scan_info["root_path"] = self.writer.root_path
 
     def disconnect_all(self):
         for dev in self._devices:
@@ -718,8 +727,6 @@ class Scan(object):
         else:
             call_on_prepare, call_on_stop = False, False
 
-        send(current_module, "scan_new", self.scan_info)
-
         if self._data_watch_callback:
             set_watch_event = self._data_watch_callback_event.set
         else:
@@ -728,6 +735,8 @@ class Scan(object):
         current_iters = [i.next() for i in self.acq_chain.get_iter_list()]
 
         try:
+            send(current_module, "scan_new", self.scan_info)
+
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                 self.prepare(self.scan_info, self.acq_chain._tree)
@@ -768,20 +777,23 @@ class Scan(object):
             self.set_ttl()
 
             self._state = self.IDLE_STATE
-            send(current_module, "scan_end", self.scan_info)
-            if self._writer:
-                self._writer.close()
-            # Add scan to the globals
-            SCANS.append(self)
-            # Disconnect events
-            self.disconnect_all()
-            # Kill data watch task
-            if self._data_watch_task is not None:
-                self._data_watch_task.kill()
-            # Close nodes
-            for node in self._nodes.values():
-                if hasattr(node, "close"):
-                    node.close()
+
+            try:
+                send(current_module, "scan_end", self.scan_info)
+            finally:
+                if self.writer:
+                    self.writer.close()
+                # Add scan to the globals
+                SCANS.append(self)
+                # Disconnect events
+                self.disconnect_all()
+                # Kill data watch task
+                if self._data_watch_task is not None:
+                    self._data_watch_task.kill()
+                # Close nodes
+                for node in self._nodes.values():
+                    if hasattr(node, "close"):
+                        node.close()
 
     def _run_next(self, next_iter):
         next_iter.start()
@@ -877,41 +889,28 @@ class Scan(object):
         else:
             return ImagePlot(existing_id=plot_id)
 
-    def _next_run_number(self, name, parent):
-        if parent:
-            key = self.root_node.db_name
-            cnx = client.get_cache(db=1)
-            pipeline = cnx.pipeline()
-            pipeline.exists("%s__children_list")
-            pipeline.hincrby(key, "%s_last_run_number" % name, 1)
-            exist, run_number = pipeline.execute()
-            # synchronize with writer
-            if not exist and self._writer is not None:
-                scan_names = dict()
-                match_re = re.compile("(.+?)_(\d+).*")
-                for scan_entry in self._writer.get_scan_entries():
-                    g = match_re.match(scan_entry)
-                    if g:
-                        scan_name = g.group(1)
-                        run_number = int(g.group(2))
-                        previous_run_number = scan_names.setdefault(
-                            scan_name, run_number
-                        )
-                        if run_number > previous_run_number:
-                            scan_names[scan_name] = run_number
-                if scan_names:
-                    run_number = scan_names.get(name, 0) + 1
-                    scan_names[name] = run_number
-                    cnx.hmset(
-                        key,
-                        {
-                            "%s_last_run_number" % scan_name: run_number
-                            for scan_name, run_number in scan_names.iteritems()
-                        },
-                    )
-        else:
-            run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
-        return run_number
+    def _next_scan_number(self):
+        redis = client.get_cache(db=1)
+        filename = self.writer.filename
+        last_filename = self.__scan_saving._last_scan_file
+        last_scan_number = self.__scan_saving._last_scan_number
+        if last_filename != filename:
+            self.__scan_saving._last_scan_file = filename
+            # find new scan number from existing scans (if any)
+            if not "{scan_number}" in filename:
+                max_scan_number = 0
+                for scan_entry in self.writer.get_scan_entries():
+                    try:
+                        scan_number = int(scan_entry.split("_")[0])
+                    except Exception:
+                        continue
+                    else:
+                        if scan_number > max_scan_number:
+                            max_scan_number = scan_number
+                last_scan_number = max_scan_number
+        scan_number = last_scan_number + 1
+        self.__scan_saving._last_scan_number = scan_number
+        return scan_number
 
     @staticmethod
     def trace(on=True):

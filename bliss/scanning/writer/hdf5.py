@@ -31,10 +31,13 @@ class Writer(FileWriter):
         self.measurement = None
         self.last_point_index = {}
 
-    def new_file(self, scan_file_dir, scan_name, scan_info):
-        filename = os.path.join(scan_file_dir, self.data_filename + ".h5")
+    @property
+    def filename(self):
+        return os.path.join(self.root_path, self.data_filename + ".h5")
+
+    def new_file(self, scan_name, scan_info):
         self.close()
-        self.file = h5py.File(filename)
+        self.file = h5py.File(self.filename)
         self.scan_entry = self.file.create_group(scan_name)
         self.scan_entry.attrs["NX_class"] = "NXentry"
         scan_title = scan_info.get("title", "untitled")
@@ -61,7 +64,7 @@ class Writer(FileWriter):
             if isinstance(ppos, float):
                 positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
 
-    def new_master(self, master, scan_file_dir):
+    def new_master(self, master):
         return self.measurement.create_group(master.name)
 
     def add_reference(self, master_entry, referenced_master_entry):
@@ -94,7 +97,7 @@ class Writer(FileWriter):
 
             dataset = parent[channel.fullname]
             if not dataset.id.valid:
-                print("writer is closed. Spurious data point ignored")
+                print("Writer is closed. Spurious data point ignored")
                 return
 
             last_point_index = self.last_point_index[channel]
@@ -118,9 +121,8 @@ class Writer(FileWriter):
         self.measurement = None
 
     def get_scan_entries(self):
-        filename = os.path.join(self.root_path, self.data_filename + ".h5")
         try:
-            with h5py.File(filename, mode="r") as f:
+            with h5py.File(self.filename, mode="r") as f:
                 return f.keys()
         except IOError:  # file doesn't exist
             return []

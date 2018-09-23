@@ -13,7 +13,7 @@ class Writer(FileWriter):
         FileWriter.__init__(self, "", "", "")
 
     def new_scan(self, scan):
-        return
+        pass
 
     def create_path(self, scan_recorder):
         return
@@ -23,3 +23,7 @@ class Writer(FileWriter):
 
     def get_scan_entries(self):
         return []
+
+    @property
+    def filename(self):
+        return "None"

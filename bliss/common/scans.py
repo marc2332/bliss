@@ -45,16 +45,12 @@ DEFAULT_CHAIN = DefaultAcquisitionChain()
 
 def step_scan(chain, scan_info, name=None, save=True, save_images=True):
     scan_data_watch = scan_module.StepScanDataWatch()
-    config = scan_module.ScanSaving().get()
-    writer = config.get("writer") if save else None
-    if writer:
-        writer._save_images = save_images
     return scan_module.Scan(
         chain,
         name=name,
-        parent=config["parent"],
         scan_info=scan_info,
-        writer=writer,
+        save=save,
+        save_images=save_images,
         data_watch_callback=scan_data_watch,
     )
 

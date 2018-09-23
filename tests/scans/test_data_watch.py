@@ -21,7 +21,7 @@ from bliss.scanning.chain import AcquisitionChain
 
 @pytest.fixture
 def scan_saving():
-    ss = ScanSaving()
+    ss = ScanSaving("test")
     prev_template = ss.template
     yield ss
     ss.template = prev_template

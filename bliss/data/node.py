@@ -163,7 +163,7 @@ class DataNodeIterator(object):
         if filter is None or self.node.type in filter:
             yield self.node
 
-        data_node_2_children = self._get_children_of_children(db_name)
+        data_node_2_children = self._get_grandchildren(db_name)
         all_nodes_names = list()
         for children_name in data_node_2_children.values():
             all_nodes_names.extend(children_name)
@@ -207,7 +207,7 @@ class DataNodeIterator(object):
             ):
                 yield n
 
-    def _get_children_of_children(self, db_name):
+    def _get_grandchildren(self, db_name):
         # grouped all redis request here and cache them
         # get all children queue
         children_queue = [
@@ -245,7 +245,7 @@ class DataNodeIterator(object):
                 pass
         else:
             db_name = self.node.db_name
-            data_node_2_children = self._get_children_of_children(db_name)
+            data_node_2_children = self._get_grandchildren(db_name)
             self.last_child_id = {
                 db_name: len(children)
                 for db_name, children in data_node_2_children.items()

@@ -29,11 +29,12 @@ class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
         DataArrayMagic = struct.unpack(">I", "DTAY")[0]
 
-        def __init__(self, data, from_index, to_index):
+        def __init__(self, data, from_index, to_index, from_stream=False):
             self.data = data
             self.from_index = from_index
             self.to_index = to_index
             self.last_image_ready = -1
+            self.from_stream = from_stream
             self._image_mode = {
                 0: numpy.uint8,
                 1: numpy.uint16,
@@ -76,7 +77,6 @@ class LimaImageChannelDataNode(DataNode):
             return proxy
 
         def get_image(self, image_nb, proxy=0):
-            print "in get image", image_nb
             self._update()
 
             if proxy == 0:
@@ -85,9 +85,8 @@ class LimaImageChannelDataNode(DataNode):
 
             data = None
             if proxy:
-                if image_nb == self.last_index - 1:
+                if self.from_stream and image_nb == self.last_index-1:
                     # get last video image
-                    print "get video image"
                     _, raw_data = proxy.video_last_image
                     if len(raw_data) > HEADER_SIZE:
                         (
@@ -123,15 +122,12 @@ class LimaImageChannelDataNode(DataNode):
                         else:
                             data = numpy.fromstring(raw_data[HEADER_SIZE:], dtype=mode)
                             data.shape = image_height, image_width
-                else:
-                    print "get from memory"
+                if data is None:
                     data = self._get_from_server_memory(proxy, image_nb)
 
             if data is None:
-                print "get from file"
                 return self._get_from_file(image_nb)
             else:
-                print "returning", len(data)
                 return data
 
         def __getitem__(self, item_index):
@@ -291,7 +287,8 @@ class LimaImageChannelDataNode(DataNode):
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
         self._storage_task = None
-
+        self.from_stream = False
+        
     def close(self):
         if self._storage_task is None:
             return
@@ -309,7 +306,8 @@ class LimaImageChannelDataNode(DataNode):
             if to_index < 0 => to the end of acquisition
         """
         return self.LimaDataView(
-            self.data, from_index, to_index if to_index is not None else from_index + 1
+            self.data, from_index, to_index if to_index is not None else from_index + 1,
+            from_stream=self.from_stream,
         )
 
     def store(self, event_dict):

@@ -446,6 +446,8 @@ class Flint:
                 for (master_name, _), (data_type, data) in local_event.items():
                     last_data = data["data"]
                     if data_type in ("1d", "2d"):
+                        if data_type == "2d":
+                            last_data.from_stream = True
                         try:
                             last_data = last_data[-1]
                         except IndexError:

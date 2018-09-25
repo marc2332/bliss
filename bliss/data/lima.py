@@ -295,6 +295,7 @@ class LimaImageChannelDataNode(DataNode):
     def close(self):
         if self._storage_task is None:
             return
+        self._storage_task.join(timeout=3.)
         self._storage_task.kill()
         self._storage_task = None
 
@@ -330,17 +331,20 @@ class LimaImageChannelDataNode(DataNode):
 
     @task
     def _do_store(self):
-        while True:
-            self._new_image_status_event.wait()
-            self._new_image_status_event.clear()
-            local_dict = self._new_image_status
-            self._new_image_status = dict()
-            ref_status = self.data[0]
-            ref_status.update(local_dict)
-            self.data[0] = ref_status
-            if local_dict["acq_state"] in ("fault", "ready"):
-                break
-            gevent.idle()
+        try:
+            while True:
+                self._new_image_status_event.wait()
+                self._new_image_status_event.clear()
+                local_dict = self._new_image_status
+                self._new_image_status = dict()
+                ref_status = self.data[0]
+                ref_status.update(local_dict)
+                self.data[0] = ref_status
+                if local_dict["acq_state"] in ("fault", "ready"):
+                    break
+                gevent.idle()
+        finally:
+            self._storage_task = None
 
     def add_reference_data(self, ref_data):
         """Save reference data in database

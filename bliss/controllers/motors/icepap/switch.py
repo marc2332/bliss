@@ -55,7 +55,7 @@ class Switch(BaseSwitch):
                 # be sure that axis is initialized
                 try:
                     axis.position()
-                except KeyError:
+                except (RuntimeError, KeyError):
                     continue
                 try:
                     include_rack.add(axis.address // 10)

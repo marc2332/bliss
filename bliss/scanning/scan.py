@@ -560,7 +560,7 @@ class Scan(object):
 
     def cen(self, counter, axis=None, return_axis_name=False):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        half_val = (max(y) - min(y)) / 2.
+        half_val = (max(y) + min(y)) / 2.
         nb_value = len(x)
         index_above_half = numpy.where(y >= half_val)[0]
         slope = numpy.gradient(y, x)

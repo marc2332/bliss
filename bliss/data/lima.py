@@ -85,7 +85,7 @@ class LimaImageChannelDataNode(DataNode):
 
             data = None
             if proxy:
-                if self.from_stream and image_nb == self.last_index-1:
+                if self.from_stream and image_nb == self.last_index - 1:
                     # get last video image
                     _, raw_data = proxy.video_last_image
                     if len(raw_data) > HEADER_SIZE:
@@ -288,7 +288,7 @@ class LimaImageChannelDataNode(DataNode):
         self._new_image_status = dict()
         self._storage_task = None
         self.from_stream = False
-        
+
     def close(self):
         if self._storage_task is None:
             return
@@ -306,7 +306,9 @@ class LimaImageChannelDataNode(DataNode):
             if to_index < 0 => to the end of acquisition
         """
         return self.LimaDataView(
-            self.data, from_index, to_index if to_index is not None else from_index + 1,
+            self.data,
+            from_index,
+            to_index if to_index is not None else from_index + 1,
             from_stream=self.from_stream,
         )
 

@@ -14,8 +14,8 @@ import weakref
 
 
 class SoftwareTimerMaster(AcquisitionMaster):
-    def __init__(self, count_time, sleep_time=None, **keys):
-        AcquisitionMaster.__init__(self, None, "timer", **keys)
+    def __init__(self, count_time, sleep_time=None, name="timer", **keys):
+        AcquisitionMaster.__init__(self, None, name, **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
         self.channels.append(AcquisitionChannel("elapsed_time", numpy.double, ()))

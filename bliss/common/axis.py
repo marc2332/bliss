@@ -124,7 +124,7 @@ class GroupMove(object):
     # Internal methods
 
     def _monitor_move(self, motions_dict, move_func, polling_time):
-        monitor_move = []
+        monitor_move = dict()
         for controller, motions in motions_dict.iteritems():
             for motion in motions:
                 if move_func is None:
@@ -132,8 +132,16 @@ class GroupMove(object):
                 task = gevent.spawn(
                     getattr(motion.axis, move_func), motion, polling_time
                 )
-                monitor_move.append(task)
-        gevent.joinall(monitor_move, raise_error=True)
+                monitor_move[motion] = task
+        try:
+            gevent.joinall(monitor_move.values(), raise_error=True)
+        finally:
+            # update the last motor state
+            for motion, task in monitor_move.iteritems():
+                try:
+                    motion.last_state = task.get(block=False)
+                except:
+                    pass
 
     def _stop_move(self, motions_dict, stop_motion):
         self._user_stopped = True

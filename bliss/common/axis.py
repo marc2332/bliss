@@ -34,6 +34,7 @@ from bliss.common.cleanup import cleanup, error_cleanup, capture_exceptions
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
+from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
@@ -165,6 +166,7 @@ class GroupMove(object):
                     motion.last_state = stop_wait[task_index].get()
                 task_index += 1
 
+    @protect_from_one_kill
     def _do_backlash_move(self, motions_dict, polling_time):
         backlash_move = []
         for controller, motions in motions_dict.iteritems():
@@ -180,6 +182,7 @@ class GroupMove(object):
                             motion.axis._backlash_move, backlash_motion, polling_time
                         )
                     )
+        gevent.joinall(backlash_move)
         gevent.joinall(backlash_move, raise_error=True)
 
     def _move(

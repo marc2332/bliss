@@ -8,8 +8,14 @@ MASKED_GREENLETS = dict()
 
 
 class KillMask:
-    def __init__(self):
+    def __init__(self, nb_kill_allowed=-1):
+        """
+        nb_kill: nb of kill we allowed.
+                 < 0 mean infinite.
+                 if > 0 the counter will decrements until 0 then allowed to be killed
+        """
         self.__greenlet = gevent.getcurrent()
+        self.__kill_counter = nb_kill_allowed
 
     def __enter__(self):
         self.__func, self.__exception, self.__waiter = None, None, None
@@ -29,9 +35,15 @@ class KillMask:
             gevent.get_hub().loop.run_callback(self.__greenlet.throw, self.__exception)
 
     def set_kill(self, func, exception, waiter):
-        self.__func = func
-        self.__exception = exception
-        self.__waiter = waiter
+        if self.__kill_counter:
+            self.__func = func
+            self.__exception = exception
+            self.__waiter = waiter
+        else:  # reach 0
+            self.__func, self.__exception, self.__waiter = None, None, None
+        cnt = self.__kill_counter
+        self.__kill_counter -= 1
+        return not cnt
 
     def set_hub_kill(self, exception):
         self.__exception = exception
@@ -40,6 +52,14 @@ class KillMask:
 def protect_from_kill(fu):
     def func(*args, **kwargs):
         with KillMask():
+            return fu(*args, **kwargs)
+
+    return func
+
+
+def protect_from_one_kill(fu):
+    def func(*args, **kwargs):
+        with KillMask(nb_kill_allowed=1):
             return fu(*args, **kwargs)
 
     return func
@@ -54,7 +74,9 @@ def _patched_kill(greenlet, exception, waiter):
     masks = MASKED_GREENLETS.get(greenlet)
     if masks:
         for m in masks:
-            m.set_kill(saved_kill, exception, waiter)
+            if m.set_kill(saved_kill, exception, waiter):
+                saved_kill(greenlet, exception, waiter)
+
     else:
         saved_kill(greenlet, exception, waiter)
 

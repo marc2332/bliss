@@ -81,9 +81,6 @@ class Shutter(object):
         self.__settings = HashObjSetting("shutter:%s" % name)
         self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self.__state = Cache(self, "state", default_value=Shutter.UNKNOWN)
-        self.__shutter_state = Channel(
-            name + ":shutter_state", default_value=Shutter.UNKNOWN
-        )
         self._init_flag = False
         self.__lock = lock.Semaphore()
 
@@ -227,6 +224,20 @@ class Shutter(object):
         self.close()
 
     @property
+    def is_open(self):
+        return self.state == self.OPEN
+
+    @property
+    def is_closed(self):
+        return self.state == self.CLOSED
+
+    def __enter__(self):
+        self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    @property
     def external_control(self):
         return self._external_ctrl
 
@@ -301,7 +312,7 @@ class Shutter(object):
             )
         else:
             ret = self._open()
-        self.__shutter_state.value = self.OPEN
+        self.__state.value = self.OPEN
         return ret
 
     def _open(self):
@@ -324,7 +335,7 @@ class Shutter(object):
             )
         else:
             ret = self._close()
-        self.__shutter_state.value = self.CLOSED
+        self.__state.value = self.CLOSED
         return ret
 
     def _close(self):

@@ -21,16 +21,20 @@ try:
 except ImportError:
     h5py = None
 
+VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
+HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
+
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
         DataArrayMagic = struct.unpack(">I", "DTAY")[0]
 
-        def __init__(self, data, from_index, to_index):
+        def __init__(self, data, from_index, to_index, from_stream=False):
             self.data = data
             self.from_index = from_index
             self.to_index = to_index
             self.last_image_ready = -1
+            self.from_stream = from_stream
             self._image_mode = {
                 0: numpy.uint8,
                 1: numpy.uint16,
@@ -79,10 +83,47 @@ class LimaImageChannelDataNode(DataNode):
                 # 0 is used to discriminate with None, which can be passed
                 proxy = self._get_proxy()
 
-            if not proxy:
-                data = None
-            else:
-                data = self._get_from_server_memory(proxy, image_nb)
+            data = None
+            if proxy:
+                if self.from_stream and image_nb == self.last_index - 1:
+                    # get last video image
+                    _, raw_data = proxy.video_last_image
+                    if len(raw_data) > HEADER_SIZE:
+                        (
+                            magic,
+                            header_version,
+                            image_mode,
+                            image_frameNumber,
+                            image_width,
+                            image_height,
+                            endian,
+                            header_size,
+                            pad0,
+                            pad1,
+                        ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+
+                        if magic != 0x5644454f or header_version != 1:
+                            raise IndexError("Bad image header.")
+                        if image_frameNumber < 0:
+                            raise IndexError(
+                                "Image (from Lima live interface) not available yet."
+                            )
+
+                        video_modes = (
+                            numpy.uint8,
+                            numpy.uint16,
+                            numpy.int32,
+                            numpy.int64,
+                        )
+                        try:
+                            mode = video_modes[image_mode]
+                        except IndexError:
+                            pass
+                        else:
+                            data = numpy.fromstring(raw_data[HEADER_SIZE:], dtype=mode)
+                            data.shape = image_height, image_width
+                if data is None:
+                    data = self._get_from_server_memory(proxy, image_nb)
 
             if data is None:
                 return self._get_from_file(image_nb)
@@ -137,9 +178,9 @@ class LimaImageChannelDataNode(DataNode):
                 self.current_lima_acq == self.lima_acq_nb
             ):  # current acquisition is this one
                 if self.last_image_ready < 0:
-                    raise RuntimeError("No image has been taken yet")
+                    raise IndexError("No image has been taken yet")
                 if self.last_image_ready < image_nb:  # image not yet available
-                    raise RuntimeError("Image is not available yet")
+                    raise IndexError("Image is not available yet")
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
@@ -216,7 +257,7 @@ class LimaImageChannelDataNode(DataNode):
                 else:
                     raise RuntimeError("Format not managed yet")
             else:
-                raise RuntimeError("Cannot retrieve image %d from file" % image_nb)
+                raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
         def _tango_unpack(self, msg):
             struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
@@ -246,10 +287,12 @@ class LimaImageChannelDataNode(DataNode):
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
         self._storage_task = None
+        self.from_stream = False
 
     def close(self):
         if self._storage_task is None:
             return
+        self._storage_task.join(timeout=3.)
         self._storage_task.kill()
         self._storage_task = None
 
@@ -263,7 +306,10 @@ class LimaImageChannelDataNode(DataNode):
             if to_index < 0 => to the end of acquisition
         """
         return self.LimaDataView(
-            self.data, from_index, to_index if to_index is not None else from_index + 1
+            self.data,
+            from_index,
+            to_index if to_index is not None else from_index + 1,
+            from_stream=self.from_stream,
         )
 
     def store(self, event_dict):
@@ -285,17 +331,20 @@ class LimaImageChannelDataNode(DataNode):
 
     @task
     def _do_store(self):
-        while True:
-            self._new_image_status_event.wait()
-            self._new_image_status_event.clear()
-            local_dict = self._new_image_status
-            self._new_image_status = dict()
-            ref_status = self.data[0]
-            ref_status.update(local_dict)
-            self.data[0] = ref_status
-            if local_dict["acq_state"] in ("fault", "ready"):
-                break
-            gevent.idle()
+        try:
+            while True:
+                self._new_image_status_event.wait()
+                self._new_image_status_event.clear()
+                local_dict = self._new_image_status
+                self._new_image_status = dict()
+                ref_status = self.data[0]
+                ref_status.update(local_dict)
+                self.data[0] = ref_status
+                if local_dict["acq_state"] in ("fault", "ready"):
+                    break
+                gevent.idle()
+        finally:
+            self._storage_task = None
 
     def add_reference_data(self, ref_data):
         """Save reference data in database

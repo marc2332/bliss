@@ -86,7 +86,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.__point_synchro = event.Event()
 
     def __iter__(self):
-        nbpoints = self.npoints
+        self.__sequence_index = 0
+        acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
+        nbpoints = 0 if acq_trigger_mode == "INTERNAL_TRIGGER" else self.npoints
         if nbpoints > 0:
             while self._last_image_ready < nbpoints:
                 yield self
@@ -137,6 +139,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             setattr(self.device, param_name, param_value)
 
         self.wait_slaves_prepare()
+        self.device.video_active = True
         self.device.prepareAcq()
 
         signed, depth, w, h = self.device.image_sizes
@@ -217,11 +220,21 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         }
 
     def reading(self):
+        acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
         try:
             last_image_acquired = -1
             while True:
                 acq_state = self.device.acq_status.lower()
                 status = self._get_lima_status()
+                if acq_trigger_mode == "INTERNAL_TRIGGER":
+                    for key in (
+                        "last_image_acquired",
+                        "last_image_ready",
+                        "last_counter_ready",
+                        "last_image_saved",
+                    ):
+                        status[key] += self.__sequence_index
+
                 status["acq_state"] = acq_state
                 if acq_state == "running":
                     if status["last_image_ready"] != self._last_image_ready:

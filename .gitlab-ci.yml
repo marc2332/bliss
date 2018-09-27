@@ -11,9 +11,9 @@ style:
   stage: style
   before_script:
     - source activate tango3.6
-    - pip install black
+    - pip install black==18.6b4
   script:
-    - LC_ALL=C.UTF-8 black --check .
+    - LC_ALL=C.UTF-8 black --check --fast .
 
 tests:
   stage: tests

@@ -106,7 +106,7 @@ def main():
         "pyserial == 2.7",
         "ruamel.yaml == 0.11.15",
         "zerorpc",
-        "msgpack_numpy",
+        "msgpack_numpy<0.4.4.1",
         "blessings",
         "h5py",
         "gevent >= 1.3.5",

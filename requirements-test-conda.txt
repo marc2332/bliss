@@ -5,5 +5,5 @@ py
 pytest
 pytest-mock
 pytest-cov
-lima
+lima-camera-simulator-tango
 scipy

@@ -24,7 +24,7 @@ def data_from_pipeline(data, shape=None, dtype=None):
     if len(shape) == 0:
         return numpy.array(data, dtype=dtype)
     else:
-        a = numpy.array([numpy.loads(x) for x in data], dtype=dtype)
+        a = numpy.array([cPickle.loads(x) for x in data], dtype=dtype)
         a.shape = (-1,) + shape
         return a
 
@@ -34,7 +34,7 @@ def data_from_bytes(data, shape=None, dtype=None):
         return functools.partial(data_from_pipeline, shape=shape, dtype=dtype)
 
     try:
-        return numpy.loads(data)
+        return cPickle.loads(data)
     except cPickle.UnpicklingError:
         return float(data)
 

@@ -25,3 +25,4 @@ silx
 psutil
 subprocess32
 requests
+prompt_toolkit < 2

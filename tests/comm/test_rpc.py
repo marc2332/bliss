@@ -83,9 +83,9 @@ class Car(object):
 
 
 @contextmanager
-def rpc_server(bind="inproc://test"):
+def rpc_server(bind="inproc://test", heartbeat=1.0):
     obj = Car("yellow", 120, turbo=True)
-    server = Server(obj, stream=True)
+    server = Server(obj, stream=True, heartbeat=heartbeat)
     server.bind(bind)
     task = gevent.spawn(server.run)
     yield server, obj
@@ -93,7 +93,7 @@ def rpc_server(bind="inproc://test"):
     task.kill()
 
 
-def test_api(rpc_server):
+def test_api():
     url = "inproc://test"
 
     with rpc_server(url) as (server, car):
@@ -143,6 +143,33 @@ def test_event():
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)
         assert results.get() == (3,)
+
+    with rpc_server(url) as (server, car):
+        # Synchronize
+        client_car.position
+
+        event.send(car, "test", 4)
+        assert results.get() == (4,)
+
+    # close client
+    client_car.close()
+
+
+def test_event_with_lost_remote():
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url, heartbeat=0.1) as (server, car):
+        client_car = Client(url, heartbeat=0.1)
+
+        event.connect(client_car, "test", callback)
+        event.send(car, "test", 3)
+        assert results.get() == (3,)
+
+    gevent.sleep(0.4)
 
     with rpc_server(url) as (server, car):
         # Synchronize

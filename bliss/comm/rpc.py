@@ -371,16 +371,19 @@ def Client(address, **kwargs):
 
         def dispatch(proxy):
             while True:
-                for signal, value in client.zerorpc_stream__():
-                    if signal is None:
-                        connected.set()
-                        continue
-                    client._log.debug(
-                        "dispatching stream event signal=%r value=%r",
-                        signal,
-                        StripIt(value),
-                    )
-                    louie.send(signal, proxy, value)
+                try:
+                    for signal, value in client.zerorpc_stream__():
+                        if signal is None:
+                            connected.set()
+                            continue
+                        client._log.debug(
+                            "dispatching stream event signal=%r value=%r",
+                            signal,
+                            StripIt(value),
+                        )
+                        louie.send(signal, proxy, value)
+                except zerorpc.LostRemote as exc:
+                    pass
 
         client._stream_task = gevent.spawn(dispatch, proxy)
         client._stream_task.link(stream_task_ended)

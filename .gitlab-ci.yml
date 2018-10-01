@@ -18,12 +18,10 @@ style:
 tests:
   stage: tests
   before_script:
-    - conda create --name testenv python=2
+    - conda create --name testenv --channel http://bcu-ci.esrf.fr/stable python=2 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-test-conda.txt
+    - pip install .
   script:
-      - pip install .
       - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
   artifacts:
     paths:
@@ -34,8 +32,7 @@ build_doc:
   stage: build_doc
   before_script:
     - source activate tango2.7
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
+    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt --file requirements-doc-conda.txt
     - pip install -r requirements-doc.txt
   script: python setup.py build_sphinx
   artifacts:

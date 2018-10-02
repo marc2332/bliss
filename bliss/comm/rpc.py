@@ -200,13 +200,16 @@ class _StreamServerObject(_ServerObject):
 
     @zerorpc.stream
     def zerorpc_stream__(self):
-        yield (None, None)  # Signal the stream has started
         stream = gevent.queue.Queue()
         dispatcher = lambda value, signal: stream.put((signal, value))
         self._streams.add(stream)
         self._dispatchers.add(dispatcher)
         louie.connect(dispatcher, sender=self._object)
         debug = self._log.debug
+
+        # Louie is connected, ready to go
+        yield (None, None)
+
         for message in stream:
             if message is None:
                 break
@@ -356,6 +359,7 @@ def Client(address, **kwargs):
     proxy = klass()
 
     if stream:
+        connected = gevent.event.Event()
 
         def stream_task_ended(task):
             if task.exception:
@@ -367,16 +371,24 @@ def Client(address, **kwargs):
 
         def dispatch(proxy):
             while True:
-                for signal, value in client.zerorpc_stream__():
-                    if signal is None:
-                        continue
-                    client._log.debug(
-                        "dispatching stream event signal=%r value=%r",
-                        signal,
-                        StripIt(value),
-                    )
-                    louie.send(signal, proxy, value)
+                try:
+                    for signal, value in client.zerorpc_stream__():
+                        if signal is None:
+                            connected.set()
+                            continue
+                        client._log.debug(
+                            "dispatching stream event signal=%r value=%r",
+                            signal,
+                            StripIt(value),
+                        )
+                        louie.send(signal, proxy, value)
+                except zerorpc.LostRemote as exc:
+                    pass
 
         client._stream_task = gevent.spawn(dispatch, proxy)
         client._stream_task.link(stream_task_ended)
+
+        # Synchronize with the event stream
+        connected.wait()
+
     return proxy

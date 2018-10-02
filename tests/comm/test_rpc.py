@@ -12,7 +12,9 @@
 
 import gevent
 import pytest
+from contextlib import contextmanager
 
+from bliss.common import event
 from bliss.comm.rpc import Server, Client
 
 
@@ -80,47 +82,101 @@ class Car(object):
         return "DumbCar(color={0})".format(self.color)
 
 
-@pytest.fixture
-def rpc_server():
+@contextmanager
+def rpc_server(bind="inproc://test", heartbeat=1.0):
     obj = Car("yellow", 120, turbo=True)
-    server = Server(obj, stream=True)
-    server.bind("inproc://test")
+    server = Server(obj, stream=True, heartbeat=heartbeat)
+    server.bind(bind)
     task = gevent.spawn(server.run)
     yield server, obj
     server.close()
     task.kill()
 
 
-def test_api(rpc_server):
-    server, car = rpc_server
-    client_car = Client("inproc://test")
+def test_api():
+    url = "inproc://test"
 
-    # class name
-    assert type(client_car).__name__ == type(car).__name__ == "Car"
-    # doc
-    assert client_car.__doc__ == car.__doc__
-    # class member
-    assert client_car.wheels == car.wheels == 4
-    # object member
-    assert client_car.color == car.color == "yellow"
-    # property
-    assert client_car.position == car.position == 0
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
 
-    # python protocol methods
-    assert int(client_car) == int(car) == 120
-    assert len(client_car) == len(car) == 4
-    assert client_car["turbo"] == car["turbo"] == True
-    assert str(client_car) == str(car) == "DumbCar(color=yellow)"
+        # class name
+        assert type(client_car).__name__ == type(car).__name__ == "Car"
+        # doc
+        assert client_car.__doc__ == car.__doc__
+        # class member
+        assert client_car.wheels == car.wheels == 4
+        # object member
+        assert client_car.color == car.color == "yellow"
+        # property
+        assert client_car.position == car.position == 0
 
-    # set property
-    client_car.watts = 735.499 * 100
-    assert client_car.watts == car.watts == 735.499 * 100
+        # python protocol methods
+        assert int(client_car) == int(car) == 120
+        assert len(client_car) == len(car) == 4
+        assert client_car["turbo"] == car["turbo"] == True
+        assert str(client_car) == str(car) == "DumbCar(color=yellow)"
 
-    # methods with args and kwargs
-    client_car.move(11)
-    assert client_car.position == car.position == 11
-    client_car.move(21, relative=True)
-    assert client_car.position == car.position == 32
+        # set property
+        client_car.watts = 735.499 * 100
+        assert client_car.watts == car.watts == 735.499 * 100
+
+        # methods with args and kwargs
+        client_car.move(11)
+        assert client_car.position == car.position == 11
+        client_car.move(21, relative=True)
+        assert client_car.position == car.position == 32
+
+        # close client
+        client_car.close()
+
+
+def test_event():
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+
+        event.connect(client_car, "test", callback)
+        event.send(car, "test", 3)
+        assert results.get() == (3,)
+
+    with rpc_server(url) as (server, car):
+        # Synchronize
+        client_car.position
+
+        event.send(car, "test", 4)
+        assert results.get() == (4,)
+
+    # close client
+    client_car.close()
+
+
+def test_event_with_lost_remote():
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url, heartbeat=0.1) as (server, car):
+        client_car = Client(url, heartbeat=0.1)
+
+        event.connect(client_car, "test", callback)
+        event.send(car, "test", 3)
+        assert results.get() == (3,)
+
+    gevent.sleep(0.4)
+
+    with rpc_server(url) as (server, car):
+        # Synchronize
+        client_car.position
+
+        event.send(car, "test", 4)
+        assert results.get() == (4,)
 
     # close client
     client_car.close()

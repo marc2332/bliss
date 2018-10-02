@@ -3,3 +3,4 @@ mkdocs-material
 pygments
 pymdown-extensions
 markdown-inline-graphviz
+Markdown < 3

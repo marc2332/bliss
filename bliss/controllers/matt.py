@@ -175,9 +175,11 @@ class MattControl:
         self.wago.close()
 
     def pos_read(self):
-        stat = self.wago.get("attstatus")
         ret = 0
         nstat = 2
+
+        stat = self.wago.get("attstatus")
+        stat = [num for elem in stat for num in elem]
 
         del stat[(self.nb_filter * nstat) :]
 
@@ -296,7 +298,7 @@ class MattControl:
             time.sleep(0.5)
             check = self.pos_read()
             if time.time() - t0 > self.exec_timeout:
-                raise RuntimeError("Timeout waiting for filters to be %d" % val)
+                raise RuntimeError("Timeout while waiting for filters to be %d" % val)
 
     def filter_set(self, filt, put_in):
         value = self.pos_read()
@@ -318,7 +320,7 @@ class MattControl:
             check = self.pos_read()
             if time.time() - t0 > self.exec_timeout:
                 raise RuntimeError(
-                    "Timeout waiting for filter to be %s"
+                    "Timeout while waiting for filter to be %s"
                     % ("in" if put_in is True else "out")
                 )
 
@@ -352,7 +354,7 @@ class MattControl:
             time.sleep(0.5)
             check = self.pos_read()
             if time.time() - t0 > self.exec_timeout:
-                raise RuntimeError("Timeout waiting for status to be %d" % value)
+                raise RuntimeError("Timeout while waiting for status to be %d" % value)
 
 
 class matt:

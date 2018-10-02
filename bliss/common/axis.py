@@ -34,6 +34,7 @@ from bliss.common.cleanup import cleanup, error_cleanup, capture_exceptions
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
+from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import Null, with_custom_members
 from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
@@ -61,6 +62,9 @@ class GroupMove(object):
     def __init__(self, parent=None):
         self.parent = parent
         self._move_task = None
+        self._motions_dict = dict()
+        self._stop_motion = None
+        self._user_stopped = False
 
     # Public API
 
@@ -78,6 +82,9 @@ class GroupMove(object):
         wait=True,
         polling_time=DEFAULT_POLLING_TIME,
     ):
+        self._motions_dict = motions_dict
+        self._stop_motion = stop_motion
+        self._user_stopped = False
         started = gevent.event.Event()
         self._move_task = gevent.spawn(
             self._move,
@@ -108,15 +115,17 @@ class GroupMove(object):
                 raise
 
     def stop(self, wait=True):
-        if self._move_task is not None:
-            self._move_task.kill(block=wait)
-            if wait:
-                self._move_task.get()
+        with capture_exceptions(raise_index=0) as capture:
+            if self._move_task is not None:
+                with capture():
+                    self._stop_move(self._motions_dict, self._stop_motion)
+                if wait:
+                    self._move_task.get()
 
     # Internal methods
 
     def _monitor_move(self, motions_dict, move_func, polling_time):
-        monitor_move = []
+        monitor_move = dict()
         for controller, motions in motions_dict.iteritems():
             for motion in motions:
                 if move_func is None:
@@ -124,26 +133,19 @@ class GroupMove(object):
                 task = gevent.spawn(
                     getattr(motion.axis, move_func), motion, polling_time
                 )
-                monitor_move.append(task)
-        # Stop at first exception, and kill all the remaining tasks
+                monitor_move[motion] = task
         try:
-            gevent.joinall(monitor_move, raise_error=True)
-        except gevent.GreenletExit:
-            return True
-        except:
-            raise
+            gevent.joinall(monitor_move.values(), raise_error=True)
         finally:
-            gevent.killall(monitor_move)
-            task_index = 0
-            for controller, motions in motions_dict.iteritems():
-                for motion in motions:
-                    try:
-                        motion.last_state = monitor_move[task_index].get()
-                    except:
-                        pass
-                    task_index += 1
+            # update the last motor state
+            for motion, task in monitor_move.iteritems():
+                try:
+                    motion.last_state = task.get(block=False)
+                except:
+                    pass
 
     def _stop_move(self, motions_dict, stop_motion):
+        self._user_stopped = True
         stop = []
         for controller, motions in motions_dict.iteritems():
             stop.append(gevent.spawn(stop_motion, controller, motions))
@@ -164,6 +166,7 @@ class GroupMove(object):
                     motion.last_state = stop_wait[task_index].get()
                 task_index += 1
 
+    @protect_from_one_kill
     def _do_backlash_move(self, motions_dict, polling_time):
         backlash_move = []
         for controller, motions in motions_dict.iteritems():
@@ -179,23 +182,8 @@ class GroupMove(object):
                             motion.axis._backlash_move, backlash_motion, polling_time
                         )
                     )
-        # Stop at first exception, and kill all the remaining tasks
-        try:
-            gevent.joinall(backlash_move, raise_error=True)
-        except gevent.GreenletExit:
-            return True
-        except:
-            raise
-        finally:
-            gevent.killall(backlash_move)
-            task_index = 0
-            for controller, motions in motions_dict.iteritems():
-                for motion in motions:
-                    try:
-                        motion.last_state = monitor_move[task_index].get()
-                    except:
-                        pass
-                    task_index += 1
+        gevent.joinall(backlash_move)
+        gevent.joinall(backlash_move, raise_error=True)
 
     def _move(
         self,
@@ -215,7 +203,6 @@ class GroupMove(object):
                 for _, chan in motion.axis._beacon_channels.iteritems():
                     chan.unregister_callback(chan._setting_update_cb)
         with capture_exceptions(raise_index=0) as capture:
-            user_stopped = backlash_user_stopped = False
             try:
                 # Spawn start motion for all controllers
                 start = [
@@ -227,11 +214,11 @@ class GroupMove(object):
                 with capture():
                     gevent.joinall(start, raise_error=True)
                 if capture.failed:
+                    gevent.joinall(start)
                     # start failed, stop all axes and wait end of motion
-                    gevent.killall(start)
-
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
+
                     self._stop_wait(motions_dict, capture)
                     return
 
@@ -243,33 +230,29 @@ class GroupMove(object):
 
                 # Spawn the monitoring for all motions
                 with capture():
-                    user_stopped = self._monitor_move(
-                        motions_dict, move_func, polling_time
-                    )
-                if user_stopped or capture.failed:
+                    self._monitor_move(motions_dict, move_func, polling_time)
+                if capture.failed:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
 
-                    # need to update target pos. for backlash move
-                    for _, motions in motions_dict.iteritems():
-                        for motion in motions:
-                            if motion.backlash:
-                                motion.target_pos = (
-                                    motion.axis.dial() * motion.axis.steps_per_unit
-                                )
+                # need to update target pos. for backlash move
+                for _, motions in motions_dict.iteritems():
+                    for motion in motions:
+                        if motion.backlash:
+                            motion.target_pos = (
+                                motion.axis.dial() * motion.axis.steps_per_unit
+                            )
 
                 # Do backlash move, if needed
                 with capture():
-                    backlash_user_stopped = self._do_backlash_move(
-                        motions_dict, polling_time
-                    )
-                if backlash_user_stopped or capture.failed:
+                    self._do_backlash_move(motions_dict, polling_time)
+                if capture.failed:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
             finally:
-                reset_setpos = user_stopped or backlash_user_stopped or capture.failed
+                reset_setpos = capture.failed or self._user_stopped
 
                 # cleanup
                 # -------

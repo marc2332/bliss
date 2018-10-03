@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-pythonic RPC implementation using zerorpc.
+pythonic RPC implementation using simple rpc with msgpack.
 
 Server example::
 
@@ -68,23 +68,28 @@ Client::
 
 """
 
+import os
+import re
 import inspect
 import logging
 import weakref
+import itertools
 
 import louie
 import gevent.queue
+from gevent import socket
 
 from bliss.common import zerorpc
+from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
 
+import msgpack
 
 SPECIAL_METHODS = set(
     (
         "new",
         "init",
         "del",
-        "hash",
         "class",
         "dict",
         "sizeof",
@@ -151,13 +156,19 @@ def _discover_object(obj):
 
 
 class _ServerObject(object):
-    def __init__(self, obj):
+    def __init__(self, obj, stream=False):
         self._object = obj
-        self._log = logging.getLogger("zerorpc." + type(obj).__name__)
+        self._log = logging.getLogger("rpc." + type(obj).__name__)
         self._metadata = _discover_object(obj)
+        self._server_task = None
+        self._clients = list()
+        self._socket = None
+        self._stream = stream
+        self._metadata["stream"] = stream
+        self._uds_name = None
 
     def __dir__(self):
-        result = ["zerorpc_call__"]
+        result = ["_call__"]
         for name, info in self._metadata["members"].items():
             if "method" in info["type"]:
                 result.append(name)
@@ -166,87 +177,127 @@ class _ServerObject(object):
     def __getattr__(self, name):
         return getattr(self._object, name)
 
-    def zerorpc_call__(self, code, args, kwargs):
+    def bind(self, url):
+        if self._server_task is not None:
+            self._server_task.kill()
+        if url.startswith("tcp"):
+            exp = re.compile("tcp://(.+?):([0-9]+)")
+            m = exp.match(url)
+            if not m:
+                raise RuntimeError("Cannot manage this kind of url (%r)" % url)
+            port = m.group(2)
+            sock = socket.socket()
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(("", int(port)))
+        elif url.startswith("inproc"):
+            exp = re.compile("inproc://(.+)")
+            m = exp.match(url)
+            if not m:
+                raise RuntimeError("Weird url %s" % url)
+            uds_port_name = m.group(1)
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind(uds_port_name)
+            self._uds_name = uds_port_name
+        else:
+            raise RuntimeError("don't manage this kind of url (%s)" % url)
+        sock.listen(512)
+        self._socket = sock
+
+    def close(self):
+        if self._socket:
+            if self._uds_name:
+                os.unlink(self._uds_name)
+                self._uds_name = None
+            self._socket.close()
+            self._socket = None
+
+    def run(self):
+        socket = self._socket
+        try:
+            while True:
+                new_client, addr = socket.accept()
+                self._clients.append(gevent.spawn(self._client_poll, new_client))
+        finally:
+            with KillMask():
+                gevent.killall(self._clients)
+
+    def _client_poll(self, client_sock):
+        unpacker = msgpack.Unpacker(encoding="utf-8")
+        lock = gevent.lock.RLock()
+        if self._stream:
+
+            def rx_event(value, signal):
+                with lock:
+                    client_sock.sendall(
+                        msgpack.packb((-1, (value, signal)), use_bin_type=True)
+                    )
+
+            louie.connect(rx_event, sender=self._object)
+        try:
+            while True:
+                gevent.select.select([client_sock], [], [])
+                msg = client_sock.recv(8192)
+                if not msg:
+                    break
+                unpacker.feed(msg)
+                for u in unpacker:
+                    call_id = u[0]
+                    try:
+                        return_values = self._call__(*u[1:])
+                    except Exception as e:
+                        with lock:
+                            client_sock.sendall(
+                                msgpack.packb((call_id, e), use_bin_type=True)
+                            )
+                    else:
+                        with lock:
+                            client_sock.sendall(
+                                msgpack.packb(
+                                    (call_id, return_values), use_bin_type=True
+                                )
+                            )
+        finally:
+            client_sock.close()
+            self._clients.remove(gevent.getcurrent())
+
+    def _call__(self, code, args, kwargs):
         if code == "introspect":
-            self._log.debug("zerorpc 'introspect'")
+            self._log.debug("rpc 'introspect'")
             return self._metadata
         else:
             name = args[0]
             if code == "call":
                 value = getattr(self._object, name)(*args[1:], **kwargs)
-                self._log.debug("zerorpc call %s() = %r", name, StripIt(value))
+                self._log.debug("rpc call %s() = %r", name, StripIt(value))
                 return value
             elif code == "getattr":
                 value = getattr(self._object, name)
-                self._log.debug("zerorpc get %s = %r", name, StripIt(value))
+                self._log.debug("rpc get %s = %r", name, StripIt(value))
                 return value
             elif code == "setattr":
                 value = args[1]
-                self._log.debug("zerorpc set %s = %r", name, StripIt(value))
+                self._log.debug("rpc set %s = %r", name, StripIt(value))
                 return setattr(self._object, name, value)
             elif code == "delattr":
-                self._log.debug("zerorpc del %s", name)
+                self._log.debug("rpc del %s", name)
                 return delattr(self._object, name)
             else:
                 raise ServerError("Unknown call type {0!r}".format(code))
 
 
-class _StreamServerObject(_ServerObject):
-    def __init__(self, obj):
-        super(_StreamServerObject, self).__init__(obj)
-        self._metadata["stream"] = True
-        self._streams = weakref.WeakSet()
-        self._dispatchers = weakref.WeakSet()
-
-    @zerorpc.stream
-    def zerorpc_stream__(self):
-        yield (None, None)  # Signal the stream has started
-        stream = gevent.queue.Queue()
-        dispatcher = lambda value, signal: stream.put((signal, value))
-        self._streams.add(stream)
-        self._dispatchers.add(dispatcher)
-        louie.connect(dispatcher, sender=self._object)
-        debug = self._log.debug
-        for message in stream:
-            if message is None:
-                break
-            signal, value = message
-            debug("streaming signal=%r value=%s", signal, StripIt(value))
-            yield message
-
-    def __dir__(self):
-        return super(_StreamServerObject, self).__dir__() + ["zerorpc_stream__"]
-
-    def close(self):
-        for dispatcher in self._dispatchers:
-            louie.disconnect(dispatcher, sender=self._object)
-        for stream in self._streams:
-            stream.put(None)
-
-
 def Server(obj, stream=False, **kwargs):
     """
-    Create a zerorpc server for the given object with a pythonic API
+    Create a rpc server for the given object with a pythonic API
 
     Args:
         obj: any python object
     Keyword Args:
         stream (bool): supply a stream listening to events coming from obj
     Return:
-        a zerorpc server
-
-    It accepts the same keyword arguments as :class:`zerorpc.Server`.
+        a rpc server
     """
-    instance = _StreamServerObject(obj) if stream else _ServerObject(obj)
-    server = zerorpc.Server(instance, **kwargs)
-
-    def close():
-        instance.close()
-        server_close()
-
-    # Patch close method with instance.close()
-    server_close, server.close = server.close, close
-    return server
+    return _ServerObject(obj, stream=stream)
 
 
 # Client code
@@ -254,13 +305,13 @@ def Server(obj, stream=False, **kwargs):
 
 def _property(name, doc):
     def fget(self):
-        return self._client.zerorpc_call__("getattr", (name,), {})
+        return self._client._call__("getattr", (name,), {})
 
     def fset(self, value):
-        self._client.zerorpc_call__("setattr", (name, value), {})
+        self._client._call__("setattr", (name, value), {})
 
     def fdel(self):
-        return self._client.zerorpc_call__("delattr", (name,), {})
+        return self._client._call__("delattr", (name,), {})
 
     return property(fget=fget, fset=fset, fdel=fdel, doc=doc)
 
@@ -269,13 +320,13 @@ def _method(name, doc):
     if name == "__dir__":
         # need to handle __dir__ to make sure it returns a list, not a tuple
         def method(self):
-            return list(self._client.zerorpc_call__("call", [name], {}))
+            return list(self._client._call__("call", [name], {}))
 
     else:
 
         def method(self, *args, **kwargs):
             args = [name] + list(args)
-            return self._client.zerorpc_call__("call", args, kwargs)
+            return self._client._call__("call", args, kwargs)
 
     method.__name__ = name
     method.__doc__ = doc
@@ -285,7 +336,7 @@ def _method(name, doc):
 def _static_method(client, name, doc):
     def method(*args, **kwargs):
         args = [name] + list(args)
-        return client.zerorpc_call__("call", args, kwargs)
+        return client._call__("call", args, kwargs)
 
     method.__name__ = name
     method.__doc__ = doc
@@ -295,7 +346,7 @@ def _static_method(client, name, doc):
 def _class_method(client, name, doc):
     def method(cls, *args, **kwargs):
         args = [name] + list(args)
-        return client.zerorpc_call__("call", args, kwargs)
+        return client._call__("call", args, kwargs)
 
     method.__name__ = name
     method.__doc__ = doc
@@ -314,69 +365,197 @@ def _member(client, member_info):
         members[name] = _class_method(client, name, doc)
 
 
-def Client(address, **kwargs):
-    """
-    Create a zerorpc client with a pythonic API
+class _cnx(object):
+    class Retry:
+        pass
 
-    Args:
-        address: connection address (ex: 'tcp://lid00c:8989')
-    Return:
-        a zerorpc client
+    class wait_queue(object):
+        def __init__(self, cnt, uniq_id):
+            self._cnt = cnt
+            self._event = gevent.event.Event()
+            self._values = None
+            self._uniq_id = uniq_id
 
-    It accepts the same keyword arguments as :class:`zerorpc.Client`.
-    """
-    kwargs["connect_to"] = address
-    client = zerorpc.Client(**kwargs)
-    metadata = client.zerorpc_call__("introspect", (), {})
-    client._log = logging.getLogger("zerorpc." + metadata["name"])
-    stream = metadata.get("stream", False)
-    members = dict(_client=client)
+        def __enter__(self):
+            self._cnt._queues[self._uniq_id] = self
+            return self
 
-    for name, info in metadata["members"].items():
-        if name.startswith("__") and name[2:-2] in SPECIAL_METHODS:
-            continue
-        name, mtype, doc = info["name"], info["type"], info["doc"]
-        if mtype == "attribute":
-            members[name] = _property(name, doc)
-        elif mtype == "method":
-            members[name] = _method(name, doc)
-        elif mtype == "staticmethod":
-            members[name] = _static_method(client, name, doc)
-        elif mtype == "classmethod":
-            members[name] = _class_method(client, name, doc)
+        def __exit__(self, *args):
+            del self._cnt._queues[self._uniq_id]
+
+        def get(self):
+            self._event.wait()
+            return self._values
+
+        def put(self, values):
+            self._values = values
+            self._event.set()
+            self._event.clear()
+
+    def __init__(self, address):
+        if address.startswith("tcp"):
+            exp = re.compile("tcp://(.+?):([0-9]+)")
+            m = exp.match(address)
+            self.host = m.group(1)
+            self.port = int(m.group(2))
+        elif address.startswith("inproc"):
+            exp = re.compile("inproc://(.+)")
+            m = exp.match(address)
+            self.host = None
+            self.port = m.group(1)
+
+        self._socket = None
+        self._queues = dict()
+        self._reading_task = None
+        self.proxy = None
+        self._counter = None
+        self._timeout = 30.
+        self._proxy = None
+        self._klass = None
+        self._class_member = list()
+
+    def connect(self):
+        self.try_connect()
+
+    def try_connect(self):
+        if self._socket is None:
+            try:
+                if self.host:
+                    self._socket = socket.socket()
+                    self._socket.connect((self.host, self.port))
+                else:
+                    self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                    self._socket.connect(self.port)
+                self._reading_task = gevent.spawn(self._raw_read, self._socket)
+            except:
+                self._socket = None
+                raise
+            self._counter = itertools.cycle(range(2 ** 16))
+            metadata = self._call__("introspect", (), {})
+            self._log = logging.getLogger("rpc." + metadata["name"])
+            stream = metadata.get("stream", False)
+            members = dict(_client=self)
+
+            for name, info in metadata["members"].items():
+                if name.startswith("__") and name[2:-2] in SPECIAL_METHODS:
+                    continue
+                name, mtype, doc = info["name"], info["type"], info["doc"]
+                if mtype == "attribute":
+                    members[name] = _property(name, doc)
+                elif mtype == "method":
+                    members[name] = _method(name, doc)
+                elif mtype == "staticmethod":
+                    members[name] = _static_method(self, name, doc)
+                elif mtype == "classmethod":
+                    members[name] = _class_method(self, name, doc)
+
+                if name.startswith("__"):
+                    setattr(type(self.proxy), name, members[name])
+                    self._class_member.append(name)
+            klass = type(metadata["name"], (object,), members)
+            self._klass = klass
+            self._proxy = klass()
+
+    def _call__(self, code, args, kwargs):
+        timeout = kwargs.get("timeout", self._timeout)
+        with gevent.Timeout(timeout):
+            self.try_connect()
+            uniq_id = id(next(self._counter))
+            msg = msgpack.packb((uniq_id, code, args, kwargs), use_bin_type=True)
+            with self.wait_queue(self, uniq_id) as w:
+                while True:
+                    self._socket.sendall(msg)
+                    value = w.get()
+                    if isinstance(value, Exception):
+                        raise value
+                    elif isinstance(value, self.Retry):
+                        self.try_connect()
+                        continue
+                    return value
+
+    def _raw_read(self, socket):
+        unpacker = msgpack.Unpacker(encoding="utf-8")
+        try:
+            while True:
+                msg = socket.recv(8192)
+                if not msg:
+                    break
+                unpacker.feed(msg)
+                for m in unpacker:
+                    call_id = m[0]
+                    if call_id < 0:  # event:
+                        value, signal = m[1]
+                        louie.send(signal, self.proxy, value)
+                    else:
+                        return_values = m[1]
+                        wq = self._queues.get(call_id)
+                        if wq:
+                            wq.put(return_values)
+        finally:
+            try:
+                socket.close()
+            except:
+                pass
+            self._socket = None
+            self._reading_task = None
+            for w in self._queues.values():
+                w.put(self.Retry())
+            for name in self._class_member:
+                delattr(type(self.proxy), name)
+            self._class_member = list()
 
     def close(self):
-        self._client.close()
-        if hasattr(self._client, "_stream_task"):
-            self._client._stream_task.kill()
+        if self._reading_task:
+            self._reading_task.kill()
 
-    members["close"] = close
 
-    klass = type(metadata["name"], (object,), members)
-    proxy = klass()
+def Client(address, timeout=30., **kwargs):
+    client = _cnx(address)
 
-    if stream:
+    class Meta(type):
+        def __getattribute__(cls, *args):
+            try:
+                client.try_connect()
+            except:
+                # in case of isinstance and
+                # not connected don't know the type
+                if args[0] == "__class__":
+                    return type(object)
+                raise
+            return client._klass.__getattribute__(client._klass, *args)
 
-        def stream_task_ended(task):
-            if task.exception:
-                client._log.warning(
-                    "stream task terminated in error: %s", task.exception
-                )
-            else:
-                client._log.debug("stream task terminated")
+    class _Proxy(object, metaclass=Meta):
+        def __init__(self):
+            """
+            Create a rpc client with a pythonic API
 
-        def dispatch(proxy):
-            while True:
-                for signal, value in client.zerorpc_stream__():
-                    if signal is None:
-                        continue
-                    client._log.debug(
-                        "dispatching stream event signal=%r value=%r",
-                        signal,
-                        StripIt(value),
-                    )
-                    louie.send(signal, proxy, value)
+            Args:
+                address: connection address (ex: 'tcp://lid00c:8989')
+            Return:
+                a rpc client
 
-        client._stream_task = gevent.spawn(dispatch, proxy)
-        client._stream_task.link(stream_task_ended)
-    return proxy
+            """
+            kwargs.setdefault("connect_to", address)
+
+            client.proxy = self
+
+        def __getattribute__(self, name):
+            if name in ["close", "connect"]:
+                return getattr(client, name)
+
+            try:
+                client.try_connect()
+            except:
+                # in case of isinstance and
+                # not connected don't know the type
+                # return in that case _Proxy class
+                if name == "__class__":
+                    return type(object)
+                raise
+            return client._proxy.__getattribute__(name)
+
+        def __setattr__(self, name, value):
+            client.try_connect()
+            client._proxy.__setattr__(name, value)
+
+    return _Proxy()

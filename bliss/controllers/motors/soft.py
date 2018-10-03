@@ -102,3 +102,6 @@ class SoftController(Controller):
 
     def read_position(self, axis):
         return self._position()
+
+    def stop(self, axis):
+        pass

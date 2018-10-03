@@ -77,11 +77,6 @@ def test_software_position_trigger_master(beacon):
 
 
 def test_multi_top_master(beacon):
-
-    # This test is failing at the moment and should be investigated.
-    # Some greenlets are still running at the end of the test.
-    pytest.xfail()
-
     class Simu(SimulationDiodeSamplingCounter):
         def __init__(self, *args, **kwargs):
             SimulationDiodeSamplingCounter.__init__(self, *args, **kwargs)

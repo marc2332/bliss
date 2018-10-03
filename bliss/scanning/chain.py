@@ -467,8 +467,11 @@ class AcquisitionChainIter(object):
                     for preset in self._presets_list
                 ]
             )
-
-            gevent.joinall(preset_tasks, raise_error=True)
+            try:
+                gevent.joinall(preset_tasks, raise_error=True)
+            except:
+                gevent.killall(preset_tasks)
+                raise
 
             self._preset_iterators_list = list()
 
@@ -494,7 +497,11 @@ class AcquisitionChainIter(object):
 
         self._execute("_prepare", wait_between_levels=not self._parallel_prepare)
 
-        gevent.joinall(preset_iterators_tasks, raise_error=True)
+        try:
+            gevent.joinall(preset_iterators_tasks, raise_error=True)
+        except:
+            gevent.killall(preset_iterators_tasks)
+            raise
 
     def start(self):
         preset_tasks = list()
@@ -585,7 +592,12 @@ class AcquisitionChainIter(object):
             node = self._tree.get_node(dev)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
-                gevent.joinall(tasks, raise_error=True)
+                try:
+                    gevent.joinall(tasks, raise_error=True)
+                except:
+                    gevent.killall(tasks)
+                    raise
+
                 tasks = list()
                 prev_level = level
             func = getattr(dev, func_name)
@@ -595,7 +607,11 @@ class AcquisitionChainIter(object):
         # ensure that all tasks are executed
         # (i.e: don't raise the first exception on stop)
         if wait_all_tasks:
-            gevent.joinall(tasks)
+            try:
+                gevent.joinall(tasks)
+            except:
+                gevent.killall(tasks)
+                raise
 
         gevent.joinall(tasks, raise_error=True)
 

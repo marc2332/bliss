@@ -19,6 +19,7 @@ import numpy
 from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis
+from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.config.conductor import client
@@ -725,6 +726,7 @@ class Scan(object):
         try:
             iter_list = self.acq_chain.get_iter_list()
             current_iters = [x.next() for x in iter_list]
+            run_next_task = None
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                 self.prepare(self.scan_info, self.acq_chain._tree)
@@ -742,12 +744,18 @@ class Scan(object):
             finally:
                 gevent.killall(run_next_task)
         except BaseException as exc:
+            gevent.killall(prepare_tasks)
+            if run_next_task is not None:
+                gevent.killall(run_next_task)
+
             self._state = self.STOP_STATE
             with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                 stop_task = [
                     gevent.spawn(i.stop) for i in current_iters if i is not None
                 ]
-                gevent.joinall(stop_task)
+                with KillMask(nb_kill_allowed=1):
+                    gevent.joinall(stop_task)
+                gevent.killall(stop_task)
             raise
         else:
             self._state = self.STOP_STATE
@@ -755,7 +763,13 @@ class Scan(object):
                 stop_task = [
                     gevent.spawn(i.stop) for i in current_iters if i is not None
                 ]
-                gevent.joinall(stop_task, raise_error=True)
+                try:
+                    gevent.joinall(stop_task, raise_error=True)
+                except:
+                    with KillMask(nb_kill_allowed=1):
+                        gevent.joinall(stop_task)
+                    gevent.killall(stop_task)
+                    raise
         finally:
             self.set_ttl()
 

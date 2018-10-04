@@ -18,7 +18,7 @@ import numpy
 
 from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
-from bliss.common.cleanup import error_cleanup, axis as cleanup_axis
+from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
@@ -703,11 +703,6 @@ class Scan(object):
                     disconnect(dev, signal, self._device_event)
         self._devices = []
 
-    def close_nodes(self):
-        for node in self._nodes.values():
-            if hasattr(node, "close"):
-                node.close()
-
     def run(self):
         if hasattr(self._data_watch_callback, "on_state"):
             call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
@@ -722,54 +717,45 @@ class Scan(object):
         else:
             set_watch_event = None
 
-        current_iters = list()
+        current_iters = [i.next() for i in self.acq_chain.get_iter_list()]
+
         try:
-            iter_list = self.acq_chain.get_iter_list()
-            current_iters = [x.next() for x in iter_list]
-            run_next_task = None
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                 self.prepare(self.scan_info, self.acq_chain._tree)
-
                 prepare_tasks = [
                     gevent.spawn(i.prepare, self, self.scan_info) for i in current_iters
                 ]
-                gevent.joinall(prepare_tasks, raise_error=True)
+                try:
+                    gevent.joinall(prepare_tasks, raise_error=True)
+                finally:
+                    gevent.killall(prepare_tasks)
 
             self._state = self.START_STATE
-            # The first top_master will end the loop
-            try:
-                run_next_task = [gevent.spawn(self._run_next, i) for i in iter_list]
-                gevent.joinall(run_next_task, raise_error=True, count=1)
-            finally:
-                gevent.killall(run_next_task)
-        except BaseException as exc:
-            gevent.killall(prepare_tasks)
-            if run_next_task is not None:
-                gevent.killall(run_next_task)
+            run_next_tasks = [gevent.spawn(self._run_next, i) for i in current_iters]
 
-            self._state = self.STOP_STATE
-            with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                stop_task = [
-                    gevent.spawn(i.stop) for i in current_iters if i is not None
-                ]
-                with KillMask(masked_kill_nb=1):
-                    gevent.joinall(stop_task)
-                gevent.killall(stop_task)
-            raise
-        else:
-            self._state = self.STOP_STATE
-            with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                stop_task = [
-                    gevent.spawn(i.stop) for i in current_iters if i is not None
-                ]
-                try:
-                    gevent.joinall(stop_task, raise_error=True)
-                except:
-                    with KillMask(masked_kill_nb=1):
-                        gevent.joinall(stop_task)
-                    gevent.killall(stop_task)
-                    raise
+            with capture_exceptions(raise_index=0) as capture:
+                with capture():
+                    try:
+                        # The first top_master will end the loop (count=1)
+                        gevent.joinall(run_next_tasks, raise_error=True, count=1)
+                    finally:
+                        gevent.killall(run_next_tasks)
+
+                self._state = self.STOP_STATE
+
+                with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
+                    stop_task = [
+                        gevent.spawn(i.stop) for i in current_iters if i is not None
+                    ]
+                    with capture():
+                        try:
+                            gevent.joinall(stop_task, raise_error=True)
+                        except:
+                            with KillMask(masked_kill_nb=1):
+                                gevent.joinall(stop_task)
+                            gevent.killall(stop_task)
+                            raise
         finally:
             self.set_ttl()
 
@@ -785,7 +771,9 @@ class Scan(object):
             if self._data_watch_task is not None:
                 self._data_watch_task.kill()
             # Close nodes
-            self.close_nodes()
+            for node in self._nodes.values():
+                if hasattr(node, "close"):
+                    node.close()
 
     def _run_next(self, next_iter):
         next_iter.start()

@@ -90,7 +90,7 @@ def test_multi_top_master(beacon):
             return value
 
     mot = beacon.get("m0")
-    start, stop, npoints, count_time = (0, 1, 100, 2)
+    start, stop, npoints, count_time = (0, 1, 20, 1)
     chain = AcquisitionChain(parallel_prepare=True)
     master = SoftwarePositionTriggerMaster(mot, start, stop, npoints, time=count_time)
     count_time = (float(count_time) / npoints) - 10e-3

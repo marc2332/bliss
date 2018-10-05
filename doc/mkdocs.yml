@@ -35,6 +35,8 @@ nav:
         - Scanning:
                 - Counters and measurement groups: scan_ctmg.md
                 - Default scans: scan_default.md
+                - Scans' presets: scan_presets.md
+                - Acquisition Chain: acq_chain.md
                 - Data saving: scan_saving.md
                 - BLISS scan engine explained: scan_engine.md
                 - Continuous scans: scan_continuous.md

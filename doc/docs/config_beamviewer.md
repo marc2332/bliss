@@ -21,7 +21,7 @@ ESRF "Standards" beamviewers (EBV) are composed by:
         * diamond for white beam
         * YAG for monochromatic beam
         * Energy dependent for pink beam
-* a diode read by novelec module
+* a diode read by novelec module providing an output in frequency.
 * a LED that can be swiched ON and OFF.
 * on MX beamlines: a foil to attenuate beam
 
@@ -42,9 +42,9 @@ device server* (see: http://wikiserv.esrf.fr/bliss/index.php/Basler)
 
 "standard" for 1 BVB:
 
-* 750-436
-* 750-530
-* 750-479
+* 750-436: 8-channel digital input; 24VDC, 3.0ms 1-conductor connection; low-side switching
+* 750-530: 8-channel digital output; 24 VDC; 0.5 A
+* 750-479: 2-channel analog input module (ADC)
 
 
 ## Configuration

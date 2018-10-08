@@ -518,8 +518,29 @@ class Config(object):
                     parents = new_node
                 elif parents:
                     new_node = Node(self, fs_node, path)
-                    parents._parent = new_node
-                    new_node["__children__"] = [parents]
+                    # insertion in the middle of fs_node and children
+                    # nodes
+                    keys_to_remove = list()
+                    for key, value in fs_node.iteritems():
+                        if isinstance(value, Node):
+                            new_node[key] = value
+                            value._parent = new_node
+                            keys_to_remove.append(key)
+                        elif isinstance(value, list):
+                            remove_key = False
+                            for n in value:
+                                if isinstance(n, Node):
+                                    n._parent = new_node
+                                    remove_key = True
+                            if remove_key:
+                                new_node[key] = value
+                                keys_to_remove.append(key)
+                    for key in keys_to_remove:
+                        fs_node.pop(key, None)
+
+                    if parents is self._root_node:
+                        new_node._parent = None
+
                     parents = new_node
                 elif parents is None:
                     parents = Node(self, fs_node, path)
@@ -767,7 +788,11 @@ class Config(object):
         name = node.get(self.NAME_KEY)
         if name is not None and not name.startswith("$"):
             if name in self._name2node:
-                pass  # should raise an error name duplicate
+                prev_node = self.get_config(name)
+                raise ValueError(
+                    "Duplicate key name (%s) in config files "
+                    "(%s) and (%s)" % (name, prev_node.filename, node.filename)
+                )
             else:
                 self._name2node[name] = node
 

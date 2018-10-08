@@ -517,9 +517,13 @@ class Config(object):
                     new_node["__children__"] = parents
                     parents = new_node
                 elif parents:
-                    new_node = Node(self, fs_node, path)
+                    new_node = Node(self, parents._parent, path)
                     parents._parent = new_node
                     new_node["__children__"] = [parents]
+                    if fs_key:
+                        fs_node.pop(fs_key)
+                        fs_node[fs_key] = new_node
+
                     parents = new_node
                 elif parents is None:
                     parents = Node(self, fs_node, path)

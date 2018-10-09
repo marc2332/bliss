@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import enum
+import time
+import gevent
 from bliss.comm.util import get_comm, get_comm_type, TCP, SERIAL
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
@@ -94,7 +96,7 @@ class PI_HEXA(Controller):
             },
             887: {
                 self.COMMAND.POSITIONS: "\3",
-                self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x)),
+                self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x, 16)),
                 self.COMMAND.MOVE_SEP: " ",
                 self.COMMAND.INIT: "FRF X",
             },
@@ -150,6 +152,7 @@ class PI_HEXA(Controller):
 
     def stop_all(self, *motions):
         self.command("STP")
+        self._check_error_and_raise(ignore_stop=True)
 
     def command(self, cmd, nb_line=None, **kwargs):
         """
@@ -184,9 +187,11 @@ class PI_HEXA(Controller):
         else:
             return positions
 
-    def _check_error_and_raise(self, **kwargs):
+    def _check_error_and_raise(self, ignore_stop=False, **kwargs):
         err = int(self.command("ERR?", **kwargs))
         if err > 0:
+            if ignore_stop and err == 10:  # stopped by user
+                return
             human_error = get_error_str(err)
             errors = [self.name, err, human_error]
             raise RuntimeError("Device {0} error nb {1} => ({2})".format(*errors))

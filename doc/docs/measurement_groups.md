@@ -16,7 +16,7 @@ a detector, a hutch or an experiment.
 
 ## Creation
 
-To create a measurement group, you can define it in the YML file of your session setup:
+A measurement group can be defined it in the YML file of a session:
 
     - class: MeasurementGroup
       name: align_counters
@@ -34,7 +34,7 @@ To create a measurement group, you can define it in the YML file of your session
 
 ## Usage
 
-Once your measurement group is created, you can use it in a BLISS session:
+Once a measurement group is created, it can be used in a BLISS session:
 
     CYRIL [1]: align_counters
       Out [1]: MeasurementGroup:  align_counters (default)
@@ -45,9 +45,8 @@ Once your measurement group is created, you can use it in a BLISS session:
                 simct2
                 simct3
 
-
-You can pass one or many measurement group as argument to a `scan` or `ct` procedure
-to indicate which counters to use:
+One or many measurement group(s) can be passed as argument to a `scan`
+or `ct` procedure to indicate which counters to use:
 
     CYRIL [20]: print MG1.available, MG2.available         #  4 counters defined
     ['simct2', 'simct3'] ['simct4', 'simct5']
@@ -70,7 +69,7 @@ to indicate which counters to use:
 
 ### List of measurement groups
 
-To get the list of all available measurement groups, you can use:
+To get the list of all available measurement groups:
 
     CYRIL [23]: from bliss.common import measurementgroup
     
@@ -80,12 +79,12 @@ To get the list of all available measurement groups, you can use:
 ### Active measurement group
 
 If no measurement group is indicated to the scan, it uses a default
-one : the `active measurement group`.
+one: the `active measurement group`.
 
 There is always only one active measurement group at the same time.
 
 `ACTIVE_MG` is a global to know the measurement group which is
-`active` at current time (same output than `align_counters`) :
+`active` at current time (same output than `align_counters`):
 
     CYRIL [31]: ACTIVE_MG
       Out [31]: MeasurementGroup:  align_counters (default)
@@ -176,37 +175,38 @@ A counter can be added/removed to/from a measurement group.
                  simct2
 
 
-### Measurement group of measurement group
+### Include measurement group's counters
+Counters of a measurement group can be included into another
+measurement group using `include` keyword in the YML file:
 
-    CYRIL [1]: MG1
-      Out [1]: MeasurementGroup: MG1 (state='default')
+    - class: MeasurementGroup
+      name: MG2
+      counters:
+      - simct3
+      - simct4
+      include:
+      - MG1
+
+This will make MG2 to look like:
+
+    CYRIL [2]: MG2
+      Out [2]: MeasurementGroup: MG2 (state='default')
                  - Existing states : 'default'
                
                  Enabled  Disabled
                  -------  -------
-                 simct1
-                 simct2
-
-    
-    CYRIL [2]: MG1.add(MG2)
-    
-    CYRIL [3]: MG1
-      Out [3]: MeasurementGroup: MG1 (state='default')
-                 - Existing states : 'default'
-               
-                 Enabled  Disabled
-                 -------  -------
-                 simct1
-                 simct2
-                 MG2
+                 simct3   
+                 simct4   
+                 simct1   
+                 simct2   
 
 
 ### States
 
-
-A measurement group can have many `states` to denote different usages. You can, for
-example, disable some counters during an alignment and, in case of
-problem, switch to the state where diagnostic counters are enabled.
+A measurement group can have many `states` to denote different
+usages. For example, it's possible to disable some counters during an
+alignment and, in case of problem, to switch to the state where
+diagnostic counters are enabled.
 
 At creation, a measurement group is in the `default` state:
 
@@ -219,7 +219,8 @@ At creation, a measurement group is in the `default` state:
                 simct2   simct1         #   <-- counters simct1 and simct2
                          simct3         #       were previously disabled
 
-You can create a new state in a measurement group with the `switch_state(<new_state_name>)` method:
+A new state can be created in a measurement group with the `switch_state(<new_state_name>)`
+method:
 
     CYRIL [42]: align_counters.switch_state("diag_mono")
     
@@ -233,16 +234,16 @@ You can create a new state in a measurement group with the `switch_state(<new_st
     simct3
 
 
-You can now customize the status of each counter within this state:
+To customize the status of each counter within this state:
 
     CYRIL [46]: align_counters.disable = "simct3"
 
-Use `state_names` propertie to get the list of available states:
+The propertie `state_names` returns the list of available states:
 
     CYRIL [47]: align_counters.state_names
       Out [47]: ['diag_mono', 'default']
 
-Then, you can switch from a state to another depending on your needs:
+Then, it's possible to switch from a state to another:
 
     CYRIL [50]: align_counters.switch_state("default")
 

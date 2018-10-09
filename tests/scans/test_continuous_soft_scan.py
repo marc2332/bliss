@@ -17,8 +17,6 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.controllers.simulation_diode import SimulationDiodeSamplingCounter
 from bliss.common.scans import DEFAULT_CHAIN
 
 
@@ -76,19 +74,7 @@ def test_software_position_trigger_master(beacon):
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 
-def test_multi_top_master(beacon):
-    class Simu(SimulationDiodeSamplingCounter):
-        def __init__(self, *args, **kwargs):
-            SimulationDiodeSamplingCounter.__init__(self, *args, **kwargs)
-            self.store_time = list()
-            self.store_values = list()
-
-        def read(self, *args, **kwargs):
-            self.store_time.append(time.time())
-            value = SimulationDiodeSamplingCounter.read(self, *args, **kwargs)
-            self.store_values.append(value)
-            return value
-
+def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     mot = beacon.get("m0")
     start, stop, npoints, count_time = (0, 1, 20, 1)
     chain = AcquisitionChain(parallel_prepare=True)
@@ -99,13 +85,13 @@ def test_multi_top_master(beacon):
     timer = SoftwareTimerMaster(count_time, name="fast", npoints=npoints)
     chain.add(master, timer)
 
-    diode2 = Simu("diode2", None)
-    acquisition_device = SamplingCounterAcquisitionDevice(
-        diode2, count_time=count_time, npoints=npoints
+    acquisition_device = diode_acq_device_factory.get(
+        count_time=count_time, npoints=npoints
     )
+    diode1 = acquisition_device.device
+    diode2 = diode
     chain.add(timer, acquisition_device)
 
-    diode1 = Simu("diode1", None)
     scan_params = {"npoints": 0, "count_time": count_time * 2.}
     chain.append(DEFAULT_CHAIN.get(scan_params, (diode2,)))
 

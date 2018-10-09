@@ -54,12 +54,12 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
 
 
 def test_software_position_trigger_master(beacon):
-    roby = beacon.get("roby")
-    roby.velocity(10)
+    robz = beacon.get("robz")
+    robz.velocity(10)
     chain = AcquisitionChain()
     chain.add(
-        SoftwarePositionTriggerMaster(roby, 0, 1, 5),
-        DebugMotorMockupAcquisitionDevice("debug", roby),
+        SoftwarePositionTriggerMaster(robz, 0, 1, 5),
+        DebugMotorMockupAcquisitionDevice("debug", robz),
     )
     # Run scan
     s = Scan(chain, writer=None)
@@ -69,8 +69,10 @@ def test_software_position_trigger_master(beacon):
     data = s.get_data()
     # Typical position error is +0.025 in position unit
     # That's because of redis + gevent delays (~2.5 ms)
-    expected_triggers = [0.01, 0.03, 0.05, 0.07, 0.09]
-    assert data["roby"] == pytest.approx(data["debug_pos"], abs=0.2)
+    assert len(data["robz"]) == 5
+    assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
+    expected_triggers = [0.034, 0.054, 0.074, 0.09, 0.11]
+    assert len(data["debug_time"]) == 5
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 

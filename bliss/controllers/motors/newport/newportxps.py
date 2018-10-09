@@ -8,14 +8,15 @@
 from __future__ import print_function
 from __future__ import absolute_import
 
+import time
 import gevent
 
+from bliss.common import event
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
-from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.controllers.motor import Controller
-from bliss.controllers.motors.newport.XPS import XPS
+from bliss.controllers.motors.newport.xps import XPS
 
 """
 Bliss controller for XPS-Q motor controller.
@@ -49,29 +50,18 @@ controller:
 """
 
 
-class NewportHook(MotionHook):
-    def __init__(self, name, config):
-        self.config = config
-        self.name = name
-        super(NewportHook, self).__init__()
-
-    def post_move(self, motion_list):
-        """
-        Newport motors report motion complete when in actual
-        fact (for DC motors at least) there is a settling time.
-        """
-        gevent.sleep(1.0)
-
-
 class NewportXPS(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
-        elog.level(10)
+
+    def move_done_event_received(self, state, axis=None):
+        if state is True:
+            gevent.sleep(2)
 
     def initialize(self):
         elog.debug("initialize() called")
-        comm_cfg = {"tcp": {"url": self.config.get("tcp")}}
         self.__nbAxes = self.config.get("nbAxes", int)
+        comm_cfg = self.config.config_dict
         self.__xps = XPS(comm_cfg)
 
     def finalize(self):
@@ -94,12 +84,13 @@ class NewportXPS(Controller):
         elif error == -22:
             elog.debug("NewportXPS: Controller already initialised")
         else:
-            elog.error("NewportXPS: Controller initialise failed: ", error)
+            elog.error("NewportXPS: Controller initialise failed: " + error)
 
         if axis.autoHome:
             self.home_search(axis, False)
         self.read_velocity(axis)
 
+        event.connect(axis, "move_done", self.move_done_event_received)
         elog.debug("initialize_axis() complete")
 
     def finalize_axis(self):
@@ -112,24 +103,22 @@ class NewportXPS(Controller):
         elog.debug("read_position() called")
         reply = self.__xps.GroupPositionCurrentGet(axis.group, self.__nbAxes)
         if reply[0] != 0:
-            elog.error("NewportXPS Error: Failed to read position", reply[1])
+            elog.error("NewportXPS Error: Failed to read position" + reply[1])
         else:
             return reply[int(axis.channel)]
 
     def read_velocity(self, axis):
         elog.debug("read_velocity() called")
         results = self.__xps.PositionerSGammaParametersGet(axis.group + "." + axis.name)
-        print(results)
         if results[0] != 0:
             elog.error(
-                "NewportXPS Error: Unexpected response to read velocity", results[1]
+                "NewportXPS Error: Unexpected response to read velocity" + results[1]
             )
         else:
-            print(results)
             return results[1]
 
     def set_velocity(self, axis, velocity):
-        elog.debug("set_velocity() called")
+        elog.debug("set_velocity() called" + str(velocity))
         error, reply = self.__xps.PositionerSGammaParametersSet(
             axis.group + "." + axis.name,
             velocity,
@@ -139,16 +128,16 @@ class NewportXPS(Controller):
         )
         if error != 0:
             elog.error(
-                "NewportXPS Error: Unexpected response to setting velocity", reply
+                "NewportXPS Error: Unexpected response to setting velocity" + reply
             )
 
     def read_acceleration(self, axis):
         elog.debug("read_acceleration() called")
         results = self.__xps.PositionerSGammaParametersGet(axis.group + "." + axis.name)
-        print(results)
         if results[0] != 0:
             elog.error(
-                "NewportXPS Error: Unexpected response to read acceleration", results[1]
+                "NewportXPS Error: Unexpected response to read acceleration"
+                + results[1]
             )
         else:
             return results[2]
@@ -164,26 +153,29 @@ class NewportXPS(Controller):
         )
         if error != 0:
             elog.error(
-                "NewportXPS Error: Unexpected response to setting acceleration", reply
+                "NewportXPS Error: Unexpected response to setting acceleration" + reply
             )
 
     def start_one(self, motion):
         elog.debug("start_one() called")
-        self.cv_trigger(motion.axis)
         motor_name = motion.axis.group + "." + motion.axis.name
         error, reply = self.__xps.GroupMoveAbsolute(motor_name, [motion.target_pos])
-        print("Reply:", reply)
         if error != 0:
-            elog.error("NewportXPS Error: Unexpected response to move absolute", reply)
+            elog.error("NewportXPS Error: Unexpected response to move absolute" + reply)
 
     def start_all(self, *motion_list):
         elog.debug("start_all() called")
-        target_positions = [0, 0]
-        for motion in motion_list:
-            target_positions[int(motion.axis.channel) - 1] = motion.target_pos
-        error, reply = self.__xps.GroupMoveAbsolute(motion.axis.group, target_positions)
-        if error != 0:
-            elog.error("NewportXPS Error: ", reply)
+        if len(motion_list) == 1:
+            self.start_one(motion_list[0])
+        else:
+            target_positions = [0, 0]
+            for motion in motion_list:
+                target_positions[int(motion.axis.channel) - 1] = motion.target_pos
+            error, reply = self.__xps.GroupMoveAbsolute(
+                motion.axis.group, target_positions
+            )
+            if error != 0:
+                elog.error("NewportXPS Error: " + reply)
 
     def stop(self, motion):
         elog.debug("stop() called")
@@ -193,15 +185,18 @@ class NewportXPS(Controller):
         if error == -22:
             elog.info("NewportXPS: All positioners idle")
         elif error != 0 and error != -22:
-            elog.error("NewportXPS Error: ", reply)
+            elog.error("NewportXPS Error: " + reply)
 
     def stop_all(self, *motion_list):
         elog.debug("stop_all() called")
-        error, reply = self.__xps.GroupMoveAbort(motion_list[0].axis.group)
-        if error == -22:
-            elog.info("NewportXPS: All positioners idle")
-        elif error != 0:
-            elog.error("NewportXPS Error: ", reply)
+        if len(motion_list) == 1:
+            self.stop(motion_list[0])
+        else:
+            error, reply = self.__xps.GroupMoveAbort(motion_list[0].axis.group)
+            if error == -22:
+                elog.info("NewportXPS: All positioners idle")
+            elif error != 0:
+                elog.error("NewportXPS Error: " + reply)
 
     def home_search(self, axis, switch):
         elog.debug("home_search() called")
@@ -213,7 +208,7 @@ class NewportXPS(Controller):
         elif error == -22:
             elog.info("NewportXPS: Controller already homed")
         else:
-            elog.error("NewportXPS: Controller homing failed: ", error)
+            elog.error("NewportXPS: Controller homing failed: " + error)
 
     def home_state(self, axis):
         elog.debug("home_state() called")
@@ -227,7 +222,7 @@ class NewportXPS(Controller):
         elog.debug("state() called")
         error, status = self.__xps.GroupStatusGet(axis.group)
         if error != 0:
-            elog.error("NewportXPS Error: Failed to read status", status)
+            elog.error("NewportXPS Error: Failed to read status" + status)
             return AxisState("FAULT")
         if status in [
             0,  # NOTINIT state
@@ -354,7 +349,7 @@ class NewportXPS(Controller):
         elog.debug("abort() called")
         error, reply = self.__xps.GroupKill(axis.group)
         if error != 0:
-            elog.error("NewportXPS Error: abort failed", reply)
+            elog.error("NewportXPS Error: abort failed" + reply)
 
     @object_method()
     def cv_trigger(self, axis):
@@ -371,19 +366,20 @@ class NewportXPS(Controller):
             [event1], [0], [0], [0], [0]
         )
         if error != 0:
-            elog.error("NewportXPS Error: ", reply)
+            elog.error("NewportXPS Error: " + reply)
         else:
             error, reply = self.__xps.EventExtendedConfigurationActionSet(
                 [action], [4], [0], [0], [0]
             )
             if error != 0:
-                elog.error("NewportXPS Error: ", reply)
+                elog.error("NewportXPS Error: " + reply)
             else:
                 error, reply = self.__xps.EventExtendedStart()
                 if error != 0:
-                    elog.error("NewportXPS Error: ", reply)
-                elog.debug("cv_trigger eventid ", reply)
+                    elog.error("NewportXPS Error: " + reply)
+                elog.debug("cv_trigger eventid " + str(reply))
         elog.debug("cv_trigger stop")
+        return reply
 
     @object_method()
     def enable_position_compare(self, axis, start, stop, step):
@@ -397,16 +393,15 @@ class NewportXPS(Controller):
                  will generate pulses between 5mm and 25mm every 0.002mm
         """
         motor_name = axis.group + "." + axis.name
-        elog.debug(motor_name, start, stop, step)
         error, reply = self.__xps.PositionerPositionCompareSet(
             motor_name, start, stop, step
         )
         if error != 0:
-            elog.error("NewportXPS Error: ", reply)
+            elog.error("NewportXPS Error: " + reply)
         else:
             error, reply = self.__xps.PositionerPositionCompareEnable(motor_name)
             if error != 0:
-                elog.error("NewportXPS Error: ", reply)
+                elog.error("NewportXPS Error: " + reply)
 
     @object_method()
     def disable_position_compare(self, axis):
@@ -416,7 +411,7 @@ class NewportXPS(Controller):
         motor_name = axis.group + "." + axis.name
         error, reply = self.__xps.PositionerPositionCompareDisable(motor_name)
         if error != 0:
-            elog.error("NewportXPS Error: ", reply)
+            elog.error("NewportXPS Error: " + reply)
 
     @object_method()
     def event_list(self, axis):
@@ -424,9 +419,10 @@ class NewportXPS(Controller):
         if error == -83:
             elog.debug("NewportXPS: No events in list")
         elif error != 0:
-            elog.error("NewportXPS Error: ", reply)
+            elog.error("NewportXPS Error: " + reply)
         else:
-            elog.debug("Event id list: ", reply)
+            elog.debug("Event id list: " + reply)
+            return reply
 
     @object_method()
     def event_remove(self, axis, id):

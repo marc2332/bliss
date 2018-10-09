@@ -14,6 +14,7 @@ pages:
                 - MCA: config_mca.md
                 - Temperature controllers: config_tempctrl.md
                 - P201: config_p201.md
+                - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md
                 - Opiom: config_opiom.md
                 - PEPU: config_pepu.md

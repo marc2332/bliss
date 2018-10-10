@@ -43,8 +43,8 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         self.status = None
         self.last_point_ready = None
         self.last_error = None
-        self.point_event = gevent.event.Event()
-        self.point_event.set()
+        self._ready_event = gevent.event.Event()
+        self._ready_event.set()
         if acq_mode in self.SoftTrigModes:
             trigger_type = self.SOFTWARE
         else:
@@ -62,11 +62,11 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         if signal == StatusSignal:
             self.status = value
             if value == AcqStatus.Ready:
-                self.point_event.set()
+                self._ready_event.set()
         elif signal == PointNbSignal:
             self.last_point_ready = value
             if value >= 0 and not self.use_internal_clock:
-                self.point_event.set()
+                self._ready_event.set()
         elif signal == ErrorSignal:
             self.last_error = value
 
@@ -104,6 +104,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         self.disconnect()
 
     def trigger(self):
+        self._ready_event.clear()
         self.trigger_slaves()
 
         if self.first_trigger:
@@ -112,6 +113,8 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         else:
             self.device.trigger_point()
 
+    def trigger_ready(self):
+        return self._ready_event.is_set()
+
     def wait_ready(self):
-        self.point_event.wait()
-        self.point_event.clear()
+        self._ready_event.wait()

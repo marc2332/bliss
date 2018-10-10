@@ -104,6 +104,9 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         finally:
             self.movable.velocity(self.initial_velocity)
 
+    def trigger_ready(self):
+        return not self.movable.is_moving
+
     def wait_ready(self):
         self.movable.wait_move()
 
@@ -172,6 +175,9 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             # Emit motor position
             else:
                 self.channels[0].emit(position)
+
+    def trigger_ready(self):
+        return MotorMaster.trigger_ready() and (self.task is None or self.task.ready())
 
     def wait_ready(self):
         MotorMaster.wait_ready(self)
@@ -458,6 +464,9 @@ class CalcAxisTrajectoryMaster(AcquisitionMaster):
 
         self.trajectory.move_to_end()
 
+    def trigger_ready(self):
+        return not self.trajectory.is_moving
+
     def wait_ready(self):
         self.trajectory.wait_move()
 
@@ -708,9 +717,11 @@ class SweepMotorMaster(AcquisitionMaster):
         self.movable.move(real_end, wait=False)
         self.trigger_slaves()
 
+    def trigger_ready(self):
+        return not self.movable.is_moving
+
     def wait_ready(self):
         self.movable.wait_move()
-        self.movable.velocity(self.initial_speed)
 
     def stop(self):
         self.movable.stop()

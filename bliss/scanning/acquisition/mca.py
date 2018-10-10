@@ -172,6 +172,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
         """Send a software trigger."""
         self.acquisition_state.move(self.READY, self.TRIGGERED)
 
+    def trigger_ready(self):
+        if self.soft_trigger_mode:
+            return self.acquisition_state.state == self.READY
+        return True
+
     def wait_ready(self):
         """Block until finished."""
         if self.soft_trigger_mode:

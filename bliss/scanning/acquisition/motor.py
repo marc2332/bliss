@@ -174,10 +174,12 @@ class SoftwarePositionTriggerMaster(MotorMaster):
                 self.channels[0].emit(position)
 
     def wait_ready(self):
-        if self.task is not None:
-            self.task.get()
-            self.task = None
         MotorMaster.wait_ready(self)
+        if self.task is not None:
+            try:
+                self.task.get()
+            finally:
+                self.task = None
 
 
 class JogMotorMaster(AcquisitionMaster):

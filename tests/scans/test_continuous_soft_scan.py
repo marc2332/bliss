@@ -146,3 +146,32 @@ def test_scan_too_fast(beacon, diode_acq_device_factory):
             # aborted due to bad triggering on slaves
             s.run()
         assert "Aborted due to" in str(e_info.value)
+
+
+def test_scan_failure(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(2)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(
+        count_time=0.1, npoints=5, trigger_fail=True
+    )
+    diode1 = acquisition_device_1.device
+    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    diode2 = acquisition_device_2.device
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    chain.add(master, acquisition_device_2)
+
+    # Run scan
+    s = Scan(chain, writer=None)
+    with pytest.raises(RuntimeError) as e_info:
+        s.run()
+
+    # make sure it is really our exception, not something else
+    assert str(e_info.value) == "Trigger failure"
+    assert len(diode1.store_values) == 0
+    assert acquisition_device_1.stop_flag
+    assert acquisition_device_2.stop_flag
+    assert pytest.approx(
+        acquisition_device_1.stop_time, acquisition_device_2.stop_time, abs=1e-2
+    )

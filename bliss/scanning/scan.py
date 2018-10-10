@@ -753,7 +753,7 @@ class Scan(object):
                 stop_task = [
                     gevent.spawn(i.stop) for i in current_iters if i is not None
                 ]
-                with KillMask(nb_kill_allowed=1):
+                with KillMask(masked_kill_nb=1):
                     gevent.joinall(stop_task)
                 gevent.killall(stop_task)
             raise
@@ -766,7 +766,7 @@ class Scan(object):
                 try:
                     gevent.joinall(stop_task, raise_error=True)
                 except:
-                    with KillMask(nb_kill_allowed=1):
+                    with KillMask(masked_kill_nb=1):
                         gevent.joinall(stop_task)
                     gevent.killall(stop_task)
                     raise

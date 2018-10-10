@@ -631,7 +631,7 @@ def test_tango_tfg_timing_info(tfg):
             -1,
         ],
     )
-    tfg._control.setupTrig.assert_called_once_with([196, 16, 0, 0.5, 0])
+    tfg._control.setupTrig.assert_called_once_with([192, 16, 0, 0.5, 0])
     assert tfg.external_start is False
     assert tfg.nbframes == 7
     assert tfg.cycles == 1

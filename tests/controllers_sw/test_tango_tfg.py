@@ -485,7 +485,7 @@ def test_tango_tfg_timing_info(tfg):
             -1,
         ],
     )
-    tfg._control.setupTrig.assert_called_once_with([128, 9, 0.2, 0, 0])
+    tfg._control.setupTrig.assert_called_once_with([160, 9, 0.2, 0, 0])
     assert tfg.external_start is False
     assert tfg.nbframes == 7
     assert tfg.cycles == 1
@@ -561,7 +561,7 @@ def test_tango_tfg_timing_info(tfg):
             -1,
         ],
     )
-    tfg._control.setupTrig.assert_called_once_with([128, 16, 0.2, 0.5, 0])
+    tfg._control.setupTrig.assert_called_once_with([224, 16, 0.2, 0.5, 0])
     tfg._control.setupPort.assert_called_once_with([8, 8])
     assert tfg.external_start is False
     assert tfg.nbframes == 7
@@ -631,7 +631,7 @@ def test_tango_tfg_timing_info(tfg):
             -1,
         ],
     )
-    tfg._control.setupTrig.assert_called_once_with([128, 16, 0, 0.5, 0])
+    tfg._control.setupTrig.assert_called_once_with([196, 16, 0, 0.5, 0])
     assert tfg.external_start is False
     assert tfg.nbframes == 7
     assert tfg.cycles == 1

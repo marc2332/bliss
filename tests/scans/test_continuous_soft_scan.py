@@ -105,3 +105,18 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
         len(diode2.store_values) - len(diode1.store_values),
         len(diode2.store_values) * 0.1,
     )
+
+
+def test_scan_too_fast(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(10)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    s = Scan(chain, writer=None)
+    with gevent.Timeout(6):
+        with pytest.raises(RuntimeError) as e_info:
+            # aborted due to bad triggering on slaves
+            s.run()
+        assert "Aborted due to" in str(e_info.value)

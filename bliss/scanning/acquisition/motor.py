@@ -140,6 +140,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
 
     def stop(self):
         self.movable.stop()
+        event.disconnect(self.movable, "internal_state", self.on_state_change)
 
     def trigger(self):
         return self._start_move()
@@ -176,7 +177,6 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         if self.task is not None:
             self.task.get()
             self.task = None
-        event.disconnect(self.movable, "internal_state", self.on_state_change)
         MotorMaster.wait_ready(self)
 
 

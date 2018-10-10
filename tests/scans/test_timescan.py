@@ -6,9 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import numpy
 from bliss import setup_globals
 from bliss.common import scans
-import numpy
+from bliss.scanning.scan import Scan
+from bliss.scanning.chain import AcquisitionChain
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 def test_timescan(session):
@@ -24,3 +27,18 @@ def test_ct(beacon):
     # test with integrating counter defined in yaml config
     integ_diode = beacon.get("integ_diode")
     assert scans.ct(0.1, integ_diode)
+
+
+def test_long_trigger_timescan(beacon, diode_acq_device_factory):
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(
+        count_time=0.1, npoints=3, trigger_delay=1
+    )
+    master = SoftwareTimerMaster(0.1, name="timer", npoints=3)
+    chain.add(master, acquisition_device_1)
+
+    # Run scan
+    s = Scan(chain, writer=None)
+    s.run()
+
+    assert len(s.get_data()) == 3

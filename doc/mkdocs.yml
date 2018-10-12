@@ -2,7 +2,7 @@ site_name: Bliss documentation
 repo_name: 'bliss/bliss'
 repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 use_directory_urls: false
-pages:
+nav:
         - Installation: index.md
         - Getting started: getting_started.md
         - Configuration:

@@ -107,6 +107,32 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     )
 
 
+def test_interrupted_scan(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(2)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    chain.add(master, acquisition_device_2)
+    # Run scan
+    s = Scan(chain, writer=None)
+    scan_task = gevent.spawn(s.run)
+
+    gevent.sleep(0.1)
+    assert s._state == Scan.START_STATE
+
+    try:
+        scan_task.kill(KeyboardInterrupt)
+    except:
+        assert scan_task.ready()
+
+    assert s._state == Scan.IDLE_STATE
+    assert acquisition_device_1.stop_flag
+    assert acquisition_device_2.stop_flag
+
+
 def test_scan_too_fast(beacon, diode_acq_device_factory):
     robz = beacon.get("robz")
     robz.velocity(10)

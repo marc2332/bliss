@@ -1,6 +1,6 @@
 mkdocs
 mkdocs-material
 pygments
-pymdown-extensions
+pymdown-extensions==5.0
 markdown-inline-graphviz
 Markdown < 3

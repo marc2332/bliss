@@ -649,7 +649,8 @@ class Scan(object):
                 self._data_watch_callback_event.set()
 
     def _channel_event(self, event_dict, signal=None, sender=None):
-        self._nodes[sender].store(event_dict)
+        with KillMask():
+            self._nodes[sender].store(event_dict)
 
         self.__trigger_data_watch_callback(signal, sender)
 

@@ -29,7 +29,6 @@ def assert_data_consistency(scan_data, realtime):
 # and the 'Aborted due to bad triggering' exception is raised ;
 # however, the reading task of the Mca acq device cannot stop because
 # it is stuck in waiting for TRIGGERED state
-@pytest.mark.skip
 def test_mca_continuous_soft_scan(beacon):
     m0 = beacon.get("roby")
     # Get mca

@@ -164,7 +164,9 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def stop(self):
         """Stop the acquistion."""
-        if not self.soft_trigger_mode:
+        if self.soft_trigger_mode:
+            self._reading_task.kill()
+        else:
             self.device.stop_acquisition()
         self.acquisition_state.goto(self.READY)
 

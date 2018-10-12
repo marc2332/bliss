@@ -254,7 +254,8 @@ class AcquisitionMaster(object):
         for slave, task in self.__triggers:
             if not slave.trigger_ready() or not task.successful():
                 invalid_slaves.append(slave)
-                task.get()  # raise task exception, if any
+                if task.ready():
+                    task.get()  # raise task exception, if any
                 # otherwise, kill the task with RuntimeError
                 task.kill(
                     RuntimeError(

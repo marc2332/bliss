@@ -92,10 +92,12 @@ def ct2(request):
     }
     try:
         p201 = create_and_configure_device(cfg)
-        p201.acq_nb_points = request.param
-        yield p201
+        try:
+            p201.acq_nb_points = request.param
+            yield p201
+        finally:
+            p201.close()
     finally:
-        p201.disconnect()
         proc.terminate()
 
 
@@ -104,7 +106,7 @@ def data_tests(ct2, expected_data):
 
     # get all data (does not consume it)
     data = ct2.get_data()
-    assert data == pytest.approx(expected_data)
+    assert pytest.approx(data, expected_data)
 
     from_index = 3
     if expected_nb_points > from_index:

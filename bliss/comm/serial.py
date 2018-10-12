@@ -53,9 +53,16 @@ class SerialTimeout(CommunicationTimeout):
 
 def try_open(fu):
     def rfunc(self, *args, **kwarg):
-        with KillMask():
-            self.open()
-            return fu(self, *args, **kwarg)
+        try:
+            with KillMask():
+                self.open()
+                return fu(self, *args, **kwarg)
+        except:
+            try:
+                self.close()
+            except:
+                pass
+            raise
 
     return rfunc
 

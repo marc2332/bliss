@@ -328,7 +328,14 @@ def try_open(fu):
                     self._raw_handler.ibtmo(timeout)
             self._timeout = timeout
         with KillMask():
-            return fu(self, *args, **keys)
+            try:
+                return fu(self, *args, **keys)
+            except:
+                try:
+                    self.close()
+                except:
+                    pass
+                raise
 
     return rfunc
 

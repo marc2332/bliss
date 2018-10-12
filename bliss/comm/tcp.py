@@ -54,7 +54,14 @@ def try_connect_socket(fu):
                 kwarg.update({"timeout": prev_timeout})
 
         with KillMask():
-            return fu(self, *args, **kwarg)
+            try:
+                return fu(self, *args, **kwarg)
+            except:
+                try:
+                    self.close()
+                except:
+                    pass
+                raise
 
     return rfunc
 
@@ -332,7 +339,14 @@ def try_connect_command(fu):
                 self.connect(timeout=timeout)
                 kwarg.update({"timeout": prev_timeout})
         with KillMask():
-            return fu(self, *args, **kwarg)
+            try:
+                return fu(self, *args, **kwarg)
+            except:
+                try:
+                    self.close()
+                except:
+                    pass
+                raise
 
     return rfunc
 

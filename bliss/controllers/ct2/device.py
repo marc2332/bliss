@@ -240,7 +240,8 @@ class CT2(object):
 
                 timer_end = timer_ct in counters
                 acq_running = self.__acq_status == AcqStatus.Running
-                if int_trig_dead_time and timer_end and dma and acq_running:
+                it_dt_overrun = int_trig_dead_time and timer_end and dma and acq_running
+                if it_dt_overrun:
                     self._log.debug("overrun: counters=%s, dma=%s", counters, dma)
                 got_data = False
 
@@ -290,11 +291,14 @@ class CT2(object):
                     point_nb = data[-1][-1]
                 point_end = timer_end if int_trig_dead_time else (dma or got_data)
                 acq_end = point_end and (point_nb == acq_last_point)
-                last_restart = point_end and (point_nb == acq_last_point - 1)
-                if out_ct and last_restart and self.__has_int_trig():
-                    ct_config = card_o.get_counter_config(out_ct)
-                    ct_config["hard_start_source"] = card.CtHardStartSrc.SOFTWARE
-                    card_o.set_counter_config(out_ct, ct_config)
+                # avoid extra pulse due to re-start of output counter at last point end
+                if out_ct and self.__has_int_trig() and point_end:
+                    # int_trig_dead_time overrun -> point_nb already incremented
+                    curr_point_nb = point_nb + (1 if not it_dt_overrun else 0)
+                    if curr_point_nb == acq_last_point:
+                        ct_config = card_o.get_counter_config(out_ct)
+                        ct_config["hard_start_source"] = card.CtHardStartSrc.SOFTWARE
+                        card_o.set_counter_config(out_ct, ct_config)
 
                 if acq_end:
                     self.__acq_status = AcqStatus.Ready

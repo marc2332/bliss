@@ -697,3 +697,15 @@ class AcquisitionChain(object):
             return iterators
         else:
             return []
+
+    def append(self, chain, add_presets=False):
+        """Append another chain"""
+        for master in (
+            x for x in chain._tree.expand_tree() if isinstance(x, AcquisitionMaster)
+        ):
+            for slave in chain._tree.get_node(master).fpointer:
+                self.add(master, slave)
+        self._tree.show()
+        if add_presets:
+            for preset in chain._presets_list:
+                self.add_preset(preset)

@@ -112,7 +112,7 @@ def test_multi_top_master(beacon):
 
     diode1 = Simu("diode1", None)
     scan_params = {"npoints": 0, "count_time": count_time * 2.}
-    DEFAULT_CHAIN.get(scan_params, (diode1,), chain=chain)
+    chain.append(DEFAULT_CHAIN.get(scan_params, (diode2,)))
 
     scan = Scan(chain, name="multi_master", writer=None)
     scan.run()

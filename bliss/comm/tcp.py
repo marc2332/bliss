@@ -16,13 +16,12 @@ import errno
 import gevent
 from gevent import socket, event, queue, lock
 import time
-import logging
 import weakref
 from bliss.common.event import send
 
 from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
-from .util import HexMsg
+from .util import CommLogger, log_format_hexa
 
 from bliss.common.cleanup import error_cleanup, capture_exceptions
 
@@ -90,14 +89,13 @@ class BaseSocket:
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.RLock()
-        self._logger = logging.getLogger(str(self))
-        self._debug = self._logger.debug
+        self.logger = CommLogger(__name__, str(self))
 
     def __del__(self):
         self.close()
 
     def __str__(self):
-        return "{0}({1}:{2})".format(self.__class__.__name__, self._host, self._port)
+        return "{0}[{1}:{2}]".format(self.__class__.__name__, self._host, self._port)
 
     @property
     def lock(self):
@@ -111,7 +109,10 @@ class BaseSocket:
         local_host = host or self._host
         local_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        self._debug("connect(host=%s,port=%d)", local_host, local_port)
+        self.logger.debug("connect to {0}:{1}".format(local_host, local_port))
+        self.logger.debug(
+            "timeout={0} ; eol={1}".format(local_timeout, log_format_hexa(self._eol))
+        )
 
         self.close()
 
@@ -146,6 +147,7 @@ class BaseSocket:
     def close(self):
         if self._connected:
             try:
+                self.logger.debug("shutdown")
                 self._shutdown()
             # TODO: Fix except-pass, it's a dangerous pattern
             except:  # probably closed one the server side
@@ -180,9 +182,11 @@ class BaseSocket:
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
+            self.logger.debug_data("raw_read", msg)
         else:
             msg = self._data
             self._data = b""
+            self.logger.debug("raw_read 0 bytes")
         return msg
 
     @try_connect_socket
@@ -210,8 +214,10 @@ class BaseSocket:
                     if not self._connected:
                         raise socket.error(errno.EPIPE, "Broken pipe")
             msg = self._data[:size]
+            self.logger.debug_data("read", msg)
             self._data = self._data[size:]
             return msg
+
 
     @try_connect_socket
     def readline(self, eol=None, timeout=None):
@@ -250,7 +256,9 @@ class BaseSocket:
 
             msg = self._data[:eol_pos]
             self._data = self._data[eol_pos + len(local_eol) :]
+            self.logger.debug_data("readline", msg)
             return msg
+
 
     @try_connect_socket
     def write(self, msg, timeout=None):
@@ -309,6 +317,7 @@ class BaseSocket:
 
     def flush(self):
         self._data = b""
+        self.logger.debug("flush")
 
     def _sendall(self, data):
         raise NotImplementedError
@@ -330,7 +339,7 @@ class Socket(BaseSocket):
         self._fd.shutdown(socket.SHUT_RDWR)
 
     def _sendall(self, data):
-        self._debug("Tx: %r %r", data, HexMsg(data))
+        self.logger.debug_data("write", data)
         return self._fd.sendall(data)
 
     @staticmethod
@@ -338,8 +347,8 @@ class Socket(BaseSocket):
         try:
             while 1:
                 raw_data = fd.recv(16 * 1024)
-                sock._debug("Rx: %r %r", raw_data, HexMsg(raw_data))
                 if raw_data:
+                    self.logger.debug_data("received", raw_data)
                     sock._data += raw_data
                     sock._event.set()
                 else:
@@ -452,11 +461,13 @@ class Command:
         self._raw_read_task = None
         self._transaction_list = []
         self._lock = lock.RLock()
-        self._logger = logging.getLogger(self.__class__.__name__)
-        self._debug = self._logger.debug
+        self.logger = CommLogger(__name__, str(self))
 
     def __del__(self):
         self.close()
+
+    def __str__(self):
+        return "{0}[{1}:{2}]".format(self.__class__.__name__, self._host, self._port)
 
     @property
     def lock(self):
@@ -470,6 +481,10 @@ class Command:
         local_host = host or self._host
         local_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
+        self.logger.debug("connect to {0}:{1}".format(local_host, local_port))
+        self.logger.debug(
+            "timeout={0} ; eol={1}".format(local_timeout, log_format_hexa(self._eol))
+        )
         if self._connected:
             prev_ip_host, prev_port = s.getpeername()
             try:
@@ -505,6 +520,7 @@ class Command:
         with self._lock:
             if self._connected:
                 try:
+                    sefl.logger.debug("shutdown")
                     self._fd.shutdown(socket.SHUT_RDWR)
                 except:  # probably closed one the server side
                     pass
@@ -534,6 +550,7 @@ class Command:
 
                 msg = ctx.data[:size]
                 ctx.data = ctx.data[size:]
+        self.logger.debug_data("read", msg)
         return msg
 
     @try_connect_command
@@ -558,6 +575,7 @@ class Command:
                 msg = ctx.data[:eol_pos]
                 ctx.data = ctx.data[eol_pos + len(local_eol) :]
 
+        self.logger.debug_data("readline", msg)
         return msg
 
     @try_connect_command
@@ -565,7 +583,7 @@ class Command:
         with self._lock:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
-            self._debug("Tx: %r %r", msg, HexMsg(msg))
+            self.logger.debug_data("write", msg)
             with error_cleanup(self._pop_transaction, transaction=transaction):
                 self._fd.sendall(msg)
         return transaction

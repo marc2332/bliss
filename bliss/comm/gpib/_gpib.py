@@ -31,6 +31,7 @@ from ...common.greenlet_utils import KillMask, protect_from_kill
 from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
+from ..util import CommLogger, log_format_dict
 
 __TMO_TUPLE = (
     0.0,
@@ -365,10 +366,14 @@ class Gpib:
         self._timeout = timeout
         self._lock = lock.RLock()
         self._raw_handler = None
-        self._logger = logging.getLogger(str(self))
-        self._debug = self._logger.debug
+        self.logger = CommLogger(__name__, str(self))
+        self._debug = self.logger.debug
         self.gpib_type = self.ENET
         self._data = b""
+
+    def __str__(self):
+        opts = self._gpib_kwargs
+        return "{0}[{1}:{2}]".format(self.__class__.__name__, opts["url"], opts["pad"])
 
     @property
     def lock(self):
@@ -377,6 +382,10 @@ class Gpib:
     def open(self):
         if self._raw_handler is None:
             self.gpib_type = self._check_type()
+            self.logger.debug(
+                "open gpib_type={0}".format(self.GpibTypeString[self.gpib_type])
+            )
+            self.logger.debug(log_format_dict(self._gpib_kwargs))
             if self.gpib_type == self.ENET:
                 self._raw_handler = Enet(self, **self._gpib_kwargs)
                 self._raw_handler.init()
@@ -396,11 +405,14 @@ class Gpib:
         if self._raw_handler is not None:
             self._raw_handler.close()
             self._raw_handler = None
+            self.logger.debug("close")
 
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
-        return self._raw_handler.ibrd(size_to_read)
+        msg = self._raw_handler.ibrd(size_to_read)
+        self.logger.debug_data("raw_read", msg)
+        return msg
 
     def read(self, size=1, timeout=None):
         with self._lock:
@@ -408,7 +420,9 @@ class Gpib:
 
     @try_open
     def _read(self, size=1):
-        return self._raw_handler.ibrd(size)
+        msg = self._raw_handler.ibrd(size)
+        self.logger.debug_data("read", msg)
+        return msg
 
     def readline(self, eol=None, timeout=None):
         with self._lock:
@@ -429,6 +443,7 @@ class Gpib:
                 eol_pos = self._data.find(local_eol)
         msg = self._data[:eol_pos]
         self._data = self._data[eol_pos + len(local_eol) :]
+        self.logger.debug_data("readline", msg)
         return msg
 
     def write(self, msg, timeout=None):
@@ -437,6 +452,7 @@ class Gpib:
 
     @try_open
     def _write(self, msg):
+        self.logger.debug_data("write", msg)
         return self._raw_handler.ibwrt(msg)
 
     @protect_from_kill
@@ -469,6 +485,7 @@ class Gpib:
         return r_lines
 
     def flush(self):
+        self.logger.debug("flush")
         self._raw_handler = None
 
     def _check_type(self):
@@ -487,8 +504,3 @@ class Gpib:
         else:
             raise ValueError("Unsuported protocol %s" % url)
 
-    def __str__(self):
-        opts = self._gpib_kwargs
-        return "{0}(url={1}, pad={2})".format(
-            self.__class__.__name__, opts["url"], opts["pad"]
-        )

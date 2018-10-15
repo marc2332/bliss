@@ -58,7 +58,7 @@ nav:
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a MCA controller: dev_write_mca.md
                 - Writing a temperature controller: dev_write_tempctrl.md
-                - Sampling and Integrating counters: dev_ct.md
+                - Counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
                 - Testing: dev_testing.md
 theme:

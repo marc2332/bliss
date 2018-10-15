@@ -12,21 +12,47 @@ from gevent.server import StreamServer, DatagramServer
 
 from bliss.comm import tcp, udp
 
+DELAY = 0.2
 
-def tcp_echo_func(socket, address):
+
+def _tcp_echo(socket, address, delay=None):
     while True:
         r, _, _ = gevent.select.select([socket], [], [], 3.)
         if r:
             msg = socket.recv(8192)
             if not msg:
                 return
+            if delay:
+                gevent.sleep(delay)
             socket.sendall(msg)
+
+
+def tcp_echo_func(socket, address):
+    return _tcp_echo(socket, address)
+
+
+def tcp_echo_delay_func(socket, address):
+    return _tcp_echo(socket, address, delay=DELAY)
+
+
+def _server_port(delay=False):
+    handle = tcp_echo_delay_func if delay else tcp_echo_func
+    server = StreamServer(("", 0), handle=handle, spawn=1)
+    server.family = gevent.socket.AF_INET
+    return server
 
 
 @pytest.fixture
 def server_port():
-    server = StreamServer(("", 0), handle=tcp_echo_func, spawn=1)
-    server.family = gevent.socket.AF_INET
+    server = _server_port()
+    server.start()
+    yield server.address[1]
+    server.stop()
+
+
+@pytest.fixture
+def server_port_delay():
+    server = _server_port(delay=True)
     server.start()
     yield server.address[1]
     server.stop()
@@ -59,6 +85,13 @@ def command(server_port):
 def socket(server_port):
     socket = tcp.Socket("127.0.0.1", server_port)
     yield socket
+    socket.close()
+
+
+@pytest.fixture
+def socket_delay(server_port_delay):
+    socket = tcp.Socket("127.0.0.1", server_port_delay)
+    yield (socket, DELAY)
     socket.close()
 
 

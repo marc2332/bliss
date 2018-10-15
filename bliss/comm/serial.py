@@ -53,9 +53,16 @@ class SerialTimeout(CommunicationTimeout):
 
 def try_open(fu):
     def rfunc(self, *args, **kwarg):
-        with KillMask():
-            self.open()
-            return fu(self, *args, **kwarg)
+        try:
+            with KillMask():
+                self.open()
+                return fu(self, *args, **kwarg)
+        except:
+            try:
+                self.close()
+            except:
+                pass
+            raise
 
     return rfunc
 
@@ -92,8 +99,13 @@ class _BaseSerial:
     def _readline(self, eol):
         eol_pos = self._data.find(eol)
         while eol_pos == -1:
-            self._event.wait()
-            self._event.clear()
+            try:
+                self._event.wait()
+                self._event.clear()
+            except SerialTimeout:
+                raise
+            except gevent.Timeout:
+                continue
             eol_pos = self._data.find(eol)
 
         msg = self._data[:eol_pos]
@@ -106,8 +118,13 @@ class _BaseSerial:
 
     def _read(self, size):
         while len(self._data) < size:
-            self._event.wait()
-            self._event.clear()
+            try:
+                self._event.wait()
+                self._event.clear()
+            except SerialTimeout:
+                raise
+            except gevent.Timeout:
+                continue
         msg = self._data[:size]
         self._data = self._data[size:]
         return msg

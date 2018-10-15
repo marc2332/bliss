@@ -116,3 +116,32 @@ def test_tryconnect_socket(socket):
     socket.connect()
     socket.close()
     assert socket.write_read("X") == "X"
+
+
+def test_external_timeout(socket_delay):
+    socket, delay = socket_delay
+    socket.connect()
+    start_time = time.time()
+    with gevent.Timeout(0.1):
+        assert socket.write_read("X") == "X"
+    end_time = time.time()
+    assert pytest.approx(start_time + delay, end_time)
+
+    start_time = time.time()
+    with gevent.Timeout(0.1):
+        assert socket.write_readline("X\n") == "X"
+    end_time = time.time()
+    assert pytest.approx(start_time + delay, end_time)
+    assert socket._connected
+
+
+def test_external_runtimeerror(socket_delay):
+    socket, delay = socket_delay
+    socket.connect()
+    start_time = time.time()
+    with pytest.raises(RuntimeError):
+        with gevent.Timeout(0.1, RuntimeError("should quit")):
+            assert socket.write_read("Y") != "Y"
+    end_time = time.time()
+    assert pytest.approx(start_time + 0.1, end_time)
+    assert not socket._connected

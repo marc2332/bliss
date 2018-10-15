@@ -54,7 +54,14 @@ def try_connect_socket(fu):
                 kwarg.update({"timeout": prev_timeout})
 
         with KillMask():
-            return fu(self, *args, **kwarg)
+            try:
+                return fu(self, *args, **kwarg)
+            except:
+                try:
+                    self.close()
+                except:
+                    pass
+                raise
 
     return rfunc
 
@@ -175,8 +182,13 @@ class BaseSocket:
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout, SocketTimeout(timeout_errmsg)):
             while len(self._data) < size:
-                self._event.wait()
-                self._event.clear()
+                try:
+                    self._event.wait()
+                    self._event.clear()
+                except SocketTimeout:
+                    raise
+                except gevent.Timeout:
+                    continue
                 if not self._connected:
                     raise socket.error(errno.EPIPE, "Broken pipe")
         msg = self._data[:size]
@@ -190,13 +202,16 @@ class BaseSocket:
     def _readline(self, eol=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
         with gevent.Timeout(timeout or self._timeout, SocketTimeout(timeout_errmsg)):
-            # local_timeout = timeout or self._timeout
             local_eol = eol or self._eol
-            # start_time = time.time()
             eol_pos = self._data.find(local_eol)
             while eol_pos == -1:
-                self._event.wait()
-                self._event.clear()
+                try:
+                    self._event.wait()
+                    self._event.clear()
+                except SocketTimeout:
+                    raise
+                except gevent.Timeout:
+                    continue
                 if not self._connected:
                     raise socket.error(errno.EPIPE, "Broken pipe")
                 eol_pos = self._data.find(local_eol)
@@ -332,7 +347,14 @@ def try_connect_command(fu):
                 self.connect(timeout=timeout)
                 kwarg.update({"timeout": prev_timeout})
         with KillMask():
-            return fu(self, *args, **kwarg)
+            try:
+                return fu(self, *args, **kwarg)
+            except:
+                try:
+                    self.close()
+                except:
+                    pass
+                raise
 
     return rfunc
 

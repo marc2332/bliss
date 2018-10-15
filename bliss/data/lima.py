@@ -85,7 +85,7 @@ class LimaImageChannelDataNode(DataNode):
 
             data = None
             if proxy:
-                if self.from_stream and image_nb == self.last_index - 1:
+                if self.from_stream and image_nb == -1:
                     # get last video image
                     _, raw_data = proxy.video_last_image
                     if len(raw_data) > HEADER_SIZE:
@@ -142,6 +142,8 @@ class LimaImageChannelDataNode(DataNode):
                     )
                 )
             else:
+                if self.from_stream and item_index == -1:
+                    return self.get_image(-1)
                 if item_index < 0:
                     start = self.last_index
                     if start == 0:

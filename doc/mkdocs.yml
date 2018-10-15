@@ -53,7 +53,7 @@ nav:
                 - Sampling and Integrating counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
         - Tips and tricks:
-                - Terminal scrolling issue: tipsntricks_scrolling_terminal.md
+                - Terminal issue: tipsntricks_terminal.md
 theme:
         name: material
         language: en

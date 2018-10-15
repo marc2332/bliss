@@ -107,10 +107,10 @@ def test_write_readlines_socket(socket):
 def test_readline_timeout_socket(socket):
     t0 = time.time()
     try:
-        socket.readline(timeout=1)
+        socket.readline(timeout=.1)
     except RuntimeError:
         t = time.time() - t0
-        assert t - 1 < 0.1
+        assert t - .1 < 0.1
 
 
 def test_tryconnect_socket(socket):
@@ -123,17 +123,21 @@ def test_external_timeout(socket_delay):
     socket, delay = socket_delay
     socket.connect()
     start_time = time.time()
-    with gevent.Timeout(0.1):
-        assert socket.write_read("X") == "X"
+    with pytest.raises(gevent.Timeout):
+        with gevent.Timeout(0.1):
+            assert socket.write_read("X") != "X"
     end_time = time.time()
     assert start_time + delay == pytest.approx(end_time)
+    assert socket.write_read("Y") == "Y"
 
     start_time = time.time()
-    with gevent.Timeout(0.1):
-        assert socket.write_readline("X\n") == "X"
+    with pytest.raises(gevent.Timeout):
+        with gevent.Timeout(0.1):
+            assert socket.write_readline("X\n") != "X"
     end_time = time.time()
     assert start_time + delay == pytest.approx(end_time)
     assert socket._connected
+    assert socket.write_readline("Y\n") == "Y"
 
 
 def test_external_runtimeerror(socket_delay):
@@ -178,3 +182,14 @@ def test_connection_command_event(command):
         assert test_connect.get("connected") == False
     finally:
         disconnect(command, "connect", connection_cbk)
+
+
+def test_external_timeout_plus_sockettimeout(socket_delay):
+    socket, delay = socket_delay
+    start_time = time.time()
+    with pytest.raises(RuntimeError):
+        with gevent.Timeout(0.1):
+            assert socket.write_read("Y", timeout=.15) != "Y"
+    end_time = time.time()
+    assert start_time + 0.15 == pytest.approx(end_time)
+    assert not socket._connected

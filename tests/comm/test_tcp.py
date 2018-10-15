@@ -125,13 +125,13 @@ def test_external_timeout(socket_delay):
     with gevent.Timeout(0.1):
         assert socket.write_read("X") == "X"
     end_time = time.time()
-    assert pytest.approx(start_time + delay, end_time)
+    assert start_time + delay == pytest.approx(end_time)
 
     start_time = time.time()
     with gevent.Timeout(0.1):
         assert socket.write_readline("X\n") == "X"
     end_time = time.time()
-    assert pytest.approx(start_time + delay, end_time)
+    assert start_time + delay == pytest.approx(end_time)
     assert socket._connected
 
 
@@ -143,5 +143,5 @@ def test_external_runtimeerror(socket_delay):
         with gevent.Timeout(0.1, RuntimeError("should quit")):
             assert socket.write_read("Y") != "Y"
     end_time = time.time()
-    assert pytest.approx(start_time + 0.1, end_time)
+    assert start_time + 0.1 == pytest.approx(end_time)
     assert not socket._connected

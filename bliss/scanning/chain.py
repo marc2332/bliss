@@ -63,6 +63,7 @@ class DeviceIteratorWrapper(object):
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
         self.__one_shot = one_shot
+        self.__current = None
         self.next()
 
     def next(self):
@@ -73,10 +74,12 @@ class DeviceIteratorWrapper(object):
                 raise
             if hasattr(self.__device, "wait_reading"):
                 self.__device.wait_reading()
-            self.__iterator = iter(device)
+            self.__iterator = iter(self.__device)
             self.__current = self.__iterator.next()
 
     def __getattr__(self, name):
+        if name.startswith("__"):
+            raise AttributeError(name)
         return getattr(self.__current, name)
 
     @property

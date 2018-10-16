@@ -389,17 +389,14 @@ class Session(object):
         if self.setup_file is None:
             return
 
-        try:
-            with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
-                code = compile(setup_file.read(), self.setup_file, "exec")
-                exec (code, env_dict)
+        with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
+            code = compile(setup_file.read(), self.setup_file, "exec")
+            exec (code, env_dict)
 
-                for obj_name, obj in env_dict.iteritems():
-                    setattr(setup_globals, obj_name, obj)
+            for obj_name, obj in env_dict.iteritems():
+                setattr(setup_globals, obj_name, obj)
 
-                return True
-        except IOError:
-            raise ValueError("Session: setup-file %s cannot be found" % self.setup_file)
+            return True
 
     def close(self):
         if get_current() is self:

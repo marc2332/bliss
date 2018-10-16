@@ -144,6 +144,8 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def stop(self):
         self.movable.stop()
         event.disconnect(self.movable, "internal_state", self.on_state_change)
+        if self.task:
+            self.task.kill()
 
     def trigger(self):
         return self._start_move()

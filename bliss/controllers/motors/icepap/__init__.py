@@ -157,50 +157,19 @@ class Icepap(Controller):
         return float(_command(self._cnx, "?VELOCITY %s" % axis.address))
 
     def set_velocity(self, axis, new_velocity):
-        """
-        Icepap limits the velocity depending according to acceleration time
-        http://wikiserv.esrf.fr/esl/index.php/Velocity_and_Acceleration_limits
-        vmax is a constant that never changes
-        vmin depends on the current value of acceleration time
-         hence you can always increase up to max
-         but! if you decrease, set the acceleration time first
-        This code conserves the true acceleration rate (steps/s/s by changing acctime)
-        acctime has a minimum of 0.0010000002 and max of 100
-        Note: when you change VELOCITY in icepap it also changes ACCTIME itself
-        """
         if isinstance(axis, TrajectoryAxis):
             return axis._set_velocity(new_velocity)
         current_acc_time = axis.acctime()
         current_acc = float(axis.acceleration())
-        # in case we need to undo the slope change later
-        # config_acc = float(axis.acceleration(config=True))
         future_acc_time = new_velocity / (current_acc * axis.steps_per_unit)
-        if future_acc_time < 0.0010000002:
-            # Note : this will change the acceleration slope compared to config
-            future_acc_time = 0.0010000002
-        elif future_acc_time > 100:
-            # Note : this will change the acceleration slope compared to config
-            future_acc_time = 100
-        # else:
-        #    # acctime is in range...
-        current_velocity = axis.velocity() * axis.steps_per_unit
-        if new_velocity > current_velocity:  # we go faster, so set velocity first
-            try:
-                _ackcommand(self._cnx, "VELOCITY %s %f" % (axis.address, new_velocity))
-            except:
-                future_acc_time = current_acc_time
-                raise
-            finally:
-                _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
-        else:  # we go slower or the same speed
-            try:
-                _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
-                _ackcommand(self._cnx, "VELOCITY %s %f" % (axis.address, new_velocity))
-            except:
-                future_acc_time = current_acc_time
-                raise
-            finally:
-                _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
+        try:
+            _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
+            _ackcommand(self._cnx, "VELOCITY %s %f" % (axis.address, new_velocity))
+        except:
+            future_acc_time = current_acc_time
+            raise
+        finally:
+            _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
 
         return self.read_velocity(axis)
 
@@ -213,13 +182,8 @@ class Icepap(Controller):
         return velocity / float(acctime)
 
     def set_acceleration(self, axis, new_acc):
-        """ icepap limits to range 0.0010000002 to 100 """
         velocity = self.read_velocity(axis)
         new_acctime = velocity / new_acc
-        if new_acctime < 0.0010000002:
-            new_acctime = 0.0010000002
-        elif new_acctime > 100:
-            new_acctime = 100
 
         if isinstance(axis, TrajectoryAxis):
             return axis._set_acceleration_time(new_acctime)

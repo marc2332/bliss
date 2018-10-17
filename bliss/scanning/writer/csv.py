@@ -67,12 +67,13 @@ class CsvMasterFile(object):
 
 
 class Writer(FileWriter):
-    def __init__(self, root_path, **keys):
+    def __init__(self, root_path, images_root_path, **keys):
         FileWriter.__init__(
             self,
             root_path,
-            master_event_receiver=None,
-            device_event_receiver=on_event,
+            images_root_path,
+            master_event_callback=None,
+            device_event_callback=on_event,
             **keys
         )
 

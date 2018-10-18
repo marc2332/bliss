@@ -38,7 +38,7 @@ def test_mca_continuous_soft_scan(beacon):
     mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
-    chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=1.0), mca_device)
+    chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=2.0), mca_device)
     # Run scan
     scan = Scan(chain, "mca_test", writer=None)
     scan.run()

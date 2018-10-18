@@ -89,11 +89,11 @@ class DeviceIteratorWrapper(object):
 
 class ChainPreset(object):
     """
-    This class interface will be call by the scan object
+    This class interface will be called by the scan object
     at the beginning and at the end of a scan.
 
-    At typical usage of this class is to manage the opening/closing
-    by software or to control beam-line multiplexer(s)
+    A typical usage of this class is to manage the opening/closing
+    by software or to control beamline multiplexer(s)
     """
 
     def get_iterator(self, chain):

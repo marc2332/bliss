@@ -382,7 +382,7 @@ class AcquisitionDevice(object):
         for channel in self.channels:
             channel._device_name = self.name
 
-        if not self._check_ready():
+        if not self._check_reading_task():
             raise RuntimeError("%s: Last reading task is not finished." % self.name)
         return self.prepare()
 
@@ -406,14 +406,14 @@ class AcquisitionDevice(object):
     def trigger_ready(self):
         return True
 
-    def _check_ready(self):
+    def _check_reading_task(self):
         if self._reading_task:
             return self._reading_task.ready()
         return True
 
     def _trigger(self):
         self.trigger()
-        if self._check_ready():
+        if self._check_reading_task():
             dispatcher.send("start", self)
             self._reading_task = gevent.spawn(self.reading)
 

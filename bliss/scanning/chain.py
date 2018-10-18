@@ -581,14 +581,14 @@ class AcquisitionChainIter(object):
 
     def next(self):
         self.__sequence_index += 1
-        gevent.joinall(
-            [
-                gevent.spawn(dev_iter.wait_ready)
-                for dev_iter in self._tree.expand_tree()
-                if dev_iter is not "root"
-            ],
-            raise_error=True,
-        )
+
+        wait_ready_tasks = self._execute("wait_ready", master_to_slave=True)
+        for tasks in wait_ready_tasks:
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            finally:
+                gevent.killall(tasks)
+
         try:
             if self.__sequence_index:
                 for dev_iter in self._tree.expand_tree():

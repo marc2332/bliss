@@ -9,12 +9,14 @@ import pytest
 
 
 def pytest_collection_modifyitems(config, items):
-    try:
-        if config.getoption("--pepu"):
-            return
-    except ValueError:
-        return
-    # Remove pepu tests if no pepu option is provided
-    for item in list(items):
-        if "pepu" in item.keywords:
-            items.remove(item)
+    devices = ["pepu", "ct2"]
+    for name in devices:
+        try:
+            if config.getoption("--%s" % name):
+                continue
+        except ValueError:
+            continue
+        # Remove device tests if no option is provided
+        for item in list(items):
+            if name in item.keywords:
+                items.remove(item)

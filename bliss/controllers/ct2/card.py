@@ -2271,14 +2271,19 @@ class BaseCard:
         )
         return self.interface.write_offset(offset, ivalue)
 
-    def read_fifo(self, nb_events=0, use_mmap=False):
-        etl = self.get_DMA_enable_trigger_latch()
-        nb_counters = etl[1].values().count(True)
-        fifo_status = self.get_FIFO_status()
+    def calc_fifo_events(self, fifo_status, nb_counters=None):
+        if nb_counters is None:
+            etl = self.get_DMA_enable_trigger_latch()
+            nb_counters = etl[1].values().count(True)
         data_len = min(fifo_status["size"], self.FIFO_SIZE / CT2_REG_SIZE)
-        max_events = data_len / nb_counters
+        return data_len / nb_counters, nb_counters
+
+    def read_fifo(self, fifo_status, nb_events=0, use_mmap=False):
+        max_events, nb_counters = self.calc_fifo_events(fifo_status)
         if not nb_events or nb_events > max_events:
             nb_events = max_events
+        if nb_events == 0:
+            return None, fifo_status
         read_len = nb_events * nb_counters * CT2_REG_SIZE
         if use_mmap:
             buff = self.fifo[:read_len]

@@ -99,6 +99,9 @@ class MusstAcquisitionMaster(AcquisitionMaster):
                 self.musst.run(self.program_abort_name)
                 self.wait_ready()
 
+    def trigger_ready(self):
+        return self.musst.STATE != self.musst.RUN_STATE
+
     def wait_ready(self):
         while self.musst.STATE == self.musst.RUN_STATE:
             gevent.idle()
@@ -202,6 +205,11 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
             self._master.stop()
         self.__stop_flag = True
         self._master._event.set()
+
+    def trigger_ready(self):
+        if isinstance(self.device, MusstAcquisitionMaster):
+            return self.device.trigger_ready()
+        return True
 
     def wait_ready(self):
         if isinstance(self.device, MusstAcquisitionMaster):

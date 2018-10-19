@@ -8,14 +8,14 @@ MASKED_GREENLETS = dict()
 
 
 class KillMask:
-    def __init__(self, nb_kill_allowed=-1):
+    def __init__(self, masked_kill_nb=-1):
         """
-        nb_kill: nb of kill we allowed.
-                 < 0 mean infinite.
-                 if > 0 the counter will decrements until 0 then allowed to be killed
+        masked_kill_nb: nb of masked kill
+                 < 0 mean all kills are masked.
+                 if > 0, at each kill attempt the counter decrements until 0, then the greenlet can be killed
         """
         self.__greenlet = gevent.getcurrent()
-        self.__kill_counter = nb_kill_allowed
+        self.__kill_counter = masked_kill_nb
 
     def __enter__(self):
         self.__func, self.__exception, self.__waiter = None, None, None
@@ -59,7 +59,7 @@ def protect_from_kill(fu):
 
 def protect_from_one_kill(fu):
     def func(*args, **kwargs):
-        with KillMask(nb_kill_allowed=1):
+        with KillMask(masked_kill_nb=1):
             return fu(*args, **kwargs)
 
     return func

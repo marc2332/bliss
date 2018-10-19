@@ -11,6 +11,8 @@ import collections
 from treelib import Tree
 
 from bliss.common.event import dispatcher
+from bliss.common.cleanup import capture_exceptions
+from bliss.common.greenlet_utils import KillMask
 from .channel import AcquisitionChannelList, AcquisitionChannel
 from .channel import duplicate_channel
 
@@ -61,6 +63,7 @@ class DeviceIteratorWrapper(object):
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
         self.__one_shot = one_shot
+        self.__current = None
         self.next()
 
     def next(self):
@@ -71,10 +74,12 @@ class DeviceIteratorWrapper(object):
                 raise
             if hasattr(self.__device, "wait_reading"):
                 self.__device.wait_reading()
-            self.__iterator = iter(device)
+            self.__iterator = iter(self.__device)
             self.__current = self.__iterator.next()
 
     def __getattr__(self, name):
+        if name.startswith("__"):
+            raise AttributeError(name)
         return getattr(self.__current, name)
 
     @property
@@ -84,11 +89,11 @@ class DeviceIteratorWrapper(object):
 
 class ChainPreset(object):
     """
-    This class interface will be call by the scan object
+    This class interface will be called by the scan object
     at the beginning and at the end of a scan.
 
-    At typical usage of this class is to manage the opening/closing
-    by software or to control beam-line multiplexer(s)
+    A typical usage of this class is to manage the opening/closing
+    by software or to control beamline multiplexer(s)
     """
 
     def get_iterator(self, chain):
@@ -248,32 +253,37 @@ class AcquisitionMaster(object):
         raise NotImplementedError
 
     def trigger_slaves(self):
-        try:
-            if not all([task.ready() for _, task in self.__triggers]):
-                invalid_slaves = list()
-                for slave, task in self.__triggers:
-                    if not task.ready():
-                        invalid_slaves.append(slave)
-                        task.kill(
-                            RuntimeError(
-                                "%s: Previous trigger is not done, aborting" % self.name
-                            )
-                        )
-                    else:
-                        task.kill()
-                raise RuntimeError(
-                    "%s: Aborted due to bad triggering on slaves: %s"
-                    % (self.name, invalid_slaves)
+        invalid_slaves = list()
+        for slave, task in self.__triggers:
+            if not slave.trigger_ready() or not task.successful():
+                invalid_slaves.append(slave)
+                if task.ready():
+                    task.get()  # raise task exception, if any
+                # otherwise, kill the task with RuntimeError
+                task.kill(
+                    RuntimeError(
+                        "%s: Previous trigger is not done, aborting" % self.name
+                    )
                 )
-        finally:
-            self.__triggers = list()
 
-        for slave in self.slaves:
-            if slave.trigger_type == AcquisitionMaster.SOFTWARE:
-                self.__triggers.append((slave, gevent.spawn(slave._trigger)))
+        self.__triggers = []
+
+        if invalid_slaves:
+            raise RuntimeError(
+                "%s: Aborted due to bad triggering on slaves: %s"
+                % (self.name, invalid_slaves)
+            )
+        else:
+            for slave in self.slaves:
+                if slave.trigger_type == AcquisitionMaster.SOFTWARE:
+                    self.__triggers.append((slave, gevent.spawn(slave._trigger)))
 
     def wait_slaves(self):
-        gevent.joinall([task for slave, task in self.__triggers], raise_error=True)
+        slave_tasks = [task for _, task in self.__triggers]
+        try:
+            gevent.joinall(slave_tasks, raise_error=True)
+        finally:
+            gevent.killall(slave_tasks)
 
     def wait_ready(self):
         # wait until ready for next acquisition
@@ -306,10 +316,8 @@ class AcquisitionMaster(object):
         tasks = filter(None, [_running_task_on_device.get(dev) for dev in self.slaves])
         try:
             gevent.joinall(tasks, raise_error=True)
-        except:
-            for t in tasks:
-                t.kill()
-            raise
+        finally:
+            gevent.killall(tasks)
 
 
 class AcquisitionDevice(object):
@@ -374,7 +382,7 @@ class AcquisitionDevice(object):
         for channel in self.channels:
             channel._device_name = self.name
 
-        if not self._check_ready():
+        if not self._check_reading_task():
             raise RuntimeError("%s: Last reading task is not finished." % self.name)
         return self.prepare()
 
@@ -398,14 +406,14 @@ class AcquisitionDevice(object):
     def trigger_ready(self):
         return True
 
-    def _check_ready(self):
+    def _check_reading_task(self):
         if self._reading_task:
             return self._reading_task.ready()
         return True
 
     def _trigger(self):
         self.trigger()
-        if self._check_ready():
+        if self._check_reading_task():
             dispatcher.send("start", self)
             self._reading_task = gevent.spawn(self.reading)
 
@@ -467,8 +475,10 @@ class AcquisitionChainIter(object):
                     for preset in self._presets_list
                 ]
             )
-
-            gevent.joinall(preset_tasks, raise_error=True)
+            try:
+                gevent.joinall(preset_tasks, raise_error=True)
+            finally:
+                gevent.killall(preset_tasks)
 
             self._preset_iterators_list = list()
 
@@ -492,9 +502,21 @@ class AcquisitionChainIter(object):
                 self._current_preset_iterators_list.append(preset)
                 preset_iterators_tasks.append(gevent.spawn(preset.prepare))
 
-        self._execute("_prepare", wait_between_levels=not self._parallel_prepare)
+        for tasks in self._execute(
+            "_prepare", wait_between_levels=not self._parallel_prepare
+        ):
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            except:
+                gevent.killall(preset_iterators_tasks)
+                raise
+            finally:
+                gevent.killall(tasks)
 
-        gevent.joinall(preset_iterators_tasks, raise_error=True)
+        try:
+            gevent.joinall(preset_iterators_tasks, raise_error=True)
+        finally:
+            gevent.killall(preset_iterators_tasks)
 
     def start(self):
         preset_tasks = list()
@@ -507,8 +529,16 @@ class AcquisitionChainIter(object):
         preset_tasks.extend(
             [gevent.spawn(i.start) for i in self._current_preset_iterators_list]
         )
-        gevent.joinall(preset_tasks, raise_error=True)
-        self._execute("_start")
+        try:
+            gevent.joinall(preset_tasks, raise_error=True)
+        finally:
+            gevent.killall(preset_tasks)
+
+        for tasks in self._execute("_start"):
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            finally:
+                gevent.killall(tasks)
 
     def wait_all_devices(self):
         for acq_dev_iter in (
@@ -524,31 +554,41 @@ class AcquisitionChainIter(object):
             dispatcher.send("end", acq_dev_iter.device)
 
     def stop(self):
-        try:
-            self._execute("_stop", master_to_slave=True, wait_all_tasks=True)
-            self.wait_all_devices()
-        finally:
-            preset_tasks = [
-                gevent.spawn(preset.stop, self.acquisition_chain)
-                for preset in self._presets_list
-            ]
-            preset_tasks.extend(
-                [gevent.spawn(i.stop) for i in self._current_preset_iterators_list]
-            )
+        all_tasks = []
+        for tasks in self._execute("_stop", master_to_slave=True):
+            with KillMask(masked_kill_nb=1):
+                gevent.joinall(tasks)
+            all_tasks.extend(tasks)
 
-            gevent.joinall(preset_tasks)  # wait to call all stop on preset
-            gevent.joinall(preset_tasks, raise_error=True)
+        with capture_exceptions(raise_index=0) as capture:
+            with capture():
+                gevent.joinall(all_tasks, raise_error=True)
+
+            with capture():
+                self.wait_all_devices()
+
+            with capture():
+                preset_tasks = [
+                    gevent.spawn(preset.stop, self.acquisition_chain)
+                    for preset in self._presets_list
+                ]
+                preset_tasks.extend(
+                    [gevent.spawn(i.stop) for i in self._current_preset_iterators_list]
+                )
+
+                gevent.joinall(preset_tasks)  # wait to call all stop on preset
+                gevent.joinall(preset_tasks, raise_error=True)
 
     def next(self):
         self.__sequence_index += 1
-        gevent.joinall(
-            [
-                gevent.spawn(dev_iter.wait_ready)
-                for dev_iter in self._tree.expand_tree()
-                if dev_iter is not "root"
-            ],
-            raise_error=True,
-        )
+
+        wait_ready_tasks = self._execute("wait_ready", master_to_slave=True)
+        for tasks in wait_ready_tasks:
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            finally:
+                gevent.killall(tasks)
+
         try:
             if self.__sequence_index:
                 for dev_iter in self._tree.expand_tree():
@@ -565,13 +605,7 @@ class AcquisitionChainIter(object):
             raise
         return self
 
-    def _execute(
-        self,
-        func_name,
-        master_to_slave=False,
-        wait_between_levels=True,
-        wait_all_tasks=False,
-    ):
+    def _execute(self, func_name, master_to_slave=False, wait_between_levels=True):
         tasks = list()
 
         prev_level = None
@@ -585,19 +619,14 @@ class AcquisitionChainIter(object):
             node = self._tree.get_node(dev)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
-                gevent.joinall(tasks, raise_error=True)
+                yield tasks
                 tasks = list()
                 prev_level = level
             func = getattr(dev, func_name)
             t = gevent.spawn(func)
             _running_task_on_device[dev.device] = t
             tasks.append(t)
-        # ensure that all tasks are executed
-        # (i.e: don't raise the first exception on stop)
-        if wait_all_tasks:
-            gevent.joinall(tasks)
-
-        gevent.joinall(tasks, raise_error=True)
+        yield tasks
 
     def __iter__(self):
         return self

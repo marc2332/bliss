@@ -32,6 +32,7 @@ def ct2(mocker):
     yield ct2
 
 
+@pytest.mark.skip
 def test_ct2_scan(beacon, ct2):
     s = scans.ct(0.1, ct2, return_scan=True)
     data = s.get_data()

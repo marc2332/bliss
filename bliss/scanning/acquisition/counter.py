@@ -112,7 +112,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._event = event.Event()
         self._stop_flag = False
         self._ready_event = event.Event()
-        self._ready_flag = True
+        self._ready_event.set()
         self.__mode = mode
 
         for cnt in counters:
@@ -132,7 +132,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def start(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self._ready_flag = True
+        self._ready_event.set()
         self._event.clear()
 
         self.device.start(*self.grouped_read_counters)
@@ -148,20 +148,21 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._trig_time = time.time()
         self._event.set()
 
+    def trigger_ready(self):
+        return self._ready_event.is_set()
+
     def wait_ready(self):
         """
         will wait until the last triggered point is read
         """
-        while not self._ready_flag:
-            self._ready_event.wait()
-            self._ready_event.clear()
+        self._ready_event.wait()
 
     def reading(self):
         while not self._stop_flag and self._nb_acq_points < self.npoints:
             # trigger wait
             self._event.wait()
             self._event.clear()
-            self._ready_flag = False
+            self._ready_event.clear()
             trig_time = self._trig_time
             if trig_time is None:
                 continue
@@ -204,7 +205,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
             self._emit_new_data(data)
 
-            self._ready_flag = True
             self._ready_event.set()
 
 

@@ -164,13 +164,20 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def stop(self):
         """Stop the acquistion."""
-        if not self.soft_trigger_mode:
+        if self.soft_trigger_mode:
+            self._reading_task.kill()
+        else:
             self.device.stop_acquisition()
         self.acquisition_state.goto(self.READY)
 
     def trigger(self):
         """Send a software trigger."""
         self.acquisition_state.move(self.READY, self.TRIGGERED)
+
+    def trigger_ready(self):
+        if self.soft_trigger_mode:
+            return self.acquisition_state.state == self.READY
+        return True
 
     def wait_ready(self):
         """Block until finished."""

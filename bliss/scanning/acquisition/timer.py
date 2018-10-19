@@ -47,12 +47,15 @@ class SoftwareTimerMaster(AcquisitionMaster):
         if self._nb_point > 0 and self.sleep_time:
             gevent.sleep(self.sleep_time)
 
+        self.wait_slaves()
         start_trigger = time.time()
         self.trigger_slaves()
         if not self._nb_point:
             self._started_time = start_trigger
 
         self.channels[0].emit(start_trigger - self._started_time)
+
+        self.wait_slaves()
 
         elapsed_trigger = time.time() - start_trigger
         gevent.sleep(self.count_time - elapsed_trigger)

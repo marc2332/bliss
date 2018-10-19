@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import sys
+from gevent import GreenletExit
 
 from louie import dispatcher
 from louie import robustapply
@@ -22,6 +23,8 @@ if not hasattr(robustapply, "_robust_apply"):
     def __my_robust_apply(*args, **kwargs):
         try:
             return robustapply._robust_apply(*args, **kwargs)
+        except GreenletExit:
+            raise
         except:
             sys.excepthook(*sys.exc_info())
 

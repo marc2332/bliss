@@ -10,6 +10,7 @@ from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 import gevent
 from gevent import event
+from gevent import lock
 import numpy
 import os
 
@@ -78,24 +79,49 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self._lima_controller = device
         self._reading_task = None
         self._image_channel = None
-        self._last_image_ready = -1
         self._save_flag = save_flag
         self._latency = latency_time
+        self.__last_image_acquired = -1
         self.__sequence_index = 0
-        self.__point_synchro = event.Event()
+        self.__image_status = (False, -1)
+        self.__lock = lock.Semaphore()
+        self._ready_event = event.Event()
+        self._ready_event.set()
+
+    @property
+    def fast_synchro(self):
+        return self._lima_controller.camera.synchro_mode == "TRIGGER"
 
     def __iter__(self):
-        self.__sequence_index = 0
-        acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
-        nbpoints = 0 if acq_trigger_mode == "INTERNAL_TRIGGER" else self.npoints
-        if nbpoints > 0:
-            while self._last_image_ready < nbpoints:
-                yield self
-                self.__sequence_index += 1
-        else:
+        internal_trigger_mode = (
+            self.parameters.get("acq_trigger_mode") == "INTERNAL_TRIGGER"
+        )
+        if self.npoints == 0 or internal_trigger_mode:
+            # infinite number of frames (npoints == 0)
+            # or internal trigger (one trigger for all frames)
+            # in this case there is only 1 iteration for the
+            # whole acquisition
             while True:
                 yield self
+                if internal_trigger_mode:
+                    break
                 self.__sequence_index += 1
+        else:
+            # last image acquired starts at -1, 0 is the first image acquired
+            total_frames = self.npoints - 1
+            while True:
+                # in case of fast synchro, we know we can take a new trigger before
+                # last image acquired is updated in Lima
+                new_image_acquired, last_image_acquired = self.__image_status
+                if self.fast_synchro:
+                    if new_image_acquired:
+                        last_image_acquired -= 1
+                if last_image_acquired < total_frames:
+                    yield self
+                    self.__sequence_index += 1
+                else:
+                    break
+        self._ready_event.clear()
 
     def add_counter(self, counter):
         if counter.name != "image":
@@ -149,11 +175,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.emit(status)
 
         self._latency = self.device.latency_time
-        self._last_image_ready = -1
-
-        if self._reading_task:
-            self._reading_task.kill()
-            self._reading_task = None
 
     def start(self):
         if (
@@ -165,29 +186,13 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def stop(self):
         self.device.stopAcq()
-        self.__point_synchro.set()
+
+    def trigger_ready(self):
+        return True
 
     def wait_ready(self):
-        acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
-        if self.prepare_once and acq_trigger_mode in (
-            "INTERNAL_TRIGGER_MULTI",
-            "EXTERNAL_GATE",
-            "EXTERNAL_TRIGGER_MULTI",
-        ):
-            if self._lima_controller.camera.synchro_mode == "TRIGGER":
-                while (
-                    self.device.acq_status.lower() == "running"
-                    and not self.device.ready_for_next_image
-                ):
-                    gevent.idle()
-            else:
-                while self.device.acq_status.lower() == "running":
-                    self.__point_synchro.wait()
-                    self.__point_synchro.clear()
-                    break
-        # Just read if there is an exception
-        # in the reading task
-        self.wait_reading(block=self.npoints == 1)
+        if self._reading_task:
+            self._ready_event.wait()
 
     def trigger(self):
         self.trigger_slaves()
@@ -195,31 +200,52 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self.__sequence_index > 0 and self.start_once:
             return
 
-        self.device.startAcq()
+        with self.__lock:
+            self.device.startAcq()
 
-        if self._reading_task is None:
+            acq_trigger_mode = self.parameters.get(
+                "acq_trigger_mode", "INTERNAL_TRIGGER"
+            )
+            if self.prepare_once and acq_trigger_mode in (
+                "INTERNAL_TRIGGER_MULTI",
+                "EXTERNAL_GATE",
+                "EXTERNAL_TRIGGER_MULTI",
+            ):
+                self._ready_event.clear()
+            else:
+                self._ready_event.set()
+
+        if not self._reading_task:
             self._reading_task = gevent.spawn(self.reading)
 
     def _get_lima_status(self):
-        attr_names = [
-            "buffer_max_number",
-            "last_image_acquired",
-            "last_image_ready",
-            "last_counter_ready",
-            "last_image_saved",
-        ]
-        return {
-            name: att.value
-            for name, att in zip(attr_names, self.device.read_attributes(attr_names))
-        }
+        with self.__lock:
+            attr_names = [
+                "buffer_max_number",
+                "last_image_acquired",
+                "last_image_ready",
+                "last_counter_ready",
+                "last_image_saved",
+                "ready_for_next_image",
+            ]
+            return {
+                name: att.value
+                for name, att in zip(
+                    attr_names, self.device.read_attributes(attr_names)
+                )
+            }
 
     def reading(self):
         acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
+        last_image_ready = -1
+        last_image_acquired = -1
         try:
-            last_image_acquired = -1
             while True:
+                self._ready_event.clear()
+
                 acq_state = self.device.acq_status.lower()
                 status = self._get_lima_status()
+                status["acq_state"] = acq_state
                 if acq_trigger_mode == "INTERNAL_TRIGGER":
                     for key in (
                         "last_image_acquired",
@@ -227,18 +253,29 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "last_counter_ready",
                         "last_image_saved",
                     ):
-                        status[key] += self.__sequence_index
+                        status[key] += self.__sequence_index * self.npoints
 
-                status["acq_state"] = acq_state
-                if acq_state == "running":
-                    if status["last_image_ready"] != self._last_image_ready:
-                        if self._image_channel:
-                            self._image_channel.emit(status)
-                        self._last_image_ready = status["last_image_ready"]
+                if status["last_image_ready"] != last_image_ready:
+                    last_image_ready = status["last_image_ready"]
+                    if self._image_channel:
+                        self._image_channel.emit(status)
+
+                if self.fast_synchro:
+                    if status["ready_for_next_image"]:
+                        if status["last_image_acquired"] != last_image_acquired:
+                            last_image_acquired = status["last_image_acquired"]
+                            new_image_acquired = True
+                        else:
+                            new_image_acquired = False
+                        self.__image_status = (new_image_acquired, last_image_acquired)
+                        self._ready_event.set()
+                else:
                     if status["last_image_acquired"] != last_image_acquired:
                         last_image_acquired = status["last_image_acquired"]
-                        self.__point_synchro.set()
+                        self.__image_status = (True, last_image_acquired)
+                        self._ready_event.set()
 
+                if acq_state == "running":
                     gevent.sleep(max(self.parameters["acq_expo_time"] / 10.0, 10e-3))
                 else:
                     break
@@ -249,16 +286,15 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                     "Device %s (%s) is in Fault state"
                     % (self.device, self.device.user_detector_name)
                 )
-            self._reading_task = None
         except:
             if self._image_channel:
                 self._image_channel.emit({"acq_state": "fault"})
             raise
         finally:
-            self.__point_synchro.set()
+            self._ready_event.set()
 
     def wait_reading(self, block=True):
-        if self._reading_task is None:
+        if self._reading_task is None or self._reading_task.ready():
             return True
         try:
             return self._reading_task.get(block=block)

@@ -17,8 +17,6 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.controllers.simulation_diode import SimulationDiodeSamplingCounter
 from bliss.common.scans import DEFAULT_CHAIN
 
 
@@ -56,12 +54,12 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
 
 
 def test_software_position_trigger_master(beacon):
-    roby = beacon.get("roby")
-    roby.velocity(10)
+    robz = beacon.get("robz")
+    robz.velocity(10)
     chain = AcquisitionChain()
     chain.add(
-        SoftwarePositionTriggerMaster(roby, 0, 1, 5),
-        DebugMotorMockupAcquisitionDevice("debug", roby),
+        SoftwarePositionTriggerMaster(robz, 0, 1, 5),
+        DebugMotorMockupAcquisitionDevice("debug", robz),
     )
     # Run scan
     s = Scan(chain, writer=None)
@@ -71,31 +69,16 @@ def test_software_position_trigger_master(beacon):
     data = s.get_data()
     # Typical position error is +0.025 in position unit
     # That's because of redis + gevent delays (~2.5 ms)
-    expected_triggers = [0.01, 0.03, 0.05, 0.07, 0.09]
-    assert data["roby"] == pytest.approx(data["debug_pos"], abs=0.2)
+    assert len(data["robz"]) == 5
+    assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
+    expected_triggers = [0.034, 0.054, 0.074, 0.09, 0.11]
+    assert len(data["debug_time"]) == 5
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 
-def test_multi_top_master(beacon):
-
-    # This test is failing at the moment and should be investigated.
-    # Some greenlets are still running at the end of the test.
-    pytest.xfail()
-
-    class Simu(SimulationDiodeSamplingCounter):
-        def __init__(self, *args, **kwargs):
-            SimulationDiodeSamplingCounter.__init__(self, *args, **kwargs)
-            self.store_time = list()
-            self.store_values = list()
-
-        def read(self, *args, **kwargs):
-            self.store_time.append(time.time())
-            value = SimulationDiodeSamplingCounter.read(self, *args, **kwargs)
-            self.store_values.append(value)
-            return value
-
+def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     mot = beacon.get("m0")
-    start, stop, npoints, count_time = (0, 1, 100, 2)
+    start, stop, npoints, count_time = (0, 1, 20, 1)
     chain = AcquisitionChain(parallel_prepare=True)
     master = SoftwarePositionTriggerMaster(mot, start, stop, npoints, time=count_time)
     count_time = (float(count_time) / npoints) - 10e-3
@@ -104,13 +87,13 @@ def test_multi_top_master(beacon):
     timer = SoftwareTimerMaster(count_time, name="fast", npoints=npoints)
     chain.add(master, timer)
 
-    diode2 = Simu("diode2", None)
-    acquisition_device = SamplingCounterAcquisitionDevice(
-        diode2, count_time=count_time, npoints=npoints
+    acquisition_device = diode_acq_device_factory.get(
+        count_time=count_time, npoints=npoints
     )
+    diode1 = acquisition_device.device
+    diode2 = diode
     chain.add(timer, acquisition_device)
 
-    diode1 = Simu("diode1", None)
     scan_params = {"npoints": 0, "count_time": count_time * 2.}
     chain.append(DEFAULT_CHAIN.get(scan_params, (diode2,)))
 
@@ -121,4 +104,74 @@ def test_multi_top_master(beacon):
     assert pytest.approx(
         len(diode2.store_values) - len(diode1.store_values),
         len(diode2.store_values) * 0.1,
+    )
+
+
+def test_interrupted_scan(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(2)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    chain.add(master, acquisition_device_2)
+    # Run scan
+    s = Scan(chain, writer=None)
+    scan_task = gevent.spawn(s.run)
+
+    gevent.sleep(0.1)
+    assert s._state == Scan.START_STATE
+
+    try:
+        scan_task.kill(KeyboardInterrupt)
+    except:
+        assert scan_task.ready()
+
+    assert s._state == Scan.IDLE_STATE
+    assert acquisition_device_1.stop_flag
+    assert acquisition_device_2.stop_flag
+
+
+def test_scan_too_fast(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(10)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    s = Scan(chain, writer=None)
+    with gevent.Timeout(6):
+        with pytest.raises(RuntimeError) as e_info:
+            # aborted due to bad triggering on slaves
+            s.run()
+        assert "Aborted due to" in str(e_info.value)
+
+
+def test_scan_failure(beacon, diode_acq_device_factory):
+    robz = beacon.get("robz")
+    robz.velocity(2)
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(
+        count_time=0.1, npoints=5, trigger_fail=True
+    )
+    diode1 = acquisition_device_1.device
+    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    diode2 = acquisition_device_2.device
+    master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
+    chain.add(master, acquisition_device_1)
+    chain.add(master, acquisition_device_2)
+
+    # Run scan
+    s = Scan(chain, writer=None)
+    with pytest.raises(RuntimeError) as e_info:
+        s.run()
+
+    # make sure it is really our exception, not something else
+    assert str(e_info.value) == "Trigger failure"
+    assert len(diode1.store_values) == 0
+    assert acquisition_device_1.stop_flag
+    assert acquisition_device_2.stop_flag
+    assert pytest.approx(
+        acquisition_device_1.stop_time, acquisition_device_2.stop_time, abs=1e-2
     )

@@ -200,10 +200,6 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         if self.trig.clock == Signal.SOFT:
             self.pepu.software_trigger()
 
-    def wait_ready(self):
-        """Block until finished."""
-        return
-
     def reading(self):
         """Spawn by the chain."""
         for data in self.stream.idata(self.npoints):

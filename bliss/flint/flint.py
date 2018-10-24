@@ -452,8 +452,8 @@ class Flint:
                             last_data = last_data[-1]
                         except IndexError:
                             continue
-                        else:
-                            data["channel_index"] = 0
+                    else:
+                        data["channel_index"] = 0
                     try:
                         self._new_scan_data(data_type, master_name, data, last_data)
                         gevent.idle()

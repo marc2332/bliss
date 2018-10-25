@@ -189,14 +189,18 @@ class _ServerObject(object):
             sock = socket.socket()
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("", int(port)))
-        elif url.startswith("inproc"):
-            exp = re.compile("inproc://(.+)")
+        elif url.startswith("inproc") or url.startswith("ipc"):
+            exp = re.compile("(inproc|ipc)://(.+)")
             m = exp.match(url)
             if not m:
                 raise RuntimeError("Weird url %s" % url)
-            uds_port_name = m.group(1)
+            uds_port_name = m.group(2)
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                os.unlink(uds_port_name)
+            except OSError:
+                pass
             sock.bind(uds_port_name)
             self._uds_name = uds_port_name
         else:
@@ -398,11 +402,11 @@ class _cnx(object):
             m = exp.match(address)
             self.host = m.group(1)
             self.port = int(m.group(2))
-        elif address.startswith("inproc"):
-            exp = re.compile("inproc://(.+)")
+        elif address.startswith("inproc") or address.startswith("ipc"):
+            exp = re.compile("(inproc|ipc)://(.+)")
             m = exp.match(address)
             self.host = None
-            self.port = m.group(1)
+            self.port = m.group(2)
 
         self._socket = None
         self._queues = dict()

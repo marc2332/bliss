@@ -144,6 +144,7 @@ def test_event():
 
     with rpc_server(url) as (server, car):
         client_car = Client(url)
+        client_car.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)
@@ -170,6 +171,7 @@ def test_event_with_lost_remote():
 
     with rpc_server(url, heartbeat=0.1) as (server, car):
         client_car = Client(url, heartbeat=0.1)
+        client_car.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)

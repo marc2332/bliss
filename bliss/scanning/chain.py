@@ -6,9 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import time
 import weakref
 import collections
+import logging
 from treelib import Tree
+from contextlib import contextmanager
 
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
@@ -19,6 +22,26 @@ from .channel import duplicate_channel
 # Running task for a specific device
 #
 _running_task_on_device = weakref.WeakValueDictionary()
+_logger = logging.getLogger("Scan")
+_debug = _logger.debug
+
+
+@contextmanager
+def profile(statistic_container, device_name, func_name):
+    try:
+        call_start = time.time()
+        _debug("Start %s.%s" % (device_name, func_name))
+        yield
+    except:
+        _debug("Except caught in %s.%s" % (device_name, func_name))
+        raise
+    finally:
+        call_end = time.time()
+        stat = statistic_container.setdefault(
+            "%s.%s" % (device_name, func_name), list()
+        )
+        stat.append((call_start, call_end))
+        _debug("End %s.%s Took %fs" % (device_name, func_name, call_end - call_start))
 
 
 class DeviceIterator(object):
@@ -46,21 +69,22 @@ class DeviceIterator(object):
         self.__sequence_index += 1
         return self
 
-    def wait_ready(self):
+    def _wait_ready(self, statistic_container):
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
             self.device.wait_reading(block=False)
-        self.device.wait_ready()
+        with profile(statistic_container, self.device.name, "wait_ready"):
+            return self.device.wait_ready()
 
-    def _prepare(self):
+    def _prepare(self, statistic_container):
         if self.__sequence_index > 0 and self.device.prepare_once:
             return
-        self.device._prepare()
+        self.device._prepare(statistic_container)
 
-    def _start(self):
+    def _start(self, statistic_container):
         if self.__sequence_index > 0 and self.device.start_once:
             return
-        self.device._start()
+        self.device._start(statistic_container)
 
 
 class DeviceIteratorWrapper(object):
@@ -82,11 +106,12 @@ class DeviceIteratorWrapper(object):
             self.__iterator = iter(self.__device)
             self.__current = self.__iterator.next()
 
-    def wait_ready(self):
+    def _wait_ready(self, statistic_container):
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
             self.device.wait_reading(block=False)
-        self.device.wait_ready()
+        with profile(statistic_container, self.device.name, "wait_ready"):
+            self.device.wait_ready()
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -179,6 +204,7 @@ class AcquisitionMaster(object):
         self.__start_once = start_once
         self.__duplicated_channels = {}
         self.__prepared = False
+        self.__statistic_container = None
 
     @property
     def trigger_type(self):
@@ -220,15 +246,17 @@ class AcquisitionMaster(object):
     def npoints(self):
         return self.__npoints
 
-    def _prepare(self):
-        if not self.__prepared:
-            for channel in self.channels:
-                channel._device_name = self.name
-            for connect, _ in self.__duplicated_channels.values():
-                connect()
-            self.__prepared = True
+    def _prepare(self, statistic_container):
+        self.__statistic_container = statistic_container
+        with profile(statistic_container, self.name, "prepare"):
+            if not self.__prepared:
+                for channel in self.channels:
+                    channel._device_name = self.name
+                for connect, _ in self.__duplicated_channels.values():
+                    connect()
+                self.__prepared = True
 
-        return self.prepare()
+            return self.prepare()
 
     def prepare(self):
         raise NotImplementedError
@@ -242,59 +270,68 @@ class AcquisitionMaster(object):
     def stop(self):
         raise NotImplementedError
 
-    def _start(self):
-        dispatcher.send("start", self)
-        return_value = self.start()
-        return return_value
+    def _start(self, statistic_container):
+        with profile(statistic_container, self.name, "start"):
+            dispatcher.send("start", self)
+            return_value = self.start()
+            return return_value
 
-    def _stop(self):
-        if self.__prepared:
-            for _, cleanup in self.__duplicated_channels.values():
-                cleanup()
-            self.__prepared = False
-        return self.stop()
+    def _stop(self, statistic_container):
+        with profile(statistic_container, self.name, "stop"):
+            if self.__prepared:
+                for _, cleanup in self.__duplicated_channels.values():
+                    cleanup()
+                self.__prepared = False
+            return self.stop()
 
     def trigger_ready(self):
         return True
 
-    def _trigger(self):
-        return self.trigger()
+    def _trigger(self, statistic_container):
+        with profile(statistic_container, self.name, "trigger"):
+            return self.trigger()
 
     def trigger(self):
         raise NotImplementedError
 
     def trigger_slaves(self):
-        invalid_slaves = list()
-        for slave, task in self.__triggers:
-            if not slave.trigger_ready() or not task.successful():
-                invalid_slaves.append(slave)
-                if task.ready():
-                    task.get()  # raise task exception, if any
-                # otherwise, kill the task with RuntimeError
-                task.kill(
-                    RuntimeError(
-                        "%s: Previous trigger is not done, aborting" % self.name
+        statistic_container = self.__statistic_container
+        with profile(statistic_container, self.name, "trigger_slaves"):
+            invalid_slaves = list()
+            for slave, task in self.__triggers:
+                if not slave.trigger_ready() or not task.successful():
+                    invalid_slaves.append(slave)
+                    if task.ready():
+                        task.get()  # raise task exception, if any
+                    # otherwise, kill the task with RuntimeError
+                    task.kill(
+                        RuntimeError(
+                            "%s: Previous trigger is not done, aborting" % self.name
+                        )
                     )
+
+            self.__triggers = []
+
+            if invalid_slaves:
+                raise RuntimeError(
+                    "%s: Aborted due to bad triggering on slaves: %s"
+                    % (self.name, invalid_slaves)
                 )
-
-        self.__triggers = []
-
-        if invalid_slaves:
-            raise RuntimeError(
-                "%s: Aborted due to bad triggering on slaves: %s"
-                % (self.name, invalid_slaves)
-            )
-        else:
-            for slave in self.slaves:
-                if slave.trigger_type == AcquisitionMaster.SOFTWARE:
-                    self.__triggers.append((slave, gevent.spawn(slave._trigger)))
+            else:
+                for slave in self.slaves:
+                    if slave.trigger_type == AcquisitionMaster.SOFTWARE:
+                        self.__triggers.append(
+                            (slave, gevent.spawn(slave._trigger, statistic_container))
+                        )
 
     def wait_slaves(self):
-        slave_tasks = [task for _, task in self.__triggers]
-        try:
-            gevent.joinall(slave_tasks, raise_error=True)
-        finally:
-            gevent.killall(slave_tasks)
+        statistic_container = self.__statistic_container
+        with profile(statistic_container, self.name, "wait_slaves"):
+            slave_tasks = [task for _, task in self.__triggers]
+            try:
+                gevent.joinall(slave_tasks, raise_error=True)
+            finally:
+                gevent.killall(slave_tasks)
 
     def wait_ready(self):
         # wait until ready for next acquisition
@@ -389,13 +426,14 @@ class AcquisitionDevice(object):
     def npoints(self):
         return self.__npoints
 
-    def _prepare(self):
-        for channel in self.channels:
-            channel._device_name = self.name
+    def _prepare(self, statistic_container):
+        with profile(statistic_container, self.name, "prepare"):
+            for channel in self.channels:
+                channel._device_name = self.name
 
-        if not self._check_reading_task():
-            raise RuntimeError("%s: Last reading task is not finished." % self.name)
-        return self.prepare()
+            if not self._check_reading_task():
+                raise RuntimeError("%s: Last reading task is not finished." % self.name)
+            return self.prepare()
 
     def prepare(self):
         raise NotImplementedError
@@ -403,16 +441,18 @@ class AcquisitionDevice(object):
     def start(self):
         raise NotImplementedError
 
-    def _start(self):
-        self.start()
-        self._reading_task = gevent.spawn(self.reading)
-        dispatcher.send("start", self)
+    def _start(self, statistic_container):
+        with profile(statistic_container, self.name, "start"):
+            self.start()
+            self._reading_task = gevent.spawn(self.reading)
+            dispatcher.send("start", self)
 
     def stop(self):
         raise NotImplementedError
 
-    def _stop(self):
-        self.stop()
+    def _stop(self, statistic_container):
+        with profile(statistic_container, self.name, "stop"):
+            self.stop()
 
     def trigger_ready(self):
         return True
@@ -422,11 +462,12 @@ class AcquisitionDevice(object):
             return self._reading_task.ready()
         return True
 
-    def _trigger(self):
-        self.trigger()
-        if self._check_reading_task():
-            dispatcher.send("start", self)
-            self._reading_task = gevent.spawn(self.reading)
+    def _trigger(self, statistic_container):
+        with profile(statistic_container, self.name, "trigger"):
+            self.trigger()
+            if self._check_reading_task():
+                dispatcher.send("start", self)
+                self._reading_task = gevent.spawn(self.reading)
 
     def trigger(self):
         raise NotImplementedError
@@ -459,6 +500,7 @@ class AcquisitionChainIter(object):
         self._preset_iterators_list = list()
         self._current_preset_iterators_list = list()
         self._presets_list = presets_list
+        self._start_time = time.time()
 
         # create iterators tree
         self._tree = Tree()
@@ -520,8 +562,11 @@ class AcquisitionChainIter(object):
                 self._current_preset_iterators_list.append(preset)
                 preset_iterators_tasks.append(gevent.spawn(preset.prepare))
 
+        statistic_container = self.__acquisition_chain_ref()._statistic_container
         for tasks in self._execute(
-            "_prepare", wait_between_levels=not self._parallel_prepare
+            "_prepare",
+            statistic_container=statistic_container,
+            wait_between_levels=not self._parallel_prepare,
         ):
             try:
                 gevent.joinall(tasks, raise_error=True)
@@ -551,8 +596,8 @@ class AcquisitionChainIter(object):
             gevent.joinall(preset_tasks, raise_error=True)
         finally:
             gevent.killall(preset_tasks)
-
-        for tasks in self._execute("_start"):
+        statistic_container = self.__acquisition_chain_ref()._statistic_container
+        for tasks in self._execute("_start", statistic_container=statistic_container):
             try:
                 gevent.joinall(tasks, raise_error=True)
             finally:
@@ -573,7 +618,10 @@ class AcquisitionChainIter(object):
 
     def stop(self):
         all_tasks = []
-        for tasks in self._execute("_stop", master_to_slave=True):
+        statistic_container = self.__acquisition_chain_ref()._statistic_container
+        for tasks in self._execute(
+            "_stop", statistic_container=statistic_container, master_to_slave=True
+        ):
             with KillMask(masked_kill_nb=1):
                 gevent.joinall(tasks)
             all_tasks.extend(tasks)
@@ -599,8 +647,12 @@ class AcquisitionChainIter(object):
 
     def next(self):
         self.__sequence_index += 1
-
-        wait_ready_tasks = self._execute("wait_ready", master_to_slave=True)
+        if self.__sequence_index == 0:
+            self._start_time = time.time()
+        statistic_container = self.__acquisition_chain_ref()._statistic_container
+        wait_ready_tasks = self._execute(
+            "_wait_ready", statistic_container=statistic_container, master_to_slave=True
+        )
         for tasks in wait_ready_tasks:
             try:
                 gevent.joinall(tasks, raise_error=True)
@@ -623,7 +675,13 @@ class AcquisitionChainIter(object):
             raise
         return self
 
-    def _execute(self, func_name, master_to_slave=False, wait_between_levels=True):
+    def _execute(
+        self,
+        func_name,
+        statistic_container=None,
+        master_to_slave=False,
+        wait_between_levels=True,
+    ):
         tasks = list()
 
         prev_level = None
@@ -641,7 +699,10 @@ class AcquisitionChainIter(object):
                 tasks = list()
                 prev_level = level
             func = getattr(dev, func_name)
-            t = gevent.spawn(func)
+            if statistic_container is not None:
+                t = gevent.spawn(func, statistic_container)
+            else:
+                t = gevent.spawn(func)
             _running_task_on_device[dev.device] = t
             tasks.append(t)
         yield tasks
@@ -658,6 +719,7 @@ class AcquisitionChain(object):
         self._presets_list = list()
         self._parallel_prepare = parallel_prepare
         self._device2one_shot_flag = weakref.WeakKeyDictionary()
+        self._statistic_container = dict()
 
     @property
     def nodes_list(self):
@@ -714,6 +776,7 @@ class AcquisitionChain(object):
         self._device2one_shot_flag[device] = not stop_flag
 
     def get_iter_list(self):
+        self._statistic_container = dict()
         if len(self._tree) > 1:
             # set all slaves into master
             for master in (

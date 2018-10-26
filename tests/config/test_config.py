@@ -67,6 +67,24 @@ def test_config_save(beacon):
         rw_cfg2.save()
 
 
+def test_empty_yml(beacon, beacon_directory):
+    import subprocess
+
+    subprocess.call(['echo " " > %s/toto.yml' % beacon_directory], shell=True)
+
+    # before patch empty YML:
+    # assert pytest.raises(AttributeError, beacon.reload)
+
+    # after patch empty YML: assert pytest.raises(AttributeError, beacon.reload)
+    assert pytest.raises(RuntimeError, beacon.reload)
+
+    with pytest.raises(RuntimeError) as e_info:
+        beacon.reload()
+    assert "filename" in str(e_info.value)
+
+    subprocess.call(["rm -f %s/toto.yml" % beacon_directory], shell=True)
+
+
 def test_references(beacon):
     refs_cfg = beacon.get("refs_test")
     m0 = beacon.get("m0")

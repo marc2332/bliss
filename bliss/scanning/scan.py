@@ -22,6 +22,7 @@ from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_ex
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
+from bliss.common.utils import Statistics
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.data.node import (
@@ -505,6 +506,10 @@ class Scan(object):
     @property
     def path(self):
         return self.scan_info["root_path"] if self.scan_info["save"] else None
+
+    @property
+    def statistics(self):
+        return Statistics(self._acq_chain._statistic_container)
 
     def _get_x_y_data(self, counter, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]

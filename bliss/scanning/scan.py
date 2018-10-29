@@ -910,3 +910,12 @@ class Scan(object):
         else:
             run_number = client.get_cache(db=1).incrby("%s_last_run_number" % name, 1)
         return run_number
+
+    @staticmethod
+    def trace(on=True):
+        """
+        Activate logging trace during scan
+        """
+        from .chain import _logger
+
+        _logger.setLevel("DEBUG" if on else 0)

@@ -130,13 +130,10 @@ class Rontec(object):
             self.calib_c = [0, 1, 0]
         if isinstance(calib, str):
             try:
-                f = open(calib)
-                for line in f:
-                    if not line.startswith("#"):
-                        self.calib_c = map(float, line.split())
-                    else:
-                        pass
-                f.close()
+                with open(calib) as fd:
+                    for line in fd:
+                        if not line.startswith("#") and line.strip():
+                            self.calib_c = map(float, line.split())
             except IOError:
                 raise IOError("Cannot open %s" % calib)
             self.calib_done = True
@@ -239,7 +236,7 @@ class Rontec(object):
         """
         if "ctime" in kwargs:
             # we want ms or cps - this is the IC/OC counters time(gate)
-            ms_time = kwargs["ctime"] * 1000
+            ms_time = float(kwargs["ctime"]) * 1000
             if ms_time < 0.001 or ms_time > 2000:
                 gate_time = 1000  # 1s - we want ICR and OCR in cps
             else:
@@ -252,13 +249,14 @@ class Rontec(object):
 
         if "erange" in kwargs:
             # set the energy range
-            if kwargs["erange"] in Rontec.ERANGE:
-                asw = str(self.sl.write_readline("$SE %d\r" % kwargs["erange"]))
+            erange = int(kwargs["erange"])
+            if erange in Rontec.ERANGE.iterkeys():
+                asw = str(self.sl.write_readline("$SE %d\r" % erange))
                 self._check_answer(asw, "set_presets: erange")
-                self.preset_erange = kwargs["erange"]
+                self.preset_erange = erange
 
         if "fname" in kwargs:
-            self.fname = kwargs["fname"]
+            self.fname = str(kwargs["fname"])
 
     def clear_spectrum(self):
         """Clear the acquired spectrum"""
@@ -331,8 +329,8 @@ class Rontec(object):
             )
             roi_str = "$SK %d %d %s %d %d\r" % (
                 roi_channel,
-                kwargs.get("atomic_nb", 34),
-                kwargs.get("element", "Se"),
+                int(kwargs.get("atomic_nb", 34)),
+                str(kwargs.get("element", "Se")),
                 emin * 1000,
                 emax * 1000,
             )
@@ -567,14 +565,14 @@ class Rontec(object):
         ]
 
         if save_data:
-            fd = open(self.fname, "a+")
-            fd.write("#\n#S 1  mcaacq %d\n" % self.times["real_t_preset"])
-            if self.calib_done:
-                fd.write(
-                    "#@CALIB %g %g %g\n@A"
-                    % (self.calib_c[0], self.calib_c[1], self.calib_c[2])
-                )
-                fd.write(" ".join(map(str, dd)) + "\n")
+            with open(str(self.fname), "a") as fd:
+                fd.write("#\n#S 1  mcaacq %d\n" % self.times["real_t_preset"])
+                if self.calib_done:
+                    fd.write(
+                        "#@CALIB %g %g %g\n@A"
+                        % (self.calib_c[0], self.calib_c[1], self.calib_c[2])
+                    )
+                    fd.write(" ".join(map(str, dd)) + "\n")
         return dd
 
 

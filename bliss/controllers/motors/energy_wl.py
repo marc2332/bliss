@@ -7,7 +7,7 @@
 
 """
 Energy/wavelength Bliss controller
-Calculate energy [keV] / wavelength [Angstrom] from angle or
+Calculate energy [keV] / wavelength [Angstrom] from angle [deg] or
 angle [deg] from energy [keV], using the Bragg's law
 
 monoang: alias for the real monochromator motor
@@ -55,25 +55,31 @@ class energy_wl(CalcController):
         axis.unit = axis.config.get("unit", str, default="keV")
 
     def calc_from_real(self, positions_dict):
+        """Return the energy [ev] or [keV] and wavelength [Angstrom]
+        """
         energy_axis = self._tagged["energy"][0]
-        dspace = energy_axis.settings.get("dspace")
-        if dspace is None:
-            dspace = 3.13542
+        dspace = energy_axis.settings.get("dspace") or 3.13542
         # NB: lambda is a keyword.
         lamb = 2 * dspace * numpy.sin(numpy.radians(positions_dict["monoang"]))
         energy = 12.3984 / lamb
-        if energy_axis.unit == "eV":
-            energy *= 1000.0
+        try:
+            if energy_axis.unit == "eV":
+                energy *= 1000
+        except AttributeError:
+            pass
         return {"energy": energy, "wavelength": lamb}
 
     def calc_to_real(self, positions_dict):
+        """ Return the mono angle [deg]
+        """
         energy_axis = self._tagged["energy"][0]
-        dspace = energy_axis.settings.get("dspace")
-        evs = positions_dict["energy"]
-        if energy_axis.unit == "eV":
-            monoangle = numpy.degrees(
-                numpy.arcsin(12.3984 * 1000.0 / (evs * 2 * dspace))
-            )
-        else:
-            monoangle = numpy.degrees(numpy.arcsin(12.3984 / (evs * 2 * dspace)))
+        dspace = energy_axis.settings.get("dspace") or 3.13542
+        egy = positions_dict["energy"]
+        try:
+            if energy_axis.unit == "eV":
+                egy /= 1000
+        except AttributeError:
+            pass
+
+        monoangle = numpy.degrees(numpy.arcsin(12.3984 / (egy * 2 * dspace)))
         return {"monoang": monoangle}

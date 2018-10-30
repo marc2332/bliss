@@ -385,7 +385,7 @@ class periodic_exec(object):
 
     def __exit__(self, *args):
         if self.__task is not None:
-            gevent.kill(self.__task)
+            self.__task.kill()
 
     def _timer(self):
         while True:

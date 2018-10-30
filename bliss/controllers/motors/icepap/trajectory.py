@@ -264,7 +264,10 @@ class TrajectoryAxis(Axis):
             axes_str = " ".join(("%s" % axis.address for axis in self.real_axes))
             _command(self.controller._cnx, "#PARVEL {} {}".format(velocity, axes_str))
             self._acceleration_time = float(
-                _command(self.controller._cnx, "?PARACCT {}".format(axes_str[0]))
+                _command(
+                    self.controller._cnx,
+                    "?PARACCT {}".format(self.real_axes[0].address),
+                )
             )
 
         self._velocity = velocity

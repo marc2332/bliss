@@ -41,15 +41,20 @@ Beacon supports the following plugins:
 * `temperature`, inputs, outputs, loops for temperature controllers
 * `session`, to define `Session` objects
 
-It is possible to specify additional configuration information for the files of an entire directory by adding data in a `__init__.yml` file.
+It is possible to specify additional configuration information for the
+files of an entire directory by adding data in a `__init__.yml` file.
 
-When grouping similar configuration information in a directory, it is quite useful to specify the plugin in a `__init__.yml` file, for example for motors:
+#### Default plugin indicator
 
-#### ./motors/\_\_init\_\_.yml
+When grouping similar configuration information in a directory, it is
+quite useful to specify the plugin in a `__init__.yml` file:
+
+    plugin: <plugin_name>
+
+Example for a directory containing YML files for motors configuration:
 
     plugin: emotion
 
-All files in this directory will use the `emotion` plugin by default.
 
 ### Icepap controller configuration
 
@@ -249,8 +254,12 @@ reloads the Python script again.
 BLISS is primarily a Python library, thus BLISS can be embedded into any Python
 program.
 
-BLISS is built on top of [gevent][4], a coroutine-based asynchronous networking
-library. Under the hood, gevent works with a very fast control loop based on [libev][5] (or [libuv][6]).
+BLISS is built on top of [gevent](http://www.gevent.org/), a
+coroutine-based asynchronous networking library. Under the hood,
+gevent works with a very fast control loop based on
+[libev](http://software.schmorp.de/pkg/libev.html) (or
+[libuv](http://docs.libuv.org/en/v1.x/)).
+
 The loop has to be running in the host program. When BLISS is imported, gevent monkey-patching is
 applied automatically (except for the threading module). In most cases, this is
 transparent and does not require anything from the host Python program.
@@ -273,14 +282,15 @@ From now on it is possible to use BLISS as any Python library:
 
     In [2]: from bliss.controllers.motors import icepap
 
-    In [3]: iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
-                                      [("mbv4mot", Axis, { "address":1,"steps_per_unit":817,
-                                      "velocity": 0.3, "acceleration": 3
-                                      })], [], [], [])
+    In [3]: ice = icepap.Icepap("iceid2322", {"host": "iceid2322"},
+                               [("mbv4mot", Axis,
+                               {"address":1,"steps_per_unit":817,
+                               "velocity": 0.3, "acceleration": 3
+                               })], [], [], [])
 
-    In [4]: iceid2322.initialize()
+    In [4]: ice.initialize()
 
-    In [5]: mbv4 = iceid2322.get_axis("mbv4mot")
+    In [5]: mbv4 = ice.get_axis("mbv4mot")
 
     In [6]: mbv4.position()
     Out[6]: 0.07099143206854346
@@ -311,22 +321,23 @@ BLISS comes with a command line interface based on [ptpython](8):
            bliss --show-sessions-only
     
     Options:
-        -l, --log-level=<log_level>   Log level [default: WARN] (CRITICAL ERROR INFO DEBUG NOTSET)
-        -s, --session=<session_name>  Start with the specified session
-        -v, --version                 Show version and exit
-        -c, --create=<session_name>   Create a new session with the given name
-        -d, --delete=<session_name>   Delete the given session
-        -h, --help                    Show help screen and exit
-        --show-sessions               Display available sessions and tree of sub-sessions
-        --show-sessions-only          Display available sessions names only
+      -l, --log-level=<log_level>   Log level [default: WARN]
+                                    (CRITICAL ERROR INFO DEBUG NOTSET)
+      -s, --session=<session_name>  Start with the specified session
+      -v, --version                 Show version and exit
+      -c, --create=<session_name>   Create a new session with the given name
+      -d, --delete=<session_name>   Delete the given session
+      -h, --help                    Show help screen and exit
+      --show-sessions               Display sessions and tree of sub-sessions
+      --show-sessions-only          Display available sessions names only
 
 A specific session can be created using `-c` option:
 
         % bliss -c eh1
         creating 'eh1' session
-        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1_setup.py
-        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/eh1.yml
-        Creating: /bliss/users/guilloud/local/beamline_configuration/sessions/scripts/eh1.py
+        Creating: /blissadm/local/beamline_configuration/sessions/eh1_setup.py
+        Creating: /blissadm/local/beamline_configuration/sessions/eh1.yml
+        Creating: /blissadm/local/beamline_configuration/sessions/scripts/eh1.py
 
 The `-s` command line option loads the specified session at startup, i.e. configuration objects
 defined in the session are initialized, then the setup file is executed. Finally the prompt
@@ -374,34 +385,29 @@ to the default, step-by-step, ones in Spec.
 
 ### Default step-by-step scans
 
+BLISS provides functions to perform scans a user would need for usual
+step-by-step measurements.
+
+Most common are :
+
 * `ascan(axis, start, stop, n_points, count_time, *counters, **kwargs)`
-* `dscan`
-    - same as `ascan`, with `start`, `stop` as relative positions to current axis position
-* `a2scan(axis1, start1, stop1, axis2, start2, stop2, n_points, count_time, *counters, **kwargs)`
-* `d2scan`
-    - same as `a2scan`, with `start`, `stop` as relative positions to current axis position
-* `mesh(axis1, start1, stop1, npoints1, axis2, start2, stop2, npoints2, count_time, *counters, **kwargs)`
-    - makes a grid using axis1, axis2
-* `timescan(count_time, *counters, **kwargs)`
-    - `kwargs` can specify `npoints`
-* `loopscan(count_time, npoints, *counters, **kwargs)`
-    - same as `timescan`, but `npoints` is mandatory
-
-Keyword arguments for default scans include:
-
-* `sleep_time`, float in s. (0), sleep time between 2 points
-* `save`, bool (True), flag to specify if scan has to be saved
-* `name`, string ("scan"), scan name in data nodes and directories
+* `dscan` : same as `ascan`, with `start`, `stop` as relative positions to current axis position
+* `a2scan` : same as ascan but with 2 motors
+* `mesh` to makes a grid using 2 motors
+* `timescan` to count without moving a motor
 
 All scans can take counters in the arguments list. This is to limit the scan to the
 provided list of counters.
+
+More about [default scans](scan_default.md).
+
 
 #### `ascan` example with 2 counters
 
     TEST_SESSION [1]: ascan(roby, 0, 10, 10, 0.1, diode, diode2)
     Total 10 points, 0:00:03.168758 (motion: 0:00:02.168758, count: 0:00:01)
 
-    Scan 1 Wed Apr 18 08:46:20 2018 /tmp/scans/test_session/ test_session user = matias
+    Scan 1 Wed Apr 18 08:46:20 2018 /tmp/scans/ test_session user = matias
     ascan roby 0 10 10 0.1
 
         #         dt(s)          roby        diode2         diode
@@ -418,7 +424,7 @@ provided list of counters.
 
     Took 0:00:02.328219 (estimation was for 0:00:03.168758)
 
-    TEST_SESSION [2]:
+
 
 ### One-shot acquisition with integration time
 
@@ -542,7 +548,7 @@ counters enabled.
 
                 Enabled  Disabled
                 -------  -------
-                simct2   simct1    #   <--- assume simct1, simct3 were previously disabled
+                simct2   simct1    # <--- assume simct1, simct3 were disabled
                          simct3
 
 Example usage of `switch_state`:
@@ -550,8 +556,8 @@ Example usage of `switch_state`:
       CYRIL [42]: align_counters.switch_state("diag_mono")
 
       CYRIL [43]: print align_counters
-        Out [43]: MeasurementGroup:  align_counters (diag_mono)   # new "diag_mono" state
-
+        Out [43]: MeasurementGroup:  align_counters (diag_mono)
+                                                     # new "diag_mono" state
                   Enabled  Disabled
                   -------  -------
                   simct1                  #  with all counters enabled
@@ -603,11 +609,13 @@ The `get_data()` function takes a scan object and returns scan data in a `numpy`
 
 Example:
 
-    TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode, simu1.counters.spectrum_det0, return_scan=True)
+    TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode,
+                                     simu1.counters.spectrum_det0, return_scan=True)
     Total 10 points, 0:00:02.019930 (motion: 0:00:02.009930, count: 0:00:00.010000)
     Activated counters not shown: spectrum_det0
 
-    Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/ test_session user = matias
+    Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/
+                                    test_session user = matias
     ascan roby 0 1 10 0.001
 
            #         dt(s)          roby         diode
@@ -629,7 +637,7 @@ Example:
 The numpy array is built with fields, it is easy to get data for a particular column using the counter name:
 
     TEST_SESSION [8]: data['diode']
-             Out [8]: array([ 83., -10.,  57.,  43., -44., -16., -74.,  18.,  74., -43.])
+             Out [8]: array([ 83., -10., 57., 43., -44., -16., -74., 18., 74., -43.])
 
 
 ## Online data display
@@ -668,7 +676,7 @@ scan being executed.
     Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
     Activated counters not shown: spectrum_det0, image
 
-    Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/test_session/ test_session user = matias
+    Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
     timescan 0.1
 
            #         dt(s)        diode2         diode
@@ -702,7 +710,8 @@ BLISS provides tools to interact with plot windows in **Flint**. Each scan objec
     Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
     Activated counters not shown: image
 
-    Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/ test_session user = matias
+    Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
+                                    test_session user = matias
     timescan 0.1
 
            #         dt(s)

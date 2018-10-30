@@ -59,7 +59,7 @@ Workflow](https://www.atlassian.com/git/tutorials/comparing-workflows/feature-br
 John has been asked by beamline ID00 to integrate a new pressure meter
 from Alibaba Inc, in their experiments.
 
--   First, he checks the [\~bliss.controllers]{role="mod"} repository to
+-   First, he checks the [bliss.controllers](https://gitlab.esrf.fr/bliss/bliss/tree/master/bliss/controllers) repository to
     see if the device is already implemented
 -   If not, he creates a new
     [issue](http://gitlab.esrf.fr/bliss/bliss/issues/new?issue) on
@@ -75,19 +75,20 @@ from Alibaba Inc, in their experiments.
 
         $ git checkout -b alibaba_pressure_meter
 
--   She is a fan of [TDD]{role="term"}, so she starts thinking how she
-    would like to control the device and then she starts writing simple
-    unit tests. They will all fail in the beginning but that doesn\'t
-    scare her at all because now she knows exactly what to do to make
-    them work
+-   She is a fan of [TDD](https://en.wikipedia.org/wiki/Test-driven_development), so
+    she starts thinking how she would like to control the device and
+    then she starts writing simple unit tests. They will all fail in
+    the beginning but that doesn\'t scare her at all because now she
+    knows exactly what to do to make them work
 -   After some development, Maria is happy with the result so she pushes
-    her work to gitlab. She can immediately see on the Bliss [ESRF
-    Gitlab]() project page a new log entry with the work she just
-    pushed. Gitlab even offers to create a *merge request* so she just
-    clicks on it, fills in the missing data in the form and assigns her
-    colleague Marco to integrate her merge request. Maria is quite
-    confident because she knows that an extra pair of eyes will help
-    catch any issue with her proposition
+    her work to gitlab. She can immediately see on the Bliss
+    [ESRF Gitlab](http://gitlab.esrf.fr/bliss/bliss) project page a
+    new log entry with the work she just pushed. Gitlab even offers to
+    create a *merge request* so she just clicks on it, fills in the
+    missing data in the form and assigns her colleague Marco to
+    integrate her merge request. Maria is quite confident because she
+    knows that an extra pair of eyes will help catch any issue with
+    her proposition
 -   Marco makes some comments on Maria\'s code directly on the gitlab
     merge request web page. Maria realizes that she forgot to document
     one of the most important methods so she fixes the commit. Marco can
@@ -108,7 +109,8 @@ writing documentation. No matter how you are contributing, the following
 principles apply:
 
 -   Try to use the same code style as used in the rest of the project.
-    See the [bliss-style-guide]{role="ref"} below for more information
+    See the [bliss-style-guide](dev_guidelines.md#bliss-style-guide)
+    below for more information
 -   New features should be documented. Include examples and use cases
     where appropriate
 -   Add appropriate unit tests

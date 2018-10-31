@@ -450,7 +450,8 @@ class Crystal(object):
     Example::
 
         >>> from bliss.physics.diffraction import Crystal
-        >>> Si = Crystal()
+        >>> from mendeleev import elements
+        >>> Si = Crystal(elements.Si)
         >>> Si111 = Si('111')
 
     Note that most crystals are already available at the module level

@@ -29,6 +29,8 @@ nav:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md
                 - Customization: shell_customization.md
+        - BLISS programming:
+                - Dealing with energy: prog_energy.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
@@ -53,7 +55,6 @@ nav:
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Sampling and Integrating counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
-
 theme:
         name: material
         language: en

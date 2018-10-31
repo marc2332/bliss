@@ -43,9 +43,14 @@ class DeviceIterator(object):
                     self.__device_ref().wait_reading()
         else:
             raise StopIteration
-
         self.__sequence_index += 1
         return self
+
+    def wait_ready(self):
+        # Check that it's still ok with the readingtask
+        if hasattr(self.device, "wait_reading"):
+            self.device.wait_reading(block=False)
+        self.device.wait_ready()
 
     def _prepare(self):
         if self.__sequence_index > 0 and self.device.prepare_once:
@@ -76,6 +81,12 @@ class DeviceIteratorWrapper(object):
                 self.__device.wait_reading()
             self.__iterator = iter(self.__device)
             self.__current = self.__iterator.next()
+
+    def wait_ready(self):
+        # Check that it's still ok with the readingtask
+        if hasattr(self.device, "wait_reading"):
+            self.device.wait_reading(block=False)
+        self.device.wait_ready()
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -423,8 +434,15 @@ class AcquisitionDevice(object):
     def reading(self):
         pass
 
-    def wait_reading(self):
-        return self._reading_task.get() if self._reading_task is not None else True
+    def wait_reading(self, block=True):
+        try:
+            return (
+                self._reading_task.get(block=block)
+                if self._reading_task is not None
+                else True
+            )
+        except gevent.Timeout:  # block=False
+            return False
 
     def wait_ready(self):
         # wait until ready for next acquisition

@@ -39,8 +39,8 @@ class DeviceIterator(object):
     def next(self):
         if not self._one_shot:
             if not self.device.prepare_once and not self.device.start_once:
-                if hasattr(self.__device_ref(), "wait_reading"):
-                    self.__device_ref().wait_reading()
+                if hasattr(self.device, "wait_reading"):
+                    self.device.wait_reading()
         else:
             raise StopIteration
         self.__sequence_index += 1

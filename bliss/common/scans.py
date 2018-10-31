@@ -411,7 +411,7 @@ def a2scan(
     **kwargs
 ):
     """
-    Absolute 2 motor scan
+    Absolute 2 motors scan
 
     Scans two motors, as specified by *motor1* and *motor2*. The motors start
     at the positions given by *start1* and *start2* and end at the positions
@@ -546,7 +546,7 @@ def d2scan(
     **kwargs
 ):
     """
-    Relative 2 motor scan
+    Relative 2 motors scan
 
     Scans two motors, as specified by *motor1* and *motor2*. Each motor moves
     the same number of points. If a motor is at position *X*
@@ -555,8 +555,8 @@ def d2scan(
     of intervals will be *npoints*-1. Count time is given by *count_time*
     (seconds).
 
-    At the end of the scan (even in case of error) the motor will return to
-    its initial position
+    At the end of the scan (even in case of error) the motors will return to
+    their initial positions.
 
     Use `d2scan(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
@@ -725,7 +725,7 @@ def loopscan(npoints, count_time, *counter_args, **kwargs):
 
 def ct(count_time, *counter_args, **kwargs):
     """
-    Count for a specified time
+    Counts for a specified time
 
     Use `ct(..., run=False)` to create a count object and
     its acquisition chain without executing the actual count.
@@ -760,9 +760,10 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
     """
     Point scan
 
-    Scans one motor, as specified by *motor*. The motor starts at the position
-    given by the first value in *positions* and ends at the position given by last value *positions*.
-    Count time is given by *count_time* (seconds).
+    Scans one motor, as specified by *motor*. The motor starts at the
+    position given by the first value in *positions* and ends at the
+    position given by last value *positions*.  Count time is given by
+    *count_time* (seconds).
 
     Args:
         motor (Axis): motor to scan

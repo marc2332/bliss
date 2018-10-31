@@ -355,12 +355,12 @@ class Scan(object):
         This class publish data and trig the writer if any.
 
         chain -- acquisition chain you want to use for this scan.
-        name -- scan name, if None set default name *scan"
+        name -- scan name, if None set default name *scan*
         parent -- the parent is the root node of the data tree.
         usually the parent is a Container like to a session,sample,experiment...
         i.e: parent = Container('eh3')
         scan_info -- should be the scan parameters as a dict
-        writer -- is the final file writter (hdf5,cvs,spec file...)
+        writer -- is the final file writer (hdf5,cvs,spec file...)
         data_watch_callback -- a callback which can follow the data status of the scan.
         this callback is usually used to display the scan status.
         the callback will get:

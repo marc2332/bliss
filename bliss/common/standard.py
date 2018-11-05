@@ -73,7 +73,7 @@ _FLOAT_FORMAT = ".05f"
 _log = logging.getLogger("bliss.standard")
 
 
-def __tabulate(data, **kwargs):
+def _tabulate(data, **kwargs):
     kwargs.setdefault("headers", "firstrow")
     kwargs.setdefault("floatfmt", _FLOAT_FORMAT)
     kwargs.setdefault("numalign", "right")
@@ -128,7 +128,7 @@ def wa(**kwargs):
 
     for table in tables:
         print_()
-        print_(__tabulate(table))
+        print_(_tabulate(table))
 
 
 def wm(*axes, **kwargs):
@@ -196,7 +196,7 @@ def wm(*axes, **kwargs):
 
     for table in tables:
         print_()
-        print_(__tabulate(table))
+        print_(_tabulate(table))
 
 
 def stm(*axes):
@@ -221,7 +221,7 @@ def sta(read_hw=False):
         )
         for axis in get_axes_iter()
     ]
-    print_(__tabulate(table))
+    print_(_tabulate(table))
 
 
 def mv(*args):

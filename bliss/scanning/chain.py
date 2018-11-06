@@ -24,6 +24,7 @@ from .channel import duplicate_channel
 _running_task_on_device = weakref.WeakValueDictionary()
 _logger = logging.getLogger("Scan")
 _debug = _logger.debug
+_error = _logger.error
 
 
 @contextmanager
@@ -33,7 +34,7 @@ def profile(statistic_container, device_name, func_name):
         _debug("Start %s.%s" % (device_name, func_name))
         yield
     except:
-        _debug("Except caught in %s.%s" % (device_name, func_name))
+        _error("Exception caught in %s.%s" % (device_name, func_name))
         raise
     finally:
         call_end = time.time()

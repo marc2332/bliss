@@ -50,7 +50,7 @@ class StepScanDataWatch(object):
     """
 
     def __init__(self):
-        self._last_point_display = -1
+        self._last_point_display = 0
         self._channel_name_2_channel = dict()
         self._init_done = False
 
@@ -62,9 +62,6 @@ class StepScanDataWatch(object):
                     self._channel_name_2_channel[channel.name] = channel
             self._init_done = True
 
-        if self._last_point_display == -1:
-            self._last_point_display += 1
-
         min_nb_points = None
         for channels_name, channel in self._channel_name_2_channel.iteritems():
             nb_points = len(channel)
@@ -73,17 +70,16 @@ class StepScanDataWatch(object):
             elif min_nb_points > nb_points:
                 min_nb_points = nb_points
 
-        point_nb = self._last_point_display
+        if min_nb_points is None or self._last_point_display >= min_nb_points:
+            return
+
         for point_nb in range(self._last_point_display, min_nb_points):
-            values = dict(
-                [
-                    (ch_name, ch.get(point_nb))
-                    for ch_name, ch in self._channel_name_2_channel.iteritems()
-                ]
-            )
+            values = {
+                ch_name: ch.get(point_nb)
+                for ch_name, ch in self._channel_name_2_channel.iteritems()
+            }
             send(current_module, "scan_data", scan_info, values)
-        if min_nb_points is not None:
-            self._last_point_display = min_nb_points
+        self._last_point_display = min_nb_points
 
 
 class ScanSaving(Parameters):

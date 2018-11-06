@@ -90,6 +90,10 @@ def parse_mapping_buffer(raw):
             spectrum.dtype = spectrum_type
             current += size
 
+            # Discard garbage
+            if channel_id in spectrums[pixel]:
+                continue
+
             # Set data
             stats = stats_from_mapping_mode(stats_block[index])
             spectrums[pixel][channel_id] = spectrum

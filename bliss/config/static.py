@@ -798,16 +798,19 @@ class Config(object):
         return r_list
 
     def _parse(self, d, parent):
-        for key, value in d.iteritems():
-            if isinstance(value, dict):
-                node = Node(self, parent=parent)
-                self._parse(value, node)
-                self._create_index(node)
-                parent[key] = node
-            elif isinstance(value, list):
-                parent[key] = self._parse_list(value, parent)
-            else:
-                parent[key] = value
+        if d is None:
+            raise RuntimeError("Error parsing %r" % parent)
+        else:
+            for key, value in d.iteritems():
+                if isinstance(value, dict):
+                    node = Node(self, parent=parent)
+                    self._parse(value, node)
+                    self._create_index(node)
+                    parent[key] = node
+                elif isinstance(value, list):
+                    parent[key] = self._parse_list(value, parent)
+                else:
+                    parent[key] = value
 
     def _clear_instances(self):
         self._name2instance = dict()

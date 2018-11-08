@@ -29,7 +29,7 @@ import logging
 import weakref
 import functools
 
-from bliss.controllers.emulator import BaseDevice
+from .emulator import BaseDevice
 
 
 MAX_AXIS = 128

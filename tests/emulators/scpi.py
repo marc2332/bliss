@@ -47,7 +47,7 @@ import inspect
 import collections
 
 from bliss.comm.scpi import Commands
-from bliss.controllers.emulator import BaseDevice
+from .emulator import BaseDevice
 
 
 class SCPIError(enum.Enum):

@@ -36,7 +36,7 @@ import functools
 
 import gevent
 
-from bliss.controllers.emulator import BaseDevice
+from .emulator import BaseDevice
 
 
 def Cmd(default=None, allowed=None, access="rw", dtype=None):

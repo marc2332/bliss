@@ -32,7 +32,7 @@ import enum
 import inspect
 import collections
 
-from bliss.controllers.emulator import BaseDevice
+from .emulator import BaseDevice
 
 
 class VSAxis(object):

@@ -7,6 +7,7 @@
 
 import numpy
 import time
+import warnings
 import gevent
 from gevent import event
 from bliss.common.event import dispatcher
@@ -35,10 +36,9 @@ def _get_group_reader(counters_or_groupreadhandler):
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, count_time, **keys):
-        npoints = max(1, keys.pop("npoints", 1))
-        prepare_once = keys.pop("prepare_once", True)
-        start_once = keys.pop("start_once", npoints > 1)
-
+        npoints = keys.pop("npoints")
+        prepare_once = keys.pop("prepare_once")
+        start_once = keys.pop("start_once")
         AcquisitionDevice.__init__(
             self,
             counter,
@@ -106,8 +106,20 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
           * prepare_once --
           * start_once --
         """
+        npoints = max(1, keys.pop("npoints", 1))
+        prepare_once = keys.pop("prepare_once", True)
+        start_once = keys.pop("start_once", npoints > 1)
+
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
-        BaseCounterAcquisitionDevice.__init__(self, reader, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(
+            self,
+            reader,
+            count_time,
+            npoints=npoints,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            **keys
+        )
 
         self._event = event.Event()
         self._stop_flag = False
@@ -210,10 +222,38 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def __init__(self, counters_or_groupreadhandler, count_time=None, **keys):
+
+        if any(
+            filter(
+                None,
+                (keys.pop(k, None) for k in ("npoints", "prepare_once", "start_once")),
+            )
+        ):
+            warnings.warn(
+                "IntegratingCounterAcquisitionDevice: npoints, \
+                          prepare_once or start_once flags will be overwritten\
+                          by master controller"
+            )
+
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
-        BaseCounterAcquisitionDevice.__init__(self, reader, count_time, **keys)
+        BaseCounterAcquisitionDevice.__init__(
+            self,
+            reader,
+            count_time,
+            npoints=None,
+            prepare_once=None,
+            start_once=None,
+            **keys
+        )
         for cnt in counters:
             self.add_counter(cnt)
+
+    @AcquisitionDevice.parent.setter
+    def parent(self, p):
+        self._AcquisitionDevice__parent = p
+        self._AcquisitionDevice__npoints = p.npoints
+        self._AcquisitionDevice__prepare_once = p.prepare_once
+        self._AcquisitionDevice__start_once = p.start_once
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)

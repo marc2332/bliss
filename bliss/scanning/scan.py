@@ -15,6 +15,7 @@ import time
 import datetime
 import re
 import numpy
+import collections
 
 from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
@@ -38,7 +39,7 @@ from bliss.scanning.writer.null import Writer as NullWriter
 from . import writer
 
 # Globals
-SCANS = []
+SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
 

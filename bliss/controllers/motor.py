@@ -456,7 +456,7 @@ class CalcController(Controller):
             event.connect(pseudo_axis, "sync_hard", self._pseudo_sync_hard)
 
         for real_axis in self.reals:
-            event.connect(real_axis, "internal_position", self._calc_from_real)
+            event.connect(real_axis, "internal_position", self._real_position_update)
             event.connect(real_axis, "internal__set_position", self._real_setpos_update)
 
     def close(self):
@@ -465,7 +465,7 @@ class CalcController(Controller):
             event.disconnect(pseudo_axis, "sync_hard", self._pseudo_sync_hard)
 
         for real_axis in self.reals:
-            event.disconnect(real_axis, "internal_position", self._calc_from_real)
+            event.disconnect(real_axis, "internal_position", self._real_position_update)
             event.disconnect(
                 real_axis, "internal__set_position", self._real_setpos_update
             )
@@ -476,10 +476,6 @@ class CalcController(Controller):
 
     def initialize_axis(self, axis):
         pass
-
-    def initialize_hardware_axis(self, axis):
-        if self.read_position(axis) is None:
-            self._calc_from_real()
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:
@@ -497,6 +493,12 @@ class CalcController(Controller):
         for axis in self.pseudos:
             setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position())
         return setpos_dict
+
+    def _real_position_update(self, *args):
+        for axis in self.pseudos:
+            self._initialize_axis(axis)
+
+        return self._calc_from_real(*args)
 
     def _real_setpos_update(self, _):
         real_setpos = dict()
@@ -549,7 +551,7 @@ class CalcController(Controller):
                 axis.settings.set("dial_position", dial_pos)
                 axis.settings.set("position", user_pos)
             else:
-                raise RuntimeError("cannot assign position to real motor")
+                raise RuntimeError("Cannot assign position to real motor")
         return new_positions
 
     def calc_from_real(self, real_positions):
@@ -586,7 +588,11 @@ class CalcController(Controller):
         self._reals_group.stop()
 
     def read_position(self, axis):
-        return axis.settings.get("dial_position")
+        pos = axis.settings.get("dial_position")
+        if pos is None:
+            self._calc_from_real()
+            pos = axis.settings.get("dial_position")
+        return pos
 
     def state(self, axis, new_state=None):
         st = self._reals_group.state()

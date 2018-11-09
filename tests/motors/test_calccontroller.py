@@ -61,6 +61,14 @@ def test_real_axis_is_right_object(s1f, s1ho, m1):
     assert s1f.controller == m1.controller
 
 
+def test_calc_with_init(roby, calc_mot1):
+    # see issue #488
+    # calc_mot1 defines some attribute in 'initialize_axis',
+    # the next two lines should pass without exception:
+    roby.position()
+    roby.sync_hard()
+
+
 def test_limits(s1hg):
     with pytest.raises(ValueError):
         s1hg.move(40)

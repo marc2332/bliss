@@ -46,5 +46,5 @@ DEFAULT_CONTROLLER = simulation_diode_controller()
 def simulation_diode(name, config, default=DEFAULT_CONTROLLER):
     controller = None if config.get("independent") else default
     if config.get("integration"):
-        return SimulationDiodeIntegratingCounter(name, controller)
+        return SimulationDiodeIntegratingCounter(name, controller, lambda: None)
     return SimulationDiodeSamplingCounter(name, controller)

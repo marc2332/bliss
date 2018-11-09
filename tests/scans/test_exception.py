@@ -20,6 +20,7 @@ def test_exception_in_reading(beacon):
                     return 1.
 
                 event.set()
+                gevent.sleep(10e-3)
                 raise RuntimeError("Bla bla bla")
             finally:
                 self.nbpoints -= 1

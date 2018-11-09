@@ -71,11 +71,23 @@ class DeviceIterator(object):
         return self
 
     def _wait_ready(self, statistic_container):
+        tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            self.device.wait_reading(block=False)
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(statistic_container, self.device.name, "wait_ready"):
-            return self.device.wait_ready()
+            tasks.append(gevent.spawn(self.device.wait_ready))
+            try:
+                gevent.joinall(tasks, raise_error=True, count=1)
+            except:
+                gevent.killall(tasks)
+                raise
+            else:
+                wait_ready_task = tasks.pop(-1)
+                try:
+                    return wait_ready_task.get()
+                finally:
+                    gevent.killall(tasks)
 
     def _prepare(self, statistic_container):
         if self.__sequence_index > 0 and self.device.prepare_once:
@@ -108,11 +120,23 @@ class DeviceIteratorWrapper(object):
             self.__current = self.__iterator.next()
 
     def _wait_ready(self, statistic_container):
+        tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            self.device.wait_reading(block=False)
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(statistic_container, self.device.name, "wait_ready"):
-            self.device.wait_ready()
+            tasks.append(gevent.spawn(self.device.wait_ready))
+            try:
+                gevent.joinall(tasks, raise_error=True, count=1)
+            except:
+                gevent.killall(tasks)
+                raise
+            else:
+                wait_ready_task = tasks.pop(-1)
+                try:
+                    return wait_ready_task.get()
+                finally:
+                    gevent.killall(tasks)
 
     def __getattr__(self, name):
         if name.startswith("__"):

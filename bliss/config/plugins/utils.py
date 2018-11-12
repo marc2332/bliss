@@ -74,6 +74,8 @@ def _parse_list(config, value):
             return_list = _parse_list(config, node)
             if return_list:
                 object_list.append(return_list)
+        else:
+            object_list.append(node)
     return object_list
 
 

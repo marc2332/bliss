@@ -22,6 +22,28 @@ def Group(*axes_list):
         if not isinstance(axis, Axis):
             raise ValueError("invalid axis %r" % axis)
         axes[axis.name] = axis
+    # ensure a pseudo axis is not present with one of its corresponding real axes
+    def check_axes(*axes_to_check):
+        from bliss.controllers.motor import CalcController
+
+        grp_axes = axes.values()
+        for axis in axes_to_check:
+            if isinstance(axis.controller, CalcController):
+                names = [
+                    grp_axis.name
+                    for grp_axis in grp_axes
+                    if grp_axis in axis.controller.reals
+                ]
+                if names:
+                    raise RuntimeError(
+                        "Virtual axis '%s` cannot be present in group with any of its corresponding real axes: %r"
+                        % (axis.name, names)
+                    )
+                # also check reals, that can be calc axes themselves too
+                check_axes(*axis.controller.reals)
+
+    check_axes(*axes.values())
+
     # always use the same group name for groups of same axes,
     # this is to make sure master name will stay the same
     # when doing step-by-step scans for example -- this is

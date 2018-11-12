@@ -47,8 +47,14 @@ s1b = motor_fixture("s1b")
 s1u = motor_fixture("s1u")
 s1d = motor_fixture("s1d")
 calc_mot1 = calc_motor_fixture("calc_mot1")
-calc_mot2 = calc_motor_fixture("calc_mot2")
+_calc_mot2 = calc_motor_fixture("calc_mot2")
 custom_axis = motor_fixture("custom_axis")
+
+# this ensures .close() is called
+# for calc_mot1 when calc_mot2 is used
+@pytest.fixture
+def calc_mot2(calc_mot1, _calc_mot2):
+    yield _calc_mot2
 
 
 @pytest.fixture

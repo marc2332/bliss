@@ -8,6 +8,7 @@
 import pytest
 from bliss.common.axis import Axis
 from bliss.common.standard import ascan
+from bliss.common.motor_group import Group
 
 
 def test_tags(s1ho):
@@ -143,3 +144,22 @@ def test_ascan_limits(s1hg, s1f, s1b):
     s1b.limits(-1, 1)
     assert pytest.raises(ValueError, "s1hg.move(2.1)")
     assert pytest.raises(ValueError, "ascan(s1hg, -1, 2.1, 10, 0.1, run=False)")
+
+
+def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
+    # test for issue 481
+    with pytest.raises(RuntimeError) as exc:
+        g = Group(s1hg, s1f)
+
+    assert (
+        "RuntimeError: Virtual axis 's1hg` cannot be present in group with any of its corresponding real axes: ['s1f']"
+        in str(exc)
+    )
+
+    with pytest.raises(RuntimeError) as exc:
+        g2 = Group(roby, calc_mot2)
+
+    assert (
+        "RuntimeError: Virtual axis 'calc_mot1` cannot be present in group with any of its corresponding real axes: ['roby']"
+        in str(exc)
+    )

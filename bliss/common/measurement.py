@@ -415,7 +415,7 @@ class IntegratingCounter(Counter):
         self,
         name,
         controller,
-        master_controller=None,
+        master_controller,
         grouped_read_handler=None,
         conversion_function=None,
     ):
@@ -437,10 +437,7 @@ class IntegratingCounter(Counter):
             name, grouped_read_handler, conversion_function, controller
         )
 
-        if master_controller is None:
-            self._master_controller_ref = lambda: None
-        else:
-            self._master_controller_ref = weakref.ref(master_controller)
+        self._master_controller_ref = weakref.ref(master_controller)
 
     def get_values(self, from_index=0):
         """

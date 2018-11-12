@@ -10,7 +10,9 @@ import pytest
 from bliss.common.tango import DeviceProxy
 from bliss.common.measurement import BaseCounter
 from bliss.controllers.lima.roi import Roi
+from bliss.common.scans import loopscan, DEFAULT_CHAIN
 from bliss import setup_globals
+import gevent
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -225,3 +227,28 @@ def test_images_dir_prefix_saving_absolute(
         )
     finally:
         scan_saving.from_dict(scan_saving_dump)
+
+
+def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
+    # test for issue #485
+    simulator = beacon.get("lima_simulator")
+
+    simulator.roi_counters.set("test", (0, 0, 100, 100))
+
+    # force trigger mode to 'internal trigger' on Lima acq. master,
+    # by changing default chain behaviour
+    DEFAULT_CHAIN.set_settings(
+        [
+            {
+                "device": simulator,
+                "acquisition_settings": {"acq_trigger_mode": "INTERNAL_TRIGGER"},
+            }
+        ]
+    )
+
+    with gevent.Timeout(3, RuntimeError("Timeout waiting for end of scan")):
+        scan = loopscan(3, 0.1, simulator, simulator.roi_counters, save=False)
+
+    assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER"
+
+    assert len(scan.get_data()) == 3

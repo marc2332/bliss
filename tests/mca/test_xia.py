@@ -10,7 +10,7 @@ from bliss.controllers.mca import XIA, XMAP
 @pytest.fixture(params=["xia", "mercury", "xmap", "falconx"])
 def xia(request, beacon, mocker):
     # Mocking
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     client = m.return_value
 
     # Modules
@@ -243,14 +243,14 @@ def test_xia_finalization(xia):
 
 @pytest.mark.parametrize("dtype", ["xia", "mercury", "xmap", "falconx"])
 def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
-    # ZeroRPC error
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    # Rpc error
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     m.side_effect = IOError("Cannot connect!")
     with pytest.raises(IOError):
         beacon.get(dtype + "1")
 
     # Handel error
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     client = m.return_value
     client.init.side_effect = IOError("File not found!")
     with pytest.raises(IOError):

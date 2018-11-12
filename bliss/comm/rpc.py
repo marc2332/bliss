@@ -67,6 +67,39 @@ Client::
     assert car.position == 22
 
 """
+# msgpack patch for numpy and pickle
+import pickle
+
+# Patch msgpack
+import msgpack_numpy
+
+# Add fallback pickle packing
+_msgpack_numpy_encode = msgpack_numpy.encode
+
+
+def _pickle_fallback_encoding(obj, chain=None):
+    robj = _msgpack_numpy_encode(obj, chain=chain)
+    if robj is obj:  # try to pickle
+        return {b"<pickled>": True, b"data": pickle.dumps(obj)}
+    else:
+        return robj
+
+
+_msgpack_numpy_decode = msgpack_numpy.decode
+
+
+def _pickle_fallback_decode(obj, chain=None):
+    if obj.get(b"<pickled>") is True:
+        return pickle.loads(obj[b"data"])
+    else:
+        return _msgpack_numpy_decode(obj, chain=chain)
+
+
+# replace patched encode decode
+msgpack_numpy.encode = _pickle_fallback_encoding
+msgpack_numpy.decode = _pickle_fallback_decode
+msgpack_numpy.patch()
+# END patch
 
 import os
 import re
@@ -79,11 +112,11 @@ import louie
 import gevent.queue
 from gevent import socket
 
-from bliss.common import zerorpc
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
 
 import msgpack
+
 
 SPECIAL_METHODS = set(
     (

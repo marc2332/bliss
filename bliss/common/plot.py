@@ -151,7 +151,7 @@ import psutil
 import platform
 from collections import OrderedDict
 
-from bliss.common import zerorpc
+from bliss.comm import rpc
 from bliss.common import session as session_module
 from bliss.common import subprocess
 from bliss.config.channels import Channel
@@ -222,7 +222,7 @@ def attach_flint(pid):
     url = value.decode().split()[-1]
 
     # Return flint proxy
-    proxy = zerorpc.Client(url)
+    proxy = rpc.Client(url)
     proxy.set_session(session.name)
     proxy._pid = pid
     return proxy

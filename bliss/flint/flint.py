@@ -24,7 +24,7 @@ import gevent.event
 import gevent.monkey
 from concurrent.futures import Future
 
-from bliss.common import zerorpc
+from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
 from bliss.flint.executor import QtExecutor
 from bliss.flint.executor import concurrent_to_gevent
@@ -80,7 +80,7 @@ def ignore_warnings(logger=LOGGER):
 def safe_rpc_server(obj):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         url = "ipc://{}".format(f.name)
-        server = zerorpc.Server(obj)
+        server = rpc.Server(obj)
         try:
             server.bind(url)
             task = gevent.spawn(server.run)

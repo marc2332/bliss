@@ -75,10 +75,10 @@ class BaseHexapodProtocol(object):
     # To be overwritten by sub-class
     #
 
-    def _homing(self, async=False):
+    def _homing(self, async_=False):
         raise NotImplementedError
 
-    def _move(self, pose, async=False):
+    def _move(self, pose, async_=False):
         raise NotImplementedError
 
     def _stop(self):
@@ -175,7 +175,7 @@ class BaseHexapodProtocol(object):
             AsyncResult: handler which can be used to wait for the end of the
                          motion
         """
-        return self._move(pose, async=True)
+        return self._move(pose, async_=True)
 
     def move(self, pose):
         """
@@ -184,7 +184,7 @@ class BaseHexapodProtocol(object):
         return self._move(pose)
 
     def start_homing(self):
-        return self._homing(async=True)
+        return self._homing(async_=True)
 
     def homing(self):
         return self._homing()

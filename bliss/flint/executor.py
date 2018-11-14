@@ -63,7 +63,7 @@ class QtExecutor(qt.QObject):
 
 def concurrent_to_gevent(future):
     asyncresult = gevent.event.AsyncResult()
-    watcher = gevent.get_hub().loop.async()
+    watcher = gevent.get_hub().loop.async_()
 
     def gevent_callback():
         try:
@@ -121,7 +121,7 @@ class QtSignalQueue(gevent.queue.Queue):
     def __init__(self, signal, maxsize=None):
         super(QtSignalQueue, self).__init__(maxsize=maxsize)
         self._qt_signal = signal
-        self._qt_watcher = gevent.get_hub().loop.async()
+        self._qt_watcher = gevent.get_hub().loop.async_()
         submit_to_qt_application(signal.connect, self._qt_slot)
 
     def _qt_slot(self, *args):

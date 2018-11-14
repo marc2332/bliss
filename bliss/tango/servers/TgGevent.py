@@ -69,7 +69,7 @@ def deal_with_job(req, args, kwargs):
             return
 
         queue = _threading.Queue()
-        watcher = gevent.get_hub().loop.async()
+        watcher = gevent.get_hub().loop.async_()
         watcher.start(functools.partial(read_from_queue, queue))
         objs[id(new_obj)] = {"queue": queue, "watcher": watcher, "obj": new_obj}
 
@@ -123,7 +123,7 @@ def process_requests(main_queue):
     GEVENT_THREAD_ID = id(threading.current_thread())
 
     global read_event_watcher
-    read_event_watcher = gevent.get_hub().loop.async()
+    read_event_watcher = gevent.get_hub().loop.async_()
     read_event_watcher.start(functools.partial(read_from_queue, main_queue))
 
     gevent_thread_started.set()

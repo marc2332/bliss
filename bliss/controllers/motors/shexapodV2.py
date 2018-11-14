@@ -468,7 +468,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
             >>> print( proto('STA#HEXAPOD?', ack=False) )
             '602,0.001,0.002,0.003,0.001,-0.002,0.003,0.001,0.002,0.003,0.001,-0.002,0.003'
 
-            >>> move_result = proto('MOVE#ABS0,0,0,0,0,0', async=True)
+            >>> move_result = proto('MOVE#ABS0,0,0,0,0,0', async_=True)
             >>> move.wait()
 
         Args:
@@ -479,7 +479,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
             ack (bool): True if command will send BUSY state (ex: 'CONTROLON')
                         or False otherwise (ex: 'STA#EXAPOD?') [default: True]
 
-            async (bool): True not to wait for the command to finish or False
+            async_ (bool): True not to wait for the command to finish or False
                           to wait [default: False]
 
         Returns:
@@ -489,7 +489,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         """
 
         ack = kwargs.pop("ack", True)
-        async = kwargs.pop("async", False)
+        async_ = kwargs.pop("async_", False)
         if kwargs:
             raise TypeError("Unknown keyword arguments: {0}".format(", ".join(kwargs)))
         is_query = "?" in cmd
@@ -508,7 +508,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         else:
             self.__pending_cmds[cmd_id] = [result]
             self.comm.write(cmd_line)
-        if async:
+        if async_:
             return result
         reply = result.get()
         reply_dict = self.__handle_reply_code(cmd, reply, self.DONE)
@@ -635,20 +635,20 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
     def actuators_length(self):
         return [axis["length"] for axis in self.full_actuators_status]
 
-    def _move(self, pose, async=False):
+    def _move(self, pose, async_=False):
         set_pose_dict = self.set_pose._asdict()
         # any coordinate which is None will be replaced by the latest set_pose
         pose = Pose(*[set_pose_dict[i] if v is None else v for i, v in enumerate(pose)])
         pose_str = self.__from_pose(pose)
         self.__set_pose = pose
-        return self("MOVE#ABS", pose_str, async=async)
+        return self("MOVE#ABS", pose_str, async_=async_)
 
     @property
     def is_moving(self):
         return self.system_status.moving
 
-    def _homing(self, async=False):
-        return self("HOMING", async=async)
+    def _homing(self, async_=False):
+        return self("HOMING", async_=async_)
 
     def _stop(self):
         self("STOP")

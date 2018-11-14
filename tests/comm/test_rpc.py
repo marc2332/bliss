@@ -132,10 +132,6 @@ def test_api():
 
 def test_event():
 
-    # Events are currently broken
-    # See #482 and !911 for more information
-    pytest.xfail()
-
     url = "tcp://127.0.0.1:12345"
     results = gevent.queue.Queue()
 

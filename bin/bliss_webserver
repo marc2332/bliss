@@ -22,13 +22,12 @@ import bliss
 from bliss.shell.web import bliss_webserver
 
 try:
-  arguments = docopt.docopt(__doc__)
-  port = int(arguments['--port'])
+    arguments = docopt.docopt(__doc__)
+    port = int(arguments["--port"])
 except docopt.DocoptExit as e:
-  print e.message
+    print e.message
 else:
-  logging.basicConfig()
-  logging.getLogger().setLevel(logging.DEBUG)
+    logging.basicConfig()
+    logging.getLogger().setLevel(logging.DEBUG)
 
-  bliss_webserver.serve_forever(port) 
-
+    bliss_webserver.serve_forever(port)

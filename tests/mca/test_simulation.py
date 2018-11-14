@@ -1,5 +1,5 @@
 def test_simulated_mca_software_acquisition(beacon, mocker):
-    times = range(30)[::-1]
+    times = list(range(30))[::-1]
     m1 = mocker.patch("gevent.sleep")
     m2 = mocker.patch("time.time")
     m2.side_effect = times.pop
@@ -13,7 +13,7 @@ def test_simulated_mca_software_acquisition(beacon, mocker):
 
 
 def test_simulated_mca_gate_acquisition(beacon, mocker):
-    times = range(30)[::-1]
+    times = list(range(30))[::-1]
     m1 = mocker.patch("gevent.sleep")
     m2 = mocker.patch("time.time")
     m2.side_effect = times.pop
@@ -27,7 +27,7 @@ def test_simulated_mca_gate_acquisition(beacon, mocker):
 
 
 def test_simulated_mca_multiple_acquisitions(beacon, mocker):
-    times = range(30)[::-1]
+    times = list(range(30))[::-1]
     m1 = mocker.patch("gevent.sleep")
     m2 = mocker.patch("time.time")
     m2.side_effect = times.pop

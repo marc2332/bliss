@@ -152,7 +152,7 @@ class threadSafeRequest(object):
         self.result = None
         self.done_event.clear()
         if isinstance(result, CallException):
-            raise result.error_string, None, result.tb
+            raise result.error_string.with_traceback(result.tb)
         return result
 
     def set_result(self, res):

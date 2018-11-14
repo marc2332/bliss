@@ -136,7 +136,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
                 counter_data = result.get(full_id)
                 if counter_data is not None:
                     counter_data.append(roi_counter[stat])
-        return map(numpy.array, result.values())
+        return list(map(numpy.array, list(result.values())))
 
 
 class RoiCounters(object):
@@ -220,7 +220,7 @@ class RoiCounters(object):
 
     def get_rois(self):
         """alias to values()"""
-        return self.values()
+        return list(self.values())
 
     def remove(self, name):
         """alias to: del <lima obj>.roi_counters[name]"""
@@ -270,20 +270,20 @@ class RoiCounters(object):
         return self._save_rois.get(name, default=default)
 
     def __getitem__(self, names):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             return self._save_rois[names]
         else:
             return [self[name] for name in names]
 
     def __setitem__(self, names, rois):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             self._set_roi(names, rois)
         else:
             for name, value in zip(names, rois):
                 self[name] = value
 
     def __delitem__(self, names):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             names = (names,)
         self._remove_rois(names)
 
@@ -298,28 +298,28 @@ class RoiCounters(object):
         self._proxy.clearAllRois()
 
     def keys(self):
-        return self._save_rois.keys()
+        return list(self._save_rois.keys())
 
     def values(self):
-        return self._save_rois.values()
+        return list(self._save_rois.values())
 
     def items(self):
-        return self._save_rois.items()
+        return list(self._save_rois.items())
 
     def iterkeys(self):
-        return self._save_rois.iterkeys()
+        return iter(self._save_rois.keys())
 
     def itervalues(self):
-        return self._save_rois.itervalues()
+        return iter(self._save_rois.values())
 
     def iteritems(self):
-        return self._save_rois.iteritems()
+        return iter(self._save_rois.items())
 
     def has_key(self, name):
         return name in self._save_rois
 
     def update(self, rois):
-        for name, roi in rois.items():
+        for name, roi in list(rois.items()):
             self[name] = roi
 
     def pop(self, name, *args):

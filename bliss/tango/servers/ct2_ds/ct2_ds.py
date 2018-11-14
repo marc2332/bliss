@@ -9,7 +9,7 @@
 
 CT2 (P201/C208) ESRF counter card TANGO device
 """
-from __future__ import absolute_import
+
 
 __all__ = ["CT2", "main"]
 
@@ -43,7 +43,7 @@ def switch_state(tg_dev, state=None, status=None):
 
 
 def _to_enum(value, etype):
-    if isinstance(value, (str, unicode)):
+    if isinstance(value, str):
         return etype[value]
     return etype(value)
 

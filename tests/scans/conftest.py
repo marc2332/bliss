@@ -18,7 +18,7 @@ class CustomSimulationDiode(SimulationDiodeSamplingCounter):
 
     def __init__(self):
         SimulationDiodeSamplingCounter.__init__(
-            self, "diode%d" % CustomSimulationDiode.diode_nb.next(), None
+            self, "diode%d" % next(CustomSimulationDiode.diode_nb), None
         )
         self.store_time = list()
         self.store_values = list()

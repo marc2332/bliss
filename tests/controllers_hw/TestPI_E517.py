@@ -52,35 +52,36 @@ class TestPI_E517Controller(unittest.TestCase):
 
     def test_get_informations(self):
         pz = bliss.get_axis("pz")
-        print "PI_E517 IDN :", pz.get_id()
-        print "PI_E517 channel :", pz.channel
-        print "PI_E517 chan_letter :", pz.chan_letter
-        print "PI_E517 pz state:", pz.state()
-        print "PI_E517 INFOS :\n", pz.get_info()
+        print("PI_E517 IDN :", pz.get_id())
+        print("PI_E517 channel :", pz.channel)
+        print("PI_E517 chan_letter :", pz.chan_letter)
+        print("PI_E517 pz state:", pz.state())
+        print("PI_E517 INFOS :\n", pz.get_info())
 
     def test_get_position(self):
         pz = bliss.get_axis("pz")
-        print "PI_E517 pz position :", pz.position()
-        print "PI_E517 pz measured position :", pz.measured_position()
-        print "PI_E517 pz output voltage :", pz.controller._get_voltage(pz)
+        print("PI_E517 pz position :", pz.position())
+        print("PI_E517 pz measured position :", pz.measured_position())
+        print("PI_E517 pz output voltage :", pz.controller._get_voltage(pz))
 
     def test_get_closed_loop_status(self):
         pz = bliss.get_axis("pz")
-        print "PI_E517 pz closed loop enabled :", pz.controller._get_closed_loop_status(
-            pz
+        print(
+            "PI_E517 pz closed loop enabled :",
+            pz.controller._get_closed_loop_status(pz),
         )
 
     def test_very_small_move(self):
         pz = bliss.get_axis("pz")
         _pos = pz.position()
         _new_pos = _pos + 0.001
-        print "PI_E517 move to ", _new_pos
+        print("PI_E517 move to ", _new_pos)
         pz.move(_new_pos)
 
     def test_encoder(self):
         encA = bliss.get_encoder("encA")
         self.assertTrue(encA)
-        print "PI_E517 encoder : ", encA.read()
+        print("PI_E517 encoder : ", encA.read())
 
     #    def test_multiple_move(self):
     #        pz = bliss.get_axis("pz")
@@ -196,7 +197,7 @@ class TestPI_E517Controller(unittest.TestCase):
 
     def test_get_on_target_status(self):
         pz = bliss.get_axis("pz")
-        print "PI_E517 pz on target :", pz.controller._get_on_target_status(pz)
+        print("PI_E517 pz on target :", pz.controller._get_on_target_status(pz))
 
     # called at end of each test
     def tearDown(self):

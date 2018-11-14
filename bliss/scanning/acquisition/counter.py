@@ -22,7 +22,7 @@ def _get_group_reader(counters_or_groupreadhandler):
     except TypeError:
         return counters_or_groupreadhandler, list()
     else:
-        first_counter = list_iter.next()
+        first_counter = next(list_iter)
         reader = Counter.GROUPED_READ_HANDLERS.get(first_counter)
         for cnt in list_iter:
             cnt_reader = Counter.GROUPED_READ_HANDLERS.get(cnt)
@@ -85,7 +85,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
 
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = range(3)
+    SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = list(range(3))
 
     def __init__(
         self, counters_or_groupreadhandler, count_time=None, mode=SIMPLE_AVERAGE, **keys

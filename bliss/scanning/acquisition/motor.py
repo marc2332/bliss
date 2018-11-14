@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import sys
 import time
@@ -305,7 +304,7 @@ class _StepTriggerMaster(AcquisitionMaster):
         while True:
             self.next_mv_cmd_arg = list()
             for axis, pos in zip(self._axes, iter_pos):
-                self.next_mv_cmd_arg.extend((axis, pos.next()))
+                self.next_mv_cmd_arg.extend((axis, next(pos)))
             yield self
 
     def prepare(self):
@@ -431,7 +430,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         while True:
             self.next_mv_cmd_arg = list()
             for _axis, pos in zip(self._axes, iter_pos):
-                self.next_mv_cmd_arg.extend((_axis, pos.next()))
+                self.next_mv_cmd_arg.extend((_axis, next(pos)))
             yield self
 
     def prepare(self):
@@ -726,7 +725,7 @@ class SweepMotorMaster(AcquisitionMaster):
     def __iter__(self):
         iter_pos = iter(self.start_pos)
         while True:
-            self.next_start_pos = iter_pos.next()
+            self.next_start_pos = next(iter_pos)
             yield self
 
     def prepare(self):

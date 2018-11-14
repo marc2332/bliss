@@ -100,7 +100,7 @@ class tab3(CalcController):
         ytilt = math.atan((back - positions_dict["front"]) / self.d2)
 
         if self.geometry in (2, 6):
-            xtilt, ytilt = map(math.degrees, (xtilt, ytilt))
+            xtilt, ytilt = list(map(math.degrees, (xtilt, ytilt)))
         else:
             xtilt = 1000 * xtilt
             ytilt = 1000 * ytilt

@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 from ..chain import AcquisitionDevice
 from bliss.common.event import dispatcher
 import bliss

@@ -71,7 +71,7 @@ def copy_data(zerod, zerod_index, session_name, max_nb_counter, max_nb_points):
         sps.putdata(session_name, ARRAY_NAME, sps_data)
 
         min_index = nb_points
-        for channel_name, channel_info in zerod_index.iteritems():
+        for channel_name, channel_info in zerod_index.items():
             point_nb = channel_info.get("from")
             if point_nb < min_index:
                 min_index = point_nb
@@ -120,10 +120,10 @@ def watch_data(scan_node, session_name):
                             "scanno": new_scanno(),
                             "datafile": "bliss",
                             "spec": session_name,
-                            "columnnames": zerod_index.keys()
-                            + [""] * (nbcounters - len(zerod_index.keys())),
-                            "columns": len(zerod_index.keys()),
-                            "selectedcounters": ";".join(zerod_index.keys()),
+                            "columnnames": list(zerod_index.keys())
+                            + [""] * (nbcounters - len(list(zerod_index.keys()))),
+                            "columns": len(list(zerod_index.keys())),
+                            "selectedcounters": ";".join(list(zerod_index.keys())),
                         },
                         {},
                     )
@@ -177,7 +177,7 @@ def main():
         arguments = docopt.docopt(__doc__)
         sessions_name = arguments["<name>"]
     except docopt.DocoptExit as e:
-        print e.message
+        print(e.message)
     else:
         tasks = list()
         for session in sessions_name:

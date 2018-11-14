@@ -104,7 +104,7 @@ def test_simple_connection(pepu):
         assert pepu.config.startswith("# %APPNAME% PEPU")
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_read_in_channels(pepu, channel_id):
     cmd = "?CHVAL IN%d" % channel_id
     with pepu.assert_command(cmd, "-1.2"):

@@ -11,7 +11,7 @@ from bliss.common.utils import object_method
 
 from bliss.common.axis import AxisState
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import TCP
 import gevent.lock
 
@@ -138,7 +138,7 @@ class PI_E753(Controller):
         # Check error code
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
-            print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
+            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd))
 
     def send_no_ans(self, axis, cmd):
         _cmd = cmd + "\n"
@@ -218,7 +218,7 @@ class PI_E753(Controller):
         elif _status == "0":
             return False
         else:
-            print "err _get_on_target_status, _ans=%r" % _ans
+            print("err _get_on_target_status, _ans=%r" % _ans)
             return -1
 
     """ CLOSED LOOP"""
@@ -233,7 +233,7 @@ class PI_E753(Controller):
         elif _status == "0":
             return False
         else:
-            print "err _get_closed_loop_status, _ans=%r" % _ans
+            print("err _get_closed_loop_status, _ans=%r" % _ans)
             return -1
 
     def _set_closed_loop(self, axis, state):
@@ -258,7 +258,7 @@ class PI_E753(Controller):
         return (_error_number, _error_str)
 
     def _stop(self, axis):
-        print "????????? PI_E753.py received _stop ???"
+        print("????????? PI_E753.py received _stop ???")
         self.send_no_ans(axis, "STP")
 
     def get_info(self, axis):

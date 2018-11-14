@@ -51,8 +51,7 @@ Usage:
     timer.prepare(timing_info)
     timer.start()
 """
-from __future__ import absolute_import
-from __future__ import print_function
+
 
 import gevent
 
@@ -154,7 +153,7 @@ class TangoTfg2(object):
         self.__nframes = 0
         try:
             self._control = tango.DeviceProxy(tango_uri)
-        except tango.DevFailed, traceback:
+        except tango.DevFailed as traceback:
             last_error = traceback[-1]
             print("%s: %s" % (tango_uri, last_error["desc"]))
             self._control = None

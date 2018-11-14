@@ -9,7 +9,7 @@
 
 Multipurpose Unit for Synchronisation, Sequencing and Triggering
 """
-from __future__ import absolute_import
+
 
 __all__ = ["Musst", "main"]
 
@@ -129,7 +129,7 @@ class Musst(Device):
             if add == True:
                 name, type, var = line.split()
                 if type == "FLOAT":
-                    print "adding float variable attribute ", var
+                    print("adding float variable attribute ", var)
                     floatVarAttr = tango.Attr(var, tango.DevDouble, tango.READ_WRITE)
                     self.add_attribute(
                         floatVarAttr,
@@ -138,7 +138,7 @@ class Musst(Device):
                         None,
                     )
                 elif type == "UNSIGNED":
-                    print "adding unsigned variable attribute ", var
+                    print("adding unsigned variable attribute ", var)
                     longVarAttr = tango.Attr(var, tango.DevLong, tango.READ_WRITE)
                     self.add_attribute(
                         longVarAttr,

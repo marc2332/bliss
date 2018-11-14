@@ -60,7 +60,7 @@ class DeviceIterator(object):
     def device(self):
         return self.__device_ref()
 
-    def next(self):
+    def __next__(self):
         if not self._one_shot:
             if not self.device.prepare_once and not self.device.start_once:
                 if hasattr(self.device, "wait_reading"):
@@ -106,18 +106,18 @@ class DeviceIteratorWrapper(object):
         self.__iterator = iter(device)
         self.__one_shot = one_shot
         self.__current = None
-        self.next()
+        next(self)
 
-    def next(self):
+    def __next__(self):
         try:
-            self.__current = self.__iterator.next()
+            self.__current = next(self.__iterator)
         except StopIteration:
             if self.__one_shot:
                 raise
             if hasattr(self.__device, "wait_reading"):
                 self.__device.wait_reading()
             self.__iterator = iter(self.__device)
-            self.__current = self.__iterator.next()
+            self.__current = next(self.__iterator)
 
     def _wait_ready(self, statistic_container):
         tasks = []
@@ -206,7 +206,7 @@ class ChainIterationPreset(object):
 
 
 class AcquisitionMaster(object):
-    HARDWARE, SOFTWARE = range(2)
+    HARDWARE, SOFTWARE = list(range(2))
 
     def __init__(
         self,
@@ -277,7 +277,7 @@ class AcquisitionMaster(object):
             if not self.__prepared:
                 for channel in self.channels:
                     channel._device_name = self.name
-                for connect, _ in self.__duplicated_channels.values():
+                for connect, _ in list(self.__duplicated_channels.values()):
                     connect()
                 self.__prepared = True
 
@@ -304,7 +304,7 @@ class AcquisitionMaster(object):
     def _stop(self, statistic_container):
         with profile(statistic_container, self.name, "stop"):
             if self.__prepared:
-                for _, cleanup in self.__duplicated_channels.values():
+                for _, cleanup in list(self.__duplicated_channels.values()):
                     cleanup()
                 self.__prepared = False
             return self.stop()
@@ -386,7 +386,9 @@ class AcquisitionMaster(object):
         This method will wait the end of the **prepare**
         one slaves.
         """
-        tasks = filter(None, [_running_task_on_device.get(dev) for dev in self.slaves])
+        tasks = [
+            _f for _f in [_running_task_on_device.get(dev) for dev in self.slaves] if _f
+        ]
         try:
             gevent.joinall(tasks, raise_error=True)
         finally:
@@ -394,7 +396,7 @@ class AcquisitionMaster(object):
 
 
 class AcquisitionDevice(object):
-    HARDWARE, SOFTWARE = range(2)
+    HARDWARE, SOFTWARE = list(range(2))
 
     def __init__(
         self,
@@ -577,7 +579,7 @@ class AcquisitionChainIter(object):
         preset_iterators_tasks = list()
         for iterator in list(self._preset_iterators_list):
             try:
-                preset = iterator.next()
+                preset = next(iterator)
                 assert isinstance(preset, ChainIterationPreset)
             except StopIteration:
                 self._preset_iterators_list.remove(iterator)
@@ -671,7 +673,7 @@ class AcquisitionChainIter(object):
                 gevent.joinall(preset_tasks)  # wait to call all stop on preset
                 gevent.joinall(preset_tasks, raise_error=True)
 
-    def next(self):
+    def __next__(self):
         self.__sequence_index += 1
         if self.__sequence_index == 0:
             self._start_time = time.time()
@@ -690,7 +692,7 @@ class AcquisitionChainIter(object):
                 for dev_iter in self._tree.expand_tree():
                     if dev_iter is "root":
                         continue
-                    dev_iter.next()
+                    next(dev_iter)
             preset_tasks = [
                 gevent.spawn(i.stop) for i in self._current_preset_iterators_list
             ]
@@ -753,7 +755,7 @@ class AcquisitionChain(object):
     @property
     def nodes_list(self):
         nodes_gen = self._tree.expand_tree()
-        nodes_gen.next()  # first node is 'root'
+        next(nodes_gen)  # first node is 'root'
         return list(nodes_gen)
 
     def add(self, master, slave):

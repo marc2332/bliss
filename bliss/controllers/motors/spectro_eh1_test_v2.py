@@ -138,8 +138,8 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
         # pretty print (= for humans)
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f}"
-        print(_tmpl_head.format("ax", "ay", "dth", "dy"))
-        print(_tmpl_data.format(*_mot_list))
+        print((_tmpl_head.format("ax", "ay", "dth", "dy")))
+        print((_tmpl_data.format(*_mot_list)))
     else:
         return _mot_list
 
@@ -171,9 +171,9 @@ def mots2steps(mot_list, conv_list=None, pp=True):
         _tmpl_head = "MOT: {0:=^10} {1:=^10} {2:=^10} {3:=^10}"
         _tmpl_data = "POS: {0:^ 10.4f} {1:^ 10.4f} {2:^ 10.4f} {3:^ 10.4f}"
         _tmpl_step = "STP: {0:^ 10.0f} {1:^ 10.0f} {2:^ 10.0f} {3:^ 10.0f}"
-        print(_tmpl_head.format("ax", "ay", "dth", "dy"))
-        print(_tmpl_data.format(*mot_list))
-        print(_tmpl_step.format(*_step_list))
+        print((_tmpl_head.format("ax", "ay", "dth", "dy")))
+        print((_tmpl_data.format(*mot_list)))
+        print((_tmpl_step.format(*_step_list)))
     else:
         return _step_list
 

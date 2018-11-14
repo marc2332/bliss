@@ -250,5 +250,5 @@ if __name__ == "__main__":
     ls_obj = LakeShore330("gpib", "id30oh3ls335", addr=12)
 
     for i in range(100):
-        print ls_obj.read_temperature()
+        print(ls_obj.read_temperature())
         time.sleep(10)

@@ -22,7 +22,7 @@ def test_tags(s1ho):
         "hoffset": "s1ho",
         "vgap": "s1vg",
         "voffset": "s1vo",
-    }.iteritems():
+    }.items():
         assert controller._tagged[tag][0].name == axis_name
 
 

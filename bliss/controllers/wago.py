@@ -107,7 +107,7 @@ def get_module_info(module_name):
 
 
 # go through catalogue entries and update 'reading info'
-for module_name, module_info in MODULES_CONFIG.iteritems():
+for module_name, module_info in MODULES_CONFIG.items():
     reading_info = {}
     module_info.append(reading_info)
 
@@ -115,7 +115,7 @@ for module_name, module_info in MODULES_CONFIG.iteritems():
     if reading_type.startswith("fs"):
         module_info[READING_TYPE] = "fs"
         try:
-            fs_low, fs_high = map(int, reading_type[2:].split("-"))
+            fs_low, fs_high = list(map(int, reading_type[2:].split("-")))
         except:
             fs_low = 0
             fs_high = int(reading_type[2:])
@@ -192,7 +192,7 @@ class _WagoController:
         self.mapping = []
         self.modules = []
         for line in mapping_str.split("\n"):
-            items = [item.strip() for item in filter(None, line.split(","))]
+            items = [item.strip() for item in [_f for _f in line.split(",") if _f]]
             if items:
                 module_name = items[0]
                 if module_name not in MODULES_CONFIG:
@@ -246,18 +246,18 @@ class _WagoController:
     def _read_ssi(self, raw_value, bits=24):
         # reading is two words, 16 bits each
         # the return value is 24 bits precision, signed float
-        value = raw_value[0] + raw_value[1] * (1L << 16)
-        value &= (1L << bits) - 1
-        if value & (1L << (bits - 1)):
-            value -= 1L << bits
+        value = raw_value[0] + raw_value[1] * (1 << 16)
+        value &= (1 << bits) - 1
+        if value & (1 << (bits - 1)):
+            value -= 1 << bits
         return [float(value)]
 
     def _read_thc(self, raw_value, bits=16):
         # the return value is signed float
         value = ctypes.c_ushort(raw_value).value
-        value &= (1L << bits) - 1
-        if value & (1L << (bits - 1)):
-            value -= 1L << bits
+        value &= (1 << bits) - 1
+        if value & (1 << (bits - 1)):
+            value -= 1 << bits
         return value / 10.0
 
     def _read_value(self, raw_value, read_table):
@@ -448,7 +448,7 @@ class _WagoController:
     def write_phys(self, write_table):
         # write_table is a dict of module_index:
         # [(type_index, channel_index, value_to_write), ...]
-        for module_index, write_info in write_table.iteritems():
+        for module_index, write_info in write_table.items():
             module_info = get_module_info(self.modules[module_index])
             for type_index, channel_index, value2write in write_info:
                 if type_index == DIGI_OUT:
@@ -479,7 +479,7 @@ class _WagoController:
         channels_to_write = []
         current_list = channels_to_write
         for x in args:
-            if type(x) in (types.StringType, types.UnicodeType):
+            if type(x) in (bytes, str):
                 # channel name
                 current_list = [str(x)]
                 channels_to_write.append(current_list)
@@ -553,9 +553,9 @@ class _WagoController:
             if m & 0x8000:  # digital in/out
                 direction = "input" if m & 0x1 else "output"
                 mod_size = (m & 0xf00) >> 8
-                print "Module digital %s %s(s)" % (mod_size, direction)
+                print("Module digital %s %s(s)" % (mod_size, direction))
             else:
-                print "Module %d" % (m)
+                print("Module %d" % (m))
 
 
 class WagoCounter(SamplingCounter):

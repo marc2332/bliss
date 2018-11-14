@@ -109,7 +109,7 @@ class PointTrajectory(object):
             positions : is a dictionary where the key is a name and the
                         value is a numpy array or a list of values.
         """
-        ys = [numpy.array(y) for y in positions.values()]
+        ys = [numpy.array(y) for y in list(positions.values())]
         xs = [numpy.array(time_array)]
         xs.extend(ys)
 
@@ -125,7 +125,7 @@ class PointTrajectory(object):
         self._positions = dict()
         self._velocity = dict()
         self._acceleration = dict()
-        for name, values in zip(positions.keys(), out[1:]):
+        for name, values in zip(list(positions.keys()), out[1:]):
             self._positions[name] = values
             velocity = numpy.gradient(values, self._time)
             self._acceleration[name] = numpy.gradient(velocity, self._time)
@@ -136,7 +136,7 @@ class PointTrajectory(object):
         Return the maximum velocity.
         """
         max_vel = dict()
-        for name, velocities in self._velocity.iteritems():
+        for name, velocities in self._velocity.items():
             max_vel[name] = numpy.absolute(velocities).max()
         return max_vel
 
@@ -145,7 +145,7 @@ class PointTrajectory(object):
         Return the maximum acceleration.
         """
         max_acc = dict()
-        for name, accelerations in self._acceleration.iteritems():
+        for name, accelerations in self._acceleration.items():
             max_acc[name] = numpy.absolute(accelerations).max()
         return max_acc
 
@@ -155,7 +155,7 @@ class PointTrajectory(object):
         Can be easily compared with the motor limits
         """
         limits = dict()
-        for name, positions in self._positions.iteritems():
+        for name, positions in self._positions.items():
             limits[name] = (positions.min(), positions.max())
         return limits
 
@@ -183,7 +183,9 @@ class PointTrajectory(object):
         pvt_arrays = dict()
 
         for name, positions, velocities in zip(
-            self._positions.keys(), self._positions.values(), self._velocity.values()
+            list(self._positions.keys()),
+            list(self._positions.values()),
+            list(self._velocity.values()),
         ):
             dtype = [
                 ("time", "f8"),
@@ -197,7 +199,7 @@ class PointTrajectory(object):
             max_acc.update(acceleration_start_end)
 
             max_acc_time = 0.
-            for name, velocities in self._velocity.iteritems():
+            for name, velocities in self._velocity.items():
                 velocity = max(abs(velocities[0]), abs(velocities[-1]))
                 acc = max_acc[name]
                 acc_time = velocity / acc
@@ -205,9 +207,9 @@ class PointTrajectory(object):
                     max_acc_time = acc_time
 
             for name, positions, velocities in zip(
-                self._positions.keys(),
-                self._positions.values(),
-                self._velocity.values(),
+                list(self._positions.keys()),
+                list(self._positions.values()),
+                list(self._velocity.values()),
             ):
                 pvt_array = pvt_arrays[name]
                 pvt_array["time"][1:-1] = self._time + max_acc_time
@@ -222,9 +224,9 @@ class PointTrajectory(object):
                 pvt_array["position"][-1] = last_point
         else:
             for name, positions, velocities in zip(
-                self._positions.keys(),
-                self._positions.values(),
-                self._velocity.values(),
+                list(self._positions.keys()),
+                list(self._positions.values()),
+                list(self._velocity.values()),
             ):
                 pvt_array = pvt_arrays[name]
                 pvt_array["time"] = self._time

@@ -59,14 +59,14 @@ class StepScanDataWatch(object):
 
     def __call__(self, data_events, nodes, scan_info):
         if self._init_done is False:
-            for acq_device_or_channel, data_node in nodes.iteritems():
+            for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
                     channel = data_node
                     self._channel_name_2_channel[channel.name] = channel
             self._init_done = True
 
         min_nb_points = None
-        for channels_name, channel in self._channel_name_2_channel.iteritems():
+        for channels_name, channel in self._channel_name_2_channel.items():
             nb_points = len(channel)
             if min_nb_points is None:
                 min_nb_points = nb_points
@@ -79,7 +79,7 @@ class StepScanDataWatch(object):
         for point_nb in range(self._last_point_display, min_nb_points):
             values = {
                 ch_name: ch.get(point_nb)
-                for ch_name, ch in self._channel_name_2_channel.iteritems()
+                for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
             send(current_module, "scan_data", scan_info, values)
         self._last_point_display = min_nb_points
@@ -180,13 +180,13 @@ class ScanSaving(Parameters):
         try:
             if value is not None:
                 self._get_writer_class(value)
-        except ImportError, exc:
+        except ImportError as exc:
             raise ImportError(
                 "Writer module **%s** does not"
                 " exist or cannot be loaded (%s)"
                 " possible module are %s" % (value, exc, writer.__all__)
             )
-        except AttributeError, exc:
+        except AttributeError as exc:
             raise AttributeError(
                 "Writer module **%s** does have"
                 " class named Writer (%s)" % (value, exc)
@@ -239,7 +239,7 @@ class ScanSaving(Parameters):
                 pass
             for path_item in sub_items:
                 parent = _get_or_create_node(path_item, "container", parent=parent)
-        except KeyError, keyname:
+        except KeyError as keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             path = os.path.join(cache_dict.get("base_path"), sub_path)
@@ -359,7 +359,7 @@ def display_motor(func):
 
 
 class Scan(object):
-    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
+    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = list(range(4))
 
     def __init__(
         self,
@@ -530,7 +530,7 @@ class Scan(object):
     def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
-        for top_level_master in acq_chain.keys():
+        for top_level_master in list(acq_chain.keys()):
             for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
                 ma = scalar_master.split(":")[-1]
                 if ma in self._scan_info["positioners"]:
@@ -557,9 +557,7 @@ class Scan(object):
 
     def _get_x_y_data(self, counter, axis=None):
         axis_name = self._get_data_axis_name(axis)
-        counter_name = (
-            counter.name if not isinstance(counter, (str, unicode)) else counter
-        )
+        counter_name = counter.name if not isinstance(counter, str) else counter
         data = self.get_data()
         x_data = data[axis_name]
         y_data = data[counter_name]
@@ -627,7 +625,7 @@ class Scan(object):
         if axis is None:
             try:
                 acq_chain = self._scan_info["acquisition_chain"]
-                for top_level_master in acq_chain.keys():
+                for top_level_master in list(acq_chain.keys()):
                     for scalar_master in acq_chain[top_level_master]["master"][
                         "scalars"
                     ]:
@@ -662,7 +660,7 @@ class Scan(object):
         self.__trigger_data_watch_callback(signal, sender)
 
     def set_ttl(self):
-        for node in self.nodes.itervalues():
+        for node in self.nodes.values():
             node.set_ttl()
         self.node.set_ttl()
         self.node.end()
@@ -722,7 +720,7 @@ class Scan(object):
         else:
             set_watch_event = None
 
-        current_iters = [i.next() for i in self.acq_chain.get_iter_list()]
+        current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
             send(current_module, "scan_new", self.scan_info)
@@ -848,7 +846,7 @@ class Scan(object):
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
         """
-        for master, channels in self.scan_info["acquisition_chain"].iteritems():
+        for master, channels in self.scan_info["acquisition_chain"].items():
             if scan_item.name == master:
                 # return scalar plot(s) with this master
                 args = (master, "0d", 0)
@@ -887,7 +885,7 @@ class Scan(object):
         if last_filename != filename:
             self.__scan_saving._last_scan_file = filename
             # find new scan number from existing scans (if any)
-            if not "{scan_number}" in filename:
+            if "{scan_number}" not in filename:
                 max_scan_number = 0
                 for scan_entry in self.writer.get_scan_entries():
                     try:

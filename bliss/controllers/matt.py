@@ -60,7 +60,7 @@ The different configurations are:
         the 750-402 and 750-408 Digital Input module has 4 channels only.
 """
 
-import wago
+from . import wago
 import time
 from bliss.common.utils import wrap_methods
 

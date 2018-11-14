@@ -680,7 +680,7 @@ class CT2(object):
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
-        if isinstance(acq_mode, (str, unicode)):
+        if isinstance(acq_mode, str):
             acq_mode = AcqMode[acq_mode]
         else:
             acq_mode = AcqMode(acq_mode)
@@ -905,7 +905,7 @@ def create_and_configure_device(config_or_name):
     Returns:
         a new instance of :class:`CT2` configured and ready to go
     """
-    if isinstance(config_or_name, (str, unicode)):
+    if isinstance(config_or_name, str):
         device_config = __get_device_config(config_or_name)
         name = config_or_name
     else:

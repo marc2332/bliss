@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
-import StringIO
+import io
 from . import connection
 from .connection import StolenLockException
 
@@ -20,7 +20,7 @@ def get_default_connection():
     return _default_connection
 
 
-class _StringIO(StringIO.StringIO):
+class _StringIO(io.StringIO):
     def __enter__(self, *args, **kwags):
         return self
 

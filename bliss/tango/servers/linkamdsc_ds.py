@@ -11,7 +11,7 @@
 
 Class for controlling the Linkam T94 with Dsc stage.
 """
-from __future__ import absolute_import
+
 
 import numpy
 from functools import wraps
@@ -317,7 +317,7 @@ class LinkamDsc(Device):
             (len(self._profileData) / 3, 3), buffer=self._profileData, dtype=float
         )
         ramplist = [tuple(a) for a in rr]
-        print ramplist
+        print(ramplist)
         if self._filename:
             self._scan = linkamScan(self._linkam, self._filename)
         self._linkam.profile(ramplist)

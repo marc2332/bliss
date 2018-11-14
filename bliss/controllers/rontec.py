@@ -80,7 +80,7 @@ class Rontec(object):
             raise RuntimeError(e)
         else:
             if self.debug:
-                print asw
+                print(asw)
             return asw
 
     def _calib_getch(self, energy):
@@ -133,7 +133,7 @@ class Rontec(object):
                 with open(calib) as fd:
                     for line in fd:
                         if not line.startswith("#") and line.strip():
-                            self.calib_c = map(float, line.split())
+                            self.calib_c = list(map(float, line.split()))
             except IOError:
                 raise IOError("Cannot open %s" % calib)
             self.calib_done = True
@@ -186,7 +186,7 @@ class Rontec(object):
             self._check_answer(asw, "reset: livetime")
             self.live_t = True
         except RuntimeError as e:
-            print e
+            print(e)
             self.live_t = False
 
         self.chmin = Rontec.MCA_DEFAULTS["chmin"]
@@ -211,7 +211,7 @@ class Rontec(object):
         try:
             asw = self.sl.write_readline("$FP\r")
         except Exception as e:
-            print str(e)
+            print(str(e))
             return MCA_STATE.UNKNOWN
 
         self._check_answer(asw, "read_acqstatus")
@@ -250,7 +250,7 @@ class Rontec(object):
         if "erange" in kwargs:
             # set the energy range
             erange = int(kwargs["erange"])
-            if erange in Rontec.ERANGE.iterkeys():
+            if erange in iter(Rontec.ERANGE.keys()):
                 asw = str(self.sl.write_readline("$SE %d\r" % erange))
                 self._check_answer(asw, "set_presets: erange")
                 self.preset_erange = erange
@@ -377,7 +377,7 @@ class Rontec(object):
         if self.type == 2 and roi_channel:
             asw = str(self.sl.write_readline("$GK %d\r" % roi_channel))
             if self.debug:
-                print asw
+                print(asw)
             self._check_answer(asw, "get_roi")
             asw = asw[4:]
             argout["ext_roi"] = asw
@@ -419,7 +419,7 @@ class Rontec(object):
         asw = str(self.sl.write_readline("$MR\r"))
         self._check_answer(asw, "get_times: real time elapsed")
         if self.debug:
-            print asw
+            print(asw)
         try:
             _, rt = asw.split()
             # the answer is in ms, we return time in s
@@ -557,7 +557,7 @@ class Rontec(object):
         raw_data = self.sl.read(size=size * 4, timeout=10)
         data = " ".join(["%02x" % ord(i) for i in raw_data]).split()
         if self.debug:
-            print "read %d characters" % data.__len__()
+            print("read %d characters" % data.__len__())
         # we read 4 bytes/ch (hhhhhhhh ........ ........ llllllll)
         dd = [
             int("0x" + i + j + k + l, 16)
@@ -645,18 +645,18 @@ if __name__ == "__main__":
 
     det.set_roi(2, 15, channel=1)
     cd = det.get_roi(channel=1)
-    print cd
+    print(cd)
     det.set_presets(erange=1, ctime=5, fname="/tmp/newdata.mca")
-    print "erange ", det.get_presets(erange="erange")
-    print "ctime", det.get_presets(ctime="ctime")
+    print("erange ", det.get_presets(erange="erange"))
+    print("ctime", det.get_presets(ctime="ctime"))
     det.start_acq()
     bbb = det.get_times()
-    print bbb
+    print(bbb)
     time.sleep(5)
     cc = det.get_times()
-    print cc
+    print(cc)
     aaa = det.read_data(0, 4095)
-    print aaa
+    print(aaa)
     # bbb = det.read_raw_data(0, 100)
     bbb = det.read_raw_data(save_data=True)
-    print sum(bbb) / cc["real_t_elapsed"]
+    print(sum(bbb) / cc["real_t_elapsed"])

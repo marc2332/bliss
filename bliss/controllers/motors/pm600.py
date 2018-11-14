@@ -170,7 +170,7 @@ class PM600(Controller):
         log.debug("read_deceleration() called")
         reply = self.io_command("QS", axis.channel)
         tokens = reply.split()
-        print tokens[11]
+        print(tokens[11])
         return int(tokens[11])
 
     def read_velocity(self, axis):

@@ -40,7 +40,7 @@ class keithley428(object):
             self._rxterm = "\r\n"
             self._cnx._readline(self._rxterm)
         else:
-            raise ValueError, "Must specify gpib_url"
+            raise ValueError("Must specify gpib_url")
 
         self._FilterRiseTimes = {
             0: "10usec",
@@ -112,8 +112,8 @@ class keithley428(object):
     @FilterRiseTime.setter
     def FilterRiseTime(self, value):
         if value not in self._FilterRiseTimes:
-            raise ValueError, "Filter rise time value {0} out of range (0-9)".format(
-                value
+            raise ValueError(
+                "Filter rise time value {0} out of range (0-9)".format(value)
             )
         self.put("T{0}X".format(value))
 
@@ -128,7 +128,7 @@ class keithley428(object):
     @Gain.setter
     def Gain(self, value):
         if value not in self._gainStringArray:
-            raise ValueError, "Gain value {0} out of range (0-10)".format(value)
+            raise ValueError("Gain value {0} out of range (0-10)".format(value))
         self.put("R{0}X".format(value))
 
     @property
@@ -142,7 +142,7 @@ class keithley428(object):
     @VoltageBias.setter
     def VoltageBias(self, value):
         if value >= 5.0 or value <= -5.0:
-            raise ValueError, "Value out of range (-5V to -5v)"
+            raise ValueError("Value out of range (-5V to -5v)")
         value = value * 10000 + 0.1
         value = int(value / 25.)
         value = value * 25.0 / 10000.0
@@ -161,8 +161,8 @@ class keithley428(object):
         absVal = math.fabs(amps)
         currentRangeMax = 0.005
         if absVal > currentRangeMax:
-            raise ValueError, "Current suppress value {0} out of range (=/-0.005A)".format(
-                amps
+            raise ValueError(
+                "Current suppress value {0} out of range (=/-0.005A)".format(amps)
             )
         currentRange = 0
         for x in range(7, 0, -1):
@@ -171,13 +171,13 @@ class keithley428(object):
                 currentRange = x
                 break
         if currentRange == 0:
-            raise ValueError, "Current suppress value {0} out of range (too small)".format(
-                amps
+            raise ValueError(
+                "Current suppress value {0} out of range (too small)".format(amps)
             )
         self.put("S{0},{1}X".format(amps, currentRange))
         errorState = self.putget("U1X")
         if errorState != "42800000000000":
-            raise ValueError, "Failed to set current suppress value {0}".format(amps)
+            raise ValueError("Failed to set current suppress value {0}".format(amps))
 
     @property
     def State(self):

@@ -175,7 +175,9 @@ class BaseMCA(object):
     def software_controlled_run(self, acquisition_number, polling_time):
         # Loop over acquisitions
         indexes = (
-            itertools.count() if acquisition_number == 0 else range(acquisition_number)
+            itertools.count()
+            if acquisition_number == 0
+            else list(range(acquisition_number))
         )
         for _ in indexes:
             # Start and wait
@@ -207,7 +209,7 @@ class BaseMCA(object):
             # Poll data
             done = not self.is_acquiring()
             current, data, statistics = self.poll_data()
-            points = range(sent, sent + len(data))
+            points = list(range(sent, sent + len(data)))
             sent += len(data)
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
@@ -236,8 +238,8 @@ class BaseMCA(object):
         # Preset mode
         self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
         # Run acquisition
-        data, statistics = zip(
-            *self.software_controlled_run(acquisition_number, polling_time)
+        data, statistics = list(
+            zip(*self.software_controlled_run(acquisition_number, polling_time))
         )
         # Return result
         return list(data), list(statistics)
@@ -252,8 +254,8 @@ class BaseMCA(object):
         # Block size
         self.set_block_size(block_size)
         # Run acquisition
-        data, statistics = zip(
-            *self.hardware_controlled_run(acquisition_number, polling_time)
+        data, statistics = list(
+            zip(*self.hardware_controlled_run(acquisition_number, polling_time))
         )
         # Return result
         return list(data), list(statistics)
@@ -274,6 +276,6 @@ class BaseMCA(object):
         # Discard first point
         next(data_generator)
         # Get all the points
-        data, statistics = zip(*data_generator)
+        data, statistics = list(zip(*data_generator))
         # Return result
         return list(data), list(statistics)

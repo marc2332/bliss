@@ -30,7 +30,7 @@ class LinkedAxis(Axis):
             raise RuntimeError(
                 "Linked axis named %s doesn't exist"
                 "linked axis configure in the system are : %s"
-                % (self.address, linked_axis.keys())
+                % (self.address, list(linked_axis.keys()))
             )
 
     def _init_software(self):
@@ -38,7 +38,7 @@ class LinkedAxis(Axis):
         linked_axis = self.controller.get_linked_axis()
         mot_addresses = linked_axis.get(self.address)
 
-        for name, axis in self.controller.axes.iteritems():
+        for name, axis in self.controller.axes.items():
             if axis.config.get("address", lambda x: x) in mot_addresses:
                 raise RuntimeError(
                     "Cannot initialize linked axis '%s',"

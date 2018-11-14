@@ -48,12 +48,12 @@ _wlog = _log.getChild("web")
 class _WaitStolenReply(object):
     def __init__(self, stolen_lock):
         self._stolen_lock = dict()
-        for client, objects in stolen_lock.iteritems():
+        for client, objects in stolen_lock.items():
             self._stolen_lock[client] = b"|".join(objects)
         self._client2info = dict()
 
     def __enter__(self):
-        for client, message in self._stolen_lock.iteritems():
+        for client, message in self._stolen_lock.items():
             event = gevent.event.Event()
             client2sync = _waitstolen.setdefault(message, dict())
             client2sync[client] = event
@@ -61,7 +61,7 @@ class _WaitStolenReply(object):
         return self
 
     def __exit__(self, *args, **keys):
-        for client, message in self._stolen_lock.iteritems():
+        for client, message in self._stolen_lock.items():
             client2sync = _waitstolen.pop(message, None)
             if client2sync is not None:
                 client2sync.pop(client, None)
@@ -72,7 +72,7 @@ class _WaitStolenReply(object):
         with gevent.Timeout(
             timeout, RuntimeError("some client(s) didn't reply to stolen lock")
         ):
-            for client, message in self._stolen_lock.iteritems():
+            for client, message in self._stolen_lock.items():
                 client2sync = _waitstolen.get(message)
                 if client2sync is not None:
                     sync = client2sync.get(client)
@@ -90,7 +90,7 @@ def _releaseAllLock(client_id):
         _lock_object.pop(obj)
     # Inform waiting client
     tmp_dict = dict(_waiting_lock)
-    for client_sock, tlo in tmp_dict.iteritems():
+    for client_sock, tlo in tmp_dict.items():
         try_lock_object = set(tlo)
         if try_lock_object.intersection(objset):
             objs = _waiting_lock.pop(client_sock)
@@ -168,7 +168,7 @@ def _unlock(client_id, priority, unlock_obj):
 
     unlock_object = set(unlock_object)
     tmp_dict = dict(_waiting_lock)
-    for client_sock, tlo in tmp_dict.iteritems():
+    for client_sock, tlo in tmp_dict.items():
         try_lock_object = set(tlo)
         if try_lock_object.intersection(unlock_object):
             objs = _waiting_lock.pop(client_sock)

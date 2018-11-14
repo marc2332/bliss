@@ -17,7 +17,7 @@ import itertools
 import os
 import shutil
 import sys
-import ConfigParser
+import configparser
 import ast
 import inspect
 import numpy
@@ -35,7 +35,7 @@ from bliss.common import event
 
 def grouper(iterable, n):
     args = [iter(iterable)] * n
-    return itertools.izip_longest(fillvalue=None, *args)
+    return itertools.zip_longest(fillvalue=None, *args)
 
 
 BUSY = False
@@ -119,7 +119,7 @@ class flex(object):
 
     def connect(self):
         logging.getLogger("flex").info("reading config file")
-        self.config = ConfigParser.RawConfigParser()
+        self.config = configparser.RawConfigParser()
         cfg_file_path = os.path.join(
             os.path.dirname(self.calibration_file), "detection.cfg"
         )
@@ -149,7 +149,7 @@ class flex(object):
         return ret
 
     def get_cachedVariable_list(self):
-        return self.robot._cached_variables.keys()
+        return list(self.robot._cached_variables.keys())
 
     def get_detection_param(self, section, name_value):
         val = ast.literal_eval(self.config.get(section, name_value))
@@ -162,7 +162,7 @@ class flex(object):
         return val
 
     def transfer_counter(self, success=True):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/transfer_counter.log"
         parser.read(file_path)
         if success:
@@ -298,7 +298,7 @@ class flex(object):
     @notwhenbusy
     def moveDewar(self, cell, puck=1, user=False):
         logging.getLogger("flex").info("Starting to move the Dewar")
-        if isinstance(cell, (int, long)) and isinstance(puck, (int, long)):
+        if isinstance(cell, int) and isinstance(puck, int):
             if not cell in range(1, 9):
                 logging.getLogger("flex").error("Wrong cell number [1-8]")
                 raise ValueError("Wrong cell number [1-8]")
@@ -501,11 +501,7 @@ class flex(object):
         DEFREEZING = False
 
     def check_coordinates(self, cell, puck, sample):
-        if (
-            isinstance(cell, (int, long))
-            and isinstance(puck, (int, long))
-            and isinstance(sample, (int, long))
-        ):
+        if isinstance(cell, int) and isinstance(puck, int) and isinstance(sample, int):
             if not cell in range(1, 9):
                 logging.getLogger("flex").error("Wrong cell number [1-8]")
                 raise ValueError("Wrong cell number [1-8]")
@@ -877,7 +873,7 @@ class flex(object):
                 dm_reading.kill()
 
     def update_transfer_iteration(self, reset=False):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/transfer_iteration.cfg"
         parser.read(file_path)
         if reset:
@@ -893,7 +889,7 @@ class flex(object):
         return iter_nb
 
     def save_loaded_position(self, cell, puck, sample):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/loaded_position.cfg"
         parser.read(file_path)
         parser.set("position", "cell", str(cell))
@@ -910,7 +906,7 @@ class flex(object):
         self.save_loaded_position(-1, -1, -1)
 
     def read_loaded_position(self):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/loaded_position.cfg"
         parser.read(file_path)
         cell = parser.getfloat("position", "cell")
@@ -1931,7 +1927,7 @@ class flex(object):
 
     def get_tolerance(self, frequency):
         tolerance = []
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/proxisense_%d.cfg" % int(
             frequency
         )
@@ -2018,13 +2014,13 @@ class flex(object):
 
         def f(*elements):
             try:
-                return filter(None, elements)[0]
+                return [_f for _f in elements if _f][0]
             except IndexError:
                 return None
 
-        res = list(itertools.imap(f, *result))
+        res = list(map(f, *result))
 
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         file_path = os.path.dirname(self.calibration_file) + "/puck_detection.cfg"
         parser.read(file_path)
         parser.set("Cell%d" % cell, "puck1", str(res[0]))
@@ -2060,7 +2056,7 @@ class flex(object):
             self.proxisense.writeThreshold(cell, i + 1, threshold)
 
     def scanSlot(self, cell="all"):
-        if cell != "all" and isinstance(cell, (int, long)) and not cell in range(1, 9):
+        if cell != "all" and isinstance(cell, int) and not cell in range(1, 9):
             logging.getLogger("flex").error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
         logging.getLogger("flex").info("Starting to scan on cell %s" % (str(cell)))
@@ -2077,7 +2073,7 @@ class flex(object):
             self._scanSlot(cell)
 
     def proxisenseCalib(self, cell="all", empty=True):
-        if cell != "all" and isinstance(cell, (int, long)) and not cell in range(1, 9):
+        if cell != "all" and isinstance(cell, int) and not cell in range(1, 9):
             logging.getLogger("flex").error("Wrong cell number [1-8]")
             raise ValueError("Wrong cell number [1-8]")
 

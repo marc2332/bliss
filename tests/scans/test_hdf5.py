@@ -26,7 +26,7 @@ def _h5dump(scan_file):
         # Yield lines
         for name, obj in items:
             yield name
-            for key, val in obj.attrs.iteritems():
+            for key, val in obj.attrs.items():
                 yield "    %s: %s" % (key, val)
 
 
@@ -74,7 +74,7 @@ def test_hdf5_metadata(beacon, session):
 
     with h5py.File(s.writer.filename, "r") as f:
         dataset = f[s.node.name]
-        assert dataset["title"].value == u"ascan roby 0 10 10 0.01"
+        assert dataset["title"].value == "ascan roby 0 10 10 0.01"
         assert dataset["start_time"].value.startswith(iso_start_time)
         assert dataset["measurement"]
         assert dataset["instrument"]

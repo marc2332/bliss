@@ -54,7 +54,7 @@ class ControllerAxisSettings:
 
     def config_settings(self):
         return tuple(
-            [setting for setting, config in self.config_setting.iteritems() if config]
+            [setting for setting, config in self.config_setting.items() if config]
         )
 
     def add(self, setting_name, convert_func=str, persistent=True, config=False):

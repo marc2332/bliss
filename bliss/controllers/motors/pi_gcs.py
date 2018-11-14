@@ -25,13 +25,13 @@ def get_pi_comm(config, ctype=None, **opts):
     try:
         return get_comm(config, ctype=ctype, **opts)
     except ValueError:
-        if config.has_key("host"):
+        if "host" in config:
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
             host = config.get("host")
             opts.setdefault("port", 50000)
             config = {"tcp": {"url": host}}
             return get_comm(config, ctype=ctype, **opts)
-        elif config.has_key("serial_line"):
+        elif "serial_line" in config:
             serial_line = self.config.get("serial_line")
             warn(
                 "'serial_line' keyword is deprecated. Use 'serial' instead",

@@ -81,21 +81,21 @@ ColSep = " | "
 RowSep = "-" * NbCols
 
 l = [("%-*s" % (ColWidth, "Start=%s" % start_src)) for start_src in SyncSrcList]
-print ColSep.join(l)
-print RowSep
+print(ColSep.join(l))
+print(RowSep)
 
 
 def group(x, n):
-    return zip(*[x[i::n] for i in xrange(n)])
+    return list(zip(*[x[i::n] for i in range(n)]))
 
 
-groups = map(lambda x: group(x, 3), (trig, exp, rules))
+groups = [group(x, 3) for x in (trig, exp, rules)]
 
 for t, e, r in zip(*groups):
     for l in t, e, r:
-        print ColSep.join(["%-*s" % (ColWidth, s) for s in l])
-    print RowSep
+        print(ColSep.join(["%-*s" % (ColWidth, s) for s in l]))
+    print(RowSep)
 
-print "Valid Modes: %d" % valid_modes
-print "Existing Modes: %d" % len(ExistingModes)
-print "New Modes: %d" % len(NewModes)
+print("Valid Modes: %d" % valid_modes)
+print("Existing Modes: %d" % len(ExistingModes))
+print("New Modes: %d" % len(NewModes))

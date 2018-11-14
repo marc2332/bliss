@@ -14,9 +14,9 @@ class tango_transfocator:
         self.__control = None
         try:
             self.__control = DeviceProxy(tango_uri)
-        except PyTango.DevFailed, traceback:
+        except PyTango.DevFailed as traceback:
             last_error = traceback[-1]
-            print "%s: %s" % (tango_uri, last_error["desc"])
+            print("%s: %s" % (tango_uri, last_error["desc"]))
             self.__control = None
         else:
             try:

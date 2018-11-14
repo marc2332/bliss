@@ -7,9 +7,8 @@
   Copyright 2009 by European Molecular Biology Laboratory - Grenoble
 """
 
-from __future__ import absolute_import
 from warnings import warn
-from StandardClient import *
+from .StandardClient import *
 
 CMD_SYNC_CALL = "EXEC"
 CMD_ASNC_CALL = "ASNC"
@@ -34,7 +33,7 @@ class ExporterClient(StandardClient):
             try:
                 evtstr = msg[4:]
                 tokens = evtstr.split(PARAMETER_SEPARATOR)
-                self.onEvent(tokens[0], tokens[1], long(tokens[2]))
+                self.onEvent(tokens[0], tokens[1], int(tokens[2]))
             except:
                 # print("Error processing event: " + str(sys.exc_info()[1]))
                 pass

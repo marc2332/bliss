@@ -205,7 +205,7 @@ def parse_reply_item(reply):
 
 def parse_reply(reply, cmd):
     if reply.startswith(":E"):
-        channel, code = map(int, reply[2:].split(",", 1))
+        channel, code = list(map(int, reply[2:].split(",", 1)))
         if code:
             raise SmarActError(code, channel)
         return 0

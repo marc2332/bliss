@@ -86,7 +86,7 @@ class Opiom:
 
     def __debugMsg(self, wr, msg):
         if self.__debug:
-            print "%-5.5s on %s > %s" % (wr, self.name, msg)
+            print("%-5.5s on %s > %s" % (wr, self.name, msg))
 
     def info(self):
         return self.comm("?INFO")
@@ -159,7 +159,7 @@ class Opiom:
                 # already default
                 return
             else:
-                print "Uploading default program"
+                print("Uploading default program")
         else:
             try:
                 file_pldid, file_project = self._getFilePLDIDandPROJECT(prog_name)
@@ -170,7 +170,7 @@ class Opiom:
                 )
 
             if file_pldid and file_pldid != pldid:
-                print "Uploading opiom program, please wait"
+                print("Uploading opiom program, please wait")
                 srcsz = int(self.comm("?SRCSZ").split()[0])
                 offsets, opmfile = self._getoffset(prog_name)
                 if (offsets["src_c"] - offsets["src_cc"]) < srcsz:
@@ -227,15 +227,15 @@ class Opiom:
 
     def _display_bits(self, prefix, bits):
         for i in range(1, 9):
-            print "%s%d\t" % (prefix, i),
-        print
+            print("%s%d\t" % (prefix, i), end=" ")
+        print()
         for i in range(8):
             if (bits >> i) & 0x1:
-                print "1\t",
+                print("1\t", end=" ")
             else:
-                print "0\t",
+                print("0\t", end=" ")
 
-        print
+        print()
 
     def _getoffset(self, prog_name):
         with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
@@ -328,10 +328,10 @@ class Switch(BaseSwitch):
         value = int(self.__opiom.comm_ack(cmd), base=16)
         value >>= self.__shift
         value &= self.__mask
-        for label, state_value in self.__states.iteritems():
+        for label, state_value in self.__states.items():
             if state_value == value:
                 return label
         return "UNKNOWN"
 
     def _states_list(self):
-        return self.__states.keys()
+        return list(self.__states.keys())

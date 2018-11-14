@@ -61,7 +61,7 @@ class Output:
         return self.__comment
 
     def getSwitchList(self):
-        return self.__nodes.keys()
+        return list(self.__nodes.keys())
 
     def switch(self, switchValue, synchronous):
         switchValue = switchValue.upper()
@@ -73,7 +73,7 @@ class Output:
         node.switch(synchronous)
 
     def getStat(self, opiom_register):
-        for key, node in self.__nodes.iteritems():
+        for key, node in self.__nodes.items():
             if node.isActive(opiom_register):
                 return key
 
@@ -99,7 +99,7 @@ class Output:
         mask = cfg["mask"]
         chain = config.pop("chain", None)  # check if chained
 
-        for key, value in config.iteritems():
+        for key, value in config.items():
             key = key.upper()
             self.__nodes[key] = Output.Node(
                 board, register, shift, mask, value, parentNode
@@ -137,23 +137,21 @@ class Multiplexer:
 
     def setDebug(self, flag):
         self.__debug = flag is True
-        for opiom in self._boards.itervalues():
+        for opiom in self._boards.values():
             opiom.setDebug(self.__debug)
 
     def getDebug(self):
         return self.__debug
 
     def getOutputList(self):
-        return self.__outputs.keys()
+        return list(self.__outputs.keys())
 
     def getPossibleValues(self, output_key):
         output_key = output_key.upper()
         return self.__outputs[output_key].getSwitchList()
 
     def getKeyAndName(self):
-        return dict(
-            [(key, output.comment()) for key, output in self.__outputs.iteritems()]
-        )
+        return dict([(key, output.comment()) for key, output in self.__outputs.items()])
 
     def getName(self, output_key):
         output_key = output_key.upper()
@@ -163,7 +161,7 @@ class Multiplexer:
         output_key = output_key.upper()
         input_key = input_key.upper()
         if self.__debug:
-            print "Multiplexer.switch %s to %s" % (output_key, input_key)
+            print("Multiplexer.switch %s to %s" % (output_key, input_key))
         try:
             output = self.__outputs[output_key]
         except KeyError:
@@ -171,7 +169,7 @@ class Multiplexer:
         else:
             try:
                 output.switch(input_key, synchronous)
-            except ValueError, err:
+            except ValueError as err:
                 raise ValueError(
                     "%s is not available for output %s" % (str(err), output_key)
                 )
@@ -182,7 +180,7 @@ class Multiplexer:
                 raise RuntimeError(
                     "multiplexer: no board defined for multiplexer (%s)" % self.name
                 )
-            board_name = self._boards.keys()[0]
+            board_name = list(self._boards.keys())[0]
 
         try:
             opiom = self._boards[board_name]
@@ -199,10 +197,10 @@ class Multiplexer:
     def getOutputStat(self, output_key):
         output_key = output_key.upper()
         if self.__debug:
-            print "Multiplexer.getOutputStat %s" % output_key
+            print("Multiplexer.getOutputStat %s" % output_key)
         output = self.__outputs[output_key]
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
+        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
         for board, registers in futures:
             opiomRegister[board] = registers.get()
 
@@ -210,7 +208,7 @@ class Multiplexer:
 
     def storeCurrentStat(self, name):
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
+        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
         for board, registers in futures:
             opiomRegister[board.name] = registers.get()
 
@@ -222,8 +220,8 @@ class Multiplexer:
         except KeyError:
             raise ValueError("Multiplexer don't have the stat %s" % name)
 
-        for board_name, reg in opiomRegister.iteritems():
-            for regName, value in reg.iteritems():
+        for board_name, reg in opiomRegister.items():
+            for regName, value in reg.items():
                 self._boards[board_name].comm("%s 0x%x" % (regName, value))
 
     def rmStat(self, name):
@@ -233,39 +231,39 @@ class Multiplexer:
             raise ValueError("Multiplexer don't have the stat %s" % name)
 
     def getSavedStats(self):
-        return self.__stat.keys()
+        return list(self.__stat.keys())
 
     def getGlobalStat(self):
         if self.__debug:
-            print "Multiplexer.getGlobalStat"
+            print("Multiplexer.getGlobalStat")
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
+        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
         for board, registers in futures:
             opiomRegister[board] = registers.get()
         outputStat = dict()
-        for key, output in self.__outputs.iteritems():
+        for key, output in self.__outputs.items():
             outputStat[key] = output.getStat(opiomRegister)
         return outputStat
 
     def load_program(self):
-        futures = [gevent.spawn(b.load_program) for b in self._boards.values()]
+        futures = [gevent.spawn(b.load_program) for b in list(self._boards.values())]
         gevent.joinall(futures)
 
     def getOpiomProg(self):
         progs = {}
-        for opiomId, comm in self._boards.iteritems():
+        for opiomId, comm in self._boards.items():
             progs[opiomId] = comm.prog()
         return progs
 
     def dumpOpiomSource(self, board_name=None, all_board=True):
         if all_board:
-            boards = self._boards.values()
+            boards = list(self._boards.values())
         elif board_name is None:  # take the first name in list
             if not len(self._boards):
                 raise RuntimeError(
                     "multiplexer: no board defined for multiplexer (%s)" % self.name
                 )
-            boards = [self._boards.values()[0]]
+            boards = [list(self._boards.values())[0]]
         else:
             try:
                 boards = [self._boards[board_name]]
@@ -275,16 +273,16 @@ class Multiplexer:
                 )
 
         for board, source in ((b, gevent.spawn(b.source)) for b in boards):
-            print "OPIOMID:", board.name
-            print "Prog.Source:"
-            print source.get()
-            print "End of Prog.Source."
+            print("OPIOMID:", board.name)
+            print("Prog.Source:")
+            print(source.get())
+            print("End of Prog.Source.")
 
     def __repr__(self):
         rep_str = "Multiplexer Status:\n\n"
         format = "{:<32}{:<32}\n"
         rep_str += format.format("Output name", "Output status")
         rep_str += "\n"
-        for key, value in self.getGlobalStat().iteritems():
+        for key, value in self.getGlobalStat().items():
             rep_str += format.format(key, value)
         return rep_str

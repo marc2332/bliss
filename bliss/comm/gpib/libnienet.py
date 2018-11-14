@@ -45,9 +45,9 @@ def _dbg(f, name=None):
         name = f.__name__
 
     def wrap(self, *a, **k):
-        print "DBG: %s: enter: %s %s" % (name, ` a `, ` k `),
+        print("DBG: %s: enter: %s %s" % (name, repr(a), repr(k)), end=" ")
         r = f(self, *a, **k)
-        print "exit: %s" % ` r `
+        print("exit: %s" % repr(r))
         return r
 
     wrap._dummy = True
@@ -59,7 +59,7 @@ def _not_impl(name):
         if "ignore_not_impl" in debug:
             return None
         else:
-            raise NotImplementedError, "%s not implemented", name
+            raise NotImplementedError("%s not implemented").with_traceback(name)
 
     return _dbg(wrap, name)
 
@@ -99,8 +99,8 @@ class EnetSocket(object):
 
     if "dummy_io" in debug:
         _open = lambda self: None
-        _send = lambda self, s: sys.stderr.write("DBG: > %s" % (` s `))
-        _recv = lambda self, len: raw_input("DBG: < #%s:" % (len))[:len]
+        _send = lambda self, s: sys.stderr.write("DBG: > %s" % (repr(s)))
+        _recv = lambda self, len: input("DBG: < #%s:" % (len))[:len]
         _close = lambda self: None
 
     if "io" in debug:
@@ -395,7 +395,7 @@ class EnetLib(object):
         if name[:3] == "dev":
             pad = int(name[3:])
         else:
-            raise ValueError, "configuration not yet implemented. use devX"
+            raise ValueError("configuration not yet implemented. use devX")
         return self.ibdev(pad)
 
     def ibdev(self, *a, **ka):
@@ -430,16 +430,16 @@ if __name__ == "__main__":
     nienet_host = "qo-hpf-gpib1.ethz.ch"
     l = EnetLib(nienet_host)
     ud = l.ibdev(pad=13)
-    print "ibrsp", l.ibrsp(ud)
-    print "iblines", l.iblines(ud)
-    print "ibtrg", l.ibtrg(ud)
-    print "ibask", l.ibask(ud, 1)
-    print "ibln 13", l.ibln(ud, 13)
-    print "ibln 11", l.ibln(ud, 11)
-    print "ibwrt", l.ibwrt(ud, "ID?;")
-    print "ibrd", l.ibrd(ud, 10)
-    print "ibwrt", l.ibwrt(ud, "SET?;")
-    print "ibrd", ` l.ibrd(ud, 640) `
-    print "ibwrt", l.ibwrt(ud, "DSTB;")
-    print "ibrd", ` l.ibrd(ud, 4096) `
-    print "ibbna", l.ibbna(ud)
+    print("ibrsp", l.ibrsp(ud))
+    print("iblines", l.iblines(ud))
+    print("ibtrg", l.ibtrg(ud))
+    print("ibask", l.ibask(ud, 1))
+    print("ibln 13", l.ibln(ud, 13))
+    print("ibln 11", l.ibln(ud, 11))
+    print("ibwrt", l.ibwrt(ud, "ID?;"))
+    print("ibrd", l.ibrd(ud, 10))
+    print("ibwrt", l.ibwrt(ud, "SET?;"))
+    print("ibrd", repr(l.ibrd(ud, 640)))
+    print("ibwrt", l.ibwrt(ud, "DSTB;"))
+    print("ibrd", repr(l.ibrd(ud, 4096)))
+    print("ibbna", l.ibbna(ud))

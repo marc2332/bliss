@@ -14,13 +14,13 @@ ds = PyTango.DeviceProxy(ds_name)
 undulators = list()
 u_dict = dict()
 
-print ""
-print "ds = %s" % ds_name
-print "ds.state = %s" % ds.state()
-print "ds.status = %s" % ds.status()
+print("")
+print("ds = %s" % ds_name)
+print("ds.state = %s" % ds.state())
+print("ds.status = %s" % ds.status())
 
 movable_names = ds.MovableNames
-print "MovableNames = %r" % "  ".join(movable_names)
+print("MovableNames = %r" % "  ".join(movable_names))
 
 for undu in ds.MovableNames:
     u_name = undu.split("_")[0]
@@ -29,14 +29,14 @@ for undu in ds.MovableNames:
     if u_name not in u_dict:
         u_dict[u_letter] = u_name
 
-print "Undulators: ", u_dict
+print("Undulators: ", u_dict)
 
-print "UndulatorNames = %r" % "  ".join(ds.UndulatorNames)
+print("UndulatorNames = %r" % "  ".join(ds.UndulatorNames))
 
-print "UndulatorRevolverCarriage : %r " % ds.UndulatorRevolverCarriage
+print("UndulatorRevolverCarriage : %r " % ds.UndulatorRevolverCarriage)
 
 
-print "#################################################################"
+print("#################################################################")
 
 
 info_str = "DEVICE SERVER : %s \n" % ds_name
@@ -46,11 +46,11 @@ info_str += "mode=%s\n" % str(ds.mode)
 
 info_str += "undu states= %s" % " ".join(map(str, ds.UndulatorStates))
 
-print "info_str:"
-print info_str
+print("info_str:")
+print(info_str)
 
 
-print "#################################################################"
+print("#################################################################")
 
 # In [18]: ds.MovableNames
 # Out[18]: ('U35a_GAP', 'U35a_TAPER', 'U35b_GAP', 'U35b_TAPER', 'U35c_GAP', 'U27c_GAP')
@@ -143,10 +143,10 @@ print "#################################################################"
 # ds.command_inout                      ds.poll_command                       ds.write_read_attribute
 
 
-print ""
+print("")
 
-print ""
-print ""
+print("")
+print("")
 
 bl_numbers = [
     "1",
@@ -214,7 +214,7 @@ bl_numbers = [
 for bl_number in bl_numbers:
     ds_name = "//orion:10000/ID/ID/%s" % bl_number
     ds = PyTango.DeviceProxy(ds_name)
-    print "ID", bl_number, ds.MovableNames
+    print("ID", bl_number, ds.MovableNames)
 
 
 # ID 1 ('U35a_GAP', 'U35a_TAPER', 'U27b_GAP', 'U35b_GAP', 'U27c_GAP', 'U27c_TAPER')

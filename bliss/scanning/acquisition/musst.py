@@ -65,7 +65,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         if isinstance(self.vars, (list, tuple)):
             vars_iter = iter(self.vars)
             while True:
-                self.next_vars = vars_iter.next()
+                self.next_vars = next(vars_iter)
                 yield self
                 self._iter_index += 1
         else:
@@ -82,7 +82,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
                 self.program, template_replacement=self.program_template_replacement
             )
 
-        for var_name, value in self.next_vars.iteritems():
+        for var_name, value in self.next_vars.items():
             self.musst.putget("VAR %s %s" % (var_name, value))
         self._running_state = False
         self._event.set()
@@ -143,8 +143,8 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
             self.__device = acq_device
             self.__current_iter = iter(acq_device.device)
 
-        def next(self):
-            self.__current_iter.next()
+        def __next__(self):
+            next(self.__current_iter)
             return self.__device
 
     def __init__(self, musst, store_list=None):

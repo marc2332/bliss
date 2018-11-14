@@ -33,7 +33,7 @@ class TrajectoryAxis(Axis):
     **set_positions** before using the axis.
     """
 
-    SPLINE, LINEAR, CYCLIC = range(3)
+    SPLINE, LINEAR, CYCLIC = list(range(3))
 
     def __init__(self, name, controller, config):
         Axis.__init__(self, name, controller, config)
@@ -94,7 +94,7 @@ class TrajectoryAxis(Axis):
             trajectory_mode: default is SPLINE but could be CYCLIC or LINEAR
         """
         axes = dict()
-        for name, axis in self.controller.axes.iteritems():
+        for name, axis in self.controller.axes.items():
             if name in positions:
                 axes[axis.name] = axis
                 positions[axis.name] *= axis.steps_per_unit
@@ -126,7 +126,7 @@ class TrajectoryAxis(Axis):
         """
         Return a list of real motor linked to this virtual axis
         """
-        return self._axes.keys()
+        return list(self._axes.keys())
 
     @property
     @check_initialized
@@ -134,7 +134,7 @@ class TrajectoryAxis(Axis):
         """
         Return a list of real axis linked to this virtual axis
         """
-        return self._axes.values()
+        return list(self._axes.values())
 
     @check_initialized
     def movep(
@@ -186,7 +186,7 @@ class TrajectoryAxis(Axis):
     def _load_trajectories(self, axes, parameter, positions):
         data = numpy.array([], dtype=numpy.int8)
         update_cache = list()
-        for mot_name, pos in positions.iteritems():
+        for mot_name, pos in positions.items():
             axis = axes[mot_name]
             if axis._trajectory_cache.value == self._hash_cache.get(
                 mot_name, numpy.nan

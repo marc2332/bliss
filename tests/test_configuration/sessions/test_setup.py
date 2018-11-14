@@ -152,5 +152,5 @@ load_script("script1")
 SESSION_NAME = get_current().name
 
 # Do not remove this print (used in tests)
-print "TEST_SESSION INITIALIZED"
+print("TEST_SESSION INITIALIZED")
 #

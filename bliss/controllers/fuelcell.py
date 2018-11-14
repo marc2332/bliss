@@ -21,7 +21,7 @@ from bliss.comm.util import get_comm, TCP
 
 
 _FEEDBACK_MAP = {0: "Vout", 1: "Vsense", 2: "Vref", 3: "I"}
-_INV_FEEDBACK_MAP = dict((v.lower(), k) for k, v in _FEEDBACK_MAP.items())
+_INV_FEEDBACK_MAP = dict((v.lower(), k) for k, v in list(_FEEDBACK_MAP.items()))
 
 
 def decode_fuse_status(status):
@@ -120,7 +120,7 @@ class Group(object):
         self.member_name = None
         self._attrs = attrs
         self._objs = weakref.WeakKeyDictionary()
-        for k, attr in attrs.items():
+        for k, attr in list(attrs.items()):
             attr.name = "{0}.{1}".format(name, attr.name)
             attr.member_name = k
             setattr(self, k, attr)
@@ -134,9 +134,9 @@ class Group(object):
         return obj.get(name)[0]
 
     def get_all(self, obj):
-        names = [attr.name for attr in self._attrs.values()]
+        names = [attr.name for attr in list(self._attrs.values())]
         values = obj.get(*names)
-        return dict(zip(names, values))
+        return dict(list(zip(names, values)))
 
     def set(self, obj, name, value):
         return obj.set(name, value)
@@ -195,9 +195,9 @@ class XCTDevice(object):
 
     def get_all(self):
         attrs = self._get_xct_attrs()
-        names = [attr.name for attr in attrs.values()]
+        names = [attr.name for attr in list(attrs.values())]
         values = self.get(*names)
-        return dict(zip(names, values))
+        return dict(list(zip(names, values)))
 
     def set(self, *name_values):
         if not name_values:
@@ -242,7 +242,7 @@ class XCTDevice(object):
                         attrs[obj.name.lower()] = obj
                     elif isinstance(obj, Group):
                         obj.member_name = member_name
-                        for attr_name, attr in obj._attrs.items():
+                        for attr_name, attr in list(obj._attrs.items()):
                             attr_name = "{0}.{1}".format(member_name, attr_name)
                             attrs[attr_name] = attr
                             attrs[attr.name.lower()] = attr
@@ -560,8 +560,8 @@ class FuelCell(object):
                 fcs_name_map[name] = i
             else:
                 raise ValueError("Unknown attribute {0!r}".format(name))
-        ptc_names = ptc_name_map.keys()
-        fcs_names = fcs_name_map.keys()
+        ptc_names = list(ptc_name_map.keys())
+        fcs_names = list(fcs_name_map.keys())
         ptc_task = gevent.spawn(self.ptc.get, *ptc_names)
         fcs_task = gevent.spawn(self.fcs.get, *fcs_names)
         for value, name in zip(ptc_task.get(), ptc_names):

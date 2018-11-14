@@ -119,25 +119,25 @@ class fshutter:
 
     def open(self):
         state = self.state()
-        print "shutter is %s" % state
+        print("shutter is %s" % state)
 
         if state == "OPENED":
             # already open
             return
 
         new_state = self._toggle_state()
-        print "now is %s" % new_state
+        print("now is %s" % new_state)
 
     def close(self):
         state = self.state()
-        print "shutter state is %s" % state
+        print("shutter state is %s" % state)
 
         if state == "CLOSED":
             # already closed
             return
 
         new_state = self._toggle_state()
-        print "now is %s" % new_state
+        print("now is %s" % new_state)
 
     def _icepap_query(self, cmd_str):
         """Send directly to Icepap controller"""
@@ -187,7 +187,7 @@ class fshutter:
             elif status & 0x00100000 == 1048576:
                 self.fshutter_mot.home(1)
             else:
-                raise RuntimeError, "bad status"
+                raise RuntimeError("bad status")
 
             self.fshutter_mot.sync_hard()
             self.fshutter_mot.rmove(self.shift)

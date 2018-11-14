@@ -13,11 +13,11 @@ import time
 import logging
 import code
 import jedi
-import cStringIO
+import io
 import inspect
 import pprint
 import signal
-import thread
+import _thread
 import gevent
 import logging
 import functools
@@ -28,6 +28,7 @@ from bliss.config.conductor import client as conductor_client
 from bliss.common.event import dispatcher
 from bliss.scanning import scan
 from bliss.common import measurement
+import imp
 
 jedi.settings.case_insensitive_completion = False
 
@@ -128,7 +129,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     def __init__(self, output_queue):
         code.InteractiveInterpreter.__init__(self)  # , globals_dict)
 
-        self.error = cStringIO.StringIO()
+        self.error = io.StringIO()
         self.output = Stdout(output_queue)
         self.executed_greenlet = None
 
@@ -144,7 +145,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
     def runcode(self, client_uuid, c):
         try:
             with stdout_redirected(client_uuid, self.output):
-                exec c in self.locals
+                exec(c, self.locals)
         except SystemExit:
             raise
         except KeyboardInterrupt:
@@ -157,7 +158,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
         try:
             code_obj = code.compile_command(python_code_to_execute)
-        except SyntaxError, exc_instance:
+        except SyntaxError as exc_instance:
             raise RuntimeError(str(exc_instance))
         else:
             if code_obj is None:
@@ -168,7 +169,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
                 if self.error.tell() > 0:
                     error_string = self.error.getvalue()
-                    self.error = cStringIO.StringIO()
+                    self.error = io.StringIO()
                     raise RuntimeError(error_string)
 
     def execute(self, client_uuid, python_code_to_execute, wait=True):
@@ -189,7 +190,7 @@ class InteractiveInterpreter(code.InteractiveInterpreter):
 
 def init(input_queue, output_queue, beacon_host, beacon_port):
     # undo thread module monkey-patching
-    reload(thread)
+    imp.reload(thread)
 
     # make sure connection to beacon server is the right one,
     # we might have a specific beacon host,port and it seems
@@ -263,7 +264,7 @@ def get_objects_by_type(objects_dict):
     actuator = dict()
     shutter = dict()
 
-    for name, obj in objects_dict.iteritems():
+    for name, obj in objects_dict.items():
         if inspect.isclass(obj):
             continue
         # is it a motor?
@@ -280,7 +281,7 @@ def get_objects_by_type(objects_dict):
                 except AttributeError:
                     pass
                 else:
-                    for member_name, member in obj_dict.iteritems():
+                    for member_name, member in obj_dict.items():
                         if isinstance(member, measurement.SamplingCounter):
                             counters["%s.%s" % (name, member_name)] = member
 
@@ -431,7 +432,7 @@ def start(session_id, input_queue, output_queue, i):
             pprint.pprint(objects_by_type)
 
             motors_list = list()
-            for name, m in objects_by_type["motors"].iteritems():
+            for name, m in objects_by_type["motors"].items():
                 try:
                     pos = "%.3f" % m.position()
                     state = convert_state(m.state())
@@ -460,11 +461,11 @@ def start(session_id, input_queue, output_queue, i):
             )
 
             counters_list = list()
-            for name, cnt in objects_by_type["counters"].iteritems():
+            for name, cnt in objects_by_type["counters"].items():
                 counters_list.append({"name": name})
 
             actuators_list = list()
-            for name, obj in objects_by_type["actuator"].iteritems():
+            for name, obj in objects_by_type["actuator"].items():
                 try:
                     state = obj.state()
                 except:
@@ -483,7 +484,7 @@ def start(session_id, input_queue, output_queue, i):
             )
 
             shutters_list = list()
-            for name, obj in objects_by_type["shutter"].iteritems():
+            for name, obj in objects_by_type["shutter"].items():
                 try:
                     state = obj.state()
                 except:
@@ -531,7 +532,7 @@ def start(session_id, input_queue, output_queue, i):
                     res = executed_greenlet.get()
                 except EOFError:
                     output_queue.put((client_uuid, StopIteration(EOFError())))
-                except RuntimeError, error_string:
+                except RuntimeError as error_string:
                     output_queue.put(
                         (client_uuid, StopIteration(RuntimeError(error_string)))
                     )

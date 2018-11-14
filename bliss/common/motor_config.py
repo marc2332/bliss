@@ -80,5 +80,5 @@ class StaticConfig(object):
             self.config_channel.value = dict(self.config_dict)
 
     def _config_changed(self, config_dict):
-        for key, value in config_dict.iteritems():
+        for key, value in config_dict.items():
             self.config_dict[key] = value

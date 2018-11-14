@@ -79,7 +79,7 @@ def read_decorator(func):
             if isinstance(value, list):
                 value = [self._read_type_conversion(x) for x in value]
             elif isinstance(value, dict):
-                for k, v in value.iteritems():
+                for k, v in value.items():
                     value[k] = self._read_type_conversion(v)
                 if hasattr(self, "default_values") and isinstance(
                     self.default_values, dict
@@ -112,7 +112,7 @@ def write_decorator_dict(func):
 
             if values is not None:
                 new_dict = dict()
-                for k, v in values.iteritems():
+                for k, v in values.items():
                     new_dict[k] = self._write_type_conversion(v)
                 values = new_dict
         return func(self, values, **keys)
@@ -216,7 +216,7 @@ class SimpleSetting(object):
             return self
 
     def __isub__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             raise TypeError(
                 "unsupported operand type(s) for -=: %s" % type(other).__name__
             )
@@ -425,7 +425,7 @@ class QueueSetting(object):
         if cnx is None:
             cnx = self._cnx()
         lsize = cnx.llen(self._name)
-        for first in xrange(0, lsize, 1024):
+        for first in range(0, lsize, 1024):
             last = first + 1024
             if last >= lsize:
                 last = -1
@@ -434,7 +434,7 @@ class QueueSetting(object):
 
     def __setitem__(self, ran, value, cnx=None):
         if isinstance(ran, slice):
-            for i, v in zip(range(ran.start, ran.stop), value):
+            for i, v in zip(list(range(ran.start, ran.stop)), value):
                 self.set_item(v, pos=i, cnx=cnx)
         elif isinstance(ran, int):
             self.set_item(value, pos=ran, cnx=cnx)
@@ -540,7 +540,7 @@ class HashSetting(object):
 
     def get_all(self):
         all_dict = dict(self._default_values)
-        for k, raw_v in self._raw_get_all().iteritems():
+        for k, raw_v in self._raw_get_all().items():
             v = self._read_type_conversion(raw_v)
             if isinstance(v, InvalidValue):
                 raise ValueError(
@@ -568,10 +568,10 @@ class HashSetting(object):
         cnx.hdel(self._name, *keys)
 
     def keys(self):
-        return list(self.iterkeys())
+        return list(self.keys())
 
     def values(self):
-        return list(self.itervalues())
+        return list(self.values())
 
     def clear(self):
         cnx = self._cnx()
@@ -595,7 +595,7 @@ class HashSetting(object):
 
     def items(self):
         values = self.get_all()
-        return [(k, v) for k, v in values.iteritems()]
+        return [(k, v) for k, v in values.items()]
 
     @read_decorator
     def fromkeys(self, *keys):
@@ -604,14 +604,14 @@ class HashSetting(object):
 
     def has_key(self, key):
         cnx = self._cnx()
-        return cnx.hexists(self._name, key) or self._default_values.has_key(key)
+        return cnx.hexists(self._name, key) or key in self._default_values
 
     def iterkeys(self):
-        for k, v in self.iteritems():
+        for k, v in self.items():
             yield k
 
     def itervalues(self):
-        for k, v in self.iteritems():
+        for k, v in self.items():
             yield v
 
     def iteritems(self):
@@ -620,7 +620,7 @@ class HashSetting(object):
         seen_keys = set()
         while True:
             next_id, pd = cnx.hscan(self._name, next_id)
-            for k, v in pd.iteritems():
+            for k, v in pd.items():
                 if self._read_type_conversion:
                     v = self._read_type_conversion(v)
                 seen_keys.add(k)
@@ -628,7 +628,7 @@ class HashSetting(object):
             if not next_id or next_id is "0":
                 break
 
-        for k, v in self._default_values.iteritems():
+        for k, v in self._default_values.items():
             if k in seen_keys:
                 continue
             yield k, v
@@ -636,7 +636,7 @@ class HashSetting(object):
     def __getitem__(self, key):
         value = self.get(key)
         if value is None:
-            if not self._default_values.has_key(key):
+            if key not in self._default_values:
                 raise KeyError(key)
         return value
 
@@ -775,10 +775,10 @@ class Struct(object):
         self._proxy = HashSetting(name, **keys)
 
     def __dir__(self):
-        return self._proxy.keys()
+        return list(self._proxy.keys())
 
     def __repr__(self):
-        return "<Struct with attributes: %s>" % self._proxy.keys()
+        return "<Struct with attributes: %s>" % list(self._proxy.keys())
 
     def __getattribute__(self, name):
         if name.startswith("_"):
@@ -829,9 +829,7 @@ class ParamDescriptor(object):
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
-        if isinstance(value, (str, unicode)) and value.startswith(
-            ParamDescriptor.OBJECT_PREFIX
-        ):
+        if isinstance(value, str) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
             value = value[len(ParamDescriptor.OBJECT_PREFIX) :]
             return getattr(setup_globals, value)
         return value
@@ -843,8 +841,7 @@ class ParamDescriptor(object):
         del self.proxy[self.name]
 
 
-class Parameters(object):
-    __metaclass__ = ParametersType
+class Parameters(object, metaclass=ParametersType):
     DESCRIPTOR = ParamDescriptor
     SLOTS = ["_proxy", "__current_config"]
 
@@ -852,16 +849,16 @@ class Parameters(object):
         self.__current_config = SimpleSetting(name, default_value="default")
         hash_name = "%s:%s" % (name, self.__current_config.get())
         self._proxy = HashSetting(hash_name, **keys)
-        for key in self._proxy.iterkeys():
+        for key in self._proxy.keys():
             self.add(key)
 
     def __dir__(self):
-        keys = [x for x in self._proxy.keys() if not x.startswith("_")]
+        keys = [x for x in list(self._proxy.keys()) if not x.startswith("_")]
         return keys + ["add", "remove", "switch", "configs", "to_dict", "from_dict"]
 
     def to_dict(self):
         d = self._proxy.get_all()
-        for k in d.keys():
+        for k in list(d.keys()):
             if k.startswith("_"):
                 d.pop(k)
         return d
@@ -870,14 +867,14 @@ class Parameters(object):
         self._proxy.update(d)
 
     def __repr__(self):
-        d = dict(self._proxy.iteritems())
+        d = dict(iter(self._proxy.items()))
         return self._repr(d)
 
     def _repr(self, d):
         rep_str = "Parameters (%s)\n" % self.__current_config.get()
-        max_len = max((0,) + tuple(len(k) for k in d.keys()))
+        max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
-        for key, value in sorted(d.iteritems()):
+        for key, value in sorted(d.items()):
             if key.startswith("_"):
                 continue
             rep_str += str_format % (key, value)
@@ -895,7 +892,7 @@ class Parameters(object):
         delattr(self.__class__, name)
 
     def switch(self, name):
-        for key, value in dict(self.__class__.__dict__).iteritems():
+        for key, value in dict(self.__class__.__dict__).items():
             if isinstance(value, self.DESCRIPTOR):
                 delattr(self.__class__, key)
 
@@ -904,7 +901,7 @@ class Parameters(object):
         basename = ":".join(self._proxy._name.split(":")[:-1])
         self._proxy._name = "%s:%s" % (basename, name)
 
-        for key in self._proxy.keys():
+        for key in list(self._proxy.keys()):
             self.add(key)
 
     @property

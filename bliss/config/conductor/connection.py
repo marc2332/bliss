@@ -34,7 +34,7 @@ def ip4_broadcast_addresses(default_route_only=False):
     except Exception:
         pass
 
-    return filter(None, ip_list)
+    return [_f for _f in ip_list if _f]
 
 
 def ip4_broadcast_discovery(udp):
@@ -424,20 +424,16 @@ class Connection(object):
                 e.put(messageType)
             return True
         elif messageType == protocol.LOCK_RETRY:
-            for m, l in self._pending_lock.iteritems():
+            for m, l in self._pending_lock.items():
                 for e in l:
                     e.put(messageType)
             return True
         elif messageType == protocol.LOCK_STOLEN:
             stolen_object_lock = set(message.split("|"))
             greenlet_to_objects = self._greenlet_to_lockobjects.copy()
-            for greenlet, locked_objects in greenlet_to_objects.iteritems():
+            for greenlet, locked_objects in greenlet_to_objects.items():
                 locked_object_name = set(
-                    (
-                        name
-                        for name, nb_lock in locked_objects.iteritems()
-                        if nb_lock > 0
-                    )
+                    (name for name, nb_lock in locked_objects.items() if nb_lock > 0)
                 )
                 if locked_object_name.intersection(stolen_object_lock):
                     try:
@@ -547,7 +543,7 @@ class Connection(object):
     def _clean(self):
         self._redis_host = None
         self._redis_port = None
-        for db, redis_cnx in self._redis_connection.iteritems():
+        for db, redis_cnx in self._redis_connection.items():
             redis_cnx.connection_pool.disconnect()
         self._redis_connection = {}
 

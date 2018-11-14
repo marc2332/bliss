@@ -135,7 +135,7 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_data$")
-    NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = range(2)
+    NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = list(range(2))
 
     def __init__(self, node, last_child_id=None):
         self.node = node
@@ -149,7 +149,7 @@ class DataNodeIterator(object):
         if self.node is None:
             raise ValueError("Invalid node: node is None.")
 
-        if isinstance(filter, (str, unicode)):
+        if isinstance(filter, str):
             filter = (filter,)
         elif filter:
             filter = tuple(filter)
@@ -165,12 +165,12 @@ class DataNodeIterator(object):
 
         data_node_2_children = self._get_grandchildren(db_name)
         all_nodes_names = list()
-        for children_name in data_node_2_children.values():
+        for children_name in list(data_node_2_children.values()):
             all_nodes_names.extend(children_name)
 
         data_nodes = {
             name: node
-            for name, node in zip(all_nodes_names, get_nodes(*all_nodes_names))
+            for name, node in list(zip(all_nodes_names, get_nodes(*all_nodes_names)))
             if node is not None
         }
         # should be convert to yield from
@@ -225,8 +225,8 @@ class DataNodeIterator(object):
         [pipeline.lrange(name, 0, -1) for name in children_queue]
         data_node_2_children = {
             node_name: children
-            for node_name, children in zip(
-                data_node_containers_names, pipeline.execute()
+            for node_name, children in list(
+                zip(data_node_containers_names, pipeline.execute())
             )
         }
         return data_node_2_children
@@ -248,7 +248,7 @@ class DataNodeIterator(object):
             data_node_2_children = self._get_grandchildren(db_name)
             self.last_child_id = {
                 db_name: len(children)
-                for db_name, children in data_node_2_children.items()
+                for db_name, children in list(data_node_2_children.items())
             }
 
         if last_node is not None:
@@ -288,7 +288,7 @@ class DataNodeIterator(object):
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):
-        if isinstance(filter, (str, unicode)):
+        if isinstance(filter, str):
             filter = (filter,)
         elif filter:
             filter = tuple(filter)

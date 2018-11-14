@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
+
 import logging
 from bliss.common import log
 from bliss.config.plugins.bliss import find_class
@@ -39,14 +39,14 @@ def create_objects_from_config_node(config, item_cfg_node):
     for category in ("inputs", "outputs", "ctrl_loops"):
         try:
             cache_dict.update(
-                dict(zip(names[category], [controller] * len(names[category])))
+                dict(list(zip(names[category], [controller] * len(names[category]))))
             )
         except KeyError:
             pass
 
     # controller.initialize()
     o = controller.get_object(item_name)
-    if item_name in dict(loops).keys():
+    if item_name in list(dict(loops).keys()):
         referenced_object = o.config["input"][1:]
         if referenced_object in controller._objects:
             # referencing an object in same controller

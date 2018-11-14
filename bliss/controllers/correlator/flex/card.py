@@ -25,7 +25,9 @@ class Card(object):
     MODE = MODE
     ENUM_2_ACQ = {
         e: _MODE_STRUCT(ctypes.c_byte(ord(i)), s)
-        for e, (i, s) in zip(MODE, (("A", 0), ("A", 1), ("B", 0), ("B", 1), ("C", 0)))
+        for e, (i, s) in list(
+            zip(MODE, (("A", 0), ("A", 1), ("B", 0), ("B", 1), ("C", 0)))
+        )
     }
 
     FLEX_TIME = 0.052428799999999999999999999999547

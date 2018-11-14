@@ -33,7 +33,6 @@ Example::
 
 """
 
-from __future__ import absolute_import
 
 import re
 import inspect
@@ -47,17 +46,17 @@ from .exceptions import CommunicationError, CommunicationTimeout
 
 
 def decode_IDN(s):
-    manuf, model, serial, version = map(str.strip, s.split(","))
+    manuf, model, serial, version = list(map(str.strip, s.split(",")))
     return dict(manufacturer=manuf, model=model, serial=serial, version=version)
 
 
 def __decode_Err(s):
-    code, desc = map(str.strip, s.split(",", 1))
+    code, desc = list(map(str.strip, s.split(",", 1)))
     return dict(code=int(code), desc=desc[1:-1])
 
 
 def __decode_ErrArray(s):
-    msgs = map(str.strip, s.split(","))
+    msgs = list(map(str.strip, s.split(",")))
     result = []
     for i in range(0, len(msgs), 2):
         code, desc = int(msgs[i]), msgs[i + 1][1:-1]
@@ -285,7 +284,7 @@ class Commands(object):
         try:
             return self._command_cache[cmd_name_u]
         except KeyError:
-            for cmd_expr, cmd_info in self.command_expressions.items():
+            for cmd_expr, cmd_info in list(self.command_expressions.items()):
                 reg_expr = cmd_info["re"]
                 if reg_expr.match(cmd_name):
                     self._command_cache[cmd_name.upper()] = cmd_expr
@@ -303,7 +302,7 @@ class Commands(object):
             self.command_expressions.update(commands.command_expressions)
             self._command_cache.update(commands._command_cache)
         elif isinstance(commands, dict):
-            for cmd_expr, cmd in commands.items():
+            for cmd_expr, cmd in list(commands.items()):
                 self[cmd_expr] = cmd
         else:
             for cmd_expr, cmd in commands:
@@ -779,7 +778,7 @@ def main(argv=None):
         )
         add(
             "--parity",
-            choices=serial.PARITY_NAMES.keys(),
+            choices=list(serial.PARITY_NAMES.keys()),
             default=serial.PARITY_NONE,
             help="parity type",
         )

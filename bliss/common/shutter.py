@@ -40,13 +40,13 @@ class ShutterSwitch(BaseSwitch):
 
 
 class Shutter(object):
-    MANUAL, EXTERNAL, CONFIGURATION = range(3)  # modes
+    MANUAL, EXTERNAL, CONFIGURATION = list(range(3))  # modes
     MODE2STR = {
         MANUAL: ("MANUAL", "Manual mode"),
         EXTERNAL: ("EXTERNAL", "External trigger mode"),
         CONFIGURATION: ("CONFIGURATION", "Configuration mode"),
     }
-    OPEN, CLOSED, UNKNOWN = range(3)  # state
+    OPEN, CLOSED, UNKNOWN = list(range(3))  # state
     STATE2STR = {
         OPEN: ("OPEN", "Shutter is open"),
         CLOSED: ("CLOSED", "Shutter is closed"),
@@ -171,7 +171,7 @@ class Shutter(object):
         if value not in self.MODE2STR:
             raise ValueError(
                 "Mode can only be: %s"
-                % ",".join((x[0] for x in self.MODE2STR.values()))
+                % ",".join((x[0] for x in list(self.MODE2STR.values())))
             )
         self.init()
         self._set_mode(value)

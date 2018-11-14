@@ -22,7 +22,7 @@ from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 from bliss.common.switch import Switch as BaseSwitch
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import TCP
 
 """
@@ -272,7 +272,9 @@ class PI_E712(Controller):
         """
         with self.sock.lock:
             channels = [
-                str(x.channel) for x in self.axes.values() if hasattr(x, "channel")
+                str(x.channel)
+                for x in list(self.axes.values())
+                if hasattr(x, "channel")
             ]
             channels_str = " ".join(channels)
             cmd = "\n".join(["%s %s" % (cmd, channels_str) for cmd in ("ONT?", "MOV?")])
@@ -428,7 +430,9 @@ class PI_E712(Controller):
                 dim = int(header["DIM"])
                 column_info = dict()
                 keep_axes = {
-                    x.channel: x for x in self.axes.values() if hasattr(x, "channel")
+                    x.channel: x
+                    for x in list(self.axes.values())
+                    if hasattr(x, "channel")
                 }
                 for name_id in range(8):
                     try:
@@ -445,7 +449,7 @@ class PI_E712(Controller):
                             column_info[name_id] = new_desc.replace(" ", "_")
 
                 dtype = [("timestamp", "f8")]
-                dtype += [(name, "f8") for name in column_info.values()]
+                dtype += [(name, "f8") for name in list(column_info.values())]
                 data = numpy.zeros(ndata, dtype=dtype)
                 data["timestamp"] = (
                     numpy.arange(from_event_id, from_event_id + ndata) * sample_time
@@ -453,7 +457,7 @@ class PI_E712(Controller):
                 for line_id in range(ndata):
                     line = self.sock.readline().strip()
                     values = line.split(separator)
-                    for column_id, name in column_info.iteritems():
+                    for column_id, name in column_info.items():
                         data[name][line_id] = values[column_id]
                 return data
         except:
@@ -717,7 +721,7 @@ class PI_E712(Controller):
     def _parse_reply(self, reply, args):
         args_pos = reply.find("=")
         if reply[:args_pos] != args:  # weird
-            print "Weird thing happens with connection of %s" % self.name
+            print("Weird thing happens with connection of %s" % self.name)
             return reply
         else:
             return reply[args_pos + 1 :]
@@ -773,7 +777,7 @@ class PI_E712(Controller):
             cl_timeout = .5
 
             _ont_state = self._get_on_target_status(axis)
-            elog.info(u"axis {0:s} waiting to be ONTARGET".format(axis.name))
+            elog.info("axis {0:s} waiting to be ONTARGET".format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
                 _ont_state = self._get_on_target_status(axis)
@@ -896,7 +900,7 @@ class PI_E712(Controller):
         * Gain 4th order
         """
         commands = "\n".join(
-            ("SPA? %d 0x2000%d00" % (axis.channel, i + 2)) for i in range(5)
+            ("SPA? %d 0x2000%d00" % (axis.channel, i + 2)) for i in list(range(5))
         )
         axis.coeffs = [float(x) for x in self.command(commands, 5)]
         return axis.coeffs
@@ -1041,7 +1045,7 @@ class Switch(BaseSwitch):
         self.__output_type = possible_type.get(output_type)
         self.__output_range = config.get("output-range", [-10, 10])
         self.__axes = weakref.WeakValueDictionary(
-            {name.upper(): axis for name, axis in self.__controller._axes.items()}
+            {name.upper(): axis for name, axis in list(self.__controller._axes.items())}
         )
 
     def _set(self, state):
@@ -1093,13 +1097,13 @@ class Switch(BaseSwitch):
                 "SPA? {output_chan} 0xa000004".format(output_chan=self.__output_channel)
             )
         )
-        for name, axis in self.__axes.items():
+        for name, axis in list(self.__axes.items()):
             if axis.channel == axis_channel:
                 return name
         return "DISABLED"
 
     def _states_list(self):
-        return self.__axes.keys() + ["DISABLED"]
+        return list(self.__axes.keys()) + ["DISABLED"]
 
     @property
     def scaling_and_offset(self):

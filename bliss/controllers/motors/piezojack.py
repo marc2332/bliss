@@ -165,9 +165,12 @@ class PiezoJack(Controller):
             self.piezo.controller.set_sensor_coeffs(
                 self.piezo, 1, -self.piezo.coeffs[1]
             )
-        print "--PJ-- coefficients", self.bender_factor, self.piezo.coeffs[
-            1
-        ], self.piezo.coeffs  # HWHWHW
+        print(
+            "--PJ-- coefficients",
+            self.bender_factor,
+            self.piezo.coeffs[1],
+            self.piezo.coeffs,
+        )  # HWHWHW
 
     def initialize_encoder(self, encoder):
         """ use the capacitive sensor as encoder"""
@@ -177,7 +180,7 @@ class PiezoJack(Controller):
         """ read the capacitive sensor over the PI E712 as an encoder """
         _tns = self.piezo.Get_TNS()
         _bender_enc = _tns * self.bender_factor
-        print "read_encoder Bender:", _bender_enc
+        print("read_encoder Bender:", _bender_enc)
         return _bender_enc
 
     def read_position(self, axis):
@@ -196,7 +199,7 @@ class PiezoJack(Controller):
             self.log.debug("--PJ-bender position=%g" % _pos)
             return _pos
         except:
-            print "error in reading PJ position"
+            print("error in reading PJ position")
             sys.excepthook(*sys.exc_info())
 
     def state(self, axis):
@@ -323,7 +326,7 @@ class PiezoJack(Controller):
         This has all been built around the fact, that both icepap and
         piezo work in microns.
         """
-        print bcolors.RED + bcolors.BOLD + "starts _do_move loop" + bcolors.ENDC
+        print(bcolors.RED + bcolors.BOLD + "starts _do_move loop" + bcolors.ENDC)
         self.log.info(
             "--PJ-- _do_move : motion: target_pos=%g  delta=%g "
             % (motion.target_pos, motion.delta)
@@ -364,7 +367,7 @@ class PiezoJack(Controller):
                 "--PJ--Piezo problem (C.Loop=%r) : Moves piezo to zero and opens the loop."
                 % self.piezo.Get_Closed_Loop_Status()
             )
-            print bcolors.RED + bcolors.BOLD + "ADJUSTING PIEZO OFFSET" + bcolors.ENDC
+            print(bcolors.RED + bcolors.BOLD + "ADJUSTING PIEZO OFFSET" + bcolors.ENDC)
             self.piezo.Set_Closed_Loop(False)
             # GUILLOUD: do we really need to go to 0 ? this works whereever we are!
             # self.move_piezo_smooth(0)             # moves piezo to 0 Volt per Volt.

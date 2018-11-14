@@ -55,7 +55,7 @@ from bliss.common.utils import object_attribute_get, object_attribute_type_get
 # from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
 
-import mecom
+from . import mecom
 
 
 ######################################################################

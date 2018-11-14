@@ -76,13 +76,22 @@ def main():
 
     if py_xy < (2, 7) or py_xy >= (3, 0):
         print(
-            "Incompatible python version ({0}). Needs python 2.x "
-            "(where x > 6).".format(py_xy_str)
+            (
+                "Incompatible python version ({0}). Needs python 2.x "
+                "(where x > 6).".format(py_xy_str)
+            )
         )
         sys.exit(1)
 
     meta = {}
-    execfile(abspath("bliss", "release.py"), meta)
+    exec(
+        compile(
+            open(abspath("bliss", "release.py")).read(),
+            abspath("bliss", "release.py"),
+            "exec",
+        ),
+        meta,
+    )
 
     packages = find_packages(where=abspath(), exclude=("extensions*",))
 

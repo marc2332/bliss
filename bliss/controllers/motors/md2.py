@@ -42,7 +42,7 @@ class MD2(Controller):
 
     def start_one(self, motion):
         cmd = motion.axis.root_name + self.pos_attr_suffix
-        print motion.target_pos
+        print(motion.target_pos)
         self._exporter.writeProperty(cmd, motion.target_pos)
 
     def stop(self, axis):

@@ -234,7 +234,7 @@ class LivePlot1D(qt.QWidget):
         for row in range(self.axes_list_model.rowCount()):
             axis_item = self.axes_list_model.item(row)
             label = str(axis_item.text()).split(":")[-1]
-            for column, y_list in zip(range(2, 4), [y1_label, y2_label]):
+            for column, y_list in zip(list(range(2, 4)), [y1_label, y2_label]):
                 item = self.axes_list_model.item(row, column)
                 if (
                     item is not None
@@ -283,7 +283,7 @@ class LivePlot1D(qt.QWidget):
                 self._enabled_plots[(x_axis, y_axis)] = data_len
 
     def update_plots(self):
-        for axis_names, data_len in self._enabled_plots.iteritems():
+        for axis_names, data_len in self._enabled_plots.items():
             x_axis, y_axis = axis_names
             legend = "%s -> %s" % (x_axis, y_axis)
             plot = self.silx_plot.getCurve(legend)

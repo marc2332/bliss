@@ -1,4 +1,4 @@
-from __future__ import division
+
 
 from math import sqrt
 from collections import OrderedDict
@@ -120,7 +120,7 @@ parameters = [
 def test_trajectory(motion, expected_trajectory):
     traj = LinearTrajectory(**motion)
 
-    for param, value in expected_trajectory.items():
+    for param, value in list(expected_trajectory.items()):
         assert value == pytest.approx(getattr(traj, param), param)
 
 

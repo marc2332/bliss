@@ -118,7 +118,7 @@ class TestP201(unittest.TestCase):
         self.assertEqual(ret, expected_ret)
 
         expected_output = dict(input)
-        for i in [3, 4] + range(6, 13):
+        for i in [3, 4] + list(range(6, 13)):
             expected_output[i] = set()
 
         output = self.p201.get_counters_latch_sources()

@@ -37,7 +37,7 @@ class wrap_errors(object):
         func = self.func
         try:
             return func(*args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             return SpecClientError(e)
 
     def __str__(self):
@@ -70,7 +70,7 @@ class BaseSpecCommand:
             self.setCommand(command)
 
         if connection is not None:
-            if type(connection) in (types.UnicodeType, types.StringType):
+            if type(connection) in (str, bytes):
                 #
                 # connection is given in the 'host:port' form
                 #
@@ -123,7 +123,7 @@ class BaseSpecCommand:
             # convert args list to string args list
             # it is much more convenient using .call('psvo', 12) than .call('psvo', '12')
             # a possible problem will be seen in Spec
-            args = map(repr, args)
+            args = list(map(repr, args))
 
             if func:
                 # macro function

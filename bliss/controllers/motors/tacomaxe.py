@@ -123,7 +123,7 @@ class TacoMaxe(Controller):
         """Returns axis current firstvelocity -- in motorunits/sec --"""
         tacomaxe_info('read_firstvelocity called for axis "%s"' % (axis.name))
         steps_vel = self.device.DevReadFStepRate(axis.channel)
-        print steps_vel
+        print(steps_vel)
         return steps_vel
 
     def read_acceleration(self, axis):
@@ -231,7 +231,7 @@ class TacoMaxe(Controller):
         """Returns axis current firstvelocity -- in motorunits/sec --"""
         tacomaxe_info('custom_read_firststeprate() called for axis "%s"' % axis.name)
         fsteps_vel = self.device.DevReadFStepRate(axis.channel)
-        print fsteps_vel
+        print(fsteps_vel)
         return fsteps_vel
 
     @object_method(types_info=("float", "None"))

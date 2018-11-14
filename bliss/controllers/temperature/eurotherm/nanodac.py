@@ -63,13 +63,15 @@ def _get_read_write(modbus, address_read_write):
 
             def write(self, value):
                 if isinstance(value, str):
-                    for k, v in enum_type.iteritems():
+                    for k, v in enum_type.items():
                         if v.lower() == value.lower():
                             value = k
                             break
                     else:
                         raise RuntimeError(
-                            "Value %s is not in enum (%s)", value, enum_type.values()
+                            "Value %s is not in enum (%s)",
+                            value,
+                            list(enum_type.values()),
                         )
                 return modbus.write_register(address, "b", value)
 
@@ -85,7 +87,7 @@ def _get_read_write(modbus, address_read_write):
 
 
 def _create_attribute(filter_name, cls, instance, modbus):
-    for name, address_read_write in name2address.iteritems():
+    for name, address_read_write in name2address.items():
         if name.startswith(filter_name):
             subnames = name[len(filter_name) + 1 :].split(".")
             read, write = _get_read_write(modbus, address_read_write)

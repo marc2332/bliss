@@ -20,7 +20,10 @@ def test_simple_plot(flint_session):
     p = plot.plot(sin)
     assert "CurvePlot" in repr(p)
     data = p.get_data()
-    assert data == {"default": pytest.approx(sin), "x": pytest.approx(range(len(sin)))}
+    assert data == {
+        "default": pytest.approx(sin),
+        "x": pytest.approx(list(range(len(sin)))),
+    }
 
 
 def test_plot_curve_with_x(flint_session):

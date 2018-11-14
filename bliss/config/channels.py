@@ -8,7 +8,7 @@
 import sys
 import uuid
 import time
-import cPickle
+import pickle
 import weakref
 from collections import namedtuple
 
@@ -117,7 +117,7 @@ class Bus(AdvancedInstantiationInterface):
     # Close
 
     def close(self):
-        for channel in self._channels.values():
+        for channel in list(self._channels.values()):
             channel.close()
         if self._send_task:
             self._send_task.kill()
@@ -126,7 +126,7 @@ class Bus(AdvancedInstantiationInterface):
 
     @classmethod
     def clear_cache(cls):
-        for bus in cls._CACHE.values():
+        for bus in list(cls._CACHE.values()):
             bus.close()
         cls._CACHE.clear()
 
@@ -179,7 +179,7 @@ class Bus(AdvancedInstantiationInterface):
 
     def _publish(self, name, value, pipeline=None):
         redis = self._redis if pipeline is None else pipeline
-        return redis.publish(name, cPickle.dumps(value, protocol=-1))
+        return redis.publish(name, pickle.dumps(value, protocol=-1))
 
     def _send_updates(self, pipeline=None):
         while self._pending_updates:
@@ -237,7 +237,7 @@ class Bus(AdvancedInstantiationInterface):
 
             # Extract info
             name = event.get("channel")
-            data = cPickle.loads(event.get("data"))
+            data = pickle.loads(event.get("data"))
             channel = self._channels.get(name)
 
             # Run the corresponding handler
@@ -458,7 +458,7 @@ class Channel(AdvancedInstantiationInterface):
 
     def _fire_callbacks(self):
         value = self._raw_value.value
-        callbacks = filter(None, [ref() for ref in self._callback_refs])
+        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
 
         # Run callbacks
         for cb in callbacks:
@@ -519,7 +519,7 @@ def clear_cache(*devices):
     devices -- one or more devices or if no device all devices
     """
     if not devices:
-        devices = DEVICE_CACHE.keys()
+        devices = list(DEVICE_CACHE.keys())
     for device in devices:
         cached_channels = DEVICE_CACHE.get(device, [])
         for channel in cached_channels:

@@ -37,7 +37,7 @@ MAX_AXIS = 128
 
 def iter_axis(start=1, stop=MAX_AXIS + 1, step=1):
     start, stop = max(start, 1), min(stop, MAX_AXIS + 1)
-    for i in xrange(start, stop, step):
+    for i in range(start, stop, step):
         if i % 10 > 8:
             continue
         yield i
@@ -222,7 +222,7 @@ class Axis(object):
         if address not in VALID_AXES:
             raise ValueError("{0} is not a valid address".format(address))
         self._log = logging.getLogger("{0}.{1}".format(icepap._log.name, address))
-        for k, v in opts.items():
+        for k, v in list(opts.items()):
             setattr(self, "_" + k, v)
         self._name = opts.get("axis_name", "")
 
@@ -265,7 +265,9 @@ def __create_command(name, mode, arg_parser):
 
 
 def _argspec_kwargs(argspec):
-    return dict(zip(*[reversed(l) for l in (argspec.args, argspec.defaults or [])]))
+    return dict(
+        list(zip(*[reversed(l) for l in (argspec.args, argspec.defaults or [])]))
+    )
 
 
 def _func_kwargs(f):
@@ -408,7 +410,7 @@ class IcePAP(BaseDevice):
         for axis in axes or [dict(address=addr) for addr in iter_axis()]:
             axes_dict[axis["address"]] = Axis(self, **axis)
         self._axes = axes_dict
-        for k, v in opts.items():
+        for k, v in list(opts.items()):
             setattr(self, "_" + k, v)
 
     @staticmethod
@@ -416,7 +418,9 @@ class IcePAP(BaseDevice):
         """retrieve the command error message prefix from the command line"""
         groups = cmd_match.groupdict()
         # replace None values with ''
-        groups_str = dict([(k, ("" if v is None else v)) for k, v in groups.items()])
+        groups_str = dict(
+            [(k, ("" if v is None else v)) for k, v in list(groups.items())]
+        )
         groups_str["instr"] = groups_str["instr"].upper()
         cmd_err = "{addr}{broadcast}{is_query}{instr}".format(**groups_str)
         return cmd_err
@@ -484,7 +488,7 @@ class IcePAP(BaseDevice):
             return _result(cmd_result, IcePAPError.CannotBroadCastQuery)
         if ack and broadcast:
             return _result(cmd_result, IcePAPError.CannotAcknowledgeBroadcast)
-        args = map(str.strip, cmd[cmd_match.end() :].split())
+        args = list(map(str.strip, cmd[cmd_match.end() :].split()))
 
         if addr is None:
             func = getattr(self, instr, None)
@@ -516,7 +520,7 @@ class IcePAP(BaseDevice):
     def move(self, args=(), cmd_result=None, **kwargs):
         #        import pdb; pdb.set_trace()
         group = args[0].upper() == "GROUP"
-        args = map(int, args[1:] if group else args)
+        args = list(map(int, args[1:] if group else args))
         axes_pos = []
         for i in range(0, len(args), 2):
             axis = self._get_axis(args[i])

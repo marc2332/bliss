@@ -15,7 +15,7 @@ It is a little bit of an overkill to use this. Most of the times you can use
 the direct Gpib class from Salsa directly.
 
 """
-from __future__ import absolute_import
+
 
 from tango.server import Device, attribute, command, device_property
 

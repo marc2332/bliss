@@ -88,7 +88,7 @@ def initialize(session_name=None):
         session = DefaultSession()
     else:
         session = config.get(session_name)
-        print "%s: Executing setup..." % session.name
+        print("%s: Executing setup..." % session.name)
 
     try:
         session.setup(env_dict=user_ns, verbose=True)
@@ -97,7 +97,7 @@ def initialize(session_name=None):
         sys.excepthook(*sys.exc_info())
 
     if error_flag:
-        print "Warning: error(s) happened during setup, setup may not be complete."
+        print("Warning: error(s) happened during setup, setup may not be complete.")
     else:
         print_("Done.")
         print_("")
@@ -162,7 +162,7 @@ class ScanListener:
         motor_labels = []
         counter_labels = []
 
-        master, channels = next(scan_info["acquisition_chain"].iteritems())
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         for channel_name in channels["master"]["scalars"]:
             channel_short_name = channel_name.split(":")[-1]
@@ -231,7 +231,7 @@ class ScanListener:
             else:
                 estimation_str = ""
 
-            col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
+            col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
             h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
             header = "  ".join(
                 [templ.format(label) for templ, label in zip(h_templ, self.col_labels)]
@@ -252,7 +252,7 @@ class ScanListener:
         if scan_type is None:
             return
 
-        master, channels = next(scan_info["acquisition_chain"].iteritems())
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         elapsed_time_col = []
         if "elapsed_time" in values:
@@ -267,7 +267,7 @@ class ScanListener:
         if scan_type == "ct":
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info["count_time"]
-            col_len = max(map(len, self.col_labels)) + 2
+            col_len = max(list(map(len, self.col_labels))) + 2
             template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
                 col_len
             )

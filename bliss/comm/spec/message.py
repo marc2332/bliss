@@ -93,7 +93,7 @@ def rawtodictonary(rawstring):
             else:
                 data[key] = val
         else:
-            if keyel[0] in data and not isinstance(data[keyel[0]], types.DictType):
+            if keyel[0] in data and not isinstance(data[keyel[0]], dict):
                 data[keyel[0]] = {None: data[keyel[0]]}
 
             try:
@@ -109,9 +109,9 @@ def dictionarytoraw(dict):
     """Transform a Python dictionary object to the string format
     expected by Spec"""
     data = ""
-    for key, val in dict.items():
-        if isinstance(val, types.DictType):
-            for kkey, vval in val.iteritems():
+    for key, val in list(dict.items()):
+        if isinstance(val, dict):
+            for kkey, vval in val.items():
                 if kkey is None:
                     data += str(key) + NULL + str(vval) + NULL
                 else:
@@ -231,15 +231,11 @@ class SpecMessage:
           - it is a hard job guessing ARRAY_* types, we ignore this case (user has to provide a suitable datatype)
           - we cannot make a difference between ERROR type and STRING type
         """
-        if isinstance(data, types.StringType):
+        if isinstance(data, bytes):
             return STRING
-        elif isinstance(data, types.DictType):
+        elif isinstance(data, dict):
             return ASSOC
-        elif (
-            isinstance(data, types.IntType)
-            or isinstance(data, types.LongType)
-            or isinstance(data, types.FloatType)
-        ):
+        elif isinstance(data, int) or isinstance(data, int) or isinstance(data, float):
             return STRING
 
     def sendingDataString(self, data, datatype):
@@ -509,13 +505,13 @@ class anymessage(SpecMessage):
 
 def commandListToCommandString(cmdlist):
     """Convert a command list to a Spec command string."""
-    if isinstance(cmdlist, types.ListType) and len(cmdlist) > 0:
+    if isinstance(cmdlist, list) and len(cmdlist) > 0:
         cmd = [str(cmdlist[0])]
 
         for arg in cmdlist[1:]:
             argstr = repr(arg)
 
-            if isinstance(arg, types.DictType):
+            if isinstance(arg, dict):
                 argstr = argstr.replace("{", "[")
                 argstr = argstr.replace("}", "]")
 

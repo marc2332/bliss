@@ -7,7 +7,7 @@
 
 import pytest
 from bliss.config import settings
-import cPickle
+import pickle
 
 
 class DummyObject(object):
@@ -68,9 +68,9 @@ def test_simple_setting_types(session):
 def test_hash_setting(session):
     myDict = {"C1": "riri", "C2": "fifi"}
     shs = settings.HashSetting("myHkey", default_values=myDict)  # note the s :)
-    assert myDict.items() == shs.items()
-    assert myDict.values() == shs.values()
-    assert shs.keys() == myDict.keys()
+    assert list(myDict.items()) == list(shs.items())
+    assert list(myDict.values()) == list(shs.values())
+    assert list(shs.keys()) == list(myDict.keys())
 
 
 def test_hash_setting_default_value(beacon):
@@ -87,7 +87,7 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     shs = settings.HashSetting(
         "myNewHkey",
         read_type_conversion=settings.pickle_loads,
-        write_type_conversion=cPickle.dumps,
+        write_type_conversion=pickle.dumps,
     )
 
     test_object = DummyObject()
@@ -111,4 +111,4 @@ def test_queue_setting(session):
     assert sqs.pop_back() == "b"
 
     with pytest.raises(ValueError):
-        print settings.InvalidValue()
+        print(settings.InvalidValue())

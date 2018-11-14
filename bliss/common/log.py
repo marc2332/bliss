@@ -127,7 +127,7 @@ def exception(error_msg, raise_exception=True):
     log(ERROR, error_msg)
     sys.excepthook(*exc_info)
     if raise_exception:
-        raise exc_info[0], exc_info[1], exc_info[2]
+        raise exc_info[0](exc_info[1]).with_traceback(exc_info[2])
 
 
 def info(info_msg):

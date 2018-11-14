@@ -149,7 +149,7 @@ def test_lima_mapping_and_saving(beacon, lima_simulator, session):
 
         try:
             ct.run()
-        except Exception, e:
+        except Exception as e:
             # this will fail because directory is not likely to exist
             saving_directory = e.args[0].desc.split("Directory :")[-1].split()[0]
     finally:

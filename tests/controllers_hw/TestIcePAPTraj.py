@@ -87,7 +87,7 @@ address2 = ""
 
 # def signal_handler(signal, frame):
 def signal_handler(*args):
-    print "\nAbort request taken into account\n"
+    print("\nAbort request taken into account\n")
     finalize()
 
     # needed to stop unittest sequence of tests
@@ -152,44 +152,44 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_set_parameter(self):
         mypar = bliss.get_axis("mypar")
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
         self.assertEqual(mypar.get_parameter(), par_list)
 
     def test_drain_trajectory(self):
         mypar = bliss.get_axis("mypar")
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.drain()
         self.assertEqual(len(mypar.get_parameter()), 0)
 
     def test_set_parameter_nonempty(self):
         mypar = bliss.get_axis("mypar")
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
         self.assertRaises(ValueError, mypar.set_parameter, par_list)
 
     def test_set_trajectory(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
 
     def test_set_trajectory_wrongrange(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(10)
+        par_list = list(range(100))
+        pos_list = list(range(10))
         mypar.set_parameter(par_list)
         self.assertRaises(ValueError, mypar.set_trajectory, mymot, pos_list)
 
     def test_set_trajectory_overwrite(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         self.assertRaises(ValueError, mypar.set_trajectory, mymot, pos_list)
@@ -197,7 +197,7 @@ class TestIcePAPController(unittest.TestCase):
     def test_load_trajectory(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
+        par_list = list(range(100))
         pos_list = [x * 10 for x in range(100)]
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
@@ -208,7 +208,7 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
 
         pos_list = [x * 10 for x in range(100)]
@@ -223,7 +223,7 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
 
         pos_list = [x * 1.5 for x in range(100)]
@@ -246,8 +246,8 @@ class TestIcePAPController(unittest.TestCase):
     def test_get_parameter_velocity(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
@@ -262,8 +262,8 @@ class TestIcePAPController(unittest.TestCase):
     def test_set_parameter_velocity(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
@@ -278,8 +278,8 @@ class TestIcePAPController(unittest.TestCase):
     def test_get_parameter_acctime(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
@@ -294,8 +294,8 @@ class TestIcePAPController(unittest.TestCase):
     def test_set_parameter_acctime(self):
         mypar = bliss.get_axis("mypar")
         mymot = bliss.get_axis("mymot")
-        par_list = range(100)
-        pos_list = range(100)
+        par_list = list(range(100))
+        pos_list = list(range(100))
         mypar.set_parameter(par_list)
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
@@ -308,7 +308,7 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
 
         pos_list = [x * 1.5 for x in range(100)]
@@ -330,7 +330,7 @@ class TestIcePAPController(unittest.TestCase):
         mymot = bliss.get_axis("mymot")
         mymot2 = bliss.get_axis("mymot2")
 
-        par_list = range(100)
+        par_list = list(range(100))
         mypar.set_parameter(par_list)
 
         pos_list = [x * 1.5 for x in range(100)]
@@ -374,12 +374,12 @@ if __name__ == "__main__":
     gevent.signal(signal.SIGINT, signal_handler)
 
     # Launch the tests sequence
-    print '\nTesting IcePAP control on system "%s"\n' % hostname
-    print "\n".rjust(70, "-")
+    print('\nTesting IcePAP control on system "%s"\n' % hostname)
+    print("\n".rjust(70, "-"))
 
     # Change the default unittest test sequence order from cmp() to line number
     loader = unittest.TestLoader()
-    ln = lambda f: getattr(TestIcePAPController, f).im_func.func_code.co_firstlineno
+    ln = lambda f: getattr(TestIcePAPController, f).__func__.__code__.co_firstlineno
     lncmp = lambda a, b: cmp(ln(a), ln(b))
     loader.sortTestMethodsUsing = lncmp
 

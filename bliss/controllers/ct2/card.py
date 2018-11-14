@@ -9,7 +9,6 @@
 The python module for the ct2 (P201/C208) ESRF PCI counter card
 """
 
-from __future__ import print_function
 
 import os
 import sys
@@ -290,7 +289,7 @@ _IOC_READ = 2
 
 
 def _IOC(dir, type, nr, size):
-    if isinstance(size, str) or isinstance(size, unicode):
+    if isinstance(size, str) or isinstance(size, str):
         size = struct.calcsize(size)
     return (
         dir << _IOC_DIRSHIFT
@@ -1583,7 +1582,7 @@ __CT2_BASE_ERRORS = {
 
 def __CT2_ERRORS(operation, new_errors=None):
     errors = {}
-    for err_no, err_desc in __CT2_BASE_ERRORS.items():
+    for err_no, err_desc in list(__CT2_BASE_ERRORS.items()):
         errors[err_no] = err_desc.format(operation=operation)
     if new_errors:
         errors.update(new_errors)
@@ -1756,7 +1755,7 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", __CT2_ERRORS("reset ca
 #:    - EINVAL: some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_EDINT = (
-    _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE),
+    _IOW(CT2_IOC_MAGIC, 0o1, CT2_SIZE),
     "CT2_IOC_EDINT",
     __CT2_ERRORS(
         "enable interrupts",
@@ -1796,7 +1795,7 @@ CT2_IOC_EDINT = (
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_DDINT = (
-    _IO(CT2_IOC_MAGIC, 02),
+    _IO(CT2_IOC_MAGIC, 0o2),
     "CT2_IOC_DDINT",
     __CT2_ERRORS("disable interrupts"),
 )
@@ -2274,7 +2273,7 @@ class BaseCard:
     def calc_fifo_events(self, fifo_status, nb_counters=None):
         if nb_counters is None:
             etl = self.get_DMA_enable_trigger_latch()
-            nb_counters = etl[1].values().count(True)
+            nb_counters = list(etl[1].values()).count(True)
         data_len = min(fifo_status["size"], self.FIFO_SIZE / CT2_REG_SIZE)
         return data_len / nb_counters, nb_counters
 
@@ -2602,11 +2601,11 @@ class BaseCard:
         if counters is None:
             counters = ()
         elif isinstance(counters, dict):
-            counters = [c for c, yesno in counters.items() if yesno]
+            counters = [c for c, yesno in list(counters.items()) if yesno]
         if latches is None:
             latches = ()
         elif isinstance(latches, dict):
-            latches = [l for l, yesno in latches.items() if yesno]
+            latches = [l for l, yesno in list(latches.items()) if yesno]
 
         register = 0
         for counter in counters:
@@ -2666,7 +2665,7 @@ class BaseCard:
         if channels_triggers is None:
             channels_triggers = {}
         register = 0
-        for channel, triggers in channels_triggers.items():
+        for channel, triggers in list(channels_triggers.items()):
             register |= TriggerInterrupt.toint(triggers) << (channel - 1)
         self.__write_source_irq_reg("A", register)
 
@@ -2686,7 +2685,7 @@ class BaseCard:
         if counters is None:
             counters = ()
         elif isinstance(counters, dict):
-            counters = [c for c, trigger in counters.items() if trigger]
+            counters = [c for c, trigger in list(counters.items()) if trigger]
 
         register = 0
         for counter in counters:
@@ -3011,7 +3010,7 @@ class BaseCard:
             :class:`CtConfig`)
         :type counters_cfg: dict<int: :class:`CtConfig`>
         """
-        for counter, config in counters_cfg.items():
+        for counter, config in list(counters_cfg.items()):
             self.set_counter_config(counter, config)
 
     def get_latch_sources(self, latch):
@@ -3226,7 +3225,7 @@ class BaseCard:
         for latch in "ABCDEF":
             latches[latch] = 0
 
-        for counter, sources in counter_sources.items():
+        for counter, sources in list(counter_sources.items()):
             if isinstance(sources, int):
                 sources = (sources,)
             source_bits = 0
@@ -3241,7 +3240,7 @@ class BaseCard:
             latch = chr(((counter - 1) % 12) // 2 + ord("A"))
             register = latches[latch]
             latches[latch] = register | source_bits
-        for latch, value in latches.items():
+        for latch, value in list(latches.items()):
             self.write_reg("SEL_LATCH_" + latch, value)
         return latches
 
@@ -3311,7 +3310,7 @@ class BaseCard:
         self.write_reg("COMPARE_CMPT_%d" % counter, value)
 
     def set_counters_comparators_values(self, counters):
-        for ct, value in counters.items():
+        for ct, value in list(counters.items()):
             self.set_counter_comparator_value(ct, value)
 
     def get_input_channels_50ohm_adapter(self):
@@ -3406,7 +3405,7 @@ class BaseCard:
         :raises OSError: in case the operation fails
         """
         register = 0
-        for counter, action in counters.items():
+        for counter, action in list(counters.items()):
             reg = 1 << (counter - 1)
             if not action:
                 reg = reg << 16
@@ -3442,7 +3441,7 @@ class BaseCard:
         :raises OSError: in case the operation fails
         """
         register = 0
-        for counter, action in counters.items():
+        for counter, action in list(counters.items()):
             reg = 1 << (counter - 1)
             if not action:
                 reg = reg << 16
@@ -3532,16 +3531,16 @@ class P201Card(BaseCard):
     """
 
     #: list of valid card counters
-    COUNTERS = range(1, 13)
+    COUNTERS = list(range(1, 13))
 
     #: list of valid card channels
-    CHANNELS = range(1, 11)
+    CHANNELS = list(range(1, 11))
 
     #: list of valid card input channels
-    INPUT_CHANNELS = range(1, 11)
+    INPUT_CHANNELS = list(range(1, 11))
 
     #: list of valid card ouput channels
-    OUTPUT_CHANNELS = range(9, 11)
+    OUTPUT_CHANNELS = list(range(9, 11))
 
     #: fifo size (bytes)
     FIFO_SIZE = 2048 * CT2_REG_SIZE
@@ -3693,7 +3692,7 @@ def create_object_from_config_node(config, node):
 
 
 def create_and_configure_card(config_or_name):
-    if isinstance(config_or_name, (str, unicode)):
+    if isinstance(config_or_name, str):
         card_config = __get_card_config(config_or_name)
     else:
         card_config = config_or_name
@@ -3758,7 +3757,7 @@ def configure_card(card, config):
         addr = int(counter["address"])
         ct_cfg_dict[addr].update(counter)
 
-    for addr, counter in ct_cfg_dict.items():
+    for addr, counter in list(ct_cfg_dict.items()):
         ct_cfgs[addr] = CtConfig(
             clock_source=__get(counter, "clock source", klass=CtClockSrc),
             gate_source=__get(counter, "gate source", klass=CtGateSrc),
@@ -3799,10 +3798,10 @@ def configure_card(card, config):
         if addr in card.OUTPUT_CHANNELS:
             ch_cfg["output"].update(channel.get("output", {}))
 
-    for addr, channel in ch_cfg_dict.items():
+    for addr, channel in list(ch_cfg_dict.items()):
         if addr in card.INPUT_CHANNELS:
             inp = channel["input"]
-            ints = map(string.lower, __get(inp, "interrupt"))
+            ints = list(map(string.lower, __get(inp, "interrupt")))
             ch_ints[addr] = TriggerInterrupt(
                 rising="rising" in ints, falling="falling" in ints
             )

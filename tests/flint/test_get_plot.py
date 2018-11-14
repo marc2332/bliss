@@ -18,7 +18,7 @@ def test_get_plot(beacon, lima_simulator, test_session_with_flint):
 
     assert p1.plot_id == p2.plot_id
     p2_data = p2.get_data()
-    for k, v in p1.get_data().iteritems():
+    for k, v in p1.get_data().items():
         assert numpy.allclose(p2_data[k], v)
 
     p3 = s.get_plot(simu1.counters.spectrum_det0, wait=True)

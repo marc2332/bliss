@@ -132,7 +132,7 @@ def qt_safe_class(cls):
         method = getattr(cls, name)
         if not isinstance(method, types.MethodType):
             continue
-        if getattr(method.im_func, "_qt_unsafe", False):
+        if getattr(method.__func__, "_qt_unsafe", False):
             continue
         setattr(cls, name, qt_safe(method))
     return cls
@@ -289,7 +289,7 @@ class Flint:
             | qt.Qt.WindowTitleHint
         )
         window_titles = []
-        for master, channels in scan_info["acquisition_chain"].iteritems():
+        for master, channels in scan_info["acquisition_chain"].items():
             scalars = channels.get("scalars", [])
             spectra = channels.get("spectra", [])
             images = channels.get("images", [])
@@ -443,7 +443,7 @@ class Flint:
             while self._last_event:
                 local_event = self._last_event
                 self._last_event = dict()
-                for (master_name, _), (data_type, data) in local_event.items():
+                for (master_name, _), (data_type, data) in list(local_event.items()):
                     last_data = data["data"]
                     if data_type in ("1d", "2d"):
                         if data_type == "2d":
@@ -465,7 +465,7 @@ class Flint:
     def _new_scan_data(self, data_type, master_name, data, last_data):
         if data_type == "0d":
             for plot in self.live_scan_plots_dict[master_name]["0d"]:
-                for channel_name, channel_data in last_data.iteritems():
+                for channel_name, channel_data in last_data.items():
                     self.update_data(plot.plot_id, channel_name, channel_data)
                 plot.update_all()
         elif data_type == "1d":

@@ -11,7 +11,7 @@ from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.axis import AxisState
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm import tcp
 from bliss.common import event
 
@@ -75,4 +75,4 @@ class PI_E518(PI_E51X):
         Raises:
             ?
         """
-        print "   TO BE CHANGED fro E518"
+        print("   TO BE CHANGED fro E518")

@@ -132,7 +132,7 @@ class Lima(object):
 
     @property
     def directories_mapping_names(self):
-        return self._directories_mapping.keys()
+        return list(self._directories_mapping.keys())
 
     @property
     def current_directories_mapping(self):

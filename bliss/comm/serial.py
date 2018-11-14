@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 __all__ = ["LocalSerial", "RFC2217", "SER2NET", "TangoSerial", "Serial"]
 
@@ -397,7 +396,7 @@ class RFC2217(_BaseSerial):
 
             self._socket.send(telnet_sub_cmd.data)
             telnet_sub_cmd.data = ""
-            items = self.rfc2217_port_settings.values()
+            items = list(self.rfc2217_port_settings.values())
             while 1:
                 self._parse_nego(telnet_cmd)
                 if sum(o.active for o in items) == len(items):
@@ -490,7 +489,7 @@ class RFC2217(_BaseSerial):
                         elif suboption == FLOWCONTROL_RESUME:
                             self._remote_suspend_flow = False
                         else:
-                            for item in self.rfc2217_options.values():
+                            for item in list(self.rfc2217_options.values()):
                                 if item.ack_option == suboption:
                                     item.checkAnswer(value)
                                     break
@@ -608,7 +607,7 @@ class TangoSerial(_BaseSerial):
             get_object_proxy(device).set_timeout_millis(int(timeout * 1000))
         args = []
         kwargs["eol"] = cnt._eol
-        for arg, (key, encode) in self.PAR_MAP.items():
+        for arg, (key, encode) in list(self.PAR_MAP.items()):
             args.append(arg)
             args.append(encode(self, kwargs[key]))
         device.DevSerSetParameter(args)
@@ -650,7 +649,7 @@ class TangoSerial(_BaseSerial):
 
 
 class Serial:
-    LOCAL, RFC2217, SER2NET, TANGO = range(4)
+    LOCAL, RFC2217, SER2NET, TANGO = list(range(4))
 
     def __init__(
         self,

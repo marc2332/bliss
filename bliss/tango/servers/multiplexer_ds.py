@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import sys
 import tango
@@ -40,21 +39,21 @@ class Multiplexer(Device):
     @attribute(dtype=("str",), max_dim_x=2048, label="Output status")
     def outputs_status(self):
         returnList = []
-        for item in self.__multiplexer.getGlobalStat().iteritems():
+        for item in self.__multiplexer.getGlobalStat().items():
             returnList.extend(item)
         return returnList
 
     @attribute(dtype=("str",), max_dim_x=2048, label="Output key and name")
     def outputs_key_name(self):
         returnList = []
-        for item in self.__multiplexer.getKeyAndName().iteritems():
+        for item in self.__multiplexer.getKeyAndName().items():
             returnList.extend(item)
         return returnList
 
     @attribute(dtype=("str",), max_dim_x=32, label="Opiom programs")
     def opiom_prog(self):
         returnList = []
-        for id, val in self.__multiplexer.getOpiomProg().iteritems():
+        for id, val in self.__multiplexer.getOpiomProg().items():
             returnList.append("%s : %s" % (id, val))
         return returnList
 

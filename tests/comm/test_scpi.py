@@ -56,11 +56,11 @@ def test_cmd_expr_to_reg_expr():
         ),
     }
 
-    for _, (expr, reg_expr) in cmd_exprs.items():
+    for _, (expr, reg_expr) in list(cmd_exprs.items()):
         assert cmd_expr_to_reg_expr(expr).pattern == reg_expr
 
     cmd_re = dict(
-        [(k, cmd_expr_to_reg_expr(expr)) for k, (expr, _) in cmd_exprs.items()]
+        [(k, cmd_expr_to_reg_expr(expr)) for k, (expr, _) in list(cmd_exprs.items())]
     )
 
     idn_re = cmd_re["idn"]
@@ -145,7 +145,7 @@ def interface():
     mock.idn = "BLISS INSTRUMENTS INC.,6485,123456,B04"
     mock.meas = 1.2345
     mock.idn_obj = dict(
-        zip(("manufacturer", "model", "serial", "version"), mock.idn.split(","))
+        list(zip(("manufacturer", "model", "serial", "version"), mock.idn.split(",")))
     )
     mock.values = {"*IDN?": mock.idn, "MEAS?": "%EA" % mock.meas}
     mock.commands = []

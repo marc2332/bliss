@@ -261,7 +261,7 @@ class Transfocator:
         return positions
 
     def status_read(self):
-        header, positions = zip(*self.status_dict().items())
+        header, positions = list(zip(*list(self.status_dict().items())))
         header = "".join(("{:<4}".format(col) for col in header))
         positions = (_display(col) for col in positions)
         positions = "".join(("{:<4}".format(col) for col in positions))
@@ -314,11 +314,11 @@ class Transfocator:
         return self.nb_lens + self.nb_pinhole
 
     def __getitem__(self, idx):
-        pos = self.status_dict().values()
+        pos = list(self.status_dict().values())
         if isinstance(idx, int):
             return _display(pos[idx])
         elif isinstance(idx, slice):
-            idx = range(*idx.indices(self.nb_lens + self.nb_pinhole))
+            idx = list(range(*idx.indices(self.nb_lens + self.nb_pinhole)))
         return [_display(pos[i]) for i in idx]
 
     def __setitem__(self, idx, value):
@@ -326,7 +326,7 @@ class Transfocator:
             args = idx, value
         else:
             if isinstance(idx, slice):
-                idx = range(*idx.indices(self.nb_lens + self.nb_pinhole))
+                idx = list(range(*idx.indices(self.nb_lens + self.nb_pinhole)))
             nb_idx = len(idx)
             if not isinstance(value, (tuple, list)):
                 value = nb_idx * [value]
@@ -342,7 +342,7 @@ class Transfocator:
     def __repr__(self):
         prefix = "Transfocator " + self.name
         try:
-            header, positions = zip(*self.status_dict().items())
+            header, positions = list(zip(*list(self.status_dict().items())))
             positions = [_display(col) for col in positions]
             table = tabulate.tabulate((header, positions), tablefmt="plain")
             return "{}:\n{}".format(prefix, table)

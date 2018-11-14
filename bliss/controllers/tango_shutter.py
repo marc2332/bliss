@@ -39,7 +39,7 @@ class tango_shutter:
         self._mode = False
 
     def get_status(self):
-        print self.__control.status()
+        print(self.__control.status())
 
     def get_state(self):
         return str(self.__control.state())
@@ -55,7 +55,7 @@ class tango_shutter:
             except:
                 raise RuntimeError("Cannot open shutter")
         else:
-            print self.__control._status()
+            print(self.__control._status())
 
     def close(self):
         state = self.get_state()

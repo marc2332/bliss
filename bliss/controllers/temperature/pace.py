@@ -364,4 +364,4 @@ if __name__ == "__main__":
 
     _pace.init()
 
-    print _pace.read_pressure()
+    print(_pace.read_pressure())

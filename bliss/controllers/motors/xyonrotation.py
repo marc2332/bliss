@@ -104,5 +104,5 @@ class XYOnRotation(CalcController):
             rotation_offset = axis.settings.get("rotation_offset")
             return rotation_offset if rotation_offset else 0
         else:
-            for axis in self.axes.values():
+            for axis in list(self.axes.values()):
                 axis.settings.set("rotation_offset", offset)

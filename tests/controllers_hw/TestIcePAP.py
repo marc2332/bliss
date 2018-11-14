@@ -89,7 +89,7 @@ address2 = ""
 
 # def signal_handler(signal, frame):
 def signal_handler(*args):
-    print "\nAbort request taken into account\n"
+    print("\nAbort request taken into account\n")
     finalize()
 
     # needed to stop unittest sequence of tests
@@ -391,12 +391,12 @@ if __name__ == "__main__":
     gevent.signal(signal.SIGINT, signal_handler)
 
     # Launch the tests sequence
-    print '\nTesting IcePAP control on system "%s"\n' % hostname
-    print "\n".rjust(70, "-")
+    print('\nTesting IcePAP control on system "%s"\n' % hostname)
+    print("\n".rjust(70, "-"))
 
     # Change the default unittest test sequence order from cmp() to line number
     loader = unittest.TestLoader()
-    ln = lambda f: getattr(TestIcePAPController, f).im_func.func_code.co_firstlineno
+    ln = lambda f: getattr(TestIcePAPController, f).__func__.__code__.co_firstlineno
     lncmp = lambda a, b: cmp(ln(a), ln(b))
     loader.sortTestMethodsUsing = lncmp
 

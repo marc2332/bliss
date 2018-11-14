@@ -82,7 +82,7 @@ class Mockup(Controller):
     """
 
     def initialize(self):
-        for axis_name, axis in self.axes.iteritems():
+        for axis_name, axis in self.axes.items():
             axis.settings.set("init_count", 0)
 
     """
@@ -408,7 +408,7 @@ class Mockup(Controller):
     # Types by default (None, None)
     @object_method
     def custom_command_no_types(self, axis):
-        print "print with no types"
+        print("print with no types")
 
     @object_method
     def generate_error(self, axis):

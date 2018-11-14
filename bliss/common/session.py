@@ -49,7 +49,7 @@ class _StringImporter(object):
         return None
 
     def load_module(self, fullname):
-        if not fullname in self._modules.keys():
+        if not fullname in list(self._modules.keys()):
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -71,11 +71,11 @@ class _StringImporter(object):
             new_module.__package__ = fullname.rpartition(".")[0]
         sys.modules.setdefault(fullname, new_module)
         c_code = compile(s_code, module_filename, "exec")
-        exec (c_code, new_module.__dict__)
+        exec(c_code, new_module.__dict__)
         return new_module
 
     def get_source(self, fullname):
-        if not fullname in self._modules.keys():
+        if not fullname in list(self._modules.keys()):
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -96,7 +96,7 @@ def load_script(env_dict, script_module_name, session=None):
     """
     if session is None:
         session = get_current()
-    elif isinstance(session, (str, unicode)):
+    elif isinstance(session, str):
         session = static.get_config().get(session)
 
     if session._scripts_module_path:
@@ -120,13 +120,13 @@ def load_script(env_dict, script_module_name, session=None):
 
             globals_dict = env_dict.copy()
             try:
-                exec (c_code, globals_dict)
+                exec(c_code, globals_dict)
             except Exception:
                 sys.excepthook(*sys.exc_info())
         finally:
             sys.meta_path.remove(importer)
 
-    for k in globals_dict.iterkeys():
+    for k in globals_dict.keys():
         if k.startswith("_"):
             continue
         env_dict[k] = globals_dict[k]
@@ -298,7 +298,9 @@ class Session(object):
             tree.create_node(tag=self.name, identifier=self)
             tree = self._build_children_tree(tree, self, children)
             multiple_ref_child = [
-                (name, parents) for name, (ref, parents) in children.items() if ref > 1
+                (name, parents)
+                for name, (ref, parents) in list(children.items())
+                if ref > 1
             ]
             if multiple_ref_child:
                 msg = "Session %s as cyclic references to sessions:\n" % self.name
@@ -380,7 +382,7 @@ class Session(object):
 
             child_session._setup(env_dict)
 
-        for obj_name, obj in env_dict.iteritems():
+        for obj_name, obj in env_dict.items():
             setattr(setup_globals, obj_name, obj)
 
         self._setup(env_dict)
@@ -391,9 +393,9 @@ class Session(object):
 
         with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
             code = compile(setup_file.read(), self.setup_file, "exec")
-            exec (code, env_dict)
+            exec(code, env_dict)
 
-            for obj_name, obj in env_dict.iteritems():
+            for obj_name, obj in env_dict.items():
                 setattr(setup_globals, obj_name, obj)
 
             return True
@@ -402,7 +404,7 @@ class Session(object):
         if get_current() is self:
             global CURRENT_SESSION
             CURRENT_SESSION = None
-        for obj_name, obj in self.__env_dict.iteritems():
+        for obj_name, obj in self.__env_dict.items():
             if obj is self:
                 continue
             if hasattr(setup_globals, obj_name):
@@ -418,7 +420,7 @@ class Session(object):
                 continue
 
             if verbose:
-                print "Initializing '%s`" % item_name
+                print("Initializing '%s`" % item_name)
 
             self._add_from_config(item_name, env_dict)
 

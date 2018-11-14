@@ -31,7 +31,6 @@ To start the server you can do something like::
 An emulator how-to is available :ref:`here <bliss-emulator-how-to>`.
 """
 
-from __future__ import print_function
 
 import os
 import pty
@@ -158,7 +157,7 @@ class EmulatorServerMixin(object):
         gevent.sleep(sleep_time)
 
     def broadcast(self, msg):
-        for _, (_, sock) in self.connections.items():
+        for _, (_, sock) in list(self.connections.items()):
             try:
                 sock.sendall(msg)
             except:
@@ -291,13 +290,13 @@ class BaseDevice(object):
         self.__transports = weakref.WeakKeyDictionary()
         if kwargs:
             self._log.warning(
-                "constructor keyword args ignored: %s", ", ".join(kwargs.keys())
+                "constructor keyword args ignored: %s", ", ".join(list(kwargs.keys()))
             )
 
     @property
     def transports(self):
         """the list of registered transports"""
-        return self.__transports.keys()
+        return list(self.__transports.keys())
 
     @transports.setter
     def transports(self, transports):

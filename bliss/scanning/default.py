@@ -242,12 +242,12 @@ class DefaultAcquisitionChain(object):
         settings = self._settings
         acquisition_settings = {
             controller: settings["acquisition_settings"]
-            for controller, settings in settings.items()
+            for controller, settings in list(settings.items())
             if "acquisition_settings" in settings
         }
         master_settings = {
             controller: settings["master"]
-            for controller, settings in settings.items()
+            for controller, settings in list(settings.items())
             if "master" in settings
         }
 
@@ -281,12 +281,12 @@ class DefaultAcquisitionChain(object):
         chain = AcquisitionChain(parallel_prepare=True)
 
         # Build chain
-        for acq_master, acq_devices in mapping.iteritems():
+        for acq_master, acq_devices in mapping.items():
             for acq_device in acq_devices:
                 chain.add(acq_master, acq_device)
 
         # Add presets
-        for preset in self._presets.itervalues():
+        for preset in self._presets.values():
             chain.add_preset(preset)
 
         # Add top master, if any

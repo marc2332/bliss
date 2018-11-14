@@ -30,7 +30,7 @@ class LeicaMicroscope:
         init_offsets = config.get("init_offsets")
         if init_offsets:
             self.init_offsets = dict()
-            for motor_name, value in init_offsets.iteritems():
+            for motor_name, value in init_offsets.items():
                 self.init_offsets[motor_name] = float(value)
         self.zoom_positions = config.get("zoom_positions")
         self.oscil_mprg = config.get("oscil_mprg")
@@ -52,7 +52,7 @@ class LeicaMicroscope:
             axis_list.append(axis)
             targets.append(axis.position() + target)
         g = Group(*axis_list)
-        g.move(dict(zip(axis_list, targets)))
+        g.move(dict(list(zip(axis_list, targets))))
 
     def _wait_ready(self, *axes, **kwargs):
         timeout = int(kwargs.get("timeout", 3))
@@ -63,7 +63,7 @@ class LeicaMicroscope:
                 axis.wait_move()
 
     def phi_init(self):
-        print "Homing phi axis"
+        print("Homing phi axis")
         self.phi.home()
         self.phi.dial(float(self.init_offsets["phi"]))
         self.phi.position(float(self.init_offsets["phi"]))
@@ -71,7 +71,7 @@ class LeicaMicroscope:
         self.musst.putget("#ABORT")  # in case a program is running
         self.phi.move(0)
         self.musst.putget("#CH CH2 0")
-        print "  done."
+        print("  done.")
 
     def kappa_init(self):
         pass
@@ -86,7 +86,20 @@ class LeicaMicroscope:
         self.musst.putget("#VAR DE %d" % delta)
         self.musst.putget("#VAR DETTRIG %d" % trigger)
         self.musst.putget("#CH CH3 0")
-        print "\ne1=", e1, "e2=", e2, "esh1=", esh1, "esh2=", esh2, "delta=", delta, "trigger=", trigger
+        print(
+            "\ne1=",
+            e1,
+            "e2=",
+            e2,
+            "esh1=",
+            esh1,
+            "esh2=",
+            esh2,
+            "delta=",
+            delta,
+            "trigger=",
+            trigger,
+        )
 
         self.musst.putget("#RUN OSCILLPX")
 

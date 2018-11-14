@@ -57,7 +57,7 @@ class MusstCounter(SamplingCounter):
 
 class musst(object):
     class channel(object):
-        COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = range(6)
+        COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 
         def __init__(self, musst, channel_id, type=None, switch=None, switch_name=None):
             self._musst = weakref.ref(musst)
@@ -72,7 +72,7 @@ class musst(object):
                 "SWITCH": self.SWITCH,
             }
             if type is not None:
-                if isinstance(type, (str, unicode)):
+                if isinstance(type, str):
                     MODE = type.upper()
                     mode = self._string2mode.get(MODE)
                     if mode is None:
@@ -196,11 +196,11 @@ class musst(object):
     VARINIT = _simple_cmd("VARINIT", "Reset program variables")
 
     # STATE
-    NOPROG_STATE, BADPROG_STATE, IDLE_STATE, RUN_STATE, BREAK_STATE, STOP_STATE, ERROR_STATE = range(
-        7
+    NOPROG_STATE, BADPROG_STATE, IDLE_STATE, RUN_STATE, BREAK_STATE, STOP_STATE, ERROR_STATE = list(
+        range(7)
     )
     # FREQUENCY TIMEBASE
-    F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = range(6)
+    F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = list(range(6))
 
     def __init__(self, name, config_tree):
         """Base Musst controller.
@@ -241,7 +241,7 @@ class musst(object):
             self._rxterm = "\r\n"
             self._binary_data_read = False
         else:
-            raise ValueError, "Must specify gpib_url or serial_url"
+            raise ValueError("Must specify gpib_url or serial_url")
 
         self._string2state = {
             "NOPROG": self.NOPROG_STATE,
@@ -417,7 +417,7 @@ class musst(object):
 
         with remote_open(program_file) as program:
             program_bytes = program.read()
-            for old, new in template_replacement.iteritems():
+            for old, new in template_replacement.items():
                 program_bytes = program_bytes.replace(old, new)
 
         self.upload_program(program_bytes)
@@ -493,8 +493,7 @@ class musst(object):
         data_pt = data.flat
         dt = numpy.dtype(numpy.int32)
         for offset, data_offset in zip(
-            xrange(from_offset, to_offset, BLOCK_SIZE),
-            xrange(0, total_int32, BLOCK_SIZE),
+            range(from_offset, to_offset, BLOCK_SIZE), range(0, total_int32, BLOCK_SIZE)
         ):
             size_to_read = min(BLOCK_SIZE, total_int32)
             total_int32 -= BLOCK_SIZE
@@ -628,7 +627,7 @@ class musst(object):
                     raise RuntimeError(
                         "Can't find a free channel for (%s)" % channel_name
                     )
-        return channels.values()
+        return list(channels.values())
 
     """
     Add read_all function to make Musst object a counter controller
@@ -696,7 +695,7 @@ class Switch(BaseSwitch):
         self.__musst.putget(cmd)
 
     def _get(self):
-        for test_cmd, test_reply in self.__state_test.iteritems():
+        for test_cmd, test_reply in self.__state_test.items():
             reply = self.__musst.putget(test_cmd)
             state = test_reply.get(reply)
             if state is not None:
@@ -704,4 +703,4 @@ class Switch(BaseSwitch):
         return "UNKNOWN"
 
     def _states_list(self):
-        return self.__states.keys()
+        return list(self.__states.keys())

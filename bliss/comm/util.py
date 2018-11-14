@@ -68,7 +68,7 @@ def get_interface(*args, **kwargs):
             from .udp import Udp
 
             interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp)
-            for iname, iclass in interfaces.items():
+            for iname, iclass in list(interfaces.items()):
                 if iname in kwargs:
                     ikwargs = kwargs.pop(iname)
                     if isinstance(ikwargs, dict):
@@ -167,7 +167,7 @@ def get_comm(config, ctype=None, **opts):
         default_port = opts.pop("port", None)
         opts.update(config[comm_type])
         url = opts["url"]
-        if isinstance(url, (str, unicode)):
+        if isinstance(url, str):
             url = url.rsplit(":", 1)
         if len(url) == 1:
             if default_port is None:
@@ -221,7 +221,7 @@ class HexMsg:
         self.msg = msg
 
     def __str__(self):
-        return " ".join(map(hex, map(ord, self.msg)))
+        return " ".join(map(hex, list(map(ord, self.msg))))
 
     def __repr__(self):
         return "[{0}]".format(self)

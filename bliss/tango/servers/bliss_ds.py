@@ -16,18 +16,18 @@ To configure it in Jive:
    Add property: 'session_name'. Value is the name of the session
                  (not mandatory. defaults to the server instance)
 """
-from __future__ import absolute_import
+
 
 import os
 import sys
 import json
 import logging
-import StringIO
+import io
 import functools
 import itertools
 import traceback
 import collections
-import cPickle
+import pickle
 import base64
 import datetime
 
@@ -99,7 +99,7 @@ def sanatize_command(cmd):
     return "{0}({1})".format(cmd[0], ", ".join(cmd[1:]))
 
 
-class OutputChannel(StringIO.StringIO):
+class OutputChannel(io.StringIO):
     """channel to handle stdout/stderr across tango"""
 
     def consume(self):
@@ -233,22 +233,24 @@ class Bliss(Device):
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def axis_device_names(self):
-        return [dev.get_name() for dev in self.__get_axis_devices().values()]
+        return [dev.get_name() for dev in list(self.__get_axis_devices().values())]
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def tasks(self):
-        return ["{0} {1}".format(tid, cmd) for tid, (_, cmd) in self.__tasks.items()]
+        return [
+            "{0} {1}".format(tid, cmd) for tid, (_, cmd) in list(self.__tasks.items())
+        ]
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def namespace(self):
-        return self.__user_ns.keys()
+        return list(self.__user_ns.keys())
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def functions(self):
         return sorted(
             [
                 name
-                for name, obj in self.__user_ns.items()
+                for name, obj in list(self.__user_ns.items())
                 if not name.startswith("_") and callable(obj)
             ]
         )
@@ -291,7 +293,7 @@ class Bliss(Device):
         res = task.get()
         if res is not None:
             self.__results[id(task)] = base64.encodestring(
-                cPickle.dumps(res, protocol=-1)
+                pickle.dumps(res, protocol=-1)
             )
 
     def __evaluate(self, cmd):
@@ -378,9 +380,9 @@ class Bliss(Device):
         doc_out="Group identifier",
     )
     def axis_group_move(self, axes_pos):
-        axes = map(get_bliss_obj, axes_pos[::2])
-        axes_positions = map(float, axes_pos[1::2])
-        axes_pos_dict = dict(zip(axes, axes_positions))
+        axes = list(map(get_bliss_obj, axes_pos[::2]))
+        axes_positions = list(map(float, axes_pos[1::2]))
+        axes_pos_dict = dict(list(zip(axes, axes_positions)))
         group = Group(*axes)
         event.connect(group, "move_done", self.__on_axis_group_move_done)
         group.move(axes_pos_dict, wait=False)
@@ -399,11 +401,11 @@ class Bliss(Device):
             sender = kwargs["sender"]
             group_id = [
                 gid
-                for gid, grp in self.group_dict.items()
+                for gid, grp in list(self.group_dict.items())
                 if grp.get_base_obj() == sender
             ][0]
         elif len(self.group_dict) == 1:
-            group_id = self.group_dict.keys()[0]
+            group_id = list(self.group_dict.keys())[0]
         else:
             self._log.warning("cannot not identify group move_done")
             return
@@ -425,7 +427,9 @@ class Bliss(Device):
         group = self.group_dict[group_id]
 
         def get_name_state_list(group):
-            return [(name, str(axis.state())) for name, axis in group.axes.items()]
+            return [
+                (name, str(axis.state())) for name, axis in list(group.axes.items())
+            ]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
@@ -446,7 +450,7 @@ class Bliss(Device):
     )
     def set_settings(self, json_value):
         data = json.loads(json_value)
-        for key, value in data.items():
+        for key, value in list(data.items()):
             setting = settings.HashSetting(key)
             setting.set(value)
 
@@ -460,8 +464,8 @@ class Bliss(Device):
         data = json.loads(json_value)
         result = {}
         if isinstance(data, dict):
-            data = data.values()
-        elif isinstance(data, (str, unicode)):
+            data = list(data.values())
+        elif isinstance(data, str):
             data = (data,)
         for element in data:
             if element:
@@ -481,7 +485,7 @@ class Bliss(Device):
     def apply_config(self, reload):
         if reload:
             self._reload()
-        for dev in self.__get_axis_devices().values():
+        for dev in list(self.__get_axis_devices().values()):
             dev.axis.apply_config(reload=False)
 
 
@@ -534,7 +538,7 @@ def __register_server(
     print_("'{0}' is not configured yet.".format(server_instance))
     if not os.path.exists(os.path.expanduser(config_file)):
         config_file = ""
-    config_file = raw_input("config. file [{0}]? ".format(config_file)) or config_file
+    config_file = input("config. file [{0}]? ".format(config_file)) or config_file
     config_file = os.path.expanduser(config_file)
     if not config_file:
         print_("No configuration file was given. Exiting...")
@@ -547,7 +551,7 @@ def __register_server(
 
     # ask the user for the session name
     session_name = server_instance
-    session_name = raw_input("session name {0}? ".format(session_name)) or session_name
+    session_name = input("session name {0}? ".format(session_name)) or session_name
     if session_name != server_instance:
         properties["session_name"] = session_name
 

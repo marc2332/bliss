@@ -116,7 +116,7 @@ class PI_E712(PI):
         for axis in axes:
             axes_dict[axis["channel"]] = PIAxis(self, **axis)
         self._axes = axes_dict
-        for k, v in opts.items():
+        for k, v in list(opts.items()):
             setattr(self, "_" + k, v)
 
     def pos(self, channel):

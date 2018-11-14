@@ -64,9 +64,9 @@ class TurboPmacCommand(object):
         data = self.__data.pack(requestType, request, 0, 0, socket.htons(len(command)))
         raw = self.__s.write_readline(data + command, eol="\x06")
         if len(raw):
-            ans = map(string.strip, raw.split("\r")[:-1])
+            ans = list(map(string.strip, raw.split("\r")[:-1]))
             if convtype is not None:
-                ans = map(convtype, ans)
+                ans = list(map(convtype, ans))
             if len(ans) > 1:
                 return ans
             else:

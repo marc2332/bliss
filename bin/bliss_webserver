@@ -25,7 +25,7 @@ try:
     arguments = docopt.docopt(__doc__)
     port = int(arguments["--port"])
 except docopt.DocoptExit as e:
-    print e.message
+    print(e.message)
 else:
     logging.basicConfig()
     logging.getLogger().setLevel(logging.DEBUG)

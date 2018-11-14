@@ -19,7 +19,7 @@ import sys
 
 def _transform_dict_obj(dict_object):
     return_dict = dict()
-    for key, value in dict_object.iteritems():
+    for key, value in dict_object.items():
         return_dict[key] = _transform(value)
     return return_dict
 
@@ -87,7 +87,7 @@ def get_data(scan):
     max_channel_len = 0
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
-    for device, node in scan.nodes.iteritems():
+    for device, node in scan.nodes.items():
         if node.type == "channel":
             channel_name = node.name
             chan = node
@@ -138,7 +138,7 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback, scan_data_callbac
                 continue
             data_indexes[data_channel.db_name] += len(data)
 
-            for master, channels in scan_info["acquisition_chain"].iteritems():
+            for master, channels in scan_info["acquisition_chain"].items():
                 master_channels = channels["master"]
                 scalars = channels.get("scalars", [])
                 spectra = channels.get("spectra", [])

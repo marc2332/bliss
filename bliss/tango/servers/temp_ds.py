@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import os
 import sys
@@ -34,7 +33,7 @@ types_conv_tab_inv = {
     tango.DevVarBooleanArray: "bool_array",
 }
 
-types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
+types_conv_tab = dict((v, k) for k, v in list(types_conv_tab_inv.items()))
 types_conv_tab.update(
     {
         None: tango.DevVoid,
@@ -51,7 +50,7 @@ access_conv_tab = {
     "rw": tango.AttrWriteType.READ_WRITE,
 }
 
-access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
+access_conv_tab_inv = dict((v, k) for k, v in list(access_conv_tab.items()))
 
 _STATE_MAP = {
     "READY": tango.DevState.ON,
@@ -378,7 +377,7 @@ def recreate(db=None, new_server=False, typ="inputs"):
         classname = "BlissLoop"
         classmsg = "loop"
     else:
-        print "Type %s not recognized. Exiting" % typ
+        print("Type %s not recognized. Exiting" % typ)
         sys.exit(255)
 
     server_name, instance_name, server_instance = get_server_info()
@@ -390,8 +389,11 @@ def recreate(db=None, new_server=False, typ="inputs"):
         if new_server:
             register_server(db=db)
         else:
-            print "The device server %s is not defined in database. " "Exiting!" % server_instance
-            print "hint: start with '-n' to create a new one automatically"
+            print(
+                "The device server %s is not defined in database. "
+                "Exiting!" % server_instance
+            )
+            print("hint: start with '-n' to create a new one automatically")
             sys.exit(255)
 
     dev_map = get_devices_from_server(db=db)
@@ -402,7 +404,7 @@ def recreate(db=None, new_server=False, typ="inputs"):
     # new io from config
 
     curr_ios = {}
-    for dev_class, dev_names in dev_map.items():
+    for dev_class, dev_names in list(dev_map.items()):
         if not dev_class.startswith(classname):
             continue
         for dev_name in dev_names:
@@ -464,10 +466,10 @@ def get_devices_from_server(argv=None, db=None):
     result = list(db.get_device_class_list(personalName))
 
     # dict<dev_name: tango_class_name>
-    dev_dict = dict(zip(result[::2], result[1::2]))
+    dev_dict = dict(list(zip(result[::2], result[1::2])))
 
     class_dict = {}
-    for dev, class_name in dev_dict.items():
+    for dev, class_name in list(dev_dict.items()):
         devs = class_dict.setdefault(class_name, [])
         devs.append(dev)
 
@@ -489,7 +491,7 @@ def register_server(db=None):
     info.server = server_instance
     info._class = "DServer"
     info.name = "DServer/" + server_instance
-    print server_instance
+    print(server_instance)
     db.add_device(info)
 
 
@@ -498,7 +500,7 @@ def get_server_io_names(instance_name=None, typ="inputs"):
     if typ == "inputs" or typ == "outputs" or typ == "ctrl_loops":
         pass
     else:
-        print "Type %s not recognized. Exiting" % typ
+        print("Type %s not recognized. Exiting" % typ)
         sys.exit(255)
 
     if instance_name is None:
@@ -541,7 +543,7 @@ def initialize_logging(argv):
             elif len(log_param) > 1:
                 tango_log_level = 4
             else:
-                print "BlissTempManager.py - ERROR LOG LEVEL"
+                print("BlissTempManager.py - ERROR LOG LEVEL")
 
             if tango_log_level == 1:
                 elog.level(40)
@@ -556,7 +558,7 @@ def initialize_logging(argv):
             elog.level(20)
             tango_log_level = 0
     except tango.DevFailed:
-        print traceback.format_exc()
+        print(traceback.format_exc())
         elog.exception("Error in initializing logging")
         sys.exit(0)
 
@@ -653,7 +655,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names, dev_map, db=None):
     db = db or tango.Database()
     config = get_config()
     curr_temps = {}
-    for dev_class, dev_names in dev_map.items():
+    for dev_class, dev_names in list(dev_map.items()):
         if (
             not dev_class.startswith("BlissInput_")
             and not dev_class.startswith("BlissOutput_")

@@ -10,7 +10,7 @@ import time
 import gevent
 import gevent.event
 from tango.gevent import DeviceProxy
-import cPickle as pickle
+import pickle as pickle
 import base64
 
 

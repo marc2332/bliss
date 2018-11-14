@@ -92,7 +92,7 @@ class DmReader(object):
                     if data_list[:-1].split(",")[-1] == "22":
                         raise RuntimeError("Some unnecessary parameter is included")
         data_list = s.recv(1024)
-        return map(int, data_list[:-1].split(","))
+        return list(map(int, data_list[:-1].split(",")))
 
     @busy_state
     def get_barcode(self, puck_number=0, read_puck_barcode=False):
@@ -169,7 +169,7 @@ class DmReader(object):
                     if data_list[:-1].split(",")[-1] == "22":
                         raise RuntimeError("Some unnecessary parameter is included")
         data_list = s.recv(1024)
-        return map(int, data_list[:-1].split(","))
+        return list(map(int, data_list[:-1].split(",")))
 
     def sample_is_present(self, puck_number, sample_number):
         self.set_prg(3)

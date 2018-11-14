@@ -33,7 +33,7 @@ def get_all():
     """
     return [
         x
-        for x in setup_globals.__dict__.values()
+        for x in list(setup_globals.__dict__.values())
         if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
     ]
 
@@ -44,7 +44,7 @@ def get_all_names():
     """
     return [
         x.name
-        for x in setup_globals.__dict__.values()
+        for x in list(setup_globals.__dict__.values())
         if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
     ]
 
@@ -261,7 +261,7 @@ class MeasurementGroup(object):
         str_format = "  %-" + "%ds" % max_len + "  %s\n"
         s += str_format % ("Enabled", "Disabled")
         s += str_format % ("-" * max_len, "-" * max_len)
-        for enable, disable in itertools.izip_longest(
+        for enable, disable in itertools.zip_longest(
             self.enabled, self.disabled, fillvalue=""
         ):
             s += str_format % (enable, disable)

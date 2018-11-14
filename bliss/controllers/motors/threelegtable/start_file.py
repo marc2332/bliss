@@ -1,5 +1,5 @@
 import numpy
-from Leg import Leg
+from .Leg import Leg
 
 
 class Sample(object):
@@ -51,34 +51,34 @@ sample.ry = 0.0000  # rotation about y in [rad]
 
 if 0:
     import sys
-    from Htrans import htrans
+    from .Htrans import htrans
 
-    print(htrans(leg3.s))
-    print(htrans(leg2.w))
-    print(numpy.dot(numpy.linalg.inv(htrans(leg3.s)), htrans(leg2.w)))
+    print((htrans(leg3.s)))
+    print((htrans(leg2.w)))
+    print((numpy.dot(numpy.linalg.inv(htrans(leg3.s)), htrans(leg2.w))))
     sys.exit(0)
 
 if 0:
-    from L2l import L2l
+    from .L2l import L2l
 
     print("BEFORE")
-    print("L1w", leg1.w)
-    print("L1s", leg1.s)
+    print(("L1w", leg1.w))
+    print(("L1s", leg1.s))
     l1, l2, l3, L1, L2, L3, R = L2l(leg1, leg2, leg3)
     print("AFTER")
-    print("L1w", leg1.w)
-    print("L1s", leg1.s)
+    print(("L1w", leg1.w))
+    print(("L1s", leg1.s))
     sys.exit(0)
 # ------------------------------------------------------------------------
 #  ########## Computation of inverse Kinematics ###########################
 #  ------------------------------------------------------------------------
-from InvKin import invKin
+from .InvKin import invKin
 
 [L1, L2, L3] = invKin(leg1, leg2, leg3, sample)
 
 # ------------------------------------------------------------------------
 #  ########## Computation of forward Kinematics ###########################
 #  ------------------------------------------------------------------------
-from FwdKin import fwdKin
+from .FwdKin import fwdKin
 
 [z, rx, ry, rz] = fwdKin(L1, L2, L3)

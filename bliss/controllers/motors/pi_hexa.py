@@ -130,7 +130,7 @@ class PI_HEXA(Controller):
         try:
             return self.state(axis)
         finally:
-            for axis in self.axes.values():
+            for axis in list(self.axes.values()):
                 axis.sync_hard()
 
     def start_one(self, motion):

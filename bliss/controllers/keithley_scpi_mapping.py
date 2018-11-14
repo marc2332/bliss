@@ -45,7 +45,7 @@ def decode_IDN(s):
 # strip them (in the furture maybe use actual units)
 def __decode_Array(s, sep=",", **kwargs):
     filt = "eE.+-," + sep
-    filter(lambda x: x.isdigit() or x in filt, s)
+    [x for x in s if x.isdigit() or x in filt]
     return numpy.fromstring(s, sep=sep, **kwargs)
 
 
@@ -317,7 +317,7 @@ _sens_commands = {
 
 def __get_commands(cmds, subsystem):
     r = {}
-    for k, v in cmds.items():
+    for k, v in list(cmds.items()):
         k = "{0}{1}".format(subsystem, k)
         r[k] = v
     return r
@@ -325,7 +325,7 @@ def __get_commands(cmds, subsystem):
 
 def __get_display_commands(window="[:WINDow1]"):
     r = {}
-    for k, v in _display_commands.items():
+    for k, v in list(_display_commands.items()):
         k = k.format(window=window)
         r[k] = v
     return r

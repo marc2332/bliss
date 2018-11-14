@@ -11,7 +11,7 @@ from bliss.common.utils import object_method
 
 from bliss.common.axis import AxisState
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import TCP
 import gevent.lock
 

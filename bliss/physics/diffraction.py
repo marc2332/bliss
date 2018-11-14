@@ -196,14 +196,14 @@ def string_to_hkl(text):
     """
     try:
         strings = list(text) if len(text) <= 3 else text.split()
-        return HKL(*map(int, strings))
+        return HKL(*list(map(int, strings)))
     except Exception as err:
         raise ValueError("Invalid crystal plane {0!r}: {1}".format(text, err))
 
 
 def hkl_to_string(hkl):
     """Returns string representation of a HKL plane"""
-    join = "" if all(map(lambda i: i < 10, hkl)) else " "
+    join = "" if all([i < 10 for i in hkl]) else " "
     return join.join(map(str, hkl))
 
 

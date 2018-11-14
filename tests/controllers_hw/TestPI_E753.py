@@ -46,15 +46,15 @@ class TestPI_E753Controller(unittest.TestCase):
 
     def test_get_position(self):
         pz = bliss.get_axis("pz")
-        print "E753 position :", pz.position()
+        print("E753 position :", pz.position())
 
     def test_get_id(self):
         pz = bliss.get_axis("pz")
-        print "E753 IDN :", pz.controller._get_identifier()
+        print("E753 IDN :", pz.controller._get_identifier())
 
     def test_get_info(self):
         pz = bliss.get_axis("pz")
-        print "E753 INFOS :\n", pz.controller._get_info()
+        print("E753 INFOS :\n", pz.controller._get_info())
 
     # called at end of each test
     def tearDown(self):

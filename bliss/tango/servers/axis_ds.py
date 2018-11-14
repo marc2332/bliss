@@ -8,7 +8,7 @@
 
 """Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 """
-from __future__ import absolute_import
+
 
 import bliss.common.log as elog
 from bliss.common.axis import get_axis
@@ -38,7 +38,7 @@ import six
 try:
     from bliss.config.conductor.connection import ConnectionException
 except:
-    print "beacon not installed ?"
+    print("beacon not installed ?")
 
     class ConnectionException(Exception):
         pass
@@ -69,7 +69,7 @@ types_conv_tab_inv = {
     tango.DevVarBooleanArray: "bool_array",
 }
 
-types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
+types_conv_tab = dict((v, k) for k, v in list(types_conv_tab_inv.items()))
 types_conv_tab.update(
     {
         None: tango.DevVoid,
@@ -86,7 +86,7 @@ access_conv_tab = {
     "rw": tango.AttrWriteType.READ_WRITE,
 }
 
-access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
+access_conv_tab_inv = dict((v, k) for k, v in list(access_conv_tab.items()))
 
 
 class BlissAxisManager(Device):
@@ -103,7 +103,7 @@ class BlissAxisManager(Device):
         self.debug_stream("In init_device() of controller")
         self.group_dict = {}
         if self.BackdoorPort:
-            print "Starting Backdoor server on port", self.BackdoorPort
+            print("Starting Backdoor server on port", self.BackdoorPort)
             server = BackdoorServer(
                 ("127.0.0.1", self.BackdoorPort),
                 banner="BlissAxisManager back door",
@@ -112,7 +112,7 @@ class BlissAxisManager(Device):
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
         else:
-            print " no backdoor"
+            print(" no backdoor")
 
     def _get_axis_devices(self):
         util = tango.Util.instance()
@@ -149,7 +149,7 @@ class BlissAxisManager(Device):
         _bliss_working = True
         _bliss_moving = False
 
-        devs = self._get_axis_devices().values()
+        devs = list(self._get_axis_devices().values())
 
         for dev in devs:
             _axis_state = dev.get_state()
@@ -192,7 +192,7 @@ class BlissAxisManager(Device):
         """
         Returns the list of BlissAxisManager axes of this device.
         """
-        return [dev.get_name() for dev in self._get_axis_devices().values()]
+        return [dev.get_name() for dev in list(self._get_axis_devices().values())]
 
     @command(
         dtype_in=[str],
@@ -211,8 +211,8 @@ class BlissAxisManager(Device):
         axes = [axes_dict[name].axis for name in axes_names]
         group = Group(*axes)
         event.connect(group, "move_done", self.group_move_done)
-        positions = map(float, axes_pos[1::2])
-        axes_pos_dict = dict(zip(axes, positions))
+        positions = list(map(float, axes_pos[1::2]))
+        axes_pos_dict = dict(list(zip(axes, positions)))
         group.move(axes_pos_dict, wait=False)
         groupid = ",".join(map(":".join, grouped(axes_pos, 2)))
         self.group_dict[groupid] = group
@@ -222,16 +222,18 @@ class BlissAxisManager(Device):
         if not move_done:
             return
         elif not self.group_dict:
-            print "BlissAxisManager: move_done event with no group"
+            print("BlissAxisManager: move_done event with no group")
             return
 
         if "sender" in kws:
             sender = kws["sender"]
-            groupid = [gid for gid, grp in self.group_dict.items() if grp == sender][0]
+            groupid = [
+                gid for gid, grp in list(self.group_dict.items()) if grp == sender
+            ][0]
         elif len(self.group_dict) == 1:
-            groupid = self.group_dict.keys()[0]
+            groupid = list(self.group_dict.keys())[0]
         else:
-            print "BlissAxisManager: Warning: " "cannot not identify group move_done"
+            print("BlissAxisManager: Warning: " "cannot not identify group move_done")
             return
 
         self.group_dict.pop(groupid)
@@ -251,7 +253,9 @@ class BlissAxisManager(Device):
         group = self.group_dict[groupid]
 
         def get_name_state_list(group):
-            return [(name, str(axis.state())) for name, axis in group.axes.items()]
+            return [
+                (name, str(axis.state())) for name, axis in list(group.axes.items())
+            ]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
@@ -281,7 +285,7 @@ class BlissAxisManager(Device):
     def ApplyConfig(self, reload):
         if reload:
             self._reload()
-        for dev in self._get_axis_devices().values():
+        for dev in list(self._get_axis_devices().values()):
             dev.axis.apply_config()
 
 
@@ -487,9 +491,9 @@ class BlissAxis(Device):
         _duration = time.time() - _t
 
         if _duration > 0.05:
-            print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % (
-                self._ds_name,
-                _duration * 1000,
+            print(
+                "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms"
+                % (self._ds_name, _duration * 1000)
             )
         return result
 
@@ -532,9 +536,9 @@ class BlissAxis(Device):
         _duration = time.time() - _t
 
         if _duration > 0.01:
-            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms" % (
-                self._ds_name,
-                _duration * 1000,
+            print(
+                "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms"
+                % (self._ds_name, _duration * 1000)
             )
         return result
 
@@ -1121,10 +1125,10 @@ def get_devices_from_server(argv=None, db=None):
     result = list(db.get_device_class_list(personalName))
 
     # dict<dev_name: tango_class_name>
-    dev_dict = dict(zip(result[::2], result[1::2]))
+    dev_dict = dict(list(zip(result[::2], result[1::2])))
 
     class_dict = {}
-    for dev, class_name in dev_dict.items():
+    for dev, class_name in list(dev_dict.items()):
         devs = class_dict.setdefault(class_name, [])
         devs.append(dev)
 
@@ -1144,7 +1148,7 @@ def initialize_logging(argv):
             elif len(log_param) > 1:
                 tango_log_level = 4
             else:
-                print "BlissAxisManager.py - ERROR LOG LEVEL"
+                print("BlissAxisManager.py - ERROR LOG LEVEL")
 
             if tango_log_level == 1:
                 elog.level(40)
@@ -1159,7 +1163,7 @@ def initialize_logging(argv):
             elog.level(20)
             tango_log_level = 0
     except tango.DevFailed:
-        print traceback.format_exc()
+        print(traceback.format_exc())
         elog.exception("Error in initializing logging")
         sys.exit(0)
 
@@ -1177,8 +1181,11 @@ def __recreate(db=None, new_server=False):
         if new_server:
             register_server(db=db)
         else:
-            print "The device server %s is not defined in database. " "Exiting!" % server_name
-            print "hint: start with '-n' to create a new one automatically"
+            print(
+                "The device server %s is not defined in database. "
+                "Exiting!" % server_name
+            )
+            print("hint: start with '-n' to create a new one automatically")
             sys.exit(255)
 
     dev_map = get_devices_from_server(db=db)
@@ -1220,7 +1227,7 @@ def __recreate_axes(server_name, manager_dev_name, axis_names, dev_map, db=None)
 
     curr_axes = {}
 
-    for dev_class, dev_names in dev_map.items():
+    for dev_class, dev_names in list(dev_map.items()):
         if not dev_class.startswith("BlissAxis_"):
             continue
         for dev_name in dev_names:
@@ -1474,7 +1481,7 @@ def main(argv=None):
         db = util.get_database()
 
     except tango.DevFailed:
-        print traceback.format_exc()
+        print(traceback.format_exc())
         elog.exception("Error in server initialization")
         sys.exit(0)
 

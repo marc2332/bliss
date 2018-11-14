@@ -5,8 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import print_function
-from __future__ import absolute_import
 
 import time
 import gevent

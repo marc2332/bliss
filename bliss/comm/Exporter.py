@@ -112,10 +112,10 @@ class Exporter(ExporterClient.ExporterClient):
         if "\x1f" in value:
             value = self.parseArray(value)
             try:
-                value = map(int, value)
+                value = list(map(int, value))
             except:
                 try:
-                    value = map(float, value)
+                    value = list(map(float, value))
                 except:
                     pass
         else:
@@ -163,7 +163,7 @@ class ExporterChannel:
     def update(self, value=None):
         if value is None:
             value = self.getValue()
-        if isinstance(value, tuple):
+        if type(value) == tuple:
             value = list(value)
 
         self.value = value

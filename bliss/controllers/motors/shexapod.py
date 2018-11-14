@@ -255,7 +255,7 @@ class SHexapod(Controller):
         return dict(
             (
                 (self.__get_axis_role(axis), self.__get_hw_set_position(axis))
-                for axis in self.axes.values()
+                for axis in list(self.axes.values())
             )
         )
 

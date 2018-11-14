@@ -12,10 +12,10 @@ config = {
     "min_temp": -40,
 }
 dev = LinkamDsc(config)
-print "starting ramp is: ", dev.startingRamp
+print("starting ramp is: ", dev.startingRamp)
 dev.startingRamp = 4
-print "starting ramp is: ", dev.startingRamp
-print "state ", dev.state()
+print("starting ramp is: ", dev.startingRamp)
+print("state ", dev.state())
 # print dev.dscSamplingRate
 # dev.dscSamplingRate = 0.7
 # print dev.dscSamplingRate
@@ -32,7 +32,7 @@ for i in range(5):
     time.sleep(2)
     for j in range(25):
         time.sleep(0.5)
-        print j, dev.getDscData()
+        print(j, dev.getDscData())
     time.sleep(2)
     dev.setStatusString("3000003a980000")
     time.sleep(2)

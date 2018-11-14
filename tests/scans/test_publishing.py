@@ -9,7 +9,7 @@ import pytest
 import time
 import gevent
 import numpy
-import cPickle as pickle
+import pickle as pickle
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.scan import Scan
@@ -130,9 +130,13 @@ def test_scan_data_0d(session, redis_data_conn):
     s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
 
     assert s == setup_globals.SCANS[-1]
-    redis_data = map(
-        float,
-        redis_data_conn.lrange(s.node.db_name + ":timer:gaussian:gaussian_data", 0, -1),
+    redis_data = list(
+        map(
+            float,
+            redis_data_conn.lrange(
+                s.node.db_name + ":timer:gaussian:gaussian_data", 0, -1
+            ),
+        )
     )
 
     assert numpy.array_equal(redis_data, counter.data)
@@ -239,7 +243,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
         view = watch_task.get()
 
     view_iterator = iter(view)
-    img0 = view_iterator.next()
+    img0 = next(view_iterator)
 
     # make another scan -> this should make a new buffer on Lima server,
     # so images from previous view cannot be retrieved from server anymore
@@ -248,7 +252,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
     view_iterator2 = iter(view)
 
     # retrieve from file
-    assert numpy.allclose(view_iterator2.next(), img0)
+    assert numpy.allclose(next(view_iterator2), img0)
 
 
 def test_ttl_on_data_node(beacon, redis_data_conn):

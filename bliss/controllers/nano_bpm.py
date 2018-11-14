@@ -66,8 +66,8 @@ def _h_result_property(key, doc_str):
 
 class NanoBpm(object):
     # Errors codes
-    NO_ERROR, CODE1, CODE2, CODE3, CODE4, CODE5, CODE6, CODE7, CODE8 = range(9)
-    BPP8, BPP16, BPP32 = range(3)
+    NO_ERROR, CODE1, CODE2, CODE3, CODE4, CODE5, CODE6, CODE7, CODE8 = list(range(9))
+    BPP8, BPP16, BPP32 = list(range(3))
 
     SETTINGS = _config_property("Settings", "Configuration settings")
     GAIN = _config_property("Gain", "Set device gain")
@@ -317,16 +317,18 @@ class NanoBpm(object):
         self._deviceParameters = self.getDeviceParameters()
         # This defines the quad window as the full Image - We do not use the Quad's ROI
         self._quadConfig = OrderedDict(
-            zip(
-                self._quadConfigKeys,
-                (
-                    (self._deviceConfig["XEnd"] - self._deviceConfig["XStart"]) / 2,
-                    (self._deviceConfig["YEnd"] - self._deviceConfig["YStart"]) / 2,
-                    self._deviceConfig["XStart"],
-                    self._deviceConfig["XEnd"],
-                    self._deviceConfig["YStart"],
-                    self._deviceConfig["YEnd"],
-                ),
+            list(
+                zip(
+                    self._quadConfigKeys,
+                    (
+                        (self._deviceConfig["XEnd"] - self._deviceConfig["XStart"]) / 2,
+                        (self._deviceConfig["YEnd"] - self._deviceConfig["YStart"]) / 2,
+                        self._deviceConfig["XStart"],
+                        self._deviceConfig["XEnd"],
+                        self._deviceConfig["YStart"],
+                        self._deviceConfig["YEnd"],
+                    ),
+                )
             )
         )
 
@@ -415,7 +417,7 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandGetDeviceInfo, reply[0:6]):
             data = numpy.ndarray((32,), dtype=">u2", buffer=reply[6:])
-            return OrderedDict(zip(self._deviceInfoKeys, data))
+            return OrderedDict(list(zip(self._deviceInfoKeys, data)))
         else:
             return None
 
@@ -426,14 +428,14 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandGetConfig, reply[0:6]):
             return OrderedDict(
-                zip(self._deviceConfigKeys, struct.unpack(">11H", reply[6:]))
+                list(zip(self._deviceConfigKeys, struct.unpack(">11H", reply[6:])))
             )
         else:
             return None
 
     def setDeviceConfig(self):
         """ set the current config values """
-        buff = struct.pack(">11H", *self._deviceConfig.values())
+        buff = struct.pack(">11H", *list(self._deviceConfig.values()))
         reply = self.command_socket.write_read(
             self.commandSetConfig + buff, size=6, timeout=10
         )
@@ -448,14 +450,14 @@ class NanoBpm(object):
         self.setDeviceParameters()
 
     def setDeviceParameters(self):
-        buff = struct.pack(">8Hf4H", *self._configurationParameters.values())
-        buff += struct.pack(">ff3H", *self._dac0Parameters.values())
-        buff += struct.pack(">ff3H", *self._dac1Parameters.values())
-        buff += struct.pack(">ff3H", *self._dac2Parameters.values())
-        buff += struct.pack(">ff3H", *self._dac3Parameters.values())
-        buff += struct.pack(">ff3H", *self._fitParameters.values())
-        buff += struct.pack(">6f", *self._vertFitResultParameters.values())
-        buff += struct.pack(">6f", *self._horFitResultParameters.values())
+        buff = struct.pack(">8Hf4H", *list(self._configurationParameters.values()))
+        buff += struct.pack(">ff3H", *list(self._dac0Parameters.values()))
+        buff += struct.pack(">ff3H", *list(self._dac1Parameters.values()))
+        buff += struct.pack(">ff3H", *list(self._dac2Parameters.values()))
+        buff += struct.pack(">ff3H", *list(self._dac3Parameters.values()))
+        buff += struct.pack(">ff3H", *list(self._fitParameters.values()))
+        buff += struct.pack(">6f", *list(self._vertFitResultParameters.values()))
+        buff += struct.pack(">6f", *list(self._horFitResultParameters.values()))
         reply = self.command_socket.write_read(
             self.commandSetParams + buff, size=6, timeout=10
         )
@@ -467,42 +469,51 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandGetParams, reply[0:6]):
             self._configurationParameters = OrderedDict(
-                zip(self._configurationKeys, struct.unpack(">8Hf4H", reply[6:34]))
+                list(zip(self._configurationKeys, struct.unpack(">8Hf4H", reply[6:34])))
             )
             self._dac0Parameters = OrderedDict(
-                zip(self._DAC0Keys, struct.unpack(">ff3H", reply[34:48]))
+                list(zip(self._DAC0Keys, struct.unpack(">ff3H", reply[34:48])))
             )
             self._dac1Parameters = OrderedDict(
-                zip(self._DAC1Keys, struct.unpack(">ff3H", reply[48:62]))
+                list(zip(self._DAC1Keys, struct.unpack(">ff3H", reply[48:62])))
             )
             self._dac2Parameters = OrderedDict(
-                zip(self._DAC2Keys, struct.unpack(">ff3H", reply[62:76]))
+                list(zip(self._DAC2Keys, struct.unpack(">ff3H", reply[62:76])))
             )
             self._dac3Parameters = OrderedDict(
-                zip(self._DAC3Keys, struct.unpack(">ff3H", reply[76:90]))
+                list(zip(self._DAC3Keys, struct.unpack(">ff3H", reply[76:90])))
             )
             self._fitParameters = OrderedDict(
-                zip(self._fitParameterKeys, struct.unpack(">ff3H", reply[90:104]))
+                list(zip(self._fitParameterKeys, struct.unpack(">ff3H", reply[90:104])))
             )
             self._vertFitResultParameters = OrderedDict(
-                zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[104:128]))
+                list(
+                    zip(
+                        self._fitResultCriteriaKeys,
+                        struct.unpack(">6f", reply[104:128]),
+                    )
+                )
             )
             self._horFitResultParameters = OrderedDict(
-                zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[128:]))
+                list(
+                    zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[128:]))
+                )
             )
             return OrderedDict(
-                zip(
-                    self._deviceParameterKeys,
-                    [
-                        self._configurationParameters,
-                        self._dac0Parameters,
-                        self._dac1Parameters,
-                        self._dac2Parameters,
-                        self._dac3Parameters,
-                        self._fitParameters,
-                        self._vertFitResultParameters,
-                        self._horFitResultParameters,
-                    ],
+                list(
+                    zip(
+                        self._deviceParameterKeys,
+                        [
+                            self._configurationParameters,
+                            self._dac0Parameters,
+                            self._dac1Parameters,
+                            self._dac2Parameters,
+                            self._dac3Parameters,
+                            self._fitParameters,
+                            self._vertFitResultParameters,
+                            self._horFitResultParameters,
+                        ],
+                    )
                 )
             )
         else:
@@ -536,7 +547,7 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandReadImage8, reply[0:6]):
             imageDescriptor = OrderedDict(
-                zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:]))
+                list(zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:])))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             self._logger.debug(
@@ -564,7 +575,7 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandReadImage16, reply[0:6]):
             imageDescriptor = OrderedDict(
-                zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:]))
+                list(zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:])))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             image_length = imageDescriptor["XSize"] * imageDescriptor["YSize"] * 2
@@ -585,7 +596,7 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandReadDark16, reply[0:6]):
             imageDescriptor = OrderedDict(
-                zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:]))
+                list(zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:])))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             image_length = imageDescriptor["XSize"] * imageDescriptor["YSize"] * 2
@@ -607,7 +618,7 @@ class NanoBpm(object):
         )
         if self._checkReplyOK(self.commandAve16Sum32, reply[0:6]):
             imageDescriptor = OrderedDict(
-                zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:]))
+                list(zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:])))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             if self._controlWord & self.Control.COLLECT_SUM:
@@ -634,7 +645,7 @@ class NanoBpm(object):
         self._logger.debug(
             "readContinuousFrame(): dataSelector {0}".format(dataSelector)
         )
-        buf = struct.pack(">B6H", dataSelector, *self._quadConfig.values())
+        buf = struct.pack(">B6H", dataSelector, *list(self._quadConfig.values()))
         reply = self.command_socket.write_read(
             self.commandContinuous + buf, size=10, timeout=10
         )
@@ -648,7 +659,7 @@ class NanoBpm(object):
         while 1:
             reply = self.command_socket.read(size=14, timeout=10)
             imageDescriptor = OrderedDict(
-                zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply))
+                list(zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply)))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             xsize = imageDescriptor["XSize"]
@@ -740,7 +751,7 @@ class NanoBpm(object):
         self._thread = None
 
     def streamData(self, dataSelector):
-        buf = struct.pack(">7H", dataSelector, *self._quadConfig.values())
+        buf = struct.pack(">7H", dataSelector, *list(self._quadConfig.values()))
         reply = self.command_socket.write_read(
             self.commandStreamData + buf, size=10, timeout=10
         )

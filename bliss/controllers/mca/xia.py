@@ -219,10 +219,12 @@ class BaseXIA(BaseMCA):
     def poll_data(self):
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
         spectrums = dict(
-            (key, self._convert_spectrums(value)) for key, value in spectrums.items()
+            (key, self._convert_spectrums(value))
+            for key, value in list(spectrums.items())
         )
         statistics = dict(
-            (key, self._convert_statistics(value)) for key, value in statistics.items()
+            (key, self._convert_statistics(value))
+            for key, value in list(statistics.items())
         )
         return current, spectrums, statistics
 
@@ -230,7 +232,7 @@ class BaseXIA(BaseMCA):
         return spectrums
 
     def _convert_statistics(self, stats):
-        return dict((k, Stats(*v)) for k, v in stats.items())
+        return dict((k, Stats(*v)) for k, v in list(stats.items()))
 
     # Infos
 

@@ -30,7 +30,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
-        print "usage : %s <spec_config_file>" % sys.argv[0]
+        print("usage : %s <spec_config_file>" % sys.argv[0])
         sys.exit()
 
     config = SpecConfig.ConfigFile.ConfigFile(sys.argv[1])
@@ -48,18 +48,18 @@ if __name__ == "__main__":
             controllers[ii] = ("ctrl", "")
         ii += 1
 
-    print "---------- icepap controllers ------------------------"
-    print controllers
+    print("---------- icepap controllers ------------------------")
+    print(controllers)
 
     for ictrl in controllers:
-        print ictrl, ":", controllers[ictrl]
-    print "----------------------------------------------------"
+        print(ictrl, ":", controllers[ictrl])
+    print("----------------------------------------------------")
 
-    print "---------- icepap motors  ------------------------"
+    print("---------- icepap motors  ------------------------")
     for mot in config.motors:
         if mot.pars["controller"] == "MAC_MOT":
             if controllers[mot.pars["unit"]][0] == "icepap":
-                print mot.pars
+                print(mot.pars)
 
 
 """

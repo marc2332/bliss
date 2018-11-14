@@ -15,7 +15,7 @@ Example::
 import sys
 import functools
 import gevent
-from bliss.common.tango import DeviceProxy
+from .bliss.common.tango import DeviceProxy
 
 
 def output(stream, msg):
@@ -53,7 +53,7 @@ class Bliss(object):
 
     def update_input(self):
         if self.__dev.need_input:
-            self.__dev.input_channel = raw_input()
+            self.__dev.input_channel = input()
 
     def __run(self, cmd):
         self.__curr_cmd = self.execute(cmd)

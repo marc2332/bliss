@@ -347,7 +347,7 @@ class Gpib:
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     """
 
-    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = range(5)
+    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = list(range(5))
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self, url=None, pad=0, sad=0, timeout=1., tmo=13, eot=1, eos="\n"):

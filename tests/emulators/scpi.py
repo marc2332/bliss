@@ -75,7 +75,7 @@ class SCPI(BaseDevice):
         self._data = {}
         self._error_stack = collections.deque()
         self._commands = Commands(opts.get("commands", {}))
-        for cmd_expr, cmd_info in self._commands.command_expressions.items():
+        for cmd_expr, cmd_info in list(self._commands.command_expressions.items()):
             min_name = (
                 cmd_info["min_command"].lower().replace("*", "").replace(":", "_")
             )
@@ -144,7 +144,9 @@ class SCPI(BaseDevice):
             self._commands.get(instr)["value"] = args[0]
 
     def idn(self):
-        args = map(str, (self.Manufacturer, self.Model, self.Version, self.Firmware))
+        args = list(
+            map(str, (self.Manufacturer, self.Model, self.Version, self.Firmware))
+        )
         return self.IDNFieldSep.join(args)
 
     def cls(self):

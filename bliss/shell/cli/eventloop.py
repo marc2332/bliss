@@ -97,7 +97,7 @@ class PosixGeventEventLoop(EventLoop):
         this call.
         """
         self.stop()
-        for reader in self.readers.values():
+        for reader in list(self.readers.values()):
             reader.kill()
         self.readers = dict()
         self._callbacks = None

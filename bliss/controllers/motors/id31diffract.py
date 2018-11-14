@@ -52,7 +52,7 @@ def initialize_parameters(klass, ctrl_pars=None):
 
         return set_parameter, get_parameter
 
-    for name, (ptype, default) in ctrl_pars.items():
+    for name, (ptype, default) in list(ctrl_pars.items()):
         setter, getter = get_param_funcs(name, ptype)
         setattr(klass, "set_%s" % name, setter)
         setattr(klass, "get_%s" % name, getter)
@@ -82,7 +82,7 @@ class ID31Diffract(CalcController):
             hash_name += ".%s" % ctrl_name
         self.par_settings = settings.HashSetting(hash_name)
         if not len(self.par_settings):
-            for name, (typ, default) in self.CtrlPars.items():
+            for name, (typ, default) in list(self.CtrlPars.items()):
                 self.par_settings[name] = default
 
         self.has_extra = dict([(mot, False) for mot in self.ParamMotors])
@@ -107,14 +107,14 @@ class ID31Diffract(CalcController):
         result["mu"] = rad2deg(result["mu"])
         result["gamma"] = rad2deg(result["gamma"])
         result["delta"] = rad2deg(result["delta"])
-        for mot, par in self.ParamMotors.items():
+        for mot, par in list(self.ParamMotors.items()):
             if self.has_extra[mot]:
                 result[mot] = self[par]
         return result
 
     def calc_to_real(self, positions_dict):
         virt_pos = dict(positions_dict)
-        for mot, par in self.ParamMotors.items():
+        for mot, par in list(self.ParamMotors.items()):
             curr = self[par]
             if virt_pos.setdefault(mot, curr) != curr:
                 self[par] = virt_pos[mot]

@@ -19,7 +19,7 @@ import bottle
 import socket
 import time
 import logging
-import cStringIO
+import io
 import json
 import signal
 import uuid
@@ -58,9 +58,9 @@ def handle_output(session_id, q):
 
         if client_uuid is None:
             # broadcast to all clients
-            print "broadcast to all clients", output
-            for client_uuid, per_client_queue in OUTPUT_QUEUE[session_id].iteritems():
-                print "  - dispatching output to", client_uuid
+            print("broadcast to all clients", output)
+            for client_uuid, per_client_queue in OUTPUT_QUEUE[session_id].items():
+                print("  - dispatching output to", client_uuid)
                 per_client_queue.put(output)
                 gevent.sleep(0)
         elif "setup" in client_uuid:
@@ -136,7 +136,7 @@ def action_from_synoptic(session_id, object_name, method_name):
 
 
 def interpreter_exec(session_id, client_uuid, action, *args):
-    print "in interpreter_exec:", action, args
+    print("in interpreter_exec:", action, args)
     res = gevent.event.AsyncResult()
     if isinstance(client_uuid, tuple):
         tag, uuid = client_uuid
@@ -177,7 +177,7 @@ def execute_command(session_id):
 def _execute_command(session_id, client_uuid, code):
     try:
         python_code_to_execute = str(code).strip() + "\n"
-    except UnicodeEncodeError, err_msg:
+    except UnicodeEncodeError as err_msg:
         return {"error": str(err_msg)}
     else:
         res = interpreter_exec(
@@ -290,7 +290,7 @@ def return_synoptic_objects(session_id):
                     )
                     obj["name"] = obj_name
                     d[x].append(obj)
-    print objects
+    print(objects)
     return objects
 
 

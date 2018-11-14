@@ -2,7 +2,6 @@
 Simple example counting until a certain value on all counters
 """
 
-from __future__ import print_function
 
 import os
 import sys

@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
+
 from bliss.common import event
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
 from bliss.scanning.writer.file import FileWriter
@@ -36,7 +36,7 @@ class CsvMasterFile(object):
         self.channel_names.extend([c.name for c in channels if c.shape == (1,)])
 
     def handle_data(self, channel_data):
-        for channel_name, data in channel_data.iteritems():
+        for channel_name, data in channel_data.items():
             if channel_name not in self.channel_names:
                 continue
             prev_data = self.channel_data.get(channel_name)

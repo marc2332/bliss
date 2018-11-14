@@ -191,9 +191,11 @@ def base_test(dev, acq_mode, expo_time, point_period, acq_nb_points, nb_acqs):
     for i in range(nb_acqs):
         ct2_acq(dev, acq_mode, expo_time, point_period, acq_nb_points, i)
     t = time.time()
-    print (
-        "%-15s Expo=%.4f, Period=%.4f, Points/Acqs=%s/%s, Elapsed=%.4f"
-        % (acq_mode, expo_time, point_period, acq_nb_points, nb_acqs, t - t0)
+    print(
+        (
+            "%-15s Expo=%.4f, Period=%.4f, Points/Acqs=%s/%s, Elapsed=%.4f"
+            % (acq_mode, expo_time, point_period, acq_nb_points, nb_acqs, t - t0)
+        )
     )
 
 
@@ -215,7 +217,7 @@ def get_acq_timeout(s):
         def usec(x):
             return int(float(x) * 1e6)
 
-        n1, n2 = map(usec, m.groups())
+        n1, n2 = list(map(usec, m.groups()))
         return random.randrange(n1, n2) * 1e-6
 
     raise ValueError("Invalid acq_timeout: %s" % s)
@@ -234,18 +236,18 @@ def test(dev, acq_mode, *args, **kws):
     try:
         t = get_acq_timeout(acq_timeout)
         if t:
-            print "- Timeout=%s" % t
+            print("- Timeout=%s" % t)
         with gevent.Timeout(t):
             base_test(dev, acq_mode, *args, **kws)
         if has_ext_start(acq_mode):
             wait_musst()
     except gevent.Timeout:
-        print "%-15s - Timeout: Interrupting!" % acq_mode
+        print("%-15s - Timeout: Interrupting!" % acq_mode)
         dev.stop_acq()
         t = time.time()
         if has_ext_start(acq_mode):
             stop_musst()
-        print "%-15s - Elapsed: %s" % ("", t - t0)
+        print("%-15s - Elapsed: %s" % ("", t - t0))
 
     if sleep_time:
         gevent.sleep(sleep_time)

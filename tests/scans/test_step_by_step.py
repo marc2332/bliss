@@ -86,10 +86,9 @@ def test_pointscan(session):
     robz2 = getattr(setup_globals, "robz2")
     counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     counter = counter_class("gaussian", 4, cnt_time=0)
-    print counter.data
     points = [.0, .1, .3, .7]
     s = scans.pointscan(robz2, points, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == .7
+    assert robz2.position == .7
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["robz2"], points)
     assert numpy.array_equal(scan_data["gaussian"], counter.data)

@@ -76,7 +76,7 @@ def add_property(inst, name, method):
 
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return itertools.izip(*[iter(iterable)] * n)
+    return zip(*[iter(iterable)] * n)
 
 
 def all_equal(iterable):
@@ -94,13 +94,13 @@ def add_object_method(
 ):
 
     if name is None:
-        name = method.im_func.func_name
+        name = method.__func__.__name__
 
     def call(self, *args, **kwargs):
         if callable(pre_call):
             pre_call(self, *args, **kwargs)
 
-        return method.im_func(method.im_self, *args, **kwargs)
+        return method.__func__(method.__self__, *args, **kwargs)
 
     obj._add_custom_method(
         types.MethodType(functools.partial(call, *([obj] + args)), obj),
@@ -180,7 +180,7 @@ def object_attribute_get(
         )
 
     if name is None:
-        name = get_method.func_name
+        name = get_method.__name__
     attr_name = name
     if attr_name.startswith("get_"):
         attr_name = attr_name[4:]  # removes leading "get_"
@@ -222,7 +222,7 @@ def object_attribute_set(
         )
 
     if name is None:
-        name = set_method.func_name
+        name = set_method.__name__
     attr_name = name
     if attr_name.startswith("set_"):
         attr_name = attr_name[4:]  # removes leading "set_"
@@ -250,7 +250,7 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         if hasattr(member, "_object_attribute_"):
             attribute_info = dict(member._object_attribute_)
             filter = attribute_info.pop("filter", None)
-            if filter is None or filter(target_obj):
+            if filter is None or list(filter(target_obj)):
                 add_object_attribute(target_obj, **member._object_attribute_)
 
         # For each method of <src_obj>: try to add it as a
@@ -259,7 +259,7 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         try:
             method_info = dict(member._object_method_)
             filter = method_info.pop("filter", None)
-            if filter is None or filter(target_obj):
+            if filter is None or list(filter(target_obj)):
                 add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:
             pass
@@ -402,7 +402,7 @@ def get_objects_iter(*names_or_objs):
     from bliss import setup_globals
 
     for i in names_or_objs:
-        if isinstance(i, (str, unicode)):
+        if isinstance(i, str):
             i = getattr(setup_globals, i)
         yield i
 
@@ -456,7 +456,7 @@ def common_prefix(paths, sep=os.path.sep):
     def allnamesequal(name):
         return all(n == name[0] for n in name[1:])
 
-    bydirectorylevels = zip(*[p.split(sep) for p in paths])
+    bydirectorylevels = list(zip(*[p.split(sep) for p in paths]))
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
@@ -465,7 +465,7 @@ def closable(obj):
     return (
         hasattr(obj, "close")
         and inspect.ismethod(obj.close)
-        and obj.close.im_self is not None
+        and obj.close.__self__ is not None
     )
 
 
@@ -490,7 +490,7 @@ class Statistics(object):
     def __init__(self, profile):
         self._profile = {
             key: numpy.array(values, dtype=numpy.float)
-            for key, values in profile.items()
+            for key, values in list(profile.items())
         }
 
     @property
@@ -499,7 +499,8 @@ class Statistics(object):
         elapsed time function
         """
         return {
-            key: values[:, 1] - values[:, 0] for key, values in self._profile.items()
+            key: values[:, 1] - values[:, 0]
+            for key, values in list(self._profile.items())
         }
 
     @property
@@ -509,7 +510,7 @@ class Statistics(object):
         """
         return {
             key: (values.min(), values.mean(), values.max(), values.std())
-            for key, values in self.elapsed_time.items()
+            for key, values in list(self.elapsed_time.items())
         }
 
     def __repr__(self):

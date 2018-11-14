@@ -26,7 +26,7 @@ def Group(*axes_list):
     def check_axes(*axes_to_check):
         from bliss.controllers.motor import CalcController
 
-        grp_axes = axes.values()
+        grp_axes = list(axes.values())
         for axis in axes_to_check:
             if isinstance(axis.controller, CalcController):
                 names = [
@@ -42,7 +42,7 @@ def Group(*axes_list):
                 # also check reals, that can be calc axes themselves too
                 check_axes(*axis.controller.reals)
 
-    check_axes(*axes.values())
+    check_axes(*list(axes.values()))
 
     # always use the same group name for groups of same axes,
     # this is to make sure master name will stay the same
@@ -50,7 +50,7 @@ def Group(*axes_list):
     # useful for Flint to know if the 0D live scan plot window
     # can be kept or not
     key = "".join(sorted(axes))
-    gid = GROUP_NAMES.setdefault(key, GROUP_ID.next())
+    gid = GROUP_NAMES.setdefault(key, next(GROUP_ID))
     g = _Group("group_%d" % gid, axes)
     return g
 
@@ -92,7 +92,7 @@ class _Group(object):
             return AxisState("MOVING")
         grp_state = AxisState("READY")
         for i, (name, state) in enumerate(
-            [(axis.name, axis.state()) for axis in self._axes.itervalues()]
+            [(axis.name, axis.state()) for axis in self._axes.values()]
         ):
             if state.MOVING:
                 new_state = "MOVING" + " " * i
@@ -113,13 +113,13 @@ class _Group(object):
 
     def position(self):
         positions_dict = dict()
-        for axis in self.axes.itervalues():
+        for axis in self.axes.values():
             positions_dict[axis] = axis.position()
         return positions_dict
 
     def dial(self):
         positions_dict = dict()
-        for axis in self.axes.itervalues():
+        for axis in self.axes.values():
             positions_dict[axis] = axis.dial()
         return positions_dict
 
@@ -147,7 +147,7 @@ class _Group(object):
             for axis, target_pos in grouped(args, 2):
                 axis_pos_dict[axis] = target_pos
 
-        for axis, target_pos in axis_pos_dict.iteritems():
+        for axis, target_pos in axis_pos_dict.items():
             motion = axis.prepare_move(target_pos, relative=relative)
             # motion can be None if axis is not supposed to move
             if motion is not None:
@@ -260,7 +260,7 @@ class TrajectoryGroup(object):
 
         prepare = [
             gevent.spawn(controller._prepare_trajectory, *trajectories)
-            for controller, trajectories in self.trajectories_by_controller.iteritems()
+            for controller, trajectories in self.trajectories_by_controller.items()
         ]
         try:
             gevent.joinall(prepare, raise_error=True)

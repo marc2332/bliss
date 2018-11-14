@@ -36,6 +36,7 @@ from ctypes import (
     CDLL,
     CFUNCTYPE,
 )
+from functools import reduce
 
 libc = CDLL("libc.so.6")
 libc.free.argtypes = [c_void_p]
@@ -82,7 +83,7 @@ class ImageRGB(object):
     @data.setter
     def data(self, img_data):
         if img_data and len(img_data) != self.bytes:
-            raise ValueError, "Image size/data length mismatch"
+            raise ValueError("Image size/data length mismatch")
         self._data = img_data
 
     def data_aligned(self, align_bit=32):
@@ -108,7 +109,7 @@ class ImageRGB(object):
         if bin_x == 1 and bin_y == 1:
             return ImageRGB((self.cols, self.rows), self.data.tostring())
         if self.cols % bin_x != 0 or self.rows % bin_y != 0:
-            raise ValueError, "Invalid bin: must be a multiple of dims"
+            raise ValueError("Invalid bin: must be a multiple of dims")
         new_cols = self.cols / bin_x
         new_rows = self.rows / bin_y
         xquad = 2
@@ -145,7 +146,7 @@ class ImageRGB(object):
         rows, cols, depth = data.shape
         bin_x, bin_y = ibin
         if cols % bin_x != 0 or rows % bin_y != 0:
-            raise ValueError, "Invalid bin: must be a multiple of dims"
+            raise ValueError("Invalid bin: must be a multiple of dims")
         new_cols = cols / bin_x
         new_rows = rows / bin_y
         aux_shape = (new_rows, bin_y, new_cols, bin_x, depth)
@@ -171,8 +172,8 @@ class ImageRGB(object):
     def gen_color_pattern(isize, i=0):
         cols, rows = isize
         a = np.zeros((rows, cols, 3), "uint8")
-        for x in xrange(cols):
-            for y in xrange(rows):
+        for x in range(cols):
+            for y in range(rows):
                 v = (x + y) % 2 ** 8
                 a[y][x] = [v, 2 ** 8 - v, abs((v + i - 2 ** 7) % 2 ** 8)]
         return ImageRGB(isize, a.tostring())
@@ -407,7 +408,7 @@ class _BulkTransferHandler(object):
         cntx = dev._ctx
         self.lib = cntx.backend
         if self.lib.__module__ != "usb.backend.libusb1":
-            raise NotImplementedError, "Only libusb1 backend supported"
+            raise NotImplementedError("Only libusb1 backend supported")
 
         self.libusb = sys.modules[self.lib.__module__]
         if _lib is None:
@@ -503,10 +504,10 @@ class USBDev(object):
         self.loop = None
         if usb_dev is None:
             if None in [vendor_id, product_id]:
-                raise ValueError, "Must provide either usb_dev or vendor/product"
+                raise ValueError("Must provide either usb_dev or vendor/product")
             usb_dev = usb.core.find(idVendor=vendor_id, idProduct=product_id)
             if usb_dev is None:
-                raise RuntimeError, (
+                raise RuntimeError(
                     "Could not find USB device %04x:%04x" % (vendor_id, product_id)
                 )
         self.dev = usb_dev
@@ -551,7 +552,7 @@ class USBDev(object):
                 self.loop = USBDeviceEventLoop(self.dev)
             return BulkEndpoint(ep, self.loop)
         else:
-            raise NotImplementedError, "Only Bulk endpoints are gevent-friendly"
+            raise NotImplementedError("Only Bulk endpoints are gevent-friendly")
 
     def clear_halt(self, end_point):
         try:
@@ -689,13 +690,13 @@ class LeicaFocus(LeicaUSB):
 
         self.write(69, self.Mot_81, 410, 411)
         resp = self.read()
-        print "------------------->", type(resp), resp
+        print("------------------->", type(resp), resp)
         if resp:
-            l = map(int, resp.split())
+            l = list(map(int, resp.split()))
             if l[:4] != [self.Mot_81, 69, 410, 411]:
-                raise RuntimeError, "Invalid resp"
+                raise RuntimeError("Invalid resp")
         else:
-            raise RuntimeError, "No resp"
+            raise RuntimeError("No resp")
 
         res = self.get_all_mot_pos_status()
         for mne, num in self.Motors:
@@ -705,13 +706,13 @@ class LeicaFocus(LeicaUSB):
 
     def close(self):
         if not self.closed:
-            print "---------------------> closing connection"
+            print("---------------------> closing connection")
             try:
                 if self.curr_move:
                     self.curr_move.wait()
 
                 if self.nb_req % 2 == 1:
-                    print "Balancing Focus USB requests"
+                    print("Balancing Focus USB requests")
                     self.read_mot_pos(self.Iris)
                 self.closed = True
             except:
@@ -734,25 +735,25 @@ class LeicaFocus(LeicaUSB):
         self.write(95, 37, 0)
 
     def read_all_mot_pos(self, fromcache=False):
-        if not fromcache or None in self.dial.values():
+        if not fromcache or None in list(self.dial.values()):
             self.write(self.MOT_REQ_POS, self.ALL_MOTORS)
             resp = self.read(multiline=self.ALL_MOTORS_LINES)
             for l in resp:
-                fnum, cmd, dial = map(float, l.split())
+                fnum, cmd, dial = list(map(float, l.split()))
                 num = int(fnum)
                 if cmd == self.MOT_RES_POS:
                     self.dial[num] = dial
                     # print num, dial
-        pos = dict([(num, dial) for num, dial in self.dial.items()])
+        pos = dict([(num, dial) for num, dial in list(self.dial.items())])
         return pos
 
     def read_mot_pos(self, num, fromcache=False):
         if not fromcache or self.dial[num] is None:
             self.write(self.MOT_REQ_POS, num)
             resp = self.read()
-            fnum, cmd, dial = map(float, resp.split())
+            fnum, cmd, dial = list(map(float, resp.split()))
             if cmd != self.MOT_RES_POS:
-                raise RuntimeError, "Invalid MOT_RES_POS: %s" % resp
+                raise RuntimeError("Invalid MOT_RES_POS: %s" % resp)
             num = int(fnum)
             self.dial[int(num)] = dial
         return dial  # self.calc_mot_pos(num, dial)
@@ -769,8 +770,8 @@ class LeicaFocus(LeicaUSB):
             real_mot = self.Zoom_Group
             lines = 2 * len(real_mot) + 1  # 70_34
         resp = self.read(multiline=lines)
-        data = [map(float, l.split()) for l in resp]
-        res = [([0] * 3) for i in xrange(len(real_mot))]
+        data = [list(map(float, l.split())) for l in resp]
+        res = [([0] * 3) for i in range(len(real_mot))]
         for fnum, cmd, val in data:
             num = int(fnum)
             if cmd not in [self.MOT_RES_STA, self.MOT_RES_POS]:
@@ -796,7 +797,7 @@ class LeicaFocus(LeicaUSB):
     def get_status_str(self, status):
         if status == self.MOT_STA_IDLE:
             return "Idle"
-        return ",".join([n for b, n in self.Sta.items() if status & b != 0])
+        return ",".join([n for b, n in list(self.Sta.items()) if status & b != 0])
 
     def start_mot_move(self, num, pos, rel):
         # if self.curr_move:
@@ -820,7 +821,7 @@ class LeicaFocus(LeicaUSB):
     #    #print "Finished move"
 
     def write(self, cmd, mot, *args):
-        s = " ".join(map(lambda x: "%d" % x, [mot, cmd] + list(args)))
+        s = " ".join(["%d" % x for x in [mot, cmd] + list(args)])
         # print 'Write: %s' % s
         self.ep_out.write(s + "\r")
         self.nb_req += 1
@@ -888,7 +889,7 @@ class LeicaCamCtrlPacket(object):
         ptype = cmd + ("Req" if src == self.HOST else "Ack")
         s = "pnb=%04x,ptype=%s[%02x]," % (self.pnb, ptype, self.ptype)
         if src == self.HOST:
-            s += "addr=[%s]," % ",".join(map(lambda x: "%02x" % x, self.addr))
+            s += "addr=[%s]," % ",".join(["%02x" % x for x in self.addr])
             if cmd == "Get":
                 s += "rlen=%d" % self.rlen
             else:
@@ -906,7 +907,10 @@ class LeicaCamCtrlPacket(object):
     @classmethod
     def getSrcCmd(klass, ptype):
         return [
-            (x, y) for x in klass.TYPE for y, p in klass.TYPE[x].items() if p == ptype
+            (x, y)
+            for x in klass.TYPE
+            for y, p in list(klass.TYPE[x].items())
+            if p == ptype
         ][0]
 
     @classmethod
@@ -914,29 +918,29 @@ class LeicaCamCtrlPacket(object):
         head_len = struct.calcsize(klass.HEADER)
         d = struct.unpack(klass.HEADER, s[:head_len])
         if ("".join(d[:5]) != klass.MAGIC[0]) or (d[7] != klass.MAGIC[1]):
-            raise ValueError, "Could not find signatures in header"
+            raise ValueError("Could not find signatures in header")
         src = d[5]
         if src not in [klass.HOST, klass.DEV]:
-            raise ValueError, "Invalid packet sender"
+            raise ValueError("Invalid packet sender")
         ptype = d[6]
         asrc, cmd = klass.getSrcCmd(ptype)
         if asrc != src:
-            raise ValueError, "Invalid packet type"
+            raise ValueError("Invalid packet type")
         data_len = d[8]
         pnb = d[9]
         data = s[head_len:]
         if data_len != len(data):
-            raise ValueError, "Packet length mismatch"
+            raise ValueError("Packet length mismatch")
         addr = rlen = val = rdata = None
         if src == klass.HOST:
             if data_len != klass.HOST_PACKET_LEN:
-                raise ValueError, "Bad host packet length: %s" % data_len
+                raise ValueError("Bad host packet length: %s" % data_len)
             if struct.unpack("I", data[:4]) != (0,):
-                raise ValueError, "Invalid host packet"
+                raise ValueError("Invalid host packet")
             addr = struct.unpack("BBBB", data[4:8])
             if cmd == "Get":
                 if struct.unpack("H", data[8:10]) != (0,):
-                    raise ValueError, "Invalid host packet"
+                    raise ValueError("Invalid host packet")
                 rlen = struct.unpack("H", data[10:])[0]
             else:
                 val = struct.unpack("I", data[8:])[0]
@@ -1001,7 +1005,7 @@ class LeicaCamImgPacketI(object):
             or d[13:15] != klass.MAGIC[4:6]
             or 0 not in (d[16], d[18], d[19], d[20])
         ):
-            raise ValueError, "Could not find signatures in header"
+            raise ValueError("Could not find signatures in header")
         pnb = d[8]
         tstamp = d[12]
         width = d[15]
@@ -1035,7 +1039,7 @@ class LeicaCamImgPacketII(object):
             or d[5:10] != (0, 0, klass.MAGIC[1], klass.MAGIC[2], 0)
             or 0 not in (d[11], d[13])
         ):
-            raise ValueError, "Could not find signatures in header"
+            raise ValueError("Could not find signatures in header")
         plen = d[10]
         height = d[12]
         return klass(plen=plen, height=height)
@@ -1100,31 +1104,31 @@ class LeicaCamera(LeicaUSB):
     )
 
     def init_camera(self):
-        print "Sending magic commands to config interface"
+        print("Sending magic commands to config interface")
 
-        print "Special Str #0: %s" % self.get_special_str(0)
+        print("Special Str #0: %s" % self.get_special_str(0))
 
         self.get_ctrl_data([0xd8, 0x01, 0x00, 0x00], 8)
         self.get_ctrl_data([0x24, 0x00, 0x01, 0x00], 8)
         self.get_ctrl_data([0x18, 0x00, 0x01, 0x00], 4)
 
-        print "Camera Manufacturer: %s" % self.get_manufacturer_str()
-        print "Camera Model: %s" % self.get_model_str()
-        print "Camera SerialNb: %s" % self.get_serial_nb_str()
+        print("Camera Manufacturer: %s" % self.get_manufacturer_str())
+        print("Camera Model: %s" % self.get_model_str())
+        print("Camera SerialNb: %s" % self.get_serial_nb_str())
 
         self.get_ctrl_data([0xc4, 0x01, 0x00, 0x00], 8)
         self.get_ctrl_data([0xd0, 0x01, 0x00, 0x00], 8)
         self.get_ctrl_data([0x10, 0x02, 0x00, 0x00], 8)
 
-        print "Reading camera firmware ..."
+        print("Reading camera firmware ...")
         self.read_firmware()
-        print "  Done!"
+        print("  Done!")
 
         self.get_ctrl_data([0x08, 0x00, 0x00, 0x60], 4)  # image size
         self.get_ctrl_data([0x10, 0x00, 0x00, 0x60], 4)
 
-        print "Special Str #1: %s" % self.get_special_str(1)
-        print "Special Str #2: %s" % self.get_special_str(2)
+        print("Special Str #1: %s" % self.get_special_str(1))
+        print("Special Str #2: %s" % self.get_special_str(2))
 
         self.get_ctrl_data([0x88, 0x00, 0x02, 0x90], 4)
         self.get_ctrl_data([0x00, 0x00, 0x00, 0x82], 4)
@@ -1215,7 +1219,7 @@ class LeicaCamera(LeicaUSB):
         self.get_ctrl_data([0x2c, 0x00, 0x00, 0x82], 4)  # 14 00 18 02
 
     def close_camera(self):
-        print "Sending magic commands to cleanup camera"
+        print("Sending magic commands to cleanup camera")
         self.get_ctrl_data([0x24, 0x00, 0x00, 0x82], 4)
         self.set_ctrl_data([0x24, 0x00, 0x00, 0x82], 0x000001)
         self.get_ctrl_data([0x00, 0x00, 0x00, 0x82], 4)
@@ -1269,7 +1273,7 @@ class LeicaCamera(LeicaUSB):
         # print ap
         ptype = LeicaCamCtrlPacket.TYPE[LeicaCamCtrlPacket.DEV]["Get"]
         if ap.ptype != ptype or ap.pnb != self.pnb or len(ap.rdata) != dlen:
-            raise ValueError, "Invalid ack packet: %s" % ap
+            raise ValueError("Invalid ack packet: %s" % ap)
         self.pnb += 1
         if dlen in [4, 8]:
             return struct.unpack("I" if dlen == 4 else "Q", ap.rdata)
@@ -1291,7 +1295,7 @@ class LeicaCamera(LeicaUSB):
             or ap.pnb != self.pnb
             or struct.unpack("I", ap.rdata)[0] != 0x00040000
         ):
-            raise ValueError, "Invalid ack packet: %s" % ap
+            raise ValueError("Invalid ack packet: %s" % ap)
         self.pnb += 1
 
     def read_image(self):
@@ -1310,7 +1314,7 @@ class LeicaCamera(LeicaUSB):
         s = self.img_ep_in.read(p_len)
         p = LeicaCamImgPacketII.frombytes(s)
         if p.plen != block_size:
-            raise InvalidValue, "Image block size mismatch"
+            raise InvalidValue("Image block size mismatch")
 
         image_size = reduce(lambda a, b: a * b, image_shape)
         isize = image_shape[1], image_shape[0]

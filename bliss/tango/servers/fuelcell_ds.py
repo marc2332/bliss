@@ -11,7 +11,7 @@ Tango device server fuel cell.
 It allows reading fuel cell parameters
 
 """
-from __future__ import absolute_import
+
 
 import inspect
 

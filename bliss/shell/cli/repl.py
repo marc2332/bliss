@@ -52,9 +52,9 @@ class BlissRepl(PythonRepl):
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
         self.bliss_scan_listener = scan_listener
-        self.all_prompt_styles[u"bliss"] = BlissPrompt(self)
-        self.install_ui_colorscheme(u"bliss", bliss_ui_style)
-        self.use_ui_colorscheme(u"bliss")
+        self.all_prompt_styles["bliss"] = BlissPrompt(self)
+        self.install_ui_colorscheme("bliss", bliss_ui_style)
+        self.use_ui_colorscheme("bliss")
         self.prompt_style = "bliss"
 
     def _execute_task(self, *args, **kwargs):
@@ -72,7 +72,7 @@ class BlissRepl(PythonRepl):
                 and len(return_value) >= 3
                 and isinstance(return_value[1], (BaseException, Exception))
             ):
-                raise return_value[0], return_value[1], return_value[2]
+                raise return_value[0](return_value[1]).with_traceback(return_value[2])
         except gevent.Timeout:
             self._handle_exception(*args)
         finally:
@@ -107,7 +107,7 @@ def configure(func):
         the same func callable
     """
     global CONFIGS
-    if func not in CONFIGS.values():
+    if func not in list(CONFIGS.values()):
         CONFIGS[len(CONFIGS)] = func
     return func
 
@@ -149,7 +149,7 @@ def cli(
 
     if session_name:
         session_id = session_name
-        session_title = u"Bliss shell ({0})".format(session_name)
+        session_title = "Bliss shell ({0})".format(session_name)
         history_filename = ".%s_%s_history" % (
             os.path.basename(sys.argv[0]),
             session_id,
@@ -157,7 +157,7 @@ def cli(
         prompt_label = session_name.upper()
     else:
         session_id = "default"
-        session_title = u"Bliss shell"
+        session_title = "Bliss shell"
         history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         prompt_label = "BLISS"
 

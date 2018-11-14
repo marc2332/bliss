@@ -272,7 +272,7 @@ class Eurotherm2000(object):
         if value:
             for stat in _status:
                 if pow(2, _status.index(stat)) & value:
-                    print stat
+                    print(stat)
             return value
         return 0
 

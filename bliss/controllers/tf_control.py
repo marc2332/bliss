@@ -133,7 +133,7 @@ class TfControl:
         for i in range(self.nb_lens + self.nb_pinhole):
             lbl = "L"
             if self.nb_pinhole > 0:
-                if type(self.pinhole) == types.IntType:
+                if type(self.pinhole) == int:
                     if i == self.pinhole:
                         lbl = "P"
                 else:
@@ -213,18 +213,18 @@ class TfControl:
             if lense == 99:
                 # put all the pinhole(s) in, all the lenses out
                 value = 0
-                if type(self.pinhole) == types.IntType:
+                if type(self.pinhole) == int:
                     value = 1 << self.pinhole
                 else:
                     for i in self.pinhole:
                         value += 1 << i
                 self.tfstatus_set(value)
             else:
-                if type(self.pinhole) == types.IntType:
+                if type(self.pinhole) == int:
                     # always put the pinhole together with a lense
                     self.lense_set(self.pinhole, put_in=True)
                     self.lense_set(lense, put_in=True)
-                elif type(self.pinhole) == types.ListType:
+                elif type(self.pinhole) == list:
                     lenses = {}
                     value = 0
                     for i in self.pinhole:
@@ -236,7 +236,7 @@ class TfControl:
                             for i in self.pinhole:
                                 lenses[i] = "out"
                             lenses[lense] = "in"
-                    print lenses
+                    print(lenses)
                     self.tf_set(lenses)
 
     def tfout(self, lense):
@@ -245,7 +245,7 @@ class TfControl:
         if lense == 99:
             if self.nb_pinhole == 0:
                 raise RuntimeError("No pinhole configured, command ignored")
-            if type(self.pinhole) == types.IntType:
+            if type(self.pinhole) == int:
                 self.lense_set(self.pinhole, put_in=False)
             else:
                 for i in self.pinhole:

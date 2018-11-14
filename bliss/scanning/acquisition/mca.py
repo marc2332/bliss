@@ -70,7 +70,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
         assert prepare_once
 
         # Trigger type
-        if isinstance(trigger_mode, basestring):
+        if isinstance(trigger_mode, str):
             trigger_mode = eval(
                 trigger_mode,
                 {
@@ -251,7 +251,9 @@ class McaAcquisitionDevice(AcquisitionDevice):
         ) as generator:
 
             # Acquire data
-            indexes = itertools.count() if self.npoints == 0 else range(self.npoints)
+            indexes = (
+                itertools.count() if self.npoints == 0 else list(range(self.npoints))
+            )
             for i in indexes:
 
                 # Software sync

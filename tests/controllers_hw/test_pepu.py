@@ -40,13 +40,13 @@ def test_simple_connection(pepu):
     assert pepu.config.startswith("# %APPNAME% PEPU")
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_read_in_channels(pepu, channel_id):
     channel = pepu.in_channels[channel_id]
     assert channel.value in [-1., 0.]
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_in_channel_config(pepu, channel_id):
     channel = pepu.in_channels[channel_id]
 

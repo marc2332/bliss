@@ -14,7 +14,7 @@ from bliss.common.utils import object_method
 
 from bliss.common.axis import AxisState
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import TCP
 from bliss.common import event
 
@@ -287,7 +287,7 @@ class PI_E51X(Controller):
         # Check error code
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
-            print ":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd)
+            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd))
 
     """
     E51X specific
@@ -304,7 +304,7 @@ class PI_E51X(Controller):
             ?
         """
         _ans = self.sock.write_readlines("POS?\n", 3)
-        _pos = map(float, [x[2:] for x in _ans])
+        _pos = list(map(float, [x[2:] for x in _ans]))
 
         return _pos
 
@@ -328,7 +328,7 @@ class PI_E51X(Controller):
             # _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
             _ans = self.sock.write_readlines("SVA?\n", 3)
         # _pos = float(_ans[2:])
-        _pos = map(float, [x[2:] for x in _ans])
+        _pos = list(map(float, [x[2:] for x in _ans]))
         return _pos
 
     def _get_cto(self, axis):

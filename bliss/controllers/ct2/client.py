@@ -163,7 +163,7 @@ def create_and_configure_device(config_or_name):
         a new instance of :class:`CT2` configured and ready to go
     """
 
-    if isinstance(config_or_name, basestring):
+    if isinstance(config_or_name, str):
         device_config = __get_device_config(config_or_name)
         name = config_or_name
     else:

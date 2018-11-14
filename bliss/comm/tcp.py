@@ -35,7 +35,7 @@ class SocketTimeout(CommunicationTimeout):
 # Performs reading of data via "_raw_read_task" in self.connect()
 def try_connect_socket(fu):
     def rfunc(self, *args, **kwarg):
-        write_func = fu.func_name.startswith("write")
+        write_func = fu.__name__.startswith("write")
         prev_timeout = kwarg.get("timeout", None)
 
         if (not self._connected) and ((not self._data) or write_func):
@@ -672,7 +672,7 @@ class Tcp(object):
         cmd = Tcp('iceid001.esrf.fr:5000')
     """
 
-    SOCKET, COMMAND = range(2)
+    SOCKET, COMMAND = list(range(2))
 
     def __new__(cls, url=None, **keys):
         if url.lower().startswith("command://"):

@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
+
 import os
 import sys
 
@@ -40,7 +40,7 @@ def __get_main(cfg):
     template = get_jinja2().select_template(("beamline.html",))
 
     params = {}
-    for k, v in cfg.root.iteritems():
+    for k, v in cfg.root.items():
         if not isinstance(v, (list, tuple, dict)):
             params[k] = v
     logo = cfg.root.get("logo", "res/logo.png")
@@ -58,7 +58,7 @@ def __get_empty_main(cfg):
 
 def edit(cfg, request):
     if request.method == "POST":
-        for k, v in request.form.items():
+        for k, v in list(request.form.items()):
             cfg.root[k] = v
     cfg.root.save()
 

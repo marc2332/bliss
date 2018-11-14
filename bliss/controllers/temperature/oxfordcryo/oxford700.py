@@ -291,8 +291,8 @@ if __name__ == "__main__":
     cryo_obj = OxfordCryostream("rfc2217://lid292:28003")
 
     for i in range(100):
-        print cryo_obj.read_temperature()
+        print(cryo_obj.read_temperature())
         time.sleep(10)
 
-    print cryo_obj.ramp()
+    print(cryo_obj.ramp())
     # cryo_obj.turbo(True)

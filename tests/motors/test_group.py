@@ -78,7 +78,7 @@ def test_position_reading(beacon, robz, roby):
     grp = Group(robz, roby)
     positions_dict = grp.position()
 
-    for axis, axis_pos in positions_dict.iteritems():
+    for axis, axis_pos in positions_dict.items():
         group_axis = beacon.get(axis.name)
         assert axis == group_axis
         assert axis.position() == axis_pos

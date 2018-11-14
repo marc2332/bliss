@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import os
 
@@ -54,7 +53,7 @@ def get_html(cfg):
 
 
 def get_device_html(cfg):
-    config = dict(cfg.items())
+    config = dict(list(cfg.items()))
     config["filename"] = cfg.filename
     card_type = config.setdefault("type", "P201")
     config.setdefault("clock", "CLK_100_MHz")

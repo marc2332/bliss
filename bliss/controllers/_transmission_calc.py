@@ -23,6 +23,7 @@ Datafile example for fixed energy:
 
 import os.path
 import types
+from functools import reduce
 
 ATTENUATION_TABLE = []
 ALL_ATTENUATION = {}
@@ -39,14 +40,14 @@ def _readArrayFromFile(datafile):
         variablesToDeclare = []
         for line in f:
             if not line.startswith("#"):
-                array.append(map(float, line.split()))
+                array.append(list(map(float, line.split())))
             else:
                 variablesToDeclare.append(line[1:])
     except:
         return []
     else:
         variablesDeclaration = "".join(variablesToDeclare)
-        exec (variablesDeclaration) in globals()
+        exec((variablesDeclaration), globals())
 
         return array
 
@@ -56,7 +57,7 @@ def _getCombinations(items, n):
     if n == 0:
         yield []
     else:
-        for i in xrange(len(items)):
+        for i in range(len(items)):
             for cc in _getCombinations(items[i + 1 :], n - 1):
                 yield [items[i]] + cc
 
@@ -94,7 +95,7 @@ def getAttenuatorsCombinations(egy_array):
         return ALL_ATTENUATION[egy_array[0]]
 
     allAttenuatorsCombinations = []
-    allIndexes = range(MIN_ATT_INDEX, MAX_ATT_INDEX + 1)
+    allIndexes = list(range(MIN_ATT_INDEX, MAX_ATT_INDEX + 1))
     for i in range(MAX_ATT_INDEX - MIN_ATT_INDEX + 1):
         for allAttenuatorCombination in _getCombinations(allIndexes, i + 1):
             allAttenuatorsCombinations.append(
@@ -112,7 +113,7 @@ def getAttenuatorsCombinations(egy_array):
 
 def getAttenuation(egy, transmitted_rate, fname):
     if transmitted_rate > 100:
-        print "Transmission must be between 0 and 100"
+        print("Transmission must be between 0 and 100")
         return [100, []]
 
     if len(ATTENUATION_TABLE) == 0:
@@ -157,12 +158,12 @@ def getAttenuationFactor(egy, attCombination, fname):
         # there is no corresponding energy !
         return -1
 
-    if type(attCombination) == types.DictType:
+    if type(attCombination) == dict:
         return reduce(
             lambda x, y: x * y / 100,
-            [egy_array[i + MIN_ATT_INDEX] for i in attCombination.itervalues()],
+            [egy_array[i + MIN_ATT_INDEX] for i in attCombination.values()],
         )
-    elif type(attCombination) == types.StringType:
+    elif type(attCombination) == bytes:
         return reduce(
             lambda x, y: x * y / 100,
             [egy_array[int(i) + MIN_ATT_INDEX] for i in attCombination.split()],
@@ -174,10 +175,10 @@ def getAttenuationFactor(egy, attCombination, fname):
 if __name__ == "__main__":
 
     def printUsage():
-        print "Usage:  %s ",
-        print "-t energy transmission fname"
-        print "\tor\nUsage:  %s ",
-        print "-a energy attenuator_position(s)_string fname"
+        print("Usage:  %s ", end=" ")
+        print("-t energy transmission fname")
+        print("\tor\nUsage:  %s ", end=" ")
+        print("-a energy attenuator_position(s)_string fname")
         sys.exit(0)
 
     import os
@@ -200,11 +201,11 @@ if __name__ == "__main__":
     if sys.argv[1] == "-t":
         transm = float(sys.argv[3])
         abb = getAttenuation(egy, transm, fname)
-        print " Table: ", abb
-        print " result: transmission ", abb[0], "attenuators ", abb[1:]
+        print(" Table: ", abb)
+        print(" result: transmission ", abb[0], "attenuators ", abb[1:])
     elif sys.argv[1] == "-a":
         attstr = sys.argv[3]
-        print "transmission: %f %%" % getAttenuationFactor(egy, attstr, fname)
+        print("transmission: %f %%" % getAttenuationFactor(egy, attstr, fname))
     else:
         printUsage()
 

@@ -126,7 +126,7 @@ class GroupMove(object):
 
     def _monitor_move(self, motions_dict, move_func, polling_time):
         monitor_move = dict()
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in motions_dict.items():
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
@@ -135,10 +135,10 @@ class GroupMove(object):
                 )
                 monitor_move[motion] = task
         try:
-            gevent.joinall(monitor_move.values(), raise_error=True)
+            gevent.joinall(list(monitor_move.values()), raise_error=True)
         finally:
             # update the last motor state
-            for motion, task in monitor_move.iteritems():
+            for motion, task in monitor_move.items():
                 try:
                     motion.last_state = task.get(block=False)
                 except:
@@ -147,7 +147,7 @@ class GroupMove(object):
     def _stop_move(self, motions_dict, stop_motion):
         self._user_stopped = True
         stop = []
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in motions_dict.items():
             stop.append(gevent.spawn(stop_motion, controller, motions))
         # Raise exception if any, when all the stop tasks are finished
         for task in gevent.joinall(stop):
@@ -155,12 +155,12 @@ class GroupMove(object):
 
     def _stop_wait(self, motions_dict, exception_capture):
         stop_wait = []
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in motions_dict.items():
             for motion in motions:
                 stop_wait.append(gevent.spawn(motion.axis._move_loop))
         gevent.joinall(stop_wait)
         task_index = 0
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in motions_dict.items():
             for motion in motions:
                 with exception_capture():
                     motion.last_state = stop_wait[task_index].get()
@@ -169,7 +169,7 @@ class GroupMove(object):
     @protect_from_one_kill
     def _do_backlash_move(self, motions_dict, polling_time):
         backlash_move = []
-        for controller, motions in motions_dict.iteritems():
+        for controller, motions in motions_dict.items():
             for motion in motions:
                 if motion.backlash:
                     backlash_motion = Motion(
@@ -195,19 +195,19 @@ class GroupMove(object):
         polling_time,
     ):
         # Set axis moving state
-        for motions in motions_dict.itervalues():
+        for motions in motions_dict.values():
             for motion in motions:
                 motion.last_state = None
                 motion.axis._set_moving_state()
 
-                for _, chan in motion.axis._beacon_channels.iteritems():
+                for _, chan in motion.axis._beacon_channels.items():
                     chan.unregister_callback(chan._setting_update_cb)
         with capture_exceptions(raise_index=0) as capture:
             try:
                 # Spawn start motion for all controllers
                 start = [
                     gevent.spawn(start_motion, controller, motions)
-                    for controller, motions in motions_dict.iteritems()
+                    for controller, motions in motions_dict.items()
                 ]
 
                 # Wait for the controllers to be started
@@ -237,7 +237,7 @@ class GroupMove(object):
                     self._stop_wait(motions_dict, capture)
 
                 # need to update target pos. for backlash move
-                for _, motions in motions_dict.iteritems():
+                for _, motions in motions_dict.items():
                     for motion in motions:
                         if motion.backlash:
                             motion.target_pos = (
@@ -258,7 +258,7 @@ class GroupMove(object):
                 # -------
                 # update final state ; in case of exception
                 # state is set to FAULT
-                for motions in motions_dict.itervalues():
+                for motions in motions_dict.values():
                     for motion in motions:
                         state = motion.last_state
                         if state is not None:
@@ -280,7 +280,7 @@ class GroupMove(object):
                 # of pseudo axis)
                 # -- jog move is a special case
                 if len(motions_dict) == 1:
-                    motion = motions_dict[motions_dict.keys().pop()][0]
+                    motion = motions_dict[list(motions_dict.keys()).pop()][0]
                     if motion.type == "jog":
                         reset_setpos = False
                         motion.axis._jog_cleanup(
@@ -292,17 +292,17 @@ class GroupMove(object):
                         reset_setpos = True
                 if reset_setpos:
                     with capture():
-                        for motions in motions_dict.itervalues():
+                        for motions in motions_dict.values():
                             for motion in motions:
                                 motion.axis._set_position(motion.axis.position())
                                 event.send(motion.axis, "sync_hard")
 
-                for motions in motions_dict.itervalues():
+                for motions in motions_dict.values():
                     for motion in motions:
                         with capture():
                             motion.axis._Axis__execute_post_move_hook([motion])
 
-                        for _, chan in motion.axis._beacon_channels.iteritems():
+                        for _, chan in motion.axis._beacon_channels.items():
                             chan.register_callback(chan._setting_update_cb)
 
                         motion.axis._set_move_done()
@@ -717,7 +717,7 @@ class Axis(object):
         Returns:
             bool: True if the axis has the tag or False otherwise
         """
-        for t, axis_list in self.__controller._tagged.iteritems():
+        for t, axis_list in self.__controller._tagged.items():
             if t != tag:
                 continue
             if self.name in [axis.name for axis in axis_list]:
@@ -1038,7 +1038,7 @@ class Axis(object):
         if from_config:
             ll = self.config.get("low_limit", float, float("-inf"))
             hl = self.config.get("high_limit", float, float("+inf"))
-            return map(self.dial2user, (ll, hl))
+            return list(map(self.dial2user, (ll, hl)))
         if not isinstance(low_limit, Null):
             self.settings.set("low_limit", low_limit)
         if not isinstance(high_limit, Null):
@@ -1502,7 +1502,7 @@ class Axis(object):
             def limit2config(l):
                 return self.user2dial(l) if l is not None else l
 
-            ll, hl = map(limit2config, self.limits())
+            ll, hl = list(map(limit2config, self.limits()))
             self.__config.set("low_limit", ll)
             self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):

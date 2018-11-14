@@ -9,8 +9,6 @@
 # use Bliss comm sockets with considerable tidying.
 # Each method returns a list comprising [errorcode, values ...]
 
-from __future__ import print_function
-from __future__ import absolute_import
 
 from bliss.comm.util import get_comm, TCP
 

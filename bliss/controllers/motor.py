@@ -91,7 +91,7 @@ class Controller(object):
     def _init(self):
         controller_axes = [
             (axis_name, axis)
-            for axis_name, axis in self.axes.iteritems()
+            for axis_name, axis in self.axes.items()
             if not isinstance(axis, AxisRef)
         ]
         self._update_refs()
@@ -139,7 +139,7 @@ class Controller(object):
 
     def _update_refs(self):
         config = static.get_config()
-        for tag, axis_list in self._tagged.iteritems():
+        for tag, axis_list in self._tagged.items():
             for i, axis in enumerate(axis_list):
                 if not isinstance(axis, AxisRef):
                     continue
@@ -152,7 +152,7 @@ class Controller(object):
                 axis_list[i] = referenced_axis
 
     def _init_settings(self):
-        for axis in self.axes.itervalues():
+        for axis in self.axes.values():
             axis._beacon_channels.clear()
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
 
@@ -446,7 +446,7 @@ class CalcController(Controller):
             self.reals.append(real_axis)
 
         self.pseudos = [
-            axis for axis_name, axis in self.axes.iteritems() if axis not in self.reals
+            axis for axis_name, axis in self.axes.items() if axis not in self.reals
         ]
 
         self._reals_group = Group(*self.reals)
@@ -484,7 +484,7 @@ class CalcController(Controller):
     def _axis_tag(self, axis):
         return [
             tag
-            for tag, axes in self._tagged.iteritems()
+            for tag, axes in self._tagged.items()
             if tag != "real" and len(axes) == 1 and axis in axes
         ][0]
 
@@ -507,7 +507,7 @@ class CalcController(Controller):
 
         new_setpos = self.calc_from_real(real_setpos)
 
-        for tagged_axis_name, setpos in new_setpos.iteritems():
+        for tagged_axis_name, setpos in new_setpos.items():
             axis = self._tagged[tagged_axis_name][0]
             axis.settings.set("_set_position", axis.dial2user(setpos))
 
@@ -519,7 +519,7 @@ class CalcController(Controller):
         pseudo_axis_tag = self._axis_tag(axis)
 
         axis_positions = self._get_set_positions()
-        for ptag, ppos in axis_positions.iteritems():
+        for ptag, ppos in axis_positions.items():
             if ptag == pseudo_axis_tag:
                 axis_positions[ptag] = positions
             else:
@@ -527,7 +527,7 @@ class CalcController(Controller):
 
         real_positions = self.calc_to_real(axis_positions)
 
-        for rtag, rpos in real_positions.iteritems():
+        for rtag, rpos in real_positions.items():
             real_axis = self._tagged[rtag][0]
             real_axis.controller._check_limits(real_axis, rpos)
 
@@ -536,7 +536,7 @@ class CalcController(Controller):
         real_positions = dict(
             [
                 (self._axis_tag(axis), pos)
-                for axis, pos in real_positions_by_axis.items()
+                for axis, pos in list(real_positions_by_axis.items())
             ]
         )
         return self.calc_from_real(real_positions)
@@ -544,7 +544,7 @@ class CalcController(Controller):
     def _calc_from_real(self, *args, **kwargs):
         new_positions = self._do_calc_from_real()
 
-        for tagged_axis_name, dial_pos in new_positions.iteritems():
+        for tagged_axis_name, dial_pos in new_positions.items():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
                 user_pos = axis.dial2user(dial_pos)
@@ -573,7 +573,7 @@ class CalcController(Controller):
     def start_all(self, *motion_list):
         positions_dict = self._get_set_positions()
         move_dict = dict()
-        for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
+        for tag, target_pos in self.calc_to_real(positions_dict).items():
             real_axis = self._tagged[tag][0]
             move_dict[real_axis] = target_pos
 
@@ -609,7 +609,7 @@ class CalcController(Controller):
         positions = self._get_set_positions()
         positions[self._axis_tag(axis)] = new_pos
         real_positions = self.calc_to_real(positions)
-        for real_axis_tag, user_pos in real_positions.iteritems():
+        for real_axis_tag, user_pos in real_positions.items():
             self._tagged[real_axis_tag][0].position(user_pos)
 
         new_positions = self._calc_from_real()
@@ -712,7 +712,7 @@ class CalcController(Controller):
             time,
             {
                 axis.name: position
-                for axis, position in final_real_axes_position.iteritems()
+                for axis, position in iter(final_real_axes_position.items())
             },
             spline_nb_points=spline_nb_points,
         )

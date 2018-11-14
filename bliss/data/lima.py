@@ -383,7 +383,7 @@ class LimaImageChannelDataNode(DataNode):
         )
         references = []
         file_format = final_ref_data["fileFormat"].lower()
-        for next_number in xrange(final_ref_data["nextNumber"], last_file_number):
+        for next_number in range(final_ref_data["nextNumber"], last_file_number):
             full_path = path_format % next_number
             if file_format == "hdf5":
                 # @todo see what's is needed for hdf5 dataset link

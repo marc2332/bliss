@@ -48,7 +48,7 @@ class ValueHook(MotionHook):
 
     def add_axis(self, axis):
         if len(self.axes):
-            axis_name = self.axes.keys()[0]
+            axis_name = list(self.axes.keys())[0]
             raise ValueError(
                 "Cannot attach WagoAirpadHook {0!r} to {1!r}. "
                 "It is already attached to {2!r}".format(

@@ -56,7 +56,6 @@ diagfile: /users/blissadm/oscillation_diag.dat
 
 """
 
-from __future__ import print_function, absolute_import
 import datetime
 import numpy
 import math

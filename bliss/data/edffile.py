@@ -324,7 +324,7 @@ class EdfFile:
         """
         fastedf = self.fastedf
         if Index < 0 or Index >= self.NumImages:
-            raise ValueError, "EdfFile: Index out of limit"
+            raise ValueError("EdfFile: Index out of limit")
         if fastedf is None:
             fastedf = 0
         if Pos is None and Size is None:
@@ -335,7 +335,7 @@ class EdfFile:
             try:
                 datasize = self.__GetSizeNumpyType__(datatype)
             except TypeError:
-                print "What is the meaning of this error?"
+                print("What is the meaning of this error?")
                 datasize = 8
             if self.Images[Index].NumDim == 3:
                 sizeToRead = (
@@ -448,7 +448,7 @@ class EdfFile:
 
         else:
             if fastedf:
-                print "I could not use fast routines"
+                print("I could not use fast routines")
             type = self.__GetDefaultNumpyType__(
                 self.Images[Index].DataType, index=Index
             )
@@ -539,9 +539,9 @@ class EdfFile:
             Position:   Tuple with the coordinete (x), (x,y) or (x,y,z)
         """
         if Index < 0 or Index >= self.NumImages:
-            raise ValueError, "EdfFile: Index out of limit"
+            raise ValueError("EdfFile: Index out of limit")
         if len(Position) != self.Images[Index].NumDim:
-            raise ValueError, "EdfFile: coordinate with wrong dimension "
+            raise ValueError("EdfFile: coordinate with wrong dimension ")
 
         size_pixel = self.__GetSizeNumpyType__(
             self.__GetDefaultNumpyType__(self.Images[Index].DataType), index=Index
@@ -573,10 +573,10 @@ class EdfFile:
             Index:          The zero-based index of the image in the file
         """
         if Index < 0 or Index >= self.NumImages:
-            raise ValueError, "Index out of limit"
+            raise ValueError("Index out of limit")
         # return self.Images[Index].Header
         ret = {}
-        for i in self.Images[Index].Header.keys():
+        for i in list(self.Images[Index].Header.keys()):
             ret[i] = self.Images[Index].Header[i]
         return ret
 
@@ -587,10 +587,10 @@ class EdfFile:
             Index:          The zero-based index of the image in the file
         """
         if Index < 0 or Index >= self.NumImages:
-            raise ValueError, "Index out of limit"
+            raise ValueError("Index out of limit")
         # return self.Images[Index].StaticHeader
         ret = {}
-        for i in self.Images[Index].StaticHeader.keys():
+        for i in list(self.Images[Index].StaticHeader.keys()):
             ret[i] = self.Images[Index].StaticHeader[i]
         return ret
 
@@ -667,7 +667,7 @@ class EdfFile:
             )
             self.Images[Index].NumDim = 3
         elif len(Data.shape) > 3:
-            raise TypeError, "EdfFile: Data dimension not suported"
+            raise TypeError("EdfFile: Data dimension not suported")
 
         if DataType == "":
             self.Images[Index].DataType = self.__GetDefaultEdfType__(Data.dtype)
@@ -692,11 +692,11 @@ class EdfFile:
         self.File.seek(0, 2)
         StrHeader = "{\n"
         for i in STATIC_HEADER_ELEMENTS:
-            if i in self.Images[Index].StaticHeader.keys():
+            if i in list(self.Images[Index].StaticHeader.keys()):
                 StrHeader = StrHeader + (
                     "%s = %s ;\n" % (i, self.Images[Index].StaticHeader[i])
                 )
-        for i in Header.keys():
+        for i in list(Header.keys()):
             StrHeader = StrHeader + ("%s = %s ;\n" % (i, Header[i]))
             self.Images[Index].Header[i] = Header[i]
         newsize = (
@@ -759,7 +759,7 @@ class EdfFile:
         elif NumpyType in ["d", numpy.float64]:
             return "DoubleValue"
         else:
-            raise TypeError, "unknown NumpyType %s" % NumpyType
+            raise TypeError("unknown NumpyType %s" % NumpyType)
 
     def __GetSizeNumpyType__(self, NumpyType):
         """ Internal method: returns size of NumPy's Array Types
@@ -799,7 +799,7 @@ class EdfFile:
         elif NumpyType == numpy.int64:
             return 8
         else:
-            raise TypeError, "unknown NumpyType %s" % NumpyType
+            raise TypeError("unknown NumpyType %s" % NumpyType)
 
     def __SetDataType__(self, Array, DataType):
         """ Internal method: array type convertion
@@ -861,7 +861,7 @@ class EdfFile:
         buffer = self.File.read(512)
         # TEST if it's an EDF File
         if not self.__checkEdfFile.search(buffer):
-            raise IOError, "EdfFile : not an Edf format"
+            raise IOError("EdfFile : not an Edf format")
         startFind = 0
         while 1:
             endHeader = -1
@@ -912,7 +912,7 @@ def GetDefaultNumpyType(EdfType):
     elif EdfType == "DOUBLEVALUE":
         return numpy.float64  # "d"
     else:
-        raise TypeError, "unknown EdfType %s" % EdfType
+        raise TypeError("unknown EdfType %s" % EdfType)
 
 
 def SetDictCase(Dict, Case, Flag):
@@ -922,7 +922,7 @@ def SetDictCase(Dict, Case, Flag):
         Flag:   KEYS, VALUES or KEYS | VALUES
     """
     newdict = {}
-    for i in Dict.keys():
+    for i in list(Dict.keys()):
         newkey = i
         newvalue = Dict[i]
         if Flag & KEYS:
@@ -955,7 +955,7 @@ def GetRegion(Arr, Pos, Size):
         SizeX = Size[0]
         if SizeX == 0:
             SizeX = Arr.shape[0] - Pos[0]
-        ArrRet = numpy.take(Arr, range(Pos[0], Pos[0] + SizeX))
+        ArrRet = numpy.take(Arr, list(range(Pos[0], Pos[0] + SizeX)))
     elif Dim == 2:
         SizeX = Size[0]
         SizeY = Size[1]
@@ -963,8 +963,8 @@ def GetRegion(Arr, Pos, Size):
             SizeX = Arr.shape[1] - Pos[0]
         if SizeY == 0:
             SizeY = Arr.shape[0] - Pos[1]
-        ArrRet = numpy.take(Arr, range(Pos[1], Pos[1] + SizeY))
-        ArrRet = numpy.take(ArrRet, range(Pos[0], Pos[0] + SizeX), 1)
+        ArrRet = numpy.take(Arr, list(range(Pos[1], Pos[1] + SizeY)))
+        ArrRet = numpy.take(ArrRet, list(range(Pos[0], Pos[0] + SizeX)), 1)
     elif Dim == 3:
         SizeX = Size[0]
         SizeY = Size[1]
@@ -975,9 +975,9 @@ def GetRegion(Arr, Pos, Size):
             SizeX = Arr.shape[1] - Pos[1]
         if SizeZ == 0:
             SizeZ = Arr.shape[0] - Pos[2]
-        ArrRet = numpy.take(Arr, range(Pos[2], Pos[2] + SizeZ))
-        ArrRet = numpy.take(ArrRet, range(Pos[1], Pos[1] + SizeY), 1)
-        ArrRet = numpy.take(ArrRet, range(Pos[0], Pos[0] + SizeX), 2)
+        ArrRet = numpy.take(Arr, list(range(Pos[2], Pos[2] + SizeZ)))
+        ArrRet = numpy.take(ArrRet, list(range(Pos[1], Pos[1] + SizeY)), 1)
+        ArrRet = numpy.take(ArrRet, list(range(Pos[0], Pos[0] + SizeX)), 2)
     else:
         ArrRet = None
     return ArrRet
@@ -1028,13 +1028,13 @@ if __name__ == "__main__":
         del out  # force to close the file
         inp2 = EdfFile("armando2.edf")
         c = inp2.GetData(0)
-        print "A SHAPE = ", a.shape
-        print "B SHAPE = ", b.shape
-        print "C SHAPE = ", c.shape
+        print("A SHAPE = ", a.shape)
+        print("B SHAPE = ", b.shape)
+        print("C SHAPE = ", c.shape)
         for i in range(5):
-            print "A", a[i, :]
-            print "B", b[i, :]
-            print "C", c[i, :]
+            print("A", a[i, :])
+            print("B", b[i, :])
+            print("C", c[i, :])
 
         x = numpy.arange(100)
         x.shape = 5, 20

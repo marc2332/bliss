@@ -68,7 +68,7 @@ try:
             ordered_yaml.representer.RoundTripRepresenter.__init__(self, *args, **keys)
 
         def represent_ordereddict(self, data):
-            return self.represent_mapping(u"tag:yaml.org,2002:map", data)
+            return self.represent_mapping("tag:yaml.org,2002:map", data)
 
     RoundTripRepresenter.add_representer(
         ordereddict, RoundTripRepresenter.represent_ordereddict
@@ -325,7 +325,7 @@ class Node(NodeDict):
         node = Node()
         node._config = self._config
         node._parent = self._parent
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if isinstance(value, Node):
                 child_node = value.deep_copy()
                 node[key] = child_node
@@ -343,7 +343,7 @@ class Node(NodeDict):
         the return object is a simple dictionary
         """
         newdict = dict()
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if isinstance(value, Node):
                 child_dict = value.to_dict()
                 newdict[key] = child_dict
@@ -370,7 +370,7 @@ class Node(NodeDict):
 
     def _get_save_dict(self, src_node, filename):
         return_dict = NodeDict()
-        for key, values in src_node.iteritems():
+        for key, values in src_node.items():
             if isinstance(values, Node):
                 if values.filename != filename:
                     continue
@@ -396,29 +396,29 @@ class Node(NodeDict):
     def _pprint(node, cur_indet, indent, cur_depth, depth):
         cfg = node._config
         space = " " * cur_indet
-        print "%s{ filename: %r" % (space, cfg._node2file.get(node))
+        print("%s{ filename: %r" % (space, cfg._node2file.get(node)))
         dict_space = " " * (cur_indet + 2)
-        for k, v in node.iteritems():
-            print "%s%s:" % (dict_space, k),
+        for k, v in node.items():
+            print("%s%s:" % (dict_space, k), end=" ")
             if isinstance(v, Node):
-                print
+                print()
                 Node._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
             elif isinstance(v, list):
                 list_ident = cur_indet + indent
                 list_space = " " * list_ident
-                print "\n%s[" % list_space
+                print("\n%s[" % list_space)
                 for item in v:
                     if isinstance(item, Node):
-                        print
+                        print()
                         Node._pprint(
                             item, list_ident + indent, indent, cur_depth + 1, depth
                         )
                     else:
-                        print item
-                print "%s]" % list_space
+                        print(item)
+                print("%s]" % list_space)
             else:
-                print v
-        print "%s}" % space
+                print(v)
+        print("%s}" % space)
 
     def __repr__(self):
         config = self._config
@@ -491,14 +491,14 @@ class Config(object):
             if ordered_yaml:
                 try:
                     d = ordered_yaml.load(file_content, ordered_yaml.RoundTripLoader)
-                except ordered_yaml.error.MarkedYAMLError, exp:
+                except ordered_yaml.error.MarkedYAMLError as exp:
                     if exp.problem_mark is not None:
                         exp.problem_mark.name = path
                     raise
             else:
                 try:
                     d = yaml_load(file_content)
-                except yaml.error.MarkedYAMLError, exp:
+                except yaml.error.MarkedYAMLError as exp:
                     if exp.problem_mark is not None:
                         exp.problem_mark.name = path
                     raise
@@ -615,7 +615,7 @@ class Config(object):
         Returns:
             list<str>: sequence of configuration names
         """
-        return self._name2node.keys()
+        return list(self._name2node.keys())
 
     @property
     def user_tags_list(self):
@@ -625,7 +625,7 @@ class Config(object):
         Returns:
             list<str>: sequence of user tag names
         """
-        return self._usertag2node.keys()
+        return list(self._usertag2node.keys())
 
     @property
     def root(self):
@@ -815,7 +815,7 @@ class Config(object):
         if d is None:
             raise RuntimeError("Error parsing %r" % parent)
         else:
-            for key, value in d.iteritems():
+            for key, value in d.items():
                 if isinstance(value, dict):
                     node = Node(self, parent=parent)
                     self._parse(value, node)

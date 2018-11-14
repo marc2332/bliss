@@ -51,7 +51,7 @@ class Switch(BaseSwitch):
         include_rack = config.get("include-rack")
         if include_rack is None:  # All
             include_rack = set()
-            for axis in self.__controller._axes.values():
+            for axis in list(self.__controller._axes.values()):
                 # be sure that axis is initialized
                 try:
                     axis.position()
@@ -72,7 +72,7 @@ class Switch(BaseSwitch):
 
         managed_rack = include_rack - exclude_rack
         self.__axes = weakref.WeakValueDictionary()
-        for axis_name, axis in self.__controller._axes.iteritems():
+        for axis_name, axis in self.__controller._axes.items():
             try:
                 rack_id = axis.address // 10
             except (AttributeError, TypeError):
@@ -103,10 +103,10 @@ class Switch(BaseSwitch):
             m = pattern.match(line)
             if m:
                 axis_address = int(m.group(1))
-                for axis_name, axis in self.__axes.iteritems():
+                for axis_name, axis in self.__axes.items():
                     if axis.address == axis_address:
                         return axis_name
         return "DISABLED"
 
     def _states_list(self):
-        return self.__axes.keys() + ["DISABLED"]
+        return list(self.__axes.keys()) + ["DISABLED"]

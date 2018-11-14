@@ -56,7 +56,7 @@ class Proxy(object):
 
     def __getattr__(self, name):
         if name.startswith("__"):
-            raise AttributeError, name
+            raise AttributeError(name)
 
         was_connected = None
         if not name.startswith("_"):

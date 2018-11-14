@@ -128,7 +128,7 @@ class FileWriter(object):
         self._event_receivers = []
         master_entries = {}
 
-        for dev, node in scan.nodes.iteritems():
+        for dev, node in scan.nodes.items():
             if isinstance(dev, AcquisitionMaster):
                 try:
                     master_entry = master_entries[dev]

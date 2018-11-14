@@ -7,12 +7,12 @@
 
 """
     EdfFile.py
-    Generic class for Edf files manipulation.    
+    Generic class for Edf files manipulation.
 
     Interface:
     ===========================
-    class EdfFile:          
-        __init__(self,FileName)	
+    class EdfFile:
+        __init__(self,FileName)
         GetNumImages(self)
         def GetData(self,Index, DataType="",Pos=None,Size=None):
         GetPixel(self,Index,Position)
@@ -39,12 +39,12 @@
         {
         ; Exemple Header
         HeaderID = EH:000001:000000:000000    ; automatically generated
-        ByteOrder = LowByteFirst              ; 
+        ByteOrder = LowByteFirst              ;
         DataType = FloatValue                 ; 4 bytes per pixel
         Size = 4000000                        ; size of data section
         Dim_1= 1000                           ; x coordinates
         Dim_2 = 1000                          ; y coordinates
-        
+
         (padded with spaces to complete 1024 bytes)
         }
     - There are some fields in the header that are required for this implementation. If any of
@@ -65,7 +65,7 @@
       images.
     - The data section contais a number of bytes equal to the value of Size keyword. Data
       section is going to be translated into an 1D, 2D or 3D Numpy Array, and accessed
-      through GetData method call.      
+      through GetData method call.
 """
 
 ################################################################################
@@ -303,7 +303,7 @@ class EdfFile:
                             Numpy Python
                             Default relation between Edf types and NumPy's typecodes:
                                 SignedByte          int8   b
-                                UnsignedByte        uint8  B       
+                                UnsignedByte        uint8  B
                                 SignedShort         int16  h
                                 UnsignedShort       uint16 H
                                 SignedInteger       int32  i
@@ -311,7 +311,7 @@ class EdfFile:
                                 SignedLong          int32  i
                                 UnsignedLong        uint32 I
                                 Signed64            int64  (l in 64bit, q in 32 bit)
-                                Unsigned64          uint64 (L in 64bit, Q in 32 bit) 
+                                Unsigned64          uint64 (L in 64bit, Q in 32 bit)
                                 FloatValue          float32 f
                                 DoubleValue         float64 d
             Pos:            Tuple (x) or (x,y) or (x,y,z) that indicates the begining
@@ -320,7 +320,7 @@ class EdfFile:
             Size:           Tuple, size of the data to be returned as x) or (x,y) or
                             (x,y,z) if ommited, is the distance from Pos to the end.
 
-            If Pos and Size not mentioned, returns the whole data.                         
+            If Pos and Size not mentioned, returns the whole data.
         """
         fastedf = self.fastedf
         if Index < 0 or Index >= self.NumImages:
@@ -567,7 +567,7 @@ class EdfFile:
 
     def GetHeader(self, Index):
         """ Returns dictionary with image header fields.
-            Does not include the basic fields (static) defined by data shape, 
+            Does not include the basic fields (static) defined by data shape,
             type and file position. These are get with GetStaticHeader
             method.
             Index:          The zero-based index of the image in the file
@@ -595,32 +595,32 @@ class EdfFile:
         return ret
 
     def WriteImage(self, Header, Data, Append=1, DataType="", ByteOrder=""):
-        """ Writes image to the file. 
+        """ Writes image to the file.
             Header:         Dictionary containing the non-static header
                             information (static information is generated
                             according to position of image and data format
             Append:         If equals to 0, overwrites the file. Otherwise, appends
                             to the end of the file
             DataType:       The data type to be saved to the file:
-                                SignedByte          
-                                UnsignedByte               
-                                SignedShort         
-                                UnsignedShort       
-                                SignedInteger       
-                                UnsignedInteger     
-                                SignedLong          
-                                UnsignedLong        
-                                FloatValue          
-                                DoubleValue         
+                                SignedByte
+                                UnsignedByte
+                                SignedShort
+                                UnsignedShort
+                                SignedInteger
+                                UnsignedInteger
+                                SignedLong
+                                UnsignedLong
+                                FloatValue
+                                DoubleValue
                             Default: according to Data array typecode:
                                     1:  SignedByte
                                     b:  UnsignedByte
-                                    s:  SignedShort       
+                                    s:  SignedShort
 				    w:  UnsignedShort
                                     i:  SignedInteger
-                                    l:  SignedLong          
+                                    l:  SignedLong
 				    u:  UnsignedLong
-                                    f:  FloatValue       
+                                    f:  FloatValue
                                     d:  DoubleValue
             ByteOrder:      Byte order of the data in file:
                                 HighByteFirst
@@ -919,7 +919,7 @@ def SetDictCase(Dict, Case, Flag):
     """ Returns dictionary with keys and/or values converted into upper or lowercase
         Dict:   input dictionary
         Case:   LOWER_CASE, UPPER_CASE
-        Flag:   KEYS, VALUES or KEYS | VALUES        
+        Flag:   KEYS, VALUES or KEYS | VALUES
     """
     newdict = {}
     for i in Dict.keys():

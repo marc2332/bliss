@@ -186,45 +186,93 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def reading(self):
         """Spawn by the chain."""
-        if self.soft_trigger_mode:
-            return self._soft_reading()
-        return self._hard_reading()
+        # Buffer for the data to publish
+        try:
+            publishing_dict = defaultdict(list)
+
+            # Spawn the real reading task
+            task = gevent.spawn(
+                self._soft_reading if self.soft_trigger_mode else self._hard_reading,
+                publishing_dict,
+            )
+
+            # Periodically publish
+            while True:
+
+                # Use task.get as a conditional sleep
+                try:
+                    task.get(timeout=self.polling_time)
+
+                # Tick
+                except gevent.Timeout:
+                    pass
+
+                # The reading task has terminated
+                else:
+                    break
+
+                # Pop and publish all items from publishing_dict
+                finally:
+                    while publishing_dict:
+
+                        # Atomic - pop the points of a single counter
+                        name, points = publishing_dict.popitem()
+
+                        # Actual publishing
+                        self.channels.update({name: points})
+
+        # Make sure the reading task has completed
+        finally:
+            task.kill()
 
     # Helpers
 
-    def _hard_reading(self):
+    def _hard_reading(self, publishing_dict):
         npoints = self.npoints + 1 if self.sync_trigger_mode else self.npoints
+
         # Safe point generator
         with closing(
             self.device.hardware_poll_points(npoints, self.polling_time)
         ) as generator:
+
             # Discard first point in synchronized mode
             if self.sync_trigger_mode:
                 next(generator)
+
             # Acquire data
             for spectrums, stats in generator:
-                self._publish(spectrums, stats)
+                self._publish(publishing_dict, spectrums, stats)
 
-    def _soft_reading(self):
+    def _soft_reading(self, publishing_dict):
+
         # Safe point generator
         with closing(
             self.device.software_controlled_run(self.npoints, self.polling_time)
         ) as generator:
+
             # Acquire data
             indexes = itertools.count() if self.npoints == 0 else range(self.npoints)
             for i in indexes:
+
                 # Software sync
                 self.acquisition_state.wait(self.TRIGGERED)
+
                 # Get data
                 spectrums, stats = next(generator)
+
                 # Publish
-                self._publish(spectrums, stats)
+                self._publish(publishing_dict, spectrums, stats)
+
                 # Software sync
                 self.acquisition_state.goto(self.READY)
 
-    def _publish(self, spectrums, stats):
+    def _publish(self, publishing_dict, spectrums, stats):
+        # Feed data to all counters
         for counter in self.counters:
-            counter.feed_point(spectrums, stats)
+            point = counter.feed_point(spectrums, stats)
+
+            # Atomic - add point to publising dict
+            publishing_dict[counter.name].append(point)
 
 
 # Mca counters
@@ -284,12 +332,13 @@ class BaseMcaCounter(BaseCounter):
             AcquisitionChannel(self.name, self.dtype, self.shape)
         )
 
-    def feed_point(self, spectrums, stats):
+    def extract_point(self, spectrums, stats):
         raise NotImplementedError
 
-    def emit_data_point(self, data_point):
-        self.acquisition_device.channels.update({self.name: data_point})
-        self.data_points.append(data_point)
+    def feed_point(self, spectrums, stats):
+        point = self.extract_point(spectrums, stats)
+        self.data_points.append(point)
+        return point
 
 
 class StatisticsMcaCounter(BaseMcaCounter):
@@ -304,9 +353,8 @@ class StatisticsMcaCounter(BaseMcaCounter):
             return numpy.int
         return numpy.float
 
-    def feed_point(self, spectrums, stats):
-        point = getattr(stats[self.detector_channel], self.stat_name)
-        self.emit_data_point(point)
+    def extract_point(self, spectrums, stats):
+        return getattr(stats[self.detector_channel], self.stat_name)
 
 
 class SpectrumMcaCounter(BaseMcaCounter):
@@ -323,8 +371,8 @@ class SpectrumMcaCounter(BaseMcaCounter):
             return (self.controller.spectrum_size,)
         return (self.acquisition_device.spectrum_size,)
 
-    def feed_point(self, spectrums, stats):
-        self.emit_data_point(spectrums[self.detector_channel])
+    def extract_point(self, spectrums, stats):
+        return spectrums[self.detector_channel]
 
 
 class RoiMcaCounter(BaseMcaCounter):
@@ -340,18 +388,16 @@ class RoiMcaCounter(BaseMcaCounter):
         start, stop = self.mca.rois.resolve(self.roi_name)
         return sum(spectrum[start:stop])
 
-    def feed_point(self, spectrums, stats):
-        point = self.compute_roi(spectrums[self.detector_channel])
-        self.emit_data_point(point)
+    def extract_point(self, spectrums, stats):
+        return self.compute_roi(spectrums[self.detector_channel])
 
 
 class RoiSumMcaCounter(RoiMcaCounter):
     def __init__(self, mca, roi_name):
         super(RoiSumMcaCounter, self).__init__(mca, roi_name, None)
 
-    def feed_point(self, spectrums, stats):
-        point = sum(map(self.compute_roi, spectrums.values()))
-        self.emit_data_point(point)
+    def extract_point(self, spectrums, stats):
+        return sum(map(self.compute_roi, spectrums.values()))
 
 
 def mca_counters(mca):

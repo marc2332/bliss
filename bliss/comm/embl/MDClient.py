@@ -249,7 +249,7 @@ class MDClient(ExporterClient):
             if self.isBusy(state) == False:
                 return
             if (timeout > 0) and ((time.clock() - start) > timeout):
-                raise "Timeout waiting microdiff ready"
+                raise RuntimeError("Timeout waiting microdiff ready")
             time.sleep(self.MONITORING_INTERVAL)
 
     def isTaskRunning(self, task_id=-1):
@@ -275,7 +275,7 @@ class MDClient(ExporterClient):
             start = time.clock()
             while self.isTaskRunning(task_id):
                 if (timeout > 0) and ((time.clock() - start) > timeout):
-                    raise "Timeout waiting end of task"
+                    raise RuntimeError("Timeout waiting end of task")
                 time.sleep(self.MONITORING_INTERVAL)
             return self.checkTaskResult(task_id)
 
@@ -311,7 +311,7 @@ class MDClient(ExporterClient):
             if state != self.STATE_MOVING:
                 return
             if (timeout > 0) and ((time.clock() - start) > timeout):
-                raise "Timeout waiting motor ready"
+                raise RuntimeError("Timeout waiting motor ready")
             time.sleep(self.MONITORING_INTERVAL)
 
     ##############################################################################################################

@@ -192,7 +192,7 @@ class EdfFile:
                     self.File.close()
                 except:
                     pass
-                raise "EdfFile: Error opening file"
+                raise RuntimeError("EdfFile: Error opening file")
         else:
             self.__ownedOpen = False
 
@@ -238,19 +238,19 @@ class EdfFile:
                 self.File.seek(img.DataPosition + imageSize)
                 startHeaderPos = self.File.tell()
             except KeyError:
-                raise "EdfFile: Image doesn't have size information"
+                raise RuntimeError("EdfFile: Image doesn't have size information")
             except ValueError:
-                raise "EdfFile: Image size information is not an integer"
+                raise RuntimeError("EdfFile: Image size information is not an integer")
             # Check DataType
             try:
                 img.DataType = StaticHeader["DATATYPE"]
             except KeyError:
-                raise "EdfFile: Image doesn't have datatype information"
+                raise RuntimeError("EdfFile: Image doesn't have datatype information")
             # Check ByteOrder
             try:
                 img.ByteOrder = StaticHeader["BYTEORDER"]
             except KeyError:
-                raise "EdfFile: Image doesn't have byteorder information"
+                raise RuntimeError("EdfFile: Image doesn't have byteorder information")
             # Check DIM1
             try:
                 stringDim1 = StaticHeader["DIM_1"]
@@ -260,7 +260,7 @@ class EdfFile:
                 except ValueError:
                     img.Offset1 = 0
             except KeyError:
-                raise "EdfFile: Image doesn't have dimension information"
+                raise RuntimeError("EdfFile: Image doesn't have dimension information")
             # DIM2
             stringDim2 = StaticHeader.get("DIM_2", None)
             if stringDim2 is not None:

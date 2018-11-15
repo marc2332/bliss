@@ -189,8 +189,14 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     """
     kwargs["type"] = "dscan"
     kwargs.setdefault("name", "dscan")
+    args = kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time
+    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+    title = template.format(*args)
+    kwargs.setdefault("title", title)
+
     start += motor.position()
     stop += motor.position()
+
     with cleanup(motor, restore_list=(cleanup_axis.POS,)):
         scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
     return scan
@@ -584,28 +590,40 @@ def d2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    kwargs["type"] = "d2scan"
+    kwargs.setdefault("type", "d2scan")
+    args = (
+        kwargs.get("type"),
+        motor1.name,
+        start1,
+        stop1,
+        motor2.name,
+        start2,
+        stop2,
+        npoints,
+        count_time,
+    )
+    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+    title = template.format(*args)
+    kwargs.setdefault("title", title)
+    kwargs.setdefault("name", "d2scan")
 
     oldpos1 = motor1.position()
     oldpos2 = motor2.position()
 
-    kwargs.setdefault("name", "d2scan")
+    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
+        scan = a2scan(
+            motor1,
+            oldpos1 + start1,
+            oldpos1 + stop1,
+            motor2,
+            oldpos2 + start2,
+            oldpos2 + stop2,
+            npoints,
+            count_time,
+            *counter_args,
+            **kwargs
+        )
 
-    scan = a2scan(
-        motor1,
-        oldpos1 + start1,
-        oldpos1 + stop1,
-        motor2,
-        oldpos2 + start2,
-        oldpos2 + stop2,
-        npoints,
-        count_time,
-        *counter_args,
-        **kwargs
-    )
-
-    group = Group(motor1, motor2)
-    group.move(motor1, oldpos1, motor2, oldpos2)
     return scan
 
 
@@ -720,6 +738,11 @@ def loopscan(npoints, count_time, *counter_args, **kwargs):
     """
     kwargs.setdefault("npoints", npoints)
     kwargs.setdefault("name", "loopscan")
+    kwargs.setdefault("type", "loopscan")
+    args = kwargs.get("type", "loopscan"), npoints, count_time
+    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+    title = template.format(*args)
+    kwargs.setdefault("title", title)
     return timescan(count_time, *counter_args, **kwargs)
 
 

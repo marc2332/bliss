@@ -89,7 +89,7 @@ def main():
     cmd_class = find_extensions()
 
     install_requires = [
-        "redis  >= 2.8",
+        "redis  >= 2.8, < 3",
         "PyYaml",
         "netifaces < 0.10.5",
         "louie",

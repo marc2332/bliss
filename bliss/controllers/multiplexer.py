@@ -128,7 +128,9 @@ class Multiplexer:
 
         for output_config in config_tree["outputs"]:
             output = Output(self, output_config)
-            self.__outputs[output.name()] = output
+            out = self.__outputs.setdefault(output.name(), output)
+            if out != output:
+                raise ValueError("Multiple output with the same name (%s)" % out.name())
 
         self.__stat = HashObjSetting("multiplexer.%s" % name)
         self.__debug = False

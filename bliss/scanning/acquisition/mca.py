@@ -378,15 +378,19 @@ class SpectrumMcaCounter(BaseMcaCounter):
 class RoiMcaCounter(BaseMcaCounter):
     def __init__(self, mca, roi_name, detector):
         self.roi_name = roi_name
+        self.start_index, self.stop_index = None, None
         super(RoiMcaCounter, self).__init__(mca, roi_name, detector)
+
+    def register_device(self, device):
+        super(RoiMcaCounter, self).register_device(device)
+        self.start_index, self.stop_index = self.mca.rois.resolve(self.roi_name)
 
     @property
     def dtype(self):
         return numpy.int
 
     def compute_roi(self, spectrum):
-        start, stop = self.mca.rois.resolve(self.roi_name)
-        return sum(spectrum[start:stop])
+        return sum(spectrum[self.start_index : self.stop_index])
 
     def extract_point(self, spectrums, stats):
         return self.compute_roi(spectrums[self.detector_channel])

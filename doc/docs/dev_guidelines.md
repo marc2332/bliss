@@ -361,3 +361,23 @@ class ExampleController(Controller):
         pass
 
 ~~~
+
+
+
+Documentation
+-------------
+
+The documentation is created using mkdocs https://www.mkdocs.org/
+
+When adding a page, the main summary in `doc/mkdocs.yml` must be
+modified according to the new hierarchy.
+
+As usual, a merge request is used to track and review modifications.
+
+A page example can be found [here](dev_doc_example.md).
+
+Here is an online editor to test your markdown:
+https://nhnent.github.io/tui.editor/api/latest/tutorial-example01-basic.html#
+
+And a summary of markers: https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
+

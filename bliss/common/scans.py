@@ -31,7 +31,7 @@ from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration
 from bliss.scanning.default import DefaultAcquisitionChain
-from bliss.scanning import scan as scan_module
+from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import (
     LinearStepTriggerMaster,
@@ -41,18 +41,6 @@ from bliss.scanning.acquisition.motor import (
 _log = logging.getLogger("bliss.scans")
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
-
-
-def step_scan(chain, scan_info, name=None, save=True, save_images=True):
-    scan_data_watch = scan_module.StepScanDataWatch()
-    return scan_module.Scan(
-        chain,
-        name=name,
-        scan_info=scan_info,
-        save=save,
-        save_images=save_images,
-        data_watch_callback=scan_data_watch,
-    )
 
 
 def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
@@ -134,12 +122,13 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         "Scanning %s from %f to %f in %d points", motor.name, start, stop, npoints
     )
 
-    scan = step_scan(
+    scan = Scan(
         chain,
-        scan_info,
+        scan_info=scan_info,
         name=kwargs.setdefault("name", "ascan"),
         save=scan_info["save"],
         save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
     )
 
     if kwargs.get("run", True):
@@ -331,12 +320,13 @@ def amesh(
         npoints2,
     )
 
-    scan = step_scan(
+    scan = Scan(
         chain,
-        scan_info,
+        scan_info=scan_info,
         name=kwargs.setdefault("name", "amesh"),
         save=scan_info["save"],
         save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
     )
 
     if kwargs.get("run", True):
@@ -520,12 +510,13 @@ def a2scan(
         npoints,
     )
 
-    scan = step_scan(
+    scan = Scan(
         chain,
-        scan_info,
+        scan_info=scan_info,
         name=kwargs.setdefault("name", "a2scan"),
         save=scan_info["save"],
         save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
     )
 
     if kwargs.get("run", True):
@@ -691,12 +682,13 @@ def timescan(count_time, *counter_args, **kwargs):
 
     chain = DEFAULT_CHAIN.get(scan_info, counter_args)
 
-    scan = step_scan(
+    scan = Scan(
         chain,
-        scan_info,
+        scan_info=scan_info,
         name=kwargs.setdefault("name", "timescan"),
         save=scan_info["save"],
         save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
     )
 
     if kwargs.get("run", True):
@@ -842,12 +834,13 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         npoints,
     )
 
-    scan = step_scan(
+    scan = Scan(
         chain,
-        scan_info,
+        scan_info=scan_info,
         name=kwargs.setdefault("name", "pointscan"),
         save=scan_info["save"],
         save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
     )
 
     scan.run()

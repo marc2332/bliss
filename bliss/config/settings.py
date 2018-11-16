@@ -38,16 +38,16 @@ def boolify(s, **keys):
     raise ValueError("Not Boolean Value!")
 
 
-def auto_conversion(var):
-    """guesses the str representation of the variables type"""
-    if var is None:
+def auto_coerce_from_redis(s):
+    """Convert variable to a new type from the str representation"""
+    if s is None:
         return None
     for caster in (boolify, int, float):
         try:
-            return caster(var)
+            return caster(s)
         except (ValueError, TypeError):
             pass
-    return var
+    return s
 
 
 def pickle_loads(var):
@@ -161,8 +161,8 @@ class SimpleSetting(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
         default_value=None,
     ):
         if connection is None:
@@ -250,8 +250,8 @@ class SimpleSettingProp(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
         default_value=None,
         use_object_name=True,
     ):
@@ -301,8 +301,8 @@ class QueueSetting(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
     ):
         if connection is None:
             connection = get_cache()
@@ -448,8 +448,8 @@ class QueueSettingProp(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
         use_object_name=True,
     ):
         self._name = name
@@ -492,8 +492,8 @@ class HashSetting(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
         default_values={},
     ):
         if connection is None:
@@ -662,8 +662,8 @@ class HashSettingProp(object):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_conversion,
-        write_type_conversion=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
         default_values={},
         use_object_name=True,
     ):

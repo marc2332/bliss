@@ -64,8 +64,8 @@ def test_get_comm():
     gpib = get_comm(config)
     assert gpib.gpib_type == gpib.ENET
 
-    config = dict(serial=dict(url="/dev/tty0", eol="\r"))
-    sl = get_comm(config, baudrate=38400, eol="\r\n")
+    config = dict(serial=dict(url="/dev/tty0", eol=b"\r"))
+    sl = get_comm(config, baudrate=38400, eol=b"\r\n")
     assert sl._port == config["serial"]["url"]
     assert sl._serial_kwargs["baudrate"] == 38400
     assert sl._eol == config["serial"]["eol"]

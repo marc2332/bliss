@@ -77,7 +77,7 @@ class BaseSocket:
         self,
         host=None,
         port=None,
-        eol="\n",  # end of line for each rx message
+        eol=b"\n",  # end of line for each rx message
         timeout=5.,  # default timeout for read write
     ):
         self._host = host
@@ -86,7 +86,7 @@ class BaseSocket:
         self._timeout = timeout
         self._connected = False
         self._eol = eol
-        self._data = ""
+        self._data = b""
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.RLock()
@@ -147,6 +147,7 @@ class BaseSocket:
         if self._connected:
             try:
                 self._shutdown()
+            # TODO: Fix except-pass, it's a dangerous pattern
             except:  # probably closed one the server side
                 pass
             try:
@@ -155,7 +156,7 @@ class BaseSocket:
                 if self._raw_read_task:
                     self._raw_read_task.kill()
                     self._raw_read_task = None
-                self._data = ""
+                self._data = b""
                 self._connected = False
                 self._fd = None
                 send(self, "connect", False)
@@ -181,7 +182,7 @@ class BaseSocket:
             self._data = self._data[maxsize:]
         else:
             msg = self._data
-            self._data = ""
+            self._data = b""
         return msg
 
     @try_connect_socket
@@ -305,7 +306,7 @@ class BaseSocket:
                 return str_list
 
     def flush(self):
-        self._data = ""
+        self._data = b""
 
     def _sendall(self, data):
         raise NotImplementedError
@@ -401,7 +402,7 @@ class Command:
             self.__socket = socket
             self.__transaction = transaction
             self.__clear_transaction = clear_transaction
-            self.data = ""
+            self.data = b""
 
         def __enter__(self):
             return self
@@ -436,7 +437,7 @@ class Command:
         self,
         host,
         port,
-        eol="\n",  # end of line for each rx message
+        eol=b"\n",  # end of line for each rx message
         timeout=5.,  # default timeout for read write
     ):
         self._host = host
@@ -522,7 +523,7 @@ class Command:
             with gevent.Timeout(
                 timeout or self._timeout, CommandTimeout(timeout_errmsg)
             ):
-                ctx.data = ""
+                ctx.data = b""
                 while len(ctx.data) < size:
                     read_value = transaction.get()
                     if isinstance(read_value, socket.error):
@@ -541,7 +542,7 @@ class Command:
                 CommandTimeout("timeout on socket(%s, %d)" % (self._host, self._port)),
             ):
                 local_eol = eol or self._eol
-                ctx.data = ""
+                ctx.data = b""
                 eol_pos = -1
                 while eol_pos == -1:
                     read_value = transaction.get()

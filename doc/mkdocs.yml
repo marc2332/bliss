@@ -51,6 +51,7 @@ nav:
         - Developers corner:
                 - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': index.md
                 - Guidelines: dev_guidelines.md
+                - Documentation example: dev_doc_example.md
                 - Communication API: dev_comm.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a MCA controller: dev_write_mca.md

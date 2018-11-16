@@ -40,13 +40,14 @@ def get_open_ports(n):
             s.close()
 
 
-def wait_for(stream, target, data=""):
+def wait_for(stream, target, data=b""):
+    target = target.encode()
     while target not in data:
         char = stream.read(1)
         if not char:
             raise RuntimeError(
                 "Target {!r} not found in the following stream:\n{}".format(
-                    target, data
+                    target, data.decode()
                 )
             )
         data += char
@@ -74,7 +75,10 @@ def clean_gevent():
     from gevent import Greenlet
 
     for ob in gc.get_objects():
-        if not isinstance(ob, Greenlet):
+        try:
+            if not isinstance(ob, Greenlet):
+                continue
+        except ReferenceError:
             continue
         if ob.ready():
             continue
@@ -83,7 +87,10 @@ def clean_gevent():
     yield
 
     for ob in gc.get_objects():
-        if not isinstance(ob, Greenlet):
+        try:
+            if not isinstance(ob, Greenlet):
+                continue
+        except ReferenceError:
             continue
         if not ob.ready():
             print(ob)  # Better printouts
@@ -141,6 +148,7 @@ def ports(beacon_directory):
         yield ports
     finally:
         proc.terminate()
+        print(proc.stderr.read().decode(), file=sys.stderr)
 
 
 @pytest.fixture

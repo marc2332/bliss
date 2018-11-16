@@ -464,7 +464,6 @@ class Config(object):
         Raises:
             RuntimeError: in case of connection timeout
         """
-
         if base_path is None:
             base_path = self._base_path
 

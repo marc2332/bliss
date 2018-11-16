@@ -59,7 +59,8 @@ class Connection(object):
     class WaitingLock(object):
         def __init__(self, cnt, priority, device_name):
             self._cnt = weakref.ref(cnt)
-            self._msg = "%d|%s" % (priority, "|".join(device_name))
+            raw_names = [name.encode() for name in device_name]
+            self._msg = b"%d|%s" % (priority, b"|".join(raw_names))
             self._queue = queue.Queue()
 
         def msg(self):
@@ -90,7 +91,7 @@ class Connection(object):
     class WaitingQueue(object):
         def __init__(self, cnt):
             self._cnt = weakref.ref(cnt)
-            self._message_key = str(cnt._message_key)
+            self._message_key = str(cnt._message_key).encode()
             cnt._message_key += 1
             self._queue = queue.Queue()
 
@@ -203,7 +204,7 @@ class Connection(object):
                             raise RuntimeError(_msg)
                     else:
                         msg, address = udp.recvfrom(8192)
-                        host, port = msg.split("|")
+                        host, port = msg.split(b"|")
                         port = int(port)
 
                         if self._host == "localhost":
@@ -245,7 +246,7 @@ class Connection(object):
             if not uds:
                 self._g_event.clear()
                 self._fd.sendall(
-                    protocol.message(protocol.UDS_QUERY, socket.gethostname())
+                    protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
                 )
                 self._g_event.wait(1.)
 
@@ -277,7 +278,8 @@ class Connection(object):
         priority = params.get("priority", 50)
         if len(devices_name) == 0:
             return
-        msg = "%d|%s" % (priority, "|".join(devices_name))
+        raw_names = [name.encode() for name in devices_name]
+        msg = b"%d|%s" % (priority, b"|".join(raw_names))
         with gevent.Timeout(
             timeout, RuntimeError("unlock timeout (%s)" % str(devices_name))
         ):
@@ -327,7 +329,7 @@ class Connection(object):
     def get_config_file(self, file_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), file_path)
+                msg = b"%s|%s" % (wq.message_key(), file_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_FILE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
@@ -339,7 +341,7 @@ class Connection(object):
     def get_config_db_tree(self, base_path="", timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration tree")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_DB_TREE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
@@ -353,7 +355,7 @@ class Connection(object):
     def remove_config_file(self, file_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't remove configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), file_path)
+                msg = b"%s|%s" % (wq.message_key(), file_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
@@ -362,7 +364,11 @@ class Connection(object):
     def move_config_path(self, src_path, dst_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't move configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s|%s" % (wq.message_key(), src_path, dst_path)
+                msg = b"%s|%s|%s" % (
+                    wq.message_key(),
+                    src_path.encode(),
+                    dst_path.encode(),
+                )
                 self._fd.sendall(protocol.message(protocol.CONFIG_MOVE_PATH, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
@@ -372,7 +378,7 @@ class Connection(object):
         return_files = []
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(
                     protocol.message(protocol.CONFIG_GET_DB_BASE_PATH, msg)
                 )
@@ -382,17 +388,19 @@ class Connection(object):
                     file_path, file_value = self._get_msg_key(rx_msg)
                     if file_path is None:
                         continue
-                    return_files.append((file_path, file_value.decode("utf-8")))
+                    return_files.append((file_path.decode(), file_value.decode()))
         return return_files
 
     @check_connect
     def set_config_db_file(self, file_path, content, timeout=3.):
         with gevent.Timeout(timeout, RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s|%s" % (wq.message_key(), file_path, content)
-                self._fd.sendall(
-                    protocol.message(protocol.CONFIG_SET_DB_FILE, msg.encode("utf-8"))
+                msg = b"%s|%s|%s" % (
+                    wq.message_key(),
+                    file_path.encode(),
+                    content.encode(),
                 )
+                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE, msg))
                 for rx_msg in wq.queue():
                     raise rx_msg
 
@@ -401,17 +409,15 @@ class Connection(object):
         return_module = []
         with gevent.Timeout(timeout, RuntimeError("Can't get python modules")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(
-                    protocol.message(
-                        protocol.CONFIG_GET_PYTHON_MODULE, msg.encode("utf-8")
-                    )
+                    protocol.message(protocol.CONFIG_GET_PYTHON_MODULE, msg)
                 )
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg, RuntimeError):
                         raise rx_msg
                     module_name, full_path = self._get_msg_key(rx_msg)
-                    return_module.append((module_name, full_path))
+                    return_module.append((module_name.decode(), full_path.decode()))
         return return_module
 
     def _lock_mgt(self, fd, messageType, message):
@@ -429,7 +435,7 @@ class Connection(object):
                     e.put(messageType)
             return True
         elif messageType == protocol.LOCK_STOLEN:
-            stolen_object_lock = set(message.split("|"))
+            stolen_object_lock = set(message.split(b"|"))
             greenlet_to_objects = self._greenlet_to_lockobjects.copy()
             for greenlet, locked_objects in greenlet_to_objects.items():
                 locked_object_name = set(
@@ -445,19 +451,19 @@ class Connection(object):
         return False
 
     def _get_msg_key(self, message):
-        pos = message.find("|")
+        pos = message.find(b"|")
         if pos < 0:
             return None, None
         return message[:pos], message[pos + 1 :]
 
     def _raw_read(self):
         try:
-            data = ""
-            while 1:
+            data = b""
+            while True:
                 raw_data = self._fd.recv(16 * 1024)
                 if not raw_data:
                     break
-                data = "%s%s" % (data, raw_data)
+                data = b"%s%s" % (data, raw_data)
                 while data:
                     try:
                         messageType, message, data = protocol.unpack_message(data)
@@ -489,7 +495,7 @@ class Connection(object):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None:
-                                queue.put(RuntimeError(value))
+                                queue.put(RuntimeError(value.decode()))
                         elif messageType in (
                             protocol.CONFIG_DB_END,
                             protocol.CONFIG_SET_DB_FILE_OK,
@@ -502,7 +508,9 @@ class Connection(object):
                             if queue is not None:
                                 queue.put(StopIteration)
                         elif messageType == protocol.REDIS_QUERY_ANSWER:
-                            self._redis_host, self._redis_port = message.split(":")
+                            host, port = message.split(b":")
+                            self._redis_host = host.decode()
+                            self._redis_port = port.decode()
                             self._g_event.set()
                         elif messageType == protocol.UDS_OK:
                             try:

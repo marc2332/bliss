@@ -236,7 +236,7 @@ class Bus(AdvancedInstantiationInterface):
                 continue
 
             # Extract info
-            name = event.get("channel")
+            name = event.get("channel").decode()
             data = pickle.loads(event.get("data"))
             channel = self._channels.get(name)
 

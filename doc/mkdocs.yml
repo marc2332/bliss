@@ -4,7 +4,9 @@ repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 use_directory_urls: false
 nav:
         - Installation: index.md
-        - Getting started: getting_started.md
+        - Getting started:
+                - BLISS presentation: gs_presentation.md
+                - Configuration start-up guide: gs_config.md
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
@@ -49,7 +51,7 @@ nav:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': index.md
+                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': titi.md
                 - Guidelines: dev_guidelines.md
                 - Communication API: dev_comm.md
                 - Writing a motor controller: dev_write_motctrl.md

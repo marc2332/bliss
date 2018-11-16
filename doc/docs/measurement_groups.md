@@ -174,6 +174,11 @@ A counter can be added/removed to/from a measurement group.
                  simct1
                  simct2
 
+#### Enabling/disabling counters
+
+Counters can be enabled or disabled in a measurement group, using
+`.enable(*cnt)` or `.disable(*cnt)`.
+
 
 ### Include measurement group's counters
 Counters of a measurement group can be included into another

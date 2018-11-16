@@ -746,6 +746,9 @@ class AcquisitionChain(object):
         self._device2one_shot_flag = weakref.WeakKeyDictionary()
         self._statistic_container = dict()
 
+    def trace(self, on):
+        _logger.setLevel("DEBUG" if on else 0)
+
     @property
     def nodes_list(self):
         nodes_gen = self._tree.expand_tree()

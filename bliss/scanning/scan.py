@@ -898,6 +898,4 @@ class Scan(object):
         """
         Activate logging trace during scan
         """
-        from .chain import _logger
-
-        _logger.setLevel("DEBUG" if on else 0)
+        self.acq_chain.trace(on)

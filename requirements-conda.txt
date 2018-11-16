@@ -9,7 +9,7 @@ docopt
 numpy >= 1.13
 six >= 1.10
 tabulate
-pyserial == 2.7
+pyserial > 2
 h5py
 msgpack-python
 pyzmq

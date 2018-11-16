@@ -108,7 +108,7 @@ def main():
         "bottle",
         "six >= 1.10",
         "tabulate",
-        "pyserial == 2.7",
+        "pyserial > 2",
         "ruamel.yaml == 0.11.15",
         "zerorpc",
         "msgpack_numpy <= 0.4.3.1",

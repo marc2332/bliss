@@ -8,7 +8,4 @@
 import os
 import sys
 
-if os.name == "posix" and sys.version_info[0] < 3:
-    from subprocess32 import *
-else:
-    from .subprocess import *
+from subprocess import *

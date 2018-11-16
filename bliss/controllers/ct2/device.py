@@ -24,6 +24,7 @@ Minimalistic configuration example:
 
 
 import sys
+import enum
 import logging
 import functools
 
@@ -33,10 +34,6 @@ from gevent import lock
 from gevent import select
 from louie import dispatcher
 
-try:
-    import enum
-except:
-    from . import enum34 as enum
 
 from . import card
 

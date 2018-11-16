@@ -15,7 +15,7 @@ Example::
 import sys
 import functools
 import gevent
-from .bliss.common.tango import DeviceProxy
+from ...common.tango import DeviceProxy
 
 
 def output(stream, msg):

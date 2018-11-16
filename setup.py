@@ -71,16 +71,11 @@ def find_extensions():
 def main():
     """run setup"""
 
-    py_xy = sys.version_info[:2]
-    py_xy_str = ".".join(map(str, py_xy))
+    py = sys.version_info
+    py_str = ".".join(map(str, py))
 
-    if py_xy < (2, 7) or py_xy >= (3, 0):
-        print(
-            (
-                "Incompatible python version ({0}). Needs python 2.x "
-                "(where x > 6).".format(py_xy_str)
-            )
-        )
+    if py < (3,):
+        print(("Incompatible python version ({0}). Needs python 3.x ".format(py_str)))
         sys.exit(1)
 
     meta = {}

@@ -57,7 +57,7 @@ this as soon as possible in the code of your application::
 """
 
 from functools import wraps
-from inspect import getargspec
+from inspect import getfullargspec
 
 import pint
 
@@ -123,7 +123,7 @@ def units(**kwarg_units):
     kwarg_units = values_to_units(kwarg_units)
 
     def decorator(func):
-        arg_spec = getargspec(func).args
+        arg_spec = getfullargspec(func).args
         if not set(arg_spec).issuperset(kwarg_units):
             raise TypeError("units argument names differ from function argument names")
 

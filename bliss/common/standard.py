@@ -35,13 +35,12 @@ __all__ = (
     + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
 )
 
-import collections
-import itertools
 import inspect
 import logging
 import functools
+import itertools
 import linecache
-import gevent
+import collections.abc
 
 from six import print_
 from gevent import sleep
@@ -388,7 +387,7 @@ def _check_log_level(level):
 def set_log_level(level=logging.root.level):
     """
     Adjusts the log level
-    
+
     Without arguments, resets the level back to the one setup at
     beginning of the session.
 
@@ -421,7 +420,7 @@ def cntdict():
                 obj.controller.name if obj.controller else "None",
             )
         elif hasattr(obj, "counters") and isinstance(
-            obj.counters, collections.Iterable
+            obj.counters, collections.abc.Iterable
         ):
             for cnt in obj.counters:
                 if isinstance(cnt, BaseCounter):

@@ -571,9 +571,11 @@ def start(session_id, input_queue, output_queue, i):
                         if callable(x):
                             try:
                                 if inspect.isfunction(x):
-                                    args = inspect.formatargspec(*inspect.getargspec(x))
+                                    args = inspect.formatargspec(
+                                        *inspect.getfullargspec(x)
+                                    )
                                 elif inspect.ismethod(x):
-                                    argspec = inspect.getargspec(x)
+                                    argspec = inspect.getfullargspec(x)
                                     args = inspect.formatargspec(
                                         argspec.args[1:], *argspec[1:]
                                     )

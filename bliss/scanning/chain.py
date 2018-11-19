@@ -5,13 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import gevent
 import time
-import weakref
-import collections
 import logging
-from treelib import Tree
+import weakref
+import collections.abc
 from contextlib import contextmanager
+
+import gevent
+from treelib import Tree
 
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
@@ -572,7 +573,7 @@ class AcquisitionChainIter(object):
 
             for preset in self._presets_list:
                 iterator = preset.get_iterator(self.acquisition_chain)
-                if isinstance(iterator, collections.Iterable):
+                if isinstance(iterator, collections.abc.Iterable):
                     self._preset_iterators_list.append(iterator)
 
         self._current_preset_iterators_list = list()

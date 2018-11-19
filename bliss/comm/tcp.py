@@ -18,6 +18,7 @@ from gevent import socket, event, queue, lock
 import time
 import logging
 import weakref
+from bliss.common.event import send
 
 from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
@@ -129,6 +130,7 @@ class BaseSocket:
         self._raw_read_task = gevent.spawn(
             self._raw_read, weakref.proxy(self), self._fd
         )
+        send(self, "connect", True)
 
         return True
 
@@ -145,13 +147,16 @@ class BaseSocket:
                 self._shutdown()
             except:  # probably closed one the server side
                 pass
-            self._fd.close()
-            if self._raw_read_task:
-                self._raw_read_task.kill()
-                self._raw_read_task = None
-            self._data = ""
-            self._connected = False
-            self._fd = None
+            try:
+                self._fd.close()
+            finally:
+                if self._raw_read_task:
+                    self._raw_read_task.kill()
+                    self._raw_read_task = None
+                self._data = ""
+                self._connected = False
+                self._fd = None
+                send(self, "connect", False)
 
     def _shutdown(self):
         """
@@ -316,15 +321,17 @@ class Socket(BaseSocket):
             pass
         finally:
             try:
-                fd.close()
+                sock._raw_read_task = None
+                sock.close()
             except socket.error:
                 pass
-            try:
-                sock._connected = False
-                sock._fd = None
-                sock._event.set()
             except ReferenceError:
                 pass
+            finally:
+                try:
+                    sock._event.set()
+                except ReferenceError:
+                    pass
 
 
 class CommandTimeout(CommunicationTimeout):
@@ -462,6 +469,7 @@ class Command:
             )
             self._connected = True
 
+        send(self, "connect", True)
         return True
 
     def close(self):
@@ -471,11 +479,14 @@ class Command:
                     self._fd.shutdown(socket.SHUT_RDWR)
                 except:  # probably closed one the server side
                     pass
-                self._fd.close()
-                if self._raw_read_task:
-                    self._raw_read_task.kill()
-                    self._raw_read_task = None
-                self._transaction_list = []
+                try:
+                    self._fd.close()
+                finally:
+                    if self._raw_read_task:
+                        self._raw_read_task.kill()
+                        self._raw_read_task = None
+                    self._transaction_list = []
+                    send(self, "connect", False)
 
     @try_connect_command
     def _read(self, transaction, size=1, timeout=None, clear_transaction=True):
@@ -596,15 +607,17 @@ class Command:
             pass
         finally:
             try:
-                fd.close()
+                command._raw_read_task = None
+                transaction_list = command._transaction_list
+                command.close()
             except socket.error:
                 pass
+            except ReferenceError:
+                pass
             try:
-                command._connected = False
-                command._fd = None
                 # inform all pending transaction that the socket is closed
                 with command._lock:
-                    for trans in command._transaction_list:
+                    for trans in transaction_list:
                         trans.put(socket.error(errno.EPIPE, "Broken pipe"))
             except ReferenceError:
                 pass

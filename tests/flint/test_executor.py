@@ -1,7 +1,7 @@
 """Tests for the qt executor module."""
 
-import queue
 import threading
+from queue import Queue
 
 import gevent
 import pytest
@@ -22,7 +22,7 @@ def thread_target(queue):
 
 @pytest.fixture(scope="session")
 def qtapp():
-    queue = queue.Queue()
+    queue = Queue()
     th = threading.Thread(target=thread_target, args=(queue,))
     th.start()
     app = queue.get()

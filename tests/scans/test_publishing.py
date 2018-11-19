@@ -66,13 +66,13 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     assert s.node.db_name == s.root_node.db_name + ":" + "1_" + s.name
 
     scan_node_dict = redis_data_conn.hgetall(s.node.db_name)
-    assert scan_node_dict.get("name") == "1_test_scan"
-    assert scan_node_dict.get("db_name") == s.node.db_name
-    assert scan_node_dict.get("node_type") == "scan"
-    assert scan_node_dict.get("parent") == s.node.parent.db_name
+    assert scan_node_dict.get(b"name") == b"1_test_scan"
+    assert scan_node_dict.get(b"db_name") == s.node.db_name.encode()
+    assert scan_node_dict.get(b"node_type") == b"scan"
+    assert scan_node_dict.get(b"parent") == s.node.parent.db_name.encode()
 
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name + "_info")
-    assert pickle.loads(scan_info_dict["metadata"]) == 42
+    assert pickle.loads(scan_info_dict[b"metadata"]) == 42
 
     with gevent.Timeout(5):
         s.run()
@@ -82,14 +82,12 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     m0_node_db_name = s.node.db_name + ":roby"
     scan_children_node = [m0_node_db_name]
     m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
-    assert (
-        redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1)
-        == scan_children_node
-    )
-    assert (
-        redis_data_conn.lrange(m0_node_db_name + "_children_list", 0, -1)
-        == m0_children_node
-    )
+    assert redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1) == [
+        x.encode() for x in scan_children_node
+    ]
+    assert redis_data_conn.lrange(m0_node_db_name + "_children_list", 0, -1) == [
+        x.encode() for x in m0_children_node
+    ]
 
     for child_node_name in scan_children_node + m0_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
@@ -183,9 +181,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     assert len(channels_data["roby"]) == npts
     assert len(channels_data["diode"]) == npts
 
-    for n in DataNodeIterator(get_node(s.node.db_name)).walk_from_last(
-        filter="channel", wait=False
-    ):
+    x = DataNodeIterator(get_node(s.node.db_name))
+    print(x)
+    for n in x.walk_from_last(filter="channel", wait=False):
         assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
 

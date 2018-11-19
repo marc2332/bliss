@@ -54,6 +54,10 @@ import warnings
 
 warnings.simplefilter("once", DeprecationWarning)
 
+
+# Python 2 cmp builtin
+cmp = lambda a, b: int(a > b) - int(a < b)
+
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
 

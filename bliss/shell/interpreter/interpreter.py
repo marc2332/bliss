@@ -32,6 +32,9 @@ import imp
 
 jedi.settings.case_insensitive_completion = False
 
+# Python 2 cmp builtin
+cmp = lambda a, b: int(a > b) - int(a < b)
+
 
 class LogHandler(logging.Handler):
     def __init__(self, queue):

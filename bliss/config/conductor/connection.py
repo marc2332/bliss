@@ -39,7 +39,7 @@ def ip4_broadcast_addresses(default_route_only=False):
 
 def ip4_broadcast_discovery(udp):
     for addr in ip4_broadcast_addresses():
-        udp.sendto("Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+        udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
 
 
 def check_connect(func):
@@ -174,7 +174,7 @@ class Connection(object):
                 # send discovery
                 for addr in address_list:
                     try:
-                        udp.sendto("Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+                        udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
                     except socket.gaierror:
                         raise ConnectionException(
                             "Host `%s' is not found in DNS" % addr
@@ -188,7 +188,7 @@ class Connection(object):
                             # resend the packet, it may be lost!
                             for addr in address_list:
                                 udp.sendto(
-                                    "Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT)
+                                    b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT)
                                 )
                             continue
                         if self._host:
@@ -205,6 +205,7 @@ class Connection(object):
                     else:
                         msg, address = udp.recvfrom(8192)
                         host, port = msg.split(b"|")
+                        host = host.decode()
                         port = int(port)
 
                         if self._host == "localhost":

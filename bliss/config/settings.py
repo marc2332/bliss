@@ -42,6 +42,14 @@ def auto_coerce_from_redis(s):
     """Convert variable to a new type from the str representation"""
     if s is None:
         return None
+    # Default is unicode string
+    try:
+        if isinstance(s, bytes):
+            s = s.decode()
+    # Pickled data fails at first byte
+    except UnicodeDecodeError:
+        pass
+    # Cast to standard types
     for caster in (boolify, int, float):
         try:
             return caster(s)
@@ -151,7 +159,7 @@ def scan(match="*", count=1000, connection=None):
     while 1:
         cursor, values = connection.scan(cursor=cursor, match=match, count=count)
         for val in values:
-            yield val
+            yield val.decode()
         if int(cursor) == 0:
             break
 
@@ -541,6 +549,7 @@ class HashSetting(object):
     def get_all(self):
         all_dict = dict(self._default_values)
         for k, raw_v in self._raw_get_all().items():
+            k = k.decode()
             v = self._read_type_conversion(raw_v)
             if isinstance(v, InvalidValue):
                 raise ValueError(
@@ -611,6 +620,8 @@ class HashSetting(object):
         while True:
             next_id, pd = cnx.hscan(self._name, next_id)
             for k, v in pd.items():
+                # Add key conversion
+                k = k.decode()
                 if self._read_type_conversion:
                     v = self._read_type_conversion(v)
                 seen_keys.add(k)

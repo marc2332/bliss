@@ -435,7 +435,7 @@ class Icepap(Controller):
                 axis_data, _vdata_header(pvt["velocity"], axis, SLOPE)
             )
             h = hashlib.md5()
-            h.update(axis_data.tostring())
+            h.update(axis_data.tobytes())
             digest = h.hexdigest()
             if axis._trajectory_cache.value != digest:
                 data = numpy.append(data, axis_data)

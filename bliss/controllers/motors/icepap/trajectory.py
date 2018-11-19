@@ -198,7 +198,7 @@ class TrajectoryAxis(Axis):
                 axis_data, _vdata_header(parameter, axis, PARAMETER)
             )
             h = hashlib.md5()
-            h.update(axis_data.tostring())
+            h.update(axis_data.tobytes())
             digest = h.hexdigest()
             if axis._trajectory_cache.value != digest:
                 data = numpy.append(data, axis_data)

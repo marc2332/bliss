@@ -330,7 +330,7 @@ def create_objects_from_config_node(config, node):
         for axis_config in node.get("axes"):
             name = axis_config.get("name")
             if name is not None:
-                h.update(name)
+                h.update(name.encode())
         controller_name = h.hexdigest()
     controller_class = find_class(node, "bliss.controllers.motors")
     controller_module = sys.modules[controller_class.__module__]

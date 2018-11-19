@@ -261,6 +261,6 @@ def test_ttl_on_data_node(beacon, redis_data_conn):
 
     redis_data_conn.delete("testing")
     node = DataNode("test", "testing", create=True)
-    assert redis_data_conn.ttl("testing") == None
+    assert redis_data_conn.ttl("testing") == -1
     del node
     assert redis_data_conn.ttl("testing") == DataNode.default_time_to_live

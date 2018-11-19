@@ -404,8 +404,8 @@ class Scan(object):
         self._scan_info.setdefault("title", name)
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
-        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time"] = start_time
+        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
         scan_config = ScanSaving()

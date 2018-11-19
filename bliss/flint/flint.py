@@ -253,7 +253,7 @@ class Flint:
         beacon = get_default_connection()
         redis = beacon.get_redis_connection()
         key = get_flint_key()
-        current_value = redis.lindex(key, 0)
+        current_value = redis.lindex(key, 0).decode()
         value = session_name + " " + current_value.split()[-1]
         redis.lpush(key, value)
         redis.rpop(key)

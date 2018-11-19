@@ -89,7 +89,12 @@ class LivePlot1D(qt.QWidget):
 
     def set_y_axes(self, axis_names_list):
         self.y_axis_names = axis_names_list
-        plot_selected = self.redis_cnx.hgetall("%s:plot_select" % self._session_name)
+        raw_plot_selected = self.redis_cnx.hgetall(
+            "%s:plot_select" % self._session_name
+        )
+        plot_selected = {
+            key.decode(): value.decode() for key, value in raw_plot_selected.items()
+        }
         self.silx_plot.clearCurves()
         for x_row in range(self.axes_list_model.rowCount()):
             x_item = self.axes_list_model.item(x_row, 1)
@@ -377,9 +382,12 @@ class LiveScatterPlot(qt.QWidget):
             self.axes_list_model.appendRow([item_name, item_select_x, item_select_y])
 
     def set_z_axes(self, axis_names_list):
-        scatter_selected = self.redis_cnx.hgetall(
+        raw_scatter_selected = self.redis_cnx.hgetall(
             "%s:scatter_select" % self._session_name
         )
+        scatter_selected = {
+            key.decode(): value.decode() for key, value in raw_scatter_selected.items()
+        }
         already_select_one = False
         for axis_name in sorted(axis_names_list):
             item_name = qt.QStandardItem(axis_name)

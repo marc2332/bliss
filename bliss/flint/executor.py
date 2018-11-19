@@ -50,10 +50,8 @@ class QtExecutor(qt.QObject):
             return
         try:
             result = fn(*args, **kwargs)
-        except BaseException:
-            # Forward the traceback
-            _, exc, tb = sys.exc_info()
-            future.set_exception_info(exc, tb)
+        except BaseException as exc:
+            future.set_exception(exc)
         else:
             future.set_result(result)
 

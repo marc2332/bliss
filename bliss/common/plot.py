@@ -191,6 +191,7 @@ def check_flint(session_name):
     for key in redis.scan_iter(
         "flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))
     ):
+        key = key.decode()
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
@@ -218,7 +219,7 @@ def attach_flint(pid):
     # Current URL
     key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
     value = redis.brpoplpush(key, key, timeout=3000)
-    url = value.split()[-1]
+    url = value.decode().split()[-1]
 
     # Return flint proxy
     proxy = zerorpc.Client(url)

@@ -82,7 +82,7 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
         klass = module_info.get("class")
         if klass is None:
             module_name = module_info.get("name")
-            m = __import__(module_name, globals(), locals(), [""], -1)
+            m = __import__(module_name, globals(), locals(), [""], 0)
             classes = inspect.getmembers(
                 m,
                 lambda x: inspect.isclass(x)

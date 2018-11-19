@@ -195,6 +195,7 @@ class CT2(object):
         timer_ct = self.internal_timer_counter
         point_nb_ct = self.internal_point_nb_counter
         out_ct = self.output_counter
+        not_endless = not self.is_endless_acq
         acq_last_point = self.acq_nb_points - 1
 
         point_nb = -1
@@ -266,7 +267,7 @@ class CT2(object):
                     # clocks, so counter point_nb & latch are not properly
                     # synchronised, correct this effect
 
-                    if len(data) + point_nb > acq_last_point:
+                    if not_endless and (len(data) + point_nb > acq_last_point):
                         data = data[: acq_last_point - point_nb]
                     sys.stdout.flush()
                     if self.__acq_mode == AcqMode.SoftTrigReadout:
@@ -290,12 +291,12 @@ class CT2(object):
                 if got_data:
                     point_nb = data[-1][-1]
                 point_end = timer_end if int_trig_dead_time else (dma or got_data)
-                acq_end = point_end and (point_nb == acq_last_point)
+                acq_end = not_endless and point_end and (point_nb == acq_last_point)
                 # avoid extra pulse due to re-start of output counter at last point end
                 if out_ct and self.__has_int_trig() and point_end:
                     # int_trig_dead_time overrun -> point_nb already incremented
                     curr_point_nb = point_nb + (1 if not it_dt_overrun else 0)
-                    if curr_point_nb == acq_last_point:
+                    if not_endless and (curr_point_nb == acq_last_point):
                         ct_config = card_o.get_counter_config(out_ct)
                         ct_config["hard_start_source"] = card.CtHardStartSrc.SOFTWARE
                         card_o.set_counter_config(out_ct, ct_config)
@@ -345,6 +346,7 @@ class CT2(object):
         in_ct = self.input_counter
         out_gate_ch = self.output_channel
         out_ct = self.output_counter
+        not_endless = not self.is_endless_acq
 
         timer_clock_source = self.IntClockSrc[self.timer_freq]
 
@@ -400,9 +402,8 @@ class CT2(object):
             card_o.set_counter_comparator_value(in_ct, 1)
             card_o.enable_counters_software((in_ct,))
 
-        auto_restart = (self.__has_int_trig() or ext_trig_readout) and (
-            self.acq_nb_points > 1
-        )
+        multi_points = self.acq_nb_points != 1
+        auto_restart = (self.__has_int_trig() or ext_trig_readout) and multi_points
         stop_from_hard_stop = not auto_restart
 
         if self.__has_ext_start():
@@ -448,7 +449,8 @@ class CT2(object):
             stop_from_hard_stop=True,
         )
         card_o.set_counter_config(point_nb_ct, ct_config)
-        acq_nb_points = self.acq_nb_points + (1 if ext_trig_readout else 0)
+        extra_pulse = not_endless and ext_trig_readout
+        acq_nb_points = self.acq_nb_points + (1 if extra_pulse else 0)
         card_o.set_counter_comparator_value(point_nb_ct, acq_nb_points)
         # gen. IRQ on point_nb (soft) stop, so acq_loop ends during stop_acq
         irq_counters.append(point_nb_ct)
@@ -655,7 +657,9 @@ class CT2(object):
             point_nb = self._card.get_counter_value(point_nb_ct)
             self._card.stop_counters_software(counters)
             start = not self.__soft_started
-            restart = start or (point_nb < self.acq_nb_points - 1)
+            restart = (
+                start or self.is_endless_acq or (point_nb < self.acq_nb_points - 1)
+            )
         elif self.acq_mode == AcqMode.IntTrigMulti:
             counters_status = self._card.get_counters_status()
             if counters_status[counters[0]]["run"]:
@@ -841,6 +845,10 @@ class CT2(object):
         external = device_config.get("external sync", {})
         self.input_config = external.get("input", self.DefaultInputConfig)
         self.output_config = external.get("output", self.DefaultOutputConfig)
+
+    @property
+    def is_endless_acq(self):
+        return self.acq_nb_points == 0
 
 
 def __get_device_config(name):

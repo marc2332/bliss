@@ -298,22 +298,13 @@ class RoiCounters(object):
         self._proxy.clearAllRois()
 
     def keys(self):
-        return list(self._save_rois.keys())
+        return self._save_rois.keys()
 
     def values(self):
-        return list(self._save_rois.values())
+        return self._save_rois.values()
 
     def items(self):
-        return list(self._save_rois.items())
-
-    def iterkeys(self):
-        return iter(self._save_rois.keys())
-
-    def itervalues(self):
-        return iter(self._save_rois.values())
-
-    def iteritems(self):
-        return iter(self._save_rois.items())
+        return self._save_rois.items()
 
     def has_key(self, name):
         return name in self._save_rois

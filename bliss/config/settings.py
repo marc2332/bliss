@@ -567,12 +567,6 @@ class HashSetting(object):
         cnx = self._cnx()
         cnx.hdel(self._name, *keys)
 
-    def keys(self):
-        return list(self.keys())
-
-    def values(self):
-        return list(self.values())
-
     def clear(self):
         cnx = self._cnx()
         cnx.delete(self._name)
@@ -593,10 +587,6 @@ class HashSetting(object):
         if values:
             cnx.hmset(self._name, values)
 
-    def items(self):
-        values = self.get_all()
-        return [(k, v) for k, v in values.items()]
-
     @read_decorator
     def fromkeys(self, *keys):
         cnx = self._cnx()
@@ -606,15 +596,15 @@ class HashSetting(object):
         cnx = self._cnx()
         return cnx.hexists(self._name, key) or key in self._default_values
 
-    def iterkeys(self):
+    def keys(self):
         for k, v in self.items():
             yield k
 
-    def itervalues(self):
+    def values(self):
         for k, v in self.items():
             yield v
 
-    def iteritems(self):
+    def items(self):
         cnx = self._cnx()
         next_id = 0
         seen_keys = set()

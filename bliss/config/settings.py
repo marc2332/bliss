@@ -353,7 +353,7 @@ class QueueSetting(object):
     def remove(self, value, cnx=None):
         if cnx is None:
             cnx = self._cnx()
-        cnx.lrem(self._name, value)
+        cnx.lrem(self._name, 0, value)
 
     @write_decorator_multiple
     def set(self, values, cnx=None):

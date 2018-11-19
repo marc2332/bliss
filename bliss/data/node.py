@@ -109,7 +109,9 @@ def get_nodes(*db_names, **keys):
         data.name
         data.node_type
     return [
-        _get_node_object(node_type, db_name, None, connection)
+        _get_node_object(
+            None if node_type is None else node_type.decode(), db_name, None, connection
+        )
         if name is not None
         else None
         for db_name, (name, node_type) in zip(db_names, grouped(pipeline.execute(), 2))
@@ -224,7 +226,7 @@ class DataNodeIterator(object):
         pipeline = self.node.db_connection.pipeline()
         [pipeline.lrange(name, 0, -1) for name in children_queue]
         data_node_2_children = {
-            node_name: children
+            node_name: [child.decode() for child in children]
             for node_name, children in list(
                 zip(data_node_containers_names, pipeline.execute())
             )
@@ -294,8 +296,12 @@ class DataNodeIterator(object):
             filter = tuple(filter)
 
         for msg in pubsub.listen():
-            if msg["data"] == "rpush":
-                channel = msg["channel"]
+            if msg["type"] != "pmessage":
+                continue
+            data = msg["data"].decode()
+            channel = msg["channel"].decode()
+
+            if data == "rpush":
                 new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
                 if new_child_event:
                     parent_db_name = new_child_event.groups()[0]
@@ -316,8 +322,7 @@ class DataNodeIterator(object):
                             filter is None or channel_node.type in filter
                         ):
                             yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
-            elif msg["data"] == "lset":
-                channel = msg["channel"]
+            elif data == "lset":
                 new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                     channel
                 )
@@ -326,8 +331,7 @@ class DataNodeIterator(object):
                     channel_node = get_node(channel_db_name)
                     if channel_node and (filter is None or channel_node.type in filter):
                         yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
-            elif msg["data"] == "lrem":
-                channel = msg["channel"]
+            elif data == "lrem":
                 del_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
                 if del_child_event:
                     db_name = del_child_event.groups()[0]

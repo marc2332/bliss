@@ -235,13 +235,21 @@ class TangoTfg2(object):
         dead_pause = 0
         live_pause = 0
         trigger = self.TriggerNameList[pause_trigger["name"]]
+        edge = pause_trigger.get("edge", "rising")
         if pause_trigger.get("period", None) == "dead":
             dead_pause = trigger
+            if edge != "rising":  # then it's falling edge
+                dead_pause |= 32
         elif pause_trigger.get("period", None) == "live":
             live_pause = trigger
+            if edge != "rising":  # then it's falling edge
+                live_pause |= 32
         elif pause_trigger.get("period", None) == "both":
             dead_pause = trigger
             live_pause = trigger
+            if edge != "rising":  # then it's falling edge
+                dead_pause |= 32
+                live_pause |= 32
 
         inversion = 0
         drive_strength = 0
@@ -355,6 +363,7 @@ class TangoTfg2(object):
         args.extend(framesets)
         args.append(-1)
         self._control.set_timeout_millis(10000)
+        print(args)
         id = self._control.command_inout_asynch("setupGroups", args)
         self.__nframes = self._control.command_inout_reply(id, 8000)
 
@@ -376,21 +385,21 @@ class TangoTfg2(object):
     def __setup_trig(self, action, trigger_name, edge, debounce, threshold):
         trigger_nb = self.TriggerNameList.get(trigger_name)
         args = [
-            self.TrigOptions.get(action),
+            self.TrigOptions.get("now"),
             trigger_nb,  # trigger input number 1..16
             0,  # debounce value
             0,  # threshold value
             0,  # not used (Alternate trigger)
         ]
-        args[0] |= self.TrigOptions.get("now")
         if trigger_name == "Software":
             if action == "start":
                 self.__external_start = False
         else:
             if action == "start":
+                args[0] |= self.TrigOptions.get(action)
                 self.__external_start = True
-            if edge != "rising":  # then it's falling edge
-                args[0] |= self.TrigOptions.get("falling")
+                if edge != "rising":  # then it's falling edge
+                    args[0] |= self.TrigOptions.get("falling")
             if debounce != 0.0:
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("debounce") | self.TrigOptions.get(
@@ -405,6 +414,7 @@ class TangoTfg2(object):
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("threshold")
                     args[3] = threshold
+            print(args)
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):

@@ -87,7 +87,7 @@ class PosixGeventEventLoop(EventLoop):
         """
         self._running = False
         try:
-            os.write(self._schedule_pipe_write, "x")
+            os.write(self._schedule_pipe_write, b"x")
         except (AttributeError, IndexError, OSError):
             pass
 
@@ -154,6 +154,6 @@ class PosixGeventEventLoop(EventLoop):
 
             self._calls_from_executor.append(postpone)
         try:
-            os.write(self._schedule_pipe_write, "x")
+            os.write(self._schedule_pipe_write, b"x")
         except (AttributeError, IndexError, OSError):
             pass

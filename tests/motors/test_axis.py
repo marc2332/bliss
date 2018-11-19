@@ -85,19 +85,18 @@ def test_rmove(robz):
 
 def test_acceleration(robz):
     acc = robz.acceleration()
-
     assert robz.acctime() == pytest.approx(robz.velocity() / robz.acceleration())
 
     v = robz.velocity() / 2.0
     robz.velocity(v)
 
-    assert robz.acceleration() == acc
-    assert robz.acctime() == v / acc
+    assert robz.acceleration() == pytest.approx(acc)
+    assert robz.acctime() == pytest.approx(v / acc)
 
     robz.acctime(0.03)
-    assert robz.acceleration() == v / 0.03
+    assert robz.acceleration() == pytest.approx(v / 0.03)
 
-    assert robz.acceleration(from_config=True) == 300
+    assert robz.acceleration(from_config=True) == pytest.approx(300)
 
 
 def test_axis_set_acctime(roby):

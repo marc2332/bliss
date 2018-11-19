@@ -279,7 +279,9 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     def reading(self):
         from_index = 0
-        while self._nb_acq_points < self.npoints and not self._stop_flag:
+        while (
+            not self.npoints or self._nb_acq_points < self.npoints
+        ) and not self._stop_flag:
             data = self._read_data(from_index)
             if not all_equal([len(d) for d in data]):
                 raise RuntimeError("Read data can't have different sizes")

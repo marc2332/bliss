@@ -230,9 +230,8 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             )
         ):
             warnings.warn(
-                "IntegratingCounterAcquisitionDevice: npoints, \
-                          prepare_once or start_once flags will be overwritten\
-                          by master controller"
+                "IntegratingCounterAcquisitionDevice: npoints, prepare_once or "
+                "start_once flags will be overwritten by master controller"
             )
 
         reader, counters = _get_group_reader(counters_or_groupreadhandler)

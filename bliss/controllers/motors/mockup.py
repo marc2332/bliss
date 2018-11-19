@@ -206,9 +206,9 @@ class Mockup(Controller):
 
             _pos = self.read_position(axis) / float(axis.steps_per_unit)
 
-            if self.__encoders[encoder]["measured_noise"] > 0:
+            amplitude = self.__encoders[encoder]["measured_noise"]
+            if amplitude is not None and amplitude > 0:
                 # Simulates noisy encoder.
-                amplitude = self.__encoders[encoder]["measured_noise"]
                 noise_mm = random.uniform(-amplitude, amplitude)
 
                 _pos += noise_mm

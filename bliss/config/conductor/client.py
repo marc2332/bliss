@@ -28,6 +28,14 @@ class _StringIO(io.StringIO):
         pass
 
 
+class _BytesIO(io.BytesIO):
+    def __enter__(self, *args, **kwags):
+        return self
+
+    def __exit__(self, *args, **kwags):
+        pass
+
+
 def check_connection(func):
     def f(*args, **keys):
         keys["connection"] = keys.get("connection") or get_default_connection()
@@ -55,9 +63,9 @@ class Lock(object):
 
 
 def synchronized(**params):
-    """ 
+    """
     Synchronization decorator.
-    
+
     This is an helper to lock during the method call.
     :params are the lock's parameters (see Lock helper)
     """
@@ -99,7 +107,13 @@ def get_config_file(file_path, connection=None):
     return connection.get_config_file(file_path)
 
 
-def get_file(config_node, key, local=False, base_path=None, raise_on_none_path=True):
+def get_text_file(file_path, connection=None):
+    return get_config_file(file_path).decode()
+
+
+def get_file(
+    config_node, key, local=False, base_path=None, raise_on_none_path=True, text=False
+):
     """
     return an open file object in read only mode.
 
@@ -123,32 +137,32 @@ def get_file(config_node, key, local=False, base_path=None, raise_on_none_path=T
             path = os.path.join(base_path, path)
     elif raise_on_none_path:
         raise KeyError(key)
-    return _open_file(path, local)
+    return _open_file(path, local, text=text)
 
 
-def remote_open(file_path, local=False):
+def remote_open(file_path, local=False, text=False):
     """
     return an open file object in read only mode
-    
+
     :params file_path the full path to the file if None return an empty file
     :params local if set to True, just use python *open*
     """
-    return _open_file(file_path, local)
+    return _open_file(file_path, local, text=text)
 
 
-def _open_file(file_path, local):
+def _open_file(file_path, local, text=False):
     if file_path is None:
-        return _StringIO()
+        return _StringIO() if text else _BytesIO()
 
     if local:
-        return open(file_path)
+        return open(file_path, "r" if text else "rb")
 
     try:
         file_content = get_config_file(file_path.strip("/"))
     except RuntimeError:
-        return open(file_path)
+        return open(file_path, "r" if text else "rb")
     else:
-        return _StringIO(file_content)
+        return _StringIO(file_content.decode()) if text else _BytesIO(file_content)
 
 
 @check_connection

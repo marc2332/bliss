@@ -13,7 +13,7 @@ import os
 def test_config_save(beacon, beacon_directory):
     test_file_path = os.path.join(beacon_directory, "read_write.yml")
     rw_cfg = beacon.get_config("rw_test")
-    test_file_contents = client.get_config_file("read_write.yml")
+    test_file_contents = client.get_text_file("read_write.yml")
 
     with open(test_file_path, "r") as f:
         assert f.read() == test_file_contents

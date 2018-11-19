@@ -14,7 +14,7 @@ from treelib import Tree
 from bliss import setup_globals
 from bliss.config import static
 from bliss.common.utils import closable
-from bliss.config.conductor.client import get_config_file, get_python_modules, get_file
+from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 
 CURRENT_SESSION = None
 
@@ -54,7 +54,7 @@ class _StringImporter(object):
 
         filename = self._modules.get(fullname)
         if filename:
-            s_code = get_config_file(filename)
+            s_code = get_text_file(filename)
         else:
             filename = "%s (__init__ memory)" % fullname
             s_code = ""  # empty __init__.py
@@ -79,7 +79,7 @@ class _StringImporter(object):
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
-        return get_config_file(filename) if filename else ""
+        return get_text_file(filename) if filename else ""
 
 
 def load_script(env_dict, script_module_name, session=None):
@@ -115,7 +115,7 @@ def load_script(env_dict, script_module_name, session=None):
             if not filename:
                 raise RuntimeError("Cannot find module %s" % module_name)
 
-            s_code = get_config_file(filename)
+            s_code = get_text_file(filename)
             c_code = compile(s_code, filename, "exec")
 
             globals_dict = env_dict.copy()
@@ -391,7 +391,9 @@ class Session(object):
         if self.setup_file is None:
             return
 
-        with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
+        with get_file(
+            {"setup_file": self.setup_file}, "setup_file", text=True
+        ) as setup_file:
             code = compile(setup_file.read(), self.setup_file, "exec")
             exec(code, env_dict)
 

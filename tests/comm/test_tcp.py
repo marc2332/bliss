@@ -8,6 +8,7 @@
 import time
 import pytest
 import gevent
+from bliss.common.event import connect, disconnect
 
 
 def test_connect(command):
@@ -145,3 +146,35 @@ def test_external_runtimeerror(socket_delay):
     end_time = time.time()
     assert start_time + 0.1 == pytest.approx(end_time)
     assert not socket._connected
+
+
+def test_connection_socket_event(socket):
+    test_connect = dict()
+
+    def connection_cbk(value):
+        test_connect["connected"] = value
+
+    connect(socket, "connect", connection_cbk)
+    try:
+        socket.connect()
+        assert test_connect.get("connected")
+        socket.close()
+        assert test_connect.get("connected") == False
+    finally:
+        disconnect(socket, "connect", connection_cbk)
+
+
+def test_connection_command_event(command):
+    test_connect = dict()
+
+    def connection_cbk(value):
+        test_connect["connected"] = value
+
+    connect(command, "connect", connection_cbk)
+    try:
+        command.connect()
+        assert test_connect.get("connected")
+        command.close()
+        assert test_connect.get("connected") == False
+    finally:
+        disconnect(command, "connect", connection_cbk)

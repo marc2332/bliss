@@ -22,7 +22,6 @@ from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
 from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
-from bliss.data.edffile import EdfFile
 
 
 @pytest.fixture

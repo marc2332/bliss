@@ -94,7 +94,6 @@ def main():
 
     install_requires = [
         "redis >= 3",
-        "PyYaml",
         "netifaces < 0.10.5",
         "louie",
         "jinja2 >= 2.7",
@@ -109,7 +108,7 @@ def main():
         "six >= 1.10",
         "tabulate",
         "pyserial > 2",
-        "ruamel.yaml == 0.11.15",
+        "ruamel.yaml",
         "zerorpc",
         "msgpack_numpy <= 0.4.3.1",
         "blessings",

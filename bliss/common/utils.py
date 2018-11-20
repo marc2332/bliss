@@ -14,10 +14,7 @@ import functools
 import numpy
 from bliss.common.event import saferef
 
-try:
-    from collections import OrderedDict
-except ImportError:  # python2.6 compatibility
-    from ordereddict import OrderedDict
+from collections import OrderedDict
 
 
 class WrappedMethod(object):

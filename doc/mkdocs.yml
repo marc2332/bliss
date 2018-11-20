@@ -60,6 +60,7 @@ nav:
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Sampling and Integrating counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
+                - Testing: dev_testing.md
 theme:
         name: material
         language: en

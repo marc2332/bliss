@@ -278,8 +278,8 @@ class _StepTriggerMaster(AcquisitionMaster):
             raise TypeError(
                 "_StepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2..."
             )
-        self._motor_pos = list()
-        self._axes = list()
+        self._motor_pos = []
+        self._axes = []
         for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
             self._motor_pos.append(numpy.linspace(start, stop, nb_point))
@@ -300,11 +300,9 @@ class _StepTriggerMaster(AcquisitionMaster):
         return min((len(x) for x in self._motor_pos))
 
     def __iter__(self):
-        iter_pos = [iter(x) for x in self._motor_pos]
-        while True:
-            self.next_mv_cmd_arg = list()
-            for axis, pos in zip(self._axes, iter_pos):
-                self.next_mv_cmd_arg.extend((axis, next(pos)))
+        for positions in zip(*self._motor_pos):
+            for axis, position in zip(self._axes, positions):
+                self.next_mv_cmd_arg += [axis, position]
             yield self
 
     def prepare(self):
@@ -426,11 +424,9 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         return min((len(x) for x in self._motor_pos))
 
     def __iter__(self):
-        iter_pos = [iter(x) for x in self._motor_pos]
-        while True:
-            self.next_mv_cmd_arg = list()
-            for _axis, pos in zip(self._axes, iter_pos):
-                self.next_mv_cmd_arg.extend((_axis, next(pos)))
+        for positions in zip(*self._motor_pos):
+            for axis, position in zip(self._axes, positions):
+                self.next_mv_cmd_arg += [axis, position]
             yield self
 
     def prepare(self):
@@ -723,9 +719,8 @@ class SweepMotorMaster(AcquisitionMaster):
         return self._nb_points
 
     def __iter__(self):
-        iter_pos = iter(self.start_pos)
-        while True:
-            self.next_start_pos = next(iter_pos)
+        for start_pos in self.start_pos:
+            self.next_start_pos = start_pos
             yield self
 
     def prepare(self):

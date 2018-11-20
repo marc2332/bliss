@@ -18,6 +18,7 @@ import weakref
 import gevent
 from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
+from bliss.common.cleanup import capture_exceptions
 
 import serial
 
@@ -57,6 +58,8 @@ def try_open(fu):
             with KillMask():
                 self.open()
                 return fu(self, *args, **kwarg)
+        except gevent.Timeout:
+            raise
         except:
             try:
                 self.close()
@@ -98,36 +101,54 @@ class _BaseSerial:
 
     def _readline(self, eol):
         eol_pos = self._data.find(eol)
-        while eol_pos == -1:
-            try:
-                self._event.wait()
-                self._event.clear()
-            except SerialTimeout:
-                raise
-            except gevent.Timeout:
-                continue
-            eol_pos = self._data.find(eol)
+        with capture_exceptions() as capture:
+            while eol_pos == -1:
+                with capture():
+                    self._event.wait()
+                    self._event.clear()
 
-        msg = self._data[:eol_pos]
-        self._data = self._data[eol_pos + len(eol) :]
-        return msg
+                eol_pos = self._data.find(eol)
+
+                if capture.failed:
+                    other_exc = [
+                        x
+                        for _, x, _ in capture.failed
+                        if not isinstance(x, gevent.Timeout)
+                    ]
+                    if not other_exc:
+                        if eol_pos == -1:
+                            continue
+                    else:
+                        break
+
+            msg = self._data[:eol_pos]
+            self._data = self._data[eol_pos + len(eol) :]
+            return msg
 
     def read(self, size, timeout):
         with self._timeout_context(timeout):
             return self._read(size)
 
     def _read(self, size):
-        while len(self._data) < size:
-            try:
-                self._event.wait()
-                self._event.clear()
-            except SerialTimeout:
-                raise
-            except gevent.Timeout:
-                continue
-        msg = self._data[:size]
-        self._data = self._data[size:]
-        return msg
+        with capture_exceptions() as capture:
+            while len(self._data) < size:
+                with capture():
+                    self._event.wait()
+                    self._event.clear()
+                if capture.failed:
+                    other_exc = [
+                        x
+                        for _, x, _ in capture.failed
+                        if not isinstance(x, gevent.Timeout)
+                    ]
+                    if not other_exc:
+                        if len(self._data) < size:
+                            continue
+                    else:
+                        break
+            msg = self._data[:size]
+            self._data = self._data[size:]
+            return msg
 
     def write(self, msg, timeout):
         with self._timeout_context(timeout):

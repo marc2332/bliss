@@ -24,7 +24,7 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 from .util import HexMsg
 
-from bliss.common.cleanup import error_cleanup
+from bliss.common.cleanup import error_cleanup, capture_exceptions
 
 
 class SocketTimeout(CommunicationTimeout):
@@ -57,6 +57,8 @@ def try_connect_socket(fu):
         with KillMask():
             try:
                 return fu(self, *args, **kwarg)
+            except gevent.Timeout:
+                raise
             except:
                 try:
                     self.close()
@@ -185,20 +187,30 @@ class BaseSocket:
     @try_connect_socket
     def read(self, size=1, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
-        with gevent.Timeout(timeout or self._timeout, SocketTimeout(timeout_errmsg)):
-            while len(self._data) < size:
-                try:
-                    self._event.wait()
-                    self._event.clear()
-                except SocketTimeout:
-                    raise
-                except gevent.Timeout:
-                    continue
-                if not self._connected:
-                    raise socket.error(errno.EPIPE, "Broken pipe")
-        msg = self._data[:size]
-        self._data = self._data[size:]
-        return msg
+        with capture_exceptions() as capture:
+            with gevent.Timeout(
+                timeout or self._timeout, SocketTimeout(timeout_errmsg)
+            ):
+                while len(self._data) < size:
+                    with capture():
+                        self._event.wait()
+                        self._event.clear()
+                    if capture.failed:
+                        other_exc = [
+                            x
+                            for _, x, _ in capture.failed
+                            if not isinstance(x, gevent.Timeout)
+                        ]
+                        if not other_exc:
+                            if len(self._data) < size:
+                                continue
+                        else:
+                            break
+                    if not self._connected:
+                        raise socket.error(errno.EPIPE, "Broken pipe")
+            msg = self._data[:size]
+            self._data = self._data[size:]
+            return msg
 
     @try_connect_socket
     def readline(self, eol=None, timeout=None):
@@ -206,24 +218,36 @@ class BaseSocket:
 
     def _readline(self, eol=None, timeout=None):
         timeout_errmsg = "timeout on socket(%s, %d)" % (self._host, self._port)
-        with gevent.Timeout(timeout or self._timeout, SocketTimeout(timeout_errmsg)):
-            local_eol = eol or self._eol
-            eol_pos = self._data.find(local_eol)
-            while eol_pos == -1:
-                try:
-                    self._event.wait()
-                    self._event.clear()
-                except SocketTimeout:
-                    raise
-                except gevent.Timeout:
-                    continue
-                if not self._connected:
-                    raise socket.error(errno.EPIPE, "Broken pipe")
+        with capture_exceptions() as capture:
+            with gevent.Timeout(
+                timeout or self._timeout, SocketTimeout(timeout_errmsg)
+            ):
+                local_eol = eol or self._eol
                 eol_pos = self._data.find(local_eol)
+                while eol_pos == -1:
+                    with capture():
+                        self._event.wait()
+                        self._event.clear()
 
-        msg = self._data[:eol_pos]
-        self._data = self._data[eol_pos + len(local_eol) :]
-        return msg
+                    eol_pos = self._data.find(local_eol)
+
+                    if capture.failed:
+                        other_exc = [
+                            x
+                            for _, x, _ in capture.failed
+                            if not isinstance(x, gevent.Timeout)
+                        ]
+                        if not other_exc:
+                            if eol_pos == -1:
+                                continue
+                        else:
+                            break
+                    if not self._connected:
+                        raise socket.error(errno.EPIPE, "Broken pipe")
+
+            msg = self._data[:eol_pos]
+            self._data = self._data[eol_pos + len(local_eol) :]
+            return msg
 
     @try_connect_socket
     def write(self, msg, timeout=None):
@@ -356,6 +380,8 @@ def try_connect_command(fu):
         with KillMask():
             try:
                 return fu(self, *args, **kwarg)
+            except gevent.Timeout:
+                raise
             except:
                 try:
                     self.close()

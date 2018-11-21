@@ -315,16 +315,20 @@ class Connection(object):
     def get_redis_connection(self, db=0):
         cnx = self._redis_connection.get(db)
         if cnx is None:
-            host, port = self.get_redis_connection_address()
             executable = os.path.basename(sys.argv[0]).replace(os.path.sep, "")
             my_name = "{0}:{1}".format(executable, os.getpid())
-            if host != "localhost":
-                cnx = redis.Redis(host=host, port=port, db=db)
-            else:
-                cnx = redis.Redis(unix_socket_path=port, db=db)
+            cnx = self.create_redis_connection(db=db)
             cnx.client_setname(my_name)
             self._redis_connection[db] = cnx
         return cnx
+
+    def create_redis_connection(self, db=0, address=None):
+        if address is None:
+            address = self.get_redis_connection_address()
+        host, port = address
+        if host == "localhost":
+            return redis.Redis(unix_socket_path=port, db=db)
+        return redis.Redis(host=host, port=port, db=db)
 
     @check_connect
     def get_config_file(self, file_path, timeout=1.):

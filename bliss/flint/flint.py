@@ -31,14 +31,12 @@ from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import qt_safe
 from bliss.flint.executor import QtSignalQueue
 from bliss.config.conductor.client import get_default_connection
-from bliss.config.conductor.client import get_cache_address
+from bliss.config.conductor.client import get_cache as get_redis_connection
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook
-    from PyQt4 import QtGui
 except ImportError:
     from PyQt5.QtCore import pyqtRemoveInputHook
-    from PyQt5 import QtGui
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -97,8 +95,7 @@ def safe_rpc_server(obj):
 
 @contextlib.contextmanager
 def maintain_value(key, value):
-    beacon = get_default_connection()
-    redis = beacon.get_redis_connection()
+    redis = get_redis_connection()
     redis.lpush(key, value)
     try:
         yield
@@ -111,7 +108,6 @@ def get_flint_key():
 
 
 def background_task(flint, stop):
-    LivePlot1D.REDIS_CACHE = get_cache_address()
     key = get_flint_key()
     stop = concurrent_to_gevent(stop)
     with safe_rpc_server(flint) as (task, url):
@@ -209,6 +205,12 @@ class Flint:
         self._last_event = dict()
         self._refresh_task = None
 
+        connection = get_default_connection()
+        address = connection.get_redis_connection_address()
+        self._qt_redis_connection = qt_safe(connection.create_redis_connection)(
+            address=address
+        )
+
         def new_live_scan_plots():
             return {"0d": [], "1d": [], "2d": []}
 
@@ -250,8 +252,7 @@ class Flint:
 
         self._session_name = session_name
 
-        beacon = get_default_connection()
-        redis = beacon.get_redis_connection()
+        redis = get_redis_connection()
         key = get_flint_key()
         current_value = redis.lindex(key, 0).decode()
         value = session_name + " " + current_value.split()[-1]
@@ -300,7 +301,9 @@ class Flint:
                 scalars_plot_win = self.mdi_windows_dict.get(window_title)
                 if not scalars_plot_win:
                     scalars_plot_win = LivePlot1D(
-                        data_dict=self.data_dict, session_name=self._session_name
+                        data_dict=self.data_dict,
+                        session_name=self._session_name,
+                        redis_connection=self._qt_redis_connection,
                     )
                     scalars_plot_win.setWindowTitle(window_title)
                     scalars_plot_win.plot_id = next(self._id_generator)
@@ -321,7 +324,9 @@ class Flint:
                     scatter_plot_win = self.mdi_windows_dict.get(window_title)
                     if not scatter_plot_win:
                         scatter_plot_win = LiveScatterPlot(
-                            data_dict=self.data_dict, session_name=self._session_name
+                            data_dict=self.data_dict,
+                            session_name=self._session_name,
+                            redis_connection=self._qt_redis_connection,
                         )
                         scatter_plot_win.setWindowTitle(window_title)
                         scatter_plot_win.plot_id = next(self._id_generator)

@@ -6,21 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import warnings
-import logging
 import weakref
-import redis
 import numpy
 import re
 
-try:
-    from PyQt4.QtCore import pyqtRemoveInputHook
-except ImportError:
-    from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from silx.gui import plot as silx_plot
-    from silx.gui.plot.Colormap import Colormap
     from silx.gui import qt, colors
     from silx.gui.plot import LegendSelector
 
@@ -28,13 +21,11 @@ Plot1D = silx_plot.Plot1D
 
 
 class LivePlot1D(qt.QWidget):
-    REDIS_CACHE = None
-
     def __init__(self, *args, **kw):
         self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
-        self.redis_cnx = LivePlot1D.get_redis_connection()
+        self.redis_cnx = kw.pop("redis_connection")
 
         qt.QWidget.__init__(self, *args, **kw)
 
@@ -116,7 +107,6 @@ class LivePlot1D(qt.QWidget):
             x_select.setEditable(False)
             items = [item_name, x_select]
 
-            gb = qt.QButtonGroup(self)
             for k in range(1, 3):
                 item_select = qt.QStandardItem("")
                 item_select.setEditable(False)
@@ -125,7 +115,7 @@ class LivePlot1D(qt.QWidget):
                 if y_selected_axis == k:
                     item_select.setCheckState(qt.Qt.Checked)
                     legend = "%s -> %s" % (x_axis, axis_name)
-                    key = self.silx_plot.addCurve([], [], legend=legend, copy=False)
+                    self.silx_plot.addCurve([], [], legend=legend, copy=False)
                     curve = self.silx_plot.getCurve(legend)
                     curve.setYAxis("left" if k == 2 else "right")
                     curve.sigItemChanged.connect(self._refresh_legend)
@@ -313,20 +303,6 @@ class LivePlot1D(qt.QWidget):
     def addXMarker(self, *args, **kwargs):
         return self.silx_plot.addXMarker(*args, **kwargs)
 
-    @staticmethod
-    def get_redis_connection():
-        if LivePlot1D.REDIS_CACHE:
-            host, port = LivePlot1D.REDIS_CACHE
-            if host != "localhost":
-                return redis.Redis(host=host, port=port)
-            else:
-                return redis.Redis(unix_socket_path=port)
-        else:
-            raise RuntimeError(
-                "LivePlot1D is not initialized properly, missing \
-                               redis connection information (REDIS_CACHE)."
-            )
-
 
 # Ugly copy paste! Shame!
 
@@ -336,7 +312,7 @@ class LiveScatterPlot(qt.QWidget):
         self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
-        self.redis_cnx = LivePlot1D.get_redis_connection()
+        self.redis_cnx = kw.pop("redis_connection")
 
         qt.QWidget.__init__(self, *args, **kw)
 

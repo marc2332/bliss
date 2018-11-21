@@ -169,8 +169,7 @@ class Lima(object):
 
     def get_mapped_path(self, path):
         path = os.path.normpath(path)
-
-        for mapping in sorted(self.directories_mapping, reverse=True):
+        for mapping in reversed(self.directories_mapping):
             base_path = mapping["path"]
             replace_with = mapping["replace-with"]
             # os.path.commonprefix function is broken as it returns common

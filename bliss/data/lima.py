@@ -27,7 +27,7 @@ HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
-        DataArrayMagic = struct.unpack(">I", "DTAY")[0]
+        DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
 
         def __init__(self, data, from_index, to_index, from_stream=False):
             self.data = data
@@ -350,7 +350,7 @@ class LimaImageChannelDataNode(DataNode):
 
     def add_reference_data(self, ref_data):
         """Save reference data in database
-  
+
         In case of Lima, this corresponds to acquisition ref_data,
         in particular saving data
         """

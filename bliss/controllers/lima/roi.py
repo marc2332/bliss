@@ -77,7 +77,7 @@ class RoiStatCounter(IntegratingCounter):
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
         roi_id = self.controller._roi_ids[self.roi_name]
-        return self.roi_stat_id(roi_id, self.stat)
+        return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod
     def roi_stat_id(roi_id, stat):
@@ -126,7 +126,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         raw_data = self.controller._proxy.readCounters(from_index)
         if not raw_data.size:
             return len(counters) * (numpy.array(()),)
-        raw_data.shape = (raw_data.size) / roi_counter_size, roi_counter_size
+        raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
         result = OrderedDict([int(counter), []] for counter in counters)
 
         for roi_counter in raw_data:

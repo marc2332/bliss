@@ -223,6 +223,9 @@ Code to include an existing svg file:
 result:
 ![Screenshot](img/std_bpm.svg)
 
+!!! note
+    To avoir fonts problems with svg files, texts can be converted to
+    pathes. Select all and use Shift-Ctrl-C in Inkscape for example.
 
 #### Bitmap
 

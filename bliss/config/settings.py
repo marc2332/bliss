@@ -67,8 +67,8 @@ def pickle_loads(var):
         return InvalidValue()
 
 
-def get_cache():
-    return client.get_cache(db=0)
+def get_redis_connection():
+    return client.get_redis_connection(db=0)
 
 
 def ttl_func(cnx, name, value=-1):
@@ -154,7 +154,7 @@ def write_decorator(func):
 
 def scan(match="*", count=1000, connection=None):
     if connection is None:
-        connection = get_cache()
+        connection = get_redis_connection()
     cursor = 0
     while 1:
         cursor, values = connection.scan(cursor=cursor, match=match, count=count)
@@ -174,7 +174,7 @@ class SimpleSetting(object):
         default_value=None,
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -264,7 +264,7 @@ class SimpleSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._default_value = default_value
@@ -313,7 +313,7 @@ class QueueSetting(object):
         write_type_conversion=str,
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -461,7 +461,7 @@ class QueueSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._use_object_name = use_object_name
@@ -505,7 +505,7 @@ class HashSetting(object):
         default_values={},
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -669,7 +669,7 @@ class HashSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._default_values = default_values

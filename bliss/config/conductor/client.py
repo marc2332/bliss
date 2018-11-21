@@ -98,7 +98,7 @@ def get_cache_address(connection=None):
 
 
 @check_connection
-def get_cache(db=0, connection=None):
+def get_redis_connection(db=0, connection=None):
     return connection.get_redis_connection(db=db)
 
 

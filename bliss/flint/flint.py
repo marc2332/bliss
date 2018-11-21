@@ -31,7 +31,7 @@ from bliss.flint.executor import concurrent_to_gevent
 from bliss.flint.executor import qt_safe
 from bliss.flint.executor import QtSignalQueue
 from bliss.config.conductor.client import get_default_connection
-from bliss.config.conductor.client import get_cache as get_redis_connection
+from bliss.config.conductor.client import get_redis_connection
 
 try:
     from PyQt4.QtCore import pyqtRemoveInputHook

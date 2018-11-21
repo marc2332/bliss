@@ -102,7 +102,7 @@ def get_node(db_name, connection=None):
 def get_nodes(*db_names, **keys):
     connection = keys.get("connection")
     if connection is None:
-        connection = client.get_cache(db=1)
+        connection = client.get_redis_connection(db=1)
     pipeline = connection.pipeline()
     for db_name in db_names:
         data = Struct(db_name, connection=pipeline)
@@ -120,13 +120,13 @@ def get_nodes(*db_names, **keys):
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
-        connection = client.get_cache(db=1)
+        connection = client.get_redis_connection(db=1)
     return _get_node_object(node_type, name, parent, connection, create=True, **keys)
 
 
 def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
-        connection = client.get_cache(db=1)
+        connection = client.get_redis_connection(db=1)
     db_name = DataNode.exists(name, parent, connection)
     if db_name:
         return get_node(db_name, connection=connection)
@@ -368,7 +368,7 @@ class DataNode(object):
     @staticmethod
     def exists(name, parent=None, connection=None):
         if connection is None:
-            connection = client.get_cache(db=1)
+            connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
         return db_name if connection.exists(db_name) else None
 
@@ -377,7 +377,7 @@ class DataNode(object):
     ):
         info_dict = keys.pop("info", {})
         if connection is None:
-            connection = client.get_cache(db=1)
+            connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
         self._data = Struct(db_name, connection=connection)
         info_hash_name = "%s_info" % db_name
@@ -444,7 +444,7 @@ class DataNode(object):
 
     def set_ttl(self):
         db_names = set(self._get_db_names())
-        redis_conn = client.get_cache(db=1)
+        redis_conn = client.get_redis_connection(db=1)
         pipeline = redis_conn.pipeline()
         for name in db_names:
             pipeline.expire(name, DataNode.default_time_to_live)

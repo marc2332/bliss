@@ -13,8 +13,8 @@ import gevent
 from bliss.common.tango import DeviceProxy
 from bliss.common.task import task
 from bliss.data.node import DataNode
-from bliss.config.settings import HashSetting, QueueObjSetting
-from bliss.data.edffile import EdfFile
+from bliss.config.settings import QueueObjSetting
+from silx.third_party.EdfFile import EdfFile
 
 try:
     import h5py

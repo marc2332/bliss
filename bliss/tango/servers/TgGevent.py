@@ -15,6 +15,9 @@ import atexit
 import gevent
 import functools
 
+# Gevent compatibility
+_threading.Event = _threading.monkey.get_original("threading", "Event")
+
 main_queue = _threading.Queue()
 gevent_thread_lock = _threading.Lock()
 gevent_thread_started = _threading.Event()

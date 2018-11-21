@@ -8,7 +8,8 @@
 
 import sys
 import tango
-import TgGevent
+
+from bliss.tango.servers import TgGevent
 from bliss.controllers.temperature.eurotherm import nanodac
 
 

@@ -26,10 +26,8 @@ import io
 import functools
 import itertools
 import traceback
-import collections
 import pickle
 import base64
-import datetime
 
 import six
 import gevent

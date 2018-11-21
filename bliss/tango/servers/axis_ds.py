@@ -26,7 +26,6 @@ import os
 import sys
 import time
 import traceback
-import types
 import json
 import itertools
 
@@ -1310,10 +1309,8 @@ def initialize_bliss(info, db=None):
 
 def __create_tango_axis_class(axis):
     BlissAxisClass = BlissAxis.TangoClassClass
-    new_axis_class_class = types.ClassType(
-        "BlissAxisClass_%s" % axis.name, (BlissAxisClass,), {}
-    )
-    new_axis_class = types.ClassType("BlissAxis_%s" % axis.name, (BlissAxis,), {})
+    new_axis_class_class = type("BlissAxisClass_%s" % axis.name, (BlissAxisClass,), {})
+    new_axis_class = type("BlissAxis_%s" % axis.name, (BlissAxis,), {})
     new_axis_class.TangoClassName = "BlissAxis_%s" % axis.name
     new_axis_class.TangoClassClass = new_axis_class_class
 

@@ -878,7 +878,6 @@ class Scan(object):
             return ImagePlot(existing_id=plot_id)
 
     def _next_scan_number(self):
-        redis = client.get_cache(db=1)
         filename = self.writer.filename
         last_filename = self.__scan_saving._last_scan_file
         last_scan_number = self.__scan_saving._last_scan_number

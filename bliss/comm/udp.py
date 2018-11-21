@@ -53,7 +53,7 @@ class Udp(object):
     def __new__(cls, url=None, **keys):
         # for now only one udp class
         # no need to test...
-        parse = re.compile("^(socket://)?([^:/]+?):([0-9]+)$")
+        parse = re.compile(r"^(socket://)?([^:/]+?):([0-9]+)$")
         match = parse.match(url)
         if match is None:
             raise UdpError("Socket: url is not valid (%s)" % url)

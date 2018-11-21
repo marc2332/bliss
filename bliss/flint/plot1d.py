@@ -415,7 +415,7 @@ class LiveScatterPlot(qt.QWidget):
         """
         In this method, we will guess motors position ranges
         """
-        scan_name = re.compile("^(d|a?)\w+?\s+")
+        scan_name = re.compile(r"^(d|a?)\w+?\s+")
         mot_name_params = re.compile(
             "(\w+)\s+(-?\d+\.\d+|-?\d+)\s+(-?\d+\.\d+|-?\d+)\s(\d+)"
         )

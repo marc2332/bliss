@@ -379,12 +379,12 @@ class Icepap(Controller):
     def get_event_positions(self, axis_or_encoder):
         """
         For this controller this method should be use
-        for debugging purposed only... 
+        for debugging purposed only...
         """
         address = axis_or_encoder.address
         # Get the number of positions
         reply = _command(self._cnx, "%d:?ECAMDAT" % address)
-        reply_exp = re.compile("(\w+) +([+-]?\d+) +([+-]?\d+) +(\d+)")
+        reply_exp = re.compile(r"(\w+) +([+-]?\d+) +([+-]?\d+) +(\d+)")
         m = reply_exp.match(reply)
         if m is None:
             raise RuntimeError("Reply Didn't expected: %s" % reply)
@@ -398,7 +398,7 @@ class Icepap(Controller):
 
         positions = numpy.zeros((nb,), dtype=numpy.int32)
         if nb > 0:
-            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply_exp = re.compile(r".+: +([+-]?\d+)")
             reply = _command(self._cnx, "%d:?ECAMDAT %d" % (address, nb))
             for i, line in enumerate(reply.split("\n")):
                 m = reply_exp.match(line)
@@ -529,7 +529,7 @@ class Icepap(Controller):
         address = axis.address
         # Get the number of positions
         reply = _command(self._cnx, "%d:?LISTDAT" % address)
-        reply_exp = re.compile("(\d+) *(\w+)?")
+        reply_exp = re.compile(r"(\d+) *(\w+)?")
         m = reply_exp.match(reply)
         if m is None:
             raise RuntimeError("Reply didn't expected: %s" % reply)
@@ -537,7 +537,7 @@ class Icepap(Controller):
         positions = numpy.zeros((nb,), dtype=numpy.int32)
         cyclic = True if m.group(2) == "CYCLIC" else False
         if nb > 0:
-            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply_exp = re.compile(r".+: +([+-]?\d+)")
             reply = _command(self._cnx, "%d:?LISTDAT %d" % (address, nb))
             for i, line in enumerate(reply.split("\n")):
                 m = reply_exp.match(line)
@@ -599,7 +599,7 @@ class Icepap(Controller):
         self._cnx.close()
 
 
-_check_reply = re.compile("^[#?]|^[0-9]+:\?")
+_check_reply = re.compile(r"^[#?]|^[0-9]+:\?")
 PARAMETER, POSITION, SLOPE = (0x1000, 0x2000, 0x4000)
 
 

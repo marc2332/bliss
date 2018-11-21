@@ -98,7 +98,7 @@ class Switch(BaseSwitch):
 
     def _get(self):
         reply = _command(self.__controller._cnx, "?PMUX")
-        pattern = re.compile(".+B([0-9]+) +E%d" % self.__rack_connector_id)
+        pattern = re.compile(r".+B([0-9]+) +E%d" % self.__rack_connector_id)
         for line in reply.split("\n"):
             m = pattern.match(line)
             if m:

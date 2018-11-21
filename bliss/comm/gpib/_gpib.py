@@ -89,7 +89,7 @@ class Enet(EnetSocket):
     def __init__(self, cnt, **keys):
         EnetSocket.__init__(self, None)  # Don't use the socket connection
         url = keys.pop("url")
-        url_parse = re.compile("^(enet://)?([^:/]+):?([0-9]*)$")
+        url_parse = re.compile(r"^(enet://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
             raise EnetError("Enet: url is not valid (%s)" % url)
@@ -129,7 +129,7 @@ class Prologix:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         url = keys.pop("url")
-        url_parse = re.compile("^(prologix://)?([^:/]+):?([0-9]*)$")
+        url_parse = re.compile(r"^(prologix://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
             raise PrologixError("Inet: url is not valid (%s)" % url)
@@ -272,7 +272,7 @@ class LocalGpibError(GpibError):
 
 class LocalGpib(object):
 
-    URL_RE = re.compile("^(local://)?([0-9]{1,2})$")
+    URL_RE = re.compile(r"^(local://)?([0-9]{1,2})$")
 
     def __init__(self, cnt, **keys):
         url = keys.pop("url")

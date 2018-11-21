@@ -1584,7 +1584,7 @@ class AxisState(object):
     """
 
     #: state regular expression validator
-    STATE_VALIDATOR = re.compile("^[A-Z0-9]+\s*$")
+    STATE_VALIDATOR = re.compile(r"^[A-Z0-9]+\s*$")
 
     _STANDARD_STATES = {
         "READY": "Axis is READY",
@@ -1768,7 +1768,7 @@ class AxisState(object):
         # (copy constructor)
         if "(" in state:
             full_states = [s.strip() for s in state.split("|")]
-            p = re.compile("^([A-Z0-9]+)\s\((.+)\)", re.DOTALL)
+            p = re.compile(r"^([A-Z0-9]+)\s\((.+)\)", re.DOTALL)
             for full_state in full_states:
                 m = p.match(full_state)
                 try:

@@ -20,7 +20,7 @@ def camel_to_snake(camelCasedStr):
     This function converts to snake_case from camelCase
     """
     first_cap_re = re.compile(r"(.)([A-Z][a-z]+)")
-    all_cap_re = re.compile("([a-z0-9])([A-Z])")
+    all_cap_re = re.compile(r"([a-z0-9])([A-Z])")
     sub1 = first_cap_re.sub(r"\1_\2", camelCasedStr)
     snake_cased_str = all_cap_re.sub(r"\1_\2", sub1).lower()
     return snake_cased_str.replace("__", "_")

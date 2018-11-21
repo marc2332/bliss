@@ -135,8 +135,8 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 
 
 class DataNodeIterator(object):
-    NEW_CHILD_REGEX = re.compile("^__keyspace@.*?:(.*)_children_list$")
-    NEW_DATA_IN_CHANNEL_REGEX = re.compile("^__keyspace@.*?:(.*)_data$")
+    NEW_CHILD_REGEX = re.compile(r"^__keyspace@.*?:(.*)_children_list$")
+    NEW_DATA_IN_CHANNEL_REGEX = re.compile(r"^__keyspace@.*?:(.*)_data$")
     NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = list(range(2))
 
     def __init__(self, node, last_child_id=None):

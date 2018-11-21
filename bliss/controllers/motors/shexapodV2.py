@@ -321,7 +321,7 @@ class HexapodProtocolV2(BaseHexapodProtocol):
     #: Reply is either:
     #: <CMD>:<CODE>
     #: <CMD>:<CODE>,<DATA>
-    REPLY_RE = re.compile("(?P<cmd>[^:]+)\:(?P<code>[+\-0-9]+)(?P<data>.*)$")
+    REPLY_RE = re.compile(r"(?P<cmd>[^:]+)\:(?P<code>[+\-0-9]+)(?P<data>.*)$")
 
     SYSTEM_STATUS_FIELDS = (
         "error",

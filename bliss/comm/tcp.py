@@ -677,14 +677,14 @@ class Tcp(object):
 
     def __new__(cls, url=None, **keys):
         if url.lower().startswith("command://"):
-            parse = re.compile("^(command://)([^:/]+?):([0-9]+)$")
+            parse = re.compile(r"^(command://)([^:/]+?):([0-9]+)$")
             match = parse.match(url)
             if match is None:
                 raise TcpError("Command: url is not valid (%s)" % url)
             host, port = match.group(2), int(match.group(3))
             return Command(host, port, **keys)
         else:
-            parse = re.compile("^(socket://)?([^:/]+?):([0-9]+)$")
+            parse = re.compile(r"^(socket://)?([^:/]+?):([0-9]+)$")
             match = parse.match(url)
             if match is None:
                 raise TcpError("Socket: url is not valid (%s)" % url)

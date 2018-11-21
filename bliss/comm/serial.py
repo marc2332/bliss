@@ -28,7 +28,7 @@ except ImportError:
     pass
 else:
     # import all rfc2217 protol keys in this module
-    key_match = re.compile("^[A-Z_]+$")
+    key_match = re.compile(r"^[A-Z_]+$")
     pro_keys_dict = dict(
         [(x, rfc2217.__dict__[x]) for x in dir(rfc2217) if key_match.match(x)]
     )
@@ -282,7 +282,7 @@ class RFC2217(_BaseSerial):
         # RFC 2217 flow control between server and client
         self._remote_suspend_flow = False
 
-        port_parse = re.compile("^(rfc2217://)?([^:/]+?):([0-9]+)$")
+        port_parse = re.compile(r"^(rfc2217://)?([^:/]+?):([0-9]+)$")
         match = port_parse.match(port)
         if match is None:
             raise RFC2217Error("port is not a valid url (%s)" % port)
@@ -514,7 +514,7 @@ class SER2NETError(SerialError):
 class SER2NET(RFC2217):
     def __init__(self, cnt, **keys):
         port = keys.pop("port")
-        port_parse = re.compile("^(ser2net://)?([^:/]+?):([0-9]+)(.+)$")
+        port_parse = re.compile(r"^(ser2net://)?([^:/]+?):([0-9]+)(.+)$")
         match = port_parse.match(port)
         if match is None:
             raise SER2NETError("port is not a valid url (%s)" % port)
@@ -523,7 +523,7 @@ class SER2NET(RFC2217):
         rx = comm.write_readline(msg)
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg) :]
-        port_parse = re.compile("^([0-9]+).+?%s" % match.group(4))
+        port_parse = re.compile(r"^([0-9]+).+?%s" % match.group(4))
         rfc2217_port = None
         for line in rx.split("\r\n"):
             g = port_parse.match(line)

@@ -5,84 +5,54 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
+from bliss.config.conductor import client
 import pytest
 import os
 
-test_cfg = """name: rw_test
-test: this is just a test.
-# this is a comment!
-one:
-- pink: martini
-  red: apples #this one will change
-  blue: berry
-two:
-- a: true
-  b: false
-  c: null
-"""
 
-test_cfg2 = """name: rw_test
-test: this is just a test.
-# this is a comment!
-one:
-- pink: martini
-  red: strawberry #this one will change
-  blue: berry
-two:
-- a: true
-  b: false
-  c:
-"""
-
-TEST_FILE_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "test_configuration", "read_write.yml"
-)
-
-
-@pytest.mark.xfail
-def test_config_save(beacon):
+def test_config_save(beacon, beacon_directory):
+    test_file_path = os.path.join(beacon_directory, "read_write.yml")
     rw_cfg = beacon.get_config("rw_test")
+    test_file_contents = client.get_config_file("read_write.yml")
 
-    # would be better to ask beacon to get file contents dump
-    with open(TEST_FILE_PATH, "r") as f:
-        assert f.read() == test_cfg
+    with open(test_file_path, "r") as f:
+        assert f.read() == test_file_contents
+
+    assert rw_cfg["one"][0]["pink"] == "martini"
+    assert rw_cfg["one"][0]["red"] == "apples"
 
     rw_cfg["one"][0]["red"] = "strawberry"
-
-    rw_cfg.save()
-
-    beacon.reload()
-
-    rw_cfg2 = beacon.get_config("rw_test")
-
-    assert rw_cfg2["one"][0]["red"] == "strawberry"
+    rw_cfg["one"][0]["pink"] = "raspberry"
 
     try:
-        with open(TEST_FILE_PATH, "r") as f:
-            assert f.read() == test_cfg2
-    finally:
-        rw_cfg2["one"][0]["red"] = "apples"
+        rw_cfg.save()
 
-        rw_cfg2.save()
+        beacon.reload()
+
+        rw_cfg2 = beacon.get_config("rw_test")
+
+        assert id(rw_cfg2) != id(rw_cfg)
+        assert rw_cfg2["one"][0]["red"] == "strawberry"
+        assert rw_cfg2["one"][0]["pink"] == "raspberry"
+    finally:
+        with open(test_file_path, "w") as f:
+            f.write(test_file_contents)
 
 
 def test_empty_yml(beacon, beacon_directory):
-    import subprocess
+    new_file = "%s/toto.yml" % beacon_directory
 
-    subprocess.call(['echo " " > %s/toto.yml' % beacon_directory], shell=True)
+    try:
+        with open(new_file, "w") as f:
+            f.write(" ")
 
-    # before patch empty YML:
-    # assert pytest.raises(AttributeError, beacon.reload)
+        assert pytest.raises(RuntimeError, beacon.reload)
 
-    # after patch empty YML: assert pytest.raises(AttributeError, beacon.reload)
-    assert pytest.raises(RuntimeError, beacon.reload)
-
-    with pytest.raises(RuntimeError) as e_info:
-        beacon.reload()
-    assert "filename" in str(e_info.value)
-
-    subprocess.call(["rm -f %s/toto.yml" % beacon_directory], shell=True)
+        with pytest.raises(RuntimeError) as e_info:
+            beacon.reload()
+        assert "filename" in str(e_info.value)
+    finally:
+        os.unlink(new_file)
 
 
 def test_references(beacon):

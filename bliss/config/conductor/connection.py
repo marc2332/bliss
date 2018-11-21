@@ -42,6 +42,18 @@ def ip4_broadcast_discovery(udp):
         udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
 
 
+def compare_hosts(host1, host2):
+    if host1 == host2:
+        return True
+    if host1 == "localhost" and host2 == socket.gethostname():
+        return True
+    if host2 == "localhost" and host1 == socket.gethostname():
+        return True
+    if socket.gethostbyname(host1) == socket.gethostbyname(host2):
+        return True
+    return False
+
+
 def check_connect(func):
     def f(self, *args, **keys):
         self.connect()
@@ -131,7 +143,8 @@ class Connection(object):
         self._host = host
         self._port = port
         self._pending_lock = {}
-        self._g_event = event.Event()
+        self._uds_query_event = event.Event()
+        self._redis_query_event = event.Event()
         self._message_key = 0
         self._message_queue = {}
         self._redis_connection = {}
@@ -148,108 +161,112 @@ class Connection(object):
             self._raw_read_task.join()
             self._raw_read_task = None
 
-    def connect(self):
-        host = self._host
-        port = self._port
+    @property
+    def uds(self):
         try:
-            int(port)
-        except TypeError:  # port == None
-            uds = False
+            int(self._port)
         except ValueError:
-            uds = True
+            return self._port
         else:
-            uds = False
+            return None
 
-        if self._fd is None:
-            if (host is None or port is None) and not uds:
-                udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                if host is not None:
-                    address_list = [host]
-                else:
-                    address_list = ip4_broadcast_addresses(True)
+    def connect(self):
+        # Already connected
+        if self._fd is not None:
+            return
 
-                timeout = 3.
-                started_time = time.time()
-                # send discovery
-                for addr in address_list:
-                    try:
-                        udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
-                    except socket.gaierror:
-                        raise ConnectionException(
-                            "Host `%s' is not found in DNS" % addr
-                        )
+        # Address undefined
+        if self._port is None or self._host is None:
+            self._host, self._port = self._discovery(self._host)
 
-                while 1:
-                    rlist, _, _ = select.select([udp], [], [], 0.2)
-                    if not rlist:
-                        current_time = time.time()
-                        if (current_time - started_time) < timeout:
-                            # resend the packet, it may be lost!
-                            for addr in address_list:
-                                udp.sendto(
-                                    b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT)
-                                )
-                            continue
-                        if self._host:
-                            _msg = (
-                                "Conductor server on host `%s' does not reply"
-                                % self._host
-                            )
-                            _msg += " (check Beacon server)"
-                            raise RuntimeError(_msg)
-                        else:
-                            _msg = "Could not find any conductor"
-                            _msg += " (check Beacon server and BEACON_HOST environment variable)"
-                            raise RuntimeError(_msg)
-                    else:
-                        msg, address = udp.recvfrom(8192)
-                        host, port = msg.split(b"|")
-                        host = host.decode()
-                        port = int(port)
+        # UDS connection
+        if self.uds:
+            self._fd = self._uds_connect(self.uds)
+        # TCP connection
+        else:
+            self._fd = self._tcp_connect(self._host, self._port)
 
-                        if self._host == "localhost":
-                            localhost = socket.gethostname()
-                            if localhost == host:
-                                break
-                        elif (
-                            self._host is not None
-                            and host != self._host
-                            and socket.gethostbyname(host)
-                            != socket.gethostbyname(self._host)
-                        ):
-                            host, port = None, None
-                            timeout = 1.
-                        else:
-                            break
-                self._host = host
-                self._port = port
+        # Spawn read task
+        self._raw_read_task = gevent.spawn(self._raw_read)
 
-            if uds:
-                self._fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                self._fd.connect(port)
-            else:
-                self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                try:
-                    self._fd.connect((host, port))
-                except:
-                    _msg = "Conductor server on host `%s:%s' does not reply" % (
-                        host,
-                        port,
+        # Run the UDS query
+        if not self.uds:
+            self._uds_query()
+
+    def _discovery(self, host, timeout=3.):
+        # Manage timeout
+        if timeout < 0:
+            if host is not None:
+                raise RuntimeError(
+                    "Conductor server on host `{}' does not reply (check beacon server)".format(
+                        host
                     )
-                    _msg += " (Check Beacon server)"
-                    raise RuntimeError(_msg)
-
-            self._raw_read_task = gevent.spawn(self._raw_read)
-
-            if not uds:
-                self._g_event.clear()
-                self._fd.sendall(
-                    protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
                 )
-                self._g_event.wait(1.)
+            raise RuntimeError(
+                "Could not find any conductor "
+                "(check Beacon server and BEACON_HOST environment variable)"
+            )
+        started = time.time()
+
+        # Create UDP socket
+        udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        udp.settimeout(0.2)
+
+        # Send discovery
+        address_list = [host] if host is not None else ip4_broadcast_addresses(True)
+        for addr in address_list:
+            try:
+                udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+            except socket.gaierror:
+                raise ConnectionException("Host `%s' is not found in DNS" % addr)
+
+        # Loop over UDP messages
+        try:
+            for message in iter(lambda: udp.recv(8192), None):
+
+                # Decode message
+                raw_host, raw_port = message.split(b"|")
+                received_host = raw_host.decode()
+                received_port = int(raw_port.decode())
+
+                # Received host doesn't match the host
+                if host is not None and not compare_hosts(host, received_host):
+                    continue
+
+                # A matching host has been found
+                return received_host, received_port
+
+        # Try again
+        except socket.timeout:
+            timeout -= time.time() - started
+            return self._discovery(host, timeout=timeout)
+
+    def _tcp_connect(self, host, port):
+        fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        try:
+            fd.connect((host, port))
+        except IOError:
+            raise RuntimeError(
+                "Conductor server on host `{}:{}' does not reply (check beacon server)".format(
+                    host, port
+                )
+            )
+        return fd
+
+    def _uds_connect(self, uds_path):
+        fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        fd.connect(uds_path)
+        return fd
+
+    def _uds_query(self, timeout=1.):
+        self._uds_query_event.clear()
+        self._fd.sendall(
+            protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
+        )
+        self._uds_query_event.wait(timeout)
 
     @check_connect
     def lock(self, devices_name, **params):
@@ -299,15 +316,15 @@ class Connection(object):
             self._greenlet_to_lockobjects.pop(gevent.getcurrent(), None)
 
     @check_connect
-    def get_redis_connection_address(self):
+    def get_redis_connection_address(self, timeout=1.):
         if self._redis_host is None:
             with gevent.Timeout(
-                1, RuntimeError("Can't get redis connection information")
+                timeout, RuntimeError("Can't get redis connection information")
             ):
                 while self._redis_host is None:
-                    self._g_event.clear()
+                    self._redis_query_event.clear()
                     self._fd.sendall(protocol.message(protocol.REDIS_QUERY))
-                    self._g_event.wait()
+                    self._redis_query_event.wait()
 
         return self._redis_host, self._redis_port
 
@@ -516,22 +533,21 @@ class Connection(object):
                             host, port = message.split(b":")
                             self._redis_host = host.decode()
                             self._redis_port = port.decode()
-                            self._g_event.set()
+                            self._redis_query_event.set()
                         elif messageType == protocol.UDS_OK:
                             try:
-                                fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                                fd.connect(message)
+                                uds_path = message.decode()
+                                fd = self._uds_connect(uds_path)
                             except socket.error:
-                                sys.excepthook(*sys.exc_info())
+                                raise
                             else:
-                                # replace tcp connection by UDS connection
                                 self._fd.close()
                                 self._fd = fd
-                                self._port = message
+                                self._port = uds_path
                             finally:
-                                self._g_event.set()
+                                self._uds_query_event.set()
                         elif messageType == protocol.UDS_FAILED:
-                            self._g_event.set()
+                            self._uds_query_event.set()
                         elif messageType == protocol.UNKNOW_MESSAGE:
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -540,7 +556,6 @@ class Connection(object):
                             )
                             if queue is not None:
                                 queue.put(error)
-                            self._g_event.set()
                     except:
                         sys.excepthook(*sys.exc_info())
         except socket.error:

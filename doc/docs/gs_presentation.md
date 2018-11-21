@@ -4,7 +4,7 @@
     This chapter assumes BLISS is installed, with a running **Beacon**
     server. See [installation instructions](index.md) for more details.
 
-
+This page will present what is BLISS and how to start using it.
 
 ## BLISS presentation
 
@@ -109,6 +109,18 @@ actions on such devices.
 * `lscnt()`: shows a table of all counters in the session.
 * `ascan(axis, start, stop, n_points, count_time)`: moves an axis from
   *start* to *stop* in *n_points* steps and counts *count_time* at each step.
+
+
+### Help
+Help about BLISS functions can be accessed with `help(<command_name>)`:
+
+    BLISS [2]: help(wa)
+    Help on function wa in module bliss.common.standard:
+    
+    wa(**kwargs)
+        Displays all positions (Where All) in both user and dial units
+
+
 
 Learn more about other [standard shell functions](shell_std_func.md).
 

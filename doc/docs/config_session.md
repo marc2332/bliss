@@ -53,6 +53,44 @@ Then a session can be started with `-s` option:
 
 **All objects** defined in beacon configuration will be loaded.
 
+
+## Automatic creation of a new session
+
+A skeleton of BLISS session can be automaticaly created with `-c` option:
+
+examples:
+
+    (bliss) pcsht:~ % bliss -c docsession
+     Creating 'docsession' BLISS session
+     Creating sessions/docsession.yml
+     Creating sessions/docsession_setup.py
+     Creating sessions/scripts/docsession.py
+
+At start-up, the new session will display a message to help customization:
+
+    % bliss -c docsession
+    [...]
+    Welcome to your new 'docsession' BLISS session !!
+    You can now customize your 'docsession' session by changing files:
+       * /docsession_setup.py
+       * /docsession.yml
+       * /scripts/docsession.py
+
+If a session already exists, it will not be erased or reset.
+
+    % bliss -c demo
+    Session 'demo' cannot be created: it already exists.
+
+A session can be similarly deleted:
+
+    % bliss -d docsession
+     Removing 'docsession' session.
+     removing .../sessions/docsession_setup.py
+     removing .../sessions/docsession.yml
+     removing .../sessions/scripts/docsession.py
+
+
+
 ## Session customization
 
 ### To include objects

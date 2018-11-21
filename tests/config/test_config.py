@@ -102,3 +102,15 @@ def test_references(beacon):
     m0.close()
     s1hg.close()
     s1vo.close()
+
+
+def test_issue_451_infinite_recursion(beacon):
+    refs_cfg = beacon.get_config("refs_test")
+
+    refs_cfg.get_inherited(
+        "toto"
+    )  # key which does not exist, was causing infinite recursion
+
+    assert refs_cfg.parent == beacon.root
+
+    assert beacon.root.parent is None

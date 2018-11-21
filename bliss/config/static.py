@@ -517,9 +517,13 @@ class Config(object):
                     new_node["__children__"] = parents
                     parents = new_node
                 elif parents:
-                    new_node = Node(self, fs_node, path)
+                    new_node = Node(self, parents._parent, path)
                     parents._parent = new_node
                     new_node["__children__"] = [parents]
+                    if fs_key:
+                        fs_node.pop(fs_key)
+                        fs_node[fs_key] = new_node
+
                     parents = new_node
                 elif parents is None:
                     parents = Node(self, fs_node, path)
@@ -767,7 +771,11 @@ class Config(object):
         name = node.get(self.NAME_KEY)
         if name is not None and not name.startswith("$"):
             if name in self._name2node:
-                pass  # should raise an error name duplicate
+                prev_node = self.get_config(name)
+                raise ValueError(
+                    "Duplicate key name (%s) in config files "
+                    "(%s) and (%s)" % (name, prev_node.filename, node.filename)
+                )
             else:
                 self._name2node[name] = node
 

@@ -483,6 +483,8 @@ class Config(object):
 
             if isinstance(fs_node, list):
                 continue
+            elif fs_key == "":
+                children = fs_node
             else:
                 children = fs_node.get(fs_key)
 

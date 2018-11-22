@@ -52,7 +52,7 @@ nav:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': titi.md
+                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Documentation: dev_documentation.md
                 - Communication API: dev_comm.md

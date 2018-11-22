@@ -7,6 +7,7 @@ nav:
         - Getting started:
                 - BLISS presentation: gs_presentation.md
                 - Configuration start-up guide: gs_config.md
+                - Glossary: gs_glossary.md
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
@@ -51,11 +52,12 @@ nav:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': titi.md
+                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': api.md
                 - Guidelines: dev_guidelines.md
-                - Documentation example: dev_doc_example.md
+                - Documentation: dev_documentation.md
                 - Communication API: dev_comm.md
                 - Writing a motor controller: dev_write_motctrl.md
+                - Writing a calculational controller: dev_write_calc_ctrl.md
                 - Writing a MCA controller: dev_write_mca.md
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Counters: dev_ct.md

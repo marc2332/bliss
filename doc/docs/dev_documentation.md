@@ -1,13 +1,89 @@
-# Markdown examples
+# BLISS Documentation
 
-This page is a page example of markdown usage.
+BLISS Documentation is furnished in various manners:
+
+* main documentation using mkdocs https://www.mkdocs.org/
+    * When adding a page, the main summary in `doc/mkdocs.yml` must be
+      modified according to the new hierarchy.
+    * As usual, merge requests are used to track and review modifications.
+    * Common parts of documentation must be factorized as much as
+      possible in order to keep a good coherency. When developing a
+      new motor controller for example, the common documentation can
+      be found [here](dev_write_motctrl.md) and only the specific part
+      will be kept in source code.
+
+* embeded in source code
+    * inline comments to understand source code
+    * *docstring* after all user functions to be accessible from BLISS
+      shell with `help(<function>)`
+
+
+## New controller documentation
+
+What to include in code  / What to put in mkdoc ???
+
+
+Example:
+    
+    """ESRF - PePU controller
+    
+    Example YAML_ configuration:
+    
+    .. code-block:: yaml
+    
+        plugin: bliss
+        class: PEPU
+        module: pepu
+        name: pepudcm2
+        tcp:
+          url: pepudcm2
+        template: renishaw    # optional
+    
+    Usage::
+       >>> from bliss.config.static import get_config
+       >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
+
+       >>> config = get_config()
+
+       >>> pepudcm2 = config.get('pepudcm2')
+       
+    For the counter interface, see the
+    `PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`__.
+    """
+
+
+template:
+
+
+    """ESRF - XXX controller
+    
+    Example YAML configuration:
+    
+    .. code-block:: yaml
+    
+        plugin: bliss
+        class: XXX
+        module: xxx
+        name: xxx
+        tcp:
+          url: xxx.esrf.fr
+    
+    Usage::
+        XXX
+        
+    For more information, see the XXX documentation: XXX.
+    """
+
+## Markdown examples
+
+This page can be used as example of typical markdown usage.
 
 Here is an online editor to test your markdown:
 https://nhnent.github.io/tui.editor/api/latest/tutorial-example01-basic.html#
 
 And a summary of markers: https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
-## Documentation creation
+### Documentation creation
 
 To easily view the result of your writing, using a local rendering:
 
@@ -42,7 +118,8 @@ There are 6 levels of titles.
 
 ###### Level 6 title
 
-## Lists
+### Lists
+
 To create a list, an empty line must be respected:
 
 * and start 1st level lines with `* ` (star + space)
@@ -53,7 +130,7 @@ To create a list, an empty line must be respected:
         * etc.
 
 
-## Links
+### Links
 
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
 * mkdocs inner links fir section ref: [code formatting](dev_guidelines.md#code-formatting)
@@ -61,7 +138,7 @@ To create a list, an empty line must be respected:
 * footnote reference: [silx](1)
 
 
-## Raw text
+### Raw text
 
 Inline raw text is placed between 2 backquotes:
 
@@ -81,15 +158,17 @@ respecting an empty line before block.
 
 
 
-## Formated text
+### Formated text
 
-### Inline
+#### Inline
+
 There are many formating marker to write text in *italic* or `raw text
  in monospace font` or **bold** or ~~strikethrough~~
 
 
 
-### Python code
+#### Python code
+
 To specify a programing language, 3 back-quotes can be used:
 
 ```python
@@ -104,7 +183,7 @@ iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
 !!! note
     With such formatin, python code is more easy to copy past in a shell.
 
-### YAML code:
+#### YAML code
 
 ```YAML
 - controller:
@@ -116,7 +195,8 @@ iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
             steps_per_unit: 1000
 ```
 
-### Mathematic formula
+#### Mathematic formula
+
 Nice formula can be integrated using Latex syntax:
 
 Example of code for cubic crystal diffraction:
@@ -132,9 +212,10 @@ d = \frac{a}{\sqrt{h^2+k^2+l^2}}
 $$
 
 
-## images and drawings
+### images and drawings
 
-### SVG
+#### SVG
+
 Code to include an existing svg file:
 
     ![Screenshot](img/std_bpm.svg)
@@ -142,8 +223,11 @@ Code to include an existing svg file:
 result:
 ![Screenshot](img/std_bpm.svg)
 
+!!! note
+    To avoir fonts problems with svg files, texts can be converted to
+    pathes. Select all and use Shift-Ctrl-C in Inkscape for example.
 
-### Bitmap
+#### Bitmap
 
 PNG, SVG or GIF files can be used
 
@@ -151,7 +235,7 @@ PNG, SVG or GIF files can be used
 
 
 
-### 2 examples of inline graphviz drawing
+#### 2 examples of inline graphviz drawing
 
 {% dot p201_arch.svg
   digraph G {

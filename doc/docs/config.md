@@ -3,6 +3,21 @@
 
 ## Beacon
 
+### plugin
+
+Some Beacon plugins are provided to instantiate YAML configuration
+tree into BLISS python objects usable in a session or a BLISS
+sequence.
+
+* `session`: to furnish configuration 
+* `emotion`: to instantiate BlissAxis objects (motors)
+* `ct2`: for P201 counting cards
+* `keithley`: for Keithley electrometers
+* `temperature`: for temperature controllers
+* `comm`: for standalone communication objects (serial lines, TCP, GPIB)
+* `bliss`: a generic plugin to instantiate controllers
+
+A new plugin can be easily created by a developer to fit new needs.
 
 ## YAML in brief
 

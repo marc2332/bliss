@@ -17,7 +17,7 @@ def data_to_bytes(data):
     if isinstance(data, numpy.ndarray):
         return data.dumps()
     else:
-        return data
+        return str(data).encode()
 
 
 def data_from_pipeline(data, shape=None, dtype=None):

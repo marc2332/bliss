@@ -66,12 +66,14 @@ nav:
 theme:
         name: material
         language: en
+        custom_dir: 'theme'
         palette:
-                primary: Teal
-                accent: Teal
+                primary: white
+                accent: light blue
         font:
                 text: Roboto
                 code: 'Roboto Mono'
+        logo: 'bliss_logo_small.svg'
 markdown_extensions:
         - admonition
         - codehilite

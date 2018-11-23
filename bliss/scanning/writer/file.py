@@ -139,7 +139,9 @@ class FileWriter(object):
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 
                 images_path = self._images_root_path_template.format(
-                    scan_name=scan.name, device=dev.name, scan_number=scan.scan_number
+                    scan_name=scan.name,
+                    img_acq_device=dev.name,
+                    scan_number=scan.scan_number,
                 )
                 self.prepare_saving(dev, images_path)
 

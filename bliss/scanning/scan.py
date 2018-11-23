@@ -122,7 +122,7 @@ class ScanSaving(Parameters):
                 "template": "{session}/",
                 "images_path_relative": True,
                 "images_path_template": "scan{scan_number}",
-                "images_prefix": "{device}_",
+                "images_prefix": "{img_acq_device}_",
                 "date_format": "%Y%m%d",
                 "scan_number_format": "%04d",
                 "_writer_module": "hdf5",
@@ -143,7 +143,7 @@ class ScanSaving(Parameters):
         d["date"] = self.date
         d["scan_name"] = "scan name"
         d["scan_number"] = "scan number"
-        d["device"] = "<images_* only> acquisition device name"
+        d["img_acq_device"] = "<images_* only> acquisition device name"
         return self._repr(d)
 
     @property
@@ -155,8 +155,8 @@ class ScanSaving(Parameters):
         return "{scan_number}"
 
     @property
-    def device(self):
-        return "{device}"
+    def img_acq_device(self):
+        return "{img_acq_device}"
 
     @property
     def session(self):
@@ -216,7 +216,7 @@ class ScanSaving(Parameters):
             cache_dict["date"] = self.date
             cache_dict["scan_name"] = self.scan_name
             cache_dict["scan_number"] = self.scan_number
-            cache_dict["device"] = self.device
+            cache_dict["img_acq_device"] = self.img_acq_device
             writer_module = cache_dict.get("_writer_module")
             template_keys = [key[1] for key in formatter.parse(template)]
 

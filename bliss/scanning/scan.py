@@ -424,7 +424,7 @@ class Scan(object):
 
         self.writer.template["scan_number"] = self.scan_number
 
-        self._nodes = dict()
+        self.__nodes = dict()
         self._devices = []
 
         self._scan_info["session_name"] = session_name
@@ -458,7 +458,7 @@ class Scan(object):
 
         self._state = self.IDLE_STATE
         node_name = str(self.__scan_number) + "_" + self.name
-        self._node = _create_node(
+        self.__node = _create_node(
             node_name, "scan", parent=self.root_node, info=self._scan_info
         )
 
@@ -498,11 +498,11 @@ class Scan(object):
 
     @property
     def node(self):
-        return self._node
+        return self.__node
 
     @property
     def nodes(self):
-        return self._nodes
+        return self.__nodes
 
     @property
     def acq_chain(self):
@@ -641,30 +641,30 @@ class Scan(object):
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
                 self._scan_info["state"] = self._state
-                self._data_watch_callback(data_events, self._nodes, self._scan_info)
+                self._data_watch_callback(data_events, self.nodes, self._scan_info)
             else:
                 self._data_watch_callback_event.set()
 
     def _channel_event(self, event_dict, signal=None, sender=None):
         with KillMask():
-            self._nodes[sender].store(event_dict)
+            self.nodes[sender].store(event_dict)
 
         self.__trigger_data_watch_callback(signal, sender)
 
     def set_ttl(self):
-        for node in self._nodes.itervalues():
+        for node in self.nodes.itervalues():
             node.set_ttl()
-        self._node.set_ttl()
-        self._node.end()
+        self.node.set_ttl()
+        self.node.end()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == "end":
             self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def prepare(self, scan_info, devices_tree):
-        parent_node = self._node
+        parent_node = self.node
         prev_level = 1
-        self._nodes = dict()
+        self.__nodes = dict()
         self._devices = list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]
 
         for dev in self._devices:
@@ -672,13 +672,13 @@ class Scan(object):
             level = devices_tree.depth(dev_node)
             if prev_level != level:
                 prev_level = level
-                parent_node = self._nodes[dev_node.bpointer]
+                parent_node = self.nodes[dev_node.bpointer]
 
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 data_container_node = _create_node(dev.name, parent=parent_node)
-                self._nodes[dev] = data_container_node
+                self.nodes[dev] = data_container_node
                 for channel in dev.channels:
-                    self._nodes[channel] = _get_or_create_node(
+                    self.nodes[channel] = _get_or_create_node(
                         channel.name,
                         channel.data_node_type,
                         data_container_node,
@@ -772,7 +772,7 @@ class Scan(object):
                 if self._data_watch_task is not None:
                     self._data_watch_task.kill()
                 # Close nodes
-                for node in self._nodes.values():
+                for node in self.nodes.values():
                     if hasattr(node, "close"):
                         node.close()
 

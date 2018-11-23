@@ -156,7 +156,7 @@ def cli(
         )
         prompt_label = session_name.upper()
     else:
-        session_id = "unnamed"
+        session_id = "default"
         session_title = u"Bliss shell"
         history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         prompt_label = "BLISS"

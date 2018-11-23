@@ -160,9 +160,9 @@ class ScanSaving(Parameters):
 
     @property
     def session(self):
-        """ This give the name of the default session or unnamed if no default session is defined """
+        """ This give the name of the current session or 'default' if no current session is defined """
         session = _current_session()
-        return session.name if session is not None else "unnamed"
+        return session.name if session is not None else "default"
 
     @property
     def date(self):
@@ -304,9 +304,9 @@ class ScanDisplay(Parameters):
 
     @property
     def session(self):
-        """ This give the name of the default session or unnamed if no default session is defined """
+        """ This give the name of the current session or default if no current session is defined """
         session = _current_session()
-        return session.name if session is not None else "unnamed"
+        return session.name if session is not None else "default"
 
 
 def _get_channels_dict(acq_object, channels_dict):
@@ -396,7 +396,10 @@ class Scan(object):
 
         if scan_saving is None:
             session_obj = _current_session()
-            scan_saving = session_obj.env_dict["SCAN_SAVING"]
+            if session_obj is None:
+                scan_saving = ScanSaving("default")
+            else:
+                scan_saving = session_obj.env_dict["SCAN_SAVING"]
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving

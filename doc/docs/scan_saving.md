@@ -46,7 +46,7 @@ a dictionary, whose key `root_path` is the final path to scan files.
 
 * `base_path`: the highest level directory for the file path, e.g. `/data`
 * `user_name`: the current Unix user name
-* `session`: current BLISS session name, or `unnamed` if session has no name
+* `session`: current BLISS session name
 * `template`: defaults to `{session}/`
 * `.add(key, value)`: add a new key (string) to the SCAN_SAVING structure
     - value can be a scalar or a function

@@ -167,8 +167,9 @@ def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir, session):
 
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "test"
-    scan_saving.images_path_template = "{scan}/toto"
-    scan_saving.images_prefix = "{device}"
+    scan_saving.images_path_template = "{scan_name}_{scan_number}/toto"
+    scan_saving.images_prefix = "{img_acq_device}"
+    scan_saving.scan_number_format = "%1d"
 
     try:
         scan_config = scan_saving.get()
@@ -204,8 +205,9 @@ def test_images_dir_prefix_saving_absolute(
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "test"
     scan_saving.images_path_relative = False
-    scan_saving.images_path_template = "{base_path}/test/{scan}/toto"
-    scan_saving.images_prefix = "{device}"
+    scan_saving.images_path_template = "{base_path}/test/{scan_name}_{scan_number}/toto"
+    scan_saving.images_prefix = "{img_acq_device}"
+    scan_saving.scan_number_format = "%1d"
 
     try:
         scan_config = scan_saving.get()
@@ -213,7 +215,9 @@ def test_images_dir_prefix_saving_absolute(
             scan_saving.base_path, scan_saving.template
         )
         assert scan_config["images_path"] == os.path.join(
-            scan_saving.base_path, scan_saving.template, "{scan}/toto/{device}"
+            scan_saving.base_path,
+            scan_saving.template,
+            "{scan_name}_{scan_number}/toto/{img_acq_device}",
         )
 
         setup_globals.timescan(0.1, simulator, npoints=1)

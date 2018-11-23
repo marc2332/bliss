@@ -138,7 +138,7 @@ def test_calc_counters(session):
     top_master = motor.LinearStepTriggerMaster(10, m1, 0, 1)
     c.add(top_master, t)
 
-    s = scan.Scan(c, name="calc_scan", writer=None)
+    s = scan.Scan(c, name="calc_scan", save=False)
     s.run()
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["gaussian"] ** 2, scan_data["pow"])
@@ -195,13 +195,12 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
     saved_base_path = scan_saving.base_path
     try:
         scan_saving.base_path = str(scan_tmpdir)
-        root_path = scan_saving.get()["root_path"]
+        scan_saving.images_path_template = ""
 
         s = scans.ascan(roby, 0, 1, 2, 0.001, lima_sim, run=False)
-
-        scan_path = os.path.join(root_path, "data.h5")
-        images_path = os.path.join(root_path, s.name)
-        image_filename = "%s_000%%d.edf" % (lima_sim.name)
+        scan_path = s.writer.filename
+        images_path = os.path.dirname(scan_path)
+        image_filename = "lima_simulator_000%d.edf"
 
         s.run()
 
@@ -216,8 +215,11 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
 
         s.run()
 
+        scan_path = s.writer.filename
         assert os.path.isfile(scan_path)
-        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
+        assert not os.path.isfile(
+            os.path.join(scan_saving.base_path, image_filename % 0)
+        )
 
         os.unlink(scan_path)
 
@@ -227,6 +229,7 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
 
         s.run()
 
+        scan_path = s.writer.filename
         assert not os.path.isfile(scan_path)
         assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
     finally:

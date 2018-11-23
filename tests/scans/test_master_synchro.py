@@ -53,7 +53,7 @@ def test_master_synchro(beacon):
     device2 = DummyDevice(None, "device2", npoints=1, sleep_time=0.2)
     chain.add(master, device1)
     chain.add(master, device2)
-    scan = Scan(chain, "test", writer=None)
+    scan = Scan(chain, "test", save=False)
     scan.run()
     assert master.child_started == 2
     assert master.child_prepared == 2

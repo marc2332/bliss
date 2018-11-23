@@ -59,14 +59,14 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     )
 
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
-    assert s.name == "test_scan_1"
+    assert s.name == "test_scan"
     assert s.root_node.db_name == parent.db_name
     assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
-    assert s.node.db_name == s.root_node.db_name + ":" + s.name
+    assert s.node.db_name == s.root_node.db_name + ":" + "1_" + s.name
 
     scan_node_dict = redis_data_conn.hgetall(s.node.db_name)
-    assert scan_node_dict.get("name") == "test_scan_1"
+    assert scan_node_dict.get("name") == "1_test_scan"
     assert scan_node_dict.get("db_name") == s.node.db_name
     assert scan_node_dict.get("node_type") == "scan"
     assert scan_node_dict.get("parent") == s.node.parent.db_name

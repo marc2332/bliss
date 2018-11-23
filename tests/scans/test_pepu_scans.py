@@ -76,7 +76,7 @@ def test_pepu_soft_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(10, m0, 0, 1), device)
     # Run scan
-    scan = Scan(chain, "pepu_test", writer=None)
+    scan = Scan(chain, "pepu_test", save=False)
     scan.run()
     gevent.sleep(0.)
     # Checks
@@ -94,7 +94,7 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 10, time=1.0), device)
     # Run scan
-    scan = Scan(chain, "pepu_test", writer=None)
+    scan = Scan(chain, "pepu_test", save=False)
     scan.run()
     gevent.sleep(0.)
     # Checks
@@ -148,7 +148,7 @@ def test_pepu_continuous_scan(beacon, pepu):
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), device)
     # Run scan
-    scan = Scan(chain, "test", writer=None)
+    scan = Scan(chain, "test", save=False)
     scan.run()
     # Checks
     data = scan.get_data()

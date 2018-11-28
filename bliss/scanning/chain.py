@@ -547,15 +547,10 @@ class AcquisitionDevice(object):
     def reading(self):
         pass
 
-    def wait_reading(self, block=True):
-        try:
-            return (
-                self._reading_task.get(block=block)
-                if self._reading_task is not None
-                else True
-            )
-        except gevent.Timeout:  # block=False
-            return False
+    def wait_reading(self):
+        if self._reading_task is not None:
+            return self._reading_task.get()
+        return True
 
     def wait_ready(self):
         # wait until ready for next acquisition

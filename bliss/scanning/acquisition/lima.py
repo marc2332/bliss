@@ -294,10 +294,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         finally:
             self._ready_event.set()
 
-    def wait_reading(self, block=True):
-        if self._reading_task is None or self._reading_task.ready():
+    def wait_reading(self):
+        if self._reading_task is None:
             return True
-        try:
-            return self._reading_task.get(block=block)
-        except gevent.Timeout:
-            return False
+        return self._reading_task.get()

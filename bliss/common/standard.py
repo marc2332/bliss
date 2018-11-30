@@ -464,7 +464,7 @@ def edit_roi_counters(detector, acq_time=None):
     else:
         scan = setup_globals.SCANS[-1]
 
-    plot = scan.get_plot(detector, wait=True)
+    plot = scan.get_plot(detector.image, wait=True)
 
     selections = []
     for roi_name, roi in roi_counters.items():

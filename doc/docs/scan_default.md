@@ -59,8 +59,8 @@ measurement, there is some main way to operate:
 * To make a unusual scan (like a 5-regions scans), a new scan has to
   be defined.
   See: [BLISS scan engine](scan_engine.md)
-* To to change triggering or gating of intrument, is to adapt the
-  *acquisition chain*.
+* To to change triggering or gating of intrument,
+  the *acquisition chain* has to be adapted.
   See: [Acquisition Chain](acq_chain.md)
 * Customizing the presets. See: [Scans' presets](scan_presets.md)
 

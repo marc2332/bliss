@@ -165,6 +165,7 @@ class _WagoController:
         self.coupler = False
         self.mapping = []
         self.lock = gevent.lock.Semaphore()
+        self.wago_host = host
 
     def connect(self):
         with self.lock:
@@ -389,6 +390,7 @@ class _WagoController:
         modules_to_read = set()
         channels_to_read = []
         ret = []
+        found_channel = set()
         for channel_name in channel_names:
             # find module(s) corresponding to given channel name
             # all multiple channels with the same name will be retrieved
@@ -397,6 +399,7 @@ class _WagoController:
                 if channels_map:
                     for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                         if channel_name in channels_map[j]:
+                            found_channel.add(channel_name)
                             modules_to_read.add(i)
                             channels_to_read.append([])
                             if mapping_info["n_channels"] == 1:
@@ -404,6 +407,14 @@ class _WagoController:
                             for k, chan in enumerate(channels_map[j]):
                                 if chan == channel_name:
                                     channels_to_read[-1].append((i, j, k))
+
+        not_found_channel = set(channel_names) - found_channel
+        if not_found_channel:
+            raise KeyError(
+                "Channel(s) '%s` doesn't exist in Wago %s"
+                % (not_found_channel, self.wago_host)
+            )
+
         modules_to_read_list = list(modules_to_read)
         modules_to_read_list.sort()
         # read from the wago
@@ -485,7 +496,10 @@ class _WagoController:
 
         write_table = {}
         n_chan = 0
+        found_channel = set()
+        channel_names = set()
         for channel_name, value in channels_to_write:
+            channel_names.add(channel_name)
             for i, mapping_info in enumerate(self.mapping):
                 channel_map = mapping_info["channels"]
                 if not channel_map:
@@ -493,6 +507,7 @@ class _WagoController:
                 for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                     n_channels = channel_map[j].count(channel_name)
                     if n_channels:
+                        found_channel.add(channel_name)
                         if j not in (DIGI_OUT, ANA_OUT):
                             raise RuntimeError(
                                 "Cannot write: %r is not an output" % channel_name
@@ -520,6 +535,13 @@ class _WagoController:
                             k = channel_map[j].index(channel_name)
                             write_table.setdefault(i, []).append((j, k, value))
                         n_chan += n_channels
+        not_found_channels = channel_names - found_channel
+        if not_found_channels:
+            raise KeyError(
+                "Channel(s) %s doesn't exist in Wago %s"
+                % (not_found_channels, self.wago_host)
+            )
+
         with self.lock:
             return self.write_phys(write_table)
 

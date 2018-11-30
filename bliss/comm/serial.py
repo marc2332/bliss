@@ -75,7 +75,7 @@ class _BaseSerial:
         self._cnt = weakref.ref(cnt)
         self._port = port
 
-        self._data = ""
+        self._data = b""
         self._event = event.Event()
         self._rx_filter = None
         self._rpipe, self._wpipe = os.pipe()
@@ -90,7 +90,7 @@ class _BaseSerial:
         return gevent.Timeout(timeout, SerialTimeout(timeout_errmsg))
 
     def _close(self):
-        os.write(self._wpipe, "|")
+        os.write(self._wpipe, b"|")
         if self._raw_read_task:
             self._raw_read_task.join()
             self._raw_read_task = None
@@ -176,7 +176,8 @@ class _BaseSerial:
             self._data = self._data[maxsize:]
         else:
             msg = self._data
-            self._data = ""
+
+            self._data = b""
         self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
         return msg
 
@@ -218,7 +219,7 @@ class LocalSerial(_BaseSerial):
 
     def flushInput(self):
         self.__serial.flushInput()
-        self._data = ""
+        self._data = b""
 
     def close(self):
         self._close()
@@ -236,19 +237,19 @@ class RFC2217Timeout(SerialTimeout):
 class RFC2217(_BaseSerial):
     class TelnetCmd:
         def __init__(self):
-            self.data = ""
+            self.data = b""
 
         def telnetSendOption(self, action, option):
-            self.data += "".join([IAC, action, option])
+            self.data += b"".join([IAC, action, option])
 
     class TelnetSubNego:
         def __init__(self):
-            self.data = ""
+            self.data = b""
             self.logger = None
 
         def rfc2217SendSubnegotiation(self, option, value):
             value = value.replace(IAC, IAC_DOUBLED)
-            self.data += "".join(
+            self.data += b"".join(
                 [IAC, SB, COM_PORT_OPTION, option] + list(value) + [IAC, SE]
             )
 
@@ -395,7 +396,7 @@ class RFC2217(_BaseSerial):
                 self.rfc2217_options["control"].set(SET_CONTROL_USE_NO_FLOW_CONTROL)
 
             self._socket.send(telnet_sub_cmd.data)
-            telnet_sub_cmd.data = ""
+            telnet_sub_cmd.data = b""
             items = list(self.rfc2217_port_settings.values())
             while 1:
                 self._parse_nego(telnet_cmd)
@@ -422,20 +423,20 @@ class RFC2217(_BaseSerial):
         purge = self.rfc2217_options["purge"]
         telnet_sub_cmd = purge.connection
         purge.set(PURGE_RECEIVE_BUFFER)
-        self._data = ""
+        self._data = b""
         self._rx_filter = None
         self._socket.send(telnet_sub_cmd.data)
-        telnet_sub_cmd.data = ""
+        telnet_sub_cmd.data = b""
 
         while not purge.isReady():
             self._parse_nego(telnet_cmd)
         self._rx_filter = self._rfc2217_filter
-        self._data = ""
+        self._data = b""
 
     def _rfc2217_filter(self, data):
         if data[-1] == IAC and data[-2] != IAC:
             self._pending_data = data
-            return ""
+            return b""
 
         if self._pending_data:
             data = self._pending_data + data
@@ -499,7 +500,7 @@ class RFC2217(_BaseSerial):
             if iac_pos == -1:  # no more negotiation rx
                 if telnet_cmd.data:
                     self._socket.send(telnet_cmd.data)
-                    telnet_cmd.data = ""
+                    telnet_cmd.data = b""
                 break
 
     def close(self):
@@ -624,20 +625,20 @@ class TangoSerial(_BaseSerial):
             self._device.DevSerSetNewline(eol_encode(self, eol))
             self._last_eol = eol
 
-        buff = ""
+        buff = b""
         while True:
-            line = self._device.DevSerReadLine() or ""
-            if line == "":
-                return ""
+            line = self._device.DevSerReadLine() or b""
+            if line == b"":
+                return b""
             buff += line
             if buff[-lg:] == eol:
                 return buff[:-lg]
 
     def _raw_read(self, maxsize):
         if maxsize:
-            return self._device.DevSerReadNChar(maxsize) or ""
+            return self._device.DevSerReadNChar(maxsize) or b""
         else:
-            return self._device.DevSerReadRaw() or ""
+            return self._device.DevSerReadRaw() or b""
 
     _read = _raw_read
 
@@ -664,7 +665,7 @@ class Serial:
         writeTimeout=None,
         dsrdtr=False,
         interCharTimeout=None,
-        eol="\n",
+        eol=b"\n",
     ):
 
         self._serial_kwargs = {

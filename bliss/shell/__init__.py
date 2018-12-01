@@ -142,6 +142,7 @@ class ScanListener:
         dispatcher.connect(self.__on_scan_new, "scan_new", scan)
         dispatcher.connect(self.__on_scan_data, "scan_data", scan)
         dispatcher.connect(self.__on_scan_end, "scan_end", scan)
+        self.real_motors = []
 
     def __on_scan_new(self, scan_info):
         scan_type = scan_info.get("type")

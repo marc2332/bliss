@@ -433,6 +433,7 @@ class Scan(object):
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info["scan_nb"] = self.__scan_number
+        self._scan_info["filename"] = self.writer.filename
         self._scan_info.setdefault("title", name)
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
@@ -693,7 +694,6 @@ class Scan(object):
                     connect(dev, signal, self._device_event)
 
         self.writer.prepare(self)
-        self._scan_info["root_path"] = self.writer.root_path
 
     def disconnect_all(self):
         for dev in self._devices:

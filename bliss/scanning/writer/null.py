@@ -26,4 +26,4 @@ class Writer(FileWriter):
 
     @property
     def filename(self):
-        return "None"
+        return "<no saving>"

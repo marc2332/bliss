@@ -130,7 +130,7 @@ class ScanListener:
     HEADER = (
         "Total {npoints} points{estimation_str}\n"
         + "{not_shown_counters_str}\n"
-        + "Scan {scan_nb} {start_time_str} {root_path} "
+        + "Scan {scan_nb} {start_time_str} {filename} "
         + "{session_name} user = {user_name}\n"
         + "{title}\n\n"
         + "{column_header}"
@@ -154,9 +154,6 @@ class ScanListener:
         nb_points = scan_info.get("npoints")
         if nb_points is None:
             return
-
-        if not scan_info["save"]:
-            scan_info["root_path"] = "<no saving>"
 
         self.col_labels = ["#"]
         self.real_motors = []

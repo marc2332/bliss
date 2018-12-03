@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import types
 import pytest
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy
 from bliss.common.measurement import BaseCounter
 from bliss.controllers.lima.roi import Roi
@@ -256,3 +258,30 @@ def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
     assert len(scan.get_data()["test:min"]) == 3
     assert len(scan.get_data()["test:max"]) == 3
     assert len(scan.get_data()["test:avg"]) == 3
+
+
+def test_lima_scan_internal_trigger_with_diode(beacon, lima_simulator, monkeypatch):
+    diode = beacon.get("diode")
+    simulator = beacon.get("lima_simulator")
+
+    monkeypatch.setattr(type(simulator.camera), "synchro_mode", "IMAGE")
+
+    assert simulator.camera.synchro_mode == "IMAGE"
+
+    s = loopscan(2, 0.1, simulator, diode, save=False, run=False)
+
+    timer = s.acq_chain.nodes_list[0]
+    assert isinstance(timer, SoftwareTimerMaster)
+
+    saved_wait_ready = timer.wait_ready
+
+    def delayed_wait_ready(self, *args, **kwargs):
+        gevent.sleep(.2)
+        return saved_wait_ready(*args, **kwargs)
+
+    timer.wait_ready = types.MethodType(delayed_wait_ready, timer)
+
+    with gevent.Timeout(3, RuntimeError("Timeout waiting for end of scan")):
+        s.run()
+
+    assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER_MULTI"

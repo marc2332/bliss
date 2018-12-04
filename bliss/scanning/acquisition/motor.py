@@ -273,6 +273,7 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def __init__(self, *args, **keys):
         trigger_type = keys.pop("trigger_type", AcquisitionMaster.SOFTWARE)
+        self.broadcast_len = keys.pop("broadcast_len", 1)
         self.next_mv_cmd_arg = list()
         if len(args) % 4:
             raise TypeError(
@@ -319,7 +320,15 @@ class _StepTriggerMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
 
-        self.channels.update_from_iterable([axis.position() for axis in self._axes])
+        if self.broadcast_len > 1:
+            self.channels.update_from_iterable(
+                [
+                    numpy.ones(self.broadcast_len, numpy.float) * axis.position()
+                    for axis in self._axes
+                ]
+            )
+        else:
+            self.channels.update_from_iterable([axis.position() for axis in self._axes])
 
         self.wait_slaves()
 
@@ -382,6 +391,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
     def __init__(self, *args, **keys):
         trigger_type = keys.pop("trigger_type", AcquisitionMaster.SOFTWARE)
+        self.broadcast_len = keys.pop("broadcast_len", 1)
         self.next_mv_cmd_arg = list()
         if len(args) % 2:
             raise TypeError(
@@ -428,7 +438,15 @@ class VariableStepTriggerMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
 
-        self.channels.update_from_iterable([axis.position() for axis in self._axes])
+        if self.broadcast_len > 1:
+            self.channels.update_from_iterable(
+                [
+                    numpy.ones(self.broadcast_len, numpy.float) * axis.position()
+                    for axis in self._axes
+                ]
+            )
+        else:
+            self.channels.update_from_iterable([axis.position() for axis in self._axes])
 
         self.wait_slaves()
 

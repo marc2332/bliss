@@ -7,6 +7,20 @@ import gevent
 import sys
 
 
+class CalcHook(object):
+    def compute(self, sender, data_dict):
+        raise NotImplemented
+
+    def prepare(self):
+        pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+
 class CalcAcquisitionDevice(AcquisitionDevice):
     """
     Helper to do some extra Calculation on counters.
@@ -17,6 +31,9 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         with the name of counter as the key and the value has the data of source data channel.
         This function should return a dictionary with the name of the destination channel as key,
         and the value as its data.
+        Can also be an inherited class of **CalcHook**:
+         - the transformation function is the **compute** method.
+         - optionally you can redefine prepare,start,stop. 
     """
 
     def __init__(self, name, src_acq_devices_list, func, output_channels_list):
@@ -25,7 +42,15 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         )
         self._connected = False
         self.src_acq_devices_list = src_acq_devices_list
-        self.func = func
+        if isinstance(func, CalcHook):
+            self.cbk = func
+        else:
+
+            class CBK(CalcHook):
+                def compute(self, sender, data_dict):
+                    return func(sender, data_dict)
+
+            self.cbk = CBK()
         self.channels.extend(output_channels_list)
 
     def connect(self):
@@ -45,17 +70,17 @@ class CalcAcquisitionDevice(AcquisitionDevice):
         self._connected = False
 
     def prepare(self):
+        self.cbk.prepare()
         self.connect()
-
-    def trigger(self):
-        pass  # nothing to do
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
         channel_data = event_dict.get("data")
         if channel_data is None:
             return
         channel = sender
-        output_channels_data_dict = self.func(sender, {channel.name: channel_data})
+        output_channels_data_dict = self.cbk.compute(
+            sender, {channel.name: channel_data}
+        )
 
         if output_channels_data_dict:
             for channel in self.channels:
@@ -64,7 +89,8 @@ class CalcAcquisitionDevice(AcquisitionDevice):
                     channel.emit(channel_data)
 
     def start(self):
-        return
+        self.cbk.start()
 
     def stop(self):
         self.disconnect()
+        self.cbk.stop()

@@ -91,7 +91,7 @@ def init_scans_callbacks(interpreter, output_queue):
             interpreter.get_last_client_uuid(),
             {
                 "scan_id": scan_info["node_name"],
-                "filename": scan_info["root_path"],
+                "filename": scan_info["filename"],
                 "scan_actuators": [actuator.name for actuator in scan_actuators],
                 "npoints": scan_info["npoints"],
                 "counters": [ct.name for ct in scan_info["counters"]],

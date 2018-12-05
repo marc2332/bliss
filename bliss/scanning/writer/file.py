@@ -44,6 +44,7 @@ class FileWriter(object):
         self,
         root_path,
         images_root_path,
+        data_filename,
         master_event_callback=None,
         device_event_callback=None,
         **keys
@@ -51,8 +52,10 @@ class FileWriter(object):
         """ A default way to organize file structure
         """
         self._save_images = True
-        self._root_path = root_path
-        self._images_root_path = images_root_path
+        self._root_path_template = root_path
+        self._data_filename_template = data_filename
+        self._template_dict = {}
+        self._images_root_path_template = images_root_path
         self._master_event_callback = master_event_callback
         self._device_event_callback = device_event_callback
         self._event_receivers = list()
@@ -60,12 +63,20 @@ class FileWriter(object):
         self.log = logging.getLogger(type(self).__name__)
 
     @property
-    def root_path(self):
-        return self._root_path
+    def template(self):
+        return self._template_dict
 
     @property
-    def images_root_path(self):
-        return self._images_root_path
+    def root_path(self):
+        return self._root_path_template.format(**self._template_dict)
+
+    @property
+    def data_filename(self):
+        return self._data_filename_template.format(**self._template_dict)
+
+    @property
+    def filename(self):
+        raise NotImplementedError
 
     def create_path(self, full_path):
         try:
@@ -77,13 +88,13 @@ class FileWriter(object):
                 raise
 
     def new_scan(self, scan):
-        self.create_path(self._root_path)
-        self.new_file(self._root_path, scan.node.name, scan.scan_info)
+        self.create_path(self.root_path)
+        self.new_file(scan.node.name, scan.scan_info)
 
-    def new_file(self, scan_file_dir, scan_name, scan_info):
+    def new_file(self, scan_name, scan_info):
         pass
 
-    def new_master(self, master, scan_file_dir):
+    def new_master(self, master):
         raise NotImplementedError
 
     def add_reference(self, master_entry, referenced_master_entry):
@@ -122,13 +133,15 @@ class FileWriter(object):
                 try:
                     master_entry = master_entries[dev]
                 except KeyError:
-                    master_entry = self.new_master(dev, scan.path)
+                    master_entry = self.new_master(dev)
                     master_entries[dev] = master_entry
 
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 
-                images_path = self._images_root_path.format(
-                    scan=scan.node.name, device=dev.name
+                images_path = self._images_root_path_template.format(
+                    scan_name=scan.name,
+                    img_acq_device=dev.name,
+                    scan_number=scan.scan_number,
                 )
                 self.prepare_saving(dev, images_path)
 
@@ -143,7 +156,7 @@ class FileWriter(object):
                         try:
                             referenced_master_entry = master_entries[slave]
                         except KeyError:
-                            referenced_master_entry = self.new_master(slave, scan.path)
+                            referenced_master_entry = self.new_master(slave)
                             master_entries[slave] = referenced_master_entry
                         self.add_reference(master_entry, referenced_master_entry)
         self._closed = False

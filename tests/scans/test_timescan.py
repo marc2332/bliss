@@ -38,7 +38,7 @@ def test_long_trigger_timescan(beacon, diode_acq_device_factory):
     chain.add(master, acquisition_device_1)
 
     # Run scan
-    s = Scan(chain, writer=None)
+    s = Scan(chain, save=False)
     s.run()
 
     assert len(s.get_data()) == 3

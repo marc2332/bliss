@@ -21,7 +21,7 @@ from bliss.scanning.chain import AcquisitionChain
 
 @pytest.fixture
 def scan_saving():
-    ss = ScanSaving()
+    ss = ScanSaving("test")
     prev_template = ss.template
     yield ss
     ss.template = prev_template
@@ -33,7 +33,7 @@ def test_scan_saving(beacon, scan_saving):
     assert parent_node.name == "toto"
     assert parent_node.parent is not None
     assert parent_node.parent.name == scan_saving.session
-    assert parent_node.parent.db_name == scan_saving.session + ":" + scan_saving.session
+    assert parent_node.parent.db_name == scan_saving.session
     assert parent_node.db_name == "%s:%s" % (parent_node.parent.db_name, "toto")
 
     scan_saving.template = "toto"
@@ -49,13 +49,16 @@ def test_scan_saving(beacon, scan_saving):
         == """\
 Parameters (default)
   .base_path            = '/tmp/scans'
+  .data_filename        = 'data'
   .date                 = '{date}'
   .date_format          = '%Y%m%d'
-  .device               = '<images_* only> acquisition device name'
   .images_path_relative = True
-  .images_path_template = '{{scan}}'
-  .images_prefix        = '{{device}}_'
-  .scan                 = '<images_* only> scan node name'
+  .images_path_template = 'scan{{scan_number}}'
+  .images_prefix        = '{{img_acq_device}}_'
+  .img_acq_device       = '<images_* only> acquisition device name'
+  .scan_name            = 'scan name'
+  .scan_number          = 'scan number'
+  .scan_number_format   = '%04d'
   .session              = '{session}'
   .template             = 'toto'
   .user_name            = '{user_name}'
@@ -109,7 +112,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     )
     try:
         gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
-        scan = Scan(chain, parent=scan_saving.get_parent_node(), writer=None)
+        scan = Scan(chain, save=False)
         scan.run()
     finally:
         session_watcher.kill()

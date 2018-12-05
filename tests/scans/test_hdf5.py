@@ -72,9 +72,8 @@ def test_hdf5_metadata(beacon, session):
         s.scan_info["start_timestamp"]
     ).isoformat()
 
-    scan_file = os.path.join(s.path, "data.h5")
-    with h5py.File(scan_file, "r") as f:
-        dataset = f[s.name]
+    with h5py.File(s.writer.filename, "r") as f:
+        dataset = f[s.node.name]
         assert dataset["title"].value == u"ascan roby 0 10 10 0.01"
         assert dataset["start_time"].value.startswith(iso_start_time)
         assert dataset["measurement"]
@@ -102,9 +101,7 @@ def test_hdf5_file_items(beacon, session):
         return_scan=True,
     )
 
-    scan_file = os.path.join(s.path, "data.h5")
-
-    scan_dump = h5dump(scan_file)
+    scan_dump = h5dump(s.writer.filename)
 
     ref_ascan_dump = ascan_dump.split("\n")
 
@@ -117,10 +114,10 @@ def test_hdf5_file_items(beacon, session):
             if in_positioner:
                 continue
         else:
-            in_scan = l == s.name or l.startswith(s.name + "/")
+            in_scan = l == s.node.name or l.startswith(s.node.name + "/")
         if in_scan:
-            if l.startswith(s.name + "/measurement/group_"):
-                group_name = l.replace(s.name + "/measurement/", "").split("/")[0]
+            if l.startswith(s.node.name + "/measurement/group_"):
+                group_name = l.replace(s.node.name + "/measurement/", "").split("/")[0]
         else:
             continue
         if "positioner" in l:
@@ -128,13 +125,13 @@ def test_hdf5_file_items(beacon, session):
             continue
         else:
             in_positioner = False
-        assert l == ref_ascan_dump[i].format(ascan=s.name, group_name=group_name)
+        assert l == ref_ascan_dump[i].format(ascan=s.node.name, group_name=group_name)
         i += 1
 
-    f = h5py.File(scan_file)
+    f = h5py.File(s.writer.filename)
     assert (
-        f[f[s.name]["measurement"][group_name]["timer"].value]
-        == f[s.name]["measurement"]["timer"]
+        f[f[s.node.name]["measurement"][group_name]["timer"].value]
+        == f[s.node.name]["measurement"]["timer"]
     )
 
 
@@ -142,8 +139,8 @@ def test_hdf5_values(beacon, session):
     roby = beacon.get("roby")
     diode = beacon.get("diode")
     s = scans.ascan(roby, 0, 10, 3, 0.01, diode, save=True, return_scan=True)
-    scan_file = os.path.join(s.path, "data.h5")
+    scan_file = s.writer.filename
     data = s.get_data()["diode"]
     f = h5py.File(scan_file)
-    dataset = f[s.name]["measurement"]["timer"]["diode:diode"]
+    dataset = f[s.node.name]["measurement"]["timer"]["diode:diode"]
     assert list(dataset) == list(data)

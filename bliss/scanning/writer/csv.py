@@ -67,15 +67,17 @@ class CsvMasterFile(object):
 
 
 class Writer(FileWriter):
-    def __init__(self, root_path, images_root_path, **keys):
+    def __init__(self, root_path, images_path, data_filename, **keys):
         FileWriter.__init__(
             self,
             root_path,
-            images_root_path,
-            master_event_callback=None,
-            device_event_callback=on_event,
+            images_path,
+            data_filename,
+            master_event_receiver=None,
+            device_event_receiver=on_event,
             **keys
         )
 
-    def new_master(self, master, scan_file_dir):
-        return CsvMasterFile(os.path.join(scan_file_dir, master.name + "_master.csv"))
+    def new_master(self, master):
+        filename = self.data_filename + "_" + master.name + ".csv"
+        return CsvMasterFile(os.path.join(self.root_path, filename))

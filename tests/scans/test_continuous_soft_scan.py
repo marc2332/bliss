@@ -62,7 +62,7 @@ def test_software_position_trigger_master(beacon):
         DebugMotorMockupAcquisitionDevice("debug", robz),
     )
     # Run scan
-    s = Scan(chain, writer=None)
+    s = Scan(chain, save=False)
     with gevent.Timeout(5):
         s.run()
     # Check data
@@ -97,7 +97,7 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     scan_params = {"npoints": 0, "count_time": count_time * 2.}
     chain.append(DEFAULT_CHAIN.get(scan_params, (diode2,)))
 
-    scan = Scan(chain, name="multi_master", writer=None)
+    scan = Scan(chain, name="multi_master", save=False)
     scan.run()
     # should be about the same sampling rate
     # just to test that both top master run in parallel
@@ -117,7 +117,7 @@ def test_interrupted_scan(beacon, diode_acq_device_factory):
     chain.add(master, acquisition_device_1)
     chain.add(master, acquisition_device_2)
     # Run scan
-    s = Scan(chain, writer=None)
+    s = Scan(chain, save=False)
     scan_task = gevent.spawn(s.run)
 
     gevent.sleep(0.2)
@@ -140,7 +140,7 @@ def test_scan_too_fast(beacon, diode_acq_device_factory):
     acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
-    s = Scan(chain, writer=None)
+    s = Scan(chain, save=False)
     with gevent.Timeout(6):
         with pytest.raises(RuntimeError) as e_info:
             # aborted due to bad triggering on slaves
@@ -163,7 +163,7 @@ def test_scan_failure(beacon, diode_acq_device_factory):
     chain.add(master, acquisition_device_2)
 
     # Run scan
-    s = Scan(chain, writer=None)
+    s = Scan(chain, save=False)
     with pytest.raises(RuntimeError) as e_info:
         s.run()
 

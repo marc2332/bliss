@@ -1,20 +1,9 @@
 # Defaults BLISS scans
 
-## BLISS scan functions
+## BLISS step-by-steps scan functions
 
-BLISS provides functions to perform scans a user would need for usual
-step-by-step measurements.
-
-The goal of all these functions is:
-
-* to create an *acquisition chain*
-* to forge a *title* and *type* (if not provided) based on scan parameters
-* to check and to define *scan parameters* (motors, number of points, etc.)
-
-These objects are then passed to `step_scan()` function to create a
-`bliss.scanning.scan.Scan` object which can be run or returned to
-caller. This class publishes data and triggers the file writer
-(hdf5, cvs, SpecFile...) if any.
+BLISS provides functions to perform step-by-step scans. The acquisition
+chain for those scans is built using the `DefaultChain` class.
 
 
 {% dot scan_dep.svg

@@ -8,7 +8,6 @@
 from bliss.common.utils import add_property
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import SamplingCounter
-from bliss.scanning.scan import ScanSaving
 from bliss.config.settings import SimpleSetting
 from bliss.common import Actuator
 import gevent
@@ -32,12 +31,8 @@ class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
         elif self.controller.is_live():
             self.__back_to_live = True
             self.controller.stop()
-        # save image if image counter is present
-        if any([isinstance(c, BpmImage) for c in counters]):
-            self.controller.save_images(True)
 
     def stop(self, *counters):
-        self.controller.save_images(False)
         if self.__back_to_live:
             while self.controller.is_acquiring():
                 gevent.idle()
@@ -45,10 +40,7 @@ class BpmGroupedReadHandler(SamplingCounter.GroupedReadHandler):
 
     def read(self, *counters):
         result = self.controller.tango_proxy.GetPosition()
-        return [
-            cnt.count if isinstance(cnt, BpmImage) else result[cnt.index]
-            for cnt in counters
-        ]
+        return [result[cnt.index] for cnt in counters]
 
 
 class BpmCounter(SamplingCounter):
@@ -235,19 +227,6 @@ class tango_bpm(object):
 
     def is_out(self):
         return self.__control.YagStatus == "out"
-
-    def save_images(self, save):
-        if save:
-            scan_saving = ScanSaving()
-            directory = scan_saving.get_path()
-            image_acq_counter_setting = SimpleSetting(
-                self.name + ".image", None, int, int, default_value=0
-            )
-            image_acq_counter_setting += 1
-            prefix = self.name + "_image_%d_" % image_acq_counter_setting.get()
-            self.__control.EnableAutoSaving([directory, prefix])
-        else:
-            self.__control.DisableAutoSaving()
 
     def __repr__(self):
         try:

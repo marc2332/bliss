@@ -47,6 +47,7 @@ nav:
                 - Standard functions: shell_std_func.md
                 - Customization: shell_customization.md
         - BLISS programming:
+                - Truquitos: prog_truquitos.md
                 - Dealing with energy: prog_energy.md
         - Motion:
                 - Axis: motion_axis.md

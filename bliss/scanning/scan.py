@@ -554,9 +554,12 @@ class Scan(object):
                 if axis_name not in master_axes:
                     raise ValueError("No master for axis '%s`." % axis_name)
 
+        counter_name = (
+            counter.name if not isinstance(counter, (str, unicode)) else counter
+        )
         data = self.get_data()
         x_data = data[axis_name]
-        y_data = data[counter.name]
+        y_data = data[counter_name]
 
         return x_data, y_data, axis_name
 

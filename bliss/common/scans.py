@@ -23,13 +23,25 @@ __all__ = [
     "loopscan",
     "ct",
     "DEFAULT_CHAIN",
+    "plotselect",
+    "cen",
+    "goto_cen",
+    "peak",
+    "goto_peak",
+    "com",
+    "goto_com",
+    "where",
 ]
 
 import logging
 
+from bliss import setup_globals
+from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration
+from bliss.config.settings import HashSetting
+from bliss.data.scan import get_counter_names
 from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
@@ -846,3 +858,90 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
     scan.run()
     if kwargs.get("return_scan", True):
         return scan
+
+
+# Alignment Helpers
+def _get_selected_counter_name():
+    """
+    Return the selected counter name in flint.
+    """
+    SCANS = setup_globals.SCANS
+    if not SCANS:
+        raise RuntimeError("Scans list is empty!")
+    scan_counter_names = set(get_counter_names(SCANS[-1]))
+    current_session = session.get_current()
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    selected_flint_counter_names = set(
+        [full_name.split(":")[-1] for full_name in plot_select.keys()]
+    )
+    alignment_counts = scan_counter_names.intersection(selected_flint_counter_names)
+    if not alignment_counts:
+        raise RuntimeError(
+            "No counter selected...\n"
+            "Hints: Use flint or plotselect to define which counter to use for alignment"
+        )
+    elif len(alignment_counts) > 1:
+        raise RuntimeError(
+            "There is actually several counter selected (%s).\n"
+            "Only one should be selected.\n"
+            "Hints: Use flint or plotselect to define which counter to use for alignment"
+            % alignment_counts
+        )
+    return alignment_counts.pop()
+
+
+def plotselect(*counters):
+    """
+    Select counter(s) which will be use for alignment and in flint display
+    """
+    current_session = session.get_current()
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    counter_names = dict()
+    for cnt in counters:
+        fullname = cnt.fullname
+        fullname = fullname.replace(".", ":", 1)
+        if not fullname.find(":") > -1:
+            fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
+        counter_names[fullname] = "Y1"
+    plot_select.set(counter_names)
+
+
+def cen():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].cen(counter_name)
+
+
+def goto_cen():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].goto_cen(counter_name)
+
+
+def com():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].com(counter_name)
+
+
+def goto_com():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].goto_com(counter_name)
+
+
+def peak():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].peak(counter_name)
+
+
+def goto_peak():
+    counter_name = _get_selected_counter_name()
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].goto_peak(counter_name)
+
+
+def where():
+    SCANS = setup_globals.SCANS
+    return SCANS[-1].where()

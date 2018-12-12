@@ -76,11 +76,13 @@ class Opiom:
     def __repr__(self):
         return "Opiom : %s with program %s" % (self._cnx, self.__program)
 
-    def setDebug(self, flag):
-        self.__debug = flag is True
-
-    def getDebug(self):
+    @property
+    def debug(self):
         return self.__debug
+
+    @debug.setter
+    def debug(self, flag):
+        self.__debug = bool(flag)
 
     def __debugMsg(self, wr, msg):
         if self.__debug:

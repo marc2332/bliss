@@ -74,7 +74,7 @@ class Opiom:
         self.comm("MODE normal")
 
     def __repr__(self):
-        return "Opiom : %s with program %s" % (self._cnx, self.__program)
+        return "opiom: %s" % self._cnx
 
     @property
     def debug(self):
@@ -150,59 +150,80 @@ class Opiom:
                 self.__debugMsg("Read", msg.strip("\n\r"))
                 return msg.strip("\r\n")
 
-    def load_program(self):
+    def load_program(self, prog_name=None):
         pldid = self.comm("?PLDID")
-        file_pldid, file_project = self._getFilePLDIDandPROJECT()
-        if file_pldid and file_pldid != pldid:
-            print "Load program:", self.__program
-            srcsz = int(self.comm("?SRCSZ").split()[0])
-            offsets, opmfile = self._getoffset()
-            if (offsets["src_c"] - offsets["src_cc"]) < srcsz:
-                SRCST = offsets["src_cc"]
-                srcsz = offsets["src_c"] - offsets["src_cc"]
+        if prog_name is None:
+            prog_name = self.__program
+        if prog_name == "default":
+            if pldid == "255":
+                # already default
+                return
             else:
-                SRCST = offsets["src_c"]
-                srcsz = offsets["jed"] - offsets["src_c"]
-            binsz = offsets["size"] - offsets["jed"]
-
-            sendarray = opmfile[SRCST : SRCST + srcsz]
-            sendarray += opmfile[offsets["jed"] :]
-
-            if self.comm_ack("MODE program") != "OK":
-                raise IOError("Can't program opiom %s" % str(self))
-
-            if (
-                self.comm_ack(
-                    'PROG %d %d %d %d "%s"'
-                    % (binsz, srcsz, self.FSIZE, int(file_pldid), file_project)
+                print "Uploading default program"
+        else:
+            try:
+                file_pldid, file_project = self._getFilePLDIDandPROJECT(prog_name)
+            except ValueError:
+                # invalid unpacking
+                raise IOError(
+                    "opiom %s: cannot find program %s" % (str(self), prog_name)
                 )
-                != "OK"
-            ):
-                self.comm("MODE normal")
-                raise IOError("Can't start programming opiom %s" % str(self))
 
-            for frame_n, index in enumerate(range(0, len(sendarray), self.FSIZE)):
-                with KillMask():
-                    cmd = "#*FRM %d\r" % frame_n
-                    self.raw_write(cmd)
-                    self.raw_bin_write(sendarray[index : index + self.FSIZE])
-                    answer = self._cnx.readline("\r\n")
-                    if answer == "OK":
-                        continue
-                    raise RuntimeError(
-                        "Load program: [%s] returned [%s]" % (cmd.strip(), answer)
-                    )
+            if file_pldid and file_pldid != pldid:
+                print "Uploading opiom program, please wait"
+                srcsz = int(self.comm("?SRCSZ").split()[0])
+                offsets, opmfile = self._getoffset(prog_name)
+                if (offsets["src_c"] - offsets["src_cc"]) < srcsz:
+                    SRCST = offsets["src_cc"]
+                    srcsz = offsets["src_c"] - offsets["src_cc"]
+                else:
+                    SRCST = offsets["src_c"]
+                    srcsz = offsets["jed"] - offsets["src_c"]
+                binsz = offsets["size"] - offsets["jed"]
 
-            # waiting end programming
-            while 1:
-                stat_num = self.comm("?PSTAT")
-                self.__debugMsg("Load", stat_num)
-                try:
-                    stat, percent = stat_num.split()
-                except ValueError:
-                    stat = stat_num
-                    break
-            return stat == "DONE"
+                sendarray = opmfile[SRCST : SRCST + srcsz]
+                sendarray += opmfile[offsets["jed"] :]
+            else:
+                # program already loaded
+                return
+
+        if self.comm_ack("MODE program") != "OK":
+            raise IOError("Can't program opiom %s" % str(self))
+
+        if prog_name == "default":
+            ans = self.comm_ack("PROG DEFAULT")
+            sendarray = []
+        else:
+            ans = self.comm_ack(
+                'PROG %d %d %d %d "%s"'
+                % (binsz, srcsz, self.FSIZE, int(file_pldid), file_project)
+            )
+        if ans != "OK":
+            self.comm("MODE normal")
+            raise IOError("Can't start programming opiom %s" % str(self))
+
+        for frame_n, index in enumerate(range(0, len(sendarray), self.FSIZE)):
+            with KillMask():
+                cmd = "#*FRM %d\r" % frame_n
+                self.raw_write(cmd)
+                self.raw_bin_write(sendarray[index : index + self.FSIZE])
+                answer = self._cnx.readline("\r\n")
+                if answer == "OK":
+                    continue
+                raise RuntimeError(
+                    "Load program: [%s] returned [%s]" % (cmd.strip(), answer)
+                )
+
+        # waiting end programming
+        while True:
+            stat_num = self.comm("?PSTAT")
+            self.__debugMsg("Load", stat_num)
+            try:
+                stat, percent = stat_num.split()
+            except ValueError:
+                stat = stat_num
+                break
+        return stat == "DONE"
 
     def _display_bits(self, prefix, bits):
         for i in range(1, 9):
@@ -216,8 +237,8 @@ class Opiom:
 
         print
 
-    def _getoffset(self):
-        with remote_open(os.path.join(self.__base_path, self.__program + ".opm")) as f:
+    def _getoffset(self, prog_name):
+        with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
             line = f.read(14)
             f.seek(0)
             opmfile = f.read()
@@ -235,10 +256,10 @@ class Opiom:
             opmfile,
         )
 
-    def _getFilePLDIDandPROJECT(self):
+    def _getFilePLDIDandPROJECT(self, prog_name):
         TOKEN = "#pldid#"
         PROJECT_TOKEN = "#project#"
-        with remote_open(os.path.join(self.__base_path, self.__program + ".opm")) as f:
+        with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
             begin = -1
             for line in f:
                 begin = line.find(TOKEN)

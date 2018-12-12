@@ -224,20 +224,6 @@ class Shutter(object):
         self.close()
 
     @property
-    def is_open(self):
-        return self.state == self.OPEN
-
-    @property
-    def is_closed(self):
-        return self.state == self.CLOSED
-
-    def __enter__(self):
-        self.open()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
-
-    @property
     def external_control(self):
         return self._external_ctrl
 

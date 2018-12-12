@@ -196,7 +196,7 @@ class Icepap(Controller):
             status = axis._state()
         else:
             last_power_time = self._last_axis_power_time.get(axis, 0)
-            if time.time() - last_power_time < 1.0:
+            if time.time() - last_power_time < 1.0 and not isinstance(axis, LinkedAxis):
                 status = int(_command(self._cnx, "%s:?STATUS" % axis.address), 16)
             else:
                 self._last_axis_power_time.pop(axis, None)

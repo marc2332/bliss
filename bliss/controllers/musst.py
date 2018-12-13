@@ -461,7 +461,15 @@ class musst(object):
 
         buffer_size, nb_buffer = self.get_event_buffer_size()
         buffer_memory = buffer_size * nb_buffer
-        current_offset, current_buffer_id = self.get_event_memory_pointer()
+        for i in range(10):
+            curr_state = self.STATE
+            current_offset, current_buffer_id = self.get_event_memory_pointer()
+            if current_buffer_id == 0 and current_offset != 64:
+                break
+            if curr_state != self.RUN_STATE:
+                break
+
+            gevent.sleep(100e-3)  # wait a little bit before re-asking
         current_offset = current_buffer_id * buffer_size + current_offset
 
         from_offset = (from_event_id * nb_counters) % buffer_memory

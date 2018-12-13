@@ -32,7 +32,8 @@ provided by the controller itself::
 Here's an working example::
 
     >>> from bliss.config.static import get_config
-    >>> from bliss.common.scans import timescan, get_data
+    >>> from bliss.common.scans import timescan
+    >>> from bliss.data.scan import get_data
 
     >>> config = get_config()
     >>> pepu = config.get('pepudcm2')

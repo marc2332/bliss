@@ -23,6 +23,7 @@ from .connection import SpecConnection
 from .reply import SpecReply
 from .wait import waitConnection
 from .error import SpecClientTimeoutError, SpecClientError, SpecClientNotConnectedError
+from bliss.common import event
 
 
 class wrap_errors(object):
@@ -157,7 +158,7 @@ class SpecCommandA(BaseSpecCommand):
             event.disconnect(self.connection, "connected", self._connected)
             event.disconnect(self.connection, "disconnected", self._disconnected)
 
-        self.connection = connection.SpecConnection(specVersion)
+        self.connection = SpecConnection(specVersion)
         self.specVersion = specVersion
 
         event.connect(self.connection, "connected", self._connected)
@@ -193,22 +194,14 @@ class SpecCommandA(BaseSpecCommand):
         self.beginWait()
 
         with gevent.Timeout(timeout, SpecClientTimeoutError):
-            waiter = SpecWaitObject(self.connection)
-            waiter.waitConnection()
-
-            if self.connection.serverVersion < 3:
+            if isinstance(command, str):
                 id = self.connection.send_msg_cmd_with_return(
                     command, self.replyArrived
                 )
             else:
-                if isinstance(command, str):
-                    id = self.connection.send_msg_cmd_with_return(
-                        command, self.replyArrived
-                    )
-                else:
-                    id = self.connection.send_msg_func_with_return(
-                        command, self.replyArrived
-                    )
+                id = self.connection.send_msg_func_with_return(
+                    command, self.replyArrived
+                )
 
             t = gevent.spawn(wrap_errors(wait_end_of_spec_cmd), self)
 
@@ -250,30 +243,3 @@ class SpecCommandA(BaseSpecCommand):
             return
 
         self.connection.abort()
-
-
-class SpecCommand(SpecCommandA):
-    def __init__(self, *args, **kwargs):
-        SpecCommandA.__init__(self, *args, **kwargs)
-
-    def connectToSpec(self, specVersion, timeout):
-        SpecCommandA.connectToSpec(self, specVersion, timeout)
-
-        if not self.connection.isSpecConnected():
-            with gevent.Timeout(timeout, SpecClientTimeoutError):
-                waitConnection(self.connection, timeout)
-            self._connected()
-
-    def abort(self):
-        if self.connection is None or not self.connection.isSpecConnected():
-            return
-
-        self.connection.abort(wait=True)
-
-    def __call__(self, *args, **kwargs):
-        wait = kwargs.get("wait", True)
-        timeout = kwargs.get("timeout", None)
-        return SpecCommandA.__call__(self, *args, wait=wait, timeout=timeout)
-
-    def executeCommand(self, command, wait=True, timeout=None):
-        return SpecCommandA.executeCommand(self, command, wait, timeout)

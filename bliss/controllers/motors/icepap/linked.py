@@ -5,8 +5,15 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.axis import Axis, NoSettingsAxis, DEFAULT_POLLING_TIME, lazy_init
+from bliss.common.axis import (
+    Axis,
+    NoSettingsAxis,
+    DEFAULT_POLLING_TIME,
+    lazy_init,
+    Motion,
+)
 from . import _ackcommand, _command
+import gevent
 
 
 class LinkedAxis(Axis):
@@ -133,15 +140,20 @@ class LinkedAxis(Axis):
 
             # create motion object for hooks
             motion = Motion(self, switch, None, "homing")
-            self.__execute_pre_move_hook(motion)
+            self._Axis__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):
                 cnx = controller._cnx
-                cmd = "HOME STRICT %s %s" % (
-                    motions[0].axis.address,
-                    ("+1" if motions[0].target_pos > 0 else "-1"),
+                home_dir = "+1" if motions[0].target_pos > 0 else "-1"
+                cmd = "#HOME STRICT %s" % " ".join(
+                    (str(rm.address) + " " + home_dir for rm in self.real_axes)
                 )
-                _ackcommand(cnx, cmd)
+                _command(
+                    cnx,
+                    cmd,
+                    pre_cmd="#DISPROT ALL %s ; "
+                    % " ".join((str(rm.address) for rm in self.real_axes)),
+                )
                 # IcePAP status is not immediately MOVING after home search command is sent
                 gevent.sleep(0.2)
 

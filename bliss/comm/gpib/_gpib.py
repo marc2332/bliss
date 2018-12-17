@@ -368,7 +368,7 @@ class Gpib:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self.gpib_type = self.ENET
-        self._data = ""
+        self._data = b""
 
     @property
     def lock(self):

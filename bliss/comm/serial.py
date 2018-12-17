@@ -100,6 +100,8 @@ class _BaseSerial:
             return self._readline(eol)
 
     def _readline(self, eol):
+        if not isinstance(eol, bytes):
+            eol = eol.encode()
         eol_pos = self._data.find(eol)
         with capture_exceptions() as capture:
             while eol_pos == -1:

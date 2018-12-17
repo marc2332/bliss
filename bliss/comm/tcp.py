@@ -224,6 +224,8 @@ class BaseSocket:
                 timeout or self._timeout, SocketTimeout(timeout_errmsg)
             ):
                 local_eol = eol or self._eol
+                if not isinstance(local_eol, bytes):
+                    local_eol = local_eol.encode()
                 eol_pos = self._data.find(local_eol)
                 while eol_pos == -1:
                     with capture():
@@ -542,6 +544,8 @@ class Command:
                 CommandTimeout("timeout on socket(%s, %d)" % (self._host, self._port)),
             ):
                 local_eol = eol or self._eol
+                if not isinstance(local_eol, bytes):
+                    local_eol = local_eol.encode()
                 ctx.data = b""
                 eol_pos = -1
                 while eol_pos == -1:

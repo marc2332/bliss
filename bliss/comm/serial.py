@@ -19,6 +19,7 @@ import gevent
 from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
 from bliss.common.cleanup import capture_exceptions
+from .util import HexMsg
 
 import serial
 
@@ -123,6 +124,7 @@ class _BaseSerial:
 
             msg = self._data[:eol_pos]
             self._data = self._data[eol_pos + len(eol) :]
+            self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
             return msg
 
     def read(self, size, timeout):
@@ -148,6 +150,7 @@ class _BaseSerial:
                         break
             msg = self._data[:size]
             self._data = self._data[size:]
+            self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
             return msg
 
     def write(self, msg, timeout):
@@ -155,6 +158,7 @@ class _BaseSerial:
             return self._write(msg)
 
     def _write(self, msg):
+        self._cnt()._debug("Tx: %r %r ", msg, HexMsg(msg))
         while msg:
             _, ready, _ = select.select([], [self.fd], [])
             size_send = os.write(self.fd, msg)
@@ -174,6 +178,7 @@ class _BaseSerial:
         else:
             msg = self._data
             self._data = ""
+        self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
         return msg
 
     @staticmethod
@@ -682,6 +687,7 @@ class Serial:
         self._raw_handler = None
         self._lock = lock.RLock()
         self._logger = logging.getLogger(str(self))
+        self._debug = self._logger.debug
 
     def __del__(self):
         self.close()
@@ -696,6 +702,7 @@ class Serial:
     def open(self):
         if self._raw_handler is None:
             serial_type = self._check_type()
+            self._debug("open - serial_type=%s" % serial_type)
             if serial_type == self.RFC2217:
                 self._raw_handler = RFC2217(self, **self._serial_kwargs)
             elif serial_type == self.SER2NET:
@@ -706,6 +713,7 @@ class Serial:
                 self._raw_handler = LocalSerial(self, **self._serial_kwargs)
 
     def close(self):
+        self._debug("close")
         if self._raw_handler:
             self._raw_handler.close()
             self._raw_handler = None

@@ -153,24 +153,25 @@ class Bus(AdvancedInstantiationInterface):
         query_id = uuid.uuid1().hex
         reply_queue = gevent.queue.Queue()
 
-        # Register reply queue
-        self._reply_queues[query_id] = reply_queue
+        try:
+            # Register reply queue
+            self._reply_queues[query_id] = reply_queue
 
-        # Send the query
-        expected_replies = self._publish(name, _Query(query_id))
+            # Send the query
+            expected_replies = self._publish(name, _Query(query_id))
 
-        # Loop over replies
-        while expected_replies:
-            reply = reply_queue.get()
-            expected_replies -= 1
+            # Loop over replies
+            while expected_replies:
+                reply = reply_queue.get()
+                expected_replies -= 1
 
-            # Break if a valid value is received
-            if reply.value is not None:
-                reply_value = reply.value
-                break
-
-        # Unregister queue
-        del self._reply_queues[query_id]
+                # Break if a valid value is received
+                if reply.value is not None:
+                    reply_value = reply.value
+                    break
+        finally:
+            # Unregister queue
+            del self._reply_queues[query_id]
 
         # Return value
         return reply_value

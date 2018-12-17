@@ -58,6 +58,7 @@ def cleanup(*args, **kwargs):
 
     restore_list = kwargs.pop("restore_list", list())
     error_cleanup = kwargs.pop("error_cleanup", False)
+    verbose = kwargs.pop("verbose", False)
     finally_cleanup = not error_cleanup
     motors = list()
     lima_device = list()
@@ -152,7 +153,12 @@ def cleanup(*args, **kwargs):
                         ]
                     )
                 if axis.POS in restore_list:
-                    mot_group.move(*previous_motor_position)
+                    if verbose:
+                        from bliss.common.standard import umv
+
+                        umv(*previous_motor_position)
+                    else:
+                        mot_group.move(*previous_motor_position)
 
             if exceptions:
                 if len(exceptions) == 1:

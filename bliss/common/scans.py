@@ -182,7 +182,7 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     start += motor.position()
     stop += motor.position()
 
-    with cleanup(motor, restore_list=(cleanup_axis.POS,)):
+    with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
         scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
     return scan
 
@@ -374,7 +374,7 @@ def dmesh(
     start2 += motor2.position()
     stop2 += motor2.position()
 
-    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
+    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
         return amesh(
             motor1,
             start1,

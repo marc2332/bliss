@@ -117,7 +117,7 @@ class Bus(AdvancedInstantiationInterface):
     # Close
 
     def close(self):
-        for channel in list(self._channels.values()):
+        for channel in self._channels.values():
             channel.close()
         if self._send_task:
             self._send_task.kill()
@@ -126,7 +126,7 @@ class Bus(AdvancedInstantiationInterface):
 
     @classmethod
     def clear_cache(cls):
-        for bus in list(cls._CACHE.values()):
+        for bus in cls._CACHE.values():
             bus.close()
         cls._CACHE.clear()
 
@@ -519,7 +519,7 @@ def clear_cache(*devices):
     devices -- one or more devices or if no device all devices
     """
     if not devices:
-        devices = list(DEVICE_CACHE.keys())
+        devices = DEVICE_CACHE.keys()
     for device in devices:
         cached_channels = DEVICE_CACHE.get(device, [])
         for channel in cached_channels:

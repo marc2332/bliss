@@ -232,13 +232,13 @@ class musst(object):
                 eos=config_tree.get("gpib_eos", ""),
                 timeout=config_tree.get("gpib_timeout", 5),
             )
-            self._txterm = ""
-            self._rxterm = "\n"
+            self._txterm = b""
+            self._rxterm = b"\n"
             self._binary_data_read = True
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
-            self._txterm = "\r"
-            self._rxterm = "\r\n"
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
             self._binary_data_read = False
         else:
             raise ValueError("Must specify gpib_url or serial_url")
@@ -347,7 +347,6 @@ class musst(object):
         msg -- the message you want to send
         ack -- if True, wait the an acknowledge (synchronous)
         """
-
         if ack is True and not (msg.startswith("?") or msg.startswith("#")):
             msg = "#" + msg
 
@@ -355,17 +354,17 @@ class musst(object):
 
         with self._cnx._lock:
             self._cnx.open()
-            self._cnx._write(msg + self._txterm)
+            self._cnx._write(msg.encode() + self._txterm)
             if msg.startswith("?") or ack:
                 answer = self._cnx._readline(self._rxterm)
-                if answer == "$":
-                    return self._cnx._readline("$" + self._rxterm)
+                if answer == b"$":
+                    return self._cnx._readline(b"$" + self._rxterm).decode()
                 elif ack:
-                    if answer != "OK":
+                    if answer != b"OK":
                         raise RuntimeError("%s: invalid answer: %r", self.name, answer)
                     return True
                 else:
-                    return answer
+                    return answer.decode()
 
     def _wait(self):
         while self.STATE == self.RUN_STATE:
@@ -427,6 +426,7 @@ class musst(object):
 
         program_data -- program data you want to upload
         """
+        program_data = program_data.encode()
         m = hashlib.md5()
         m.update(program_data)
         md5sum = m.hexdigest()
@@ -437,9 +437,9 @@ class musst(object):
         if self.__one_line_programing:
             # split into lines for Prologix
             for l in program_data.splitlines():
-                self._cnx.write("+%s\r\n" % l)
+                self._cnx.write(b"+%s\r\n" % l)
         else:
-            prg = "".join(["+%s\r\n" % l for l in program_data.splitlines()])
+            prg = b"".join([b"+%s\r\n" % l for l in program_data.splitlines()])
             self._cnx.write(prg)
         if self.STATE != self.IDLE_STATE:
             err = self.putget("?LIST ERR")
@@ -501,7 +501,7 @@ class musst(object):
                 with self._cnx._lock:
                     self._cnx.open()
                     with KillMask():
-                        self._cnx._write("?*EDAT %d %d %d" % (size_to_read, 0, offset))
+                        self._cnx._write(b"?*EDAT %d %d %d" % (size_to_read, 0, offset))
                         raw_data = ""
                         while len(raw_data) < (size_to_read * 4):
                             raw_data += self._cnx.raw_read()

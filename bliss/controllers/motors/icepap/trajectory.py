@@ -315,7 +315,8 @@ class TrajectoryAxis(Axis):
                 rposition = positions.mean()
             # update real motors
             for axis in self.enabled_axes:
-                axis._update_dial()
+                axis.sync_hard()
+
         return rposition
 
     def _state(self):
@@ -325,7 +326,18 @@ class TrajectoryAxis(Axis):
             for s in _command(self.controller._cnx, "?FSTATUS %s" % (axes_str)).split()
         ]
         status = all_status.pop(0)
+        stop_code = status & (0xf << 14)
+        # test internal stop code which
+        # are not relevant stop for us
+        # so clear it
+        if stop_code == (7 << 14) or stop_code == (14 << 14):
+            status &= ~(0xf << 14)
         for axis_status in all_status:
+            stop_code = axis_status & (0xf << 14)
+            if stop_code == 0 or stop_code == (7 << 14) or stop_code == (14 << 14):
+                status &= ~(0xf << 14)  # clear stop_code
+            axis_status &= ~(0xf << 14)
+
             rp_status = status & (axis_status & (1 << 9 | 1 << 23))  # READY POWERON
             other_status = (status | axis_status) & ~(1 << 9 | 1 << 23)
             status = rp_status | other_status

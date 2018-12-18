@@ -230,6 +230,9 @@ class Icepap(Controller):
             # if motor is ready then no need to investigate deeper
             return state
 
+        if not (stop_code != 7 and stop_code != 14 and stop_code):
+            state.set("MOVING")
+
         if not state.MOVING:
             # it seems it is not safe to call warning and/or alarm commands
             # while homing motor, so let's not ask if motor is moving

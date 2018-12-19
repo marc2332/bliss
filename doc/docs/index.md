@@ -78,23 +78,23 @@ of daemons started by the system:
 
 It is required to start Beacon server using `--db_path` to specify the path to the YAML configuration files:
 
-    $ beacon_server --db_path=~/local/beamline_configuration
+    $ beacon-server --db_path=~/local/beamline_configuration
 
 It is also a good idea to fix the bliss configuration server port number
 (otherwise, by default, Beacon will just choose the first free port it finds):
 
-    $ beacon_server --db_path=~/local/beamline_configuration --port=25000
+    $ beacon-server --db_path=~/local/beamline_configuration --port=25000
 
 Clients will then need to setup the `BEACON_HOST` environment variable to
 point to `<machine>:<port>` (example: `id31:25000`).
 
 The web configuration UI has to be enabled, by specifying the web application port number using `--webapp_port`:
 
-    $ beacon_server --db_path=~/local/beamline_configuration --port=25000 --webapp_port=9030
+    $ beacon-server --db_path=~/local/beamline_configuration --port=25000 --webapp_port=9030
 
 BLISS Beacon server is also able to provide a full TANGO database server service that integrates nicely with the BLISS configuration. To start this service it is just needed to provide the TANGO port that you want the TANGO database server to serve:
 
-    $ beacon_server --db_path=~/local/beamline_configuration --port=25000 --webapp_port=9030 --tango_port=20000
+    $ beacon-server --db_path=~/local/beamline_configuration --port=25000 --webapp_port=9030 --tango_port=20000
 
 [1]: https://gitlab.esrf.fr/bliss/ansible/blob/master/README.md
 [2]: https://gitlab.esrf.fr/bliss/bliss

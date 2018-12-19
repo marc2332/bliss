@@ -417,6 +417,8 @@ class Gpib:
     @try_open
     def _readline(self, eol):
         local_eol = eol or self._eos
+        if not isinstance(local_eol, bytes):
+            local_eol = local_eol.encode()
         url = self._gpib_kwargs.get("url")
         pad = self._gpib_kwargs.get("pad")
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url, pad)

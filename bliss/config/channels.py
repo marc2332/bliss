@@ -117,7 +117,7 @@ class Bus(AdvancedInstantiationInterface):
     # Close
 
     def close(self):
-        for channel in list(self._channels.values()):
+        for channel in self._channels.values():
             channel.close()
         if self._send_task:
             self._send_task.kill()
@@ -126,7 +126,7 @@ class Bus(AdvancedInstantiationInterface):
 
     @classmethod
     def clear_cache(cls):
-        for bus in list(cls._CACHE.values()):
+        for bus in cls._CACHE.values():
             bus.close()
         cls._CACHE.clear()
 
@@ -153,24 +153,25 @@ class Bus(AdvancedInstantiationInterface):
         query_id = uuid.uuid1().hex
         reply_queue = gevent.queue.Queue()
 
-        # Register reply queue
-        self._reply_queues[query_id] = reply_queue
+        try:
+            # Register reply queue
+            self._reply_queues[query_id] = reply_queue
 
-        # Send the query
-        expected_replies = self._publish(name, _Query(query_id))
+            # Send the query
+            expected_replies = self._publish(name, _Query(query_id))
 
-        # Loop over replies
-        while expected_replies:
-            reply = reply_queue.get()
-            expected_replies -= 1
+            # Loop over replies
+            while expected_replies:
+                reply = reply_queue.get()
+                expected_replies -= 1
 
-            # Break if a valid value is received
-            if reply.value is not None:
-                reply_value = reply.value
-                break
-
-        # Unregister queue
-        del self._reply_queues[query_id]
+                # Break if a valid value is received
+                if reply.value is not None:
+                    reply_value = reply.value
+                    break
+        finally:
+            # Unregister queue
+            del self._reply_queues[query_id]
 
         # Return value
         return reply_value
@@ -519,7 +520,7 @@ def clear_cache(*devices):
     devices -- one or more devices or if no device all devices
     """
     if not devices:
-        devices = list(DEVICE_CACHE.keys())
+        devices = DEVICE_CACHE.keys()
     for device in devices:
         cached_channels = DEVICE_CACHE.get(device, [])
         for channel in cached_channels:

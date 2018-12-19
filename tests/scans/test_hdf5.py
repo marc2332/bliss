@@ -78,7 +78,7 @@ def test_hdf5_metadata(beacon, session):
         assert dataset["start_time"].value.startswith(iso_start_time)
         assert dataset["measurement"]
         assert dataset["instrument"]
-        for name, pos in dataset["instrument"][ "positioners"].items():
+        for name, pos in dataset["instrument/positioners"].items():
             assert all_motors.pop(name) == pos.value
         assert len(all_motors) == 0
 

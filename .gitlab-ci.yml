@@ -22,7 +22,6 @@ tests:
     - source activate testenv
     # Get louie from github for python 3 compatibility
     - conda install -q --yes git
-    - pip install git+https://github.com/11craft/louie.git
     # Install bliss and its pip-only dependencies
     - pip install .
   script:

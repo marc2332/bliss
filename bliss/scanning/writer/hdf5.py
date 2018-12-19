@@ -39,7 +39,7 @@ class Writer(FileWriter):
         self.close()
         self.file = h5py.File(self.filename)
         self.scan_entry = self.file.create_group(scan_name)
-        self.scan_entry.attrs["NX_class"] = "NXentry"
+        self.scan_entry.attrs["NX_class"] = u"NXentry"
         scan_title = scan_info.get("title", "untitled")
         utf8_dt = h5py.special_dtype(vlen=unicode)
         self.scan_entry["title"] = scan_title.encode("utf-8")
@@ -48,13 +48,13 @@ class Writer(FileWriter):
         utc_time = local_time + "%+03d:00" % (time.altzone / 3600)
         self.scan_entry["start_time"] = utc_time.encode("utf-8")
         self.measurement = self.scan_entry.create_group("measurement")
-        self.measurement.attrs["NX_class"] = "NXcollection"
-        instrument = self.measurement.create_group("instrument")
-        instrument.attrs["NX_class"] = "NXinstrument"
+        self.measurement.attrs["NX_class"] = u"NXcollection"
+        instrument = self.scan_entry.create_group("instrument")
+        instrument.attrs["NX_class"] = u"NXinstrument"
         positioners = instrument.create_group("positioners")
-        positioners.attrs["NX_class"] = "NXcollection"
+        positioners.attrs["NX_class"] = u"NXcollection"
         positioners_dial = instrument.create_group("positioners_dial")
-        positioners_dial.attrs["NX_class"] = "NXcollection"
+        positioners_dial.attrs["NX_class"] = u"NXcollection"
         positioners_dict = scan_info.get("positioners", {})
         for pname, ppos in positioners_dict.iteritems():
             if isinstance(ppos, float):

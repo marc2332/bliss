@@ -36,13 +36,13 @@ def h5dump(scan_file):
 
 ascan_dump = """{ascan}
     NX_class: NXentry
+{ascan}/instrument
+    NX_class: NXinstrument
 {ascan}/measurement
     NX_class: NXcollection
 {ascan}/measurement/{group_name}
 {ascan}/measurement/{group_name}/{group_name}:roby
 {ascan}/measurement/{group_name}/timer
-{ascan}/measurement/instrument
-    NX_class: NXinstrument
 {ascan}/measurement/timer
 {ascan}/measurement/timer/diode:diode
 {ascan}/measurement/timer/simu1:spectrum_det0
@@ -77,8 +77,8 @@ def test_hdf5_metadata(beacon, session):
         assert dataset["title"].value == u"ascan roby 0 10 10 0.01"
         assert dataset["start_time"].value.startswith(iso_start_time)
         assert dataset["measurement"]
-        measurement = dataset["measurement"]
-        for name, pos in measurement["instrument"]["positioners"].items():
+        assert dataset["instrument"]
+        for name, pos in dataset["instrument/positioners"].items():
             assert all_motors.pop(name) == pos.value
         assert len(all_motors) == 0
 

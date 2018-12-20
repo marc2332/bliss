@@ -26,10 +26,10 @@ def pepu_assert_command(pepu, write, read):
     conn = pepu.conn
     conn._write.reset_mock()
     conn._readline.reset_mock()
-    conn._readline.return_value = read
+    conn._readline.return_value = read.encode()
     try:
         yield mock
-        conn._write.assert_called_once_with(write + "\n")
+        conn._write.assert_called_once_with(write.encode() + b"\n")
         conn._readline.assert_called_once()
     finally:
         conn._write.reset_mock()
@@ -144,7 +144,7 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
     )
 
     # Create stream
-    pepu.conn._readline.return_value = return_value
+    pepu.conn._readline.return_value = return_value.encode()
     stream = pepu.create_stream(
         name="TEST",
         trigger=Trigger(Signal.SOFT, Signal.SOFT),

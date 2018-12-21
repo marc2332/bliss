@@ -257,7 +257,8 @@ class ScanListener:
         if "elapsed_time" in values:
             elapsed_time_col.append(values.pop("elapsed_time"))
 
-        motor_values = [values[motor.name] for motor in sorted(self.real_motors)]
+        motor_labels = sorted(m.name for m in self.real_motors)
+        motor_values = [values[motor_name] for motor_name in motor_labels]
         counter_values = [
             values[counter_name] for counter_name in sorted(self.counters)
         ]

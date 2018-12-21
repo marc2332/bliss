@@ -21,7 +21,8 @@ class XPS:
     # Send command and get return
     def __sendAndReceive(self, command):
         try:
-            reply = self.__sock.write_readline(command, eol=",EndOfAPI")
+            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]
         else:
@@ -31,7 +32,8 @@ class XPS:
     # Send command and get return
     def __sendAndReceiveWithDecode(self, command):
         try:
-            reply = self.__sock.write_readline(command, eol=",EndOfAPI")
+            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]
         else:

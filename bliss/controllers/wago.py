@@ -156,9 +156,7 @@ def WagoController(host):
 
 class _WagoController:
     def __init__(self, host):
-        self.__proxy = Proxy({"tcp": {"url": "socket://%s:%d" % (host, 502)}})
-        self.__proxy._check_connection()
-        host, port = self.__proxy._url_channel.value.split(":")
+        port = 502
         self.client = ModbusTcp(host, port=int(port))
         self.modules = []
         self.firmware = {"date": None, "version": None}
@@ -411,8 +409,7 @@ class _WagoController:
         not_found_channel = set(channel_names) - found_channel
         if not_found_channel:
             raise KeyError(
-                "Channel(s) '%s` doesn't exist in Wago %s"
-                % (not_found_channel, self.wago_host)
+                f"Channel(s) '{not_found_channel}` doesn't exist in Wago {self.wago_host}"
             )
 
         modules_to_read_list = list(modules_to_read)

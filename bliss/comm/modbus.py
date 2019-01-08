@@ -489,8 +489,8 @@ class ModbusTcp:
                 read_values = trans.get()
                 if isinstance(read_values, socket.error):
                     raise read_values
-                uid, func_code, msg = read_values
-                if func_code != func_code:  # Error
+                uid, func_code_read, msg = read_values
+                if func_code != func_code_read:  # Error
                     raise ModbusError(
                         "Error expecting func code %s intead of %s"
                         % (func_code, _error_code(msg))

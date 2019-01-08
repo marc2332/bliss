@@ -214,7 +214,7 @@ class Elmo(Controller):
     def initialize_hardware(self):
         # Check that the controller is alive
         try:
-            self._query("VR\r", timeout=50e-3)
+            self._query("VR", timeout=50e-3)
         except SocketTimeout:
             raise RuntimeError(
                 "Controller Elmo (%s) is not connected" % (self._cnx._host)
@@ -235,6 +235,9 @@ class Elmo(Controller):
         mode = self._query("UM")
         axis._mode.value = int(mode)
 
+    def close(self):
+        self._cnx.close()
+
     def set_on(self, axis):
         self._set_power(axis, True)
 
@@ -250,7 +253,8 @@ class Elmo(Controller):
 
     def _query(self, msg, in_error_code=False, **keys):
         send_message = msg + "\r"
-        raw_reply = self._cnx.write_readline(send_message, **keys)
+        raw_reply = self._cnx.write_readline(send_message.encode(), **keys)
+        raw_reply = raw_reply.decode()
         if not raw_reply.startswith(send_message):  # something weird happened
             self._cnx.close()
             raise RuntimeError(

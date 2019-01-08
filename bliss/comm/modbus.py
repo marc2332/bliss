@@ -81,7 +81,7 @@ class Modbus_ASCII:
         :returns: The calculated LRC
 
         """
-        lrc = sum(ord(a) for a in data) & 0xff
+        lrc = sum(data) & 0xff
         lrc = (lrc ^ 0xff) + 1
         return lrc & 0xff
 
@@ -496,7 +496,7 @@ class ModbusTcp:
             with gevent.Timeout(
                 timeout or self._timeout, ModbusTimeout(timeout_errmsg)
             ):
-                msg = struct.pack(">HH", address, nb)
+                msg = struct.pack(">HH", address, int(nb))
                 self._raw_write(trans.tid(), func_code, msg)
                 read_values = trans.get()
                 if isinstance(read_values, socket.error):
@@ -534,7 +534,7 @@ class ModbusTcp:
 
     @staticmethod
     def _raw_read(modbus, fd):
-        data = ""
+        data = b""
 
         try:
             while 1:
@@ -544,7 +544,7 @@ class ModbusTcp:
                     if len(data) > 7:
                         tid, pid, length, uid = struct.unpack(">HHHB", data[:7])
                         if len(data) >= length + 6:  # new msg
-                            func_code = ord(data[7])
+                            func_code = data[7]
                             end_msg = 8 + length - 2
                             msg = data[8:end_msg]
                             data = data[end_msg:]

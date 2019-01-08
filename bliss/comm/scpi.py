@@ -575,7 +575,8 @@ class SCPI(object):
         strict_query = kwargs.setdefault("strict_query", self._strict_query)
         cmds, queries, msg = sanitize_msgs(*msgs, **kwargs)
         self._logger.debug("[start] read %r", msg)
-        raw_results = self.interface.write_readlines(msg, len(queries))
+        raw_results = self.interface.write_readlines(msg.encode(), len(queries))
+        raw_results = [r.decode() for r in raw_results]
         self._logger.debug("[ end ] read %r=%r", msg, raw_results)
         if raw:
             return raw_results
@@ -624,7 +625,11 @@ class SCPI(object):
             return
         msg = self.__to_write_commands(*msgs, **kwargs)
         self._logger.debug("[start] write %r", msg)
-        raw_result = self.interface.write(msg)
+        raw_result = self.interface.write(msg.encode())
+        if type(raw_result).__name__ == "int":
+            raw_result = str(chr(raw_result))
+        else:
+            raw_result = raw_result.decode()
         self._logger.debug("[ end ] write %r", msg)
 
     _MAX_ERR_STACK_SIZE = 20

@@ -76,6 +76,17 @@ def grouped(iterable, n):
     return zip(*[iter(iterable)] * n)
 
 
+def flatten(seq):
+    """list -> list                                                                                                                                                                           
+    return a flattend list from an abitrarily nested list                                                                                                                                     
+    """
+    if not seq:
+        return seq
+    if not isinstance(seq[0], list):
+        return [seq[0]] + flatten(seq[1:])
+    return flatten(seq[0]) + flatten(seq[1:])
+
+
 def all_equal(iterable):
     g = itertools.groupby(iterable)
     return next(g, True) and not next(g, False)

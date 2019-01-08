@@ -11,7 +11,7 @@ import sys
 import struct
 import socket
 from bliss.common.measurement import SamplingCounter
-from bliss.common.utils import add_property
+from bliss.common.utils import add_property, flatten
 from bliss.comm.tcp_proxy import Proxy
 from bliss.comm.modbus import ModbusTcp
 from bliss.config.conductor.client import synchronized
@@ -440,7 +440,9 @@ class _WagoController:
         elif len(ret) == 1:
             return ret[0]
         else:
-            return ret
+            # ret represents a list of lists, containing Wago values
+            # by Wago module, but we prefer to have a flat list
+            return flatten(ret)
 
     def _write_fs(self, value, low=0, high=10, base=32768):
         return int(((value - low) * base / float(high))) & 0xffff

@@ -625,11 +625,7 @@ class SCPI(object):
             return
         msg = self.__to_write_commands(*msgs, **kwargs)
         self._logger.debug("[start] write %r", msg)
-        raw_result = self.interface.write(msg.encode())
-        if type(raw_result).__name__ == "int":
-            raw_result = str(chr(raw_result))
-        else:
-            raw_result = raw_result.decode()
+        self.interface.write(msg.encode())
         self._logger.debug("[ end ] write %r", msg)
 
     _MAX_ERR_STACK_SIZE = 20

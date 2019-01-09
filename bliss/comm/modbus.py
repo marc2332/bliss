@@ -386,6 +386,37 @@ class ModbusTcp:
         self._write(0x06, address, struct_format, value, timeout_errmsg, timeout)
 
     @try_connect_modbustcp
+    def write_float(self, address, value, timeout=None):
+
+        timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
+            self._host,
+            self._port,
+        )
+
+        func_code = 0x10
+        with self.Transaction(self) as trans:
+            with gevent.Timeout(
+                timeout or self._timeout, ModbusTimeout(timeout_errmsg)
+            ):
+                quantityOfRegisters = 2
+                byteCount = 2 * quantityOfRegisters
+                msg = struct.pack(
+                    ">HHBf", address, quantityOfRegisters, byteCount, value
+                )
+                self._raw_write(trans.tid(), func_code, msg)
+
+                read_values = trans.get()
+                if isinstance(read_values, socket.error):
+                    raise read_values
+                uid, func_code_answer, msg = read_values
+                if func_code != func_code_answer:  # Error
+                    raise ModbusError(
+                        "Error expecting func code %s intead of %s"
+                        % (func_code, _error_code(msg))
+                    )
+                # in this case received msg should contain starting address and qty of registers
+
+    @try_connect_modbustcp
     def read_input_registers(self, address, struct_format, timeout=None):
         timeout_errmsg = "timeout on read_input_registers modbus tcp (%s, %d)" % (
             self._host,
@@ -489,8 +520,8 @@ class ModbusTcp:
                 read_values = trans.get()
                 if isinstance(read_values, socket.error):
                     raise read_values
-                uid, func_code, msg = read_values
-                if func_code != func_code:  # Error
+                uid, func_code_read, msg = read_values
+                if func_code != func_code_read:  # Error
                     raise ModbusError(
                         "Error expecting func code %s intead of %s"
                         % (func_code, _error_code(msg))

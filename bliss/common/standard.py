@@ -42,7 +42,6 @@ import itertools
 import linecache
 import collections.abc
 
-from six import print_
 from gevent import sleep
 from tabulate import tabulate
 
@@ -109,7 +108,7 @@ def wa(**kwargs):
     err = kwargs.get("err", _ERR)
     get = functools.partial(safe_get, on_error=err)
 
-    print_("Current Positions (user, dial)")
+    print("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
     for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
@@ -126,8 +125,8 @@ def wa(**kwargs):
         dial.append(dial_position)
 
     for table in tables:
-        print_()
-        print_(_tabulate(table))
+        print("")
+        print(_tabulate(table))
 
 
 def wm(*axes, **kwargs):
@@ -138,7 +137,7 @@ def wm(*axes, **kwargs):
         axis (~bliss.common.axis.Axis): motor axis
     """
     if not axes:
-        print_("need at least one axis name/object")
+        print("need at least one axis name/object")
         return
     max_cols = kwargs.get("max_cols", _MAX_COLS)
     err = kwargs.get("err", _ERR)
@@ -194,8 +193,8 @@ def wm(*axes, **kwargs):
         low_dial.append(axis.user2dial(low) if low != None else _MISSING_VAL)
 
     for table in tables:
-        print_()
-        print_(_tabulate(table))
+        print("")
+        print(_tabulate(table))
 
 
 def stm(*axes):
@@ -220,7 +219,7 @@ def sta(read_hw=False):
         )
         for axis in get_axes_iter()
     ]
-    print_(_tabulate(table))
+    print(_tabulate(table))
 
 
 def mv(*args):
@@ -300,19 +299,19 @@ def __umove(*args, **kwargs):
         col_len = max(max(list(map(len, motor_names))), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
-        print_()
-        print_(__row(motor_names, hfmt, sep="  "))
+        print("")
+        print(__row(motor_names, hfmt, sep="  "))
 
         while group.is_moving:
             positions = group.position()
             row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-            print_("\r" + row, end="", flush=True)
+            print("\r" + row, end="", flush=True)
             sleep(0.1)
         # print last time for final positions
         positions = group.position()
         row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-        print_("\r" + row, end="", flush=True)
-        print_()
+        print("\r" + row, end="", flush=True)
+        print("")
 
     return group, motor_pos
 
@@ -372,8 +371,8 @@ def prdef(obj_or_name):
         header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n".format(
             name, real_name, fname, line_nb
         )
-    print_(header)
-    print_(__pyhighlight("".join(lines)))
+    print(header)
+    print(__pyhighlight("".join(lines)))
 
 
 def _check_log_level(level):
@@ -440,8 +439,8 @@ def lscnt():
     table_info = []
     for counter_name, counter_info in sorted(cntdict().items()):
         table_info.append(itertools.chain([counter_name], counter_info))
-    print_()
-    print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
+    print("")
+    print(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
 
 
 def edit_roi_counters(detector, acq_time=None):

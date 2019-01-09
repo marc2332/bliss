@@ -29,7 +29,6 @@ import traceback
 import pickle
 import base64
 
-import six
 import gevent
 import gevent.event
 
@@ -49,13 +48,10 @@ from . import utils
 _log = logging.getLogger("bliss.tango")
 
 
-print_ = six.print_
-
-
 def print_err_(*args, **kwargs):
     """print error message"""
     kwargs["file"] = sys.stderr
-    print_(*args, **kwargs)
+    print(*args, **kwargs)
 
 
 def get_bliss_obj(name):
@@ -296,9 +292,9 @@ class Bliss(Device):
 
     def __evaluate(self, cmd):
         try:
-            six.exec_("_=" + cmd, self.__user_ns)
+            exec("_=" + cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (*sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
             return e
@@ -309,9 +305,9 @@ class Bliss(Device):
         if self.sanatize_command:
             cmd = sanatize_command(cmd)
         try:
-            six.exec_(cmd, self.__user_ns)
+            exec(cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (*sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
 

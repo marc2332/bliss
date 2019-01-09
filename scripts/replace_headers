@@ -15,7 +15,6 @@ import os.path
 import functools
 from tempfile import NamedTemporaryFile
 
-import six
 import magic
 
 
@@ -159,7 +158,7 @@ def replace_dir(filters, dir_name, file_names):
         full_name = os.path.join(dir_name, file_name)
         if os.path.isfile(full_name):
             if replace_file(full_name):
-                six.print_('  Reformatted {0}'.format(full_name))
+                print('  Reformatted {0}'.format(full_name))
                 file_names.remove(file_name)
 
 
@@ -185,7 +184,7 @@ def main():
 
     base = os.path.realpath(os.path.expanduser(args.file_or_dir))
 
-    six.print_('Replacing {0}'.format(base))
+    print_('Replacing {0}'.format(base))
 
     func = replace_project if os.path.isdir(base) else replace_py_file
     func(base)

@@ -14,7 +14,6 @@ import enum
 import gevent
 import errno
 import sys
-import six
 
 axis = enum.Enum("axis", "POS VEL ACC LIM")
 lima = enum.Enum("lima", "VIDEO_LIVE")
@@ -268,4 +267,13 @@ def capture_exceptions(raise_index=-1, excepthook=None):
 
     etype, value, tb = infos[raise_index]
     value.exception_infos = infos
-    six.reraise(etype, value, tb)
+    # The following is the code from six
+    try:
+        if value is None:
+            value = etype()
+        if value.__traceback__ is not tb:
+            raise value.with_traceback(tb)
+        raise value
+    finally:
+        value = None
+        tb = None

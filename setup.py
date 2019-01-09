@@ -105,7 +105,6 @@ def main():
         "prompt_toolkit < 2",
         "docopt",
         "bottle",
-        "six >= 1.10",
         "tabulate",
         "pyserial > 2",
         "ruamel.yaml",

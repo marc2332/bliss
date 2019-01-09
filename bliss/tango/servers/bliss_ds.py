@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
 Bliss TANGO device class
@@ -288,7 +293,7 @@ class Bliss(Device):
         try:
             exec("_=" + cmd, self.__user_ns)
         except gevent.GreenletExit:
-            raise (*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
             return e
@@ -301,7 +306,7 @@ class Bliss(Device):
         try:
             exec(cmd, self.__user_ns)
         except gevent.GreenletExit:
-            raise (*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
 

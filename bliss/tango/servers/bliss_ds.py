@@ -48,12 +48,6 @@ from . import utils
 _log = logging.getLogger("bliss.tango")
 
 
-def print_err_(*args, **kwargs):
-    """print error message"""
-    kwargs["file"] = sys.stderr
-    print(*args, **kwargs)
-
-
 def get_bliss_obj(name):
     return get_config().get(name)
 
@@ -68,12 +62,12 @@ def excepthook(etype, value, tb, show_tb=False):
 
     lines = traceback.format_exception_only(etype, value)
     for line in lines:
-        print_err_(line, end="")
+        print(line, end="", file=sys.stderr)
     if tb and show_tb:
         msg = "\n-- Traceback (most recent call last) -----------------"
-        print_err_(msg)
+        print(msg, file=sys.stderr)
         traceback.print_tb(tb)
-        print_err_(len(msg) * "-")
+        print(len(msg) * "-", file=sys.stderr)
 
     _log.exception("Unhandled exception occurred:")
 

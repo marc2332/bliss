@@ -184,13 +184,13 @@ def wm(*axes, **kwargs):
             axis_label += "[{0}]".format(unit)
         header.append(axis_label)
         User.append(None)
-        high_user.append(high if high != None else _MISSING_VAL)
+        high_user.append(high if high is not None else _MISSING_VAL)
         user.append(get(axis, "position"))
-        low_user.append(low if low != None else _MISSING_VAL)
+        low_user.append(low if low is not None else _MISSING_VAL)
         Dial.append(None)
-        high_dial.append(axis.user2dial(high) if high != None else _MISSING_VAL)
+        high_dial.append(axis.user2dial(high) if high is not None else _MISSING_VAL)
         dial.append(get(axis, "dial"))
-        low_dial.append(axis.user2dial(low) if low != None else _MISSING_VAL)
+        low_dial.append(axis.user2dial(low) if low is not None else _MISSING_VAL)
 
     for table in tables:
         print("")

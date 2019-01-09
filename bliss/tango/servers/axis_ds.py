@@ -10,18 +10,6 @@
 """
 
 
-import bliss.common.log as elog
-from bliss.common.axis import get_axis
-from bliss.common import event
-from bliss.common.utils import grouped
-from bliss.config.static import get_config as beacon_get_config
-
-import tango
-from tango.server import Device, device_property
-from tango.server import attribute, command, get_worker
-
-tango.requires_pytango("9.2.0", software_name="BlissAxis")
-
 import os
 import sys
 import time
@@ -32,7 +20,18 @@ import itertools
 import gevent
 from gevent.backdoor import BackdoorServer
 
-import six
+import bliss.common.log as elog
+from bliss.common.axis import get_axis
+from bliss.common import event
+from bliss.common.utils import grouped
+from bliss.config.static import get_config as beacon_get_config
+from bliss.common.motor_group import Group
+
+import tango
+from tango.server import Device, device_property
+from tango.server import attribute, command, get_worker
+
+tango.requires_pytango("9.2.0", software_name="BlissAxis")
 
 try:
     from bliss.config.conductor.connection import ConnectionException
@@ -41,9 +40,6 @@ except:
 
     class ConnectionException(Exception):
         pass
-
-
-from bliss.common.motor_group import Group
 
 
 class bcolors:

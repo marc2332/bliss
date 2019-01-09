@@ -13,7 +13,6 @@ import weakref
 import warnings
 import functools
 
-import six
 import gevent
 from ptpython.repl import PythonRepl
 

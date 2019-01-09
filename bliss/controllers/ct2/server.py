@@ -24,12 +24,7 @@ Test on the client machine using:
 # Imports
 import sys
 import logging
-import weakref
 import argparse
-
-import six
-import louie
-import gevent.queue
 
 from bliss.comm.rpc import Server
 from bliss.controllers.ct2 import card, device

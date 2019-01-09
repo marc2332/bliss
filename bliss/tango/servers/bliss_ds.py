@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
 Bliss TANGO device class
@@ -29,7 +34,6 @@ import traceback
 import pickle
 import base64
 
-import six
 import gevent
 import gevent.event
 
@@ -49,15 +53,6 @@ from . import utils
 _log = logging.getLogger("bliss.tango")
 
 
-print_ = six.print_
-
-
-def print_err_(*args, **kwargs):
-    """print error message"""
-    kwargs["file"] = sys.stderr
-    print_(*args, **kwargs)
-
-
 def get_bliss_obj(name):
     return get_config().get(name)
 
@@ -72,12 +67,12 @@ def excepthook(etype, value, tb, show_tb=False):
 
     lines = traceback.format_exception_only(etype, value)
     for line in lines:
-        print_err_(line, end="")
+        print(line, end="", file=sys.stderr)
     if tb and show_tb:
         msg = "\n-- Traceback (most recent call last) -----------------"
-        print_err_(msg)
+        print(msg, file=sys.stderr)
         traceback.print_tb(tb)
-        print_err_(len(msg) * "-")
+        print(len(msg) * "-", file=sys.stderr)
 
     _log.exception("Unhandled exception occurred:")
 
@@ -296,9 +291,9 @@ class Bliss(Device):
 
     def __evaluate(self, cmd):
         try:
-            six.exec_("_=" + cmd, self.__user_ns)
+            exec("_=" + cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
             return e
@@ -309,9 +304,9 @@ class Bliss(Device):
         if self.sanatize_command:
             cmd = sanatize_command(cmd)
         try:
-            six.exec_(cmd, self.__user_ns)
+            exec(cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
 

@@ -65,11 +65,17 @@ Equivalent to `--capture=no`  => do not capture stdout
 
 Hardware tests are ignored by continuous integration but can be run manualy
 
-How ?
+### Axis
+The is a generic axis test for basic feature: position, velocity, acceleration and stop.
 
-Example ?
+Example:
 
+   pytest -s --axis-name rot tests/controllers_hw/test_axis.py
 
+This will do a real test an *Beamline* axis named **rot**.
+
+!!! warning
+    This test will do real movement on the specified axis
 
 
 ## Configuration in BLISS

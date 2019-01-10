@@ -40,6 +40,14 @@ class Base(Controller):
         channel = tinput.config.get("channel")
         return self._lakeshore.read_temperature(channel)
 
+    def read_output(self, toutput):
+        """Read the setpoint temperature
+           Returns:
+              (float): setpoint temperature
+        """
+        channel = toutput.config.get("channel")
+        return self._lakeshore.setpoint(channel)
+
     def start_ramp(self, toutput, sp, **kwargs):
         """Start ramping to setpoint
            Args:

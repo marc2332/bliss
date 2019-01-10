@@ -512,6 +512,7 @@ class Command:
                         self._raw_read_task.kill()
                         self._raw_read_task = None
                     self._transaction_list = []
+                    self._connected = False
                     send(self, "connect", False)
 
     @try_connect_command

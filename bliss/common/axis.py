@@ -49,7 +49,7 @@ import math
 import types
 import functools
 import numpy
-import mock
+from unittest import mock
 import warnings
 
 warnings.simplefilter("once", DeprecationWarning)

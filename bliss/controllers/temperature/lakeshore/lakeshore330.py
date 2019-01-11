@@ -97,7 +97,7 @@ class LakeShore330(object):
               (float): current temperature [K]
         """
         self._channel = channel
-        return self.send_cmd("KRDG?")
+        return float(self.send_cmd("KRDG?"))
 
     def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint

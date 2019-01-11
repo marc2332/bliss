@@ -668,6 +668,12 @@ class wago(object):
             return self.get(*self.cnt_names)
 
     def read_all(self, *counters):
+        """
+        Args:
+            *counters: names of counters to be read
+        Returns:
+            list: read values from counters
+        """
         cnt_names = [cnt.name.replace(self.name + ".", "") for cnt in counters]
         result = self.get(*cnt_names)
         return result if isinstance(result, list) else [result]

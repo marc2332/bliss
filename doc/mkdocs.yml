@@ -17,6 +17,7 @@ nav:
                       - IcePAP: config_icepap.md
                       - MD2: config_md2.md
                       - PI Hexapod: config_pi_hexa.md
+                      - PM600: config_pm600.md
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA: config_mca.md
@@ -29,6 +30,7 @@ nav:
                 - MUSST: config_musst.md
                 - Opiom: config_opiom.md
                 - PEPU: config_pepu.md
+                - TFG: config_tango_tfg.md
                 - Wagos: config_wago.md
                 - Transfocators: config_transfocator.md
                 - Attenuators: config_att.md

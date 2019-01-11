@@ -296,14 +296,15 @@ class PM600(Controller):
         log.debug("get_info() called")
         nlines = 23
         cmd = axis.channel + "QA\r"
-        replyList = self.sock.write_readlines(cmd, nlines, eol="\r\n", timeout=5)
+        ans = self.sock.write_readlines(cmd.encode(), nlines, eol="\r\n", timeout=5)
+        reply_list = ans.decode()
         # Strip the echoed command from the first reply
-        idx = replyList[0].find("\r")
+        idx = reply_list[0].find("\r")
         if idx == -1:
             log.error("PM600 Error: No echoed command")
-        answer = replyList[0][idx + 1 :]
+        answer = reply_list[0][idx + 1 :]
         for i in range(1, nlines):
-            answer = answer + "\n" + replyList[i]
+            answer = answer + "\n" + reply_list[i]
         log.debug(answer)
         return answer
 
@@ -316,7 +317,8 @@ class PM600(Controller):
             cmd = channel + command + "\r"
             log.debug("io_command() sending command " + cmd[:-1])
 
-        reply = self.sock.write_readline(cmd, eol="\r\n")
+        ans = self.sock.write_readline(cmd.encode(), eol="\r\n")
+        reply = ans.decode()
         # The response from the PM600 is terminated with CR/LF.  Remove these
         newreply = reply.rstrip("\r\n")
         # The PM600 always echoes the command sent to it, before sending the response.  It is terminated
@@ -332,9 +334,9 @@ class PM600(Controller):
             log.error("PM600 Error: " + answer[idx:])
         # Now remove the channel from the reply and check against the requested channel
         idx = answer.find(":")
-        repliedChannel = int(answer[:idx])
-        if int(channel) != repliedChannel:
-            log.error("PM600 Error: Wrong channel replied %s" % repliedChannel)
+        replied_channel = int(answer[:idx])
+        if int(channel) != replied_channel:
+            log.error("PM600 Error: Wrong channel replied %s" % replied_channel)
         log.debug("io_command() reply " + answer[idx + 1 :])
         return answer[idx + 1 :]
 
@@ -348,11 +350,12 @@ class PM600(Controller):
 
     def raw_write_read(self, command):
         log.debug("raw_write_read() called")
-        return self.sock.write_readline(cmd, eol="\r\n")
+        reply = self.sock.write_readline(command.encode(), eol="\r\n")
+        return reply.decode()
 
     def raw_write(self, command):
         log.debug("raw_write() called")
-        self.sock.write(command)
+        self.sock.write(command.encode())
 
     """
     PM600 added commands

@@ -215,7 +215,7 @@ class _WagoController:
                             )
                     for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                         channels_map.append([])
-                        for k in range(module_info[j]):
+                        for _ in range(module_info[j]):
                             if module_info[N_CHANNELS] == 1:
                                 channels_map[-1].append(channels[0])
                             else:

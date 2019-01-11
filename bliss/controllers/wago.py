@@ -408,10 +408,10 @@ class _WagoController:
                                 if chan == channel_name:
                                     channels_to_read[-1].append((i, j, k))
 
-        not_found_channel = set(channel_names) - found_channel
-        if not_found_channel:
+        not_found_channels = set(channel_names) - found_channel
+        if not_found_channels:
             raise KeyError(
-                f"Channel(s) '{not_found_channel}` doesn't exist in Wago {self.wago_host}"
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
 
         modules_to_read_list = list(modules_to_read)
@@ -539,8 +539,7 @@ class _WagoController:
         not_found_channels = channel_names - found_channel
         if not_found_channels:
             raise KeyError(
-                "Channel(s) %s doesn't exist in Wago %s"
-                % (not_found_channels, self.wago_host)
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
 
         with self.lock:

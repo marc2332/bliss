@@ -5,12 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import absolute_import
 import logging
 import types
-from .embl import ExporterClient
+from warnings import warn
 import time
 import gevent
-import gevent.queue
+from gevent.queue import Queue
+from .embl import ExporterClient
 
 exporter_clients = {}
 
@@ -55,7 +57,7 @@ class Exporter(ExporterClient.ExporterClient):
 
         self.started = False
         self.callbacks = {}
-        self.events_queue = gevent.queue.Queue()
+        self.events_queue = Queue()
         self.events_processing_task = None
 
     def start(self):
@@ -75,7 +77,13 @@ class Exporter(ExporterClient.ExporterClient):
         return self.execute("getState")
 
     def readProperty(self, *args, **kwargs):
-        ret = ExporterClient.ExporterClient.readProperty(self, *args, **kwargs)
+        warn(
+            "readProperty is deprecated. Use read_property instead", DeprecationWarning
+        )
+        self.read_property(*args, **kwargs)
+
+    def read_property(self, *args, **kwargs):
+        ret = ExporterClient.ExporterClient.read_property(self, *args, **kwargs)
         return self._to_python_value(ret)
 
     def reconnect(self):
@@ -155,19 +163,27 @@ class ExporterChannel:
     def update(self, value=None):
         if value is None:
             value = self.getValue()
-        if type(value) == types.TupleType:
+        if isinstance(value, tuple):
             value = list(value)
 
         self.value = value
         self.emit("update", value)
 
     def getValue(self):
-        value = self.__exporter.readProperty(self.attributeName)
+        warn("getValue is deprecated. Use get_value instead", DeprecationWarning)
+        return self.get_value()
+
+    def get_value(self):
+        value = self.__exporter.read_property(self.attributeName)
 
         return value
 
     def setValue(self, newValue):
-        self.__exporter.writeProperty(self.attributeName, newValue)
+        warn("setValue is deprecated. Use set_value instead", DeprecationWarning)
+        self.set_value(newValue)
+
+    def set_value(self, new_value):
+        self.__exporter.write_property(self.attributeName, new_value)
 
     def isConnected(self):
         return self.__exporter.isConnected()

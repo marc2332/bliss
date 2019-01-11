@@ -139,7 +139,7 @@ class GroupMove(object):
                 )
                 monitor_move[motion] = task
         try:
-            gevent.joinall(list(monitor_move.values()), raise_error=True)
+            gevent.joinall(monitor_move.values(), raise_error=True)
         finally:
             # update the last motor state
             for motion, task in monitor_move.items():
@@ -1553,7 +1553,7 @@ class Axis(object):
             def limit2config(l):
                 return self.user2dial(l) if l is not None else l
 
-            ll, hl = list(map(limit2config, self.limits))
+            ll, hl = map(limit2config, self.limits)
             self.__config.set("low_limit", ll)
             self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):
@@ -1802,7 +1802,7 @@ class AxisState(object):
                 if self._state_desc.get(state)
                 else "",
             )
-            for state in map(str, list(self._current_states))
+            for state in map(str, self._current_states)
         ]
 
         if len(states) == 0:

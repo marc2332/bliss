@@ -530,7 +530,7 @@ class Scan(object):
     def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
-        for top_level_master in list(acq_chain.keys()):
+        for top_level_master in acq_chain.keys():
             for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
                 ma = scalar_master.split(":")[-1]
                 if ma in self._scan_info["positioners"]:
@@ -625,7 +625,7 @@ class Scan(object):
         if axis is None:
             try:
                 acq_chain = self._scan_info["acquisition_chain"]
-                for top_level_master in list(acq_chain.keys()):
+                for top_level_master in acq_chain.keys():
                     for scalar_master in acq_chain[top_level_master]["master"][
                         "scalars"
                     ]:

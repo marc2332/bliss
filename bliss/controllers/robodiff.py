@@ -1073,7 +1073,7 @@ class Robodiff(object):
                 "start": start.get("sampy"),
             },
         }
-        for motor_name in list(helical.keys()):
+        for motor_name in helical.keys():
             hm = helical[motor_name]
             hm["distance"] = abs(hm["trajectory"])
             if hm["distance"] <= 5E-3:

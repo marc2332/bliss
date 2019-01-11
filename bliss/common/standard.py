@@ -296,7 +296,7 @@ def __umove(*args, **kwargs):
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
         motor_names = [axis.name for axis in motor_pos]
-        col_len = max(max(list(map(len, motor_names))), 8)
+        col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
         print("")
@@ -321,7 +321,7 @@ def __move(*args, **kwargs):
     motor_pos = OrderedDict()
     for m, p in zip(get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
-    group = Group(*list(motor_pos.keys()))
+    group = Group(*motor_pos.keys())
     group.move(motor_pos, wait=wait, relative=relative)
 
     return group, motor_pos
@@ -465,7 +465,7 @@ def edit_roi_counters(detector, acq_time=None):
     plot = scan.get_plot(detector.image, wait=True)
 
     selections = []
-    for roi_name, roi in list(roi_counters.items()):
+    for roi_name, roi in roi_counters.items():
         selection = dict(
             kind="Rectangle",
             origin=(roi.x, roi.y),
@@ -482,8 +482,8 @@ def edit_roi_counters(detector, acq_time=None):
         if not label:
             ignored += 1
             continue
-        x, y = list(map(int, list(map(round, selection["origin"]))))
-        w, h = list(map(int, list(map(round, selection["size"]))))
+        x, y = map(int, map(round, selection["origin"]))
+        w, h = map(int, map(round, selection["size"]))
         rois.append((x, y, w, h))
         roi_labels.append(label)
     if ignored:

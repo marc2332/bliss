@@ -139,7 +139,7 @@ class WebConfig(object):
     def __build_tree_sessions(self):
         cfg = self.get_config()
         sessions = {}
-        for name, item in list(self.items.items()):
+        for name, item in self.items.items():
             config = cfg.get_config(name)
             if config.plugin != "session":
                 continue
@@ -152,7 +152,7 @@ class WebConfig(object):
     def __build_tree_items(self):
         items = self.items
         result = {}
-        for name, item in list(items.items()):
+        for name, item in items.items():
             current_level = result
             db_file = item["path"]
             parts = db_file.split(os.path.sep)
@@ -172,7 +172,7 @@ class WebConfig(object):
     def __build_tree_plugins(self):
         cfg = self.get_config()
         result = {}
-        for name, item in list(self.items.items()):
+        for name, item in self.items.items():
             config = cfg.get_config(name)
             plugin_name = config.plugin or "__no_plugin__"
             plugin_data = result.get(plugin_name)
@@ -189,7 +189,7 @@ class WebConfig(object):
     def __build_tree_tags(self):
         cfg = self.get_config()
         result = {}
-        for name, item in list(self.items.items()):
+        for name, item in self.items.items():
             config = cfg.get_config(name)
             for tag in item["tags"] or ["__no_tag__"]:
                 tag_data = result.get(tag)
@@ -244,7 +244,7 @@ class WebConfig(object):
         return dst
 
     def __build_tree_files__(self, src, dst, path=""):
-        for name, data in list(src.items()):
+        for name, data in src.items():
             if name.startswith(".") or name.endswith("~") or name.endswith(".rdb"):
                 continue
             item_path = os.path.join(path, name)
@@ -371,7 +371,7 @@ def main():
 @web_app.route("/db_files")
 def db_files():
     cfg = __config.get_config()
-    db_files, _ = list(zip(*client.get_config_db_files()))
+    db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
 
 
@@ -414,7 +414,7 @@ def get_db_file_editor(filename):
 def items():
     cfg = __config.get_config()
 
-    db_files, _ = list(map(list, list(zip(*client.get_config_db_files()))))
+    db_files, _ = map(list, zip(*client.get_config_db_files()))
 
     for name in cfg.names_list:
         config = cfg.get_config(name)

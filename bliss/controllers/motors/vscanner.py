@@ -145,7 +145,7 @@ class VSCANNER(Controller):
         _ans = _ans[1:][:-1]
 
         # (_vel, _line_waiting) = map(float, _ans.split())
-        _float_ans = list(map(float, _ans.split()))
+        _float_ans = map(float, _ans.split())
         if len(_float_ans) == 1:
             _vel = _float_ans[0]
         elif len(_float_ans) == 2:

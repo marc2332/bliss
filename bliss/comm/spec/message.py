@@ -109,7 +109,7 @@ def dictionarytoraw(dict):
     """Transform a Python dictionary object to the string format
     expected by Spec"""
     data = ""
-    for key, val in list(dict.items()):
+    for key, val in dict.items():
         if isinstance(val, dict):
             for kkey, vval in val.items():
                 if kkey is None:

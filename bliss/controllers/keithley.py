@@ -439,7 +439,7 @@ class BaseMultimeter(KeithleySCPI):
         self.__active_acq = None
         super(BaseMultimeter, self).__init__(**kwargs)
         defaults = {}
-        for key, value in list(self.DefaultConfig.items()):
+        for key, value in self.DefaultConfig.items():
             defaults[key] = config.get(key, value)
         k_setting_name = "multimeter." + self.name
         self.settings = HashSetting(k_setting_name, default_values=defaults)
@@ -463,7 +463,7 @@ class BaseMultimeter(KeithleySCPI):
             return
         setting_name = "multimeter.{0}".format(sensor.name)
         defaults = {}
-        for key, value in list(self.DefaultSensorConfig.items()):
+        for key, value in self.DefaultSensorConfig.items():
             defaults[key] = sensor.config.get(key, value)
         settings = HashSetting(setting_name, default_values=defaults)
         self.sensor_settings[address] = settings
@@ -537,12 +537,8 @@ class BaseMultimeter(KeithleySCPI):
 
     def pprint(self):
         values = self.settings.get_all()
-        settings = "\n".join(
-            ("    {0}={1}".format(k, v) for k, v in list(values.items()))
-        )
-        idn = "\n".join(
-            ("    {0}={1}".format(k, v) for k, v in list(self["*IDN"].items()))
-        )
+        settings = "\n".join(("    {0}={1}".format(k, v) for k, v in values.items()))
+        idn = "\n".join(("    {0}={1}".format(k, v) for k, v in self["*IDN"].items()))
         print(
             (
                 "{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}".format(

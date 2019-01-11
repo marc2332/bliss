@@ -123,7 +123,7 @@ class BaseSpecCommand:
             # convert args list to string args list
             # it is much more convenient using .call('psvo', 12) than .call('psvo', '12')
             # a possible problem will be seen in Spec
-            args = list(map(repr, args))
+            args = map(repr, args)
 
             if func:
                 # macro function

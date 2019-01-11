@@ -33,7 +33,7 @@ def get_all():
     """
     return [
         x
-        for x in list(setup_globals.__dict__.values())
+        for x in setup_globals.__dict__.values()
         if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
     ]
 
@@ -44,7 +44,7 @@ def get_all_names():
     """
     return [
         x.name
-        for x in list(setup_globals.__dict__.values())
+        for x in setup_globals.__dict__.values()
         if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
     ]
 

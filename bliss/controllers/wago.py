@@ -115,7 +115,7 @@ for module_name, module_info in MODULES_CONFIG.items():
     if reading_type.startswith("fs"):
         module_info[READING_TYPE] = "fs"
         try:
-            fs_low, fs_high = list(map(int, reading_type[2:].split("-")))
+            fs_low, fs_high = map(int, reading_type[2:].split("-"))
         except:
             fs_low = 0
             fs_high = int(reading_type[2:])

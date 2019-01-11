@@ -109,7 +109,7 @@ class PointTrajectory(object):
             positions : is a dictionary where the key is a name and the
                         value is a numpy array or a list of values.
         """
-        ys = [numpy.array(y) for y in list(positions.values())]
+        ys = [numpy.array(y) for y in positions.values()]
         xs = [numpy.array(time_array)]
         xs.extend(ys)
 
@@ -125,7 +125,7 @@ class PointTrajectory(object):
         self._positions = dict()
         self._velocity = dict()
         self._acceleration = dict()
-        for name, values in zip(list(positions.keys()), out[1:]):
+        for name, values in zip(positions.keys(), out[1:]):
             self._positions[name] = values
             velocity = numpy.gradient(values, self._time)
             self._acceleration[name] = numpy.gradient(velocity, self._time)
@@ -186,9 +186,7 @@ class PointTrajectory(object):
         pvt_arrays = dict()
 
         for name, positions, velocities in zip(
-            list(self._positions.keys()),
-            list(self._positions.values()),
-            list(self._velocity.values()),
+            self._positions.keys(), self._positions.values(), self._velocity.values()
         ):
             dtype = [
                 ("time", "f8"),
@@ -210,9 +208,9 @@ class PointTrajectory(object):
                     max_acc_time = acc_time
 
             for name, positions, velocities in zip(
-                list(self._positions.keys()),
-                list(self._positions.values()),
-                list(self._velocity.values()),
+                self._positions.keys(),
+                self._positions.values(),
+                self._velocity.values(),
             ):
                 pvt_array = pvt_arrays[name]
                 pvt_array["time"][1:-1] = self._time + max_acc_time
@@ -227,9 +225,9 @@ class PointTrajectory(object):
                 pvt_array["position"][-1] = last_point
         else:
             for name, positions, velocities in zip(
-                list(self._positions.keys()),
-                list(self._positions.values()),
-                list(self._velocity.values()),
+                self._positions.keys(),
+                self._positions.values(),
+                self._velocity.values(),
             ):
                 pvt_array = pvt_arrays[name]
                 pvt_array["time"] = self._time

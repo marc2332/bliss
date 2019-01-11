@@ -83,7 +83,7 @@ class Icepap(Controller):
         self._icestate = AxisState()
         self._icestate.create_state("POWEROFF", "motor power is off")
         for codes in (self.STATUS_DISCODE, self.STATUS_MODCODE, self.STATUS_STOPCODE):
-            for state, desc in list(codes.values()):
+            for state, desc in codes.values():
                 self._icestate.create_state(state, desc)
 
     def finalize(self):

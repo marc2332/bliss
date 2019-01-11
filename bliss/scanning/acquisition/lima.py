@@ -230,8 +230,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             ]
             return {
                 name: att.value
-                for name, att in list(
-                    zip(attr_names, self.device.read_attributes(attr_names))
+                for name, att in zip(
+                    attr_names, self.device.read_attributes(attr_names)
                 )
             }
 

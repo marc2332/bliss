@@ -196,7 +196,7 @@ def string_to_hkl(text):
     """
     try:
         strings = list(text) if len(text) <= 3 else text.split()
-        return HKL(*list(map(int, strings)))
+        return HKL(*map(int, strings))
     except Exception as err:
         raise ValueError("Invalid crystal plane {0!r}: {1}".format(text, err))
 

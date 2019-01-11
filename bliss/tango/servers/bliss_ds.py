@@ -226,13 +226,11 @@ class Bliss(Device):
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def axis_device_names(self):
-        return [dev.get_name() for dev in list(self.__get_axis_devices().values())]
+        return [dev.get_name() for dev in self.__get_axis_devices().values()]
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def tasks(self):
-        return [
-            "{0} {1}".format(tid, cmd) for tid, (_, cmd) in list(self.__tasks.items())
-        ]
+        return ["{0} {1}".format(tid, cmd) for tid, (_, cmd) in self.__tasks.items()]
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def namespace(self):
@@ -243,7 +241,7 @@ class Bliss(Device):
         return sorted(
             [
                 name
-                for name, obj in list(self.__user_ns.items())
+                for name, obj in self.__user_ns.items()
                 if not name.startswith("_") and callable(obj)
             ]
         )
@@ -373,9 +371,9 @@ class Bliss(Device):
         doc_out="Group identifier",
     )
     def axis_group_move(self, axes_pos):
-        axes = list(map(get_bliss_obj, axes_pos[::2]))
-        axes_positions = list(map(float, axes_pos[1::2]))
-        axes_pos_dict = dict(list(zip(axes, axes_positions)))
+        axes = map(get_bliss_obj, axes_pos[::2])
+        axes_positions = map(float, axes_pos[1::2])
+        axes_pos_dict = dict(zip(axes, axes_positions))
         group = Group(*axes)
         event.connect(group, "move_done", self.__on_axis_group_move_done)
         group.move(axes_pos_dict, wait=False)
@@ -394,7 +392,7 @@ class Bliss(Device):
             sender = kwargs["sender"]
             group_id = [
                 gid
-                for gid, grp in list(self.group_dict.items())
+                for gid, grp in self.group_dict.items()
                 if grp.get_base_obj() == sender
             ][0]
         elif len(self.group_dict) == 1:
@@ -441,7 +439,7 @@ class Bliss(Device):
     )
     def set_settings(self, json_value):
         data = json.loads(json_value)
-        for key, value in list(data.items()):
+        for key, value in data.items():
             setting = settings.HashSetting(key)
             setting.set(value)
 
@@ -455,7 +453,7 @@ class Bliss(Device):
         data = json.loads(json_value)
         result = {}
         if isinstance(data, dict):
-            data = list(data.values())
+            data = data.values()
         elif isinstance(data, str):
             data = (data,)
         for element in data:
@@ -476,7 +474,7 @@ class Bliss(Device):
     def apply_config(self, reload):
         if reload:
             self._reload()
-        for dev in list(self.__get_axis_devices().values()):
+        for dev in self.__get_axis_devices().values():
             dev.axis.apply_config(reload=False)
 
 

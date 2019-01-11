@@ -26,7 +26,7 @@ def Group(*axes_list):
     def check_axes(*axes_to_check):
         from bliss.controllers.motor import CalcController
 
-        grp_axes = list(axes.values())
+        grp_axes = axes.values()
         for axis in axes_to_check:
             if isinstance(axis.controller, CalcController):
                 names = [
@@ -42,7 +42,7 @@ def Group(*axes_list):
                 # also check reals, that can be calc axes themselves too
                 check_axes(*axis.controller.reals)
 
-    check_axes(*list(axes.values()))
+    check_axes(*axes.values())
 
     # always use the same group name for groups of same axes,
     # this is to make sure master name will stay the same

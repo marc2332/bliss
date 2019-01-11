@@ -97,12 +97,12 @@ def get_axis_html(cfg):
     name = cfg["name"]
     ctrl_class = cfg.parent.get("class")
     ctrl_name = cfg.parent.get("name")
-    vars = dict(list(cfg.items()))
+    vars = dict(cfg.items())
     filename = "emotion_" + ctrl_class + "_axis.html"
     html_template = get_jinja2().select_template([filename, "emotion_axis.html"])
 
     extra_params = {}
-    for key, value in list(vars.items()):
+    for key, value in vars.items():
         if key not in __KNOWN_AXIS_PARAMS:
             extra_params[key] = dict(name=key, label=key.capitalize(), value=value)
 
@@ -126,13 +126,13 @@ def get_axis_html(cfg):
 
 def get_ctrl_html(cfg):
     ctrl_class = cfg.get("class")
-    vars = dict(list(cfg.items()))
+    vars = dict(cfg.items())
 
     filename = "emotion_" + ctrl_class + ".html"
     html_template = get_jinja2().select_template([filename, "emotion_controller.html"])
 
     extra_params = []
-    for key, value in list(vars.items()):
+    for key, value in vars.items():
         if key not in __KNOWN_CONTROLLER_PARAMS:
             extra_params.append(dict(name=key, label=key.capitalize(), value=value))
 
@@ -189,7 +189,7 @@ def controller_edit(cfg, request):
     import flask.json
 
     if request.method == "POST":
-        form = dict([(k, v) for k, v in list(request.form.items()) if v])
+        form = dict([(k, v) for k, v in request.form.items() if v])
         update_server = form.pop("__update_server__") == "true"
         orig_name = form.pop("__original_name__")
         name = form.get("name", orig_name)
@@ -203,7 +203,7 @@ def controller_edit(cfg, request):
 
         axes_data = {}
         objs = set()
-        for param_name, param_value in list(form.items()):
+        for param_name, param_value in form.items():
             if " " in param_name:  # axis param
                 param_name, axis_name = param_name.split()
                 obj = cfg.get_config(axis_name)
@@ -249,7 +249,7 @@ def axis_edit(cfg, request):
     import flask.json
 
     if request.method == "POST":
-        form = dict([(k, v) for k, v in list(request.form.items()) if v])
+        form = dict([(k, v) for k, v in request.form.items() if v])
         update_server = form.pop("__update_server__") == "true"
         orig_name = form.pop("__original_name__")
         name = form["name"]
@@ -386,7 +386,7 @@ def create_objects_from_config_node(config, node):
     controller._init()
 
     all_names = axes_names + encoders_names + switches_names + shutters_names
-    cache_dict = dict(list(zip(all_names, [controller] * len(all_names))))
+    cache_dict = dict(zip(all_names, [controller] * len(all_names)))
     ctrl = cache_dict.pop(obj_name, None)
     if ctrl is not None:
         obj = create_object_from_cache(None, obj_name, controller)

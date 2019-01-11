@@ -40,7 +40,7 @@ def _readArrayFromFile(datafile):
         variablesToDeclare = []
         for line in f:
             if not line.startswith("#"):
-                array.append(list(map(float, line.split())))
+                array.append(map(float, line.split()))
             else:
                 variablesToDeclare.append(line[1:])
     except:

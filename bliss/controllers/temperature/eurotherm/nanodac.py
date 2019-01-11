@@ -69,9 +69,7 @@ def _get_read_write(modbus, address_read_write):
                             break
                     else:
                         raise RuntimeError(
-                            "Value %s is not in enum (%s)",
-                            value,
-                            list(enum_type.values()),
+                            "Value %s is not in enum (%s)", value, enum_type.values()
                         )
                 return modbus.write_register(address, "b", value)
 

@@ -516,7 +516,7 @@ class MDClient(ExporterClient):
 
     def createStringFromDict(self, motor_position_dict):
         ret = ""
-        for motor in list(motor_position_dict.keys()):
+        for motor in motor_position_dict.keys():
             ret += motor + "=" + str(motor_position_dict[motor]) + ","
         return ret
 
@@ -541,7 +541,7 @@ class MDClient(ExporterClient):
     def getMotorPositions(self):
         array = self.readPropertyAsStringArray(self.PROPERTY_MOTOR_POSITIONS)
         dict = self.createDictFromStringList(array)
-        for key in list(dict.keys()):
+        for key in dict.keys():
             dict[key] = float(dict[key])
         return dict
 

@@ -39,10 +39,10 @@ def get_devices_from_server(argv=None, db=None):
     result = list(db.get_device_class_list(personal_name))
 
     # dict<dev_name: tango_class_name>
-    dev_dict = dict(list(zip(result[::2], result[1::2])))
+    dev_dict = dict(zip(result[::2], result[1::2]))
 
     class_dict = {}
-    for dev, class_name in list(dev_dict.items()):
+    for dev, class_name in dev_dict.items():
         devs = class_dict.setdefault(class_name, [])
         devs.append(dev)
 

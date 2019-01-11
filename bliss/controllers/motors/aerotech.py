@@ -625,9 +625,9 @@ class Aerotech(Controller):
         self.raw_write("WAIT MODE NOWAIT")
 
     def initialize_axis(self, axis):
-        if axis.name not in list(self._aero_axis.keys()):
+        if axis.name not in self._aero_axis.keys():
             aero_name = axis.config.get("aero_name", str, "X")
-            if aero_name in list(self._aero_axis.values()):
+            if aero_name in self._aero_axis.values():
                 others = [
                     name
                     for name in self._aero_axis
@@ -866,7 +866,7 @@ class Aerotech(Controller):
         return AxisState("READY")
 
     def initialize_encoder(self, encoder):
-        if encoder.name not in list(self._aero_enc.keys()):
+        if encoder.name not in self._aero_enc.keys():
             aero_name = encoder.config.get("aero_name", str, None)
             if aero_name is None:
                 raise ValueError(

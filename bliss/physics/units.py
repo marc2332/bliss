@@ -79,7 +79,7 @@ def to_unit(arg):
 
 def values_to_units(dct):
     """Cast the values of the given dict into units"""
-    return {k: to_unit(v) for k, v in list(dct.items())}
+    return {k: to_unit(v) for k, v in dct.items()}
 
 
 def convert_to(arg, unit):
@@ -130,17 +130,17 @@ def units(**kwarg_units):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Everything is a kwargs
-            kwargs.update(list(zip(arg_spec, args)))
+            kwargs.update(zip(arg_spec, args))
             # Check for quantity-free use case
             all_magnitude = all(
                 not is_quantity(value)
-                for key, value in list(kwargs.items())
+                for key, value in kwargs.items()
                 if key in kwarg_units
             )
             # Kwargs conversion
             kwargs = {
                 key: convert_to(value, kwarg_units.get(key))
-                for key, value in list(kwargs.items())
+                for key, value in kwargs.items()
             }
             # Call the actual func
             result = func(**kwargs)

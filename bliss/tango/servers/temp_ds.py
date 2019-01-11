@@ -33,7 +33,7 @@ types_conv_tab_inv = {
     tango.DevVarBooleanArray: "bool_array",
 }
 
-types_conv_tab = dict((v, k) for k, v in list(types_conv_tab_inv.items()))
+types_conv_tab = dict((v, k) for k, v in types_conv_tab_inv.items())
 types_conv_tab.update(
     {
         None: tango.DevVoid,
@@ -50,7 +50,7 @@ access_conv_tab = {
     "rw": tango.AttrWriteType.READ_WRITE,
 }
 
-access_conv_tab_inv = dict((v, k) for k, v in list(access_conv_tab.items()))
+access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 _STATE_MAP = {
     "READY": tango.DevState.ON,
@@ -404,7 +404,7 @@ def recreate(db=None, new_server=False, typ="inputs"):
     # new io from config
 
     curr_ios = {}
-    for dev_class, dev_names in list(dev_map.items()):
+    for dev_class, dev_names in dev_map.items():
         if not dev_class.startswith(classname):
             continue
         for dev_name in dev_names:
@@ -466,10 +466,10 @@ def get_devices_from_server(argv=None, db=None):
     result = list(db.get_device_class_list(personalName))
 
     # dict<dev_name: tango_class_name>
-    dev_dict = dict(list(zip(result[::2], result[1::2])))
+    dev_dict = dict(zip(result[::2], result[1::2]))
 
     class_dict = {}
-    for dev, class_name in list(dev_dict.items()):
+    for dev, class_name in dev_dict.items():
         devs = class_dict.setdefault(class_name, [])
         devs.append(dev)
 
@@ -655,7 +655,7 @@ def recreate_bliss(server_name, manager_dev_name, temp_names, dev_map, db=None):
     db = db or tango.Database()
     config = get_config()
     curr_temps = {}
-    for dev_class, dev_names in list(dev_map.items()):
+    for dev_class, dev_names in dev_map.items():
         if (
             not dev_class.startswith("BlissInput_")
             and not dev_class.startswith("BlissOutput_")

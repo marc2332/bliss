@@ -52,7 +52,7 @@ class LeicaMicroscope:
             axis_list.append(axis)
             targets.append(axis.position + target)
         g = Group(*axis_list)
-        g.move(dict(list(zip(axis_list, targets))))
+        g.move(dict(zip(axis_list, targets)))
 
     def _wait_ready(self, *axes, **kwargs):
         timeout = int(kwargs.get("timeout", 3))

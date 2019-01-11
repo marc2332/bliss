@@ -217,7 +217,7 @@ def get_acq_timeout(s):
         def usec(x):
             return int(float(x) * 1e6)
 
-        n1, n2 = list(map(usec, m.groups()))
+        n1, n2 = map(usec, m.groups())
         return random.randrange(n1, n2) * 1e-6
 
     raise ValueError("Invalid acq_timeout: %s" % s)

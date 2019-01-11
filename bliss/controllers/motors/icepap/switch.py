@@ -51,7 +51,7 @@ class Switch(BaseSwitch):
         include_rack = config.get("include-rack")
         if include_rack is None:  # All
             include_rack = set()
-            for axis in list(self.__controller._axes.values()):
+            for axis in self.__controller._axes.values():
                 # be sure that axis is initialized
                 try:
                     axis.position

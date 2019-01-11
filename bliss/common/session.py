@@ -49,7 +49,7 @@ class _StringImporter(object):
         return None
 
     def load_module(self, fullname):
-        if not fullname in list(self._modules.keys()):
+        if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -75,7 +75,7 @@ class _StringImporter(object):
         return new_module
 
     def get_source(self, fullname):
-        if not fullname in list(self._modules.keys()):
+        if not fullname in self._modules.keys():
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -298,9 +298,7 @@ class Session(object):
             tree.create_node(tag=self.name, identifier=self)
             tree = self._build_children_tree(tree, self, children)
             multiple_ref_child = [
-                (name, parents)
-                for name, (ref, parents) in list(children.items())
-                if ref > 1
+                (name, parents) for name, (ref, parents) in children.items() if ref > 1
             ]
             if multiple_ref_child:
                 msg = "Session %s as cyclic references to sessions:\n" % self.name

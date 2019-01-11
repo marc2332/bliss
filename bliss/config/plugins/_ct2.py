@@ -427,7 +427,7 @@ def get_channel_html(cfg):
 
 
 def get_card_html(cfg):
-    cfg = dict(list(cfg.items()))
+    cfg = dict(cfg.items())
     card_type = cfg.get("class")
     card_class = card.get_ct2_card_class(card_type)
     cts = cfg.setdefault("counters", [])
@@ -527,11 +527,11 @@ def card_edit(cfg, request):
 
         cfg, counters, channels = {}, {}, {}
         # handle generic card parameters
-        for p_name, p_info in list(GENERAL_PARAMS.items()):
+        for p_name, p_info in GENERAL_PARAMS.items():
             cfg[p_name] = value_to_config(form, p_name, p_info)
 
         # handle counter parameters
-        for p_name, p_info in list(COUNTER_PARAMS.items()):
+        for p_name, p_info in COUNTER_PARAMS.items():
             if p_name == "address":
                 continue
             for counter in card_class.COUNTERS:
@@ -540,7 +540,7 @@ def card_edit(cfg, request):
                 ct[p_name] = value_to_config(form, ct_p_name, p_info)
 
         # handle input channels parameters
-        for p_name, p_info in list(IN_CHANNEL_PARAMS.items()):
+        for p_name, p_info in IN_CHANNEL_PARAMS.items():
             if p_name == "address":
                 continue
             for channel in card_class.INPUT_CHANNELS:
@@ -549,7 +549,7 @@ def card_edit(cfg, request):
                 ch[p_name] = value_to_config(form, ch_p_name, p_info)
 
         # handle output channels parameters
-        for p_name, p_info in list(OUT_CHANNEL_PARAMS.items()):
+        for p_name, p_info in OUT_CHANNEL_PARAMS.items():
             if p_name == "address":
                 continue
             for channel in card_class.OUTPUT_CHANNELS:
@@ -560,7 +560,7 @@ def card_edit(cfg, request):
         cfg["counters"] = [counters[ct] for ct in sorted(counters)]
         cfg["channels"] = [channels[ch] for ch in sorted(channels)]
 
-        card_cfg.update([(k, v) for k, v in list(cfg.items())])
+        card_cfg.update([(k, v) for k, v in cfg.items()])
         card_cfg.save()
 
         result["message"] = "'%s' configuration applied!" % card_name

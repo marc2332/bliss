@@ -152,12 +152,10 @@ class AcqDevice(AcquisitionDevice):
             self._stop_task.join()
 
         data_names = [Data(self, chan_nb, -1).name for chan_nb in range(5)]
-        values_dict = {
-            name: data for name, data in list(zip(data_names, self.device.data))
-        }
+        values_dict = {name: data for name, data in zip(data_names, self.device.data)}
         ints_and_acq_time = self.device.intensities_and_acqtime
         values_dict.update(
-            {name: data for name, data in list(zip(INTS_NAMES, ints_and_acq_time))}
+            {name: data for name, data in zip(INTS_NAMES, ints_and_acq_time)}
         )
 
         self.channels.update(values_dict)

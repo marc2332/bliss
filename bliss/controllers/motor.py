@@ -535,7 +535,7 @@ class CalcController(Controller):
         real_positions = dict(
             [
                 (self._axis_tag(axis), pos)
-                for axis, pos in list(real_positions_by_axis.items())
+                for axis, pos in real_positions_by_axis.items()
             ]
         )
         return self.calc_from_real(real_positions)

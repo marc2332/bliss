@@ -53,11 +53,11 @@ class TestFlexDCController(unittest.TestCase):
 
     def test_state(self):
         fd = bliss.get_axis("fd")
-        print("FlexDC state :", fd.state())
+        print("FlexDC state :", fd.state)
 
     def test_position(self):
         fd = bliss.get_axis("fd")
-        print("FlexDC position :", fd.position())
+        print("FlexDC position :", fd.position)
 
     def test_get_id(self):
         fd = bliss.get_axis("fd")
@@ -65,7 +65,7 @@ class TestFlexDCController(unittest.TestCase):
 
     def test_velocity(self):
         fd = bliss.get_axis("fd")
-        _read_vel = fd.velocity()
+        _read_vel = fd.velocity
         print("FlexDC read velocity :", _read_vel)
         self.assertAlmostEqual(_read_vel, 1.2, places=3)
 
@@ -88,11 +88,11 @@ class TestFlexDCController(unittest.TestCase):
 
 #    def test_axis_move(self):
 #        fd = bliss.get_axis("fd")
-#        self.assertEqual(fd.state(), "READY")
+#        self.assertEqual(fd.state, "READY")
 #        move_greenlet=fd.move(10, wait=False)
-#        self.assertEqual(fd.state(), "MOVING")
+#        self.assertEqual(fd.state, "MOVING")
 #        move_greenlet.join()
-#        self.assertEqual(fd.state(), "READY")
+#        self.assertEqual(fd.state, "READY")
 
 if __name__ == "__main__":
     unittest.main()
@@ -119,7 +119,7 @@ load_cfg_fromstring("""<config>
   </controller>
 </config>
 """);
-a=get_axis("srot")  ; print a.state()
+a=get_axis("srot")  ; print a.state
 
 
 print a.get_id()

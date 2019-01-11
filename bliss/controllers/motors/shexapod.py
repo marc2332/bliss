@@ -246,7 +246,7 @@ class SHexapod(Controller):
         return axis.config.get("role")
 
     def __get_hw_set_position(self, axis):
-        user_set_pos = axis._set_position()
+        user_set_pos = axis._set_position
         dial_set_pos = axis.user2dial(user_set_pos)
         hw_set_pos = dial_set_pos * axis.steps_per_unit
         return hw_set_pos

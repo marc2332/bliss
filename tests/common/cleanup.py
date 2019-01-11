@@ -11,46 +11,46 @@ from bliss.common.cleanup import capture_exceptions
 
 
 def test_motor_stop_movement_cleanup(robz):
-    pos = robz.position()
+    pos = robz.position
     with cleanup.cleanup(robz):
         robz.rmove(1, wait=False)
-    assert robz.state().READY
-    assert robz.position() != pos + 1
+    assert robz.state.READY
+    assert robz.position != pos + 1
 
 
 def test_motor_wait_restore_speed(robz, roby):
-    previous_robz = robz.velocity()
-    previous_roby = roby.velocity()
+    previous_robz = robz.velocity
+    previous_roby = roby.velocity
     with cleanup.cleanup(robz, roby, restore_list=(cleanup.axis.VEL,)):
-        robz.velocity(1002.121)
-        roby.velocity(2.432)
-    assert robz.velocity() == previous_robz
-    assert roby.velocity() == previous_roby
+        robz.velocity = 1002.121
+        roby.velocity = 2.432
+    assert robz.velocity == previous_robz
+    assert roby.velocity == previous_roby
 
 
 def test_motor_wait_restore_acceleration(robz):
-    previous_robz = robz.acceleration()
+    previous_robz = robz.acceleration
     with cleanup.cleanup(robz, restore_list=(cleanup.axis.ACC,)):
-        robz.acceleration(1002.121)
-    assert robz.acceleration() == previous_robz
+        robz.acceleration = 1002.121
+    assert robz.acceleration == previous_robz
 
 
 def test_motor_wait_restore_limits(robz):
-    previous_robz = robz.limits()
+    previous_robz = robz.limits
     with cleanup.cleanup(robz, restore_list=(cleanup.axis.LIM,)):
-        robz.limits(1.2, 2.534)
-    assert robz.limits() == previous_robz
+        robz.limits = 1.2, 2.534
+    assert robz.limits == previous_robz
 
 
 def test_motor_wait_restore_position(robz, roby):
-    previous_robz = robz.position()
-    previous_roby = roby.position()
+    previous_robz = robz.position
+    previous_roby = roby.position
 
     with cleanup.cleanup(robz, roby, restore_list=(cleanup.axis.POS,)):
         robz.rmove(1.242, wait=False)
         roby.rmove(.242, wait=False)
-    assert robz.position() == previous_robz
-    assert roby.position() == previous_roby
+    assert robz.position == previous_robz
+    assert roby.position == previous_roby
 
 
 def test_stoppable_device():

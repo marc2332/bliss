@@ -120,7 +120,7 @@ class NewportXPS(Controller):
         error, reply = self.__xps.PositionerSGammaParametersSet(
             axis.group + "." + axis.name,
             velocity,
-            axis.acceleration(),
+            axis.acceleration,
             axis.minJerkTime,
             axis.maxJerkTime,
         )
@@ -144,7 +144,7 @@ class NewportXPS(Controller):
         elog.debug("set_acceleration() called")
         error, reply = self.__xps.PositionerSGammaParametersSet(
             axis.group + "." + axis.name,
-            axis.velocity(),
+            axis.velocity,
             acceleration,
             axis.minJerkTime,
             axis.maxJerkTime,

@@ -58,7 +58,7 @@ class Test_VSCANNER_Controller(unittest.TestCase):
     def test_get_id(self):
         print("################### get_velocity ###############")
         px = bliss.get_axis("px")
-        _vel = px.velocity()
+        _vel = px.velocity
         print("px velocity: ", _vel)
 
     def test_get_chan(self):
@@ -71,16 +71,16 @@ class Test_VSCANNER_Controller(unittest.TestCase):
     def test_get_position(self):
         print("################### get_position ###############")
         px = bliss.get_axis("px")
-        print("VSCANNER px position :", px.position())
+        print("VSCANNER px position :", px.position)
         py = bliss.get_axis("py")
-        print("VSCANNER py position :", py.position())
+        print("VSCANNER py position :", py.position)
 
     def test_get_state(self):
         print("################### get_state ###############")
         px = bliss.get_axis("px")
-        print("VSCANNER px state:", px.state())
+        print("VSCANNER px state:", px.state)
         py = bliss.get_axis("py")
-        print("VSCANNER py state:", py.state())
+        print("VSCANNER py state:", py.state)
 
     def test_get_info(self):
         print("################### get_info ###############")
@@ -90,7 +90,7 @@ class Test_VSCANNER_Controller(unittest.TestCase):
     def test_move(self):
         print("################### move ###############")
         px = bliss.get_axis("px")
-        _pos = px.position()
+        _pos = px.position
         print("VSCANNER px.position = %g" % _pos)
         if _pos < 88:
             _new_pos = _pos + 11.11
@@ -98,7 +98,7 @@ class Test_VSCANNER_Controller(unittest.TestCase):
             _new_pos = 0
         print("VSCANNER move to ", _new_pos)
         px.move(_new_pos)
-        print("VSCANNER new pos : ", px.position())
+        print("VSCANNER new pos : ", px.position)
 
 
 if __name__ == "__main__":

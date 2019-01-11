@@ -15,7 +15,7 @@ dev = LinkamDsc(config)
 print("starting ramp is: ", dev.startingRamp)
 dev.startingRamp = 4
 print("starting ramp is: ", dev.startingRamp)
-print("state ", dev.state())
+print("state ", dev.state)
 # print dev.dscSamplingRate
 # dev.dscSamplingRate = 0.7
 # print dev.dscSamplingRate

@@ -55,7 +55,7 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
 
 def test_software_position_trigger_master(beacon):
     robz = beacon.get("robz")
-    robz.velocity(10)
+    robz.velocity = 10
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(robz, 0, 1, 5),
@@ -109,7 +109,7 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
 
 def test_interrupted_scan(beacon, diode_acq_device_factory):
     robz = beacon.get("robz")
-    robz.velocity(1)
+    robz.velocity = 1
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
     acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
@@ -135,7 +135,7 @@ def test_interrupted_scan(beacon, diode_acq_device_factory):
 
 def test_scan_too_fast(beacon, diode_acq_device_factory):
     robz = beacon.get("robz")
-    robz.velocity(10)
+    robz.velocity = 10
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
@@ -150,7 +150,7 @@ def test_scan_too_fast(beacon, diode_acq_device_factory):
 
 def test_scan_failure(beacon, diode_acq_device_factory):
     robz = beacon.get("robz")
-    robz.velocity(2)
+    robz.velocity = 2
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(
         count_time=0.1, npoints=5, trigger_fail=True

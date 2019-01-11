@@ -134,11 +134,11 @@ class TestIcePAPController(unittest.TestCase):
     def test_ctrlc(self):
         mymot1 = get_axis("mymot1")
         move_greenlet = mymot1.rmove(1000, wait=False)
-        self.assertEqual(mymot1.state(), "MOVING")
+        self.assertEqual(mymot1.state, "MOVING")
         gevent.sleep(0.1)
         move_greenlet.kill(KeyboardInterrupt)
         gevent.sleep(0.2)
-        self.assertEqual(mymot1.state(), "READY")
+        self.assertEqual(mymot1.state, "READY")
     """
 
     """
@@ -149,24 +149,25 @@ class TestIcePAPController(unittest.TestCase):
         #mymot1.controller.log_level(bliss.common.log.INFO)
         for i in range(10):
             move_greenlet = mygrp.rmove(mymot1, 1000, mymot2,1000, wait=False)
-            self.assertEqual(mygrp.state(), "MOVING")
+            self.assertEqual(mygrp.state, "MOVING")
             gevent.sleep(0.1)
             move_greenlet.kill(KeyboardInterrupt)
             gevent.sleep(0.5)
-            self.assertEqual(mymot1.state(), "READY")
-            self.assertEqual(mymot2.state(), "READY")
-            self.assertEqual(mygrp.state(), "READY")
+            self.assertEqual(mymot1.state, "READY")
+            self.assertEqual(mymot2.state, "READY")
+            self.assertEqual(mygrp.state, "READY")
         #mymot1.controller.log_level(bliss.common.log.ERROR)
     """
 
     def test_axis_get_position(self):
         mymot1 = get_axis("mymot1")
-        pos = mymot1.position()
+        pos = mymot1.position
 
     def test_axis_set_position(self):
         mymot1 = get_axis("mymot1")
         pos = 2.0  # given in mm
-        self.assertEqual(mymot1.position(pos), pos)
+        mymot1.position = pos
+        self.assertEqual(mymot1.position, pos)
 
     def test_axis_get_id(self):
         mymot1 = get_axis("mymot1")
@@ -176,13 +177,13 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_axis_get_velocity(self):
         mymot1 = get_axis("mymot1")
-        vel = mymot1.velocity()
+        vel = mymot1.velocity
 
     def test_axis_set_velocity(self):
         mymot1 = get_axis("mymot1")
         vel = 5
-        mymot1.velocity(vel)
-        self.assertEqual(mymot1.velocity(), vel)
+        mymot1.velocity = vel
+        self.assertEqual(mymot1.velocity, vel)
 
     def test_axis_set_velocity_error(self):
         mymot1 = get_axis("mymot1")
@@ -191,16 +192,17 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_axis_get_acctime(self):
         mymot1 = get_axis("mymot1")
-        acc = mymot1.acctime()
+        acc = mymot1.acctime
 
     def test_axis_set_acctime(self):
         mymot1 = get_axis("mymot1")
         acc = 0.250
-        self.assertEqual(mymot1.acctime(acc), acc)
+        mymot1.acctime = acc
+        self.assertEqual(mymot1.acctime, acc)
 
     def test_axis_state(self):
         mymot1 = get_axis("mymot1")
-        mymot1.state()
+        mymot1.state
 
     def test_axis_stop(self):
         mymot1 = get_axis("mymot1")
@@ -208,12 +210,12 @@ class TestIcePAPController(unittest.TestCase):
 
     def test_axis_move(self):
         mymot1 = get_axis("mymot1")
-        pos = mymot1.position()
+        pos = mymot1.position
         mymot1.move(pos + 0.1)  # waits for the end of motion
 
     def test_axis_move_backlash(self):
         mymot1 = get_axis("mymot1")
-        pos = mymot1.position()
+        pos = mymot1.position
         mymot1.move(pos - 0.1)
 
     def test_axis_rmove(self):
@@ -230,13 +232,13 @@ class TestIcePAPController(unittest.TestCase):
 
         # give time to motor to start
         gevent.sleep(0.1)
-        self.assertEqual(mymot1.state(), "MOVING")
+        self.assertEqual(mymot1.state, "MOVING")
 
         # stop the never ending motion
         mymot1.stop()
 
         # wait for the motor stop
-        while mymot1.state() == "MOVING":
+        while mymot1.state == "MOVING":
             gevent.sleep(0.1)
 
     def test_axis_limit_search(self):
@@ -249,13 +251,13 @@ class TestIcePAPController(unittest.TestCase):
 
             # give time to motor to start
             gevent.sleep(0.1)
-            self.assertEqual(mymot1.state(), "MOVING")
+            self.assertEqual(mymot1.state, "MOVING")
 
             # stop the never ending motion
             mymot1.stop()
 
             # wait for the motor stop
-            while mymot1.state() == "MOVING":
+            while mymot1.state == "MOVING":
                 gevent.sleep(0.1)
 
     def test_group_creation(self):
@@ -273,10 +275,10 @@ class TestIcePAPController(unittest.TestCase):
         mygrp = Group(mymot1, mymot2)
 
         # mymot1.controller.log_level(3)
-        pos_list = mygrp.position()
+        pos_list = mygrp.position
         # mymot1.controller.log_level(3)
         for axis in pos_list:
-            self.assertEqual(axis.position(), pos_list[axis])
+            self.assertEqual(axis.position, pos_list[axis])
 
     def test_group_move(self):
         # group creation
@@ -284,12 +286,12 @@ class TestIcePAPController(unittest.TestCase):
         mymot2 = get_axis("mymot2")
         mygrp = Group(mymot1, mymot2)
 
-        pos_list = mygrp.position()
+        pos_list = mygrp.position
         pos_list[mymot1] += 0.1
 
         # waits for the end of motions
         mygrp.move(pos_list)
-        self.assertEqual(mygrp.state(), "READY")
+        self.assertEqual(mygrp.state, "READY")
 
     def test_group_stop(self):
         # group creation
@@ -297,7 +299,7 @@ class TestIcePAPController(unittest.TestCase):
         mymot2 = get_axis("mymot2")
         mygrp = Group(mymot1, mymot2)
 
-        pos_list = mygrp.position()
+        pos_list = mygrp.position
         pos_list[mymot1] -= 0.1
 
         # non blocking call
@@ -305,7 +307,7 @@ class TestIcePAPController(unittest.TestCase):
 
         # waits for the end of motions
         mygrp.stop()
-        self.assertEqual(mygrp.state(), "READY")
+        self.assertEqual(mygrp.state, "READY")
 
     def test_encoder_creation(self):
         myenc = get_encoder("myenc")
@@ -328,33 +330,33 @@ class TestIcePAPController(unittest.TestCase):
 
         def task_cyclic(mot):
             while True:
-                mot.position()
+                mot.position
                 gevent.sleep(0.1)
 
         # mymot1.controller.log_level(bliss.common.log.INFO)
 
         # launch several greenlets
-        mymot1.move(mymot1.position() + 1000, wait=False)
+        mymot1.move(mymot1.position + 1000, wait=False)
         gevent.sleep(0.1)
-        mymot2.move(mymot2.position() - 1000, wait=False)
+        mymot2.move(mymot2.position - 1000, wait=False)
 
         task = gevent.spawn(task_cyclic, mymot2)
         for i in range(10):
-            mymot1.position()
-            mymot2.position()
+            mymot1.position
+            mymot2.position
 
         mymot1.stop()
-        self.assertEqual(mymot1.state(), "READY")
-        mymot1.move(mymot1.position() - 1000, wait=False)
+        self.assertEqual(mymot1.state, "READY")
+        mymot1.move(mymot1.position - 1000, wait=False)
         for i in range(10):
-            mymot1.position()
-            mymot2.position()
+            mymot1.position
+            mymot2.position
             gevent.sleep(0.1)
 
         mymot1.stop()
         mymot2.stop()
-        self.assertEqual(mymot1.state(), "READY")
-        self.assertEqual(mymot2.state(), "READY")
+        self.assertEqual(mymot1.state, "READY")
+        self.assertEqual(mymot2.state, "READY")
 
         # mymot1.controller.log_level(bliss.common.log.ERROR)
 

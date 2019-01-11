@@ -55,13 +55,13 @@ class TestPI_E517Controller(unittest.TestCase):
         print("PI_E517 IDN :", pz.get_id())
         print("PI_E517 channel :", pz.channel)
         print("PI_E517 chan_letter :", pz.chan_letter)
-        print("PI_E517 pz state:", pz.state())
+        print("PI_E517 pz state:", pz.state)
         print("PI_E517 INFOS :\n", pz.get_info())
 
     def test_get_position(self):
         pz = bliss.get_axis("pz")
-        print("PI_E517 pz position :", pz.position())
-        print("PI_E517 pz measured position :", pz.measured_position())
+        print("PI_E517 pz position :", pz.position)
+        print("PI_E517 pz measured position :", pz.measured_position)
         print("PI_E517 pz output voltage :", pz.controller._get_voltage(pz))
 
     def test_get_closed_loop_status(self):
@@ -73,7 +73,7 @@ class TestPI_E517Controller(unittest.TestCase):
 
     def test_very_small_move(self):
         pz = bliss.get_axis("pz")
-        _pos = pz.position()
+        _pos = pz.position
         _new_pos = _pos + 0.001
         print("PI_E517 move to ", _new_pos)
         pz.move(_new_pos)
@@ -85,20 +85,20 @@ class TestPI_E517Controller(unittest.TestCase):
 
     #    def test_multiple_move(self):
     #        pz = bliss.get_axis("pz")
-    #        _pos = pz.position()
+    #        _pos = pz.position
     #        for i in range(1000):
     #            print i,
     #            pz.move(_pos, wait=True)
     #
     #    def test_multiple_raw_move(self):
     #        pz = bliss.get_axis("pz")
-    #        _pos = pz.position()
+    #        _pos = pz.position
     #        _cmd = "SVA %s %g \n" % (pz.chan_letter, _pos)
     #        for i in range(1000):
     #            print i,
     #            pz.controller.sock.write(_cmd)
     #            # time.sleep(0.001)
-    #        _pos = pz.position()
+    #        _pos = pz.position
     #        print "PI_E517 pos=", _pos
     #
     #
@@ -138,7 +138,7 @@ class TestPI_E517Controller(unittest.TestCase):
     #     def test_multiple_raw_read_pos_and_move(self):
     #         print " \n\n"
     #         pz = bliss.get_axis("pz")
-    #         _pos = pz.position()
+    #         _pos = pz.position
     #         _cmd_move = "SVA %s %g \n" % (pz.chan_letter, _pos)
     #         _cmd_pos = "SVA? %s\n" % pz.chan_letter
     #         for i in range(100):
@@ -153,9 +153,9 @@ class TestPI_E517Controller(unittest.TestCase):
     #        px = bliss.get_axis("px")
     #        py = bliss.get_axis("py")
     #        pz = bliss.get_axis("pz")
-    #        _pos_x = px.position()
-    #        _pos_y = py.position()
-    #        _pos_z = pz.position()
+    #        _pos_x = px.position
+    #        _pos_y = py.position
+    #        _pos_z = pz.position
     #        _cmd_move_x = "SVA %s %g \n" % (px.chan_letter, _pos_x)
     #        _cmd_pos_x = "SVA? %s\n" % px.chan_letter
     #        _cmd_move_y = "SVA %s %g \n" % (py.chan_letter, _pos_y)

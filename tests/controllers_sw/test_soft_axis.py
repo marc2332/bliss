@@ -47,14 +47,14 @@ def test_soft_axis_creation(beacon):
     assert m0.name == "a_unique_motor"
     assert hasattr(setup_globals, m0.name)
 
-    assert m0.position() == o0.position
+    assert m0.position == o0.position
     assert o0.nb_pos_read == 2
     assert o0.nb_pos_write == 1
     assert o0.nb_move == 0
 
     m0.move(45.54)
     assert o0.position == 45.54
-    assert m0.position() == o0.position
+    assert m0.position == o0.position
     assert o0.nb_pos_read >= 4
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 0
@@ -63,7 +63,7 @@ def test_soft_axis_creation(beacon):
 
     m1.move(-12.23)
     assert o0.position == -12.23
-    assert m1.position() == o0.position
+    assert m1.position == o0.position
     assert o0.nb_pos_read >= 6
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 1
@@ -74,7 +74,7 @@ def test_soft_axis_creation(beacon):
 
     m2.move(456.789)
     assert o0.position == 456.789
-    assert m2.position() == o0.position
+    assert m2.position == o0.position
     assert o0.nb_pos_read == nb_pos_read + 2
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 2

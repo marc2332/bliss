@@ -46,7 +46,7 @@ class TestPI_E753Controller(unittest.TestCase):
 
     def test_get_position(self):
         pz = bliss.get_axis("pz")
-        print("E753 position :", pz.position())
+        print("E753 position :", pz.position)
 
     def test_get_id(self):
         pz = bliss.get_axis("pz")
@@ -65,11 +65,11 @@ class TestPI_E753Controller(unittest.TestCase):
 
 #     def test_axis_move(self):
 #         pz = bliss.get_axis("pz")
-#         self.assertEqual(pz.state(), "READY")
+#         self.assertEqual(pz.state, "READY")
 #         move_greenlet=pz.move(10, wait=False)
-#         self.assertEqual(pz.state(), "MOVING")
+#         self.assertEqual(pz.state, "MOVING")
 #         move_greenlet.join()
-#         self.assertEqual(pz.state(), "READY")
+#         self.assertEqual(pz.state, "READY")
 
 if __name__ == "__main__":
     unittest.main()

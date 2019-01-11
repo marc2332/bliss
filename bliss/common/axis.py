@@ -24,7 +24,7 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
     >>> print(energy.position)
     120.0
 
-    >>> print energy.state()
+    >>> print energy.state
     READY (Axis is READY)
 """
 
@@ -245,7 +245,7 @@ class GroupMove(object):
                     for motion in motions:
                         if motion.backlash:
                             motion.target_pos = (
-                                motion.axis.dial() * motion.axis.steps_per_unit
+                                motion.axis.dial * motion.axis.steps_per_unit
                             )
 
                 # Do backlash move, if needed
@@ -269,7 +269,7 @@ class GroupMove(object):
                             continue
 
                         with capture():
-                            state = motion.axis.state(read_hw=True)
+                            state = motion.axis.hw_state
                         if state is None:
                             state = AxisState("FAULT")
                         # update state and update dial pos.
@@ -298,7 +298,7 @@ class GroupMove(object):
                     with capture():
                         for motions in motions_dict.values():
                             for motion in motions:
-                                motion.axis._set_position(motion.axis.position())
+                                motion.axis._set_position = motion.axis.position
                                 event.send(motion.axis, "sync_hard")
 
                 for motions in motions_dict.values():
@@ -345,7 +345,7 @@ class Modulo(object):
         self.modulo = mod
 
     def __call__(self, axis):
-        dial_pos = axis.dial()
+        dial_pos = axis.dial
         axis._Axis__do_set_dial(dial_pos % self.modulo, True)
 
 
@@ -506,7 +506,7 @@ class CyclicTrajectory(Trajectory):
     @property
     def events_positions(self):
         pattern_evts = self.events_pattern_positions
-        time_offset = 0.
+        time_offset = 0.0
         last_time = self.pvt_pattern["time"][-1]
         nb_pattern_evts = len(pattern_evts)
         all_events = numpy.empty(
@@ -536,7 +536,7 @@ def estimate_duration(axis, target_pos, initial_pos=None):
     Estimate motion time based on current axis position
     and configuration
     """
-    ipos = axis.position() if initial_pos is None else initial_pos
+    ipos = axis.position if initial_pos is None else initial_pos
     fpos = target_pos
     delta = fpos - ipos
     do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
@@ -545,8 +545,8 @@ def estimate_duration(axis, target_pos, initial_pos=None):
         fpos -= axis.backlash
 
     try:
-        acc = axis.acceleration()
-        vel = axis.velocity()
+        acc = axis.acceleration
+        vel = axis.velocity
     except NotImplementedError:
         # calc axes do not implement acceleration and velocity by default
         return 0
@@ -681,7 +681,7 @@ class Axis(object):
     @property
     def tolerance(self):
         """Current tolerance in dial units (:obj:`float`)"""
-        return self.config.get("tolerance", float, 1E-4)
+        return self.config.get("tolerance", float, 1e-4)
 
     @property
     def encoder(self):
@@ -748,16 +748,23 @@ class Axis(object):
         state = self.__controller.state(self)
         self.settings.set("state", state)
 
+    @property
     @lazy_init
-    def _set_position(self, new_set_pos=None):
-        if new_set_pos is None:
-            sp = self.settings.get("_set_position")
-            if sp is not None:
-                return sp
-            new_set_pos = self.position()
+    def _set_position(self):
+        sp = self.settings.get("_set_position")
+        if sp is not None:
+            return sp
+        position = self.position
+        self._set_position = position
+        return position
+
+    @_set_position.setter
+    @lazy_init
+    def _set_position(self, new_set_pos):
         self.settings.set("_set_position", new_set_pos)
         return new_set_pos
 
+    @property
     @lazy_init
     def measured_position(self):
         """
@@ -766,8 +773,9 @@ class Axis(object):
         Returns:
             float: encoder value in user units
         """
-        return self.dial2user(self.dial_measured_position())
+        return self.dial2user(self.dial_measured_position)
 
+    @property
     @lazy_init
     def dial_measured_position(self):
         """
@@ -782,7 +790,7 @@ class Axis(object):
             raise RuntimeError("Axis '%s` has no encoder." % self.name)
 
     def __do_set_dial(self, new_dial, no_offset):
-        user_pos = self.position()
+        user_pos = self.position
 
         try:
             # Send the new value in motor units to the controller
@@ -800,25 +808,23 @@ class Axis(object):
         self._set_position_and_offset(user_pos)
         return dial_pos
 
+    @property
     @lazy_init
-    def dial(self, new_dial=None):
+    def dial(self):
         """
-        Returns current dial position, or set new dial if *new_dial* argument
-        is provided
-
-        Keyword Args:
-            new_dial: new dial position [default: None, meaning just return \
-            current dial]
+        Returns current dial position, or set dial
 
         Returns:
             float: current dial position (dimensionless)
         """
-        if new_dial is None:
-            dial_pos = self.settings.get("dial_position")
-            if dial_pos is None:
-                dial_pos = self._update_dial()
-            return dial_pos
+        dial_pos = self.settings.get("dial_position")
+        if dial_pos is None:
+            dial_pos = self._update_dial()
+        return dial_pos
 
+    @dial.setter
+    @lazy_init
+    def dial(self, new_dial):
         if self.is_moving:
             raise RuntimeError(
                 "%s: can't set axis dial position " "while moving" % self.name
@@ -832,26 +838,24 @@ class Axis(object):
         else:
             return self._set_position_and_offset(new_pos)
 
+    @property
     @lazy_init
-    def position(self, new_pos=None):
+    def position(self):
         """
-        Returns current user position, or set new user position if *new_pos*
-        argument is provided
-
-        Keyword Args:
-            new_pos: new user position (in user units) [default: None, \
-            meaning just return current user position]
+        Returns current user position, or set new user position
 
         Returns:
             float: current user position (user units)
         """
-        elog.debug("axis.py : position(new_pos=%r)" % new_pos)
-        if new_pos is None:
-            pos = self.settings.get("position")
-            if pos is None:
-                pos = self.dial2user(self.dial())
-            return pos
+        pos = self.settings.get("position")
+        if pos is None:
+            pos = self.dial2user(self.dial)
+        return pos
 
+    @position.setter
+    @lazy_init
+    def position(self, new_pos):
+        elog.debug("axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             raise RuntimeError(
                 "%s: can't set axis user position " "while moving" % self.name
@@ -861,13 +865,14 @@ class Axis(object):
 
     @lazy_init
     def _update_dial(self, update_user=True):
-        dial_pos = self._hw_position()
+        dial_pos = self._hw_position
         self.settings.set("dial_position", dial_pos)
         if update_user:
             user_pos = self.dial2user(dial_pos, self.offset)
             self.settings.set("position", user_pos)
         return dial_pos
 
+    @property
     @lazy_init
     def _hw_position(self):
         try:
@@ -882,22 +887,23 @@ class Axis(object):
         return new_pos - self.sign * dial_pos
 
     def _set_position_and_offset(self, new_pos):
-        dial_pos = self.dial()
+        dial_pos = self.dial
         prev_offset = self.offset
-        self._set_position(new_pos)
+        self._set_position = new_pos
         self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
         # update limits
-        ll, hl = self.limits()
+        ll, hl = self.limits
         lim_delta = self.offset - prev_offset
-        self.limits(
+        self.limits = (
             ll + lim_delta if ll is not None else ll,
             hl + lim_delta if hl is not None else hl,
         )
         self.settings.set("position", new_pos)
         return new_pos
 
+    @property
     @lazy_init
-    def state(self, read_hw=False):
+    def state(self):
         """
         Returns the axis state
 
@@ -907,16 +913,24 @@ class Axis(object):
         Returns:
             AxisState: axis state
         """
-        if read_hw:
-            state = None
-        else:
-            if self.is_moving:
-                return AxisState("MOVING")
-            state = self.settings.get("state")
+        if self.is_moving:
+            return AxisState("MOVING")
+        state = self.settings.get("state")
         if state is None:
             # really read from hw
-            state = self.__controller.state(self)
+            state = self.hw_state
         return state
+
+    @property
+    @lazy_init
+    def hw_state(self):
+        """
+        Returns the current hardware axis state
+
+        Returns:
+            AxisState: axis state
+        """
+        return self.__controller.state(self)
 
     @lazy_init
     def get_info(self):
@@ -925,13 +939,14 @@ class Axis(object):
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
-        self.settings.set("state", self.state(read_hw=True))
+        self.settings.set("state", self.hw_state)
         self._update_dial()
-        self._set_position(self.position())
+        self._set_position = self.position
         event.send(self, "sync_hard")
 
+    @property
     @lazy_init
-    def velocity(self, new_velocity=None, from_config=False):
+    def velocity(self):
         """
         Returns the current velocity. If *new_velocity* is given it sets
         the new velocity on the controller.
@@ -946,114 +961,146 @@ class Axis(object):
         Returns:
             float: current velocity (user units/second)
         """
-        if from_config:
-            return self.config.get("velocity", float)
-
-        if new_velocity is not None:
-            # Write -> Converts into motor units to change velocity of axis."
-            self.__controller.set_velocity(
-                self, new_velocity * abs(self.steps_per_unit)
-            )
+        # Read -> Returns velocity read from motor axis.
+        _user_vel = self.settings.get("velocity")
+        if _user_vel is None:
             _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
-            self.settings.set("velocity", _user_vel)
-        else:
-            # Read -> Returns velocity read from motor axis.
-            _user_vel = self.settings.get("velocity")
-            if _user_vel is None:
-                _user_vel = self.__controller.read_velocity(self) / abs(
-                    self.steps_per_unit
-                )
 
         return _user_vel
 
+    @velocity.setter
+    @lazy_init
+    def velocity(self, new_velocity):
+        # Write -> Converts into motor units to change velocity of axis."
+        self.__controller.set_velocity(self, new_velocity * abs(self.steps_per_unit))
+        _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
+        self.settings.set("velocity", _user_vel)
+        return _user_vel
+
+    @property
+    @lazy_init
+    def config_velocity(self):
+        """
+        Returns the config velocity.
+
+        Returns:
+            float: current velocity (user units/second)
+        """
+        return self.config.get("velocity", float)
+
+    @property
     @lazy_init
     def acceleration(self, new_acc=None, from_config=False):
         """
         <new_acc> is given in user_units/s2.
         """
-        if from_config:
-            return self.config.get("acceleration", float)
-
-        if new_acc is not None:
-            if self.is_moving:
-                raise RuntimeError(
-                    "Cannot set acceleration while axis '%s` is moving." % self.name
-                )
-
-            # Converts into motor units to change acceleration of axis.
-            self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
+        _acceleration = self.settings.get("acceleration")
+        if _acceleration is None:
             _ctrl_acc = self.__controller.read_acceleration(self)
             _acceleration = _ctrl_acc / abs(self.steps_per_unit)
-            self.settings.set("acceleration", _acceleration)
-        else:
-            _acceleration = self.settings.get("acceleration")
-            if _acceleration is None:
-                _ctrl_acc = self.__controller.read_acceleration(self)
-                _acceleration = _ctrl_acc / abs(self.steps_per_unit)
 
         return _acceleration
 
+    @acceleration.setter
     @lazy_init
-    def acctime(self, new_acctime=None, from_config=False):
-        """
-        Returns the current acceleration time. If *new_acctime* is given it sets
-        the new acceleration time on the controller.
+    def acceleration(self, new_acc):
+        if self.is_moving:
+            raise RuntimeError(
+                "Cannot set acceleration while axis '%s` is moving." % self.name
+            )
 
-        Keyword Args:
-            new_acctime (float): new acceleration (second) [default: \
-            None, meaning return the current acceleration time]
-            from_config (bool): if reading acceleration time (new_acctime \
-            is None), if True, returns the current static configuration
-            acceleration time, otherwise, False returns acceleration time \
-            from the motor axis [default: False]
+        # Converts into motor units to change acceleration of axis.
+        self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
+        _ctrl_acc = self.__controller.read_acceleration(self)
+        _acceleration = _ctrl_acc / abs(self.steps_per_unit)
+        self.settings.set("acceleration", _acceleration)
+        return _acceleration
+
+    @property
+    @lazy_init
+    def config_acceleration(self):
+        return self.config.get("acceleration", float)
+
+    @property
+    @lazy_init
+    def acctime(self):
+        """
+        Returns the current acceleration time.
+
         Returns:
             float: current acceleration time (second)
         """
-        if from_config:
-            return self.velocity(from_config=True) / self.acceleration(from_config=True)
+        return self.velocity / self.acceleration
 
-        if new_acctime is not None:
-            # Converts acctime into acceleration.
-            acc = self.velocity() / new_acctime
-            self.acceleration(acc)
-
-        _acctime = self.velocity() / self.acceleration()
-
-        return _acctime
-
+    @acctime.setter
     @lazy_init
-    def limits(self, low_limit=Null(), high_limit=Null(), from_config=False):
-        """
-        Returns the current software user limits. If *low_limit* or *high_limit*
-        is given it sets the new values.
+    def acctime(self, new_acctime):
+        # Converts acctime into acceleration.
+        self.acceleration = self.velocity / new_acctime
+        return self.velocity / self.acceleration
 
-        Keyword Args:
-            low_limit (float): new low limit (user units) [default: \
-            None, meaning return the current limits]
-            high_limit (float): new high limit (user units) [default: \
-            None, meaning return the current limits]
-            from_config (bool): if limits are not given, if True, returns \
-            the current static configuration limits, otherwise, False returns \
-            current limits from settings [default: False]
+    @property
+    @lazy_init
+    def config_acctime(self):
+        """
+        Returns the config acceleration time.
+        """
+        return self.config_velocity / self.config_acceleration
+
+    @property
+    @lazy_init
+    def limits(self):
+        """
+        Returns or set the current software user limits.
 
         Returns:
             tuple<float, float>: axis software limits (user units)
         """
-        if from_config:
-            ll = self.config.get("low_limit", float, float("-inf"))
-            hl = self.config.get("high_limit", float, float("+inf"))
-            return list(map(self.dial2user, (ll, hl)))
-        if not isinstance(low_limit, Null):
-            self.settings.set("low_limit", low_limit)
-        if not isinstance(high_limit, Null):
-            self.settings.set("high_limit", high_limit)
-        low_limit = self.settings.get("low_limit")
-        if low_limit is None:
-            low_limit = float("-inf")
-        high_limit = self.settings.get("high_limit")
-        if high_limit is None:
-            high_limit = float("+inf")
-        return low_limit, high_limit
+        return self.low_limit, self.high_limit
+
+    @limits.setter
+    @lazy_init
+    def limits(self, limits):
+        try:
+            l = len(limits)
+            if l != 2:
+                raise TypeError
+        except TypeError:
+            raise ValueError("Must set the two limits at once")
+
+        self.low_limit, self.high_limit = limits
+        return self.limits
+
+    @property
+    @lazy_init
+    def low_limit(self):
+        limit = self.settings.get("low_limit")
+        return limit if limit is not None else float("-inf")
+
+    @low_limit.setter
+    @lazy_init
+    def low_limit(self, limit):
+        self.settings.set("low_limit", limit)
+        return self.low_limit
+
+    @property
+    @lazy_init
+    def high_limit(self):
+        limit = self.settings.get("high_limit")
+        return limit if limit is not None else float("+inf")
+
+    @high_limit.setter
+    @lazy_init
+    def high_limit(self, limit):
+        self.settings.set("high_limit", limit)
+        return self.high_limit
+
+    @property
+    @lazy_init
+    def config_limits(self):
+        ll = self.config.get("low_limit", float, float("-inf"))
+        hl = self.config.get("high_limit", float, float("+inf"))
+        return list(map(self.dial2user, (ll, hl)))
 
     def _update_settings(self, state):
         self.settings.set("state", state)
@@ -1073,7 +1120,7 @@ class Axis(object):
             float: position in axis user units
         """
         if position is None:
-            # see limits()
+            # see limits
             return None
         if offset is None:
             offset = self.offset
@@ -1106,9 +1153,9 @@ class Axis(object):
 
     def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
-        delta = dial_target_pos - self.dial()
-        if abs(delta) < 1E-6:
-            delta = 0.
+        delta = dial_target_pos - self.dial
+        if abs(delta) < 1e-6:
+            delta = 0.0
 
         # check software limits
         target_pos = dial_target_pos * self.steps_per_unit
@@ -1117,7 +1164,7 @@ class Axis(object):
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
         low_limit_msg = "%s: move to `%f'%s would go below low limit (%f)"
         high_limit_msg = "%s: move to `%f'%s would go beyond high limit (%f)"
-        user_low_limit, user_high_limit = self.limits()
+        user_low_limit, user_high_limit = self.limits
         low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
         high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
 
@@ -1160,8 +1207,8 @@ class Axis(object):
             "prepare_move: user_target_pos=%g, relative=%r"
             % (user_target_pos, relative)
         )
-        dial_initial_pos = self.dial()
-        hw_pos = self._hw_position()
+        dial_initial_pos = self.dial
+        hw_pos = self._hw_position
 
         if abs(dial_initial_pos - hw_pos) > self.tolerance:
             raise RuntimeError(
@@ -1171,7 +1218,7 @@ class Axis(object):
 
         if relative:
             # start from last set position
-            user_initial_pos = self._set_position()
+            user_initial_pos = self._set_position
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
@@ -1180,7 +1227,7 @@ class Axis(object):
         if not trajectory:
             self.__controller.prepare_move(motion)
 
-        self._set_position(user_target_pos)
+        self._set_position = user_target_pos
 
         return motion
 
@@ -1202,10 +1249,10 @@ class Axis(object):
             self.__move_done_callback.set()
 
     def _check_ready(self):
-        initial_state = self.state()
+        initial_state = self.state
         if not initial_state.READY and not initial_state.MOVING:
             # read state from hardware
-            initial_state = self.state(read_hw=True)
+            initial_state = self.hw_state
             self._update_settings(state=initial_state)
 
         if not initial_state.READY:
@@ -1298,7 +1345,7 @@ class Axis(object):
             if velocity == 0:
                 return
 
-            saved_velocity = self.velocity()
+            saved_velocity = self.velocity
             velocity_in_steps = velocity * self.steps_per_unit
             direction = 1 if velocity_in_steps > 0 else -1
 
@@ -1316,7 +1363,7 @@ class Axis(object):
             self.__execute_pre_move_hook(motion)
 
             def start_jog(controller, motions):
-                motions[0].axis.velocity(abs(velocity))
+                motions[0].axis.velocity = abs(velocity)
                 controller.start_jog(motions[0].axis, abs(velocity_in_steps), direction)
 
             def stop_one(controller, motions):
@@ -1338,7 +1385,7 @@ class Axis(object):
         self._move_loop(polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
-        self.velocity(saved_velocity)
+        self.velocity = saved_velocity
 
         if reset_position == 0:
             self.__do_set_dial(0, True)
@@ -1498,15 +1545,15 @@ class Axis(object):
         Saves settings (velo acc limits) into config (XML file or beacon YML).
         """
         if velocity:
-            self.__config.set("velocity", self.velocity())
+            self.__config.set("velocity", self.velocity)
         if acceleration:
-            self.__config.set("acceleration", self.acceleration())
+            self.__config.set("acceleration", self.acceleration)
         if limits:
 
             def limit2config(l):
                 return self.user2dial(l) if l is not None else l
 
-            ll, hl = list(map(limit2config, self.limits()))
+            ll, hl = list(map(limit2config, self.limits))
             self.__config.set("low_limit", ll)
             self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):
@@ -1521,9 +1568,9 @@ class Axis(object):
         # Applies velocity and acceleration only if possible.
         # Try to execute <config_name> function to check if axis supports it.
         for config_param in ["velocity", "acceleration"]:
-            rw_function = getattr(self, config_param)
             try:
-                rw_function(rw_function(from_config=True))
+                config_value = getattr(self, "config_%s" % config_param)
+                setattr(self, config_param, config_value)
             except (NotImplementedError, KeyError):
                 elog.debug(
                     "'%s' for '%s' is not implemented" % (config_param, self.name)
@@ -1531,7 +1578,7 @@ class Axis(object):
             else:
                 elog.debug("set '%s' for '%s' done." % (config_param, self.name))
 
-        self.limits(*self.limits(from_config=True))
+        self.limits = self.config_limits
 
     @lazy_init
     def set_event_positions(self, positions):
@@ -1850,12 +1897,18 @@ class ModuloAxis(Axis):
     def __calc_modulo(self, pos):
         return pos % self._modulo
 
-    def dial(self, *args, **kwargs):
-        d = Axis.dial(self, *args, **kwargs)
+    @property
+    def dial(self):
+        d = super(ModuloAxis, self).dial
         if self._in_prepare_move:
             return d
         else:
             return self.__calc_modulo(d)
+
+    @dial.setter
+    def dial(self, value):
+        super(ModuloAxis, self.__class__).dial.fset(self, value)
+        return self.dial
 
     def prepare_move(self, user_target_pos, *args, **kwargs):
         user_target_pos = self.__calc_modulo(user_target_pos)

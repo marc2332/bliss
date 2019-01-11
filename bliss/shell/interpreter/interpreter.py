@@ -377,8 +377,8 @@ def start(session_id, input_queue, output_queue, i):
                 if object_dict["type"] == "motor":
                     m = obj
                     try:
-                        pos = "%.3f" % m.position()
-                        state = convert_state(m.state())
+                        pos = "%.3f" % m.position
+                        state = convert_state(m.state)
                     except:
                         pos = None
                         state = None
@@ -403,7 +403,7 @@ def start(session_id, input_queue, output_queue, i):
                     dispatcher.connect(position_updated, "position", m)
                 elif object_dict["type"] == "actuator":
                     try:
-                        state = obj.state()
+                        state = obj.state
                     except:
                         state = None
                     object_dict.update({"state": convert_state(state)})
@@ -417,7 +417,7 @@ def start(session_id, input_queue, output_queue, i):
                     dispatcher.connect(state_updated, "state", obj)
                 elif object_dict["type"] == "shutter":
                     try:
-                        state = obj.state()
+                        state = obj.state
                     except:
                         state = None
                     object_dict.update({"state": convert_state(state)})
@@ -437,8 +437,8 @@ def start(session_id, input_queue, output_queue, i):
             motors_list = list()
             for name, m in objects_by_type["motors"].items():
                 try:
-                    pos = "%.3f" % m.position()
-                    state = convert_state(m.state())
+                    pos = "%.3f" % m.position
+                    state = convert_state(m.state)
                 except:
                     pos = None
                     state = None
@@ -470,7 +470,7 @@ def start(session_id, input_queue, output_queue, i):
             actuators_list = list()
             for name, obj in objects_by_type["actuator"].items():
                 try:
-                    state = obj.state()
+                    state = obj.state
                 except:
                     state = None
                 actuators_list.append({"name": name, "state": convert_state(state)})
@@ -489,7 +489,7 @@ def start(session_id, input_queue, output_queue, i):
             shutters_list = list()
             for name, obj in objects_by_type["shutter"].items():
                 try:
-                    state = obj.state()
+                    state = obj.state
                 except:
                     state = None
                 shutters_list.append({"name": name, "state": convert_state(state)})

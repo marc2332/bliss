@@ -33,24 +33,24 @@ from bliss.common.utils import OrderedDict
 from bliss.common.tango import DeviceProxy
 
 __TMO_TUPLE = (
-    0.,
-    10E-6,
-    30E-6,
-    100E-6,
-    300E-6,
-    1E-3,
-    3E-3,
-    10E-3,
-    30E-3,
-    100E-3,
-    300E-3,
-    1.,
-    3.,
-    10.,
-    30.,
-    100.,
-    300.,
-    1E3,
+    0.0,
+    10e-6,
+    30e-6,
+    100e-6,
+    300e-6,
+    1e-3,
+    3e-3,
+    10e-3,
+    30e-3,
+    100e-3,
+    300e-3,
+    1.0,
+    3.0,
+    10.0,
+    30.0,
+    100.0,
+    300.0,
+    1e3,
 )
 
 TMO_MAP = OrderedDict([(tmo, t) for tmo, t in enumerate(__TMO_TUPLE)])
@@ -350,7 +350,7 @@ class Gpib:
     ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = list(range(5))
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self, url=None, pad=0, sad=0, timeout=1., tmo=13, eot=1, eos="\n"):
+    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eos="\n"):
 
         self._gpib_kwargs = {
             "url": url,
@@ -485,7 +485,7 @@ class Gpib:
         elif url_lower.startswith("local://"):
             return self.LOCAL
         else:
-            return None
+            raise ValueError("Unsuported protocol %s" % url)
 
     def __str__(self):
         opts = self._gpib_kwargs

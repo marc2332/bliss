@@ -166,6 +166,9 @@ class _WagoController:
         self.wago_host = host
 
     def connect(self):
+        """ 
+        Check if we have a coupler or a controller, if we have a controller gets the firmware version and firmware date
+        """
         with self.lock:
             # check if we have a coupler or a controller
             reply = self.client.read_input_registers(0x2012, "H")
@@ -387,6 +390,14 @@ class _WagoController:
         return tuple(ret)
 
     def get(self, *channel_names):
+        """
+        gets one or more values from channels
+
+        Args:
+            *channel_names: list of channels to be read
+        Returns:
+            list: channel values
+        """
         modules_to_read = set()
         channels_to_read = []
         ret = []

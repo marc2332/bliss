@@ -116,7 +116,7 @@ for module_name, module_info in MODULES_CONFIG.items():
         module_info[READING_TYPE] = "fs"
         try:
             fs_low, fs_high = map(int, reading_type[2:].split("-"))
-        except:
+        except Exception:
             fs_low = 0
             fs_high = int(reading_type[2:])
         else:
@@ -343,21 +343,21 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[DIGI_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_in_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[DIGI_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_out_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[ANA_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_in_reading[i : i + n]
@@ -374,7 +374,7 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[ANA_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_out_reading[i : i + n]
@@ -611,12 +611,12 @@ class wago(object):
             self.counter_gain_names = (
                 config_tree["counter_gain_names"].replace(" ", "").split(",")
             )
-        except:
+        except Exception:
             pass
 
         try:
             self.cnt_names = config_tree["counter_names"].replace(" ", "").split(",")
-        except:
+        except Exception:
             pass
         else:
             for i, name in enumerate(self.cnt_names):

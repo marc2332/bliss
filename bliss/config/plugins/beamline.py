@@ -58,7 +58,7 @@ def __get_empty_main(cfg):
 
 def edit(cfg, request):
     if request.method == "POST":
-        for k, v in list(request.form.items()):
+        for k, v in request.form.items():
             cfg.root[k] = v
     cfg.root.save()
 

@@ -456,7 +456,7 @@ def common_prefix(paths, sep=os.path.sep):
     def allnamesequal(name):
         return all(n == name[0] for n in name[1:])
 
-    bydirectorylevels = list(zip(*[p.split(sep) for p in paths]))
+    bydirectorylevels = zip(*[p.split(sep) for p in paths])
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
@@ -490,7 +490,7 @@ class Statistics(object):
     def __init__(self, profile):
         self._profile = {
             key: numpy.array(values, dtype=numpy.float)
-            for key, values in list(profile.items())
+            for key, values in profile.items()
         }
 
     @property
@@ -499,8 +499,7 @@ class Statistics(object):
         elapsed time function
         """
         return {
-            key: values[:, 1] - values[:, 0]
-            for key, values in list(self._profile.items())
+            key: values[:, 1] - values[:, 0] for key, values in self._profile.items()
         }
 
     @property
@@ -510,7 +509,7 @@ class Statistics(object):
         """
         return {
             key: (values.min(), values.mean(), values.max(), values.std())
-            for key, values in list(self.elapsed_time.items())
+            for key, values in self.elapsed_time.items()
         }
 
     def __repr__(self):

@@ -167,12 +167,12 @@ class DataNodeIterator(object):
 
         data_node_2_children = self._get_grandchildren(db_name)
         all_nodes_names = list()
-        for children_name in list(data_node_2_children.values()):
+        for children_name in data_node_2_children.values():
             all_nodes_names.extend(children_name)
 
         data_nodes = {
             name: node
-            for name, node in list(zip(all_nodes_names, get_nodes(*all_nodes_names)))
+            for name, node in zip(all_nodes_names, get_nodes(*all_nodes_names))
             if node is not None
         }
         # should be convert to yield from
@@ -227,8 +227,8 @@ class DataNodeIterator(object):
         [pipeline.lrange(name, 0, -1) for name in children_queue]
         data_node_2_children = {
             node_name: [child.decode() for child in children]
-            for node_name, children in list(
-                zip(data_node_containers_names, pipeline.execute())
+            for node_name, children in zip(
+                data_node_containers_names, pipeline.execute()
             )
         }
         return data_node_2_children
@@ -250,7 +250,7 @@ class DataNodeIterator(object):
             data_node_2_children = self._get_grandchildren(db_name)
             self.last_child_id = {
                 db_name: len(children)
-                for db_name, children in list(data_node_2_children.items())
+                for db_name, children in data_node_2_children.items()
             }
 
         if last_node is not None:

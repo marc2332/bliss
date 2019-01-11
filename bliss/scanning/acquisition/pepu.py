@@ -257,5 +257,5 @@ class PepuCounter(BaseCounter):
 def pepu_counters(pepu):
     """Provide a convenient access to the PEPU counters."""
     channels = list(pepu.in_channels.values()) + list(pepu.calc_channels.values())
-    counters = list(map(PepuCounter, channels))
+    counters = map(PepuCounter, channels)
     return counter_namespace(counters)

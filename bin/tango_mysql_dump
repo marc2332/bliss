@@ -65,7 +65,7 @@ def main(host=None, user=None, passwd=None):
             else:
                 properties[name] = [values, value]
 
-    for node in list(server2nodes.values()):
+    for node in server2nodes.values():
         node.save()
 
 

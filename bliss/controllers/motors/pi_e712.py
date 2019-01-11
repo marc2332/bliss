@@ -273,7 +273,7 @@ class PI_E712(Controller):
         with self.sock.lock:
             channels = [
                 str(x.channel).encode()
-                for x in list(self.axes.values())
+                for x in self.axes.values()
                 if hasattr(x, "channel")
             ]
             channels_str = b" ".join(channels)
@@ -439,9 +439,7 @@ class PI_E712(Controller):
                 dim = int(header["DIM"])
                 column_info = dict()
                 keep_axes = {
-                    x.channel: x
-                    for x in list(self.axes.values())
-                    if hasattr(x, "channel")
+                    x.channel: x for x in self.axes.values() if hasattr(x, "channel")
                 }
                 for name_id in range(8):
                     try:
@@ -458,7 +456,7 @@ class PI_E712(Controller):
                             column_info[name_id] = new_desc.replace(" ", "_")
 
                 dtype = [("timestamp", "f8")]
-                dtype += [(name, "f8") for name in list(column_info.values())]
+                dtype += [(name, "f8") for name in column_info.values()]
                 data = numpy.zeros(ndata, dtype=dtype)
                 data["timestamp"] = (
                     numpy.arange(from_event_id, from_event_id + ndata) * sample_time
@@ -912,7 +910,7 @@ class PI_E712(Controller):
         * Gain 4th order
         """
         commands = "\n".join(
-            ("SPA? %d 0x2000%d00" % (axis.channel, i + 2)) for i in list(range(5))
+            ("SPA? %d 0x2000%d00" % (axis.channel, i + 2)) for i in range(5)
         )
         axis.coeffs = [float(x) for x in self.command(commands, 5)]
         return axis.coeffs
@@ -1057,7 +1055,7 @@ class Switch(BaseSwitch):
         self.__output_type = possible_type.get(output_type)
         self.__output_range = config.get("output-range", [-10, 10])
         self.__axes = weakref.WeakValueDictionary(
-            {name.upper(): axis for name, axis in list(self.__controller._axes.items())}
+            {name.upper(): axis for name, axis in self.__controller._axes.items()}
         )
 
     def _set(self, state):
@@ -1109,7 +1107,7 @@ class Switch(BaseSwitch):
                 "SPA? {output_chan} 0xa000004".format(output_chan=self.__output_channel)
             )
         )
-        for name, axis in list(self.__axes.items()):
+        for name, axis in self.__axes.items():
             if axis.channel == axis_channel:
                 return name
         return "DISABLED"

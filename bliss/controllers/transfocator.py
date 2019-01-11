@@ -261,7 +261,7 @@ class Transfocator:
         return positions
 
     def status_read(self):
-        header, positions = list(zip(*list(self.status_dict().items())))
+        header, positions = zip(*self.status_dict().items())
         header = "".join(("{:<4}".format(col) for col in header))
         positions = (_display(col) for col in positions)
         positions = "".join(("{:<4}".format(col) for col in positions))

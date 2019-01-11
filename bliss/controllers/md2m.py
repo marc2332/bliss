@@ -52,7 +52,7 @@ class MD2M:
             axis_list.append(axis)
             targets.append(axis.position + target)
         g = Group(*axis_list)
-        g.move(dict(list(zip(axis_list, targets))))
+        g.move(dict(zip(axis_list, targets)))
 
     def _wait_ready(self, *axes, **kwargs):
         timeout = int(kwargs.get("timeout", 3))
@@ -203,7 +203,7 @@ class MD2M:
                 "start": start.get("sampy"),
             },
         }
-        for motor_name in list(helical.keys()):
+        for motor_name in helical.keys():
             hm = helical[motor_name]
             hm["distance"] = abs(hm["trajectory"])
             if hm["distance"] <= 5E-3:

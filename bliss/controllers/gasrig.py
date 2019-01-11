@@ -116,7 +116,7 @@ def _get_wago_channel_names(wago, name_filter=None):
         wago.connect()
     channels = []
     for module in wago.controller.mapping:
-        channels.extend(list(filter(name_filter, module["channels"][1])))
+        channels.extend(filter(name_filter, module["channels"][1]))
     return channels
 
 
@@ -172,7 +172,7 @@ class GasRig(object):
             setattr(self, counter.cntname, counter)
 
         for keller in self.config["kellers"]:
-            for name, counter in list(keller.counters.items()):
+            for name, counter in keller.counters.items():
                 if hasattr(self, counter.name):
                     self._log.error(
                         "Skipped gasrig keller counter %r "
@@ -193,8 +193,8 @@ class GasRig(object):
 
     def close_all_valves(self):
         valves = self.valve_names
-        self.wago.set(*list(zip(valves, len(valves) * (0,))))
+        self.wago.set(*zip(valves, len(valves) * (0,)))
 
     def open_all_valves(self):
         valves = self.valve_names
-        self.wago.set(*list(zip(valves, len(valves) * (1,))))
+        self.wago.set(*zip(valves, len(valves) * (1,)))

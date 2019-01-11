@@ -692,7 +692,7 @@ class LeicaFocus(LeicaUSB):
         resp = self.read()
         print("------------------->", type(resp), resp)
         if resp:
-            l = list(map(int, resp.split()))
+            l = map(int, resp.split())
             if l[:4] != [self.Mot_81, 69, 410, 411]:
                 raise RuntimeError("Invalid resp")
         else:
@@ -735,23 +735,23 @@ class LeicaFocus(LeicaUSB):
         self.write(95, 37, 0)
 
     def read_all_mot_pos(self, fromcache=False):
-        if not fromcache or None in list(self.dial.values()):
+        if not fromcache or None in self.dial.values():
             self.write(self.MOT_REQ_POS, self.ALL_MOTORS)
             resp = self.read(multiline=self.ALL_MOTORS_LINES)
             for l in resp:
-                fnum, cmd, dial = list(map(float, l.split()))
+                fnum, cmd, dial = map(float, l.split())
                 num = int(fnum)
                 if cmd == self.MOT_RES_POS:
                     self.dial[num] = dial
                     # print num, dial
-        pos = dict([(num, dial) for num, dial in list(self.dial.items())])
+        pos = dict([(num, dial) for num, dial in self.dial.items()])
         return pos
 
     def read_mot_pos(self, num, fromcache=False):
         if not fromcache or self.dial[num] is None:
             self.write(self.MOT_REQ_POS, num)
             resp = self.read()
-            fnum, cmd, dial = list(map(float, resp.split()))
+            fnum, cmd, dial = map(float, resp.split())
             if cmd != self.MOT_RES_POS:
                 raise RuntimeError("Invalid MOT_RES_POS: %s" % resp)
             num = int(fnum)
@@ -770,7 +770,7 @@ class LeicaFocus(LeicaUSB):
             real_mot = self.Zoom_Group
             lines = 2 * len(real_mot) + 1  # 70_34
         resp = self.read(multiline=lines)
-        data = [list(map(float, l.split())) for l in resp]
+        data = [map(float, l.split()) for l in resp]
         res = [([0] * 3) for i in range(len(real_mot))]
         for fnum, cmd, val in data:
             num = int(fnum)
@@ -797,7 +797,7 @@ class LeicaFocus(LeicaUSB):
     def get_status_str(self, status):
         if status == self.MOT_STA_IDLE:
             return "Idle"
-        return ",".join([n for b, n in list(self.Sta.items()) if status & b != 0])
+        return ",".join([n for b, n in self.Sta.items() if status & b != 0])
 
     def start_mot_move(self, num, pos, rel):
         # if self.curr_move:
@@ -907,10 +907,7 @@ class LeicaCamCtrlPacket(object):
     @classmethod
     def getSrcCmd(klass, ptype):
         return [
-            (x, y)
-            for x in klass.TYPE
-            for y, p in list(klass.TYPE[x].items())
-            if p == ptype
+            (x, y) for x in klass.TYPE for y, p in klass.TYPE[x].items() if p == ptype
         ][0]
 
     @classmethod

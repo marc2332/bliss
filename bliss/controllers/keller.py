@@ -217,7 +217,7 @@ def _decode_active_p(msg):
 def _decode_active_t(msg):
     t_ch_map = {3: "T", 4: "TOB1", 5: "TOB2", 7: "CON"}
     channels = _decode_active_ch(msg)
-    return [name for ch, name in list(t_ch_map.items()) if ch in channels]
+    return [name for ch, name in t_ch_map.items() if ch in channels]
 
 
 def debug_it(f):
@@ -541,7 +541,7 @@ class PressureTransmitter(object):
         # OK REPLY: Addr + Function + <specific response> + CRC_H + CRC_L
         # ERR REPLY: Addr + (0x80 | Function) + Error code + CRC_H + CRC_L
         reply = self.comm.read(2)
-        reply_addr, reply_fn = list(map(ord, reply))
+        reply_addr, reply_fn = map(ord, reply)
 
         if self._configured_address != reply_addr:
             raise KellerError("Unexpected response address")
@@ -566,7 +566,7 @@ class PressureTransmitter(object):
         reply_crc = self.comm.read(2)
         reply += reply_payload + reply_crc
         self.debug("raw reply: %r", reply)
-        crc = crc16(reply_addr, reply_fn, *list(map(ord, reply_payload)))
+        crc = crc16(reply_addr, reply_fn, *map(ord, reply_payload))
         if not check_message_crc16(reply_crc, crc):
             raise KellerError("CRC failure in reply")
         return cmd.decode(reply_payload)

@@ -266,7 +266,7 @@ class ScanListener:
         if scan_type == "ct":
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info["count_time"]
-            col_len = max(list(map(len, self.col_labels))) + 2
+            col_len = max(map(len, self.col_labels)) + 2
             template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
                 col_len
             )

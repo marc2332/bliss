@@ -200,7 +200,7 @@ class Multiplexer:
             print("Multiplexer.getOutputStat %s" % output_key)
         output = self.__outputs[output_key]
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
+        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
         for board, registers in futures:
             opiomRegister[board] = registers.get()
 
@@ -208,7 +208,7 @@ class Multiplexer:
 
     def storeCurrentStat(self, name):
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
+        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
         for board, registers in futures:
             opiomRegister[board.name] = registers.get()
 
@@ -237,7 +237,7 @@ class Multiplexer:
         if self.__debug:
             print("Multiplexer.getGlobalStat")
         opiomRegister = {}
-        futures = [(b, gevent.spawn(b.registers)) for b in list(self._boards.values())]
+        futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
         for board, registers in futures:
             opiomRegister[board] = registers.get()
         outputStat = dict()
@@ -246,7 +246,7 @@ class Multiplexer:
         return outputStat
 
     def load_program(self):
-        futures = [gevent.spawn(b.load_program) for b in list(self._boards.values())]
+        futures = [gevent.spawn(b.load_program) for b in self._boards.values()]
         gevent.joinall(futures)
 
     def getOpiomProg(self):
@@ -257,7 +257,7 @@ class Multiplexer:
 
     def dumpOpiomSource(self, board_name=None, all_board=True):
         if all_board:
-            boards = list(self._boards.values())
+            boards = self._boards.values()
         elif board_name is None:  # take the first name in list
             if not len(self._boards):
                 raise RuntimeError(

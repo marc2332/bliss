@@ -30,7 +30,7 @@ class LinkedAxis(Axis):
             raise RuntimeError(
                 "Linked axis named %s doesn't exist"
                 "linked axis configure in the system are : %s"
-                % (self.address, list(linked_axis.keys()))
+                % (self.address, linked_axis.keys())
             )
 
     def _init_software(self):

@@ -365,7 +365,7 @@ class BasePlot(object):
         else:
             data_dict = OrderedDict((field, data[field]) for field in fields)
         # Send data
-        for field, value in list(data_dict.items()):
+        for field, value in data_dict.items():
             self.add_single_data(field, value)
         # Return data dict
         return data_dict

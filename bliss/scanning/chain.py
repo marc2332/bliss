@@ -278,7 +278,7 @@ class AcquisitionMaster(object):
             if not self.__prepared:
                 for channel in self.channels:
                     channel._device_name = self.name
-                for connect, _ in list(self.__duplicated_channels.values()):
+                for connect, _ in self.__duplicated_channels.values():
                     connect()
                 self.__prepared = True
 
@@ -305,7 +305,7 @@ class AcquisitionMaster(object):
     def _stop(self, statistic_container):
         with profile(statistic_container, self.name, "stop"):
             if self.__prepared:
-                for _, cleanup in list(self.__duplicated_channels.values()):
+                for _, cleanup in self.__duplicated_channels.values():
                     cleanup()
                 self.__prepared = False
             return self.stop()

@@ -442,7 +442,7 @@ class QueueSetting(object):
 
     def __setitem__(self, ran, value, cnx=None):
         if isinstance(ran, slice):
-            for i, v in zip(list(range(ran.start, ran.stop)), value):
+            for i, v in zip(range(ran.start, ran.stop), value):
                 self.set_item(v, pos=i, cnx=cnx)
         elif isinstance(ran, int):
             self.set_item(value, pos=ran, cnx=cnx)
@@ -776,10 +776,10 @@ class Struct(object):
         self._proxy = HashSetting(name, **keys)
 
     def __dir__(self):
-        return list(self._proxy.keys())
+        return self._proxy.keys()
 
     def __repr__(self):
-        return "<Struct with attributes: %s>" % list(self._proxy.keys())
+        return "<Struct with attributes: %s>" % self._proxy.keys()
 
     def __getattribute__(self, name):
         if name.startswith("_"):
@@ -854,7 +854,7 @@ class Parameters(object, metaclass=ParametersType):
             self.add(key)
 
     def __dir__(self):
-        keys = [x for x in list(self._proxy.keys()) if not x.startswith("_")]
+        keys = [x for x in self._proxy.keys() if not x.startswith("_")]
         return keys + ["add", "remove", "switch", "configs", "to_dict", "from_dict"]
 
     def to_dict(self):
@@ -902,7 +902,7 @@ class Parameters(object, metaclass=ParametersType):
         basename = ":".join(self._proxy._name.split(":")[:-1])
         self._proxy._name = "%s:%s" % (basename, name)
 
-        for key in list(self._proxy.keys()):
+        for key in self._proxy.keys():
             self.add(key)
 
     @property

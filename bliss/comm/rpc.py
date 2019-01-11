@@ -158,7 +158,7 @@ class _ServerObject(object):
 
     def __dir__(self):
         result = ["zerorpc_call__"]
-        for name, info in list(self._metadata["members"].items()):
+        for name, info in self._metadata["members"].items():
             if "method" in info["type"]:
                 result.append(name)
         return result
@@ -332,7 +332,7 @@ def Client(address, **kwargs):
     stream = metadata.get("stream", False)
     members = dict(_client=client)
 
-    for name, info in list(metadata["members"].items()):
+    for name, info in metadata["members"].items():
         if name.startswith("__") and name[2:-2] in SPECIAL_METHODS:
             continue
         name, mtype, doc = info["name"], info["type"], info["doc"]

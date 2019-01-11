@@ -250,7 +250,7 @@ class Rontec(object):
         if "erange" in kwargs:
             # set the energy range
             erange = int(kwargs["erange"])
-            if erange in iter(Rontec.ERANGE.keys()):
+            if erange in Rontec.ERANGE.keys():
                 asw = str(self.sl.write_readline("$SE %d\r" % erange))
                 self._check_answer(asw, "set_presets: erange")
                 self.preset_erange = erange

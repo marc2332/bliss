@@ -561,7 +561,7 @@ class ModbusTcp:
                 modbus._connected = False
                 modbus._fd = None
                 # inform all pending requests that the socket closed
-                for trans in list(modbus._transaction.values()):
+                for trans in modbus._transaction.values():
                     trans.put(socket.error(errno.EPIPE, "Broken pipe"))
             except ReferenceError:
                 pass

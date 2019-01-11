@@ -136,7 +136,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
                 counter_data = result.get(full_id)
                 if counter_data is not None:
                     counter_data.append(roi_counter[stat])
-        return list(map(numpy.array, list(result.values())))
+        return list(map(numpy.array, result.values()))
 
 
 class RoiCounters(object):
@@ -310,7 +310,7 @@ class RoiCounters(object):
         return name in self._save_rois
 
     def update(self, rois):
-        for name, roi in list(rois.items()):
+        for name, roi in rois.items():
             self[name] = roi
 
     def pop(self, name, *args):

@@ -431,7 +431,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
             except SocketTimeout:
                 continue
             except gevent.socket.error as error:
-                for results in list(self.__pending_cmds.values()):
+                for results in self.__pending_cmds.values():
                     for result in results:
                         result.set_exception(error)
                 self.__pending_cmds = {}
@@ -671,8 +671,8 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
     def _user_and_object_cs(self):
         data = self("CFG#CS?", 3)
         data = data.split(",")[1:]  # first field is CS (3 in this case)
-        user_cs = Pose(*list(map(float, data[:6])))
-        object_cs = Pose(*list(map(float, data[6:])))
+        user_cs = Pose(*map(float, data[:6]))
+        object_cs = Pose(*map(float, data[6:]))
         return dict(user_cs=user_cs, object_cs=object_cs)
 
     @property
@@ -796,7 +796,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
 
     @property
     def specific_poses(self):
-        pose_bits, max_poses = list(map(int, self("CFG#SPECIFICPOS?0").split(",")[1:]))
+        pose_bits, max_poses = map(int, self("CFG#SPECIFICPOS?0").split(",")[1:])
         poses = {}
         for i in range(64):
             if pose_bits & (1 << i):

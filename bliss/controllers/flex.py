@@ -1784,7 +1784,7 @@ class flex(object):
                 logging.getLogger("flex").info(
                     "calculating 3-click centering with %s" % str(centers)
                 )
-                centers_list = list(itertools.chain(*centers))
+                centers_list = itertools.chain(*centers)
                 logging.getLogger("flex").info("center list %s" % str(centers_list))
                 self.spine_gripper_centering(*centers_list)
                 centers = []
@@ -1796,7 +1796,7 @@ class flex(object):
                 centers = []
             if int(gripper_type) == 9 and len(centers) == 3:
                 logging.getLogger("flex").info("calculating 3-click centering")
-                centers_list = list(itertools.chain(*centers))
+                centers_list = itertools.chain(*centers)
                 logging.getLogger("flex").info("center list %s" % str(centers_list))
                 self.ball_centering(*centers_list)
                 centers = []

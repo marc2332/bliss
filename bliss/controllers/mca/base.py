@@ -175,9 +175,7 @@ class BaseMCA(object):
     def software_controlled_run(self, acquisition_number, polling_time):
         # Loop over acquisitions
         indexes = (
-            itertools.count()
-            if acquisition_number == 0
-            else list(range(acquisition_number))
+            itertools.count() if acquisition_number == 0 else range(acquisition_number)
         )
         for _ in indexes:
             # Start and wait
@@ -238,8 +236,8 @@ class BaseMCA(object):
         # Preset mode
         self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
         # Run acquisition
-        data, statistics = list(
-            zip(*self.software_controlled_run(acquisition_number, polling_time))
+        data, statistics = zip(
+            *self.software_controlled_run(acquisition_number, polling_time)
         )
         # Return result
         return list(data), list(statistics)
@@ -254,8 +252,8 @@ class BaseMCA(object):
         # Block size
         self.set_block_size(block_size)
         # Run acquisition
-        data, statistics = list(
-            zip(*self.hardware_controlled_run(acquisition_number, polling_time))
+        data, statistics = zip(
+            *self.hardware_controlled_run(acquisition_number, polling_time)
         )
         # Return result
         return list(data), list(statistics)
@@ -276,6 +274,6 @@ class BaseMCA(object):
         # Discard first point
         next(data_generator)
         # Get all the points
-        data, statistics = list(zip(*data_generator))
+        data, statistics = zip(*data_generator)
         # Return result
         return list(data), list(statistics)

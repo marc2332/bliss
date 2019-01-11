@@ -271,7 +271,7 @@ class Flint:
         )
 
         # delete plots data
-        for master, plots in list(self.live_scan_plots_dict.items()):
+        for master, plots in self.live_scan_plots_dict.items():
             for plot_type in ("0d", "1d", "2d"):
                 for plot in plots[plot_type]:
                     self.data_dict.pop(plot.plot_id, None)
@@ -448,7 +448,7 @@ class Flint:
             while self._last_event:
                 local_event = self._last_event
                 self._last_event = dict()
-                for (master_name, _), (data_type, data) in list(local_event.items()):
+                for (master_name, _), (data_type, data) in local_event.items():
                     last_data = data["data"]
                     if data_type in ("1d", "2d"):
                         if data_type == "2d":

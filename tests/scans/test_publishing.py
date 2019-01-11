@@ -48,7 +48,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(10)
+    m.velocity = 10
     diode = getattr(setup_globals, "diode")
 
     chain = AcquisitionChain()
@@ -97,7 +97,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(10)
+    m.velocity = 10
     diode = getattr(setup_globals, "diode")
 
     chain = AcquisitionChain()
@@ -155,7 +155,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(5)
+    m.velocity = 5
     diode = getattr(setup_globals, "diode")
     npts = 5
     chain = AcquisitionChain()

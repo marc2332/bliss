@@ -353,7 +353,7 @@ def display_motor(func):
         scan_display_params = ScanDisplay()
         if scan_display_params.auto and scan_display_params.motor_position:
             p = self.get_plot(axis)
-            p.qt.addXMarker(axis.position(), legend=axis.name, text=axis.name)
+            p.qt.addXMarker(axis.position, legend=axis.name, text=axis.name)
 
     return f
 

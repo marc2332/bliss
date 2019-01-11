@@ -170,7 +170,7 @@ class Robodiff(object):
         robot_state = str(self.robot.getState())
         if robot_state == "READY":
             # check dewar
-            robot_state = self.dw.state()
+            robot_state = self.dw.state
             if robot_state == "READY":
                 # check dm reader
                 return self.dm_reader.state
@@ -257,7 +257,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -265,9 +265,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.zoom.move(1, wait=False)
         self.robodiff_reset()
@@ -282,7 +282,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -290,9 +290,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.robodiff_reset()
         self.wcid30m.set("lightin", 0)
@@ -307,7 +307,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -315,9 +315,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.robodiff_reset()
         self.wcid30m.set("lightin", 0)
@@ -333,7 +333,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -341,9 +341,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.robodiff_reset()
         self.wcid30m.set("lightin", 0)
@@ -381,7 +381,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -389,9 +389,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.robodiff_reset()
         self.wcid30m.set("lightin", 0)
@@ -407,7 +407,7 @@ class Robodiff(object):
             self.phiy,
             0,
             self.bstopz,
-            self.bstopz.limits()[0],
+            self.bstopz.low_limit,
             self.sampx,
             0,
             self.sampy,
@@ -415,9 +415,9 @@ class Robodiff(object):
             self.phi,
             0,
             self.apz,
-            self.apz.limits()[0],
+            self.apz.low_limit,
             self.DtoX,
-            self.DtoX.limits()[1],
+            self.DtoX.high_limit,
         )
         self.robodiff_reset()
         self.wcid30m.set("lightin", 0)
@@ -497,7 +497,7 @@ class Robodiff(object):
         if self.crash >= 2:
             self.reset_move()
             raise RuntimeError("Too many crashes")
-        self._saved_apz = self.apz.position()
+        self._saved_apz = self.apz.position
         with cleanup(self.update_motors):
             detcover_task = self.set_detcover(wait=False)
             if PuckNumber > 3 or SampleNumber > 10:
@@ -654,7 +654,7 @@ class Robodiff(object):
         robot_sampleNb = self.get_sampleNumber()
         sample = 1 + ((robot_sampleNb - 1) % 10)
         puck = 1 + ((robot_sampleNb - 1) // 10)
-        cell = self.dw.position()
+        cell = self.dw.position
         log_msg = (
             "("
             + str(int(cell))
@@ -722,7 +722,7 @@ class Robodiff(object):
         robot_sampleNb = self.get_sampleNumber()
         sample = 1 + ((robot_sampleNb - 1) % 10)
         puck = 1 + ((robot_sampleNb - 1) // 10)
-        cell = self.dw.position()
+        cell = self.dw.position
         log_msg = (
             "("
             + str(int(cell))
@@ -791,16 +791,16 @@ class Robodiff(object):
         return True
 
     def phi_init(self):
-        self.phi.velocity(self.phi.velocity(from_config=True))
-        self.phi.acceleration(self.phi.acceleration(from_config=True))
+        self.phi.velocity = self.phi.config_velocity
+        self.phi.acceleration = self.phi.config_acceleration
         print("   Searching home on phi")
         self.phi.home(1)
         print("   Found home")
         print("   move back to 0")
         self.phi.rmove(self.phi.config.get("init_offset", float))
         print("   Phi at 0")
-        self.phi.dial(0)
-        self.phi.position(0)
+        self.phi.dial = 0
+        self.phi.position = 0
         self.musst.ABORT  # in case a program is running
         self.musst.putget("#CH CH2 0")
 
@@ -820,10 +820,10 @@ class Robodiff(object):
         self.sampx.wait_move()
         self.sampy.wait_move()
         print("   Done.")
-        self.sampx.position(0)
-        self.sampx.dial(0)
-        self.sampy.position(0)
-        self.sampy.dial(0)
+        self.sampx.position = 0
+        self.sampx.dial = 0
+        self.sampy.position = 0
+        self.sampy.dial = 0
         self.musst.putget("#CH CH5 0")
         self.musst.putget("#CH CH6 0")
 
@@ -844,10 +844,10 @@ class Robodiff(object):
         print("   move phiz at the center")
         self.phiz.rmove(self.phiz.config.get("init_offset", float), wait=True)
         print("   phiz at the center")
-        self.phiy.position(0)
-        self.phiy.dial(0)
-        self.phiz.position(0)
-        self.phiz.dial(0)
+        self.phiy.position = 0
+        self.phiy.dial = 0
+        self.phiz.position = 0
+        self.phiz.dial = 0
         self.musst.ABORT
         self.musst.putget("#CH CH3 0")
         self.musst.putget("#CH CH4 0")
@@ -898,7 +898,7 @@ class Robodiff(object):
 
     def dw_check_pos(self):
         print("Check is done on cell 1, puck position 1")
-        dwpos = self.dw.position()
+        dwpos = self.dw.position
         for i in range(1, 11):
             self.dw.move(i)
             time.sleep(1)
@@ -1099,23 +1099,23 @@ class Robodiff(object):
         nb_lines=1,
     ):
         def oscil_cleanup(
-            phi_v=self.phi.velocity(from_config=True),
-            phi_a=self.phi.acceleration(from_config=True),
-            phiz_v=self.phiz.velocity(from_config=True),
-            phiz_a=self.phiz.acceleration(from_config=True),
-            phiy_v=self.phiy.velocity(from_config=True),
-            phiy_a=self.phiy.acceleration(from_config=True),
-            sampx_v=self.sampx.velocity(from_config=True),
-            sampx_a=self.sampx.acceleration(from_config=True),
-            sampy_v=self.sampy.velocity(from_config=True),
-            sampy_a=self.sampy.acceleration(from_config=True),
+            phi_v=self.phi.config_velocity,
+            phi_a=self.phi.config_acceleration,
+            phiz_v=self.phiz.config_velocity,
+            phiz_a=self.phiz.config_acceleration,
+            phiy_v=self.phiy.config_velocity,
+            phiy_a=self.phiy.config_acceleration,
+            sampx_v=self.sampx.config_velocity,
+            sampx_a=self.sampx.config_acceleration,
+            sampy_v=self.sampy.config_velocity,
+            sampy_a=self.sampy.config_acceleration,
         ):
             for motor_name in ("phi", "phiz", "phiy", "sampx", "sampy"):
-                getattr(self, motor_name).velocity(locals()[motor_name + "_v"])
-                getattr(self, motor_name).acceleration(locals()[motor_name + "_a"])
+                getattr(self, motor_name).velocity = locals()[motor_name + "_v"]
+                getattr(self, motor_name).acceleration = locals()[motor_name + "_a"]
             self.acc_margin = self.config_acc_margin
 
-        # print "#"*50, "apz=", self.apz.position()
+        # print "#"*50, "apz=", self.apz.position
         while self.diode(True, False)[0] < 1e-08:  # and self.PSS_State():
             print("Waiting for beam to be back (i0)")
             time.sleep(10)
@@ -1134,7 +1134,7 @@ class Robodiff(object):
                     print("==" * 50)
                     print("Cryostreaming warming up")
                     print("==" * 50)
-                    cell = self.dw.position()
+                    cell = self.dw.position
                     sample = self.get_sampleNumber("nSampleLoaded")
                     if sample <= 10:
                         puck = 1
@@ -1195,7 +1195,7 @@ class Robodiff(object):
         # step_size = math.fabs(self.phi.steps_per_unit)
         step_size = math.fabs(self.phi.steps_per_unit)
         calc_velocity = velocity * step_size
-        acc_time = self.phi.acctime(from_config=True)
+        acc_time = self.phi.config_acctime
         acc_steps = (acc_time * calc_velocity) / 2
         acc_ang = acc_steps / float(step_size)
         max_ang = acc_ang
@@ -1230,7 +1230,7 @@ class Robodiff(object):
                     print("==" * 50)
                     print("Cryostreaming warming up")
                     print("==" * 50)
-                    cell = self.dw.position()
+                    cell = self.dw.position
                     sample = self.get_sampleNumber("nSampleLoaded")
                     if sample <= 10:
                         puck = 1
@@ -1249,18 +1249,15 @@ class Robodiff(object):
             start_ang, stop_ang, exp_time, nb_pass
         )
 
-        def oscil_cleanup(
-            v=self.phi.velocity(from_config=True),
-            a=self.phi.acceleration(from_config=True),
-        ):
-            self.phi.velocity(v)
-            self.phi.acceleration(a)
+        def oscil_cleanup(v=self.phi.config_velocity, a=self.phi.config_acceleration):
+            self.phi.velocity = v
+            self.phi.acceleration = a
 
         with cleanup(oscil_cleanup):
             self.fshut.close()
             self.phi.move(oscil_start)
-            self.phi.velocity(velocity)
-            self.phi.acctime(acc_time)
+            self.phi.velocity = velocity
+            self.phi.acctime = acc_time
             encoder_step_size = self.phienc.steps_per_unit
             phi_encoder_pos = self.phienc.read() * encoder_step_size
             pixel_detector_trigger_steps = encoder_step_size * start_ang
@@ -1713,15 +1710,15 @@ class Robodiff(object):
             (phiz_final - phiz_initial)
             / (nb_images_per_line * (expo + self.pilatus_deadtime))
         )
-        # phiz_acc_dist = (self.phiz.acceleration(from_config =True) * phiz_vel) / 2
-        phiz_acc_dist = (self.phiz.acctime(from_config=True) * phiz_vel) / 2
+        # phiz_acc_dist = (self.phiz.config_acceleration * phiz_vel) / 2
+        phiz_acc_dist = (self.phiz.config_acctime * phiz_vel) / 2
         delta = expo / 10.
         phiz_start = phiz_initial - (phiz_acc_dist + self.acc_margin / phiz_step_size)
         phiz_end = phiz_final + (phiz_acc_dist + self.acc_margin / phiz_step_size)
         i = 0
         for phiy_pos in numpy.linspace(phiy_initial, phiy_final, nb_lines):
             i += 1
-            self.phiz.velocity(self.phiz.velocity(from_config=True))
+            self.phiz.velocity = self.phiz.config_velocity
             self.phiz.move(phiz_start)
             self.phiy.move(phiy_pos)
             self.musst.putget("#CH CH1 0 RUN")
@@ -1737,7 +1734,7 @@ class Robodiff(object):
                 e1, e2, esh1, esh2, edet, delta, expo, nb_images_per_line, "vert"
             )
             self.musst2_mesh2(delta, nb_images_per_line)
-            self.phiz.velocity(phiz_vel)  # * phiz_step_size)
+            self.phiz.velocity = phiz_vel  # * phiz_step_size)
             self.phiz.move(phiz_end)
             time.sleep(1)
             while self.musst.STATE != self.musst.IDLE_STATE:
@@ -1746,7 +1743,7 @@ class Robodiff(object):
             t0 = time.time()
             self.mesh_diagnostic1(1, nb_images_per_line)
             print("saving diag: ", time.time() - t0, " s")
-            self.phiz.velocity(self.phiz.velocity(from_config=True))
+            self.phiz.velocity = self.phiz.config_velocity
         return "Done"
 
     def hor_mesh_still2(
@@ -1773,8 +1770,8 @@ class Robodiff(object):
             (phiy_final - phiy_initial)
             / (nb_images_per_line * (expo + self.pilatus_deadtime))
         )
-        # phiy_acc_dist = (self.phiy.acceleration(from_config =True) * phiy_vel) / 2
-        phiy_acc_dist = (self.phiy.acctime(from_config=True) * phiy_vel) / 2
+        # phiy_acc_dist = (self.phiy.config_acceleration * phiy_vel) / 2
+        phiy_acc_dist = (self.phiy.config_acctime * phiy_vel) / 2
         phiy_start = phiy_initial + d * (
             phiy_acc_dist + self.acc_margin / phiy_step_size
         )
@@ -1783,7 +1780,7 @@ class Robodiff(object):
         i = 0
         for phiz_pos in numpy.linspace(phiz_initial, phiz_final, nb_lines):
             i += 1
-            self.phiy.velocity(self.phiy.velocity(from_config=True))
+            self.phiy.velocity = self.phiy.config_velocity
             self.phiy.move(phiy_start)
             self.phiz.move(phiz_pos)
             self.musst.putget("#CH CH1 0 RUN")
@@ -1799,7 +1796,7 @@ class Robodiff(object):
                 e1, e2, esh1, esh2, edet, delta, expo, nb_images_per_line, "hor"
             )
             self.musst2_mesh2(delta, nb_images_per_line)
-            self.phiy.velocity(phiy_vel)  # * phiy_step_size)
+            self.phiy.velocity = phiy_vel  # * phiy_step_size)
             self.phiy.move(phiy_end)
             while self.musst.STATE != self.musst.IDLE_STATE:
                 time.sleep(0.1)
@@ -1807,7 +1804,7 @@ class Robodiff(object):
             t0 = time.time()
             self.mesh_diagnostic1(1, nb_images_per_line)
             print("saving diag: ", time.time() - t0, " s")
-            self.phiy.velocity(self.phiy.velocity(from_config=True))
+            self.phiy.velocity = self.phiy.config_velocity
         return "Done"
 
     def mesh_still(
@@ -1835,13 +1832,13 @@ class Robodiff(object):
             (phiy_final - phiy_initial)
             / (nb_images_per_line * (expo + self.pilatus_deadtime))
         )
-        # phiy_acc_dist = (self.phiy.acceleration(from_config =True) * phiy_vel) / 2
-        phiy_acc_dist = (self.phiy.acctime(from_config=True) * phiy_vel) / 2
+        # phiy_acc_dist = (self.phiy.config_acceleration * phiy_vel) / 2
+        phiy_acc_dist = (self.phiy.config_acctime * phiy_vel) / 2
         phiy_start = phiy_initial + d * (
             phiy_acc_dist + self.acc_margin / phiy_step_size
         )
         self.phiy.move(phiy_start)
-        self.phiy.velocity(phiy_vel)  # * phiy_step_size)
+        self.phiy.velocity = phiy_vel  # * phiy_step_size)
         phiy_end = phiy_start + (
             2 * (phiy_acc_dist + self.acc_margin / phiy_step_size)
             + (phiy_final - phiy_initial)
@@ -1971,7 +1968,7 @@ class Robodiff(object):
 
     def SRX_prepare(self):
         self._simultaneous_move(
-            self.phiy, self.phiy.limits()[0], self.phiz, self.phiz.limits()[0]
+            self.phiy, self.phiy.low_limit, self.phiz, self.phiz.low_limit
         )
         print("Now ready to align the starting point using the Robot")
 
@@ -2013,17 +2010,17 @@ class Robodiff(object):
         # create directory on Nice
         os.system("mkdir --parents %s" % (dir_name[7:]))
         if length_in_mm > abs(
-            self.phiy.limits()[0] - self.phiy.limits()[1]
-        ) or height_in_mm > abs(self.phiy.limits()[0] - self.phiy.limits()[1]):
+            self.phiy.low_limit - self.phiy.high_limit
+        ) or height_in_mm > abs(self.phiy.low_limit - self.phiy.high_limit):
             raise RuntimeError("need to implement this option")
         array_height = numpy.arange(
-            self.phiz.limits()[0],
-            self.phiz.limits()[0] + height_in_mm,
+            self.phiz.low_limit,
+            self.phiz.low_limit + height_in_mm,
             space_in_um / 1000.0,
         )
         array_length = numpy.arange(
-            self.phiy.limits()[0],
-            self.phiy.limits()[0] + length_in_mm,
+            self.phiy.low_limit,
+            self.phiy.low_limit + length_in_mm,
             space_in_um / 1000.0,
         )
         for i in array_height:
@@ -2182,7 +2179,7 @@ class Robodiff(object):
                 with open(os.path.join(os.environ["HOME"], "phi_test.dat"), "a+") as f:
                     f.write("n= %s \n" % n)
                     self.phi.move(0)
-                    phi_pos = self.phi.position()
+                    phi_pos = self.phi.position
                     enc_pos_icepap = self.phienc.read() * self.phienc.steps_per_unit
                     enc_pos_musst = self.musst.putget("#?CH CH2")[:-3]
                     f.write(
@@ -2190,7 +2187,7 @@ class Robodiff(object):
                         % (phi_pos, enc_pos_icepap, enc_pos_musst)
                     )
                     self.phi.move(180)
-                    phi_pos = self.phi.position()
+                    phi_pos = self.phi.position
                     enc_pos_icepap = self.phienc.read() * self.phienc.steps_per_unit
                     enc_pos_musst = self.musst.putget("#?CH CH2")[:-3]
                     f.write(
@@ -2204,13 +2201,13 @@ class Robodiff(object):
         self, length_in_mm=0.5, height_in_mm=0.5, space_in_um=5.0, filename="test.dat"
     ):
         array_height = numpy.arange(
-            self.phiz.limits()[1] - height_in_mm,
-            self.phiz.limits()[1],
+            self.phiz.high_limit - height_in_mm,
+            self.phiz.high_limit,
             space_in_um / 1000.0,
         )
         array_length = numpy.arange(
-            self.phiy.limits()[1] - length_in_mm,
-            self.phiy.limits()[1],
+            self.phiy.high_limit - length_in_mm,
+            self.phiy.high_limit,
             space_in_um / 1000.0,
         )
         for i in array_height:
@@ -2250,23 +2247,23 @@ class Robodiff(object):
         for i in range(0, cycle):
             print("#" * 50)
             print("cycle = ", i)
-            while self.phi.position() >= 0.0 and self.phi.position() < rot:
+            while self.phi.position >= 0.0 and self.phi.position < rot:
                 self.trig(delay)
-                if self.phi.position() <= rot - step:
+                if self.phi.position <= rot - step:
                     self.phi.move_relative(step)
             self.trig(delay)
-            print("phi(backlash1) = ", self.phi.position())
+            print("phi(backlash1) = ", self.phi.position)
             self.phi.move_relative(45)
-            print("phi(backlash2) = ", self.phi.position())
+            print("phi(backlash2) = ", self.phi.position)
             self.phi.move_relative(-45)
-            while self.phi.position() > 0.0 and self.phi.position() <= rot:
+            while self.phi.position > 0.0 and self.phi.position <= rot:
                 self.trig(delay)
-                if self.phi.position() >= step:
+                if self.phi.position >= step:
                     self.phi.move_relative(-step)
             self.trig(delay)
-            print("phi(backlash1) = ", self.phi.position())
+            print("phi(backlash1) = ", self.phi.position)
             self.phi.move_relative(-45)
-            print("phi(backlash2) = ", self.phi.position())
+            print("phi(backlash2) = ", self.phi.position)
             self.phi.move_relative(45)
         return "DONE"
 
@@ -2275,7 +2272,7 @@ class Robodiff(object):
         self.musst.putget("#BTRIG 0")
         tot_rot = rot * (cycle)
         self.trig(delay)
-        while self.phi.position() >= 0.0 and self.phi.position() < tot_rot:
+        while self.phi.position >= 0.0 and self.phi.position < tot_rot:
             self.phi.move_relative(step)
             self.trig(delay)
 
@@ -2380,7 +2377,7 @@ class Robodiff(object):
         return fit.fit()
 
     def autofocus(self, size=1.0, step=5.0):
-        pos = self.x.position()
+        pos = self.x.position
         step_size = size / float(step)
         data_X = numpy.arange(
             pos - size / 2, pos + (size / 2.0) * (1.0 + 1.0 / step), step_size
@@ -2413,10 +2410,10 @@ class Robodiff(object):
         fit.setData(data_X, i_data)
         return fit.fit()
         """focus_1st_img = self.estimateFocus("/tmp/prev_image.jpg")
-        print "1st image ", focus_1st_img, "at x= ", self.x.position()
+        print "1st image ", focus_1st_img, "at x= ", self.x.position
         self.x.move_relative(step_size)
         focus_2nd_img = self.estimateFocus("/tmp/next_image.jpg")
-        print "2nd image ", focus_2nd_img, "at x= ", self.x.position()
+        print "2nd image ", focus_2nd_img, "at x= ", self.x.position
         if focus_2nd_img > focus_1st_img:
             direction = 1
             focus_prev_img = focus_1st_img
@@ -2428,10 +2425,10 @@ class Robodiff(object):
         print "direction= ", direction
         while focus_next_img > focus_prev_img:
             focus_prev_img = focus_next_img
-            print "1st image (while) ", focus_prev_img, "at x= ", self.x.position()
+            print "1st image (while) ", focus_prev_img, "at x= ", self.x.position
             self.x.move_relative(direction * step_size)
             focus_next_img = self.estimateFocus("/tmp/next_image.jpg")
-            print "2nd image (while) ", focus_next_img, "at x= ", self.x.position()
+            print "2nd image (while) ", focus_next_img, "at x= ", self.x.position
         self.x.move_relative(-direction * step_size)
-        print "at x= ", self.x.position()
+        print "at x= ", self.x.position
         """

@@ -153,8 +153,8 @@ print p.controller.get_motor_status(p)
 # text status
 print p.controller.status(p)
 
-print p.measured_position()
-print p.state()
+print p.measured_position
+print p.state
 
 
 # conversion from hex to decimal:

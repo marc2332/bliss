@@ -56,7 +56,7 @@ class CarnacHook(MotionHook):
     def _wait_ready(self, axes):
         with gevent.Timeout(1, RuntimeError("not all motors ready after timeout")):
             while True:
-                ready = [axis for axis in axes if axis.state(read_hw=True).READY]
+                ready = [axis for axis in axes if axis.hw_state.READY]
                 if len(ready) == len(axes):
                     break
         self._log.debug("All motors ready!")

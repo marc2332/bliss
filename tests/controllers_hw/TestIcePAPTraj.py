@@ -134,17 +134,17 @@ class TestIcePAPController(unittest.TestCase):
         # NOTE MP: 2015Mar17: the current eMotion doesn't call the
         # controller stop() if it doesn't know that a motion is taking
         # place on the hardware. Therefore bypass eMotion
-        while mymot.state() == "MOVING":
+        while mymot.state == "MOVING":
             gevent.sleep(0.1)
-        while mymot2.state() == "MOVING":
+        while mymot2.state == "MOVING":
             gevent.sleep(0.1)
 
         # the IcePAP will move, therefore put it close to the
         # target position to avoid long wait
-        mymot.dial(0)
-        mymot.position(0)
-        mymot2.dial(0)
-        mymot2.position(0)
+        mymot.dial = 0
+        mymot.position = 0
+        mymot2.dial = 0
+        mymot2.position = 0
 
     def test_axis_creation(self):
         mypar = bliss.get_axis("mypar")
@@ -236,12 +236,12 @@ class TestIcePAPController(unittest.TestCase):
         # IcePAP motors will move, blocking call
         mypar.sync(1)
 
-        self.assertEqual(mymot.position(), pos_list[1])
-        self.assertEqual(mymot2.position(), pos_list2[1])
+        self.assertEqual(mymot.position, pos_list[1])
+        self.assertEqual(mymot2.position, pos_list2[1])
 
     def test_get_parameter_velocity_empty(self):
         mypar = bliss.get_axis("mypar")
-        vel = mypar.velocity()
+        vel = mypar.velocity
 
     def test_get_parameter_velocity(self):
         mypar = bliss.get_axis("mypar")
@@ -252,12 +252,13 @@ class TestIcePAPController(unittest.TestCase):
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
 
-        vel = mypar.velocity()
+        vel = mypar.velocity
 
     def test_set_parameter_velocity_empty(self):
         mypar = bliss.get_axis("mypar")
         vel = 1
-        self.assertEqual(mypar.velocity(vel), vel)
+        mypar.velocity = vel
+        self.assertEqual(mypar.velocity, vel)
 
     def test_set_parameter_velocity(self):
         mypar = bliss.get_axis("mypar")
@@ -269,11 +270,12 @@ class TestIcePAPController(unittest.TestCase):
         mypar.load()
 
         vel = 1
-        self.assertEqual(mypar.velocity(vel), vel)
+        mypar.velocity = vel
+        self.assertEqual(mypar.velocity, vel)
 
     def test_get_parameter_acctime_empty(self):
         mypar = bliss.get_axis("mypar")
-        vel = mypar.acctime()
+        vel = mypar.acctime
 
     def test_get_parameter_acctime(self):
         mypar = bliss.get_axis("mypar")
@@ -284,12 +286,13 @@ class TestIcePAPController(unittest.TestCase):
         mypar.set_trajectory(mymot, pos_list)
         mypar.load()
 
-        acc = mypar.acctime()
+        acc = mypar.acctime
 
     def test_set_parameter_acctime_empty(self):
         mypar = bliss.get_axis("mypar")
         acc = 0.250
-        self.assertEqual(mypar.acctime(acc), acc)
+        mypar.acctime = acc
+        self.assertEqual(mypar.acctime, acc)
 
     def test_set_parameter_acctime(self):
         mypar = bliss.get_axis("mypar")
@@ -301,7 +304,8 @@ class TestIcePAPController(unittest.TestCase):
         mypar.load()
 
         acc = 0.250
-        self.assertEqual(mypar.acctime(acc), acc)
+        mypar.acctime = acc
+        self.assertEqual(mypar.acctime, acc)
 
     def test_move_all_axes_on_trajectory(self):
         mypar = bliss.get_axis("mypar")
@@ -322,8 +326,8 @@ class TestIcePAPController(unittest.TestCase):
         # IcePAP motors will move, blocking call
         mypar.move(2)
 
-        self.assertEqual(mymot.position(), pos_list[2])
-        self.assertEqual(mymot2.position(), pos_list2[2])
+        self.assertEqual(mymot.position, pos_list[2])
+        self.assertEqual(mymot2.position, pos_list2[2])
 
     def test_stop_move(self):
         mypar = bliss.get_axis("mypar")

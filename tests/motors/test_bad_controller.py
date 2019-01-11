@@ -18,8 +18,8 @@ def bad_motor(beacon):
     bad.controller.bad_state = False
     bad.controller.bad_state_after_start = False
     bad.controller.bad_stop = False
-    bad.dial(0)
-    bad.position(0)
+    bad.dial = 0
+    bad.position = 0
     bad.sync_hard()
     yield bad
 
@@ -30,8 +30,8 @@ def test_bad_start(bad_motor):
     with pytest.raises(RuntimeError):
         bad_motor.move(1)
 
-    assert "READY" in bad_motor.state()
-    assert bad_motor.position() == 0
+    assert "READY" in bad_motor.state
+    assert bad_motor.position == 0
 
 
 def test_bad_start_group(bad_motor, robz):
@@ -41,9 +41,9 @@ def test_bad_start_group(bad_motor, robz):
     with pytest.raises(RuntimeError):
         grp.move({bad_motor: 1, robz: 2})
 
-    assert grp.state().READY
-    assert bad_motor.position() == 0
-    assert robz.position() < 0.2
+    assert grp.state.READY
+    assert bad_motor.position == 0
+    assert robz.position < 0.2
 
 
 def test_state_failure(bad_motor, monkeypatch):
@@ -58,14 +58,14 @@ def test_state_failure(bad_motor, monkeypatch):
     assert str(exc.value) == "BAD STATE 1"
     assert len(infos) == 3
     assert str(infos[0][1]) == "BAD STATE %d" % (state_index - 2)
-    assert "FAULT" in bad_motor.state()
+    assert "FAULT" in bad_motor.state
 
     with pytest.raises(RuntimeError):
-        bad_motor.state(read_hw=True)
+        bad_motor.hw_state
 
     gevent.sleep(bad_motor.controller.state_recovery_delay)
 
-    assert "READY" in bad_motor.state(read_hw=True)
+    assert "READY" in bad_motor.hw_state
 
 
 def test_stop_failure(bad_motor):
@@ -77,4 +77,4 @@ def test_stop_failure(bad_motor):
     with pytest.raises(RuntimeError):
         bad_motor.stop()
 
-    assert "READY" in bad_motor.state()
+    assert "READY" in bad_motor.state

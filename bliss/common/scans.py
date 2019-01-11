@@ -207,8 +207,8 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     title = template.format(*args)
     kwargs.setdefault("title", title)
 
-    start += motor.position()
-    stop += motor.position()
+    start += motor.position
+    stop += motor.position
 
     with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
         scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
@@ -409,10 +409,10 @@ def dmesh(
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         kwargs["title"] = template.format(*args)
 
-    start1 += motor1.position()
-    stop1 += motor1.position()
-    start2 += motor2.position()
-    stop2 += motor2.position()
+    start1 += motor1.position
+    stop1 += motor1.position
+    start2 += motor2.position
+    stop2 += motor2.position
 
     with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
         return amesh(
@@ -1013,8 +1013,8 @@ def d2scan(
     kwargs.setdefault("title", title)
     kwargs.setdefault("name", "d2scan")
 
-    oldpos1 = motor1.position()
-    oldpos2 = motor2.position()
+    oldpos1 = motor1.position
+    oldpos2 = motor2.position
 
     with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
         scan = a2scan(
@@ -1338,9 +1338,7 @@ def goto_cen():
     scan = setup_globals.SCANS[-1]
     motor = last_scan_motor()
     cfwhm, _ = scan.cen(counter_name)
-    _log.warning(
-        "Motor %s will move from %f to %f", motor.name, motor.position(), cfwhm
-    )
+    _log.warning("Motor %s will move from %f to %f", motor.name, motor.position, cfwhm)
     return scan.goto_cen(counter_name)
 
 
@@ -1358,7 +1356,7 @@ def goto_com():
     motor = last_scan_motor()
     com_pos = scan.com(counter_name)
     _log.warning(
-        "Motor %s will move from %f to %f", motor.name, motor.position(), com_pos
+        "Motor %s will move from %f to %f", motor.name, motor.position, com_pos
     )
     return SCANS[-1].goto_com(counter_name)
 
@@ -1376,7 +1374,7 @@ def goto_peak():
     motor = last_scan_motor()
     peak_pos = scan.peak(counter_name)
     _log.warning(
-        "Motor %s will move from %f to %f", motor.name, motor.position(), peak_pos
+        "Motor %s will move from %f to %f", motor.name, motor.position, peak_pos
     )
     return scan.goto_peak(counter_name)
 

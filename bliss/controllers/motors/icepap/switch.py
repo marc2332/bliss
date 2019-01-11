@@ -54,7 +54,7 @@ class Switch(BaseSwitch):
             for axis in list(self.__controller._axes.values()):
                 # be sure that axis is initialized
                 try:
-                    axis.position()
+                    axis.position
                 except (RuntimeError, KeyError):
                     continue
                 try:

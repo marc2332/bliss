@@ -303,12 +303,12 @@ def __umove(*args, **kwargs):
         print(__row(motor_names, hfmt, sep="  "))
 
         while group.is_moving:
-            positions = group.position()
+            positions = group.position
             row = __row_positions(positions, motor_pos, rfmt, sep="  ")
             print("\r" + row, end="", flush=True)
             sleep(0.1)
         # print last time for final positions
-        positions = group.position()
+        positions = group.position
         row = __row_positions(positions, motor_pos, rfmt, sep="  ")
         print("\r" + row, end="", flush=True)
         print("")

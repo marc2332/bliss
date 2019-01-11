@@ -49,11 +49,11 @@ def find_pvt(pvt, position):
                 dv = end_velocity - start_velocity
                 acceleration = dv / dt
                 # position = (acceleration/2)* t**2 + velocity*t + position_0
-                if acceleration >= 0.:
+                if acceleration >= 0.0:
                     a = (
-                        acceleration / 2.
+                        acceleration / 2.0
                         if end_position > start_position
-                        else -acceleration / 2.
+                        else -acceleration / 2.0
                     )
                     position_equ = numpy.array([a, start_velocity, start_position])
                     matched_times = numpy.roots(position_equ - match_position)
@@ -65,9 +65,9 @@ def find_pvt(pvt, position):
                     t += start_time
                 else:
                     a = (
-                        acceleration / 2.
+                        acceleration / 2.0
                         if end_position > start_position
-                        else -acceleration / 2.
+                        else -acceleration / 2.0
                     )
                     position_equ = numpy.array([a, start_velocity, end_position])
                     matched_times = numpy.roots(position_equ - match_position)
@@ -131,6 +131,7 @@ class PointTrajectory(object):
             self._acceleration[name] = numpy.gradient(velocity, self._time)
             self._velocity[name] = velocity
 
+    @property
     def max_velocity(self):
         """
         Return the maximum velocity.
@@ -140,6 +141,7 @@ class PointTrajectory(object):
             max_vel[name] = numpy.absolute(velocities).max()
         return max_vel
 
+    @property
     def max_acceleration(self):
         """
         Return the maximum acceleration.
@@ -149,6 +151,7 @@ class PointTrajectory(object):
             max_acc[name] = numpy.absolute(accelerations).max()
         return max_acc
 
+    @property
     def limits(self):
         """
         Return the min and max position for this movement.
@@ -195,10 +198,10 @@ class PointTrajectory(object):
             pvt_arrays[name] = numpy.zeros(nb_point, dtype)
 
         if acceleration_start_end is not None:
-            max_acc = self.max_acceleration()
+            max_acc = self.max_acceleration
             max_acc.update(acceleration_start_end)
 
-            max_acc_time = 0.
+            max_acc_time = 0.0
             for name, velocities in self._velocity.items():
                 velocity = max(abs(velocities[0]), abs(velocities[-1]))
                 acc = max_acc[name]
@@ -218,8 +221,8 @@ class PointTrajectory(object):
                 pvt_array["velocity"][1:-1] = velocities
 
                 pvt_array["position"][1:-1] = positions
-                first_point = positions[0] - (velocities[0] * max_acc_time / 2.)
-                last_point = positions[-1] + (velocities[-1] * max_acc_time / 2.)
+                first_point = positions[0] - (velocities[0] * max_acc_time / 2.0)
+                last_point = positions[-1] + (velocities[-1] * max_acc_time / 2.0)
                 pvt_array["position"][0] = first_point
                 pvt_array["position"][-1] = last_point
         else:

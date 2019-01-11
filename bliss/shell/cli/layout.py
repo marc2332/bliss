@@ -101,7 +101,7 @@ class AxisStatus(object):
         axis = config.get(self.name)
         label = axis.config.get("label", default=self.name)
         unit = axis.config.get("unit", default="")
-        state, position = axis.state(), axis.position()
+        state, position = axis.state, axis.position
 
         result = []
         if cli.python_input.bliss_bar_format != "compact":

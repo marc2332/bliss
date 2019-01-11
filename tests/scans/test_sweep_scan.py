@@ -39,7 +39,7 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
 
     def trigger(self):
         controller = self.motor_mockup.controller
-        value = self.motor_mockup.position()
+        value = self.motor_mockup.position
         if self._start_time is None:
             self._start_time = time.time()
         self.channels.update(
@@ -52,8 +52,8 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
 
 def test_sweep_motor_master(beacon):
     roby = beacon.get("roby")
-    roby.velocity(2000)
-    roby.acceleration(10000)
+    roby.velocity = 2000
+    roby.acceleration = 10000
     chain = AcquisitionChain()
     chain.add(
         SweepMotorMaster(roby, 0, 10, 5, 0.025),

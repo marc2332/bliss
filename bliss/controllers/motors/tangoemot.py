@@ -81,7 +81,7 @@ class TangoEMot(Controller):
         self.axis_proxy.acceleration = new_acceleration / abs(axis.steps_per_unit)
 
     def state(self, axis):
-        _state = self.axis_proxy.state()
+        _state = self.axis_proxy.state
         if _state == DevState.ON:
             return AxisState("READY")
         elif _state == DevState.MOVING:

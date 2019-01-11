@@ -87,12 +87,13 @@ class _Group(object):
             for motion in motions:
                 controller.stop(motion.axis)
 
+    @property
     def state(self):
         if self.is_moving:
             return AxisState("MOVING")
         grp_state = AxisState("READY")
         for i, (name, state) in enumerate(
-            [(axis.name, axis.state()) for axis in self._axes.values()]
+            [(axis.name, axis.state) for axis in self._axes.values()]
         ):
             if state.MOVING:
                 new_state = "MOVING" + " " * i
@@ -111,20 +112,22 @@ class _Group(object):
                 grp_state.set(new_state)
         return grp_state
 
+    @property
     def position(self):
         positions_dict = dict()
         for axis in self.axes.values():
-            positions_dict[axis] = axis.position()
+            positions_dict[axis] = axis.position
         return positions_dict
 
+    @property
     def dial(self):
         positions_dict = dict()
         for axis in self.axes.values():
-            positions_dict[axis] = axis.dial()
+            positions_dict[axis] = axis.dial
         return positions_dict
 
     def _check_ready(self):
-        initial_state = self.state()
+        initial_state = self.state
         if not initial_state.READY:
             raise RuntimeError("all motors are not ready")
 
@@ -245,8 +248,9 @@ class TrajectoryGroup(object):
     def is_moving(self):
         return self.__group.is_moving
 
+    @property
     def state(self):
-        return self.__group.state()
+        return self.__group.state
 
     def prepare(self):
         """

@@ -29,7 +29,7 @@ class Energy:
 
     def read(self):
         if self.tunable:
-            return self.__energy.position()
+            return self.__energy.position
         else:
             return self.__energy
 

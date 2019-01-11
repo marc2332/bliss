@@ -248,9 +248,7 @@ class BlissAxisManager(Device):
         group = self.group_dict[groupid]
 
         def get_name_state_list(group):
-            return [
-                (name, str(axis.state())) for name, axis in list(group.axes.items())
-            ]
+            return [(name, str(axis.state)) for name, axis in list(group.axes.items())]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
@@ -338,11 +336,11 @@ class BlissAxis(Device):
         else:
             m_attr = self.get_device_attr()
             try:
-                m_attr.get_attr_by_name("Position").set_write_value(axis.position())
+                m_attr.get_attr_by_name("Position").set_write_value(axis.position)
             except:
                 pass
             try:
-                m_attr.get_attr_by_name("Velocity").set_write_value(axis.velocity())
+                m_attr.get_attr_by_name("Velocity").set_write_value(axis.velocity)
             except:
                 pass
             _ctrl = controller.get_class_name()
@@ -402,7 +400,7 @@ class BlissAxis(Device):
         argout = tango.DevState.UNKNOWN
 
         try:
-            _state = self.axis.state()
+            _state = self.axis.state
 
             if _state.READY:
                 self.set_state(tango.DevState.ON)
@@ -462,7 +460,7 @@ class BlissAxis(Device):
     def Steps(self):
         self.debug_stream("In read_Steps()")
         _spu = float(self.axis.steps_per_unit)
-        _steps = _spu * self.axis.position()
+        _steps = _spu * self.axis.position
         return int(round(_steps))
 
     @attribute(
@@ -481,7 +479,7 @@ class BlissAxis(Device):
             quality = tango.AttrQuality.ATTR_CHANGING
         else:
             quality = tango.AttrQuality.ATTR_VALID
-        result = self.axis.position(), _t, quality
+        result = self.axis.position, _t, quality
 
         _duration = time.time() - _t
 
@@ -527,7 +525,7 @@ class BlissAxis(Device):
     def Measured_Position(self):
         self.debug_stream("In read_Measured_Position()")
         _t = time.time()
-        result = self.axis.measured_position()
+        result = self.axis.measured_position
         _duration = time.time() - _t
 
         if _duration > 0.01:
@@ -545,7 +543,7 @@ class BlissAxis(Device):
         doc="Acceleration of the motor in uu/s2",
     )
     def Acceleration(self):
-        _acc = self.axis.acceleration()
+        _acc = self.axis.acceleration
         self.debug_stream("In read_Acceleration(%f)" % float(_acc))
         return _acc
 
@@ -553,7 +551,7 @@ class BlissAxis(Device):
     def Acceleration(self, new_acc):
         self.debug_stream("In write_Acceleration(%f)" % new_acc)
         try:
-            self.axis.acceleration(new_acc)
+            self.axis.acceleration = new_acc
         except NotImplementedError:
             pass
 
@@ -566,13 +564,13 @@ class BlissAxis(Device):
     )
     def AccTime(self):
         self.debug_stream("In read_AccTime()")
-        _acc_time = self.axis.acctime()
+        _acc_time = self.axis.acctime
         self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
         return _acc_time
 
     @AccTime.write
     def AccTime(self, new_acctime):
-        self.axis.acctime(new_acctime)
+        self.axis.acctime = new_acctime
         self.debug_stream("In write_AccTime(%f)" % float(new_acctime))
 
     @attribute(
@@ -583,7 +581,7 @@ class BlissAxis(Device):
         doc="The constant velocity of the motor",
     )
     def Velocity(self):
-        _vel = self.axis.velocity()
+        _vel = self.axis.velocity
         self.debug_stream("In read_Velocity(%g)" % _vel)
         return _vel
 
@@ -591,7 +589,7 @@ class BlissAxis(Device):
     def Velocity(self, new_velocity):
         self.debug_stream("In write_Velocity(%g)" % new_velocity)
         try:
-            self.axis.velocity(new_velocity)
+            self.axis.velocity = new_velocity
         except NotImplementedError:
             pass
 
@@ -631,8 +629,8 @@ class BlissAxis(Device):
     @Offset.write
     def Offset(self, data):
         self.debug_stream("In write_Offset()")
-        new_pos = self.axis.dial2user(self.axis.dial(), data)
-        self.axis.position(new_pos)
+        new_pos = self.axis.dial2user(self.axis.dial, data)
+        self.axis.position = new_pos
 
     @attribute(
         dtype=float,
@@ -701,8 +699,8 @@ class BlissAxis(Device):
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(new_preset_position / self.axis.sign)
-        self.axis.position(new_preset_position)
+        self.axis.dial = new_preset_position / self.axis.sign
+        self.axis.position = new_preset_position
 
     @attribute(
         dtype=float,
@@ -771,13 +769,13 @@ class BlissAxis(Device):
     )
     def Limits(self):
         self.debug_stream("In read_Limits()")
-        return self.axis.limits()
+        return self.axis.limits
 
     @Limits.write
     def write_Limits(self, limits):
         self.debug_stream("In write_Limits()")
         low, high = limits
-        self.axis.limits(low, high)
+        self.axis.limits = low, high
         self.axis.settings_to_config(velocity=False, acceleration=False)
 
     """
@@ -795,7 +793,7 @@ class BlissAxis(Device):
         self.debug_stream("In On()")
         self.axis.on()
 
-        if self.axis.state().READY:
+        if self.axis.state.READY:
             self.set_state(tango.DevState.ON)
         else:
             self.set_state(tango.DevState.FAULT)
@@ -811,7 +809,7 @@ class BlissAxis(Device):
         :rtype: tango.DevVoid """
         self.debug_stream("In Off()")
         self.axis.off()
-        if self.axis.state().OFF:
+        if self.axis.state.OFF:
             self.set_state(tango.DevState.OFF)
         else:
             self.set_state(tango.DevState.FAULT)
@@ -1046,8 +1044,8 @@ class BlissAxis(Device):
         """
         (Re)Set the user position (no motor move): just change offset
         """
-        old_user = self.axis.position()
-        self.axis.position(new_user_pos)
+        old_user = self.axis.position
+        self.axis.position = new_user_pos
         return old_user
 
     @command(
@@ -1061,8 +1059,8 @@ class BlissAxis(Device):
         (Re)Set the dial position (no motor move): write into controller
         The offset is kept constant, so the user position also changes
         """
-        old_dial = self.axis.dial()
-        self.axis.dial(new_dial_pos)
+        old_dial = self.axis.dial
+        self.axis.dial = new_dial_pos
         return old_dial
 
 

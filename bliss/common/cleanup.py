@@ -87,18 +87,18 @@ def cleanup(*args, **kwargs):
     if axis.POS in restore_list:
         previous_motor_position = list()
         for mot in motors:
-            previous_motor_position.extend((mot, mot.position()))
+            previous_motor_position.extend((mot, mot.position))
     if axis.VEL in restore_list:
         previous_motor_velocity = [
-            (mot, mot.velocity()) for mot in motors if hasattr(mot, "velocity")
+            (mot, mot.velocity) for mot in motors if hasattr(mot, "velocity")
         ]
     if axis.ACC in restore_list:
         previous_motor_acc = [
-            (mot, mot.acceleration()) for mot in motors if hasattr(mot, "acceleration")
+            (mot, mot.acceleration) for mot in motors if hasattr(mot, "acceleration")
         ]
     if axis.LIM in restore_list:
         previous_motor_limits = [
-            (mot, mot.limits()) for mot in motors if hasattr(mot, "limits")
+            (mot, mot.limits) for mot in motors if hasattr(mot, "limits")
         ]
     try:
         yield
@@ -133,21 +133,21 @@ def cleanup(*args, **kwargs):
                 if axis.VEL in restore_list:
                     gevent.joinall(
                         [
-                            gevent.spawn(motor.velocity, value)
+                            gevent.spawn(setattr, motor, "velocity", value)
                             for motor, value in previous_motor_velocity
                         ]
                     )
                 if axis.ACC in restore_list:
                     gevent.joinall(
                         [
-                            gevent.spawn(motor.acceleration, value)
+                            gevent.spawn(setattr, motor, "acceleration", value)
                             for motor, value in previous_motor_acc
                         ]
                     )
                 if axis.LIM in restore_list:
                     gevent.joinall(
                         [
-                            gevent.spawn(motor.limits, *values)
+                            gevent.spawn(setattr, motor, "limits", values)
                             for motor, values in previous_motor_limits
                         ]
                     )

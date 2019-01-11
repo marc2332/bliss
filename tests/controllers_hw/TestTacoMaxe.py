@@ -118,8 +118,8 @@ class TestTacoMaxeController(unittest.TestCase):
     def test_set_velocity(self):
         mymot = bliss.get_axis("mot0")
         newvel = 2500
-        mymot.velocity(newvel)
-        self.assertEqual(mymot.velocity(), newvel)
+        mymot.velocity = newvel
+        self.assertEqual(mymot.velocity, newvel)
 
 
 """

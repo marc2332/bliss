@@ -317,7 +317,7 @@ class ScanListener:
     def __on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []
         for motor in self.real_motors:
-            position = "{0:.03f}".format(motor.position())
+            position = "{0:.03f}".format(motor.position)
             unit = motor.config.get("unit", default=None)
             if unit:
                 position += "[{0}]".format(unit)

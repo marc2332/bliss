@@ -40,7 +40,7 @@ Accessing the configured elements from python is easy
     >>> s1vo = config.get('s1vo')
     >>> s1vo
     <bliss.common.axis.Axis at 0x7f94de365790>
-    >>> s1vo.position()
+    >>> s1vo.position
     0.0
 
 """

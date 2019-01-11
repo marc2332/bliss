@@ -47,7 +47,7 @@ class fshutter:
         self.shift = config["shift"] / self.fshutter_mot.steps_per_unit
 
         self.enastate = None
-        self.state()
+        self.state
 
     def _state(self):
         enastate = self.enastate
@@ -56,8 +56,8 @@ class fshutter:
         else:
             if enastate:
                 self.disable()
-            if self.fshutter_mot.state().READY:
-                if self.fshutter_mot.state().HOME:
+            if self.fshutter_mot.state.READY:
+                if self.fshutter_mot.state.HOME:
                     if enastate:
                         self.enable(self.icepap_steps)
                     return "OPENED"
@@ -70,6 +70,7 @@ class fshutter:
                     self.enable(self.icepap_steps)
                 return "UNKNOWN"
 
+    @property
     def state(self):
         st = self._state()
         self._state_chan.value = st
@@ -101,24 +102,24 @@ class fshutter:
                     break
         else:
             self._toggle_state_icepap()
-        return self.state()
+        return self.state
 
     def msopen(self):
-        state = self.state()
+        state = self.state
         if state == "CLOSED":
             # already closed
             return
         self._toggle_state()
 
     def msclose(self):
-        state = self.state()
+        state = self.state
         if state == "OPENED":
             # already open
             return
         self._toggle_state()
 
     def open(self):
-        state = self.state()
+        state = self.state
         print("shutter is %s" % state)
 
         if state == "OPENED":
@@ -129,7 +130,7 @@ class fshutter:
         print("now is %s" % new_state)
 
     def close(self):
-        state = self.state()
+        state = self.state
         print("shutter state is %s" % state)
 
         if state == "CLOSED":
@@ -168,13 +169,13 @@ class fshutter:
     @task
     def home(self):
         def home_cleanup():
-            self.fshutter_mot.velocity(self.fshutter_mot.velocity(from_config=True))
+            self.fshutter_mot.velocity = self.fshutter_mot.config_velocity
             self.enable()
 
         with cleanup(home_cleanup):
             self.disable()
 
-            self.fshutter_mot.velocity(0.3)
+            self.fshutter_mot.velocity = 0.3
             if self.musst:
                 self.musst.putget("#BTRIG 0")
 
@@ -191,8 +192,8 @@ class fshutter:
 
             self.fshutter_mot.sync_hard()
             self.fshutter_mot.rmove(self.shift)
-            self.fshutter_mot.dial(0)
-            self.fshutter_mot.position(0)
+            self.fshutter_mot.dial = 0
+            self.fshutter_mot.position = 0
             self._icepap_query("#%d:POS INPOS 0")
             if self.musst:
                 self.musst.putget("#ABORT")

@@ -53,16 +53,16 @@ class TestGalilDMC213(unittest.TestCase):
 
     def testVelocity(self):
         o = bliss.get_axis("omega")
-        self.assertEqual(o.velocity(), 50)
-        self.assertEqual(o.acceleration(), 400)
-        self.assertEqual(o.acctime(), 0.125)
+        self.assertEqual(o.velocity, 50)
+        self.assertEqual(o.acceleration, 400)
+        self.assertEqual(o.acctime, 0.125)
         t0 = time.time()
         o.rmove(100)
         dt = time.time() - t0
         self.assertTrue(dt < 2.4)
-        o.velocity(100)
-        o.acctime(0.125)
-        self.assertEqual(o.acceleration(), o.velocity() / o.acctime())
+        o.velocity = 100
+        o.acctime = 0.125
+        self.assertEqual(o.acceleration, o.velocity / o.acctime)
         t0 = time.time()
         o.rmove(-100)
         dt = time.time() - t0
@@ -74,16 +74,16 @@ class TestGalilDMC213(unittest.TestCase):
 
     def testPosition(self):
         o = bliss.get_axis("omega")
-        p = o.position()
+        p = o.position
         o.rmove(10)
-        self.assertAlmostEqual(o.position(), p + 10, places=3)
+        self.assertAlmostEqual(o.position, p + 10, places=3)
 
     """
     def testEncoder(self):
         o = bliss.get_axis("omega")
-        p = o.measured_position()
+        p = o.measured_position
         o.rmove(10)
-        self.assertAlmostEquals(o.measured_position(), p+10, places=3)
+        self.assertAlmostEquals(o.measured_position, p+10, places=3)
     """
 
 

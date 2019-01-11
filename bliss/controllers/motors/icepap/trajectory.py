@@ -255,7 +255,7 @@ class TrajectoryAxis(Axis):
                         _command(self.controller._cnx, "%d:?PARVEL max" % axis.address)
                     )
                     max_axis_vel = min(
-                        axis.velocity() * axis.steps_per_unit, max_axis_vel
+                        axis.velocity * axis.steps_per_unit, max_axis_vel
                     )
                     if max_velocity is None or max_axis_vel < max_velocity:
                         max_velocity = max_axis_vel
@@ -282,7 +282,7 @@ class TrajectoryAxis(Axis):
             if acceleration_time < 0:  # get the max for this trajectory
                 min_acceleration_time = None
                 for axis in self.real_axes:
-                    axis_acceleration_time = axis.acctime()
+                    axis_acceleration_time = axis.acctime
                     if (
                         min_acceleration_time is None
                         or axis_acceleration_time > min_acceleration_time

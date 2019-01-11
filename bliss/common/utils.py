@@ -426,7 +426,10 @@ def get_axes_names_iter():
 
 def safe_get(obj, member, on_error=None, **kwargs):
     try:
-        return getattr(obj, member)(**kwargs)
+        if isinstance(getattr(type(obj), member), property):
+            return getattr(obj, member)
+        else:
+            return getattr(obj, member)(**kwargs)
     except Exception as e:
         if on_error:
             return on_error

@@ -420,9 +420,7 @@ class Bliss(Device):
         group = self.group_dict[group_id]
 
         def get_name_state_list(group):
-            return [
-                (name, str(axis.state())) for name, axis in list(group.axes.items())
-            ]
+            return [(name, str(axis.state)) for name, axis in group.axes.items()]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))

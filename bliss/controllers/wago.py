@@ -177,7 +177,9 @@ class _WagoController:
                 reply = struct.pack(
                     "16H", *self.client.read_input_registers(0x2022, "16H")
                 )
-                self.firmware["date"] = "/".join((x for x in reply.split("\x00") if x))
+                self.firmware["date"] = "/".join(
+                    (x.decode("utf-8") for x in reply.split(b"\x00") if x)
+                )
 
     def close(self):
         with self.lock:

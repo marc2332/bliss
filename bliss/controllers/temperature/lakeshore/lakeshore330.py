@@ -219,11 +219,8 @@ class LakeShore330(object):
             return ans.decode()
         else:
             inp = ",".join(str(x) for x in args)
-            self._comm.write(
-                command.encode()
-                + b" %d,%s *OPC" % (self._channel, inp)
-                + self.eos.encode()
-            )
+            cmd = command + " %d,%s *OPC" % (self._channel, inp) + self.eos
+            self._comm.write(cmd.encode())
 
 
 class lakeshore330(Base):

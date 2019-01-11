@@ -11,8 +11,9 @@ nav:
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
-                      - IcePAP: config_icepap.md
                       - Elmo: config_elmo.md
+                      - IcePAP: config_icepap.md
+                      - PI Hexapod: config_pi_hexa.md
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA: config_mca.md

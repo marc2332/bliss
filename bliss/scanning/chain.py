@@ -820,6 +820,12 @@ class AcquisitionChain(object):
                 return
 
         if master_node is None:
+            for node in self.nodes_list:
+                if node.name == master.name:
+                    raise RuntimeError(
+                        f"Cannot add acquisition master with name '{node.name}`: duplicated name"
+                    )
+
             master_node = self._tree.create_node(
                 tag=master.name, identifier=master, parent="root"
             )

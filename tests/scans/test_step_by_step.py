@@ -334,3 +334,20 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
         assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
     finally:
         scan_saving.base_path = saved_base_path
+
+
+def test_motor_group(beacon):
+    diode = beacon.get("diode")
+    roby = beacon.get("roby")
+    robz = beacon.get("robz")
+    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
+
+    items = dict((child.name, child) for child in scan.node.children())
+
+    assert items["roby"].parent.db_name == scan.node.db_name
+    assert items["robz"].parent.db_name == scan.node.db_name
+    assert items["timer"].parent.db_name == scan.node.db_name
+    timer_channels = list(items["timer"].children())
+    timer_channel_names = set([chan.name.split(":")[-1] for chan in timer_channels])
+    assert "elapsed_time" in timer_channel_names
+    assert "diode" in timer_channel_names

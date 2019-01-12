@@ -17,6 +17,7 @@ from treelib import Tree
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
+from bliss.common import motor_group
 from .channel import AcquisitionChannelList, AcquisitionChannel
 from .channel import duplicate_channel, attach_channels
 
@@ -204,6 +205,14 @@ class ChainIterationPreset(object):
         pass
 
 
+def set_channel_device_name(acq_device, *channels):
+    for channel in channels:
+        if isinstance(acq_device.device, motor_group._Group):
+            channel._device_name = "axis"
+        else:
+            channel._device_name = acq_device.name
+
+
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = list(range(2))
 
@@ -274,8 +283,8 @@ class AcquisitionMaster(object):
         self.__stats_dict = stats_dict
         with profile(stats_dict, self.name, "prepare"):
             if not self.__prepared:
-                for channel in self.channels:
-                    channel._device_name = self.name
+                set_channel_device_name(self, *self.channels)
+
                 for connect, _ in self.__duplicated_channels.values():
                     connect()
                 self.__prepared = True
@@ -488,8 +497,7 @@ class AcquisitionDevice(object):
 
     def _prepare(self, stats_dict):
         with profile(stats_dict, self.name, "prepare"):
-            for channel in self.channels:
-                channel._device_name = self.name
+            set_channel_device_name(self, *self.channels)
 
             if not self._check_reading_task():
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)

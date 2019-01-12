@@ -218,7 +218,7 @@ def test_mca_scans_with_roi_sums(beacon):
     data = scan.get_data()
     roi_sum = sum(
         sum(data[name][0][400:700])
-        for name in data.dtype.fields
+        for name in data.keys()
         if name.startswith("spectrum")
     )
     assert data["my_roi"][0] == roi_sum

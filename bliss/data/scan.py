@@ -77,19 +77,22 @@ def get_counter_names(scan):
 
 def get_data(scan):
     """
-    Return a numpy structured array
-
-    tips: to get the list of channels: data.dtype.names
-          to get data of a channel: data["channel_name"]
+    Return a dictionary of { channel_name: numpy array }
     """
     dtype = list()
-    chanlist = list()
+    scan_channel_get_data_func = dict()  # { channel_name: function }
     max_channel_len = 0
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
     for device, node in scan.nodes.items():
         if node.type == "channel":
             channel_name = node.name
+            i = 2
+            while channel_name in scan_channel_get_data_func:
+                # name conflict: channel with same name already added
+                channel_name = ":".join(node.db_name.split(":")[-i:])
+                i += 1
+
             chan = node
             try:
                 saved_db_connection = chan.db_connection
@@ -98,26 +101,17 @@ def get_data(scan):
                 # as it is in a Redis pipeline, get returns the
                 # conversion function only - data will be received
                 # after .execute()
-                chanlist.append((channel_name, chan.get(0, -1)))
+                scan_channel_get_data_func[channel_name] = chan.get(0, -1)
             finally:
                 chan.db_connection = saved_db_connection
 
     result = pipeline.execute()
 
-    structured_array_dtype = []
-    for i, (channel_name, get_data_func) in enumerate(chanlist):
-        channel_data = get_data_func(result[i])
-        result[i] = channel_data
-        structured_array_dtype.append(
-            (channel_name, channel_data.dtype, channel_data.shape[1:])
-        )
-
-    max_channel_len = max((len(values) for values in result))
-
-    data = numpy.zeros(max_channel_len, dtype=structured_array_dtype)
-
-    for i, (channel_name, _) in enumerate(chanlist):
-        data[channel_name] = result[i]
+    data = {}
+    for i, (channel_name, get_data_func) in enumerate(
+        scan_channel_get_data_func.items()
+    ):
+        data[channel_name] = get_data_func(result[i])
 
     return data
 

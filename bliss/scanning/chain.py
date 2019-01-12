@@ -537,7 +537,7 @@ class AcquisitionChainIter(object):
             if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
-            one_shot = self.acquisition_chain._device2one_shot_flag.get(dev, True)
+            one_shot = self.acquisition_chain._device_one_shot_flag.get(dev, True)
             parent = device2iter.get(dev_node.bpointer, "root")
             try:
                 it = iter(dev)
@@ -745,7 +745,7 @@ class AcquisitionChain(object):
         self._device_to_node = dict()
         self._presets_list = list()
         self._parallel_prepare = parallel_prepare
-        self._device2one_shot_flag = weakref.WeakKeyDictionary()
+        self._device_one_shot_flag = weakref.WeakKeyDictionary()
         self._stats_dict = dict()
 
     def reset_stats(self):
@@ -761,7 +761,7 @@ class AcquisitionChain(object):
         return list(nodes_gen)
 
     def add(self, master, slave):
-        self._device2one_shot_flag.setdefault(slave, False)
+        self._device_one_shot_flag.setdefault(slave, False)
 
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
@@ -806,7 +806,7 @@ class AcquisitionChain(object):
         In case of several top master, you can define which one won't
         stop the scan
         """
-        self._device2one_shot_flag[device] = not stop_flag
+        self._device_one_shot_flag[device] = not stop_flag
 
     def get_iter_list(self):
         if len(self._tree) > 1:

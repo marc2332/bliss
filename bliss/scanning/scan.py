@@ -525,7 +525,7 @@ class Scan(object):
 
     @property
     def statistics(self):
-        return Statistics(self._acq_chain._statistic_container)
+        return Statistics(self._acq_chain._stats_dict)
 
     def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
@@ -720,6 +720,7 @@ class Scan(object):
         else:
             set_watch_event = None
 
+        self.acq_chain.reset_stats()
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:

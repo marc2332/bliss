@@ -469,10 +469,10 @@ class AcquisitionDevice(object):
 
     def _start(self, stats_dict):
         with profile(stats_dict, self.name, "start"):
+            dispatcher.send("start", self)
             self.start()
             if self._check_reading_task():
                 self._reading_task = gevent.spawn(self.reading)
-            dispatcher.send("start", self)
 
     def stop(self):
         raise NotImplementedError

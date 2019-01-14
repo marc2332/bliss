@@ -156,7 +156,7 @@ class ScanListener:
 
         self.col_labels = ["#"]
         self.real_motors = []
-        self.counters = []
+        self.counter_names = []
         self._point_nb = 0
         motor_labels = []
         counter_labels = []
@@ -196,7 +196,7 @@ class ScanListener:
                 self.col_labels.insert(1, "dt[s]")
                 continue
             else:
-                self.counters.append(counter_name)
+                self.counter_names.append(counter_name)
                 unit = _find_unit(counter_name)
                 if unit:
                     counter_name += "[{0}]".format(unit)
@@ -257,9 +257,10 @@ class ScanListener:
         if "elapsed_time" in values:
             elapsed_time_col.append(values.pop("elapsed_time"))
 
-        motor_values = [values[motor.name] for motor in sorted(self.real_motors)]
+        motor_labels = sorted(m.name for m in self.real_motors)
+        motor_values = [values[motor_name] for motor_name in motor_labels]
         counter_values = [
-            values[counter_name] for counter_name in sorted(self.counters)
+            values[counter_name] for counter_name in sorted(self.counter_names)
         ]
 
         values = elapsed_time_col + motor_values + counter_values

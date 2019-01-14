@@ -99,8 +99,8 @@ class TfWagoMapping:
         """
         mapping = []
         nb_chan = self.nb_lens + self.nb_pinhole
-        ch_ctrl = nb_chan / 8
-        ch_stat = (nb_chan * 2) / 8
+        ch_ctrl = nb_chan // 8
+        ch_stat = (nb_chan * 2) // 8
 
         if nb_chan > 8:
             ch = nb_chan % 8
@@ -249,7 +249,7 @@ class Transfocator:
             self._state_chan.value = self.status_read()
 
     def status_dict(self):
-        positions = OrderedDict()
+        positions = {}
         value = self.pos_read()
         for i in range(self.nb_lens + self.nb_pinhole):
             if i in self.empty_jacks:

@@ -685,7 +685,7 @@ def _command(cnx, cmd, data=None, pre_cmd=None):
                     transaction=transaction, clear_transaction=False, eol=b"$\n"
                 )
             elif msg.startswith(b"ERROR"):
-                raise RuntimeError(msg.replace(b"ERROR ", b""))
+                raise RuntimeError(msg.replace(b"ERROR ", b"").decode())
             elif msg.startswith(b"?*"):
                 # a binary reply
                 header = cnx._read(transaction, size=12, clear_transaction=False)

@@ -179,7 +179,6 @@ class MattControl:
         nstat = 2
 
         stat = self.wago.get("attstatus")
-        stat = [num for elem in stat for num in elem]
 
         del stat[(self.nb_filter * nstat) :]
 

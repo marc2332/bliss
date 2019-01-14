@@ -11,7 +11,7 @@ import sys
 import struct
 import socket
 from bliss.common.measurement import SamplingCounter
-from bliss.common.utils import add_property
+from bliss.common.utils import add_property, flatten
 from bliss.comm.tcp_proxy import Proxy
 from bliss.comm.modbus import ModbusTcp
 from bliss.config.conductor.client import synchronized
@@ -116,7 +116,7 @@ for module_name, module_info in MODULES_CONFIG.items():
         module_info[READING_TYPE] = "fs"
         try:
             fs_low, fs_high = map(int, reading_type[2:].split("-"))
-        except:
+        except Exception:
             fs_low = 0
             fs_high = int(reading_type[2:])
         else:
@@ -156,9 +156,7 @@ def WagoController(host):
 
 class _WagoController:
     def __init__(self, host):
-        self.__proxy = Proxy({"tcp": {"url": "socket://%s:%d" % (host, 502)}})
-        self.__proxy._check_connection()
-        host, port = self.__proxy._url_channel.value.split(":")
+        port = 502
         self.client = ModbusTcp(host, port=int(port))
         self.modules = []
         self.firmware = {"date": None, "version": None}
@@ -168,6 +166,9 @@ class _WagoController:
         self.wago_host = host
 
     def connect(self):
+        """ 
+        Check if we have a coupler or a controller, if we have a controller gets the firmware version and firmware date
+        """
         with self.lock:
             # check if we have a coupler or a controller
             reply = self.client.read_input_registers(0x2012, "H")
@@ -179,7 +180,9 @@ class _WagoController:
                 reply = struct.pack(
                     "16H", *self.client.read_input_registers(0x2022, "16H")
                 )
-                self.firmware["date"] = "/".join((x for x in reply.split("\x00") if x))
+                self.firmware["date"] = "/".join(
+                    (x.decode("utf-8") for x in reply.split(b"\x00") if x)
+                )
 
     def close(self):
         with self.lock:
@@ -212,7 +215,7 @@ class _WagoController:
                             )
                     for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                         channels_map.append([])
-                        for k in range(module_info[j]):
+                        for _ in range(module_info[j]):
                             if module_info[N_CHANNELS] == 1:
                                 channels_map[-1].append(channels[0])
                             else:
@@ -343,21 +346,21 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[DIGI_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_in_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[DIGI_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_out_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[ANA_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_in_reading[i : i + n]
@@ -374,7 +377,7 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[ANA_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_out_reading[i : i + n]
@@ -387,6 +390,14 @@ class _WagoController:
         return tuple(ret)
 
     def get(self, *channel_names):
+        """
+        gets one or more values from channels
+
+        Args:
+            *channel_names: list of channels to be read
+        Returns:
+            list: channel values
+        """
         modules_to_read = set()
         channels_to_read = []
         ret = []
@@ -408,11 +419,10 @@ class _WagoController:
                                 if chan == channel_name:
                                     channels_to_read[-1].append((i, j, k))
 
-        not_found_channel = set(channel_names) - found_channel
-        if not_found_channel:
+        not_found_channels = set(channel_names) - found_channel
+        if not_found_channels:
             raise KeyError(
-                "Channel(s) '%s` doesn't exist in Wago %s"
-                % (not_found_channel, self.wago_host)
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
 
         modules_to_read_list = list(modules_to_read)
@@ -440,7 +450,9 @@ class _WagoController:
         elif len(ret) == 1:
             return ret[0]
         else:
-            return ret
+            # ret represents a list of lists, containing Wago values
+            # by Wago module, but we prefer to have a flat list
+            return flatten(ret)
 
     def _write_fs(self, value, low=0, high=10, base=32768):
         return int(((value - low) * base / float(high))) & 0xffff
@@ -538,8 +550,7 @@ class _WagoController:
         not_found_channels = channel_names - found_channel
         if not_found_channels:
             raise KeyError(
-                "Channel(s) %s doesn't exist in Wago %s"
-                % (not_found_channels, self.wago_host)
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
 
         with self.lock:
@@ -610,12 +621,12 @@ class wago(object):
             self.counter_gain_names = (
                 config_tree["counter_gain_names"].replace(" ", "").split(",")
             )
-        except:
+        except Exception:
             pass
 
         try:
             self.cnt_names = config_tree["counter_names"].replace(" ", "").split(",")
-        except:
+        except Exception:
             pass
         else:
             for i, name in enumerate(self.cnt_names):
@@ -657,6 +668,12 @@ class wago(object):
             return self.get(*self.cnt_names)
 
     def read_all(self, *counters):
+        """
+        Args:
+            *counters: names of counters to be read
+        Returns:
+            list: read values from counters
+        """
         cnt_names = [cnt.name.replace(self.name + ".", "") for cnt in counters]
         result = self.get(*cnt_names)
         return result if isinstance(result, list) else [result]

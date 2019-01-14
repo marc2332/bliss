@@ -47,7 +47,7 @@ class FileWriter(object):
         data_filename,
         master_event_callback=None,
         device_event_callback=None,
-        **keys
+        **keys,
     ):
         """ A default way to organize file structure
         """
@@ -87,18 +87,18 @@ class FileWriter(object):
             else:
                 raise
 
-    def new_scan(self, scan):
-        self.create_path(self.root_path)
-        self.new_file(scan.node.name, scan.scan_info)
-
     def new_file(self, scan_name, scan_info):
-        pass
+        """Create a new scan file
 
-    def new_master(self, master):
+        Filename is stored in the class as the 'filename' property
+        """
         raise NotImplementedError
 
-    def add_reference(self, master_entry, referenced_master_entry):
-        pass
+    def new_scan(self, scan_name, scan_info):
+        raise NotImplementedError
+
+    def new_master(self, master, scan_entry):
+        return scan_entry
 
     def prepare_saving(self, device, images_path):
         any_image = any(
@@ -123,19 +123,15 @@ class FileWriter(object):
         self._event_receivers = []
 
     def prepare(self, scan):
-        self.new_scan(scan)
+        self.create_path(self.root_path)
+        self.new_file(scan.node.name, scan.scan_info)
+        scan_entry = self.new_scan(scan.node.name, scan.scan_info)
 
         self._event_receivers = []
-        master_entries = {}
 
         for dev, node in scan.nodes.items():
             if isinstance(dev, AcquisitionMaster):
-                try:
-                    master_entry = master_entries[dev]
-                except KeyError:
-                    master_entry = self.new_master(dev)
-                    master_entries[dev] = master_entry
-
+                master_entry = self.new_master(dev, scan_entry)
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 
                 images_path = self._images_root_path_template.format(
@@ -152,14 +148,6 @@ class FileWriter(object):
                         self._prepare_callbacks(
                             slave, master_entry, self._device_event_callback
                         )
-                    elif isinstance(slave, AcquisitionMaster):
-                        try:
-                            referenced_master_entry = master_entries[slave]
-                        except KeyError:
-                            referenced_master_entry = self.new_master(slave)
-                            master_entries[slave] = referenced_master_entry
-                        self.add_reference(master_entry, referenced_master_entry)
-        self._closed = False
 
     def close(self):
         self._remove_callbacks()

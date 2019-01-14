@@ -594,8 +594,6 @@ class PEPU(object):
 
     app_name = DeviceAttr("APPNAME", str, None)
     version = DeviceAttr("VERSION", str, None)
-    up_time = DeviceAttr("UPTIME", float, None)
-    sys_info = DeviceAttr("SYSINFO", str, None)
     dance_info = DeviceAttr("DINFO", str, None)
     config = DeviceConfigAttr()
 

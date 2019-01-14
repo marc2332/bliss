@@ -89,12 +89,6 @@ def test_simple_connection(pepu):
     with pepu.assert_command("?VERSION", "00.01"):
         assert pepu.version == "00.01"
 
-    with pepu.assert_command("?UPTIME", "3.4"):
-        assert pepu.up_time == 3.4
-
-    with pepu.assert_command("?SYSINFO", "DANCE BLABLABLA"):
-        assert pepu.sys_info.startswith("DANCE")
-
     with pepu.assert_command("?DINFO", "UPTIME: BLI\nUNAME: BLA"):
         uptime, uname = pepu.dance_info.splitlines()
         assert uptime.startswith("UPTIME")

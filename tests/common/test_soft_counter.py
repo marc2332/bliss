@@ -156,7 +156,7 @@ def test_soft_counter_scan(beacon):
         "get_pressure",
         "temp_f",
     }
-    assert set(data.dtype.fields.keys()) == counter_names
+    assert set(data.keys()) == counter_names
 
     numpy.testing.assert_array_almost_equal(data["value"], 10 * [45.67])
     numpy.testing.assert_array_almost_equal(data["temp_deg"], 10 * [12.34])

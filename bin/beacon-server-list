@@ -18,6 +18,7 @@ try:
     with gevent.Timeout(3., "END"):
         while True:
             msg, address = udp.recvfrom(8192)
+            msg = msg.decode()
             host, port = msg.split("|")
             replied_host.add((host, port))
 except gevent.Timeout:

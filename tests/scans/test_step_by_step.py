@@ -144,6 +144,51 @@ def test_calc_counters(session):
     assert numpy.array_equal(scan_data["gaussian"] ** 2, scan_data["pow"])
 
 
+def test_calc_counter_callback(session):
+    m1 = getattr(setup_globals, "m1")
+    c = chain.AcquisitionChain()
+    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
+    cnt = counter_class("gaussian", 10, cnt_time=0)
+    t = timer.SoftwareTimerMaster(0, npoints=10)
+    cnt_acq_device = counter.SamplingCounterAcquisitionDevice(cnt, count_time=0)
+    c.add(t, cnt_acq_device)
+
+    class CBK(calc.CalcHook):
+        def __init__(self):
+            self.prepare_called = 0
+            self.start_called = 0
+            self.stop_called = 0
+
+        def compute(self, sender, data_dict):
+            return {"pow": data_dict["gaussian"] ** 2}
+
+        def prepare(self):
+            self.prepare_called += 1
+
+        def start(self):
+            self.start_called += 1
+
+        def stop(self):
+            self.stop_called += 1
+
+    cbk = CBK()
+    calc_cnt = calc.CalcAcquisitionDevice(
+        "bla",
+        (cnt_acq_device,),
+        cbk,
+        (chain.AcquisitionChannel("pow", numpy.float, ()),),
+    )
+    c.add(t, calc_cnt)
+    top_master = motor.LinearStepTriggerMaster(10, m1, 0, 1)
+    c.add(top_master, t)
+
+    s = scan.Scan(c, name="calc_scan", save=False)
+    s.run()
+    assert cbk.prepare_called == 10
+    assert cbk.start_called == 10
+    assert cbk.stop_called == 1
+
+
 def test_amesh(session):
     counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     roby = getattr(setup_globals, "roby")

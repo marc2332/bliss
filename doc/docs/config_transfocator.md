@@ -13,7 +13,7 @@ The state is readed through Wago PLC's input module: every lens and pinhole has 
 The configuration should define in particular the number of lenses and the number of pinholes.
 Both lenses and pinholes have a binary state in the sense that they can only be inserted or removed.
 
-### Example YAML configuration file ###
+### Example YAML configuration file, automatic layout ###
 
 ```yaml
 name: tfmad
@@ -33,3 +33,23 @@ The number of pinholes vary from 0 to 2, consider the following cases:
 If `safety: True` a pinhole is forced in whenever a lens is in.
 Omitting safety parameters equals to `safety: False`.
 
+### Alternative YAML configuration file, specifying layout ###
+
+```yaml
+name: tf
+class: Transfocator
+controller_ip: wcid232b
+# beam from the left
+layout: P L L L L X X X P
+```
+
+`layout` is a string separated by spaces, describing pinholes (`P`) and lenses (`L`)
+within the transfocator, with incident beam coming from **left to right**.
+`X` means: empty slot. 
+
+### Additional settings
+
+* `read_mode`: 0 (default) means **first transfocator lens in beam state switch is wired first in Wago**
+    - any other value means the opposite, that the first transfocator state switch is wired last 
+* `cmd_mode`: 0 (default) means **first transfocator lens action switch is wired first in Wago** 
+    - any other value means the opposite, that the first transfocator action switch is wired last 

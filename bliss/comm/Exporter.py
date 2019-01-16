@@ -51,8 +51,8 @@ class Exporter(ExporterClient.ExporterClient):
     STATE_UNKNOWN = "Unknown"
 
     def __init__(self, address, port, timeout=3, retries=1):
-        ExporterClient.ExporterClient.__init__(
-            self, address, port, ExporterClient.PROTOCOL.STREAM, timeout, retries
+        super().__init__(
+            address, port, ExporterClient.PROTOCOL.STREAM, timeout, retries
         )
 
         self.started = False

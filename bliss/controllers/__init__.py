@@ -36,7 +36,6 @@ and their common API and functionality can be determined
     tango_fe
     tango_keithley
     tango_shutter
-    tango_transfocator
     temperature
     temp
     wago

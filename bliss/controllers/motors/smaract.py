@@ -98,7 +98,13 @@ class SensorType(enum.IntEnum):
     SCT = 35  # like SCD, but with even larger actuator
 
 
-RotarySensors = SensorType.SR, SensorType.SR20, SensorType.GF, SensorType.G775S
+RotarySensors = (
+    SensorType.SR,
+    SensorType.SR20,
+    SensorType.GF,
+    SensorType.G775S,
+    SensorType.G605S,
+)
 
 
 @enum.unique

@@ -29,7 +29,7 @@ ARRAY_SEPARATOR = ""
 
 class ExporterClient(StandardClient):
     def onMessageReceived(self, msg):
-        if msg[:4] == "EVT:":
+        if msg[:4] == EVENT:
             try:
                 evtstr = msg[4:]
                 tokens = evtstr.split(PARAMETER_SEPARATOR)

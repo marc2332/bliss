@@ -18,7 +18,7 @@ from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from .channel import AcquisitionChannelList, AcquisitionChannel
-from .channel import duplicate_channel
+from .channel import duplicate_channel, attach_channels
 
 # Running task for a specific device
 #
@@ -379,6 +379,40 @@ class AcquisitionMaster(object):
         )
         self.__duplicated_channels[new_channel] = connect, cleanup
         self.channels.append(new_channel)
+
+    def attach_channels(self, master, to_channel_name):
+        """Attaching all channels from a topper master means that this master
+        data channels will be captured and re-emit when the
+        **to_channel_name** will emit its data.
+        in a case of this kind of chain i.e a mesh:
+        m0 (channel: pos_m0)
+        └── m1 (channel: pos_m1)
+            └── timer (channel: elapsed_time)
+        pos_m0 will be emit when pos_m1 will be emit => same amount of values
+
+        Note: this can only work if topper master emit data one by one and before
+        this master
+        """
+        # check if master is a topper master
+        parent = self.parent
+        while parent is not None and parent != master:
+            parent = parent.parent
+        if parent is None:  # master is not a parent
+            raise RuntimeError(
+                "Could only work with a master device (%s) is not a master of (%s)"
+                % (master.name, self.name)
+            )
+
+        try:
+            to_channel = next(
+                channel for channel in self.channels if channel.name == to_channel_name
+            )
+        except StopIteration:
+            raise ValueError(
+                "The device {} does not have a channel called {}".format(device, name)
+            )
+
+        attach_channels(master.channels, to_channel)
 
     def wait_slaves_prepare(self):
         """

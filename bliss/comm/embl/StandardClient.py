@@ -208,7 +208,7 @@ class StandardClient:
         except:
             pass
 
-    def __sendStream__(self, cmd):
+    def __sendStream__(self, cmd: str):
         if not self.isConnected():
             self.connect()
 
@@ -219,7 +219,7 @@ class StandardClient:
             self.disconnect()
             # raise SocketError,"Socket error:" + str(sys.exc_info()[1])
 
-    def __sendReceiveStream__(self, cmd):
+    def __sendReceiveStream__(self, cmd: str):
         self.error = None
         self.received_msg = None
         self.msg_received_event.clear()  # = gevent.event.Event()
@@ -235,7 +235,7 @@ class StandardClient:
             return self.received_msg
 
     @protect_from_kill
-    def sendReceive(self, cmd, timeout=-1):
+    def sendReceive(self, cmd: str, timeout=-1):
         self._lock.acquire()
         try:
             if (timeout is None) or (timeout >= 0):
@@ -252,7 +252,7 @@ class StandardClient:
                 self._lock.release()
 
     @protect_from_kill
-    def send(self, cmd):
+    def send(self, cmd: str):
         if self.protocol == PROTOCOL.DATAGRAM:
             raise ProtocolError(
                 "Protocol error: send command not support in datagram clients"

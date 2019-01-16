@@ -523,7 +523,7 @@ class Config(object):
         Returns:
             list<str>: sequence of configuration names
         """
-        return list(self._name2node.keys())
+        return sorted(list(self._name2node.keys()))
 
     @property
     def user_tags_list(self):
@@ -533,7 +533,7 @@ class Config(object):
         Returns:
             list<str>: sequence of user tag names
         """
-        return list(self._usertag2node.keys())
+        return sorted(list(self._usertag2node.keys()))
 
     @property
     def root(self):

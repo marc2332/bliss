@@ -12,6 +12,7 @@ nav:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
                       - Elmo: config_elmo.md
+                      - Galil: config_galil.md
                       - IcePAP: config_icepap.md
                       - PI Hexapod: config_pi_hexa.md
                 - Slits: config_slits.md

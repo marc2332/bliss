@@ -60,3 +60,4 @@ pyqt >= 5.9
 scipy
 silx >= 0.15.0a
 sortedcontainers
+hkl >= 5.0.0

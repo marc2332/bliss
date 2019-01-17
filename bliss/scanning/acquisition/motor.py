@@ -1085,3 +1085,53 @@ class SweepMotorMaster(AcquisitionMaster):
     def stop(self):
         self.movable.stop()
         self.movable.velocity = self.initial_speed
+
+
+class HKLTrajectoryMaster(AcquisitionMaster):
+    def __init__(
+        self,
+        diffracto,
+        hkl_start,
+        hkl_end,
+        nb_points,
+        time_per_point,
+        trigger_type=AcquisitionMaster.SOFTWARE,
+        **keys,
+    ):
+        calc_axis = diffracto.calc_controller
+        AcquisitionMaster.__init__(
+            self, calc_axis, calc_axis.name, trigger_type=trigger_type, **keys
+        )
+        self.trajectory = calc_axis.calc_trajectory(
+            ("hkl_h", "hkl_k", "hkl_l"), hkl_start, hkl_end, nb_points, time_per_point
+        )
+        self.frozen_values = dict()
+        self.frozen_group = None
+        for (name, value) in calc_axis.frozen_angles.items():
+            self.frozen_values[diffracto.get_axis(name)] = value
+        if len(self.frozen_values):
+            self.frozen_group = Group(*self.frozen_values.keys())
+
+    def prepare(self):
+        self.trajectory.prepare()
+        if self.frozen_group:
+            self.frozen_group.move(self.frozen_values, wait=True, relative=False)
+        self.trajectory.move_to_start()
+
+    def start(self):
+        if self.trigger_type == AcquisitionMaster.SOFTWARE and self.parent:
+            return
+        self.trigger()
+
+    def trigger(self):
+        self.trigger_slaves()
+        self.trajectory.move_to_end()
+
+    def trigger_ready(self):
+        return not self.trajectory.is_moving
+
+    def wait_ready(self):
+        self.trajectory.wait_move()
+
+    def stop(self):
+        self.trajectory.stop()

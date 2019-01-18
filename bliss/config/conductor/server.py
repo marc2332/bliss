@@ -26,6 +26,7 @@ from gevent import select
 from bliss.common import event, subprocess
 from . import protocol
 from .. import redis as redis_conf
+from functools import reduce
 
 
 # Globals
@@ -48,7 +49,7 @@ class _WaitStolenReply(object):
     def __init__(self, stolen_lock):
         self._stolen_lock = dict()
         for client, objects in stolen_lock.iteritems():
-            self._stolen_lock[client] = "|".join(objects)
+            self._stolen_lock[client] = b"|".join(objects)
         self._client2info = dict()
 
     def __enter__(self):
@@ -188,30 +189,31 @@ def _send_redis_info(client_id, local_connection):
         port = _options.redis_socket
         host = "localhost"
 
-    client_id.sendall(
-        protocol.message(protocol.REDIS_QUERY_ANSWER, "%s:%s" % (host, port))
-    )
+    contents = b"%s:%s" % (host.encode(), str(port).encode())
+
+    client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER, contents))
 
 
 def _send_config_file(client_id, message):
     try:
-        message_key, file_path = message.split("|")
+        message_key, file_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    file_path = file_path.replace("../", "")  # prevent going up
+    file_path = file_path.decode().replace("../", "")  # prevent going up
     full_path = os.path.join(_options.db_path, file_path)
     try:
         with open(full_path, "rb") as f:
             buffer = f.read()
             client_id.sendall(
                 protocol.message(
-                    protocol.CONFIG_GET_FILE_OK, "%s|%s" % (message_key, buffer)
+                    protocol.CONFIG_GET_FILE_OK, b"%s|%s" % (message_key, buffer)
                 )
             )
     except IOError:
         client_id.sendall(
             protocol.message(
-                protocol.CONFIG_GET_FILE_FAILED, "%s|File doesn't exist" % (message_key)
+                protocol.CONFIG_GET_FILE_FAILED,
+                b"%s|File doesn't exist" % (message_key),
             )
         )
 
@@ -222,8 +224,12 @@ def __find_module(client_id, message_key, path, parent_name=None):
         client_id.sendall(
             protocol.message(
                 protocol.CONFIG_GET_PYTHON_MODULE_RX,
-                "%s|%s|%s"
-                % (message_key, module_name, importer.find_module(name).get_filename()),
+                b"%s|%s|%s"
+                % (
+                    message_key,
+                    module_name.encode(),
+                    importer.find_module(name).get_filename().encode(),
+                ),
             )
         )
         if ispkg:
@@ -232,22 +238,24 @@ def __find_module(client_id, message_key, path, parent_name=None):
 
 def _get_python_module(client_id, message):
     try:
-        message_key, start_module_path = message.split("|")
+        message_key, start_module_path = message.split(b"|")
     except ValueError:
         client_id.sendall(
             protocol.message(
                 protocol.CONFIG_GET_PYTHON_MODULE_FAILED,
-                "%s|Can't split message (%s)" % (message_key, message),
+                b"%s|Can't split message (%s)" % (message_key, message),
             )
         )
         return
 
-    start_module_path = start_module_path.replace("../", "")  # prevent going up
+    start_module_path = start_module_path.decode().replace(
+        "../", ""
+    )  # prevent going up
     start_module_path = os.path.join(_options.db_path, start_module_path)
 
     __find_module(client_id, message_key, start_module_path)
     client_id.sendall(
-        protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_END, "%s|" % message_key)
+        protocol.message(protocol.CONFIG_GET_PYTHON_MODULE_END, b"%s|" % message_key)
     )
 
 
@@ -283,10 +291,10 @@ def __remove_empty_tree(base_dir=None, keep_empty_base=True):
 
 def _remove_config_file(client_id, message):
     try:
-        message_key, file_path = message.split("|")
+        message_key, file_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    file_path = file_path.replace("../", "")  # prevent going up
+    file_path = file_path.decode().replace("../", "")  # prevent going up
     full_path = os.path.join(_options.db_path, file_path)
     try:
         if os.path.isfile(full_path):
@@ -298,11 +306,11 @@ def _remove_config_file(client_id, message):
         # prevent future rename operations to inadvertely ending up inside a
         # "transparent" directory instead of being renamed
         __remove_empty_tree()
-        msg = (protocol.CONFIG_REMOVE_FILE_OK, "%s|0" % (message_key,))
+        msg = (protocol.CONFIG_REMOVE_FILE_OK, b"%s|0" % (message_key,))
     except IOError:
         msg = (
             protocol.CONFIG_REMOVE_FILE_FAILED,
-            "%s|File/directory doesn't exist" % message_key,
+            b"%s|File/directory doesn't exist" % message_key,
         )
     else:
         event.send(__name__, "config_changed")
@@ -314,13 +322,13 @@ def _move_config_path(client_id, message):
     # should work on both files and folders
     # it can be used for both move and rename
     try:
-        message_key, src_path, dst_path = message.split("|")
+        message_key, src_path, dst_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    src_path = src_path.replace("../", "")  # prevent going up
+    src_path = src_path.decode().replace("../", "")  # prevent going up
     src_full_path = os.path.join(_options.db_path, src_path)
 
-    dst_path = dst_path.replace("../", "")  # prevent going up
+    dst_path = dst_path.decode().replace("../", "")  # prevent going up
     dst_full_path = os.path.join(_options.db_path, dst_path)
 
     try:
@@ -334,11 +342,11 @@ def _move_config_path(client_id, message):
         # prevent future rename operations to inadvertely ending up inside a
         # "transparent" directory instead of being renamed
         __remove_empty_tree()
-        msg = (protocol.CONFIG_MOVE_PATH_OK, "%s|0" % (message_key,))
+        msg = (protocol.CONFIG_MOVE_PATH_OK, b"%s|0" % (message_key,))
     except IOError as ioe:
         msg = (
             protocol.CONFIG_MOVE_PATH_FAILED,
-            "%s|%s: %s" % (message_key, ioe.filename, ioe.strerror),
+            b"%s|%s: %s" % (message_key, ioe.filename, ioe.strerror),
         )
     else:
         event.send(__name__, "config_changed")
@@ -347,15 +355,16 @@ def _move_config_path(client_id, message):
 
 def _send_config_db_files(client_id, message):
     try:
-        message_key, sub_path = message.split("|")
+        message_key, sub_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    sub_path = sub_path.replace("../", "")  # prevent going up
+    sub_path = sub_path.replace(b"../", b"")  # prevent going up
     look_path = (
         sub_path and os.path.join(_options.db_path, sub_path) or _options.db_path
     )
     try:
         for root, dirs, files in os.walk(look_path, followlinks=True):
+            files = sorted(files)
             for filename in files:
                 if filename.startswith("."):
                     continue
@@ -368,24 +377,26 @@ def _send_config_db_files(client_id, message):
                             raw_buffer = f.read().encode("utf-8")
                             msg = protocol.message(
                                 protocol.CONFIG_DB_FILE_RX,
-                                "%s|%s|%s" % (message_key, rel_path, raw_buffer),
+                                b"%s|%s|%s"
+                                % (message_key, rel_path.encode(), raw_buffer),
                             )
                             client_id.sendall(msg)
                     except Exception as e:
                         sys.excepthook(*sys.exc_info())
                         client_id.sendall(
                             protocol.message(
-                                protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e)
+                                protocol.CONFIG_DB_FAILED,
+                                b"%s|%s" % (message_key, str(e).encode()),
                             )
                         )
     except Exception as e:
         sys.excepthook(*sys.exc_info())
         client_id.sendall(
-            protocol.message(protocol.CONFIG_DB_FAILED, "%s|%s" % (message_key, e))
+            protocol.message(protocol.CONFIG_DB_FAILED, b"%s|%s" % (message_key, e))
         )
     finally:
         client_id.sendall(
-            protocol.message(protocol.CONFIG_DB_END, "%s|" % (message_key))
+            protocol.message(protocol.CONFIG_DB_END, b"%s|" % (message_key))
         )
 
 
@@ -407,10 +418,10 @@ def __get_directory_structure(base_dir):
 
 def _send_config_db_tree(client_id, message):
     try:
-        message_key, sub_path = message.split("|")
+        message_key, sub_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    sub_path = sub_path.replace("../", "")  # prevent going up
+    sub_path = sub_path.replace(b"../", b"")  # prevent going up
     look_path = (
         sub_path and os.path.join(_options.db_path, sub_path) or _options.db_path
     )
@@ -421,45 +432,47 @@ def _send_config_db_tree(client_id, message):
         _, tree = __get_directory_structure(look_path)
         msg = (
             protocol.CONFIG_GET_DB_TREE_OK,
-            "%s|%s" % (message_key, json.dumps(tree)),
+            b"%s|%s" % (message_key, json.dumps(tree)),
         )
     except Exception as e:
         sys.excepthook(*sys.exc_info())
         msg = (
             protocol.CONFIG_GET_DB_TREE_FAILED,
-            "%s|Failed to get tree: %s" % (message_key, str(e)),
+            b"%s|Failed to get tree: %s" % (message_key, str(e)),
         )
     client_id.sendall(protocol.message(*msg))
 
 
 def _write_config_db_file(client_id, message):
-    first_pos = message.find("|")
-    second_pos = message.find("|", first_pos + 1)
+    first_pos = message.find(b"|")
+    second_pos = message.find(b"|", first_pos + 1)
 
     if first_pos < 0 or second_pos < 0:  # message malformed
         msg = protocol.message(
             protocol.CONFIG_SET_DB_FILE_FAILED,
-            "%s|%s" % (message_key, "Malformed message"),
+            b"%s|%s" % (message_key, "Malformed message"),
         )
         client_id.sendall(msg)
         return
 
     message_key = message[:first_pos]
-    file_path = message[first_pos + 1 : second_pos]
-    content = message[second_pos + 1 :].decode("utf-8")
+    file_path = message[first_pos + 1 : second_pos].decode()
+    content = message[second_pos + 1 :]
     file_path = file_path.replace("../", "")  # prevent going up
     full_path = os.path.join(_options.db_path, file_path)
     full_dir = os.path.dirname(full_path)
     if not os.path.isdir(full_dir):
         os.makedirs(full_dir)
     try:
-        with file(full_path, "w") as f:
+        with open(full_path, "wb") as f:
             f.write(content)
-            msg = protocol.message(protocol.CONFIG_SET_DB_FILE_OK, "%s|0" % message_key)
+            msg = protocol.message(
+                protocol.CONFIG_SET_DB_FILE_OK, b"%s|0" % message_key
+            )
     except:
         msg = protocol.message(
             protocol.CONFIG_SET_DB_FILE_FAILED,
-            "%s|%s" % (message_key, traceback.format_exc()),
+            b"%s|%s" % (message_key, traceback.format_exc().encode()),
         )
     else:
         event.send(__name__, "config_changed")
@@ -472,9 +485,10 @@ def _send_posix_mq_connection(client_id, client_hostname):
 
 
 def _send_uds_connection(client_id, client_hostname):
+    client_hostname = client_hostname.decode()
     try:
         if client_hostname == socket.gethostname():
-            client_id.sendall(protocol.message(protocol.UDS_OK, uds_port_name))
+            client_id.sendall(protocol.message(protocol.UDS_OK, uds_port_name.encode()))
         else:
             client_id.sendall(protocol.message(protocol.UDS_FAILED))
     except:
@@ -486,7 +500,7 @@ def _send_unknow_message(client_id, message):
 
 
 def _client_rx(client, local_connection):
-    tcp_data = ""
+    tcp_data = b""
     try:
         stopFlag = False
         while not stopFlag:
@@ -496,7 +510,7 @@ def _client_rx(client, local_connection):
                 break
 
             if raw_data:
-                tcp_data = "%s%s" % (tcp_data, raw_data)
+                tcp_data = b"%s%s" % (tcp_data, raw_data)
             else:
                 break
 
@@ -507,11 +521,11 @@ def _client_rx(client, local_connection):
                 try:
                     messageType, message, data = protocol.unpack_message(data)
                     if messageType == protocol.LOCK:
-                        lock_objects = message.split("|")
+                        lock_objects = message.split(b"|")
                         prio = int(lock_objects.pop(0))
                         _lock(c_id, prio, lock_objects, message)
                     elif messageType == protocol.UNLOCK:
-                        lock_objects = message.split("|")
+                        lock_objects = message.split(b"|")
                         prio = int(lock_objects.pop(0))
                         _unlock(c_id, prio, lock_objects)
                     elif messageType == protocol.LOCK_STOLEN_OK_REPLY:
@@ -566,7 +580,7 @@ def _client_rx(client, local_connection):
 
 def sigterm_handler(_signo, _stack_frame):
     """On signal received, close the signal pipe to do a clean exit."""
-    os.write(sig_write, "!")
+    os.write(sig_write, b"!")
 
 
 def start_webserver(webapp_port, beacon_port, debug=True):
@@ -716,7 +730,7 @@ def main(args=None):
     )
     uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     uds.bind(uds_port_name)
-    os.chmod(uds_port_name, 0777)
+    os.chmod(uds_port_name, 0o777)
     uds.listen(512)
     _log.info("server sitting on uds socket: %s", uds_port_name)
 
@@ -734,13 +748,7 @@ def main(args=None):
         env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
         # Tango database executable
         args = [sys.executable]
-        # Should be:
-        # args += ['-m', 'tango.databaseds.database']
-        # But because of a pytango bug:
-        code = "import tango.databaseds.db_access.beacon\n"
-        code += "import tango.databaseds.database\n"
-        code += "tango.databaseds.database.main()"
-        args += ["-c", code]
+        args += ["-m", "bliss.tango.servers.databaseds"]
         # Arguments
         args += ["-l", str(_options.tango_debug_level)]
         args += ["--db_access", "beacon"]
@@ -779,7 +787,7 @@ def main(args=None):
     try:
         fd_list = [udp, tcp, uds, rp, sig_read] + ([tango_rp] if tango_rp else [])
         logger = {rp: _rlog, tango_rp: _tlog}
-        udp_reply = "%s|%d" % (socket.gethostname(), beacon_port)
+        udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
 
         def events():
             """Flatten the selector events."""
@@ -796,7 +804,7 @@ def main(args=None):
             # UDP case
             if s == udp:
                 buff, address = udp.recvfrom(8192)
-                if buff.find("Hello") > -1:
+                if buff.find(b"Hello") > -1:
                     _log.info(
                         "address request from %s. Replying with %r", address, udp_reply
                     )
@@ -834,7 +842,7 @@ def main(args=None):
                 msg = os.read(s, 8192)
                 # Log the message properly
                 if msg:
-                    logger.get(s, _log).info(msg)
+                    logger.get(s, _log).info(msg.decode())
                 # Tango DB is not alive
                 elif s == tango_rp:
                     fd_list.remove(tango_rp)
@@ -847,6 +855,7 @@ def main(args=None):
         return
 
     except Exception as exc:
+        sys.excepthook(*sys.exc_info())
         _log.critical("An expected exception occured:\n%r", exc)
 
     # Cleanup

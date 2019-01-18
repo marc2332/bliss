@@ -56,7 +56,7 @@ def __generate_crc16_table():
         crc = 0x0000
         for _ in range(8):
             if (byte ^ crc) & 0x0001:
-                crc = (crc >> 1) ^ 0xa001
+                crc = (crc >> 1) ^ 0xA001
             else:
                 crc >>= 1
             byte >>= 1
@@ -110,11 +110,11 @@ class Modbus_RTU:
         :param data: The data to create a crc16 of
         :returns: The calculated CRC
         """
-        crc = 0xffff
+        crc = 0xFFFF
         for a in data:
-            idx = _crc16_table[(crc ^ ord(a)) & 0xff]
-            crc = ((crc >> 8) & 0xff) ^ idx
-        swapped = ((crc << 8) & 0xff00) | ((crc >> 8) & 0x00ff)
+            idx = _crc16_table[(crc ^ a) & 0xFF]
+            crc = ((crc >> 8) & 0xFF) ^ idx
+        swapped = ((crc << 8) & 0xFF00) | ((crc >> 8) & 0x00FF)
         return swapped
 
     def read_holding_registers(self, address, struct_format, timeout=None):
@@ -167,7 +167,7 @@ class Modbus_RTU:
 
     def write_coil(self, address, on_off, timeout=None):
         timeout_errmsg = "timeout on write_coil modbus rtu (%s)" % (self._serial)
-        value = 0xff00 if on_off else 0x0000
+        value = 0xFF00 if on_off else 0x0000
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
 
     def _read(self, func_code, address, nb, struct_format, timeout_errmsg, timeout):
@@ -222,6 +222,9 @@ class Modbus_RTU:
     @protect_from_kill
     def _cmd(self, address, func_code, nb, data_write=None):
         #        msg = struct.pack('>BBHH',self.node,func_code,address,nb)
+        nb = int(
+            nb
+        )  # in python2 is was always int in python3 it occured to be float, so we make sure it is always int
         msg = struct.pack(">BBH", self.node, func_code, address)
         if data_write is not None:  # write
             if func_code is 0x5:
@@ -323,7 +326,7 @@ class ModbusTcp:
         def __enter__(self):
             if self.__modbus._transaction:
                 self._tid = max(self.__modbus._transaction.keys()) + 1
-                if self._tid > 0xffff:
+                if self._tid > 0xFFFF:
                     for i, key in enumerate(sorted(self.__modbus._transaction.keys())):
                         if i != key:
                             break
@@ -343,7 +346,7 @@ class ModbusTcp:
         def put(self, msg):
             self._queue.put(msg)
 
-    def __init__(self, host, unit=0xFF, port=502, timeout=3.):
+    def __init__(self, host, unit=0xFF, port=502, timeout=3.0):
         self._unit = unit  # modbus unit
         self._host = host
         self._port = port
@@ -449,7 +452,7 @@ class ModbusTcp:
     @try_connect_modbustcp
     def write_coil(self, address, on_off, timeout=None):
         timeout_errmsg = "timeout on write_coil tcp (%s, %d)" % (self._host, self._port)
-        value = 0xff00 if on_off else 0x0000
+        value = 0xFF00 if on_off else 0x0000
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
 
     def connect(self, host=None, port=None, timeout=None):

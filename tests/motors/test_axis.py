@@ -11,7 +11,7 @@ import gevent
 import gevent.event
 from bliss.common import event
 from bliss.common.axis import Modulo, AxisState
-import mock
+from unittest import mock
 import random
 
 

@@ -8,7 +8,7 @@
 import functools
 import hashlib
 import numpy
-import mock
+from unittest import mock
 from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
 from . import _command, _vdata_header, POSITION, PARAMETER
 

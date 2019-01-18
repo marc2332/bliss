@@ -280,6 +280,11 @@ class AcquisitionMaster(object):
 
     @property
     def terminator(self):
+        """bool: flag to specify if the whole scan should terminate when the acquisition under control of the master is done. 
+
+        Only taken into account if the acquisition master is a top master in the acquisition chain.
+        Defaults to True: any top master ends a scan when done.
+        """
         return self.__terminator
 
     @terminator.setter

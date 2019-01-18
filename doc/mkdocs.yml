@@ -11,6 +11,7 @@ nav:
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
+                      - Aerotech: config_aerotech.md
                       - Elmo: config_elmo.md
                       - IcePAP: config_icepap.md
                       - PI Hexapod: config_pi_hexa.md

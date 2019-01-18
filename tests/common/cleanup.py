@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import pytest
-import mock
+from unittest import mock
 from bliss.common import cleanup
 from bliss.common.cleanup import capture_exceptions
 

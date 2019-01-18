@@ -12,7 +12,7 @@ Run with:
 from functools import partial
 from contextlib import contextmanager
 
-import mock
+from unittest import mock
 import pytest
 
 from bliss.controllers.pepu import PEPU, Signal, Trigger

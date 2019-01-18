@@ -11,7 +11,7 @@ import gevent
 import gevent.event
 from bliss.common import event
 import numpy
-import mock
+from unittest import mock
 
 
 def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):

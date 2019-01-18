@@ -53,6 +53,9 @@ class GalilDMC213(Controller):
         self._galil_query("CN %d,%d,%d" % (LOW_LEVEL, HIGH_LEVEL, HIGH_LEVEL))
 
     def finalize(self):
+        self.close()
+
+    def close(self):
         self.sock.close()
 
     def initialize_axis(self, axis):
@@ -200,8 +203,8 @@ class GalilDMC213(Controller):
 
         with self.socket_lock:
             # print "SENDING: %r" % cmd
-            self.sock.write(cmd)
-            ans = self.sock.raw_read()
+            self.sock.write(cmd.encode())
+            ans = self.sock.raw_read().decode()
             if ans[0] == "?":
                 raise RuntimeError("Invalid command")
             ans = ans.strip(": \r\n")

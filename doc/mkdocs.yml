@@ -13,6 +13,7 @@ nav:
                 - Motor controllers:
                       - Aerotech: config_aerotech.md
                       - Elmo: config_elmo.md
+                      - Galil: config_galil.md
                       - IcePAP: config_icepap.md
                       - PI Hexapod: config_pi_hexa.md
                 - Slits: config_slits.md

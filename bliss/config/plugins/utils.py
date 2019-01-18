@@ -7,14 +7,14 @@
 
 
 def find_class(cfg_node, base_path="bliss.controllers"):
-    klass_name = cfg_node.get_inherited("class")
+    klass_name, node = cfg_node.get_inherited_value_and_node("class")
     if klass_name is None:
         raise KeyError("class")
 
-    if "package" in cfg_node:
-        module_name = cfg_node["package"]
-    elif "module" in cfg_node:
-        module_name = "%s.%s" % (base_path, cfg_node["module"])
+    if "package" in node:
+        module_name = node["package"]
+    elif "module" in node:
+        module_name = "%s.%s" % (base_path, node["module"])
     else:
         # discover module and class name
         module_name = "%s.%s" % (base_path, klass_name.lower())

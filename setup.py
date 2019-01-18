@@ -112,7 +112,7 @@ def main():
         "msgpack_numpy <= 0.4.3.1",
         "blessings",
         "h5py",
-        "gevent >= 1.3.5",
+        "gevent == 1.3.7",
         "pygments",
         "numpy >= 1.13",
         "h5py",

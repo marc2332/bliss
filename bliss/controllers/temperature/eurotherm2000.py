@@ -35,6 +35,8 @@ import logging
 from bliss.comm import modbus
 from bliss.comm.exceptions import CommunicationError
 
+from warnings import warn
+
 """ TempController import """
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output

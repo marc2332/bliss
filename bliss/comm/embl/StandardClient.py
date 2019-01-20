@@ -26,8 +26,8 @@ class SocketError(Exception):
     pass
 
 
-STX = chr(2)
-ETX = chr(3)
+STX = 2  # b'\x02'
+ETX = 3  # b'\x03'
 MAX_SIZE_STREAM_MSG = 500000
 
 
@@ -106,13 +106,13 @@ class StandardClient:
             msg_number = "%04d " % self.__msg_index__
             msg = msg_number + cmd
             try:
-                self.__sock__.sendto(msg, (self.server_ip, self.server_port))
+                self.__sock__.sendto(msg.encode(), (self.server_ip, self.server_port))
             except:
                 raise SocketError("Socket error:" + str(sys.exc_info()[1]))
             received = False
             while received == False:
                 try:
-                    ret = self.__sock__.recv(4096)
+                    ret = self.__sock__.recv(4096).decode()
                 except socket.timeout:
                     raise TimeoutError("Timeout error:" + str(sys.exc_info()[1]))
                 except:
@@ -137,7 +137,7 @@ class StandardClient:
             self.__msg_index__ = 1
         for i in range(0, self.retries):
             try:
-                ret = self.__sendReceiveDatagramSingle__(cmd)
+                ret = self.__sendReceiveDatagramSingle__(cmd.encode())
                 return ret
             except TimeoutError:
                 if i >= self.retries - 1:
@@ -176,9 +176,9 @@ class StandardClient:
     def recv_thread(self):
         try:
             self.onConnected()
-        except:
+        except Exception:
             pass
-        buffer = ""
+        buffer = b""
         mReceivedSTX = False
         while True:
             ret = self.__sock__.recv(4096)
@@ -189,37 +189,42 @@ class StandardClient:
                 break
             for b in ret:
                 if b == STX:
-                    buffer = ""
+                    buffer = b""
                     mReceivedSTX = True
                 elif b == ETX:
                     if mReceivedSTX == True:
-                        self.onMessageReceived(buffer)
+                        try:
+                            # Unicode decoding exception catching, consider errors='ignore'
+                            buffer_utf8 = buffer.decode()
+                        except UnicodeDecodeError as e:
+                            raise ProtocolError from e
+                        self.onMessageReceived(buffer_utf8)
                         mReceivedSTX = False
-                        buffer = ""
+                        buffer = b""
                 else:
                     if mReceivedSTX == True:
-                        buffer = buffer + b
+                        buffer = buffer + bytes([b])
 
             if len(buffer) > MAX_SIZE_STREAM_MSG:
                 mReceivedSTX = False
-                buffer = ""
+                buffer = b""
         try:
             self.onDisconnected()
-        except:
+        except Exception:
             pass
 
-    def __sendStream__(self, cmd):
+    def __sendStream__(self, cmd: str):
         if not self.isConnected():
             self.connect()
 
         try:
-            pack = STX + cmd + ETX
+            pack = bytes([STX]) + cmd.encode() + bytes([ETX])
             self.__sock__.send(pack)
         except SocketError:
             self.disconnect()
             # raise SocketError,"Socket error:" + str(sys.exc_info()[1])
 
-    def __sendReceiveStream__(self, cmd):
+    def __sendReceiveStream__(self, cmd: str):
         self.error = None
         self.received_msg = None
         self.msg_received_event.clear()  # = gevent.event.Event()
@@ -235,7 +240,7 @@ class StandardClient:
             return self.received_msg
 
     @protect_from_kill
-    def sendReceive(self, cmd, timeout=-1):
+    def sendReceive(self, cmd: str, timeout=-1):
         self._lock.acquire()
         try:
             if (timeout is None) or (timeout >= 0):
@@ -252,7 +257,7 @@ class StandardClient:
                 self._lock.release()
 
     @protect_from_kill
-    def send(self, cmd):
+    def send(self, cmd: str):
         if self.protocol == PROTOCOL.DATAGRAM:
             raise ProtocolError(
                 "Protocol error: send command not support in datagram clients"

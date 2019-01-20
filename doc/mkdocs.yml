@@ -15,6 +15,7 @@ nav:
                       - Elmo: config_elmo.md
                       - Galil: config_galil.md
                       - IcePAP: config_icepap.md
+                      - MD2: config_md2.md
                       - PI Hexapod: config_pi_hexa.md
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md

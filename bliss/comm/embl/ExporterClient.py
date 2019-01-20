@@ -7,7 +7,6 @@
   Copyright 2009 by European Molecular Biology Laboratory - Grenoble
 """
 
-from warnings import warn
 from .StandardClient import *
 
 CMD_SYNC_CALL = "EXEC"
@@ -29,13 +28,13 @@ ARRAY_SEPARATOR = ""
 
 class ExporterClient(StandardClient):
     def onMessageReceived(self, msg):
-        if msg[:4] == "EVT:":
+        if msg[:4] == EVENT:
             try:
                 evtstr = msg[4:]
                 tokens = evtstr.split(PARAMETER_SEPARATOR)
                 self.onEvent(tokens[0], tokens[1], int(tokens[2]))
             except:
-                # print("Error processing event: " + str(sys.exc_info()[1]))
+                # print "Error processing event: " + str(sys.exc_info()[1])
                 pass
         else:
             StandardClient.onMessageReceived(self, msg)
@@ -72,7 +71,7 @@ class ExporterClient(StandardClient):
     def execute(self, method, pars=None, timeout=-1):
         cmd = CMD_SYNC_CALL + " " + method + " "
         if pars is not None:
-            if isinstance(pars, list) or isinstance(pars, tuple):
+            if type(pars) is list or type(pars) is tuple:
                 for par in pars:
                     par = self.createArrayParameter(par)
                 cmd += str(par) + PARAMETER_SEPARATOR
@@ -83,7 +82,7 @@ class ExporterClient(StandardClient):
 
     def __processReturn(self, ret):
         if ret[:4] == RET_ERR:
-            raise RuntimeError(ret[4:])
+            raise Exception(ret[4:])
         elif ret == RET_NULL:
             return None
         elif ret[:4] == RET_OK:
@@ -98,62 +97,49 @@ class ExporterClient(StandardClient):
                 cmd += str(par) + PARAMETER_SEPARATOR
         return self.send(cmd)
 
-    def write_property(self, prop, value, timeout=-1):
-        if isinstance(value, list) or isinstance(value, tuple):
+    def writeProperty(self, property_, value, timeout=-1):
+        if type(value) is list or type(value) is tuple:
             value = self.createArrayParameter(value)
-        cmd = CMD_PROPERTY_WRITE + " " + prop + " " + str(value)
+        cmd = CMD_PROPERTY_WRITE + " " + property_ + " " + str(value)
         ret = self.sendReceive(cmd, timeout)
         return self.__processReturn(ret)
 
-    def read_property(self, prop, timeout=-1):
-        cmd = CMD_PROPERTY_READ + " " + prop
+    def readProperty(self, property_, timeout=-1):
+        cmd = CMD_PROPERTY_READ + " " + property_
         ret = self.sendReceive(cmd, timeout)
         return self.__processReturn(ret)
 
-    def writeProperty(self, prop, value, timeout=-1):
-        warn(
-            "writeProperty is deprecated. Use write_property instead",
-            DeprecationWarning,
-        )
-        self.write_property(prop, value, timeout)
+    def readPropertyAsString(self, property_):
+        return self.readProperty(property_)
 
-    def readProperty(self, prop, timeout=-1):
-        warn(
-            "readProperty is deprecated. Use read_property instead", DeprecationWarning
-        )
-        self.read_property(prop, timeout)
+    def readPropertyAsFloat(self, property_):
+        return float(self.readProperty(property_))
 
-    def readPropertyAsString(self, prop):
-        return self.read_property(prop)
+    def readPropertyAsInt(self, property_):
+        return int(self.readProperty(property_))
 
-    def readPropertyAsFloat(self, prop):
-        return float(self.read_property(prop))
-
-    def readPropertyAsInt(self, prop):
-        return int(self.read_property(prop))
-
-    def readPropertyAsBoolean(self, prop):
-        if self.read_property(prop) == "true":
+    def readPropertyAsBoolean(self, property_):
+        if self.readProperty(property_) == "true":
             return True
         return False
 
-    def readPropertyAsStringArray(self, prop):
-        ret = self.read_property(prop)
+    def readPropertyAsStringArray(self, property_):
+        ret = self.readProperty(property_)
         return self.parseArray(ret)
 
     def parseArray(self, value):
         value = str(value)
-        if value.startswith(ARRAY_SEPARATOR):
-            if value == ARRAY_SEPARATOR:
-                return []
-            value = value.lstrip(ARRAY_SEPARATOR).rstrip(ARRAY_SEPARATOR)
-            return value.split(ARRAY_SEPARATOR)
-        return None
+        if value.startswith(ARRAY_SEPARATOR) == False:
+            return None
+        if value == ARRAY_SEPARATOR:
+            return []
+        value = value.lstrip(ARRAY_SEPARATOR).rstrip(ARRAY_SEPARATOR)
+        return value.split(ARRAY_SEPARATOR)
 
     def createArrayParameter(self, value):
         ret = "" + ARRAY_SEPARATOR
-        if value is not None:
-            if isinstance(value, list) or isinstance(value, tuple):
+        if not value is None:
+            if type(value) is list or type(value) is tuple:
                 for item in value:
                     ret = ret + str(item)
                     ret = ret + ARRAY_SEPARATOR

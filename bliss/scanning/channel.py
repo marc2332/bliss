@@ -159,3 +159,40 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     cleanup = lambda: dispatcher.disconnect(callback, "new_data", source)
     cleanup.__name__ = "cleanup_" + name
     return dest, connect, cleanup
+
+
+def attach_channels(channels_source, emitter_channel):
+    """
+    Attaching a channel means that channel data
+    is captured by the destination channel, which will re-emit it
+    together with its own channel data.
+    """
+    for channel_source in channels_source:
+        if hasattr(channel_source, "_final_emit"):
+            raise RuntimeError("Channel %s is already attached to an other channel")
+        # replaced the final emit data with one which store
+        # the current data
+        def new_emitter(data):
+            channel_source._current_data = data
+
+        channel_source._final_emit = channel_source.emit
+        channel_source.emit = new_emitter
+        channel_source._current_data = None
+
+    emiter_method = emitter_channel.emit
+
+    def dual_emiter(data):
+        for channel_source in channels_source:
+            source_data = channel_source._current_data
+            if len(data) > 1:
+                try:
+                    iter(source_data)
+                except TypeError:
+                    l = [source_data]
+                else:
+                    l = list(source_data)
+                source_data = numpy.array(l * len(data), dtype=channel_source.dtype)
+            channel_source._final_emit(source_data)
+        emiter_method(data)
+
+    emitter_channel.emit = dual_emiter

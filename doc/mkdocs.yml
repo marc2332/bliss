@@ -19,7 +19,9 @@ nav:
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA: config_mca.md
-                - Temperature controllers: config_tempctrl.md
+                - Temperature controllers:
+                      - Temperature contollers in Bliss: config_tempctrl.md
+                      - Eurotherm: config_eurotherm.md
                 - P201: config_p201.md
                 - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md

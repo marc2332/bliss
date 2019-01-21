@@ -33,7 +33,8 @@ class PI_E517(PI_E51X):
         PI_E51X.__init__(self, *args, **kwargs)
 
     def _get_cto(self, axis):
-        _ans = self.sock.write_readlines("CTO?\n", 24)
+        # 24 also for 518 ????
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"CTO?\n", 24)]
         return _ans
 
     """

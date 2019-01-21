@@ -17,6 +17,7 @@ nav:
                       - IcePAP: config_icepap.md
                       - MD2: config_md2.md
                       - PI Hexapod: config_pi_hexa.md
+                      - PI Piezo: config_pi_piezo.md 
                       - PM600: config_pm600.md
                       - Vscanner: config_vscanner.md
                       - Smaract: config_smaract.md

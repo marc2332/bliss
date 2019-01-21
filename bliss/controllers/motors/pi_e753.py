@@ -2,12 +2,13 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2014-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.utils import object_method
+from bliss.common.utils import object_attribute_get, object_attribute_set
 
 from bliss.common.axis import AxisState
 
@@ -20,7 +21,7 @@ import time
 
 """
 Bliss controller for ethernet PI E753 piezo controller.
-Cyril Guilloud ESRF BLISS  2014-2016
+Model PI E754 should be compatible.. to be tested.
 """
 
 
@@ -28,7 +29,8 @@ class PI_E753(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-        self.cname = "E753"
+        # Used by axis in info string.
+        self.ctrl_name = "PI-E753"
 
     # Init of controller.
     def initialize(self):
@@ -38,31 +40,18 @@ class PI_E753(Controller):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
+        self.comm = pi_gcs.get_pi_comm(self.config, TCP)
 
-    def finalize(self):
-        """
-        Closes the controller socket.
-        """
-        # not called at end of device server ??? :(
-        # called on a new axis creation ???
+    def close(self):
+        if self.comm is not None:
+            self.comm.close()
 
-        if self.sock:
-            self.sock.close()
-
-    # Init of each axis.
     def initialize_axis(self, axis):
         elog.debug("axis initialization")
 
-        ## To purge controller.
-        # try:
-        #    self.sock._raw_read()
-        # except:
-        #    pass
-
         # Enables the closed-loop.
         # Can be dangerous ??? test diff between target and position before ???
-        self._set_closed_loop(axis, True)
+        # self._set_closed_loop(axis, True)
 
     def initialize_encoder(self, encoder):
         pass
@@ -93,6 +82,9 @@ class PI_E753(Controller):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
+        """
+        - <new_velocity>: 'float'
+        """
         elog.debug("set_velocity new_velocity = %f" % new_velocity)
         self.send_no_ans(axis, "VEL 1 %f" % new_velocity)
 
@@ -107,7 +99,8 @@ class PI_E753(Controller):
             else:
                 return AxisState("MOVING")
         else:
-            raise RuntimeError("closed loop disabled")
+            # open-loop => always ready.
+            return AxisState("READY")
 
     """ MOVEMENTS """
 
@@ -115,50 +108,105 @@ class PI_E753(Controller):
         pass
 
     def start_one(self, motion):
-        elog.debug("start_one target_pos = %f" % motion.target_pos)
-        self.send_no_ans(motion.axis, "MOV 1 %g" % motion.target_pos)
+        """
+        - Sends 'MOV' or 'SVA' depending on closed loop mode.
+
+        Args:
+            - <motion> : Bliss motion object.
+
+        Returns:
+            - None
+        """
+        if self._get_closed_loop_status(motion.axis):
+            # Command in position.
+            self.send_no_ans(motion.axis, "MOV 1 %g" % motion.target_pos)
+        else:
+            # Command in voltage.
+            self.send_no_ans(motion.axis, "SVA 1 %g" % motion.target_pos)
 
     def stop(self, axis):
-        # to check : copy of current position into target position ???
+        """
+        * HLT -> stop smoothly
+        * STP -> stop asap
+        * 24    -> stop asap
+        * to check : copy of current position into target position ???
+        """
         self.send_no_ans(axis, "STP")
 
     """ COMMUNICATIONS"""
 
     def send(self, axis, cmd):
-        _cmd = cmd + "\n"
+        """
+        - Converts <cmd> into 'bytes' and sends it to controller.
+        - Adds terminator to <cmd> string.
+        - <axis> is passed for debugging purposes.
+        - Type of <cmd> must be 'str'.
+        - Type of returned string is 'str'.
+        """
+        _cmd = cmd.encode() + b"\n"
+        _t0 = time.time()
 
-        _ans = self.sock.write_readline(_cmd)
+        _ans = self.comm.write_readline(_cmd).decode()
         # "\n" in answer has been removed by tcp lib.
 
-        # self.check_error()
+        _duration = time.time() - _t0
+        if _duration > 0.005:
+            elog.info(
+                "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
+                % (_ans, _cmd, _duration * 1000)
+            )
+
+        self.check_error(_cmd)
 
         return _ans
 
-    def check_error(self):
-        # Check error code
+    def send_no_ans(self, axis, cmd):
+        """
+        - Sends <cmd> command to controller.
+        - Adds terminator to <cmd> string.
+        - Channel is already defined in <cmd>.
+        - Type of <cmd> must be 'str'.
+        - Used for answer-less commands, thus returns nothing.
+        """
+        _cmd = cmd.encode() + b"\n"
+        self.comm.write(_cmd)
+        self.check_error(_cmd)
+
+    def check_error(self, command):
+        """
+        - Checks error code
+        - <command> : 'bytes' : string displayed in case of error
+        """
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
-            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd))
+            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, command))
 
-    def send_no_ans(self, axis, cmd):
-        _cmd = cmd + "\n"
-        self.sock.write(_cmd)
+    """
+    Raw communication commands
+    """
 
-        # self.check_error()
+    def raw_write(self, cmd):
+        """
+        - <cmd> must be 'str'
+        """
+        self.comm.write(cmd.encode())
 
-    """ RAW COMMANDS """
+    def raw_write_read(self, cmd):
+        """
+        - <cmd> must be 'str'
+        - Returns 'str'
+        """
+        return self.comm.write_readline(cmd.encode()).decode()
 
-    def raw_write(self, com):
-        self.sock.write(com)
-
-    def raw_write_read(self, com):
-        return self.sock.write_readline(com)
-
-    def raw_write_readlines(self, com, lines):
-        return "\n".join(self.sock.write_readlines("%s\n" % com, lines))
-
-    def get_identifier(self, axis):
-        return self.send(axis, "IDN?")
+    def raw_write_readlines(self, cmd, lines):
+        """
+        - Adds '\n' terminator to <cmd> string
+        - Sends <cmd> string to the controller and read back <lines> lines
+        - <cmd>: 'str'
+        - <lines>: 'int'
+        """
+        _cmd = cmd.encode() + b"\n"
+        return "\n".join(self.comm.write_readlines(_cmd, lines).decode())
 
     """
     E753 specific
@@ -166,7 +214,7 @@ class PI_E753(Controller):
 
     def get_voltage(self, axis):
         """ Returns voltage read from controller."""
-        _ans = self.send(axis, "SVA?")
+        _ans = self.send(axis, "SVA? 1")
         _voltage = float(_ans[2:])
         return _voltage
 
@@ -178,38 +226,41 @@ class PI_E753(Controller):
         """
         Returns velocity taken from controller.
         """
-        _ans = self.send(axis, "VEL?")
+        _ans = self.send(axis, "VEL? 1")
         _velocity = float(_ans.split("=")[1])
 
         return _velocity
 
     def _get_pos(self):
         """
-        Returns real position read by capacitive sensor.
-        no axis parameter as _get_pos is used by encoder.... can be a problem???
+        - no axis parameter as _get_pos is used by encoder.... can be a problem???
+        - Returns a 'float': real position read by capacitive sensor.
         """
-
-        _ans = self.sock.write_readline("POS?\n")
+        _ans = self.comm.write_readline(b"POS?\n").decode()
         # _ans should looks like "1=-8.45709419e+01\n"
         # "\n" removed by tcp lib.
         _pos = float(_ans[2:])
         return _pos
 
-    """ON TARGET """
-
     def _get_target_pos(self, axis):
         """
-        Returns last target position (setpoint value).
+        Returns last target position (MOV?/SVA?/VOL? command) (setpoint value).
+            - SVA? : Query the commanded output voltage (voltage setpoint).
+            - VOL? : Query the current output voltage (real voltage).
+            - MOV? : Returns the last valid commanded target position.
         """
-        _ans = self.send(axis, "MOV?")
-
-        # _ans should looks like "1=-8.45709419e+01"
-        _pos = float(_ans[2:])
-
+        if self._get_closed_loop_status(axis):
+            _ans = self.send(axis, "MOV? 1")
+            # _ans should looks like "1=-8.45709419e+01"
+            _pos = float(_ans[2:])
+        else:
+            _ans = self.send(axis, "SVA? 1")
+            # _ans should looks like "???"
+            _pos = float(_ans[2:])
         return _pos
 
     def _get_on_target_status(self, axis):
-        _ans = self.send(axis, "ONT?")
+        _ans = self.send(axis, "ONT? 1")
 
         _status = _ans.split("=")[1]
 
@@ -224,7 +275,7 @@ class PI_E753(Controller):
     """ CLOSED LOOP"""
 
     def _get_closed_loop_status(self, axis):
-        _ans = self.send(axis, "SVO?")
+        _ans = self.send(axis, "SVO? 1")
 
         _status = _ans.split("=")[1]
 
@@ -250,9 +301,20 @@ class PI_E753(Controller):
     def close_loop(self, axis):
         self._set_closed_loop(axis, True)
 
+    @object_attribute_get(type_info="bool")
+    def get_closed_loop(self, axis):
+        return self._get_closed_loop_status(axis)
+
+    @object_attribute_set(type_info="bool")
+    def set_closed_loop(self, axis, value):
+        print("set_closed_loop DISALBED FOR SECURITY ... ")
+        # self._set_closed_loop(axis, True)
+
     def _get_error(self):
-        # Does not use send() to be able to call _get_error in send().
-        _error_number = int(self.sock.write_readline("ERR?\n"))
+        """
+        - Does not use send() to be able to call _get_error in send().
+        """
+        _error_number = int(self.comm.write_readline(b"ERR?\n").decode())
         _error_str = pi_gcs.get_error_str(int(_error_number))
 
         return (_error_number, _error_str)
@@ -260,6 +322,16 @@ class PI_E753(Controller):
     def _stop(self, axis):
         print("????????? PI_E753.py received _stop ???")
         self.send_no_ans(axis, "STP")
+
+    """
+    ID/INFO
+    """
+
+    def get_id(self, axis):
+        """
+        - Returns a 'str' string.
+        """
+        return self.send(axis, "*IDN?")
 
     def get_info(self, axis):
         """
@@ -270,55 +342,55 @@ class PI_E753(Controller):
             <axis> : bliss axis
         Returns:
             None
-        Raises:
-            ?
         """
+        _infos = [
+            ("Identifier                 ", "*IDN?"),
+            ("Com level                  ", "CCL?"),
+            ("Firmware name              ", "SEP? 1 0xffff0007"),
+            ("Firmware version           ", "SEP? 1 0xffff0008"),
+            ("Firmware description       ", "SEP? 1 0xffff000d"),
+            ("Firmware date              ", "SEP? 1 0xffff000e"),
+            ("Firmware developer         ", "SEP? 1 0xffff000f"),
+            ("Real Position              ", "POS?"),
+            ("Setpoint Position          ", "MOV?"),
+            ("Position low limit         ", "SPA? 1 0x07000000"),
+            ("Position High limit        ", "SPA? 1 0x07000001"),
+            ("Velocity                   ", "VEL?"),
+            ("On target                  ", "ONT?"),
+            ("On target window           ", "SPA? 1 0x07000900"),
+            ("Target tolerance           ", "SPA? 1 0X07000900"),
+            ("Settling time              ", "SPA? 1 0X07000901"),
+            ("Sensor Offset              ", "SPA? 1 0x02000200"),
+            ("Sensor Gain                ", "SPA? 1 0x02000300"),
+            ("Motion status              ", "#5"),
+            ("Closed loop status         ", "SVO?"),
+            ("Auto Zero Calibration ?    ", "ATZ?"),
+            ("Analog input setpoint      ", "AOS?"),
+            ("Low    Voltage Limit       ", "SPA? 1 0x07000A00"),
+            ("High Voltage Limit         ", "SPA? 1 0x07000A01"),
+        ]
+
         (error_nb, err_str) = self._get_error()
         _txt = '      ERR nb=%d  : "%s"\n' % (error_nb, err_str)
 
-        _infos = [
-            ("Identifier                 ", "IDN?\n"),
-            ("Com level                  ", "CCL?\n"),
-            ("Firmware name              ", "SEP? 1 0xffff0007\n"),
-            ("Firmware version           ", "SEP? 1 0xffff0008\n"),
-            ("Firmware description       ", "SEP? 1 0xffff000d\n"),
-            ("Firmware date              ", "SEP? 1 0xffff000e\n"),
-            ("Firmware developer         ", "SEP? 1 0xffff000f\n"),
-            ("Real Position              ", "POS?\n"),
-            ("Setpoint Position          ", "MOV?\n"),
-            ("Position low limit         ", "SPA? 1 0x07000000\n"),
-            ("Position High limit        ", "SPA? 1 0x07000001\n"),
-            ("Velocity                   ", "VEL?\n"),
-            ("On target                  ", "ONT?\n"),
-            ("On target window           ", "SPA? 1 0x07000900\n"),
-            ("Target tolerance           ", "SPA? 1 0X07000900\n"),
-            ("Settling time              ", "SPA? 1 0X07000901\n"),
-            ("Sensor Offset              ", "SPA? 1 0x02000200\n"),
-            ("Sensor Gain                ", "SPA? 1 0x02000300\n"),
-            ("Motion status              ", "#5\n"),
-            ("Closed loop status         ", "SVO?\n"),
-            ("Auto Zero Calibration ?    ", "ATZ?\n"),
-            ("Analog input setpoint      ", "AOS?\n"),
-            ("Low    Voltage Limit       ", "SPA? 1 0x07000A00\n"),
-            ("High Voltage Limit         ", "SPA? 1 0x07000A01\n"),
-        ]
-
+        # Reads pre-defined infos (1 line answers)
         for i in _infos:
-            _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, i[1]))
+            _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, (i[1])))
 
+        # Reads multi-lines infos.
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 5)]
         _txt = _txt + "        %s    \n%s\n" % (
             "Communication parameters",
-            "\n".join(self.sock.write_readlines("IFC?\n", 5)),
+            "\n".join(_ans),
         )
 
-        _txt = _txt + "        %s    \n%s\n" % (
-            "Analog setpoints",
-            "\n".join(self.sock.write_readlines("TSP?\n", 2)),
-        )
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"TSP?\n", 2)]
+        _txt = _txt + "        %s    \n%s\n" % ("Analog setpoints", "\n".join(_ans))
 
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"TAD?\n", 2)]
         _txt = _txt + "        %s    \n%s\n" % (
             "ADC value of analog input",
-            "\n".join(self.sock.write_readlines("TAD?\n", 2)),
+            "\n".join(_ans),
         )
 
         # ###  TAD[1]==131071  => broken cable ??

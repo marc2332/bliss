@@ -74,7 +74,7 @@ The is a generic axis test for basic feature: position, velocity, acceleration a
 
 Example:
 
-   pytest -s --axis-name rot tests/controllers_hw/test_axis.py
+    pytest -s --axis-name rot tests/controllers_hw/test_axis.py
 
 This will do a real test on *Beamline* axis named **rot**.
 

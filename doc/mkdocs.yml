@@ -23,6 +23,7 @@ nav:
                 - Temperature controllers:
                       - Temperature contollers in Bliss: config_tempctrl.md
                       - Eurotherm: config_eurotherm.md
+                      - Meerstetter: config_meerstetter.md
                 - P201: config_p201.md
                 - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md

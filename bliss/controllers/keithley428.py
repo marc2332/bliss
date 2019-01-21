@@ -38,7 +38,10 @@ class keithley428(object):
             )
             self._txterm = ""
             self._rxterm = "\r\n"
-            self._cnx._readline(self._rxterm)
+            try:
+                self._cnx._readline(self._rxterm)
+            except Exception:
+                pass
         else:
             raise ValueError("Must specify gpib_url")
 
@@ -91,15 +94,19 @@ class keithley428(object):
         """ Raw connection to the Keithley.
         msg -- the message you want to send
         """
-        return self._cnx.write_readline(msg + self._txterm, eol=self._rxterm)
+        command = msg + self._txterm
+        command = command.encode()
+        return self._cnx.write_readline(command, eol=self._rxterm).decode()
 
     def put(self, msg):
         """ Raw connection to the Keithley.
         msg -- the message you want to send
         """
         with self._cnx._lock:
+            command = msg + self._txterm
+            command = command.encode()
             self._cnx.open()
-            self._cnx._write(msg + self._txterm)
+            self._cnx._write(command)
 
     @property
     def FilterRiseTime(self):

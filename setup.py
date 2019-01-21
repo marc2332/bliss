@@ -95,7 +95,7 @@ def main():
     install_requires = [
         "redis >= 3",
         "louie-latest",
-        "netifaces < 0.10.5",
+        "netifaces",
         "jinja2 >= 2.7",
         "flask",
         "treelib",

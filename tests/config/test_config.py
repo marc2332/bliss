@@ -84,3 +84,19 @@ def test_issue_451_infinite_recursion(beacon):
     assert refs_cfg.parent == beacon.root
 
     assert beacon.root.parent is None
+
+
+class DummyObject:
+    def __init__(self, name, config):
+        assert config.get("t_value")
+
+
+def test_inherited_package(beacon):
+    import sys, os
+
+    try:
+        sys.path.append(os.path.dirname(__file__))
+        assert isinstance(beacon.get("dummy1"), DummyObject)
+        assert isinstance(beacon.get("dummy2"), DummyObject)
+    finally:
+        sys.path.pop()

@@ -36,11 +36,7 @@ def wrap_methods(from_object, target_object):
             setattr(
                 target_object,
                 name,
-                types.MethodType(
-                    WrappedMethod(from_object, name),
-                    target_object,
-                    target_object.__class__,
-                ),
+                types.MethodType(WrappedMethod(from_object, name), target_object),
             )
 
 

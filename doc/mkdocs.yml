@@ -35,7 +35,9 @@ nav:
                 - Sessions: config_session.md
                 - Simulation: config_simulation.md
                 - Beamviewer: config_beamviewer.md
-                - Keithley: config_keithley.md
+                - Keithley:
+                      - Ammeter and Multimeter: config_keithley.md
+                      - 428: config_keithley_428.md
                 - Correlators:
                       - Flex: config_correlator_flex.md
         - BLISS shell:

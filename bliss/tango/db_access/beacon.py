@@ -587,7 +587,9 @@ class beacon(object):
                 result.extend((attr_name, str(len(prop_attr))))
                 for name, values in prop_attr.items():
                     if isinstance(values, list):
-                        result.extend([name, len(values)] + [str(x) for x in values])
+                        result.extend(
+                            [name, str(len(values))] + [str(x) for x in values]
+                        )
                     else:
                         result.extend((name, "1", str(values)))
         return result

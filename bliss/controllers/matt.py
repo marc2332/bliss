@@ -98,7 +98,7 @@ class MattWagoMapping:
 
         mapping = []
         nb_chan = self.nb_filter
-        ch_ctrl = nb_chan / 4
+        ch_ctrl = nb_chan // 4
         ch_stat = ch_ctrl * n_mod
         ch = nb_chan % 4
 

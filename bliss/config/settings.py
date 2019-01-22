@@ -875,7 +875,7 @@ class Parameters(object):
 
     def _repr(self, d):
         rep_str = "Parameters (%s)\n" % self.__current_config.get()
-        max_len = max((len(x) for x in d.keys()))
+        max_len = max((0,) + tuple(len(k) for k in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
         for key, value in sorted(d.iteritems()):
             if key.startswith("_"):

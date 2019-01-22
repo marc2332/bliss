@@ -18,7 +18,6 @@ Manifacturer: General Electric Measurement & Control
        channel: 1            # for 6000 only
 ```
 The plugin for this controller is temperature.
-The line
 ```yaml
    plugin: temperature
 ```

@@ -26,6 +26,7 @@ import time
 import weakref
 
 import gevent
+from gevent import event
 
 from bliss.common import log
 from bliss.common.temperature import Output
@@ -86,7 +87,8 @@ class OxfordCryostream(object):
         """
         self.serial = Serial(port, baudrate=9600, eol="\r")
         self._status_packet = None
-        self._update_task = gevent.spawn(self._update_status, weakref.ref(self))
+        self._update_task = gevent.spawn(self._update_status, weakref.proxy(self))
+        self._event = event.Event()
 
     def __exit__(self, etype, evalue, etb):
         self.serial.close()
@@ -197,6 +199,9 @@ class OxfordCryostream(object):
         else:
             return self.statusPacket.ramp_rate, self.statusPacket.target_temp
 
+    def read_target_temperature(self):
+        return self.statusPacket.target_temp
+
     def read_temperature(self):
         """ Read the current temperature
             Returns:
@@ -220,6 +225,9 @@ class OxfordCryostream(object):
            Returns:
               None
         """
+        self._event.clear()
+        self._event.wait()
+
         data = [bytes([size]), bytes([command])]
         if size == 3:
             data.append(str(args[0]).encode())
@@ -251,17 +259,18 @@ class OxfordCryostream(object):
         return status
 
     @staticmethod
-    def _update_status(weak_ctrl):
-        while True:
-            ctrl = weak_ctrl()
-            if ctrl is None:
-                # controller is dying: exit the loop
-                return
-            try:
-                status = ctrl._update_cmd()
-            except Exception as error:
-                status = error
-            ctrl._status_packet = status
+    def _update_status(ctrl_proxy):
+        try:
+            while True:
+                try:
+                    status = ctrl_proxy._update_cmd()
+                except Exception as error:
+                    status = error
+                else:
+                    ctrl_proxy._event.set()  # command synchronization
+                ctrl_proxy._status_packet = status
+        except ReferenceError:
+            pass
 
     def _update_cmd(self):
         """Read the controller and update all the parameter variables
@@ -293,6 +302,9 @@ class oxford700(Base):
             warn("'SLdevice' is deprecated. Use serial instead", DeprecationWarning)
         self._oxford = OxfordCryostream(port)
         Base.__init__(self, self._oxford, config, *args)
+
+    def __repr__(self):
+        return repr(self._oxford._status_packet)
 
     def state_output(self, toutput):
         """Read the state parameters of the controller

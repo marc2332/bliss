@@ -15,12 +15,6 @@ class Base(Controller):
         Controller.__init__(self, config, *args)
         self._oxford = handler
 
-    def initialize_output(self, toutput):
-        """Initialize the output device
-        """
-        self.__ramp_rate = None
-        self.__set_point = None
-
     def read_output(self, toutput):
         """Read the current temperature
            Returns:
@@ -37,10 +31,7 @@ class Base(Controller):
            Returns:
               None
         """
-        try:
-            rate = int(kwargs.get("rate", self.__ramp_rate))
-        except TypeError:
-            raise RuntimeError("Cannot start ramping, ramp rate not set")
+        rate = self._oxford.read_ramprate()
         self._oxford.ramp(rate, sp)
 
     def set_ramprate(self, toutput, rate):
@@ -48,7 +39,8 @@ class Base(Controller):
            Args:
               rate (int): The ramp rate [K/hour]
         """
-        self.__ramp_rate = int(rate)
+        target_temperature = self._oxford.read_target_temperature()
+        self._oxford.ramp(rate, target_temperature)
 
     def read_ramprate(self, toutput):
         """Read the ramp rate

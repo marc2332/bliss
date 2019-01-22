@@ -55,7 +55,7 @@ class Base(Controller):
            Returns:
               (int): Previously set ramp rate (cashed value only) [K/hour]
         """
-        return self.__ramp_rate
+        return self._oxford.read_ramprate()
 
     def set(self, toutput, sp, **kwargs):
         """Make gas temperature decrease to a set value as quickly as possible

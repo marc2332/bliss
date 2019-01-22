@@ -7,6 +7,7 @@
 
 """ Oxford Cryosystems 700 Series
     cryo_700_series_manual.pdf, pages 38-39:
+    (http://www.oxcryo.com/serialcomms/700series/cs_status.html)
 
      Status Packets
      ---------------
@@ -98,6 +99,9 @@
 
 """
 
+import time
+import datetime
+
 
 class StatusPacket(object):
     """
@@ -172,7 +176,8 @@ class StatusPacket(object):
         "AlarmConditionPowerLoss",
     ]
 
-    def __init__(self, data):
+    def __init__(self, data, timestamp=None):
+        self.timestamp = timestamp or time.time()
         self.length = data[self.Length_c_idx]
         self.type = data[self.Type_c_idx]
         self.gas_set_point = (
@@ -254,7 +259,9 @@ class StatusPacket(object):
         return short
 
     def __repr__(self):
+        timestamp = datetime.datetime.fromtimestamp(self.timestamp)
         pretty_print = "Status Packet:"
+        pretty_print += "\nReading made at %s" % str(timestamp)
         pretty_print += "\nlength: %d" % self.length
         pretty_print += "\ntype: %d" % self.type
         pretty_print += "\ngas set point: %.2f (K)" % self.gas_set_point

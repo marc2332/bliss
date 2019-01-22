@@ -202,7 +202,7 @@ class EnetSocket(object):
             enet_5005 = EnetSocket(self._host, 5005)
             self._extra_socket.append(enet_5005)
             enet_5005._scmd(0x65, b"BBB4s", 0, 0, 0, client_id)
-            enet_5005._scmd(0x4f, b"B2sIH", 0x22, "\0\0", i, h)
+            enet_5005._scmd(0x4f, b"B2sIH", 0x22, b"\0\0", i, h)
 
             enet_5003._scmd(0x55, b"BBBBBHI", 0x01, 0, 0x02, 0, 0, h, i)
             enet_5003._scmd(0x50, b"BB", 0x10, 0x01)

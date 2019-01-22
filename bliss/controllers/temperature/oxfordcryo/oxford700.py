@@ -220,7 +220,7 @@ class OxfordCryostream(object):
            Returns:
               None
         """
-        data = [chr(size).encode(), chr(command).encode()]
+        data = [bytes([size]), bytes([command])]
         if size == 3:
             data.append(str(args[0]).encode())
         elif size > 3:
@@ -252,7 +252,6 @@ class OxfordCryostream(object):
 
     @staticmethod
     def _update_status(weak_ctrl):
-        weak_ctrl().serial.flush()
         while True:
             ctrl = weak_ctrl()
             if ctrl is None:
@@ -272,20 +271,17 @@ class OxfordCryostream(object):
               None
         """
         # read the data
-        data = self.serial.read(32, 10)
+        data = self.serial._read(32, 10)
 
         # check if data
         if not data:
             raise RuntimeError("Invalid answer from Cryostream")
 
         if len(data) != 32:
-            data = self.serial.read(32, 10)
+            data = self.serial._read(32, 10)
         data = [nb for nb in data]
         if data[0] == 32:
             return StatusPacket(data)
-        else:
-            log.debug("Cryostream: Flushing serial line to start from skratch")
-            self.serial.flush()
 
 
 class oxford700(Base):

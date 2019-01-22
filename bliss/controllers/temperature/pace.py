@@ -33,22 +33,22 @@ from bliss.common.utils import object_attribute_type_set
 from bliss.comm.tcp import Tcp
 
 
-class Pace(object):
-    def __init__(self, url=None, timeout=3, debug=False):
+class Pace:
+    def __init__(self, url=None, timeout=3):
         self.timeout = timeout
         self._units = ("ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2")
         self._eol = "\r"
 
-        self._sock = Tcp(url, timeout=self.timeout)
+        self._sock = Tcp(url, timeout=timeout)
 
-    def exit(self):
+    def close(self):
         self._sock.close()
 
     def init(self):
+        """ Read the ID of the module. Set the logger.
+        """
+        resp = self.putget("*IDN?")
         # check if the device replies correctly
-        resp = self._sock.write_readline(
-            "*IDN?" + self._eol, eol=self._eol, timeout=self.timeout
-        )
         if "PACE" in resp:
             model = resp.split(",")[1]
         else:
@@ -61,8 +61,8 @@ class Pace(object):
     def _mode(self, channel=1, mode=None):
         """Set/Read the rate the controller should achieve set-point.
            Args:
-              (int): channel number (default 1)
-              (str): mode - MAX (maximum rate)
+              channel (int): channel number (default 1)
+              mode (str): mode - MAX (maximum rate)
                             LIN (user selected linear rate)
           Returns:
               (str): current rate mode
@@ -70,7 +70,7 @@ class Pace(object):
         cmd = "SOUR%1d:SLEW:MODE" % channel
         if mode:
             try:
-                self._send_comm(cmd + " %s" % mode)
+                self._send_comm(cmd + " %s" % mode.upper())
             except RuntimeError as e:
                 self._logger.error("Mode not set: " + str(e))
         else:
@@ -82,8 +82,8 @@ class Pace(object):
     def _setpoint(self, channel=1, pressure=None):
         """Set/Read the pressure set-point
         Args:
-           (int): channel number (default 1)
-           (float): Pressure setpoint value
+           channel (int): channel number (default 1)
+           pressure (float): Pressure setpoint value
         Returns:
            (float): Current pressure set-point value.
         """
@@ -102,8 +102,8 @@ class Pace(object):
     def _ramprate(self, channel=1, rate=None):
         """Set/Read the rate the controller should use to achieve setpoint
         Args:
-            (int): channel number (default 1)
-            (float): Desired rate in pressure units per second - optional
+            channel (int): channel number (default 1)
+            rate (float): Desired rate in pressure units per second - optional
         Returns:
             (float): Current rate in selected pressure units per second
         """
@@ -122,7 +122,8 @@ class Pace(object):
     def _unit(self, channel=1, unit=None):
         """Set/Read the pressure unit
         Args:
-           (int): Desired unit as int the units dictionary
+           channel (int): Desired unit as int the units dictionary
+           unit (str): Unit to be used
         Returns:
            (string): The pressure in the current units
         """
@@ -146,8 +147,8 @@ class Pace(object):
     def setpoint(self, pressure, channel=1):
         """Set the pressure to a value at maximum speed
         Args:
-           (float): Pressure set-point value
-           (int): channel number (default 1)
+           pressure (float): Pressure set-point value
+           channel (int): channel number (default 1)
         """
         try:
             self._mode(channel, "MAX")
@@ -158,9 +159,9 @@ class Pace(object):
     def ramp(self, pressure=None, rate=None, channel=1):
         """Start ramping to the pressure setpoint
         Args:
-           (float): target pressure
-           (float): ramp rate in current units per second
-           (int): channel number (default 1)
+           pressure (float): target pressure
+           rate (float): ramp rate in current units per second
+           channel (int): channel number (default 1)
         Returns:
            tupple(float, float): target pressure, current ramp rate
         """
@@ -174,7 +175,7 @@ class Pace(object):
     def read_ramp(self, channel=1):
         """Read the current ramping parameters
         Args:
-           (int): channel number (default 1)
+           channel (int): channel number (default 1)
         Returns:
            tupple(float, float): target pressure, current ramp rate
         """
@@ -185,6 +186,8 @@ class Pace(object):
 
     def read_pressure(self, channel=1):
         """Read the current pressure
+        Args:
+           channel (int): channel mumber (default 1)
         Returns:
            (float): The pressure in the current units
         """
@@ -194,19 +197,32 @@ class Pace(object):
         except Exception as e:
             self._logger.error("Cannot read the pressure:" + str(e))
 
-    def _query_comm(self, msg):
-        """Send a query command. Read the responce
+    def putget(self, cmd):
+        """Send a command. Read the responce
         Args:
-           msg (string): The query command, which should end with ?
+           cmd (string): The command
         Returns:
            (string): The responce
         """
-        if not msg.endswith("?"):
-            msg += "?"
-        self._logger.debug("Command %s" % msg)
 
-        msg += self._eol
-        resp = self._sock.write_readline(msg, eol=self._eol, timeout=self.timeout)
+        cmd += "\r"
+        return self._sock.write_readline(
+            cmd.encode(), eol=self._eol, timeout=self.timeout
+        ).decode()
+
+    def _query_comm(self, cmd):
+        """Send a query command. Read the responce
+        Args:
+           cmd (string): The query command, which should end with ?
+        Returns:
+           (string): The responce
+        """
+        if not cmd.endswith("?"):
+            cmd += "?"
+
+        resp = self.putget(cmd)
+
+        self._logger.debug("Command %s" % cmd)
         try:
             _, val = resp.split()
             return val.strip(self._eol)
@@ -219,18 +235,18 @@ class Pace(object):
            Returns:
               (string): Error string if error
         """
-        msg = "SYST:ERR?" + self._eol
-        resp = self._sock.write_readline(msg, eol=self._eol, timeout=self.timeout)
+        resp = self.putget("SYST:ERR?")
         if "No error" not in resp:
             return resp.split(",")[1]
 
     def _send_comm(self, cmd):
         """Send a command.
         Args:
-           (string): The comamnd
+           cmd (string): The comamnd
         """
         self._logger.debug("Command %s" % cmd)
-        self._sock.write(cmd + self._eol)
+        cmd += self._eol
+        self._sock.write(cmd.encode())
         err = self._read_error()
         if err:
             self._logger.error(err)
@@ -244,7 +260,7 @@ class pace(Controller):
 
         self._pace = Pace(config["url"], config.get("timeout"))
 
-        Controller.__init__(self, config, *args)
+        super().__init__(config, *args)
 
     def initialize(self):
         self._pace.init()
@@ -258,8 +274,8 @@ class pace(Controller):
         self.unit = toutput.config.get("default_unit") or "BAR"
         self.set_units(self.channel, self.unit)
 
-    def __del__(self):
-        self._pace.exit()
+    def close(self):
+        self._pace.close()
 
     def start_ramp(self, toutput, sp, **kwargs):
         """ Send the command to start ramping to a setpoint.

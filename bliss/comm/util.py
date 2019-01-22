@@ -221,7 +221,7 @@ class HexMsg:
         self.msg = msg
 
     def __str__(self):
-        return " ".join(map(hex, map(ord, self.msg)))
+        return " ".join(map(hex, self.msg))
 
     def __repr__(self):
         return "[{0}]".format(self)

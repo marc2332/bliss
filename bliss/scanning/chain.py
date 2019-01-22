@@ -46,10 +46,9 @@ def profile(stats_dict, device_name, func_name):
 
 
 class DeviceIterator(object):
-    def __init__(self, device, one_shot):
+    def __init__(self, device):
         self.__device_ref = weakref.ref(device)
         self.__sequence_index = 0
-        self._one_shot = one_shot
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -61,12 +60,12 @@ class DeviceIterator(object):
         return self.__device_ref()
 
     def __next__(self):
-        if not self._one_shot:
+        if not self.device.parent:
+            raise StopIteration
+        else:
             if not self.device.prepare_once and not self.device.start_once:
                 if hasattr(self.device, "wait_reading"):
                     self.device.wait_reading()
-        else:
-            raise StopIteration
         self.__sequence_index += 1
         return self
 
@@ -101,10 +100,9 @@ class DeviceIterator(object):
 
 
 class DeviceIteratorWrapper(object):
-    def __init__(self, device, one_shot):
+    def __init__(self, device):
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
-        self.__one_shot = one_shot
         self.__current = None
         next(self)
 
@@ -112,7 +110,7 @@ class DeviceIteratorWrapper(object):
         try:
             self.__current = next(self.__iterator)
         except StopIteration:
-            if self.__one_shot:
+            if not self.__device.parent:
                 raise
             if hasattr(self.__device, "wait_reading"):
                 self.__device.wait_reading()
@@ -238,6 +236,7 @@ class AcquisitionMaster(object):
         self.__duplicated_channels = {}
         self.__prepared = False
         self.__stats_dict = {}
+        self.__terminator = True
 
     @property
     def trigger_type(self):
@@ -278,6 +277,19 @@ class AcquisitionMaster(object):
     @property
     def npoints(self):
         return self.__npoints
+
+    @property
+    def terminator(self):
+        """bool: flag to specify if the whole scan should terminate when the acquisition under control of the master is done. 
+
+        Only taken into account if the acquisition master is a top master in the acquisition chain.
+        Defaults to True: any top master ends a scan when done.
+        """
+        return self.__terminator
+
+    @terminator.setter
+    def terminator(self, terminator):
+        self.__terminator = bool(terminator)
 
     def _prepare(self, stats_dict):
         self.__stats_dict = stats_dict
@@ -579,20 +591,23 @@ class AcquisitionChainIter(object):
             if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
-            one_shot = self.acquisition_chain._device_one_shot_flag.get(dev, True)
             parent = device2iter.get(dev_node.bpointer, "root")
             try:
                 it = iter(dev)
             except TypeError:
-                dev_iter = DeviceIterator(dev, one_shot)
+                dev_iter = DeviceIterator(dev)
             else:
-                dev_iter = DeviceIteratorWrapper(dev, one_shot)
+                dev_iter = DeviceIteratorWrapper(dev)
             device2iter[dev] = dev_iter
             self._tree.create_node(tag=dev.name, identifier=dev_iter, parent=parent)
 
     @property
     def acquisition_chain(self):
         return self.__acquisition_chain_ref()
+
+    @property
+    def top_master(self):
+        return self._tree.children("root")[0].identifier.device
 
     def prepare(self, scan, scan_info):
         if self.__sequence_index == 0:
@@ -787,7 +802,6 @@ class AcquisitionChain(object):
         self._device_to_node = dict()
         self._presets_list = list()
         self._parallel_prepare = parallel_prepare
-        self._device_one_shot_flag = weakref.WeakKeyDictionary()
         self._stats_dict = dict()
 
     def reset_stats(self):
@@ -803,8 +817,6 @@ class AcquisitionChain(object):
         return list(nodes_gen)
 
     def add(self, master, slave):
-        self._device_one_shot_flag.setdefault(slave, False)
-
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
         if slave_node is not None and isinstance(slave, AcquisitionDevice):
@@ -820,6 +832,12 @@ class AcquisitionChain(object):
                 return
 
         if master_node is None:
+            for node in self.nodes_list:
+                if node.name == master.name:
+                    raise RuntimeError(
+                        f"Cannot add acquisition master with name '{node.name}`: duplicated name"
+                    )
+
             master_node = self._tree.create_node(
                 tag=master.name, identifier=master, parent="root"
             )
@@ -842,14 +860,6 @@ class AcquisitionChain(object):
             raise ValueError("Expected ChainPreset instance")
         self._presets_list.append(preset)
 
-    def set_stopper(self, device, stop_flag):
-        """
-        By default any top master device will stop the scan.
-        In case of several top master, you can define which one won't
-        stop the scan
-        """
-        self._device_one_shot_flag[device] = not stop_flag
-
     def get_iter_list(self):
         if len(self._tree) > 1:
             # set all slaves into master
@@ -862,6 +872,7 @@ class AcquisitionChain(object):
             sub_trees = [
                 self._tree.subtree(x.identifier) for x in self._tree.children("root")
             ]
+
             iterators = [
                 AcquisitionChainIter(
                     self,

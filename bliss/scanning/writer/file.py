@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import itertools
 import logging
 import errno
 import os
@@ -129,8 +130,20 @@ class FileWriter(object):
 
         self._event_receivers = []
 
+        scan_counter = itertools.count()
+
         for dev, node in scan.nodes.items():
             if isinstance(dev, AcquisitionMaster):
+                if dev.parent is None:
+                    # top-level master
+                    scan_index = next(scan_counter)
+                    if scan_index > 0:
+                        # multiple top-level masters: create a new scan with sub-scan
+                        # convention: scan number will get a .1, .2, etc suffix
+                        scan_number, scan_name = scan.node.name.split("_", maxsplit=1)
+                        subscan_name = f"{scan_number}{'.%d_' % scan_index}{scan_name}"
+                        scan_entry = self.new_scan(subscan_name, scan.scan_info)
+
                 master_entry = self.new_master(dev, scan_entry)
                 self._prepare_callbacks(dev, master_entry, self._master_event_callback)
 

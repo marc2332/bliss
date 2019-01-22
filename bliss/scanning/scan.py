@@ -750,15 +750,37 @@ class Scan(object):
                     gevent.killall(prepare_tasks)
 
             self._state = self.START_STATE
-            run_next_tasks = [gevent.spawn(self._run_next, i) for i in current_iters]
+            run_next_tasks = [
+                (gevent.spawn(self._run_next, i), i) for i in current_iters
+            ]
+            run_scan = True
 
             with capture_exceptions(raise_index=0) as capture:
                 with capture():
                     try:
-                        # The first top_master will end the loop (count=1)
-                        gevent.joinall(run_next_tasks, raise_error=True, count=1)
+                        while run_scan:
+                            # The master defined as 'stopper' ends the loop
+                            # (by default any top master will stop the loop),
+                            # the loop is also stopped in case of exception.
+                            gevent.joinall(
+                                [t for t, _ in run_next_tasks],
+                                raise_error=True,
+                                count=1,
+                            )
+
+                            for i, (task, iterator) in enumerate(list(run_next_tasks)):
+                                if task.ready():
+                                    if iterator.top_master.terminator:
+                                        # scan has to end
+                                        run_scan = False
+                                        break
+                                    else:
+                                        # remove finished task, as it does not
+                                        # correspond to a "stopper" top master
+                                        run_next_tasks.pop(i)
+                                        run_scan = len(run_next_tasks) > 0
                     finally:
-                        gevent.killall(run_next_tasks)
+                        gevent.killall([t for t, _ in run_next_tasks])
 
                 self._state = self.STOP_STATE
 

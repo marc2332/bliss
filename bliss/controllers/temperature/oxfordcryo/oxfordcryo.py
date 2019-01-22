@@ -101,6 +101,7 @@
 
 import time
 import datetime
+from numpy import bitwise_and
 
 
 class StatusPacket(object):
@@ -324,6 +325,6 @@ def split_bytes(number):
     """
     if not isinstance(number, int):
         raise Exception("split_bytes: Wrong imput - should be an integer.")
-    low = chr(number & 0b11111111)
-    high = chr((number >> 8) & 0b11111111)
-    return high, low
+    low = bitwise_and(number, 0b11111111)
+    high = bitwise_and((number >> 8), 0b11111111)
+    return bytes([high]), bytes([low])

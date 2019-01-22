@@ -220,9 +220,9 @@ class OxfordCryostream(object):
            Returns:
               None
         """
-        data = [chr(size), chr(command)]
+        data = [chr(size).encode(), chr(command).encode()]
         if size == 3:
-            data.append(str(args[0]))
+            data.append(str(args[0]).encode())
         elif size > 3:
             hbyte, lbyte = split_bytes(args[0])
             data.append(hbyte)
@@ -233,7 +233,9 @@ class OxfordCryostream(object):
                 data.append(lbyte)
             except Exception:
                 pass
-        data_str = "".join(data)
+        data_str = b"".join(data)
+        print([d.hex() for d in data])
+        print(data_str.hex())
         self.serial.write(data_str)
 
     @property
@@ -278,8 +280,7 @@ class OxfordCryostream(object):
 
         if len(data) != 32:
             data = self.serial.read(32, 10)
-        # data = map(ord, data)
-        data = [ord(nb) for nb in data]
+        data = [nb for nb in data]
         if data[0] == 32:
             return StatusPacket(data)
         else:
@@ -314,12 +315,12 @@ class oxford700(Base):
         return str(self.read_status())
 
 
-if __name__ == "__main__":
-    cryo_obj = OxfordCryostream("rfc2217://lid292:28003")
-
-    for i in range(100):
-        print cryo_obj.read_temperature()
-        time.sleep(10)
-
-    print cryo_obj.ramp()
-    # cryo_obj.turbo(True)
+# if __name__ == '__main__':
+#    cryo_obj = OxfordCryostream("rfc2217://lid292:28003")
+#
+#    for i in range(100):
+#        print (cryo_obj.read_temperature())
+#        time.sleep(10)
+#
+#    print cryo_obj.ramp()
+#    # cryo_obj.turbo(True)

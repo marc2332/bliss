@@ -40,13 +40,10 @@ ascan_dump = """{ascan}
     NX_class: NXinstrument
 {ascan}/measurement
     NX_class: NXcollection
-{ascan}/measurement/{group_name}
-{ascan}/measurement/{group_name}/{group_name}:roby
-{ascan}/measurement/{group_name}/timer
-{ascan}/measurement/timer
-{ascan}/measurement/timer/diode:diode
-{ascan}/measurement/timer/simu1:spectrum_det0
-{ascan}/measurement/timer/timer:elapsed_time
+{ascan}/measurement/axis:roby
+{ascan}/measurement/diode:diode
+{ascan}/measurement/simu1:spectrum_det0
+{ascan}/measurement/timer:elapsed_time
 {ascan}/start_time
 {ascan}/title
 """
@@ -115,24 +112,16 @@ def test_hdf5_file_items(beacon, session):
                 continue
         else:
             in_scan = l == s.node.name or l.startswith(s.node.name + "/")
-        if in_scan:
-            if l.startswith(s.node.name + "/measurement/group_"):
-                group_name = l.replace(s.node.name + "/measurement/", "").split("/")[0]
-        else:
+        if not in_scan:
             continue
         if "positioner" in l:
             in_positioner = True
             continue
         else:
             in_positioner = False
-        assert l == ref_ascan_dump[i].format(ascan=s.node.name, group_name=group_name)
-        i += 1
 
-    f = h5py.File(s.writer.filename)
-    assert (
-        f[f[s.node.name]["measurement"][group_name]["timer"].value]
-        == f[s.node.name]["measurement"]["timer"]
-    )
+        assert l == ref_ascan_dump[i].format(ascan=s.node.name)
+        i += 1
 
 
 def test_hdf5_values(beacon, session):
@@ -142,5 +131,5 @@ def test_hdf5_values(beacon, session):
     scan_file = s.writer.filename
     data = s.get_data()["diode"]
     f = h5py.File(scan_file)
-    dataset = f[s.node.name]["measurement"]["timer"]["diode:diode"]
+    dataset = f[s.node.name]["measurement"]["diode:diode"]
     assert list(dataset) == list(data)

@@ -35,6 +35,7 @@ from bliss.data.node import (
 )
 from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
+from bliss.common import motor_group
 from .chain import AcquisitionDevice, AcquisitionMaster
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
@@ -669,6 +670,17 @@ class Scan(object):
         if signal == "end":
             self.__trigger_data_watch_callback(signal, sender, sync=True)
 
+    def _prepare_channels(self, channels, parent_node):
+        for channel in channels:
+            self.nodes[channel] = _get_or_create_node(
+                channel.name,
+                channel.data_node_type,
+                parent_node,
+                shape=channel.shape,
+                dtype=channel.dtype,
+            )
+            connect(channel, "new_data", self._channel_event)
+
     def prepare(self, scan_info, devices_tree):
         parent_node = self.node
         prev_level = 1
@@ -681,19 +693,19 @@ class Scan(object):
             if prev_level != level:
                 prev_level = level
                 parent_node = self.nodes[dev_node.bpointer]
-
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
-                data_container_node = _create_node(dev.name, parent=parent_node)
-                self.nodes[dev] = data_container_node
-                for channel in dev.channels:
-                    self.nodes[channel] = _get_or_create_node(
-                        channel.name,
-                        channel.data_node_type,
-                        data_container_node,
-                        shape=channel.shape,
-                        dtype=channel.dtype,
-                    )
-                    connect(channel, "new_data", self._channel_event)
+                if isinstance(dev.device, motor_group._Group):
+                    # special case for motor group: motor groups have no name,
+                    # each channel (motor in group) corresponds to its own dataset
+                    # and is attached to the parent node
+                    self.nodes[dev] = parent_node
+                    self._prepare_channels(dev.channels, parent_node)
+                else:
+                    data_container_node = _create_node(dev.name, parent=parent_node)
+
+                    self.nodes[dev] = data_container_node
+                    self._prepare_channels(dev.channels, data_container_node)
+
                 for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)
 

@@ -95,6 +95,62 @@ def test_pointscan(session):
     assert numpy.array_equal(scan_data["gaussian"], counter.data)
 
 
+def test_lookupscan(session):
+    roby = getattr(setup_globals, "roby")
+    robz = getattr(setup_globals, "robz")
+    diode = getattr(setup_globals, "diode")
+    s = scans.lookupscan(0.1, roby, (0, 1), robz, (1, 2), diode, save=False)
+    scan_data = s.get_data()
+    assert numpy.array_equal(scan_data["roby"], (0, 1))
+    assert numpy.array_equal(scan_data["robz"], (1, 2))
+
+
+def test_anscan(session):
+    roby = getattr(setup_globals, "roby")
+    robz = getattr(setup_globals, "robz")
+    diode = getattr(setup_globals, "diode")
+    s = scans.anscan(0.1, 2, roby, 0, 1, robz, 1, 2, diode, save=False)
+    scan_data = s.get_data()
+    assert numpy.array_equal(scan_data["roby"], (0, 1))
+    assert numpy.array_equal(scan_data["robz"], (1, 2))
+
+
+def test_all_anscan(session):
+    roby = getattr(setup_globals, "roby")
+    robz = getattr(setup_globals, "robz")
+    robz2 = getattr(setup_globals, "robz2")
+    m0 = getattr(setup_globals, "m0")
+    m1 = getattr(setup_globals, "m1")
+    diode = getattr(setup_globals, "diode")
+    # just call them to check syntax
+    # real test is done else where
+    scans.a5scan(
+        roby,
+        0,
+        0.1,
+        robz,
+        0,
+        0.1,
+        robz2,
+        0,
+        0.1,
+        m0,
+        0,
+        0.1,
+        m1,
+        0,
+        0.1,
+        2,
+        0.1,
+        diode,
+        save=False,
+    )
+    scans.a4scan(
+        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, m0, 0, 0.1, 2, 0.1, diode, save=False
+    )
+    scans.a3scan(roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False)
+
+
 def test_scan_callbacks(session):
 
     res = {"new": False, "end": False, "values": []}

@@ -400,9 +400,17 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
         self._motor_pos = list()
         self._axes = list()
+        nb_points = None
         for _axis, pos_list in grouped(args, 2):
             self._axes.append(_axis)
-            self._motor_pos.append(pos_list)
+            if nb_points is None or nb_points == len(pos_list):
+                self._motor_pos.append(pos_list)
+                nb_points = len(pos_list)
+            else:
+                raise RuntimeError(
+                    "Motor %s has a %d nbpoints but other has %d nbpoints"
+                    % (_axis.name, len(pos_list), nb_points)
+                )
 
         mot_group = Group(*self._axes)
 

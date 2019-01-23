@@ -74,3 +74,20 @@ def test_pkcom_timescan_gauss(session):
 
     p = s.peak(counter)
     assert pytest.approx(p, center)
+
+
+def test_plotselect_and_global_cen(session):
+    counter_class = getattr(setup_globals, "AutoScanGaussianCounter")
+    roby = getattr(setup_globals, "roby")
+    counter = counter_class("gaussian")
+    scans.plotselect(counter)
+    s = scans.ascan(roby, 0, .1, 5, 0, counter, save=False)
+    counter.close()
+    assert counter.name == scans._get_selected_counter_name()
+    cen_pos = scans.cen()
+    assert pytest.approx(0.05, abs=1e-3) == cen_pos[0]
+
+    # just call goto_X to go through the code
+    scans.goto_cen()
+    scans.goto_com()
+    scans.goto_peak()

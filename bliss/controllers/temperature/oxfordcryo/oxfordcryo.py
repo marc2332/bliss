@@ -101,7 +101,6 @@
 
 import time
 import datetime
-from numpy import bitwise_and
 
 
 class StatusPacket(object):
@@ -183,14 +182,14 @@ class StatusPacket(object):
         self.type = data[self.Type_c_idx]
         self.gas_set_point = (
             self.get_short(data[self.GasSetPoint_s_idx : self.GasSetPoint_s_idx + 2])
-            / 100.
+            / 100.0
         )
         self.gas_temp = (
-            self.get_short(data[self.GasTemp_s_idx : self.GasTemp_s_idx + 2]) / 100.
+            self.get_short(data[self.GasTemp_s_idx : self.GasTemp_s_idx + 2]) / 100.0
         )
         self.gas_error = (
             self.get_signed_short(data[self.GasError_s_idx : self.GasError_s_idx + 2])
-            / 100.
+            / 100.0
         )
         self.run_mode_code = data[self.RunMode_c_idx]
         self.run_mode = self.RUNMODE_CODES[self.run_mode_code]
@@ -201,18 +200,18 @@ class StatusPacket(object):
         )
         self.target_temp = (
             self.get_short(data[self.TargetTemp_s_idx : self.TargetTemp_s_idx + 2])
-            / 100.
+            / 100.0
         )
         self.evap_temp = (
-            self.get_short(data[self.EvapTemp_s_idx : self.EvapTemp_s_idx + 2]) / 100.
+            self.get_short(data[self.EvapTemp_s_idx : self.EvapTemp_s_idx + 2]) / 100.0
         )
         self.suct_temp = (
-            self.get_short(data[self.SuctTemp_s_idx : self.SuctTemp_s_idx + 2]) / 100.
+            self.get_short(data[self.SuctTemp_s_idx : self.SuctTemp_s_idx + 2]) / 100.0
         )
         self.remaining = self.get_short(
             data[self.Remaining_s_idx : self.Remaining_s_idx + 2]
         )
-        self.gas_flow = data[self.GasFlow_c_idx] / 10.
+        self.gas_flow = data[self.GasFlow_c_idx] / 10.0
         self.gas_heat = data[self.GasHeat_c_idx]
         self.evap_heat = data[self.EvapHeat_c_idx]
         self.suct_heat = data[self.SuctHeat_c_idx]
@@ -325,6 +324,6 @@ def split_bytes(number):
     """
     if not isinstance(number, int):
         raise Exception("split_bytes: Wrong imput - should be an integer.")
-    low = bitwise_and(number, 0b11111111)
-    high = bitwise_and((number >> 8), 0b11111111)
+    low = number & 0b11111111
+    high = (number >> 8) & 0b11111111
     return bytes([high]), bytes([low])

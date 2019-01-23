@@ -27,6 +27,8 @@ import weakref
 
 import gevent
 from gevent import event
+import logging
+
 
 from bliss.common import log
 from bliss.common.temperature import Output
@@ -85,6 +87,9 @@ class OxfordCryostream(object):
     def __init__(self, port=None):
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
+        self.log = logging.getLogger("Oxford700." + port)
+        self.log.debug("Oxford700: __init__(port %s)", port)
+
         self.serial = Serial(port, baudrate=9600, eol="\r")
         self._status_packet = None
         self._update_task = gevent.spawn(self._update_status, weakref.proxy(self))
@@ -190,14 +195,21 @@ class OxfordCryostream(object):
               (float, float): current ramp rate [K/hour],
                               target temperature [K]
         """
-        if rate and temp:
-            try:
-                temp = int(temp * 100)  # transfering to centi-Kelvin
-                self.send_cmd(6, CSCOMMAND.RAMP, int(rate), temp)
-            except (TypeError, ValueError):
-                raise
-        else:
-            return self.statusPacket.ramp_rate, self.statusPacket.target_temp
+        if rate == None:
+            rate = self.statusPacket.ramp_rate
+        if rate == 0:
+            print("Oxford700: ramprate is 0! Please set ramprate first!")
+            return
+        if temp == None:
+            temp = self.statusPacket.target_temp
+        if temp == 0.0:
+            temp = self.statusPacket.gas_temp
+
+        try:
+            temp = int(temp * 100)  # transfering to centi-Kelvin
+            self.send_cmd(6, CSCOMMAND.RAMP, int(rate), temp)
+        except (TypeError, ValueError):
+            raise
 
     def read_target_temperature(self):
         return self.statusPacket.target_temp
@@ -225,9 +237,10 @@ class OxfordCryostream(object):
            Returns:
               None
         """
+        print("before wait")
         self._event.clear()
         self._event.wait()
-
+        print("after wait")
         data = [bytes([size]), bytes([command])]
         if size == 3:
             data.append(str(args[0]).encode())
@@ -242,8 +255,9 @@ class OxfordCryostream(object):
             except Exception:
                 pass
         data_str = b"".join(data)
-        print([d.hex() for d in data])
-        print(data_str.hex())
+        self.log.debug("Oxford700 send_cmd: %s", [d.hex() for d in data])
+        # print([ d.hex() for d in data ])
+        # print(data_str.hex())
         self.serial.write(data_str)
 
     @property

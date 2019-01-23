@@ -155,7 +155,7 @@ def _encode_uint32(i):
 
 
 def _decode_uint8(msg):
-    return struct.unpack("!B", msg[0])[0]
+    return struct.unpack("!B", msg[:1])[0]
 
 
 def _encode_uint8(i):
@@ -192,7 +192,7 @@ def _decode_status(msg):
 
 def _decode_float_status(msg):
     number = _decode_float(msg[:4])
-    status = _decode_status(msg[4])
+    status = _decode_status(msg[4:])
     if status != "OK":
         raise KellerError(status)
     return number
@@ -351,7 +351,6 @@ PT_PPRINT_TEMPLATE = """\
 class KellerCounter(SamplingCounter):
     def __init__(self, name, controller, channel, unit=None):
         SamplingCounter.__init__(self, name, controller)
-        self.controller = controller
         self.channel = channel
         self.unit = unit
 
@@ -528,8 +527,8 @@ class PressureTransmitter(object):
             request.extend([crc_l, crc_h])
         else:
             request.extend([crc_h, crc_l])
-        request = "".join(map(chr, request))
-        self.debug("raw write: %r", request)
+        request = bytes(request)
+        self.debug("raw write: %r", request.hex())
         self.comm.write(request)
 
         # REPLY: transmitted message is received again immediately as an echo
@@ -541,7 +540,8 @@ class PressureTransmitter(object):
         # OK REPLY: Addr + Function + <specific response> + CRC_H + CRC_L
         # ERR REPLY: Addr + (0x80 | Function) + Error code + CRC_H + CRC_L
         reply = self.comm.read(2)
-        reply_addr, reply_fn = map(ord, reply)
+        reply_addr = reply[0]
+        reply_fn = reply[1]
 
         if self._configured_address != reply_addr:
             raise KellerError("Unexpected response address")
@@ -566,7 +566,7 @@ class PressureTransmitter(object):
         reply_crc = self.comm.read(2)
         reply += reply_payload + reply_crc
         self.debug("raw reply: %r", reply)
-        crc = crc16(reply_addr, reply_fn, *map(ord, reply_payload))
+        crc = crc16(reply_addr, reply_fn, *[n for n in reply_payload])
         if not check_message_crc16(reply_crc, crc):
             raise KellerError("CRC failure in reply")
         return cmd.decode(reply_payload)

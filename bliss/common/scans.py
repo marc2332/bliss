@@ -890,6 +890,17 @@ def _get_selected_counter_name():
     return alignment_counts.pop()
 
 
+def last_scan_motor():
+    """
+    Return the last motor used in the last scan
+    """
+    if not len(setup_globals.SCANS):
+        raise RuntimeError("No scan available. Hits: do at least one ;)")
+    scan = setup_globals.SCANS[-1]
+    axis_name = scan._get_data_axis_name()
+    return getattr(setup_globals, axis_name)
+
+
 def plotselect(*counters):
     """
     Select counter(s) which will be use for alignment and in flint display
@@ -914,8 +925,14 @@ def cen():
 
 def goto_cen():
     counter_name = _get_selected_counter_name()
-    SCANS = setup_globals.SCANS
-    return SCANS[-1].goto_cen(counter_name)
+    motor = last_scan_motor()
+    scan = setup_globals.SCANS[-1]
+    motor = last_scan_motor()
+    cfwhm, _ = scan.cen(counter_name)
+    _log.warning(
+        "Motor %s will move from %f to %f", motor.name, motor.position(), cfwhm
+    )
+    return scan.goto_cen(counter_name)
 
 
 def com():
@@ -927,6 +944,13 @@ def com():
 def goto_com():
     counter_name = _get_selected_counter_name()
     SCANS = setup_globals.SCANS
+    motor = last_scan_motor()
+    scan = setup_globals.SCANS[-1]
+    motor = last_scan_motor()
+    com_pos = scan.com(counter_name)
+    _log.warning(
+        "Motor %s will move from %f to %f", motor.name, motor.position(), com_pos
+    )
     return SCANS[-1].goto_com(counter_name)
 
 
@@ -938,8 +962,14 @@ def peak():
 
 def goto_peak():
     counter_name = _get_selected_counter_name()
-    SCANS = setup_globals.SCANS
-    return SCANS[-1].goto_peak(counter_name)
+    motor = last_scan_motor()
+    scan = setup_globals.SCANS[-1]
+    motor = last_scan_motor()
+    peak_pos = scan.peak(counter_name)
+    _log.warning(
+        "Motor %s will move from %f to %f", motor.name, motor.position(), peak_pos
+    )
+    return scan.goto_peak(counter_name)
 
 
 def where():

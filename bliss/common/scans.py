@@ -13,6 +13,7 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 
 __all__ = [
     "ascan",
+    "lookupscan",
     "a2scan",
     "amesh",
     "dmesh",
@@ -39,7 +40,7 @@ from bliss import setup_globals
 from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
-from bliss.common.axis import estimate_duration
+from bliss.common.axis import estimate_duration, Axis
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss.scanning.default import DefaultAcquisitionChain
@@ -536,6 +537,53 @@ def a2scan(
 
     if kwargs.get("return_scan", True):
         return scan
+
+
+def lookupscan(count_time, *motors_positions, **kwargs):
+    """Lookupscan usage:
+    lookupscan(0.1,m0,numpy.arange(0,2,0.5),m1,numpy.linspace(1,3,4),diode2)
+    to scan 2 motor with their own position table and with diode2 as
+    the only counter.
+    """
+    counter_list = list()
+    tmp_l, motors_positions = list(motors_positions), list()
+    while tmp_l:
+        val = tmp_l.pop(0)
+        if isinstance(val, Axis):
+            motors_positions.extend((val, tmp_l.pop(0)))
+        else:
+            counter_list.append(val)
+
+    kwargs.setdefault(
+        "title",
+        "lookupscan %f on motors (%s)"
+        % (count_time, ",".join(x.name for x in motors_positions[::2])),
+    )
+
+    scan_info = {
+        "npoints": len(motors_positions[1]),
+        "count_time": count_time,
+        "type": kwargs.get("type", "lookupscan"),
+        "save": kwargs.get("save", True),
+        "title": kwargs["title"],
+        "sleep_time": kwargs.get("sleep_time"),
+    }
+
+    chain = DEFAULT_CHAIN.get(
+        scan_info, counter_list, top_master=VariableStepTriggerMaster(*motors_positions)
+    )
+    scan = Scan(
+        chain,
+        scan_info=scan_info,
+        name=kwargs.setdefault("name", "lookupscan"),
+        save=scan_info["save"],
+        save_images=kwargs.get("save_images", True),
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    if kwargs.get("run", True):
+        scan.run()
+    return scan
 
 
 def d2scan(

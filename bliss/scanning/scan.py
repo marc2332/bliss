@@ -527,7 +527,7 @@ class Scan(object):
     def statistics(self):
         return Statistics(self._acq_chain._statistic_container)
 
-    def _get_x_y_data(self, counter, axis=None):
+    def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
         for top_level_master in acq_chain.keys():
@@ -553,10 +553,16 @@ class Scan(object):
                 axis_name = axis.name
                 if axis_name not in master_axes:
                     raise ValueError("No master for axis '%s`." % axis_name)
+        return axis_name
 
+    def _get_x_y_data(self, counter, axis=None):
+        axis_name = self._get_data_axis_name(axis)
+        counter_name = (
+            counter.name if not isinstance(counter, (str, unicode)) else counter
+        )
         data = self.get_data()
         x_data = data[axis_name]
-        y_data = data[counter.name]
+        y_data = data[counter_name]
 
         return x_data, y_data, axis_name
 

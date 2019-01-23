@@ -68,6 +68,13 @@ class Scan(DataNodeContainer):
             self._data.end_timestamp = end_timestamp
 
 
+def get_counter_names(scan):
+    """
+    Return a list of counter names
+    """
+    return [node.name for node in scan.nodes.values() if node.type == "channel"]
+
+
 def get_data(scan):
     """
     Return a numpy structured array

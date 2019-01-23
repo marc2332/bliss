@@ -237,10 +237,8 @@ class OxfordCryostream(object):
            Returns:
               None
         """
-        print("before wait")
         self._event.clear()
         self._event.wait()
-        print("after wait")
         data = [bytes([size]), bytes([command])]
         if size == 3:
             data.append(str(args[0]).encode())

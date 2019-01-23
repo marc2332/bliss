@@ -25,6 +25,8 @@ nav:
                       - Eurotherm: config_eurotherm.md
                       - Meerstetter: config_meerstetter.md
                       - PACE: config_pace.md
+                      - Lakeshore: config_lakeshore.md
+                      - Oxford700: config_oxford700.md
                 - P201: config_p201.md
                 - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md
@@ -42,6 +44,7 @@ nav:
                       - 428: config_keithley_428.md
                 - Correlators:
                       - Flex: config_correlator_flex.md
+                - VME time frame generator: config_tango_tfg.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md

@@ -2,6 +2,7 @@
 
 ## Configuration of ls330, ls332, and ls336
 for connection via gpib
+```YAML
         - class: lakeshore336
           plugin: temperature
           module: lakeshore.lakeshore336
@@ -15,8 +16,10 @@ for connection via gpib
           inputs:
             - name: ls336Gt
               channel: A
+```
 
 for connection via tcp
+```YAML
         - class: lakeshore336
           plugin: temperature
           module: lakeshore.lakeshore336
@@ -29,6 +32,6 @@ for connection via tcp
           inputs:
             - name: ls336Gt
               channel: A
-
+```
 
 Note that ls335 is treated differently in bliss.

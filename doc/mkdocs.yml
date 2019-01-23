@@ -48,6 +48,7 @@ nav:
                 - Customization: shell_customization.md
         - BLISS programming:
                 - Dealing with energy: prog_energy.md
+                - Settings: dev_settings.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md

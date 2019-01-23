@@ -14,7 +14,11 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 __all__ = [
     "ascan",
     "lookupscan",
+    "anscan",
     "a2scan",
+    "a3scan",
+    "a4scan",
+    "a5scan",
     "amesh",
     "dmesh",
     "dscan",
@@ -35,6 +39,7 @@ __all__ = [
 ]
 
 import logging
+import numpy
 
 from bliss import setup_globals
 from bliss.common import session
@@ -584,6 +589,149 @@ def lookupscan(count_time, *motors_positions, **kwargs):
     if kwargs.get("run", True):
         scan.run()
     return scan
+
+
+def anscan(count_time, npoints, *motors_positions, **kwargs):
+    """anscan usage:
+    anscan(0.1,10,m0,start_m0_pos,stop_m0_pos,m1,start_m1_pos,stop_m1_pos,diode2)
+    10 points scan at 0.1 second integration on motor **m0** from
+    *stop_m0_pos* to *stop_m0_pos* and **m1** from *start_m1_pos* to
+    *stop_m1_pos* and with diode2 as the only counter.
+    """
+    counter_list = list()
+    tmp_l, motors_positions = list(motors_positions), list()
+    title_list = list()
+    while tmp_l:
+        val = tmp_l.pop(0)
+        if isinstance(val, Axis):
+            start = tmp_l.pop(0)
+            stop = tmp_l.pop(0)
+            title_list.extend((val.name, start, stop))
+            motors_positions.extend((val, numpy.linspace(start, stop, npoints)))
+        else:
+            counter_list.append(val)
+
+    scan_type = kwargs.setdefault("type", "a%dscan" % (len(title_list) / 3))
+    scan_name = kwargs.setdefault("name", scan_type)
+    if "title" not in kwargs:
+        args = [scan_type]
+        args += title_list
+        args += [npoints, count_time]
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        kwargs["title"] = template.format(*args)
+
+    motors_positions += counter_list
+    return lookupscan(count_time, *motors_positions, **kwargs)
+
+
+def a3scan(
+    motor1,
+    start1,
+    stop1,
+    motor2,
+    start2,
+    stop2,
+    motor3,
+    start3,
+    stop3,
+    npoints,
+    count_time,
+    *counter_args,
+    **kwargs
+):
+    """
+    Absolute 3 motors scan.
+    Identic to a2scan but for 3 motors.
+    """
+    args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
+    args += counter_args
+    return anscan(count_time, npoints, *args, **kwargs)
+
+
+def a4scan(
+    motor1,
+    start1,
+    stop1,
+    motor2,
+    start2,
+    stop2,
+    motor3,
+    start3,
+    stop3,
+    motor4,
+    start4,
+    stop4,
+    npoints,
+    count_time,
+    *counter_args,
+    **kwargs
+):
+    """
+    Absolute 4 motors scan.
+    Identic to a2scan but for 4 motors.
+    """
+    args = [
+        motor1,
+        start1,
+        stop1,
+        motor2,
+        start2,
+        stop2,
+        motor3,
+        start3,
+        stop3,
+        motor4,
+        start4,
+        stop4,
+    ]
+    args += counter_args
+    return anscan(count_time, npoints, *args, **kwargs)
+
+
+def a5scan(
+    motor1,
+    start1,
+    stop1,
+    motor2,
+    start2,
+    stop2,
+    motor3,
+    start3,
+    stop3,
+    motor4,
+    start4,
+    stop4,
+    motor5,
+    start5,
+    stop5,
+    npoints,
+    count_time,
+    *counter_args,
+    **kwargs
+):
+    """
+    Absolute 5 motors scan.
+    Identic to a2scan but for 5 motors.
+    """
+    args = [
+        motor1,
+        start1,
+        stop1,
+        motor2,
+        start2,
+        stop2,
+        motor3,
+        start3,
+        stop3,
+        motor4,
+        start4,
+        stop4,
+        motor5,
+        start5,
+        stop5,
+    ]
+    args += counter_args
+    return anscan(count_time, npoints, *args, **kwargs)
 
 
 def d2scan(

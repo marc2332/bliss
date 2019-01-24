@@ -8,6 +8,7 @@
 import os
 import struct
 from warnings import warn
+import gevent
 
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
@@ -127,9 +128,9 @@ class Opiom:
         self._cnx.write(msg)
 
     def raw_bin_write(self, binmsg):
-        nb_block = len(binmsg) / self.FSIZE
+        nb_block = len(binmsg) // self.FSIZE
         nb_bytes = len(binmsg) % self.FSIZE
-        lrc = (nb_bytes + nb_block + sum([ord(x) for x in binmsg])) & 0xff
+        lrc = (nb_bytes + nb_block + sum([x for x in binmsg])) & 0xff
         rawMsg = struct.pack(
             "BBB%dsBB" % len(binmsg), 0xff, nb_block, nb_bytes, binmsg, lrc, 13
         )
@@ -205,10 +206,13 @@ class Opiom:
         for frame_n, index in enumerate(range(0, len(sendarray), self.FSIZE)):
             with KillMask():
                 cmd = "#*FRM %d\r" % frame_n
-                self.raw_write(cmd)
+                self.raw_write(cmd.encode())
+                gevent.sleep(.1)
+                print("                         ", end="\r")
+                print("FRAME {0}".format(frame_n), end="\r")
                 self.raw_bin_write(sendarray[index : index + self.FSIZE])
-                answer = self._cnx.readline("\r\n")
-                if answer == "OK":
+                answer = self._cnx.readline("\r\n".encode())
+                if answer[-1:] == b"K":
                     continue
                 raise RuntimeError(
                     "Load program: [%s] returned [%s]" % (cmd.strip(), answer)
@@ -217,6 +221,8 @@ class Opiom:
         # waiting end programming
         while True:
             stat_num = self.comm("?PSTAT")
+            print("                         ", end="\r")
+            print("{0}".format(stat_num), end="\r")
             self.__debugMsg("Load", stat_num)
             try:
                 stat, percent = stat_num.split()
@@ -257,8 +263,8 @@ class Opiom:
         )
 
     def _getFilePLDIDandPROJECT(self, prog_name):
-        TOKEN = "#pldid#"
-        PROJECT_TOKEN = "#project#"
+        TOKEN = b"#pldid#"
+        PROJECT_TOKEN = b"#project#"
         with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
             begin = -1
             for line in f:

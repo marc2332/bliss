@@ -635,6 +635,8 @@ class TangoSerial(_BaseSerial):
         self._device = None
 
     def _readline(self, eol):
+        if not isinstance(eol, bytes):
+            eol = eol.encode()
         lg = len(eol)
 
         if eol != self._last_eol:
@@ -661,6 +663,7 @@ class TangoSerial(_BaseSerial):
     _read = _raw_read
 
     def _write(self, msg):
+        # print("ser _write %s" % type(msg))
         self._device.DevSerWriteChar(bytearray(msg))
 
     def flushInput(self):

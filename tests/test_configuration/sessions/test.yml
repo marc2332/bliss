@@ -8,21 +8,45 @@
 - class: Session
   name: test_session
   setup-file: ./test_setup.py
-  exclude-objects:
-  - m2
-  - lima_simulator
-  - opiom1
-  - xia1
-  - mercury1
-  - mercury2
-  - xmap1
-  - falconx1
-  - p201
-  - simu1
-  - spec_m0
-  - spec_m1
-  - mot_1_disable_cache
-  - mot_2_disable_cache
+  config-objects:
+    - MG1
+    - MG2
+    - bad
+    - calc_mot1
+    - calc_mot2
+    - custom_axis
+    - diode
+    - diode2
+    - diode3
+    - heater
+    - hook0
+    - hook1
+    - hook_error
+    - hooked_error_m0
+    - hooked_m0
+    - hooked_m1
+    - integ_diode
+    - jogger
+    - m0
+    - m1
+    - m1enc
+    - omega
+    - roby
+    - robz
+    - robz2
+    - s1b
+    - s1d
+    - s1f
+    - s1hg
+    - s1ho
+    - s1u
+    - s1vg
+    - s1vo
+    - sample_regulation
+    - sensor
+    - test
+    - test_mg
+    - thermo_sample
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

@@ -1,0 +1,8 @@
+- plugin: bliss
+  class: DummyObject
+  package: test_config
+  objects:
+    - name: dummy1
+      t_value: 10
+    - name: dummy2
+      t_value: bla

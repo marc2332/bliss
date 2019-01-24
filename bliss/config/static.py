@@ -263,6 +263,15 @@ class Node(NodeDict):
         else:
             return None, None
 
+    def get_inherited_value_and_node(self, key):
+        """
+        @see get_inherited
+        """
+        value = self.get(key)
+        if value is None and self._parent:
+            return self._parent.get_inherited_value_and_node(key)
+        return value, self
+
     def get_inherited(self, key):
         """
         Returns the value for the given config key. If the key does not exist
@@ -276,10 +285,7 @@ class Node(NodeDict):
             object: value corresponding to the key or None if key is not found
             in the Node tree
         """
-        value = self.get(key)
-        if value is None and self._parent:
-            return self._parent.get_inherited(key)
-        return value
+        return self.get_inherited_value_and_node(key)[0]
 
     def pprint(self, indent=1, depth=None):
         """

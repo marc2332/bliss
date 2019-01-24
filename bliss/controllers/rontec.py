@@ -72,10 +72,11 @@ class Rontec(object):
         self.sl.close()
 
     def _check_answer(self, asw, cmd):
-        if not asw.startswith("!") or asw.startswith("!E"):
-            e = "Invalid answer from %s" % cmd
-            if asw.startswith("!E"):
-                _, err = asw.split(": ")
+        if not asw.startswith(b"!") or asw.startswith(b"!E"):
+            e = b"Invalid answer from %s" % cmd
+            if asw.startswith(b"!E"):
+                _, err = asw.split(b": ")
+                e = e.decode()
                 e += ": %s" % Rontec.MCA_ERROR[int(err)]
             raise RuntimeError(e)
         else:
@@ -130,10 +131,10 @@ class Rontec(object):
             self.calib_c = [0, 1, 0]
         if isinstance(calib, str):
             try:
-                with open(calib) as fd:
+                with open(calib, "rb") as fd:
                     for line in fd:
-                        if not line.startswith("#") and line.strip():
-                            self.calib_c = list(map(float, line.split()))
+                        if not line.startswith(b"#") and line.strip():
+                            self.calib_c = [float(x) for x in line.split()]
             except IOError:
                 raise IOError("Cannot open %s" % calib)
             self.calib_done = True
@@ -162,28 +163,26 @@ class Rontec(object):
         self.sl.flush()
 
         # at reset Rontec sends two lines, we want the second one only
-        asw = str(self.sl.write_readline("$##\r"))
-        if not asw.__len__():
+        asw1, asw2 = self.sl.write_readlines(b"$##\r", 2)
+        if not asw1:
             raise RuntimeError("Invalid answer from reset")
-        asw = self.sl.readline()
-        if not asw.__len__():
+        if not asw2:
             raise RuntimeError("Invalid answer from reset")
-        type = asw.split()
+        type = asw2.split()
         try:
-            type.__len__() > 1
+            len(type) > 1
             # check if MAX/MMAX...
-            if type[3] == "MMAX" or type[3] == "XDN":
+            if type[3] == b"MMAX" or type[3] == b"XDN":
                 self.type = 2
-            elif type[3] == "MAX":
+            elif type[3] == b"MAX":
                 self.type = 1
         except Exception:
             raise RuntimeError("Invalid answer from reset")
 
         # check if live time accepted - depends on the firmware version
-        self.sl.flush()
-        asw = self.sl.write_readline("$LS\r")
+        asw = self.sl.write_readline(b"$LS\r")
         try:
-            self._check_answer(asw, "reset: livetime")
+            self._check_answer(asw, b"reset: livetime")
             self.live_t = True
         except RuntimeError as e:
             print(e)
@@ -198,28 +197,26 @@ class Rontec(object):
         # last but not least - format the reading to be 4 bytes/channel,
         # no clear after reading
         self.stop_acq()
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$SM 4 0\r"))
-        self._check_answer(asw, "reset: set read fromat/mode")
+        asw = self.sl.write_readline(b"$SM 4 0\r")
+        self._check_answer(asw, b"reset: set read fromat/mode")
 
     def read_acqstatus(self):
         """Read the acquisition status
            Returns:
               status (int): The acquisition status
         """
-        self.sl.flush()
         try:
-            asw = self.sl.write_readline("$FP\r")
+            asw = self.sl.write_readline(b"$FP\r")
         except Exception as e:
-            print(str(e))
+            print(e)
             return MCA_STATE.UNKNOWN
 
-        self._check_answer(asw, "read_acqstatus")
+        self._check_answer(asw, b"read_acqstatus")
         try:
             _, state = asw.split()
-            if state == "+":
+            if state == b"+":
                 return MCA_STATE.STOP
-            elif state == "-":
+            elif state == b"-":
                 return MCA_STATE.RUNNING
             else:
                 return MCA_STATE.UNKNOWN
@@ -241,8 +238,8 @@ class Rontec(object):
                 gate_time = 1000  # 1s - we want ICR and OCR in cps
             else:
                 gate_time = ms_time
-            asw = str(self.sl.write_readline("$CT %u\r" % gate_time))
-            self._check_answer(asw, "set_presets: ctime")
+            asw = self.sl.write_readline(b"$CT %u\r" % gate_time)
+            self._check_answer(asw, b"set_presets: ctime")
 
             self.times["real_t_preset"] = kwargs["ctime"]
             self.times["cycle_t_preset"] = gate_time / 1000
@@ -251,24 +248,22 @@ class Rontec(object):
             # set the energy range
             erange = int(kwargs["erange"])
             if erange in Rontec.ERANGE.keys():
-                asw = str(self.sl.write_readline("$SE %d\r" % erange))
-                self._check_answer(asw, "set_presets: erange")
+                asw = self.sl.write_readline(b"$SE %d\r" % erange)
+                self._check_answer(asw, b"set_presets: erange")
                 self.preset_erange = erange
 
         if "fname" in kwargs:
-            self.fname = str(kwargs["fname"])
+            self.fname = kwargs["fname"]
 
     def clear_spectrum(self):
         """Clear the acquired spectrum"""
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$CC\r"))
-        self._check_answer(asw, "clear_spectrum")
+        asw = self.sl.write_readline(b"$CC\r")
+        self._check_answer(asw, b"clear_spectrum")
 
     def stop_acq(self):
         """Stop the running acquisition"""
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$MP ON\r"))
-        self._check_answer(asw, "stop_acq")
+        asw = self.sl.write_readline(b"$MP ON\r")
+        self._check_answer(asw, b"stop_acq")
 
     def start_acq(self, ctime=None):
         """Starts new acquisition. If cnt_time is not specified, counts for
@@ -282,9 +277,8 @@ class Rontec(object):
             ctime = self.times["real_t_preset"]
 
         # cnt_time is in s, firmware needs ms
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$MT %d\r" % (ctime * 1000)))
-        self._check_answer(asw, "start_acq")
+        asw = self.sl.write_readline(b"$MT %d\r" % (ctime * 1000))
+        self._check_answer(asw, b"start_acq")
 
     def set_roi(self, emin, emax, **kwargs):
         """Configure a ROI
@@ -327,16 +321,15 @@ class Rontec(object):
                 self.emax,
                 self.chmax,
             )
-            roi_str = "$SK %d %d %s %d %d\r" % (
+            roi_str = b"$SK %d %d %s %d %d\r" % (
                 roi_channel,
                 int(kwargs.get("atomic_nb", 34)),
-                str(kwargs.get("element", "Se")),
+                kwargs.get("element", "Se").encode(),
                 emin * 1000,
                 emax * 1000,
             )
-            self.sl.flush()
-            asw = str(self.sl.write_readline(roi_str))
-            self._check_answer(asw, "set_roi")
+            asw = self.sl.write_readline(roi_str)
+            self._check_answer(asw, b"set_roi")
 
     def clear_roi(self, **kwargs):
         """Clear ROI settings
@@ -349,10 +342,9 @@ class Rontec(object):
             self.emin = self._calib_getE(self.chmin)
             self.emax = self._calib_getE(self.chmax)
         if "channel" in kwargs and self.type == 2:
-            self.sl.flush()
             roi_channel = int(kwargs["channel"])
-            asw = str(self.sl.write_readline("$SK %d 0 0 0\r" % roi_channel))
-            self._check_answer(asw, "clear_roi")
+            asw = self.sl.write_readline(b"$SK %d 0 0 0\r" % roi_channel)
+            self._check_answer(asw, b"clear_roi")
             try:
                 self.roi_dict.pop(roi_channel)
             except KeyError:
@@ -375,10 +367,10 @@ class Rontec(object):
             roi_channel = 0
 
         if self.type == 2 and roi_channel:
-            asw = str(self.sl.write_readline("$GK %d\r" % roi_channel))
+            asw = self.sl.write_readline(b"$GK %d\r" % roi_channel)
             if self.debug:
                 print(asw)
-            self._check_answer(asw, "get_roi")
+            self._check_answer(asw, b"get_roi")
             asw = asw[4:]
             argout["ext_roi"] = asw
             _, _, self.emin, self.emax = asw.split()
@@ -415,28 +407,26 @@ class Rontec(object):
             RuntimeError
         """
         # real time elapsed
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$MR\r"))
-        self._check_answer(asw, "get_times: real time elapsed")
+        asw = self.sl.write_readline(b"$MR\r")
+        self._check_answer(asw, b"get_times: real time elapsed")
         if self.debug:
             print(asw)
         try:
             _, rt = asw.split()
             # the answer is in ms, we return time in s
             self.times["real_t_elapsed"] = float(rt) / 1000
-            if self.times["real_t_preset"]:
+        except:
+            raise RuntimeError("Cannot get the elapsed real time")
+        else:
+            if self.times.get("real_t_preset"):
                 self.times["real_t_elapsed"] = (
                     self.times["real_t_preset"] - self.times["real_t_elapsed"]
                 )
 
-        except:
-            raise RuntimeError("Cannot get the elapsed real time")
-
         # dead time
         # get the ICR
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$BC\r"))
-        self._check_answer(asw, "get_times: ICR")
+        asw = self.sl.write_readline(b"$BC\r")
+        self._check_answer(asw, b"get_times: ICR")
         try:
             _, icr = asw.split()
             self.times["ICR"] = float(icr)
@@ -444,13 +434,12 @@ class Rontec(object):
             raise RuntimeError("Cannot get the ICR")
 
         # get the OCR
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$NC\r"))
-        self._check_answer(asw, "get_times: OCR ")
+        asw = self.sl.write_readline(b"$NC\r")
+        self._check_answer(asw, b"get_times: OCR ")
         try:
             _, ocr = asw.split()
             # correct with the cycle time
-            if ocr > self.times["cycle_t_preset"]:
+            if "cycle_t_preset" in self.times and ocr > self.times["cycle_t_preset"]:
                 ocr = float(ocr) - self.times["cycle_t_preset"]
             self.times["OCR"] = float(ocr)
         except:
@@ -466,9 +455,8 @@ class Rontec(object):
 
         # live time elapsed
         if self.live_t:
-            self.sl.flush()
-            asw = str(self.sl.write_readline("$LR\r"))
-            self._check_answer(asw, "get_times: live time elapsed")
+            asw = self.sl.write_readline(b"$LR\r")
+            self._check_answer(asw, b"get_times: live time elapsed")
             try:
                 _, lt = asw.split()
                 # the answer is in ms, we return time in s
@@ -497,9 +485,8 @@ class Rontec(object):
             if self.preset_erange:
                 return Rontec.ERANGE[self.preset_erange]
             else:
-                self.sl.flush()
-                asw = str(self.sl.write_readline("$FE\r"))
-                self._check_answer(asw, "get_presets: energy range")
+                asw = self.sl.write_readline(b"$FE\r")
+                self._check_answer(asw, b"get_presets: energy range")
                 try:
                     _, rr = asw.split()
                     self.preset_erange = int(rr)
@@ -531,13 +518,11 @@ class Rontec(object):
             chmin = _calib_getch(chmin)
             chmax = _calib_getch(chmax)
         y = self.read_raw_data(chmin, chmax, save_data)
-        x = numpy.arange(y.__len__()).astype(numpy.float)
+        x = numpy.linspace(chmin, chmax, len(y), endpoint=False)
         if calib:
-            x = self.calib_c[0] + self.calib_c[1] * x + self.calib_c[2] * math.pow(x, 2)
-        y = numpy.array(y).astype(numpy.float)
-        data = numpy.array([x, y])
-        # data = data.transpose()
-        return data
+            x = self.calib_c[0] + self.calib_c[1] * x + self.calib_c[2] * x ** 2
+
+        return numpy.array([x, y], dtype=numpy.float)
 
     def read_raw_data(self, chmin=0, chmax=4095, save_data=False):
         """Reads raw data
@@ -549,31 +534,26 @@ class Rontec(object):
             data (list): Raw data for the specified roi
         """
         size = int(chmax - chmin + 1)
-        # read only what is asked
-        self.sl.flush()
-        asw = str(self.sl.write_readline("$SS %d,1,1,%d\r" % (chmin, size)))
-        self._check_answer(asw, "read_raw_data: handshake answer reading")
-        # read again to get the data
-        raw_data = self.sl.read(size=size * 4, timeout=10)
-        data = " ".join(["%02x" % ord(i) for i in raw_data]).split()
+        with self.sl.lock:
+            # read only what is asked
+            asw = self.sl.write_readline(b"$SS %d,1,1,%d\r" % (chmin, size))
+            self._check_answer(asw, b"read_raw_data: handshake answer reading")
+            # read again to get the data
+            raw_data = self.sl.read(size=size * 4, timeout=10)
+        data = numpy.fromstring(raw_data, dtype=">i4")
         if self.debug:
-            print("read %d characters" % data.__len__())
-        # we read 4 bytes/ch (hhhhhhhh ........ ........ llllllll)
-        dd = [
-            int("0x" + i + j + k + l, 16)
-            for i, j, k, l in zip(data[::4], data[1::4], data[2::4], data[3::4])
-        ]
+            print("read %d characters" % len(data))
 
         if save_data:
-            with open(str(self.fname), "a") as fd:
-                fd.write("#\n#S 1  mcaacq %d\n" % self.times["real_t_preset"])
+            with open(self.fname, "ab") as fd:
+                fd.write(b"#\n#S 1  mcaacq %d\n" % self.times["real_t_preset"])
                 if self.calib_done:
                     fd.write(
-                        "#@CALIB %g %g %g\n@A"
+                        b"#@CALIB %g %g %g\n@A"
                         % (self.calib_c[0], self.calib_c[1], self.calib_c[2])
                     )
-                    fd.write(" ".join(map(str, dd)) + "\n")
-        return dd
+                    fd.write(b" ".join(b"%d" % x for x in data) + b"\n")
+        return data
 
 
 class rontec:

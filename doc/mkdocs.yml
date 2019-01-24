@@ -20,7 +20,9 @@ nav:
                       - PM600: config_pm600.md
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
-                - MCA: config_mca.md
+                - MCA:
+                    - General: config_mca.md
+                    - Rontec: configure_mca_rontec.md
                 - Temperature or pressure controllers:
                       - Temperature contollers in Bliss: config_tempctrl.md
                       - Eurotherm: config_eurotherm.md

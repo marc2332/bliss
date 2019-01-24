@@ -142,13 +142,13 @@ class Opiom:
     def comm(self, msg, timeout=None):
         self._cnx.open()
         with self._cnx._lock:
-            self._cnx._write(msg + "\r\n")
+            self._cnx._write((msg + "\r\n").encode())
             if msg.startswith("?") or msg.startswith("#"):
                 msg = self._cnx._readline(timeout=timeout)
-                if msg.startswith("$"):
-                    msg = self._cnx._readline("$\r\n", timeout=timeout)
-                self.__debugMsg("Read", msg.strip("\n\r"))
-                return msg.strip("\r\n")
+                if msg.startswith("$".encode()):
+                    msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
+                self.__debugMsg("Read", msg.strip("\n\r".encode()))
+                return (msg.strip("\r\n".encode())).decode()
 
     def load_program(self, prog_name=None):
         pldid = self.comm("?PLDID")

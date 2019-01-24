@@ -46,6 +46,7 @@ Accessing the configured elements from python is easy
 """
 
 import os
+import sys
 import gc
 import weakref
 from collections import OrderedDict
@@ -404,6 +405,17 @@ class Config(object):
 
             try:
                 d = yaml.safe_load(file_content)
+            except yaml.scanner.ScannerError as exp:
+                print("Error in YAML parsing:")
+                print("----------------")
+                print(file_content)
+                print("----------------")
+                exp.problem_mark.name = path
+                print(exp)
+                print(
+                    "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
+                )
+                sys.exit()
             except yaml.error.MarkedYAMLError as exp:
                 if exp.problem_mark is not None:
                     exp.problem_mark.name = path

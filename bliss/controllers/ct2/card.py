@@ -191,7 +191,7 @@ class CardInterface(BaseCardInterface):
     def connect(self):
         self.disconnect()
         self.__log.info("connecting to %s", self.address)
-        self.__dev = open(self.address, "rwb+", 0)
+        self.__dev = open(self.address, "rb+", 0)
 
     def disconnect(self):
         if self.__dev:
@@ -2273,9 +2273,9 @@ class BaseCard:
     def calc_fifo_events(self, fifo_status, nb_counters=None):
         if nb_counters is None:
             etl = self.get_DMA_enable_trigger_latch()
-            nb_counters = etl[1].values().count(True)
-        data_len = min(fifo_status["size"], self.FIFO_SIZE / CT2_REG_SIZE)
-        return data_len / nb_counters, nb_counters
+            nb_counters = list(etl[1].values()).count(True)
+        data_len = min(fifo_status["size"], self.FIFO_SIZE // CT2_REG_SIZE)
+        return data_len // nb_counters, nb_counters
 
     def read_fifo(self, fifo_status, nb_events=0, use_mmap=False):
         max_events, nb_counters = self.calc_fifo_events(fifo_status)
@@ -3801,7 +3801,7 @@ def configure_card(card, config):
     for addr, channel in ch_cfg_dict.items():
         if addr in card.INPUT_CHANNELS:
             inp = channel["input"]
-            ints = map(string.lower, __get(inp, "interrupt"))
+            ints = [x.lower() for x in __get(inp, "interrupt")]
             ch_ints[addr] = TriggerInterrupt(
                 rising="rising" in ints, falling="falling" in ints
             )

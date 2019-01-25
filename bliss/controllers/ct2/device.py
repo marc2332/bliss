@@ -567,7 +567,9 @@ class CT2(object):
         return self.acq_mode == AcqMode.ExtTrigReadout
 
     def prepare_acq(self):
-        has_period = self.acq_point_period > 0
+        has_period = (
+            False if self.acq_point_period is None else self.acq_point_period > 0
+        )
         mode_str = "int-trig-with-dead-time"
         if self.acq_mode in self.IntTrigDeadTimeModes:
             if not self.output_channel:

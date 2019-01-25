@@ -22,7 +22,8 @@ from bliss.comm.util import SERIAL
 """
 Bliss controller for ESRF ISG VSCANNER voltage scanner unit.
 Cyril Guilloud ESRF BLISS
-Mon 17 Nov 2014 16:53:47
+*Mon 17 Nov 2014 16:53:47
+*2019 : python3 safe
 """
 
 
@@ -38,28 +39,14 @@ class VSCANNER(Controller):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-        try:
-            self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
-            self._status = "SERIAL communication configuration found"
-            elog.debug(self._status)
-        except ValueError:
-            try:
-                serial_line = self.config.get("serial_line")
-                warn(
-                    "'serial_line' keyword is deprecated. Use 'serial' instead",
-                    DeprecationWarning,
-                )
-                comm_cfg = {"serial": {"url": serial_line}}
-                self.serial = get_comm(comm_cfg, timeout=1)
-            except:
-                self._status = "Cannot find serial configuration"
-                elog.error(self._status)
+        self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
+        self._status = "SERIAL communication configuration found"
 
         try:
-            # should be : 'VSCANNER 01.02\r\n'
-            _ans = self.serial.write_readline("?VER\r\n")
+            # should be like : 'VSCANNER 01.02\r\n'
+            _ans = self.serial.write_readline(b"?VER\r\n").decode()
             self._status += "\ncommunication ok "
-            elog.debug(self._status + _ans)
+            # elog.debug(self._status + _ans)
         except OSError:
             _ans = "no ans"
             self._status = sys.exc_info()[1]
@@ -85,11 +72,10 @@ class VSCANNER(Controller):
 
         elog.debug(self._status)
 
-    def finalize(self):
+    def close(self):
         """
         Closes the serial object.
         """
-        print("finalize() from VSCANNER")
         self.serial.close()
 
     def initialize_axis(self, axis):
@@ -145,7 +131,7 @@ class VSCANNER(Controller):
         _ans = _ans[1:][:-1]
 
         # (_vel, _line_waiting) = map(float, _ans.split())
-        _float_ans = map(float, _ans.split())
+        _float_ans = list(map(float, _ans.split()))
         if len(_float_ans) == 1:
             _vel = _float_ans[0]
         elif len(_float_ans) == 2:
@@ -224,7 +210,6 @@ class VSCANNER(Controller):
         Args:
             - <motion> : Bliss motion object.
         Returns:
-            - None
         """
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
@@ -249,13 +234,20 @@ class VSCANNER(Controller):
         # Halt a scan (not a movement ?)
         self.send(axis, "STOP")
 
-    def raw_write(self, axis, cmd):
+    def raw_write(self, cmd):
         self.serial.write(cmd)
 
-    def raw_write_read(self, axis, cmd):
-        self.serial.write(cmd)
-        _ans = self.serial.readlines()
-        return _ans
+    def raw_read(self):
+        return self.serial.read()
+
+    def raw_write_read(self, cmd):
+        return self.serial.write_read(cmd)
+
+    def raw_readline(self):
+        return self.serial.readline()
+
+    def raw_write_readlines(self, cmd, lines_count):
+        return self.serial.write_readlines(cmd, lines_count)
 
     def get_id(self, axis):
         """
@@ -272,7 +264,7 @@ class VSCANNER(Controller):
 
     def get_info(self, axis):
         """
-        Returns a set of usefull information about controller.
+        Returns a set of information about controller.
         Helpful to tune the device.
         """
         _txt = ""
@@ -281,10 +273,8 @@ class VSCANNER(Controller):
         _txt = _txt + "output voltage     : " + self.send(axis, "?VXY") + "\n"
         _txt = _txt + "unit state         : " + self.send(axis, "?STATE") + "\n"
         _txt = _txt + "###############################\n"
-        self.send_no_ans(axis, "?INFO")
-        _txt = _txt + "    %s  \n%s\n" % (
-            "Communication parameters",
-            " ".join(self.serial.readlines()),
+        _txt += "\n".join(
+            [line.decode() for line in self.raw_write_readlines(b"?INFO\r\n", 13)]
         )
         _txt = _txt + "###############################\n"
 
@@ -296,8 +286,10 @@ class VSCANNER(Controller):
 
     def send(self, axis, cmd):
         """
-        - Adds the 'newline' terminator character : "\\\\r\\\\n"
         - Sends command <cmd> to the VSCANNER.
+        - Type of <cmd> must be 'str'
+        - Converts <cmd> into 'bytes'
+        - Adds the terminator characters : "\r\n"
         - Channel is defined in <cmd>.
         - <axis> is passed for debugging purposes.
         - Returns answer from controller.
@@ -314,25 +306,28 @@ class VSCANNER(Controller):
         """
         elog.debug("cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
-        self.serial.write(_cmd)
+        self.serial.write(_cmd.encode())
 
         # _t0 = time.time()
 
-        _ans = self.serial.readline().rstrip()
-        elog.debug("ans=%s" % repr(_ans))
+        _ans = self.serial.readline().decode().rstrip()
 
+        # elog.debug("ans=%s" % repr(_ans))
         # _duration = time.time() - _t0
         # print "    Sending: %r Receiving: %r  (duration : %g)" % (_cmd, _ans, _duration)
         return _ans
 
     def send_no_ans(self, axis, cmd):
         """
-        - Adds the 'newline' terminator character : "\\\\r\\\\n"
-        - Sends command <cmd> to the VSCANNER.
-        - Channel is defined in <cmd>.
-        - <axis> is passed for debugging purposes.
-        - Used for answer-less commands, then returns nothing.
+        - Sends command <cmd> to the VSCANNER
+        - Type of <cmd> must be 'str'
+        - Adds the 'newline' terminator character : "\r\n"
+        - Converts <cmd> into 'bytes'
+        - Channel is defined in <cmd>
+        - <axis> is passed for debugging purposes
+        - Used for answer-less commands, then returns nothing
         """
-        elog.debug("send_no_ans : cmd=%r" % cmd)
+        # elog.debug("send_no_ans : cmd=%r" % cmd)
+
         _cmd = cmd + "\r\n"
-        self.serial.write(_cmd)
+        self.serial.write(_cmd.encode())

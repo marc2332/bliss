@@ -603,7 +603,7 @@ class TangoSerial(_BaseSerial):
         SL_PARITY: ("parity", lambda o, v: o.PARITY_MAP[v]),
         SL_STOPBITS: ("stopbits", lambda o, v: o.STOPBITS_MAP[v]),
         SL_TIMEOUT: ("timeout", lambda o, v: int(v * 1000)),
-        SL_NEWLINE: ("eol", lambda o, v: ord(v[-1])),
+        SL_NEWLINE: ("eol", lambda o, v: ord(v[-1]) if type(v) is str else v[-1]),
     }
 
     def __init__(self, cnt, **kwargs):
@@ -635,6 +635,8 @@ class TangoSerial(_BaseSerial):
         self._device = None
 
     def _readline(self, eol):
+        if not isinstance(eol, bytes):
+            eol = eol.encode()
         lg = len(eol)
 
         if eol != self._last_eol:
@@ -645,6 +647,7 @@ class TangoSerial(_BaseSerial):
         buff = b""
         while True:
             line = self._device.DevSerReadLine() or b""
+            line = line if type(line) is bytes else line.encode()
             if line == b"":
                 return b""
             buff += line
@@ -660,6 +663,7 @@ class TangoSerial(_BaseSerial):
     _read = _raw_read
 
     def _write(self, msg):
+        # print("ser _write %s" % type(msg))
         self._device.DevSerWriteChar(bytearray(msg))
 
     def flushInput(self):

@@ -766,9 +766,7 @@ class Serial:
 
     def write(self, msg, timeout=None):
         if isinstance(msg, str):
-            raise RuntimeError(
-                "argument 1 of 'write()' method must be of type 'bytes'."
-            )
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             return self._write(msg, timeout)
 
@@ -779,9 +777,7 @@ class Serial:
 
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
         if isinstance(msg, str):
-            raise RuntimeError(
-                "argument 1 of 'write_read()' method must be of type 'bytes'."
-            )
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:
@@ -790,9 +786,7 @@ class Serial:
 
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
         if isinstance(msg, str):
-            raise RuntimeError(
-                "argument 1 of 'write_readline()' method must be of type 'bytes'."
-            )
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:
@@ -803,9 +797,7 @@ class Serial:
         self, msg, nb_lines, write_synchro=None, eol=None, timeout=None
     ):
         if isinstance(msg, str):
-            raise RuntimeError(
-                "argument 1 of 'write_readlines()' method must be of type 'bytes'."
-            )
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:

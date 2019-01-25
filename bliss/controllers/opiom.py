@@ -212,6 +212,7 @@ class Opiom:
                 print("FRAME {0}".format(frame_n), end="\r")
                 self.raw_bin_write(sendarray[index : index + self.FSIZE])
                 answer = self._cnx.readline("\r\n".encode())
+                # the full answer is actually "OK" but the O is in few cases lost when using TangoSerial
                 if answer[-1:] == b"K":
                     continue
                 raise RuntimeError(

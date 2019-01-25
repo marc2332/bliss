@@ -140,7 +140,7 @@ class Opiom:
         return self.comm("#" + msg)
 
     @protect_from_kill
-    def comm(self, msg, timeout=None):
+    def comm(self, msg, timeout=None, text=True):
         self._cnx.open()
         with self._cnx._lock:
             self._cnx._write((msg + "\r\n").encode())
@@ -149,7 +149,10 @@ class Opiom:
                 if msg.startswith("$".encode()):
                     msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
                 self.__debugMsg("Read", msg.strip("\n\r".encode()))
-                return (msg.strip("\r\n".encode())).decode()
+                if text:
+                    return (msg.strip("\r\n".encode())).decode()
+                else:
+                    return msg.strip("\r\n".encode())
 
     def load_program(self, prog_name=None):
         pldid = self.comm("?PLDID")
@@ -186,6 +189,9 @@ class Opiom:
                 sendarray += opmfile[offsets["jed"] :]
             else:
                 # program already loaded
+                self.__debugMsg(
+                    "No need to reload opiom program: PLDID did not change", pldid
+                )
                 return
 
         if self.comm_ack("MODE program") != "OK":

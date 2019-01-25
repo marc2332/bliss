@@ -19,6 +19,7 @@ nav:
                       - PI Hexapod: config_pi_hexa.md
                       - PM600: config_pm600.md
                       - Vscanner: config_vscanner.md
+                      - Smaract: config_smaract.md
                 - Slits: config_slits.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA:

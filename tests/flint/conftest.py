@@ -39,11 +39,12 @@ def xvfb():
 @contextmanager
 def flint_context():
     flint = plot.get_flint()
-    yield flint._pid
+    pid = flint._pid
+    yield pid
     plot.reset_flint()
-    os.kill(flint._pid, signal.SIGTERM)
+    os.kill(pid, signal.SIGTERM)
     try:
-        os.waitpid(flint._pid, 0)
+        os.waitpid(pid, 0)
     # It happens sometimes, for some reason
     except OSError:
         pass

@@ -27,11 +27,11 @@ remote.
 
 * :class:`~bliss.controllers.ct2.client.CT2` - a remote CT2 device. This
   object is probably the one you will use most of the times. It talks to
-  a remote CT2 through zerorpc. The zerorpc server runs on the machine
+  a remote CT2 through bliss rpc. The bliss rpc server runs on the machine
   where the card is phisically installed in a PCI/cPCI slot.
 
 * :class:`~bliss.controllers.ct2.device.CT2` - a local CT2 device. This
-  object is instantiated by the zerorpc server
+  object is instantiated by the bliss rpc server
 
 .. note::
 
@@ -54,7 +54,7 @@ You can instantiate the :class:`CT2` from a beacon configured card:
 #. controller name (mandatory)
 #. plugin class (mandatory)
 #. card address (mandatory). Use `/dev/ct_<card_nb>` for a local card or
-   `tcp://<host>:<port>` to connect to a remote zerorpc CT2 server.
+   `tcp://<host>:<port>` to connect to a remote bliss rpc CT2 server.
 
 For a complete see :ref:`bliss-ct2-how-to`.
 

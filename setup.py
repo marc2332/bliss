@@ -108,7 +108,6 @@ def main():
         "tabulate",
         "pyserial > 2",
         "ruamel.yaml",
-        "zerorpc",
         "msgpack_numpy <= 0.4.3.1",
         "blessings",
         "h5py",

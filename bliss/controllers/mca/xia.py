@@ -10,7 +10,7 @@
 # Imports
 from numbers import Number
 
-from bliss.common import zerorpc
+from bliss.comm import rpc
 from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
 
@@ -46,7 +46,7 @@ class BaseXIA(BaseMCA):
         self._default_config = self._config["default_configuration"]
 
     def initialize_hardware(self):
-        self._proxy = zerorpc.Client(self._url)
+        self._proxy = rpc.Client(self._url)
         self.load_configuration(self._default_config)
 
     def finalize(self):

@@ -651,16 +651,16 @@ class AmmeterDDC(object):
         self.name = config["name"]
 
     def initialize(self):
-        self.interface.write("F1X\r\n")  # Amp function
-        self.interface.write("G0X\r\n")  # Reading with prefix (NDCA<value>)
-        self.interface.write("T4X\r\n")  # Continuous triggered by X
+        self.interface.write(b"F1X\r\n")  # Amp function
+        self.interface.write(b"G0X\r\n")  # Reading with prefix (NDCA<value>)
+        self.interface.write(b"T4X\r\n")  # Continuous triggered by X
 
     def initialize_sensor(self, sensor):
         pass
 
     def measure(self, func=None):
         # change to '\r\n' will make it faster but we don't know what it does!
-        cmd = "X\r\n"
+        cmd = b"X\r\n"
         return [float(self.interface.write_readline(cmd)[4:])]
 
     def read_all(self, *counters):

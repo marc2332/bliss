@@ -538,11 +538,11 @@ class SER2NET(RFC2217):
         comm_par1 = match.group(2)
         comm_par2 = int(match.group(3))
         # print(f"### ### comm_par1={comm_par1} comm_par2={comm_par2}")
-        comm = tcp.Command(comm_par1, comm_par2, eol="\r\n->")
+        comm = tcp.Command(comm_par1, comm_par2, eol="->")
 
         # Send a request to get list of available ports.
         msg = b"showshortport\r\n"
-        rx = comm.write_readline(msg)
+        _, rx = comm.write_readlines(msg, 2)
         # print("### ### Raw answer to the request:",)
         # print(rx)
 
@@ -558,7 +558,8 @@ class SER2NET(RFC2217):
         rfc2217_port = None
 
         # Search for requested device in received list of ports.
-        for line in rx.split("\r\n"):
+        for line in rx.split("\n"):
+            line = line.strip()
             # print ("### ### LINE=%r" % line)
             g = port_parse.match(line)
             if g:

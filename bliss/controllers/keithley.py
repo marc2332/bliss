@@ -87,7 +87,7 @@ import numpy
 import gevent
 
 from bliss.common.measurement import SamplingCounter
-from bliss.comm.util import get_interface
+from bliss.comm.util import get_interface, get_comm
 from bliss.config.settings import HashSetting
 from bliss.comm.exceptions import CommunicationError
 from bliss.comm.scpi import Cmd as SCPICmd
@@ -645,6 +645,38 @@ class Multimeter2000(BaseMultimeter):
     )
 
 
+class AmmeterDDC(object):
+    def __init__(self, config):
+        self.interface = get_comm(config)
+        self.name = config["name"]
+
+    def initialize(self):
+        self.interface.write(b"F1X\r\n")  # Amp function
+        self.interface.write(b"G0X\r\n")  # Reading with prefix (NDCA<value>)
+        self.interface.write(b"T4X\r\n")  # Continuous triggered by X
+
+    def initialize_sensor(self, sensor):
+        pass
+
+    def measure(self, func=None):
+        # change to '\r\n' will make it faster but we don't know what it does!
+        cmd = b"X\r\n"
+        return [float(self.interface.write_readline(cmd)[4:])]
+
+    def read_all(self, *counters):
+        return self.measure()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+
+class Ammeter6512(AmmeterDDC):
+    pass
+
+
 def Multimeter(config):
     class_name = config["class"]
     model = config.get("model")
@@ -663,7 +695,13 @@ def Multimeter(config):
         class_name += model
     elif not class_name.endswith(model):
         raise ValueError("class: {0} != model: {1}".format(class_name, model))
-    klass = globals()[class_name]
+    try:
+        klass = globals()[class_name]
+    except KeyError:
+        raise ValueError(
+            "Unknown keithley model {} (hint: DDC needs a model "
+            "in YAML)".format(model)
+        )
     obj = klass(config, **kwargs)
     obj.initialize()
     return obj

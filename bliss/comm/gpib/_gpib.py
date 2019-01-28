@@ -144,33 +144,33 @@ class Prologix:
         if self._sock._fd is None:
             # the Prologix must be a controller (mode 1)
             self._debug("Prologix::init(): set to mode 1 (Controller) ")
-            self._sock.write("++mode 1\n")
-            self._sock.write("++clr\n")
+            self._sock.write(b"++mode 1\n")
+            self._sock.write(b"++clr\n")
             self._debug("Prologix::init() save the configuration set to 0")
-            self._sock.write("++savecfg 0\n")
+            self._sock.write(b"++savecfg 0\n")
             self._debug("Prologix::init() auto (read_after_write) set to 0")
-            self._sock.write("++auto 0\n")
+            self._sock.write(b"++auto 0\n")
 
             self._eos = self._gpib_kwargs["eos"]
             if self._eos == "\r\n":
                 self._debug(
                     "Prologix::init() eos set to 0 (%s)" % [ord(c) for c in self._eos]
                 )
-                self._sock.write("++eos 0\n")
+                self._sock.write(b"++eos 0\n")
             elif self._eos == "\r":
                 self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
-                self._sock.write("++eos 1\n")
+                self._sock.write(b"++eos 1\n")
             elif self._eos == "\n":
                 self._debug("Prologix::init() eos set to 2 (%s)" % self._eos)
-                self._sock.write("++eos 2\n")
+                self._sock.write(b"++eos 2\n")
             else:
                 self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
-                self._sock.write("++eos 3\n")
+                self._sock.write(b"++eos 3\n")
 
             self._debug("Prologix::init() eoi set to 1")
-            self._sock.write("++eoi 1\n")
+            self._sock.write(b"++eoi 1\n")
             self._debug("Prologix::init() read_tmo_ms set to 13")
-            self._sock.write("++read_tmo_ms 13\n")
+            self._sock.write(b"++read_tmo_ms 13\n")
             # the gpib address
             self._sad = self._gpib_kwargs.get("sad", 0)
             self._pad = self._gpib_kwargs["pad"]
@@ -178,13 +178,13 @@ class Prologix:
                 self._debug(
                     "Prologix::init() gpib primary address set to %d" % self._pad
                 )
-                self._sock.write("++addr %d\n" % self._pad)
+                self._sock.write(b"++addr %d\n" % self._pad)
             else:
                 self._debug(
                     "Prologix::init() gpib primary & secondary address' set to %d:%d"
                     % (self._pad, self._sad)
                 )
-                self._sock.write("++addr %d %d\n" % (self._pad, self._sad))
+                self._sock.write(b"++addr %d %d\n" % (self._pad, self._sad))
 
     def close(self):
         self._sock.close()
@@ -201,16 +201,16 @@ class Prologix:
     def ibwrt(self, cmd):
         self._debug("Sent: %s" % cmd)
         cmd = (
-            cmd.replace("\33", "\33" + "\33")
-            .replace("+", "\33" + "+")
-            .replace("\10", "\33" + "\10")
-            .replace("\13", "\33" + "\13")
+            cmd.replace(b"\33", b"\33" + b"\33")
+            .replace(b"+", b"\33" + b"+")
+            .replace(b"\10", b"\33" + b"\10")
+            .replace(b"\13", b"\33" + b"\13")
         )
-        self._sock.write(cmd + "\n")
+        self._sock.write(cmd + b"\n")
         return len(cmd)
 
     def ibrd(self, length):
-        self._sock.write("++read EOI\n")
+        self._sock.write(b"++read EOI\n")
         return self._sock.raw_read(maxsize=length)
 
     def _raw(self, length):

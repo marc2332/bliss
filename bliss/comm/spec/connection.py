@@ -87,13 +87,13 @@ def connectionHandler(conn, socket_to_spec):
         try:
             receivedStrings.append(socket_to_spec.recv(4096))
         except BaseException:
-            receivedStrings.append("")
+            receivedStrings.append(b"")
 
-        if receivedStrings[-1] == "":
+        if receivedStrings[-1] == b"":
             conn.handle_close()
             break
 
-        s = "".join(receivedStrings)
+        s = b"".join(receivedStrings)
         consumedBytes = 0
         offset = 0
 
@@ -446,7 +446,7 @@ class SpecConnection:
         return reply  # print "REPLY ID", replyID
 
     def __do_send_data(self):
-        buffer = "".join(self.outgoing_queue)
+        buffer = b"".join(self.outgoing_queue)
         if not buffer:
             self.socket_write_event.stop()
             self.socket_write_event = None

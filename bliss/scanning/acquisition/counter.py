@@ -256,12 +256,11 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._AcquisitionDevice__start_once = p.start_once
 
     def prepare(self):
+        self._nb_acq_points = 0
+        self._stop_flag = False
         self.device.prepare(*self.grouped_read_counters)
 
     def start(self):
-        self._nb_acq_points = 0
-        self._stop_flag = False
-
         self.device.start(*self.grouped_read_counters)
 
     def stop(self):

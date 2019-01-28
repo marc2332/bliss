@@ -21,7 +21,6 @@ import gevent
 from gevent.event import Event
 from .connection import SpecConnection
 from .reply import SpecReply
-from .wait import waitConnection
 from .error import SpecClientTimeoutError, SpecClientError, SpecClientNotConnectedError
 from bliss.common import event
 

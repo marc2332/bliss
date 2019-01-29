@@ -5,12 +5,14 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
+import gevent
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionDevice
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
+from bliss.scanning.scan import Scan
 from bliss.controllers.simulation_diode import DEFAULT_CONTROLLER as diode_controller
 
 
@@ -124,6 +126,22 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
         assert nodes[1].save_flag == False
     finally:
         lima_sim.roi_counters.clear()
+
+
+def test_default_chain_ascan_with_roi_counter(beacon, lima_simulator):
+    roby = beacon.get("roby")
+    lima_sim = beacon.get("lima_simulator")
+    lima_sim.roi_counters["roi1"] = 0, 0, 10, 10
+    npoints = 2
+    scan_pars = {"npoints": npoints, "count_time": 0.1}
+    chain = DEFAULT_CHAIN.get(
+        scan_pars, [lima_sim], top_master=LinearStepTriggerMaster(npoints, roby, 0, 0.1)
+    )
+    s = Scan(chain, scan_info=scan_pars, name="test_ascan", save=False)
+    with gevent.Timeout(2):
+        s.run()
+    data = s.get_data()
+    assert len(data["roi1.sum"]) == npoints
 
 
 def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):

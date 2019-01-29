@@ -41,6 +41,7 @@ nav:
                 - Nano-BPM: config_nano_bpm.md
                 - Wagos: config_wago.md
                 - Transfocators: config_transfocator.md
+                - Undulators: config_undulator.md
                 - Attenuators: config_att.md
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md

@@ -1,0 +1,13 @@
+controller:
+    class: ESRF_Undulator
+    ds_name: id00/tango/dummy
+    axes:
+        -
+            name: u23a
+            attribute_position: Position
+            attribute_velocity: Velocity
+            attribute_acceleration: Acceleration
+            velocity: 5
+            acceleration: 125
+            tolerance: 0.1
+

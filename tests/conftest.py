@@ -242,6 +242,35 @@ def bliss_tango_server(ports, beacon):
 
 
 @pytest.fixture
+def dummy_tango_server(ports, beacon):
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "id00/tango/dummy"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    dummy_ds = [
+        sys.executable,
+        os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
+    ]
+    p = subprocess.Popen(dummy_ds + ["dummy"])
+
+    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    # Might help, for other devices...
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
 def session(beacon):
     session = beacon.get("test_session")
     session.setup()

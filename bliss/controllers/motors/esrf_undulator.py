@@ -12,40 +12,10 @@ from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
 
-"""
-undulator.py : a undulator controller for bliss.
-Cyril Guilloud - ESRF ISDD SOFTGROUP BLISS - Feb. 2015
-"""
-
-"""
-config :
- 'velocity' in unit/s
- 'acceleration' in unit/s^2
- 'steps_per_unit' in unit^-1  (default 1)
- 'backlash' in unit
-"""
-
-config_xml = """
-<config>
-  <controller class="undulator">
-  <ds_name value="//orion:10000/ID/ID/30" />
-    <axis name="ppu35c" class="UndulatorAxis">
-      <attribute_position value="PPU35C_GAP_Position" />
-      <attribute_velocity value="PPU35C_GAP_Velocity" />
-      <attribute_acceleration value="PPU35C_GAP_Acceleration" />
-      <attribute_FirstVelocity value="PPU35C_GAP_FirstVelocity" />
-
-      <velocity value="5" />
-      <acceleration value="100" />
-      <steps_per_unit value="1" />
-      <backlash value="2" />
-    </axis>
-  </controller>
-</config>
-"""
+__author__ = "Cyril Guilloud - ESRF ISDD SOFTGROUP BLISS - Feb. 2015"
 
 
-class Undulator(Controller):
+class ESRF_Undulator(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 

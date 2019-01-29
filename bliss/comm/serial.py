@@ -529,28 +529,44 @@ class SER2NET(RFC2217):
         self._wpipe = None
         self._raw_read_task = None
         self._socket = None
-
-        port = keys.pop("port")
+        port = keys.pop("port")  # "url" field of config
         port_parse = re.compile(r"^(ser2net://)?([^:/]+?):([0-9]+)(.+)$")
         match = port_parse.match(port)
+        # print(f"### ### configured url='{port}'")
         if match is None:
             raise SER2NETError("port is not a valid url (%s)" % port)
-        comm = tcp.Command(match.group(2), int(match.group(3)), eol="\r\n->")
-        msg = b"showshortport\n\r"
-        rx = comm.write_readline(msg)
+        comm_par1 = match.group(2)
+        comm_par2 = int(match.group(3))
+        # print(f"### ### comm_par1={comm_par1} comm_par2={comm_par2}")
+        comm = tcp.Command(comm_par1, comm_par2, eol="->")
+
+        # Send a request to get list of available ports.
+        msg = b"showshortport\r\n"
+        _, rx = comm.write_readlines(msg, 2)
+        # print("### ### Raw answer to the request:",)
+        # print(rx)
+
+        # Answer should start with "showshortport" string; remove it.
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg) :]
         rx = rx.decode()
-        port_parse = re.compile(r"^([0-9]+).+?%s" % match.group(4))
+
+        requested_device = match.group(4)
+        # print(f"### ### look for device:'{requested_device}'")
+        # Regexp to identify requested device from url.
+        port_parse = re.compile(r"^([0-9]+).+%s" % requested_device)
         rfc2217_port = None
-        for line in rx.split("\r\n"):
+
+        # Search for requested device in received list of ports.
+        for line in rx.split("\n"):
+            line = line.strip()
+            # print ("### ### LINE=%r" % line)
             g = port_parse.match(line)
             if g:
                 rfc2217_port = int(g.group(1))
                 break
         if rfc2217_port is None:
             raise SER2NETError("port %s is not found on server" % match.group(4))
-
         keys["port"] = "rfc2217://%s:%d" % (match.group(2), rfc2217_port)
         RFC2217.__init__(self, cnt, **keys)
 

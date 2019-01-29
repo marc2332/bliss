@@ -6,7 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
 Get/Set transmission factor as function of the filters, mounted on a
-ESRF standard monochromatic attenuator aznd the energy (fixed or tunable).
+ESRF standard monochromatic attenuator and the energy (fixed or tunable).
+It may not be possible to set the exact factor required.
 
 yml configuration example:
 name: transmission
@@ -16,7 +17,10 @@ energy: $energy (or energy: 12.7)
 datafile: "/users/blissadm/local/beamline_control/configuration/misc/transmission.dat"
 """
 
-from bliss.controllers import _transmission_calc
+from bliss.controllers._transmission_calc import (
+    get_attenuation,
+    get_transmission_factor,
+)
 
 
 class Energy:
@@ -36,49 +40,48 @@ class Energy:
 
 class transmission:
     def __init__(self, name, config):
-        try:
-            # fixed energy
-            self.energy = Energy(float(config["energy"]))
-        except:
-            # tunable energy: energy motor is expected
-            self.energy = Energy(config["energy"])
-        try:
-            self.datafile = config["datafile"]
-        except:
-            self.datafile = None
 
-        self.__matt = config["matt"]
+        energy = config.get("energy")
+        if energy:
+            self.energy = Energy(energy)
+        self.datafile = config.get("datafile")
+
+        self.__matt = config.get("matt")
 
     def set(self, transm):
-        vals = []
-        value = 0
+        """ Set the transmission
+        Args:
+            transm (float): transmission factor (0-100)
+        Raises:
+            RuntimeError: wrong energy or not possible attenuators combination
+        """
         en = self.energy.read()
         if en <= 0:
             raise RuntimeError("Wrong energy input %g" % en)
 
-        transm, vals = _transmission_calc.getAttenuation(en, transm, self.datafile)
+        transm, vals = get_attenuation(en, transm, self.datafile)
         if not vals:
-            raise RuntimeError(
-                "No attenuators combination found for this energy: '%f`" % en
-            )
-        if -1 in vals:
-            value = 0
-        else:
+            raise RuntimeError("No attenuators combination found for energy %g" % en)
+        value = 0
+        if -1 not in vals:
             for i in vals:
                 value += 1 << i
         self.__matt.mattstatus_set(value)
+        self.transmission_factor = transm
 
     def get(self):
-        mystr = ""
+        """ Read the current transmission factor
+        Returns:
+            transmission_factor (float): current transmission factor
+        """
         en = self.energy.read()
         if en <= 0:
             raise RuntimeError("Wrong energy input %g" % en)
 
-        mystr = self.__matt._status_read()
+        _matt = self.__matt._status_read()
 
-        if not mystr:
-            val = 100
+        if _matt:
+            self.transmission_factor = get_transmission_factor(en, _matt, self.datafile)
         else:
-            val = _transmission_calc.getAttenuationFactor(en, mystr, self.datafile)
-        self.transmission_factor = val
-        return val
+            self.transmission_factor = 100.
+        return self.transmission_factor

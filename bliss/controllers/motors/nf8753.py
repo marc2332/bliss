@@ -70,7 +70,7 @@ class NF8753(Controller):
             if axis is not None:
                 self._select_channel(axis)
             # print 'sending', cmd_string
-            self.sock.write_readline(cmd_string, eol=">")
+            self.sock.write_readline(cmd_string.encode(), eol=b">")
             time.sleep(DELAY)
 
     def _write_read(self, axis, cmd_string, eol="\r\n>", raw=False):
@@ -82,10 +82,11 @@ class NF8753(Controller):
                 self._select_channel(axis)
 
             # print 'sending', cmd_string, 'waiting for reply...'
-            ans = self.sock.write_readline(cmd_string, eol=eol)
+            ans = self.sock.write_readline(cmd_string.encode(), eol=eol.encode())
             time.sleep(DELAY)
             # print 'reply=', ans
 
+            ans = ans.decode()
             ans = ans.replace(">", "")
             if raw:
                 return ans

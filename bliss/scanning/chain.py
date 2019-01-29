@@ -469,7 +469,8 @@ class AcquisitionDevice(object):
     def _start(self, statistic_container):
         with profile(statistic_container, self.name, "start"):
             self.start()
-            self._reading_task = gevent.spawn(self.reading)
+            if self._check_reading_task():
+                self._reading_task = gevent.spawn(self.reading)
             dispatcher.send("start", self)
 
     def stop(self):

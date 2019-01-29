@@ -42,6 +42,7 @@ nav:
                 - Wagos: config_wago.md
                 - Transfocators: config_transfocator.md
                 - Attenuators: config_att.md
+                - Transmission: config_transmission.md
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md
                 - Simulation: config_simulation.md

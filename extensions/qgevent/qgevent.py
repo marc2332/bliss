@@ -167,9 +167,9 @@ class QGeventDispatcher(QAbstractEventDispatcher):
 
     def unregisterTimer(self, tid):
         """Unregister the timer corresponding to the given tid."""
-        if tid not in self._timer_tasks:
-            return False
-        obj, timer_task = self._timer_tasks.pop(tid)
+        obj, timer_task = self._timer_tasks.pop(tid, (None, None))
+        if obj is None:
+            return True
         self._timer_infos[obj].pop(tid)
         if not self._timer_infos[obj]:
             self._timer_infos.pop(obj)

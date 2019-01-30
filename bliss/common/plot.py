@@ -225,6 +225,9 @@ def attach_flint(pid):
     proxy = rpc.Client(url)
     proxy.set_session(session.name)
     proxy._pid = pid
+
+    FLINT.update({"proxy": proxy, "process": pid})
+
     return proxy
 
 
@@ -249,7 +252,6 @@ def get_flint(start_new=False):
 
     if pid != old_pid:
         proxy = attach_flint(pid)
-        FLINT.update({"proxy": proxy, "process": pid})
         return proxy
     else:
         return FLINT["proxy"]

@@ -14,6 +14,7 @@ import platform
 import tempfile
 import warnings
 import itertools
+import functools
 import contextlib
 import collections
 import signal
@@ -21,22 +22,14 @@ import signal
 import numpy
 import gevent
 import gevent.event
-import gevent.monkey
-from concurrent.futures import Future
 
 from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
-from bliss.flint.executor import QtExecutor
-from bliss.flint.executor import concurrent_to_gevent
-from bliss.flint.executor import qt_safe
-from bliss.flint.executor import QtSignalQueue
 from bliss.config.conductor.client import get_default_connection
 from bliss.config.conductor.client import get_redis_connection
+from bliss.flint.qgevent import set_gevent_dispatcher
 
-try:
-    from PyQt4.QtCore import pyqtRemoveInputHook
-except ImportError:
-    from PyQt5.QtCore import pyqtRemoveInputHook
+from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
@@ -53,8 +46,6 @@ from .interaction import PointsSelector, ShapeSelector
 # Globals
 
 pyqtRemoveInputHook()
-Thread = gevent.monkey.get_original("threading", "Thread")
-Event = gevent.monkey.get_original("threading", "Event")
 
 # Logging
 
@@ -84,11 +75,9 @@ def safe_rpc_server(obj):
         try:
             server.bind(url)
             task = gevent.spawn(server.run)
-            try:
-                yield task, url
-            finally:
-                task.kill()
-                task.join()
+            yield task, url
+            task.kill()
+            task.join()
         finally:
             server.close()
 
@@ -97,10 +86,8 @@ def safe_rpc_server(obj):
 def maintain_value(key, value):
     redis = get_redis_connection()
     redis.lpush(key, value)
-    try:
-        yield
-    finally:
-        redis.delete(key)
+    yield
+    redis.delete(key)
 
 
 def get_flint_key():
@@ -109,38 +96,12 @@ def get_flint_key():
 
 def background_task(flint, stop):
     key = get_flint_key()
-    stop = concurrent_to_gevent(stop)
     with safe_rpc_server(flint) as (task, url):
         with maintain_value(key, url):
             gevent.wait([stop, task], count=1)
 
 
 # Flint interface
-
-
-def qt_safe_class(cls):
-    """Use a decorator to make a class qt safe.
-
-    All the methods (except those explicitely ignored) are patched
-    to run in the qt thread.
-    """
-    for name in dir(cls):
-        method = getattr(cls, name)
-        if not isinstance(method, types.MethodType):
-            continue
-        if getattr(method.__func__, "_qt_unsafe", False):
-            continue
-        setattr(cls, name, qt_safe(method))
-    return cls
-
-
-def qt_unsafe(func):
-    """Tag a method a unsafe for qt.
-
-    This method won't be patch by the qt_safe_class decorator.
-    """
-    func._qt_unsafe = True
-    return func
 
 
 class ROISelectionWidget(qt.QMainWindow):
@@ -183,7 +144,6 @@ class ROISelectionWidget(qt.QMainWindow):
         self.roi_manager.addRoi(roi)
 
 
-@qt_safe_class
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
@@ -207,9 +167,7 @@ class Flint:
 
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
-        self._qt_redis_connection = qt_safe(connection.create_redis_connection)(
-            address=address
-        )
+        self._qt_redis_connection = connection.create_redis_connection(address=address)
 
         def new_live_scan_plots():
             return {"0d": [], "1d": [], "2d": []}
@@ -231,7 +189,6 @@ class Flint:
     def get_session(self):
         return self._session_name
 
-    @qt_unsafe
     def set_session(self, session_name):
         if session_name == self._session_name:
             return
@@ -415,7 +372,6 @@ class Flint:
 
         self.live_scan_mdi_area.tileSubWindows()
 
-    @qt_unsafe
     def wait_data(self, master, plot_type, index):
         ev = (
             self.data_event[master]
@@ -424,14 +380,12 @@ class Flint:
         )
         ev.wait(timeout=3)
 
-    @qt_unsafe
     def get_live_scan_plot(self, master, plot_type, index):
         return self.live_scan_plots_dict[master][plot_type][index].plot_id
 
     def new_scan_child(self, scan_info, data_channel):
         pass
 
-    @qt_unsafe
     def new_scan_data(self, data_type, master_name, data):
         if data_type in ("1d", "2d"):
             key = master_name, data["channel_name"]
@@ -442,7 +396,6 @@ class Flint:
         if self._refresh_task is None:
             self._refresh_task = gevent.spawn(self._refresh)
 
-    @qt_unsafe
     def _refresh(self):
         try:
             while self._last_event:
@@ -594,17 +547,24 @@ class Flint:
 
     # User interaction
 
-    @qt_unsafe
-    def select_shapes(self, plot_id, initial_shapes=()):
+    def select_shapes(self, plot_id, initial_shapes=(), timeout=None):
         plot = self.plot_dict[plot_id]
         dock = self._create_roi_dock_widget(plot, initial_shapes)
         roi_widget = dock.widget()
+        done_event = gevent.event.AsyncResult()
+
+        roi_widget.selectionFinished.connect(
+            functools.partial(self._selectionFinished, done_event=done_event)
+        )
+
         try:
-            queue = QtSignalQueue(roi_widget.selectionFinished)
-            try:
-                selections, = queue.get()
-            finally:
-                queue.disconnect()
+            return done_event.get(timeout=timeout)
+        finally:
+            plot.removeDockWidget(dock)
+
+    def _selectionFinished(self, selections, done_event=None):
+        shapes = []
+        try:
             shapes = [
                 dict(
                     origin=select.getOrigin(),
@@ -614,9 +574,8 @@ class Flint:
                 )
                 for select in selections
             ]
-            return shapes
         finally:
-            qt_safe(plot.removeDockWidget)(dock)
+            done_event.set_result(shapes)
 
     def _create_roi_dock_widget(self, plot, initial_shapes):
         roi_widget = ROISelectionWidget(plot)
@@ -635,7 +594,6 @@ class Flint:
         dock.show()
         return dock
 
-    @qt_unsafe
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
         plot = self.plot_dict[plot_id]
@@ -651,11 +609,9 @@ class Flint:
             queue.disconnect()
         return positions
 
-    @qt_unsafe
     def select_points(self, plot_id, nb):
         return self._selection(plot_id, PointsSelector, nb)
 
-    @qt_unsafe
     def select_shape(self, plot_id, shape):
         return self._selection(plot_id, ShapeSelector, shape)
 
@@ -669,17 +625,18 @@ class QtLogHandler(logging.Handler):
         logging.Handler.__init__(self)
 
         self.log_widget = log_widget
-        self.executor = QtExecutor()
 
     def emit(self, record):
         record = self.format(record)
-        self.executor.submit(self.log_widget.appendPlainText, record)
+        self.log_widget.appendPlainText(record)
 
 
 # Main execution
 
 
 def main():
+    set_gevent_dispatcher()
+
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
@@ -751,15 +708,16 @@ def main():
     timer.start(500)
     timer.timeout.connect(lambda: None)
 
-    stop = Future()
+    stop = gevent.event.AsyncResult()
     flint = Flint(tabs)
-    thread = Thread(target=background_task, args=(flint, stop))
-    thread.start()
+
+    thread = gevent.spawn(background_task, flint, stop)
+
     try:
         sys.exit(qapp.exec_())
     finally:
-        stop.set_result(None)
-        thread.join(1.)
+        stop.set_result(True)
+        thread.join()
 
 
 if __name__ == "__main__":

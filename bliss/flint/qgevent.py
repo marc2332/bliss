@@ -23,7 +23,7 @@ from collections import defaultdict
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QAbstractEventDispatcher, QEventLoop, QTimerEvent, QEvent
 
-import qwindowsystem
+from bliss.flint import qwindowsystem
 
 __all__ = ["QGeventDispatcher", "set_gevent_dispatcher"]
 

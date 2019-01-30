@@ -15,6 +15,8 @@ from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 from bliss.comm.tcp import Command
 import struct
 import numpy
@@ -27,7 +29,7 @@ def _object_method_filter(obj):
     return True
 
 
-class Icepap(Controller):
+class Icepap(Controller, LogMixin):
     """
     IcePAP stepper controller without Deep Technology of Communication.
     But if you prefer to have it (DTC) move to IcePAP controller class.
@@ -75,10 +77,12 @@ class Icepap(Controller):
         Controller.__init__(self, *args, **kwargs)
         self._cnx = None
         self._last_axis_power_time = dict()
+        mapping.register(self, parents_list=["devices"])
 
     def initialize(self):
         hostname = self.config.get("host")
         self._cnx = Command(hostname, 5000, eol="\n")
+        mapping.register(self, children_list=[self._cnx], parents_list=["devices"])
 
         self._icestate = AxisState()
         self._icestate.create_state("POWEROFF", "motor power is off")
@@ -86,7 +90,7 @@ class Icepap(Controller):
             for state, desc in codes.values():
                 self._icestate.create_state(state, desc)
 
-    def finalize(self):
+    def close(self):
         if self._cnx is not None:
             self._cnx.close()
 

@@ -345,7 +345,7 @@ class Node(dict):
         )
 
 
-class Config(object):
+class Config:
     """
     Bliss static configuration object.
 

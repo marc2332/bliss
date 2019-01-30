@@ -17,9 +17,10 @@ import binascii
 import gevent
 from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
-#TODO: check logging
+
 from bliss.common.cleanup import capture_exceptions
-from .util import CommLogger, log_format_dict
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 import serial
 
@@ -74,7 +75,7 @@ def try_open(fu):
 
 class _BaseSerial:
     def __init__(self, cnt, port):
-        self._cnt = weakref.ref(cnt)
+        self._cnt = weakref.ref(cnt)  # reference to the container
         self._port = port
 
         self._data = b""
@@ -129,7 +130,7 @@ class _BaseSerial:
 
             msg = self._data[:eol_pos]
             self._data = self._data[eol_pos + len(eol) :]
-            self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
+            self._cnt()._logger.debug_data("Rx:", msg)
             return msg
 
     def read(self, size, timeout):
@@ -155,7 +156,7 @@ class _BaseSerial:
                         break
             msg = self._data[:size]
             self._data = self._data[size:]
-            self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
+            self._cnt()._logger.debug_data("Rx:", msg)
             return msg
 
     def write(self, msg, timeout):
@@ -163,7 +164,7 @@ class _BaseSerial:
             return self._write(msg)
 
     def _write(self, msg):
-        self._cnt()._debug("Tx: %r %r ", msg, HexMsg(msg))
+        self._cnt()._logger.debug_data("Tx:", msg)
         while msg:
             _, ready, _ = select.select([], [self.fd], [])
             size_send = os.write(self.fd, msg)
@@ -184,7 +185,7 @@ class _BaseSerial:
             msg = self._data
 
             self._data = b""
-        self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
+        self._cnt()._logger.debug_data("Rx:", msg)
         return msg
 
     @staticmethod
@@ -687,8 +688,9 @@ class TangoSerial(_BaseSerial):
         self._device.DevSerFlush(self.FLUSH_INPUT)
 
 
-class Serial:
+class Serial(LogMixin):
     LOCAL, RFC2217, SER2NET, TANGO = list(range(4))
+
     def __init__(
         self,
         port=None,
@@ -723,13 +725,13 @@ class Serial:
         self._timeout = timeout
         self._raw_handler = None
         self._lock = lock.RLock()
-        self.logger = CommLogger(__name__, str(self))
+        mapping.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
 
     def __str__(self):
-        return "{0}[{1}]".format(self.__class__.__name__, self._serial_kwargs["port"])
+        return f"{self.__class__.__name__}[{self._serial_kwargs['port']}]"
 
     @property
     def lock(self):
@@ -738,10 +740,8 @@ class Serial:
     def open(self):
         if self._raw_handler is None:
             serial_type = self._check_type()
-            self.logger.debug(
-                "open serial_type={0}".format(self.SerialTypeString[serial_type])
-            )
-            self.logger.debug(log_format_dict(self._serial_kwargs))
+            self._logger.debug("open - serial_type=%s" % serial_type)
+            self._logger.debug(self._logger.log_format_dict(self._serial_kwargs))
             if serial_type == self.RFC2217:
                 self._raw_handler = RFC2217(self, **self._serial_kwargs)
             elif serial_type == self.SER2NET:
@@ -750,19 +750,24 @@ class Serial:
                 self._raw_handler = TangoSerial(self, **self._serial_kwargs)
             else:  # LOCAL
                 self._raw_handler = LocalSerial(self, **self._serial_kwargs)
+            mapping.register(
+                self,
+                parents_list=["comms"],
+                children_list=[self._raw_handler],
+                tag=str(self),
+            )
 
     def close(self):
-        self._debug("close")
         if self._raw_handler:
             self._raw_handler.close()
             self._raw_handler = None
-            self.logger.debug("close")
+            self._logger.debug("close")
 
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.raw_read(maxsize, local_timeout)
-        self.logger.debug_data("raw_read", msg)
+        self._logger.debug_data("raw_read", msg)
         return msg
 
     def read(self, size=1, timeout=None):
@@ -773,7 +778,7 @@ class Serial:
     def _read(self, size=1, timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size, local_timeout)
-        self.logger.debug_data("read", msg)
+        self._logger.debug_data("read", msg)
         if len(msg) != size:
             raise SerialError(
                 "read timeout on serial (%s)" % self._serial_kwargs.get(self._port, "")
@@ -789,7 +794,7 @@ class Serial:
         local_eol = eol or self._eol
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.readline(local_eol, local_timeout)
-        self.logger.debug_data("readline", msg)
+        self._logger.debug_data("readline", msg)
         return msg
 
     def write(self, msg, timeout=None):
@@ -801,7 +806,7 @@ class Serial:
     @try_open
     def _write(self, msg, timeout=None):
         local_timeout = timeout or self._timeout
-        self.logger.debug_data("write", msg)
+        self._logger.debug_data("write", msg)
         return self._raw_handler.write(msg, local_timeout)
 
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
@@ -840,7 +845,7 @@ class Serial:
 
     @try_open
     def flush(self):
-        self.logger.debug("flush")
+        self._logger.debug("flush")
         self._raw_handler.flushInput()
 
     def _check_type(self):

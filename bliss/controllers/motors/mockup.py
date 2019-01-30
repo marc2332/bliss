@@ -11,7 +11,6 @@ import gevent
 
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, ENCODER_AXIS, CalcController
-from bliss.common import log as elog
 from bliss.common.axis import Axis, AxisState, get_axis
 from bliss.common import event
 
@@ -30,7 +29,7 @@ config :
 """
 
 
-class Motion(object):
+class Motion:
     """Describe a single motion"""
 
     def __init__(self, pi, pf, velocity, acceleration, hard_limits, ti=None):
@@ -65,7 +64,7 @@ class Mockup(Controller):
         try:
             self.host = self.config.get("host")
         except:
-            elog.debug("no 'host' defined in config for %s" % self.name)
+            self._logger.debug("no 'host' defined in config for %s" % self.name)
 
         # Adds Mockup-specific settings.
         self.axis_settings.add("init_count", int)
@@ -372,7 +371,7 @@ class Mockup(Controller):
     # VOID VOID
     @object_method
     def custom_park(self, axis):
-        elog.debug("custom_park : parking")
+        self._logger.debug("custom_park : parking")
         self._hw_state.set("PARKED")
 
     # VOID LONG
@@ -398,7 +397,9 @@ class Mockup(Controller):
     # STRING VOID
     @object_method(types_info=("str", "None"))
     def custom_send_command(self, axis, value):
-        elog.debug("custom_send_command(axis=%s value=%r):" % (axis.name, value))
+        self._logger.debug(
+            "custom_send_command(axis=%s value=%r):" % (axis.name, value)
+        )
 
     # BOOL NONE
     @object_method(name="Set_Closed_Loop", types_info=("bool", "None"))

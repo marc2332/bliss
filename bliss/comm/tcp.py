@@ -21,9 +21,10 @@ from bliss.common.event import send
 
 from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
-from .util import CommLogger, log_format_hexa
 
 from bliss.common.cleanup import error_cleanup, capture_exceptions
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 
 class SocketTimeout(CommunicationTimeout):
@@ -68,7 +69,7 @@ def try_connect_socket(fu):
     return rfunc
 
 
-class BaseSocket:
+class BaseSocket(LogMixin):
     """Raw socket class. Provides raw socket access.
     Consider using :class:`Tcp`."""
 
@@ -89,13 +90,13 @@ class BaseSocket:
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.RLock()
-        self.logger = CommLogger(__name__, str(self))
+        mapping.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
 
     def __str__(self):
-        return "{0}[{1}:{2}]".format(self.__class__.__name__, self._host, self._port)
+        return f"{self.__class__.__name__}[{self._host}:{self._port}]"
 
     @property
     def lock(self):
@@ -109,10 +110,8 @@ class BaseSocket:
         local_host = host or self._host
         local_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        self.logger.debug("connect to {0}:{1}".format(local_host, local_port))
-        self.logger.debug(
-            "timeout={0} ; eol={1}".format(local_timeout, log_format_hexa(self._eol))
-        )
+        self._logger.debug(f"connect to {local_host}:{local_port}")
+        self._logger.debug(f"timeout={local_timeout} ; eol={self._eol}")
 
         self.close()
 
@@ -147,7 +146,7 @@ class BaseSocket:
     def close(self):
         if self._connected:
             try:
-                self.logger.debug("shutdown")
+                self._logger.debug("shutdown")
                 self._shutdown()
             # TODO: Fix except-pass, it's a dangerous pattern
             except:  # probably closed one the server side
@@ -182,11 +181,11 @@ class BaseSocket:
         if maxsize:
             msg = self._data[:maxsize]
             self._data = self._data[maxsize:]
-            self.logger.debug_data("raw_read", msg)
+            self._logger.debug_data("raw_read", msg)
         else:
             msg = self._data
             self._data = b""
-            self.logger.debug("raw_read 0 bytes")
+            self._logger.debug("raw_read 0 bytes")
         return msg
 
     @try_connect_socket
@@ -214,10 +213,9 @@ class BaseSocket:
                     if not self._connected:
                         raise socket.error(errno.EPIPE, "Broken pipe")
             msg = self._data[:size]
-            self.logger.debug_data("read", msg)
+            self._logger.debug_data("read", msg)
             self._data = self._data[size:]
             return msg
-
 
     @try_connect_socket
     def readline(self, eol=None, timeout=None):
@@ -256,9 +254,8 @@ class BaseSocket:
 
             msg = self._data[:eol_pos]
             self._data = self._data[eol_pos + len(local_eol) :]
-            self.logger.debug_data("readline", msg)
+            self._logger.debug_data("readline", msg)
             return msg
-
 
     @try_connect_socket
     def write(self, msg, timeout=None):
@@ -317,7 +314,7 @@ class BaseSocket:
 
     def flush(self):
         self._data = b""
-        self.logger.debug("flush")
+        self._logger.debug("flush")
 
     def _sendall(self, data):
         raise NotImplementedError
@@ -339,7 +336,7 @@ class Socket(BaseSocket):
         self._fd.shutdown(socket.SHUT_RDWR)
 
     def _sendall(self, data):
-        self.logger.debug_data("write", data)
+        self._logger.debug_data("write", data)
         return self._fd.sendall(data)
 
     @staticmethod
@@ -348,7 +345,7 @@ class Socket(BaseSocket):
             while 1:
                 raw_data = fd.recv(16 * 1024)
                 if raw_data:
-                    self.logger.debug_data("received", raw_data)
+                    sock._logger.debug_data("received", raw_data)
                     sock._data += raw_data
                     sock._event.set()
                 else:
@@ -404,16 +401,19 @@ def try_connect_command(fu):
     return rfunc
 
 
-class Command:
+class Command(LogMixin):
     """Raw command class. Provides command like API through sockets.
     Consider using :class:`Tcp` with url starting with  *command://* instead."""
 
-    class Transaction:
+    class Transaction(LogMixin):
         def __init__(self, socket, transaction, clear_transaction=True):
             self.__socket = socket
             self.__transaction = transaction
             self.__clear_transaction = clear_transaction
             self.data = b""
+            mapping.register(
+                self, children_list=[self.__socket], parents_list=["comms"]
+            )
 
         def __enter__(self):
             return self
@@ -461,13 +461,13 @@ class Command:
         self._raw_read_task = None
         self._transaction_list = []
         self._lock = lock.RLock()
-        self.logger = CommLogger(__name__, str(self))
+        mapping.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
 
     def __str__(self):
-        return "{0}[{1}:{2}]".format(self.__class__.__name__, self._host, self._port)
+        return f"{self.__class__.__name__}[{self._host}:{self._port}]"
 
     @property
     def lock(self):
@@ -481,9 +481,9 @@ class Command:
         local_host = host or self._host
         local_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        self.logger.debug("connect to {0}:{1}".format(local_host, local_port))
-        self.logger.debug(
-            "timeout={0} ; eol={1}".format(local_timeout, log_format_hexa(self._eol))
+        self._logger.debug(f"connect to {local_host}:{local_port}")
+        self._logger.debug(
+            f"timeout={local_timeout} ; eol={self._logger.log_format_hex(self._eol)}"
         )
         if self._connected:
             prev_ip_host, prev_port = s.getpeername()
@@ -501,6 +501,12 @@ class Command:
                 return True
 
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            mapping.register(
+                self._fd,
+                parents_list=[self, "comms"],
+                tag=f"Socket[{local_host}:{local_port}",
+            )
+
             err_msg = "timeout on command(%s, %d)" % (local_host, local_port)
             with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):
                 self._fd.connect((local_host, local_port))
@@ -520,7 +526,7 @@ class Command:
         with self._lock:
             if self._connected:
                 try:
-                    sefl.logger.debug("shutdown")
+                    self._logger.debug("shutdown")
                     self._fd.shutdown(socket.SHUT_RDWR)
                 except:  # probably closed one the server side
                     pass
@@ -550,7 +556,7 @@ class Command:
 
                 msg = ctx.data[:size]
                 ctx.data = ctx.data[size:]
-        self.logger.debug_data("read", msg)
+        self._logger.debug_data("read", msg)
         return msg
 
     @try_connect_command
@@ -575,7 +581,7 @@ class Command:
                 msg = ctx.data[:eol_pos]
                 ctx.data = ctx.data[eol_pos + len(local_eol) :]
 
-        self.logger.debug_data("readline", msg)
+        self._logger.debug_data("readline", msg)
         return msg
 
     @try_connect_command
@@ -583,7 +589,7 @@ class Command:
         with self._lock:
             if transaction is None and create_transaction:
                 transaction = self.new_transaction()
-            self.logger.debug_data("write", msg)
+            self._logger.debug_data("write", msg)
             with error_cleanup(self._pop_transaction, transaction=transaction):
                 self._fd.sendall(msg)
         return transaction
@@ -686,7 +692,7 @@ class TcpError(CommunicationError):
     """TCP communication error"""
 
 
-class Tcp(object):
+class Tcp(LogMixin):
     """TCP object. You can access raw socket layer (default) or with a command
     like API (prefix url with *command://* scheme). Example::
 

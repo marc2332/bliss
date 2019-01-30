@@ -8,7 +8,6 @@
 """Communication tools (:func:`~bliss.comm.util.get_interface`,
 :func:`~bliss.comm.util.HexMsg`)"""
 
-import logging
 
 __all__ = [
     "get_interface",
@@ -200,65 +199,6 @@ def get_comm(config, ctype=None, **opts):
         from .tcp_proxy import Proxy
 
         return Proxy(com_config)
-
-
-class CommLogger:
-    def __init__(self, module, name):
-        self.log = logging.getLogger(module)
-        self.name = name
-        self.setHexaDataFormat(False)
-
-    def __getattr__(self, attr):
-        return getattr(self.log, attr)
-
-    def setHexaDataFormat(self, hexaflag):
-        if hexaflag is False:
-            self.__format_data = log_format_ascii
-        else:
-            self.__format_data = log_format_hexa
-
-    def debug(self, msg):
-        self.log.debug("{0} {1}".format(self.name, msg))
-
-    def debug_data(self, msg, data):
-        self.log.debug(
-            "{0} {1} {2} bytes={3}".format(
-                self.name, msg, len(data), self.__format_data(data)
-            )
-        )
-
-    def info(self, msg):
-        self.log.info("{0} {1}".format(self.name, msg))
-
-
-def log_format_dict(indict):
-    return " ; ".join(
-        "{0}={1}".format(name, log_format_ascii(value))
-        for (name, value) in indict.items()
-    )
-
-
-def log_format_ascii(instr):
-    def __ascii_format(ch):
-        if ord(ch) > 31 and ord(ch) < 127:
-            return ch
-        else:
-            return "\\x%02x" % ord(ch)
-
-    try:
-        return "".join(map(__ascii_format, instr))
-    except:
-        return instr
-
-
-def log_format_hexa(instr):
-    def __hexa_format(ch):
-        return "\\x%02x" % ord(ch)
-
-    try:
-        return "".join(map(__hexa_format, instr))
-    except:
-        return instr
 
 
 class HexMsg:

@@ -20,6 +20,7 @@ __all__ = [
 ]
 
 import re
+import enum
 import logging
 import gevent
 from gevent import lock
@@ -31,7 +32,8 @@ from ...common.greenlet_utils import KillMask, protect_from_kill
 from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
-from ..util import CommLogger, log_format_dict
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 __TMO_TUPLE = (
     0.0,
@@ -125,10 +127,8 @@ class PrologixError(GpibError):
     pass
 
 
-class Prologix:
+class Prologix(LogMixin):
     def __init__(self, cnt, **keys):
-        self._logger = logging.getLogger(str(self))
-        self._debug = self._logger.debug
         url = keys.pop("url")
         url_parse = re.compile(r"^(prologix://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
@@ -136,52 +136,51 @@ class Prologix:
             raise PrologixError("Inet: url is not valid (%s)" % url)
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 1234
-        self._debug("Prologix::__init__() host = %s port = %s" % (hostname, port))
         self._sock = Socket(hostname, port, timeout=keys.get("timeout"))
+        mapping.register(self, children_list=["comms", self._sock])
+        self._logger.debug(f"Prologix::__init__() host = {hostname} port = {port}")
         self._gpib_kwargs = keys
 
     def init(self):
-        self._debug("Prologix::init()")
+        self._logger.debug("Prologix::init()")
         if self._sock._fd is None:
             # the Prologix must be a controller (mode 1)
-            self._debug("Prologix::init(): set to mode 1 (Controller) ")
+            self._logger.debug("Prologix::init(): set to mode 1 (Controller) ")
             self._sock.write(b"++mode 1\n")
             self._sock.write(b"++clr\n")
-            self._debug("Prologix::init() save the configuration set to 0")
+            self._logger.debug("Prologix::init() save the configuration set to 0")
             self._sock.write(b"++savecfg 0\n")
-            self._debug("Prologix::init() auto (read_after_write) set to 0")
+            self._logger.debug("Prologix::init() auto (read_after_write) set to 0")
             self._sock.write(b"++auto 0\n")
 
             self._eos = self._gpib_kwargs["eos"]
             if self._eos == "\r\n":
-                self._debug(
-                    "Prologix::init() eos set to 0 (%s)" % str(HexMsg(self._eos))
-                )
+                self._logger.debug_data("Prologix::init() eos set to 0 (%s)", self._eos)
                 self._sock.write(b"++eos 0\n")
             elif self._eos == "\r":
-                self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
+                self._logger.debug("Prologix::init() eos set to 1 (%s)" % self._eos)
                 self._sock.write(b"++eos 1\n")
             elif self._eos == "\n":
-                self._debug("Prologix::init() eos set to 2 (%s)" % self._eos)
+                self._logger.debug("Prologix::init() eos set to 2 (%s)" % self._eos)
                 self._sock.write(b"++eos 2\n")
             else:
-                self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
+                self._logger.debug("Prologix::init() eos set to 3 (%s)" % self._eos)
                 self._sock.write(b"++eos 3\n")
 
-            self._debug("Prologix::init() eoi set to 1")
+            self._logger.debug("Prologix::init() eoi set to 1")
             self._sock.write(b"++eoi 1\n")
-            self._debug("Prologix::init() read_tmo_ms set to 13")
+            self._logger.debug("Prologix::init() read_tmo_ms set to 13")
             self._sock.write(b"++read_tmo_ms 13\n")
             # the gpib address
             self._sad = self._gpib_kwargs.get("sad", 0)
             self._pad = self._gpib_kwargs["pad"]
             if self._sad == 0:
-                self._debug(
+                self._logger.debug(
                     "Prologix::init() gpib primary address set to %d" % self._pad
                 )
                 self._sock.write(b"++addr %d\n" % self._pad)
             else:
-                self._debug(
+                self._logger.debug(
                     "Prologix::init() gpib primary & secondary address' set to %d:%d"
                     % (self._pad, self._sad)
                 )
@@ -200,7 +199,7 @@ class Prologix:
     """
 
     def ibwrt(self, cmd):
-        self._debug("Sent: %s" % cmd)
+        self._logger.debug("Sent: %s" % cmd)
         cmd = (
             cmd.replace(b"\33", b"\33" + b"\33")
             .replace(b"+", b"\33" + b"+")
@@ -225,10 +224,8 @@ def TangoGpib(cnt, **keys):
     return Object(keys.pop("url"), green_mode=GreenMode.Gevent)
 
 
-class TangoDeviceServer:
+class TangoDeviceServer(LogMixin):
     def __init__(self, cnt, **keys):
-        self._logger = logging.getLogger(str(self))
-        self._debug = self._logger.debug
         url = keys.pop("url")
         url_tocken = "tango_gpib_device_server://"
         if not url.startswith(url_tocken):
@@ -240,9 +237,10 @@ class TangoDeviceServer:
         self._pad = keys["pad"]
         self._sad = keys.get("sad", 0)
         self._pad_sad = self._pad + (self._sad << 8)
+        mapping.register(self)
 
     def init(self):
-        self._debug("TangoDeviceServer::init()")
+        self._logger.debug("TangoDeviceServer::init()")
         if self._proxy is None:
             self._proxy = DeviceProxy(self._tango_url)
 
@@ -250,7 +248,7 @@ class TangoDeviceServer:
         self._proxy = None
 
     def ibwrt(self, cmd):
-        self._debug("Sent: %s" % cmd)
+        self._logger.debug("Sent: %s" % cmd)
         ncmd = numpy.zeros(4 + len(cmd), dtype=numpy.uint8)
         ncmd[3] = self._pad
         ncmd[2] = self._sad
@@ -260,7 +258,7 @@ class TangoDeviceServer:
     def ibrd(self, length):
         self._proxy.SetTimeout([self._pad_sad, self._gpib_kwargs.get("tmo", 12)])
         msg = self._proxy.ReceiveBinData([self._pad_sad, length])
-        self._debug("Received: %s" % msg)
+        self._logger.debug("Received: %s" % msg)
         return msg.tostring()
 
     def _raw(self, length):
@@ -271,7 +269,7 @@ class LocalGpibError(GpibError):
     pass
 
 
-class LocalGpib(object):
+class LocalGpib(LogMixin):
 
     URL_RE = re.compile(r"^(local://)?([0-9]{1,2})$")
 
@@ -283,27 +281,27 @@ class LocalGpib(object):
         self.board_index = int(match.group(2))
         if self.board_index < 0 or self.board_index > 15:
             raise LocalGpibError("LocalGpib: url is not valid (%s)" % url)
-        self._logger = logging.getLogger(str(self))
-        self._debug = self._logger.debug
+
         self._gpib_kwargs = keys
+        mapping.register(self, tag=str(self))
 
     def __str__(self):
         return "{0}(board={1})".format(type(self).__name__, self.board_index)
 
     def init(self):
-        self._debug("init()")
+        self._logger.debug("init()")
         opts = self._gpib_kwargs
         from . import libgpib
 
         self.gpib = libgpib
-        self._debug("libgpib version %s", self.gpib.ibvers())
+        self._logger.debug("libgpib version %s", self.gpib.ibvers())
         self.gpib.GPIBError = LocalGpibError
         self.ud = self.gpib.ibdev(
             self.board_index, pad=opts["pad"], sad=opts["sad"], tmo=opts["tmo"]
         )
 
     def ibwrt(self, cmd):
-        self._debug("Sent: %r" % cmd)
+        self._logger.debug("Sent: %r" % cmd)
         tp = gevent.get_hub().threadpool
         return tp.spawn(self.gpib.ibwrt, self.ud, cmd).get()
 
@@ -341,14 +339,21 @@ def try_open(fu):
     return rfunc
 
 
-class Gpib:
+class Gpib(LogMixin):
     """Gpib object
 
     from bliss.comm.gpib import Gpib
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     """
 
-    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = list(range(5))
+    @enum.unique
+    class GpibType(enum.IntEnum):
+        ENET = 0
+        TANGO = 1
+        TANGO_DEVICE_SERVER = 2
+        PROLOGIX = 3
+        LOCAL = 4
+
     READ_BLOCK_SIZE = 64 * 1024
 
     def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eos="\n"):
@@ -366,10 +371,9 @@ class Gpib:
         self._timeout = timeout
         self._lock = lock.RLock()
         self._raw_handler = None
-        self.logger = CommLogger(__name__, str(self))
-        self._debug = self.logger.debug
-        self.gpib_type = self.ENET
+
         self._data = b""
+        mapping.register(self, tag=str(self))
 
     def __str__(self):
         opts = self._gpib_kwargs
@@ -379,25 +383,26 @@ class Gpib:
     def lock(self):
         return self._lock
 
+    @property
+    def gpib_type(self):
+        return self._check_type()
+
     def open(self):
         if self._raw_handler is None:
-            self.gpib_type = self._check_type()
-            self.logger.debug(
-                "open gpib_type={0}".format(self.GpibTypeString[self.gpib_type])
-            )
-            self.logger.debug(log_format_dict(self._gpib_kwargs))
-            if self.gpib_type == self.ENET:
+            self._logger.debug(f"opening {self.gpib_type} gpib")
+            self._logger.debug(self._logger.log_format_dict(self._gpib_kwargs))
+            if self.gpib_type == Gpib.GpibType.ENET:
                 self._raw_handler = Enet(self, **self._gpib_kwargs)
                 self._raw_handler.init()
-            elif self.gpib_type == self.PROLOGIX:
+            elif self.gpib_type == Gpib.GpibType.PROLOGIX:
                 self._raw_handler = Prologix(self, **self._gpib_kwargs)
                 self._raw_handler.init()
-            elif self.gpib_type == self.TANGO:
+            elif self.gpib_type == Gpib.GpibType.TANGO:
                 self._raw_handler = TangoGpib(self, **self._gpib_kwargs)
-            elif self.gpib_type == self.TANGO_DEVICE_SERVER:
+            elif self.gpib_type == Gpib.GpibType.TANGO_DEVICE_SERVER:
                 self._raw_handler = TangoDeviceServer(self, **self._gpib_kwargs)
                 self._raw_handler.init()
-            elif self.gpib_type == self.LOCAL:
+            elif self.gpib_type == Gpib.GpibType.LOCAL:
                 self._raw_handler = LocalGpib(self, **self._gpib_kwargs)
                 self._raw_handler.init()
 
@@ -405,13 +410,13 @@ class Gpib:
         if self._raw_handler is not None:
             self._raw_handler.close()
             self._raw_handler = None
-            self.logger.debug("close")
+            self._logger.debug("close")
 
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
         msg = self._raw_handler.ibrd(size_to_read)
-        self.logger.debug_data("raw_read", msg)
+        self._logger.debug_data("raw_read", msg)
         return msg
 
     def read(self, size=1, timeout=None):
@@ -421,7 +426,7 @@ class Gpib:
     @try_open
     def _read(self, size=1):
         msg = self._raw_handler.ibrd(size)
-        self.logger.debug_data("read", msg)
+        self._logger.debug_data("read", msg)
         return msg
 
     def readline(self, eol=None, timeout=None):
@@ -443,7 +448,7 @@ class Gpib:
                 eol_pos = self._data.find(local_eol)
         msg = self._data[:eol_pos]
         self._data = self._data[eol_pos + len(local_eol) :]
-        self.logger.debug_data("readline", msg)
+        self._logger.debug_data("readline", msg)
         return msg
 
     def write(self, msg, timeout=None):
@@ -452,7 +457,7 @@ class Gpib:
 
     @try_open
     def _write(self, msg):
-        self.logger.debug_data("write", msg)
+        self._logger.debug_data("write", msg)
         return self._raw_handler.ibwrt(msg)
 
     @protect_from_kill
@@ -485,22 +490,21 @@ class Gpib:
         return r_lines
 
     def flush(self):
-        self.logger.debug("flush")
+        self._logger.debug("flush")
         self._raw_handler = None
 
     def _check_type(self):
         url = self._gpib_kwargs.get("url", "")
         url_lower = url.lower()
         if url_lower.startswith("enet://"):
-            return self.ENET
+            return Gpib.GpibType.ENET
         elif url_lower.startswith("prologix://"):
-            return self.PROLOGIX
+            return Gpib.GpibType.PROLOGIX
         elif url_lower.startswith("tango://"):
-            return self.TANGO
+            return Gpib.GpibType.TANGO
         elif url_lower.startswith("tango_gpib_device_server://"):
-            return self.TANGO_DEVICE_SERVER
+            return Gpib.GpibType.TANGO_DEVICE_SERVER
         elif url_lower.startswith("local://"):
-            return self.LOCAL
+            return Gpib.GpibType.LOCAL
         else:
             raise ValueError("Unsuported protocol %s" % url)
-

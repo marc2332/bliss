@@ -65,7 +65,6 @@ Example how to use it in a scan:
 """
 
 import struct
-import logging
 import functools
 import collections
 
@@ -73,6 +72,8 @@ import gevent.lock
 
 from bliss.comm.util import get_comm
 from bliss.common.measurement import SamplingCounter
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 
 BROADCAST_ADDR = 0
@@ -225,9 +226,9 @@ def debug_it(f):
 
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
-        self.debug("[start] %s()", name)
+        self._logger.debug("[start] %s()", name)
         r = f(self, *args, **kwargs)
-        self.debug("[end] %s() -> %r", name, r)
+        self._logger.debug("[end] %s() -> %r", name, r)
         return r
 
     return wrapper
@@ -369,7 +370,7 @@ FSAttrRO = functools.partial(Attr, decode=_decode_float_status)
 
 
 @fill
-class PressureTransmitter(object):
+class PressureTransmitter(LogMixin):
     """
     Keller pressure transmitter for the S30 and S40 series.
 
@@ -414,21 +415,20 @@ class PressureTransmitter(object):
     def __init__(self, name, config):
         self._cache = {}
         self._configured_address = int(config.get("address", TRANSPARENT_ADDR))
-        self._log = logging.getLogger("PressureTransmitter.{0}".format(name))
         self._comm_lock = gevent.lock.RLock()
         self.counters = {}
-        self.debug = self._log.debug
         self.config = config
         self.name = name
         self.comm = get_comm(config, baudrate=9600)
         self.echo = config.get("echo", 1)
         self.expected_serial_nb = config.get("serial_nb", None)
+        mapping.register(self, children_list=[self.comm])
 
         # Create counters
         for counter_config in self.config.get("counters", []):
             counter_name = counter_config["counter_name"]
             if hasattr(self, counter_name):
-                self._log.error(
+                self._logger.error(
                     "Skipped counter %r (controller already "
                     "has a member with that name)",
                     counter_name,
@@ -469,7 +469,7 @@ class PressureTransmitter(object):
         self.comm.flush()
         self._cache = {}
         if self.expected_serial_nb:
-            self._log.info(
+            self._logger.info(
                 "Verifying instrument serial number against %s", self.expected_serial_nb
             )
             if self.serial_nb != self.expected_serial_nb:
@@ -498,7 +498,7 @@ class PressureTransmitter(object):
         crc_h, crc_l = crc >> 8, crc & 0xFF
         request.extend([crc_h, crc_l])
         request = "".join(map(chr, request))
-        self.debug("raw write: %r", request)
+        self._logger.debug_data("raw write", request)
         self.comm.write(request)
 
         # REPLY: transmitted message is received again immediately as an echo
@@ -509,7 +509,7 @@ class PressureTransmitter(object):
 
         # REPLY: Addr + Function + Error code + CRC_H + CRC_L
         reply = self.comm.read(5)
-        self.debug("raw reply: %r", reply)
+        self._logger.debug_data("raw reply", reply)
 
     def get(self, cmd):
         with self._comm_lock:
@@ -528,7 +528,7 @@ class PressureTransmitter(object):
         else:
             request.extend([crc_h, crc_l])
         request = bytes(request)
-        self.debug("raw write: %r", request.hex())
+        self._logger.debug_data("raw write", request.hex())
         self.comm.write(request)
 
         # REPLY: transmitted message is received again immediately as an echo
@@ -551,7 +551,7 @@ class PressureTransmitter(object):
             reply_payload = self.comm.read(1)
             reply_crc = self.comm.read(2)
             reply += reply_payload + reply_crc
-            self.debug("raw reply: %r", reply)
+            self._logger.debug_data("raw reply", reply)
             err = ord(reply_payload)
             crc = crc16(reply_addr, reply_fn, err)
             if not check_message_crc16(reply_crc, crc):
@@ -565,7 +565,7 @@ class PressureTransmitter(object):
         reply_payload = self.comm.read(cmd.reply_size)
         reply_crc = self.comm.read(2)
         reply += reply_payload + reply_crc
-        self.debug("raw reply: %r", reply)
+        self._logger.debug_data("raw reply", reply)
         crc = crc16(reply_addr, reply_fn, *[n for n in reply_payload])
         if not check_message_crc16(reply_crc, crc):
             raise KellerError("CRC failure in reply")

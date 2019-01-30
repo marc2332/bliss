@@ -456,8 +456,8 @@ def prdef(obj_or_name):
     print(header)
     print(__pyhighlight("".join(lines)))
 
-def _check_log_level(level):
 
+def _check_log_level(level):
     if isinstance(level, int):
         rv = level
     else:

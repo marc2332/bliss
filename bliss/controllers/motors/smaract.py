@@ -410,7 +410,6 @@ class SmarAct(Controller):
 
     def __init__(self, *args, **kwargs):
         super(SmarAct, self).__init__(*args, **kwargs)
-        self.log = logging.getLogger(type(self).__name__)
 
     def __getitem__(self, item):
         single = isinstance(item, (str))
@@ -455,7 +454,6 @@ class SmarAct(Controller):
 
     def initialize(self):
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
-        # self.comm._logger.setLevel('DEBUG')
 
     def initialize_hardware(self):
         # set communication mode to synchronous
@@ -478,7 +476,7 @@ class SmarAct(Controller):
             if new_sensor_type != curr_sensor_type:
                 axis.channel.sensor_type = new_sensor_type
         if not axis.channel.is_physical_position_known:
-            self.log.warning(
+            self._logger.warning(
                 "%r physical position unknown (hint: do a "
                 "homing to find reference mark)",
                 axis.name,

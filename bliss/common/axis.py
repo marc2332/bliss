@@ -28,7 +28,6 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
     READY (Axis is READY)
 """
 
-from bliss.common import log as elog
 from bliss.common.task import task
 from bliss.common.cleanup import cleanup, error_cleanup, capture_exceptions
 from bliss.common.motor_config import StaticConfig
@@ -43,6 +42,8 @@ from bliss.config.channels import Channel
 from bliss.common.alias import AliasMixin
 from bliss.physics.trajectory import LinearTrajectory
 from bliss import setup_globals
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 import gevent
 import re
 import sys
@@ -63,7 +64,7 @@ cmp = lambda a, b: int(a > b) - int(a < b)
 DEFAULT_POLLING_TIME = 0.02
 
 
-class GroupMove(object):
+class GroupMove:
     def __init__(self, parent=None):
         self.parent = parent
         self._move_task = None
@@ -341,7 +342,7 @@ def get_motion_hook(name):
     return hook
 
 
-class Modulo(object):
+class Modulo:
     def __init__(self, mod=360):
         self.modulo = mod
 
@@ -350,7 +351,7 @@ class Modulo(object):
         axis._Axis__do_set_dial(dial_pos % self.modulo, True)
 
 
-class Motion(object):
+class Motion:
     """Motion information
 
     Represents a specific motion. The following members are present:
@@ -570,7 +571,7 @@ def lazy_init(func):
 
 
 @with_custom_members
-class Axis(AliasMixin, object):
+class Axis(AliasMixin, LogMixin):
     """
     Bliss motor axis
 
@@ -616,6 +617,7 @@ class Axis(AliasMixin, object):
         disabled_cache.extend(config.get("disabled_cache", []))  # get it for this axis
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
+        mapping.register(self, parents_list=[self.__controller], tag=f"axis.{name}")
 
     def close(self):
         try:
@@ -856,7 +858,7 @@ class Axis(AliasMixin, object):
     @position.setter
     @lazy_init
     def position(self, new_pos):
-        elog.debug("axis.py : position(new_pos=%r)" % new_pos)
+        self._logger.debug("axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             raise RuntimeError(
                 "%s: can't set axis user position " "while moving" % self.name
@@ -1204,7 +1206,7 @@ class Axis(AliasMixin, object):
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
-        elog.debug(
+        self._logger.debug(
             "prepare_move: user_target_pos=%g, relative=%r"
             % (user_target_pos, relative)
         )
@@ -1280,7 +1282,7 @@ class Axis(AliasMixin, object):
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
         """
-        elog.debug(
+        self._logger.debug(
             "user_target_pos=%g  wait=%r relative=%r"
             % (user_target_pos, wait, relative)
         )
@@ -1405,7 +1407,7 @@ class Axis(AliasMixin, object):
             wait (bool): wait or not for end of motion
             polling_time (float): motion loop polling time (seconds)
         """
-        elog.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
+        self._logger.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):
@@ -1573,11 +1575,13 @@ class Axis(AliasMixin, object):
                 config_value = getattr(self, "config_%s" % config_param)
                 setattr(self, config_param, config_value)
             except (NotImplementedError, KeyError):
-                elog.debug(
+                self._logger.debug(
                     "'%s' for '%s' is not implemented" % (config_param, self.name)
                 )
             else:
-                elog.debug("set '%s' for '%s' done." % (config_param, self.name))
+                self._logger.debug(
+                    "set '%s' for '%s' done." % (config_param, self.name)
+                )
 
         self.limits = self.config_limits
 

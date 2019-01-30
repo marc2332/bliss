@@ -195,7 +195,7 @@ def check_flint(session_name):
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
-            if value == session_name:
+            if value.decode() == session_name:
                 return pid
         else:
             redis.delete(key)

@@ -189,11 +189,13 @@ class QGeventDispatcher(QAbstractEventDispatcher):
         """Target for the timer background tasks."""
         deadline = time.time()
         while True:
-            # Prevent time drifting
             deadline += interval
+            sleep_time = max(0, deadline - time.time())
             # Sleep to the deadline
-            gevent.sleep(deadline - time.time())
-            # Use postEvent to avoid auto cancellation
+            if sleep_time < 1e-6:
+                gevent.sleep(0)  # idle()
+            else:
+                gevent.sleep(sleep_time)
             QApplication.postEvent(obj, QTimerEvent(tid))
 
     # Sockets

@@ -218,7 +218,11 @@ def attach_flint(pid):
 
     # Current URL
     key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
-    value = redis.brpoplpush(key, key, timeout=3000)
+    value = redis.brpoplpush(key, key, timeout=3)
+    if value is None:
+        raise ValueError(
+            f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
+        )
     url = value.decode().split()[-1]
 
     # Return flint proxy

@@ -11,36 +11,7 @@ The handel DLL files need to be available in `PATH` (`/usr/local/bin` in Cygwin 
 
 Python compatibility:
 
-- python 2.7
-- python 3.6
-
-
-Python requirements
--------------------
-
-Run requirements:
-
-- cffi
-- numpy
-- gevent (optional)
-
-Test requirements:
-
-- mock
-- pytest
-- pytest-cov
-
-Those requirements are automatically handled by `setuptools`.
-
-
-Installation
-------------
-
-Run:
-
-``` console
-$ python setup.py install
-```
+- python 3.7
 
 Usage
 -----
@@ -76,27 +47,6 @@ Make the interface gevent-compatible using:
 ```
 
 
-Tests
------
-
-Run:
-
-``` console
-$ python setup.py test
-```
-
-This also publishes an HTML coverage report in the `htmlcov` directory.
-
-
-Continuous intergration
------------------------
-
-This project is automatically tested using Gitlab CI.
-
-The tests are run for python 2.7 and 3.6
-
-The coverage report are published [here](http://bliss.gitlab-pages.esrf.fr/python-handel/).
-
 
 Scripts
 -------
@@ -105,12 +55,10 @@ A few scripts are provided:
 
 - `parse_error_header.py` which parses `handel_errors.h` and output a python dictionnary of handel errors
 
-- `handel-server` which serves the handel interface over the network using zerorpc. It requires:
-  * python3
-  * handel
-  * zerorpc
-  * msgpack_numpy
+Entry points
+------------
 
+- `bliss-handel-server` which serves the handel interface over the network using bliss rpc.
 
 Contact
 -------

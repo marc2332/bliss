@@ -196,7 +196,12 @@ class QGeventDispatcher(QAbstractEventDispatcher):
                 gevent.sleep(0)  # idle()
             else:
                 gevent.sleep(sleep_time)
-            QApplication.postEvent(obj, QTimerEvent(tid))
+            try:
+                # Use postEvent to avoid auto cancellation
+                QApplication.postEvent(obj, QTimerEvent(tid))
+            except RuntimeError:
+                # obj is dead, cannot post event
+                break
 
     # Sockets
 

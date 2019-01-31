@@ -79,7 +79,7 @@ class tango_shutter(BaseShutter):
         if s in [self.OPEN, self.CLOSED, self.UNKNOWN]:
             return self.STATE2STR.get(s, self.STATE2STR[self.UNKNOWN])
         else:
-            return self._tango_state + ":\t" + self._tango_status
+            return (self._tango_state, self._tango_status)
 
     @property
     def _tango_status(self):

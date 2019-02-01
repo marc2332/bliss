@@ -120,6 +120,7 @@ def main():
         'silx >= 0.8 ; platform_machine == "x86_64"',
         "psutil",
         "requests",
+        "cffi",
     ]
 
     tests_require = ["pytest", "pytest-mock", "pytest-cov", "scipy", "gipc"]
@@ -161,6 +162,7 @@ def main():
                 "beacon-server = bliss.config.conductor.server:main",
                 "bliss-ct2-server = bliss.controllers.ct2.server:main",
                 "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
+                "bliss-handel-server = bliss.controllers.mca.handel.server:main",
                 "flint = bliss.flint:main",
                 "CT2 = bliss.tango.servers.ct2_ds:main",
                 "Bliss = bliss.tango.servers.bliss_ds:main",

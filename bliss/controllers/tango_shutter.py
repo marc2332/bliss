@@ -38,8 +38,22 @@ class tango_shutter(BaseShutter):
         self.__name = name
         self.__config = config
         self.__control = DeviceProxy(tango_uri)
-        self._frontend = "FrontEnd" in self.__control.info().dev_class
+        self._init_type()
         self._mode = False
+
+    def _init_type(self):
+        try:
+            self._frontend = "FrontEnd" in self.__control.info().dev_class
+        except:
+            self._frontend = None
+
+    @property
+    def frontend(self):
+        if self._frontend is None:
+            self._init_type()
+            if self._frontend is None:
+                raise RuntimeError("Tango server is not running %s" % self.name)
+        return self._frontend
 
     @property
     def name(self):
@@ -114,7 +128,7 @@ class tango_shutter(BaseShutter):
             raise RuntimeError("Trouble closing shutter: " + str(self.state_string))
 
     def set_automatic(self):
-        if not self._frontend:
+        if not self.frontend:
             raise NotImplementedError("Not a Front End shutter")
 
         # try to set to automatic if manual mode only.
@@ -131,7 +145,7 @@ class tango_shutter(BaseShutter):
                 pass
 
     def set_manual(self):
-        if not self._frontend:
+        if not self.frontend:
             raise NotImplementedError("Not a Front End shutter")
 
         # try to set to manual if automatic mode only.
@@ -148,7 +162,7 @@ class tango_shutter(BaseShutter):
                 # TODO some user log message
 
     def get_closing_mode(self):
-        if not self._frontend:
+        if not self.frontend:
             raise NotImplementedError("Not a Front End shutter")
         try:
             _mode = self.__control.automatic_mode

@@ -122,13 +122,7 @@ def main():
         "cffi",
     ]
 
-    tests_require = [
-        "pytest >= 4.1.1",
-        "pytest-mock",
-        "pytest-cov >= 2.6.1",
-        "scipy",
-        "gipc",
-    ]
+    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy", "gipc"]
 
     setup_requires = [
         #        'setuptools >= 37',

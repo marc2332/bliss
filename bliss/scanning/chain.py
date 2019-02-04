@@ -203,14 +203,6 @@ class ChainIterationPreset(object):
         pass
 
 
-def set_channel_device_name(acq_device, *channels):
-    for channel in channels:
-        if isinstance(acq_device.device, motor_group._Group):
-            channel._device_name = "axis"
-        else:
-            channel._device_name = acq_device.name
-
-
 class AcquisitionMaster(object):
     HARDWARE, SOFTWARE = list(range(2))
 
@@ -295,7 +287,6 @@ class AcquisitionMaster(object):
         self.__stats_dict = stats_dict
         with profile(stats_dict, self.name, "prepare"):
             if not self.__prepared:
-                set_channel_device_name(self, *self.channels)
 
                 for connect, _ in self.__duplicated_channels.values():
                     connect()
@@ -509,7 +500,6 @@ class AcquisitionDevice(object):
 
     def _prepare(self, stats_dict):
         with profile(stats_dict, self.name, "prepare"):
-            set_channel_device_name(self, *self.channels)
 
             if not self._check_reading_task():
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)

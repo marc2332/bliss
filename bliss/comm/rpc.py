@@ -67,6 +67,10 @@ Client::
     assert car.position == 22
 
 """
+import psutil
+
+MAX_BUFFER_SIZE = int(psutil.virtual_memory().total * 0.8)
+
 # msgpack patch for numpy and pickle
 import pickle
 
@@ -260,7 +264,7 @@ class _ServerObject(object):
                 gevent.killall(self._clients)
 
     def _client_poll(self, client_sock):
-        unpacker = msgpack.Unpacker(encoding="utf-8")
+        unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
         lock = gevent.lock.RLock()
         if self._stream:
 
@@ -511,7 +515,7 @@ class _cnx(object):
                     return value
 
     def _raw_read(self, socket):
-        unpacker = msgpack.Unpacker(encoding="utf-8")
+        unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
         try:
             while True:
                 msg = socket.recv(8192)

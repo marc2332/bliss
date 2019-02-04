@@ -24,7 +24,7 @@ def xvfb():
         os.environ["DISPLAY"] = new_display
         # Control xvbf process
         try:
-            p = subprocess.Popen([xvfb, new_display])
+            p = subprocess.Popen([xvfb, "-screen", "0", "1024x768x24", new_display])
             yield p.pid
         # Teardown process
         finally:
@@ -51,13 +51,13 @@ def flint_context():
 
 
 @pytest.fixture
-def test_session_with_flint(beacon, xvfb, session):
+def test_session_with_flint(xvfb, beacon, session):
     with flint_context():
         yield session
 
 
 @pytest.fixture
-def flint_session(beacon, xvfb):
+def flint_session(xvfb, beacon):
     session = beacon.get("flint")
     session.setup()
     try:

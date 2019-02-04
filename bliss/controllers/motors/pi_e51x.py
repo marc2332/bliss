@@ -49,13 +49,11 @@ class PI_E51X(Controller):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
-        self.sock = pi_gcs.get_pi_comm(self.config, TCP)
+        self.comm = pi_gcs.get_pi_comm(self.config, TCP)
 
-    def finalize(self):
-        """
-        Closes the controller socket.
-        """
-        self.sock.close()
+    def close(self):
+        if self.comm is not None:
+            self.comm.close()
 
     def initialize_axis(self, axis):
         """
@@ -80,9 +78,6 @@ class PI_E51X(Controller):
 
         """end of move event"""
         event.connect(axis, "move_done", self.move_done_event_received)
-
-        # Enables the closed-loop.
-        # self.sock.write("SVO 1 1\n")
 
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
 
@@ -222,43 +217,58 @@ class PI_E51X(Controller):
         """
         self.send_no_ans(axis, "HLT %s" % axis.chan_letter)
 
-        # self.sock.write("STP\n")
+        # self.comm.write(b"STP\n")
 
     """
-    Communication
+    Raw communication commands
     """
-
-    #    def flush(self, axis):
-    #        self.sock.flush()
 
     def raw_write(self, cmd):
-        self.send_no_ans(self.ctrl_axis, cmd)
+        """
+        - <cmd> must be 'str'
+        """
+        self.comm.write(cmd.encode())
 
     def raw_write_read(self, cmd):
-        return self.send(self.ctrl_axis, cmd)
+        """
+        - <cmd> must be 'str'
+        - Returns 'str'
+        """
+        return self.comm.write_readline(cmd.encode()).decode()
+
+    def raw_write_readlines(self, cmd, lines):
+        """
+        - Adds '\n' terminator to <cmd> string
+        - Sends <cmd> string to the controller and read back <lines> lines
+        - <cmd>: 'str'
+        - <lines>: 'int'
+        """
+        _cmd = cmd.encode() + b"\n"
+        return "\n".join(self.comm.write_readlines(_cmd, lines).decode())
+
+    """
+    E51x communications
+    """
 
     def send(self, axis, cmd):
         """
-        - Adds the 'newline' terminator character : "\\\\n"
-        - Sends command <cmd> to the PI E51X controller.
-        - Channel is defined in <cmd>.
+        - Converts <cmd> into 'bytes' and sends it to controller.
+        - Adds terminator to <cmd> string.
         - <axis> is passed for debugging purposes.
-        - Returns answer from controller.
-
-        Args:
-            - <axis> : passed for debugging purposes.
-            - <cmd> : GCS command to send to controller (Channel is already mentionned  in <cmd>).
-
-        Returns:
-            - 1-line answer received from the controller (without "\\\\n" terminator).
-
+        - Channel must be defined in <cmd>.
+        - Returns the answer from controller.
+        - Type of <cmd> must be 'str'.
+        - Type of returned string is 'str'.
         """
-        _cmd = cmd + "\n"
+        # print( f"SEND: {cmd}")
+
+        _cmd = cmd.encode() + b"\n"
         _t0 = time.time()
 
-        # PC
-        _ans = "toto"
-        _ans = self.sock.write_readline(_cmd)
+        _ans = self.comm.write_readline(_cmd).decode()
+        # "\n" in answer has been removed by tcp lib.
+        # print( f"RECV: {_ans}")
+
         _duration = time.time() - _t0
         if _duration > 0.005:
             elog.info(
@@ -266,7 +276,7 @@ class PI_E51X(Controller):
                 % (_ans, _cmd, _duration * 1000)
             )
 
-        # self.check_error(axis)
+        self.check_error(_cmd)
 
         return _ans
 
@@ -278,16 +288,18 @@ class PI_E51X(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, thus returns nothing.
         """
-        _cmd = cmd + "\n"
-        self.sock.write(_cmd)
+        _cmd = cmd.encode() + b"\n"
+        self.comm.write(_cmd)
+        self.check_error(axis)
 
-        # self.check_error(axis)
-
-    def check_error(self):
-        # Check error code
+    def check_error(self, command):
+        """
+        - Checks error code
+        - <command> : 'str' : displayed in case of error
+        """
         (_err_nb, _err_str) = self._get_error()
         if _err_nb != 0:
-            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, cmd))
+            print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, command))
 
     """
     E51X specific
@@ -303,7 +315,9 @@ class PI_E51X(Controller):
         Raises:
             ?
         """
-        _ans = self.sock.write_readlines("POS?\n", 3)
+        _bs_ans = self.comm.write_readlines(b"POS?\n", 3)
+        _ans = [bs.decode() for bs in _bs_ans]
+
         _pos = list(map(float, [x[2:] for x in _ans]))
 
         return _pos
@@ -323,34 +337,17 @@ class PI_E51X(Controller):
         """
         if self.closed_loop:
             # _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
-            _ans = self.sock.write_readlines("MOV?\n", 3)
+            _bs_ans = self.comm.write_readlines(b"MOV?\n", 3)
+
         else:
             # _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
-            _ans = self.sock.write_readlines("SVA?\n", 3)
+            _bs_ans = self.comm.write_readlines(b"SVA?\n", 3)
+
+        _ans = [bs.decode() for bs in _bs_ans]
+
         # _pos = float(_ans[2:])
         _pos = list(map(float, [x[2:] for x in _ans]))
         return _pos
-
-    def _get_cto(self, axis):
-        """
-        sss
-        """
-        _ans = self.sock.write_readlines("CTO?\n", 24)
-        return _ans
-
-    """
-    CTO?
-
-    1 1=+0000.1000    ???
-    1 2=1             ???
-    1 3=3             trigger mode
-    1 4=0             ???
-    1 5=+0000.0000    min threshold
-    1 6=+0001.0000    max threshold
-    1 7=1             polarity
-    1 12=1            ???
-    ...
-    """
 
     def _get_low_limit(self, axis):
         _ans = self.send(axis, "NLM? %s" % axis.chan_letter)
@@ -483,20 +480,26 @@ class PI_E51X(Controller):
 
         self.send_no_ans(axis, _cmd)
 
-    def get_id(self, axis):
-        """
-        Returns Identification information.
-        """
-        return self.send(axis, "*IDN?")
-
     def _get_error(self):
+        """
+        - Checks error code
+        - <command> : 'bytes' : Previous command string displayed in case of error
+        """
         # Does not use send() to be able to call _get_error in send().
-        _error_number = int(self.sock.write_readline("ERR?\n"))
+        _error_number = int(self.comm.write_readline(b"ERR?\n").decode())
         _error_str = pi_gcs.get_error_str(int(_error_number))
 
-        _error_str = pi_gcs.get_error_str(_error_number)
-
         return (_error_number, _error_str)
+
+    """
+    ID/INFO
+    """
+
+    def get_id(self, axis):
+        """
+        - Returns a 'str' string.
+        """
+        return self.send(axis, "*IDN?")
 
     def get_info(self, axis):
         """
@@ -507,8 +510,6 @@ class PI_E51X(Controller):
             <axis> : bliss axis
         Returns:
             None
-        Raises:
-            ?
         """
         _infos = [
             ("Identifier                 ", "*IDN?"),
@@ -539,19 +540,22 @@ class PI_E51X(Controller):
             ("Digital filter order       ", "SPA? %s 0x05000002" % axis.channel),
         ]
 
-        _txt = ""
+        (error_nb, err_str) = self._get_error()
+        _txt = '      ERR nb=%d  : "%s"\n' % (error_nb, err_str)
 
+        # Reads pre-defined infos (1 line answers)
         for i in _infos:
-            _txt = _txt + "    %s %s\n" % (i[0], self.send(axis, i[1]))
+            _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, (i[1])))
+            # time.sleep(0.01)
 
-        _txt = _txt + "    %s  \n%s\n" % (
+        # Reads multi-lines infos.
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
+        _txt = _txt + "        %s    \n%s\n" % (
             "Communication parameters",
-            "\n".join(self.sock.write_readlines("IFC?\n", 6)),
+            "\n".join(_ans),
         )
 
-        _txt = _txt + "    %s  \n%s\n" % (
-            "Firmware version",
-            "\n".join(self.sock.write_readlines("VER?\n", 3)),
-        )
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
+        _txt = _txt + "    %s  \n%s\n" % ("Firmware version", "\n".join(_ans))
 
         return _txt

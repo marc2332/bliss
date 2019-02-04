@@ -9,7 +9,7 @@ numpy >= 1.13
 tabulate
 pyserial > 2
 h5py
-msgpack-python
+msgpack-python >= 0.6.1
 pyzmq
 pytango > 9.2.4
 h5py

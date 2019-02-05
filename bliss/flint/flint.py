@@ -682,7 +682,6 @@ def main():
     h = pos.height()
     win.resize(settings.value("size", qt.QSize(w, h)))
     win.move(settings.value("pos", qt.QPoint(3 * w / 14., 3 * h / 14.)))
-    win.show()
 
     handler = QtLogHandler(log_widget)
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
@@ -712,6 +711,11 @@ def main():
     flint = Flint(tabs)
 
     thread = gevent.spawn(background_task, flint, stop)
+
+    single_shot = qt.QTimer()
+    single_shot.setSingleShot(True)
+    single_shot.timeout.connect(win.show)
+    single_shot.start(0)
 
     try:
         sys.exit(qapp.exec_())

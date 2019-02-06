@@ -36,6 +36,7 @@ nav:
                       - PACE: config_pace.md
                       - Lakeshore: config_lakeshore.md
                       - Oxford700: config_oxford700.md
+                      - Oxford800: config_oxford800.md
                 - P201: config_p201.md
                 - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md

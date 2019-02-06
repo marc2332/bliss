@@ -56,7 +56,12 @@ mapping:
     logical_names: pot1in, dac8
   - type: 750-469
     logical_names: th_mask, _
-counter_names: pot1vol, pot1cur, pot2vol, pot2cur
+  - type: 750-516
+    logical_names: i0_g,i0_g,i0_g,_
+  - type: 750-467
+    logical_names: i0,_
+counter_names: pot1vol, pot1cur, pot2vol, pot2cur, i0
+counter_gain_names: i0_g
 ```
 
 The mapping describes all additional cards attached to the core main board providing Input/Output features.
@@ -68,3 +73,4 @@ First, you have to declare the type of board and then you can map the logical na
 * The last Card type shows how to behave in the case that there is nothing attached to the channel: you can just map with an underscore.
 
 The key counter_names have to be organized as a comma separated list of logical names. These names should be already defined in the preceding mapping.
+The key counter_gain_names associates a counter with gains when the hardware requires it (e.g.novelec electrometer with 3 different gains).

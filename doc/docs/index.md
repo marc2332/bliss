@@ -24,10 +24,6 @@ is possible to proceed with installation using `pip`:
     $ cd bliss
     $ pip install .
 
-!!! note
-    Recent versions of `setuptools` and `pip` are needed. It may
-    be required to upgrade.
-
 BLISS has many dependencies, therefore it is highly recommend to install BLISS
 in a virtual environment.
 
@@ -38,20 +34,34 @@ BLISS requires additional, non-Python dependencies:
 ### Using Conda
 
 The use of [Conda][3] is recommended to install all dependencies. BLISS distribution contains a
-`requirements-conda.txt` file to help with the installation. Creating a `bliss` Conda environment
-can be done like this:
+`requirements-conda.txt` file to help with the installation. Creating a `bliss_env` Conda environment
+can be done like this (the name of the enviroment can - of cause - be chosen freely):
 
     $ cd bliss
-    $ conda env create -n bliss -f ./requirements-conda.txt
+    $ conda env create -n bliss_env -f ./requirements-conda.txt
 
 !!! note
     The ESRF BCU Conda channel needs to be configured beforehand:
     `conda config --add channels esrf-bcu`
 
 Not all packages are available on standard Conda repositories. Remaining packages can then be
-installed via `pip` to complete installation:
+installed via `pip`. To complete the installation activate the freshly created conda environment:
+
+    $ conda activate bliss_env
+
+and run
 
     $ pip install .
+
+to install the remaining packages, not available in Conda.
+
+Alternatively the remaining packages can be installed via
+
+    $ pip install -e .
+
+This is recommended for development, since the code is deployed in Python
+**site-packages** directory as a symbolic link, thus removing the need to
+install each time a modification is made.
 
 ## Beacon configuration server
 

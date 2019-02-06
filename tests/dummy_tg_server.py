@@ -4,6 +4,7 @@ from tango.server import run
 from tango.server import Device
 from tango.server import attribute, command
 from tango import AttrWriteType
+from tango import DevState
 
 
 class Dummy(Device):
@@ -23,6 +24,9 @@ class Dummy(Device):
         self.vel = 0
         self.acc = 0
 
+        # shutter state
+        self.set_state(DevState.CLOSE)
+
     def read_position(self):
         return 1.4
 
@@ -41,6 +45,19 @@ class Dummy(Device):
     @command(dtype_out=str)
     def string1(self):
         return "café"
+
+    ###for tango_shutter
+    @command()
+    def open(self):
+        self.set_state(DevState.OPEN)
+
+    @command()
+    def close(self):
+        self.set_state(DevState.CLOSE)
+
+    @command(dtype_out=str)
+    def status(self):
+        return "Some Text " + str(self.get_state())
 
 
 if __name__ == "__main__":

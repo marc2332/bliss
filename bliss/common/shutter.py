@@ -39,18 +39,72 @@ class ShutterSwitch(BaseSwitch):
             return "CLOSED"
 
 
-class Shutter(object):
+class BaseShutter(object):
+    """Define a simple shutter"""
+
+    OPEN, CLOSED, UNKNOWN, OTHER = list(range(4))  # state
+    STATE2STR = {
+        OPEN: ("OPEN", "Shutter is open"),
+        CLOSED: ("CLOSED", "Shutter is closed"),
+        UNKNOWN: ("UNKNOWN", "Unknown shutter state"),
+        OTHER: ("OTHER", "shutter state specific to controller"),
+    }
+
+    # Properties
+    @property
+    def name(self):
+        """A unique name"""
+        raise NotImplementedError
+
+    @property
+    def config(self):
+        """Config of shutter"""
+        raise NotImplementedError
+
+    @property
+    def state(self):
+        """Verbose message of the shutter state"""
+        raise NotImplementedError
+
+    @property
+    def state_string(self):
+        return self.STATE2STR.get(self.state, self.STATE2STR[self.UNKNOWN])
+
+    @property
+    def is_open(self):
+        """States if the shutter is open"""
+        return self.state == self.OPEN
+
+    @property
+    def is_closed(self):
+        """States if the shutter is closed"""
+        return self.state == self.CLOSED
+
+    # Methods
+    def open(self):
+        """Method that opens the shutter"""
+        raise NotImplementedError
+
+    def close(self):
+        """Method that closes the shutter"""
+        raise NotImplementedError
+
+    def __repr__(self):
+        return self.state_string
+
+    def __enter__(self):
+        self.open()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+
+class Shutter(BaseShutter):
     MANUAL, EXTERNAL, CONFIGURATION = list(range(3))  # modes
     MODE2STR = {
         MANUAL: ("MANUAL", "Manual mode"),
         EXTERNAL: ("EXTERNAL", "External trigger mode"),
         CONFIGURATION: ("CONFIGURATION", "Configuration mode"),
-    }
-    OPEN, CLOSED, UNKNOWN = list(range(3))  # state
-    STATE2STR = {
-        OPEN: ("OPEN", "Shutter is open"),
-        CLOSED: ("CLOSED", "Shutter is closed"),
-        UNKNOWN: ("UNKNOWN", "Unknown shutter state"),
     }
 
     """
@@ -204,24 +258,6 @@ class Shutter(object):
 
     def _state(self):
         raise NotImplementedError
-
-    @property
-    def state_string(self):
-        return self.STATE2STR.get(self.state, self.STATE2STR[self.UNKNOWN])
-
-    @property
-    def is_open(self):
-        return self.state == self.OPEN
-
-    @property
-    def is_closed(self):
-        return self.state == self.CLOSED
-
-    def __enter__(self):
-        self.open()
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.close()
 
     @property
     def external_control(self):

@@ -1,6 +1,6 @@
 # Defaults BLISS scans
 
-## BLISS step-by-steps scan functions
+## BLISS step-by-step scan functions
 
 BLISS provides functions to perform step-by-step scans. The acquisition
 chain for those scans is built using the `DefaultChain` class.
@@ -8,26 +8,40 @@ chain for those scans is built using the `DefaultChain` class.
 
 {% dot scan_dep.svg
    digraph scans_hierarchy {
-   d2s [shape="box" label="d2scan"]
-   a2s [shape="box" label="a2scan"]
    ls [shape="box" label="loopscan"]
    ct [shape="box" label="ct"]
    ts [shape="box" label="timescan"]
    lu [shape="box" label="lineup"]
    ds [shape="box" label="dscan"]
    as [shape="box" label="ascan"]
-   ss [shape="box" label="step_scan"]
    ps [shape="box" label="pointscan"]
+
    dm [shape="box" label="dmesh"]
    am [shape="box" label="amesh"]
 
-   d2s->a2s->ss
-   ls->ts->ss
-   lu->ds->as->ss
-   ps->ss
-   dm->am->ss
+   ans [shape="box" label="anscan"]
+   a2s [shape="box" label="a2scan"]
+   a35s [shape="box" label="a{3..5}scan"]
+   dns [shape="box" label="dnscan"]
+   d2s [shape="box" label="d2scan"]
+   d35s [shape="box" label="d{3..5}scan"]
+
+   lus [shape="box" label="lookupscan"]
+   bssS [shape="box" label="bliss.scanning.scan.Scan"]
+
+   dm->am->bssS
+
+   a35s->ans
+   d35s->dns
+
+   d2s->a2s->bssS
+   lu->ds->as->bssS
+   ls->ts->bssS
    ct->ts
-   ss->"bliss.scanning.scan.Scan"
+   ps->bssS
+   dns->ans->lus
+   lus->bssS
+
    }
 %}
 
@@ -74,10 +88,8 @@ Common keyword arguments that can be used in all scans:
     scan object and acquisition chain.
 * `return_scan (bool)`: True by default ???
 
-Q: diff entre return_scan=True et run=False ???
 
 ## Scan example
-
     ascan(<mot>, <start>, <stop>, <nb_points>, <acq_time>, <title>)
     ascan( sy,    1,       2,      3,           0.5, title="Jadarite_LiNaSiB3O7(OH)")
 
@@ -85,24 +97,21 @@ This command performs a scan of fifteen 500ms-counts of current
 measurement group counters at `<sy>` motor positions 1, 1.5 and 2.
 
 
-## ascan
+## ascan dscan
     ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
 
-Absolute scan.
-
-Scans one motor, as specified by `<motor>`. The motor starts at the
-position given by `<start>` and ends at the position given by
-`<stop>`. The step size is `(<start>-<stop>)/(<npoints>-1)`. The number
-of intervals will be `<npoints> - 1`. Count time is given by `<count_time>`
-(seconds). 
+Absolute scan. Scans one motor, as specified by `<motor>`. The motor
+starts at the position given by `<start>` and ends at the position
+given by `<stop>`. The step size is
+`(<start>-<stop>)/(<npoints>-1)`. The number of intervals will be
+`<npoints> - 1`. Count time is given by `<count_time>` (seconds).
 
 At the end of the scan, the motor will stay at stopping position
 (`<stop>` position in case of success).
 
-## dscan
-    dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
+Idem for `dscan` but using relative positions:
 
-Relative scan.
+    dscan(motor, rel_start, rel_stop, npoints, count_time, *counter_args, **kwargs)
 
 Scans one motor, as specified by `<motor>`. If the motor is at
 position *X* before the scan begins, the scan will run from
@@ -110,8 +119,8 @@ position *X* before the scan begins, the scan will run from
 `(<start>-<stop>)/(<npoints>-1)`. The number of intervals will be
 `<npoints>-1`. Count time is given by `<count_time>` (in seconds).
 
-At the end of the scan (even in case of error) the motor will return to
-its initial position.
+At the end of the `dscan` (even in case of error or scan abortion, on a
+`ctrl-c` for example) the motor will return to its initial position.
 
 
 ## a2scan
@@ -169,11 +178,24 @@ example:
     Took 0:00:05.226827 (estimation was for 0:00:04.100000)
       Out [2]: Scan(name=a5scan_2, run_number=2, path=/tmp/scans/cyril/)
 
+## anscan dnscan
+
+In case of scan needed for more than 5 motors, `anscan` and `dnscan`
+functions can be used with a slightly different list of parameters:
+
+`anscan(<counting_time>, <number_of_points>, (<mot>, <start>, <stop>)*)`
+
+`(<mot>, <start>, <stop>)` can be repeated as much as needed.
+
+idem for dnscan with relative start and stop positions:
+
+`anscan(<counting_time>, <number_of_points>, (<mot>, <rel_start>, <rel_stop>)*)`
+
+
 
 ## amesh
-    amesh( motor1, start1, stop1, npoints1,
-           motor2, start2, stop2, npoints2,
-           count_time, *counter_args, **kwargs)
+
+    amesh( motor1, start1, stop1, npoints1, motor2, start2, stop2, npoints2, count_time, *counter_args, **kwargs)
 
 Mesh scan.
 
@@ -251,7 +273,18 @@ Count time is given by `<count_time>` (seconds).
 * `positions`: List of positions to scan for `<motor>` motor.
 
 
+## lookupscan
 
+Previous multi-motors scans (aNscan, dNscan) are based on the generic
+`lookupscan`. It can take a variable number of motors associated to a
+list of positions to use for the scan.
 
+usage:
+
+    lookupscan(counting_time, (<mot>, <positions_list>)*, <counter>*)
+
+example:
+
+    lookupscan(0.1, m0, np.arange(0, 2, 0.5), m1, np.linspace(1, 3, 4), diode2)
 
 

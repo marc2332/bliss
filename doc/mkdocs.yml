@@ -23,6 +23,7 @@ nav:
                       - Smaract: config_smaract.md
                       - NewFocus: config_newfocus.md
                 - Slits: config_slits.md
+                - Energy and Wavelength: config_enwl.md
                 - 2D detectors (Lima): config_lima.md
                 - MCA:
                     - General: config_mca.md

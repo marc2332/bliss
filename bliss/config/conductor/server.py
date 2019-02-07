@@ -24,12 +24,15 @@ import tempfile
 import gevent
 import ipaddress
 from gevent import select
+from gevent import monkey
 
 from bliss.common import event, subprocess
 from . import protocol
 from .. import redis as redis_conf
 from functools import reduce
 
+if sys.platform in ["win32", "cygwin"]:
+    import win32api
 
 # Globals
 
@@ -489,9 +492,13 @@ def _send_posix_mq_connection(client_id, client_hostname):
 def _send_uds_connection(client_id, client_hostname):
     client_hostname = client_hostname.decode()
     try:
-        if client_hostname == socket.gethostname():
+        if client_hostname == socket.gethostname() and sys.platform not in [
+            "win32",
+            "cygwin",
+        ]:
             client_id.sendall(protocol.message(protocol.UDS_OK, uds_port_name.encode()))
         else:
+
             client_id.sendall(protocol.message(protocol.UDS_FAILED))
     except:
         sys.excepthook(*sys.exc_info())
@@ -545,6 +552,7 @@ def _client_rx(client, local_connection):
                     elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
                         _send_config_db_files(c_id, message)
                     elif messageType == protocol.CONFIG_GET_DB_TREE:
+
                         _send_config_db_tree(c_id, message)
                     elif messageType == protocol.CONFIG_SET_DB_FILE:
                         _write_config_db_file(c_id, message)
@@ -719,8 +727,12 @@ def main(args=None):
 
     # Binds system signals.
     signal.signal(signal.SIGTERM, sigterm_handler)
-    signal.signal(signal.SIGHUP, sigterm_handler)
-    signal.signal(signal.SIGQUIT, sigterm_handler)
+    if sys.platform in ["win32", "cygwin"]:
+        signal.signal(signal.SIGINT, sigterm_handler)
+
+    else:
+        signal.signal(signal.SIGHUP, sigterm_handler)
+        signal.signal(signal.SIGQUIT, sigterm_handler)
 
     # Pimp my path
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
@@ -739,18 +751,6 @@ def main(args=None):
     _log.info("server sitting on port: %s", beacon_port)
     _log.info("configuration path: %s", _options.db_path)
     tcp.listen(512)  # limit to 512 clients
-
-    # UDS
-    global uds_port_name
-    uds_port_name = os.path.join(
-        tempfile._get_default_tempdir(),
-        "beacon_%s.sock" % next(tempfile._get_candidate_names()),
-    )
-    uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    uds.bind(uds_port_name)
-    os.chmod(uds_port_name, 0o777)
-    uds.listen(512)
-    _log.info("server sitting on uds socket: %s", uds_port_name)
 
     # Check Posix queue are not activated
     if _options.posix_queue:
@@ -785,8 +785,16 @@ def main(args=None):
 
     # Start redis
     rp, wp = os.pipe()
-    redis_process = subprocess.Popen(
-        [
+
+    if sys.platform in ["win32", "cygwin"]:
+        redis_options = [
+            "redis-server",
+            _options.redis_conf,
+            "--port",
+            "%d" % _options.redis_port,
+        ]
+    else:
+        redis_options = [
             "redis-server",
             _options.redis_conf,
             "--unixsocket",
@@ -795,33 +803,22 @@ def main(args=None):
             "777",
             "--port",
             "%d" % _options.redis_port,
-        ],
-        stdout=wp,
-        stderr=subprocess.STDOUT,
-        cwd=_options.db_path,
+        ]
+
+    redis_process = subprocess.Popen(
+        redis_options, stdout=wp, stderr=subprocess.STDOUT, cwd=_options.db_path
     )
 
     # Safe context
     try:
-        fd_list = [udp, tcp, uds, rp, sig_read] + ([tango_rp] if tango_rp else [])
+        fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
         logger = {rp: _rlog, tango_rp: _tlog}
         udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
 
-        def events():
-            """Flatten the selector events."""
+        # ==== UDP case ============
+        def do_udp_processing(fd):
             while True:
-                rlist, _, _ = select.select(fd_list, [], [], 1)
-                for s in rlist:
-                    yield s
-                if not rlist:
-                    yield None
-
-        # Event loop
-        for s in events():
-
-            # UDP case
-            if s == udp:
-                buff, address = udp.recvfrom(8192)
+                buff, address = fd.recvfrom(8192)
                 if buff.find(b"Hello") > -1:
                     send_flag = True
                     if _options.add_filter:
@@ -836,48 +833,60 @@ def main(args=None):
                     _log.info(
                         "address request from %s. Replying with %r", address, udp_reply
                     )
-                    udp.sendto(udp_reply, address)
+                    #udp.sendto(udp_reply, address)
                 else:
                     _log.info("filter address %s with filter %s", address, add)
+                
+                fd.sendto(udp_reply, address)
 
-            # TCP case
-            elif s == tcp:
-                newSocket, addr = tcp.accept()
+        udp_processing = gevent.spawn(do_udp_processing, udp)
+
+        # ==== TCP case ============
+        def do_tcp_processing(sk):
+            while True:
+                newSocket, addr = sk.accept()
                 newSocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 localhost = addr[0] == "127.0.0.1"
                 gevent.spawn(_client_rx, newSocket, localhost)
-            # UDS
-            elif s == uds:
-                newSocket, addr = uds.accept()
-                gevent.spawn(_client_rx, newSocket, True)
-            # Signal interruption case
-            elif s == sig_read:
-                _log.info("Received an interruption signal!")
-                return
 
-            # Timeout case
-            elif s is None:
-                redis_exit_code = redis_process.poll()
-                # Redis is not alive
-                if redis_exit_code is not None:
-                    _rlog.critical(
-                        "redis exited with code %s. Bailing out!", redis_exit_code
-                    )
-                    redis_process = None
-                    return
+        tcp_processing = gevent.spawn(do_tcp_processing, tcp)
 
-            # Logging case
-            else:
-                msg = os.read(s, 8192)
+        # ==== Logging case ============
+        def do_rp_processing(fd):
+            while True:
+                msg = gevent.os.tp_read(fd, 8192)
+
                 # Log the message properly
                 if msg:
-                    logger.get(s, _log).info(msg.decode())
+                    logger.get(fd, _log).info(msg.decode())
                 # Tango DB is not alive
-                elif s == tango_rp:
+                elif fd == tango_rp:
                     fd_list.remove(tango_rp)
                     os.close(tango_rp)
-                    logger.get(s, _log).warning("database exit")
+                    logger.get(fd, _log).warning("database exit")
+
+        rp_processing = gevent.spawn(do_rp_processing, rp)
+
+        def do_signal_processing(sg):
+            while True:
+                gevent.os.tp_read(sg, 1)
+                _log.info("Received an interruption signal!")
+                break
+
+            gevent.killall([udp_processing, tcp_processing, rp_processing])
+
+        signal_processing = gevent.spawn(do_signal_processing, sig_read)
+
+        if sys.platform in ["win32", "cygwin"]:
+            # ============ test handle CTRL C under windows ============
+            def CTRL_C_handler(a, b=None):
+                os.write(sig_write, b"!\n")
+
+            # ===== Install CTRL_C handler ======================
+            win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
+
+        gevent.joinall([udp_processing, tcp_processing, rp_processing])
 
     # Ignore keyboard interrupt
     except KeyboardInterrupt:

@@ -17,7 +17,18 @@ import functools
 
 import numpy
 import operator
-from blessings import Terminal
+
+
+if sys.platform not in ["win32", "cygwin"]:
+    from blessings import Terminal
+else:
+
+    class Terminal:
+        def __getattr__(self, prop):
+            if prop.startswith("__"):
+                raise AttributeError(prop)
+            return ""
+
 
 from bliss import release
 from bliss import setup_globals
@@ -44,6 +55,7 @@ def initialize(session_name=None):
     error_flag = False
 
     """ BLISS CLI welcome messages """
+
     t = Terminal()
 
     # Version

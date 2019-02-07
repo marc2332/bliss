@@ -163,12 +163,14 @@ class Connection(object):
 
     @property
     def uds(self):
-        try:
-            int(self._port)
-        except ValueError:
-            return self._port
-        else:
-            return None
+        # try:
+        #    int(self._port)
+        # except ValueError:
+        #    #return self._port
+        #    return None
+        # else:
+        #    return None
+        return False
 
     def connect(self):
         # Already connected

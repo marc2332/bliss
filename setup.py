@@ -107,7 +107,7 @@ def main():
         "pyserial > 2",
         "ruamel.yaml",
         "msgpack >= 0.6.1",
-        "msgpack_numpy",
+        "msgpack_numpy >= 0.4.4.2",
         "blessings",
         "h5py",
         "gevent == 1.3.7",

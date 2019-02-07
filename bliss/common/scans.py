@@ -569,10 +569,15 @@ def lookupscan(count_time, *motors_positions, **kwargs):
     """
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
+    starts_list = list()
+    stops_list = list()
     while tmp_l:
         val = tmp_l.pop(0)
         if isinstance(val, Axis):
-            motors_positions.extend((val, tmp_l.pop(0)))
+            pos = tmp_l.pop(0)
+            starts_list.append(pos[0])
+            stops_list.append(pos[-1])
+            motors_positions.extend((val, pos))
         else:
             counter_list.append(val)
 
@@ -587,6 +592,8 @@ def lookupscan(count_time, *motors_positions, **kwargs):
         "count_time": count_time,
         "type": kwargs.get("type", "lookupscan"),
         "save": kwargs.get("save", True),
+        "start": starts_list,  # kwargs.get("start", []),
+        "stop": stops_list,  # kwargs.get("stop", []),
         "title": kwargs["title"],
         "sleep_time": kwargs.get("sleep_time"),
     }
@@ -621,15 +628,22 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
     title_list = list()
+    starts_list = []
+    stops_list = []
     while tmp_l:
         val = tmp_l.pop(0)
         if isinstance(val, Axis):
             start = tmp_l.pop(0)
+            starts_list.append(start)
             stop = tmp_l.pop(0)
+            stops_list.append(stop)
             title_list.extend((val.name, start, stop))
             motors_positions.extend((val, numpy.linspace(start, stop, npoints)))
         else:
             counter_list.append(val)
+
+    kwargs.setdefault("start", starts_list)
+    kwargs.setdefault("stop", stops_list)
 
     scan_type = kwargs.setdefault("type", "a%dscan" % (len(title_list) / 3))
     scan_name = kwargs.setdefault("name", scan_type)

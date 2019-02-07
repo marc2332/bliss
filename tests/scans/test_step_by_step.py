@@ -342,11 +342,14 @@ def test_motor_group(beacon):
     robz = beacon.get("robz")
     scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
 
-    items = dict((child.name, child) for child in scan.node.children())
+    children = list(scan.node.children())
+    axis_master = children[0]
+    assert axis_master.name == "axis"
+    items = dict((child.name, child) for child in axis_master.children())
 
-    assert items["roby"].parent.db_name == scan.node.db_name
-    assert items["robz"].parent.db_name == scan.node.db_name
-    assert items["timer"].parent.db_name == scan.node.db_name
+    assert items["roby"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["robz"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["timer"].parent.db_name == scan.node.db_name + ":axis"
     timer_channels = list(items["timer"].children())
     timer_channel_names = set([chan.name.split(":")[-1] for chan in timer_channels])
     assert "elapsed_time" in timer_channel_names

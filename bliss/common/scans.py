@@ -93,6 +93,8 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     save_images = kwargs.pop("save_images", True)
 
     scan_info = {
@@ -190,6 +192,8 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     kwargs["type"] = "dscan"
     kwargs.setdefault("name", "dscan")
     args = kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time
@@ -206,6 +210,8 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
 
 
 def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     if len(counter_args) == 0:
         raise ValueError("lineup: please specify a counter")
     if len(counter_args) > 1:
@@ -247,6 +253,11 @@ def amesh(
 
     :param backnforth if True do back and forth on the first motor
     """
+    if not isinstance(npoints1, int):
+        raise ValueError("number of point for motor1 must be an integer number.")
+    if not isinstance(npoints2, int):
+        raise ValueError("number of point for motor2 must be an integer number.")
+
     save_images = kwargs.pop("save_images", True)
 
     scan_info = {
@@ -369,6 +380,11 @@ def dmesh(
 ):
     """Relative amesh
     """
+    if not isinstance(npoints1, int):
+        raise ValueError("number of point for motor1 must be an integer number.")
+    if not isinstance(npoints2, int):
+        raise ValueError("number of point for motor2 must be an integer number.")
+
     kwargs.setdefault("type", "dmesh")
     kwargs.setdefault("name", "dmesh")
     if kwargs.get("title") is None:
@@ -455,8 +471,9 @@ def a2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     save_images = kwargs.pop("save_images", True)
-
     scan_info = {
         "type": kwargs.get("type", "a2scan"),
         "save": kwargs.get("save", True),
@@ -598,6 +615,9 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     *stop_m0_pos* to *stop_m0_pos* and **m1** from *start_m1_pos* to
     *stop_m1_pos* and with diode2 as the only counter.
     """
+
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
     title_list = list()
@@ -785,6 +805,8 @@ def d2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     kwargs.setdefault("type", "d2scan")
     args = (
         kwargs.get("type"),
@@ -932,6 +954,8 @@ def loopscan(npoints, count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
+    if not isinstance(npoints, int):
+        raise ValueError("number of point must be an integer number.")
     kwargs.setdefault("npoints", npoints)
     kwargs.setdefault("name", "loopscan")
     kwargs.setdefault("type", "loopscan")

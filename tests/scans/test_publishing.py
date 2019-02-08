@@ -78,7 +78,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":roby"
+    m0_node_db_name = s.node.db_name + ":axis"
     scan_children_node = [m0_node_db_name]
     m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
     assert redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1) == [
@@ -113,7 +113,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":roby"
+    m0_node_db_name = s.node.db_name + ":axis"
     scan_children_node = [m0_node_db_name]
     m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
 

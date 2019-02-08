@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import warnings
-import weakref
 import numpy
 import re
 
@@ -34,7 +33,6 @@ class LivePlot1D(qt.QWidget):
         self.silx_plot = silx_plot.Plot1D(self)
         self.x_axis_names = list()
         self.y_axis_names = list()
-        self.legend_icon = weakref.WeakValueDictionary()
 
         self.axes_list_view = qt.QTreeView(self)
         self.axes_list_model = qt.QStandardItemModel(self.axes_list_view)
@@ -123,10 +121,10 @@ class LivePlot1D(qt.QWidget):
             row_id = self.axes_list_model.rowCount()
             self.axes_list_model.appendRow(items)
             # legend
-            legend_icon = LegendSelector.LegendIcon(self)
             qindex = self.axes_list_model.index(row_id, 4, qt.QModelIndex())
-            self.axes_list_view.setIndexWidget(qindex, legend_icon)
-            self.legend_icon[row_id] = legend_icon
+            self.axes_list_view.setIndexWidget(
+                qindex, LegendSelector.LegendIcon(self.axes_list_view)
+            )
 
         for i in range(5):
             self.axes_list_view.resizeColumnToContents(i)
@@ -215,7 +213,9 @@ class LivePlot1D(qt.QWidget):
                     self.redis_cnx.hdel("%s:plot_select" % self._session_name, y_axis)
                     self.silx_plot.removeCurve(legend)
                     color = qt.QColor.fromRgbF(0., 0., 0., 0.)
-                    icon = self.legend_icon[row]
+
+                    qindex = self.axes_list_model.index(row, 4, qt.QModelIndex())
+                    icon = self.axes_list_view.indexWidget(qindex)
                     icon.setLineColor(color)
                     icon.setSymbolColor(color)
                     icon.update()
@@ -254,20 +254,24 @@ class LivePlot1D(qt.QWidget):
             curve = self.silx_plot.getCurve(legend)
             if curve is None:
                 continue
-            icon = self.legend_icon[row]
-            icon.setSymbol(curve.getSymbol())
-            icon.setLineWidth(curve.getLineWidth())
-            icon.setLineStyle(curve.getLineStyle())
-            color = curve.getCurrentColor()
-            if numpy.array(color, copy=False).ndim != 1:
-                # array of colors, use transparent black
-                color = 0., 0., 0., 0.
-            color = colors.rgba(color)  # Make sure it is float in [0, 1]
-            alpha = curve.getAlpha()
-            color = qt.QColor.fromRgbF(color[0], color[1], color[2], color[3] * alpha)
-            icon.setLineColor(color)
-            icon.setSymbolColor(color)
-            icon.update()
+            qindex = self.axes_list_model.index(row, 4, qt.QModelIndex())
+            icon = self.axes_list_view.indexWidget(qindex)
+            if icon is not None:
+                icon.setSymbol(curve.getSymbol())
+                icon.setLineWidth(curve.getLineWidth())
+                icon.setLineStyle(curve.getLineStyle())
+                color = curve.getCurrentColor()
+                if numpy.array(color, copy=False).ndim != 1:
+                    # array of colors, use transparent black
+                    color = 0., 0., 0., 0.
+                color = colors.rgba(color)  # Make sure it is float in [0, 1]
+                alpha = curve.getAlpha()
+                color = qt.QColor.fromRgbF(
+                    color[0], color[1], color[2], color[3] * alpha
+                )
+                icon.setLineColor(color)
+                icon.setSymbolColor(color)
+                icon.update()
 
     def update_enabled_plots(self):
         for x_axis in self.x_axis_names:

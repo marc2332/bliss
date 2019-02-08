@@ -63,7 +63,7 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         **keys
     ):
         AcquisitionMaster.__init__(
-            self, axis, axis.name, trigger_type=trigger_type, **keys
+            self, axis, "axis", trigger_type=trigger_type, **keys
         )
         UndershootMixin.__init__(
             self, undershoot, undershoot_start_margin, undershoot_end_margin
@@ -288,7 +288,7 @@ class _StepTriggerMaster(AcquisitionMaster):
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(
-            self, mot_group, mot_group.name, trigger_type=trigger_type, **keys
+            self, mot_group, "axis", trigger_type=trigger_type, **keys
         )
 
         self.channels.extend(
@@ -412,7 +412,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(
-            self, mot_group, mot_group.name, trigger_type=trigger_type, **keys
+            self, mot_group, "axis", trigger_type=trigger_type, **keys
         )
 
         self.channels.extend(

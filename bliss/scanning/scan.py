@@ -316,7 +316,8 @@ def _get_channels_dict(acq_object, channels_dict):
     images = channels_dict.setdefault("images", [])
 
     for acq_chan in acq_object.channels:
-        name = acq_object.name + ":" + acq_chan.name
+        acq_chan._device_name = acq_object.name
+        name = acq_chan.fullname
         shape = acq_chan.shape
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
@@ -694,17 +695,9 @@ class Scan(object):
                 prev_level = level
                 parent_node = self.nodes[dev_node.bpointer]
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
-                if isinstance(dev.device, motor_group._Group):
-                    # special case for motor group: motor groups have no name,
-                    # each channel (motor in group) corresponds to its own dataset
-                    # and is attached to the parent node
-                    self.nodes[dev] = parent_node
-                    self._prepare_channels(dev.channels, parent_node)
-                else:
-                    data_container_node = _create_node(dev.name, parent=parent_node)
-
-                    self.nodes[dev] = data_container_node
-                    self._prepare_channels(dev.channels, data_container_node)
+                data_container_node = _create_node(dev.name, parent=parent_node)
+                self.nodes[dev] = data_container_node
+                self._prepare_channels(dev.channels, data_container_node)
 
                 for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)

@@ -7,13 +7,11 @@
 
 import gevent
 import itertools
+import uuid
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.common.cleanup import capture_exceptions
-
-GROUP_ID = itertools.count()
-GROUP_NAMES = {}
 
 
 def Group(*axes_list):
@@ -44,14 +42,10 @@ def Group(*axes_list):
 
     check_axes(*axes.values())
 
-    # always use the same group name for groups of same axes,
-    # this is to make sure master name will stay the same
-    # when doing step-by-step scans for example -- this is
-    # useful for Flint to know if the 0D live scan plot window
-    # can be kept or not
-    key = "".join(sorted(axes))
-    gid = GROUP_NAMES.setdefault(key, next(GROUP_ID))
-    g = _Group("group_%d" % gid, axes)
+    # group names will be generated, since _Group objects
+    # are anonymous
+    group_name = uuid.uuid4().hex
+    g = _Group(group_name, axes)
     return g
 
 

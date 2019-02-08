@@ -9,10 +9,56 @@ import os
 import sys
 import inspect
 
-from distutils.cmd import Command
+from setuptools.extension import Extension
 from setuptools import setup, find_packages
 
 TESTING = any(x in sys.argv for x in ["test", "pytest"])
+
+conda_base = os.environ.get("CONDA_PREFIX")
+extensions = []
+sip_extensions = []
+
+build_flint = True
+
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    cython = False
+    cythonize = lambda ext: [ext]
+else:
+    cython = True
+
+if build_flint:
+    # need qt headers and lib
+    if conda_base is not None:
+        qt_include_dirs = [os.path.join(conda_base, "include", "qt")]
+        qt_library_dirs = [os.path.join(conda_base, "lib")]
+    else:
+        qt_include_dirs = []
+        qt_library_dirs = []
+
+    if cython:
+        sources = [
+            "extensions/cython/flint/qwindowsystem.pyx",
+            "extensions/cython/flint/q_window_system.cpp",
+        ]
+    else:
+        sources = [
+            "extensions/cython/flint/qwindowsystem.cpp",
+            "extensions/cython/flint/q_window_system.cpp",
+        ]
+
+    flint_extension = Extension(
+        "bliss.flint.qwindowsystem",
+        include_dirs=qt_include_dirs,
+        library_dirs=qt_library_dirs,
+        extra_compile_args=["-std=c++11"],
+        libraries=["Qt5Gui"],
+        language="c++",
+        sources=sources,
+    )
+
+    extensions.extend(cythonize(flint_extension))
 
 
 def abspath(*path):
@@ -20,52 +66,6 @@ def abspath(*path):
     directory where this setup.py script is located"""
     setup_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(setup_dir, *path)
-
-
-def find_commands(module):
-    """
-    Finds instances of distutils.Command in a module.
-    Returns a dict<command name: command class>
-    """
-    items = (getattr(module, item) for item in dir(module) if not item.startswith("_"))
-    classes = (item for item in items if inspect.isclass(item))
-    commands = (cls for cls in classes if issubclass(cls, Command))
-    local_commands = (
-        cmd for cmd in commands if cmd.__module__.startswith("extensions.")
-    )
-    return dict(((cmd.cmd_name, cmd) for cmd in local_commands))
-
-
-def find_extensions():
-    """Find bliss extensions. Returns a list of distutils.Command"""
-    top = abspath("extensions")
-    commands = {}
-    for name in os.listdir(top):
-        if name.startswith("_"):
-            continue
-        full_name = os.path.join(top, name)
-        if os.path.isdir(full_name):
-            ext_type_name = "extensions." + name
-            try:
-                ext_type_module = __import__(ext_type_name, None, None, ext_type_name)
-                for ext_name in ext_type_module.__all__:
-                    ext_name = ext_type_name + "." + ext_name
-                    ext_module = __import__(ext_name, None, None, ext_name)
-                    commands.update(find_commands(ext_module))
-            except Exception:
-                continue
-        else:
-            # must be a python module
-            name, ext = os.path.splitext(name)
-            if ext != ".py":
-                continue
-            ext_name = "extensions." + name
-            try:
-                ext_module = __import__(ext_name, None, None, ext_name)
-                commands.update(find_commands(ext_module))
-            except Exception:
-                continue
-    return commands
 
 
 def main():
@@ -90,8 +90,6 @@ def main():
 
     packages = find_packages(where=abspath(), exclude=("extensions*",))
 
-    cmd_class = find_extensions()
-
     install_requires = [
         "redis >= 3",
         "louie-latest",
@@ -109,7 +107,7 @@ def main():
         "pyserial > 2",
         "ruamel.yaml",
         "msgpack >= 0.6.1",
-        "msgpack_numpy",
+        "msgpack_numpy >= 0.4.4.2",
         "blessings",
         "h5py",
         "gevent == 1.3.7",
@@ -124,7 +122,7 @@ def main():
         "cffi",
     ]
 
-    tests_require = ["pytest", "pytest-mock", "pytest-cov", "scipy", "gipc"]
+    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy", "gipc"]
 
     setup_requires = [
         #        'setuptools >= 37',
@@ -154,7 +152,7 @@ def main():
             ],
             "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         },
-        cmdclass=cmd_class,
+        ext_modules=extensions,
         scripts=["bin/beacon-server-list", "bin/bliss_webserver", "bin/sps_data_watch"],
         entry_points={
             "console_scripts": [

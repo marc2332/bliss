@@ -293,11 +293,16 @@ class _ServerObject(object):
                             )
                     else:
                         with lock:
-                            client_sock.sendall(
-                                msgpack.packb(
-                                    (call_id, return_values), use_bin_type=True
+                            try:
+                                client_sock.sendall(
+                                    msgpack.packb(
+                                        (call_id, return_values), use_bin_type=True
+                                    )
                                 )
-                            )
+                            except Exception as e:
+                                client_sock.sendall(
+                                    msgpack.packb((call_id, e), use_bin_type=True)
+                                )
         finally:
             client_sock.close()
             self._clients.remove(gevent.getcurrent())

@@ -60,9 +60,6 @@ def test_session_with_flint(xvfb, beacon, session):
 def flint_session(xvfb, beacon):
     session = beacon.get("flint")
     session.setup()
-    try:
-        with flint_context():
-            yield session
-    finally:
-        pass
+    with flint_context():
+        yield session
     session.close()

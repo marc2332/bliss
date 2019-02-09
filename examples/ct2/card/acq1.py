@@ -41,7 +41,7 @@ def configure(device, channels):
     # for counters we only care about clock source, gate source here. The rest
     # will be up to the actual acquisition to setup according to the type of
     # acquisition
-    for _, ch_nb in channels.items():
+    for _, ch_nb in list(channels.items()):
         ct_config = CtConfig(
             clock_source=CtClockSrc(ch_nb % 5),
             gate_source=CtGateSrc.GATE_CMPT,
@@ -87,7 +87,7 @@ def prepare_master(device, acq_time, nb_points):
 
 def prepare_slaves(device, acq_time, nb_points, channels):
     channel_nbs = list(channels.values())
-    for ch_name, ch_nb in channels.iteritems():
+    for ch_name, ch_nb in channels.items():
         ct_config = device.get_counter_config(ch_nb)
         ct_config["gate_source"] = CtGateSrc.CT_11_GATE_ENVELOP
         ct_config["hard_start_source"] = CtHardStartSrc.SOFTWARE
@@ -147,7 +147,7 @@ def main():
     nap = 0.1
     start_time = time.time()
 
-    device.start_counters_software(channels.values() + [11, 12])
+    device.start_counters_software(list(channels.values()) + [11, 12])
 
     while True:
         time.sleep(nap)
@@ -159,8 +159,8 @@ def main():
             break
         msg = "\r{0} {1}".format(to_str(counter_values), to_str(latch_values))
         out(msg)
-    print("\n{0} {1}".format(to_str(counter_values), to_str(latch_values)))
-    print("Took ~{0}s (err: {1}s)".format(stop_time - start_time, nap))
+    print(("\n{0} {1}".format(to_str(counter_values), to_str(latch_values))))
+    print(("Took ~{0}s (err: {1}s)".format(stop_time - start_time, nap)))
     pprint.pprint(device.get_counters_status())
 
     device.relinquish_exclusive_access()

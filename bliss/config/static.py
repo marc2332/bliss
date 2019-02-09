@@ -40,111 +40,32 @@ Accessing the configured elements from python is easy
     >>> s1vo = config.get('s1vo')
     >>> s1vo
     <bliss.common.axis.Axis at 0x7f94de365790>
-    >>> s1vo.position()
+    >>> s1vo.position
     0.0
 
 """
 
 import os
+import sys
 import gc
-import yaml
 import weakref
-import functools
+from collections import OrderedDict
 
-if not hasattr(weakref, "WeakSet"):
-    import weakrefset
 
-    weakref.WeakSet = weakrefset.WeakSet
+from ruamel import yaml
+
 from .conductor import client
-
-try:
-    from ruamel import yaml as ordered_yaml
-    from bliss.common.utils import OrderedDict as ordereddict
-
-    NodeDict = ordereddict
-
-    class RoundTripRepresenter(ordered_yaml.representer.RoundTripRepresenter):
-        def __init__(self, *args, **keys):
-            ordered_yaml.representer.RoundTripRepresenter.__init__(self, *args, **keys)
-
-        def represent_ordereddict(self, data):
-            return self.represent_mapping(u"tag:yaml.org,2002:map", data)
-
-    RoundTripRepresenter.add_representer(
-        ordereddict, RoundTripRepresenter.represent_ordereddict
-    )
-
-    class RoundTripDumper(
-        ordered_yaml.emitter.Emitter,
-        ordered_yaml.serializer.Serializer,
-        RoundTripRepresenter,
-        ordered_yaml.resolver.Resolver,
-    ):
-        def __init__(
-            self,
-            stream,
-            default_style=None,
-            default_flow_style=None,
-            canonical=None,
-            indent=None,
-            width=None,
-            allow_unicode=None,
-            line_break=None,
-            encoding=None,
-            explicit_start=None,
-            explicit_end=None,
-            version=None,
-            tags=None,
-            **keys
-        ):
-            ordered_yaml.emitter.Emitter.__init__(
-                self,
-                stream,
-                canonical=canonical,
-                indent=indent,
-                width=width,
-                allow_unicode=allow_unicode,
-                line_break=line_break,
-            )
-            ordered_yaml.serializer.Serializer.__init__(
-                self,
-                encoding=encoding,
-                explicit_start=explicit_start,
-                explicit_end=explicit_end,
-                version=version,
-                tags=tags,
-            )
-            RoundTripRepresenter.__init__(
-                self, default_style=default_style, default_flow_style=default_flow_style
-            )
-            ordered_yaml.resolver.Resolver.__init__(self)
-
-
-except ImportError:
-    ordered_yaml = None
-    NodeDict = dict
 
 CONFIG = None
 
-if hasattr(yaml, "CLoader"):
-    yaml_load = functools.partial(yaml.load, Loader=yaml.CLoader)
-else:
-    yaml_load = yaml.load
+
+def load_cfg_fromstring(cfg_string):
+    return yaml.safe_load(cfg_string)
 
 
 def load_cfg(filename):
     cfg_string = client.get_config_file(filename)
-    if ordered_yaml:
-        return ordered_yaml.load(cfg_string, ordered_yaml.RoundTripLoader)
-    else:
-        return yaml_load(cfg_string)
-
-
-def load_cfg_fromstring(cfg_string):
-    if ordered_yaml:
-        return ordered_yaml.load(cfg_string, ordered_yaml.RoundTripLoader)
-    else:
-        return yaml_load(cfg_string)
+    return load_cfg_fromstring(cfg_string)
 
 
 def get_config(base_path="", timeout=3.):
@@ -184,7 +105,7 @@ def get_config(base_path="", timeout=3.):
     return CONFIG
 
 
-class Node(NodeDict):
+class Node(OrderedDict):
     """
     Configuration Node. Do not instantiate this class directly.
 
@@ -206,7 +127,7 @@ class Node(NodeDict):
     """
 
     def __init__(self, config=None, parent=None, filename=None):
-        NodeDict.__init__(self)
+        super().__init__()
         self._parent = parent
         if config is None:
             config = CONFIG
@@ -310,12 +231,7 @@ class Node(NodeDict):
             save_nodes = self._get_save_dict(node, filename)
         else:
             save_nodes = self._get_save_list(nodes_2_save, filename)
-        if ordered_yaml:
-            file_content = ordered_yaml.dump(
-                save_nodes, Dumper=RoundTripDumper, default_flow_style=False
-            )
-        else:
-            file_content = yaml.dump(save_nodes, default_flow_style=False)
+        file_content = yaml.dump(save_nodes, default_flow_style=False)
         self._config.set_config_db_file(filename, file_content)
 
     def deep_copy(self):
@@ -325,7 +241,7 @@ class Node(NodeDict):
         node = Node()
         node._config = self._config
         node._parent = self._parent
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if isinstance(value, Node):
                 child_node = value.deep_copy()
                 node[key] = child_node
@@ -343,7 +259,7 @@ class Node(NodeDict):
         the return object is a simple dictionary
         """
         newdict = dict()
-        for key, value in self.iteritems():
+        for key, value in self.items():
             if isinstance(value, Node):
                 child_dict = value.to_dict()
                 newdict[key] = child_dict
@@ -369,8 +285,8 @@ class Node(NodeDict):
         return new_list
 
     def _get_save_dict(self, src_node, filename):
-        return_dict = NodeDict()
-        for key, values in src_node.iteritems():
+        return_dict = OrderedDict()
+        for key, values in src_node.items():
             if isinstance(values, Node):
                 if values.filename != filename:
                     continue
@@ -396,29 +312,29 @@ class Node(NodeDict):
     def _pprint(node, cur_indet, indent, cur_depth, depth):
         cfg = node._config
         space = " " * cur_indet
-        print "%s{ filename: %r" % (space, cfg._node2file.get(node))
+        print("%s{ filename: %r" % (space, cfg._node2file.get(node)))
         dict_space = " " * (cur_indet + 2)
-        for k, v in node.iteritems():
-            print "%s%s:" % (dict_space, k),
+        for k, v in node.items():
+            print("%s%s:" % (dict_space, k), end=" ")
             if isinstance(v, Node):
-                print
+                print()
                 Node._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
             elif isinstance(v, list):
                 list_ident = cur_indet + indent
                 list_space = " " * list_ident
-                print "\n%s[" % list_space
+                print("\n%s[" % list_space)
                 for item in v:
                     if isinstance(item, Node):
-                        print
+                        print()
                         Node._pprint(
                             item, list_ident + indent, indent, cur_depth + 1, depth
                         )
                     else:
-                        print item
-                print "%s]" % list_space
+                        print(item)
+                print("%s]" % list_space)
             else:
-                print v
-        print "%s}" % space
+                print(v)
+        print("%s}" % space)
 
     def __repr__(self):
         config = self._config
@@ -464,7 +380,6 @@ class Config(object):
         Raises:
             RuntimeError: in case of connection timeout
         """
-
         if base_path is None:
             base_path = self._base_path
 
@@ -488,20 +403,23 @@ class Config(object):
             if isinstance(fs_node, list):
                 continue
 
-            if ordered_yaml:
-                try:
-                    d = ordered_yaml.load(file_content, ordered_yaml.RoundTripLoader)
-                except ordered_yaml.error.MarkedYAMLError, exp:
-                    if exp.problem_mark is not None:
-                        exp.problem_mark.name = path
-                    raise
-            else:
-                try:
-                    d = yaml_load(file_content)
-                except yaml.error.MarkedYAMLError, exp:
-                    if exp.problem_mark is not None:
-                        exp.problem_mark.name = path
-                    raise
+            try:
+                d = yaml.safe_load(file_content)
+            except yaml.scanner.ScannerError as exp:
+                print("Error in YAML parsing:")
+                print("----------------")
+                print(file_content)
+                print("----------------")
+                exp.problem_mark.name = path
+                print(exp)
+                print(
+                    "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
+                )
+                sys.exit()
+            except yaml.error.MarkedYAMLError as exp:
+                if exp.problem_mark is not None:
+                    exp.problem_mark.name = path
+                raise
 
             is_init_file = False
             if file_name.startswith("__init__"):
@@ -577,6 +495,8 @@ class Config(object):
 
             if isinstance(fs_node, list):
                 continue
+            elif fs_key == "":
+                children = fs_node
             else:
                 children = fs_node.get(fs_key)
 
@@ -615,7 +535,7 @@ class Config(object):
         Returns:
             list<str>: sequence of configuration names
         """
-        return self._name2node.keys()
+        return sorted(list(self._name2node.keys()))
 
     @property
     def user_tags_list(self):
@@ -625,7 +545,7 @@ class Config(object):
         Returns:
             list<str>: sequence of user tag names
         """
-        return self._usertag2node.keys()
+        return sorted(list(self._usertag2node.keys()))
 
     @property
     def root(self):
@@ -815,7 +735,7 @@ class Config(object):
         if d is None:
             raise RuntimeError("Error parsing %r" % parent)
         else:
-            for key, value in d.iteritems():
+            for key, value in d.items():
                 if isinstance(value, dict):
                     node = Node(self, parent=parent)
                     self._parse(value, node)

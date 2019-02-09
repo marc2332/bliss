@@ -90,7 +90,7 @@ class LinkamDsc(object):
                 comm_cfg = {"serial": {"url": config["serial_url"]}}
                 self._cnx = get_comm(comm_cfg, baudrate=19200, eol="\r", timeout=10)
             else:
-                raise ValueError, "Must specify serial"
+                raise ValueError("Must specify serial")
 
         # Possible values of the status byte
         self.STOPPED = 0x1
@@ -610,7 +610,7 @@ class LinkamDsc(object):
                 if abort == "|":
                     break  # abort the profile
         except:
-            print "CAUGHT Exception--------------------------------------"
+            print("CAUGHT Exception--------------------------------------")
             #            self._logger.error(self.ErrorToString.get(errCode))
             self.rampLimit = self._temperature
         finally:

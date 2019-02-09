@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
+
 import os
 import sys
 import pkgutil
@@ -262,7 +262,7 @@ def axis_edit(cfg, request):
 
         axis_cfg = cfg.get_config(orig_name)
 
-        for k, v in form.iteritems():
+        for k, v in form.items():
             try:
                 v = __KNOWN_AXIS_PARAMS[k](v)
             except KeyError:
@@ -330,7 +330,7 @@ def create_objects_from_config_node(config, node):
         for axis_config in node.get("axes"):
             name = axis_config.get("name")
             if name is not None:
-                h.update(name)
+                h.update(name.encode())
         controller_name = h.hexdigest()
     controller_class = find_class(node, "bliss.controllers.motors")
     controller_module = sys.modules[controller_class.__module__]
@@ -411,7 +411,7 @@ def create_object_from_cache(config, name, controller):
 
 def _checkref(config, cfg):
     obj_cfg = cfg.deep_copy()
-    for key, value in obj_cfg.iteritems():
+    for key, value in obj_cfg.items():
         if isinstance(value, str) and value.startswith("$"):
             # convert reference to item from config
             obj = weakref.proxy(config.get(value))

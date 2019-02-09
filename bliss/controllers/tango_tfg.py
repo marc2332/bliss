@@ -8,7 +8,6 @@
 Usage:
 
     timing_info = {'cycles': 1,
-                   'ccmode': 'Scaler64'
                    'framesets': [{'nb_frames': 30,
                                   'latency': 0.0000001,
                                   'acq_time': 0.1},
@@ -51,8 +50,7 @@ Usage:
     timer.prepare(timing_info)
     timer.start()
 """
-from __future__ import absolute_import
-from __future__ import print_function
+
 
 import gevent
 
@@ -154,7 +152,7 @@ class TangoTfg2(object):
         self.__nframes = 0
         try:
             self._control = tango.DeviceProxy(tango_uri)
-        except tango.DevFailed, traceback:
+        except tango.DevFailed as traceback:
             last_error = traceback[-1]
             print("%s: %s" % (tango_uri, last_error["desc"]))
             self._control = None
@@ -164,8 +162,6 @@ class TangoTfg2(object):
                 self._control.clearStarts()
             except tango.ConnectionFailed:
                 self._control = None
-
-    #                raise RuntimeError("Connection error")
 
     @property
     def current_lap(self):
@@ -278,7 +274,7 @@ class TangoTfg2(object):
                 if trigger_out.get("series_terminated", False) is True:
                     drive_strength |= self.TriggerOutputs[port]
                 if (
-                    trigger_out.get("trig_when", self.ALL_FRAMES) == self.ALL_FRAMES
+                    trigger_out.get("trig_when", [self.ALL_FRAMES]) == [self.ALL_FRAMES]
                 ) or (
                     frameset["nb_frames"] == 1
                     and frame_count in trigger_out.get("trig_when", [])
@@ -363,7 +359,6 @@ class TangoTfg2(object):
         args.extend(framesets)
         args.append(-1)
         self._control.set_timeout_millis(10000)
-        print(args)
         id = self._control.command_inout_asynch("setupGroups", args)
         self.__nframes = self._control.command_inout_reply(id, 8000)
 
@@ -414,7 +409,6 @@ class TangoTfg2(object):
                 if trigger_nb == 16 and threshold != 0.0:
                     args[0] |= self.TrigOptions.get("threshold")
                     args[3] = threshold
-            print(args)
             self._control.setupTrig(args)
 
     def __setup_scaler_channels(self, timing_info):

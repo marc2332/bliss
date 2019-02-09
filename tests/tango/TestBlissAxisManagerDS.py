@@ -19,7 +19,7 @@ class TestBlissAxisManagerDS(unittest.TestCase):
             self.blname = os.environ["BEAMLINENAME"]
             # print "beamline name=",os.environ['BEAMLINENAME']
         except:
-            print "No BEAMLINENAME defined"
+            print("No BEAMLINENAME defined")
 
         self.ba1 = PyTango.DeviceProxy("id26/emotion_batest/ba1")
         self.ba2 = PyTango.DeviceProxy("id26/emotion_batest/ba2")

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import unittest
-import cStringIO
+import io
 import sys
 import os
 
@@ -22,7 +22,7 @@ from bliss.common import log
 
 class wrapped_stdout:
     def __init__(self):
-        self.output = cStringIO.StringIO()
+        self.output = io.StringIO()
         self.real_stdout = sys.stdout
 
     def __enter__(self, *args, **kwargs):
@@ -35,7 +35,7 @@ class wrapped_stdout:
 
 class wrapped_stderr:
     def __init__(self):
-        self.output = cStringIO.StringIO()
+        self.output = io.StringIO()
         self.real_stderr = sys.stderr
 
     def __enter__(self, *args, **kwargs):
@@ -69,10 +69,10 @@ class TestLogging(unittest.TestCase):
         with wrapped_stdout() as stdout:
             log.info("test")
         output = stdout.getvalue()
-        self.assertEquals(output, "INFO: test\n")
+        self.assertEqual(output, "INFO: test\n")
 
     def test_level(self):
-        self.assertEquals(log.level(log.INFO), log.INFO)
+        self.assertEqual(log.level(log.INFO), log.INFO)
 
     def test_exception(self):
         try:

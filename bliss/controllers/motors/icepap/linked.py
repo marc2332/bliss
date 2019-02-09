@@ -38,7 +38,7 @@ class LinkedAxis(Axis):
         linked_axis = self.controller.get_linked_axis()
         mot_addresses = linked_axis.get(self.address)
 
-        for name, axis in self.controller.axes.iteritems():
+        for name, axis in self.controller.axes.items():
             if axis.config.get("address", lambda x: x) in mot_addresses:
                 raise RuntimeError(
                     "Cannot initialize linked axis '%s',"
@@ -75,16 +75,17 @@ class LinkedAxis(Axis):
         """
         dial_position = self.user2dial(position)
         for slave_axis in self.real_axes:
-            slave_axis.position(dial_position)
+            slave_axis.position = dial_position
 
-        self.acceleration(self.acceleration())
-        self.velocity(self.velocity())
+        self.acceleration = self.acceleration
+        self.velocity = self.velocity
         # Reset control encoder
         # TODO: if any?
         _ackcommand(self.controller._cnx, "CTRLRST %s" % self.address)
         # switch power on (should re-enable the closed loop)
         self.on()
-        return self.position(position)
+        self.position = position
+        return self.position
 
     @lazy_init
     def get_info(self):

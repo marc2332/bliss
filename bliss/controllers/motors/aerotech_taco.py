@@ -34,7 +34,7 @@ class Aerotech_Taco(TacoMaxe):
             )
 
     def start_jog(self, axis, velocity, direction):
-        acceleration = axis.acceleration()
+        acceleration = axis.acceleration
         self.device.DevSetContinuous(
             (axis.channel, 1, direction, velocity, acceleration)
         )

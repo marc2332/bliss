@@ -35,6 +35,7 @@ from bliss.data.node import (
 )
 from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
+from bliss.common import motor_group
 from .chain import AcquisitionDevice, AcquisitionMaster
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
@@ -59,14 +60,14 @@ class StepScanDataWatch(object):
 
     def __call__(self, data_events, nodes, scan_info):
         if self._init_done is False:
-            for acq_device_or_channel, data_node in nodes.iteritems():
+            for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
                     channel = data_node
                     self._channel_name_2_channel[channel.name] = channel
             self._init_done = True
 
         min_nb_points = None
-        for channels_name, channel in self._channel_name_2_channel.iteritems():
+        for channels_name, channel in self._channel_name_2_channel.items():
             nb_points = len(channel)
             if min_nb_points is None:
                 min_nb_points = nb_points
@@ -79,7 +80,7 @@ class StepScanDataWatch(object):
         for point_nb in range(self._last_point_display, min_nb_points):
             values = {
                 ch_name: ch.get(point_nb)
-                for ch_name, ch in self._channel_name_2_channel.iteritems()
+                for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
             send(current_module, "scan_data", scan_info, values)
         self._last_point_display = min_nb_points
@@ -180,13 +181,13 @@ class ScanSaving(Parameters):
         try:
             if value is not None:
                 self._get_writer_class(value)
-        except ImportError, exc:
+        except ImportError as exc:
             raise ImportError(
                 "Writer module **%s** does not"
                 " exist or cannot be loaded (%s)"
                 " possible module are %s" % (value, exc, writer.__all__)
             )
-        except AttributeError, exc:
+        except AttributeError as exc:
             raise AttributeError(
                 "Writer module **%s** does have"
                 " class named Writer (%s)" % (value, exc)
@@ -239,7 +240,7 @@ class ScanSaving(Parameters):
                 pass
             for path_item in sub_items:
                 parent = _get_or_create_node(path_item, "container", parent=parent)
-        except KeyError, keyname:
+        except KeyError as keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
             path = os.path.join(cache_dict.get("base_path"), sub_path)
@@ -315,7 +316,8 @@ def _get_channels_dict(acq_object, channels_dict):
     images = channels_dict.setdefault("images", [])
 
     for acq_chan in acq_object.channels:
-        name = acq_object.name + ":" + acq_chan.name
+        acq_chan._device_name = acq_object.name
+        name = acq_chan.fullname
         shape = acq_chan.shape
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
@@ -353,13 +355,13 @@ def display_motor(func):
         scan_display_params = ScanDisplay()
         if scan_display_params.auto and scan_display_params.motor_position:
             p = self.get_plot(axis)
-            p.qt.addXMarker(axis.position(), legend=axis.name, text=axis.name)
+            p.qt.addXMarker(axis.position, legend=axis.name, text=axis.name)
 
     return f
 
 
 class Scan(object):
-    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = range(4)
+    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = list(range(4))
 
     def __init__(
         self,
@@ -525,7 +527,7 @@ class Scan(object):
 
     @property
     def statistics(self):
-        return Statistics(self._acq_chain._statistic_container)
+        return Statistics(self._acq_chain._stats_dict)
 
     def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
@@ -557,9 +559,7 @@ class Scan(object):
 
     def _get_x_y_data(self, counter, axis=None):
         axis_name = self._get_data_axis_name(axis)
-        counter_name = (
-            counter.name if not isinstance(counter, (str, unicode)) else counter
-        )
+        counter_name = counter.name if not isinstance(counter, str) else counter
         data = self.get_data()
         x_data = data[axis_name]
         y_data = data[counter_name]
@@ -662,7 +662,7 @@ class Scan(object):
         self.__trigger_data_watch_callback(signal, sender)
 
     def set_ttl(self):
-        for node in self.nodes.itervalues():
+        for node in self.nodes.values():
             node.set_ttl()
         self.node.set_ttl()
         self.node.end()
@@ -670,6 +670,17 @@ class Scan(object):
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == "end":
             self.__trigger_data_watch_callback(signal, sender, sync=True)
+
+    def _prepare_channels(self, channels, parent_node):
+        for channel in channels:
+            self.nodes[channel] = _get_or_create_node(
+                channel.name,
+                channel.data_node_type,
+                parent_node,
+                shape=channel.shape,
+                dtype=channel.dtype,
+            )
+            connect(channel, "new_data", self._channel_event)
 
     def prepare(self, scan_info, devices_tree):
         parent_node = self.node
@@ -683,19 +694,11 @@ class Scan(object):
             if prev_level != level:
                 prev_level = level
                 parent_node = self.nodes[dev_node.bpointer]
-
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 data_container_node = _create_node(dev.name, parent=parent_node)
                 self.nodes[dev] = data_container_node
-                for channel in dev.channels:
-                    self.nodes[channel] = _get_or_create_node(
-                        channel.name,
-                        channel.data_node_type,
-                        data_container_node,
-                        shape=channel.shape,
-                        dtype=channel.dtype,
-                    )
-                    connect(channel, "new_data", self._channel_event)
+                self._prepare_channels(dev.channels, data_container_node)
+
                 for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)
 
@@ -722,7 +725,8 @@ class Scan(object):
         else:
             set_watch_event = None
 
-        current_iters = [i.next() for i in self.acq_chain.get_iter_list()]
+        self.acq_chain.reset_stats()
+        current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
             send(current_module, "scan_new", self.scan_info)
@@ -739,15 +743,37 @@ class Scan(object):
                     gevent.killall(prepare_tasks)
 
             self._state = self.START_STATE
-            run_next_tasks = [gevent.spawn(self._run_next, i) for i in current_iters]
+            run_next_tasks = [
+                (gevent.spawn(self._run_next, i), i) for i in current_iters
+            ]
+            run_scan = True
 
             with capture_exceptions(raise_index=0) as capture:
                 with capture():
                     try:
-                        # The first top_master will end the loop (count=1)
-                        gevent.joinall(run_next_tasks, raise_error=True, count=1)
+                        while run_scan:
+                            # The master defined as 'stopper' ends the loop
+                            # (by default any top master will stop the loop),
+                            # the loop is also stopped in case of exception.
+                            gevent.joinall(
+                                [t for t, _ in run_next_tasks],
+                                raise_error=True,
+                                count=1,
+                            )
+
+                            for i, (task, iterator) in enumerate(list(run_next_tasks)):
+                                if task.ready():
+                                    if iterator.top_master.terminator:
+                                        # scan has to end
+                                        run_scan = False
+                                        break
+                                    else:
+                                        # remove finished task, as it does not
+                                        # correspond to a "stopper" top master
+                                        run_next_tasks.pop(i)
+                                        run_scan = len(run_next_tasks) > 0
                     finally:
-                        gevent.killall(run_next_tasks)
+                        gevent.killall([t for t, _ in run_next_tasks])
 
                 self._state = self.STOP_STATE
 
@@ -848,7 +874,7 @@ class Scan(object):
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
         """
-        for master, channels in self.scan_info["acquisition_chain"].iteritems():
+        for master, channels in self.scan_info["acquisition_chain"].items():
             if scan_item.name == master:
                 # return scalar plot(s) with this master
                 args = (master, "0d", 0)
@@ -880,14 +906,13 @@ class Scan(object):
             return ImagePlot(existing_id=plot_id)
 
     def _next_scan_number(self):
-        redis = client.get_cache(db=1)
         filename = self.writer.filename
         last_filename = self.__scan_saving._last_scan_file
         last_scan_number = self.__scan_saving._last_scan_number
         if last_filename != filename:
             self.__scan_saving._last_scan_file = filename
             # find new scan number from existing scans (if any)
-            if not "{scan_number}" in filename:
+            if "{scan_number}" not in filename:
                 max_scan_number = 0
                 for scan_entry in self.writer.get_scan_entries():
                     try:

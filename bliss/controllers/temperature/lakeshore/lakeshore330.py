@@ -97,7 +97,7 @@ class LakeShore330(object):
               (float): current temperature [K]
         """
         self._channel = channel
-        return self.send_cmd("KRDG?")
+        return float(self.send_cmd("KRDG?"))
 
     def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint
@@ -207,18 +207,20 @@ class LakeShore330(object):
         """
         if command.startswith("*"):
             if "?" in command:
-                return self._comm.write_readline(command + self.eos)
+                return self._comm.write_readline(command.encode() + self.eos.encode())
             else:
-                self._comm.write(command + self.eos)
+                self._comm.write(command.encode() + self.eos.encode())
         elif "?" in command:
             if isinstance(self._channel, str):
                 cmd = command + " %s" % self._channel
             else:
                 cmd = command + " %r" % self._channel
-            return self._comm.write_readline(cmd + self.eos)
+            ans = self._comm.write_readline(cmd.encode() + self.eos.encode())
+            return ans.decode()
         else:
             inp = ",".join(str(x) for x in args)
-            self._comm.write(command + " %d,%s *OPC" % (self._channel, inp) + self.eos)
+            cmd = command + " %d,%s *OPC" % (self._channel, inp) + self.eos
+            self._comm.write(cmd.encode())
 
 
 class lakeshore330(Base):
@@ -250,5 +252,5 @@ if __name__ == "__main__":
     ls_obj = LakeShore330("gpib", "id30oh3ls335", addr=12)
 
     for i in range(100):
-        print ls_obj.read_temperature()
+        print(ls_obj.read_temperature())
         time.sleep(10)

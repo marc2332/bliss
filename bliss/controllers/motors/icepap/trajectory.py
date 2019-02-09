@@ -8,7 +8,7 @@
 import functools
 import hashlib
 import numpy
-import mock
+from unittest import mock
 from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
 from . import _command, _vdata_header, POSITION, PARAMETER
 
@@ -33,7 +33,7 @@ class TrajectoryAxis(Axis):
     **set_positions** before using the axis.
     """
 
-    SPLINE, LINEAR, CYCLIC = range(3)
+    SPLINE, LINEAR, CYCLIC = list(range(3))
 
     def __init__(self, name, controller, config):
         Axis.__init__(self, name, controller, config)
@@ -94,7 +94,7 @@ class TrajectoryAxis(Axis):
             trajectory_mode: default is SPLINE but could be CYCLIC or LINEAR
         """
         axes = dict()
-        for name, axis in self.controller.axes.iteritems():
+        for name, axis in self.controller.axes.items():
             if name in positions:
                 axes[axis.name] = axis
                 positions[axis.name] *= axis.steps_per_unit
@@ -126,7 +126,7 @@ class TrajectoryAxis(Axis):
         """
         Return a list of real motor linked to this virtual axis
         """
-        return self._axes.keys()
+        return list(self._axes.keys())
 
     @property
     @check_initialized
@@ -134,7 +134,7 @@ class TrajectoryAxis(Axis):
         """
         Return a list of real axis linked to this virtual axis
         """
-        return self._axes.values()
+        return list(self._axes.values())
 
     @check_initialized
     def movep(
@@ -186,7 +186,7 @@ class TrajectoryAxis(Axis):
     def _load_trajectories(self, axes, parameter, positions):
         data = numpy.array([], dtype=numpy.int8)
         update_cache = list()
-        for mot_name, pos in positions.iteritems():
+        for mot_name, pos in positions.items():
             axis = axes[mot_name]
             if axis._trajectory_cache.value == self._hash_cache.get(
                 mot_name, numpy.nan
@@ -198,7 +198,7 @@ class TrajectoryAxis(Axis):
                 axis_data, _vdata_header(parameter, axis, PARAMETER)
             )
             h = hashlib.md5()
-            h.update(axis_data.tostring())
+            h.update(axis_data.tobytes())
             digest = h.hexdigest()
             if axis._trajectory_cache.value != digest:
                 data = numpy.append(data, axis_data)
@@ -255,7 +255,7 @@ class TrajectoryAxis(Axis):
                         _command(self.controller._cnx, "%d:?PARVEL max" % axis.address)
                     )
                     max_axis_vel = min(
-                        axis.velocity() * axis.steps_per_unit, max_axis_vel
+                        axis.velocity * axis.steps_per_unit, max_axis_vel
                     )
                     if max_velocity is None or max_axis_vel < max_velocity:
                         max_velocity = max_axis_vel
@@ -282,7 +282,7 @@ class TrajectoryAxis(Axis):
             if acceleration_time < 0:  # get the max for this trajectory
                 min_acceleration_time = None
                 for axis in self.real_axes:
-                    axis_acceleration_time = axis.acctime()
+                    axis_acceleration_time = axis.acctime
                     if (
                         min_acceleration_time is None
                         or axis_acceleration_time > min_acceleration_time

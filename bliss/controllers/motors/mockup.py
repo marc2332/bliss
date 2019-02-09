@@ -82,7 +82,7 @@ class Mockup(Controller):
     """
 
     def initialize(self):
-        for axis_name, axis in self.axes.iteritems():
+        for axis_name, axis in self.axes.items():
             axis.settings.set("init_count", 0)
 
     """
@@ -206,9 +206,9 @@ class Mockup(Controller):
 
             _pos = self.read_position(axis) / float(axis.steps_per_unit)
 
-            if self.__encoders[encoder]["measured_noise"] > 0:
+            amplitude = self.__encoders[encoder]["measured_noise"]
+            if amplitude is not None and amplitude > 0:
                 # Simulates noisy encoder.
-                amplitude = self.__encoders[encoder]["measured_noise"]
                 noise_mm = random.uniform(-amplitude, amplitude)
 
                 _pos += noise_mm
@@ -408,7 +408,7 @@ class Mockup(Controller):
     # Types by default (None, None)
     @object_method
     def custom_command_no_types(self, axis):
-        print "print with no types"
+        print("print with no types")
 
     @object_method
     def generate_error(self, axis):

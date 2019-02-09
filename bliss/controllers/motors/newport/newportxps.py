@@ -5,8 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import print_function
-from __future__ import absolute_import
 
 import time
 import gevent
@@ -122,7 +120,7 @@ class NewportXPS(Controller):
         error, reply = self.__xps.PositionerSGammaParametersSet(
             axis.group + "." + axis.name,
             velocity,
-            axis.acceleration(),
+            axis.acceleration,
             axis.minJerkTime,
             axis.maxJerkTime,
         )
@@ -146,7 +144,7 @@ class NewportXPS(Controller):
         elog.debug("set_acceleration() called")
         error, reply = self.__xps.PositionerSGammaParametersSet(
             axis.group + "." + axis.name,
-            axis.velocity(),
+            axis.velocity,
             acceleration,
             axis.minJerkTime,
             axis.maxJerkTime,

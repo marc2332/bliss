@@ -180,7 +180,7 @@ def calc_virt(phys_pos, pars):
 
 def print_group(pos_dict, name, motors):
     angles = ["mu", "gamma", "delta", "lmchi", "ai", "dtz"]
-    print "%s:" % name
+    print("%s:" % name)
     msg = ""
     for i, motor in enumerate(motors):
         pos = pos_dict[motor]
@@ -188,10 +188,10 @@ def print_group(pos_dict, name, motors):
             pos = rad2deg(pos)
         msg += "  %-7s%10.4f" % ("%s:" % motor, pos)
         if i % 4 == 3:
-            print msg
+            print(msg)
             msg = ""
     if msg:
-        print msg
+        print(msg)
 
 
 def print_pos(virt_pos, phys_pos):

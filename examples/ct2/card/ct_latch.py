@@ -10,7 +10,6 @@ Simple example counting until a certain value on a counter
 and latch on Ctrl-C
 """
 
-from __future__ import print_function
 
 import os
 import sys

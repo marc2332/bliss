@@ -24,6 +24,7 @@ Minimalistic configuration example:
 
 
 import sys
+import enum
 import logging
 import functools
 
@@ -33,10 +34,6 @@ from gevent import lock
 from gevent import select
 from louie import dispatcher
 
-try:
-    import enum
-except:
-    from . import enum34 as enum
 
 from . import card
 
@@ -570,7 +567,9 @@ class CT2(object):
         return self.acq_mode == AcqMode.ExtTrigReadout
 
     def prepare_acq(self):
-        has_period = self.acq_point_period > 0
+        has_period = (
+            False if self.acq_point_period is None else self.acq_point_period > 0
+        )
         mode_str = "int-trig-with-dead-time"
         if self.acq_mode in self.IntTrigDeadTimeModes:
             if not self.output_channel:
@@ -680,7 +679,7 @@ class CT2(object):
 
     @acq_mode.setter
     def acq_mode(self, acq_mode):
-        if isinstance(acq_mode, (str, unicode)):
+        if isinstance(acq_mode, str):
             acq_mode = AcqMode[acq_mode]
         else:
             acq_mode = AcqMode(acq_mode)
@@ -905,7 +904,7 @@ def create_and_configure_device(config_or_name):
     Returns:
         a new instance of :class:`CT2` configured and ready to go
     """
-    if isinstance(config_or_name, (str, unicode)):
+    if isinstance(config_or_name, str):
         device_config = __get_device_config(config_or_name)
         name = config_or_name
     else:

@@ -131,7 +131,7 @@ class IDStatus(DeviceStatus):
             name = " " + session.name.upper()
         else:
             name = ""
-        self.title = u"ESRF-{beamline}{session}".format(beamline=BEAMLINE, session=name)
+        self.title = "ESRF-{beamline}{session}".format(beamline=BEAMLINE, session=name)
 
     def __call__(self, cli):
         if cli.python_input.bliss_session:

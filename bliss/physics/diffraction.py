@@ -203,7 +203,7 @@ def string_to_hkl(text):
 
 def hkl_to_string(hkl):
     """Returns string representation of a HKL plane"""
-    join = "" if all(map(lambda i: i < 10, hkl)) else " "
+    join = "" if all([i < 10 for i in hkl]) else " "
     return join.join(map(str, hkl))
 
 

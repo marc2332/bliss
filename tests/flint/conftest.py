@@ -24,7 +24,7 @@ def xvfb():
         os.environ["DISPLAY"] = new_display
         # Control xvbf process
         try:
-            p = subprocess.Popen([xvfb, new_display])
+            p = subprocess.Popen([xvfb, "-screen", "0", "1024x768x24", new_display])
             yield p.pid
         # Teardown process
         finally:
@@ -39,29 +39,27 @@ def xvfb():
 @contextmanager
 def flint_context():
     flint = plot.get_flint()
-    yield flint._pid
+    pid = flint._pid
+    yield pid
     plot.reset_flint()
-    os.kill(flint._pid, signal.SIGTERM)
+    os.kill(pid, signal.SIGTERM)
     try:
-        os.waitpid(flint._pid, 0)
+        os.waitpid(pid, 0)
     # It happens sometimes, for some reason
     except OSError:
         pass
 
 
 @pytest.fixture
-def test_session_with_flint(beacon, xvfb, session):
+def test_session_with_flint(xvfb, beacon, session):
     with flint_context():
         yield session
 
 
 @pytest.fixture
-def flint_session(beacon, xvfb):
+def flint_session(xvfb, beacon):
     session = beacon.get("flint")
     session.setup()
-    try:
-        with flint_context():
-            yield session
-    finally:
-        pass
+    with flint_context():
+        yield session
     session.close()

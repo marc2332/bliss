@@ -31,22 +31,22 @@ def pepu(request):
 
 def test_simple_connection(pepu):
     assert pepu.app_name == "PEPU"
-    assert pepu.version == "00.01"
-    assert pepu.up_time > 0
-    assert pepu.sys_info.startswith("DANCE")
-    uptime, uname = pepu.dance_info.splitlines()
-    assert uptime.startswith("UPTIME")
-    assert uname.startswith("UNAME")
+    assert pepu.version == "00.02"
+    dance_info = dict(
+        line.strip().split(":", 1) for line in pepu.dance_info.splitlines()
+    )
+    assert dance_info.get("UPTIME")
+    assert dance_info.get("UNAME")
     assert pepu.config.startswith("# %APPNAME% PEPU")
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_read_in_channels(pepu, channel_id):
     channel = pepu.in_channels[channel_id]
     assert channel.value in [-1., 0.]
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_in_channel_config(pepu, channel_id):
     channel = pepu.in_channels[channel_id]
 

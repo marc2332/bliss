@@ -3,7 +3,6 @@ Simple example counting n counters to a certain value.
 Each counter is configured with a different clock
 """
 
-from __future__ import print_function
 
 import os
 import sys
@@ -101,7 +100,7 @@ def main():
         counters_values = card.get_counters_values()[:nb_counters]
         latches_values = card.get_latches_values()[:nb_counters]
         run = False
-        for ct_status in card.get_counters_status().values():
+        for ct_status in list(card.get_counters_status().values()):
             run = run or ct_status["run"]
         if not run:
             break

@@ -12,7 +12,7 @@ import gevent
 
 class MD2(Controller):
     def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         host, port = self.config.get("exporter_address").split(":")
         self._exporter = Exporter(host, int(port))
@@ -42,11 +42,13 @@ class MD2(Controller):
 
     def start_one(self, motion):
         cmd = motion.axis.root_name + self.pos_attr_suffix
-        print motion.target_pos
         self._exporter.writeProperty(cmd, motion.target_pos)
 
     def stop(self, axis):
         self._exporter.execute("abort")
+
+    def close(self):
+        self._exporter.disconnect()
 
     def home_search(self, axis, switch=None):
         self._exporter.execute("startHomingMotor", axis.root_name)

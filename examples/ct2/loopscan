@@ -12,9 +12,7 @@ as master
 """
 
 import logging
-
 import louie
-from six import print_
 
 from bliss.config.static import get_config
 from bliss.scanning.scan import Scan, StepScanDataWatch
@@ -63,16 +61,16 @@ def loopscan(npoints, acq_time, p201):
 
 
 def on_new_scan(scan_info):
-    print_('started scan # {0} {1!r} at {2}'.format(scan_info['scan_nb'],
+    print('started scan # {0} {1!r} at {2}'.format(scan_info['scan_nb'],
                                                     scan_info['name'],
                                                     scan_info['start_time']))
-    print_('counters: ', [c.name for c in scan_info['counters']])
+    print('counters: ', [c.name for c in scan_info['counters']])
         
 def on_scan_point(scan_info, values):
-    print_('scan_point: ', values.values())
+    print('scan_point: ', values.values())
 
 def on_scan_end(scan_info):
-    print_('scan ended')
+    print('scan ended')
     
     
 if __name__ == '__main__':

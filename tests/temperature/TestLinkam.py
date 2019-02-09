@@ -31,12 +31,12 @@ with open("rampData", "w") as f:
     while 1:
         time.sleep(0.1)
         temp, dsc = dev.getDscData()
-        print "temp  ", temp, " dsc ", dsc
+        print("temp  ", temp, " dsc ", dsc)
         #        print "rampNb",dev.rampNumber," rampLimit",dev.rampLimit," rampRate",dev.rampRate,"rampHold",dev.rampHoldTime
         f.write("%f %f\n" % (ts, temp))
-        print dev.status()
+        print(dev.status())
         running = dev.isProfileRunning()
-        print "Profile running ", running
+        print("Profile running ", running)
         if running == False:
             break
 

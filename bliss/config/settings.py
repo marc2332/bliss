@@ -42,6 +42,14 @@ def auto_coerce_from_redis(s):
     """Convert variable to a new type from the str representation"""
     if s is None:
         return None
+    # Default is unicode string
+    try:
+        if isinstance(s, bytes):
+            s = s.decode()
+    # Pickled data fails at first byte
+    except UnicodeDecodeError:
+        pass
+    # Cast to standard types
     for caster in (boolify, int, float):
         try:
             return caster(s)
@@ -59,8 +67,8 @@ def pickle_loads(var):
         return InvalidValue()
 
 
-def get_cache():
-    return client.get_cache(db=0)
+def get_redis_connection():
+    return client.get_redis_connection(db=0)
 
 
 def ttl_func(cnx, name, value=-1):
@@ -79,7 +87,7 @@ def read_decorator(func):
             if isinstance(value, list):
                 value = [self._read_type_conversion(x) for x in value]
             elif isinstance(value, dict):
-                for k, v in value.iteritems():
+                for k, v in value.items():
                     value[k] = self._read_type_conversion(v)
                 if hasattr(self, "default_values") and isinstance(
                     self.default_values, dict
@@ -112,7 +120,7 @@ def write_decorator_dict(func):
 
             if values is not None:
                 new_dict = dict()
-                for k, v in values.iteritems():
+                for k, v in values.items():
                     new_dict[k] = self._write_type_conversion(v)
                 values = new_dict
         return func(self, values, **keys)
@@ -146,12 +154,12 @@ def write_decorator(func):
 
 def scan(match="*", count=1000, connection=None):
     if connection is None:
-        connection = get_cache()
+        connection = get_redis_connection()
     cursor = 0
     while 1:
         cursor, values = connection.scan(cursor=cursor, match=match, count=count)
         for val in values:
-            yield val
+            yield val.decode()
         if int(cursor) == 0:
             break
 
@@ -166,7 +174,7 @@ class SimpleSetting(object):
         default_value=None,
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -216,7 +224,7 @@ class SimpleSetting(object):
             return self
 
     def __isub__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             raise TypeError(
                 "unsupported operand type(s) for -=: %s" % type(other).__name__
             )
@@ -256,7 +264,7 @@ class SimpleSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._default_value = default_value
@@ -305,7 +313,7 @@ class QueueSetting(object):
         write_type_conversion=str,
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -425,7 +433,7 @@ class QueueSetting(object):
         if cnx is None:
             cnx = self._cnx()
         lsize = cnx.llen(self._name)
-        for first in xrange(0, lsize, 1024):
+        for first in range(0, lsize, 1024):
             last = first + 1024
             if last >= lsize:
                 last = -1
@@ -453,7 +461,7 @@ class QueueSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._use_object_name = use_object_name
@@ -497,7 +505,7 @@ class HashSetting(object):
         default_values={},
     ):
         if connection is None:
-            connection = get_cache()
+            connection = get_redis_connection()
         self._cnx = weakref.ref(connection)
         self._name = name
         self._read_type_conversion = read_type_conversion
@@ -540,7 +548,8 @@ class HashSetting(object):
 
     def get_all(self):
         all_dict = dict(self._default_values)
-        for k, raw_v in self._raw_get_all().iteritems():
+        for k, raw_v in self._raw_get_all().items():
+            k = k.decode()
             v = self._read_type_conversion(raw_v)
             if isinstance(v, InvalidValue):
                 raise ValueError(
@@ -567,12 +576,6 @@ class HashSetting(object):
         cnx = self._cnx()
         cnx.hdel(self._name, *keys)
 
-    def keys(self):
-        return list(self.iterkeys())
-
-    def values(self):
-        return list(self.itervalues())
-
     def clear(self):
         cnx = self._cnx()
         cnx.delete(self._name)
@@ -593,10 +596,6 @@ class HashSetting(object):
         if values:
             cnx.hmset(self._name, values)
 
-    def items(self):
-        values = self.get_all()
-        return [(k, v) for k, v in values.iteritems()]
-
     @read_decorator
     def fromkeys(self, *keys):
         cnx = self._cnx()
@@ -604,23 +603,25 @@ class HashSetting(object):
 
     def has_key(self, key):
         cnx = self._cnx()
-        return cnx.hexists(self._name, key) or self._default_values.has_key(key)
+        return cnx.hexists(self._name, key) or key in self._default_values
 
-    def iterkeys(self):
-        for k, v in self.iteritems():
+    def keys(self):
+        for k, v in self.items():
             yield k
 
-    def itervalues(self):
-        for k, v in self.iteritems():
+    def values(self):
+        for k, v in self.items():
             yield v
 
-    def iteritems(self):
+    def items(self):
         cnx = self._cnx()
         next_id = 0
         seen_keys = set()
         while True:
             next_id, pd = cnx.hscan(self._name, next_id)
-            for k, v in pd.iteritems():
+            for k, v in pd.items():
+                # Add key conversion
+                k = k.decode()
                 if self._read_type_conversion:
                     v = self._read_type_conversion(v)
                 seen_keys.add(k)
@@ -628,7 +629,7 @@ class HashSetting(object):
             if not next_id or next_id is "0":
                 break
 
-        for k, v in self._default_values.iteritems():
+        for k, v in self._default_values.items():
             if k in seen_keys:
                 continue
             yield k, v
@@ -636,7 +637,7 @@ class HashSetting(object):
     def __getitem__(self, key):
         value = self.get(key)
         if value is None:
-            if not self._default_values.has_key(key):
+            if key not in self._default_values:
                 raise KeyError(key)
         return value
 
@@ -668,7 +669,7 @@ class HashSettingProp(object):
         use_object_name=True,
     ):
         self._name = name
-        self._cnx = connection or get_cache()
+        self._cnx = connection or get_redis_connection()
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
         self._default_values = default_values
@@ -829,9 +830,7 @@ class ParamDescriptor(object):
 
     def __get__(self, obj, obj_type):
         value = self.proxy[self.name]
-        if isinstance(value, (str, unicode)) and value.startswith(
-            ParamDescriptor.OBJECT_PREFIX
-        ):
+        if isinstance(value, str) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
             value = value[len(ParamDescriptor.OBJECT_PREFIX) :]
             return getattr(setup_globals, value)
         return value
@@ -843,8 +842,7 @@ class ParamDescriptor(object):
         del self.proxy[self.name]
 
 
-class Parameters(object):
-    __metaclass__ = ParametersType
+class Parameters(object, metaclass=ParametersType):
     DESCRIPTOR = ParamDescriptor
     SLOTS = ["_proxy", "__current_config"]
 
@@ -852,7 +850,7 @@ class Parameters(object):
         self.__current_config = SimpleSetting(name, default_value="default")
         hash_name = "%s:%s" % (name, self.__current_config.get())
         self._proxy = HashSetting(hash_name, **keys)
-        for key in self._proxy.iterkeys():
+        for key in self._proxy.keys():
             self.add(key)
 
     def __dir__(self):
@@ -861,7 +859,7 @@ class Parameters(object):
 
     def to_dict(self):
         d = self._proxy.get_all()
-        for k in d.keys():
+        for k in list(d.keys()):
             if k.startswith("_"):
                 d.pop(k)
         return d
@@ -870,14 +868,14 @@ class Parameters(object):
         self._proxy.update(d)
 
     def __repr__(self):
-        d = dict(self._proxy.iteritems())
+        d = dict(iter(self._proxy.items()))
         return self._repr(d)
 
     def _repr(self, d):
         rep_str = "Parameters (%s)\n" % self.__current_config.get()
-        max_len = max((0,) + tuple(len(k) for k in d.keys()))
+        max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
-        for key, value in sorted(d.iteritems()):
+        for key, value in sorted(d.items()):
             if key.startswith("_"):
                 continue
             rep_str += str_format % (key, value)
@@ -895,7 +893,7 @@ class Parameters(object):
         delattr(self.__class__, name)
 
     def switch(self, name):
-        for key, value in dict(self.__class__.__dict__).iteritems():
+        for key, value in dict(self.__class__.__dict__).items():
             if isinstance(value, self.DESCRIPTOR):
                 delattr(self.__class__, key)
 

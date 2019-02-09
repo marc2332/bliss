@@ -33,12 +33,12 @@ def test_pkcom_ascan_gauss(session):
     assert pytest.approx(fwhm, 2.3548)  # std dev is 1
     assert pytest.approx(c, 5)
     assert pytest.raises(ValueError, "s.peak(counter, m1)")
-    assert pytest.raises(ValueError, "s.peak(diode)")
+    assert pytest.raises(KeyError, "s.peak(diode)")
 
     s.goto_peak(counter)
-    assert pytest.approx(roby.position(), p)
+    assert pytest.approx(roby.position, p)
     s.goto_com(counter)
-    assert pytest.approx(roby.position(), c)
+    assert pytest.approx(roby.position, c)
 
     # m1.move(1)
     # scans.lineup(m1, -2, 2, 20, 0, counter, save=False)

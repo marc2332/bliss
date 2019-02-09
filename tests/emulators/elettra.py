@@ -88,7 +88,7 @@ class ElettraElectrometer(BaseDevice):
         super_kwargs = {}
         super_kwargs["newline"] = opts.pop("newline", "\r")
         super(ElettraElectrometer, self).__init__(name, **super_kwargs)
-        for k, v in self.COMMANDS.items():
+        for k, v in list(self.COMMANDS.items()):
             opts.setdefault(k, v["default"])
         self.commands = opts
         firmware_version_str = self["ver"].rsplit(" ", 1)[1]
@@ -214,7 +214,7 @@ class ElettraElectrometer(BaseDevice):
     def get(self):
         values = self._generate()
         # TODO: handle binary
-        values = map(self.ASCII_INT.format, values)
+        values = list(map(self.ASCII_INT.format, values))
         return " ".join(values)
 
     def do_acq(self, nap=0.01):
@@ -229,7 +229,7 @@ class AH401D(ElettraElectrometer):
         ElettraElectrometer.COMMANDS,
         hlf=BCmdRW(False),
         itm=ICmdRW(1000, dict(min=10, max=10000)),
-        rng=SCmdRW("1", map(str, [0, 1, 2, 3, 4, 5, 6, 7, "XY"])),
+        rng=SCmdRW("1", list(map(str, [0, 1, 2, 3, 4, 5, 6, 7, "XY"]))),
         sum=BCmdRW(False),
         ver=SCmdR("AH401D 2.0.3"),
     )

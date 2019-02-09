@@ -35,15 +35,13 @@ __all__ = (
     + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
 )
 
-import collections
-import itertools
 import inspect
 import logging
 import functools
+import itertools
 import linecache
-import gevent
+import collections.abc
 
-from six import print_
 from gevent import sleep
 from tabulate import tabulate
 
@@ -110,7 +108,7 @@ def wa(**kwargs):
     err = kwargs.get("err", _ERR)
     get = functools.partial(safe_get, on_error=err)
 
-    print_("Current Positions (user, dial)")
+    print("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
     for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
@@ -127,8 +125,8 @@ def wa(**kwargs):
         dial.append(dial_position)
 
     for table in tables:
-        print_()
-        print_(_tabulate(table))
+        print("")
+        print(_tabulate(table))
 
 
 def wm(*axes, **kwargs):
@@ -139,7 +137,7 @@ def wm(*axes, **kwargs):
         axis (~bliss.common.axis.Axis): motor axis
     """
     if not axes:
-        print_("need at least one axis name/object")
+        print("need at least one axis name/object")
         return
     max_cols = kwargs.get("max_cols", _MAX_COLS)
     err = kwargs.get("err", _ERR)
@@ -186,17 +184,17 @@ def wm(*axes, **kwargs):
             axis_label += "[{0}]".format(unit)
         header.append(axis_label)
         User.append(None)
-        high_user.append(high if high != None else _MISSING_VAL)
+        high_user.append(high if high is not None else _MISSING_VAL)
         user.append(get(axis, "position"))
-        low_user.append(low if low != None else _MISSING_VAL)
+        low_user.append(low if low is not None else _MISSING_VAL)
         Dial.append(None)
-        high_dial.append(axis.user2dial(high) if high != None else _MISSING_VAL)
+        high_dial.append(axis.user2dial(high) if high is not None else _MISSING_VAL)
         dial.append(get(axis, "dial"))
-        low_dial.append(axis.user2dial(low) if low != None else _MISSING_VAL)
+        low_dial.append(axis.user2dial(low) if low is not None else _MISSING_VAL)
 
     for table in tables:
-        print_()
-        print_(_tabulate(table))
+        print("")
+        print(_tabulate(table))
 
 
 def stm(*axes):
@@ -221,7 +219,7 @@ def sta(read_hw=False):
         )
         for axis in get_axes_iter()
     ]
-    print_(_tabulate(table))
+    print(_tabulate(table))
 
 
 def mv(*args):
@@ -301,19 +299,19 @@ def __umove(*args, **kwargs):
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
-        print_()
-        print_(__row(motor_names, hfmt, sep="  "))
+        print("")
+        print(__row(motor_names, hfmt, sep="  "))
 
         while group.is_moving:
-            positions = group.position()
+            positions = group.position
             row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-            print_("\r" + row, end="", flush=True)
+            print("\r" + row, end="", flush=True)
             sleep(0.1)
         # print last time for final positions
-        positions = group.position()
+        positions = group.position
         row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-        print_("\r" + row, end="", flush=True)
-        print_()
+        print("\r" + row, end="", flush=True)
+        print("")
 
     return group, motor_pos
 
@@ -333,7 +331,7 @@ def prdef(obj_or_name):
     """
     Shows the text of the source code for an object or the name of an object.
     """
-    is_arg_str = isinstance(obj_or_name, (str, unicode))
+    is_arg_str = isinstance(obj_or_name, str)
     if is_arg_str:
         obj, name = getattr(setup_globals, obj_or_name), obj_or_name
     else:
@@ -373,12 +371,12 @@ def prdef(obj_or_name):
         header = "'{0}' is an alias for '{1}' which is defined in:\n{2}:{3}\n".format(
             name, real_name, fname, line_nb
         )
-    print_(header)
-    print_(__pyhighlight("".join(lines)))
+    print(header)
+    print(__pyhighlight("".join(lines)))
 
 
 def _check_log_level(level):
-    if isinstance(level, (int, long)):
+    if isinstance(level, int):
         rv = level
     else:
         rv = getattr(logging, level.upper())
@@ -388,7 +386,7 @@ def _check_log_level(level):
 def set_log_level(level=logging.root.level):
     """
     Adjusts the log level
-    
+
     Without arguments, resets the level back to the one setup at
     beginning of the session.
 
@@ -413,7 +411,7 @@ def cntdict():
 
     for name, obj in itertools.chain(
         inspect.getmembers(setup_globals),
-        env_dict.iteritems() if env_dict is not None else {},
+        iter(env_dict.items()) if env_dict is not None else {},
     ):
         if isinstance(obj, BaseCounter):
             counters_dict[obj.fullname] = (
@@ -421,7 +419,7 @@ def cntdict():
                 obj.controller.name if obj.controller else "None",
             )
         elif hasattr(obj, "counters") and isinstance(
-            obj.counters, collections.Iterable
+            obj.counters, collections.abc.Iterable
         ):
             for cnt in obj.counters:
                 if isinstance(cnt, BaseCounter):
@@ -439,10 +437,10 @@ def lscnt():
     Display the list of all counters, sorted alphabetically
     """
     table_info = []
-    for counter_name, counter_info in sorted(cntdict().iteritems()):
+    for counter_name, counter_info in sorted(cntdict().items()):
         table_info.append(itertools.chain([counter_name], counter_info))
-    print_()
-    print_(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
+    print("")
+    print(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
 
 
 def edit_roi_counters(detector, acq_time=None):
@@ -475,7 +473,7 @@ def edit_roi_counters(detector, acq_time=None):
             label=roi_name,
         )
         selections.append(selection)
-    print("Waiting for ROI edition to finish on {}...".format(name))
+    print(("Waiting for ROI edition to finish on {}...".format(name)))
     selections = plot.select_shapes(selections)
     roi_labels, rois = [], []
     ignored = 0
@@ -489,7 +487,7 @@ def edit_roi_counters(detector, acq_time=None):
         rois.append((x, y, w, h))
         roi_labels.append(label)
     if ignored:
-        print("{} ROI(s) ignored (no name)".format(ignored))
+        print(("{} ROI(s) ignored (no name)".format(ignored)))
     roi_counters.clear()
     roi_counters[roi_labels] = rois
-    print("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name))
+    print(("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name)))

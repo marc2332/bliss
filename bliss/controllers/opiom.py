@@ -8,6 +8,7 @@
 import os
 import struct
 from warnings import warn
+import gevent
 
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
@@ -86,7 +87,7 @@ class Opiom:
 
     def __debugMsg(self, wr, msg):
         if self.__debug:
-            print "%-5.5s on %s > %s" % (wr, self.name, msg)
+            print("%-5.5s on %s > %s" % (wr, self.name, msg))
 
     def info(self):
         return self.comm("?INFO")
@@ -127,9 +128,9 @@ class Opiom:
         self._cnx.write(msg)
 
     def raw_bin_write(self, binmsg):
-        nb_block = len(binmsg) / self.FSIZE
+        nb_block = len(binmsg) // self.FSIZE
         nb_bytes = len(binmsg) % self.FSIZE
-        lrc = (nb_bytes + nb_block + sum([ord(x) for x in binmsg])) & 0xff
+        lrc = (nb_bytes + nb_block + sum([x for x in binmsg])) & 0xff
         rawMsg = struct.pack(
             "BBB%dsBB" % len(binmsg), 0xff, nb_block, nb_bytes, binmsg, lrc, 13
         )
@@ -139,16 +140,19 @@ class Opiom:
         return self.comm("#" + msg)
 
     @protect_from_kill
-    def comm(self, msg, timeout=None):
+    def comm(self, msg, timeout=None, text=True):
         self._cnx.open()
         with self._cnx._lock:
-            self._cnx._write(msg + "\r\n")
+            self._cnx._write((msg + "\r\n").encode())
             if msg.startswith("?") or msg.startswith("#"):
                 msg = self._cnx._readline(timeout=timeout)
-                if msg.startswith("$"):
-                    msg = self._cnx._readline("$\r\n", timeout=timeout)
-                self.__debugMsg("Read", msg.strip("\n\r"))
-                return msg.strip("\r\n")
+                if msg.startswith("$".encode()):
+                    msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
+                self.__debugMsg("Read", msg.strip("\n\r".encode()))
+                if text:
+                    return (msg.strip("\r\n".encode())).decode()
+                else:
+                    return msg.strip("\r\n".encode())
 
     def load_program(self, prog_name=None):
         pldid = self.comm("?PLDID")
@@ -159,7 +163,7 @@ class Opiom:
                 # already default
                 return
             else:
-                print "Uploading default program"
+                print("Uploading default program")
         else:
             try:
                 file_pldid, file_project = self._getFilePLDIDandPROJECT(prog_name)
@@ -170,7 +174,7 @@ class Opiom:
                 )
 
             if file_pldid and file_pldid != pldid:
-                print "Uploading opiom program, please wait"
+                print("Uploading opiom program, please wait")
                 srcsz = int(self.comm("?SRCSZ").split()[0])
                 offsets, opmfile = self._getoffset(prog_name)
                 if (offsets["src_c"] - offsets["src_cc"]) < srcsz:
@@ -185,6 +189,9 @@ class Opiom:
                 sendarray += opmfile[offsets["jed"] :]
             else:
                 # program already loaded
+                self.__debugMsg(
+                    "No need to reload opiom program: PLDID did not change", pldid
+                )
                 return
 
         if self.comm_ack("MODE program") != "OK":
@@ -205,10 +212,14 @@ class Opiom:
         for frame_n, index in enumerate(range(0, len(sendarray), self.FSIZE)):
             with KillMask():
                 cmd = "#*FRM %d\r" % frame_n
-                self.raw_write(cmd)
+                self.raw_write(cmd.encode())
+                gevent.sleep(.1)
+                print("                         ", end="\r")
+                print("FRAME {0}".format(frame_n), end="\r")
                 self.raw_bin_write(sendarray[index : index + self.FSIZE])
-                answer = self._cnx.readline("\r\n")
-                if answer == "OK":
+                answer = self._cnx.readline("\r\n".encode())
+                # the full answer is actually "OK" but the O is in few cases lost when using TangoSerial
+                if answer[-1:] == b"K":
                     continue
                 raise RuntimeError(
                     "Load program: [%s] returned [%s]" % (cmd.strip(), answer)
@@ -217,6 +228,8 @@ class Opiom:
         # waiting end programming
         while True:
             stat_num = self.comm("?PSTAT")
+            print("                         ", end="\r")
+            print("{0}".format(stat_num), end="\r")
             self.__debugMsg("Load", stat_num)
             try:
                 stat, percent = stat_num.split()
@@ -227,15 +240,15 @@ class Opiom:
 
     def _display_bits(self, prefix, bits):
         for i in range(1, 9):
-            print "%s%d\t" % (prefix, i),
-        print
+            print("%s%d\t" % (prefix, i), end=" ")
+        print()
         for i in range(8):
             if (bits >> i) & 0x1:
-                print "1\t",
+                print("1\t", end=" ")
             else:
-                print "0\t",
+                print("0\t", end=" ")
 
-        print
+        print()
 
     def _getoffset(self, prog_name):
         with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
@@ -257,8 +270,8 @@ class Opiom:
         )
 
     def _getFilePLDIDandPROJECT(self, prog_name):
-        TOKEN = "#pldid#"
-        PROJECT_TOKEN = "#project#"
+        TOKEN = b"#pldid#"
+        PROJECT_TOKEN = b"#project#"
         with remote_open(os.path.join(self.__base_path, prog_name + ".opm")) as f:
             begin = -1
             for line in f:
@@ -328,10 +341,10 @@ class Switch(BaseSwitch):
         value = int(self.__opiom.comm_ack(cmd), base=16)
         value >>= self.__shift
         value &= self.__mask
-        for label, state_value in self.__states.iteritems():
+        for label, state_value in self.__states.items():
             if state_value == value:
                 return label
         return "UNKNOWN"
 
     def _states_list(self):
-        return self.__states.keys()
+        return list(self.__states.keys())

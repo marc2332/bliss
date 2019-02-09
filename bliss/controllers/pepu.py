@@ -256,7 +256,7 @@ Trigger = collections.namedtuple("Trigger", "start clock")
 
 
 def Trigger_fromstring(text):
-    return Trigger(*map(Signal, text.split()[:2]))
+    return Trigger(*list(map(Signal, text.split()[:2])))
 
 
 def Trigger_tostring(trigger):
@@ -586,16 +586,14 @@ class PEPU(object):
     ESRF - PePU controller
     """
 
-    IN_CHANNELS = range(1, 7)  # 7 and 8 are development only
-    OUT_CHANNELS = range(7, 9)
-    AUX_CHANNELS = range(1, 9)
-    CALC_CHANNELS = range(1, 9)
-    F_IN_CHANNELS = range(1, 7)  # 7 and 8 are development only
+    IN_CHANNELS = list(range(1, 7))  # 7 and 8 are development only
+    OUT_CHANNELS = list(range(7, 9))
+    AUX_CHANNELS = list(range(1, 9))
+    CALC_CHANNELS = list(range(1, 9))
+    F_IN_CHANNELS = list(range(1, 7))  # 7 and 8 are development only
 
     app_name = DeviceAttr("APPNAME", str, None)
     version = DeviceAttr("VERSION", str, None)
-    up_time = DeviceAttr("UPTIME", float, None)
-    sys_info = DeviceAttr("SYSINFO", str, None)
     dance_info = DeviceAttr("DINFO", str, None)
     config = DeviceConfigAttr()
 
@@ -637,7 +635,7 @@ class PEPU(object):
             self._create_stream(stream_info, write=False)
 
     def __getitem__(self, text_or_seq):
-        if isinstance(text_or_seq, basestring):
+        if isinstance(text_or_seq, str):
             return self[(text_or_seq,)][0]
         items = []
         for text in text_or_seq:

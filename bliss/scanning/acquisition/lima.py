@@ -159,7 +159,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self._image_channel:
             self._image_channel.description.update(self.parameters)
 
-        for param_name, param_value in self.parameters.iteritems():
+        for param_name, param_value in self.parameters.items():
             setattr(self.device, param_name, param_value)
 
         self.wait_slaves_prepare()

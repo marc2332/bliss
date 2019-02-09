@@ -56,11 +56,11 @@ def test_cmd_expr_to_reg_expr():
         ),
     }
 
-    for _, (expr, reg_expr) in cmd_exprs.items():
+    for _, (expr, reg_expr) in list(cmd_exprs.items()):
         assert cmd_expr_to_reg_expr(expr).pattern == reg_expr
 
     cmd_re = dict(
-        [(k, cmd_expr_to_reg_expr(expr)) for k, (expr, _) in cmd_exprs.items()]
+        [(k, cmd_expr_to_reg_expr(expr)) for k, (expr, _) in list(cmd_exprs.items())]
     )
 
     idn_re = cmd_re["idn"]
@@ -142,12 +142,18 @@ def test_commands():
 @pytest.fixture
 def interface():
     mock = Mock(_eol="\n")
-    mock.idn = "BLISS INSTRUMENTS INC.,6485,123456,B04"
+    mock.idn = b"BLISS INSTRUMENTS INC.,6485,123456,B04"
     mock.meas = 1.2345
     mock.idn_obj = dict(
-        zip(("manufacturer", "model", "serial", "version"), mock.idn.split(","))
+        list(
+            zip(
+                ("manufacturer", "model", "serial", "version"),
+                (mock.idn.decode()).split(","),
+            )
+        )
     )
-    mock.values = {"*IDN?": mock.idn, "MEAS?": "%EA" % mock.meas}
+
+    mock.values = {b"*IDN?": mock.idn, b"MEAS?": b"%EA" % mock.meas}
     mock.commands = []
 
     def write_readline(msg):
@@ -156,8 +162,8 @@ def interface():
     mock.write_readline = write_readline
 
     def write_readlines(msg, n):
-        msgs = [msg for submsg in msg.splitlines() for msg in submsg.split(";")]
-        reply = [mock.values[m.upper()] for m in msgs if "?" in m]
+        msgs = [msg for submsg in msg.splitlines() for msg in submsg.split(b";")]
+        reply = [mock.values[m.upper()] for m in msgs if b"?" in m]
         return reply[:n]
 
     mock.write_readlines = write_readlines
@@ -175,10 +181,10 @@ def test_SCPI(interface):
     assert scpi("*IDN?")[0][1] == interface.idn_obj
 
     scpi("*CLS")
-    assert interface.commands == ["*CLS\n"]
+    assert interface.commands == [b"*CLS\n"]
 
     scpi("*RST")
-    assert interface.commands == ["*CLS\n", "*RST\n"]
+    assert interface.commands == [b"*CLS\n", b"*RST\n"]
 
     cmds = Commands(
         COMMANDS, {"MEASure[:CURRent[:DC]]": FloatCmdRO(get=lambda x: float(x[:-1]))}

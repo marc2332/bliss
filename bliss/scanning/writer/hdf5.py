@@ -27,8 +27,6 @@ class Writer(FileWriter):
         )
 
         self.file = None
-        self.scan_entry = None
-        self.measurement = None
         self.last_point_index = {}
 
     @property
@@ -38,39 +36,33 @@ class Writer(FileWriter):
     def new_file(self, scan_name, scan_info):
         self.close()
         self.file = h5py.File(self.filename)
-        self.scan_entry = self.file.create_group(scan_name)
-        self.scan_entry.attrs["NX_class"] = u"NXentry"
+
+    def new_scan(self, scan_name, scan_info):
+        scan_entry = self.file.create_group(scan_name)
+        scan_entry.attrs["NX_class"] = "NXentry"
         scan_title = scan_info.get("title", "untitled")
-        utf8_dt = h5py.special_dtype(vlen=unicode)
-        self.scan_entry["title"] = scan_title.encode("utf-8")
+        scan_entry["title"] = scan_title
         timestamp = scan_info.get("start_timestamp")
         local_time = datetime.datetime.fromtimestamp(timestamp).isoformat()
         utc_time = local_time + "%+03d:00" % (time.altzone / 3600)
-        self.scan_entry["start_time"] = utc_time.encode("utf-8")
-        self.measurement = self.scan_entry.create_group("measurement")
-        self.measurement.attrs["NX_class"] = u"NXcollection"
-        instrument = self.scan_entry.create_group("instrument")
-        instrument.attrs["NX_class"] = u"NXinstrument"
+        scan_entry["start_time"] = utc_time
+        measurement = scan_entry.create_group("measurement")
+        measurement.attrs["NX_class"] = "NXcollection"
+        instrument = scan_entry.create_group("instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
         positioners = instrument.create_group("positioners")
         positioners.attrs["NX_class"] = u"NXcollection"
         positioners_dial = instrument.create_group("positioners_dial")
         positioners_dial.attrs["NX_class"] = u"NXcollection"
         positioners_dict = scan_info.get("positioners", {})
-        for pname, ppos in positioners_dict.iteritems():
+        for pname, ppos in positioners_dict.items():
             if isinstance(ppos, float):
                 positioners.create_dataset(pname, dtype="float64", data=ppos)
         positioners_dial_dict = scan_info.get("positioners_dial", {})
-        for pname, ppos in positioners_dial_dict.iteritems():
+        for pname, ppos in positioners_dial_dict.items():
             if isinstance(ppos, float):
                 positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
-
-    def new_master(self, master):
-        return self.measurement.create_group(master.name)
-
-    def add_reference(self, master_entry, referenced_master_entry):
-        ref_path = referenced_master_entry.name
-        ref_name = ref_path.split("/")[-1]
-        master_entry[ref_name] = referenced_master_entry.ref
+        return measurement
 
     def _on_event(self, parent, event_dict, signal, sender):
         if signal == "start":
@@ -117,12 +109,10 @@ class Writer(FileWriter):
         if self.file is not None:
             self.file.close()
             self.file = None
-        self.scan_entry = None
-        self.measurement = None
 
     def get_scan_entries(self):
         try:
             with h5py.File(self.filename, mode="r") as f:
-                return f.keys()
+                return list(f.keys())
         except IOError:  # file doesn't exist
             return []

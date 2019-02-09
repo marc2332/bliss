@@ -99,8 +99,8 @@ class TfWagoMapping:
         """
         mapping = []
         nb_chan = self.nb_lens + self.nb_pinhole
-        ch_ctrl = nb_chan / 8
-        ch_stat = (nb_chan * 2) / 8
+        ch_ctrl = nb_chan // 8
+        ch_stat = (nb_chan * 2) // 8
 
         if nb_chan > 8:
             ch = nb_chan % 8
@@ -249,7 +249,7 @@ class Transfocator:
             self._state_chan.value = self.status_read()
 
     def status_dict(self):
-        positions = OrderedDict()
+        positions = {}
         value = self.pos_read()
         for i in range(self.nb_lens + self.nb_pinhole):
             if i in self.empty_jacks:
@@ -314,11 +314,11 @@ class Transfocator:
         return self.nb_lens + self.nb_pinhole
 
     def __getitem__(self, idx):
-        pos = self.status_dict().values()
+        pos = list(self.status_dict().values())
         if isinstance(idx, int):
             return _display(pos[idx])
         elif isinstance(idx, slice):
-            idx = range(*idx.indices(self.nb_lens + self.nb_pinhole))
+            idx = list(range(*idx.indices(self.nb_lens + self.nb_pinhole)))
         return [_display(pos[i]) for i in idx]
 
     def __setitem__(self, idx, value):
@@ -326,7 +326,7 @@ class Transfocator:
             args = idx, value
         else:
             if isinstance(idx, slice):
-                idx = range(*idx.indices(self.nb_lens + self.nb_pinhole))
+                idx = list(range(*idx.indices(self.nb_lens + self.nb_pinhole)))
             nb_idx = len(idx)
             if not isinstance(value, (tuple, list)):
                 value = nb_idx * [value]
@@ -342,7 +342,7 @@ class Transfocator:
     def __repr__(self):
         prefix = "Transfocator " + self.name
         try:
-            header, positions = zip(*self.status_dict().items())
+            header, positions = list(zip(*list(self.status_dict().items())))
             positions = [_display(col) for col in positions]
             table = tabulate.tabulate((header, positions), tablefmt="plain")
             return "{}:\n{}".format(prefix, table)

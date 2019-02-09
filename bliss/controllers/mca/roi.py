@@ -50,7 +50,7 @@ class RoiConfig(object):
         """
         Returns names of all configured ROIs.
         """
-        return self.config.keys()
+        return list(self.config.keys())
 
     def get_roi(self, roi_name):
         return literal_eval(self.config[roi_name])

@@ -150,11 +150,11 @@ class mockup(Controller):
         """Setting a setpoint as quickly as possible
 
         """
-        if kwargs.has_key("ramp"):
+        if "ramp" in kwargs:
             self.set_ramprate(toutput, kwargs["ramp"])
-        if kwargs.has_key("dwell"):
+        if "dwell" in kwargs:
             self.set_dwell(toutput, kwargs["dwell"])
-        if kwargs.has_key("step"):
+        if "step" in kwargs:
             self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel", str)
         log.debug("mockup: set %s on channel %s" % (sp, channel))
@@ -180,11 +180,11 @@ class mockup(Controller):
         """Doing a ramp on a Output object
 
         """
-        if kwargs.has_key("ramp"):
+        if "ramp" in kwargs:
             self.set_ramprate(toutput, kwargs["ramp"])
-        if kwargs.has_key("dwell"):
+        if "dwell" in kwargs:
             self.set_dwell(toutput, kwargs["dwell"])
-        if kwargs.has_key("step"):
+        if "step" in kwargs:
             self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel", str)
         log.debug("mockup: start_ramp %s on channel %s" % (sp, channel))
@@ -268,7 +268,7 @@ class mockup(Controller):
                 tloop.output.config.get("channel", str),
             )
         )
-        print "Mockup: regulation on"
+        print("Mockup: regulation on")
         log.debug("mockup: P: %s" % (tloop.kp()))
         log.debug("mockup: I: %s" % (tloop.ki()))
         log.debug("mockup: D: %s" % (tloop.kd()))
@@ -284,7 +284,7 @@ class mockup(Controller):
                 tloop.output.config.get("channel", str),
             )
         )
-        print "Mockup: regulation off"
+        print("Mockup: regulation off")
 
     def Wraw(self, str):
         """

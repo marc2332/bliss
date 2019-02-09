@@ -17,7 +17,6 @@ import functools
 
 import numpy
 import operator
-from six import print_
 from blessings import Terminal
 
 from bliss import release
@@ -71,14 +70,14 @@ def initialize(session_name=None):
         _conda_env = ""
 
     print_rainbow_banner()
-    print_("")
-    print_(
+    print("")
+    print(
         "Welcome to BLISS %s running on {t.blue}%s{t.normal} %s".format(t=t)
         % (_version, _hostname, _conda_env)
     )
-    print_("Copyright (c) ESRF, 2015-2018")
-    print_("-")
-    print_(
+    print("Copyright (c) ESRF, 2015-2018")
+    print("-")
+    print(
         "Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t)
         % (_host, _port)
     )
@@ -88,7 +87,7 @@ def initialize(session_name=None):
         session = DefaultSession()
     else:
         session = config.get(session_name)
-        print "%s: Executing setup..." % session.name
+        print("%s: Executing setup..." % session.name)
 
     try:
         session.setup(env_dict=user_ns, verbose=True)
@@ -97,10 +96,10 @@ def initialize(session_name=None):
         sys.excepthook(*sys.exc_info())
 
     if error_flag:
-        print "Warning: error(s) happened during setup, setup may not be complete."
+        print("Warning: error(s) happened during setup, setup may not be complete.")
     else:
-        print_("Done.")
-        print_("")
+        print("Done.")
+        print("")
 
     return user_ns, session
 
@@ -157,12 +156,12 @@ class ScanListener:
 
         self.col_labels = ["#"]
         self.real_motors = []
-        self.counters = []
+        self.counter_names = []
         self._point_nb = 0
         motor_labels = []
         counter_labels = []
 
-        master, channels = next(scan_info["acquisition_chain"].iteritems())
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         for channel_name in channels["master"]["scalars"]:
             channel_short_name = channel_name.split(":")[-1]
@@ -197,7 +196,7 @@ class ScanListener:
                 self.col_labels.insert(1, "dt[s]")
                 continue
             else:
-                self.counters.append(counter_name)
+                self.counter_names.append(counter_name)
                 unit = _find_unit(counter_name)
                 if unit:
                     counter_name += "[{0}]".format(unit)
@@ -231,7 +230,7 @@ class ScanListener:
             else:
                 estimation_str = ""
 
-            col_lens = map(lambda x: max(len(x), self.DEFAULT_WIDTH), self.col_labels)
+            col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
             h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
             header = "  ".join(
                 [templ.format(label) for templ, label in zip(h_templ, self.col_labels)]
@@ -245,22 +244,23 @@ class ScanListener:
             self.col_templ = [
                 "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens
             ]
-        print_(header)
+        print(header)
 
     def __on_scan_data(self, scan_info, values):
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
 
-        master, channels = next(scan_info["acquisition_chain"].iteritems())
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         elapsed_time_col = []
         if "elapsed_time" in values:
             elapsed_time_col.append(values.pop("elapsed_time"))
 
-        motor_values = [values[motor.name] for motor in sorted(self.real_motors)]
+        motor_labels = sorted(m.name for m in self.real_motors)
+        motor_values = [values[motor_name] for motor_name in motor_labels]
         counter_values = [
-            values[counter_name] for counter_name in sorted(self.counters)
+            values[counter_name] for counter_name in sorted(self.counter_names)
         ]
 
         values = elapsed_time_col + motor_values + counter_values
@@ -279,7 +279,7 @@ class ScanListener:
             )
             end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
             msg = "{0}\n\n{1}".format(end_time_str, lines)
-            print_(msg)
+            print(msg)
         else:
             values.insert(0, self._point_nb)
             self._point_nb += 1
@@ -288,9 +288,9 @@ class ScanListener:
             )
             if self.term.is_a_tty:
                 monitor = scan_info.get("output_mode", "tail") == "monitor"
-                print_("\r" + line, end=monitor and "\r" or "\n", flush=True)
+                print("\r" + line, end=monitor and "\r" or "\n")
             else:
-                print_(line)
+                print(line)
 
     def __on_scan_end(self, scan_info):
         scan_type = scan_info.get("type")
@@ -306,23 +306,23 @@ class ScanListener:
         start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
         dt = end - start
         if scan_info.get("output_mode", "tail") == "monitor" and self.term.is_a_tty:
-            print_()
+            print()
         msg = "\nTook {0}".format(dt)
         if "estimation" in scan_info:
             time_estimation = scan_info["estimation"]["total_time"]
             msg += " (estimation was for {0})".format(
                 datetime.timedelta(seconds=time_estimation)
             )
-        print_(msg)
+        print(msg)
 
     def __on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []
         for motor in self.real_motors:
-            position = "{0:.03f}".format(motor.position())
+            position = "{0:.03f}".format(motor.position)
             unit = motor.config.get("unit", default=None)
             if unit:
                 position += "[{0}]".format(unit)
             labels.append("{0}: {1}".format(motor.name, position))
 
-        print_("\33[2K", end="")
-        print_(*labels, sep=", ", end="\r", flush=True)
+        print("\33[2K", end="")
+        print(*labels, sep=", ", end="\r")

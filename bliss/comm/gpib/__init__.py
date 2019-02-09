@@ -9,4 +9,4 @@
 interface specific classes)
 """
 
-from _gpib import *
+from ._gpib import *

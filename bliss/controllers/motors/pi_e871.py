@@ -11,7 +11,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import SERIAL
 
 import sys
@@ -40,10 +40,10 @@ class PI_E871(Controller):
         try:
             self.serial.write("ERR?\n")
             _ans = self.serial.readline()
-            print "err=%r" % _ans
+            print("err=%r" % _ans)
             self.serial.write("*IDN?\n")
             _ans = self.serial.readline()
-            print _ans
+            print(_ans)
             # 871 : '(c)2013 Physik Instrumente (PI) GmbH & Co. KG, E-871.1A1, 0, 01.00'
             # 873 : '(c)2015 Physik Instrumente (PI) GmbH & Co. KG, E-873.1A1, 115072229, 01.09'
             elog.debug(_ans)
@@ -69,7 +69,7 @@ class PI_E871(Controller):
                 'communication error : no PI E871 or E873 found on serial "%s"'
                 % self.serial_line
             )
-            print self._status
+            print(self._status)
             elog.debug(self._status)
 
     def finalize(self):
@@ -97,9 +97,9 @@ class PI_E871(Controller):
         # Checks referencing.
         _ref = self._get_referencing(axis)
         if _ref == 0:
-            print "axis '%s' must be referenced before being movable" % axis.name
+            print("axis '%s' must be referenced before being movable" % axis.name)
         else:
-            print "axis '%s' is referenced." % axis.name
+            print("axis '%s' is referenced." % axis.name)
 
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
@@ -354,7 +354,7 @@ class PI_E871(Controller):
         return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
-        print "_check_error: axis %s got %s" % (axis.name, self._get_error(axis))
+        print("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
 
     def _stop(self):
         self.serial.write("STP\n")

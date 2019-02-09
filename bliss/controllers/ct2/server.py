@@ -7,29 +7,21 @@
 
 
 """
-CT2 (P201 and C208) interface over the network using zerorpc.
+CT2 (P201 and C208) interface over the network using bliss rpc.
 
-This requires zerorpc and msgpack_numpy.
+This requires bliss rpc and msgpack_numpy.
 
 Usage:
 
     $ python -m bliss.controllers.ct2.server
     Serving ct2 on tcp://0.0.0.0:8909 ...
 
-Test on the client machine using:
-
-    $ zerorpc tcp://hostname:8909 -?
 """
 
 # Imports
 import sys
 import logging
-import weakref
 import argparse
-
-import six
-import louie
-import gevent.queue
 
 from bliss.comm.rpc import Server
 from bliss.controllers.ct2 import card, device
@@ -50,20 +42,6 @@ class CT2(device.CT2):
     def __init__(self, *args, **kwargs):
         super(CT2, self).__init__(*args, **kwargs)
         
-    @zerorpc.stream
-    def events(self, signal=None):
-        if signal is None:
-            signal = louie.All
-        log.info('new stream (signal=%s)', signal)
-        stream = gevent.queue.Queue()
-        def receiver(value, signal, sender):
-            stream.put((signal, value))
-        louie.connect(receiver, signal, self)
-        for msg in stream:
-            if msg is None:
-                break
-            yield msg
-
     def get_property(self, key):
         result = getattr(self, key)
         return result

@@ -13,8 +13,8 @@ import gevent
 from bliss.common.tango import DeviceProxy
 from bliss.common.task import task
 from bliss.data.node import DataNode
-from bliss.config.settings import HashSetting, QueueObjSetting
-from bliss.data.edffile import EdfFile
+from bliss.config.settings import QueueObjSetting
+from silx.third_party.EdfFile import EdfFile
 
 try:
     import h5py
@@ -27,7 +27,7 @@ HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
-        DataArrayMagic = struct.unpack(">I", "DTAY")[0]
+        DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
 
         def __init__(self, data, from_index, to_index, from_stream=False):
             self.data = data
@@ -350,7 +350,7 @@ class LimaImageChannelDataNode(DataNode):
 
     def add_reference_data(self, ref_data):
         """Save reference data in database
-  
+
         In case of Lima, this corresponds to acquisition ref_data,
         in particular saving data
         """
@@ -383,7 +383,7 @@ class LimaImageChannelDataNode(DataNode):
         )
         references = []
         file_format = final_ref_data["fileFormat"].lower()
-        for next_number in xrange(final_ref_data["nextNumber"], last_file_number):
+        for next_number in range(final_ref_data["nextNumber"], last_file_number):
             full_path = path_format % next_number
             if file_format == "hdf5":
                 # @todo see what's is needed for hdf5 dataset link

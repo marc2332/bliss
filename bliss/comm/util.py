@@ -167,7 +167,7 @@ def get_comm(config, ctype=None, **opts):
         default_port = opts.pop("port", None)
         opts.update(config[comm_type])
         url = opts["url"]
-        if isinstance(url, (str, unicode)):
+        if isinstance(url, str):
             url = url.rsplit(":", 1)
         if len(url) == 1:
             if default_port is None:
@@ -221,7 +221,7 @@ class HexMsg:
         self.msg = msg
 
     def __str__(self):
-        return " ".join(map(hex, map(ord, self.msg)))
+        return " ".join(map(hex, self.msg))
 
     def __repr__(self):
         return "[{0}]".format(self)

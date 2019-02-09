@@ -9,8 +9,6 @@
 # use Bliss comm sockets with considerable tidying.
 # Each method returns a list comprising [errorcode, values ...]
 
-from __future__ import print_function
-from __future__ import absolute_import
 
 from bliss.comm.util import get_comm, TCP
 
@@ -23,7 +21,8 @@ class XPS:
     # Send command and get return
     def __sendAndReceive(self, command):
         try:
-            reply = self.__sock.write_readline(command, eol=",EndOfAPI")
+            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]
         else:
@@ -33,7 +32,8 @@ class XPS:
     # Send command and get return
     def __sendAndReceiveWithDecode(self, command):
         try:
-            reply = self.__sock.write_readline(command, eol=",EndOfAPI")
+            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]
         else:

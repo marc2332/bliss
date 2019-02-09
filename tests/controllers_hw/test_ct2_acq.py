@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import division
 
 """P201 hardware tests
 
@@ -24,7 +23,6 @@ import contextlib
 
 import numpy
 import pytest
-import zerorpc
 
 from gevent import sleep, spawn
 from gevent.event import Event
@@ -142,7 +140,7 @@ def test_internal_trigger_single_wrong_config(ct2):
 
     # Should not be able to prepare internal trigger single without
     # a point period
-    with pytest.raises(zerorpc.RemoteError):
+    with pytest.raises(Exception):
         ct2.prepare_acq()
 
 
@@ -217,7 +215,7 @@ def test_internal_trigger_multi_wrong_config(ct2):
     ct2.acq_nb_points = 1
 
     # Should not be able to prepare internal trigger multi with a point period
-    with pytest.raises(zerorpc.RemoteError):
+    with pytest.raises(Exception):
         ct2.prepare_acq()
 
 
@@ -270,7 +268,7 @@ def test_software_trigger_readout_wrong_config(ct2):
     ct2.acq_point_period = 1.1
 
     # Should not be able to prepare soft trigger readout with point period
-    with pytest.raises(zerorpc.RemoteError):
+    with pytest.raises(Exception):
         ct2.prepare_acq()
 
 

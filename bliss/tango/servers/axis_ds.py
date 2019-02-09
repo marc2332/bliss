@@ -8,13 +8,24 @@
 
 """Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)
 """
-from __future__ import absolute_import
+
+
+import os
+import sys
+import time
+import traceback
+import json
+import itertools
+
+import gevent
+from gevent.backdoor import BackdoorServer
 
 import bliss.common.log as elog
 from bliss.common.axis import get_axis
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
+from bliss.common.motor_group import Group
 
 import tango
 from tango.server import Device, device_property
@@ -22,29 +33,13 @@ from tango.server import attribute, command, get_worker
 
 tango.requires_pytango("9.2.0", software_name="BlissAxis")
 
-import os
-import sys
-import time
-import traceback
-import types
-import json
-import itertools
-
-import gevent
-from gevent.backdoor import BackdoorServer
-
-import six
-
 try:
     from bliss.config.conductor.connection import ConnectionException
 except:
-    print "beacon not installed ?"
+    print("beacon not installed ?")
 
     class ConnectionException(Exception):
         pass
-
-
-from bliss.common.motor_group import Group
 
 
 class bcolors:
@@ -103,7 +98,7 @@ class BlissAxisManager(Device):
         self.debug_stream("In init_device() of controller")
         self.group_dict = {}
         if self.BackdoorPort:
-            print "Starting Backdoor server on port", self.BackdoorPort
+            print("Starting Backdoor server on port", self.BackdoorPort)
             server = BackdoorServer(
                 ("127.0.0.1", self.BackdoorPort),
                 banner="BlissAxisManager back door",
@@ -112,7 +107,7 @@ class BlissAxisManager(Device):
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
         else:
-            print " no backdoor"
+            print(" no backdoor")
 
     def _get_axis_devices(self):
         util = tango.Util.instance()
@@ -222,16 +217,16 @@ class BlissAxisManager(Device):
         if not move_done:
             return
         elif not self.group_dict:
-            print "BlissAxisManager: move_done event with no group"
+            print("BlissAxisManager: move_done event with no group")
             return
 
         if "sender" in kws:
             sender = kws["sender"]
             groupid = [gid for gid, grp in self.group_dict.items() if grp == sender][0]
         elif len(self.group_dict) == 1:
-            groupid = self.group_dict.keys()[0]
+            groupid = list(self.group_dict.keys())[0]
         else:
-            print "BlissAxisManager: Warning: " "cannot not identify group move_done"
+            print("BlissAxisManager: Warning: " "cannot not identify group move_done")
             return
 
         self.group_dict.pop(groupid)
@@ -251,7 +246,7 @@ class BlissAxisManager(Device):
         group = self.group_dict[groupid]
 
         def get_name_state_list(group):
-            return [(name, str(axis.state())) for name, axis in group.axes.items()]
+            return [(name, str(axis.state)) for name, axis in group.axes.items()]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
@@ -339,11 +334,11 @@ class BlissAxis(Device):
         else:
             m_attr = self.get_device_attr()
             try:
-                m_attr.get_attr_by_name("Position").set_write_value(axis.position())
+                m_attr.get_attr_by_name("Position").set_write_value(axis.position)
             except:
                 pass
             try:
-                m_attr.get_attr_by_name("Velocity").set_write_value(axis.velocity())
+                m_attr.get_attr_by_name("Velocity").set_write_value(axis.velocity)
             except:
                 pass
             _ctrl = controller.get_class_name()
@@ -403,7 +398,7 @@ class BlissAxis(Device):
         argout = tango.DevState.UNKNOWN
 
         try:
-            _state = self.axis.state()
+            _state = self.axis.state
 
             if _state.READY:
                 self.set_state(tango.DevState.ON)
@@ -463,7 +458,7 @@ class BlissAxis(Device):
     def Steps(self):
         self.debug_stream("In read_Steps()")
         _spu = float(self.axis.steps_per_unit)
-        _steps = _spu * self.axis.position()
+        _steps = _spu * self.axis.position
         return int(round(_steps))
 
     @attribute(
@@ -482,14 +477,14 @@ class BlissAxis(Device):
             quality = tango.AttrQuality.ATTR_CHANGING
         else:
             quality = tango.AttrQuality.ATTR_VALID
-        result = self.axis.position(), _t, quality
+        result = self.axis.position, _t, quality
 
         _duration = time.time() - _t
 
         if _duration > 0.05:
-            print "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms" % (
-                self._ds_name,
-                _duration * 1000,
+            print(
+                "BlissAxisManager.py : {%s} read_Position : duration seems too long : %5.3g ms"
+                % (self._ds_name, _duration * 1000)
             )
         return result
 
@@ -528,13 +523,13 @@ class BlissAxis(Device):
     def Measured_Position(self):
         self.debug_stream("In read_Measured_Position()")
         _t = time.time()
-        result = self.axis.measured_position()
+        result = self.axis.measured_position
         _duration = time.time() - _t
 
         if _duration > 0.01:
-            print "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms" % (
-                self._ds_name,
-                _duration * 1000,
+            print(
+                "BlissAxisManager.py : {%s} read_Measured_Position : duration seems long : %5.3g ms"
+                % (self._ds_name, _duration * 1000)
             )
         return result
 
@@ -546,7 +541,7 @@ class BlissAxis(Device):
         doc="Acceleration of the motor in uu/s2",
     )
     def Acceleration(self):
-        _acc = self.axis.acceleration()
+        _acc = self.axis.acceleration
         self.debug_stream("In read_Acceleration(%f)" % float(_acc))
         return _acc
 
@@ -554,7 +549,7 @@ class BlissAxis(Device):
     def Acceleration(self, new_acc):
         self.debug_stream("In write_Acceleration(%f)" % new_acc)
         try:
-            self.axis.acceleration(new_acc)
+            self.axis.acceleration = new_acc
         except NotImplementedError:
             pass
 
@@ -567,13 +562,13 @@ class BlissAxis(Device):
     )
     def AccTime(self):
         self.debug_stream("In read_AccTime()")
-        _acc_time = self.axis.acctime()
+        _acc_time = self.axis.acctime
         self.debug_stream("In read_AccTime(%f)" % float(_acc_time))
         return _acc_time
 
     @AccTime.write
     def AccTime(self, new_acctime):
-        self.axis.acctime(new_acctime)
+        self.axis.acctime = new_acctime
         self.debug_stream("In write_AccTime(%f)" % float(new_acctime))
 
     @attribute(
@@ -584,7 +579,7 @@ class BlissAxis(Device):
         doc="The constant velocity of the motor",
     )
     def Velocity(self):
-        _vel = self.axis.velocity()
+        _vel = self.axis.velocity
         self.debug_stream("In read_Velocity(%g)" % _vel)
         return _vel
 
@@ -592,7 +587,7 @@ class BlissAxis(Device):
     def Velocity(self, new_velocity):
         self.debug_stream("In write_Velocity(%g)" % new_velocity)
         try:
-            self.axis.velocity(new_velocity)
+            self.axis.velocity = new_velocity
         except NotImplementedError:
             pass
 
@@ -632,8 +627,8 @@ class BlissAxis(Device):
     @Offset.write
     def Offset(self, data):
         self.debug_stream("In write_Offset()")
-        new_pos = self.axis.dial2user(self.axis.dial(), data)
-        self.axis.position(new_pos)
+        new_pos = self.axis.dial2user(self.axis.dial, data)
+        self.axis.position = new_pos
 
     @attribute(
         dtype=float,
@@ -702,8 +697,8 @@ class BlissAxis(Device):
         # a smart client out there who is handling the user/offset.
         # Therefore don't the user position/offset of EMotion.
         # Which means: always keep dial position == user position
-        self.axis.dial(new_preset_position / self.axis.sign)
-        self.axis.position(new_preset_position)
+        self.axis.dial = new_preset_position / self.axis.sign
+        self.axis.position = new_preset_position
 
     @attribute(
         dtype=float,
@@ -772,13 +767,13 @@ class BlissAxis(Device):
     )
     def Limits(self):
         self.debug_stream("In read_Limits()")
-        return self.axis.limits()
+        return self.axis.limits
 
     @Limits.write
     def write_Limits(self, limits):
         self.debug_stream("In write_Limits()")
         low, high = limits
-        self.axis.limits(low, high)
+        self.axis.limits = low, high
         self.axis.settings_to_config(velocity=False, acceleration=False)
 
     """
@@ -796,7 +791,7 @@ class BlissAxis(Device):
         self.debug_stream("In On()")
         self.axis.on()
 
-        if self.axis.state().READY:
+        if self.axis.state.READY:
             self.set_state(tango.DevState.ON)
         else:
             self.set_state(tango.DevState.FAULT)
@@ -812,7 +807,7 @@ class BlissAxis(Device):
         :rtype: tango.DevVoid """
         self.debug_stream("In Off()")
         self.axis.off()
-        if self.axis.state().OFF:
+        if self.axis.state.OFF:
             self.set_state(tango.DevState.OFF)
         else:
             self.set_state(tango.DevState.FAULT)
@@ -1047,8 +1042,8 @@ class BlissAxis(Device):
         """
         (Re)Set the user position (no motor move): just change offset
         """
-        old_user = self.axis.position()
-        self.axis.position(new_user_pos)
+        old_user = self.axis.position
+        self.axis.position = new_user_pos
         return old_user
 
     @command(
@@ -1062,8 +1057,8 @@ class BlissAxis(Device):
         (Re)Set the dial position (no motor move): write into controller
         The offset is kept constant, so the user position also changes
         """
-        old_dial = self.axis.dial()
-        self.axis.dial(new_dial_pos)
+        old_dial = self.axis.dial
+        self.axis.dial = new_dial_pos
         return old_dial
 
 
@@ -1144,7 +1139,7 @@ def initialize_logging(argv):
             elif len(log_param) > 1:
                 tango_log_level = 4
             else:
-                print "BlissAxisManager.py - ERROR LOG LEVEL"
+                print("BlissAxisManager.py - ERROR LOG LEVEL")
 
             if tango_log_level == 1:
                 elog.level(40)
@@ -1159,7 +1154,7 @@ def initialize_logging(argv):
             elog.level(20)
             tango_log_level = 0
     except tango.DevFailed:
-        print traceback.format_exc()
+        print(traceback.format_exc())
         elog.exception("Error in initializing logging")
         sys.exit(0)
 
@@ -1177,8 +1172,11 @@ def __recreate(db=None, new_server=False):
         if new_server:
             register_server(db=db)
         else:
-            print "The device server %s is not defined in database. " "Exiting!" % server_name
-            print "hint: start with '-n' to create a new one automatically"
+            print(
+                "The device server %s is not defined in database. "
+                "Exiting!" % server_name
+            )
+            print("hint: start with '-n' to create a new one automatically")
             sys.exit(255)
 
     dev_map = get_devices_from_server(db=db)
@@ -1303,10 +1301,8 @@ def initialize_bliss(info, db=None):
 
 def __create_tango_axis_class(axis):
     BlissAxisClass = BlissAxis.TangoClassClass
-    new_axis_class_class = types.ClassType(
-        "BlissAxisClass_%s" % axis.name, (BlissAxisClass,), {}
-    )
-    new_axis_class = types.ClassType("BlissAxis_%s" % axis.name, (BlissAxis,), {})
+    new_axis_class_class = type("BlissAxisClass_%s" % axis.name, (BlissAxisClass,), {})
+    new_axis_class = type("BlissAxis_%s" % axis.name, (BlissAxis,), {})
     new_axis_class.TangoClassName = "BlissAxis_%s" % axis.name
     new_axis_class.TangoClassClass = new_axis_class_class
 
@@ -1474,7 +1470,7 @@ def main(argv=None):
         db = util.get_database()
 
     except tango.DevFailed:
-        print traceback.format_exc()
+        print(traceback.format_exc())
         elog.exception("Error in server initialization")
         sys.exit(0)
 

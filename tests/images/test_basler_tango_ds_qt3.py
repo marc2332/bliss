@@ -27,20 +27,20 @@ from PyTango import DeviceProxy  # better to use PyTango.gevent ?
 
 device = DeviceProxy("id13/limaccds/eh3-vlm1")
 
-print "tango device=", device.name()
-print "Exposure Time=", device.acq_expo_time
-print "camera_model=", device.camera_model
-print "camera_pixelsize=", device.camera_pixelsize
-print "camera_type=", device.camera_type
-print "image_height=", device.image_height
-print "image_width=", device.image_width
+print("tango device=", device.name())
+print("Exposure Time=", device.acq_expo_time)
+print("camera_model=", device.camera_model)
+print("camera_pixelsize=", device.camera_pixelsize)
+print("camera_type=", device.camera_type)
+print("image_height=", device.image_height)
+print("image_width=", device.image_width)
 
 # print " =", device.
-print "last_image_acquired =", device.last_image_acquired
-print "video_mode =", device.video_mode
-print "video_live =", device.video_live
+print("last_image_acquired =", device.last_image_acquired)
+print("video_mode =", device.video_mode)
+print("video_live =", device.video_live)
 
-print "set video_live TRUE"
+print("set video_live TRUE")
 device.video_live = True
 
 lutMode = pixmaptools.LUT.Scaling.YUV422PACKED
@@ -50,7 +50,7 @@ lutMode = pixmaptools.LUT.Scaling.YUV422PACKED
 
 def refresh():
     image_data = device.video_last_image
-    print "last_image_acquired =", device.video_last_image_counter
+    print("last_image_acquired =", device.video_last_image_counter)
 
     if image_data[0] == "VIDEO_IMAGE":
         header_fmt = ">IHHqiiHHHH"
@@ -59,16 +59,13 @@ def refresh():
             header_fmt, image_data[1][:header_size]
         )
 
-        print "ver=%r, img_mode=%r, frame_number=%r, width=%d, height=%d" % (
-            ver,
-            img_mode,
-            frame_number,
-            width,
-            height,
+        print(
+            "ver=%r, img_mode=%r, frame_number=%r, width=%d, height=%d"
+            % (ver, img_mode, frame_number, width, height)
         )
         raw_buffer = numpy.fromstring(image_data[1][header_size:], numpy.uint16)
     else:
-        print "No header"
+        print("No header")
 
     scaling = pixmaptools.LUT.Scaling()
     scaling.autoscale_min_max(raw_buffer, width, height, lutMode)

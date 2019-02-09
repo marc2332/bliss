@@ -49,7 +49,7 @@ def test_session_tree(beacon, capsys):
 
 def test_include_sessions(beacon, capsys):
     # empty setup_globals
-    [setup_globals.__dict__.pop(k) for k in setup_globals.__dict__.keys()]
+    [setup_globals.__dict__.pop(k) for k in list(setup_globals.__dict__.keys())]
     assert pytest.raises(AttributeError, getattr, setup_globals, "m0")
 
     session = beacon.get("test_session2")
@@ -110,7 +110,7 @@ def test_load_script_namespace(beacon):
 
 
 def test_prdef(beacon, capsys):
-    visible_func_code = u"\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n    \x1b[34;01mpass\x1b[39;49;00m\n\n"
+    visible_func_code = "\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n    \x1b[34;01mpass\x1b[39;49;00m\n\n"
     env_dict = dict()
     session = beacon.get("test_session2")
     session.setup(env_dict)

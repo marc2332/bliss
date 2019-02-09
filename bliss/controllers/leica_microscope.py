@@ -30,7 +30,7 @@ class LeicaMicroscope:
         init_offsets = config.get("init_offsets")
         if init_offsets:
             self.init_offsets = dict()
-            for motor_name, value in init_offsets.iteritems():
+            for motor_name, value in init_offsets.items():
                 self.init_offsets[motor_name] = float(value)
         self.zoom_positions = config.get("zoom_positions")
         self.oscil_mprg = config.get("oscil_mprg")
@@ -50,7 +50,7 @@ class LeicaMicroscope:
         targets = []
         for axis, target in grouped(args, 2):
             axis_list.append(axis)
-            targets.append(axis.position() + target)
+            targets.append(axis.position + target)
         g = Group(*axis_list)
         g.move(dict(zip(axis_list, targets)))
 
@@ -63,15 +63,15 @@ class LeicaMicroscope:
                 axis.wait_move()
 
     def phi_init(self):
-        print "Homing phi axis"
+        print("Homing phi axis")
         self.phi.home()
-        self.phi.dial(float(self.init_offsets["phi"]))
-        self.phi.position(float(self.init_offsets["phi"]))
+        self.phi.dial = float(self.init_offsets["phi"])
+        self.phi.position = float(self.init_offsets["phi"])
         time.sleep(1)
         self.musst.putget("#ABORT")  # in case a program is running
         self.phi.move(0)
         self.musst.putget("#CH CH2 0")
-        print "  done."
+        print("  done.")
 
     def kappa_init(self):
         pass
@@ -86,7 +86,20 @@ class LeicaMicroscope:
         self.musst.putget("#VAR DE %d" % delta)
         self.musst.putget("#VAR DETTRIG %d" % trigger)
         self.musst.putget("#CH CH3 0")
-        print "\ne1=", e1, "e2=", e2, "esh1=", esh1, "esh2=", esh2, "delta=", delta, "trigger=", trigger
+        print(
+            "\ne1=",
+            e1,
+            "e2=",
+            e2,
+            "esh1=",
+            esh1,
+            "esh2=",
+            esh2,
+            "delta=",
+            delta,
+            "trigger=",
+            trigger,
+        )
 
         self.musst.putget("#RUN OSCILLPX")
 
@@ -129,12 +142,9 @@ class LeicaMicroscope:
             start_ang, stop_ang, exp_time
         )
 
-        def oscil_cleanup(
-            v=self.phi.velocity(from_config=True),
-            a=self.phi.acceleration(from_config=True),
-        ):
-            self.phi.velocity(v)
-            self.phi.acceleration(a)
+        def oscil_cleanup(v=self.phi.config_velocity, a=self.phi.config_acceleration):
+            self.phi.velocity = v
+            self.phi.acceleration = a
 
         with cleanup(oscil_cleanup):
             encoder_step_size = self.phi.steps_per_unit
@@ -151,8 +161,8 @@ class LeicaMicroscope:
             oscil_final = stop_ang + d * acc_ang
 
             self.phi.move(oscil_start)
-            self.phi.velocity(calc_velocity)
-            self.phi.acctime(acc_time)
+            self.phi.velocity = calc_velocity
+            self.phi.acctime = acc_time
 
             if operate_shutter:
                 e1 = oscil_start * encoder_step_size + 5
@@ -175,12 +185,9 @@ class LeicaMicroscope:
             start_ang, stop_ang, exp_time
         )
 
-        def oscil_cleanup(
-            v=self.phi.velocity(from_config=True),
-            a=self.phi.acceleration(from_config=True),
-        ):
-            self.phi.velocity(v)
-            self.phi.acceleration(a)
+        def oscil_cleanup(v=self.phi.config_velocity, a=self.phi.config_acceleration):
+            self.phi.velocity = v
+            self.phi.acceleration = a
 
         with cleanup(oscil_cleanup):
             # self.fshut.close()
@@ -200,8 +207,8 @@ class LeicaMicroscope:
             oscil_final = stop_ang + d * acc_ang
 
             self.phi.move(oscil_start)
-            self.phi.velocity(calc_velocity)
-            self.phi.acctime(acc_time)
+            self.phi.velocity = calc_velocity
+            self.phi.acctime = acc_time
 
             if operate_shutter:
                 e1 = oscil_start * encoder_step_size + 5

@@ -64,9 +64,9 @@ class TurboPmacCommand(object):
         data = self.__data.pack(requestType, request, 0, 0, socket.htons(len(command)))
         raw = self.__s.write_readline(data + command, eol="\x06")
         if len(raw):
-            ans = map(string.strip, raw.split("\r")[:-1])
+            ans = list(map(string.strip, raw.split("\r")[:-1]))
             if convtype is not None:
-                ans = map(convtype, ans)
+                ans = list(map(convtype, ans))
             if len(ans) > 1:
                 return ans
             else:
@@ -176,15 +176,15 @@ class HexapodProtocolV1(BaseHexapodProtocol):
     def _stop(self):
         self.pmac("&2 Q20=2")
 
-    def _homing(self, async=False):
+    def _homing(self, async_=False):
         self.pmac("&2 Q20=1")
-        if async is False:
+        if async_ is False:
             self.wait_command()
 
     def _reset(self):
         self.pmac("$$$")
 
-    def _move(self, pose, async=False):
+    def _move(self, pose, async_=False):
         set_pose_dict = self.set_pose._asdict()
         # any coordinate which is None will be replaced by the latest set_pose
         pose = Pose(*[set_pose_dict[i] if v is None else v for i, v in enumerate(pose)])

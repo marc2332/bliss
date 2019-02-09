@@ -55,7 +55,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"Bliss"
+project = "Bliss"
 copyright = bliss.release.copyright
 author = bliss.release.author
 
@@ -227,7 +227,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
-latex_documents = [(master_doc, "bliss.tex", u"Bliss Documentation", author, "manual")]
+latex_documents = [(master_doc, "bliss.tex", "Bliss Documentation", author, "manual")]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
@@ -254,7 +254,7 @@ latex_logo = "_static/logo.png"
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "bliss", u"Bliss Documentation", [author], 1)]
+man_pages = [(master_doc, "bliss", "Bliss Documentation", [author], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -269,7 +269,7 @@ texinfo_documents = [
     (
         master_doc,
         "bliss",
-        u"Bliss Documentation",
+        "Bliss Documentation",
         author,
         "bliss",
         bliss.release.description,

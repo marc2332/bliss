@@ -25,8 +25,8 @@ A brief diagram explaining how the P201 is used by bliss:
      driver [label="driver", shape="box"];
      card [label="Card", shape="component"];
 
-     subgraph cluster_zerorpc {
-       label = "CT2 0RPC server";
+     subgraph cluster_blissrpc {
+       label = "CT2 Bliss RPC server";
        color = black;
        node [shape=rectangle];
 
@@ -43,7 +43,7 @@ A brief diagram explaining how the P201 is used by bliss:
 
      driver -> card [dir="both", label="PCI bus"];
      CT2_Device -> driver[dir=both];
-     CT2_Client -> CT2_Device [dir="both", label="0RPC\nreq/rep &\nstream"];
+     CT2_Client -> CT2_Device [dir="both", label="Bliss RPC\nreq/rep &\nstream"];
    }
 %}
 
@@ -51,7 +51,7 @@ The driver is available as an external project. If you are at ESRF you can
 install it with blissinstaller tool. For reference, here is a link to the
 [CT2 driver project on gitlab](http://gitlab.esrf.fr/Hardware/P201)
 
-The *CT2 0RPC server* has to run on the PC where the card is installed by
+The *CT2 Bliss RPC server* has to run on the PC where the card is installed by
 typing:
 
 ```bash
@@ -110,7 +110,7 @@ channels:                      # (14)
 2.  controller name (mandatory)
 3.  plugin class (mandatory)
 4.  card address (mandatory). `tcp://<host>:<port>` to connect to a
-    remote zerorpc CT2 server or `/dev/ct_<card_nb>` for a local card.
+    remote bliss rpc CT2 server or `/dev/ct_<card_nb>` for a local card.
 5.  card type (optional, default: `P201`). Valid values are: `P201`
     (historical: before the C208 was forseen to be supported as well)
 6.  card clock (optional, default: `CLK_100_MHz`)
@@ -136,8 +136,8 @@ channels:                      # (14)
     is ignored as this channel cannot be used to count
 
 !!! note
-    If a zerorpc *address* is set, the *type* is ignored. In this case it is
-    specified at the zerorpc server command line.
+    If a bliss rpc *address* is set, the *type* is ignored. In this case it is
+    specified at the bliss rpc server command line.
 
 
 ### Configuring 2 or more *independent* cards
@@ -162,7 +162,7 @@ Here is an example how to configure and run two P201 cards:
 
 ![image](img/CT2/two_cards.png)
 
-First, start two CT2 zerorpc servers:
+First, start two CT2 bliss rpc servers:
 
 ```bash
 $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
@@ -274,7 +274,7 @@ Here is an example how to configure and run two P201 cards:
 
 ![image](img/CT2/master_slave.png)
 
-First, start two CT2 zerorpc servers:
+First, start two CT2 bliss rpc servers:
 
 ```bash
 $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
@@ -383,15 +383,15 @@ control the card through Spec:
      driver [label="driver"];
      card [label="Card", shape="component"];
      bliss [label="bliss shell"];
-     zerorpc [label="CT2 zerorpc server"];
+     blissrpc [label="CT2 bliss rpc server"];
      tango [label="CT2 TANGO server"];
      spec  [label="Spec"];
 
      driver -> card [dir="both"];
-     zerorpc -> driver [dir=both];
-     tango -> zerorpc [dir="both"];
+     blissrpc -> driver [dir=both];
+     tango -> blissrpc [dir="both"];
      spec -> tango [dir="both"];
-     bliss -> zerorpc [dir="both"];
+     bliss -> blissrpc [dir="both"];
    }
 
 %}

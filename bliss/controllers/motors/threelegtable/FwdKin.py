@@ -1,9 +1,9 @@
 import numpy
 from numpy import cos, sin, sqrt, eye, arctan2, arcsin, arccos, concatenate
 from numpy.linalg import norm
-from L2l import L2l
-from Htrans import htrans
-from Euler2H import euler2H
+from .L2l import L2l
+from .Htrans import htrans
+from .Euler2H import euler2H
 
 DEBUG = 1
 

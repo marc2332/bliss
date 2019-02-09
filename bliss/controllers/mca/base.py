@@ -207,7 +207,7 @@ class BaseMCA(object):
             # Poll data
             done = not self.is_acquiring()
             current, data, statistics = self.poll_data()
-            points = range(sent, sent + len(data))
+            points = list(range(sent, sent + len(data)))
             sent += len(data)
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:

@@ -117,7 +117,7 @@ class SpecChannel:
 
     def update(self, channelValue, deleted=False, force=False):
         """Update channel's value and emit the 'valueChanged' signal."""
-        if isinstance(channelValue, types.DictType) and self.access1 is not None:
+        if isinstance(channelValue, dict) and self.access1 is not None:
             if self.access1 in channelValue:
                 if deleted:
                     event.send(self, "valueChanged", (None, self.name))
@@ -128,7 +128,7 @@ class SpecChannel:
                             or self.value is None
                             or self.value != channelValue[self.access1]
                         ):
-                            if isinstance(channelValue[self.access1], types.DictType):
+                            if isinstance(channelValue[self.access1], dict):
                                 self.value = channelValue[self.access1].copy()
                             else:
                                 self.value = self._coerce(channelValue[self.access1])
@@ -152,13 +152,11 @@ class SpecChannel:
                                     )
             return
 
-        if isinstance(self.value, types.DictType) and isinstance(
-            channelValue, types.DictType
-        ):
+        if isinstance(self.value, dict) and isinstance(channelValue, dict):
             # update dictionary
             if deleted:
-                for key, val in channelValue.iteritems():
-                    if isinstance(val, types.DictType):
+                for key, val in channelValue.items():
+                    if isinstance(val, dict):
                         for k in val:
                             try:
                                 del self.value[key][k]
@@ -172,8 +170,8 @@ class SpecChannel:
                         except KeyError:
                             pass
             else:
-                for k1, v1 in channelValue.iteritems():
-                    if isinstance(v1, types.DictType):
+                for k1, v1 in channelValue.items():
+                    if isinstance(v1, dict):
                         try:
                             self.value[k1].update(v1)
                         except KeyError:
@@ -182,9 +180,7 @@ class SpecChannel:
                             self.value[k1] = {None: self.value[k1]}
                             self.value[k1].update(v1)
                     else:
-                        if k1 in self.value and isinstance(
-                            self.value[k1], types.DictType
-                        ):
+                        if k1 in self.value and isinstance(self.value[k1], dict):
                             self.value[k1][None] = v1
                         else:
                             self.value[k1] = v1

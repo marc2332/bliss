@@ -40,7 +40,7 @@ def _checkref(config, item_cfg_node, referenced_objects, name, value):
 
 
 def _parse_dict(config, item_cfg_node, referenced_objects, subdict):
-    for name, node in subdict.iteritems():
+    for name, node in subdict.items():
         if _checkref(config, subdict, referenced_objects, name, node):
             continue
         elif isinstance(node, dict):
@@ -61,7 +61,7 @@ def _parse_dict(config, item_cfg_node, referenced_objects, subdict):
 def _parse_list(config, value):
     object_list = list()
     for node in value:
-        if isinstance(node, (str, unicode)) and node.startswith("$"):
+        if isinstance(node, str) and node.startswith("$"):
             object_list.append(config.get(node))
         elif isinstance(node, dict):
             subdict = dict()
@@ -81,7 +81,7 @@ def _parse_list(config, value):
 
 def replace_reference_by_object(config, item_cfg_node, ref_objects=None):
     referenced_objects = ref_objects if ref_objects is not None else dict()
-    for name, value in item_cfg_node.iteritems():
+    for name, value in item_cfg_node.items():
         if _checkref(config, item_cfg_node, referenced_objects, name, value):
             continue
 

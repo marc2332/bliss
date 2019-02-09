@@ -21,7 +21,6 @@ import gevent
 from gevent.event import Event
 from .connection import SpecConnection
 from .reply import SpecReply
-from .wait import waitConnection
 from .error import SpecClientTimeoutError, SpecClientError, SpecClientNotConnectedError
 from bliss.common import event
 
@@ -37,7 +36,7 @@ class wrap_errors(object):
         func = self.func
         try:
             return func(*args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             return SpecClientError(e)
 
     def __str__(self):
@@ -70,7 +69,7 @@ class BaseSpecCommand:
             self.setCommand(command)
 
         if connection is not None:
-            if type(connection) in (types.UnicodeType, types.StringType):
+            if type(connection) in (str, bytes):
                 #
                 # connection is given in the 'host:port' form
                 #

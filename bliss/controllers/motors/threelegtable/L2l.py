@@ -1,6 +1,6 @@
 from numpy import eye, pi
 from copy import deepcopy
-from Euler2H import euler2H
+from .Euler2H import euler2H
 
 
 def L2l(L1, L2, L3):

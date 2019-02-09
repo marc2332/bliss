@@ -10,7 +10,7 @@ from bliss.common import log as elog
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import SERIAL
 
 import sys
@@ -39,21 +39,21 @@ class PI_C663(Controller):
         try:
             self.serial.write("ERR?\n")
             _ans = self.serial.readline()
-            print "err=%r" % _ans
+            print("err=%r" % _ans)
             self.serial.write("*IDN?\n")
             _ans = self.serial.readline()
-            print _ans
+            print(_ans)
             # _ans =='(c)2013 Physik Instrumente(PI) Karlsruhe, C-663.11,0,1.2.1.0'
             elog.debug(_ans)
             if _ans.index("C-663.11") == 0:
-                print "zero"
+                print("zero")
                 elog.debug("*IDN? -> %r" % _ans)
         except:
             self._status = (
                 'communication error : no PI C663 found on serial "%s"'
                 % self.serial_line
             )
-            print self._status
+            print(self._status)
             elog.debug(self._status)
 
     def finalize(self):
@@ -79,9 +79,9 @@ class PI_C663(Controller):
         # Checks referencing.
         _ref = self._get_referencing(axis)
         if _ref == 0:
-            print "axis '%s' must be referenced before being movable" % axis.name
+            print("axis '%s' must be referenced before being movable" % axis.name)
         else:
-            print "axis '%s' is referenced." % axis.name
+            print("axis '%s' is referenced." % axis.name)
 
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
@@ -353,7 +353,7 @@ class PI_C663(Controller):
         return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
-        print "_check_error: axis %s got %s" % (axis.name, self._get_error(axis))
+        print("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
 
     def _stop(self):
         self.serial.write("STP\n")

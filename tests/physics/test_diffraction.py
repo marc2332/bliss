@@ -143,7 +143,7 @@ def test_multi_plane():
     multi = MultiPlane(distance=5e-10)
 
     assert repr(multi) == "MultiPlane(distance=5e-10)"
-    print(multi.bragg_energy(b_theta))
+    print((multi.bragg_energy(b_theta)))
     assert multi.bragg_energy(b_theta) == approx(b_energy)
     assert multi.bragg_angle(b_energy) == approx(b_theta)
     assert multi.bragg_energy(b_thetas) == approx(b_energies)

@@ -450,10 +450,9 @@ class PMD206(Controller):
 
         _duration = time.time() - _t0
         if _duration > 0.006:
-            print "PMD206 Received %s from Send %s (duration : %g ms) " % (
-                repr(_ans),
-                repr(_cmd),
-                _duration * 1000,
+            print(
+                "PMD206 Received %s from Send %s (duration : %g ms) "
+                % (repr(_ans), repr(_cmd), _duration * 1000)
             )
 
         return _ans
@@ -486,7 +485,7 @@ class PMD206(Controller):
             ("01", "index was found"),
             ("00", "not started"),
         ]
-        print _home_status_table
+        print(_home_status_table)
 
     @object_method(types_info=("None", "None"))
     def park_motor(self, axis):
@@ -561,7 +560,9 @@ class PMD206(Controller):
         Returns IP address as a 4 decimal numbers string.
         """
         _ans = self.send(axis, "IP?")
-        return ".".join(map(str, map(hex_to_int, _ans.split(":")[1].split(",")[0:4])))
+        return ".".join(
+            map(str, list(map(hex_to_int, _ans.split(":")[1].split(",")[0:4])))
+        )
 
     def raw_write(self, cmd):
         elog.info("no send_no_ans with PMD206")

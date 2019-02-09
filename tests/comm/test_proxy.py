@@ -43,16 +43,22 @@ def test_proxy(beacon, echo_server):
     port = echo_server.address[1]
     client_socket = gevent.socket.socket()
     client_socket.connect(("localhost", port))
-    client_socket.sendall("HELLO\n")
-    assert client_socket.recv(1024) == "HELLO\n"
+    print(1)
+    client_socket.sendall(b"HELLO\n")
+    print(2)
+    assert client_socket.recv(1024) == b"HELLO\n"
+    print(3)
 
     proxy = Proxy({"tcp": {"url": "socket://localhost:{}".format(port)}})
+    print(4)
     proxy._check_connection()
+    print(5)
     host, port = proxy._url_channel.value.split(":")
+    print(host, port)
 
     client_socket = gevent.socket.socket()
     client_socket.connect((host, int(port)))
-    client_socket.sendall("HELLO PROXY\n")
-    assert client_socket.recv(1024) == "HELLO PROXY\n"
+    client_socket.sendall(b"HELLO PROXY\n")
+    assert client_socket.recv(1024) == b"HELLO PROXY\n"
 
     proxy.close()

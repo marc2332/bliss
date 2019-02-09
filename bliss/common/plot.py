@@ -151,7 +151,7 @@ import psutil
 import platform
 from collections import OrderedDict
 
-from bliss.common import zerorpc
+from bliss.comm import rpc
 from bliss.common import session as session_module
 from bliss.common import subprocess
 from bliss.config.channels import Channel
@@ -191,10 +191,11 @@ def check_flint(session_name):
     for key in redis.scan_iter(
         "flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))
     ):
+        key = key.decode()
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
-            if value == session_name:
+            if value.decode() == session_name:
                 return pid
         else:
             redis.delete(key)
@@ -217,13 +218,20 @@ def attach_flint(pid):
 
     # Current URL
     key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
-    value = redis.brpoplpush(key, key, timeout=3000)
-    url = value.split()[-1]
+    value = redis.brpoplpush(key, key, timeout=30)
+    if value is None:
+        raise ValueError(
+            f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
+        )
+    url = value.decode().split()[-1]
 
     # Return flint proxy
-    proxy = zerorpc.Client(url)
+    proxy = rpc.Client(url)
     proxy.set_session(session.name)
     proxy._pid = pid
+
+    FLINT.update({"proxy": proxy, "process": pid})
+
     return proxy
 
 
@@ -248,7 +256,6 @@ def get_flint(start_new=False):
 
     if pid != old_pid:
         proxy = attach_flint(pid)
-        FLINT.update({"proxy": proxy, "process": pid})
         return proxy
     else:
         return FLINT["proxy"]

@@ -3,6 +3,4 @@ repos:
     rev: 18.6b4
     hooks:
     - id: black
-      args:
-          - "--fast"
       language_version: python3  # Should be >= 3.6

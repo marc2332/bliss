@@ -261,7 +261,7 @@ class MeasurementGroup(object):
         str_format = "  %-" + "%ds" % max_len + "  %s\n"
         s += str_format % ("Enabled", "Disabled")
         s += str_format % ("-" * max_len, "-" * max_len)
-        for enable, disable in itertools.izip_longest(
+        for enable, disable in itertools.zip_longest(
             self.enabled, self.disabled, fillvalue=""
         ):
             s += str_format % (enable, disable)

@@ -12,7 +12,10 @@ class Writer(FileWriter):
     def __init__(self, *args, **keys):
         FileWriter.__init__(self, "", "", "")
 
-    def new_scan(self, scan):
+    def new_file(self, *args):
+        pass
+
+    def new_scan(self, *args):
         pass
 
     def create_path(self, scan_recorder):

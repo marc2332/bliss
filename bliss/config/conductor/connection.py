@@ -34,12 +34,24 @@ def ip4_broadcast_addresses(default_route_only=False):
     except Exception:
         pass
 
-    return filter(None, ip_list)
+    return [_f for _f in ip_list if _f]
 
 
 def ip4_broadcast_discovery(udp):
     for addr in ip4_broadcast_addresses():
-        udp.sendto("Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+        udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+
+
+def compare_hosts(host1, host2):
+    if host1 == host2:
+        return True
+    if host1 == "localhost" and host2 == socket.gethostname():
+        return True
+    if host2 == "localhost" and host1 == socket.gethostname():
+        return True
+    if socket.gethostbyname(host1) == socket.gethostbyname(host2):
+        return True
+    return False
 
 
 def check_connect(func):
@@ -59,7 +71,8 @@ class Connection(object):
     class WaitingLock(object):
         def __init__(self, cnt, priority, device_name):
             self._cnt = weakref.ref(cnt)
-            self._msg = "%d|%s" % (priority, "|".join(device_name))
+            raw_names = [name.encode() for name in device_name]
+            self._msg = b"%d|%s" % (priority, b"|".join(raw_names))
             self._queue = queue.Queue()
 
         def msg(self):
@@ -90,7 +103,7 @@ class Connection(object):
     class WaitingQueue(object):
         def __init__(self, cnt):
             self._cnt = weakref.ref(cnt)
-            self._message_key = str(cnt._message_key)
+            self._message_key = str(cnt._message_key).encode()
             cnt._message_key += 1
             self._queue = queue.Queue()
 
@@ -130,7 +143,8 @@ class Connection(object):
         self._host = host
         self._port = port
         self._pending_lock = {}
-        self._g_event = event.Event()
+        self._uds_query_event = event.Event()
+        self._redis_query_event = event.Event()
         self._message_key = 0
         self._message_queue = {}
         self._redis_connection = {}
@@ -147,107 +161,112 @@ class Connection(object):
             self._raw_read_task.join()
             self._raw_read_task = None
 
-    def connect(self):
-        host = self._host
-        port = self._port
+    @property
+    def uds(self):
         try:
-            int(port)
-        except TypeError:  # port == None
-            uds = False
+            int(self._port)
         except ValueError:
-            uds = True
+            return self._port
         else:
-            uds = False
+            return None
 
-        if self._fd is None:
-            if (host is None or port is None) and not uds:
-                udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                if host is not None:
-                    address_list = [host]
-                else:
-                    address_list = ip4_broadcast_addresses(True)
+    def connect(self):
+        # Already connected
+        if self._fd is not None:
+            return
 
-                timeout = 3.
-                started_time = time.time()
-                # send discovery
-                for addr in address_list:
-                    try:
-                        udp.sendto("Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
-                    except socket.gaierror:
-                        raise ConnectionException(
-                            "Host `%s' is not found in DNS" % addr
-                        )
+        # Address undefined
+        if self._port is None or self._host is None:
+            self._host, self._port = self._discovery(self._host)
 
-                while 1:
-                    rlist, _, _ = select.select([udp], [], [], 0.2)
-                    if not rlist:
-                        current_time = time.time()
-                        if (current_time - started_time) < timeout:
-                            # resend the packet, it may be lost!
-                            for addr in address_list:
-                                udp.sendto(
-                                    "Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT)
-                                )
-                            continue
-                        if self._host:
-                            _msg = (
-                                "Conductor server on host `%s' does not reply"
-                                % self._host
-                            )
-                            _msg += " (check Beacon server)"
-                            raise RuntimeError(_msg)
-                        else:
-                            _msg = "Could not find any conductor"
-                            _msg += " (check Beacon server and BEACON_HOST environment variable)"
-                            raise RuntimeError(_msg)
-                    else:
-                        msg, address = udp.recvfrom(8192)
-                        host, port = msg.split("|")
-                        port = int(port)
+        # UDS connection
+        if self.uds:
+            self._fd = self._uds_connect(self.uds)
+        # TCP connection
+        else:
+            self._fd = self._tcp_connect(self._host, self._port)
 
-                        if self._host == "localhost":
-                            localhost = socket.gethostname()
-                            if localhost == host:
-                                break
-                        elif (
-                            self._host is not None
-                            and host != self._host
-                            and socket.gethostbyname(host)
-                            != socket.gethostbyname(self._host)
-                        ):
-                            host, port = None, None
-                            timeout = 1.
-                        else:
-                            break
-                self._host = host
-                self._port = port
+        # Spawn read task
+        self._raw_read_task = gevent.spawn(self._raw_read)
 
-            if uds:
-                self._fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                self._fd.connect(port)
-            else:
-                self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                try:
-                    self._fd.connect((host, port))
-                except:
-                    _msg = "Conductor server on host `%s:%s' does not reply" % (
-                        host,
-                        port,
+        # Run the UDS query
+        if not self.uds:
+            self._uds_query()
+
+    def _discovery(self, host, timeout=3.):
+        # Manage timeout
+        if timeout < 0:
+            if host is not None:
+                raise RuntimeError(
+                    "Conductor server on host `{}' does not reply (check beacon server)".format(
+                        host
                     )
-                    _msg += " (Check Beacon server)"
-                    raise RuntimeError(_msg)
-
-            self._raw_read_task = gevent.spawn(self._raw_read)
-
-            if not uds:
-                self._g_event.clear()
-                self._fd.sendall(
-                    protocol.message(protocol.UDS_QUERY, socket.gethostname())
                 )
-                self._g_event.wait(1.)
+            raise RuntimeError(
+                "Could not find any conductor "
+                "(check Beacon server and BEACON_HOST environment variable)"
+            )
+        started = time.time()
+
+        # Create UDP socket
+        udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        udp.settimeout(0.2)
+
+        # Send discovery
+        address_list = [host] if host is not None else ip4_broadcast_addresses(True)
+        for addr in address_list:
+            try:
+                udp.sendto(b"Hello", (addr, protocol.DEFAULT_UDP_SERVER_PORT))
+            except socket.gaierror:
+                raise ConnectionException("Host `%s' is not found in DNS" % addr)
+
+        # Loop over UDP messages
+        try:
+            for message in iter(lambda: udp.recv(8192), None):
+
+                # Decode message
+                raw_host, raw_port = message.split(b"|")
+                received_host = raw_host.decode()
+                received_port = int(raw_port.decode())
+
+                # Received host doesn't match the host
+                if host is not None and not compare_hosts(host, received_host):
+                    continue
+
+                # A matching host has been found
+                return received_host, received_port
+
+        # Try again
+        except socket.timeout:
+            timeout -= time.time() - started
+            return self._discovery(host, timeout=timeout)
+
+    def _tcp_connect(self, host, port):
+        fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        try:
+            fd.connect((host, port))
+        except IOError:
+            raise RuntimeError(
+                "Conductor server on host `{}:{}' does not reply (check beacon server)".format(
+                    host, port
+                )
+            )
+        return fd
+
+    def _uds_connect(self, uds_path):
+        fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        fd.connect(uds_path)
+        return fd
+
+    def _uds_query(self, timeout=1.):
+        self._uds_query_event.clear()
+        self._fd.sendall(
+            protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
+        )
+        self._uds_query_event.wait(timeout)
 
     @check_connect
     def lock(self, devices_name, **params):
@@ -277,7 +296,8 @@ class Connection(object):
         priority = params.get("priority", 50)
         if len(devices_name) == 0:
             return
-        msg = "%d|%s" % (priority, "|".join(devices_name))
+        raw_names = [name.encode() for name in devices_name]
+        msg = b"%d|%s" % (priority, b"|".join(raw_names))
         with gevent.Timeout(
             timeout, RuntimeError("unlock timeout (%s)" % str(devices_name))
         ):
@@ -296,15 +316,15 @@ class Connection(object):
             self._greenlet_to_lockobjects.pop(gevent.getcurrent(), None)
 
     @check_connect
-    def get_redis_connection_address(self):
+    def get_redis_connection_address(self, timeout=1.):
         if self._redis_host is None:
             with gevent.Timeout(
-                1, RuntimeError("Can't get redis connection information")
+                timeout, RuntimeError("Can't get redis connection information")
             ):
                 while self._redis_host is None:
-                    self._g_event.clear()
+                    self._redis_query_event.clear()
                     self._fd.sendall(protocol.message(protocol.REDIS_QUERY))
-                    self._g_event.wait()
+                    self._redis_query_event.wait()
 
         return self._redis_host, self._redis_port
 
@@ -312,22 +332,26 @@ class Connection(object):
     def get_redis_connection(self, db=0):
         cnx = self._redis_connection.get(db)
         if cnx is None:
-            host, port = self.get_redis_connection_address()
             executable = os.path.basename(sys.argv[0]).replace(os.path.sep, "")
             my_name = "{0}:{1}".format(executable, os.getpid())
-            if host != "localhost":
-                cnx = redis.Redis(host=host, port=port, db=db)
-            else:
-                cnx = redis.Redis(unix_socket_path=port, db=db)
+            cnx = self.create_redis_connection(db=db)
             cnx.client_setname(my_name)
             self._redis_connection[db] = cnx
         return cnx
+
+    def create_redis_connection(self, db=0, address=None):
+        if address is None:
+            address = self.get_redis_connection_address()
+        host, port = address
+        if host == "localhost":
+            return redis.Redis(unix_socket_path=port, db=db)
+        return redis.Redis(host=host, port=port, db=db)
 
     @check_connect
     def get_config_file(self, file_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), file_path)
+                msg = b"%s|%s" % (wq.message_key(), file_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_FILE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
@@ -339,7 +363,7 @@ class Connection(object):
     def get_config_db_tree(self, base_path="", timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration tree")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_GET_DB_TREE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
@@ -353,7 +377,7 @@ class Connection(object):
     def remove_config_file(self, file_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't remove configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), file_path)
+                msg = b"%s|%s" % (wq.message_key(), file_path.encode())
                 self._fd.sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
@@ -362,7 +386,11 @@ class Connection(object):
     def move_config_path(self, src_path, dst_path, timeout=1.):
         with gevent.Timeout(timeout, RuntimeError("Can't move configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s|%s" % (wq.message_key(), src_path, dst_path)
+                msg = b"%s|%s|%s" % (
+                    wq.message_key(),
+                    src_path.encode(),
+                    dst_path.encode(),
+                )
                 self._fd.sendall(protocol.message(protocol.CONFIG_MOVE_PATH, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
@@ -372,7 +400,7 @@ class Connection(object):
         return_files = []
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(
                     protocol.message(protocol.CONFIG_GET_DB_BASE_PATH, msg)
                 )
@@ -382,17 +410,19 @@ class Connection(object):
                     file_path, file_value = self._get_msg_key(rx_msg)
                     if file_path is None:
                         continue
-                    return_files.append((file_path, file_value.decode("utf-8")))
+                    return_files.append((file_path.decode(), file_value.decode()))
         return return_files
 
     @check_connect
     def set_config_db_file(self, file_path, content, timeout=3.):
         with gevent.Timeout(timeout, RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s|%s" % (wq.message_key(), file_path, content)
-                self._fd.sendall(
-                    protocol.message(protocol.CONFIG_SET_DB_FILE, msg.encode("utf-8"))
+                msg = b"%s|%s|%s" % (
+                    wq.message_key(),
+                    file_path.encode(),
+                    content.encode(),
                 )
+                self._fd.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE, msg))
                 for rx_msg in wq.queue():
                     raise rx_msg
 
@@ -401,17 +431,15 @@ class Connection(object):
         return_module = []
         with gevent.Timeout(timeout, RuntimeError("Can't get python modules")):
             with self.WaitingQueue(self) as wq:
-                msg = "%s|%s" % (wq.message_key(), base_path)
+                msg = b"%s|%s" % (wq.message_key(), base_path.encode())
                 self._fd.sendall(
-                    protocol.message(
-                        protocol.CONFIG_GET_PYTHON_MODULE, msg.encode("utf-8")
-                    )
+                    protocol.message(protocol.CONFIG_GET_PYTHON_MODULE, msg)
                 )
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg, RuntimeError):
                         raise rx_msg
                     module_name, full_path = self._get_msg_key(rx_msg)
-                    return_module.append((module_name, full_path))
+                    return_module.append((module_name.decode(), full_path.decode()))
         return return_module
 
     def _lock_mgt(self, fd, messageType, message):
@@ -424,20 +452,16 @@ class Connection(object):
                 e.put(messageType)
             return True
         elif messageType == protocol.LOCK_RETRY:
-            for m, l in self._pending_lock.iteritems():
+            for m, l in self._pending_lock.items():
                 for e in l:
                     e.put(messageType)
             return True
         elif messageType == protocol.LOCK_STOLEN:
-            stolen_object_lock = set(message.split("|"))
+            stolen_object_lock = set(message.split(b"|"))
             greenlet_to_objects = self._greenlet_to_lockobjects.copy()
-            for greenlet, locked_objects in greenlet_to_objects.iteritems():
+            for greenlet, locked_objects in greenlet_to_objects.items():
                 locked_object_name = set(
-                    (
-                        name
-                        for name, nb_lock in locked_objects.iteritems()
-                        if nb_lock > 0
-                    )
+                    (name for name, nb_lock in locked_objects.items() if nb_lock > 0)
                 )
                 if locked_object_name.intersection(stolen_object_lock):
                     try:
@@ -449,19 +473,19 @@ class Connection(object):
         return False
 
     def _get_msg_key(self, message):
-        pos = message.find("|")
+        pos = message.find(b"|")
         if pos < 0:
             return None, None
         return message[:pos], message[pos + 1 :]
 
     def _raw_read(self):
         try:
-            data = ""
-            while 1:
+            data = b""
+            while True:
                 raw_data = self._fd.recv(16 * 1024)
                 if not raw_data:
                     break
-                data = "%s%s" % (data, raw_data)
+                data = b"%s%s" % (data, raw_data)
                 while data:
                     try:
                         messageType, message, data = protocol.unpack_message(data)
@@ -493,7 +517,7 @@ class Connection(object):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
                             if queue is not None:
-                                queue.put(RuntimeError(value))
+                                queue.put(RuntimeError(value.decode()))
                         elif messageType in (
                             protocol.CONFIG_DB_END,
                             protocol.CONFIG_SET_DB_FILE_OK,
@@ -506,23 +530,24 @@ class Connection(object):
                             if queue is not None:
                                 queue.put(StopIteration)
                         elif messageType == protocol.REDIS_QUERY_ANSWER:
-                            self._redis_host, self._redis_port = message.split(":")
-                            self._g_event.set()
+                            host, port = message.split(b":")
+                            self._redis_host = host.decode()
+                            self._redis_port = port.decode()
+                            self._redis_query_event.set()
                         elif messageType == protocol.UDS_OK:
                             try:
-                                fd = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                                fd.connect(message)
+                                uds_path = message.decode()
+                                fd = self._uds_connect(uds_path)
                             except socket.error:
-                                sys.excepthook(*sys.exc_info())
+                                raise
                             else:
-                                # replace tcp connection by UDS connection
                                 self._fd.close()
                                 self._fd = fd
-                                self._port = message
+                                self._port = uds_path
                             finally:
-                                self._g_event.set()
+                                self._uds_query_event.set()
                         elif messageType == protocol.UDS_FAILED:
-                            self._g_event.set()
+                            self._uds_query_event.set()
                         elif messageType == protocol.UNKNOW_MESSAGE:
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -531,7 +556,6 @@ class Connection(object):
                             )
                             if queue is not None:
                                 queue.put(error)
-                            self._g_event.set()
                     except:
                         sys.excepthook(*sys.exc_info())
         except socket.error:
@@ -547,7 +571,7 @@ class Connection(object):
     def _clean(self):
         self._redis_host = None
         self._redis_port = None
-        for db, redis_cnx in self._redis_connection.iteritems():
+        for db, redis_cnx in self._redis_connection.items():
             redis_cnx.connection_pool.disconnect()
         self._redis_connection = {}
 

@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 from .utils import find_class, replace_reference_by_object
 
@@ -21,7 +20,7 @@ def create_objects_from_config_node(config, cfg_node):
 
     o = klass(item_name, item_cfg_node)
 
-    for name, object in referenced_objects.iteritems():
+    for name, object in referenced_objects.items():
         if hasattr(o, name):
             continue
             # raise RuntimeError("'%s` member would be shadowed by reference in yml config file." % name)

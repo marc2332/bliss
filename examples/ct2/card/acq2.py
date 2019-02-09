@@ -46,7 +46,7 @@ def configure(device, channels):
     # for counters we only care about clock source, gate source here. The rest
     # will be up to the actual acquisition to setup according to the type of
     # acquisition
-    for _, ch_nb in channels.items():
+    for _, ch_nb in list(channels.items()):
         ct_config = CtConfig(
             clock_source=CtClockSrc(ch_nb % 5),
             # anything will do for the remaining fields. It
@@ -108,7 +108,7 @@ def prepare_slaves(device, acq_time, nb_points, channels, accumulate=False):
     else:
         hard_stop = CtHardStopSrc.CT_11_EQ_CMP_11
 
-    for ch_name, ch_nb in channels.iteritems():
+    for ch_name, ch_nb in channels.items():
         ct_config = device.get_counter_config(ch_nb)
         ct_config = CtConfig(
             clock_source=ct_config["clock_source"],
@@ -174,7 +174,7 @@ def main():
     loop = 0
     try:
         while loop < nb_acq:
-            print("Acquisition #{0}".format(loop))
+            print(("Acquisition #{0}".format(loop)))
             go(device, channels)
             loop += 1
     except KeyboardInterrupt:
@@ -190,14 +190,14 @@ def main():
 
 
 def go(device, channels):
-    channelid2name = [(nb, name) for name, nb in channels.iteritems()]
+    channelid2name = [(nb, name) for name, nb in channels.items()]
     channelid2name += [(11, "integ_time"), (12, "point_nb")]
 
     start_time = time.time()
 
     # start counting...
     # slaves start all
-    device.start_counters_software(channels.values())
+    device.start_counters_software(list(channels.values()))
 
     # master start all
     device.start_counters_software([11, 12])
@@ -220,7 +220,7 @@ def go(device, channels):
                 stop = True
             if dma:
                 fifo, fifo_status = device.read_fifo()
-                print(str(fifo))  # , to_str(device.get_latches_values()))
+                print((str(fifo)))  # , to_str(device.get_latches_values()))
                 fifo.shape = -1, len(channelid2name)
                 ch_data = {}
                 for i, (ch_id, ch_name) in enumerate(channelid2name):

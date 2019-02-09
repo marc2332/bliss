@@ -9,7 +9,7 @@ import pytest
 import time
 import gevent
 import numpy
-import cPickle as pickle
+import pickle as pickle
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.scan import Scan
@@ -22,7 +22,6 @@ from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
 from bliss.data.node import get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
-from bliss.data.edffile import EdfFile
 
 
 @pytest.fixture
@@ -49,7 +48,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(10)
+    m.velocity = 10
     diode = getattr(setup_globals, "diode")
 
     chain = AcquisitionChain()
@@ -66,30 +65,28 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     assert s.node.db_name == s.root_node.db_name + ":" + "1_" + s.name
 
     scan_node_dict = redis_data_conn.hgetall(s.node.db_name)
-    assert scan_node_dict.get("name") == "1_test_scan"
-    assert scan_node_dict.get("db_name") == s.node.db_name
-    assert scan_node_dict.get("node_type") == "scan"
-    assert scan_node_dict.get("parent") == s.node.parent.db_name
+    assert scan_node_dict.get(b"name") == b"1_test_scan"
+    assert scan_node_dict.get(b"db_name") == s.node.db_name.encode()
+    assert scan_node_dict.get(b"node_type") == b"scan"
+    assert scan_node_dict.get(b"parent") == s.node.parent.db_name.encode()
 
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name + "_info")
-    assert pickle.loads(scan_info_dict["metadata"]) == 42
+    assert pickle.loads(scan_info_dict[b"metadata"]) == 42
 
     with gevent.Timeout(5):
         s.run()
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":roby"
+    m0_node_db_name = s.node.db_name + ":axis"
     scan_children_node = [m0_node_db_name]
     m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
-    assert (
-        redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1)
-        == scan_children_node
-    )
-    assert (
-        redis_data_conn.lrange(m0_node_db_name + "_children_list", 0, -1)
-        == m0_children_node
-    )
+    assert redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1) == [
+        x.encode() for x in scan_children_node
+    ]
+    assert redis_data_conn.lrange(m0_node_db_name + "_children_list", 0, -1) == [
+        x.encode() for x in m0_children_node
+    ]
 
     for child_node_name in scan_children_node + m0_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
@@ -100,7 +97,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(10)
+    m.velocity = 10
     diode = getattr(setup_globals, "diode")
 
     chain = AcquisitionChain()
@@ -116,7 +113,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":roby"
+    m0_node_db_name = s.node.db_name + ":axis"
     scan_children_node = [m0_node_db_name]
     m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
 
@@ -130,9 +127,13 @@ def test_scan_data_0d(session, redis_data_conn):
     s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
 
     assert s == setup_globals.SCANS[-1]
-    redis_data = map(
-        float,
-        redis_data_conn.lrange(s.node.db_name + ":timer:gaussian:gaussian_data", 0, -1),
+    redis_data = list(
+        map(
+            float,
+            redis_data_conn.lrange(
+                s.node.db_name + ":timer:gaussian:gaussian_data", 0, -1
+            ),
+        )
     )
 
     assert numpy.array_equal(redis_data, counter.data)
@@ -154,7 +155,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
-    m.velocity(5)
+    m.velocity = 5
     diode = getattr(setup_globals, "diode")
     npts = 5
     chain = AcquisitionChain()
@@ -179,9 +180,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     assert len(channels_data["roby"]) == npts
     assert len(channels_data["diode"]) == npts
 
-    for n in DataNodeIterator(get_node(s.node.db_name)).walk_from_last(
-        filter="channel", wait=False
-    ):
+    x = DataNodeIterator(get_node(s.node.db_name))
+    print(x)
+    for n in x.walk_from_last(filter="channel", wait=False):
         assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
 
@@ -239,7 +240,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
         view = watch_task.get()
 
     view_iterator = iter(view)
-    img0 = view_iterator.next()
+    img0 = next(view_iterator)
 
     # make another scan -> this should make a new buffer on Lima server,
     # so images from previous view cannot be retrieved from server anymore
@@ -248,7 +249,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
     view_iterator2 = iter(view)
 
     # retrieve from file
-    assert numpy.allclose(view_iterator2.next(), img0)
+    assert numpy.allclose(next(view_iterator2), img0)
 
 
 def test_ttl_on_data_node(beacon, redis_data_conn):

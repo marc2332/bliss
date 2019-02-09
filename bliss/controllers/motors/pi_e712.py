@@ -22,7 +22,7 @@ from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 from bliss.common.switch import Switch as BaseSwitch
 
-import pi_gcs
+from . import pi_gcs
 from bliss.comm.util import TCP
 
 """
@@ -203,7 +203,7 @@ class PI_E712(Controller):
         elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
         with self.sock.lock:
             # check if WAV motion is active
-            if self.sock.write_readline(chr(9)) != "0":
+            if self.sock.write_readline(chr(9).encode()) != b"0":
                 return AxisState("MOVING")
 
             if axis.closed_loop:
@@ -272,15 +272,20 @@ class PI_E712(Controller):
         """
         with self.sock.lock:
             channels = [
-                str(x.channel) for x in self.axes.values() if hasattr(x, "channel")
+                str(x.channel).encode()
+                for x in self.axes.values()
+                if hasattr(x, "channel")
             ]
-            channels_str = " ".join(channels)
-            cmd = "\n".join(["%s %s" % (cmd, channels_str) for cmd in ("ONT?", "MOV?")])
-            cmd += "\n%c" % 24  # Char to stop all movement
+            channels_str = b" ".join(channels)
+            cmd = b"\n".join(
+                [b"%s %s" % (cmd, channels_str) for cmd in (b"ONT?", b"MOV?")]
+            )
+            cmd += b"\n%c" % 24  # Char to stop all movement
             reply = self.sock.write_readlines(cmd, len(channels) * 2)
             error = self.sock.write_readline(
-                "ERR?\n"
+                b"ERR?\n"
             )  # should be 10 -> Controller was stopped by command
+            reply = [r.decode() for r in reply]
             channel_on_target = set()
             for channel_target in reply[: len(channels)]:
                 channel, ont = channel_target.strip().split("=")
@@ -298,10 +303,12 @@ class PI_E712(Controller):
     """ RAW COMMANDS """
 
     def raw_write(self, axis, com):
-        self.sock.write("%s\n" % com)
+        com = com.encode()
+        self.sock.write(b"%s\n" % com)
 
     def raw_write_read(self, axis, com):
-        return self.sock.write_readline("%s\n" % com)
+        com = com.encode()
+        return self.sock.write_readline(b"%s\n" % com)
 
     def get_identifier(self, axis):
         """
@@ -313,14 +320,16 @@ class PI_E712(Controller):
         """
         Method to send command to the controller
         """
+
         with self.sock.lock:
             cmd = cmd.strip()
             need_reply = cmd.find("?") > -1
+            cmd = cmd.encode()
             if need_reply:
                 if nb_line > 1:
-                    reply = self.sock.write_readlines(cmd + "\n", nb_line)
+                    reply = self.sock.write_readlines(cmd + b"\n", nb_line)
                 else:
-                    reply = self.sock.write_readline(cmd + "\n")
+                    reply = self.sock.write_readline(cmd + b"\n")
 
                 if not reply:  # it's an error
                     errors = [self.name] + list(self.get_error())
@@ -330,29 +339,31 @@ class PI_E712(Controller):
 
                 if nb_line > 1:
                     parsed_reply = list()
-                    commands = cmd.split("\n")
+                    commands = cmd.split(b"\n")
                     if len(commands) == nb_line:  # one reply per command
                         for cmd, rep in zip(commands, reply):
-                            space_pos = cmd.find(" ")
+                            space_pos = cmd.find(b" ")
                             if space_pos > -1:
                                 args = cmd[space_pos + 1 :]
                                 parsed_reply.append(self._parse_reply(rep, args))
                             else:
                                 parsed_reply.append(rep)
                     else:  # a command with several replies
-                        space_pos = cmd.find(" ")
+                        space_pos = cmd.find(b" ")
                         if space_pos > -1:
                             args = cmd[space_pos + 1 :]
                             for arg, rep in zip(args.split(), reply):
                                 parsed_reply.append(self._parse_reply(rep, arg))
                     reply = parsed_reply
                 else:
-                    space_pos = cmd.find(" ")
+                    space_pos = cmd.find(b" ")
                     if space_pos > -1:
                         reply = self._parse_reply(reply, cmd[space_pos + 1 :])
+                    else:
+                        reply = reply.decode()
                 return reply
             else:
-                self.sock.write(cmd + "\n")
+                self.sock.write(cmd + b"\n")
                 errno, error_message = self.get_error()
                 if errno:
                     errors = [self.name, cmd] + [errno, error_message]
@@ -391,7 +402,7 @@ class PI_E712(Controller):
                 npoints = nb_availabe_points
             else:
                 npoints = min(nb_availabe_points, npoints)
-            cmd = "DRR? %d %d\n" % ((from_event_id + 1), npoints)
+            cmd = b"DRR? %d %d\n" % ((from_event_id + 1), npoints)
         else:
             rec_tables = " ".join((str(x) for x in rec_table_id))
             nb_points = self.command("DRL? %s" % rec_tables, len(rec_table_id))
@@ -404,7 +415,7 @@ class PI_E712(Controller):
                 point_2_read = 0
             elif npoints is not None and point_2_read > npoints:
                 point_2_read = npoints
-            cmd = "DRR? %d %d %s\n" % (from_event_id + 1, point_2_read, rec_tables)
+            cmd = b"DRR? %d %d %s\n" % (from_event_id + 1, point_2_read, rec_tables)
 
         try:
             exception_occurred = False
@@ -416,14 +427,14 @@ class PI_E712(Controller):
                     line = self.sock.readline()
                     if not line:
                         return  # no data available
-                    if line.find("END_HEADER") > -1:
+                    if line.find(b"END_HEADER") > -1:
                         break
 
-                    key, value = (x.strip() for x in line[1:].split("="))
+                    key, value = (x.strip().decode() for x in line[1:].split(b"="))
                     header[key] = value
 
                 ndata = int(header["NDATA"])
-                separator = chr(int(header["SEPARATOR"]))
+                separator = chr(int(header["SEPARATOR"])).encode()
                 sample_time = float(header["SAMPLE_TIME"])
                 dim = int(header["DIM"])
                 column_info = dict()
@@ -453,12 +464,15 @@ class PI_E712(Controller):
                 for line_id in range(ndata):
                     line = self.sock.readline().strip()
                     values = line.split(separator)
-                    for column_id, name in column_info.iteritems():
+                    for column_id, name in column_info.items():
                         data[name][line_id] = values[column_id]
                 return data
         except:
             exception_occurred = True
-            errno, error_message = self.get_error()
+            try:
+                errno, error_message = self.get_error()
+            except:
+                pass
             self.sock.close()  # safe in case of ctrl-c
             raise
         finally:
@@ -715,12 +729,12 @@ class PI_E712(Controller):
         self.command("WGO " + axes_str)
 
     def _parse_reply(self, reply, args):
-        args_pos = reply.find("=")
+        args_pos = reply.find(b"=")
         if reply[:args_pos] != args:  # weird
-            print "Weird thing happens with connection of %s" % self.name
-            return reply
+            print("Weird thing happens with connection of %s" % self.name)
+            return reply.decode()
         else:
-            return reply[args_pos + 1 :]
+            return reply[args_pos + 1 :].decode()
 
     def _get_pos(self, axis):
         """
@@ -773,7 +787,7 @@ class PI_E712(Controller):
             cl_timeout = .5
 
             _ont_state = self._get_on_target_status(axis)
-            elog.info(u"axis {0:s} waiting to be ONTARGET".format(axis.name))
+            elog.info("axis {0:s} waiting to be ONTARGET".format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
                 _ont_state = self._get_on_target_status(axis)
@@ -822,7 +836,7 @@ class PI_E712(Controller):
         return last_on_target
 
     def get_error(self):
-        _error_number = int(self.sock.write_readline("ERR?\n"))
+        _error_number = int(self.sock.write_readline(b"ERR?\n"))
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
@@ -1099,7 +1113,7 @@ class Switch(BaseSwitch):
         return "DISABLED"
 
     def _states_list(self):
-        return self.__axes.keys() + ["DISABLED"]
+        return list(self.__axes.keys()) + ["DISABLED"]
 
     @property
     def scaling_and_offset(self):

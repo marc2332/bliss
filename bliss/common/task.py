@@ -52,7 +52,7 @@ def special_get(self, *args, **kwargs):
     ret = self._get(*args, **kwargs)
 
     if isinstance(ret, TaskException):
-        raise ret.exc_type, ret.exception, ret.tb
+        raise ret.exc_type(ret.exception).with_traceback(ret.tb)
     else:
         return ret
 

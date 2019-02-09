@@ -160,12 +160,18 @@ class PI_HEXA(Controller):
         """
         cmd = cmd.strip()
         need_reply = cmd.find("?") > -1 if nb_line is None else nb_line
+        cmd += "\n"
+        cmd = cmd.encode()
         if need_reply:
-            if nb_line > 1:
-                return self._cnx.write_readlines(cmd + "\n", nb_line, **kwargs)
+            if nb_line is not None and nb_line > 1:
+                return [
+                    r.decode()
+                    for r in self._cnx.write_readlines(cmd, nb_line, **kwargs)
+                ]
             else:
-                return self._cnx.write_readline(cmd + "\n", **kwargs)
-        return self._cnx.write(cmd + "\n")
+                return self._cnx.write_readline(cmd, **kwargs).decode()
+        else:
+            return self._cnx.write(cmd)
 
     def home_search(self, axis, switch):
         init_cmd = self._commands[self.COMMAND.INIT]

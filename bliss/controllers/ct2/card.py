@@ -9,7 +9,6 @@
 The python module for the ct2 (P201/C208) ESRF PCI counter card
 """
 
-from __future__ import print_function
 
 import os
 import sys
@@ -192,7 +191,7 @@ class CardInterface(BaseCardInterface):
     def connect(self):
         self.disconnect()
         self.__log.info("connecting to %s", self.address)
-        self.__dev = open(self.address, "rwb+", 0)
+        self.__dev = open(self.address, "rb+", 0)
 
     def disconnect(self):
         if self.__dev:
@@ -290,7 +289,7 @@ _IOC_READ = 2
 
 
 def _IOC(dir, type, nr, size):
-    if isinstance(size, str) or isinstance(size, unicode):
+    if isinstance(size, str) or isinstance(size, str):
         size = struct.calcsize(size)
     return (
         dir << _IOC_DIRSHIFT
@@ -1756,7 +1755,7 @@ CT2_IOC_DEVRST = _IO(CT2_IOC_MAGIC, 0), "CT2_IOC_DEVRST", __CT2_ERRORS("reset ca
 #:    - EINVAL: some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_EDINT = (
-    _IOW(CT2_IOC_MAGIC, 01, CT2_SIZE),
+    _IOW(CT2_IOC_MAGIC, 0o1, CT2_SIZE),
     "CT2_IOC_EDINT",
     __CT2_ERRORS(
         "enable interrupts",
@@ -1796,7 +1795,7 @@ CT2_IOC_EDINT = (
 #:    EINVAL  some arguments to the  ioctl(2)  call where invalid
 #:
 CT2_IOC_DDINT = (
-    _IO(CT2_IOC_MAGIC, 02),
+    _IO(CT2_IOC_MAGIC, 0o2),
     "CT2_IOC_DDINT",
     __CT2_ERRORS("disable interrupts"),
 )
@@ -2274,9 +2273,9 @@ class BaseCard:
     def calc_fifo_events(self, fifo_status, nb_counters=None):
         if nb_counters is None:
             etl = self.get_DMA_enable_trigger_latch()
-            nb_counters = etl[1].values().count(True)
-        data_len = min(fifo_status["size"], self.FIFO_SIZE / CT2_REG_SIZE)
-        return data_len / nb_counters, nb_counters
+            nb_counters = list(etl[1].values()).count(True)
+        data_len = min(fifo_status["size"], self.FIFO_SIZE // CT2_REG_SIZE)
+        return data_len // nb_counters, nb_counters
 
     def read_fifo(self, fifo_status, nb_events=0, use_mmap=False):
         max_events, nb_counters = self.calc_fifo_events(fifo_status)
@@ -3532,16 +3531,16 @@ class P201Card(BaseCard):
     """
 
     #: list of valid card counters
-    COUNTERS = range(1, 13)
+    COUNTERS = list(range(1, 13))
 
     #: list of valid card channels
-    CHANNELS = range(1, 11)
+    CHANNELS = list(range(1, 11))
 
     #: list of valid card input channels
-    INPUT_CHANNELS = range(1, 11)
+    INPUT_CHANNELS = list(range(1, 11))
 
     #: list of valid card ouput channels
-    OUTPUT_CHANNELS = range(9, 11)
+    OUTPUT_CHANNELS = list(range(9, 11))
 
     #: fifo size (bytes)
     FIFO_SIZE = 2048 * CT2_REG_SIZE
@@ -3693,7 +3692,7 @@ def create_object_from_config_node(config, node):
 
 
 def create_and_configure_card(config_or_name):
-    if isinstance(config_or_name, (str, unicode)):
+    if isinstance(config_or_name, str):
         card_config = __get_card_config(config_or_name)
     else:
         card_config = config_or_name
@@ -3802,7 +3801,7 @@ def configure_card(card, config):
     for addr, channel in ch_cfg_dict.items():
         if addr in card.INPUT_CHANNELS:
             inp = channel["input"]
-            ints = map(string.lower, __get(inp, "interrupt"))
+            ints = [x.lower() for x in __get(inp, "interrupt")]
             ch_ints[addr] = TriggerInterrupt(
                 rising="rising" in ints, falling="falling" in ints
             )

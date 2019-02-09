@@ -81,7 +81,7 @@ class XYOnRotation(CalcController):
         x = positions_dict["x"]
         y = positions_dict["y"]
         rot_axis = self._tagged["rot"][0]
-        rot = rot_axis.position()
+        rot = rot_axis.position
         rot += self._tagged["x"][0].rotation_offset()
         if self.__radian:
             rot_rad = rot

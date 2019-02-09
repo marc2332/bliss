@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 __all__ = ["LocalSerial", "RFC2217", "SER2NET", "TangoSerial", "Serial"]
 
@@ -25,11 +24,12 @@ import serial
 
 try:
     from serial import rfc2217
+    from serial import serialutil
 except ImportError:
     pass
 else:
     # import all rfc2217 protol keys in this module
-    key_match = re.compile("^[A-Z_]+$")
+    key_match = re.compile(r"^[A-Z_]+$")
     pro_keys_dict = dict(
         [(x, rfc2217.__dict__[x]) for x in dir(rfc2217) if key_match.match(x)]
     )
@@ -76,10 +76,11 @@ class _BaseSerial:
         self._cnt = weakref.ref(cnt)
         self._port = port
 
-        self._data = ""
+        self._data = b""
         self._event = event.Event()
         self._rx_filter = None
         self._rpipe, self._wpipe = os.pipe()
+        self._raw_read_task = None
 
     def _init(self):
         self._raw_read_task = gevent.spawn(
@@ -91,7 +92,8 @@ class _BaseSerial:
         return gevent.Timeout(timeout, SerialTimeout(timeout_errmsg))
 
     def _close(self):
-        os.write(self._wpipe, "|")
+        if self._wpipe:
+            os.write(self._wpipe, b"|")
         if self._raw_read_task:
             self._raw_read_task.join()
             self._raw_read_task = None
@@ -101,6 +103,8 @@ class _BaseSerial:
             return self._readline(eol)
 
     def _readline(self, eol):
+        if not isinstance(eol, bytes):
+            eol = eol.encode()
         eol_pos = self._data.find(eol)
         with capture_exceptions() as capture:
             while eol_pos == -1:
@@ -177,7 +181,8 @@ class _BaseSerial:
             self._data = self._data[maxsize:]
         else:
             msg = self._data
-            self._data = ""
+
+            self._data = b""
         self._cnt()._debug("Rx: %r %r ", msg, HexMsg(msg))
         return msg
 
@@ -210,7 +215,11 @@ class _BaseSerial:
 class LocalSerial(_BaseSerial):
     def __init__(self, cnt, **keys):
         _BaseSerial.__init__(self, cnt, keys.get("port"))
-        self.__serial = serial.Serial(**keys)
+        try:
+            self.__serial = serial.Serial(**keys)
+        except:
+            self.__serial = None
+            raise
         self.fd = self.__serial.fd
         self._init()
 
@@ -219,11 +228,12 @@ class LocalSerial(_BaseSerial):
 
     def flushInput(self):
         self.__serial.flushInput()
-        self._data = ""
+        self._data = b""
 
     def close(self):
         self._close()
-        self.__serial.close()
+        if self.__serial:
+            self.__serial.close()
 
 
 class RFC2217Error(SerialError):
@@ -237,21 +247,19 @@ class RFC2217Timeout(SerialTimeout):
 class RFC2217(_BaseSerial):
     class TelnetCmd:
         def __init__(self):
-            self.data = ""
+            self.data = b""
 
-        def telnetSendOption(self, action, option):
-            self.data += "".join([IAC, action, option])
+        def telnet_send_option(self, action, option):
+            self.data += b"".join([IAC, action, option])
 
     class TelnetSubNego:
         def __init__(self):
-            self.data = ""
+            self.data = b""
             self.logger = None
 
-        def rfc2217SendSubnegotiation(self, option, value):
+        def rfc2217_send_subnegotiation(self, option, value):
             value = value.replace(IAC, IAC_DOUBLED)
-            self.data += "".join(
-                [IAC, SB, COM_PORT_OPTION, option] + list(value) + [IAC, SE]
-            )
+            self.data += IAC + SB + COM_PORT_OPTION + option + value + IAC + SE
 
     def __init__(
         self,
@@ -283,7 +291,7 @@ class RFC2217(_BaseSerial):
         # RFC 2217 flow control between server and client
         self._remote_suspend_flow = False
 
-        port_parse = re.compile("^(rfc2217://)?([^:/]+?):([0-9]+)$")
+        port_parse = re.compile(r"^(rfc2217://)?([^:/]+?):([0-9]+)$")
         match = port_parse.match(port)
         if match is None:
             raise RFC2217Error("port is not a valid url (%s)" % port)
@@ -362,10 +370,10 @@ class RFC2217(_BaseSerial):
         # negotiate Telnet/RFC 2217 -> send initial requests
         for option in self.telnet_options:
             if option.state is REQUESTED:
-                telnet_cmd.telnetSendOption(option.send_yes, option.option)
+                telnet_cmd.telnet_send_option(option.send_yes, option.option)
 
         self._socket.send(telnet_cmd.data)
-        telnet_cmd.data = ""
+        telnet_cmd.data = b""
 
         # Read telnet negotiation
         with gevent.Timeout(
@@ -396,7 +404,7 @@ class RFC2217(_BaseSerial):
                 self.rfc2217_options["control"].set(SET_CONTROL_USE_NO_FLOW_CONTROL)
 
             self._socket.send(telnet_sub_cmd.data)
-            telnet_sub_cmd.data = ""
+            telnet_sub_cmd.data = b""
             items = self.rfc2217_port_settings.values()
             while 1:
                 self._parse_nego(telnet_cmd)
@@ -404,7 +412,7 @@ class RFC2217(_BaseSerial):
                     break
 
         # check rtscts,xonxoff or no flow control
-        while not self.rfc2217_options["control"].isReady():
+        while not self.rfc2217_options["control"].is_ready():
             self._parse_nego(self.telnet_options, telnet_cmd, self.rfc2217_options)
 
         # plug the data filter
@@ -423,20 +431,20 @@ class RFC2217(_BaseSerial):
         purge = self.rfc2217_options["purge"]
         telnet_sub_cmd = purge.connection
         purge.set(PURGE_RECEIVE_BUFFER)
-        self._data = ""
+        self._data = b""
         self._rx_filter = None
         self._socket.send(telnet_sub_cmd.data)
-        telnet_sub_cmd.data = ""
+        telnet_sub_cmd.data = b""
 
-        while not purge.isReady():
+        while not purge.is_ready():
             self._parse_nego(telnet_cmd)
         self._rx_filter = self._rfc2217_filter
-        self._data = ""
+        self._data = b""
 
     def _rfc2217_filter(self, data):
         if data[-1] == IAC and data[-2] != IAC:
             self._pending_data = data
-            return ""
+            return b""
 
         if self._pending_data:
             data = self._pending_data + data
@@ -456,7 +464,9 @@ class RFC2217(_BaseSerial):
             ):  # ignore double IAC
                 self._data = self._data[iac_pos + 2 :]
             else:
-                _, command, option = self._data[iac_pos : iac_pos + 3]
+                _, command, option = serialutil.iterbytes(
+                    self._data[iac_pos : iac_pos + 3]
+                )
                 self._data = self._data[iac_pos + 3 :]
                 if command != SB:
                     # ignore other command than
@@ -469,16 +479,16 @@ class RFC2217(_BaseSerial):
 
                         if not known:
                             if command == WILL:
-                                telnet_cmd.telnetSendOption(DONT, option)
+                                telnet_cmd.telnet_send_option(DONT, option)
                             elif command == DO:
-                                telnet_cmd.telnetSendOption(WONT, option)
+                                telnet_cmd.telnet_send_option(WONT, option)
                 else:  # sub-negotiation
                     se_pos = self._data.find(IAC + SE)
                     while se_pos == -1:
                         self._event.wait()
                         self._event.clear()
                         se_pos = self._data.find(IAC + SE)
-                    suboption, value = self._data[0], self._data[1:se_pos]
+                    suboption, value = self._data[0:1], self._data[1:se_pos]
                     self._data = self._data[se_pos + 2 :]
                     if option == COM_PORT_OPTION:
                         if suboption == SERVER_NOTIFY_LINESTATE:
@@ -492,7 +502,7 @@ class RFC2217(_BaseSerial):
                         else:
                             for item in self.rfc2217_options.values():
                                 if item.ack_option == suboption:
-                                    item.checkAnswer(value)
+                                    item.check_answer(value)
                                     break
 
             iac_pos = self._data.find(IAC)
@@ -500,12 +510,13 @@ class RFC2217(_BaseSerial):
             if iac_pos == -1:  # no more negotiation rx
                 if telnet_cmd.data:
                     self._socket.send(telnet_cmd.data)
-                    telnet_cmd.data = ""
+                    telnet_cmd.data = b""
                 break
 
     def close(self):
         self._close()
-        self._socket.close()
+        if self._socket:
+            self._socket.close()
 
 
 class SER2NETError(SerialError):
@@ -514,26 +525,48 @@ class SER2NETError(SerialError):
 
 class SER2NET(RFC2217):
     def __init__(self, cnt, **keys):
-        port = keys.pop("port")
-        port_parse = re.compile("^(ser2net://)?([^:/]+?):([0-9]+)(.+)$")
+        # just in case it cant open the serial
+        self._wpipe = None
+        self._raw_read_task = None
+        self._socket = None
+        port = keys.pop("port")  # "url" field of config
+        port_parse = re.compile(r"^(ser2net://)?([^:/]+?):([0-9]+)(.+)$")
         match = port_parse.match(port)
+        # print(f"### ### configured url='{port}'")
         if match is None:
             raise SER2NETError("port is not a valid url (%s)" % port)
-        comm = tcp.Command(match.group(2), int(match.group(3)), eol="\r\n->")
-        msg = "showshortport\n\r"
-        rx = comm.write_readline(msg)
+        comm_par1 = match.group(2)
+        comm_par2 = int(match.group(3))
+        # print(f"### ### comm_par1={comm_par1} comm_par2={comm_par2}")
+        comm = tcp.Command(comm_par1, comm_par2, eol="->")
+
+        # Send a request to get list of available ports.
+        msg = b"showshortport\r\n"
+        _, rx = comm.write_readlines(msg, 2)
+        # print("### ### Raw answer to the request:",)
+        # print(rx)
+
+        # Answer should start with "showshortport" string; remove it.
         msg_pos = rx.find(msg)
         rx = rx[msg_pos + len(msg) :]
-        port_parse = re.compile("^([0-9]+).+?%s" % match.group(4))
+        rx = rx.decode()
+
+        requested_device = match.group(4)
+        # print(f"### ### look for device:'{requested_device}'")
+        # Regexp to identify requested device from url.
+        port_parse = re.compile(r"^([0-9]+).+%s" % requested_device)
         rfc2217_port = None
-        for line in rx.split("\r\n"):
+
+        # Search for requested device in received list of ports.
+        for line in rx.split("\n"):
+            line = line.strip()
+            # print ("### ### LINE=%r" % line)
             g = port_parse.match(line)
             if g:
                 rfc2217_port = int(g.group(1))
                 break
         if rfc2217_port is None:
             raise SER2NETError("port %s is not found on server" % match.group(4))
-
         keys["port"] = "rfc2217://%s:%d" % (match.group(2), rfc2217_port)
         RFC2217.__init__(self, cnt, **keys)
 
@@ -586,7 +619,7 @@ class TangoSerial(_BaseSerial):
         SL_PARITY: ("parity", lambda o, v: o.PARITY_MAP[v]),
         SL_STOPBITS: ("stopbits", lambda o, v: o.STOPBITS_MAP[v]),
         SL_TIMEOUT: ("timeout", lambda o, v: int(v * 1000)),
-        SL_NEWLINE: ("eol", lambda o, v: ord(v[-1])),
+        SL_NEWLINE: ("eol", lambda o, v: ord(v[-1]) if type(v) is str else v[-1]),
     }
 
     def __init__(self, cnt, **kwargs):
@@ -618,6 +651,8 @@ class TangoSerial(_BaseSerial):
         self._device = None
 
     def _readline(self, eol):
+        if not isinstance(eol, bytes):
+            eol = eol.encode()
         lg = len(eol)
 
         if eol != self._last_eol:
@@ -625,24 +660,26 @@ class TangoSerial(_BaseSerial):
             self._device.DevSerSetNewline(eol_encode(self, eol))
             self._last_eol = eol
 
-        buff = ""
+        buff = b""
         while True:
-            line = self._device.DevSerReadLine() or ""
-            if line == "":
-                return ""
+            line = self._device.DevSerReadLine() or b""
+            line = line if type(line) is bytes else line.encode()
+            if line == b"":
+                return b""
             buff += line
             if buff[-lg:] == eol:
                 return buff[:-lg]
 
     def _raw_read(self, maxsize):
         if maxsize:
-            return self._device.DevSerReadNChar(maxsize) or ""
+            return self._device.DevSerReadNChar(maxsize) or b""
         else:
-            return self._device.DevSerReadRaw() or ""
+            return self._device.DevSerReadRaw() or b""
 
     _read = _raw_read
 
     def _write(self, msg):
+        # print("ser _write %s" % type(msg))
         self._device.DevSerWriteChar(bytearray(msg))
 
     def flushInput(self):
@@ -650,7 +687,7 @@ class TangoSerial(_BaseSerial):
 
 
 class Serial:
-    LOCAL, RFC2217, SER2NET, TANGO = range(4)
+    LOCAL, RFC2217, SER2NET, TANGO = list(range(4))
 
     def __init__(
         self,
@@ -665,7 +702,7 @@ class Serial:
         writeTimeout=None,
         dsrdtr=False,
         interCharTimeout=None,
-        eol="\n",
+        eol=b"\n",
     ):
 
         self._serial_kwargs = {
@@ -748,6 +785,8 @@ class Serial:
         return self._raw_handler.readline(local_eol, local_timeout)
 
     def write(self, msg, timeout=None):
+        if isinstance(msg, str):
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             return self._write(msg, timeout)
 
@@ -757,6 +796,8 @@ class Serial:
         return self._raw_handler.write(msg, local_timeout)
 
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
+        if isinstance(msg, str):
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:
@@ -764,6 +805,8 @@ class Serial:
             return self._read(size, timeout)
 
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
+        if isinstance(msg, str):
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:
@@ -773,6 +816,8 @@ class Serial:
     def write_readlines(
         self, msg, nb_lines, write_synchro=None, eol=None, timeout=None
     ):
+        if isinstance(msg, str):
+            raise TypeError("a bytes-like object is required, not 'str'")
         with self._lock:
             self._write(msg, timeout)
             if write_synchro:

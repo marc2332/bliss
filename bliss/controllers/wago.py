@@ -5,14 +5,11 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import gevent
-import types
 import ctypes
-import sys
 import struct
 import socket
 from bliss.common.measurement import SamplingCounter
-from bliss.common.utils import add_property
-from bliss.comm.tcp_proxy import Proxy
+from bliss.common.utils import add_property, flatten
 from bliss.comm.modbus import ModbusTcp
 from bliss.config.conductor.client import synchronized
 
@@ -107,7 +104,7 @@ def get_module_info(module_name):
 
 
 # go through catalogue entries and update 'reading info'
-for module_name, module_info in MODULES_CONFIG.iteritems():
+for module_name, module_info in MODULES_CONFIG.items():
     reading_info = {}
     module_info.append(reading_info)
 
@@ -116,7 +113,7 @@ for module_name, module_info in MODULES_CONFIG.iteritems():
         module_info[READING_TYPE] = "fs"
         try:
             fs_low, fs_high = map(int, reading_type[2:].split("-"))
-        except:
+        except ValueError:
             fs_low = 0
             fs_high = int(reading_type[2:])
         else:
@@ -155,10 +152,11 @@ def WagoController(host):
 
 
 class _WagoController:
+    """The wago controller class
+    """
+
     def __init__(self, host):
-        self.__proxy = Proxy({"tcp": {"url": "socket://%s:%d" % (host, 502)}})
-        self.__proxy._check_connection()
-        host, port = self.__proxy._url_channel.value.split(":")
+        port = 502
         self.client = ModbusTcp(host, port=int(port))
         self.modules = []
         self.firmware = {"date": None, "version": None}
@@ -168,6 +166,9 @@ class _WagoController:
         self.wago_host = host
 
     def connect(self):
+        """ Connect to the wago. Check if we have a coupler or a controller.
+        In case of controller get the firmware version and firmware date.
+        """
         with self.lock:
             # check if we have a coupler or a controller
             reply = self.client.read_input_registers(0x2012, "H")
@@ -179,20 +180,26 @@ class _WagoController:
                 reply = struct.pack(
                     "16H", *self.client.read_input_registers(0x2022, "16H")
                 )
-                self.firmware["date"] = "/".join((x for x in reply.split("\x00") if x))
+                self.firmware["date"] = "/".join(
+                    (x.decode("utf-8") for x in reply.split(b"\x00") if x)
+                )
 
     def close(self):
+        """ Close the connection.
+        """
         with self.lock:
             self.client.close()
 
     def set_mapping(self, mapping_str, ignore_missing=False):
+        """ Set the mapping of the controller
+        """
         i = 0
         digi_out_base = 0
         ana_out_base = 0
         self.mapping = []
         self.modules = []
         for line in mapping_str.split("\n"):
-            items = [item.strip() for item in filter(None, line.split(","))]
+            items = [item.strip() for item in [_f for _f in line.split(",") if _f]]
             if items:
                 module_name = items[0]
                 if module_name not in MODULES_CONFIG:
@@ -212,7 +219,7 @@ class _WagoController:
                             )
                     for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                         channels_map.append([])
-                        for k in range(module_info[j]):
+                        for _ in range(module_info[j]):
                             if module_info[N_CHANNELS] == 1:
                                 channels_map[-1].append(channels[0])
                             else:
@@ -239,49 +246,67 @@ class _WagoController:
                 i += 1
 
     def _read_fs(self, raw_value, low=0, high=10, base=32768):
-        # full-scale conversion
+        """Read Digital Input type module. Make full scale conversion.
+        """
         value = ctypes.c_short(raw_value).value
         return (value * high / float(base)) + low
 
     def _read_ssi(self, raw_value, bits=24):
+        """Read SSI (absolute encoders) type module
+        Returns:
+            (float): 24 bits precision, signed float
+        """
         # reading is two words, 16 bits each
-        # the return value is 24 bits precision, signed float
-        value = raw_value[0] + raw_value[1] * (1L << 16)
-        value &= (1L << bits) - 1
-        if value & (1L << (bits - 1)):
-            value -= 1L << bits
+        value = raw_value[0] + raw_value[1] * (1 << 16)
+        value &= (1 << bits) - 1
+        if value & (1 << (bits - 1)):
+            value -= 1 << bits
         return [float(value)]
 
     def _read_thc(self, raw_value, bits=16):
-        # the return value is signed float
+        """Read a thermocouple type module.
+        Returns:
+            (float): signed float
+        """
         value = ctypes.c_ushort(raw_value).value
-        value &= (1L << bits) - 1
-        if value & (1L << (bits - 1)):
-            value -= 1L << bits
+        value &= (1 << bits) - 1
+        if value & (1 << (bits - 1)):
+            value -= 1 << bits
         return value / 10.0
 
     def _read_value(self, raw_value, read_table):
+        """ Read raw value from a module
+        """
         reading_type = read_table[READING_TYPE]
         reading_info = read_table[READING_INFO]
         if reading_type == "fs":
             return self._read_fs(raw_value, **reading_info)
-        elif reading_type == "ssi":
+        if reading_type == "ssi":
             return self._read_ssi(raw_value, **reading_info)
-        elif reading_type == "thc":
+        if reading_type == "thc":
             return self._read_thc(raw_value, **reading_info)
         return raw_value
 
     def read_phys(self, modules_to_read):
+        """Read the physical value
+        Args:
+            modules_to_read(list): list of modules to read
+        Returns:
+            (tuple of lists): Values in a list/module
+        """
         # modules_to_read has to be a sorted list
         ret = []
         read_table = []
         total_digi_in, total_digi_out, total_ana_in, total_ana_out = 0, 0, 0, 0
+        """
         read_digi_in, read_digi_out, read_ana_in, read_ana_out = (
             False,
             False,
             False,
             False,
         )
+        """
+        read_digi_in = False
 
         for module_index, module in enumerate(self.mapping):
             module_name = module["module"]
@@ -314,13 +339,13 @@ class _WagoController:
                     read_digi_in = True
                 if n_digi_out > 0:
                     read_table[-1][DIGI_OUT] = (total_digi_out, n_digi_out)
-                    read_digi_out = True
+                    # read_digi_out = True
                 if n_ana_in > 0:
                     read_table[-1][ANA_IN] = (total_ana_in, n_ana_in)
-                    read_ana_in = True
+                    # read_ana_in = True
                 if n_ana_out > 0:
                     read_table[-1][ANA_OUT] = (total_ana_out, n_ana_out)
-                    read_ana_out = True
+                    # read_ana_out = True
 
             total_digi_in += n_digi_in
             total_digi_out += n_digi_out
@@ -343,21 +368,21 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[DIGI_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_in_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[DIGI_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 readings.append(tuple(digi_out_reading[i : i + n]))
 
             try:
                 i, n = module_read_table[ANA_IN]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_in_reading[i : i + n]
@@ -374,7 +399,7 @@ class _WagoController:
 
             try:
                 i, n = module_read_table[ANA_OUT]
-            except:
+            except Exception:
                 readings.append(None)
             else:
                 raw_values = ana_out_reading[i : i + n]
@@ -387,6 +412,13 @@ class _WagoController:
         return tuple(ret)
 
     def get(self, *channel_names):
+        """
+        Read one or more values from channels
+        Args:
+            *channel_names (list): list of channels to be read
+        Returns:
+            (list): channel values
+        """
         modules_to_read = set()
         channels_to_read = []
         ret = []
@@ -408,11 +440,10 @@ class _WagoController:
                                 if chan == channel_name:
                                     channels_to_read[-1].append((i, j, k))
 
-        not_found_channel = set(channel_names) - found_channel
-        if not_found_channel:
+        not_found_channels = set(channel_names) - found_channel
+        if not_found_channels:
             raise KeyError(
-                "Channel(s) '%s` doesn't exist in Wago %s"
-                % (not_found_channel, self.wago_host)
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
 
         modules_to_read_list = list(modules_to_read)
@@ -421,7 +452,7 @@ class _WagoController:
         with self.lock:
             readings = self.read_phys(modules_to_read_list)
 
-        if len(readings) == 0:
+        if not readings:
             return None
 
         # deal with read values
@@ -434,13 +465,16 @@ class _WagoController:
                 ret.append(values)
             else:
                 ret += values
+
         # return a list with all the channels
-        if len(ret) == 0:
+        if not ret:
             return None
-        elif len(ret) == 1:
+        if len(ret) == 1:
             return ret[0]
-        else:
-            return ret
+
+        # ret represents a list of lists, containing Wago values
+        # by Wago module, but we prefer to have a flat list
+        return flatten(ret)
 
     def _write_fs(self, value, low=0, high=10, base=32768):
         return int(((value - low) * base / float(high))) & 0xffff
@@ -448,7 +482,7 @@ class _WagoController:
     def write_phys(self, write_table):
         # write_table is a dict of module_index:
         # [(type_index, channel_index, value_to_write), ...]
-        for module_index, write_info in write_table.iteritems():
+        for module_index, write_info in write_table.items():
             module_info = get_module_info(self.modules[module_index])
             for type_index, channel_index, value2write in write_info:
                 if type_index == DIGI_OUT:
@@ -456,8 +490,7 @@ class _WagoController:
                         self.mapping[module_index]["writing_info"][DIGI_OUT]
                         + channel_index
                     )
-                    write_value = True if value2write else False
-                    self.client.write_coil(addr, write_value)
+                    self.client.write_coil(addr, bool(value2write))
                 elif type_index == ANA_OUT:
                     addr = (
                         self.mapping[module_index]["writing_info"][ANA_OUT]
@@ -479,7 +512,7 @@ class _WagoController:
         channels_to_write = []
         current_list = channels_to_write
         for x in args:
-            if type(x) in (types.StringType, types.UnicodeType):
+            if type(x) in (bytes, str):
                 # channel name
                 current_list = [str(x)]
                 channels_to_write.append(current_list)
@@ -538,10 +571,8 @@ class _WagoController:
         not_found_channels = channel_names - found_channel
         if not_found_channels:
             raise KeyError(
-                "Channel(s) %s doesn't exist in Wago %s"
-                % (not_found_channels, self.wago_host)
+                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.wago_host}"
             )
-
         with self.lock:
             return self.write_phys(write_table)
 
@@ -553,12 +584,15 @@ class _WagoController:
             if m & 0x8000:  # digital in/out
                 direction = "input" if m & 0x1 else "output"
                 mod_size = (m & 0xf00) >> 8
-                print "Module digital %s %s(s)" % (mod_size, direction)
+                print("Module digital %s %s(s)" % (mod_size, direction))
             else:
-                print "Module %d" % (m)
+                print("Module %d" % (m))
 
 
 class WagoCounter(SamplingCounter):
+    """ Counter reading and gains reading/setting
+    """
+
     def __init__(self, name, parent, index=None, **kwargs):
         SamplingCounter.__init__(self, name, parent, **kwargs)
         self.index = index
@@ -569,26 +603,61 @@ class WagoCounter(SamplingCounter):
         return self
 
     def gain(self, gain=None, name=None):
+        """ Set/read the gain. The gain is set by applying values on 3 channels.
+        Args:
+            gain (int): value of the gain. Accepted values: 0-7.
+                        Read the gain if no value
+            name (str): counter name - optional.
+        Raises:
+            ValueError: the gain is out of the limits (0-7)
+        """
         name = name or self.cntname
         try:
             name = [x for x in self.parent.counter_gain_names if str(name) in x][0]
         except IndexError:
-            # raise RuntimeError"Cannot find %s in the %s mapping" % (name, self.parent.name))
             return None
 
-        if gain:
-            valarr = [False] * 3
-            valarr[gain - 1] = True
-            self.parent.set(name, valarr)
-        else:
+        n_channels = 3
+
+        if gain is None:
+            # Reading
             valarr = self.parent.get(name)
             if isinstance(valarr, list) and True in valarr:
-                return valarr.index(True) + 1
-            else:
-                return 0
+                if valarr.count(True) == 1:
+                    return valarr.index(True) + 1
+                if valarr.count(True) == n_channels:
+                    return 7
+                val = 0
+                for idx in range(n_channels):
+                    if valarr[idx]:
+                        val += idx
+                return val + n_channels
+            return 0
+
+        n_val = 2 * n_channels + 1
+        if gain < 0 or gain > n_val:
+            raise ValueError("Gain out of limits")
+
+        if gain == n_val:
+            valarr = [True] * n_channels
+        else:
+            valarr = [False] * n_channels
+            if gain > n_channels:
+                gain1 = gain // n_channels - 1
+                gain2 = gain - n_channels - gain1
+                valarr[gain1] = True
+                valarr[gain2] = True
+            elif gain > 0:
+                valarr[gain - 1] = True
+
+        self.parent.set(name, valarr)
+        return gain
 
 
-class wago(object):
+class wago:
+    """ The wago class
+    """
+
     def __init__(self, name, config_tree):
 
         self.name = name
@@ -610,19 +679,21 @@ class wago(object):
             self.counter_gain_names = (
                 config_tree["counter_gain_names"].replace(" ", "").split(",")
             )
-        except:
+        except Exception:
             pass
 
         try:
             self.cnt_names = config_tree["counter_names"].replace(" ", "").split(",")
-        except:
+        except Exception:
             pass
         else:
-            for i, name in enumerate(self.cnt_names):
-                self.cnt_dict[name] = i
-                add_property(self, name, WagoCounter(name, self, i))
+            for i, nam in enumerate(self.cnt_names):
+                self.cnt_dict[nam] = i
+                add_property(self, nam, WagoCounter(nam, self, i))
 
     def connect(self):
+        """ Connect to the controller.
+        """
         self.controller = WagoController(self.wago_ip)
         self.controller.set_mapping(self.mapping)
 
@@ -645,6 +716,10 @@ class wago(object):
 
     @property
     def counters(self):
+        """Get the list of the configured counters
+        Returns:
+            (list): list of the configured counter objects
+        """
         counters_list = []
         for cnt_name in self.cnt_names:
             counters_list.append(getattr(self, cnt_name))
@@ -653,10 +728,15 @@ class wago(object):
     def _cntread(self, acq_time=None):
         if len(self.cnt_names) == 1:
             return [self.get(*self.cnt_names)]
-        else:
-            return self.get(*self.cnt_names)
+        return self.get(*self.cnt_names)
 
     def read_all(self, *counters):
+        """ Read all the counters
+        Args:
+            *counters (list): names of counters to be read
+        Returns:
+            (list): read values from counters
+        """
         cnt_names = [cnt.name.replace(self.name + ".", "") for cnt in counters]
         result = self.get(*cnt_names)
         return result if isinstance(result, list) else [result]

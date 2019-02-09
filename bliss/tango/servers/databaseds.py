@@ -10,7 +10,6 @@ from bliss.tango import db_access as local_db_access
 def main(args=None):
     # Give priority to the bliss db_access module
     db_access.__path__ = local_db_access.__path__ + db_access.__path__
-    db_access.__package__ = "bliss.tango.db_access"
     # Safety check
     from tango.databaseds.db_access import beacon
 

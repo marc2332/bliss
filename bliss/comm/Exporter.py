@@ -5,11 +5,8 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
-import logging
-import types
 from warnings import warn
-import time
+import logging
 import gevent
 from gevent.queue import Queue
 from .embl import ExporterClient
@@ -51,8 +48,8 @@ class Exporter(ExporterClient.ExporterClient):
     STATE_UNKNOWN = "Unknown"
 
     def __init__(self, address, port, timeout=3, retries=1):
-        ExporterClient.ExporterClient.__init__(
-            self, address, port, ExporterClient.PROTOCOL.STREAM, timeout, retries
+        super().__init__(
+            address, port, ExporterClient.PROTOCOL.STREAM, timeout, retries
         )
 
         self.started = False
@@ -93,7 +90,7 @@ class Exporter(ExporterClient.ExporterClient):
                 self.disconnect()
                 self.connect()
             except:
-                time.sleep(1.0)
+                gevent.sleep(1.0)
                 self.reconnect()
 
     def onDisconnected(self):
@@ -110,12 +107,12 @@ class Exporter(ExporterClient.ExporterClient):
             return
 
         if "\x1f" in value:
-            value = self.parseArray(value)
+            value = self.parse_array(value)
             try:
-                value = map(int, value)
+                value = list(map(int, value))
             except:
                 try:
-                    value = map(float, value)
+                    value = list(map(float, value))
                 except:
                     pass
         else:

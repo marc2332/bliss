@@ -7,13 +7,11 @@
 
 import gevent
 import itertools
+import uuid
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.common.cleanup import capture_exceptions
-
-GROUP_ID = itertools.count()
-GROUP_NAMES = {}
 
 
 def Group(*axes_list):
@@ -44,14 +42,10 @@ def Group(*axes_list):
 
     check_axes(*axes.values())
 
-    # always use the same group name for groups of same axes,
-    # this is to make sure master name will stay the same
-    # when doing step-by-step scans for example -- this is
-    # useful for Flint to know if the 0D live scan plot window
-    # can be kept or not
-    key = "".join(sorted(axes))
-    gid = GROUP_NAMES.setdefault(key, GROUP_ID.next())
-    g = _Group("group_%d" % gid, axes)
+    # group names will be generated, since _Group objects
+    # are anonymous
+    group_name = uuid.uuid4().hex
+    g = _Group(group_name, axes)
     return g
 
 
@@ -87,12 +81,13 @@ class _Group(object):
             for motion in motions:
                 controller.stop(motion.axis)
 
+    @property
     def state(self):
         if self.is_moving:
             return AxisState("MOVING")
         grp_state = AxisState("READY")
         for i, (name, state) in enumerate(
-            [(axis.name, axis.state()) for axis in self._axes.itervalues()]
+            [(axis.name, axis.state) for axis in self._axes.values()]
         ):
             if state.MOVING:
                 new_state = "MOVING" + " " * i
@@ -111,20 +106,22 @@ class _Group(object):
                 grp_state.set(new_state)
         return grp_state
 
+    @property
     def position(self):
         positions_dict = dict()
-        for axis in self.axes.itervalues():
-            positions_dict[axis] = axis.position()
+        for axis in self.axes.values():
+            positions_dict[axis] = axis.position
         return positions_dict
 
+    @property
     def dial(self):
         positions_dict = dict()
-        for axis in self.axes.itervalues():
-            positions_dict[axis] = axis.dial()
+        for axis in self.axes.values():
+            positions_dict[axis] = axis.dial
         return positions_dict
 
     def _check_ready(self):
-        initial_state = self.state()
+        initial_state = self.state
         if not initial_state.READY:
             raise RuntimeError("all motors are not ready")
 
@@ -147,7 +144,7 @@ class _Group(object):
             for axis, target_pos in grouped(args, 2):
                 axis_pos_dict[axis] = target_pos
 
-        for axis, target_pos in axis_pos_dict.iteritems():
+        for axis, target_pos in axis_pos_dict.items():
             motion = axis.prepare_move(target_pos, relative=relative)
             # motion can be None if axis is not supposed to move
             if motion is not None:
@@ -245,8 +242,9 @@ class TrajectoryGroup(object):
     def is_moving(self):
         return self.__group.is_moving
 
+    @property
     def state(self):
-        return self.__group.state()
+        return self.__group.state
 
     def prepare(self):
         """
@@ -260,7 +258,7 @@ class TrajectoryGroup(object):
 
         prepare = [
             gevent.spawn(controller._prepare_trajectory, *trajectories)
-            for controller, trajectories in self.trajectories_by_controller.iteritems()
+            for controller, trajectories in self.trajectories_by_controller.items()
         ]
         try:
             gevent.joinall(prepare, raise_error=True)

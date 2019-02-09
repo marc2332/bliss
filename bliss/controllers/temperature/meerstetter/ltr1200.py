@@ -55,7 +55,7 @@ from bliss.common.utils import object_attribute_get, object_attribute_type_get
 # from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
 
-import mecom
+from . import mecom
 
 
 ######################################################################
@@ -103,25 +103,25 @@ class Ltr1200(object):
 
     def getObjectTemperature(self, instance):
         self.log.info("getObjectTemperature(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1000, 8, instance)
+        answer = (self._tec._getParameter(1000, 8, instance)).decode()
         if answer is not None:
-            answer = struct.unpack(">f", answer.decode("hex"))[0]
+            answer = struct.unpack(">f", bytes.fromhex(answer))[0]
         self.log.debug("getObjectTemperature: temp = %s" % answer)
         return answer
 
     def getSinkTemperature(self, instance):
         self.log.info("getSinkTemperature(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1001, 8, instance)
+        answer = (self._tec._getParameter(1001, 8, instance)).decode()
         if answer is not None:
-            answer = struct.unpack(">f", answer.decode("hex"))[0]
+            answer = struct.unpack(">f", bytes.fromhex(answer))[0]
         self.log.debug("getSinkTemperature: temp = %s" % answer)
         return answer
 
     def getTargetTemperature(self, instance):
         self.log.info("getTargetTemperature(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1010, 8, instance)
+        answer = (self._tec._getParameter(1010, 8, instance)).decode()
         if answer is not None:
-            answer = struct.unpack(">f", answer.decode("hex"))[0]
+            answer = struct.unpack(">f", bytes.fromhex(answer))[0]
         self.log.debug("getTargetTemperature: temp = %s" % answer)
         return answer
 
@@ -129,29 +129,29 @@ class Ltr1200(object):
         self.log.info(
             "setTargetTemperature(): instance = %d, value = %f" % (instance, value)
         )
-        answer = self._tec._setParameter(3000, value, instance)
+        answer = (self._tec._setParameter(3000, value, instance)).decode()
         self.log.debug("setTargetTemperature: %s" % answer)  # ACK
         return answer
 
     def getOutputCurrent(self, instance):
         self.log.info("getOutputCurrent(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1020, 8, instance)
+        answer = (self._tec._getParameter(1020, 8, instance)).decode()
         if answer is not None:
-            answer = struct.unpack(">f", answer.decode("hex"))[0]
+            answer = struct.unpack(">f", bytes.fromhex(answer))[0]
         self.log.debug("getOutputCurrent: current = %s" % answer)
         return answer
 
     def getOutputVoltage(self, instance):
         self.log.info("getOutputVoltage(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1021, 8, instance)
+        answer = (self._tec._getParameter(1021, 8, instance)).decode()
         if answer is not None:
-            answer = struct.unpack(">f", answer.decode("hex"))[0]
+            answer = struct.unpack(">f", bytes.fromhex(answer))[0]
         self.log.debug("getOutputVoltage: voltage = %s" % answer)
         return answer
 
     def getDriverStatus(self, instance):
         self.log.info("getDriverStatus(): instance = %d" % (instance))
-        answer = self._tec._getParameter(1080, 8, instance)
+        answer = (self._tec._getParameter(1080, 8, instance)).decode()
         description = [
             "Init",
             "Ready",

@@ -77,7 +77,7 @@ class RoiStatCounter(IntegratingCounter):
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
         roi_id = self.controller._roi_ids[self.roi_name]
-        return self.roi_stat_id(roi_id, self.stat)
+        return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod
     def roi_stat_id(roi_id, stat):
@@ -126,7 +126,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         raw_data = self.controller._proxy.readCounters(from_index)
         if not raw_data.size:
             return len(counters) * (numpy.array(()),)
-        raw_data.shape = (raw_data.size) / roi_counter_size, roi_counter_size
+        raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
         result = OrderedDict([int(counter), []] for counter in counters)
 
         for roi_counter in raw_data:
@@ -136,7 +136,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
                 counter_data = result.get(full_id)
                 if counter_data is not None:
                     counter_data.append(roi_counter[stat])
-        return map(numpy.array, result.values())
+        return list(map(numpy.array, result.values()))
 
 
 class RoiCounters(object):
@@ -220,7 +220,7 @@ class RoiCounters(object):
 
     def get_rois(self):
         """alias to values()"""
-        return self.values()
+        return list(self.values())
 
     def remove(self, name):
         """alias to: del <lima obj>.roi_counters[name]"""
@@ -270,20 +270,20 @@ class RoiCounters(object):
         return self._save_rois.get(name, default=default)
 
     def __getitem__(self, names):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             return self._save_rois[names]
         else:
             return [self[name] for name in names]
 
     def __setitem__(self, names, rois):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             self._set_roi(names, rois)
         else:
             for name, value in zip(names, rois):
                 self[name] = value
 
     def __delitem__(self, names):
-        if isinstance(names, (str, unicode)):
+        if isinstance(names, str):
             names = (names,)
         self._remove_rois(names)
 
@@ -305,15 +305,6 @@ class RoiCounters(object):
 
     def items(self):
         return self._save_rois.items()
-
-    def iterkeys(self):
-        return self._save_rois.iterkeys()
-
-    def itervalues(self):
-        return self._save_rois.itervalues()
-
-    def iteritems(self):
-        return self._save_rois.iteritems()
 
     def has_key(self, name):
         return name in self._save_rois

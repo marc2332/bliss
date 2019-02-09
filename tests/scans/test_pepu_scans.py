@@ -2,7 +2,7 @@
 
 from collections import OrderedDict
 
-import mock
+from unittest import mock
 import pytest
 import numpy as np
 import gevent.queue

@@ -132,10 +132,6 @@ def test_api():
 
 def test_event():
 
-    # Events are currently broken
-    # See #482 and !911 for more information
-    pytest.xfail()
-
     url = "tcp://127.0.0.1:12345"
     results = gevent.queue.Queue()
 
@@ -144,6 +140,7 @@ def test_event():
 
     with rpc_server(url) as (server, car):
         client_car = Client(url)
+        client_car.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)
@@ -162,11 +159,6 @@ def test_event():
 
 def test_event_with_lost_remote():
 
-    # Recovery after a LostRemote is currently leaving greenlets running.
-    # This should be investigated.
-    # Related: https://github.com/0rpc/zerorpc-python/issues/169
-    pytest.xfail()
-
     url = "tcp://127.0.0.1:12345"
     results = gevent.queue.Queue()
 
@@ -175,6 +167,7 @@ def test_event_with_lost_remote():
 
     with rpc_server(url, heartbeat=0.1) as (server, car):
         client_car = Client(url, heartbeat=0.1)
+        client_car.connect()
 
         event.connect(client_car, "test", callback)
         event.send(car, "test", 3)

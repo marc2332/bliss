@@ -87,7 +87,7 @@ class PosixGeventEventLoop(EventLoop):
         """
         self._running = False
         try:
-            os.write(self._schedule_pipe_write, "x")
+            os.write(self._schedule_pipe_write, b"x")
         except (AttributeError, IndexError, OSError):
             pass
 
@@ -97,7 +97,7 @@ class PosixGeventEventLoop(EventLoop):
         this call.
         """
         self.stop()
-        for reader in self.readers.values():
+        for reader in list(self.readers.values()):
             reader.kill()
         self.readers = dict()
         self._callbacks = None
@@ -154,6 +154,6 @@ class PosixGeventEventLoop(EventLoop):
 
             self._calls_from_executor.append(postpone)
         try:
-            os.write(self._schedule_pipe_write, "x")
+            os.write(self._schedule_pipe_write, b"x")
         except (AttributeError, IndexError, OSError):
             pass

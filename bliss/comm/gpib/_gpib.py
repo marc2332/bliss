@@ -33,24 +33,24 @@ from bliss.common.utils import OrderedDict
 from bliss.common.tango import DeviceProxy
 
 __TMO_TUPLE = (
-    0.,
-    10E-6,
-    30E-6,
-    100E-6,
-    300E-6,
-    1E-3,
-    3E-3,
-    10E-3,
-    30E-3,
-    100E-3,
-    300E-3,
-    1.,
-    3.,
-    10.,
-    30.,
-    100.,
-    300.,
-    1E3,
+    0.0,
+    10e-6,
+    30e-6,
+    100e-6,
+    300e-6,
+    1e-3,
+    3e-3,
+    10e-3,
+    30e-3,
+    100e-3,
+    300e-3,
+    1.0,
+    3.0,
+    10.0,
+    30.0,
+    100.0,
+    300.0,
+    1e3,
 )
 
 TMO_MAP = OrderedDict([(tmo, t) for tmo, t in enumerate(__TMO_TUPLE)])
@@ -89,7 +89,7 @@ class Enet(EnetSocket):
     def __init__(self, cnt, **keys):
         EnetSocket.__init__(self, None)  # Don't use the socket connection
         url = keys.pop("url")
-        url_parse = re.compile("^(enet://)?([^:/]+):?([0-9]*)$")
+        url_parse = re.compile(r"^(enet://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
             raise EnetError("Enet: url is not valid (%s)" % url)
@@ -129,7 +129,7 @@ class Prologix:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         url = keys.pop("url")
-        url_parse = re.compile("^(prologix://)?([^:/]+):?([0-9]*)$")
+        url_parse = re.compile(r"^(prologix://)?([^:/]+):?([0-9]*)$")
         match = url_parse.match(url)
         if match is None:
             raise PrologixError("Inet: url is not valid (%s)" % url)
@@ -144,33 +144,33 @@ class Prologix:
         if self._sock._fd is None:
             # the Prologix must be a controller (mode 1)
             self._debug("Prologix::init(): set to mode 1 (Controller) ")
-            self._sock.write("++mode 1\n")
-            self._sock.write("++clr\n")
+            self._sock.write(b"++mode 1\n")
+            self._sock.write(b"++clr\n")
             self._debug("Prologix::init() save the configuration set to 0")
-            self._sock.write("++savecfg 0\n")
+            self._sock.write(b"++savecfg 0\n")
             self._debug("Prologix::init() auto (read_after_write) set to 0")
-            self._sock.write("++auto 0\n")
+            self._sock.write(b"++auto 0\n")
 
             self._eos = self._gpib_kwargs["eos"]
             if self._eos == "\r\n":
                 self._debug(
                     "Prologix::init() eos set to 0 (%s)" % [ord(c) for c in self._eos]
                 )
-                self._sock.write("++eos 0\n")
+                self._sock.write(b"++eos 0\n")
             elif self._eos == "\r":
                 self._debug("Prologix::init() eos set to 1 (%s)" % self._eos)
-                self._sock.write("++eos 1\n")
+                self._sock.write(b"++eos 1\n")
             elif self._eos == "\n":
                 self._debug("Prologix::init() eos set to 2 (%s)" % self._eos)
-                self._sock.write("++eos 2\n")
+                self._sock.write(b"++eos 2\n")
             else:
                 self._debug("Prologix::init() eos set to 3 (%s)" % self._eos)
-                self._sock.write("++eos 3\n")
+                self._sock.write(b"++eos 3\n")
 
             self._debug("Prologix::init() eoi set to 1")
-            self._sock.write("++eoi 1\n")
+            self._sock.write(b"++eoi 1\n")
             self._debug("Prologix::init() read_tmo_ms set to 13")
-            self._sock.write("++read_tmo_ms 13\n")
+            self._sock.write(b"++read_tmo_ms 13\n")
             # the gpib address
             self._sad = self._gpib_kwargs.get("sad", 0)
             self._pad = self._gpib_kwargs["pad"]
@@ -178,13 +178,13 @@ class Prologix:
                 self._debug(
                     "Prologix::init() gpib primary address set to %d" % self._pad
                 )
-                self._sock.write("++addr %d\n" % self._pad)
+                self._sock.write(b"++addr %d\n" % self._pad)
             else:
                 self._debug(
                     "Prologix::init() gpib primary & secondary address' set to %d:%d"
                     % (self._pad, self._sad)
                 )
-                self._sock.write("++addr %d %d\n" % (self._pad, self._sad))
+                self._sock.write(b"++addr %d %d\n" % (self._pad, self._sad))
 
     def close(self):
         self._sock.close()
@@ -201,16 +201,16 @@ class Prologix:
     def ibwrt(self, cmd):
         self._debug("Sent: %s" % cmd)
         cmd = (
-            cmd.replace("\33", "\33" + "\33")
-            .replace("+", "\33" + "+")
-            .replace("\10", "\33" + "\10")
-            .replace("\13", "\33" + "\13")
+            cmd.replace(b"\33", b"\33" + b"\33")
+            .replace(b"+", b"\33" + b"+")
+            .replace(b"\10", b"\33" + b"\10")
+            .replace(b"\13", b"\33" + b"\13")
         )
-        self._sock.write(cmd + "\n")
+        self._sock.write(cmd + b"\n")
         return len(cmd)
 
     def ibrd(self, length):
-        self._sock.write("++read EOI\n")
+        self._sock.write(b"++read EOI\n")
         return self._sock.raw_read(maxsize=length)
 
     def _raw(self, length):
@@ -272,7 +272,7 @@ class LocalGpibError(GpibError):
 
 class LocalGpib(object):
 
-    URL_RE = re.compile("^(local://)?([0-9]{1,2})$")
+    URL_RE = re.compile(r"^(local://)?([0-9]{1,2})$")
 
     def __init__(self, cnt, **keys):
         url = keys.pop("url")
@@ -347,10 +347,10 @@ class Gpib:
     interface = Gpib(url="enet://gpibid00a.esrf.fr", pad=15)
     """
 
-    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = range(5)
+    ENET, TANGO, TANGO_DEVICE_SERVER, PROLOGIX, LOCAL = list(range(5))
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self, url=None, pad=0, sad=0, timeout=1., tmo=13, eot=1, eos="\n"):
+    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eos="\n"):
 
         self._gpib_kwargs = {
             "url": url,
@@ -368,7 +368,7 @@ class Gpib:
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self.gpib_type = self.ENET
-        self._data = ""
+        self._data = b""
 
     @property
     def lock(self):
@@ -417,6 +417,8 @@ class Gpib:
     @try_open
     def _readline(self, eol):
         local_eol = eol or self._eos
+        if not isinstance(local_eol, bytes):
+            local_eol = local_eol.encode()
         url = self._gpib_kwargs.get("url")
         pad = self._gpib_kwargs.get("pad")
         timeout_errmsg = "timeout on gpib(%s,%d)" % (url, pad)
@@ -483,7 +485,7 @@ class Gpib:
         elif url_lower.startswith("local://"):
             return self.LOCAL
         else:
-            return None
+            raise ValueError("Unsuported protocol %s" % url)
 
     def __str__(self):
         opts = self._gpib_kwargs

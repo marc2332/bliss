@@ -47,14 +47,14 @@ def test_soft_axis_creation(beacon):
     assert m0.name == "a_unique_motor"
     assert hasattr(setup_globals, m0.name)
 
-    assert m0.position() == o0.position
+    assert m0.position == o0.position
     assert o0.nb_pos_read == 2
     assert o0.nb_pos_write == 1
     assert o0.nb_move == 0
 
     m0.move(45.54)
     assert o0.position == 45.54
-    assert m0.position() == o0.position
+    assert m0.position == o0.position
     assert o0.nb_pos_read >= 4
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 0
@@ -63,7 +63,7 @@ def test_soft_axis_creation(beacon):
 
     m1.move(-12.23)
     assert o0.position == -12.23
-    assert m1.position() == o0.position
+    assert m1.position == o0.position
     assert o0.nb_pos_read >= 6
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 1
@@ -74,7 +74,7 @@ def test_soft_axis_creation(beacon):
 
     m2.move(456.789)
     assert o0.position == 456.789
-    assert m2.position() == o0.position
+    assert m2.position == o0.position
     assert o0.nb_pos_read == nb_pos_read + 2
     assert o0.nb_pos_write == 2
     assert o0.nb_move == 2
@@ -94,7 +94,7 @@ def test_soft_axis_scan(beacon):
 
     # TODO: names should be full counter names after issue #395 is solved
     channel_names = {"elapsed_time", "motor_counter", "another_motor"}
-    assert set(data.dtype.fields.keys()) == channel_names
+    assert set(data.keys()) == channel_names
 
     positions = numpy.linspace(-200, 200, 100)
     numpy.testing.assert_array_almost_equal(data["motor_counter"], positions)

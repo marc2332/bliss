@@ -141,7 +141,7 @@ class PiezoJack(Controller):
         self.piezo = self._tagged["piezo"][0]
         self.icepap = self._tagged["icepap"][0]
         # preset the hardware status with the icepap's status.
-        self._hw_status = self.icepap.state()
+        self._hw_status = self.icepap.state
 
     def finalize(self):
         pass
@@ -165,9 +165,12 @@ class PiezoJack(Controller):
             self.piezo.controller.set_sensor_coeffs(
                 self.piezo, 1, -self.piezo.coeffs[1]
             )
-        print "--PJ-- coefficients", self.bender_factor, self.piezo.coeffs[
-            1
-        ], self.piezo.coeffs  # HWHWHW
+        print(
+            "--PJ-- coefficients",
+            self.bender_factor,
+            self.piezo.coeffs[1],
+            self.piezo.coeffs,
+        )  # HWHWHW
 
     def initialize_encoder(self, encoder):
         """ use the capacitive sensor as encoder"""
@@ -177,7 +180,7 @@ class PiezoJack(Controller):
         """ read the capacitive sensor over the PI E712 as an encoder """
         _tns = self.piezo.Get_TNS()
         _bender_enc = _tns * self.bender_factor
-        print "read_encoder Bender:", _bender_enc
+        print("read_encoder Bender:", _bender_enc)
         return _bender_enc
 
     def read_position(self, axis):
@@ -196,7 +199,7 @@ class PiezoJack(Controller):
             self.log.debug("--PJ-bender position=%g" % _pos)
             return _pos
         except:
-            print "error in reading PJ position"
+            print("error in reading PJ position")
             sys.excepthook(*sys.exc_info())
 
     def state(self, axis):
@@ -246,7 +249,7 @@ class PiezoJack(Controller):
             raise RuntimeError("cannot move, previous task is not finished")
 
     def _move_done(self, task):
-        self._hw_status = self.icepap.state()
+        self._hw_status = self.icepap.state
 
         try:
             task.get()
@@ -262,7 +265,7 @@ class PiezoJack(Controller):
             # don't do this in closed loop mode
             self.log.info("move_piezo_smooth : don't do this in closed loop mode")
             return
-        _start = self.piezo.position()
+        _start = self.piezo.position
         _inc = -1 if (pos < _start) else 1
         # print "smooth move to ", target_pos,
         # Uses arange instead of range to be able to have floating point steps.
@@ -298,7 +301,7 @@ class PiezoJack(Controller):
                 axis
             ).get("_set_position")
             _info_str += "bender position (read) : %s\n" % self.read_position(axis)
-            _info_str += "icepap position  : %s\n" % self.icepap.position()
+            _info_str += "icepap position  : %s\n" % self.icepap.position
             _info_str += "piezo closed loop: %s\n" % self.piezo.Get_Closed_Loop_Status()
             _info_str += "piezo tns        : %s\n" % self.piezo.Get_TNS()
             _info_str += "piezo offset     : %s\n" % self.piezo.Get_Offset()
@@ -323,7 +326,7 @@ class PiezoJack(Controller):
         This has all been built around the fact, that both icepap and
         piezo work in microns.
         """
-        print bcolors.RED + bcolors.BOLD + "starts _do_move loop" + bcolors.ENDC
+        print(bcolors.RED + bcolors.BOLD + "starts _do_move loop" + bcolors.ENDC)
         self.log.info(
             "--PJ-- _do_move : motion: target_pos=%g  delta=%g "
             % (motion.target_pos, motion.delta)
@@ -364,7 +367,7 @@ class PiezoJack(Controller):
                 "--PJ--Piezo problem (C.Loop=%r) : Moves piezo to zero and opens the loop."
                 % self.piezo.Get_Closed_Loop_Status()
             )
-            print bcolors.RED + bcolors.BOLD + "ADJUSTING PIEZO OFFSET" + bcolors.ENDC
+            print(bcolors.RED + bcolors.BOLD + "ADJUSTING PIEZO OFFSET" + bcolors.ENDC)
             self.piezo.Set_Closed_Loop(False)
             # GUILLOUD: do we really need to go to 0 ? this works whereever we are!
             # self.move_piezo_smooth(0)             # moves piezo to 0 Volt per Volt.
@@ -409,7 +412,7 @@ class PiezoJack(Controller):
                 % (piezo_target, self._PiezoSize.low, self._PiezoSize.high)
             )
 
-            ice_pos_before = self.icepap.position()
+            ice_pos_before = self.icepap.position
 
             # Places piezo in middle range.
             # Done in open loop to avoid large damaging movements.
@@ -468,7 +471,7 @@ class PiezoJack(Controller):
                 )
                 self.icepap.rmove(ice_delta)
 
-            icepap_after = self.icepap.position()
+            icepap_after = self.icepap.position
             self.log.info(
                 "--PJ- icepap after approach: %s, delta: %s"
                 % (icepap_after, icepap_after - ice_pos_before)

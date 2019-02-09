@@ -240,6 +240,6 @@ class HMT330(object):
 
     def __getitem__(self, name):
         data = self.measure()
-        if isinstance(name, (str, unicode)):
+        if isinstance(name, str):
             return data[name.upper()]
         return [data[n.upper()] for n in name]

@@ -143,4 +143,4 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         }
     }
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
-    assert pytest.approx(m1.position(), end_pos)
+    assert pytest.approx(m1.position, end_pos)

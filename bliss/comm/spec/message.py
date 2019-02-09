@@ -21,7 +21,7 @@ from .reply import SpecReply
 
 MAGIC_NUMBER = 4277009102
 NATIVE_HEADER_VERSION = 4
-NULL = "\000"
+NULL = "\x00"
 
 # cmd
 (
@@ -81,11 +81,11 @@ def rawtodictonary(rawstring):
     """Transform a list as coming from a SPEC associative array
     to a dictonary - 2dim arrays are transformed top dict with dict
     entries. In SPEC the key contains \x1c"""
-    raw = rawstring.split(NULL)[:-2]
+    raw = rawstring.split(b"\x00")[:-2]
 
     data = {}
     for i in range(0, len(raw) - 1, 2):
-        key, val = raw[i], raw[i + 1]
+        key, val = raw[i].decode(), raw[i + 1].decode()
         keyel = key.split("\x1c")
         if len(keyel) == 1:
             if key in data:
@@ -93,7 +93,7 @@ def rawtodictonary(rawstring):
             else:
                 data[key] = val
         else:
-            if keyel[0] in data and not isinstance(data[keyel[0]], types.DictType):
+            if keyel[0] in data and not isinstance(data[keyel[0]], dict):
                 data[keyel[0]] = {None: data[keyel[0]]}
 
             try:
@@ -105,13 +105,13 @@ def rawtodictonary(rawstring):
     return data
 
 
-def dictionarytoraw(dict):
+def dictionarytoraw(d):
     """Transform a Python dictionary object to the string format
     expected by Spec"""
     data = ""
-    for key, val in dict.items():
-        if isinstance(val, types.DictType):
-            for kkey, vval in val.iteritems():
+    for key, val in d.items():
+        if isinstance(val, dict):
+            for kkey, vval in val.items():
                 if kkey is None:
                     data += str(key) + NULL + str(vval) + NULL
                 else:
@@ -121,7 +121,7 @@ def dictionarytoraw(dict):
         else:
             data += str(key) + NULL + str(val) + NULL
 
-    return (len(data) > 0 and data) or NULL
+    return data if data else NULL
 
 
 class SpecMessage:
@@ -231,15 +231,11 @@ class SpecMessage:
           - it is a hard job guessing ARRAY_* types, we ignore this case (user has to provide a suitable datatype)
           - we cannot make a difference between ERROR type and STRING type
         """
-        if isinstance(data, types.StringType):
+        if isinstance(data, (bytes, str)):
             return STRING
-        elif isinstance(data, types.DictType):
+        elif isinstance(data, dict):
             return ASSOC
-        elif (
-            isinstance(data, types.IntType)
-            or isinstance(data, types.LongType)
-            or isinstance(data, types.FloatType)
-        ):
+        elif isinstance(data, (int, float)):
             return STRING
 
     def sendingDataString(self, data, datatype):
@@ -254,7 +250,7 @@ class SpecMessage:
         if len(rawstring) > 0:
             rawstring += NULL
 
-        return rawstring
+        return rawstring.encode()
 
     def sendingString(self):
         """Create a string representing the message which can be send
@@ -436,7 +432,7 @@ class message4(SpecMessage):
             )
         # print 'READ header', self.magic, 'vers=', self.vers, 'size=', self.size, 'cmd=', self.cmd, 'type=', datatype, 'datalen=', datalen, 'err=', self.err, 'flags=', self.flags, 'name=', str(self.name)
         self.time = self.sec + float(self.usec) / 1E6
-        self.name = name.replace(NULL, "")  # remove padding null bytes
+        self.name = name.decode().replace(NULL, "")  # remove padding null bytes
 
         if self.err > 0:
             datatype = ERROR  # change message type to 'ERROR' for further processing
@@ -468,7 +464,7 @@ class message4(SpecMessage):
             datalen,
             self.err,
             self.flags,
-            str(self.name),
+            self.name.encode(),
         )
 
         return header + data
@@ -509,13 +505,13 @@ class anymessage(SpecMessage):
 
 def commandListToCommandString(cmdlist):
     """Convert a command list to a Spec command string."""
-    if isinstance(cmdlist, types.ListType) and len(cmdlist) > 0:
+    if isinstance(cmdlist, list) and len(cmdlist) > 0:
         cmd = [str(cmdlist[0])]
 
         for arg in cmdlist[1:]:
             argstr = repr(arg)
 
-            if isinstance(arg, types.DictType):
+            if isinstance(arg, dict):
                 argstr = argstr.replace("{", "[")
                 argstr = argstr.replace("}", "]")
 

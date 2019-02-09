@@ -159,8 +159,8 @@ class Icepap(Controller):
     def set_velocity(self, axis, new_velocity):
         if isinstance(axis, TrajectoryAxis):
             return axis._set_velocity(new_velocity)
-        current_acc_time = axis.acctime()
-        current_acc = float(axis.acceleration())
+        current_acc_time = axis.acctime
+        current_acc = float(axis.acceleration)
         future_acc_time = new_velocity / (current_acc * axis.steps_per_unit)
         try:
             _command(self._cnx, "ACCTIME %s %f" % (axis.address, future_acc_time))
@@ -379,12 +379,12 @@ class Icepap(Controller):
     def get_event_positions(self, axis_or_encoder):
         """
         For this controller this method should be use
-        for debugging purposed only... 
+        for debugging purposed only...
         """
         address = axis_or_encoder.address
         # Get the number of positions
         reply = _command(self._cnx, "%d:?ECAMDAT" % address)
-        reply_exp = re.compile("(\w+) +([+-]?\d+) +([+-]?\d+) +(\d+)")
+        reply_exp = re.compile(r"(\w+) +([+-]?\d+) +([+-]?\d+) +(\d+)")
         m = reply_exp.match(reply)
         if m is None:
             raise RuntimeError("Reply Didn't expected: %s" % reply)
@@ -398,7 +398,7 @@ class Icepap(Controller):
 
         positions = numpy.zeros((nb,), dtype=numpy.int32)
         if nb > 0:
-            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply_exp = re.compile(r".+: +([+-]?\d+)")
             reply = _command(self._cnx, "%d:?ECAMDAT %d" % (address, nb))
             for i, line in enumerate(reply.split("\n")):
                 m = reply_exp.match(line)
@@ -435,7 +435,7 @@ class Icepap(Controller):
                 axis_data, _vdata_header(pvt["velocity"], axis, SLOPE)
             )
             h = hashlib.md5()
-            h.update(axis_data.tostring())
+            h.update(axis_data.tobytes())
             digest = h.hexdigest()
             if axis._trajectory_cache.value != digest:
                 data = numpy.append(data, axis_data)
@@ -529,7 +529,7 @@ class Icepap(Controller):
         address = axis.address
         # Get the number of positions
         reply = _command(self._cnx, "%d:?LISTDAT" % address)
-        reply_exp = re.compile("(\d+) *(\w+)?")
+        reply_exp = re.compile(r"(\d+) *(\w+)?")
         m = reply_exp.match(reply)
         if m is None:
             raise RuntimeError("Reply didn't expected: %s" % reply)
@@ -537,7 +537,7 @@ class Icepap(Controller):
         positions = numpy.zeros((nb,), dtype=numpy.int32)
         cyclic = True if m.group(2) == "CYCLIC" else False
         if nb > 0:
-            reply_exp = re.compile(".+: +([+-]?\d+)")
+            reply_exp = re.compile(r".+: +([+-]?\d+)")
             reply = _command(self._cnx, "%d:?LISTDAT %d" % (address, nb))
             for i, line in enumerate(reply.split("\n")):
                 m = reply_exp.match(line)
@@ -599,7 +599,7 @@ class Icepap(Controller):
         self._cnx.close()
 
 
-_check_reply = re.compile("^[#?]|^[0-9]+:\?")
+_check_reply = re.compile(r"^[#?]|^[0-9]+:\?")
 PARAMETER, POSITION, SLOPE = (0x1000, 0x2000, 0x4000)
 
 
@@ -651,6 +651,8 @@ def _vdata_header(data, axis, vdata_type):
 
 @protect_from_kill
 def _command(cnx, cmd, data=None, pre_cmd=None):
+    reply_flag = _check_reply.match(cmd)
+    cmd = cmd.encode()
     if data is not None:
         uint16_view = data.view(dtype=numpy.uint16)
         data_checksum = uint16_view.sum()
@@ -665,23 +667,26 @@ def _command(cnx, cmd, data=None, pre_cmd=None):
         if len(data_test) and data_test[0] != data[0]:  # not good endianness
             data = data.byteswap()
 
-        full_cmd = "%s\n%s%s" % (cmd, header, data.tostring())
+        full_cmd = b"%s\n%s%s" % (cmd, header, data.tostring())
         transaction = cnx._write(full_cmd)
     else:
-        full_cmd = "%s%s\n" % (pre_cmd or "", cmd)
+        if pre_cmd:
+            full_cmd = b"%s%s\n" % (pre_cmd.encode(), cmd)
+        else:
+            full_cmd = b"%s\n" % cmd
         transaction = cnx._write(full_cmd)
     with cnx.Transaction(cnx, transaction):
-        if _check_reply.match(cmd):
+        if reply_flag:
             msg = cnx._readline(transaction=transaction, clear_transaction=False)
-            cmd = cmd.strip("#").split(" ")[0]
-            msg = msg.replace(cmd + " ", "")
-            if msg.startswith("$"):
+            cmd = cmd.strip(b"#").split(b" ")[0]
+            msg = msg.replace(cmd + b" ", b"")
+            if msg.startswith(b"$"):
                 msg = cnx._readline(
-                    transaction=transaction, clear_transaction=False, eol="$\n"
+                    transaction=transaction, clear_transaction=False, eol=b"$\n"
                 )
-            elif msg.startswith("ERROR"):
-                raise RuntimeError(msg.replace("ERROR ", ""))
-            elif msg.startswith("?*"):
+            elif msg.startswith(b"ERROR"):
+                raise RuntimeError(msg.replace(b"ERROR ", b"").decode())
+            elif msg.startswith(b"?*"):
                 # a binary reply
                 header = cnx._read(transaction, size=12, clear_transaction=False)
                 dfmt, magic, size, checksum = struct.unpack("<HHII", header)
@@ -691,7 +696,7 @@ def _command(cnx, cmd, data=None, pre_cmd=None):
                     transaction, size=dsize * size, clear_transaction=False
                 )
                 return numpy.fromstring(data, dtype="u{0}".format(dsize))
-            return msg.strip(" ")
+            return msg.strip(b" ").decode()
 
 
 def _ackcommand(cnx, cmd, data=None, pre_cmd=None):

@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
 Bliss TANGO device class
@@ -16,22 +21,19 @@ To configure it in Jive:
    Add property: 'session_name'. Value is the name of the session
                  (not mandatory. defaults to the server instance)
 """
-from __future__ import absolute_import
+
 
 import os
 import sys
 import json
 import logging
-import StringIO
+import io
 import functools
 import itertools
 import traceback
-import collections
-import cPickle
+import pickle
 import base64
-import datetime
 
-import six
 import gevent
 import gevent.event
 
@@ -51,15 +53,6 @@ from . import utils
 _log = logging.getLogger("bliss.tango")
 
 
-print_ = six.print_
-
-
-def print_err_(*args, **kwargs):
-    """print error message"""
-    kwargs["file"] = sys.stderr
-    print_(*args, **kwargs)
-
-
 def get_bliss_obj(name):
     return get_config().get(name)
 
@@ -74,12 +67,12 @@ def excepthook(etype, value, tb, show_tb=False):
 
     lines = traceback.format_exception_only(etype, value)
     for line in lines:
-        print_err_(line, end="")
+        print(line, end="", file=sys.stderr)
     if tb and show_tb:
         msg = "\n-- Traceback (most recent call last) -----------------"
-        print_err_(msg)
+        print(msg, file=sys.stderr)
         traceback.print_tb(tb)
-        print_err_(len(msg) * "-")
+        print(len(msg) * "-", file=sys.stderr)
 
     _log.exception("Unhandled exception occurred:")
 
@@ -99,7 +92,7 @@ def sanatize_command(cmd):
     return "{0}({1})".format(cmd[0], ", ".join(cmd[1:]))
 
 
-class OutputChannel(StringIO.StringIO):
+class OutputChannel(io.StringIO):
     """channel to handle stdout/stderr across tango"""
 
     def consume(self):
@@ -241,7 +234,7 @@ class Bliss(Device):
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def namespace(self):
-        return self.__user_ns.keys()
+        return list(self.__user_ns.keys())
 
     @attribute(dtype=(str,), max_dim_x=10000)
     def functions(self):
@@ -291,14 +284,14 @@ class Bliss(Device):
         res = task.get()
         if res is not None:
             self.__results[id(task)] = base64.encodestring(
-                cPickle.dumps(res, protocol=-1)
+                pickle.dumps(res, protocol=-1)
             )
 
     def __evaluate(self, cmd):
         try:
-            six.exec_("_=" + cmd, self.__user_ns)
+            exec("_=" + cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
             return e
@@ -309,9 +302,9 @@ class Bliss(Device):
         if self.sanatize_command:
             cmd = sanatize_command(cmd)
         try:
-            six.exec_(cmd, self.__user_ns)
+            exec(cmd, self.__user_ns)
         except gevent.GreenletExit:
-            six.reraise(*sys.exc_info())
+            raise (sys.exc_info())
         except Exception as e:
             sys.excepthook(*sys.exc_info())
 
@@ -403,7 +396,7 @@ class Bliss(Device):
                 if grp.get_base_obj() == sender
             ][0]
         elif len(self.group_dict) == 1:
-            group_id = self.group_dict.keys()[0]
+            group_id = list(self.group_dict.keys())[0]
         else:
             self._log.warning("cannot not identify group move_done")
             return
@@ -425,7 +418,7 @@ class Bliss(Device):
         group = self.group_dict[group_id]
 
         def get_name_state_list(group):
-            return [(name, str(axis.state())) for name, axis in group.axes.items()]
+            return [(name, str(axis.state)) for name, axis in group.axes.items()]
 
         name_state_list = get_name_state_list(group)
         return list(itertools.chain(*name_state_list))
@@ -461,7 +454,7 @@ class Bliss(Device):
         result = {}
         if isinstance(data, dict):
             data = data.values()
-        elif isinstance(data, (str, unicode)):
+        elif isinstance(data, str):
             data = (data,)
         for element in data:
             if element:
@@ -534,7 +527,7 @@ def __register_server(
     print_("'{0}' is not configured yet.".format(server_instance))
     if not os.path.exists(os.path.expanduser(config_file)):
         config_file = ""
-    config_file = raw_input("config. file [{0}]? ".format(config_file)) or config_file
+    config_file = input("config. file [{0}]? ".format(config_file)) or config_file
     config_file = os.path.expanduser(config_file)
     if not config_file:
         print_("No configuration file was given. Exiting...")
@@ -547,7 +540,7 @@ def __register_server(
 
     # ask the user for the session name
     session_name = server_instance
-    session_name = raw_input("session name {0}? ".format(session_name)) or session_name
+    session_name = input("session name {0}? ".format(session_name)) or session_name
     if session_name != server_instance:
         properties["session_name"] = session_name
 

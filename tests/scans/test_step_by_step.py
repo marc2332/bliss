@@ -21,7 +21,7 @@ def test_ascan(session):
     robz2 = getattr(setup_globals, "robz2")
     counter = counter_class("gaussian", 2, cnt_time=0)
     s = scans.ascan(robz2, 0, .1, 2, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == .1
+    assert robz2.position == .1
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["gaussian"], counter.data)
 
@@ -31,7 +31,7 @@ def test_ascan_gauss(session):
     robz2 = getattr(setup_globals, "robz2")
     counter = counter_class("gaussianCurve")
     s = scans.ascan(robz2, 0, .1, 2, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == .1
+    assert robz2.position == .1
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["gaussianCurve"], counter.data)
     counter.close()
@@ -42,9 +42,9 @@ def test_dscan(session):
     counter = counter_class("gaussian", 2, cnt_time=0)
     robz2 = getattr(setup_globals, "robz2")
     # contrary to ascan, dscan returns to start pos
-    start_pos = robz2.position()
+    start_pos = robz2.position
     s = scans.dscan(robz2, -.2, .2, 2, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == start_pos
+    assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
         scan_data["robz2"], numpy.linspace(start_pos - .2, start_pos + .2, 2), atol=5e-4
@@ -62,14 +62,14 @@ def test_dscan_move_done(session):
 
     def target(done):
         if done:
-            positions.append(robz2.dial())
+            positions.append(robz2.dial)
 
     event.connect(robz2, "move_done", target)
 
     # contrary to ascan, dscan returns to start pos
-    start_pos = robz2.position()
+    start_pos = robz2.position
     s = scans.dscan(robz2, -.2, .2, 2, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == start_pos
+    assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
         scan_data["robz2"], numpy.linspace(start_pos - .2, start_pos + .2, 2), atol=5e-4
@@ -86,10 +86,9 @@ def test_pointscan(session):
     robz2 = getattr(setup_globals, "robz2")
     counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     counter = counter_class("gaussian", 4, cnt_time=0)
-    print counter.data
     points = [.0, .1, .3, .7]
     s = scans.pointscan(robz2, points, 0, counter, return_scan=True, save=False)
-    assert robz2.position() == .7
+    assert robz2.position == .7
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["robz2"], points)
     assert numpy.array_equal(scan_data["gaussian"], counter.data)
@@ -253,8 +252,8 @@ def test_amesh(session):
     s = scans.amesh(
         robz2, 0, 10, 5, robz, 0, 5, 3, 0.01, counter, return_scan=True, save=False
     )
-    assert robz2.position() == 10
-    assert robz.position() == 5
+    assert robz2.position == 10
+    assert robz.position == 5
     scan_data = s.get_data()
     assert len(scan_data["robz2"]) == 15
     assert len(scan_data["robz"]) == 15
@@ -271,13 +270,13 @@ def test_dmesh(session):
     robz2 = getattr(setup_globals, "robz2")
     robz = getattr(setup_globals, "robz")
     counter = counter_class("gaussian", 15, cnt_time=0.01)
-    start_robz2 = robz2.position()
-    start_robz = robz.position()
+    start_robz2 = robz2.position
+    start_robz = robz.position
     s = scans.dmesh(
         robz2, -5, 5, 5, robz, -3, 3, 3, 0.01, counter, return_scan=True, save=False
     )
-    assert robz2.position() == start_robz2
-    assert robz.position() == start_robz
+    assert robz2.position == start_robz2
+    assert robz.position == start_robz
     scan_data = s.get_data()
     assert len(scan_data["robz2"]) == 15
     assert len(scan_data["robz"]) == 15
@@ -335,3 +334,23 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
         assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
     finally:
         scan_saving.base_path = saved_base_path
+
+
+def test_motor_group(beacon):
+    diode = beacon.get("diode")
+    roby = beacon.get("roby")
+    robz = beacon.get("robz")
+    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
+
+    children = list(scan.node.children())
+    axis_master = children[0]
+    assert axis_master.name == "axis"
+    items = dict((child.name, child) for child in axis_master.children())
+
+    assert items["roby"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["robz"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["timer"].parent.db_name == scan.node.db_name + ":axis"
+    timer_channels = list(items["timer"].children())
+    timer_channel_names = set([chan.name.split(":")[-1] for chan in timer_channels])
+    assert "elapsed_time" in timer_channel_names
+    assert "diode" in timer_channel_names

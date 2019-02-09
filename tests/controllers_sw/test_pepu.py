@@ -12,7 +12,7 @@ Run with:
 from functools import partial
 from contextlib import contextmanager
 
-import mock
+from unittest import mock
 import pytest
 
 from bliss.controllers.pepu import PEPU, Signal, Trigger
@@ -26,10 +26,10 @@ def pepu_assert_command(pepu, write, read):
     conn = pepu.conn
     conn._write.reset_mock()
     conn._readline.reset_mock()
-    conn._readline.return_value = read
+    conn._readline.return_value = read.encode()
     try:
         yield mock
-        conn._write.assert_called_once_with(write + "\n")
+        conn._write.assert_called_once_with(write.encode() + b"\n")
         conn._readline.assert_called_once()
     finally:
         conn._write.reset_mock()
@@ -89,12 +89,6 @@ def test_simple_connection(pepu):
     with pepu.assert_command("?VERSION", "00.01"):
         assert pepu.version == "00.01"
 
-    with pepu.assert_command("?UPTIME", "3.4"):
-        assert pepu.up_time == 3.4
-
-    with pepu.assert_command("?SYSINFO", "DANCE BLABLABLA"):
-        assert pepu.sys_info.startswith("DANCE")
-
     with pepu.assert_command("?DINFO", "UPTIME: BLI\nUNAME: BLA"):
         uptime, uname = pepu.dance_info.splitlines()
         assert uptime.startswith("UPTIME")
@@ -104,7 +98,7 @@ def test_simple_connection(pepu):
         assert pepu.config.startswith("# %APPNAME% PEPU")
 
 
-@pytest.mark.parametrize("channel_id", range(1, 7))
+@pytest.mark.parametrize("channel_id", list(range(1, 7)))
 def test_read_in_channels(pepu, channel_id):
     cmd = "?CHVAL IN%d" % channel_id
     with pepu.assert_command(cmd, "-1.2"):
@@ -144,7 +138,7 @@ def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
     )
 
     # Create stream
-    pepu.conn._readline.return_value = return_value
+    pepu.conn._readline.return_value = return_value.encode()
     stream = pepu.create_stream(
         name="TEST",
         trigger=Trigger(Signal.SOFT, Signal.SOFT),

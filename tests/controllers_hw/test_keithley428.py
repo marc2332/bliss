@@ -16,62 +16,62 @@ config = {
     "gpib_eos": "\r\n",
 }
 dev = keithley428("keithley", config)
-print dev.State
-print dev.FilterRiseTime
+print(dev.State)
+print(dev.FilterRiseTime)
 try:
     for rt in range(11):
         dev.FilterRiseTime = rt
-        print dev.FilterRiseTime
+        print(dev.FilterRiseTime)
 except Exception as e:
-    print e
+    print(e)
 try:
     for gn in range(12):
         dev.Gain = gn
-        print dev.Gain
+        print(dev.Gain)
 except Exception as e:
-    print e
+    print(e)
 
 dev.ZeroCheckOff
 dev.VoltageBiasOn
 dev.CurrentSuppressOff
-print dev.VoltageBias
+print(dev.VoltageBias)
 dev.VoltageBias = 0.01
-print dev.VoltageBias
+print(dev.VoltageBias)
 dev.VoltageBias = 0.05
-print dev.VoltageBias
+print(dev.VoltageBias)
 
-print "state ", dev.State
-print "Overloaded? ", dev.Overloaded
-print "Filter state ", dev.FilterState
+print("state ", dev.State)
+print("Overloaded? ", dev.Overloaded)
+print("Filter state ", dev.FilterState)
 dev.FilterOn
-print "Filter state ", dev.FilterState
+print("Filter state ", dev.FilterState)
 dev.FilterOff
-print "Filter state ", dev.FilterState
+print("Filter state ", dev.FilterState)
 
-print "Auto Filter state ", dev.AutoFilterState
+print("Auto Filter state ", dev.AutoFilterState)
 dev.AutoFilterOff
-print "Auto Filter state ", dev.AutoFilterState
+print("Auto Filter state ", dev.AutoFilterState)
 dev.AutoFilterOn
-print "Auto Filter state ", dev.AutoFilterState
+print("Auto Filter state ", dev.AutoFilterState)
 
 dev.CurrentSuppressOn
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.0006
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.00007
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.000008
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.0000009
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.00000006
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.000000007
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 dev.CurrentSuppress = 0.0000000008
-print dev.CurrentSuppress
+print(dev.CurrentSuppress)
 try:
     dev.CurrentSuppress = 0.00000000009
 except Exception as e:
-    print e
+    print(e)
 dev.CurrentSuppressOff

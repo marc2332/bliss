@@ -17,17 +17,18 @@ replied_host = set()
 try:
     with gevent.Timeout(3., "END"):
         while True:
-            msg,address = udp.recvfrom(8192)
-            host,port = msg.split('|')
-            replied_host.add((host,port))
+            msg, address = udp.recvfrom(8192)
+            msg = msg.decode()
+            host, port = msg.split("|")
+            replied_host.add((host, port))
 except gevent.Timeout:
     pass
 
 if replied_host:
-    max_host_len = max([len(host) for host,port in replied_host])
+    max_host_len = max([len(host) for host, port in replied_host])
     format = "{0: <%d} {1}" % max_host_len
-    print(format.format("HOST","PORT"))
+    print((format.format("HOST", "PORT")))
     for host, port in sorted(replied_host):
-        print(format.format(host, port))
+        print((format.format(host, port)))
 else:
     print("No response!!!")

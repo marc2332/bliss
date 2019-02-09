@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import sys
 import time
@@ -46,8 +45,8 @@ def is_cmd_allowed(fisallowed):
 
 class NanoBpm(Device):
 
-    CONTINUOUS, STREAMING = range(2)
-    BPP8, BPP16, BPP32 = range(3)
+    CONTINUOUS, STREAMING = list(range(2))
+    BPP8, BPP16, BPP32 = list(range(3))
 
     # -------------------------------------------------------------------------
     # Device Properties
@@ -139,8 +138,8 @@ class NanoBpm(Device):
     @acqMode.write
     @DebugIt()
     def acqMode(self, mode):
-        ind = self._AcqMode2String.values().index(mode)
-        self._acqMode = self._AcqMode2String.keys()[ind]
+        ind = list(self._AcqMode2String.values()).index(mode)
+        self._acqMode = list(self._AcqMode2String.keys())[ind]
 
     @attribute(
         label="Integration time",
@@ -300,8 +299,8 @@ class NanoBpm(Device):
     @imageDepth.write
     def imageDepth(self, depth):
         try:
-            ind = self.imageDepth2String.values().index(depth)
-            self._imageDepth = self.imageDepth2String.keys()[ind]
+            ind = list(self.imageDepth2String.values()).index(depth)
+            self._imageDepth = list(self.imageDepth2String.keys())[ind]
         except ValueError:
             pass
 
@@ -519,7 +518,7 @@ class NanoBpm(Device):
         """ Get the hardware and software configuration of the device.
         """
         deviceInfo = self._nanoBpm.getDeviceInfo()
-        return ["{0}={1}".format(key, value) for key, value in deviceInfo.iteritems()]
+        return ["{0}={1}".format(key, value) for key, value in deviceInfo.items()]
 
     @command(dtype_out=(str,), doc_out="Get the current device configuration")
     @DebugIt()
@@ -528,7 +527,7 @@ class NanoBpm(Device):
         """ Get the current device configuration.
         """
         deviceConfig = self._nanoBpm.getDeviceConfig()
-        return ["{0}={1}".format(key, value) for key, value in deviceConfig.iteritems()]
+        return ["{0}={1}".format(key, value) for key, value in deviceConfig.items()]
 
     @command(dtype_out=(str,), doc_out="Get the current device parameters")
     @DebugIt()
@@ -537,9 +536,7 @@ class NanoBpm(Device):
         """ Get the current device parameters.
         """
         deviceParameters = self._nanoBpm.getDeviceParameters()
-        return [
-            "{0}={1}".format(key, value) for key, value in deviceParameters.iteritems()
-        ]
+        return ["{0}={1}".format(key, value) for key, value in deviceParameters.items()]
 
     @command
     @DebugIt()

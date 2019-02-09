@@ -10,7 +10,7 @@ import time
 import gevent
 import gevent.event
 from tango.gevent import DeviceProxy
-import cPickle as pickle
+import pickle as pickle
 import base64
 
 
@@ -19,11 +19,11 @@ def decode_tango_eval(x):
 
 
 def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
-    s1hg.dial(1)
-    s1hg.position(1)
-    assert s1f.position() == 0.5
-    assert s1b.position() == 0.5
-    assert s1hg.position() == 1
+    s1hg.dial = 1
+    s1hg.position = 1
+    assert s1f.position == 0.5
+    assert s1b.position == 0.5
+    assert s1hg.position == 1
 
     dev_name, proxy = bliss_tango_server
     tango_s1hg = DeviceProxy(
@@ -33,10 +33,10 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     assert tango_s1hg.read_attribute("position").value == 1
     assert tango_s1hg.read_attribute("offset").value == 0
 
-    s1f.velocity(0.1)
-    s1b.velocity(0.1)
+    s1f.velocity = 0.1
+    s1b.velocity = 0.1
 
-    eval_id = proxy.eval("(s1f.velocity(), s1b.velocity())")
+    eval_id = proxy.eval("(s1f.velocity, s1b.velocity)")
     gevent.sleep(0.1)
     res = proxy.get_result(eval_id)
     assert decode_tango_eval(res) == (0.1, 0.1)
@@ -46,11 +46,11 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
 
     gevent.sleep(0.1)
 
-    assert "MOVING" in s1hg.state()
+    assert "MOVING" in s1hg.state
 
     s1hg.wait_move()
 
-    assert s1hg.position() == pytest.approx(2)
+    assert s1hg.position == pytest.approx(2)
 
     s1hg.rmove(1)
 

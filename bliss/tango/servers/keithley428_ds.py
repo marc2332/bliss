@@ -9,7 +9,7 @@
 
 Class for controlling the Keithley428 current amplifier.
 """
-from __future__ import absolute_import
+
 
 __all__ = ["Keithley428", "main"]
 

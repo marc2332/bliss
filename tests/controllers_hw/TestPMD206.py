@@ -90,12 +90,12 @@ class TestPMD206Controller(unittest.TestCase):
 
     def test_get_chan(self):
         pm1 = bliss.get_axis("pm1")
-        print "PMD206 channel :", pm1.channel
+        print("PMD206 channel :", pm1.channel)
 
     def test_get_info(self):
         pm1 = bliss.get_axis("pm1")
-        print "PMD206 info :"
-        print pm1.get_info()
+        print("PMD206 info :")
+        print(pm1.get_info())
 
     # called at end of each test
     def tearDown(self):
@@ -153,8 +153,8 @@ print p.controller.get_motor_status(p)
 # text status
 print p.controller.status(p)
 
-print p.measured_position()
-print p.state()
+print p.measured_position
+print p.state
 
 
 # conversion from hex to decimal:

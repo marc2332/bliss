@@ -92,7 +92,57 @@ Example of YML configuration file to be used with previous controller:
 
 ### ser2net
 
-TODO
+Ser2net (aka rfc2217) is a protocol to deport serial line via ethernet.
+
+
+Such a remote serial line can be used in *rfc2217* mode or *ser2net*
+mode.
+
+*ser2net* mode allows to define the remote serial device to use in local
+config (considering a well configured (with control port) ser2net
+server)
+
+*rfc2217* mode uses the mapping "port <-> serial device" defined on the
+ remote host in ser2net config file
+
+```YAML
+    -
+      controller:
+        class: Mechonics
+        name: mechoCN30
+        serial:
+          url: ser2net://lidXXX:29000/dev/ttyRP11
+        axes:
+           - name: m1
+             velocity: 1
+             acceleration: 1
+             steps_per_unit: 1
+             channel: 1
+```
+
+or:
+
+```YAML
+    -
+      controller:
+        class: Mechonics
+        name: mechoCN30
+        serial:
+          url: rfc2217://lidXXX:28001
+        axes:
+           - name: m1
+             velocity: 1
+             acceleration: 1
+             steps_per_unit: 1
+             channel: 1
+```
+
+
+#### Not declared in config
+
+
+
+
 
 ### Serial line detached from a controller
 Mainly for tests and debugging purpose.

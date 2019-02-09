@@ -6,24 +6,24 @@ def test_connect_socket(udp_socket):
 
 
 def test_write_read_n_bytes_socket(udp_socket):
-    data = udp_socket.write_read("A" * 1024, size=1024)
+    data = udp_socket.write_read(b"A" * 1024, size=1024)
     assert len(data) == 1024
 
 
 def test_write_readline_socket(udp_socket):
-    msg = "HELLO\nWORLD\n"
+    msg = b"HELLO\nWORLD\n"
     udp_socket.write(msg)
-    assert udp_socket.readline() == "HELLO"
-    assert udp_socket.readline() == "WORLD"
+    assert udp_socket.readline() == b"HELLO"
+    assert udp_socket.readline() == b"WORLD"
 
 
 def test_write_readline2_socket(udp_socket):
-    assert udp_socket.write_readline("HELLO\n") == "HELLO"
-    assert udp_socket.write_readline("WORLD\n") == "WORLD"
+    assert udp_socket.write_readline(b"HELLO\n") == b"HELLO"
+    assert udp_socket.write_readline(b"WORLD\n") == b"WORLD"
 
 
 def test_write_readlines_socket(udp_socket):
-    assert udp_socket.write_readlines("HELLO\nWORLD\n", 2) == ["HELLO", "WORLD"]
+    assert udp_socket.write_readlines(b"HELLO\nWORLD\n", 2) == [b"HELLO", b"WORLD"]
 
 
 def test_readline_timeout_socket(udp_socket):
@@ -36,4 +36,4 @@ def test_readline_timeout_socket(udp_socket):
 
 
 def test_tryconnect_socket(udp_socket):
-    assert udp_socket.write_read("X") == "X"
+    assert udp_socket.write_read(b"X") == b"X"

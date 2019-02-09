@@ -74,7 +74,7 @@ class Shutter(BaseShutter):
         axis_name = self.config.get("axis_name")
         if axis_name is not None:
             self._axis = self.__controller.get_axis(axis_name)
-            self._axis.position()  # real init
+            self._axis.position  # real init
         else:
             raise RuntimeError("Shutter %s has no axis_name configured" % self.name)
 
@@ -129,12 +129,12 @@ class Shutter(BaseShutter):
         return self._move_time()
 
     def _move_time(self):
-        acctime = self._axis.acctime()
-        velocity = self._axis.velocity()
+        acctime = self._axis.acctime
+        velocity = self._axis.velocity
         acceleration_distance = velocity * acctime
         total_distance = abs(self.opened_position - self.closed_position)
         if acceleration_distance > total_distance:
-            return 2 * math.sqrt(total_distance / self._axis.acceleration())
+            return 2 * math.sqrt(total_distance / self._axis.acceleration)
         else:
             t1 = (total_distance - acceleration_distance) / velocity
             return t1 + 2 * acctime
@@ -164,7 +164,7 @@ class Shutter(BaseShutter):
         self._axis.move(closed_pos)
 
     def _state(self):
-        curr_pos = self._axis.position()
+        curr_pos = self._axis.position
         if curr_pos == self.closed_position:
             return self.CLOSED
         elif curr_pos == self.opened_position:

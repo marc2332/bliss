@@ -11,7 +11,7 @@ import gevent
 import gevent.event
 from bliss.common import event
 import numpy
-import mock
+from unittest import mock
 
 
 def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
@@ -31,9 +31,9 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
 
     assert tg.calc_axis == s1hg
 
-    s1hg.dial(-1)
-    assert pytest.approx(s1f.offset, -.5)
-    assert pytest.approx(s1b.offset, -.5)
+    s1hg.dial = -1
+    assert pytest.approx(s1f.offset, -0.5)
+    assert pytest.approx(s1b.offset, -0.5)
 
     tg.prepare()
     assert tg._TrajectoryGroup__trajectories_dialunit
@@ -44,7 +44,7 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
             user_pos_traj = trajectories[i].pvt["position"] * traj.axis.steps_per_unit
             assert numpy.allclose(
                 user_pos_traj - traj.pvt["position"],
-                [-.5 * traj.axis.steps_per_unit] * 102,
+                [-0.5 * traj.axis.steps_per_unit] * 102,
             )
 
     tg.move_to_start()

@@ -91,7 +91,7 @@ class Controller(object):
     def _init(self):
         controller_axes = [
             (axis_name, axis)
-            for axis_name, axis in self.axes.iteritems()
+            for axis_name, axis in self.axes.items()
             if not isinstance(axis, AxisRef)
         ]
         self._update_refs()
@@ -139,7 +139,7 @@ class Controller(object):
 
     def _update_refs(self):
         config = static.get_config()
-        for tag, axis_list in self._tagged.iteritems():
+        for tag, axis_list in self._tagged.items():
             for i, axis in enumerate(axis_list):
                 if not isinstance(axis, AxisRef):
                     continue
@@ -152,7 +152,7 @@ class Controller(object):
                 axis_list[i] = referenced_axis
 
     def _init_settings(self):
-        for axis in self.axes.itervalues():
+        for axis in self.axes.values():
             axis._beacon_channels.clear()
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
 
@@ -176,7 +176,7 @@ class Controller(object):
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()
         max_pos = user_positions.max()
-        ll, hl = axis.limits()
+        ll, hl = axis.limits
         if min_pos < ll:
             # get motion object, this will raise ValueError exception
             axis._get_motion(min_pos)
@@ -243,12 +243,11 @@ class Controller(object):
 
             for setting_name in axis.settings.config_settings():
                 value = get_setting_or_config_value(axis, setting_name)
-                meth = getattr(axis, setting_name)
-                meth(value)
+                setattr(axis, setting_name, value)
 
             low_limit = get_setting_or_config_value(axis, "low_limit")
             high_limit = get_setting_or_config_value(axis, "high_limit")
-            axis.limits(low_limit, high_limit)
+            axis.limits = low_limit, high_limit
         except:
             self.__initialized_axis[axis] = False
             raise
@@ -446,7 +445,7 @@ class CalcController(Controller):
             self.reals.append(real_axis)
 
         self.pseudos = [
-            axis for axis_name, axis in self.axes.iteritems() if axis not in self.reals
+            axis for axis_name, axis in self.axes.items() if axis not in self.reals
         ]
 
         self._reals_group = Group(*self.reals)
@@ -484,14 +483,14 @@ class CalcController(Controller):
     def _axis_tag(self, axis):
         return [
             tag
-            for tag, axes in self._tagged.iteritems()
+            for tag, axes in self._tagged.items()
             if tag != "real" and len(axes) == 1 and axis in axes
         ][0]
 
     def _get_set_positions(self):
         setpos_dict = dict()
         for axis in self.pseudos:
-            setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position())
+            setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position)
         return setpos_dict
 
     def _real_position_update(self, *args):
@@ -503,11 +502,11 @@ class CalcController(Controller):
     def _real_setpos_update(self, _):
         real_setpos = dict()
         for axis in self.reals:
-            real_setpos[self._axis_tag(axis)] = axis._set_position()
+            real_setpos[self._axis_tag(axis)] = axis._set_position
 
         new_setpos = self.calc_from_real(real_setpos)
 
-        for tagged_axis_name, setpos in new_setpos.iteritems():
+        for tagged_axis_name, setpos in new_setpos.items():
             axis = self._tagged[tagged_axis_name][0]
             axis.settings.set("_set_position", axis.dial2user(setpos))
 
@@ -519,7 +518,7 @@ class CalcController(Controller):
         pseudo_axis_tag = self._axis_tag(axis)
 
         axis_positions = self._get_set_positions()
-        for ptag, ppos in axis_positions.iteritems():
+        for ptag, ppos in axis_positions.items():
             if ptag == pseudo_axis_tag:
                 axis_positions[ptag] = positions
             else:
@@ -527,12 +526,12 @@ class CalcController(Controller):
 
         real_positions = self.calc_to_real(axis_positions)
 
-        for rtag, rpos in real_positions.iteritems():
+        for rtag, rpos in real_positions.items():
             real_axis = self._tagged[rtag][0]
             real_axis.controller._check_limits(real_axis, rpos)
 
     def _do_calc_from_real(self):
-        real_positions_by_axis = self._reals_group.position()
+        real_positions_by_axis = self._reals_group.position
         real_positions = dict(
             [
                 (self._axis_tag(axis), pos)
@@ -544,7 +543,7 @@ class CalcController(Controller):
     def _calc_from_real(self, *args, **kwargs):
         new_positions = self._do_calc_from_real()
 
-        for tagged_axis_name, dial_pos in new_positions.iteritems():
+        for tagged_axis_name, dial_pos in new_positions.items():
             axis = self._tagged[tagged_axis_name][0]
             if axis in self.pseudos:
                 user_pos = axis.dial2user(dial_pos)
@@ -573,7 +572,7 @@ class CalcController(Controller):
     def start_all(self, *motion_list):
         positions_dict = self._get_set_positions()
         move_dict = dict()
-        for tag, target_pos in self.calc_to_real(positions_dict).iteritems():
+        for tag, target_pos in self.calc_to_real(positions_dict).items():
             real_axis = self._tagged[tag][0]
             move_dict[real_axis] = target_pos
 
@@ -595,7 +594,7 @@ class CalcController(Controller):
         return pos
 
     def state(self, axis, new_state=None):
-        st = self._reals_group.state()
+        st = self._reals_group.state
         if st.READY:
             self._calc_from_real()
         return st
@@ -609,8 +608,8 @@ class CalcController(Controller):
         positions = self._get_set_positions()
         positions[self._axis_tag(axis)] = new_pos
         real_positions = self.calc_to_real(positions)
-        for real_axis_tag, user_pos in real_positions.iteritems():
-            self._tagged[real_axis_tag][0].position(user_pos)
+        for real_axis_tag, user_pos in real_positions.items():
+            self._tagged[real_axis_tag][0].position = user_pos
 
         new_positions = self._calc_from_real()
 
@@ -644,7 +643,7 @@ class CalcController(Controller):
         # check if real motor has trajectory capability
         real_axes = list()
         real_involved = self.calc_to_real(
-            {self._axis_tag(caxis): caxis.position() for caxis in self.pseudos}
+            {self._axis_tag(caxis): caxis.position for caxis in self.pseudos}
         )
         for real in self.reals:
             if self._axis_tag(real) in real_involved:
@@ -696,10 +695,10 @@ class CalcController(Controller):
             if caxis is calc_axis:
                 continue
             cpos = numpy.zeros(len(calc_positions), dtype=numpy.float)
-            cpos[:] = caxis.position()
+            cpos[:] = caxis.position
             positions[self._axis_tag(caxis)] = cpos
 
-        time = numpy.linspace(0., nb_points * time_per_point, nb_points)
+        time = numpy.linspace(0.0, nb_points * time_per_point, nb_points)
         real_positions = self.calc_to_real(positions)
         final_real_axes_position = dict()
         self._get_real_position(real_axes, real_positions, final_real_axes_position)
@@ -712,20 +711,20 @@ class CalcController(Controller):
             time,
             {
                 axis.name: position
-                for axis, position in final_real_axes_position.iteritems()
+                for axis, position in iter(final_real_axes_position.items())
             },
             spline_nb_points=spline_nb_points,
         )
         # check velocity and acceleration
-        max_velocity = pt.max_velocity()
-        max_acceleration = pt.max_acceleration()
-        limits = pt.limits()
+        max_velocity = pt.max_velocity
+        max_acceleration = pt.max_acceleration
+        limits = pt.limits
         error_list = list()
         start_stop_acceleration = dict()
         for axis in final_real_axes_position:
-            vel = axis.velocity()
-            acc = axis.acceleration()
-            axis_limits = axis.limits()
+            vel = axis.velocity
+            acc = axis.acceleration
+            axis_limits = axis.limits
             traj_vel = max_velocity[axis.name]
             traj_acc = max_acceleration[axis.name]
             traj_limits = limits[axis.name]
@@ -769,7 +768,7 @@ class CalcController(Controller):
             ctrl = axis.controller
             if isinstance(ctrl, CalcController):
                 real_involved = ctrl.calc_to_real(
-                    {ctrl._axis_tag(caxis): caxis.position() for caxis in ctrl.pseudos}
+                    {ctrl._axis_tag(caxis): caxis.position for caxis in ctrl.pseudos}
                 )
                 real_axes = list()
                 for real in ctrl.reals:
@@ -802,7 +801,7 @@ class CalcController(Controller):
                     if caxis is axis or axis_tag in local_real_positions:
                         continue
                     cpos = numpy.zeros(len(axis_position), dtype=numpy.float)
-                    cpos[:] = caxis.position()
+                    cpos[:] = caxis.position
                     local_real_positions[ctrl._axis_tag(caxis)] = cpos
 
                 dep_real_position = ctrl.calc_to_real(local_real_positions)

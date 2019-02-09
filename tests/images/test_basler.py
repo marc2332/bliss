@@ -41,7 +41,7 @@ display.setActive(True)
 
 acq = ct.acquisition()
 
-print "mode=", video.getMode()
+print("mode=", video.getMode())
 video.setGain(0.19)
 video.setExposure(0.1)
 
@@ -61,7 +61,7 @@ def refresh():
     global dump_image
     image = video.getLastImage()
     if image.frameNumber() < 0:
-        print "not ready..."
+        print("not ready...")
         return
 
     if False:  # scaling.set_custom_mapping(0,255)
@@ -106,7 +106,7 @@ def refresh():
             ff.close()
             dump_image = False
 
-    print video.getLastImageCounter(), image
+    print(video.getLastImageCounter(), image)
     label.setPixmap(QtGui.QPixmap.fromImage(qimage))
 
 

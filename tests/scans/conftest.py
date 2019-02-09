@@ -11,6 +11,61 @@ import gevent
 import time
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.controllers.simulation_diode import SimulationDiodeSamplingCounter
+from bliss.scanning.chain import (
+    AcquisitionMaster,
+    AcquisitionDevice,
+    AcquisitionChannel,
+)
+
+
+class DummyMaster(AcquisitionMaster):
+    def __init__(self, *args, **kwargs):
+        AcquisitionMaster.__init__(self, *args, **kwargs)
+        self.child_prepared = 0
+        self.child_started = 0
+
+    def prepare(self):
+        self.wait_slaves_prepare()
+        self.child_prepared = sum((slave.prepared_flag for slave in self.slaves))
+
+    def start(self):
+        self.child_started = sum((slave.started_flag for slave in self.slaves))
+        if not self.parent:
+            # top master
+            self.trigger()
+
+    def trigger(self):
+        self.trigger_slaves()
+
+    def stop(self):
+        pass
+
+
+class DummyDevice(AcquisitionDevice):
+    def __init__(self, *args, **kwargs):
+        self.sleep_time = kwargs.pop("sleep_time", 0)
+        AcquisitionDevice.__init__(self, *args, **kwargs)
+        self.channels.append(AcquisitionChannel("pi", float, ()))
+        self.channels.append(AcquisitionChannel("nb", float, ()))
+        self.nb_trigger = 0
+        self.prepared_flag = False
+        self.started_flag = False
+
+    def prepare(self):
+        gevent.sleep(self.sleep_time)
+        self.prepared_flag = True
+
+    def start(self):
+        gevent.sleep(self.sleep_time)
+        self.started_flag = True
+        # self.channels.update({"pi": 3.14, "nb":0})
+
+    def trigger(self):
+        self.channels.update({"pi": 3.14, "nb": self.nb_trigger})
+        self.nb_trigger += 1
+
+    def stop(self):
+        pass
 
 
 class CustomSimulationDiode(SimulationDiodeSamplingCounter):
@@ -18,7 +73,7 @@ class CustomSimulationDiode(SimulationDiodeSamplingCounter):
 
     def __init__(self):
         SimulationDiodeSamplingCounter.__init__(
-            self, "diode%d" % CustomSimulationDiode.diode_nb.next(), None
+            self, "diode%d" % next(CustomSimulationDiode.diode_nb), None
         )
         self.store_time = list()
         self.store_values = list()
@@ -86,3 +141,21 @@ def diode_acq_device_factory():
             return acq_device
 
     return SamplingCounterAcqDeviceFactory()
+
+
+@pytest.fixture
+def dummy_acq_device():
+    class DummyAcqDeviceFactory(object):
+        def get(self, *args, **kwargs):
+            return DummyDevice(*args, **kwargs)
+
+    return DummyAcqDeviceFactory()
+
+
+@pytest.fixture
+def dummy_acq_master():
+    class DummyAcqMasterFactory(object):
+        def get(self, *args, **kwargs):
+            return DummyMaster(*args, **kwargs)
+
+    return DummyAcqMasterFactory()

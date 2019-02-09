@@ -9,14 +9,14 @@ __all__ = ["NanoBpm", "main"]
 
 import time
 import numpy
-import struct
 import math
+import struct
+import gevent
 import logging
 from warnings import warn
-from bliss.common.utils import OrderedDict
-import gevent
 from gevent import lock
 
+from bliss.common.utils import OrderedDict
 from bliss.comm.util import get_comm, TCP
 
 
@@ -66,8 +66,8 @@ def _h_result_property(key, doc_str):
 
 class NanoBpm(object):
     # Errors codes
-    NO_ERROR, CODE1, CODE2, CODE3, CODE4, CODE5, CODE6, CODE7, CODE8 = range(9)
-    BPP8, BPP16, BPP32 = range(3)
+    NO_ERROR, CODE1, CODE2, CODE3, CODE4, CODE5, CODE6, CODE7, CODE8 = list(range(9))
+    BPP8, BPP16, BPP32 = list(range(3))
 
     SETTINGS = _config_property("Settings", "Configuration settings")
     GAIN = _config_property("Gain", "Set device gain")
@@ -162,7 +162,7 @@ class NanoBpm(object):
             comm_cfg = {"tcp": {"url": control_url}}
             self.control_socket = get_comm(comm_cfg)
 
-        # Commands ready packed in network byte order
+        # Commands ready packed (as bytes) in network byte order
         self.commandReset = struct.pack(">H", 0xAA00)
         self.commandInterrupt = struct.pack(">H", 0xAA01)
         self.commandStatus = struct.pack(">H", 0xAA02)
@@ -395,13 +395,13 @@ class NanoBpm(object):
         if command_sent != reply[0:2]:
             self._logger.error(
                 "Acknowledged the wrong Code: sent {0} replied {1}".format(
-                    [ord(c) for c in command_sent], [ord(c) for c in reply[0:2]]
+                    [c for c in command_sent], [c for c in reply[0:2]]
                 )
             )
             return False
         elif errorCode != self.NO_ERROR:
             self._logger.error(
-                "Acknowledgement error: %s" % self._errorCode2string[errorCode]
+                "Acknowledgement error: " + self._errorCode2string[errorCode]
             )
             return False
         else:
@@ -485,24 +485,33 @@ class NanoBpm(object):
                 zip(self._fitParameterKeys, struct.unpack(">ff3H", reply[90:104]))
             )
             self._vertFitResultParameters = OrderedDict(
-                zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[104:128]))
+                list(
+                    zip(
+                        self._fitResultCriteriaKeys,
+                        struct.unpack(">6f", reply[104:128]),
+                    )
+                )
             )
             self._horFitResultParameters = OrderedDict(
-                zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[128:]))
+                list(
+                    zip(self._fitResultCriteriaKeys, struct.unpack(">6f", reply[128:]))
+                )
             )
             return OrderedDict(
-                zip(
-                    self._deviceParameterKeys,
-                    [
-                        self._configurationParameters,
-                        self._dac0Parameters,
-                        self._dac1Parameters,
-                        self._dac2Parameters,
-                        self._dac3Parameters,
-                        self._fitParameters,
-                        self._vertFitResultParameters,
-                        self._horFitResultParameters,
-                    ],
+                list(
+                    zip(
+                        self._deviceParameterKeys,
+                        [
+                            self._configurationParameters,
+                            self._dac0Parameters,
+                            self._dac1Parameters,
+                            self._dac2Parameters,
+                            self._dac3Parameters,
+                            self._fitParameters,
+                            self._vertFitResultParameters,
+                            self._horFitResultParameters,
+                        ],
+                    )
                 )
             )
         else:

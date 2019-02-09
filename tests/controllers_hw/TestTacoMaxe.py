@@ -118,8 +118,8 @@ class TestTacoMaxeController(unittest.TestCase):
     def test_set_velocity(self):
         mymot = bliss.get_axis("mot0")
         newvel = 2500
-        mymot.velocity(newvel)
-        self.assertEqual(mymot.velocity(), newvel)
+        mymot.velocity = newvel
+        self.assertEqual(mymot.velocity, newvel)
 
 
 """
@@ -128,12 +128,12 @@ Main entry point
 if __name__ == "__main__":
 
     # Launch the tests sequence
-    print "\nTesting TacoMaxe controller\n"
-    print "\n".rjust(70, "-")
+    print("\nTesting TacoMaxe controller\n")
+    print("\n".rjust(70, "-"))
 
     # Change the default unittest test sequence order from cmp() to line number
     loader = unittest.TestLoader()
-    ln = lambda f: getattr(TestTacoMaxeController, f).im_func.func_code.co_firstlineno
+    ln = lambda f: getattr(TestTacoMaxeController, f).__func__.__code__.co_firstlineno
     lncmp = lambda a, b: cmp(ln(a), ln(b))
     loader.sortTestMethodsUsing = lncmp
 

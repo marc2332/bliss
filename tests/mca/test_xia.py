@@ -10,7 +10,7 @@ from bliss.controllers.mca import XIA, XMAP
 @pytest.fixture(params=["xia", "mercury", "xmap", "falconx"])
 def xia(request, beacon, mocker):
     # Mocking
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     client = m.return_value
 
     # Modules
@@ -202,23 +202,23 @@ def test_xia_software_acquisition(xia, mocker):
     sleep = mocker.patch("gevent.sleep")
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
-    client.get_statistics.return_value = {0: range(7)}
-    stats = Stats(*range(7))
+    client.get_statistics.return_value = {0: list(range(7))}
+    stats = Stats(*list(range(7)))
     assert xia.run_software_acquisition(1, 3.) == ([{0: [3, 2, 1]}], [{0: stats}])
 
 
 def test_xia_multiple_acquisition(xia, mocker):
     client = xia._proxy
     client.get_spectrums.return_value = {0: [3, 2, 1]}
-    client.get_statistics.return_value = {0: range(9)}
+    client.get_statistics.return_value = {0: list(range(9))}
     client.synchronized_poll_data.side_effect = lambda: data.pop(0)
 
     data = [
         (1, {0: {0: "discarded"}}, {0: {0: [0] * 7}}),
-        (2, {1: {0: "spectrum0"}}, {1: {0: range(7)}}),
-        (3, {2: {0: "spectrum1"}}, {2: {0: range(10, 17)}}),
+        (2, {1: {0: "spectrum0"}}, {1: {0: list(range(7))}}),
+        (3, {2: {0: "spectrum1"}}, {2: {0: list(range(10, 17))}}),
     ]
-    stats0, stats1 = Stats(*range(7)), Stats(*range(10, 17))
+    stats0, stats1 = Stats(*list(range(7))), Stats(*list(range(10, 17)))
 
     data, stats = xia.run_synchronized_acquisition(2)
     assert data == [{0: "spectrum0"}, {0: "spectrum1"}]
@@ -243,14 +243,14 @@ def test_xia_finalization(xia):
 
 @pytest.mark.parametrize("dtype", ["xia", "mercury", "xmap", "falconx"])
 def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
-    # ZeroRPC error
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    # Rpc error
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     m.side_effect = IOError("Cannot connect!")
     with pytest.raises(IOError):
         beacon.get(dtype + "1")
 
     # Handel error
-    m = mocker.patch("bliss.controllers.mca.xia.zerorpc.Client")
+    m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     client = m.return_value
     client.init.side_effect = IOError("File not found!")
     with pytest.raises(IOError):

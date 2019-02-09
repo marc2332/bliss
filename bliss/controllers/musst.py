@@ -57,7 +57,7 @@ class MusstCounter(SamplingCounter):
 
 class musst(object):
     class channel(object):
-        COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = range(6)
+        COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 
         def __init__(self, musst, channel_id, type=None, switch=None, switch_name=None):
             self._musst = weakref.ref(musst)
@@ -72,7 +72,7 @@ class musst(object):
                 "SWITCH": self.SWITCH,
             }
             if type is not None:
-                if isinstance(type, (str, unicode)):
+                if isinstance(type, str):
                     MODE = type.upper()
                     mode = self._string2mode.get(MODE)
                     if mode is None:
@@ -196,11 +196,11 @@ class musst(object):
     VARINIT = _simple_cmd("VARINIT", "Reset program variables")
 
     # STATE
-    NOPROG_STATE, BADPROG_STATE, IDLE_STATE, RUN_STATE, BREAK_STATE, STOP_STATE, ERROR_STATE = range(
-        7
+    NOPROG_STATE, BADPROG_STATE, IDLE_STATE, RUN_STATE, BREAK_STATE, STOP_STATE, ERROR_STATE = list(
+        range(7)
     )
     # FREQUENCY TIMEBASE
-    F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = range(6)
+    F_1KHZ, F_10KHZ, F_100KHZ, F_1MHZ, F_10MHZ, F_50MHZ = list(range(6))
 
     def __init__(self, name, config_tree):
         """Base Musst controller.
@@ -232,16 +232,16 @@ class musst(object):
                 eos=config_tree.get("gpib_eos", ""),
                 timeout=config_tree.get("gpib_timeout", 5),
             )
-            self._txterm = ""
-            self._rxterm = "\n"
+            self._txterm = b""
+            self._rxterm = b"\n"
             self._binary_data_read = True
         elif "serial_url" in config_tree:
             self._cnx = Serial(config_tree["serial_url"])
-            self._txterm = "\r"
-            self._rxterm = "\r\n"
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
             self._binary_data_read = False
         else:
-            raise ValueError, "Must specify gpib_url or serial_url"
+            raise ValueError("Must specify gpib_url or serial_url")
 
         self._string2state = {
             "NOPROG": self.NOPROG_STATE,
@@ -347,7 +347,6 @@ class musst(object):
         msg -- the message you want to send
         ack -- if True, wait the an acknowledge (synchronous)
         """
-
         if ack is True and not (msg.startswith("?") or msg.startswith("#")):
             msg = "#" + msg
 
@@ -355,17 +354,17 @@ class musst(object):
 
         with self._cnx._lock:
             self._cnx.open()
-            self._cnx._write(msg + self._txterm)
+            self._cnx._write(msg.encode() + self._txterm)
             if msg.startswith("?") or ack:
                 answer = self._cnx._readline(self._rxterm)
-                if answer == "$":
-                    return self._cnx._readline("$" + self._rxterm)
+                if answer == b"$":
+                    return self._cnx._readline(b"$" + self._rxterm).decode()
                 elif ack:
-                    if answer != "OK":
+                    if answer != b"OK":
                         raise RuntimeError("%s: invalid answer: %r", self.name, answer)
                     return True
                 else:
-                    return answer
+                    return answer.decode()
 
     def _wait(self):
         while self.STATE == self.RUN_STATE:
@@ -417,7 +416,7 @@ class musst(object):
 
         with remote_open(program_file) as program:
             program_bytes = program.read()
-            for old, new in template_replacement.iteritems():
+            for old, new in template_replacement.items():
                 program_bytes = program_bytes.replace(old, new)
 
         self.upload_program(program_bytes)
@@ -427,6 +426,7 @@ class musst(object):
 
         program_data -- program data you want to upload
         """
+        program_data = program_data.encode()
         m = hashlib.md5()
         m.update(program_data)
         md5sum = m.hexdigest()
@@ -437,9 +437,9 @@ class musst(object):
         if self.__one_line_programing:
             # split into lines for Prologix
             for l in program_data.splitlines():
-                self._cnx.write("+%s\r\n" % l)
+                self._cnx.write(b"+%s\r\n" % l)
         else:
-            prg = "".join(["+%s\r\n" % l for l in program_data.splitlines()])
+            prg = b"".join([b"+%s\r\n" % l for l in program_data.splitlines()])
             self._cnx.write(prg)
         if self.STATE != self.IDLE_STATE:
             err = self.putget("?LIST ERR")
@@ -493,8 +493,7 @@ class musst(object):
         data_pt = data.flat
         dt = numpy.dtype(numpy.int32)
         for offset, data_offset in zip(
-            xrange(from_offset, to_offset, BLOCK_SIZE),
-            xrange(0, total_int32, BLOCK_SIZE),
+            range(from_offset, to_offset, BLOCK_SIZE), range(0, total_int32, BLOCK_SIZE)
         ):
             size_to_read = min(BLOCK_SIZE, total_int32)
             total_int32 -= BLOCK_SIZE
@@ -502,7 +501,7 @@ class musst(object):
                 with self._cnx._lock:
                     self._cnx.open()
                     with KillMask():
-                        self._cnx._write("?*EDAT %d %d %d" % (size_to_read, 0, offset))
+                        self._cnx._write(b"?*EDAT %d %d %d" % (size_to_read, 0, offset))
                         raw_data = ""
                         while len(raw_data) < (size_to_read * 4):
                             raw_data += self._cnx.raw_read()
@@ -628,7 +627,7 @@ class musst(object):
                     raise RuntimeError(
                         "Can't find a free channel for (%s)" % channel_name
                     )
-        return channels.values()
+        return list(channels.values())
 
     """
     Add read_all function to make Musst object a counter controller
@@ -696,7 +695,7 @@ class Switch(BaseSwitch):
         self.__musst.putget(cmd)
 
     def _get(self):
-        for test_cmd, test_reply in self.__state_test.iteritems():
+        for test_cmd, test_reply in self.__state_test.items():
             reply = self.__musst.putget(test_cmd)
             state = test_reply.get(reply)
             if state is not None:
@@ -704,4 +703,4 @@ class Switch(BaseSwitch):
         return "UNKNOWN"
 
     def _states_list(self):
-        return self.__states.keys()
+        return list(self.__states.keys())

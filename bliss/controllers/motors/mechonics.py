@@ -115,7 +115,7 @@ class Mechonics(Controller):
             _axis = motion.axis
             _channel = self.channels[_axis]
             _axis_id = self.axes_id[_channel]
-            _velocity = _axis.velocity()
+            _velocity = _axis.velocity
             _speed_code = self.get_speed_code(_velocity)
 
             # print("_axis_id =%r _steps_target=%g, _speed_code =%d _direction=%d _steps_code =%d _steps=%d" %

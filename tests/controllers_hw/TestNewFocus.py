@@ -48,43 +48,46 @@ class TestNewFocus(unittest.TestCase):
 
     def testVelocity(self):
         a1 = bliss.get_axis("a1")
-        self.assertEquals(a1.velocity(1), 1)
+        a1.velocity = 1
+        self.assertEqual(a1.velocity, 1)
         config_velocity = a1.config.get("velocity", int)
-        self.assertEquals(a1.velocity(config_velocity), config_velocity)
+        a1.velocity = config_velocity
+        self.assertEqual(a1.velocity, config_velocity)
         a2 = bliss.get_axis("a2")
         config_velocity = a2.config.get("velocity", int)
-        self.assertEquals(a2.velocity(config_velocity), config_velocity)
+        a2.velocity = config_velocity
+        self.assertEqual(a2.velocity, config_velocity)
 
     def testPosition(self):
         a1 = bliss.get_axis("a1")
         a2 = bliss.get_axis("a2")
-        self.assertAlmostEqual(a2.position(), 0.2, places=5)
+        self.assertAlmostEqual(a2.position, 0.2, places=5)
 
         for a in (a1, a2):
-            p0 = a.position()
+            p0 = a.position
             target = p0 + 0.1
             a.move(target)
-            self.assertAlmostEqual(a.position(), target, places=5)
+            self.assertAlmostEqual(a.position, target, places=5)
             a.move(p0 - 0.1)
-            self.assertAlmostEqual(a.position(), p0 - 0.1, places=5)
+            self.assertAlmostEqual(a.position, p0 - 0.1, places=5)
 
     def testState(self):
         a1 = bliss.get_axis("a1")
-        self.assertEquals(a1.state(), READY)
+        self.assertEqual(a1.state, READY)
 
     def testSimultaneousMove(self):
         a1 = bliss.get_axis("a1")
         a2 = bliss.get_axis("a2")
-        p1 = a1.position()
-        p2 = a2.position()
+        p1 = a1.position
+        p2 = a2.position
         a1.rmove(0.1, wait=False)
         self.assertRaises(RuntimeError, a2.rmove, 0.1, wait=False)
         a1.wait_move()
         a2.wait_move()
-        self.assertEquals(a1.position(), p1 + 0.1)
-        self.assertEquals(a2.position(), p2)
+        self.assertEqual(a1.position, p1 + 0.1)
+        self.assertEqual(a2.position, p2)
         a1.rmove(-0.1)
-        self.assertEquals(a1.position(), p1)
+        self.assertEqual(a1.position, p1)
 
 
 if __name__ == "__main__":

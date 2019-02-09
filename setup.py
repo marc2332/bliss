@@ -9,10 +9,56 @@ import os
 import sys
 import inspect
 
-from distutils.cmd import Command
+from setuptools.extension import Extension
 from setuptools import setup, find_packages
 
 TESTING = any(x in sys.argv for x in ["test", "pytest"])
+
+conda_base = os.environ.get("CONDA_PREFIX")
+extensions = []
+sip_extensions = []
+
+build_flint = True
+
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    cython = False
+    cythonize = lambda ext: [ext]
+else:
+    cython = True
+
+if build_flint:
+    # need qt headers and lib
+    if conda_base is not None:
+        qt_include_dirs = [os.path.join(conda_base, "include", "qt")]
+        qt_library_dirs = [os.path.join(conda_base, "lib")]
+    else:
+        qt_include_dirs = []
+        qt_library_dirs = []
+
+    if cython:
+        sources = [
+            "extensions/cython/flint/qwindowsystem.pyx",
+            "extensions/cython/flint/q_window_system.cpp",
+        ]
+    else:
+        sources = [
+            "extensions/cython/flint/qwindowsystem.cpp",
+            "extensions/cython/flint/q_window_system.cpp",
+        ]
+
+    flint_extension = Extension(
+        "bliss.flint.qwindowsystem",
+        include_dirs=qt_include_dirs,
+        library_dirs=qt_library_dirs,
+        extra_compile_args=["-std=c++11"],
+        libraries=["Qt5Gui"],
+        language="c++",
+        sources=sources,
+    )
+
+    extensions.extend(cythonize(flint_extension))
 
 
 def abspath(*path):
@@ -22,77 +68,32 @@ def abspath(*path):
     return os.path.join(setup_dir, *path)
 
 
-def find_commands(module):
-    """
-    Finds instances of distutils.Command in a module.
-    Returns a dict<command name: command class>
-    """
-    items = (getattr(module, item) for item in dir(module) if not item.startswith("_"))
-    classes = (item for item in items if inspect.isclass(item))
-    commands = (cls for cls in classes if issubclass(cls, Command))
-    local_commands = (
-        cmd for cmd in commands if cmd.__module__.startswith("extensions.")
-    )
-    return dict(((cmd.cmd_name, cmd) for cmd in local_commands))
-
-
-def find_extensions():
-    """Find bliss extensions. Returns a list of distutils.Command"""
-    top = abspath("extensions")
-    commands = {}
-    for name in os.listdir(top):
-        if name.startswith("_"):
-            continue
-        full_name = os.path.join(top, name)
-        if os.path.isdir(full_name):
-            ext_type_name = "extensions." + name
-            try:
-                ext_type_module = __import__(ext_type_name, None, None, ext_type_name)
-                for ext_name in ext_type_module.__all__:
-                    ext_name = ext_type_name + "." + ext_name
-                    ext_module = __import__(ext_name, None, None, ext_name)
-                    commands.update(find_commands(ext_module))
-            except Exception:
-                continue
-        else:
-            # must be a python module
-            name, ext = os.path.splitext(name)
-            if ext != ".py":
-                continue
-            ext_name = "extensions." + name
-            try:
-                ext_module = __import__(ext_name, None, None, ext_name)
-                commands.update(find_commands(ext_module))
-            except Exception:
-                continue
-    return commands
-
-
 def main():
     """run setup"""
 
-    py_xy = sys.version_info[:2]
-    py_xy_str = ".".join(map(str, py_xy))
+    py = sys.version_info
+    py_str = ".".join(map(str, py))
 
-    if py_xy < (2, 7) or py_xy >= (3, 0):
-        print(
-            "Incompatible python version ({0}). Needs python 2.x "
-            "(where x > 6).".format(py_xy_str)
-        )
+    if py < (3,):
+        print(("Incompatible python version ({0}). Needs python 3.x ".format(py_str)))
         sys.exit(1)
 
     meta = {}
-    execfile(abspath("bliss", "release.py"), meta)
+    exec(
+        compile(
+            open(abspath("bliss", "release.py")).read(),
+            abspath("bliss", "release.py"),
+            "exec",
+        ),
+        meta,
+    )
 
     packages = find_packages(where=abspath(), exclude=("extensions*",))
 
-    cmd_class = find_extensions()
-
     install_requires = [
-        "redis  >= 2.8",
-        "PyYaml",
-        "netifaces < 0.10.5",
-        "louie",
+        "redis >= 3",
+        "louie-latest",
+        "netifaces",
         "jinja2 >= 2.7",
         "flask",
         "treelib",
@@ -102,30 +103,26 @@ def main():
         "prompt_toolkit < 2",
         "docopt",
         "bottle",
-        "six >= 1.10",
         "tabulate",
-        "pyserial == 2.7",
-        "ruamel.yaml == 0.11.15",
-        "zerorpc",
-        "msgpack_numpy <= 0.4.3.1",
+        "pyserial > 2",
+        "ruamel.yaml",
+        "msgpack >= 0.6.1",
+        "msgpack_numpy >= 0.4.4.2",
         "blessings",
         "h5py",
-        "gevent >= 1.3.5",
+        "gevent == 1.3.7",
         "pygments",
         "numpy >= 1.13",
-        'enum34 ; python_version < "3.4"',
         "h5py",
         "mendeleev",
         "pint",
-        'mock ; python_version < "3.3"',
-        "futures",
         'silx >= 0.8 ; platform_machine == "x86_64"',
         "psutil",
-        "subprocess32",
         "requests",
+        "cffi",
     ]
 
-    tests_require = ["pytest", "pytest-mock", "pytest-cov", "scipy", "gipc"]
+    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy", "gipc"]
 
     setup_requires = [
         #        'setuptools >= 37',
@@ -155,7 +152,7 @@ def main():
             ],
             "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         },
-        cmdclass=cmd_class,
+        ext_modules=extensions,
         scripts=["bin/beacon-server-list", "bin/bliss_webserver", "bin/sps_data_watch"],
         entry_points={
             "console_scripts": [
@@ -164,6 +161,7 @@ def main():
                 "beacon-server = bliss.config.conductor.server:main",
                 "bliss-ct2-server = bliss.controllers.ct2.server:main",
                 "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
+                "bliss-handel-server = bliss.controllers.mca.handel.server:main",
                 "flint = bliss.flint:main",
                 "CT2 = bliss.tango.servers.ct2_ds:main",
                 "Bliss = bliss.tango.servers.bliss_ds:main",

@@ -31,7 +31,7 @@ class InstallSpec(Command):
 
     def run(self):
         if not os.path.isdir(self.prefix):
-            os.makedirs(self.prefix, 0775)
+            os.makedirs(self.prefix, 0o775)
 
         this_dir = os.path.dirname(os.path.abspath(__file__))
         src = os.path.join(this_dir, os.path.pardir, "spec")

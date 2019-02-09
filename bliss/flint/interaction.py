@@ -1,11 +1,6 @@
 # coding: utf-8
 
 
-from __future__ import division, absolute_import, print_function, unicode_literals
-
-
-import six
-
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction, mode
 from silx.gui.plot import PlotWindow, PlotWidget
@@ -516,7 +511,7 @@ class BlissPlot(PlotWindow):
         self.stopSelection()
         self.resetSelection()
 
-        if isinstance(points, six.string_types):
+        if isinstance(points, str):
             points = [points]
         elif isinstance(points, int):
             points = [str(i) for i in range(points)]

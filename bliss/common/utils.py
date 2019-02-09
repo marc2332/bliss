@@ -14,10 +14,7 @@ import functools
 import numpy
 from bliss.common.event import saferef
 
-try:
-    from collections import OrderedDict
-except ImportError:  # python2.6 compatibility
-    from ordereddict import OrderedDict
+from collections import OrderedDict
 
 
 class WrappedMethod(object):
@@ -39,11 +36,7 @@ def wrap_methods(from_object, target_object):
             setattr(
                 target_object,
                 name,
-                types.MethodType(
-                    WrappedMethod(from_object, name),
-                    target_object,
-                    target_object.__class__,
-                ),
+                types.MethodType(WrappedMethod(from_object, name), target_object),
             )
 
 
@@ -76,7 +69,18 @@ def add_property(inst, name, method):
 
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return itertools.izip(*[iter(iterable)] * n)
+    return zip(*[iter(iterable)] * n)
+
+
+def flatten(seq):
+    """list -> list                                                                                                                                                                           
+    return a flattend list from an abitrarily nested list                                                                                                                                     
+    """
+    if not seq:
+        return seq
+    if not isinstance(seq[0], list):
+        return [seq[0]] + flatten(seq[1:])
+    return flatten(seq[0]) + flatten(seq[1:])
 
 
 def all_equal(iterable):
@@ -94,13 +98,13 @@ def add_object_method(
 ):
 
     if name is None:
-        name = method.im_func.func_name
+        name = method.__func__.__name__
 
     def call(self, *args, **kwargs):
         if callable(pre_call):
             pre_call(self, *args, **kwargs)
 
-        return method.im_func(method.im_self, *args, **kwargs)
+        return method.__func__(method.__self__, *args, **kwargs)
 
     obj._add_custom_method(
         types.MethodType(functools.partial(call, *([obj] + args)), obj),
@@ -180,7 +184,7 @@ def object_attribute_get(
         )
 
     if name is None:
-        name = get_method.func_name
+        name = get_method.__name__
     attr_name = name
     if attr_name.startswith("get_"):
         attr_name = attr_name[4:]  # removes leading "get_"
@@ -222,7 +226,7 @@ def object_attribute_set(
         )
 
     if name is None:
-        name = set_method.func_name
+        name = set_method.__name__
     attr_name = name
     if attr_name.startswith("set_"):
         attr_name = attr_name[4:]  # removes leading "set_"
@@ -402,7 +406,7 @@ def get_objects_iter(*names_or_objs):
     from bliss import setup_globals
 
     for i in names_or_objs:
-        if isinstance(i, (str, unicode)):
+        if isinstance(i, str):
             i = getattr(setup_globals, i)
         yield i
 
@@ -429,7 +433,10 @@ def get_axes_names_iter():
 
 def safe_get(obj, member, on_error=None, **kwargs):
     try:
-        return getattr(obj, member)(**kwargs)
+        if isinstance(getattr(type(obj), member), property):
+            return getattr(obj, member)
+        else:
+            return getattr(obj, member)(**kwargs)
     except Exception as e:
         if on_error:
             return on_error
@@ -465,7 +472,7 @@ def closable(obj):
     return (
         hasattr(obj, "close")
         and inspect.ismethod(obj.close)
-        and obj.close.im_self is not None
+        and obj.close.__self__ is not None
     )
 
 

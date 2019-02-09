@@ -45,7 +45,7 @@ def session99(beacon_directory):
 
 def test_print_sessions(beacon):
     bliss_shell = subprocess.Popen(
-        BLISS + ["--show-sessions-only"], stdout=subprocess.PIPE
+        BLISS + ["--show-sessions-only"], stdout=subprocess.PIPE, text=True
     )
     bliss_cmd_output, _ = bliss_shell.communicate()
 
@@ -65,7 +65,9 @@ freddy
 
 
 def test_print_version(beacon):
-    bliss_shell = subprocess.Popen(BLISS + ["--version"], stdout=subprocess.PIPE)
+    bliss_shell = subprocess.Popen(
+        BLISS + ["--version"], stdout=subprocess.PIPE, text=True
+    )
     out, _ = bliss_shell.communicate()
     assert out.strip().endswith(release.short_version)
 
@@ -82,7 +84,7 @@ def test_create_then_delete_session(beacon, session99):
     bliss_shell = subprocess.Popen(BLISS + ["-c", "session99"], stdout=subprocess.PIPE)
     bliss_shell.wait()
     assert os.path.exists(init_file)
-    assert file(init_file).read() == "plugin: session\n"
+    assert open(init_file).read() == "plugin: session\n"
     assert os.path.exists(session_file)
     assert os.path.exists(session_setup_file)
     assert os.path.exists(session_scripts_file)

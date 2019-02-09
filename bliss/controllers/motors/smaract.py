@@ -353,7 +353,7 @@ class Channel(object):
     @property
     def voltage_level(self):
         """Returns voltage (V)"""
-        return self["VL"] / 4095.
+        return self["VL"] / 4095.0
 
     def set_position(self, position):
         """Set position
@@ -417,7 +417,8 @@ class SmarAct(Controller):
         items = (item,) if single else tuple(item)
         n = len(items)
         request = "".join([":G{}\n".format(i) for i in items])
-        replies = self.comm.write_readlines(request, n)
+        replies = self.comm.write_readlines(request.encode(), n)
+        replies = [r.decode() for r in replies]
         replies = [parse_reply(r, i) for r, i in zip(replies, items)]
         return replies[0] if single else replies
 
@@ -425,13 +426,15 @@ class SmarAct(Controller):
         if isinstance(value, (tuple, list)):
             value = ",".join(map(str, value))
         request = ":S{}{}\n".format(item, value)
-        reply = self.comm.write_readline(request)
+        reply = self.comm.write_readline(request.encode())
+        reply = reply.decode()
         parse_reply(reply, item)
 
     def command(self, name, *args):
         value = ",".join(map(str, args))
         request = ":{}{}\n".format(name, value)
-        reply = self.comm.write_readline(request)
+        reply = self.comm.write_readline(request.encode())
+        reply = reply.decode()
         return parse_reply(reply, name)
 
     @property

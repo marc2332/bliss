@@ -1,8 +1,8 @@
 import numpy
 from numpy import cos, sin
-from L2l import L2l
-from Htrans import htrans
-from Euler2H import euler2H
+from .L2l import L2l
+from .Htrans import htrans
+from .Euler2H import euler2H
 
 DEBUG = 0
 

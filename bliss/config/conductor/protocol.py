@@ -60,8 +60,8 @@ class IncompleteMessage(Exception):
     pass
 
 
-def message(cmd, contents=""):
-    return "%s%s" % (struct.pack("<ii", cmd, len(contents)), contents)
+def message(cmd, contents=b""):
+    return b"%s%s" % (struct.pack("<ii", cmd, len(contents)), contents)
 
 
 def unpack_header(header):
@@ -71,7 +71,6 @@ def unpack_header(header):
 def unpack_message(s):
     if len(s) < HEADER_SIZE:
         raise IncompleteMessage
-
     messageType, messageLen = struct.unpack("<ii", s[:HEADER_SIZE])
     if len(s) < HEADER_SIZE + messageLen:
         raise IncompleteMessage

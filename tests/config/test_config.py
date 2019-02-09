@@ -13,7 +13,7 @@ import os
 def test_config_save(beacon, beacon_directory):
     test_file_path = os.path.join(beacon_directory, "read_write.yml")
     rw_cfg = beacon.get_config("rw_test")
-    test_file_contents = client.get_config_file("read_write.yml")
+    test_file_contents = client.get_text_file("read_write.yml")
 
     with open(test_file_path, "r") as f:
         assert f.read() == test_file_contents
@@ -82,6 +82,7 @@ def test_issue_451_infinite_recursion(beacon):
     )  # key which does not exist, was causing infinite recursion
 
     assert refs_cfg.parent == beacon.root
+    assert refs_cfg in beacon.root["__children__"]
 
     assert beacon.root.parent is None
 

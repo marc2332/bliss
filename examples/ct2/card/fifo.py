@@ -2,7 +2,6 @@
 Simple example counting 
 """
 
-from __future__ import print_function
 
 import os
 import sys
@@ -101,7 +100,7 @@ def prepare(context):
     fifo = card.fifo
 
     etl = card.get_DMA_enable_trigger_latch()
-    nb_counters = etl[1].values().count(True)
+    nb_counters = list(etl[1].values()).count(True)
 
     usec = acq_len * 1000000
     card._fifo_stat = numpy.zeros((int(usec / value),), dtype="uint32")

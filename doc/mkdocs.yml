@@ -11,29 +11,63 @@ nav:
         - Configuration:
                 - Beacon and YAML files: config.md
                 - Motor controllers:
+                      - Aerotech: config_aerotech.md
+                      - Elmo: config_elmo.md
+                      - Galil: config_galil.md
                       - IcePAP: config_icepap.md
+                      - MD2: config_md2.md
+                      - PI Hexapod: config_pi_hexa.md
+                      - PI Piezo: config_pi_piezo.md 
+                      - PM600: config_pm600.md
+                      - Vscanner: config_vscanner.md
+                      - Smaract: config_smaract.md
+                      - NewFocus: config_newfocus.md
                 - Slits: config_slits.md
+                - Energy and Wavelength: config_enwl.md
                 - 2D detectors (Lima): config_lima.md
-                - MCA: config_mca.md
-                - Temperature controllers: config_tempctrl.md
+                - MCA:
+                    - General: config_mca.md
+                    - Rontec: configure_mca_rontec.md
+                    - XIA:
+                        - Handel: config_mca_handel.md
+                - Temperature or pressure controllers:
+                      - Temperature contollers in Bliss: config_tempctrl.md
+                      - Eurotherm: config_eurotherm.md
+                      - Meerstetter: config_meerstetter.md
+                      - PACE: config_pace.md
+                      - Lakeshore: config_lakeshore.md
+                      - Oxford700: config_oxford700.md
+                      - Oxford800: config_oxford800.md
                 - P201: config_p201.md
                 - Measurement Groups: measurement_groups.md
                 - MUSST: config_musst.md
                 - Opiom: config_opiom.md
                 - PEPU: config_pepu.md
+                - TFG: config_tango_tfg.md
+                - Nano-BPM: config_nano_bpm.md
                 - Wagos: config_wago.md
                 - Transfocators: config_transfocator.md
+                - Undulators: config_undulator.md
                 - Attenuators: config_att.md
+                - Transmission: config_transmission.md
                 - BLISS control objects: config_objects.md
                 - Sessions: config_session.md
                 - Simulation: config_simulation.md
                 - Beamviewer: config_beamviewer.md
+                - Keithley:
+                      - Ammeter and Multimeter: config_keithley.md
+                      - 428: config_keithley_428.md
+                - Correlators:
+                      - Flex: config_correlator_flex.md
+                - VME time frame generator: config_tango_tfg.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md
                 - Customization: shell_customization.md
         - BLISS programming:
+                - Truquitos: prog_truquitos.md
                 - Dealing with energy: prog_energy.md
+                - Settings: dev_settings.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md

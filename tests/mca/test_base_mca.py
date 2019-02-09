@@ -58,7 +58,7 @@ def test_base_mca():
     }
 
     # Test methods
-    for method, args in methods.items():
+    for method, args in list(methods.items()):
         with pytest.raises(NotImplementedError):
             method(*args)
 
@@ -81,7 +81,7 @@ def test_base_mca():
 
 
 def test_base_mca_logic():
-    stats = Stats(*range(1, 8))
+    stats = Stats(*list(range(1, 8)))
 
     class TestMCA(BaseMCA):
 

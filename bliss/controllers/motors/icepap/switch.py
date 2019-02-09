@@ -54,7 +54,7 @@ class Switch(BaseSwitch):
             for axis in self.__controller._axes.values():
                 # be sure that axis is initialized
                 try:
-                    axis.position()
+                    axis.position
                 except (RuntimeError, KeyError):
                     continue
                 try:
@@ -72,7 +72,7 @@ class Switch(BaseSwitch):
 
         managed_rack = include_rack - exclude_rack
         self.__axes = weakref.WeakValueDictionary()
-        for axis_name, axis in self.__controller._axes.iteritems():
+        for axis_name, axis in self.__controller._axes.items():
             try:
                 rack_id = axis.address // 10
             except (AttributeError, TypeError):
@@ -98,15 +98,15 @@ class Switch(BaseSwitch):
 
     def _get(self):
         reply = _command(self.__controller._cnx, "?PMUX")
-        pattern = re.compile(".+B([0-9]+) +E%d" % self.__rack_connector_id)
+        pattern = re.compile(r".+B([0-9]+) +E%d" % self.__rack_connector_id)
         for line in reply.split("\n"):
             m = pattern.match(line)
             if m:
                 axis_address = int(m.group(1))
-                for axis_name, axis in self.__axes.iteritems():
+                for axis_name, axis in self.__axes.items():
                     if axis.address == axis_address:
                         return axis_name
         return "DISABLED"
 
     def _states_list(self):
-        return self.__axes.keys() + ["DISABLED"]
+        return list(self.__axes.keys()) + ["DISABLED"]

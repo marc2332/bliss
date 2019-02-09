@@ -75,11 +75,11 @@ class MeComProtocol(object):
         try:
             return self._PutGet(frame, cmd, anslen, eof)
 
-        except AssertionError, e:
+        except AssertionError as e:
             self.log.error("PutGet: Device communication assertion error: %s" % (e))
         except tcp.SocketTimeout:
             self.log.error("PutGet: Socket communication timed out")
-        except gevent.socket.error, e:
+        except gevent.socket.error as e:
             self.log.error("PutGet: Socket communication error: %s" % (e))
         # except RunTimeError, e:
         #    log.error("MeComProtocol::PutGet: Runtime error: %s" %(e))
@@ -104,9 +104,9 @@ class MeComProtocol(object):
         ]
         if not self._sock._connected:
             self._sock.connect()
-            self._sock.readline(eol="\r\n\r\n")
+            self._sock.readline(eol=b"\r\n\r\n")
 
-        answer = self._sock.write_readline(frame, eol=eof)
+        answer = self._sock.write_readline(frame.encode(), eol=eof.encode())
 
         self.log.debug("_PutGet: Read buffer = %r " % answer)
 
@@ -114,7 +114,7 @@ class MeComProtocol(object):
             self.log.error("_PutGet: Socket connection broken")
             raise RuntimeError("MeComProtocol::_PutGet: Socket connection broken")
 
-        resp = frame[:7].replace("#", "!")
+        resp = (frame[:7].replace("#", "!")).encode()
         self.log.debug("_PutGet: 1st 7 char of frame with ! as 1st char: %s" % resp)
         if answer.startswith(resp):
 
@@ -152,17 +152,18 @@ class MeComProtocol(object):
             frame.extend(payload)
             frame.insert(0, "#")
 
-            self.CRC = self._CRC16Algorithm(frame)
+            frame = "".join(frame)
+            self.CRC = self._CRC16Algorithm(frame.encode())
 
-            if self.CRC > 0xffff:
+            if self.CRC > 0xFFFF:
                 self.log.error(
                     "FrameConstruction: too large numeric CRC: %x" % (self.CRC)
                 )
-                raise RuntimeError, "too large numeric CRC: %x." % (self.CRC)
+                raise RuntimeError("too large numeric CRC: %x." % (self.CRC))
 
-            frame.extend("%04x%s" % (self.CRC, eof))
+            frame = frame + ("%04x%s" % (self.CRC, eof))
 
-        except RuntimeError, e:
+        except RuntimeError as e:
             self.log.error("FrameConstruction ERROR %s" % (e))
 
         finally:
@@ -173,21 +174,21 @@ class MeComProtocol(object):
         return "".join(frame).upper()
 
     def _CRC16Algorithm(self, frame):
+        frame = frame.upper()
         self.log.info("_CRC16Algorithm %s" % (frame))
 
         crc = 0
         genpoly = 0x1021
 
         for c in frame:
-            c = ord(c.upper())
-            c2 = (c & 0x00ff) << 8
+            c2 = (c & 0x00FF) << 8
             crc = crc ^ c2
             for i in range(8):
                 if crc & 0x8000:
                     crc = (crc << 1) ^ genpoly
                 else:
                     crc = crc << 1
-            crc &= 0xffff
+            crc &= 0xFFFF
 
         self.log.debug("_CRC16Algorithm %04x" % (crc))
         return crc
@@ -237,11 +238,11 @@ class TECFamilyProtocol(object):
     def _getParameter(self, id, anslen, instance=1):
         self.log.debug("_getParameter %04x %d %02x" % (id, anslen, instance))
 
-        if id > 0xffff:
-            raise RuntimeError, "wrong parameter id: %x." % (id)
+        if id > 0xFFFF:
+            raise RuntimeError("wrong parameter id: %x." % (id))
 
-        if instance > 0xff:
-            raise RuntimeError, "wrong parameter instance: %x." % (instance)
+        if instance > 0xFF:
+            raise RuntimeError("wrong parameter instance: %x." % (instance))
 
         payload = ["?", "V", "R"]
         payload.extend("%04x" % (id))
@@ -256,11 +257,11 @@ class TECFamilyProtocol(object):
     def _setParameter(self, id, parameter, instance=1):
         self.log.info("_setParameter %04x %04x %02x" % (id, parameter, instance))
 
-        if id > 0xffff:
-            raise RuntimeError, "wrong parameter id: %x." % (id)
+        if id > 0xFFFF:
+            raise RuntimeError("wrong parameter id: %x." % (id))
 
-        if instance > 0xff:
-            raise RuntimeError, "wrong parameter instance: %x." % (instance)
+        if instance > 0xFF:
+            raise RuntimeError("wrong parameter instance: %x." % (instance))
 
         payload = ["V", "S"]
         payload.extend("%04x" % (id))

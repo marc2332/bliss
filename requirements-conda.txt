@@ -1,28 +1,23 @@
-# Conda requirements file (python 2.7)
-enum34
-gevent >= 1.3.5
+# Conda requirements file
+gevent == 1.3.7
 redis  >= 2.8
-PyYaml
 jinja2 >= 2.7
 flask
 jedi
 docopt
 numpy >= 1.13
-six >= 1.10
 tabulate
-pyserial == 2.7
+pyserial > 2
 h5py
-msgpack-python
+msgpack-python >= 0.6.1
 pyzmq
-pytango == 9.2.5
+pytango > 9.2.4
 h5py
 pygments
 sqlalchemy
 pandas
 mock
-futures
 silx
 psutil
-subprocess32
 requests
 prompt_toolkit < 2

@@ -14,7 +14,7 @@ from treelib import Tree
 from bliss import setup_globals
 from bliss.config import static
 from bliss.common.utils import closable
-from bliss.config.conductor.client import get_config_file, get_python_modules, get_file
+from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 
 CURRENT_SESSION = None
 
@@ -54,7 +54,7 @@ class _StringImporter(object):
 
         filename = self._modules.get(fullname)
         if filename:
-            s_code = get_config_file(filename)
+            s_code = get_text_file(filename)
         else:
             filename = "%s (__init__ memory)" % fullname
             s_code = ""  # empty __init__.py
@@ -71,7 +71,7 @@ class _StringImporter(object):
             new_module.__package__ = fullname.rpartition(".")[0]
         sys.modules.setdefault(fullname, new_module)
         c_code = compile(s_code, module_filename, "exec")
-        exec (c_code, new_module.__dict__)
+        exec(c_code, new_module.__dict__)
         return new_module
 
     def get_source(self, fullname):
@@ -79,7 +79,7 @@ class _StringImporter(object):
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
-        return get_config_file(filename) if filename else ""
+        return get_text_file(filename) if filename else ""
 
 
 def load_script(env_dict, script_module_name, session=None):
@@ -96,7 +96,7 @@ def load_script(env_dict, script_module_name, session=None):
     """
     if session is None:
         session = get_current()
-    elif isinstance(session, (str, unicode)):
+    elif isinstance(session, str):
         session = static.get_config().get(session)
 
     if session._scripts_module_path:
@@ -115,18 +115,18 @@ def load_script(env_dict, script_module_name, session=None):
             if not filename:
                 raise RuntimeError("Cannot find module %s" % module_name)
 
-            s_code = get_config_file(filename)
+            s_code = get_text_file(filename)
             c_code = compile(s_code, filename, "exec")
 
             globals_dict = env_dict.copy()
             try:
-                exec (c_code, globals_dict)
+                exec(c_code, globals_dict)
             except Exception:
                 sys.excepthook(*sys.exc_info())
         finally:
             sys.meta_path.remove(importer)
 
-    for k in globals_dict.iterkeys():
+    for k in globals_dict.keys():
         if k.startswith("_"):
             continue
         env_dict[k] = globals_dict[k]
@@ -380,7 +380,7 @@ class Session(object):
 
             child_session._setup(env_dict)
 
-        for obj_name, obj in env_dict.iteritems():
+        for obj_name, obj in env_dict.items():
             setattr(setup_globals, obj_name, obj)
 
         self._setup(env_dict)
@@ -389,11 +389,13 @@ class Session(object):
         if self.setup_file is None:
             return
 
-        with get_file({"setup_file": self.setup_file}, "setup_file") as setup_file:
+        with get_file(
+            {"setup_file": self.setup_file}, "setup_file", text=True
+        ) as setup_file:
             code = compile(setup_file.read(), self.setup_file, "exec")
-            exec (code, env_dict)
+            exec(code, env_dict)
 
-            for obj_name, obj in env_dict.iteritems():
+            for obj_name, obj in env_dict.items():
                 setattr(setup_globals, obj_name, obj)
 
             return True
@@ -402,7 +404,7 @@ class Session(object):
         if get_current() is self:
             global CURRENT_SESSION
             CURRENT_SESSION = None
-        for obj_name, obj in self.__env_dict.iteritems():
+        for obj_name, obj in self.__env_dict.items():
             if obj is self:
                 continue
             if hasattr(setup_globals, obj_name):
@@ -418,7 +420,7 @@ class Session(object):
                 continue
 
             if verbose:
-                print "Initializing '%s`" % item_name
+                print("Initializing '%s`" % item_name)
 
             self._add_from_config(item_name, env_dict)
 

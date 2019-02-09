@@ -8,7 +8,7 @@
 import sys
 import uuid
 import time
-import cPickle
+import pickle
 import weakref
 from collections import namedtuple
 
@@ -91,7 +91,7 @@ class Bus(AdvancedInstantiationInterface):
 
     def __new__(cls, redis=None):
         if redis is None:
-            redis = client.get_cache()
+            redis = client.get_redis_connection()
         if redis not in cls._CACHE:
             cls._CACHE[redis] = cls.instanciate(redis)
         return cls._CACHE[redis]
@@ -153,24 +153,25 @@ class Bus(AdvancedInstantiationInterface):
         query_id = uuid.uuid1().hex
         reply_queue = gevent.queue.Queue()
 
-        # Register reply queue
-        self._reply_queues[query_id] = reply_queue
+        try:
+            # Register reply queue
+            self._reply_queues[query_id] = reply_queue
 
-        # Send the query
-        expected_replies = self._publish(name, _Query(query_id))
+            # Send the query
+            expected_replies = self._publish(name, _Query(query_id))
 
-        # Loop over replies
-        while expected_replies:
-            reply = reply_queue.get()
-            expected_replies -= 1
+            # Loop over replies
+            while expected_replies:
+                reply = reply_queue.get()
+                expected_replies -= 1
 
-            # Break if a valid value is received
-            if reply.value is not None:
-                reply_value = reply.value
-                break
-
-        # Unregister queue
-        del self._reply_queues[query_id]
+                # Break if a valid value is received
+                if reply.value is not None:
+                    reply_value = reply.value
+                    break
+        finally:
+            # Unregister queue
+            del self._reply_queues[query_id]
 
         # Return value
         return reply_value
@@ -179,7 +180,7 @@ class Bus(AdvancedInstantiationInterface):
 
     def _publish(self, name, value, pipeline=None):
         redis = self._redis if pipeline is None else pipeline
-        return redis.publish(name, cPickle.dumps(value, protocol=-1))
+        return redis.publish(name, pickle.dumps(value, protocol=-1))
 
     def _send_updates(self, pipeline=None):
         while self._pending_updates:
@@ -236,8 +237,8 @@ class Bus(AdvancedInstantiationInterface):
                 continue
 
             # Extract info
-            name = event.get("channel")
-            data = cPickle.loads(event.get("data"))
+            name = event.get("channel").decode()
+            data = pickle.loads(event.get("data"))
             channel = self._channels.get(name)
 
             # Run the corresponding handler
@@ -458,7 +459,7 @@ class Channel(AdvancedInstantiationInterface):
 
     def _fire_callbacks(self):
         value = self._raw_value.value
-        callbacks = filter(None, [ref() for ref in self._callback_refs])
+        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
 
         # Run callbacks
         for cb in callbacks:

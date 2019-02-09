@@ -635,23 +635,28 @@ class Aerotech(Controller):
                 ]
                 raise ValueError(
                     "Aero Axis [%s] already defined for [%s]"
-                    % (aero_name, string.join(others, ","))
+                    % (aero_name, ",".join(others))
                 )
             self._aero_axis[axis.name] = aero_name
 
     def initialize_hardware_axis(self, axis):
         self.set_on(axis)
 
+    def close(self):
+        if self._comm:
+            self._comm.close()
+
     def _debug(self, mesg):
         if self._debug_flag:
-            print time.time(), ">>", mesg
+            print(time.time(), ">>", mesg)
 
     def raw_write(self, cmd):
-        self._comm.flush()
         self._debug("SEND " + cmd)
         send_cmd = cmd + self.CMD_TERM
-        self._comm.write(send_cmd)
-        reply = self._comm.read(size=1)
+        with self._comm.lock:
+            self._comm.flush()
+            reply = self._comm.write_read(send_cmd.encode(), size=1)
+        reply = reply.decode()
         self._debug("GET " + reply)
         self._check_reply_code(reply, cmd)
 
@@ -668,8 +673,10 @@ class Aerotech(Controller):
         return 1
 
     def raw_write_read(self, cmd):
-        self.raw_write(cmd)
-        reply = self._comm.readline()
+        with self._comm.lock:
+            self.raw_write(cmd)
+            reply = self._comm.readline()
+        reply = reply.decode()
         self._debug("READ " + reply)
         return reply
 
@@ -779,8 +786,8 @@ class Aerotech(Controller):
             moves.append("%s %f" % (aero_name, pos))
             speeds.append("%sF %f" % (aero_name, speed))
 
-        move_cmd = string.join(moves, " ")
-        speed_cmd = string.join(speeds, " ")
+        move_cmd = " ".join(moves)
+        speed_cmd = " ".join(speeds)
 
         cmd = "MOVEABS %s %s" % (move_cmd, speed_cmd)
         self.raw_write(cmd)
@@ -834,7 +841,7 @@ class Aerotech(Controller):
         axis_names = []
         for motion in motion_list:
             axis_names.append(self._aero_name(motion.axis))
-        cmd = "ABORT " + string.join(axis_names, " ")
+        cmd = "ABORT " + " ".join(axis_names)
         self.raw_write(cmd)
 
     def home_search(self, axis, switch):
@@ -846,21 +853,23 @@ class Aerotech(Controller):
         cmd = "HOME %s" % self._aero_name(axis)
         self._debug("SEND " + cmd)
         send_cmd = cmd + self.CMD_TERM
-        self._comm.write(send_cmd)
+        with self._comm.lock:
+            self._comm.write(send_cmd.encode())
 
-        homing = True
-        while homing:
-            try:
-                reply = self._comm.read(size=1, timeout=1.0)
-                self._debug("GET " + reply)
-            except:
-                reply = None
+            homing = True
+            while homing:
+                try:
+                    reply = self._comm.read(size=1, timeout=1.0)
+                    reply = reply.decode()
+                    self._debug("GET " + reply)
+                except:
+                    reply = None
 
-            if reply is not None:
-                if self._check_reply_code(reply, cmd):
-                    homing = False
-            else:
-                gevent.sleep(0.25)
+                if reply is not None:
+                    if self._check_reply_code(reply, cmd):
+                        homing = False
+                else:
+                    gevent.sleep(0.25)
 
     def home_state(self, axis):
         return AxisState("READY")

@@ -5,7 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from __future__ import absolute_import
 
 import os
 import shlex
@@ -149,7 +148,7 @@ COUNTER_PARAMS_SEQ = (
         "latch sources",
         (
             "list int",
-            range(1, 13),
+            list(range(1, 13)),
             True,
             [],
             "Latch(es)",

@@ -40,13 +40,14 @@ def get_open_ports(n):
             s.close()
 
 
-def wait_for(stream, target, data=""):
+def wait_for(stream, target, data=b""):
+    target = target.encode()
     while target not in data:
         char = stream.read(1)
         if not char:
             raise RuntimeError(
                 "Target {!r} not found in the following stream:\n{}".format(
-                    target, data
+                    target, data.decode()
                 )
             )
         data += char
@@ -74,7 +75,10 @@ def clean_gevent():
     from gevent import Greenlet
 
     for ob in gc.get_objects():
-        if not isinstance(ob, Greenlet):
+        try:
+            if not isinstance(ob, Greenlet):
+                continue
+        except ReferenceError:
             continue
         if ob.ready():
             continue
@@ -83,7 +87,10 @@ def clean_gevent():
     yield
 
     for ob in gc.get_objects():
-        if not isinstance(ob, Greenlet):
+        try:
+            if not isinstance(ob, Greenlet):
+                continue
+        except ReferenceError:
             continue
         if not ob.ready():
             print(ob)  # Better printouts
@@ -141,6 +148,7 @@ def ports(beacon_directory):
         yield ports
     finally:
         proc.terminate()
+        print(proc.stderr.read().decode(), file=sys.stderr)
 
 
 @pytest.fixture
@@ -181,7 +189,7 @@ def scan_tmpdir(tmpdir):
 @pytest.fixture
 def lima_simulator(ports, beacon):
     from Lima.Server.LimaCCDs import main
-    from tango import DeviceProxy, DevFailed
+    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "id00/limaccds/simulator1"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
@@ -208,13 +216,42 @@ def lima_simulator(ports, beacon):
 
 @pytest.fixture
 def bliss_tango_server(ports, beacon):
-    from tango import DeviceProxy, DevFailed
+    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "id00/bliss/test"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     bliss_ds = [sys.executable, "-m", "bliss.tango.servers.bliss_ds"]
     p = subprocess.Popen(bliss_ds + ["test"])
+
+    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    # Might help, for other devices...
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
+def dummy_tango_server(ports, beacon):
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "id00/tango/dummy"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    dummy_ds = [
+        sys.executable,
+        os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
+    ]
+    p = subprocess.Popen(dummy_ds + ["dummy"])
 
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         while True:
@@ -244,3 +281,4 @@ def session(beacon):
 def pytest_addoption(parser):
     parser.addoption("--pepu", help="pepu host name")
     parser.addoption("--ct2", help="ct2 address")
+    parser.addoption("--axis-name", help="axis name")

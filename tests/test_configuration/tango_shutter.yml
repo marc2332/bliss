@@ -1,0 +1,4 @@
+plugin: bliss
+class: tango_shutter
+uri: id00/tango/dummy
+name: safshut

@@ -45,7 +45,7 @@ def decode_IDN(s):
 # strip them (in the furture maybe use actual units)
 def __decode_Array(s, sep=",", **kwargs):
     filt = "eE.+-," + sep
-    filter(lambda x: x.isdigit() or x in filt, s)
+    [x for x in s if x.isdigit() or x in filt]
     return numpy.fromstring(s, sep=sep, **kwargs)
 
 

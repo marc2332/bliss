@@ -6,21 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import warnings
-import logging
-import weakref
-import redis
 import numpy
 import re
 
-try:
-    from PyQt4.QtCore import pyqtRemoveInputHook
-except ImportError:
-    from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from silx.gui import plot as silx_plot
-    from silx.gui.plot.Colormap import Colormap
     from silx.gui import qt, colors
     from silx.gui.plot import LegendSelector
 
@@ -28,13 +20,11 @@ Plot1D = silx_plot.Plot1D
 
 
 class LivePlot1D(qt.QWidget):
-    REDIS_CACHE = None
-
     def __init__(self, *args, **kw):
         self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
-        self.redis_cnx = LivePlot1D.get_redis_connection()
+        self.redis_cnx = kw.pop("redis_connection")
 
         qt.QWidget.__init__(self, *args, **kw)
 
@@ -43,7 +33,6 @@ class LivePlot1D(qt.QWidget):
         self.silx_plot = silx_plot.Plot1D(self)
         self.x_axis_names = list()
         self.y_axis_names = list()
-        self.legend_icon = weakref.WeakValueDictionary()
 
         self.axes_list_view = qt.QTreeView(self)
         self.axes_list_model = qt.QStandardItemModel(self.axes_list_view)
@@ -89,7 +78,12 @@ class LivePlot1D(qt.QWidget):
 
     def set_y_axes(self, axis_names_list):
         self.y_axis_names = axis_names_list
-        plot_selected = self.redis_cnx.hgetall("%s:plot_select" % self._session_name)
+        raw_plot_selected = self.redis_cnx.hgetall(
+            "%s:plot_select" % self._session_name
+        )
+        plot_selected = {
+            key.decode(): value.decode() for key, value in raw_plot_selected.items()
+        }
         self.silx_plot.clearCurves()
         for x_row in range(self.axes_list_model.rowCount()):
             x_item = self.axes_list_model.item(x_row, 1)
@@ -111,7 +105,6 @@ class LivePlot1D(qt.QWidget):
             x_select.setEditable(False)
             items = [item_name, x_select]
 
-            gb = qt.QButtonGroup(self)
             for k in range(1, 3):
                 item_select = qt.QStandardItem("")
                 item_select.setEditable(False)
@@ -120,7 +113,7 @@ class LivePlot1D(qt.QWidget):
                 if y_selected_axis == k:
                     item_select.setCheckState(qt.Qt.Checked)
                     legend = "%s -> %s" % (x_axis, axis_name)
-                    key = self.silx_plot.addCurve([], [], legend=legend, copy=False)
+                    self.silx_plot.addCurve([], [], legend=legend, copy=False)
                     curve = self.silx_plot.getCurve(legend)
                     curve.setYAxis("left" if k == 2 else "right")
                     curve.sigItemChanged.connect(self._refresh_legend)
@@ -128,10 +121,10 @@ class LivePlot1D(qt.QWidget):
             row_id = self.axes_list_model.rowCount()
             self.axes_list_model.appendRow(items)
             # legend
-            legend_icon = LegendSelector.LegendIcon(self)
             qindex = self.axes_list_model.index(row_id, 4, qt.QModelIndex())
-            self.axes_list_view.setIndexWidget(qindex, legend_icon)
-            self.legend_icon[row_id] = legend_icon
+            self.axes_list_view.setIndexWidget(
+                qindex, LegendSelector.LegendIcon(self.axes_list_view)
+            )
 
         for i in range(5):
             self.axes_list_view.resizeColumnToContents(i)
@@ -220,7 +213,9 @@ class LivePlot1D(qt.QWidget):
                     self.redis_cnx.hdel("%s:plot_select" % self._session_name, y_axis)
                     self.silx_plot.removeCurve(legend)
                     color = qt.QColor.fromRgbF(0., 0., 0., 0.)
-                    icon = self.legend_icon[row]
+
+                    qindex = self.axes_list_model.index(row, 4, qt.QModelIndex())
+                    icon = self.axes_list_view.indexWidget(qindex)
                     icon.setLineColor(color)
                     icon.setSymbolColor(color)
                     icon.update()
@@ -234,7 +229,7 @@ class LivePlot1D(qt.QWidget):
         for row in range(self.axes_list_model.rowCount()):
             axis_item = self.axes_list_model.item(row)
             label = str(axis_item.text()).split(":")[-1]
-            for column, y_list in zip(range(2, 4), [y1_label, y2_label]):
+            for column, y_list in zip(list(range(2, 4)), [y1_label, y2_label]):
                 item = self.axes_list_model.item(row, column)
                 if (
                     item is not None
@@ -259,20 +254,24 @@ class LivePlot1D(qt.QWidget):
             curve = self.silx_plot.getCurve(legend)
             if curve is None:
                 continue
-            icon = self.legend_icon[row]
-            icon.setSymbol(curve.getSymbol())
-            icon.setLineWidth(curve.getLineWidth())
-            icon.setLineStyle(curve.getLineStyle())
-            color = curve.getCurrentColor()
-            if numpy.array(color, copy=False).ndim != 1:
-                # array of colors, use transparent black
-                color = 0., 0., 0., 0.
-            color = colors.rgba(color)  # Make sure it is float in [0, 1]
-            alpha = curve.getAlpha()
-            color = qt.QColor.fromRgbF(color[0], color[1], color[2], color[3] * alpha)
-            icon.setLineColor(color)
-            icon.setSymbolColor(color)
-            icon.update()
+            qindex = self.axes_list_model.index(row, 4, qt.QModelIndex())
+            icon = self.axes_list_view.indexWidget(qindex)
+            if icon is not None:
+                icon.setSymbol(curve.getSymbol())
+                icon.setLineWidth(curve.getLineWidth())
+                icon.setLineStyle(curve.getLineStyle())
+                color = curve.getCurrentColor()
+                if numpy.array(color, copy=False).ndim != 1:
+                    # array of colors, use transparent black
+                    color = 0., 0., 0., 0.
+                color = colors.rgba(color)  # Make sure it is float in [0, 1]
+                alpha = curve.getAlpha()
+                color = qt.QColor.fromRgbF(
+                    color[0], color[1], color[2], color[3] * alpha
+                )
+                icon.setLineColor(color)
+                icon.setSymbolColor(color)
+                icon.update()
 
     def update_enabled_plots(self):
         for x_axis in self.x_axis_names:
@@ -283,7 +282,7 @@ class LivePlot1D(qt.QWidget):
                 self._enabled_plots[(x_axis, y_axis)] = data_len
 
     def update_plots(self):
-        for axis_names, data_len in self._enabled_plots.iteritems():
+        for axis_names, data_len in self._enabled_plots.items():
             x_axis, y_axis = axis_names
             legend = "%s -> %s" % (x_axis, y_axis)
             plot = self.silx_plot.getCurve(legend)
@@ -308,20 +307,6 @@ class LivePlot1D(qt.QWidget):
     def addXMarker(self, *args, **kwargs):
         return self.silx_plot.addXMarker(*args, **kwargs)
 
-    @staticmethod
-    def get_redis_connection():
-        if LivePlot1D.REDIS_CACHE:
-            host, port = LivePlot1D.REDIS_CACHE
-            if host != "localhost":
-                return redis.Redis(host=host, port=port)
-            else:
-                return redis.Redis(unix_socket_path=port)
-        else:
-            raise RuntimeError(
-                "LivePlot1D is not initialized properly, missing \
-                               redis connection information (REDIS_CACHE)."
-            )
-
 
 # Ugly copy paste! Shame!
 
@@ -331,7 +316,7 @@ class LiveScatterPlot(qt.QWidget):
         self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
-        self.redis_cnx = LivePlot1D.get_redis_connection()
+        self.redis_cnx = kw.pop("redis_connection")
 
         qt.QWidget.__init__(self, *args, **kw)
 
@@ -377,9 +362,12 @@ class LiveScatterPlot(qt.QWidget):
             self.axes_list_model.appendRow([item_name, item_select_x, item_select_y])
 
     def set_z_axes(self, axis_names_list):
-        scatter_selected = self.redis_cnx.hgetall(
+        raw_scatter_selected = self.redis_cnx.hgetall(
             "%s:scatter_select" % self._session_name
         )
+        scatter_selected = {
+            key.decode(): value.decode() for key, value in raw_scatter_selected.items()
+        }
         already_select_one = False
         for axis_name in sorted(axis_names_list):
             item_name = qt.QStandardItem(axis_name)
@@ -407,7 +395,7 @@ class LiveScatterPlot(qt.QWidget):
         """
         In this method, we will guess motors position ranges
         """
-        scan_name = re.compile("^(d|a?)\w+?\s+")
+        scan_name = re.compile(r"^(d|a?)\w+?\s+")
         mot_name_params = re.compile(
             "(\w+)\s+(-?\d+\.\d+|-?\d+)\s+(-?\d+\.\d+|-?\d+)\s(\d+)"
         )

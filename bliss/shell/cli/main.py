@@ -37,7 +37,7 @@ from bliss.config.static import Node
 from bliss.config.conductor import client
 
 from .repl import embed
-import session_files_templates as sft
+from . import session_files_templates as sft
 
 __all__ = ("main",)
 
@@ -59,11 +59,11 @@ def get_sessions_list():
 
 def print_sessions_list(slist):
     for session in slist:
-        print session
+        print(session)
 
 
 def print_sessions_and_trees(slist):
-    print "Available BLISS sessions are:"
+    print("Available BLISS sessions are:")
     config = static.get_config()
     for name in slist:
         session = config.get(name)
@@ -71,7 +71,7 @@ def print_sessions_and_trees(slist):
 
 
 def delete_session(session_name):
-    print ("Removing '%s' session." % session_name)
+    print(("Removing '%s' session." % session_name))
 
     if session_name in get_sessions_list():
         config = static.get_config()
@@ -98,15 +98,15 @@ def delete_session(session_name):
                 )
 
             # Removes <session_name>_setup.py file.
-            print ("removing .../%s" % setup_file_name)
+            print(("removing .../%s" % setup_file_name))
             client.remove_config_file(setup_file_name)
 
         # Removes YML file.
-        print ("removing .../%s" % session_file)
+        print(("removing .../%s" % session_file))
         client.remove_config_file(session_file)
 
         # Removes script file.
-        print ("removing .../%s" % script_file_name)
+        print(("removing .../%s" % script_file_name))
         client.remove_config_file(script_file_name)
 
 
@@ -120,12 +120,12 @@ def create_session(session_name):
     This method is valid even if config directory is located on
     a remote computer.
     """
-    print ("Creating '%s' BLISS session" % session_name)
+    print(("Creating '%s' BLISS session" % session_name))
 
     # <session_name>.yml: config file created as a config Node.
     file_name = "sessions/%s.yml" % session_name
     new_session_node = Node(filename=file_name)
-    print ("Creating %s" % file_name)
+    print(("Creating %s" % file_name))
     new_session_node.update(
         {
             "class": "Session",
@@ -141,13 +141,13 @@ def create_session(session_name):
     # <session_name>_setup.py: setup file of the session.
     skeleton = sft.xxx_setup_py_template.render(name=session_name)
     file_name = "sessions/%s_setup.py" % session_name
-    print ("Creating %s" % file_name)
+    print(("Creating %s" % file_name))
     config.set_config_db_file(file_name, skeleton)
 
     # scripts/<session_name>.py: additional python script file.
     skeleton = sft.xxx_py_template.render(name=session_name)
     file_name = "sessions/scripts/%s.py" % session_name
-    print ("Creating %s" % file_name)
+    print(("Creating %s" % file_name))
     config.set_config_db_file(file_name, skeleton)
 
 
@@ -159,11 +159,11 @@ def main():
     try:
         arguments = docopt(__doc__)
     except DocoptExit:
-        print ""
-        print "Available BLISS sessions:"
-        print "-------------------------"
+        print("")
+        print("Available BLISS sessions:")
+        print("-------------------------")
         print_sessions_list(sessions_list)
-        print ""
+        print("")
         arguments = docopt(__doc__)
 
     # log level
@@ -173,7 +173,7 @@ def main():
 
     # Print version
     if arguments["--version"]:
-        print ("BLISS version %s" % release.short_version)
+        print(("BLISS version %s" % release.short_version))
         sys.exit()
 
     # Display session names and trees
@@ -190,7 +190,7 @@ def main():
     if arguments["--create"]:
         session_name = arguments["--create"]
         if session_name in sessions_list:
-            print ("Session '%s' cannot be created: it already exists." % session_name)
+            print(("Session '%s' cannot be created: it already exists." % session_name))
             exit(0)
         else:
             create_session(session_name)
@@ -204,9 +204,11 @@ def main():
             delete_session(session_name)
             exit(0)
         else:
-            print (
-                "Session '%s' cannot be deleted: it seems it does not exist."
-                % session_name
+            print(
+                (
+                    "Session '%s' cannot be deleted: it seems it does not exist."
+                    % session_name
+                )
             )
             exit(0)
 
@@ -214,7 +216,7 @@ def main():
     if arguments["--session"]:
         session_name = arguments["--session"]
         if session_name not in sessions_list:
-            print ("'%s' does not seem to be a valid session, exiting." % session_name)
+            print(("'%s' does not seem to be a valid session, exiting." % session_name))
             print_sessions_list(sessions_list)
             exit(0)
     else:

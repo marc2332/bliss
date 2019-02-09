@@ -13,13 +13,16 @@ style:
     - source activate tango3.6
     - pip install black==18.6b4
   script:
-    - LC_ALL=C.UTF-8 black --check --fast .
+    - LC_ALL=C.UTF-8 black --check --safe .
 
 tests:
   stage: tests
   before_script:
-    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable python=2 --file requirements-conda.txt --file requirements-test-conda.txt
+    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
+    # Get louie from github for python 3 compatibility
+    - conda install -q --yes git
+    # Install bliss and its pip-only dependencies
     - pip install .
   script:
       - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
@@ -31,8 +34,8 @@ tests:
 build_doc:
   stage: build_doc
   before_script:
-    - source activate tango2.7
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-conda.txt --file requirements-doc-conda.txt
+    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
+    - source activate docenv
     - pip install -r requirements-doc.txt
   script:
     - python setup.py build_sphinx
@@ -44,7 +47,7 @@ build_doc:
 build_user_doc:
   stage: build_user_doc
   before_script:
-    - conda install --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
+    - conda install -q --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
     - pip install -r requirements-doc.txt
   script:
     - cd doc && mkdocs build

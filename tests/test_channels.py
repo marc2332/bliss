@@ -101,7 +101,7 @@ def test_channel_garbage_collection(beacon):
     c = channels.Channel("test_chan6")
     c.value = 3
     gevent.sleep(0.1)
-    assert len(gc.get_referrers(c)) == 1
+    assert len(gc.get_referrers(c)) <= 1
     del c
 
     # Still subscribed
@@ -144,11 +144,11 @@ def test_with_another_process(beacon, beacon_host_port):
         # Wait for new value
         gevent.sleep(0.1)
         assert c.value == "bla"
-        assert len(gc.get_referrers(c)) == 1
+        assert len(gc.get_referrers(c)) <= 1
         del c
 
         # Check channel is really not there anymore
-        redis = channels.client.get_cache()
+        redis = channels.client.get_redis_connection()
         bus = channels.Bus._CACHE[redis]
         assert "test_chan" not in bus._channels
 

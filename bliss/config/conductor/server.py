@@ -10,6 +10,7 @@
 
 import os
 import sys
+import json
 import codecs
 import shutil
 import logging
@@ -426,19 +427,17 @@ def _send_config_db_tree(client_id, message):
         sub_path and os.path.join(_options.db_path, sub_path) or _options.db_path
     )
 
-    import json
-
     try:
         _, tree = __get_directory_structure(look_path)
         msg = (
             protocol.CONFIG_GET_DB_TREE_OK,
-            b"%s|%s" % (message_key, json.dumps(tree)),
+            b"%s|%s" % (message_key, json.dumps(tree).encode()),
         )
     except Exception as e:
         sys.excepthook(*sys.exc_info())
         msg = (
             protocol.CONFIG_GET_DB_TREE_FAILED,
-            b"%s|Failed to get tree: %s" % (message_key, str(e)),
+            b"%s|Failed to get tree: %s" % (message_key, str(e).encode()),
         )
     client_id.sendall(protocol.message(*msg))
 

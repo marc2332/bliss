@@ -7,6 +7,7 @@ from bliss.common.scans import plotselect
 
 
 def test_get_plot(beacon, lima_simulator, test_session_with_flint):
+    pytest.xfail()
     lima = beacon.get("lima_simulator")
     simu1 = beacon.get("simu1")
 

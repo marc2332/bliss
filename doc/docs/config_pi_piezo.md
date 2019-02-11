@@ -9,6 +9,11 @@ This configuration should be common to the following models:
 * PI E-517 - 518
 * PI E-712
 
+### Supported features
+
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+YES	| NO      | YES (E-712)  
 
 ### YAML configuration file example
 

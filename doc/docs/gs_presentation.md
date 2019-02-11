@@ -1,9 +1,5 @@
 # Getting started with BLISS
 
-!!! note
-    This chapter assumes BLISS is installed, with a running **Beacon**
-    server. See [installation instructions](index.md) for more details.
-
 This page will present what is BLISS and how to start using it.
 
 ## BLISS presentation
@@ -30,7 +26,7 @@ On user point of view, BLISS presents different aspects:
 
 BLISS comes with a command line interface based on [ptpython](8).
 
-BLISS uses *session* concept to allow user to define a set of macros
+BLISS uses the *session* concept to allow user to define a set of procedures
 and devices to use in a particular circumstance (like alignment,
 specific hutch or specific experiment)
 
@@ -69,7 +65,7 @@ then the setup file is executed. Finally the prompt returns to user.
            bliss [-h | --help]
            bliss --show-sessions
            bliss --show-sessions-only
-    
+
     Options:
       -l, --log-level=<log_level>   Log level [default: WARN]
                                     (CRITICAL ERROR INFO DEBUG NOTSET)
@@ -89,7 +85,7 @@ A session can be created using `-c` option:
         Creating: /blissadm/local/beamline_configuration/sessions/eh1.yml
         Creating: /blissadm/local/beamline_configuration/sessions/scripts/eh1.py
 
-[Learn more about BLISS sessions](config_session.md)
+[Learn more about BLISS sessions](config_sessions.md)
 
 
 ### Examples of standard shell functions
@@ -116,7 +112,7 @@ Help about BLISS functions can be accessed with `help(<command_name>)`:
 
     BLISS [2]: help(wa)
     Help on function wa in module bliss.common.standard:
-    
+
     wa(**kwargs)
         Displays all positions (Where All) in both user and dial units
 
@@ -150,9 +146,9 @@ The most simple function to read all defined counters is
 To use only a sub-set of counters, they have to be specified in argument:
 
     DEMO [5]: ct(1, simct1, simct4)
-    
+
     Fri Nov 16 16:37:43 2018
-    
+
        dt[s] = 0.0    (    0.0/s)
       simct1 = 0.49872 ( 0.49872/s)
       simct4 = 0.50021 ( 0.50021/s)
@@ -161,8 +157,7 @@ To use only a sub-set of counters, they have to be specified in argument:
 
 ### Using measurement groups
 
-An alternative of specifying counters for each scan is to rely on *measurement groups*
-(for configuration, see [here](measurement_groups.md)).
+An alternative of specifying counters for each scan is to rely on *measurement groups*.
 
     DEMO [1]: align_counters
       Out [1]: MeasurementGroup:  align_counters (default)
@@ -262,9 +257,7 @@ The `set_active()` method can be used to change the active measurement group:
 !!! note
     The default active measurement group is the last defind in config.
 
-Learn more about [measurement groups](measurement_groups.md).
-
-
+Learn more about [measurement groups](config_mg.md).
 
 ## Motors
 
@@ -285,7 +278,7 @@ defined in the current session.
 
     DEMO [21]: wa()
     Current Positions (user, dial)
-    
+
       simot1    simot2    simot3    simot4    simot5
     --------  --------  --------  --------  --------
      2.00000   4.00000   6.00000   8.00000   9.00000

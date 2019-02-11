@@ -73,8 +73,6 @@ Second part is the configuration of new **virtual axes**  based on **real axes**
                     tags: hoffset   <------- is the *horizontal offset* axis.
                     tolerance: 0.04
 
-
-
 ## Configuration
 
 In this paragraph, a typical session of test and initial configuration
@@ -94,10 +92,10 @@ beam.
 
          CC4 [3]: sshg.position(0)
          Out [3]: 0.0
-        
+
         CC4 [6]: ssf.position()
         Out [6]: -0.035000
-        
+
         CC4 [7]: ssb.position()
         Out [7]: 0.0350000
 
@@ -105,19 +103,19 @@ beam.
 
         CC4 [9]: ssb.offset
         Out [9]: 22.335
-        
+
         CC4 [10]: ssf.offset
         Out [10]: 22.335
-        
+
         CC4 [11]: ssb.dial()
         Out [11]: 0.045
-        
+
         CC4 [12]: ssf.dial()
         Out [12]: 0.01
-                
+
         CC4 [13]: wa()
         Current Positions (user, dial)
-        
+
                   ssb       ssf        sshg     ssho
              --------  --------    --------  -------
              22.38000  22.34500    46.28200  0.00350

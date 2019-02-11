@@ -3,71 +3,73 @@ repo_name: 'bliss/bliss'
 repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 use_directory_urls: false
 nav:
-        - Installation: index.md
         - Getting started:
-                - BLISS presentation: gs_presentation.md
-                - Configuration start-up guide: gs_config.md
-                - Glossary: gs_glossary.md
+                - Installation: gs_installation.md
+                - BLISS in a nutshell: gs_presentation.md
         - Configuration:
-                - Beacon and YAML files: config.md
-                - Motor controllers:
-                      - Aerotech: config_aerotech.md
-                      - Elmo: config_elmo.md
-                      - Galil: config_galil.md
-                      - IcePAP: config_icepap.md
-                      - MD2: config_md2.md
-                      - PI Hexapod: config_pi_hexa.md
-                      - PI Piezo: config_pi_piezo.md 
-                      - PM600: config_pm600.md
-                      - Vscanner: config_vscanner.md
-                      - Smaract: config_smaract.md
-                      - NewFocus: config_newfocus.md
-                - Slits: config_slits.md
-                - Energy and Wavelength: config_enwl.md
-                - 2D detectors (Lima): config_lima.md
-                - MCA:
-                    - General: config_mca.md
-                    - Rontec: configure_mca_rontec.md
-                    - XIA:
-                        - Handel: config_mca_handel.md
-                - Temperature or pressure controllers:
-                      - Temperature contollers in Bliss: config_tempctrl.md
-                      - Eurotherm: config_eurotherm.md
-                      - Meerstetter: config_meerstetter.md
-                      - PACE: config_pace.md
-                      - Lakeshore: config_lakeshore.md
-                      - Oxford700: config_oxford700.md
-                      - Oxford800: config_oxford800.md
-                - P201: config_p201.md
-                - Measurement Groups: measurement_groups.md
-                - MUSST: config_musst.md
-                - Opiom: config_opiom.md
-                - PEPU: config_pepu.md
-                - TFG: config_tango_tfg.md
-                - Nano-BPM: config_nano_bpm.md
-                - Wagos: config_wago.md
-                - Transfocators: config_transfocator.md
-                - Undulators: config_undulator.md
-                - Attenuators: config_att.md
-                - Transmission: config_transmission.md
-                - BLISS control objects: config_objects.md
-                - Sessions: config_session.md
-                - Simulation: config_simulation.md
-                - Beamviewer: config_beamviewer.md
-                - Keithley:
-                      - Ammeter and Multimeter: config_keithley.md
-                      - 428: config_keithley_428.md
-                - Correlators:
-                      - Flex: config_correlator_flex.md
-                - VME time frame generator: config_tango_tfg.md
+                - Beacon:
+                      - Introduction: beacon.md
+                      - Running Beacon: beacon_install.md
+                      - YAML files: beacon_db.md
+                      - Settings: beacon_settings.md
+                      - Channels: beacon_channels.md
+                      - Static configuration API: beacon_static_api.md
+                - BLISS objects:
+                      - Object instantiation: config_plugins.md
+                      - Sessions: config_sessions.md
+                      - Measurement groups: config_mg.md
+                - Devices configuration templates:
+                      - Motor controllers:
+                            - Aerotech: config_aerotech.md
+                            - Elmo: config_elmo.md
+                            - Galil: config_galil.md
+                            - IcePAP: config_icepap.md
+                            - MD2: config_md2.md
+                            - PI Hexapod: config_pi_hexa.md
+                            - PI Piezo: config_pi_piezo.md
+                            - PM600: config_pm600.md
+                            - Vscanner: config_vscanner.md
+                            - Smaract: config_smaract.md
+                            - NewFocus: config_newfocus.md
+                      - Slits: config_slits.md
+                      - Energy and Wavelength: config_enwl.md
+                      - 2D detectors (Lima): config_lima.md
+                      - MCA:
+                          - General: config_mca.md
+                          - Rontec: config_mca_rontec.md
+                          - XIA:
+                              - Handel: config_mca_handel.md
+                      - Temperature or pressure controllers:
+                            - Temperature controllers in Bliss: config_tempctrl.md
+                            - Eurotherm: config_eurotherm.md
+                            - Keller: config_keller.md
+                            - Lakeshore: config_lakeshore.md
+                            - Meerstetter: config_meerstetter.md
+                            - Oxford700: config_oxford700.md
+                            - Oxford800: config_oxford800.md
+                            - PACE: config_pace.md
+                      - P201: config_p201.md
+                      - MUSST: config_musst.md
+                      - Opiom: config_opiom.md
+                      - PEPU: config_pepu.md
+                      - TFG: config_tango_tfg.md
+                      - Nano-BPM: config_nano_bpm.md
+                      - Wagos: config_wago.md
+                      - Transfocators: config_transfocator.md
+                      - Undulators: config_undulator.md
+                      - Transmission: config_transmission.md
+                      - Simulation: config_simulation.md
+                      - Beamviewer: config_beamviewer.md
+                      - Keithley:
+                            - Ammeter and Multimeter: config_keithley.md
+                            - 428: config_keithley_428.md
+                      - Correlators:
+                            - Flex: config_correlator_flex.md
+                      - VME time frame generator: config_tango_tfg.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md
                 - Customization: shell_customization.md
-        - BLISS programming:
-                - Truquitos: prog_truquitos.md
-                - Dealing with energy: prog_energy.md
-                - Settings: dev_settings.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
@@ -77,7 +79,6 @@ nav:
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
                 - Scans' presets: scan_presets.md
-                - Acquisition Chain: acq_chain.md
                 - Data saving: scan_saving.md
                 - BLISS scan engine explained: scan_engine.md
                 - Continuous scans: scan_continuous.md
@@ -89,7 +90,7 @@ nav:
         - Developers corner:
                 - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': api.md
                 - Guidelines: dev_guidelines.md
-                - Documentation: dev_documentation.md
+                - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a calculational controller: dev_write_calc_ctrl.md
@@ -97,6 +98,8 @@ nav:
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
+                - Tips'n'tricks: dev_tipsntricks.md
+                - Dealing with energy: dev_energy.md
                 - Testing: dev_testing.md
 theme:
         name: material

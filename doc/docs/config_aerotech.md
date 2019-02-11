@@ -6,7 +6,7 @@ For now is only tested on **Ensemble** controllers.
 
 ### Supported features
 
-Encoder | Shutter | Trajectories 
+Encoder | Shutter | Trajectories
 ------- | ------- | ------------
 YES	| NO      | NO          
 
@@ -49,5 +49,3 @@ in the YAML configuration file.
     - name: rot_enc
       aero_name: X
 ```
-
-More information about **Encoder** objects [here](motion_encoder.md)

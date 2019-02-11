@@ -1,4 +1,4 @@
-# MD2 Difractometer 
+# MD2 Difractometer
 
 ![MD2](img/md2.png)
 
@@ -11,6 +11,12 @@ https://www.embl.fr/instrumentation/cipriani/downloads/md2_pdf.pdf
 
 Some troubleshooting on usage:
 https://www.esrf.eu/UsersAndScience/Experiments/MX/How_to_use_our_beamlines/Trouble_Shooting/id29-microdiffractometer-troubleshooting
+
+### Supported features
+
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+NO	| NO      | NO         
 
 ## Underlining Control ##
 

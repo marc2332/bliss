@@ -293,14 +293,16 @@ class Icepap(Controller):
 
         _ackcommand(
             self._cnx,
-            "MOVE %s %d" % (motion.axis.address, motion.target_pos),
+            "MOVE %s %d" % (motion.axis.address, (motion.target_pos + 0.5)),
             pre_cmd=pre_cmd,
         )
 
     def start_all(self, *motions):
         if len(motions) > 1:
             cmd = "MOVE GROUP "
-            cmd += " ".join(["%s %d" % (m.axis.address, m.target_pos) for m in motions])
+            cmd += " ".join(
+                ["%s %d" % (m.axis.address, (m.target_pos + 0.5)) for m in motions]
+            )
             _ackcommand(self._cnx, cmd)
         elif motions:
             self.start_one(motions[0])

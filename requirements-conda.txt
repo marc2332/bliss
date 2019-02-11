@@ -21,3 +21,4 @@ silx
 psutil
 requests
 prompt_toolkit < 2
+gxx_linux-64

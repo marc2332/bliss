@@ -98,7 +98,7 @@ class TrajectoryAxis(Axis):
             if name in positions:
                 axes[axis.name] = axis
                 positions[axis.name] *= axis.steps_per_unit
-        if len(positions) > axes:
+        if len(positions) > len(axes):
             raise RuntimeError(
                 "Axis %s, real axes (%s) are not "
                 "managed in this controller"

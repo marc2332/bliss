@@ -455,7 +455,7 @@ def _write_config_db_file(client_id, message):
     if first_pos < 0 or second_pos < 0:  # message malformed
         msg = protocol.message(
             protocol.CONFIG_SET_DB_FILE_FAILED,
-            b"%s|%s" % (message_key, "Malformed message"),
+            b"%s|%s" % (message, "Malformed message"),
         )
         client_id.sendall(msg)
         return
@@ -552,7 +552,6 @@ def _client_rx(client, local_connection):
                     elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
                         _send_config_db_files(c_id, message)
                     elif messageType == protocol.CONFIG_GET_DB_TREE:
-
                         _send_config_db_tree(c_id, message)
                     elif messageType == protocol.CONFIG_SET_DB_FILE:
                         _write_config_db_file(c_id, message)
@@ -752,6 +751,26 @@ def main(args=None):
     _log.info("configuration path: %s", _options.db_path)
     tcp.listen(512)  # limit to 512 clients
 
+
+    # UDS
+    global uds_port_name
+    uds_port_name = os.path.join(
+        tempfile._get_default_tempdir(),
+        "beacon_%s.sock" % next(tempfile._get_candidate_names()),
+    )
+    
+    if sys.platform in ['win32','cygwin']:
+        uds = None
+        
+    else:
+        
+        uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        uds.bind(uds_port_name)
+        os.chmod(uds_port_name, 0o777)
+        uds.listen(512)
+        _log.info("server sitting on uds socket: %s", uds_port_name)
+
+    
     # Check Posix queue are not activated
     if _options.posix_queue:
         _log.warning("Posix queue are not managed anymore")
@@ -811,7 +830,7 @@ def main(args=None):
 
     # Safe context
     try:
-        fd_list = [udp, tcp, rp, sig_read] + ([tango_rp] if tango_rp else [])
+        fd_list = [udp, tcp, uds, rp, sig_read] + ([tango_rp] if tango_rp else [])
         logger = {rp: _rlog, tango_rp: _tlog}
         udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
 
@@ -849,8 +868,9 @@ def main(args=None):
                 newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 localhost = addr[0] == "127.0.0.1"
                 gevent.spawn(_client_rx, newSocket, localhost)
-
-        tcp_processing = gevent.spawn(do_tcp_processing, tcp)
+            
+        tcp_processing = gevent.spawn(do_tcp_processing, tcp)  
+        
 
         # ==== Logging case ============
         def do_rp_processing(fd):
@@ -865,29 +885,54 @@ def main(args=None):
                     fd_list.remove(tango_rp)
                     os.close(tango_rp)
                     logger.get(fd, _log).warning("database exit")
+            
+        rp_processing = gevent.spawn(do_rp_processing, rp)  
 
-        rp_processing = gevent.spawn(do_rp_processing, rp)
 
+        # ==== Define processes list ============
+        proc_list = [udp_processing, tcp_processing, rp_processing ]
+
+
+        # ==== UDS case (UNIX only) ============
+        if sys.platform not in ['win32','cygwin']:
+
+            def do_uds_processing(sk):
+                while True:
+                    newSocket, addr = sk.accept()
+                    gevent.spawn(_client_rx, newSocket, True)
+        
+            uds_processing = gevent.spawn(do_uds_processing, uds)  
+
+            proc_list.append(uds_processing)
+
+
+        #  ====  SIGNAL case ============
         def do_signal_processing(sg):
             while True:
                 gevent.os.tp_read(sg, 1)
                 _log.info("Received an interruption signal!")
                 break
-
-            gevent.killall([udp_processing, tcp_processing, rp_processing])
-
-        signal_processing = gevent.spawn(do_signal_processing, sig_read)
-
-        if sys.platform in ["win32", "cygwin"]:
-            # ============ test handle CTRL C under windows ============
-            def CTRL_C_handler(a, b=None):
+            
+            gevent.killall(proc_list)
+        
+        signal_processing = gevent.spawn(do_signal_processing, sig_read) 
+        
+        #============ handle CTRL C under windows ============
+        if sys.platform in ['win32','cygwin']:
+            def CTRL_C_handler(a,b=None):
                 os.write(sig_write, b"!\n")
-
-            # ===== Install CTRL_C handler ======================
+            
+            #===== Install CTRL_C handler ======================
             win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
 
-        gevent.joinall([udp_processing, tcp_processing, rp_processing])
 
+
+        # ==== Join on processes ============
+        gevent.joinall(proc_list)
+    
+    
+    
+    
     # Ignore keyboard interrupt
     except KeyboardInterrupt:
         _log.info("Received a keyboard interrupt!")

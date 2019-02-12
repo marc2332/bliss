@@ -797,7 +797,8 @@ class AcquisitionChain(object):
     def reset_stats(self):
         self._stats_dict = dict()
 
-    def trace(self, on):
+    @staticmethod
+    def trace(on):
         _logger.setLevel("DEBUG" if on else 0)
 
     @property

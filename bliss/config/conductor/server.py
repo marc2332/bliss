@@ -850,10 +850,10 @@ def main(args=None):
                     _log.info(
                         "address request from %s. Replying with %r", address, udp_reply
                     )
-                    #udp.sendto(udp_reply, address)
+                    # udp.sendto(udp_reply, address)
                 else:
                     _log.info("filter address %s with filter %s", address, add)
-                
+
                 fd.sendto(udp_reply, address)
 
         udp_processing = gevent.spawn(do_udp_processing, udp)

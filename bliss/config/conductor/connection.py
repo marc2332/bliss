@@ -163,14 +163,15 @@ class Connection(object):
 
     @property
     def uds(self):
-        # try:
-        #    int(self._port)
-        # except ValueError:
-        #    #return self._port
-        #    return None
-        # else:
-        #    return None
-        return False
+        if sys.platform in ["win32", "cygwin"]:
+            return False
+        else:
+            try:
+                int(self._port)
+            except ValueError:
+                return self._port
+            else:
+                return None
 
     def connect(self):
         # Already connected

@@ -21,6 +21,7 @@ import traceback
 import pkgutil
 import tempfile
 import gevent
+import ipaddress
 from gevent import select
 
 from bliss.common import event, subprocess
@@ -694,6 +695,15 @@ def main(args=None):
         help="log level",
     )
 
+    parser.add_argument(
+        "--add-filter",
+        dest="add_filter",
+        default=[],
+        action="append",
+        help="address filter (i.e 127.0.0.1 only localhost will be advertised\n"
+        "or 172.24.8.0/24 only advertised this sub-network ",
+    )
+
     global _options
     _options = parser.parse_args(args)
 
@@ -812,10 +822,22 @@ def main(args=None):
             if s == udp:
                 buff, address = udp.recvfrom(8192)
                 if buff.find(b"Hello") > -1:
+                    send_flag = True
+                    if _options.add_filter:
+                        for add in _options.add_filter:
+                            if ipaddress.ip_address(address[0]) in ipaddress.ip_network(
+                                add
+                            ):
+                                break
+                        else:
+                            send_flag = False
+                if send_flag:
                     _log.info(
                         "address request from %s. Replying with %r", address, udp_reply
                     )
                     udp.sendto(udp_reply, address)
+                else:
+                    _log.info("filter address %s with filter %s", address, add)
 
             # TCP case
             elif s == tcp:

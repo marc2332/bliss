@@ -36,7 +36,7 @@ from bliss.data.node import (
 from bliss.data.scan import get_data
 from bliss.common.session import get_current as _current_session
 from bliss.common import motor_group
-from .chain import AcquisitionDevice, AcquisitionMaster
+from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -932,4 +932,4 @@ class Scan(object):
         """
         Activate logging trace during scan
         """
-        self.acq_chain.trace(on)
+        AcquisitionChain.trace(on)

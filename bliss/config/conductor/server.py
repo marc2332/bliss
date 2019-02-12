@@ -408,9 +408,11 @@ def __get_directory_structure(base_dir):
     result = {}
     base_dir = base_dir.rstrip(os.sep)
     start = base_dir.rfind(os.sep) + 1
-    for path, dirs, files in os.walk(base_dir, followlinks=True):
+    for path, dirs, files in os.walk(base_dir, followlinks=True, topdown=True):
+        # with topdown=True, the search can be pruned by altering 'dirs'
+        dirs[:] = [d for d in dirs if d not in (".git",)]
         folders = path[start:].split(os.sep)
-        subdir = dict.fromkeys(files)
+        subdir = dict.fromkeys((f for f in files if "~" not in f))
         parent = reduce(dict.get, folders[:-1], result)
         parent[folders[-1]] = subdir
     assert len(result) == 1

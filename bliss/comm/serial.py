@@ -830,6 +830,7 @@ class Serial(LogMixin):
         self._logger.debug_data("write", msg)
         return self._raw_handler.write(msg, local_timeout)
 
+    @try_open
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
         if isinstance(msg, str):
             raise TypeError("a bytes-like object is required, not 'str'")
@@ -839,6 +840,7 @@ class Serial(LogMixin):
                 write_synchro.notify()
             return self._read(size, timeout)
 
+    @try_open
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
         if isinstance(msg, str):
             raise TypeError("a bytes-like object is required, not 'str'")
@@ -848,6 +850,7 @@ class Serial(LogMixin):
                 write_synchro.notify()
             return self._readline(eol, timeout)
 
+    @try_open
     def write_readlines(
         self, msg, nb_lines, write_synchro=None, eol=None, timeout=None
     ):

@@ -4,7 +4,7 @@ repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 use_directory_urls: false
 nav:
         - Getting started:
-                - Installation: gs_installation.md
+                - Installation: index.md
                 - BLISS in a nutshell: gs_presentation.md
         - Configuration:
                 - Beacon:

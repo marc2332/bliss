@@ -525,6 +525,7 @@ class FaultyMockup(Mockup):
         self.bad_start = False
         self.bad_state_after_start = False
         self.bad_stop = False
+        self.bad_position = False
         self.state_recovery_delay = 1
         self.state_msg_index = 0
 
@@ -554,6 +555,12 @@ class FaultyMockup(Mockup):
             raise RuntimeError("BAD STOP")
         else:
             return Mockup.stop(self, axis, **kw)
+
+    def read_position(self, axis, t=None):
+        if self.bad_position:
+            raise RuntimeError("BAD POSITION")
+        else:
+            return Mockup.read_position(self, axis, t)
 
 
 class CustomMockup(Mockup):

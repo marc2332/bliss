@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import traceback
 import inspect
 import gevent
 import types
@@ -15,6 +16,18 @@ import numpy
 from bliss.common.event import saferef
 
 from collections import OrderedDict
+
+
+class ErrorWithTraceback:
+    def __init__(self, error_txt="!ERR"):
+        self._ERR = error_txt
+        self.traceback = ""
+
+    def __str__(self):
+        return self._ERR
+
+    def set_traceback(self, traceback_str):
+        self.traceback = traceback_str
 
 
 class WrappedMethod(object):
@@ -439,6 +452,8 @@ def safe_get(obj, member, on_error=None, **kwargs):
             return getattr(obj, member)(**kwargs)
     except Exception as e:
         if on_error:
+            if isinstance(on_error, ErrorWithTraceback):
+                on_error.set_traceback(traceback.format_exc())
             return on_error
 
 

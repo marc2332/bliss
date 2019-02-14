@@ -2,13 +2,19 @@
 
 This section explains how to configure a McLennan PM600 motor controller.
 
-    Example YAML configuration:
+### Supported features
 
-    .. code-block:: yaml
-    
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+NO	| NO      | NO  
+
+Example YAML configuration:
+
+```yaml
+
     controller:
       class: PM600
-      tcp: 
+      tcp:
         url: 148.79.208.131:5000
       axes:
         - name: mono
@@ -38,4 +44,4 @@ This section explains how to configure a McLennan PM600 motor controller.
           gearbox_ratio_denominator: '1'
           encoder_ratio_numerator: '7200'
           encoder_ratio_denominator: '31488'
-
+```

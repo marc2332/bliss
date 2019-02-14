@@ -1,5 +1,10 @@
 # Smaract motor controller
 
+### Supported features
+
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+NO	| NO      | NO  
 
 ## Yaml sample configuration
 

@@ -1,5 +1,11 @@
 # New Focus Picomotor Controller configuration
 
+### Supported features
+
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+NO	| NO      | NO  
+
 ## NF8753 and NF8752
 
 ### Yaml sample configuration
@@ -15,7 +21,7 @@
             steps_per_unit: 50
             velocity: 0.2
             acceleration: 0.75
-            
+
         -   name: kbf_front
             driver: A1
             channel: 1
@@ -38,7 +44,7 @@
             steps_per_unit: 333.33
             velocity: 5
             acceleration: 0.1
-            
+
         -   name: bm2v2
             channel: 2
             steps_per_unit: 333.33

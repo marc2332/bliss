@@ -4,11 +4,15 @@ Vscanner has 2 axes.
 
 More info here: [http://wikiserv.esrf.fr/bliss/index.php/Vscanner](http://wikiserv.esrf.fr/bliss/index.php/Vscanner)
 
+### Supported features
+
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
+NO	| NO      | NO  
+
 ## YAML configuration file example
 
-
-```
--
+```yaml
   controller:
     class: VSCANNER
     serial:
@@ -35,5 +39,4 @@ More info here: [http://wikiserv.esrf.fr/bliss/index.php/Vscanner](http://wikise
         tolerance: 0.01
         velocity: 1
         tango_server: vscan_samp
-
 ```

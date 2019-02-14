@@ -4,8 +4,8 @@ This chapter explains how to configure an Galil motor controller.
 
 ### Supported features
 
-Encoder | Shutter | Trajectories 
-------- | ------- | ------------ 
+Encoder | Shutter | Trajectories
+------- | ------- | ------------
 NO	| NO      | NO          
 
 ### Specific Galil controller parameters
@@ -15,20 +15,20 @@ NO	| NO      | NO
 ### Specific IcePAP axis parameters
 
 * **type**: is the motor type, default value is SERVO == 1. Values could be:
-  * 1 : Servo Motor
-  * -1 : Servo motor with reversed polarity
-  * -2 : Step motor with active high step pulses
-  * 2 : Step motor with active low step pulses
-  * -2.5: Step motor with reversed direction and active high step pulses
-  * 2.5: Step motor with reversed direction and active low step pulses
+    - `1`: Servo Motor
+    - `-1`: Servo motor with reversed polarity
+    - `-2`: Step motor with active high step pulses
+    - `2`: Step motor with active low step pulses
+    - `-2.5`: Step motor with reversed direction and active high step pulses
+    - `2.5`: Step motor with reversed direction and active low step pulses
 * **vect_acceleration**: acceleration rate of the vector in a coordinated motion sequence. default value is 262144
 * **vect_deceleration**: deceleration rate of the vector in a coordinated motion sequence. default value is 262144
-* **vect_slewrate**: speed of the vector in a coordinated motion sequence. default value is 8192
-* **encoder_type**: the quadrature type or the pulse and direction type. default value is QUADRA == 0. Values can be:
-  * 0: Normal quadrature
-  * 1: Normal pulse and direction
-  * 2: Reversed quadrature
-  * 3: Reversed pulse and direction
+* **vect_slewrate**: speed of the vector in a coordinated motion sequence. Default value is 8192
+* **encoder_type**: the quadrature type or the pulse and direction type. Default value is QUADRA == 0. Values can be:
+    - `0`: Normal quadrature
+    - `1`: Normal pulse and direction
+    - `2`: Reversed quadrature
+    - `3`: Reversed pulse and direction
 * **kp**: Proportional Constant. default value is 1.0
 * **ki**: Integrator. default value is 6.0
 * **kd**: Derivative Constant. default value is 7.0

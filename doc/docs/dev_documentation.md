@@ -17,6 +17,24 @@ BLISS Documentation is furnished in various manners:
     * *docstring* after all user functions to be accessible from BLISS
       shell with `help(<function>)`
 
+## Installing documentation requirements
+
+In order to be able to test documentation on a PC where BLISS is
+installed, the documentation requirements need to be installed:
+
+    $ cd <bliss.git directory>
+    $ conda install --file requirements-doc-conda.txt
+    $ pip install -r requirements-doc.txt
+
+This installs `mkdocs` and all dependencies.
+
+In order to serve a local version of the documentation, start
+the mkdocs serve with:
+
+    $ cd doc/
+    $ mkdocs serve
+
+And visit http://localhost:8000
 
 ## New controller documentation
 
@@ -24,13 +42,13 @@ What to include in code  / What to put in mkdoc ???
 
 
 Example:
-    
+
     """ESRF - PePU controller
-    
+
     Example YAML_ configuration:
-    
+
     .. code-block:: yaml
-    
+
         plugin: bliss
         class: PEPU
         module: pepu
@@ -38,7 +56,7 @@ Example:
         tcp:
           url: pepudcm2
         template: renishaw    # optional
-    
+
     Usage::
        >>> from bliss.config.static import get_config
        >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
@@ -46,7 +64,7 @@ Example:
        >>> config = get_config()
 
        >>> pepudcm2 = config.get('pepudcm2')
-       
+
     For the counter interface, see the
     `PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`__.
     """
@@ -56,21 +74,21 @@ template:
 
 
     """ESRF - XXX controller
-    
+
     Example YAML configuration:
-    
+
     .. code-block:: yaml
-    
+
         plugin: bliss
         class: XXX
         module: xxx
         name: xxx
         tcp:
           url: xxx.esrf.fr
-    
+
     Usage::
         XXX
-        
+
     For more information, see the XXX documentation: XXX.
     """
 
@@ -135,14 +153,13 @@ To create a list, an empty line must be respected:
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
 * mkdocs inner links fir section ref: [code formatting](dev_guidelines.md#code-formatting)
 * outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
-* footnote reference: [silx](1)
-
 
 ### Raw text
 
 Inline raw text is placed between 2 backquotes:
 
     `raw text in monospace font`
+
 result: `raw text in monospace font`
 
 
@@ -180,8 +197,8 @@ iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
         })], [], [], [])
 ```
 
-!!! note
-    With such formatin, python code is more easy to copy past in a shell.
+!!! info
+    With such formatting, Python code is easier to copy/paste in a shell.
 
 #### YAML code
 
@@ -232,68 +249,3 @@ result:
 PNG, SVG or GIF files can be used
 
 ![Screenshot](img/CT2/p201.png)
-
-
-
-#### 2 examples of inline graphviz drawing
-
-{% dot p201_arch.svg
-  digraph G {
-     rankdir="LR";
-
-     driver [label="driver", shape="box"];
-     card [label="Card", shape="component"];
-
-     subgraph cluster_zerorpc {
-       label = "CT2 0RPC server";
-       color = black;
-       node [shape=rectangle];
-
-       CT2_Device [label="bliss.\ndevice.\nCT2"];
-
-     }
-
-     subgraph cluster_client {
-       label = "bliss shell";
-       node [shape=rectangle];
-
-       CT2_Client [label="bliss.\nclient.\nCT2"];
-     }
-
-     driver -> card [dir="both", label="PCI bus"];
-     CT2_Device -> driver[dir=both];
-     CT2_Client -> CT2_Device [dir="both", label="0RPC\nreq/rep &\nstream"];
-   }
-%}
-
-
-
-{% dot scan_dep.svg
-   digraph scans_hierarchy {
-   d2s [shape="box" label="d2scan"]
-   a2s [shape="box" label="a2scan"]
-   ls [shape="box" label="loopscan"]
-   ct [shape="box" label="ct"]
-   ts [shape="box" label="timescan"]
-   lu [shape="box" label="lineup"]
-   ds [shape="box" label="dscan"]
-   as [shape="box" label="ascan"]
-   ss [shape="box" label="step_scan"]
-   ps [shape="box" label="pointscan"]
-   dm [shape="box" label="dmesh"]
-   am [shape="box" label="amesh"]
-
-   d2s->a2s->ss
-   ls->ts->ss
-   lu->ds->as->ss
-   ps->ss
-   dm->am->ss
-   ct->ts
-   ss->"bliss.scanning.scan.Scan"
-   }
-%}
-
-
-
-[1]: http://silx.org
-

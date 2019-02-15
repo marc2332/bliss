@@ -699,7 +699,9 @@ class PI_E712(Controller):
                 else traj.events_positions
             )
             for evt in events:
-                commmands.append("TWS 1 %d 1" % (round(evt["time"] / servo_cycle)))
+                commmands.append(
+                    "TWS 1 %d 1" % (int((evt["time"] // servo_cycle) + 1.5))
+                )
 
         for cmd in commmands:
             self.command(cmd)

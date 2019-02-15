@@ -21,6 +21,7 @@ __all__ = (
         "wa",
         "wm",
         "sta",
+        "stm",
         "mv",
         "umv",
         "mvr",
@@ -58,6 +59,7 @@ from bliss.common.utils import (
     get_axes_iter,
     get_axes_positions_iter,
     safe_get,
+    ErrorWithTraceback,
 )
 from bliss.common.measurement import BaseCounter
 from bliss.shell.cli import repl
@@ -84,6 +86,15 @@ def __pyhighlight(code, bg="dark", outfile=None):
     return highlight(code, PythonLexer(), formatter, outfile=outfile)
 
 
+def _print_errors_with_traceback(errors, device_type="Motor"):
+    for (label, error_with_traceback_obj) in errors:
+        print(
+            "\n========= WARNING: %s '%s' has failed with error: ==============\n"
+            % (device_type, label)
+        )
+        print("%s\n" % (error_with_traceback_obj.traceback,))
+
+
 def sync(*axes):
     """
     Forces axes synchronization with the hardware
@@ -106,13 +117,13 @@ def wa(**kwargs):
     """
     max_cols = kwargs.get("max_cols", _MAX_COLS)
     err = kwargs.get("err", _ERR)
-    get = functools.partial(safe_get, on_error=err)
 
     print("Current Positions (user, dial)")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
+    errors = []
     for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
-        on_error=_ERR
+        on_error=ErrorWithTraceback(error_txt=err)
     ):
         if len(header) == max_cols:
             header, pos, dial = [], [], []
@@ -121,12 +132,18 @@ def wa(**kwargs):
         if axis_unit:
             axis_label += "[{0}]".format(axis_unit)
         header.append(axis_label)
+
         pos.append(position)
         dial.append(dial_position)
+
+        if _ERR in [str(position), str(dial_position)]:
+            errors.append((axis_label, dial_position))
 
     for table in tables:
         print("")
         print(_tabulate(table))
+
+    _print_errors_with_traceback(errors, device_type="Motor")
 
 
 def wm(*axes, **kwargs):
@@ -141,8 +158,9 @@ def wm(*axes, **kwargs):
         return
     max_cols = kwargs.get("max_cols", _MAX_COLS)
     err = kwargs.get("err", _ERR)
-    get = functools.partial(safe_get, on_error=err)
+    get = functools.partial(safe_get, on_error=ErrorWithTraceback(error_txt=err))
 
+    errors = []
     header = [""]
     User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
     Dial, high_dial, dial, low_dial = ["Dial"], [" High"], [" Current"], [" Low"]
@@ -185,21 +203,59 @@ def wm(*axes, **kwargs):
         header.append(axis_label)
         User.append(None)
         high_user.append(high if high is not None else _MISSING_VAL)
-        user.append(get(axis, "position"))
+        position = get(axis, "position")
+        user.append(position)
         low_user.append(low if low is not None else _MISSING_VAL)
         Dial.append(None)
         high_dial.append(axis.user2dial(high) if high is not None else _MISSING_VAL)
-        dial.append(get(axis, "dial"))
+        dial_position = get(axis, "dial")
+        dial.append(dial_position)
         low_dial.append(axis.user2dial(low) if low is not None else _MISSING_VAL)
+
+        if err in [str(position), str(dial_position)]:
+            errors.append((axis_label, dial_position))
 
     for table in tables:
         print("")
         print(_tabulate(table))
 
+    _print_errors_with_traceback(errors, device_type="Motor")
 
-def stm(*axes):
-    """Displays axis state (not implemented yet!)"""
-    raise NotImplementedError
+
+def stm(*axes, read_hw=False):
+    """
+    Displays state information of the given axes
+
+    Args:
+        axis (~bliss.common.axis.Axis): motor axis
+
+    Keyword Args:
+        read_hw (bool): If True, force communication with hardware, otherwise
+                        (default) use cached value.
+    """
+
+    global __axes
+    table = [("Axis", "Status")]
+    table += [
+        (
+            axis.name,
+            safe_get(
+                axis,
+                "state",
+                on_error=ErrorWithTraceback(error_txt=_ERR),
+                read_hw=read_hw,
+            ),
+        )
+        for axis in get_objects_iter(*axes)
+    ]
+    print(_tabulate(table))
+
+    errors = []
+    for label, state in table:
+        if str(state) == _ERR:
+            errors.append((label, state))
+
+    _print_errors_with_traceback(errors, device_type="Motor")
 
 
 def sta(read_hw=False):
@@ -215,11 +271,23 @@ def sta(read_hw=False):
     table += [
         (
             axis.name,
-            safe_get(axis, "state", on_error="<status not available>", read_hw=read_hw),
+            safe_get(
+                axis,
+                "state",
+                on_error=ErrorWithTraceback(error_txt=_ERR),
+                read_hw=read_hw,
+            ),
         )
         for axis in get_axes_iter()
     ]
     print(_tabulate(table))
+
+    errors = []
+    for label, state in table:
+        if str(state) == _ERR:
+            errors.append((label, state))
+
+    _print_errors_with_traceback(errors, device_type="Motor")
 
 
 def mv(*args):

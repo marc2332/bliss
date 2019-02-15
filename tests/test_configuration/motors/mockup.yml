@@ -3,6 +3,7 @@ controller:
   class: FaultyMockup
   axes:
   - name: bad
+    disabled_cache: [position,dial_position]
     steps_per_unit: 1000
     velocity: 100
     acceleration: 100

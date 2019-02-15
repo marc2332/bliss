@@ -637,8 +637,8 @@ def _vdata_header(data, axis, vdata_type):
         PARDATA_HEADER_FORMAT,
         0xCAFE,  # vdata signature
         0,  # Version = 0
-        header_size / 4,  # Data offset in dwords
-        aligned_full_size / 4,  # Full vector size in dwords
+        header_size // 4,  # Data offset in dwords
+        aligned_full_size // 4,  # Full vector size in dwords
         len(data),  # number of values in the vector
         dtype,  # Data type
         0,  # no compression
@@ -646,7 +646,7 @@ def _vdata_header(data, axis, vdata_type):
         0,
     )  # first data value for incremental coding
     return numpy.fromstring(
-        bin_header + data.tostring() + "\0" * (aligned_full_size - full_size),
+        bin_header + data.tostring() + b"\0" * (aligned_full_size - full_size),
         dtype=numpy.int8,
     )
 

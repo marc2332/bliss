@@ -120,11 +120,15 @@ class QGeventDispatcher(QAbstractEventDispatcher):
         read_events, write_events, error_events = gevent.select.select(
             rlist, wlist, elist, timeout=timeout
         )
-
         # Flush the thread communication pipe
         if self._read_pipe in read_events:
+            while True:
+                os.read(self._read_pipe, 64 * 1024)
+                r, _, _ = gevent.select.select([self._read_pipe], [], [], 0)
+                if not r:
+                    break
+
             read_events.remove(self._read_pipe)
-            os.read(self._read_pipe, 2 ** 10)
 
         # Get all activated notifiers
         all_events = read_events, write_events, error_events

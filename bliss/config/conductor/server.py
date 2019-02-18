@@ -22,6 +22,7 @@ import traceback
 import pkgutil
 import tempfile
 import gevent
+import ipaddress
 from gevent import select
 
 from bliss.common import event, subprocess
@@ -621,12 +622,14 @@ def main(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--db_path",
+        "--db-path",
         dest="db_path",
         default=os.environ.get("BEACON_DB_PATH", "./db"),
         help="database path",
     )
     parser.add_argument(
         "--redis_port",
+        "--redis-port",
         dest="redis_port",
         default=6379,
         type=int,
@@ -634,6 +637,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--redis_conf",
+        "--redis-conf",
         dest="redis_conf",
         default=redis_conf.get_redis_config_path(),
         help="path to alternative redis configuration file",
@@ -655,6 +659,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--tango_port",
+        "--tango-port",
         dest="tango_port",
         type=int,
         default=0,
@@ -662,6 +667,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--tango_debug_level",
+        "--tango-debug-level",
         dest="tango_debug_level",
         type=int,
         default=0,
@@ -669,6 +675,7 @@ def main(args=None):
     )
     parser.add_argument(
         "--webapp_port",
+        "--webapp-port",
         dest="webapp_port",
         type=int,
         default=0,
@@ -682,10 +689,20 @@ def main(args=None):
     )
     parser.add_argument(
         "--log_level",
+        "--log-level",
         default="INFO",
         type=str,
         choices=["DEBUG", "INFO", "WARN", "ERROR"],
         help="log level",
+    )
+
+    parser.add_argument(
+        "--add-filter",
+        dest="add_filter",
+        default=[],
+        action="append",
+        help="address filter (i.e 127.0.0.1 only localhost will be advertised\n"
+        "or 172.24.8.0/24 only advertised this sub-network ",
     )
 
     global _options
@@ -806,10 +823,22 @@ def main(args=None):
             if s == udp:
                 buff, address = udp.recvfrom(8192)
                 if buff.find(b"Hello") > -1:
+                    send_flag = True
+                    if _options.add_filter:
+                        for add in _options.add_filter:
+                            if ipaddress.ip_address(address[0]) in ipaddress.ip_network(
+                                add
+                            ):
+                                break
+                        else:
+                            send_flag = False
+                if send_flag:
                     _log.info(
                         "address request from %s. Replying with %r", address, udp_reply
                     )
                     udp.sendto(udp_reply, address)
+                else:
+                    _log.info("filter address %s with filter %s", address, add)
 
             # TCP case
             elif s == tcp:

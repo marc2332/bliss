@@ -414,7 +414,6 @@ class Flint:
                         data["channel_index"] = 0
                     try:
                         self._new_scan_data(data_type, master_name, data, last_data)
-                        gevent.idle()
                     except:
                         sys.excepthook(*sys.exc_info())
         finally:
@@ -456,7 +455,6 @@ class Flint:
             .setdefault(data["channel_index"], gevent.event.Event())
         )
         data_event.set()
-        qt.QApplication.processEvents()
 
     def new_tab(self, label, widget=qt.QWidget):
         widget = widget()

@@ -18,7 +18,7 @@ conda_base = os.environ.get("CONDA_PREFIX")
 extensions = []
 sip_extensions = []
 
-build_flint = True
+build_flint = sys.platform not in ["win32", "cygwin"]
 
 try:
     from Cython.Build import cythonize

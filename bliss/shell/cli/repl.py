@@ -21,7 +21,8 @@ from ptpython.python_input import PythonInput
 from prompt_toolkit.key_binding.key_processor import KeyPress
 from prompt_toolkit.keys import Keys
 
-# from .prompt import BlissPrompt
+from .prompt import BlissPrompt
+
 # from .layout import status_bar
 # from .style import bliss_ui_style
 
@@ -54,10 +55,10 @@ class BlissRepl(PythonRepl):
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
         self.bliss_scan_listener = scan_listener
-        # self.all_prompt_styles["bliss"] = BlissPrompt(self)
+        self.all_prompt_styles["bliss"] = BlissPrompt(self)
+        self.prompt_style = "bliss"
         # self.install_ui_colorscheme("bliss", bliss_ui_style)
         # self.use_ui_colorscheme("bliss")
-        # self.prompt_style = "bliss"
 
     def _execute_task(self, *args, **kwargs):
         try:

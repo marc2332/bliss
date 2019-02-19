@@ -36,7 +36,7 @@ class BlissPrompt(PromptStyle):
     def current_statement_index(self):
         return self.python_input.current_statement_index
 
-    def in_tokens(self, cli):
+    def in_prompt(self):
         return [
             ("class:in", self.prompt_label),
             ("class:in", " ["),
@@ -44,10 +44,10 @@ class BlissPrompt(PromptStyle):
             ("class:in", "]: "),
         ]
 
-    def in2_tokens(self, cli, width):
+    def in2_prompt(self, width):
         return [("class:in", "...: ".rjust(width))]
 
-    def out_tokens(self, cli):
+    def out_prompt(self,):
         return [
             ("class:out", "{0:>{width}}".format("Out", width=len(self.prompt_label))),
             ("class:out", " ["),

@@ -57,6 +57,7 @@ class BlissRepl(PythonRepl):
         self.bliss_scan_listener = scan_listener
         self.all_prompt_styles["bliss"] = BlissPrompt(self)
         self.prompt_style = "bliss"
+        self.show_signature = True
         # self.install_ui_colorscheme("bliss", bliss_ui_style)
         # self.use_ui_colorscheme("bliss")
 

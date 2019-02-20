@@ -50,6 +50,7 @@ controller:
     encoder: $m1enc
     check_encoder: true
   - name: m0
+    steps_per_unit: 1
     velocity: 1000
     acceleration: 100
   - name: hooked_m0
@@ -60,12 +61,14 @@ controller:
     motion_hooks:
     - $hook0
   - name: hooked_m1
+    steps_per_unit: 1
     velocity: 1000
     acceleration: 300
     motion_hooks:
     - $hook0
     - $hook1
   - name: hooked_error_m0
+    steps_per_unit: 1
     velocity: 1000
     acceleration: 300
     motion_hooks:

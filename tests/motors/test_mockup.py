@@ -146,3 +146,43 @@ def test_trajectory_positions(motion, instants, expected_positions):
 
     for instant, expected_position in zip(instants, expected_positions):
         assert traj.position(instant) == pytest.approx(expected_position)
+
+
+def test_steps_per_unit_modified(beacon, factor=2., offset=10.):
+    # LOAD CONFIG
+    robz_cfg = beacon.get_config("robz")
+
+    # GET SPU FROM CONFIG
+    spu_0 = robz_cfg["steps_per_unit"]
+
+    # CREATE ROBZ
+    robz = beacon.get("robz")
+
+    # SET THE OFFSET
+    robz.position = robz.dial + offset
+    assert robz.offset == offset
+
+    # MOVE ROBZ TO A POSITION != 0
+    robz.move(1.0 + offset)
+
+    # READ PARAMETERS WHICH DEPENDS ON SPU
+    values_0 = (robz.dial, robz.position, robz._set_position)
+
+    # DELETE ROBZ AND RELOAD CONFIG
+    del robz
+    beacon.reload()
+    robz_cfg = beacon.get_config("robz")
+
+    # MODIFY THE SPU IN CONFIG
+    spu_1 = robz_cfg["steps_per_unit"] = robz_cfg["steps_per_unit"] * factor
+
+    # CREATE ROBZ
+    robz = beacon.get("robz")
+
+    # CHECK THAT THE POSITIONS ARE UPDATED
+    values_1 = (robz.dial, robz.position, robz._set_position)
+
+    assert spu_1 == spu_0 * factor
+    assert values_1[0] * factor == values_0[0]
+    assert (values_1[1] - offset) * factor == (values_0[1] - offset)
+    assert (values_1[2] - offset) * factor == (values_0[2] - offset)

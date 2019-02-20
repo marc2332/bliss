@@ -97,7 +97,6 @@ def main():
         "jinja2 >= 2.7",
         "flask",
         "treelib",
-        "gipc",
         "jedi",
         "ptpython >= 2.0",
         "prompt_toolkit >= 2.0",
@@ -122,7 +121,7 @@ def main():
         "cffi",
     ]
 
-    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy", "gipc"]
+    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]
 
     setup_requires = [
         #        'setuptools >= 37',

@@ -451,6 +451,7 @@ class CalcController(Controller):
 
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False
+        self.axis_settings.config_setting["steps_per_unit"] = False
 
         self._reals_group = None
         self.reals = []

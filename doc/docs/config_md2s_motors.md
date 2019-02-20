@@ -1,5 +1,5 @@
 # Microdiffractometer (MD2-S, MD3, MD3-UP) Motors
-Micro Difractometers designed by EMBL and marketed by ARINAX are
+Micro Difractometers designed by EMBL and commercialised by ARINAX are
 used to perform crystallography experiments.
 In bliss their control is separated in two parts: motors and equipment.
 The configuration below only concerns motors.
@@ -22,7 +22,7 @@ NO	| NO      | NO
 ### Underlining Control
 
 There is a java application, running on windows OS, which provides an
-API with Commands and Channels. Bliss is interfaced to the API via the
+API with Commands and Channels. Bliss is interfaced to this API via the
 Exporter Protocol - TCP/IP sockets communication, using ASCII request and
 replies.
 

@@ -32,7 +32,7 @@ This is a skeleton for writing a temperature controller called MyTemperatureCont
 
    - recommended: for the 'outputs' objects 
           - 'low_limit'/'high_limit': you can provide these values if you need a filtering
-            of the setpoints that you will send on you object. A RunTimeError with a
+            of the setpoints that you will send on you object. A **RunTimeError** with a
             message will be sent if you try to setpoint outside these limits
           - 'deadband': when you ramp to a setpoint, it allows to know when you have
             readched the setpoint (inside this deadband), using the 'rampstate' method.

@@ -20,16 +20,14 @@ whole project source files.
 
 ### Using Conda
 
-The use of [Conda][3] is recommended to install all dependencies. BLISS distribution contains a
+The use of [Conda][3] is recommended to install all dependencies. Before creating a `bliss_env`,
+the ESRF BCU Conda channel needs to be configured. BLISS distribution contains a
 `requirements-conda.txt` file to help with the installation. Creating a `bliss_env` Conda environment
-can be done like this (the name of the enviroment can - of cause - be chosen freely):
+can be done like this (the name of the environment can - of cause - be chosen freely):
 
     $ cd bliss
+    $ conda config --add channels esrf-bcu
     $ conda env create -n bliss_env -f ./requirements-conda.txt
-
-!!! note
-    The ESRF BCU Conda channel needs to be configured beforehand:
-    `conda config --add channels esrf-bcu`
 
 Not all packages are available on standard Conda repositories. Remaining packages can then be
 installed via `pip`. To complete the installation activate the freshly created conda environment:

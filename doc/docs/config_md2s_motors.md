@@ -1,5 +1,5 @@
 # Microdiffractometer (MD2-S, MD3, MD3-UP) Motors
-The Micro Difractometers designed by EMBL and marketed by ARINAX are
+Micro Difractometers designed by EMBL and marketed by ARINAX are
 used to perform crystallography experiments.
 In bliss their control is divided in two parts -motors and equipment.
 The configuration below only concerns motors.

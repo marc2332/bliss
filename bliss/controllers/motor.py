@@ -242,8 +242,27 @@ class Controller(object):
                     )
 
             for setting_name in axis.settings.config_settings():
-                value = get_setting_or_config_value(axis, setting_name)
-                setattr(axis, setting_name, value)
+
+                if setting_name == "steps_per_unit":
+                    cval = float(axis.config.get(setting_name))
+                    rval = axis.settings.get(setting_name)
+
+                    if cval != rval and rval != None:
+                        ratio = rval / cval
+                        newdial = axis.dial * ratio
+                        newpos = axis.sign * newdial + axis.offset
+                        newsetpos = (
+                            ratio * (axis._set_position - axis.offset) + axis.offset
+                        )
+
+                        axis.settings.set("dial_position", newdial)
+                        axis.settings.set("position", newpos)
+                        axis.settings.set("_set_position", newsetpos)
+                        axis.settings.set("steps_per_unit", cval)
+
+                else:
+                    value = get_setting_or_config_value(axis, setting_name)
+                    setattr(axis, setting_name, value)
 
             low_limit = get_setting_or_config_value(axis, "low_limit")
             high_limit = get_setting_or_config_value(axis, "high_limit")

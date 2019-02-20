@@ -114,6 +114,7 @@ import itertools
 
 import louie
 import gevent.queue
+import gevent.lock
 from gevent import socket
 
 from bliss.common.greenlet_utils import KillMask

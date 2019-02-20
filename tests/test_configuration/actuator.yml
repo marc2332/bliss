@@ -1,0 +1,10 @@
+name: actuator
+plugin: bliss
+class: actuator
+controller:
+  - name: _simulation_actuator_controller
+    module: simulation_actuator
+    class: SimulationActuator
+actuator_cmd: set_in
+  
+

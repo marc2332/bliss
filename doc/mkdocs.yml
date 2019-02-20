@@ -56,6 +56,7 @@ nav:
                       - Nano-BPM: config_nano_bpm.md
                       - Wagos: config_wago.md
                       - Transfocators: config_transfocator.md
+                      - Actuators: config_actuator.md
                       - Undulators: config_undulator.md
                       - Transmission: config_transmission.md
                       - Simulation: config_simulation.md

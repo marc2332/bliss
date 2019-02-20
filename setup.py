@@ -153,7 +153,7 @@ def main():
             "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         },
         ext_modules=extensions,
-        scripts=["bin/beacon-server-list", "bin/bliss_webserver", "bin/sps_data_watch"],
+        scripts=["bin/beacon-server-list", "bin/sps_data_watch"],
         entry_points={
             "console_scripts": [
                 "bliss = bliss.shell.cli.main:main",

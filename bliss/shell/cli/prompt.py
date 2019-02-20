@@ -9,7 +9,6 @@
 
 import time
 
-from prompt_toolkit.token import Token
 from ptpython.prompt_style import PromptStyle
 
 __all__ = ("BlissPrompt",)
@@ -37,22 +36,22 @@ class BlissPrompt(PromptStyle):
     def current_statement_index(self):
         return self.python_input.current_statement_index
 
-    def in_tokens(self, cli):
+    def in_prompt(self):
         return [
-            (Token.In, self.prompt_label),
-            (Token.In, " ["),
-            (Token.In.Number, "%s" % self.current_statement_index),
-            (Token.In, "]: "),
+            ("class:in", self.prompt_label),
+            ("class:in", " ["),
+            ("class:in.number", "%s" % self.current_statement_index),
+            ("class:in", "]: "),
         ]
 
-    def in2_tokens(self, cli, width):
-        return [(Token.In, "...: ".rjust(width))]
+    def in2_prompt(self, width):
+        return [("class:in", "...: ".rjust(width))]
 
-    def out_tokens(self, cli):
+    def out_prompt(self,):
         return [
-            (Token.Out, "{0:>{width}}".format("Out", width=len(self.prompt_label))),
-            (Token.Out, " ["),
-            (Token.Out.Number, "%s" % self.current_statement_index),
-            (Token.Out, "]:"),
-            (Token, " "),
+            ("class:out", "{0:>{width}}".format("Out", width=len(self.prompt_label))),
+            ("class:out", " ["),
+            ("class:out.number", "%s" % self.current_statement_index),
+            ("class:out", "]:"),
+            ("", " "),
         ]

@@ -12,20 +12,24 @@ import signal
 import weakref
 import warnings
 import functools
+import traceback
 
 import gevent
 from ptpython.repl import PythonRepl
+from ptpython.python_input import PythonInput
+
+from prompt_toolkit.key_binding.key_processor import KeyPress
+from prompt_toolkit.keys import Keys
 
 from .prompt import BlissPrompt
-from .eventloop import PosixGeventEventLoop, INPUT_TIMEOUT
-from .interface import BlissCommandLineInterface
-from .layout import status_bar
-from .style import bliss_ui_style
+
+# from .layout import status_bar
+# from .style import bliss_ui_style
 
 from bliss.shell import initialize, ScanListener
 
 
-__all__ = ("BlissRepl", "embed", "cli", "configure")
+__all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
 
 REPL = None
 
@@ -36,9 +40,9 @@ class BlissRepl(PythonRepl):
         title = kwargs.pop("title", None)
         scan_listener = kwargs.pop("scan_listener")
         session = kwargs.pop("session")
-        bliss_bar = status_bar(self)
-        toolbars = list(kwargs.pop("extra_toolbars", ()))
-        kwargs["_extra_toolbars"] = [bliss_bar] + toolbars
+        # bliss_bar = status_bar(self)
+        # toolbars = list(kwargs.pop("extra_toolbars", ()))
+        # kwargs["_extra_toolbars"] = [bliss_bar] + toolbars
         super(BlissRepl, self).__init__(*args, **kwargs)
 
         self.current_task = None
@@ -46,15 +50,16 @@ class BlissRepl(PythonRepl):
             self.terminal_title = title
         self.show_status_bar = False
         self.show_bliss_bar = True
-        self.bliss_bar = bliss_bar
-        self.bliss_bar_format = "normal"
+        # self.bliss_bar = bliss_bar
+        # self.bliss_bar_format = "normal"
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
         self.bliss_scan_listener = scan_listener
         self.all_prompt_styles["bliss"] = BlissPrompt(self)
-        self.install_ui_colorscheme("bliss", bliss_ui_style)
-        self.use_ui_colorscheme("bliss")
         self.prompt_style = "bliss"
+        self.show_signature = True
+        # self.install_ui_colorscheme("bliss", bliss_ui_style)
+        # self.use_ui_colorscheme("bliss")
 
     def _execute_task(self, *args, **kwargs):
         try:
@@ -86,29 +91,35 @@ class BlissRepl(PythonRepl):
 CONFIGS = weakref.WeakValueDictionary()
 
 
-def configure(func):
-    """
-    Register decorated function to be called by ptpython's configure.
-    Here is an example on how to do it in your setup file::
+def configure_repl(repl):
+    @repl.add_key_binding(Keys.ControlC)
+    def _(event):
+        repl.stop_current_task()
 
-        from bliss.shell.cli import configure
 
-        @configure
-        def config(repl):
-
-            # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
-            repl.prompt_style = 'classic' # 'classic', 'ipython' or 'bliss'
-
-    Args:
-        func (callable): a callable with one argument: the repl
-
-    Returns:
-        the same func callable
-    """
-    global CONFIGS
-    if func not in list(CONFIGS.values()):
-        CONFIGS[len(CONFIGS)] = func
-    return func
+# def configure(func):
+#    """
+#    Register decorated function to be called by ptpython's configure.
+#    Here is an example on how to do it in your setup file::
+#
+#        from bliss.shell.cli import configure
+#
+#        @configure
+#        def config(repl):
+#
+#            # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
+#            repl.prompt_style = 'classic' # 'classic', 'ipython' or 'bliss'
+#
+#    Args:
+#        func (callable): a callable with one argument: the repl
+#
+#    Returns:
+#        the same func callable
+#    """
+#    global CONFIGS
+#    if func not in list(CONFIGS.values()):
+#        CONFIGS[len(CONFIGS)] = func
+#    return func
 
 
 def cli(
@@ -117,7 +128,7 @@ def cli(
     vi_mode=False,
     startup_paths=None,
     eventloop=None,
-    refresh_interval=INPUT_TIMEOUT * 3,
+    refresh_interval=1.0,
 ):
     """
     Create a command line interface without running it::
@@ -143,7 +154,8 @@ def cli(
     def get_globals():
         return user_ns  # , REPL=repl)
 
-    def get_locals():
+    def get_locals():  # -*- coding: utf-8 -*-
+
         return locals
 
     if session_name:
@@ -161,9 +173,6 @@ def cli(
         prompt_label = "BLISS"
 
     history_filename = os.path.join(os.environ["HOME"], history_filename)
-
-    # Create eventloop.
-    eventloop = eventloop or PosixGeventEventLoop()
 
     scan_listener = ScanListener()
 
@@ -190,9 +199,9 @@ def cli(
         except:
             sys.excepthook(*sys.exc_info())
 
-    return BlissCommandLineInterface(
-        python_input=repl, eventloop=eventloop, refresh_interval=refresh_interval
-    )
+    configure_repl(repl)
+
+    return repl
 
 
 def embed(*args, **kwargs):
@@ -214,7 +223,6 @@ def embed(*args, **kwargs):
         stop_signals (bool): if True (default), registers SIGINT and SIGTERM
                              signals to stop the current task
     """
-
     stop_signals = kwargs.pop("stop_signals", True)
 
     # Hide the warnings from the users
@@ -225,8 +233,7 @@ def embed(*args, **kwargs):
         if stop_signals:
 
             def stop_current_task(signum, frame, exception=gevent.GreenletExit):
-                repl = cmd_line_i.python_input
-                repl.stop_current_task(block=False, exception=exception)
+                cmd_line_i.stop_current_task(block=False, exception=exception)
 
             stop_with_keyboard_interrupt = functools.partial(
                 stop_current_task, exception=KeyboardInterrupt
@@ -247,7 +254,31 @@ def embed(*args, **kwargs):
 
             gevent.spawn(watch_pipe, r)
 
-        cmd_line_i.run()
+        while True:
+            try:
+                inp = cmd_line_i.app.run()
+                cmd_line_i._execute(inp)
+            except KeyboardInterrupt:
+                # ctrl c
+                pass
+            except EOFError:
+                # ctrl d
+                break
+            except (SystemExit):
+                # kill and exit()
+                print("")
+                break
+            except BaseException as e:
+                # all unexpected Errors and exceptions ... should be logged
+
+                # this could be the output in a less scary way for non python users
+                # related to isssu 402
+                # for x in traceback.format_exception_only(type(e), e): print(x)
+
+                # a bit more verbose output should/could be activated/deactivated
+                traceback.print_exception(type(e), e, e.__traceback__)
+                pass
+
     finally:
         warnings.filterwarnings("default")
 

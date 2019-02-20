@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import os
+import os, sys
 import io
 from . import connection
 from .connection import StolenLockException
@@ -156,6 +156,9 @@ def _open_file(file_path, local, text=False):
 
     if local:
         return open(file_path, "r" if text else "rb")
+
+    if sys.platform in ["win32", "cygwin"]:
+        file_path = file_path.replace("\\", "/")
 
     try:
         file_content = get_config_file(file_path.strip("/"))

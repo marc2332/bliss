@@ -97,7 +97,6 @@ def main():
         "jinja2 >= 2.7",
         "flask",
         "treelib",
-        "gipc",
         "jedi",
         "ptpython >= 2.0",
         "prompt_toolkit >= 2.0",
@@ -110,7 +109,7 @@ def main():
         "msgpack_numpy >= 0.4.4.2",
         "blessings",
         "h5py",
-        "gevent == 1.3.7",
+        "gevent >= 1.4",
         "pygments",
         "numpy >= 1.13",
         "h5py",
@@ -122,7 +121,7 @@ def main():
         "cffi",
     ]
 
-    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy", "gipc"]
+    tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]
 
     setup_requires = [
         #        'setuptools >= 37',
@@ -153,7 +152,7 @@ def main():
             "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         },
         ext_modules=extensions,
-        scripts=["bin/beacon-server-list", "bin/bliss_webserver", "bin/sps_data_watch"],
+        scripts=["bin/beacon-server-list", "bin/sps_data_watch"],
         entry_points={
             "console_scripts": [
                 "bliss = bliss.shell.cli.main:main",

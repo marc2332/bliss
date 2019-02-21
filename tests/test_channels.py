@@ -8,12 +8,14 @@
 import os
 import gc
 import signal
-
-import gipc
+import subprocess
+import tempfile
 import gevent
 import pytest
+import sys
 
 from bliss.config import channels
+from bliss.comm.rpc import Client
 
 
 def test_channel_not_initialized(beacon):
@@ -109,72 +111,99 @@ def test_channel_garbage_collection(beacon):
     assert c.value is None
 
 
-def test_with_another_process(beacon, beacon_host_port):
-    def child_process(child_end, beacon_host_port):
+@pytest.fixture
+def channel_subprocess(beacon, beacon_host_port):
+    subprocess_code = b"""
+import sys
+from bliss.config.conductor import client
+from bliss.config.conductor import connection
+from bliss.config import channels
+from bliss.comm.rpc import Server
 
-        import sys
-        from bliss.config.conductor import client
-        from bliss.config.conductor import connection
-        from bliss.config import channels
+beacon_host = sys.argv[2]
+beacon_port = int(sys.argv[3])
+beacon_connection = connection.Connection(beacon_host, beacon_port)
+client._default_connection = beacon_connection
+ 
+class Test:
+    def create_channel(self, value=channels._NotProvided):
+        self.chan = channels.Channel('test_chan', value=value)
+        self.chan.register_callback(self.chan_value_updated)
+    def set_channel_value(self, value):
+        self.chan.value = value
+    def get_channel_value(self):
+        return self.chan.value
+    def chan_value_updated(self, new_value):
+        pass
 
-        beacon_connection = connection.Connection(*beacon_host_port)
-        client._default_connection = beacon_connection
-        channels.Bus._CACHE = dict()
+test = Test()
+server = Server(test)
+server.bind(f'tcp://0:{sys.argv[1]}')
+print('HELLO\\n')
+server.run()
+"""
+    tmpfile = tempfile.NamedTemporaryFile()
+    tmpfile.write(subprocess_code)
+    tmpfile.seek(0)
+    p = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            tmpfile.name,
+            "60231",
+            f"{beacon_host_port[0]}",
+            f"{beacon_host_port[1]}",
+        ],
+        stdout=subprocess.PIPE,
+    )
+    p.stdout.readline()  # synchronize process start
 
-        assert child_end.get() == "!"
-        child_end.put("$")
+    test_subprocess = Client("tcp://localhost:60231")
 
-        chan = channels.Channel("test_chan")
-        if chan.value == "helloworld":
-            chan.value = "bla"
-            child_end.put("#")
-            if child_end.get() == ".":
-                sys.exit(2)
+    yield p, test_subprocess
+
+    p.terminate()
+    test_subprocess.close()
+
+
+def test_with_another_process(channel_subprocess):
+    p, test_subprocess = channel_subprocess
 
     c = channels.Channel("test_chan", "helloworld")
+    test_subprocess.create_channel()
 
-    with gipc.pipe(duplex=True) as (child_end, parent_end):
-        p = gipc.start_process(target=child_process, args=(child_end, beacon_host_port))
+    assert test_subprocess.get_channel_value() == "helloworld"
+    test_subprocess.set_channel_value("bla")
 
-        # Synchronize
-        parent_end.put("!")
-        assert parent_end.get() == "$"
-        assert parent_end.get() == "#"
+    # Wait for new value
+    gevent.sleep(0.1)
+    assert c.value == "bla"
+    assert len(gc.get_referrers(c)) <= 1
+    del c
 
-        # Wait for new value
-        gevent.sleep(0.1)
-        assert c.value == "bla"
-        assert len(gc.get_referrers(c)) <= 1
-        del c
+    # Check channel is really not there anymore
+    redis = channels.client.get_redis_connection()
+    bus = channels.Bus._CACHE[redis]
+    assert "test_chan" not in bus._channels
 
-        # Check channel is really not there anymore
-        redis = channels.client.get_redis_connection()
-        bus = channels.Bus._CACHE[redis]
-        assert "test_chan" not in bus._channels
+    # Pause subprocess
+    os.kill(p.pid, signal.SIGSTOP)
 
-        # Pause subprocess
-        os.kill(p.pid, signal.SIGSTOP)
+    # New channel
+    cc = channels.Channel("test_chan", timeout=0.5)
+    assert cc.timeout == 0.5
+    cc.timeout = 0.1
+    assert cc.timeout == 0.1
 
-        # New channel
-        cc = channels.Channel("test_chan", timeout=0.5)
-        assert cc.timeout == 0.5
-        cc.timeout = 0.1
-        assert cc.timeout == 0.1
-
-        # Make sure it times out
-        with pytest.raises(RuntimeError):
-            assert cc.value == "bla"
-
-        # Restore subprocess
-        os.kill(p.pid, signal.SIGCONT)
-
-        # Make sure the value is now received
+    # Make sure it times out
+    with pytest.raises(RuntimeError):
         assert cc.value == "bla"
 
-        # Synchronize with subprocess
-        parent_end.put(".")
-        p.join()
-        assert p.exitcode == 2
+    # Restore subprocess
+    os.kill(p.pid, signal.SIGCONT)
+
+    # Make sure the value is now received
+    assert cc.value == "bla"
 
 
 def test_channels_advanced(beacon):
@@ -238,35 +267,11 @@ def test_channels_cache(beacon):
     assert "the device 1 has no name" in str(info)
 
 
-def test_2processes_set_channel_value_constructor(beacon, beacon_host_port):
-    def child_process(child_end, beacon_host_port):
-        import sys
-        from bliss.config.conductor import client
-        from bliss.config.conductor import connection
-        from bliss.config import channels
+def test_2processes_set_channel_value_constructor(channel_subprocess):
+    p, test_subprocess = channel_subprocess
 
-        beacon_connection = connection.Connection(*beacon_host_port)
-        client._default_connection = beacon_connection
-        channels.Bus._CACHE = dict()
-
-        assert child_end.get() == "!"
-
-        chan = channels.Channel("test_chan", value="test")
-        child_end.put("$")
-        if child_end.get() == ".":
-            sys.exit(0)
+    test_subprocess.create_channel("test")
 
     c = channels.Channel("test_chan")
 
-    with gipc.pipe(duplex=True) as (child_end, parent_end):
-        p = gipc.start_process(target=child_process, args=(child_end, beacon_host_port))
-
-        # Synchronize
-        parent_end.put("!")
-        assert parent_end.get() == "$"
-        gevent.sleep(0.1)
-        try:
-            assert c.value == "test"
-        finally:
-            parent_end.put(".")
-            p.join()
+    assert c.value == "test"

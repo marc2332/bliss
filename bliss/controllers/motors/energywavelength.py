@@ -58,7 +58,9 @@ class EnergyWavelength(CalcController):
         self.no_offset = self.config.get("no_offset", bool, True)
         self.e_factor = 1
         self.m_factor = 1
-        lut = self.config.get("lut")
+        self.energy_array = None
+        self.mono_array = None
+        lut = self.config.get("lut", default="")
         if lut:
             self.energy_array, self.mono_array = self._load_en_table(lut)
         else:

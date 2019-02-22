@@ -11,7 +11,6 @@ import functools
 import numpy
 
 from bliss.config import settings
-from bliss.common.utils import OrderedDict
 from bliss.common.measurement import IntegratingCounter
 
 
@@ -127,7 +126,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         if not raw_data.size:
             return len(counters) * (numpy.array(()),)
         raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
-        result = OrderedDict([int(counter), []] for counter in counters)
+        result = dict([int(counter), []] for counter in counters)
 
         for roi_counter in raw_data:
             roi_id = int(roi_counter[0])

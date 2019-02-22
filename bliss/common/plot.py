@@ -149,7 +149,6 @@ import sys
 import numpy
 import psutil
 import platform
-from collections import OrderedDict
 
 from bliss.comm import rpc
 from bliss.common import session as session_module
@@ -366,10 +365,10 @@ class BasePlot(object):
             fields = numpy.array(data).dtype.fields
         # Single data
         if fields is None:
-            data_dict = OrderedDict([(field, data)])
+            data_dict = dict([(field, data)])
         # Multiple data
         else:
-            data_dict = OrderedDict((field, data[field]) for field in fields)
+            data_dict = dict((field, data[field]) for field in fields)
         # Send data
         for field, value in data_dict.items():
             self.add_single_data(field, value)

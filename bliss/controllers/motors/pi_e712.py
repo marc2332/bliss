@@ -14,7 +14,6 @@ import gevent
 from bliss.controllers.motor import Controller
 from bliss.common import log as elog
 from bliss.common.utils import object_method
-from bliss.common.utils import OrderedDict
 from bliss.common.utils import grouped
 from bliss.common.utils import add_property
 

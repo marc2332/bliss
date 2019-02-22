@@ -13,7 +13,6 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common import measurementgroup
 from bliss.common.measurement import BaseCounter
-from bliss.common.utils import OrderedDict as ordereddict
 
 
 def _get_object_from_name(name):
@@ -112,7 +111,7 @@ def master_to_devices_mapping(
     # Initialize structures
     device_dict = {None: None}
     master_dict = {None: root}
-    mapping_dict = ordereddict({root: []})
+    mapping_dict = dict({root: []})
 
     # Recursive master handling
     def add_master(master_controller):

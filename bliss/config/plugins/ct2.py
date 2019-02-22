@@ -13,8 +13,6 @@ from bliss.controllers.ct2 import card, create_objects_from_config_node
 # low level card gui (probably for developers only)
 from . import _ct2
 
-from bliss.common.utils import OrderedDict
-
 __this_path = os.path.dirname(os.path.realpath(__file__))
 
 

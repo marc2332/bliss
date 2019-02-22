@@ -16,7 +16,6 @@ from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
-from bliss.common.utils import OrderedDict
 from bliss.common.measurement import SamplingCounter, counter_namespace
 
 Serial = serial.Serial
@@ -275,7 +274,7 @@ class musst(object):
         )
 
         # Configured channels
-        self._channels = OrderedDict()
+        self._channels = dict()
         channels_list = config_tree.get("channels", list())
         for channel_config in channels_list:
             channel_number = channel_config.get("channel")
@@ -611,7 +610,7 @@ class musst(object):
         return channels[0]  # first match
 
     def get_channel_by_names(self, *channel_names):
-        channels = OrderedDict()
+        channels = dict()
         for channel_name in channel_names:
             chans = self._channels.get(channel_name.upper())
             if chans is None:
@@ -672,8 +671,8 @@ class Switch(BaseSwitch):
     def __init__(self, name, config):
         BaseSwitch.__init__(self, name, config)
         self.__musst = None
-        self.__states = OrderedDict()
-        self.__state_test = OrderedDict()
+        self.__states = dict()
+        self.__state_test = dict()
 
     def _init(self):
         config = self.config

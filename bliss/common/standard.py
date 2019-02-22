@@ -53,7 +53,6 @@ from pygments.formatters import TerminalFormatter
 from bliss import setup_globals
 from bliss.common.motor_group import Group
 from bliss.common.utils import (
-    OrderedDict,
     get_objects_iter,
     get_objects_type_iter,
     get_axes_iter,
@@ -386,7 +385,7 @@ def __umove(*args, **kwargs):
 
 def __move(*args, **kwargs):
     wait, relative = kwargs.get("wait", True), kwargs.get("relative", False)
-    motor_pos = OrderedDict()
+    motor_pos = dict()
     for m, p in zip(get_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
     group = Group(*motor_pos.keys())

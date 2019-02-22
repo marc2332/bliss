@@ -600,7 +600,7 @@ class PEPU(object):
     def __init__(self, name, config):
         self.name = name
         self.bliss_config = config
-        self.streams = collections.OrderedDict()
+        self.streams = dict()
 
         url = config["tcp"]["url"] + ":5000"
         if not url.startswith("command://"):
@@ -611,13 +611,9 @@ class PEPU(object):
 
         self.conn = get_comm(config, TCP, eol="\n")
 
-        self.in_channels = collections.OrderedDict(
-            [(i, ChannelIN(self, i)) for i in self.IN_CHANNELS]
-        )
-        self.out_channels = collections.OrderedDict(
-            [(i, ChannelOUT(self, i)) for i in self.OUT_CHANNELS]
-        )
-        self.calc_channels = collections.OrderedDict(
+        self.in_channels = dict([(i, ChannelIN(self, i)) for i in self.IN_CHANNELS])
+        self.out_channels = dict([(i, ChannelOUT(self, i)) for i in self.OUT_CHANNELS])
+        self.calc_channels = dict(
             [(i, ChannelCALC(self, i)) for i in self.CALC_CHANNELS]
         )
 

@@ -1,15 +1,13 @@
 """Parsers for the specific XIA INI file format."""
 
-from collections import OrderedDict
-
 
 def parse_xia_ini_file(content):
     """Parse the content of a XIA INI file.
 
-    The return result is an OrderedDict of <section name: list>,
-    where the list items are OrderedDict of <key: value>.
+    The return result is an dict of <section name: list>,
+    where the list items are dict of <key: value>.
     """
-    dct = OrderedDict()
+    dct = dict()
     section, item = None, None
     # Loop over striped lines
     for line in content.splitlines():
@@ -38,7 +36,7 @@ def parse_xia_ini_file(content):
                 msg = "Corrupted start (section {}, {} should be {})"
                 msg = msg.format(section, item, len(dct[section]))
                 raise ValueError(msg)
-            dct[section].append(OrderedDict())
+            dct[section].append(dict())
         # End item
         elif line.startswith("END #"):
             if item is None:

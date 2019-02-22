@@ -29,7 +29,6 @@ from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask, protect_from_kill
 
-from bliss.common.utils import OrderedDict
 from bliss.common.tango import DeviceProxy
 
 __TMO_TUPLE = (
@@ -53,7 +52,7 @@ __TMO_TUPLE = (
     1e3,
 )
 
-TMO_MAP = OrderedDict([(tmo, t) for tmo, t in enumerate(__TMO_TUPLE)])
+TMO_MAP = dict([(tmo, t) for tmo, t in enumerate(__TMO_TUPLE)])
 
 
 def to_tmo(time_sec):

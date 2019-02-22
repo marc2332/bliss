@@ -14,7 +14,6 @@ from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.common.switch import Switch as BaseSwitch
-from bliss.common.utils import OrderedDict
 from bliss.config.conductor.client import remote_open
 
 OPIOM_PRG_ROOT = "/users/blissadm/local/isg/opiom"
@@ -314,7 +313,7 @@ class Switch(BaseSwitch):
         self.__register = None
         self.__mask = None
         self.__shift = None
-        self.__states = OrderedDict() if OrderedDict else dict()
+        self.__states = dict()
 
     def _init(self):
         config = self.config

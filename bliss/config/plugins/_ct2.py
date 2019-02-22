@@ -9,14 +9,6 @@
 import os
 import shlex
 
-try:
-    from collections import OrderedDict
-except ImportError:
-    try:
-        from ordereddict import OrderedDict
-    except ImportError:
-        OrderedDict = dict
-
 __this_path = os.path.dirname(os.path.realpath(__file__))
 
 from bliss.controllers.ct2 import card
@@ -79,7 +71,7 @@ GENERAL_PARAMS_SEQ = (
     ),
 )
 
-GENERAL_PARAMS = OrderedDict()
+GENERAL_PARAMS = dict()
 for k, v in GENERAL_PARAMS_SEQ:
     GENERAL_PARAMS[k] = dict(
         name=k,
@@ -212,7 +204,7 @@ COUNTER_PARAMS_SEQ = (
     ("comparator", ("int", None, True, 0, "Comp.", None, "counter N comparator value")),
 )
 
-COUNTER_PARAMS = OrderedDict()
+COUNTER_PARAMS = dict()
 for k, v in COUNTER_PARAMS_SEQ:
     COUNTER_PARAMS[k] = dict(
         name=k,
@@ -256,7 +248,7 @@ IN_CHANNEL_PARAMS_SEQ = (
     ),
 )
 
-IN_CHANNEL_PARAMS = OrderedDict()
+IN_CHANNEL_PARAMS = dict()
 for k, v in IN_CHANNEL_PARAMS_SEQ:
     IN_CHANNEL_PARAMS[k] = dict(
         name=k,
@@ -340,7 +332,7 @@ OUT_CHANNEL_PARAMS_SEQ = (
     ),
 )
 
-OUT_CHANNEL_PARAMS = OrderedDict()
+OUT_CHANNEL_PARAMS = dict()
 for k, v in OUT_CHANNEL_PARAMS_SEQ:
     OUT_CHANNEL_PARAMS[k] = dict(
         name=k,

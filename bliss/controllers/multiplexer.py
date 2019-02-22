@@ -5,9 +5,6 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import collections
-from bliss.common.utils import OrderedDict
-
 import gevent
 
 from .opiom import Opiom
@@ -45,12 +42,12 @@ class Output:
             return activeFlag and ((registerValue & self.__mask) == self.__value)
 
     def __init__(self, multiplex, config_dict):
-        config = OrderedDict(config_dict)
+        config = dict(config_dict)
 
         self.__multiplex = multiplex
         self.__name = config.pop("label")
         self.__comment = config.pop("comment", "")
-        self.__nodes = OrderedDict()
+        self.__nodes = dict()
 
         self.__build_values(config)
 
@@ -114,8 +111,8 @@ class Output:
 class Multiplexer:
     def __init__(self, name, config_tree):
         self.name = name
-        self._boards = OrderedDict()
-        self.__outputs = OrderedDict()
+        self._boards = dict()
+        self.__outputs = dict()
 
         all_config = static.get_config()
 

@@ -49,7 +49,6 @@ import os
 import sys
 import gc
 import weakref
-from collections import OrderedDict
 
 
 from ruamel import yaml
@@ -105,7 +104,7 @@ def get_config(base_path="", timeout=3.):
     return CONFIG
 
 
-class Node(OrderedDict):
+class Node(dict):
     """
     Configuration Node. Do not instantiate this class directly.
 
@@ -285,7 +284,7 @@ class Node(OrderedDict):
         return new_list
 
     def _get_save_dict(self, src_node, filename):
-        return_dict = OrderedDict()
+        return_dict = dict()
         for key, values in src_node.items():
             if isinstance(values, Node):
                 if values.filename != filename:

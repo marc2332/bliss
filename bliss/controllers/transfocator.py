@@ -67,7 +67,7 @@ import time
 import types
 import math
 import tabulate
-from bliss.common.utils import grouped, OrderedDict
+from bliss.common.utils import grouped
 from bliss.controllers.wago import WagoController
 from bliss.config import channels
 from bliss.common.event import dispatcher

@@ -15,8 +15,6 @@ import functools
 import numpy
 from bliss.common.event import saferef
 
-from collections import OrderedDict
-
 
 class ErrorWithTraceback:
     def __init__(self, error_txt="!ERR"):

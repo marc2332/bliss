@@ -33,7 +33,7 @@ from bliss.common.utils import (
     object_attribute_set,
 )
 
-from bliss.controllers.calculations import ID31_diffractometer as Diffract
+from bliss.controllers.motors.id31 import ID31_diffractometer as Diffract
 from bliss.common import log
 
 

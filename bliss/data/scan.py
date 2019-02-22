@@ -13,6 +13,7 @@ import gevent
 from bliss.common.cleanup import excepthook
 from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
+from bliss.config import settings
 import logging
 import sys
 
@@ -55,17 +56,29 @@ class Scan(DataNodeContainer):
         DataNodeContainer.__init__(self, "scan", name, create=create, **keys)
         self._info._write_type_conversion = pickle_dump
         if self.new_node:
-            self._data.start_time = self._info["start_time"]
-            self._data.start_time_str = self._info["start_time_str"]
-            self._data.start_timestamp = self._info["start_timestamp"]
+            with settings.pipeline(self._data, self._info) as p:
+                self._info["start_time"]
+                self._info["start_time_str"]
+                self._info["start_timestamp"]
+
+                self._data.start_time, self._data.start_time_str, self._data.start_timestamp = (
+                    self._info._read_type_conversion(x) for x in p.execute()
+                )
 
     def end(self):
         if self.new_node:
-            end_timestamp = time.time()
-            end_time = datetime.datetime.fromtimestamp(end_timestamp)
-            self._data.end_time = end_time
-            self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-            self._data.end_timestamp = end_timestamp
+            db_name = self.db_name
+            # to avoid to have multiple modification events
+            with settings.pipeline(self._data, self._info) as p:
+                end_timestamp = time.time()
+                end_time = datetime.datetime.fromtimestamp(end_timestamp)
+                self._data.end_time = end_time
+                self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
+                self._data.end_timestamp = end_timestamp
+                self._info["end_time"] = end_time
+                self._info["end_time_str"] = end_time.strftime("%a %b %d %H:%M:%S %Y")
+                self._info["end_timestamp"] = end_timestamp
+                p.publish(f"__scans_events__:{db_name}", "END")
 
 
 def get_counter_names(scan):
@@ -122,9 +135,9 @@ def _watch_data(scan_node, scan_info, scan_new_child_callback, scan_data_callbac
 
     scan_data_iterator = DataNodeIterator(scan_node)
     for event_type, data_channel in scan_data_iterator.walk_events():
-        if event_type == scan_data_iterator.NEW_CHILD_EVENT:
+        if event_type == scan_data_iterator.EVENTS.NEW_CHILD:
             scan_new_child_callback(scan_info, data_channel)
-        elif event_type == scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
+        elif event_type == scan_data_iterator.EVENTS.NEW_DATA_IN_CHANNEL:
             data = data_channel.get(
                 data_indexes.setdefault(data_channel.db_name, 0), -1
             )
@@ -215,6 +228,7 @@ def watch_session_scans(
     scan_new_callback,
     scan_new_child_callback,
     scan_data_callback,
+    scan_end_callback=None,
     ready_event=None,
 ):
     session_node = _get_or_create_node(session_name, node_type="session")
@@ -226,30 +240,49 @@ def watch_session_scans(
     watch_data_task = None
 
     try:
-        for scan_node in data_iterator.walk_from_last(
-            filter="scan", include_last=False, ready_event=ready_event
+        pubsub = data_iterator.children_event_register()
+        [
+            x
+            for x in data_iterator.walk_from_last(
+                wait=False, include_last=False, ready_event=ready_event
+            )
+        ]
+        current_scan_node = None
+        for event_type, scan_node in data_iterator.wait_for_event(
+            pubsub, filter="scan"
         ):
-            if watch_data_task:
-                watch_data_task.kill()
+            if event_type == data_iterator.EVENTS.NEW_CHILD:
+                if (
+                    current_scan_node is not None
+                    and current_scan_node.db_name == scan_node.db_name
+                ):
+                    continue
+                current_scan_node = scan_node
+                scan_info = scan_node.info.get_all()
+                if watch_data_task:
+                    watch_data_task.kill()
 
-            scan_info = scan_node.info.get_all()
+                # call user callbacks and start data watch task for this scan
+                with excepthook():
+                    # call 'scan_new' callback, if an exception happens in user
+                    # code the data watch task is *not* started -- it will be
+                    # retried at next scan
+                    scan_new_callback(scan_info)
 
-            # call user callbacks and start data watch task for this scan
-            with excepthook():
-                # call 'scan_new' callback, if an exception happens in user
-                # code the data watch task is *not* started -- it will be
-                # retried at next scan
-                scan_new_callback(scan_info)
-
-                # spawn watching task: incoming scan data triggers
-                # corresponding user callbacks (see code in '_watch_data')
-                watch_data_task = gevent.spawn(
-                    safe_watch_data,
-                    scan_node,
-                    scan_info,
-                    scan_new_child_callback,
-                    scan_data_callback,
-                )
+                    # spawn watching task: incoming scan data triggers
+                    # corresponding user callbacks (see code in '_watch_data')
+                    watch_data_task = gevent.spawn(
+                        safe_watch_data,
+                        scan_node,
+                        scan_info,
+                        scan_new_child_callback,
+                        scan_data_callback,
+                    )
+            elif event_type == data_iterator.EVENTS.END_SCAN:
+                scan_info = scan_node.info.get_all()
+                current_scan_node = None
+                if scan_data_callback is not None:
+                    scan_end_callback(scan_info)
     finally:
         if watch_data_task is not None:
             watch_data_task.kill()

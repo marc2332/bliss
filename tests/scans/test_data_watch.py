@@ -103,17 +103,26 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     new_scan_args = []
     new_child_args = []
     new_data_args = []
+    end_scan_args = []
+    end_scan_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        end_scan_args.append(args)
+
     session_watcher = watch_session_scans(
         scan_saving.session,
         lambda *args: new_scan_args.append(args),
         lambda *args: new_child_args.append(args),
         lambda *args: new_data_args.append(args),
+        end,
         wait=False,
     )
     try:
         gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
         scan = Scan(chain, save=False)
         scan.run()
+        end_scan_event.wait(2.)
     finally:
         session_watcher.kill()
 
@@ -144,3 +153,4 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     }
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
     assert pytest.approx(m1.position, end_pos)
+    assert len(end_scan_args)

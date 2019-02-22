@@ -40,6 +40,7 @@ When a Lima channel is published:
 {db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
 """
 import datetime
+import enum
 import inspect
 import pkgutil
 import os
@@ -137,7 +138,8 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile(r"^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile(r"^__keyspace@.*?:(.*)_data$")
-    NEW_CHILD_EVENT, NEW_DATA_IN_CHANNEL_EVENT = list(range(2))
+    SCAN_EVENTS_REGEX = re.compile(r"^__scans_events__:(.+)$")
+    EVENTS = enum.Enum("event", "NEW_CHILD NEW_DATA_IN_CHANNEL END_SCAN")
 
     def __init__(self, node, last_child_id=None):
         self.node = node
@@ -189,7 +191,7 @@ class DataNodeIterator(object):
         if wait:
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
-                if event_type is self.NEW_CHILD_EVENT:
+                if event_type is self.EVENTS.NEW_CHILD:
                     yield value
 
     def __internal_walk(
@@ -262,19 +264,19 @@ class DataNodeIterator(object):
 
         if wait:
             for event_type, node in self.wait_for_event(pubsub, filter=filter):
-                if event_type is self.NEW_CHILD_EVENT:
+                if event_type is self.EVENTS.NEW_CHILD:
                     yield node
 
     def walk_events(self, filter=None, ready_event=None):
         """Walk through child nodes, just like `walk` function, yielding node events
-        (like NEW_CHILD_EVENT or NEW_DATA_IN_CHANNEL_EVENT) instead of node objects
+        (like EVENTS.NEW_CHILD or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
         """
         pubsub = self.children_event_register()
 
         for node in self.walk(filter, wait=False):
-            yield self.NEW_CHILD_EVENT, node
+            yield self.EVENTS.NEW_CHILD, node
             if DataNode.exists("%s_data" % node.db_name):
-                yield self.NEW_DATA_IN_CHANNEL_EVENT, node
+                yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
 
         if ready_event is not None:
             ready_event.set()
@@ -287,6 +289,7 @@ class DataNodeIterator(object):
         pubsub = redis.pubsub()
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" % self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
+        pubsub.psubscribe("__scans_events__:%s:*" % self.node.db_name)
         return pubsub
 
     def wait_for_event(self, pubsub, filter=None):
@@ -300,7 +303,6 @@ class DataNodeIterator(object):
                 continue
             data = msg["data"].decode()
             channel = msg["channel"].decode()
-
             if data == "rpush":
                 new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
                 if new_child_event:
@@ -310,7 +312,7 @@ class DataNodeIterator(object):
                     for i, child in enumerate(parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
-                            yield self.NEW_CHILD_EVENT, child
+                            yield self.EVENTS.NEW_CHILD, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                         channel
@@ -321,7 +323,7 @@ class DataNodeIterator(object):
                         if channel_node and (
                             filter is None or channel_node.type in filter
                         ):
-                            yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
+                            yield self.EVENTS.NEW_DATA_IN_CHANNEL, channel_node
             elif data == "lset":
                 new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                     channel
@@ -330,7 +332,7 @@ class DataNodeIterator(object):
                     channel_db_name = new_channel_event.group(1)
                     channel_node = get_node(channel_db_name)
                     if channel_node and (filter is None or channel_node.type in filter):
-                        yield self.NEW_DATA_IN_CHANNEL_EVENT, channel_node
+                        yield self.EVENTS.NEW_DATA_IN_CHANNEL, channel_node
             elif data == "lrem":
                 del_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
                 if del_child_event:
@@ -341,6 +343,13 @@ class DataNodeIterator(object):
                         self.last_child_id[db_name] = last_child
                     else:  # remove entry
                         self.last_child_id.pop(db_name, None)
+            elif data == "END":
+                scan_event = DataNodeIterator.SCAN_EVENTS_REGEX.match(channel)
+                if scan_event:
+                    scan_db_name = scan_event.group(1)
+                    scan_node = get_node(scan_db_name)
+                    if scan_node and (filter is None or scan_node.type in filter):
+                        yield self.EVENTS.END_SCAN, scan_node
 
 
 class _TTL_setter(object):

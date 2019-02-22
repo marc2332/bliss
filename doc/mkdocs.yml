@@ -67,6 +67,7 @@ nav:
                       - Correlators:
                             - Flex: config_correlator_flex.md
                       - VME time frame generator: config_tango_tfg.md
+                - Deprecated: config_deprecated.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md
                 - Standard functions: shell_std_func.md

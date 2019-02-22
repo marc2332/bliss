@@ -132,6 +132,7 @@ controller:
   - name: s1ho
     tags: hoffset
 - class: calc_motor_mockup
+  module: mockup
   axes:
   - name: $roby
     tags: real real_mot
@@ -139,6 +140,7 @@ controller:
     tags: calc_mot
     s_param: 2
 - class: calc_motor_mockup
+  module: mockup
   axes:
   - name: $calc_mot1
     tags: real real_mot

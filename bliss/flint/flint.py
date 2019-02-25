@@ -149,9 +149,6 @@ class Flint:
 
     _id_generator = itertools.count()
 
-    # Legacy
-    _submit = staticmethod(lambda fn, *args, **kwargs: fn(*args, **kwargs))
-
     def __init__(self, parent_tab):
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)

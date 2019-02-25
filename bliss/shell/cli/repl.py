@@ -172,7 +172,10 @@ def cli(
         history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         prompt_label = "BLISS"
 
-    history_filename = os.path.join(os.environ["HOME"], history_filename)
+    if sys.platform in ["win32", "cygwin"]:
+        history_filename = os.path.join(os.environ["USERPROFILE"], history_filename)
+    else:
+        history_filename = os.path.join(os.environ["HOME"], history_filename)
 
     scan_listener = ScanListener()
 

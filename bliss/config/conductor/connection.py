@@ -193,7 +193,7 @@ class Connection(object):
         self._raw_read_task = gevent.spawn(self._raw_read)
 
         # Run the UDS query
-        if not self.uds:
+        if self.uds is None:
             self._uds_query()
 
     def _discovery(self, host, timeout=3.):

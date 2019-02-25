@@ -230,7 +230,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
             for scan_node in iterator.walk_from_last(filter="scan", include_last=False):
                 scan_iterator = DataNodeIterator(scan_node)
                 for event_type, node in scan_iterator.walk_events(filter="lima"):
-                    if event_type == DataNodeIterator.NEW_DATA_IN_CHANNEL_EVENT:
+                    if event_type == DataNodeIterator.EVENTS.NEW_DATA_IN_CHANNEL:
                         view = node.get(from_index=0, to_index=-1)
                         if len(view) == npoints:
                             return view

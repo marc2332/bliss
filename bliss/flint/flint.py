@@ -149,9 +149,6 @@ class Flint:
 
     _id_generator = itertools.count()
 
-    # Legacy
-    _submit = staticmethod(lambda fn, *args, **kwargs: fn(*args, **kwargs))
-
     def __init__(self, parent_tab):
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
@@ -164,6 +161,7 @@ class Flint:
         self._session_name = None
         self._last_event = dict()
         self._refresh_task = None
+        self._end_scan_event = gevent.event.Event()
 
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
@@ -202,6 +200,7 @@ class Flint:
             self.new_scan,
             self.new_scan_child,
             self.new_scan_data,
+            self.end_scan,
             ready_event=ready_event,
             wait=False,
         )
@@ -219,6 +218,8 @@ class Flint:
         self.set_title(session_name)
 
     def new_scan(self, scan_info):
+        self._end_scan_event.clear()
+
         # show tab
         self.parent_tab.setCurrentIndex(0)
         self.parent_tab.setTabText(
@@ -395,6 +396,12 @@ class Flint:
         self._last_event[key] = (data_type, data)
         if self._refresh_task is None:
             self._refresh_task = gevent.spawn(self._refresh)
+
+    def end_scan(self, scan_info):
+        self._end_scan_event.set()
+
+    def wait_end_of_scan(self):
+        self._end_scan_event.wait()
 
     def _refresh(self):
         try:

@@ -112,3 +112,28 @@ def test_queue_setting(session):
 
     with pytest.raises(ValueError):
         print(settings.InvalidValue())
+
+
+def test_pipeline_settings(beacon):
+    t = settings.HashSetting("super_fancy")
+    values = [("val1", 1), ("val2", 2)]
+    with settings.pipeline(t):
+        for val_name, value in values:
+            t[val_name] = value
+    try:
+        with settings.pipeline(t) as p:
+            for val_name, value in values:
+                t[val_name]  # get
+            assert p.execute() == [b"1", b"2"]
+    finally:
+        t.clear()
+
+
+def test_pipeline_bad_setting_object(beacon):
+    class BadSetting:
+        pass
+
+    bad_setting = BadSetting()
+    with pytest.raises(TypeError):
+        with settings.pipeline(bad_setting):
+            pass

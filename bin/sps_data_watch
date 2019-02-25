@@ -135,9 +135,9 @@ def watch_data(scan_node, session_name):
             ):
                 if not is_zerod(zerod):
                     continue
-                if event_type is scan_data_iterator.NEW_CHILD_EVENT:
+                if event_type is scan_data_iterator.EVENTS.NEW_CHILD:
                     copy_data(zerod, zerod_index, session_name, nbcounters, npoints)
-                elif event_type is scan_data_iterator.NEW_DATA_IN_CHANNEL_EVENT:
+                elif event_type is scan_data_iterator.EVENTS.NEW_DATA_IN_CHANNEL:
                     copy_data(zerod, zerod_index, session_name, nbcounters, npoints)
         except _MaxCounterReach:
             nbcounters *= 2
@@ -164,7 +164,7 @@ def watch_session(session_name):
         for event_type, scan_node in data_iterator.wait_for_event(
             pubsub, filter="scan"
         ):
-            if event_type != data_iterator.NEW_CHILD_EVENT:
+            if event_type != data_iterator.EVENTS.NEW_CHILD:
                 continue
             if watch_data_task:
                 watch_data_task.kill()

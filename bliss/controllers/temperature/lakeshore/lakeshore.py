@@ -5,8 +5,11 @@
 # Copyright (c) 2017 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+# from bliss.controllers.temp import Controller
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output, Loop
+from bliss.common.utils import object_attribute_get, object_attribute_type_get
+from bliss.common.utils import object_attribute_set, object_attribute_type_set
 
 
 class Base(Controller):
@@ -48,12 +51,44 @@ class Base(Controller):
         channel = toutput.config.get("channel")
         return self._lakeshore.setpoint(channel)
 
-    def start_ramp(self, toutput, sp, **kwargs):
-        """Start ramping to setpoint
+    def set_ramprate(self, toutput, rate):
+        """Set the ramp rate
            Args:
-              sp (float): The setpoint temperature [K]
-           Kwargs:
-              rate (int): The ramp rate [K/min]
+              rate (float): The ramp rate [K/min] - no action, cash value only.
+        """
+        channel = toutput.config.get("channel")
+        self._lakeshore.ramp_rate(channel, rate)
+        self.__ramp_rate = rate
+
+    def read_ramprate(self, toutput):
+        """Read the ramp rate
+           Returns:
+              (int): ramprate [K/min] - cashed cvalue only
+        """
+        channel = toutput.config.get("channel")
+        self.__ramp_rate = self._lakeshore.ramp_rate(channel)
+        return self.__ramp_rate
+
+    # def start_ramp(self, toutput, sp, **kwargs):
+    #     """Start ramping to setpoint
+    #        Args:
+    #           sp (float): The setpoint temperature [K]
+    #        Kwargs:
+    #           rate (int): The ramp rate [K/min]
+    #        Returns:
+    #           None
+    #     """
+    #     channel = toutput.config.get("channel")
+    #     try:
+    #         rate = float(kwargs.get("rate", self.__ramp_rate))
+    #     except TypeError:
+    #         raise RuntimeError("Cannot start ramping, ramp rate not set")
+    #     self._lakeshore.ramp(channel, sp, rate)
+
+    def on(self, tloop):
+        """Start ramping to setpoint at the ramp rate [K/min]
+           Args:
+              tloop (int): loop number. 1 to 2.
            Returns:
               None
         """
@@ -64,22 +99,6 @@ class Base(Controller):
             raise RuntimeError("Cannot start ramping, ramp rate not set")
         self._lakeshore.ramp(channel, sp, rate)
 
-    def set_ramprate(self, toutput, rate):
-        """Set the ramp rate
-           Args:
-              rate (float): The ramp rate [K/min] - no action, cash value only.
-        """
-        # self._lakeshore.set_ramp_rate(rate, 0)
-        self.__ramp_rate = rate
-
-    def read_ramprate(self, toutput):
-        """Read the ramp rate
-           Returns:
-              (int): ramprate [K/min] - cashed cvalue only
-        """
-        # self.__ramp_rate = self._lakeshore.read_ramp_rate()
-        return self.__ramp_rate
-
     def set(self, toutput, sp, **kwargs):
         """Set the value of the output setpoint
            Args:
@@ -88,7 +107,8 @@ class Base(Controller):
               (float): current gas temperature setpoint
         """
         channel = toutput.config.get("channel")
-        return self._lakeshore.setpoint(channel, sp)
+        self._lakeshore.setpoint(channel, sp)
+        self.__set_point = sp
 
     def get_setpoint(self, toutput):
         """Read the value of the output setpoint
@@ -158,3 +178,24 @@ class Base(Controller):
         channel = tloop.config.get("channel")
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
+
+    @object_attribute_type_get(type_info=("int"), type=Input)
+    # get_model works only for input objects.
+    def read_model(self, tinput):
+        # self.log.info("get_model(= firmware identification string)")
+        model = self._lakeshore.model()
+        # self.log.debug("Firmware id string = %s" % model)
+        return model
+
+    @object_attribute_type_get(type_info=("int"), type=Output)
+    def read_heater_range(self, toutput):
+        channel = toutput.config.get("channel")
+        htr_range = self._lakeshore.heater_range(channel)
+        # print("--------- heater value = {0}".format(htr_range))
+        return int(htr_range)
+
+    @object_attribute_type_set(type_info=("int"), type=Output)
+    def set_heater_range(self, toutput, value):
+        channel = toutput.config.get("channel")
+        print("--------- value = {0}".format(value))
+        self._lakeshore.heater_range(channel, value)

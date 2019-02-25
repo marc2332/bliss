@@ -127,3 +127,13 @@ def test_pipeline_settings(beacon):
             assert p.execute() == [b"1", b"2"]
     finally:
         t.clear()
+
+
+def test_pipeline_bad_setting_object(beacon):
+    class BadSetting:
+        pass
+
+    bad_setting = BadSetting()
+    with pytest.raises(TypeError):
+        with settings.pipeline(bad_setting):
+            pass

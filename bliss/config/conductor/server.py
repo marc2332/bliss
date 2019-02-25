@@ -902,20 +902,18 @@ def main(args=None):
 
         #  ====  SIGNAL case ============
         def do_signal_processing(sg):
-            while True:
-                gevent.os.tp_read(sg, 1)
-                _log.info("Received an interruption signal!")
-                break
-
+            gevent.os.tp_read(sg, 1)
+            _log.info("Received an interruption signal!")
             gevent.killall(proc_list)
 
         signal_processing = gevent.spawn(do_signal_processing, sig_read)
 
-        # ============ handle CTRL C under windows ============
+        # ============ handle CTRL-C under windows  ============
+        # ONLY FOR Win7 (COULD BE IGNORED ON Win10 WHERE CTRL-C PRODUCES A SIGINT)
         if sys.platform in ["win32", "cygwin"]:
 
             def CTRL_C_handler(a, b=None):
-                os.write(sig_write, b"!\n")
+                os.write(sig_write, b"!")
 
             # ===== Install CTRL_C handler ======================
             win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)

@@ -28,6 +28,9 @@ from .prompt import BlissPrompt
 
 from bliss.shell import initialize, ScanListener
 
+if sys.platform in ["win32", "cygwin"]:
+    import win32api
+
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
 
@@ -252,10 +255,22 @@ def embed(*args, **kwargs):
             signal.signal(signal.SIGTERM, stop_current_task_and_exit)
 
             def watch_pipe(r):
-                gevent.select.select([r], [], [])
+                gevent.os.tp_read(r, 1)
                 exit()
 
             gevent.spawn(watch_pipe, r)
+
+            # ============ handle CTRL-C under windows  ============
+            # ONLY FOR Win7 (COULD BE IGNORED ON Win10 WHERE CTRL-C PRODUCES A SIGINT)
+            if sys.platform in ["win32", "cygwin"]:
+
+                def CTRL_C_handler(a, b=None):
+                    cmd_line_i.stop_current_task(
+                        block=False, exception=KeyboardInterrupt
+                    )
+
+                # ===== Install CTRL_C handler ======================
+                win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
 
         while True:
             try:

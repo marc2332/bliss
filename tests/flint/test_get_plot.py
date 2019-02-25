@@ -3,13 +3,14 @@
 import pytest
 import gevent
 import numpy
+from bliss.common.plot import get_flint
 from bliss.common.scans import plotselect
 
 
 def test_get_plot(beacon, lima_simulator, test_session_with_flint):
-    pytest.xfail()
     lima = beacon.get("lima_simulator")
     simu1 = beacon.get("simu1")
+    flint = get_flint()
 
     ascan = test_session_with_flint.env_dict["ascan"]
     roby = test_session_with_flint.env_dict["roby"]
@@ -17,6 +18,9 @@ def test_get_plot(beacon, lima_simulator, test_session_with_flint):
     plotselect(diode)
 
     s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scan()
 
     with gevent.Timeout(30.):
         p1 = s.get_plot(roby, wait=True)

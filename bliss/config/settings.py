@@ -6,13 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from contextlib import contextmanager
+import weakref
+import pickle
+import keyword
+import re
+
+import numpy
+
 from .conductor import client
 from bliss.common.utils import Null
 from bliss import setup_globals
-import weakref
-import pickle
-import numpy
-
 
 class InvalidValue(Null):
     def __str__(self):
@@ -22,7 +25,7 @@ class InvalidValue(Null):
         return "#ERR"
 
 
-class DefaultValue(object):
+class DefaultValue:
     def __init__(self, wrapped_value):
         self.__value = wrapped_value
 
@@ -32,9 +35,9 @@ class DefaultValue(object):
 
 
 def boolify(s, **keys):
-    if s == "True" or s == "true":
+    if s in ("True", "true"):
         return True
-    if s == "False" or s == "false":
+    if s in ("False", "false"):
         return False
     raise ValueError("Not Boolean Value!")
 
@@ -223,7 +226,10 @@ def pipeline(*settings):
         pipeline.execute()
 
 
-class SimpleSetting(object):
+class SimpleSetting:
+    """
+    Class to manage a setting that is stored as string on redis
+    """
     def __init__(
         self,
         name,
@@ -312,7 +318,12 @@ class SimpleSetting(object):
         return "<SimpleSetting name=%s value=%s>" % (self._name, value)
 
 
-class SimpleSettingProp(object):
+class SimpleSettingProp:
+    """
+    A python's property implementation for SimpleSetting
+    To be used inside user defined classes
+    """
+
     def __init__(
         self,
         name,
@@ -363,7 +374,11 @@ class SimpleSettingProp(object):
             self._cnx.set(name, value)
 
 
-class QueueSetting(object):
+class QueueSetting:
+    """
+    Class to manage a setting that is stored as list on redis
+    """
+
     def __init__(
         self,
         name,
@@ -510,7 +525,12 @@ class QueueSetting(object):
         return self
 
 
-class QueueSettingProp(object):
+class QueueSettingProp:
+    """
+    A python's property implementation for QueueSetting
+    To be used inside user defined classes
+    """
+
     def __init__(
         self,
         name,
@@ -795,42 +815,72 @@ def _change_to_obj_marshalling(keys):
 
 
 class HashObjSetting(HashSetting):
+    """
+    Class to manage a setting that is stored as a dictionary on redis
+    where values of the dictionary are pickled
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         HashSetting.__init__(self, name, **keys)
 
 
 class HashObjSettingProp(HashSettingProp):
+    """
+    A python's property implementation for HashObjSetting
+    To be used inside user defined classes
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         HashSettingProp.__init__(self, name, **keys)
 
 
 class QueueObjSetting(QueueSetting):
+    """
+    Class to manage a setting that is stored as a list on redis
+    where values of the list are pickled
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         QueueSetting.__init__(self, name, **keys)
 
 
 class QueueObjSettingProp(QueueSettingProp):
+    """
+    A python's property implementation for QueueObjSetting
+    To be used inside user defined classes
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         QueueSettingProp.__init__(self, name, **keys)
 
 
 class SimpleObjSetting(SimpleSetting):
+    """
+    Class to manage a setting that is stored as pickled object
+    on redis
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         SimpleSetting.__init__(self, name, **keys)
 
 
 class SimpleObjSettingProp(SimpleSettingProp):
+    """
+    A python's property implementation for SimpleObjSetting
+    To be used inside user defined classes
+    """
+
     def __init__(self, name, **keys):
         _change_to_obj_marshalling(keys)
         SimpleSettingProp.__init__(self, name, **keys)
 
 
-class Struct(object):
+class Struct:
     def __init__(self, name, **keys):
         self._proxy = HashSetting(name, **keys)
 
@@ -870,7 +920,13 @@ class ParametersType(type):
         return type.__new__(cls, name, bases, attrs)
 
 
-class ParamDescriptor(object):
+class ParamDescriptor:
+    """
+    Used to link complex objects (pickled)
+    If necessary It will create an entry on redis under objects:name
+    and use this to store serialized data
+    """
+
     OBJECT_PREFIX = "object:"
 
     def __init__(self, proxy, name, value, assign=True):
@@ -880,6 +936,12 @@ class ParamDescriptor(object):
             self.assign(value)
 
     def assign(self, value):
+        """
+        if the value is a global defined object it will create a link
+        to that object inside the ParamDescriptor and the link will
+        be stored inside redis in this way:'object:name'
+        otherwise the value will be stored normally
+        """
         if hasattr(value, "name") and hasattr(setup_globals, value.name):
             value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
         try:

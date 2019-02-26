@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """
 Lakeshore 340, acessible via GPIB, Serial line or Ethernet
 
@@ -38,16 +45,17 @@ controller:
 
 import time
 
-from bliss.common import log
-
+# from bliss.common import log
+import logging
 
 # communication
 from bliss.comm.tcp import Tcp
 from bliss.comm.gpib import Gpib
 from bliss.comm import serial
 
-# from bliss.controllers.temperature.lakeshore.lakeshore import Base
-from id10.controllers.temperature.lakeshore.lakeshore import Base
+from bliss.controllers.temperature.lakeshore.lakeshore import Base
+
+# from id10.controllers.temperature.lakeshore.lakeshore import Base
 
 
 class LakeShore340(object):
@@ -61,6 +69,8 @@ class LakeShore340(object):
         "Auto Tune PI",
         "Auto Tune P",
     )
+
+    UNITS340 = ("undefined", "Kelvin", "Celsius", "Sensor unit")
 
     def __init__(self, comm_type, url, **kwargs):
         self.eos = kwargs.get("eos", "\r\n")
@@ -85,6 +95,10 @@ class LakeShore340(object):
         else:
             return RuntimeError("Unknown communication  protocol")
         self._channel = None
+        self.log = logging.getLogger(type(self).__name__)
+        # self.log.setLevel(logging.NOTSET)
+        self.log.setLevel(logging.DEBUG)
+        self.log.debug("__init__")
 
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
@@ -177,9 +191,23 @@ class LakeShore340(object):
             Returns:
               None
         """
+        self.log.debug("ramp(): SP=%r, RR=%r" % (sp, rate))
         self._channel = channel
         self.setpoint(channel, sp)
         self.send_cmd("RAMP", 1, rate)
+
+    def _rampstatus(self, channel):
+        """Check ramp status (if running or not)
+            Args:
+              channel (int): output channel. Valid entries: 1 or 2
+            Returns:
+              Ramp status (1 = running, 0 = not running)
+        """
+        self.log.debug("_rampstatus(): channel = %r" % channel)
+        self._channel = channel
+        ramp_stat = self.send_cmd("RAMPST?")
+        self.log.debug("_rampstatus(): ramp_status = %r" % ramp_stat)
+        return int(ramp_stat)
 
     def pid(self, channel, **kwargs):
         """ Read/Set Control Loop PID Values (P, I, D)
@@ -199,7 +227,14 @@ class LakeShore340(object):
         kp = kwargs.get("P")
         ki = kwargs.get("I")
         kd = kwargs.get("D")
-        if None not in (kp, ki, kd):
+        if len(kwargs):
+            kpc, kic, kdc = self.send_cmd("PID?").split(",")
+            if kp is None:
+                kp = kpc
+            if ki is None:
+                ki = kic
+            if kd is None:
+                kd = kdc
             self.send_cmd("PID", kp, ki, kd)
         else:
             try:
@@ -220,7 +255,9 @@ class LakeShore340(object):
                mode (int): mode
         """
         self._channel = channel
-        if mode:
+        if mode is not None:
+            if mode not in [1, 2, 3, 4, 5, 6]:
+                raise ValueError("Bad value for cmode %r [should be 1->6]" % mode)
             self.send_cmd("CMODE", mode)
         else:
             return self.MODE340[int(self.send_cmd("CMODE?"))]
@@ -231,20 +268,37 @@ class LakeShore340(object):
                channel(int): loop channel. Valid entries: 1 or 2
             Kwargs:
                input (str): which input to control from. Valid entries: A or B
-               off (bool): switch on (True) or off (False) the control loop
+               units (int): 1 = Kelvin, 2 = Celsius, 3 = sensor unit
+               onoff (bool): switch on (True) or off (False) the control loop
           Returns:
                None if set
                input (str): which input to control from
-               off (bool): control loop on/off
+               units (str): Kelvin, Celsius, sensor unit
+               onoff (bool): control loop on/off
         """
+
         self._channel = channel
-        inp = kwargs.get("input", "")
-        off = kwargs.get("off")
-        if isinstance(off, bool):
-            self.send_cmd("CSET", inp, 1, int(off))
+        inp = kwargs.get("input")
+        units = kwargs.get("units")
+        onoff = kwargs.get("onoff")
+
+        if len(kwargs):
+            inpc, unitsc, onoffc = self.send_cmd("CSET?").split(",")
+            if inp is None:
+                inp = inpc
+            if units is None:
+                units = unitsc
+            if onoff is None:
+                onoff = onoffc
+            else:
+                onoff = int(onoff)
+
+            self.send_cmd("CSET", inp, units, onoff)
         else:
-            asw = send_cmd("CSET?").split(",")
-            return asw[1], bool(asw[3])
+            asw = self.send_cmd("CSET?").split(",")
+            print("cset answer = {0},{1},{2}".format(asw[0], asw[1], asw[2]))
+            return (asw[0], self.UNITS340[int(asw[1])], bool(asw[2]))
+            # return (asw[0], asw[1], bool(asw[2]))
 
     def send_cmd(self, command, *args):
         """Send a command to the controller
@@ -254,6 +308,9 @@ class LakeShore340(object):
            Returns:
               None
         """
+
+        print("command = {0}".format(command))
+
         if command.startswith("*"):
             if "?" in command:
                 ans = self._comm.write_readline(command.encode() + self.eos.encode())

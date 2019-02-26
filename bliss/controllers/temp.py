@@ -408,7 +408,7 @@ class Controller(LogMixin):
 
     def setpoint_stop(self, toutput):
         """
-        Stops the setpoint
+        Stops the setpoint task
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
@@ -419,7 +419,7 @@ class Controller(LogMixin):
 
     def setpoint_abort(self, toutput):
         """
-	Aborts the setpoint (emergency stop)
+	Aborts the setpoint task (emergency stop)
            Raises NotImplementedError if not defined by inheriting class
 
         Args:

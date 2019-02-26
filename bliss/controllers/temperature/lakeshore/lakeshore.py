@@ -69,21 +69,46 @@ class Base(Controller):
         self.__ramp_rate = self._lakeshore.ramp_rate(channel)
         return self.__ramp_rate
 
-    # def start_ramp(self, toutput, sp, **kwargs):
-    #     """Start ramping to setpoint
-    #        Args:
-    #           sp (float): The setpoint temperature [K]
-    #        Kwargs:
-    #           rate (int): The ramp rate [K/min]
-    #        Returns:
-    #           None
-    #     """
-    #     channel = toutput.config.get("channel")
-    #     try:
-    #         rate = float(kwargs.get("rate", self.__ramp_rate))
-    #     except TypeError:
-    #         raise RuntimeError("Cannot start ramping, ramp rate not set")
-    #     self._lakeshore.ramp(channel, sp, rate)
+    def start_ramp(self, toutput, sp, **kwargs):
+        """Start ramping to setpoint
+           Args:
+              sp (float): The setpoint temperature [K]
+           Kwargs:
+              rate (int): The ramp rate [K/min]
+           Returns:
+              None
+        """
+        channel = toutput.config.get("channel")
+        ##if "rate" in kwargs:
+        ##    rate = kwargs["rate"]
+        rate = kwargs.get("rate")
+        if rate == None:
+            if self.__ramp_rate != None:
+                rate = self.__ramp_rate
+            else:
+                raise RuntimeError("Cannot start ramping, ramp rate not set")
+        else:
+            self.__ramp_rate = rate
+        self._lakeshore.ramp(channel, sp, rate)
+
+    def setpoint_stop(self, toutput):
+        """Stop the going to setpoint
+        """
+        channel = toutput.config.get("channel")
+        # if ramp is active, disable it
+        ramp_stat = self._lakeshore._rampstatus(channel)
+        if ramp_stat == 1:
+            rate = self.__ramp_rate
+            print("rate = {0}".format(rate))
+            # setting ramp rate causes ramping off
+            self._lakeshore.ramp_rate(channel, rate)
+
+    def setpoint_abort(self, toutput):
+        """Emergency stop the going to setpoint
+        """
+        channel = toutput.config.get("channel")
+        # set heater range to 0, which means heater power OFF
+        self._lakeshore.heater_range(channel, 0)
 
     def on(self, tloop):
         """Start ramping to setpoint at the ramp rate [K/min]
@@ -199,3 +224,35 @@ class Base(Controller):
         channel = toutput.config.get("channel")
         print("--------- value = {0}".format(value))
         self._lakeshore.heater_range(channel, value)
+
+    @object_attribute_type_get(type_info=("int"), type=Output)
+    def ramp_status(self, toutput):
+        channel = toutput.config.get("channel")
+        ramp_stat = self._lakeshore._rampstatus(channel)
+        print("--------- ramp_status = {0}".format(ramp_stat))
+        return int(ramp_stat)
+
+    @object_attribute_type_get(type_info=("str"), type=Loop)
+    def read_cmode(self, tloop):
+        channel = tloop.config.get("channel")
+        cmode = self._lakeshore.cmode(channel)
+        # print("--------- cmode value = {0}".format(cmode))
+        return cmode
+
+    @object_attribute_type_set(type_info=("int"), type=Loop)
+    def set_cmode(self, tloop, value):
+        channel = tloop.config.get("channel")
+        print("--------- value = {0}".format(value))
+        self._lakeshore.cmode(channel, value)
+
+    @object_attribute_type_get(type_info=("str", "str", "bool"), type=Loop)
+    def read_cset(self, tloop):
+        channel = tloop.config.get("channel")
+        self._lakeshore.cset(channel)
+        (inp, units, onoff) = self._lakeshore.cset(channel)
+        return (inp, units, onoff)
+
+    @object_attribute_type_set(type_info=("str", "int", "bool"), type=Loop)
+    def set_cset(self, tloop, **kwargs):
+        channel = tloop.config.get("channel")
+        self._lakeshore.cset(channel, **kwargs)

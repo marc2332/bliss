@@ -164,3 +164,25 @@ def test_soft_counter_scan(beacon):
     numpy.testing.assert_array_almost_equal(data["get_pressure"], 10 * [23.45])
     numpy.testing.assert_array_almost_equal(data["temp_f"], 10 * [12.34 * 9.0 / 5 + 32])
     return data
+
+
+def test_sampling_counter_acquisition_device_mode(beacon):
+
+    diode = beacon.get("diode")
+
+    # USING DEFAULT MODE
+    c = SoftCounter(diode, "read")
+    assert c.acquisition_device_mode is None
+    s = loopscan(10, 0.01, c, run=False)
+    assert s.acq_chain.nodes_list[1].mode.name == "SIMPLE_AVERAGE"
+
+    # UPDATING THE MODE
+    c.acquisition_device_mode = "INTEGRATE"
+    s = loopscan(10, 0.01, c, run=False)
+    assert s.acq_chain.nodes_list[1].mode.name == "INTEGRATE"
+
+    # SPECIFYING THE MODE
+    c = SoftCounter(diode, "read", acquisition_device_mode="INTEGRATE")
+    assert c.acquisition_device_mode == "INTEGRATE"
+    s = loopscan(10, 0.01, c, run=False)
+    assert s.acq_chain.nodes_list[1].mode.name == "INTEGRATE"

@@ -8,6 +8,7 @@
 import numpy
 import time
 import warnings
+import enum
 import gevent
 from gevent import event
 from bliss.common.event import dispatcher
@@ -84,11 +85,22 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         self.channels.update_from_iterable(data)
 
 
-class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    SIMPLE_AVERAGE, TIME_AVERAGE, INTEGRATE = list(range(3))
+@enum.unique
+class SamplingMode(enum.IntEnum):
+    """SamplingCounterAcquisitionDevice Mode Class """
 
+    SIMPLE_AVERAGE = 0
+    TIME_AVERAGE = 1
+    INTEGRATE = 2
+
+
+class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def __init__(
-        self, counters_or_groupreadhandler, count_time=None, mode=SIMPLE_AVERAGE, **keys
+        self,
+        counters_or_groupreadhandler,
+        count_time=None,
+        mode=SamplingMode.SIMPLE_AVERAGE,
+        **keys
     ):
         """
         Helper to manage acquisition of a sampling counter.
@@ -136,7 +148,13 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     @mode.setter
     def mode(self, value):
-        self.__mode = value
+        try:
+            self.__mode = SamplingMode[value]
+        except KeyError:
+            raise ValueError(
+                "Invalid mode '%s', the mode must be in %s"
+                % (value, list(SamplingMode.__members__.keys()))
+            )
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
@@ -194,7 +212,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 end_read = time.time()
                 read_time = end_read - start_read
 
-                if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
+                if self.__mode == SamplingMode.TIME_AVERAGE:
                     acc_value += read_value * (end_read - start_read)
                 else:
                     acc_value += read_value
@@ -207,12 +225,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     break
                 gevent.sleep(0)  # to be able to kill the task
             self._nb_acq_points += 1
-            if self.__mode == SamplingCounterAcquisitionDevice.TIME_AVERAGE:
+            if self.__mode == SamplingMode.TIME_AVERAGE:
                 data = acc_value / acc_read_time
             else:
                 data = acc_value / nb_read
 
-            if self.__mode == SamplingCounterAcquisitionDevice.INTEGRATE:
+            if self.__mode == SamplingMode.INTEGRATE:
                 data *= self.count_time
 
             self._emit_new_data(data)

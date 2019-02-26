@@ -94,6 +94,7 @@ nav:
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md
+                - BLISS controller: dev_write_ctrl.md
                 - Writing a motor controller: dev_write_motctrl.md
                 - Writing a calculational controller: dev_write_calc_ctrl.md
                 - Writing a MCA controller: dev_write_mca.md

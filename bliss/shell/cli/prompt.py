@@ -7,8 +7,6 @@
 
 """Bliss prompt"""
 
-import time
-
 from ptpython.prompt_style import PromptStyle
 
 __all__ = ("BlissPrompt",)

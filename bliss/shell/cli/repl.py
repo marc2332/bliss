@@ -13,18 +13,14 @@ import weakref
 import warnings
 import functools
 import traceback
-
 import gevent
-from ptpython.repl import PythonRepl
-from ptpython.python_input import PythonInput
 
-from prompt_toolkit.key_binding.key_processor import KeyPress
+from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.history import History
 
 from .prompt import BlissPrompt
-
-# from .layout import status_bar
-# from .style import bliss_ui_style
+from .typing_helper import TypingHelper
 
 from bliss.shell import initialize, ScanListener
 
@@ -49,7 +45,7 @@ class BlissRepl(PythonRepl):
         if title:
             self.terminal_title = title
         self.show_status_bar = False
-        self.show_bliss_bar = True
+        # self.show_bliss_bar = True
         # self.bliss_bar = bliss_bar
         # self.bliss_bar_format = "normal"
         self.bliss_prompt_label = prompt_label
@@ -60,6 +56,8 @@ class BlissRepl(PythonRepl):
         self.show_signature = True
         # self.install_ui_colorscheme("bliss", bliss_ui_style)
         # self.use_ui_colorscheme("bliss")
+
+        self.typing_helper = TypingHelper(self)
 
     def _execute_task(self, *args, **kwargs):
         try:
@@ -96,30 +94,18 @@ def configure_repl(repl):
     def _(event):
         repl.stop_current_task()
 
-
-# def configure(func):
-#    """
-#    Register decorated function to be called by ptpython's configure.
-#    Here is an example on how to do it in your setup file::
-#
-#        from bliss.shell.cli import configure
-#
-#        @configure
-#        def config(repl):
-#
-#            # Use the classic prompt. (Display '>>>' instead of 'In [1]'.)
-#            repl.prompt_style = 'classic' # 'classic', 'ipython' or 'bliss'
-#
-#    Args:
-#        func (callable): a callable with one argument: the repl
-#
-#    Returns:
-#        the same func callable
-#    """
-#    global CONFIGS
-#    if func not in list(CONFIGS.values()):
-#        CONFIGS[len(CONFIGS)] = func
-#    return func
+    # intended to be used for testing as ctrl+t can be send via stdin.write(bytes.fromhex("14"))
+    # @repl.add_key_binding(Keys.ControlT)
+    # def _(event):
+    #    sys.stderr.write("<<BLISS REPL TEST>>")
+    #    text = repl.default_buffer.text
+    #    sys.stderr.write("<<BUFFER TEST>>")
+    #    sys.stderr.write(text)
+    #    sys.stderr.write("<<BUFFER TEST>>")
+    #    sys.stderr.write("<<HISTORY>>")
+    #    sys.stderr.write(repl.default_buffer.history._loaded_strings[-1])
+    #    sys.stderr.write("<<HISTORY>>")
+    #    sys.stderr.write("<<BLISS REPL TEST>>")
 
 
 def cli(
@@ -258,6 +244,7 @@ def embed(*args, **kwargs):
             try:
                 inp = cmd_line_i.app.run()
                 cmd_line_i._execute(inp)
+
             except KeyboardInterrupt:
                 # ctrl c
                 pass

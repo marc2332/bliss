@@ -303,3 +303,5 @@ by the created controller command.
 *`move(m1, 3)`: uses `Group.move()`
 *`m1.move(3)`: uses `Axis.move()`
 
+![Screenshot](img/dial_user_ctrl.svg)
+

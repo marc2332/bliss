@@ -173,6 +173,15 @@ Example to declare a serial line directly from a BLISS shell.
     print kom.write_readline("*IDN?\n")
 
 
+### Serial BLISS devices structure
+<!--
+ACHTUNG: original file is  img/serial_hierarchy_text.svg
+it must be transformed in PATH only file in order to avoid fonts problem
+with : shift-Ctrl-C and saved as img/serial_hierarchy.svg
+-->
+![Screenshot](img/serial_hierarchy.svg)
+
+
 ## TCP socket
 
 ### TCP socket detached from a controller

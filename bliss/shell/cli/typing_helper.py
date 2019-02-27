@@ -14,6 +14,8 @@ from prompt_toolkit.validation import ValidationError
 from prompt_toolkit.document import Document
 from prompt_toolkit.key_binding.key_processor import KeyPress
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.filters import has_focus
+from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from ptpython.python_input import PythonValidator
 
@@ -67,7 +69,7 @@ class TypingHelper(object):
             else:
                 repl.default_buffer.insert_text(" ")
 
-        @repl.add_key_binding(Keys.Enter)
+        @repl.add_key_binding(Keys.Enter, filter=has_focus(DEFAULT_BUFFER))
         def _(event):
             self._check_terminating_bracket(repl, event)
 

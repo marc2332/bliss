@@ -35,9 +35,9 @@ nav:
                       - Energy and Wavelength: config_enwl.md
                       - 2D detectors (Lima): config_lima.md
                       - MCA:
-                          - General: config_mca.md
-                          - Rontec: config_mca_rontec.md
-                          - XIA:
+                            - General: config_mca.md
+                            - Rontec: config_mca_rontec.md
+                            - XIA:
                               - Handel: config_mca_handel.md
                       - Temperature or pressure controllers:
                             - Temperature controllers in Bliss: config_tempctrl.md
@@ -59,6 +59,8 @@ nav:
                       - Actuators: config_actuator.md
                       - Undulators: config_undulator.md
                       - Transmission: config_transmission.md
+                      - Electrometers:
+                            - MCCE: config_mcce.md
                       - Simulation: config_simulation.md
                       - Beamviewer: config_beamviewer.md
                       - Keithley:

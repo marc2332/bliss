@@ -18,6 +18,36 @@ import gevent
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.history import History
+from prompt_toolkit.utils import is_windows
+from prompt_toolkit.eventloop.defaults import set_event_loop
+from prompt_toolkit.eventloop import future
+
+# don't patch the event loop on windows
+if not is_windows():
+    from prompt_toolkit.eventloop.posix import PosixEventLoop
+
+    class _PosixLoop(PosixEventLoop):
+        def run_in_executor(self, callback, _daemon=False):
+            t = gevent.spawn(callback)
+
+            class F(future.Future):
+                def result(self):
+                    if not t.ready():
+                        raise future.InvalidStateError
+                    return t.get()
+
+                def add_done_callback(self, callback):
+                    t.link(callback)
+
+                def exception(self):
+                    return t.exception
+
+                def done(self):
+                    return t.ready()
+
+            return F()
+
+    set_event_loop(_PosixLoop())
 
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper

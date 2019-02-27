@@ -71,7 +71,8 @@ class TypingHelper(object):
 
         @repl.add_key_binding(Keys.Enter, filter=has_focus(DEFAULT_BUFFER))
         def _(event):
-            self._check_terminating_bracket(repl, event)
+            if not self._check_callable(repl, event):
+                self._check_terminating_bracket(repl, event)
 
             # looks still like a hack but I did not find
             # another way to call the original handler for 'enter' yet
@@ -91,8 +92,7 @@ class TypingHelper(object):
     def _check_terminating_bracket(self, repl, event, termination=")"):
         """
         add ')' if it solves 'Syntax Error' of the current input before passing the 'enter' event to ptpython
-        
-        note: in order to make this helper work for functions like wa() without arguments one has to type wa + 'space' + 'enter'
+              
         """
         text = repl.default_buffer.text
         curs_pos = repl.default_buffer.cursor_position
@@ -113,3 +113,36 @@ class TypingHelper(object):
                     except ValidationError:
 
                         pass
+
+    def _check_callable(self, repl, event):
+        text = repl.default_buffer.text
+        curs_pos = repl.default_buffer.cursor_position
+
+        if curs_pos == len(text) and text[-1] != ")":
+            ji = jedi.Interpreter(
+                source=text, namespaces=[repl.get_locals(), repl.get_globals()]
+            )
+            try:
+                cs = ji.call_signatures()
+            except:
+                return False
+
+            text_plus_open_bracket = text + "("
+            ji_plus_open_bracket = jedi.Interpreter(
+                source=text_plus_open_bracket,
+                namespaces=[repl.get_locals(), repl.get_globals()],
+            )
+            cs_plus_open_bracket = ji_plus_open_bracket.call_signatures()
+
+            # add brackets
+            if len(cs) < len(cs_plus_open_bracket):
+                new_text = text + "()"
+                new_doc = Document(text=new_text, cursor_position=curs_pos + 2)
+
+                try:
+                    self.validator.validate(new_doc)
+                    repl.default_buffer.insert_text("()")
+                    return True
+                except ValidationError:
+                    pass
+        return False

@@ -87,9 +87,12 @@ class TypingHelper(object):
 
         @repl.add_key_binding(";")
         def _(event):
-            self._check_terminating_bracket(repl, event, termination=");")
+            text = repl.default_buffer.text
+            if not self._check_callable(repl, event):
+                self._check_terminating_bracket(repl, event)
+            repl.default_buffer.insert_text(";")
 
-    def _check_terminating_bracket(self, repl, event, termination=")"):
+    def _check_terminating_bracket(self, repl, event):
         """
         add ')' if it solves 'Syntax Error' of the current input before passing the 'enter' event to ptpython
               
@@ -109,7 +112,7 @@ class TypingHelper(object):
 
                     try:
                         self.validator.validate(new_doc)
-                        repl.default_buffer.insert_text(termination)
+                        repl.default_buffer.insert_text(")")
                     except ValidationError:
 
                         pass

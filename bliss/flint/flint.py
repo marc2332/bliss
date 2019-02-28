@@ -26,7 +26,10 @@ import gevent.event
 from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
 from bliss.config.conductor.client import get_default_connection
-from bliss.config.conductor.client import get_redis_connection
+from bliss.config.conductor.client import (
+    get_redis_connection,
+    clean_all_redis_connection,
+)
 from bliss.flint.qgevent import set_gevent_dispatcher
 
 from PyQt5.QtCore import pyqtRemoveInputHook
@@ -195,16 +198,34 @@ class Flint:
             self.scans_watch_task.kill()
 
         ready_event = gevent.event.Event()
-        self.scans_watch_task = gevent.spawn(
-            watch_session_scans,
-            session_name,
-            self.new_scan,
-            self.new_scan_child,
-            self.new_scan_data,
-            self.end_scan,
-            ready_event=ready_event,
-        )
+
+        def spawn():
+            task = gevent.spawn(
+                watch_session_scans,
+                session_name,
+                self.new_scan,
+                self.new_scan_child,
+                self.new_scan_data,
+                self.end_scan,
+                ready_event=ready_event,
+            )
+            return task
+
+        def respawn(old_task):
+            if old_task.exception and not isinstance(
+                old_task.exception, gevent.GreenletExit
+            ):
+                # first purge redis connection...
+                # we sometime corrupt redis connection if you kill
+                # the task in wrong place.
+                # so close all the connection to restart for fresh.
+                clean_all_redis_connection()
+                t = spawn()
+                t.link(respawn)
+
+        task = spawn()
         ready_event.wait()
+        task.link(respawn)
 
         self._session_name = session_name
 

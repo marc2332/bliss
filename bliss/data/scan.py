@@ -11,7 +11,6 @@ import numpy
 import pickle
 import gevent
 from bliss.common.cleanup import excepthook
-from bliss.common.task import task
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 from bliss.config import settings
 import logging
@@ -222,7 +221,6 @@ def safe_watch_data(*args):
         _watch_data(*args)
 
 
-@task
 def watch_session_scans(
     session_name,
     scan_new_callback,

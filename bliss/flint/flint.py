@@ -195,14 +195,14 @@ class Flint:
             self.scans_watch_task.kill()
 
         ready_event = gevent.event.Event()
-        self.scans_watch_task = watch_session_scans(
+        self.scans_watch_task = gevent.spawn(
+            watch_session_scans,
             session_name,
             self.new_scan,
             self.new_scan_child,
             self.new_scan_data,
             self.end_scan,
             ready_event=ready_event,
-            wait=False,
         )
         ready_event.wait()
 
@@ -686,7 +686,7 @@ def main():
     w = pos.width()
     h = pos.height()
     win.resize(settings.value("size", qt.QSize(w, h)))
-    win.move(settings.value("pos", qt.QPoint(3 * w / 14., 3 * h / 14.)))
+    win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
 
     handler = QtLogHandler(log_widget)
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))

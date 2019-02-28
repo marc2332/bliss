@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.event import dispatcher
+from bliss.common.measurement import BaseCounter
+
 import numpy
 
 
@@ -33,6 +35,7 @@ class AcquisitionChannelList(list):
 class AcquisitionChannel(object):
     def __init__(
         self,
+        acq_device,
         name,
         dtype,
         shape,
@@ -40,7 +43,8 @@ class AcquisitionChannel(object):
         reference=False,
         data_node_type="channel",
     ):
-        self.__name = name
+        self.__name = name.replace(".", ":")
+        self.__acq_device = acq_device
         self.__dtype = dtype
         self.__shape = shape
         self.__reference = reference
@@ -50,7 +54,7 @@ class AcquisitionChannel(object):
         if isinstance(description, dict):
             self.__description.update(description)
 
-        self._device_name = None
+    # self._device_name = None
 
     @property
     def name(self):
@@ -58,7 +62,19 @@ class AcquisitionChannel(object):
 
     @property
     def fullname(self):
-        return self._device_name + ":" + self.name
+        if isinstance(self.__acq_device, BaseCounter):
+
+            args = []
+            # Master controller
+            if self.__acq_device.master_controller is not None:
+                args.append(self.__acq_device.master_controller.name)
+            # Controller
+            if self.__acq_device.controller is not None:
+                args.append(self.__acq_device.controller.name.split(".")[0])
+
+            return ":".join(args) + ":" + self.name
+        else:
+            return self.__acq_device.name + ":" + self.name
 
     @property
     def description(self):
@@ -137,6 +153,7 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     name = source.name if name is None else name
     dtype = source.dtype if dtype is None else dtype
     dest = AcquisitionChannel(
+        source,
         name,
         dtype,
         source.shape,

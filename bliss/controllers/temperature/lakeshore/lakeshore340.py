@@ -160,7 +160,7 @@ class LakeShore340(object):
         if value not in [0, 1, 2, 3, 4, 5]:
             raise ValueError("Error, the value {0} is not in 0 to 5.".format(value))
 
-        # print("--------- value = {0}".format(value))
+        print("--------- value = {0}".format(value))
         self.send_cmd("RANGE", value)
 
     def ramp_rate(self, channel, value=None):
@@ -283,7 +283,14 @@ class LakeShore340(object):
         onoff = kwargs.get("onoff")
 
         if len(kwargs):
-            inpc, unitsc, onoffc = self.send_cmd("CSET?").split(",")
+            inpc, unitsc, onoffc, powerup_enable_unused = self.send_cmd("CSET?").split(
+                ","
+            )
+            print(
+                "inpc={0}, unitsc={1}, onoffc={2}, powerup_enable_unused={3}".format(
+                    inpc, unitsc, onoffc, powerup_enable_unused
+                )
+            )
             if inp is None:
                 inp = inpc
             if units is None:
@@ -297,8 +304,7 @@ class LakeShore340(object):
         else:
             asw = self.send_cmd("CSET?").split(",")
             print("cset answer = {0},{1},{2}".format(asw[0], asw[1], asw[2]))
-            return (asw[0], self.UNITS340[int(asw[1])], bool(asw[2]))
-            # return (asw[0], asw[1], bool(asw[2]))
+            return (asw[0], self.UNITS340[int(asw[1])], bool(int(asw[2])))
 
     def send_cmd(self, command, *args):
         """Send a command to the controller
@@ -328,7 +334,7 @@ class LakeShore340(object):
 
             if "RANGE" in command:
                 value = "".join(str(x) for x in args)
-                # print("--------- value = {0}".format(value))
+                print("--------- value = {0}".format(value))
                 cmd = command + " %s *OPC" % (value) + self.eos
             else:
                 inp = ",".join(str(x) for x in args)

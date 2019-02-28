@@ -40,6 +40,7 @@ from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
 
+
 _log = logging.getLogger("bliss.shell")
 
 
@@ -156,6 +157,8 @@ class ScanListener:
         self.real_motors = []
 
     def __on_scan_new(self, scan_info):
+        from bliss.common.standard import cntdict  #not nice to do this import here but how to do it differently?
+        
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -177,7 +180,7 @@ class ScanListener:
 
         for channel_name in channels["master"]["scalars"]:
             channel_short_name = channel_name.split(":")[-1]
-            # name is in the form 'acq_master:channel_name'
+            # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
                 self.col_labels.insert(1, "dt[s]")
@@ -202,17 +205,22 @@ class ScanListener:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
 
+        self.cntlist = [x[2] for x in cntdict().values()] #get all available counter names
+        self.cnt_chanlist = [x.replace(".",":") for x in self.cntlist] # channel names can not contain "." so we have to take care of that
+        self.cntdict = dict(zip(self.cnt_chanlist,self.cntlist))
+        
         for channel_name in channels["scalars"]:
-            counter_name = channel_name.split(":")[-1]
-            if counter_name == "elapsed_time":
+            if channel_name.split(":")[-1] == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
             else:
-                self.counter_names.append(counter_name)
-                unit = _find_unit(counter_name)
-                if unit:
-                    counter_name += "[{0}]".format(unit)
-                counter_labels.append(counter_name)
+                potential_cnt_channel = [n for n in self.cnt_chanlist if n in channel_name]
+                if len(potential_cnt_channel) > 0:
+                    self.counter_names.append(potential_cnt_channel[0])
+                    unit = _find_unit(self.cntdict[potential_cnt_channel[0]])
+                    if unit:
+                        counter_name += "[{0}]".format(unit)
+                    counter_labels.append(self.cntdict[potential_cnt_channel[0]])                  
 
         self.col_labels.extend(sorted(motor_labels))
         self.col_labels.extend(sorted(counter_labels))

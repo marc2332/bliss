@@ -92,7 +92,7 @@ class Base(Controller):
         self._lakeshore.ramp(channel, sp, rate)
 
     def setpoint_stop(self, toutput):
-        """Stop the going to setpoint
+        """Stop the ramping going to setpoint
         """
         channel = toutput.config.get("channel")
         # if ramp is active, disable it
@@ -104,7 +104,8 @@ class Base(Controller):
             self._lakeshore.ramp_rate(channel, rate)
 
     def setpoint_abort(self, toutput):
-        """Emergency stop the going to setpoint
+        """Emergency stop the going to setpoint.
+           Switch off the heater.
         """
         channel = toutput.config.get("channel")
         # set heater range to 0, which means heater power OFF
@@ -246,6 +247,7 @@ class Base(Controller):
         self._lakeshore.cmode(channel, value)
 
     @object_attribute_type_get(type_info=("str", "str", "bool"), type=Loop)
+    # @object_attribute_type_get(type_info=("str", "str", "int"), type=Loop)
     def read_cset(self, tloop):
         channel = tloop.config.get("channel")
         self._lakeshore.cset(channel)

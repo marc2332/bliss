@@ -196,7 +196,7 @@ class Connection(object):
         if self.uds is None:
             self._uds_query()
 
-    def _discovery(self, host, timeout=3.):
+    def _discovery(self, host, timeout=3.0):
         # Manage timeout
         if timeout < 0:
             if host is not None:
@@ -264,7 +264,7 @@ class Connection(object):
         fd.connect(uds_path)
         return fd
 
-    def _uds_query(self, timeout=1.):
+    def _uds_query(self, timeout=1.0):
         self._uds_query_event.clear()
         self._fd.sendall(
             protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
@@ -319,7 +319,7 @@ class Connection(object):
             self._greenlet_to_lockobjects.pop(gevent.getcurrent(), None)
 
     @check_connect
-    def get_redis_connection_address(self, timeout=1.):
+    def get_redis_connection_address(self, timeout=1.0):
         if self._redis_host is None:
             with gevent.Timeout(
                 timeout, RuntimeError("Can't get redis connection information")
@@ -342,6 +342,11 @@ class Connection(object):
             self._redis_connection[db] = cnx
         return cnx
 
+    def clean_all_redis_connection(self):
+        for cnx in self._redis_connection.values():
+            cnx.connection_pool.disconnect()
+        self._redis_connection = {}
+
     def create_redis_connection(self, db=0, address=None):
         if address is None:
             address = self.get_redis_connection_address()
@@ -351,7 +356,7 @@ class Connection(object):
         return redis.Redis(host=host, port=port, db=db)
 
     @check_connect
-    def get_config_file(self, file_path, timeout=1.):
+    def get_config_file(self, file_path, timeout=1.0):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
@@ -363,7 +368,7 @@ class Connection(object):
                     return value
 
     @check_connect
-    def get_config_db_tree(self, base_path="", timeout=1.):
+    def get_config_db_tree(self, base_path="", timeout=1.0):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration tree")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), base_path.encode())
@@ -377,7 +382,7 @@ class Connection(object):
                     return json.loads(value)
 
     @check_connect
-    def remove_config_file(self, file_path, timeout=1.):
+    def remove_config_file(self, file_path, timeout=1.0):
         with gevent.Timeout(timeout, RuntimeError("Can't remove configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
@@ -386,7 +391,7 @@ class Connection(object):
                     print(rx_msg)
 
     @check_connect
-    def move_config_path(self, src_path, dst_path, timeout=1.):
+    def move_config_path(self, src_path, dst_path, timeout=1.0):
         with gevent.Timeout(timeout, RuntimeError("Can't move configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s|%s" % (
@@ -399,7 +404,7 @@ class Connection(object):
                     print(rx_msg)
 
     @check_connect
-    def get_config_db(self, base_path="", timeout=30.):
+    def get_config_db(self, base_path="", timeout=30.0):
         return_files = []
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
@@ -417,7 +422,7 @@ class Connection(object):
         return return_files
 
     @check_connect
-    def set_config_db_file(self, file_path, content, timeout=3.):
+    def set_config_db_file(self, file_path, content, timeout=3.0):
         with gevent.Timeout(timeout, RuntimeError("Can't set config file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s|%s" % (
@@ -430,7 +435,7 @@ class Connection(object):
                     raise rx_msg
 
     @check_connect
-    def get_python_modules(self, base_path="", timeout=3.):
+    def get_python_modules(self, base_path="", timeout=3.0):
         return_module = []
         with gevent.Timeout(timeout, RuntimeError("Can't get python modules")):
             with self.WaitingQueue(self) as wq:

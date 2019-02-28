@@ -17,7 +17,7 @@ in ‘spec’ one would have typed
 	
 	$ wm␣m0␣m1⏎
 
-the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input, or ```()```⏎ in case a the input reprensts a python callable. An example would be
+the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input, or ```()```⏎ in case a the input reprensts a python callable.  E.g.
 
 	$ wa⏎
 	

@@ -17,12 +17,12 @@ in ‘spec’ one would have typed
 	
 	$ wm␣m0␣m1⏎
 
-the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input.
+the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input, or ```()```⏎ in case a the input reprensts a python callable.  E.g.
 
-One word of caution regarding functions without parameters (e.g. ```wa```): In order for the tying helper to be effective here one has to type
-
-	$ wa␣⏎
-
-to yield
+	$ wa⏎
+	
+is transformed into
 
 	$ wa()⏎
+
+The insertion behaviour of ⏎ is also applied to ```;```.

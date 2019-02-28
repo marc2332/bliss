@@ -8,7 +8,7 @@
 import pytest
 
 from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl
+from bliss.shell.cli.repl import BlissRepl, wait_loop
 from prompt_toolkit.output import DummyOutput
 
 
@@ -37,6 +37,7 @@ def _feed_cli_with_input(text, check_line_ending=True):
 
     finally:
         inp.close()
+        wait_loop(10.0)
 
 
 def test_shell_comma_backets():

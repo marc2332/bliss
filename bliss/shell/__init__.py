@@ -157,8 +157,10 @@ class ScanListener:
         self.real_motors = []
 
     def __on_scan_new(self, scan_info):
-        from bliss.common.standard import cntdict  #not nice to do this import here but how to do it differently?
-        
+        from bliss.common.standard import (
+            cntdict
+        )  # not nice to do this import here but how to do it differently?
+
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -205,22 +207,32 @@ class ScanListener:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
 
-        self.cntlist = [x[2] for x in cntdict().values()] #get all available counter names
-        self.cnt_chanlist = [x.replace(".",":") for x in self.cntlist] # channel names can not contain "." so we have to take care of that
-        self.cntdict = dict(zip(self.cnt_chanlist,self.cntlist))
-        
+        self.cntlist = [
+            x[2] for x in cntdict().values()
+        ]  # get all available counter names
+        self.cnt_chanlist = [
+            x.replace(".", ":") for x in self.cntlist
+        ]  # channel names can not contain "." so we have to take care of that
+        self.cntdict = dict(zip(self.cnt_chanlist, self.cntlist))
+
         for channel_name in channels["scalars"]:
             if channel_name.split(":")[-1] == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
             else:
-                potential_cnt_channel = [n for n in self.cnt_chanlist if n in channel_name]
-                if len(potential_cnt_channel) > 0:
-                    self.counter_names.append(potential_cnt_channel[0])
-                    unit = _find_unit(self.cntdict[potential_cnt_channel[0]])
+                potential_cnt_channels = [
+                    channel_name.split(":", i)[-1]
+                    for i in range(channel_name.count(":") + 1)
+                ]
+                potential_cnt_channel_name = [
+                    e for e in potential_cnt_channels if e in self.cntlist
+                ]
+                if len(potential_cnt_channel_name) > 0:
+                    self.counter_names.append(potential_cnt_channel_name[0])
+                    unit = _find_unit(self.cntdict[potential_cnt_channel_name[0]])
                     if unit:
                         counter_name += "[{0}]".format(unit)
-                    counter_labels.append(self.cntdict[potential_cnt_channel[0]])                  
+                    counter_labels.append(self.cntdict[potential_cnt_channel_name[0]])
 
         self.col_labels.extend(sorted(motor_labels))
         self.col_labels.extend(sorted(counter_labels))

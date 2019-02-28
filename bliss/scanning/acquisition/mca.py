@@ -57,7 +57,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
         mca,
         npoints,
         trigger_mode=SOFT,
-        preset_time=1.,
+        preset_time=1.0,
         block_size=None,
         polling_time=0.1,
         spectrum_size=None,
@@ -331,7 +331,7 @@ class BaseMcaCounter(BaseCounter):
             assert self.detector_channel in self.controller.elements
         # Acquisition channel
         self.acquisition_device.channels.append(
-            AcquisitionChannel(self.name, self.dtype, self.shape)
+            AcquisitionChannel(self, self.name, self.dtype, self.shape)
         )
 
     def extract_point(self, spectrums, stats):

@@ -56,7 +56,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         if not isinstance(counter, GroupedReadMixin):
             self.channels.append(
-                AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+                AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
             )
 
     @property
@@ -78,7 +78,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         self.__grouped_read_counters_list.append(counter)
         self.channels.append(
-            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
         )
 
     def _emit_new_data(self, data):
@@ -307,4 +307,4 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 self._emit_new_data(data)
                 gevent.idle()
             else:
-                gevent.sleep(self.count_time / 2.)
+                gevent.sleep(self.count_time / 2.0)

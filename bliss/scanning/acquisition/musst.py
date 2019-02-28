@@ -158,7 +158,7 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
         )
         store_list = store_list if store_list is not None else list()
         self.channels.extend(
-            (AcquisitionChannel(name, numpy.int32, ()) for name in store_list)
+            (AcquisitionChannel(self, name, numpy.int32, ()) for name in store_list)
         )
         self.__stop_flag = False
         if isinstance(musst, MusstAcquisitionMaster):

@@ -127,6 +127,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if counter.name != "image":
             raise ValueError("Lima master only supports the 'image' counter")
         self._image_channel = AcquisitionChannel(
+            counter,
             counter.name,
             counter.dtype,
             counter.shape,

@@ -109,12 +109,12 @@ class AcqDevice(AcquisitionDevice):
     def add_counter(self, counter):
         self.counters.append(counter)
         self.channels.append(
-            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
         )
 
     def add_counters(self, counters):
         self.counters.extend(counters)
-        channels = [AcquisitionChannel(c.name, c.dtype, c.shape) for c in counters]
+        channels = [AcquisitionChannel(c, c.name, c.dtype, c.shape) for c in counters]
         self.channels.extend(channels)
 
     def prepare(self):
@@ -146,7 +146,7 @@ class AcqDevice(AcquisitionDevice):
         self._event.wait()
         self._event.clear()
         with gevent.Timeout(
-            max(1., self._count_time * 2),
+            max(1.0, self._count_time * 2),
             "Weird timeouterror (waiting stop_acquisition)",
         ):
             self._stop_task.join()

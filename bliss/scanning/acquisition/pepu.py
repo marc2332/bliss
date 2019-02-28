@@ -244,7 +244,7 @@ class PepuCounter(BaseCounter):
         assert device.pepu == self.channel.pepu
         self.acquisition_device = device
         self.acquisition_device.channels.append(
-            AcquisitionChannel(self.name, self.dtype, self.shape)
+            AcquisitionChannel(self, self.name, self.dtype, self.shape)
         )
 
     def feed_point(self, stream_data):

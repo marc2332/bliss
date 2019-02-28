@@ -17,6 +17,12 @@ in ‘spec’ one would have typed
 	
 	$ wm␣m0␣m1⏎
 
-the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input.
+the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input, or ```()```⏎ in case a the input reprensts a python callable. An example would be
 
-Closing brackets will also inserted if appropriated when typing ```;```.
+	$ wa⏎
+	
+is transformed into
+
+	$ wa()⏎
+
+The insertion behaviour of ⏎ is also applied to ```;```.

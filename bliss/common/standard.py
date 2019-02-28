@@ -495,6 +495,7 @@ def cntdict():
                     counters_dict[cnt.fullname] = (
                         shape[len(cnt.shape)],
                         controller_name,
+                        cnt.name
                     )
     return counters_dict
 
@@ -507,7 +508,7 @@ def lscnt():
     for counter_name, counter_info in sorted(cntdict().items()):
         table_info.append(itertools.chain([counter_name], counter_info))
     print("")
-    print(str(tabulate(table_info, headers=["Name", "Shape", "Controller"])))
+    print(str(tabulate(table_info, headers=["Fullname", "Shape", "Controller","Name"])))
 
 
 def edit_roi_counters(detector, acq_time=None):

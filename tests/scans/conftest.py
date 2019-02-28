@@ -45,8 +45,8 @@ class DummyDevice(AcquisitionDevice):
     def __init__(self, *args, **kwargs):
         self.sleep_time = kwargs.pop("sleep_time", 0)
         AcquisitionDevice.__init__(self, *args, **kwargs)
-        self.channels.append(AcquisitionChannel("pi", float, ()))
-        self.channels.append(AcquisitionChannel("nb", float, ()))
+        self.channels.append(AcquisitionChannel(self, "pi", float, ()))
+        self.channels.append(AcquisitionChannel(self, "nb", float, ()))
         self.nb_trigger = 0
         self.prepared_flag = False
         self.started_flag = False

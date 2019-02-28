@@ -19,10 +19,4 @@ in ‘spec’ one would have typed
 
 the typing helper will map this way of tying the command to the proper python syntax without having to type ```(``` , ```,``` and ```)``` manually. It replaces ␣ by ```(``` or ```,``` where appropriate. Further it replaces ⏎ by ```)```⏎ in case this complets the input.
 
-One word of caution regarding functions without parameters (e.g. ```wa```): In order for the tying helper to be effective here one has to type
-
-	$ wa␣⏎
-
-to yield
-
-	$ wa()⏎
+Closing brackets will also inserted if appropriated when typing ```;```.

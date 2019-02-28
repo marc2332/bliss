@@ -71,8 +71,10 @@ class AcquisitionChannel(object):
             # Controller
             if self.__acq_device.controller is not None:
                 args.append(self.__acq_device.controller.name.split(".")[0])
-
-            return ":".join(args) + ":" + self.name
+            if len(args) > 0:
+                return ":".join(args) + ":" + self.name
+            else:
+                return self.name
         else:
             return self.__acq_device.name + ":" + self.name
 

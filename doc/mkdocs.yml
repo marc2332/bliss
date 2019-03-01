@@ -76,6 +76,7 @@ nav:
                 - Standard functions: shell_std_func.md
                 - Customization: shell_customization.md
                 - Typing helper: shell_typing_helper.md
+                - Logging: shell_logging.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md

@@ -1,4 +1,5 @@
 import sys
+from contextlib import contextmanager
 
 from gevent import greenlet
 from gevent import hub
@@ -22,12 +23,19 @@ class KillMask:
         MASKED_GREENLETS.setdefault(self.__greenlet, set()).add(self)
 
     def __exit__(self, exc_type, value, traceback):
-        MASKED_GREENLETS[self.__greenlet].remove(self)
+        try:
+            MASKED_GREENLETS[self.__greenlet].remove(self)
+        except KeyError:
+            pass  # probably removed by KillUnMask
         if MASKED_GREENLETS[self.__greenlet]:
             return
         MASKED_GREENLETS.pop(self.__greenlet)
         if self.__exception is not None:
             raise self.__exception
+
+    @property
+    def exception(self):
+        return self.__exception
 
     def set_throw(self, exception):
         if self.__kill_counter:
@@ -37,6 +45,21 @@ class KillMask:
         cnt = self.__kill_counter
         self.__kill_counter -= 1
         return not cnt
+
+
+@contextmanager
+def KillUnMask():
+    """
+    This will unmask the kill protection for the current greenlet.
+    """
+    current_greenlet = gevent.getcurrent()
+    previous_set_mask = MASKED_GREENLETS.pop(current_greenlet, set())
+    for killmask in previous_set_mask:
+        if killmask.exception:
+            raise killmask.exception
+    yield
+    if previous_set_mask:
+        MASKED_GREENLETS[current_greenlet] = previous_set_mask
 
 
 def protect_from_kill(fu):

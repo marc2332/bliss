@@ -10,6 +10,7 @@ from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import object_attribute_get, object_attribute_type_get
 from bliss.common.utils import object_attribute_set, object_attribute_type_set
+from bliss.common.utils import object_method
 
 
 class Base(Controller):
@@ -34,6 +35,8 @@ class Base(Controller):
         self.__kp = None
         self.__ki = None
         self.__kd = None
+        if hasattr(self._lakeshore, "_initialize_loop"):
+            self._lakeshore._initialize_loop(tloop)
 
     def read_input(self, tinput):
         """Read the current temperature
@@ -233,8 +236,11 @@ class Base(Controller):
         print("--------- ramp_status = {0}".format(ramp_stat))
         return int(ramp_stat)
 
-    @object_attribute_type_get(type_info=("str"), type=Loop)
+    @object_attribute_type_get(name="read_cmode", type_info=("str"), type=Loop)
     def read_cmode(self, tloop):
+        """
+        super tagada read
+        """
         channel = tloop.config.get("channel")
         cmode = self._lakeshore.cmode(channel)
         # print("--------- cmode value = {0}".format(cmode))
@@ -246,15 +252,22 @@ class Base(Controller):
         print("--------- value = {0}".format(value))
         self._lakeshore.cmode(channel, value)
 
-    @object_attribute_type_get(type_info=("str", "str", "bool"), type=Loop)
-    # @object_attribute_type_get(type_info=("str", "str", "int"), type=Loop)
-    def read_cset(self, tloop):
-        channel = tloop.config.get("channel")
-        self._lakeshore.cset(channel)
-        (inp, units, onoff) = self._lakeshore.cset(channel)
-        return (inp, units, onoff)
+    # @object_attribute_type_get(name="read_cset",type_info=("str", "str", "bool"), type=Loop)
+    # #@object_method(name="read_cmode",type_info=("str", "str", "bool"), type=Loop)
+    # def read_cset(self,tloop):
+    #     """
+    #     super tagada
+    #     """
+    #     channel = tloop.config.get("channel")
+    #     self._lakeshore.cset(channel)
+    #     (inp, units, onoff) = self._lakeshore.cset(channel)
+    #     return (inp, units, onoff)
 
-    @object_attribute_type_set(type_info=("str", "int", "bool"), type=Loop)
-    def set_cset(self, tloop, **kwargs):
-        channel = tloop.config.get("channel")
-        self._lakeshore.cset(channel, **kwargs)
+    # #@object_attribute_type_set(name="set_cset",type_info=("str", "int", "bool"), type=Loop)
+    # @object_method(types_info=("str", "str", "bool"), filter=lambda x: isinstance(x,Loop))
+    # def set_cset(self,tloop, input=None, units=None,onoff=None):
+    #     """
+    #     super tagada set
+    #     """
+    #     channel = tloop.config.get("channel")
+    #     self._lakeshore.cset(channel, input=input,units=units,onoff=onoff)

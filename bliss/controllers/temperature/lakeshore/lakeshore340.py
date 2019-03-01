@@ -55,8 +55,6 @@ from bliss.comm import serial
 
 from bliss.controllers.temperature.lakeshore.lakeshore import Base
 
-# from id10.controllers.temperature.lakeshore.lakeshore import Base
-
 
 class LakeShore340(object):
 
@@ -69,6 +67,9 @@ class LakeShore340(object):
         "Auto Tune PI",
         "Auto Tune P",
     )
+
+    UNITS340 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS340 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
 
     UNITS340 = ("undefined", "Kelvin", "Celsius", "Sensor unit")
 
@@ -99,6 +100,30 @@ class LakeShore340(object):
         # self.log.setLevel(logging.NOTSET)
         self.log.setLevel(logging.DEBUG)
         self.log.debug("__init__")
+
+    def _initialize_loop(self, loop):
+        self._add_custom_method(loop)
+
+    def _add_custom_method(self, loop):
+        def cset(input=None, units=None, onoff=None):
+            """ Read/Set Control Loop Parameters
+                Args:
+                   channel(int): loop channel. Valid entries: 1 or 2
+                Kwargs:
+                   input (str): which input to control from. Valid entries: A or B.
+                   units (str): sensor unit. Valid entries: Kelvin, Celsius, sensor unit.
+                   onoff (str): control loop is on or off. Valid entries are on or off.
+              Returns:
+                   None if set
+                   input (str): which input control the loop.
+                   units (str): Unit for the input: Kelvin, Celsius, sensor unit.
+                   onoff (str): control loop: on  or off.
+            """
+            return self._cset(
+                loop.config.get("channel"), input=input, units=units, onoff=onoff
+            )
+
+        loop.cset = cset
 
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
@@ -262,7 +287,7 @@ class LakeShore340(object):
         else:
             return self.MODE340[int(self.send_cmd("CMODE?"))]
 
-    def cset(self, channel, **kwargs):
+    def _cset(self, channel, **kwargs):
         """ Read/Set Control Loop Parameters
             Args:
                channel(int): loop channel. Valid entries: 1 or 2
@@ -278,33 +303,39 @@ class LakeShore340(object):
         """
 
         self._channel = channel
-        inp = kwargs.get("input")
+        input = kwargs.get("input")
         units = kwargs.get("units")
         onoff = kwargs.get("onoff")
 
-        if len(kwargs):
-            inpc, unitsc, onoffc, powerup_enable_unused = self.send_cmd("CSET?").split(
-                ","
-            )
-            print(
-                "inpc={0}, unitsc={1}, onoffc={2}, powerup_enable_unused={3}".format(
-                    inpc, unitsc, onoffc, powerup_enable_unused
-                )
-            )
-            if inp is None:
-                inp = inpc
+        if input is None and units is None and onoff is None:
+            asw = self.send_cmd("CSET?").split(",")
+            input = asw[0]
+            units = self.REVUNITS340[int(asw[1])]
+            onoff = "on" if bool(int(asw[2])) else "off"
+            return (input, units, onoff)
+        else:
+            inputc, unitsc, onoffc, powerup_enable_unused = self.send_cmd(
+                "CSET?"
+            ).split(",")
+            if input is None:
+                input = inputc
             if units is None:
                 units = unitsc
+            elif units != "Kelvin" and units != "Celsius" and units != "Sensor unit":
+                return print(
+                    "Error: acceptables values for units are "
+                    "'Kelvin' or 'Celsius' or 'Sensor unit'."
+                )
+            else:
+                units = self.UNITS340[units]
             if onoff is None:
                 onoff = onoffc
+            elif onoff != "on" and onoff != "off":
+                return print("Error: acceptables values for onoff are 'on' or 'off'.")
             else:
-                onoff = int(onoff)
+                onoff = 1 if onoff == "on" else 0
 
-            self.send_cmd("CSET", inp, units, onoff)
-        else:
-            asw = self.send_cmd("CSET?").split(",")
-            print("cset answer = {0},{1},{2}".format(asw[0], asw[1], asw[2]))
-            return (asw[0], self.UNITS340[int(asw[1])], bool(int(asw[2])))
+            self.send_cmd("CSET", input, units, onoff)
 
     def send_cmd(self, command, *args):
         """Send a command to the controller

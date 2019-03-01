@@ -251,23 +251,3 @@ class Base(Controller):
         channel = tloop.config.get("channel")
         print("--------- value = {0}".format(value))
         self._lakeshore.cmode(channel, value)
-
-    # @object_attribute_type_get(name="read_cset",type_info=("str", "str", "bool"), type=Loop)
-    # #@object_method(name="read_cmode",type_info=("str", "str", "bool"), type=Loop)
-    # def read_cset(self,tloop):
-    #     """
-    #     super tagada
-    #     """
-    #     channel = tloop.config.get("channel")
-    #     self._lakeshore.cset(channel)
-    #     (inp, units, onoff) = self._lakeshore.cset(channel)
-    #     return (inp, units, onoff)
-
-    # #@object_attribute_type_set(name="set_cset",type_info=("str", "int", "bool"), type=Loop)
-    # @object_method(types_info=("str", "str", "bool"), filter=lambda x: isinstance(x,Loop))
-    # def set_cset(self,tloop, input=None, units=None,onoff=None):
-    #     """
-    #     super tagada set
-    #     """
-    #     channel = tloop.config.get("channel")
-    #     self._lakeshore.cset(channel, input=input,units=units,onoff=onoff)

@@ -46,9 +46,11 @@ import pkgutil
 import os
 import re
 import weakref
+import gevent
 
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
+from bliss.common.greenlet_utils import protect_from_kill, KillUnMask
 from bliss.config.conductor import client
 from bliss.config.settings import Struct, QueueSetting, HashObjSetting, scan
 
@@ -139,12 +141,14 @@ class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile(r"^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile(r"^__keyspace@.*?:(.*)_data$")
     SCAN_EVENTS_REGEX = re.compile(r"^__scans_events__:(.+)$")
-    EVENTS = enum.Enum("event", "NEW_CHILD NEW_DATA_IN_CHANNEL END_SCAN")
+    EVENTS = enum.Enum("event", "NEW_CHILD NEW_DATA_IN_CHANNEL END_SCAN EXTERNAL_EVENT")
 
-    def __init__(self, node, last_child_id=None):
+    def __init__(self, node, last_child_id=None, wakeup_fd=None):
         self.node = node
         self.last_child_id = dict() if last_child_id is None else last_child_id
+        self.wakeup_fd = wakeup_fd
 
+    @protect_from_kill
     def walk(self, filter=None, wait=True, ready_event=None):
         """Iterate over child nodes that match the `filter` argument
 
@@ -165,7 +169,8 @@ class DataNodeIterator(object):
         self.last_child_id[db_name] = 0
 
         if filter is None or self.node.type in filter:
-            yield self.node
+            with KillUnMask():
+                yield self.node
 
         data_node_2_children = self._get_grandchildren(db_name)
         all_nodes_names = list()
@@ -182,7 +187,8 @@ class DataNodeIterator(object):
         for n in self.__internal_walk(
             db_name, data_nodes, data_node_2_children, filter, pipeline
         ):
-            yield n
+            with KillUnMask():
+                yield n
         pipeline.execute()
 
         if ready_event is not None:
@@ -235,6 +241,7 @@ class DataNodeIterator(object):
         }
         return data_node_2_children
 
+    @protect_from_kill
     def walk_from_last(
         self, filter=None, wait=True, include_last=True, ready_event=None
     ):
@@ -292,13 +299,29 @@ class DataNodeIterator(object):
         pubsub.psubscribe("__scans_events__:%s:*" % self.node.db_name)
         return pubsub
 
+    @protect_from_kill
     def wait_for_event(self, pubsub, filter=None):
         if isinstance(filter, str):
             filter = (filter,)
         elif filter:
             filter = tuple(filter)
 
-        for msg in pubsub.listen():
+        read_fds = [pubsub.connection._sock]
+        if self.wakeup_fd:
+            read_fds.append(self.wakeup_fd)
+
+        while True:
+            msg = pubsub.get_message()
+            with KillUnMask():
+                if msg is None:
+                    read_event, _, _ = gevent.select.select(read_fds, [], [])
+                    if self.wakeup_fd in read_event:
+                        os.read(self.wakeup_fd, 16 * 1024)  # flush event stream
+                        yield self.EVENTS.EXTERNAL_EVENT, None
+
+            if msg is None:
+                continue
+
             if msg["type"] != "pmessage":
                 continue
             data = msg["data"].decode()
@@ -375,6 +398,7 @@ class DataNode(object):
     default_time_to_live = 24 * 3600  # 1 day
 
     @staticmethod
+    @protect_from_kill
     def exists(name, parent=None, connection=None):
         if connection is None:
             connection = client.get_redis_connection(db=1)
@@ -414,14 +438,17 @@ class DataNode(object):
         self.node_type = node_type
 
     @property
+    @protect_from_kill
     def db_name(self):
         return self._data.db_name
 
     @property
+    @protect_from_kill
     def name(self):
         return self._data.name
 
     @property
+    @protect_from_kill
     def type(self):
         if self.node_type is not None:
             return self.node_type
@@ -432,6 +459,7 @@ class DataNode(object):
         return DataNodeIterator(self)
 
     @property
+    @protect_from_kill
     def parent(self):
         parent_name = self._data.parent
         if parent_name:
@@ -451,6 +479,7 @@ class DataNode(object):
     def connect(self, signal, callback):
         dispatcher.connect(callback, signal, self)
 
+    @protect_from_kill
     def set_ttl(self):
         db_names = set(self._get_db_names())
         redis_conn = client.get_redis_connection(db=1)

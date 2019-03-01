@@ -5,6 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import time
 import datetime
 import numpy
@@ -128,12 +129,17 @@ def get_data(scan):
     return data
 
 
-def _watch_data(scan_node, scan_info, scan_new_child_callback, scan_data_callback):
+def _watch_data(
+    scan_node, scan_info, scan_new_child_callback, scan_data_callback, read_pipe
+):
     scan_data = dict()
     data_indexes = dict()
 
-    scan_data_iterator = DataNodeIterator(scan_node)
+    scan_data_iterator = DataNodeIterator(scan_node, wakeup_fd=read_pipe)
     for event_type, data_channel in scan_data_iterator.walk_events():
+        if event_type == scan_data_iterator.EVENTS.EXTERNAL_EVENT:
+            break
+
         if event_type == scan_data_iterator.EVENTS.NEW_CHILD:
             scan_new_child_callback(scan_info, data_channel)
         elif event_type == scan_data_iterator.EVENTS.NEW_DATA_IN_CHANNEL:
@@ -236,7 +242,7 @@ def watch_session_scans(
 
     data_iterator = DataNodeIterator(session_node)
     watch_data_task = None
-
+    rpipe, wpipe = os.pipe()
     try:
         pubsub = data_iterator.children_event_register()
         [
@@ -258,7 +264,8 @@ def watch_session_scans(
                 current_scan_node = scan_node
                 scan_info = scan_node.info.get_all()
                 if watch_data_task:
-                    watch_data_task.kill()
+                    os.write(wpipe, b".")
+                    watch_data_task.join()
 
                 # call user callbacks and start data watch task for this scan
                 with excepthook():
@@ -275,6 +282,7 @@ def watch_session_scans(
                         scan_info,
                         scan_new_child_callback,
                         scan_data_callback,
+                        rpipe,
                     )
             elif event_type == data_iterator.EVENTS.END_SCAN:
                 scan_info = scan_node.info.get_all()

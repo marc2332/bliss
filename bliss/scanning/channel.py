@@ -63,16 +63,9 @@ class AcquisitionChannel(object):
     @property
     def fullname(self):
         if isinstance(self.__acq_device, BaseCounter):
-
-            args = []
-            # Master controller
-            if self.__acq_device.master_controller is not None:
-                args.append(self.__acq_device.master_controller.name)
-            # Controller
-            if self.__acq_device.controller is not None:
-                args.append(self.__acq_device.controller.name.split(".")[0])
-            if len(args) > 0:
-                return ":".join(args) + ":" + self.name
+            fullctrlname = self.__acq_device.fullcontrollername
+            if fullctrlname:
+                return fullctrlname.replace(".", ":") + ":" + self.name
             else:
                 return self.__acq_device.name + ":" + self.name
         else:

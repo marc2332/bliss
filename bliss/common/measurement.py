@@ -141,6 +141,19 @@ class BaseCounter(object):
         The standard implementation defines it as:
         `<master_controller_name>.<controller_name>.<counter_name>`.
         """
+        fullctrlname = self.fullcontrollername
+        if fullctrlname:
+            return fullctrlname + "." + self.name
+        else:
+            return self.name
+
+    @property
+    def fullcontrollername(self):
+        """Name of the controllers attached to this counter if there are any.
+
+        The standard implementation defines it as:
+        `<master_controller_name>.<controller_name>
+        """
         args = []
         # Master controller
         if self.master_controller is not None:
@@ -149,8 +162,10 @@ class BaseCounter(object):
         if self.controller is not None:
             args.append(self.controller.name)
         # Name
-        args.append(self.name)
-        return ".".join(args)
+        if len(args) > 0:
+            return ".".join(args)
+        else:
+            return None
 
 
 class Counter(BaseCounter):

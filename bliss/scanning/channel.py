@@ -74,7 +74,7 @@ class AcquisitionChannel(object):
             if len(args) > 0:
                 return ":".join(args) + ":" + self.name
             else:
-                return self.name
+                return self.__acq_device.name + ":" + self.name
         else:
             return self.__acq_device.name + ":" + self.name
 

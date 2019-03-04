@@ -198,7 +198,8 @@ class McceController:
         """
         return self._send_cmd("MEASURE", value)
 
-    def get_range(self):
+    @property
+    def range(self):
         """ Read the electrometer range
         Returns:
             (int): Current range
@@ -209,7 +210,8 @@ class McceController:
         _range = self._send_cmd(McceReadCommands.RANGE)
         return self.mcce_range[_range], self.range_units.name
 
-    def set_range(self, value):
+    @range.setter
+    def range(self, value):
         """ Set the range
         Args:
            (int): The desired range
@@ -219,8 +221,9 @@ class McceController:
         self._send_cmd(self.range_cmd, _range)
         self._set_on(True)
 
-    def get_frequency(self):
-        """ Set the frequency filter of the fotovoltaic electrometers.
+    @property
+    def frequency(self):
+        """ Read the frequency filter of the fotovoltaic electrometers.
         Returns:
             (int): The value
         Raises:
@@ -232,7 +235,8 @@ class McceController:
         value = self._send_cmd(McceReadCommands.FREQUENCY)
         return MCCE_FREQUENCY[value]
 
-    def set_frequency(self, value):
+    @frequency.setter
+    def frequency(self, value):
         """ Set the frequency filter of the photovoltaic electrometers.
         Args:
            value(int): Filter value
@@ -247,7 +251,8 @@ class McceController:
         self._send_cmd(McceProgCommands.FREQUENCY, _filter)
         self._set_on(True)
 
-    def get_gain(self):
+    @property
+    def gain(self):
         """ Read the gain of the photoconductive electrometers.
         Returns:
             (int): The gain value
@@ -260,7 +265,8 @@ class McceController:
         value = self._send_cmd(McceReadCommands.GAIN)
         return pow(10, value)
 
-    def set_gain(self, value):
+    @gain.setter
+    def gain(self, value):
         """ Set the gain of the fotoconductive electrometers
         Args:
            (int): The value
@@ -303,12 +309,12 @@ class McceController:
     @property
     def status(self):
         """ Status of the electrometer """
-        _range, _unit = self.get_range()
+        _range, _unit = self.range
         _ret = "Range: %g %s\n" % (_range, _unit)
         if self.mcce_type in (4, 5):
-            _ret += "Gain: %d\n" % self.get_gain()
+            _ret += "Gain: %d\n" % self.gain
         else:
-            _ret += "Frequency: %d Hz\n" % self.get_frequency()
+            _ret += "Frequency: %d Hz\n" % self.frequency
         _ret += "Polarity: %s\n" % self.polarity
 
         return _ret

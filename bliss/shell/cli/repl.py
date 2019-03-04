@@ -168,14 +168,12 @@ def cli(
     """
     user_ns, session = initialize(session_name)
 
-    locals = locals or user_ns
+    import __main__
+
+    __main__.__dict__.update(user_ns)
 
     def get_globals():
-        return user_ns  # , REPL=repl)
-
-    def get_locals():  # -*- coding: utf-8 -*-
-
-        return locals
+        return __main__.__dict__
 
     if session_name:
         session_id = session_name
@@ -200,8 +198,7 @@ def cli(
 
     # Create REPL.
     repl = BlissRepl(
-        get_globals,
-        get_locals,
+        get_globals=get_globals,
         session=session,
         scan_listener=scan_listener,
         vi_mode=vi_mode,

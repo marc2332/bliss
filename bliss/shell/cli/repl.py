@@ -26,20 +26,9 @@ from prompt_toolkit.eventloop import future
 if not is_windows():
     from prompt_toolkit.eventloop.posix import PosixEventLoop
 
-    running_tasks = 0
-    tasks_event = gevent.event.Event()
-
-    def end_task(*args):
-        global running_tasks
-        running_tasks -= 1
-        tasks_event.set()
-
     class _PosixLoop(PosixEventLoop):
         def run_in_executor(self, callback, _daemon=False):
-            global running_tasks
             t = gevent.spawn(callback)
-            running_tasks += 1
-            t.link(end_task)
 
             class F(future.Future):
                 def result(self):
@@ -59,19 +48,6 @@ if not is_windows():
             return F()
 
     set_event_loop(_PosixLoop())
-
-    def wait_loop(timeout):
-        with gevent.Timeout(timeout):
-            while running_tasks:
-                tasks_event.clear()
-                tasks_event.wait()
-
-
-else:
-
-    def wait_loop(timeout):
-        pass
-
 
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper

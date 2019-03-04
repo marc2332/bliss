@@ -84,7 +84,10 @@ def clean_gevent():
             continue
         ob.kill()
 
-    yield
+    d = {"end-check": True}
+    yield d
+    if not d.get("end-check"):
+        return
 
     for ob in gc.get_objects():
         try:

@@ -8,7 +8,7 @@
 import pytest
 
 from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl, wait_loop
+from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
 
 
@@ -37,25 +37,28 @@ def _feed_cli_with_input(text, check_line_ending=True):
 
     finally:
         inp.close()
-        wait_loop(10.0)
 
 
-def test_shell_comma_backets():
+def test_shell_comma_backets(clean_gevent):
+    clean_gevent["end-check"] = False
     result, cli = _feed_cli_with_input("print 1 2\r")
     assert result == "print(1,2)"
 
 
-def test_shell_string_input():
+def test_shell_string_input(clean_gevent):
+    clean_gevent["end-check"] = False
     result, cli = _feed_cli_with_input("a='to to'\r")
     assert result == "a='to to'"
 
 
-def test_shell_string_parameter():
+def test_shell_string_parameter(clean_gevent):
+    clean_gevent["end-check"] = False
     result, cli = _feed_cli_with_input("print 'bla bla'\r")
     assert result == "print('bla bla')"
 
 
-def test_shell_function_without_parameter():
+def test_shell_function_without_parameter(clean_gevent):
+    clean_gevent["end-check"] = False
     result, cli = _feed_cli_with_input("print \r")
     assert result == "print()"
 

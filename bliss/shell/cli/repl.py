@@ -24,6 +24,10 @@ from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
 
+from bliss import setup_globals
+
+setup_globals._error_report_expert_mode = False
+
 # don't patch the event loop on windows
 if not is_windows():
     from prompt_toolkit.eventloop.posix import PosixEventLoop
@@ -313,7 +317,18 @@ def embed(*args, **kwargs):
                 # for x in traceback.format_exception_only(type(e), e): print(x)
 
                 # a bit more verbose output should/could be activated/deactivated
-                traceback.print_exception(type(e), e, e.__traceback__)
+
+                if setup_globals._error_report_expert_mode is False:
+                    err_txt = "Error occurs in command: '%s' => '%s' " % (inp, e)
+                    setup_globals._last_error_ = str(traceback.format_exc())
+                    print(
+                        "!!! === %s === !!! ( for more details type cmd 'last_error' )"
+                        % err_txt
+                    )
+                    print("\n")
+                else:
+                    traceback.print_exception(type(e), e, e.__traceback__)
+                    print("\n")
                 pass
 
     finally:

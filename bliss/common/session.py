@@ -21,6 +21,13 @@ from bliss.config.conductor.client import get_text_file, get_python_modules, get
 CURRENT_SESSION = None
 
 
+def set_error_report_expert_mode(enable):
+    if enable is None:
+        return setup_globals._error_report_expert_mode
+    else:
+        setup_globals._error_report_expert_mode = enable
+
+
 def get_current():
     """
     return the current session object
@@ -364,9 +371,18 @@ class Session(object):
             env_dict["SCANS"] = SCANS
             env_dict["SCAN_SAVING"] = ScanSaving(self.name)
             env_dict["SCAN_DISPLAY"] = ScanDisplay()
+
             from bliss.common.measurementgroup import ACTIVE_MG
 
             env_dict["ACTIVE_MG"] = ACTIVE_MG
+
+            # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE
+            env_dict["last_error"] = lambda: print(
+                getattr(setup_globals, "_last_error_", "")
+            )
+            env_dict[
+                "error_report_expert_mode"
+            ] = lambda x=None: set_error_report_expert_mode(x)
 
         sessions_tree = self.sessions_tree
         for child_session in reversed(

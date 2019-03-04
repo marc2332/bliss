@@ -8,6 +8,8 @@
 from bliss import setup_globals
 from bliss.common.standard import wa, wm, sta, stm
 
+setup_globals._error_report_expert_mode = True
+
 
 def test_wa_normal(beacon, capsys):
     bad = beacon.get("bad")

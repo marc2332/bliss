@@ -87,12 +87,29 @@ def __pyhighlight(code, bg="dark", outfile=None):
 
 
 def _print_errors_with_traceback(errors, device_type="Motor"):
+
     for (label, error_with_traceback_obj) in errors:
-        print(
-            "\n========= WARNING: %s '%s' has failed with error: ==============\n"
-            % (device_type, label)
-        )
-        print("%s\n" % (error_with_traceback_obj.traceback,))
+
+        if setup_globals._error_report_expert_mode is False:
+            setup_globals._last_error_ = str(error_with_traceback_obj.traceback)
+            err_txt = "Error %s '%s' has failed: %s" % (
+                device_type,
+                label,
+                error_with_traceback_obj.traceback.strip().split("\n")[-1],
+            )
+
+            print(
+                "\n!!! === %s === !!! ( for more details type cmd 'LAST_ERROR' )\n"
+                % err_txt
+            )
+
+        else:
+
+            print(
+                "\n========= WARNING: %s '%s' has failed with error: ==============\n"
+                % (device_type, label)
+            )
+            print("%s\n" % (error_with_traceback_obj.traceback,))
 
 
 def sync(*axes):

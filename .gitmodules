@@ -1,3 +1,0 @@
-[submodule "driver/ct2/linux"]
-	path = driver/ct2/linux
-	url = git://gitlab.esrf.fr/Hardware/p201.git

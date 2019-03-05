@@ -27,6 +27,7 @@ from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.common.utils import Statistics
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
+from bliss.config.settings import _get_connection, pipeline
 from bliss.data.node import (
     _get_or_create_node,
     _create_node,
@@ -906,25 +907,30 @@ class Scan(object):
             return ImagePlot(existing_id=plot_id)
 
     def _next_scan_number(self):
+        LAST_SCAN_NUMBER = "last_scan_number"
         filename = self.writer.filename
-        last_filename = self.__scan_saving._last_scan_file
-        last_scan_number = self.__scan_saving._last_scan_number
-        if last_filename != filename:
-            self.__scan_saving._last_scan_file = filename
-            # find new scan number from existing scans (if any)
-            if "{scan_number}" not in filename:
-                max_scan_number = 0
-                for scan_entry in self.writer.get_scan_entries():
-                    try:
-                        scan_number = int(scan_entry.split("_")[0])
-                    except Exception:
-                        continue
-                    else:
-                        if scan_number > max_scan_number:
-                            max_scan_number = scan_number
-                last_scan_number = max_scan_number
-        scan_number = last_scan_number + 1
-        self.__scan_saving._last_scan_number = scan_number
+        # last scan number is store in the parent of the scan
+        parent_node = self.__scan_saving.get_parent_node()
+        last_scan_number = parent_node._data.last_scan_number
+        if last_scan_number is None and "{scan_number}" not in filename:
+            max_scan_number = 0
+            for scan_entry in self.writer.get_scan_entries():
+                try:
+                    max_scan_number = max(
+                        int(scan_entry.split("_")[0]), max_scan_number
+                    )
+                except Exception:
+                    continue
+            with pipeline(parent_node._data) as p:
+                name = parent_node._data._proxy.name
+                p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
+                p.hincrby(name, LAST_SCAN_NUMBER, 1)
+                _, scan_number = p.execute()
+        else:
+            cnx = _get_connection(parent_node._data)
+            scan_number = cnx().hincrby(
+                parent_node._data._proxy.name, LAST_SCAN_NUMBER, 1
+            )
         return scan_number
 
     @staticmethod

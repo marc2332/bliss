@@ -14,6 +14,10 @@ The CT2 card has two models:
 
 The *C208* has been discontinued and is not supported by bliss.
 
+!!! warning
+    BLISS is tested with the 3.3 version of the P201 kernel driver.
+    Any other version may cause troubles.
+
 ## Architecture
 
 A brief diagram explaining how the P201 is used by bliss:
@@ -49,7 +53,7 @@ A brief diagram explaining how the P201 is used by bliss:
 
 The driver is available as an external project. If you are at ESRF you can
 install it with blissinstaller tool. For reference, here is a link to the
-[CT2 driver project on gitlab](http://gitlab.esrf.fr/Hardware/P201)
+[CT2 driver project on gitlab](https://gitlab.esrf.fr/Hardware/P201)
 
 The *CT2 Bliss RPC server* has to run on the PC where the card is installed by
 typing:

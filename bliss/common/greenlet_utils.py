@@ -26,7 +26,7 @@ class KillMask:
         try:
             MASKED_GREENLETS[self.__greenlet].remove(self)
         except KeyError:
-            pass  # probably removed by KillUnMask
+            pass  # probably removed by AllowKill
         if MASKED_GREENLETS[self.__greenlet]:
             return
         MASKED_GREENLETS.pop(self.__greenlet)
@@ -48,7 +48,7 @@ class KillMask:
 
 
 @contextmanager
-def KillUnMask():
+def AllowKill():
     """
     This will unmask the kill protection for the current greenlet.
     """

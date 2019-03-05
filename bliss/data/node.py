@@ -50,7 +50,7 @@ import gevent
 
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
-from bliss.common.greenlet_utils import protect_from_kill, KillUnMask
+from bliss.common.greenlet_utils import protect_from_kill, AllowKill
 from bliss.config.conductor import client
 from bliss.config.settings import Struct, QueueSetting, HashObjSetting, scan
 
@@ -169,7 +169,7 @@ class DataNodeIterator(object):
         self.last_child_id[db_name] = 0
 
         if filter is None or self.node.type in filter:
-            with KillUnMask():
+            with AllowKill():
                 yield self.node
 
         data_node_2_children = self._get_grandchildren(db_name)
@@ -187,7 +187,7 @@ class DataNodeIterator(object):
         for n in self.__internal_walk(
             db_name, data_nodes, data_node_2_children, filter, pipeline
         ):
-            with KillUnMask():
+            with AllowKill():
                 yield n
         pipeline.execute()
 
@@ -312,7 +312,7 @@ class DataNodeIterator(object):
 
         while True:
             msg = pubsub.get_message()
-            with KillUnMask():
+            with AllowKill():
                 if msg is None:
                     read_event, _, _ = gevent.select.select(read_fds, [], [])
                     if self.wakeup_fd in read_event:

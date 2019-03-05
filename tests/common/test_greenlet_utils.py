@@ -2,7 +2,7 @@ import sys
 import gevent
 
 from bliss.common.greenlet_utils import protect_from_kill, protect_from_one_kill
-from bliss.common.greenlet_utils import KillUnMask
+from bliss.common.greenlet_utils import AllowKill
 
 
 def test_protect_from_kill():
@@ -78,7 +78,7 @@ def test_unkillmask_with_kill_before_mask():
     @protect_from_kill
     def target2():
         event2.wait()
-        with KillUnMask():
+        with AllowKill():
             event3.set()
 
     @protect_from_kill
@@ -103,7 +103,7 @@ def test_unkillmask_with_kill_after_mask():
     @protect_from_kill
     def target2():
         event1.set()
-        with KillUnMask():
+        with AllowKill():
             event2.wait()
             event3.set()
 

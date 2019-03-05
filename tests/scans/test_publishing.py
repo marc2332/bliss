@@ -37,8 +37,11 @@ def test_parent_node(session, scan_tmpdir):
     scan_saving = getattr(setup_globals, "SCAN_SAVING")
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "{date}/test"
+    redis_base_path = str(scan_tmpdir).replace("/", ":")
     parent_node = scan_saving.get_parent_node()
-    assert parent_node.db_name == "test_session:%s:test" % scan_saving.date
+    assert (
+        parent_node.db_name == f"test_session{redis_base_path}:{scan_saving.date}:test"
+    )
     assert parent_node.type == "container"
     assert isinstance(parent_node, DataNodeContainer)
 

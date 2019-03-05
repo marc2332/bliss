@@ -233,12 +233,20 @@ class ScanSaving(Parameters):
             data_filename = data_filename.format(**cache_dict)
 
             parent = _get_or_create_node(self.session, "container")
+            base_path_items = [
+                x
+                for x in os.path.normpath(cache_dict.get("base_path")).split(
+                    os.path.sep
+                )
+                if x
+            ]
             sub_items = os.path.normpath(sub_path).split(os.path.sep)
             try:
                 if parent.name == sub_items[0]:
                     del sub_items[0]
             except IndexError:
                 pass
+            sub_items = base_path_items + sub_items
             for path_item in sub_items:
                 parent = _get_or_create_node(path_item, "container", parent=parent)
         except KeyError as keyname:

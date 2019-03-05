@@ -101,6 +101,7 @@ class Base(Controller):
                 raise RuntimeError("Cannot start ramping, ramp rate not set")
         else:
             self.__ramp_rate = rate
+        self.__set_point = sp
         self._lakeshore.ramp(channel, sp, rate)
 
     def setpoint_stop(self, toutput):
@@ -124,18 +125,30 @@ class Base(Controller):
         self._lakeshore.heater_range(channel, 0)
 
     def on(self, tloop):
-        """Start ramping to setpoint at the ramp rate [K/min]
+        """Start the regulation on loop
            Args:
               tloop (int): loop number. 1 to 2.
            Returns:
               None
         """
-        channel = toutput.config.get("channel")
-        try:
-            rate = float(kwargs.get("rate", self.__ramp_rate))
-        except TypeError:
-            raise RuntimeError("Cannot start ramping, ramp rate not set")
-        self._lakeshore.ramp(channel, sp, rate)
+        channel = tloop.config.get("channel")
+
+        self._lakeshore._cset(channel, onoff="on")
+        (input, units, onoff) = self._lakeshore._cset(channel)
+        print("Regulation on loop %d is %s." % (channel, onoff))
+
+    def off(self, tloop):
+        """Stop the regulation on loop
+           Args:
+              tloop (int): loop number. 1 to 2.
+           Returns:
+              None
+        """
+        channel = tloop.config.get("channel")
+
+        self._lakeshore._cset(channel, onoff="off")
+        (input, units, onoff) = self._lakeshore._cset(channel)
+        print("Regulation on loop %d is %s." % (channel, onoff))
 
     def set(self, toutput, sp, **kwargs):
         """Set the value of the output setpoint

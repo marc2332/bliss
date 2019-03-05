@@ -445,6 +445,43 @@ class LakeShore340(object):
 
             self._comm.write(cmd.encode())
 
+    def wraw(self, string):
+        """Write a string to the controller
+           Args:
+              string The complete raw string to write (except eos)
+                     Normaly will use it to set a/some parameter/s in 
+                     the controller.
+           Returns:
+              None
+        """
+
+        print("string = {0}".format(string))
+        cmd = string + " *OPC" + self.eos
+        self._comm.write(cmd.encode())
+
+    def rraw(self):
+        """Read a string from the controller
+           Returns:
+              response from the controller
+        """
+
+        cmd = self.eos
+        ans = self._comm.readline(cmd.encode())
+        return ans.decode()
+
+    def wrraw(self, string):
+        """Write a string to the controller and then reading answer back
+           Args:
+              string The complete raw string to write (except eos)
+           Returns:
+              response from the controller
+        """
+
+        print("string = {0}".format(string))
+        cmd = string + self.eos
+        ans = self._comm.write_readline(cmd.encode())
+        return ans.decode()
+
 
 class lakeshore340(Base):
     def __init__(self, config, *args):

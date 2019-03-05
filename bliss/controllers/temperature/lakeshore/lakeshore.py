@@ -91,8 +91,6 @@ class Base(Controller):
               None
         """
         channel = toutput.config.get("channel")
-        ##if "rate" in kwargs:
-        ##    rate = kwargs["rate"]
         rate = kwargs.get("rate")
         if rate == None:
             if self.__ramp_rate != None:
@@ -230,10 +228,36 @@ class Base(Controller):
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
 
-    # @object_attribute_type_get(type_info=("int"), type=Input)
-    # # get_model works only for input objects.
-    # def read_model(self,tinput):
-    #     #self.log.info("get_model(= firmware identification string)")
-    #     model = self._lakeshore.model()
-    #     #self.log.debug("Firmware id string = %s" % model)
-    #     return model
+    def Wraw(self, string):
+        """
+        A string to write to the controller
+
+        Args:
+           string:  the string to write
+        """
+        ##log.info("Controller:Wraw:")
+        self._lakeshore.wraw(string)
+
+    def Rraw(self):
+        """
+        Reading the controller
+
+        returns:
+           response from the controller
+        """
+        ##log.info("Controller:Rraw:")
+        ans = self._lakeshore.rraw()
+        return ans
+
+    def WRraw(self, string):
+        """
+        Write then Reading the controller
+
+        Args:
+           string:  the string to write
+        returns:
+           response from the controller
+        """
+        ##log.info("Controller:WRraw:")
+        ans = self._lakeshore.wrraw(string)
+        return ans

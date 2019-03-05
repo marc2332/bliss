@@ -28,6 +28,8 @@ class Base(Controller):
         """
         self.__ramp_rate = None
         self.__set_point = None
+        if hasattr(self._lakeshore, "_initialize_output"):
+            self._lakeshore._initialize_output(toutput)
 
     def initialize_loop(self, tloop):
         """Initialize the loop device
@@ -37,6 +39,13 @@ class Base(Controller):
         self.__kd = None
         if hasattr(self._lakeshore, "_initialize_loop"):
             self._lakeshore._initialize_loop(tloop)
+
+    # Only for coherence reasons for getting the model number from any input
+    def initialize_input(self, tinput):
+        """Initialize the input device
+        """
+        if hasattr(self._lakeshore, "_initialize_input"):
+            self._lakeshore._initialize_input(tinput)
 
     def read_input(self, tinput):
         """Read the current temperature
@@ -208,46 +217,10 @@ class Base(Controller):
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
 
-    @object_attribute_type_get(type_info=("int"), type=Input)
-    # get_model works only for input objects.
-    def read_model(self, tinput):
-        # self.log.info("get_model(= firmware identification string)")
-        model = self._lakeshore.model()
-        # self.log.debug("Firmware id string = %s" % model)
-        return model
-
-    @object_attribute_type_get(type_info=("int"), type=Output)
-    def read_heater_range(self, toutput):
-        channel = toutput.config.get("channel")
-        htr_range = self._lakeshore.heater_range(channel)
-        # print("--------- heater value = {0}".format(htr_range))
-        return int(htr_range)
-
-    @object_attribute_type_set(type_info=("int"), type=Output)
-    def set_heater_range(self, toutput, value):
-        channel = toutput.config.get("channel")
-        print("--------- value = {0}".format(value))
-        self._lakeshore.heater_range(channel, value)
-
-    @object_attribute_type_get(type_info=("int"), type=Output)
-    def ramp_status(self, toutput):
-        channel = toutput.config.get("channel")
-        ramp_stat = self._lakeshore._rampstatus(channel)
-        print("--------- ramp_status = {0}".format(ramp_stat))
-        return int(ramp_stat)
-
-    @object_attribute_type_get(name="read_cmode", type_info=("str"), type=Loop)
-    def read_cmode(self, tloop):
-        """
-        super tagada read
-        """
-        channel = tloop.config.get("channel")
-        cmode = self._lakeshore.cmode(channel)
-        # print("--------- cmode value = {0}".format(cmode))
-        return cmode
-
-    @object_attribute_type_set(type_info=("int"), type=Loop)
-    def set_cmode(self, tloop, value):
-        channel = tloop.config.get("channel")
-        print("--------- value = {0}".format(value))
-        self._lakeshore.cmode(channel, value)
+    # @object_attribute_type_get(type_info=("int"), type=Input)
+    # # get_model works only for input objects.
+    # def read_model(self,tinput):
+    #     #self.log.info("get_model(= firmware identification string)")
+    #     model = self._lakeshore.model()
+    #     #self.log.debug("Firmware id string = %s" % model)
+    #     return model

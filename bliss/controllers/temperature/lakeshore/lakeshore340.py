@@ -71,8 +71,6 @@ class LakeShore340(object):
     UNITS340 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
     REVUNITS340 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
 
-    UNITS340 = ("undefined", "Kelvin", "Celsius", "Sensor unit")
-
     def __init__(self, comm_type, url, **kwargs):
         self.eos = kwargs.get("eos", "\r\n")
         timeout = kwargs.get("timeout", 0.5)
@@ -102,14 +100,18 @@ class LakeShore340(object):
         self.log.debug("__init__")
 
     def _initialize_loop(self, loop):
-        self._add_custom_method(loop)
+        self._add_custom_method_loop(loop)
 
-    def _add_custom_method(self, loop):
+    def _initialize_output(self, output):
+        self._add_custom_method_output(output)
+
+    def _initialize_input(self, input):
+        self._add_custom_method_input(input)
+
+    def _add_custom_method_loop(self, loop):
         def cset(input=None, units=None, onoff=None):
             """ Read/Set Control Loop Parameters
                 Args:
-                   channel(int): loop channel. Valid entries: 1 or 2
-                Kwargs:
                    input (str): which input to control from. Valid entries: A or B.
                    units (str): sensor unit. Valid entries: Kelvin, Celsius, sensor unit.
                    onoff (str): control loop is on or off. Valid entries are on or off.
@@ -125,6 +127,73 @@ class LakeShore340(object):
 
         loop.cset = cset
 
+        def cmode(mode=None):
+            """ Read/Set Control Loop Mode
+                Args:
+                   mode (int): control mode. Valid entries: 1=Manual PID,
+                               2=Zone, 3=Open Loop, 4=AutoTune PID,
+                               5=AutoTune PI, 6=AutoTune P
+                Returns:
+                   None if set
+                   mode (int): mode
+            """
+            return self._cmode(loop.config.get("channel"), mode=mode)
+
+        loop.cmode = cmode
+
+        def model():
+            """ Get the model number
+                Returns:
+                  model (int): model number
+            """
+            return self._model()
+
+        loop.model = model
+
+    def _add_custom_method_output(self, output):
+        def ramp_status():
+            """Check ramp status (if running or not)
+               Args:
+                  None
+                Returns:
+                  Ramp status (1 = running, 0 = not running)
+            """
+            return self._rampstatus(output.config.get("channel"))
+
+        output.ramp_status = ramp_status
+
+        def heater_range(value=None):
+            """ Set/Read the heater range (0 to 5) from 0 to 50W in 50Ohms
+                Args:
+                  value (int): The value of the range if set
+                           None if read
+                Returns:
+                  None if set
+                  value (int): The value of the range if read
+            """
+            return self._heater_range(output.config.get("channel"), value=value)
+
+        output.heater_range = heater_range
+
+        def model():
+            """ Get the model number
+                Returns:
+                  model (int): model number
+            """
+            return self._model()
+
+        output.model = model
+
+    def _add_custom_method_input(self, input):
+        def model():
+            """ Get the model number
+                Returns:
+                  model (int): model number
+            """
+            return self._model()
+
+        input.model = model
+
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
            Event Registers. Terminates all pending operations.
@@ -134,7 +203,7 @@ class LakeShore340(object):
         # see if this should not be removed
         self.send_cmd("*CLS")
 
-    def model(self):
+    def _model(self):
         """ Get the model number
             Returns:
               model (int): model number
@@ -168,7 +237,7 @@ class LakeShore340(object):
         # send the setpoint
         self.send_cmd("SETP", value)
 
-    def heater_range(self, channel, value=None):
+    def _heater_range(self, channel, value=None):
         """ Set/Read the heater range (0=off 1=low 2=medium 3=high)
             Args:
               channel (int): output channel. Valid entries: 1 or 2
@@ -268,7 +337,7 @@ class LakeShore340(object):
             except (ValueError, AttributeError):
                 raise RuntimeError("Invalid answer from the controller")
 
-    def cmode(self, channel, mode=None):
+    def _cmode(self, channel, mode):
         """ Read/Set Control Loop Mode
             Args:
                channel(int): loop channel. Valid entries: 1 or 2
@@ -280,6 +349,7 @@ class LakeShore340(object):
                mode (int): mode
         """
         self._channel = channel
+
         if mode is not None:
             if mode not in [1, 2, 3, 4, 5, 6]:
                 raise ValueError("Bad value for cmode %r [should be 1->6]" % mode)
@@ -319,6 +389,7 @@ class LakeShore340(object):
             ).split(",")
             if input is None:
                 input = inputc
+
             if units is None:
                 units = unitsc
             elif units != "Kelvin" and units != "Celsius" and units != "Sensor unit":
@@ -328,6 +399,7 @@ class LakeShore340(object):
                 )
             else:
                 units = self.UNITS340[units]
+
             if onoff is None:
                 onoff = onoffc
             elif onoff != "on" and onoff != "off":
@@ -397,13 +469,13 @@ class lakeshore340(Base):
 
         _lakeshore = LakeShore340(comm_type, url, extra_param=extra_param, eos=eos)
 
-        model = _lakeshore.model()
+        model = _lakeshore._model()
 
         if model != 340:
             raise ValueError(
                 "Error, the Lakeshore model is {0}. It should be 340.".format(model)
             )
         # else:
-        #     print("the model is {0}".format(model))
+        #     print("\t\t\tthe model is {0}".format(model))
 
         Base.__init__(self, _lakeshore, config, *args)

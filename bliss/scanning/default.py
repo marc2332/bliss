@@ -12,7 +12,7 @@ from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common import measurementgroup
-from bliss.common.measurement import BaseCounter
+from bliss.common.measurement import BaseCounter, SamplingCounter
 
 
 def _get_object_from_name(name):
@@ -139,6 +139,7 @@ def master_to_devices_mapping(
         # Existing device
         if device_controller in device_dict:
             return device_dict[device_controller]
+
         # Create acquisition_device
         settings = acquisition_settings.get(device_controller, {})
         device_dict[
@@ -146,6 +147,12 @@ def master_to_devices_mapping(
         ] = acquisition_device = counter.create_acquisition_device(
             scan_pars, **settings
         )
+
+        # Set the AcquisitionDevice mode
+        if isinstance(counter, SamplingCounter):
+            if counter.acquisition_device_mode is not None:
+                acquisition_device.mode = counter.acquisition_device_mode
+
         # Parent handling
         if master_controller is None:
             master_controller = master_settings.get(device_controller)

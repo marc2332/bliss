@@ -237,7 +237,12 @@ class SamplingCounter(Counter):
             ]
 
     def __init__(
-        self, name, controller, grouped_read_handler=None, conversion_function=None
+        self,
+        name,
+        controller,
+        grouped_read_handler=None,
+        conversion_function=None,
+        acquisition_device_mode=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
             grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
@@ -248,6 +253,8 @@ class SamplingCounter(Counter):
         else:
             if callable(conversion_function):
                 add_conversion_function(self, "read", conversion_function)
+
+        self.acquisition_device_mode = acquisition_device_mode
 
         super(SamplingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller
@@ -319,7 +326,15 @@ class SoftCounter(SamplingCounter):
         def __init__(self, name):
             self.name = name
 
-    def __init__(self, obj=None, value="value", name=None, controller=None, apply=None):
+    def __init__(
+        self,
+        obj=None,
+        value="value",
+        name=None,
+        controller=None,
+        apply=None,
+        acquisition_device_mode=None,
+    ):
         if obj is None and inspect.ismethod(value):
             obj = value.__self__
         self.get_value, value_name = self.get_read_func(obj, value)
@@ -336,7 +351,9 @@ class SoftCounter(SamplingCounter):
         if apply is None:
             apply = lambda x: x
         self.apply = apply
-        super(SoftCounter, self).__init__(name, controller)
+        super(SoftCounter, self).__init__(
+            name, controller, acquisition_device_mode=acquisition_device_mode
+        )
 
     @staticmethod
     def get_read_func(obj, value):

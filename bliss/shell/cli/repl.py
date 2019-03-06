@@ -26,7 +26,37 @@ from prompt_toolkit.eventloop import future
 
 from bliss import setup_globals
 
-setup_globals._error_report_expert_mode = False
+
+class ErrorReport:
+    """ 
+    Manage the behavior of the error reporting in the shell.
+    
+    - ErrorReport.expert_mode = False (default) => prints a user friendly error message without traceback
+    - ErrorReport.expert_mode = True            => prints the full error message with traceback
+    
+    - ErrorReport.last_error stores the last error traceback
+
+    """
+
+    def __init__(self):
+
+        self._expert_mode = False
+        self._last_error = "No error"
+
+    @property
+    def last_error(self):
+        print(self._last_error)
+
+    @property
+    def expert_mode(self):
+        return self._expert_mode
+
+    @expert_mode.setter
+    def expert_mode(self, enable):
+        self._expert_mode = bool(enable)
+
+
+setup_globals.ERROR_REPORT = ErrorReport()
 
 # don't patch the event loop on windows
 if not is_windows():
@@ -310,17 +340,14 @@ def embed(*args, **kwargs):
                 print("")
                 break
             except BaseException as e:
-                # all unexpected Errors and exceptions ... should be logged
 
-                # this could be the output in a less scary way for non python users
-                # related to isssu 402
-                # for x in traceback.format_exception_only(type(e), e): print(x)
+                # Store latest traceback (as a string to avoid memory leaks)
+                setup_globals.ERROR_REPORT._last_error = str(traceback.format_exc())
 
-                # a bit more verbose output should/could be activated/deactivated
-
-                if setup_globals._error_report_expert_mode is False:
+                # Adapt the error message depending on the ERROR_REPORT expert_mode
+                if not setup_globals.ERROR_REPORT._expert_mode:
                     err_txt = "Error occurs in command: '%s' => '%s' " % (inp, e)
-                    setup_globals._last_error_ = str(traceback.format_exc())
+
                     print(
                         "!!! === %s === !!! ( for more details type cmd 'last_error' )"
                         % err_txt

@@ -90,23 +90,29 @@ def _print_errors_with_traceback(errors, device_type="Motor"):
 
     for (label, error_with_traceback_obj) in errors:
 
-        if setup_globals._error_report_expert_mode is False:
-            setup_globals._last_error_ = str(error_with_traceback_obj.traceback)
-            err_txt = "Error %s '%s' has failed: %s" % (
+        # Store latest traceback (as a string to avoid memory leaks)
+        setup_globals.ERROR_REPORT._last_error = txt = str(
+            error_with_traceback_obj.traceback
+        )
+
+        # Adapt the error message depending on the ERROR_REPORT expert_mode
+        if not setup_globals.ERROR_REPORT._expert_mode:
+
+            err_txt = "Error: %s '%s' has failed => %s" % (
                 device_type,
                 label,
-                error_with_traceback_obj.traceback.strip().split("\n")[-1],
+                txt.strip().split("\n")[-1],
             )
 
             print(
-                "\n!!! === %s === !!! ( for more details type cmd 'LAST_ERROR' )\n"
+                "\n!!! === %s === !!! ( for more details type cmd 'last_error' )\n"
                 % err_txt
             )
 
         else:
 
             print(
-                "\n========= WARNING: %s '%s' has failed with error: ==============\n"
+                "\n!!! ========= Error: %s '%s' has failed ============== !!!\n"
                 % (device_type, label)
             )
             print("%s\n" % (error_with_traceback_obj.traceback,))

@@ -8,6 +8,7 @@
 import pytest
 import numpy
 from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.common.scans import loopscan
 
 
 class Diode(SamplingCounter):
@@ -82,6 +83,30 @@ def test_diode_with_controller(beacon):
     diode_value = test_diode.read()
 
     assert diode.raw_value * 2 == diode_value
+
+
+def test_sampling_counter_acquisition_device_mode(beacon):
+    diode = beacon.get("diode")
+    values = []
+
+    def f(x):
+        values.append(x)
+        return x
+
+    test_diode = Diode(diode, f)
+
+    # USING DEFAULT MODE
+    assert test_diode.acquisition_device_mode is None
+    s = loopscan(1, 0.1, test_diode)
+    assert s.acq_chain.nodes_list[1].mode.name == "SIMPLE_AVERAGE"
+    assert s.get_data()["test_diode"] == pytest.approx(sum(values) / len(values))
+
+    # UPDATING THE MODE
+    values = []
+    test_diode.acquisition_device_mode = "INTEGRATE"
+    s = loopscan(1, 0.1, test_diode)
+    assert s.acq_chain.nodes_list[1].mode.name == "INTEGRATE"
+    assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
 
 def test_integ_counter(beacon):

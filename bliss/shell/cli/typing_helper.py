@@ -62,7 +62,7 @@ class TypingHelper(object):
                         if e.message == "Syntax Error":
                             repl.default_buffer.insert_text(" ")
 
-                elif self.is_float_str(re.split(",|\(", text)[-1]):  # e.g. ascan(m0,1
+                elif self.is_float_str(re.split(r",|\(", text)[-1]):  # e.g. ascan(m0,1
                     repl.default_buffer.insert_text(",")
                 else:
                     repl.default_buffer.insert_text(" ")

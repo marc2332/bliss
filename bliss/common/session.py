@@ -369,10 +369,6 @@ class Session(object):
 
             env_dict["ACTIVE_MG"] = ACTIVE_MG
 
-            # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE
-            env_dict["ERROR_REPORT"] = setup_globals.ERROR_REPORT
-            env_dict["last_error"] = lambda: setup_globals.ERROR_REPORT.last_error
-
         sessions_tree = self.sessions_tree
         for child_session in reversed(
             list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]

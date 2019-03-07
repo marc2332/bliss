@@ -209,6 +209,10 @@ def cli(
 
     import __main__
 
+    # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
+    user_ns["ERROR_REPORT"] = setup_globals.ERROR_REPORT
+    user_ns["last_error"] = lambda: setup_globals.ERROR_REPORT.last_error
+
     __main__.__dict__.update(user_ns)
 
     def get_globals():

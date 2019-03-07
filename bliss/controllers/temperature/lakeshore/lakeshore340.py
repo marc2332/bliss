@@ -44,6 +44,8 @@ controller:
 
 
 import time
+import os
+import re
 
 # from bliss.common import log
 import logging
@@ -70,6 +72,14 @@ class LakeShore340(object):
 
     UNITS340 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
     REVUNITS340 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    CURVEFORMAT340 = {
+        1: "mV/K",
+        2: "V/K",
+        3: "Ohms/K",
+        4: "logOhms/K",
+        5: "logOhms/logK",
+    }
+    CURVETEMPCOEF340 = {1: "negative", 2: "positive"}
 
     def __init__(self, comm_type, url, **kwargs):
         self.eos = kwargs.get("eos", "\r\n")
@@ -194,6 +204,53 @@ class LakeShore340(object):
 
         input.model = model
 
+        def curve_used_curve():
+            """ Get the input curve used
+                Print:
+                   curve number (int): 0=none, 1->20 standard, 21->60 user defined curves
+                   curve name (str): limited to 15 characters
+                   curve SN (str): limited to 10 characters (Standard,...)
+                   curve format (int): 1=mV/K, 2=V/K, 3=Ohms/K, 4=logOhms/K, 5=logOhms/logK
+                   curve temperature limit (float): in Kelvin
+                   curve temperature coefficient (int): 1=negative, 2=positive
+            """
+
+            return self._curve_used_curve(input.config.get("channel"))
+
+        input.curve_used_curve = curve_used_curve
+
+        def curve_list_all():
+            """ List all the curves
+                Returns:
+                  a row for all the curves from 1 to 60
+            """
+            return self._curve_list_all()
+
+        input.curve_list_all = curve_list_all
+
+        def curve_write(crvn=None, crvfile=None):
+            """ Write the user curve into the Lakeshore
+                Args:
+                  crvn (int): The user curve number from 21 to 60
+                  crvfile (str): full file name
+                Returns:
+                  Status of curve written
+            """
+            return self._curve_write(crvn, crvfile)
+
+        input.curve_write = curve_write
+
+        def curve_delete(crvn=None):
+            """ Delete a user curve from the Lakeshore
+                Args:
+                  crvn (int): The user curve number from 21 to 60
+                Returns:
+                  None.
+            """
+            self._curve_delete(crvn)
+
+        input.curve_delete = curve_delete
+
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
            Event Registers. Terminates all pending operations.
@@ -202,14 +259,6 @@ class LakeShore340(object):
         """
         # see if this should not be removed
         self.send_cmd("*CLS")
-
-    def _model(self):
-        """ Get the model number
-            Returns:
-              model (int): model number
-        """
-        model = self.send_cmd("*IDN?").split(",")[1]
-        return int(model[5:])
 
     def read_temperature(self, channel):
         """ Read the current temperature
@@ -220,6 +269,259 @@ class LakeShore340(object):
         """
         self._channel = channel
         return float(self.send_cmd("KRDG?"))
+
+    def _model(self):
+        """ Get the model number
+            Returns:
+              model (int): model number
+        """
+        model = self.send_cmd("*IDN?").split(",")[1]
+        return int(model[5:])
+
+    ##########
+    def _curve_used_curve(self, channel):
+        """ Get the input curve used
+            Print:
+               curve number (int): 0=none, 1->20 standard, 21->60 user defined curves
+               curve name (str): limited to 15 characters
+               curve SN (str): limited to 10 characters (Standard,...)
+               curve format (int): 1=mV/K, 2=V/K, 3=Ohms/K, 4=logOhms/K, 5=logOhms/logK
+               curve temperature limit (float): in Kelvin
+               curve temperature coefficient (int): 1=negative, 2=positive
+        """
+        self._channel = channel
+        curve_number = self.send_cmd("INCRV?")
+        command = "CRVHDR? %s" % curve_number
+        curve_header = self.send_cmd(command)
+        header = curve_header.split(",")
+        curve_name = header[0]
+        curve_sn = header[1]
+        curve_format = self.CURVEFORMAT340[int(header[2])]
+        curve_temperature_limit = header[3]
+        curve_temperature_coefficient = self.CURVETEMPCOEF340[int(header[4])]
+        print(
+            "curve name: %s\tcurve SN: %s\t format: %s\n\
+temperature limit: %sK\t\ttemp. coefficient: %s"
+            % (
+                curve_name,
+                curve_sn,
+                curve_format,
+                curve_temperature_limit,
+                curve_temperature_coefficient,
+            )
+        )
+
+    def _curve_list_all(self):
+        """ Get the input curve used
+            Print:
+               curve number (int): 0=none, 1->20 standard, 21->60 user defined curves
+               curve name (str): limited to 15 characters
+               curve SN (str): limited to 10 characters (Standard,...)
+               curve format (int): 1=mV/K, 2=V/K, 3=Ohms/K, 4=logOhms/K, 5=logOhms/logK
+               curve temperature limit (float): in Kelvin
+               curve temperature coefficient (int): 1=negative, 2=positive
+        """
+        # self._channel = channel
+
+        # curve_number = self.send_cmd("INCRV?")
+        print(" #            Name       SN         Format     Limit(K) Temp. coef.")
+        for i in range(1, 61):
+            command = "CRVHDR? %s" % i
+            curve_header = self.send_cmd(command)
+            header = curve_header.split(",")
+            curve_name = header[0].strip()
+            curve_sn = header[1]
+            curve_format = self.CURVEFORMAT340[int(header[2])]
+            curve_temperature_limit = header[3]
+            curve_temperature_coefficient = self.CURVETEMPCOEF340[int(header[4])]
+            print(
+                "%2d %15s %10s %12s %12s %s"
+                % (
+                    i,
+                    curve_name,
+                    curve_sn,
+                    curve_format,
+                    curve_temperature_limit,
+                    curve_temperature_coefficient,
+                )
+            )
+
+    def _curve_write(self, crvn, crvfile):
+        """ Write the user curve to the Lakeshore
+            Args:
+              crvn (int): The user curve number from 21 to 60
+              crvfile (str): full file name
+            Returns:
+              Status of curve written
+        """
+        if crvn is None:
+            crvn = input("Number of curve to be written [21,60]? ")
+        else:
+            print("Curve number passed as arg = %d" % crvn)
+
+        if crvn not in range(21, 61):
+            raise ValueError("User curve number %d is not in [21,60]" % crvn)
+
+        print("Readings from actual curve %d in LakeShore 340 :" % crvn)
+        command = "CRVHDR? %d" % crvn
+        loaded_curve = self.send_cmd(command)
+        header = loaded_curve.split(",")
+        curve_name = header[0].strip()
+        curve_sn = header[1]
+        curve_format = self.CURVEFORMAT340[int(header[2])]
+        curve_temp_limit = header[3]
+        curve_temp_coeff = self.CURVETEMPCOEF340[int(header[4])]
+        print("no channel")
+        print(
+            "\t%15s %10s %12s %12s %s"
+            % (curve_name, curve_sn, curve_format, curve_temp_limit, curve_temp_coeff)
+        )
+        print("no channel")
+        if crvfile is None:
+            crvfile = input("Filename of temperature curve? ")
+        else:
+            print("File name passed as arg = %s" % crvfile)
+
+        if os.path.isfile(crvfile) == False:
+            raise FileNotFoundError("Curve file %s not found" % crvfile)
+
+        with open(crvfile) as f:
+
+            for line in f:
+                # print(line)
+                if line.count(":") == 1:
+                    lline = line.split(":")
+                    # print(lline[0] + lline[1])
+                    if lline[0] == "Sensor Model":
+                        curve_name = lline[1].strip()
+                    if lline[0] == "Serial Number":
+                        curve_sn = lline[1].strip()
+                    if lline[0] == "Data Format":
+                        curve_format_long = lline[1]
+                        # cvf = curve_format_long.split(None,1)
+                        # curve_format = cvf[0]
+                        curve_format = curve_format_long.split(None, 1)[0]
+
+                    if lline[0] == "SetPoint Limit":
+                        curve_temp_limit_long = lline[1]
+                        curve_temp_limit = curve_temp_limit_long.split(None, 1)[0]
+
+                    if lline[0] == "Temperature coefficient":
+                        curve_temp_coeff_long = lline[1]
+                        curve_temp_coeff = curve_temp_coeff_long.split(None, 1)[0]
+
+                    if lline[0] == "Number of Breakpoints":
+                        curve_nb_breakpts = lline[1].strip()
+
+            # checking header values
+            if curve_name == "":
+                raise ValueError("No sensor model")
+            if curve_sn == "":
+                raise ValueError("No serial number")
+            if curve_format_long == "":
+                raise ValueError("No data format")
+            elif int(curve_format) not in range(1, 6):
+                raise ValueError("Curve data format %s not in [1,5]" % curve_format)
+            if curve_temp_limit_long == "":
+                raise ValueError("No setpoint limit")
+            if curve_temp_coeff_long == "":
+                raise ValueError("No temperature coefficient")
+            elif int(curve_temp_coeff) not in range(1, 3):
+                raise ValueError(
+                    "Curve temperature coefficient %s not in [1,2]" % curve_temp_coeff
+                )
+            if curve_nb_breakpts == "":
+                raise ValueError("No number of breakpoints")
+            elif int(curve_nb_breakpts) not in range(1, 201):
+                raise ValueError(
+                    "Number of breakpoints %s not in [1,200]" % curve_nb_breakpts
+                )
+
+        print("fichier ouvert et lu\n")
+
+        print(curve_name)
+        print(curve_sn)
+        print(curve_format)
+        print(curve_temp_limit)
+        print(curve_temp_coeff)
+        print(curve_nb_breakpts)
+
+        # writing the curve header into the Lakeshore
+        command = "CRVHDR %d,%s,%s,%d,%f,%d" % (
+            crvn,
+            curve_name,
+            curve_sn,
+            int(curve_format),
+            float(curve_temp_limit),
+            int(curve_temp_coeff),
+        )
+        # print(command)
+        self.send_cmd(command)
+
+        with open(crvfile) as f:
+            for line in f:
+                exp = re.compile(
+                    r"^\s*([0-9]+)\s+([0-9]+\.[0-9]+)\s+([0-9]+\.[0-9]+)\s*$"
+                )
+                if exp.match(line):
+                    command = "CRVPT %d,%d,%f,%f" % (
+                        crvn,
+                        int(exp.match(line).group(1)),
+                        float(exp.match(line).group(2)),
+                        float(exp.match(line).group(3)),
+                    )
+                    print(command)
+                    self.send_cmd(command)
+
+        print(
+            "Curve %d has been written into the LakeShore model 340 temperature controller."
+            % crvn
+        )
+
+        # Reading back for checking the header
+        command = "CRVHDR? %d" % crvn
+        curve_header = self.send_cmd(command)
+        print("The header read back for the %d is:" % crvn)
+        print(curve_header)
+
+        print(
+            "Warning: The curve was not saved to the flash memory of the LakeShore 340."
+        )
+        answer = input("Do you want to save it into the curve flash memory ?")
+        if answer.lower() == "yes" or answer.lower() == "y":
+            print("This operation may take several seconds.")
+            self.send_cmd("CRVSAV")
+            print("The curve has been written into the flash memory.")
+
+    def _curve_delete(self, crvn):
+        """ Delete a user curve from the Lakeshore
+            Args:
+              crvn (int): The user curve number from 21 to 60
+            Returns:
+              None.
+        """
+        if crvn is None:
+            crvn = input("Number of curve to be deleted [21,60]? ")
+        else:
+            print("Curve number passed as arg = %d" % crvn)
+
+        if crvn not in range(21, 61):
+            raise ValueError("User curve number %d is not in [21,60]" % crvn)
+
+        # Delete the curve
+        command = "CRVDEL %d" % crvn
+        self.send_cmd(command)
+
+        print(
+            "Warning: The curve was not deleted from the flash memory of the LakeShore 340."
+        )
+        answer = input("Do you want to delete the curve from the flash memory ?")
+        if answer.lower() == "yes" or answer.lower() == "y":
+            print("This operation may take several seconds.")
+            self.send_cmd("CRVSAV")
+            print("The curve has been deleted from the flash memory.")
+
+    #########################################################
 
     def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint
@@ -418,7 +720,7 @@ class LakeShore340(object):
               None
         """
 
-        print("command = {0}".format(command))
+        ######################        print("command = {0}".format(command))
 
         if command.startswith("*"):
             if "?" in command:
@@ -427,17 +729,19 @@ class LakeShore340(object):
             else:
                 self._comm.write(command.encode() + self.eos.encode())
         elif "?" in command:
-            if isinstance(self._channel, str):
+            if "CRVHDR" in command:
+                cmd = command
+            elif isinstance(self._channel, str):
                 cmd = command + " %s" % self._channel
             else:
                 cmd = command + " %r" % self._channel
+
             ans = self._comm.write_readline(cmd.encode() + self.eos.encode())
             return ans.decode()
         else:
-
-            if "RANGE" in command:
+            if "RANGE" or "CRVHDR" or "CRVPT" or "CRVDEL" or "CRVSAV" in command:
                 value = "".join(str(x) for x in args)
-                print("--------- value = {0}".format(value))
+                print("--------- command = {0}".format(command))
                 cmd = command + " %s *OPC" % (value) + self.eos
             else:
                 inp = ",".join(str(x) for x in args)

@@ -40,7 +40,6 @@ class Base(Controller):
         if hasattr(self._lakeshore, "_initialize_loop"):
             self._lakeshore._initialize_loop(tloop)
 
-    # Only for coherence reasons for getting the model number from any input
     def initialize_input(self, tinput):
         """Initialize the input device
         """

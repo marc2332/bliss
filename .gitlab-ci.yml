@@ -25,7 +25,7 @@ tests:
     # Install bliss and its pip-only dependencies
     - pip install .
   script:
-      - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
+      - (git diff --name-only $(git merge-base HEAD origin/master) | grep .py) && python setup.py test --addopts "--cov bliss --cov-report html --cov-report term" || echo "Nothing to do"
   artifacts:
     paths:
       - htmlcov/

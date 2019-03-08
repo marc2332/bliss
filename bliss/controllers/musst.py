@@ -416,6 +416,10 @@ class musst(object):
         with remote_open(program_file) as program:
             program_bytes = program.read()
             for old, new in template_replacement.items():
+                if isinstance(old, str):
+                    old = old.encode()
+                if isinstance(new, str):
+                    new = new.encode()
                 program_bytes = program_bytes.replace(old, new)
 
         self.upload_program(program_bytes)
@@ -425,7 +429,8 @@ class musst(object):
 
         program_data -- program data you want to upload
         """
-        program_data = program_data.encode()
+        if isinstance(program_data, str):
+            program_data = program_data.encode()
         m = hashlib.md5()
         m.update(program_data)
         md5sum = m.hexdigest()
@@ -472,14 +477,14 @@ class musst(object):
         current_offset = current_buffer_id * buffer_size + current_offset
 
         from_offset = (from_event_id * nb_counters) % buffer_memory
-        current_offset = current_offset / nb_counters * nb_counters
+        current_offset = current_offset // nb_counters * nb_counters
         if current_offset >= from_offset:
-            nb_lines = (current_offset - from_offset) / nb_counters
+            nb_lines = (current_offset - from_offset) // nb_counters
             data = numpy.empty((nb_lines, nb_counters), dtype=numpy.int32)
             self._read_data(from_offset, current_offset, data)
         else:
-            nb_lines = current_offset / nb_counters
-            first_nblines = (buffer_memory - from_offset) / nb_counters
+            nb_lines = current_offset // nb_counters
+            first_nblines = (buffer_memory - from_offset) // nb_counters
             nb_lines += first_nblines
             data = numpy.empty((nb_lines, nb_counters), dtype=numpy.int32)
             self._read_data(from_offset, buffer_memory, data)
@@ -501,7 +506,7 @@ class musst(object):
                     self._cnx.open()
                     with KillMask():
                         self._cnx._write(b"?*EDAT %d %d %d" % (size_to_read, 0, offset))
-                        raw_data = ""
+                        raw_data = b""
                         while len(raw_data) < (size_to_read * 4):
                             raw_data += self._cnx.raw_read()
                         data_pt[

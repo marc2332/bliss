@@ -103,6 +103,11 @@ def get_redis_connection(db=0, connection=None):
 
 
 @check_connection
+def clean_all_redis_connection(connection=None):
+    return connection.clean_all_redis_connection()
+
+
+@check_connection
 def get_config_file(file_path, connection=None):
     return connection.get_config_file(file_path)
 
@@ -169,7 +174,7 @@ def _open_file(file_path, local, text=False):
 
 
 @check_connection
-def get_config_db_files(base_path="", timeout=3., connection=None):
+def get_config_db_files(base_path="", timeout=3.0, connection=None):
     """
        Gives a sequence of pairs: (file name<str>, file content<str>)
 
@@ -189,14 +194,14 @@ def get_config_db_files(base_path="", timeout=3., connection=None):
 
 
 @check_connection
-def get_config_db_tree(base_path="", timeout=3., connection=None):
+def get_config_db_tree(base_path="", timeout=3.0, connection=None):
     """
     """
     return connection.get_config_db_tree(base_path, timeout=timeout)
 
 
 @check_connection
-def set_config_db_file(filepath, content, timeout=3., connection=None):
+def set_config_db_file(filepath, content, timeout=3.0, connection=None):
     connection.set_config_db_file(filepath, content, timeout=timeout)
 
 
@@ -211,5 +216,5 @@ def move_config_path(src_path, dst_path, connection=None):
 
 
 @check_connection
-def get_python_modules(base_path="", timeout=3., connection=None):
+def get_python_modules(base_path="", timeout=3.0, connection=None):
     return connection.get_python_modules(base_path, timeout)

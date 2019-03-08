@@ -19,13 +19,27 @@ import time
 import gevent
 import gevent.select
 
-from collections import defaultdict
+import weakref
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QAbstractEventDispatcher, QEventLoop, QTimerEvent, QEvent
+from PyQt5.QtCore import (
+    QCoreApplication,
+    QAbstractEventDispatcher,
+    QEventLoop,
+    QTimerEvent,
+    QEvent,
+)
 
 from bliss.flint import qwindowsystem
 
 __all__ = ["QGeventDispatcher", "set_gevent_dispatcher"]
+
+
+def synchronize(fn):
+    def _(self, *args, **kwargs):
+        with self._lock:
+            return fn(self, *args, **kwargs)
+
+    return _
 
 
 class QGeventDispatcher(QAbstractEventDispatcher):
@@ -42,7 +56,7 @@ class QGeventDispatcher(QAbstractEventDispatcher):
         self._read_pipe, self._write_pipe = os.pipe()
 
         # {obj: {tid: timer_info}} dictionary
-        self._timer_infos = defaultdict(dict)
+        self._timer_infos = weakref.WeakKeyDictionary()
         # {tid: (obj, timer_task)} dictionary
         self._timer_tasks = {}
 
@@ -53,6 +67,8 @@ class QGeventDispatcher(QAbstractEventDispatcher):
 
         # Internal flag
         self._interrupted = False
+
+        self._lock = gevent.lock.RLock()
 
     # Thread-safe communication
 
@@ -110,7 +126,7 @@ class QGeventDispatcher(QAbstractEventDispatcher):
             self.aboutToBlock.emit()
             timeout = None
         else:
-            timeout = 0.
+            timeout = 0.0
 
         # Poll the file descriptors
         rlist = [self._read_pipe]
@@ -154,32 +170,39 @@ class QGeventDispatcher(QAbstractEventDispatcher):
         return bool(wsi_events or notifiers)
 
     # Timers
-
+    @synchronize
     def registeredTimers(self, obj):
         """Get the timer info for all registered timers for a given object."""
         if obj not in self._timer_infos:
             return []
         return list(self._timer_infos[obj].values())
 
+    @synchronize
     def registerTimer(self, tid, interval, ttype, obj):
+
         """Register a new timer, given a unique tid."""
-        self._timer_infos[obj][tid] = self.TimerInfo(tid, interval, ttype)
+        d = self._timer_infos.setdefault(obj, dict())
+        d[tid] = self.TimerInfo(tid, interval, ttype)
+        wobj = weakref.ref(obj)
         self._timer_tasks[tid] = (
-            obj,
-            gevent.spawn(self._timer_run, interval / 1000., obj, tid),
+            wobj,
+            gevent.spawn(self._timer_run, interval / 1000.0, wobj, tid),
         )
 
+    @synchronize
     def unregisterTimer(self, tid):
+
         """Unregister the timer corresponding to the given tid."""
-        obj, timer_task = self._timer_tasks.pop(tid, (None, None))
-        if obj is None:
+        wobj, timer_task = self._timer_tasks.pop(tid, (None, None))
+        if wobj is None:
             return True
-        self._timer_infos[obj].pop(tid)
-        if not self._timer_infos[obj]:
-            self._timer_infos.pop(obj)
+        obj = wobj()
+        if obj is not None:
+            self._timer_infos[obj].pop(tid)
         timer_task.kill()
         return True
 
+    @synchronize
     def unregisterTimers(self, obj):
         """Unregister all the timers corresponding to the given object."""
         if obj not in self._timer_infos:
@@ -188,6 +211,14 @@ class QGeventDispatcher(QAbstractEventDispatcher):
         for tid in tids:
             self.unregisterTimer(tid)
         return True
+
+    @staticmethod
+    def _post_event(wobj, tid):
+        obj = wobj()
+        if obj is None:
+            raise RuntimeError
+
+        QCoreApplication.postEvent(obj, QTimerEvent(tid))
 
     def _timer_run(self, interval, obj, tid):
         """Target for the timer background tasks."""
@@ -198,11 +229,19 @@ class QGeventDispatcher(QAbstractEventDispatcher):
             # Sleep to the deadline
             if sleep_time < 1e-6:
                 gevent.sleep(0)  # idle()
+                # obviously we don't follow
+                # synchronize  with the clock
+                deadline = time.time()
             else:
                 gevent.sleep(sleep_time)
             try:
                 # Use postEvent to avoid auto cancellation
-                QApplication.postEvent(obj, QTimerEvent(tid))
+                if self._timer_tasks.get(tid, (None, None)) != (
+                    obj,
+                    gevent.getcurrent(),
+                ):
+                    break
+                self._post_event(obj, tid)
             except RuntimeError:
                 # obj is dead, cannot post event
                 break

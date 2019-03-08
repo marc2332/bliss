@@ -34,7 +34,7 @@ tests:
 build_doc:
   stage: build_doc
   before_script:
-    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
+    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-doc-conda.txt
     - source activate docenv
     - pip install -r requirements-doc.txt
   script:

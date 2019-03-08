@@ -15,6 +15,8 @@ import functools
 import traceback
 import gevent
 
+warnings.filterwarnings("ignore", module="jinja2")
+
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.history import History

@@ -7,6 +7,8 @@
 
 from bliss.common.event import dispatcher
 from bliss.common.measurement import BaseCounter
+from bliss.common.alias import AliasMixin
+
 
 import numpy
 
@@ -32,7 +34,7 @@ class AcquisitionChannelList(list):
             channel.emit(array[:, i])
 
 
-class AcquisitionChannel(object):
+class AcquisitionChannel(AliasMixin, object):
     def __init__(
         self,
         acq_device,
@@ -54,8 +56,6 @@ class AcquisitionChannel(object):
         if isinstance(description, dict):
             self.__description.update(description)
 
-    # self._device_name = None
-
     @property
     def name(self):
         return self.__name
@@ -70,6 +70,10 @@ class AcquisitionChannel(object):
                 return self.__acq_device.name + ":" + self.name
         else:
             return self.__acq_device.name + ":" + self.name
+
+    @property
+    def acq_device(self):
+        return self.__acq_device
 
     @property
     def description(self):

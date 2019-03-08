@@ -14,6 +14,7 @@ import weakref
 from collections import namedtuple
 
 from bliss.common.utils import add_conversion_function
+from bliss.common.alias import AliasMixin
 
 
 # Counter namespaces
@@ -96,7 +97,7 @@ class GroupedReadMixin(object):
         pass
 
 
-class BaseCounter(object):
+class BaseCounter(AliasMixin, object):
     """Define a standard counter interface."""
 
     # Properties

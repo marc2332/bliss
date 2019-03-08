@@ -71,14 +71,18 @@ class Writer(FileWriter):
                 maxshape = tuple([None] + list(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
-                if not channel.reference and channel.fullname not in parent:
+                if not channel.reference and channel.alias_or_fullname not in parent:
                     dataset = parent.create_dataset(
-                        channel.fullname,
+                        channel.alias_or_fullname,
                         shape=shape,
                         dtype=channel.dtype,
                         compression="gzip",
                         maxshape=maxshape,
                     )
+                    dataset.attrs.modify("fullname", channel.fullname)
+                    dataset.attrs.modify("alias", channel.alias or "None")
+                    dataset.attrs.modify("has_alias", channel.has_alias)
+
                     self.last_point_index[channel] = 0
         elif signal == "new_data":
             channel = sender
@@ -87,7 +91,8 @@ class Writer(FileWriter):
 
             data = event_dict.get("data")
 
-            dataset = parent[channel.fullname]
+            dataset = parent[channel.alias_or_fullname]
+
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
                 return

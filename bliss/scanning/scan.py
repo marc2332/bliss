@@ -679,6 +679,7 @@ class Scan(object):
                 parent_node,
                 shape=channel.shape,
                 dtype=channel.dtype,
+                alias=channel.alias,
             )
             connect(channel, "new_data", self._channel_event)
 

@@ -39,6 +39,7 @@ from bliss.common.event import dispatcher
 from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
+from bliss.common.utils import counter_dict
 
 
 _log = logging.getLogger("bliss.shell")
@@ -157,9 +158,6 @@ class ScanListener:
         self.real_motors = []
 
     def __on_scan_new(self, scan_info):
-        from bliss.common.standard import (
-            cntdict
-        )  # not nice to do this import here but how to do it differently?
 
         scan_type = scan_info.get("type")
         if scan_type is None:
@@ -208,7 +206,7 @@ class ScanListener:
                         motor_labels.append(motor_label)
 
         self.cntlist = [
-            x[2] for x in cntdict().values()
+            x.name for x in counter_dict().values()
         ]  # get all available counter names
         self.cnt_chanlist = [
             x.replace(".", ":") for x in self.cntlist

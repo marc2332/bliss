@@ -15,6 +15,9 @@ import functools
 import numpy
 from bliss.common.event import saferef
 
+import sys
+import collections.abc
+
 
 class ErrorWithTraceback:
     def __init__(self, error_txt="!ERR"):
@@ -549,3 +552,43 @@ class Statistics(object):
                 )
             )
         return standard._tabulate(data)
+
+
+def _get_env_dict():
+    if "bliss.shell.cli.repl" in sys.modules.keys():
+        repl = sys.modules["bliss.shell.cli.repl"]
+
+        if repl.REPL is not None:
+            return repl.REPL.get_globals()
+        else:
+            return dict()
+    else:
+        return dict()
+
+
+def counter_dict():
+    """
+    Return a list of counters
+    """
+    from bliss import setup_globals
+    from bliss.common.measurement import BaseCounter
+
+    counters_dict = dict()
+
+    env_dict = _get_env_dict()
+
+    for name, obj in itertools.chain(
+        inspect.getmembers(setup_globals),
+        iter(env_dict.items()) if env_dict is not None else {},
+    ):
+        if isinstance(obj, BaseCounter):
+            counters_dict[obj.fullname] = obj
+
+        elif hasattr(obj, "counters") and isinstance(
+            obj.counters, collections.abc.Iterable
+        ):
+            for cnt in obj.counters:
+                if isinstance(cnt, BaseCounter):
+                    counters_dict[cnt.fullname] = cnt
+
+    return counters_dict

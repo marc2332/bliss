@@ -59,6 +59,7 @@ from bliss.common.utils import (
     get_axes_positions_iter,
     safe_get,
     ErrorWithTraceback,
+    counter_dict,
 )
 from bliss.common.measurement import BaseCounter
 from bliss.shell.cli import repl
@@ -468,36 +469,18 @@ def cntdict():
     """
     Return a dict of counters
     """
+
     counters_dict = dict()
     shape = ["0D", "1D", "2D"]
 
-    if repl.REPL is None:
-        env_dict = dict()
-    else:
-        env_dict = repl.REPL.get_globals()
-
-    for name, obj in itertools.chain(
-        inspect.getmembers(setup_globals),
-        iter(env_dict.items()) if env_dict is not None else {},
-    ):
-        if isinstance(obj, BaseCounter):
-            counters_dict[obj.fullname] = (
-                shape[len(obj.shape)],
-                obj.controller.name if obj.controller else "None",
-                obj.name,
-            )
-        elif hasattr(obj, "counters") and isinstance(
-            obj.counters, collections.abc.Iterable
-        ):
-            for cnt in obj.counters:
-                if isinstance(cnt, BaseCounter):
-                    tmp = cnt.fullname.split(".")
-                    controller_name = ".".join(tmp[:-1])
-                    counters_dict[cnt.fullname] = (
-                        shape[len(cnt.shape)],
-                        controller_name,
-                        cnt.name,
-                    )
+    for fname, cnt in counter_dict().items():
+        tmp = cnt.fullname.split(".")
+        tmp_controller_name = ".".join(tmp[:-1])
+        counters_dict[cnt.fullname] = (
+            shape[len(cnt.shape)],
+            cnt.controller.name if cnt.controller else tmp_controller_name,
+            cnt.name,
+        )
 
     return counters_dict
 

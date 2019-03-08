@@ -26,15 +26,14 @@ the ESRF BCU Conda channel needs to be configured. BLISS distribution contains a
 can be done like this (the name of the environment can - of cause - be chosen freely):
 
     $ cd bliss
-    $ conda config --add channels esrf-bcu
-    $ conda env create -n bliss_env -f ./requirements-conda.txt
+    $ conda env create -n bliss_env 
+    $ conda activate bliss_env
+    $ conda config --env --add channels esrf-bcu
+    $ conda config --env --append channels conda-forge
+    $ conda install --file ./requirements-conda.txt
 
 Not all packages are available on standard Conda repositories. Remaining packages can then be
-installed via `pip`. To complete the installation activate the freshly created conda environment:
-
-    $ conda activate bliss_env
-
-and run
+installed via `pip`. Run
 
     $ pip install .
 

@@ -17,6 +17,7 @@ nav:
                 - BLISS objects:
                       - Object instantiation: config_plugins.md
                       - Sessions: config_sessions.md
+                      - Aliases: config_alias.md
                       - Measurement groups: config_mg.md
                 - Devices configuration templates:
                       - Motor controllers:

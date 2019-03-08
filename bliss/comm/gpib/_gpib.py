@@ -252,7 +252,7 @@ class TangoDeviceServer:
         ncmd = numpy.zeros(4 + len(cmd), dtype=numpy.uint8)
         ncmd[3] = self._pad
         ncmd[2] = self._sad
-        ncmd[4:] = [ord(x) for x in cmd]
+        ncmd[4:] = [x for x in cmd]
         self._proxy.SendBinData(ncmd)
 
     def ibrd(self, length):

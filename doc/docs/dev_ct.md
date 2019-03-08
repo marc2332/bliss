@@ -245,3 +245,8 @@ A controller exporting N counters.
 
 
 
+
+
+## NOTES
+![Screenshot](img/counters_hierarchy.svg)
+

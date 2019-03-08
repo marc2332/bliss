@@ -14,7 +14,9 @@ from treelib import Tree
 from bliss import setup_globals
 from bliss.config import static
 from bliss.common.utils import closable
+from bliss.common.alias import Aliases
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
+
 
 CURRENT_SESSION = None
 
@@ -384,6 +386,20 @@ class Session(object):
             setattr(setup_globals, obj_name, obj)
 
         self._setup(env_dict)
+
+        ###### add alias suppport
+
+        setattr(setup_globals, "ALIASES", Aliases(self, env_dict))
+        env_dict["ALIASES"] = setup_globals.ALIASES
+
+        if self.name != "default":
+            a = static.get_config().get_config(self.name).to_dict().get("aliases")
+        else:
+            a = None
+
+        if a != None:
+            for alias_config in a:
+                setup_globals.ALIASES.create_alias(**alias_config)
 
     def _setup(self, env_dict):
         if self.setup_file is None:

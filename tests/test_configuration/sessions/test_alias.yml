@@ -1,0 +1,30 @@
+- class: Session
+  name: test_alias
+  config-objects:
+    - simu1
+    - roby
+    - robz
+    - lima_simulator
+  aliases:
+   - original_name: roby
+     alias_name: robyy
+     export_to_globals: True
+     remove_original: True
+   - original_name: robz
+     alias_name: robzz
+     export_to_globals: True
+     hide_controller: False
+     remove_original: True
+   - original_name: simu1.deadtime_det0
+     alias_name: dtime
+   - original_name: simu1.realtime_det0 
+     alias_name: rtime
+     export_to_globals: False
+   - original_name: simu1.livetime_det0
+     alias_name: ltime
+     export_to_globals: False
+     remove_original: False
+   - original_name: lima_simulator.roi_counters.r1.sum
+     alias_name: myroi
+     export_to_globals: True
+     remove_original: False

@@ -11,14 +11,14 @@ style:
   stage: style
   before_script:
     - source activate tango3.6
-    - pip install black==18.6b4
+    - pip install -r requirements-dev.txt
   script:
     - LC_ALL=C.UTF-8 black --check --safe .
 
 tests:
   stage: tests
   before_script:
-    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-conda.txt --file requirements-test-conda.txt
+    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
     # Get louie from github for python 3 compatibility
     - conda install -q --yes git
@@ -34,7 +34,7 @@ tests:
 build_doc:
   stage: build_doc
   before_script:
-    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
+    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge  python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
     - source activate docenv
     - pip install -r requirements-doc.txt
   script:

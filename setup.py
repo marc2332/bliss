@@ -115,7 +115,7 @@ def main():
         "h5py",
         "mendeleev",
         "pint",
-        'silx >= 0.8 ; platform_machine == "x86_64"',
+        'silx >=0.8,<0.10 ; platform_machine == "x86_64"',
         "psutil",
         "requests",
         "cffi",

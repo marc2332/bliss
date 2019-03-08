@@ -46,7 +46,6 @@ Accessing the configured elements from python is easy
 """
 
 import os
-import sys
 import gc
 import weakref
 
@@ -385,6 +384,7 @@ class Config(object):
         self._name2node = weakref.WeakValueDictionary()
         self._usertag2node = {}
         self._root_node = Node(self)
+        self._root_node["__children__"] = []
         self._node2file = weakref.WeakKeyDictionary()
         self._file2node = {}
 
@@ -405,16 +405,13 @@ class Config(object):
             try:
                 d = yaml.safe_load(file_content)
             except yaml.scanner.ScannerError as exp:
-                print("Error in YAML parsing:")
-                print("----------------")
-                print(file_content)
-                print("----------------")
+                exp.note = "Error in YAML parsing:\n"
+                exp.note += "----------------\n"
+                exp.note += f"{file_content}\n"
+                exp.note += "----------------\n"
+                exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                 exp.problem_mark.name = path
-                print(exp)
-                print(
-                    "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
-                )
-                sys.exit()
+                raise exp
             except yaml.error.MarkedYAMLError as exp:
                 if exp.problem_mark is not None:
                     exp.problem_mark.name = path
@@ -428,36 +425,9 @@ class Config(object):
             if is_init_file:
                 if d is None:
                     continue
-                if not fs_key:
-                    parents = self._root_node
-                else:
-                    parents = fs_node.get(fs_key)
 
-                if isinstance(parents, list):
-                    new_node = Node(self, fs_node, path)
-                    for n in parents:
-                        n._parent = new_node
-                    new_node["__children__"] = parents
-                    parents = new_node
-                elif parents:
-                    new_node = Node(self, parents._parent, path)
-                    parents._parent = new_node
-                    new_node["__children__"] = [parents]
-                    if fs_key:
-                        fs_node.pop(fs_key)
-                        fs_node[fs_key] = new_node
-
-                    parents = new_node
-                elif parents is None:
-                    parents = Node(self, fs_node, path)
-                    parents["__children__"] = []
-                else:
-                    parents["__children__"] = []
-                    self._create_file_index(parents, path)
-                if not fs_key:
-                    self._root_node = parents
-                else:
-                    fs_node[fs_key] = parents
+                parents = Node(self, fs_node if fs_key else None, path)
+                parents["__children__"] = []
                 # do not accept a list in case of __init__ file
                 if isinstance(d, list):
                     raise TypeError("List are not allowed in *%s* file" % path)
@@ -467,6 +437,10 @@ class Config(object):
                     _msg = "Parsing error1 on %s in '%s'" % (self._connection, path)
                     raise RuntimeError(_msg)
 
+                if not fs_key:
+                    self._root_node = parents
+                else:
+                    fs_node[fs_key] = parents
                 continue
             else:
                 if isinstance(d, list):

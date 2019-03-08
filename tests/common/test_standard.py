@@ -4,8 +4,8 @@ import pytest
 from bliss.common.standard import lscnt
 
 EXPECTED = """
-Fullname             Shape    Controller    Name
--------------------  -------  ------------  -------------
+Fullname             Shape    Controller    Name           Alias
+-------------------  -------  ------------  -------------  -------
 simu1.deadtime_det0  0D       simu1         deadtime_det0
 simu1.deadtime_det1  0D       simu1         deadtime_det1
 simu1.deadtime_det2  0D       simu1         deadtime_det2

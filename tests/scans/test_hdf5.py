@@ -45,9 +45,21 @@ ascan_dump = """{ascan}
 {ascan}/measurement
     NX_class: NXcollection
 {ascan}/measurement/axis:roby
+    fullname: axis:roby
+    alias: None
+    has_alias: False
 {ascan}/measurement/diode:diode
+    fullname: diode:diode
+    alias: None
+    has_alias: False
 {ascan}/measurement/simu1:spectrum_det0
+    fullname: simu1:spectrum_det0
+    alias: None
+    has_alias: False
 {ascan}/measurement/timer:elapsed_time
+    fullname: timer:elapsed_time
+    alias: None
+    has_alias: False
 {ascan}/start_time
 {ascan}/title
 """

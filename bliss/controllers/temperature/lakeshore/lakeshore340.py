@@ -160,6 +160,16 @@ class LakeShore340(object):
 
         loop.model = model
 
+        def show():
+            """  Display all main parameters and values for the temperature controller
+                Returns:
+                  model, PID, heater range, loop status, sensors configuration,
+                  inputs temperature
+            """
+            return self._show()
+
+        loop.show = show
+
     def _add_custom_method_output(self, output):
         def ramp_status():
             """Check ramp status (if running or not)
@@ -193,6 +203,16 @@ class LakeShore340(object):
             return self._model()
 
         output.model = model
+
+        def show():
+            """  Display all main parameters and values for the temperature controller
+                Returns:
+                  model, PID, heater range, loop status, sensors configuration,
+                  inputs temperature
+            """
+            return self._show()
+
+        output.show = show
 
     def _add_custom_method_input(self, input):
         def model():
@@ -251,6 +271,33 @@ class LakeShore340(object):
 
         input.curve_delete = curve_delete
 
+        def show():
+            """  Display all main parameters and values for the temperature controller
+                Returns:
+                  model, PID, heater range, loop status, sensors configuration,
+                  inputs temperature
+            """
+            return self._show()
+
+        input.show = show
+
+        def filter(onoff=None, points=None, window=None):
+            """  Configure input filter parameters
+                Args:
+                   onoff (int): 1 = enable, 0 = disable
+                   points (int): specifies how the filtering fct uses
+                   window (int): specifies what percent of full scale reading
+                                 limits the filtering function. Reading changes
+                                 greater than this percentage reset the filter.
+                Returns:
+                  None
+            """
+            return self._filter(
+                input.config.get("channel"), onoff=onoff, points=points, window=window
+            )
+
+        input.filter = filter
+
     def clear(self):
         """Clears the bits in the Status Byte, Standard Event and Operation
            Event Registers. Terminates all pending operations.
@@ -278,7 +325,195 @@ class LakeShore340(object):
         model = self.send_cmd("*IDN?").split(",")[1]
         return int(model[5:])
 
-    ##########
+    def _show(self):
+        """ Display all main parameters and values for the 
+            temperature controller
+            Returns:
+              device ID, PID, heater range, loop status, 
+              sensors configuration, inputs temperature etc.
+        """
+
+        # Get full identification string
+        full_id = self.send_cmd("*IDN?")
+        print("\nLakeshore identification %s" % (full_id))
+
+        # Sensor A
+        # --------
+        print("\nSensor A:")
+        print("=========")
+
+        # Get temperature calibration curve
+        asw = self.send_cmd("INCRV? A")
+        print("Uses calibration curve number %d" % int(asw))
+        asw = self.send_cmd("CRVHDR? %s" % asw)
+        asw = asw.split(",")
+        print(
+            "Curve type = %s, SerNum = %s, Format = %s"
+            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT340[int(asw[2])])
+        )
+        print(
+            "Temp.limit = %s K , Temp.coeff. = %s"
+            % (asw[3], self.CURVETEMPCOEF340[int(asw[4])])
+        )
+
+        # Read input temperature and resistance
+        temp_A = float(self.send_cmd("KRDG? A"))
+        resist_A = float(self.send_cmd("SRDG? A"))
+        print("Current Temperature = %.3f Resistance = %.3f" % (temp_A, resist_A))
+
+        # Sensor B
+        # --------
+        print("\nSensor B:")
+        print("=========")
+
+        # Get temperature calibration curve
+        asw = self.send_cmd("INCRV? B")
+        print("Uses calibration curve number %d" % int(asw))
+        asw = self.send_cmd("CRVHDR? %s" % asw)
+        asw = asw.split(",")
+        print(
+            "Curve type = %s, SerNum = %s, Format = %s"
+            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT340[int(asw[2])])
+        )
+        print(
+            "Temp.limit = %s K, Temp.coeff. = %s"
+            % (asw[3], self.CURVETEMPCOEF340[int(asw[4])])
+        )
+
+        # Read input temperature and resistance
+        temp_B = float(self.send_cmd("KRDG? B"))
+        resist_B = float(self.send_cmd("SRDG? B"))
+        print("Current Temperature = %.3f Resistance = %.3f" % (temp_B, resist_B))
+
+        # Loop 1
+        # ------
+        print("\nLoop 1:")
+        print("=======")
+
+        # Get control loop parameters
+        asw = self.send_cmd("CSET? 1").split(",")
+        sensor = asw[0]
+        units = self.REVUNITS340[int(asw[1])]
+        onoff = "ON" if bool(int(asw[2])) else "OFF"
+        print("Controlled by sensor %s in %s and is %s." % (sensor, units, onoff))
+
+        # Read ramp enable/disable status and ramp rate
+        rp_1 = self.send_cmd("RAMP? 1").split(",")
+        ronoff_1 = "ON" if int(rp_1[0]) == 1 else "OFF"
+        rrate_1 = float(rp_1[1])
+
+        # Read setpoint
+        sp_1 = float(self.send_cmd("SETP? 1"))
+
+        print(
+            "Ramp enable is %s with set-point %.3f %s and ramp-rate = %.3f K/min."
+            % (ronoff_1, sp_1, units, rrate_1)
+        )
+        # Read ramp status (only if ramp is enabled)
+        if ronoff_1 == "ON":
+            asw = self.send_cmd("RAMPST? 1")
+            rs_1 = "RAMPING" if int(asw) == 1 else "NOT RAMPING"
+            print("Ramp status is %s." % rs_1)
+
+        # Get control loop mode
+        asw = self.send_cmd("CMODE? 1")
+        print("Temp Control is set to %s" % self.MODE340[int(asw)])
+
+        kp, ki, kd = self.send_cmd("PID? 1").split(",")
+        print("PID parameters: ")
+        print("     P = %.1f" % float(kp))
+        print("     I = %.1f" % float(ki))
+        print("     D = %.1f" % float(kd))
+
+        # Loop 2
+        # ------
+        print("\nLoop 2:")
+        print("=======")
+
+        # Get control loop parameters
+        asw = self.send_cmd("CSET? 2").split(",")
+        sensor = asw[0]
+        units = self.REVUNITS340[int(asw[1])]
+        onoff = "ON" if bool(int(asw[2])) else "OFF"
+        print("Controlled by sensor %s in %s and is %s." % (sensor, units, onoff))
+
+        # Read ramp enable/disable status and ramp rate
+        rp_2 = self.send_cmd("RAMP? 2").split(",")
+        ronoff_2 = "ON" if int(rp_2[0]) == 1 else "OFF"
+        rrate_2 = float(rp_2[1])
+
+        # Read setpoint
+        sp_2 = float(self.send_cmd("SETP? 2"))
+
+        print(
+            "Ramp enable is %s with set-point %.3f %s and ramp-rate = %.3f K/min. "
+            % (ronoff_2, sp_2, units, rrate_2)
+        )
+        # Read ramp status (only if ramp is enabled)
+        if ronoff_2 == "ON":
+            asw = self.send_cmd("RAMPST? 2")
+            rs_2 = "RAMPING" if int(asw) == 1 else "NOT RAMPING"
+            print("Ramp status is %s." % rs_2)
+
+        # Get control loop mode
+        asw = self.send_cmd("CMODE? 2")
+        print("Temp Control is set to %s" % self.MODE340[int(asw)])
+
+        # Get PID parameters for loop 2
+        kp, ki, kd = self.send_cmd("PID? 2").split(",")
+        print("PID parameters: ")
+        print("     P = %.1f" % float(kp))
+        print("     I = %.1f" % float(ki))
+        print("     D = %.1f" % float(kd))
+
+        # Heater
+        # ------
+        print("\nHeater:")
+        print("=======")
+        # Get heater range value
+        htr_range = int(self.send_cmd("RANGE?"))
+        if htr_range == 0:
+            print("Heater is OFF")
+        else:
+            print("Heater is on range = %d" % htr_range)
+
+    def _filter(self, channel, **kwargs):
+        """  Configure input filter parameters
+            Args:
+               onoff (int): 1 = enable, 0 = disable
+               points (int): specifies how the filtering fct uses
+               window (int): specifies what percent of full scale reading
+                             limits the filtering function. Reading changes
+                             greater than this percentage reset the filter.
+            Returns:
+              None
+        """
+        self._channel = channel
+        input = channel
+        onoff = kwargs.get("onoff")
+        points = kwargs.get("points")
+        window = kwargs.get("window")
+
+        if onoff is None and points is None and window is None:
+            asw = self.send_cmd("FILTER?").split(",")
+            onoff = int(asw[0])
+            points = int(asw[1])
+            window = int(asw[2])
+            return (onoff, points, window)
+        else:
+            onoffc, pointsc, windowc = self.send_cmd("FILTER?").split(",")
+            if onoff is None:
+                onoff = onoffc
+            if points is None:
+                points = pointsc
+            if window is None:
+                window = windowc
+            # TO DO find the true limits
+            # elif window not in range(0,101):
+            #     return print("Error: window acceptables values are [0,100].")
+
+            self.send_cmd("FILTER", int(onoff), int(points), int(window))
+
     def _curve_used_curve(self, channel):
         """ Get the input curve used
             Print:
@@ -620,6 +855,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
               d (float): D
         """
         self._channel = channel
+        print(self._channel)
         kp = kwargs.get("P")
         ki = kwargs.get("I")
         kd = kwargs.get("D")
@@ -691,7 +927,6 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
             ).split(",")
             if input is None:
                 input = inputc
-
             if units is None:
                 units = unitsc
             elif units != "Kelvin" and units != "Celsius" and units != "Sensor unit":
@@ -701,7 +936,6 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                 )
             else:
                 units = self.UNITS340[units]
-
             if onoff is None:
                 onoff = onoffc
             elif onoff != "on" and onoff != "off":
@@ -720,7 +954,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
               None
         """
 
-        ######################        print("command = {0}".format(command))
+        ################### print("command = {0}".format(command))
 
         if command.startswith("*"):
             if "?" in command:
@@ -729,23 +963,32 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
             else:
                 self._comm.write(command.encode() + self.eos.encode())
         elif "?" in command:
-            if "CRVHDR" in command:
+            if "CRVHDR" in command or "RANGE" in command:
                 cmd = command
-            elif isinstance(self._channel, str):
-                cmd = command + " %s" % self._channel
             else:
-                cmd = command + " %r" % self._channel
-
+                if isinstance(self._channel, str):
+                    cmd = command + " %s" % self._channel
+                else:
+                    cmd = command + " %r" % self._channel
             ans = self._comm.write_readline(cmd.encode() + self.eos.encode())
             return ans.decode()
         else:
-            if "RANGE" or "CRVHDR" or "CRVPT" or "CRVDEL" or "CRVSAV" in command:
+            if (
+                "RANGE" in command
+                or "CRVHDR" in command
+                or "CRVPT" in command
+                or "CRVDEL" in command
+                or "CRVSAV" in command
+            ):
                 value = "".join(str(x) for x in args)
                 print("--------- command = {0}".format(command))
                 cmd = command + " %s *OPC" % (value) + self.eos
             else:
                 inp = ",".join(str(x) for x in args)
-                cmd = command + " %d,%s *OPC" % (self._channel, inp) + self.eos
+                if isinstance(self._channel, str):
+                    cmd = command + " %s,%s *OPC" % (self._channel, inp) + self.eos
+                else:
+                    cmd = command + " %d,%s *OPC" % (self._channel, inp) + self.eos
 
             self._comm.write(cmd.encode())
 

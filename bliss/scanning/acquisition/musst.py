@@ -214,6 +214,7 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
     def wait_ready(self):
         if isinstance(self.device, MusstAcquisitionMaster):
             self._master.wait_ready()
+        self.wait_reading()
 
     def reading(self):
         master = self._master

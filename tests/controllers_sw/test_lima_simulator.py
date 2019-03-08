@@ -255,6 +255,6 @@ def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
 
     assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER"
 
-    assert len(scan.get_data()["test.min"]) == 3
-    assert len(scan.get_data()["test.max"]) == 3
-    assert len(scan.get_data()["test.avg"]) == 3
+    assert len(scan.get_data()["test:min"]) == 3
+    assert len(scan.get_data()["test:max"]) == 3
+    assert len(scan.get_data()["test:avg"]) == 3

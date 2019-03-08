@@ -66,7 +66,7 @@ def test_attach_channel(beacon):
     top_master = LinearStepTriggerMaster(2, m0, 0, 0.1)
     second_master = MotorMaster(m1, 0, 1e-6, 0.01)
     # hack add manually a channel
-    ext_channel = AcquisitionChannel(m1.name, numpy.double, ())
+    ext_channel = AcquisitionChannel(second_master, m1.name, numpy.double, ())
     second_master.channels.append(ext_channel)
     real_trigger = second_master.trigger
 

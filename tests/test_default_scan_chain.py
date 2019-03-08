@@ -141,7 +141,7 @@ def test_default_chain_ascan_with_roi_counter(beacon, lima_simulator):
     with gevent.Timeout(2):
         s.run()
     data = s.get_data()
-    assert len(data["roi1.sum"]) == npoints
+    assert len(data["roi1:sum"]) == npoints
 
 
 def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):

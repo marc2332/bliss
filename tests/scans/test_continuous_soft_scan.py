@@ -24,8 +24,8 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
     def __init__(self, name, motor_mockup):
         super(DebugMotorMockupAcquisitionDevice, self).__init__(motor_mockup, name)
         self.motor_mockup = motor_mockup
-        self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
-        self.channels.append(AcquisitionChannel(name + "_time", float, ()))
+        self.channels.append(AcquisitionChannel(self, name + "_pos", float, ()))
+        self.channels.append(AcquisitionChannel(self, name + "_time", float, ()))
 
     def set_time_ref(self, state):
         if "MOVING" in state:
@@ -94,7 +94,7 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     diode2 = diode
     chain.add(timer, acquisition_device)
 
-    scan_params = {"npoints": 0, "count_time": count_time * 2.}
+    scan_params = {"npoints": 0, "count_time": count_time * 2.0}
     chain.append(DEFAULT_CHAIN.get(scan_params, (diode2,)))
 
     scan = Scan(chain, name="multi_master", save=False)

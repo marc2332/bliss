@@ -121,7 +121,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         MotorMaster.__init__(
             self, axis, start, end, trigger_type=AcquisitionMaster.SOFTWARE, **kwargs
         )
-        self.channels.append(AcquisitionChannel(axis.name, numpy.double, ()))
+        self.channels.append(AcquisitionChannel(self, axis.name, numpy.double, ()))
         self.__nb_points = npoints
         self.task = None
         self.started = gevent.event.Event()
@@ -150,7 +150,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         return self._start_move()
 
     def get_trigger(self, position):
-        t0 = self.velocity / (2. * self.movable.acceleration)
+        t0 = self.velocity / (2.0 * self.movable.acceleration)
         t0 += abs(self.undershoot) / float(self.velocity)
         distance = abs(self.start_pos - position)
         return t0 + distance / float(self.velocity)
@@ -292,7 +292,10 @@ class _StepTriggerMaster(AcquisitionMaster):
         )
 
         self.channels.extend(
-            (AcquisitionChannel(axis.name, numpy.double, ()) for axis in self._axes)
+            (
+                AcquisitionChannel(self, axis.name, numpy.double, ())
+                for axis in self._axes
+            )
         )
 
     @property
@@ -416,7 +419,10 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         )
 
         self.channels.extend(
-            (AcquisitionChannel(axis.name, numpy.double, ()) for axis in self._axes)
+            (
+                AcquisitionChannel(self, axis.name, numpy.double, ())
+                for axis in self._axes
+            )
         )
 
     @property

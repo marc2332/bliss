@@ -442,7 +442,7 @@ def get_axes_iter():
 
 def get_axes_names_iter():
     for axis in get_axes_iter():
-        yield axis.name
+        yield axis.alias_or_name
 
 
 def safe_get(obj, member, on_error=None, **kwargs):
@@ -461,7 +461,7 @@ def safe_get(obj, member, on_error=None, **kwargs):
 def get_axes_positions_iter(on_error=None):
     def request(axis):
         return (
-            axis.name,
+            axis.alias_or_name,
             safe_get(axis, "position", on_error),
             safe_get(axis, "dial", on_error),
             axis.config.get("unit", default=None),

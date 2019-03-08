@@ -197,7 +197,7 @@ def wm(*axes, **kwargs):
                 )
             )
         unit = axis.config.get("unit", default=None)
-        axis_label = axis.name
+        axis_label = axis.alias_or_name
         if unit:
             axis_label += "[{0}]".format(unit)
         header.append(axis_label)
@@ -238,7 +238,7 @@ def stm(*axes, read_hw=False):
     table = [("Axis", "Status")]
     table += [
         (
-            axis.name,
+            axis.alias_or_name,
             safe_get(
                 axis,
                 "state",
@@ -270,7 +270,7 @@ def sta(read_hw=False):
     table = [("Axis", "Status")]
     table += [
         (
-            axis.name,
+            axis.alias_or_name,
             safe_get(
                 axis,
                 "state",
@@ -363,7 +363,7 @@ def __umove(*args, **kwargs):
     kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
-        motor_names = [axis.name for axis in motor_pos]
+        motor_names = [axis.alias_or_name for axis in motor_pos]
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
@@ -480,6 +480,7 @@ def cntdict():
             shape[len(cnt.shape)],
             cnt.controller.name if cnt.controller else tmp_controller_name,
             cnt.name,
+            cnt.alias,
         )
 
     return counters_dict
@@ -494,7 +495,11 @@ def lscnt():
         table_info.append(itertools.chain([counter_name], counter_info))
     print("")
     print(
-        str(tabulate(table_info, headers=["Fullname", "Shape", "Controller", "Name"]))
+        str(
+            tabulate(
+                table_info, headers=["Fullname", "Shape", "Controller", "Name", "Alias"]
+            )
+        )
     )
 
 

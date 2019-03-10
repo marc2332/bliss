@@ -3,14 +3,13 @@ image: docker-registry.esrf.fr/bcu/ci-conda
 stages:
   - style
   - tests
-  - build_user_doc
-  - build_doc
+  - doc
   - deploy
 
 style:
   stage: style
   before_script:
-    - source activate tango3.6
+    - export PIP_CACHE_DIR="/opt/cache/pip"
     - pip install -r requirements-dev.txt
   script:
     - LC_ALL=C.UTF-8 black --check --safe .
@@ -18,22 +17,21 @@ style:
 tests:
   stage: tests
   before_script:
+    - export PIP_CACHE_DIR="/opt/cache/pip"
     - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
-    # Get louie from github for python 3 compatibility
-    - conda install -q --yes git
-    # Install bliss and its pip-only dependencies
     - pip install .
   script:
-      - (git diff --name-only $(git merge-base HEAD origin/master) | grep .py) && python setup.py test --addopts "--cov bliss --cov-report html --cov-report term" || echo "Nothing to do"
+    - (git diff --name-only $(git merge-base HEAD origin/master) | grep -E '.py|requirements') && python setup.py test --addopts "--cov bliss --cov-report html --cov-report term" || echo "Nothing to do"
   artifacts:
     paths:
       - htmlcov/
     expire_in: 7 days
 
 build_doc:
-  stage: build_doc
+  stage: doc
   before_script:
+    - export PIP_CACHE_DIR="/opt/cache/pip"
     - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge  python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
     - source activate docenv
     - pip install -r requirements-doc.txt
@@ -45,9 +43,11 @@ build_doc:
     expire_in: 7 days
 
 build_user_doc:
-  stage: build_user_doc
+  stage: doc
   before_script:
-    - conda install -q --yes --channel http://bcu-ci.esrf.fr/stable --file requirements-doc-conda.txt
+    - export PIP_CACHE_DIR="/opt/cache/pip"
+    - conda create --quiet --name mkdocsenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-doc-conda.txt
+    - source activate mkdocsenv
     - pip install -r requirements-doc.txt
   script:
     - cd doc && mkdocs build
@@ -65,7 +65,6 @@ pages:
     - mv doc/site/ public
     - mv build/sphinx/html public/api
     - mv htmlcov public/
-
   artifacts:
     paths:
       - public

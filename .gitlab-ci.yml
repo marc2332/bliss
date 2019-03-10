@@ -64,7 +64,6 @@ pages:
   script:
     - mv doc/site/ public
     - mv build/sphinx/html public/api
-    - mv htmlcov public/
   artifacts:
     paths:
       - public

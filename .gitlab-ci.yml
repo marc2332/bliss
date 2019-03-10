@@ -1,4 +1,4 @@
-image: docker-registry.esrf.fr/bcu/ci-conda
+image: continuumio/miniconda3:latest
 
 stages:
   - style

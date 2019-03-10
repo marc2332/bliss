@@ -23,10 +23,24 @@ tests:
     - pip install .
   script:
     - (git diff --name-only $(git merge-base HEAD origin/master) | grep -E '.py|requirements') && python setup.py test --addopts "--cov bliss --cov-report html --cov-report term" || echo "Nothing to do"
+  except:
+    - master
+
+tests_master:
+  stage: tests
+  before_script:
+    - export PIP_CACHE_DIR="/opt/cache/pip"
+    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
+    - source activate testenv
+    - pip install .
+  script:
+    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
   artifacts:
     paths:
       - htmlcov/
     expire_in: 7 days
+  only:
+    - master
 
 build_doc:
   stage: doc
@@ -60,10 +74,11 @@ pages:
   dependencies:
     - build_user_doc
     - build_doc
-    - tests
+    - tests_master
   script:
     - mv doc/site/ public
     - mv build/sphinx/html public/api
+    - mv htmlcov public/
   artifacts:
     paths:
       - public

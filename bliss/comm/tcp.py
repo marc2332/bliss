@@ -383,7 +383,7 @@ def try_connect_command(fu):
         with KillMask():
             try:
                 return fu(self, *args, **kwarg)
-            except gevent.Timeout:
+            except (gevent.Timeout, CommunicationTimeout):
                 raise
             except:
                 try:

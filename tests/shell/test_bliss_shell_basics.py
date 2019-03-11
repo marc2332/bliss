@@ -63,6 +63,12 @@ def test_shell_function_without_parameter(clean_gevent):
     assert result == "print()"
 
 
+def test_shell_function_with_return_only(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli = _feed_cli_with_input("\r")
+    assert result == ""
+
+
 ## missing test for semicolon which is not working in this test settingpri
 # def test_shell_semicolon():
 #    result, cli = _feed_cli_with_input("print 1 2 ;print 1\r")

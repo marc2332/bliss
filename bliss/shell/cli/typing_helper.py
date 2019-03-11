@@ -121,6 +121,9 @@ class TypingHelper(object):
         text = repl.default_buffer.text
         curs_pos = repl.default_buffer.cursor_position
 
+        # Check for return only
+        if len(text) == 0:
+            return True
         if curs_pos == len(text) and text[-1] != ")":
             ji = jedi.Interpreter(
                 source=text, namespaces=[repl.get_locals(), repl.get_globals()]

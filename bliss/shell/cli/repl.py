@@ -86,7 +86,8 @@ class BlissRepl(PythonRepl):
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
         self.bliss_scan_listener = scan_listener
-        self.all_prompt_styles["bliss"] = BlissPrompt(self)
+        self.bliss_prompt = BlissPrompt(self)
+        self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
         self.show_signature = True
         # self.install_ui_colorscheme("bliss", bliss_ui_style)
@@ -113,6 +114,8 @@ class BlissRepl(PythonRepl):
         except gevent.Timeout:
             self._handle_exception(*args)
         finally:
+            if args[0]:
+                self.bliss_prompt.python_input.current_statement_index += 1
             self.current_task = None
 
     def stop_current_task(self, block=True, exception=gevent.GreenletExit):

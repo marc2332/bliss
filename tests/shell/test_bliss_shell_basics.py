@@ -32,44 +32,55 @@ def _feed_cli_with_input(text, check_line_ending=True):
         )
         inp.send_text(text)
         result = br.app.run()
-
-        return result, br.app
+        return result, br.app, br
 
     finally:
         inp.close()
 
 
+def test_shell_prompt_number(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, br = _feed_cli_with_input("print 1\r")
+    num1 = br.bliss_prompt.python_input.current_statement_index
+    br._execute(result)
+    num2 = br.bliss_prompt.python_input.current_statement_index
+    assert num2 == num1 + 1
+    br._execute(result)
+    num3 = br.bliss_prompt.python_input.current_statement_index
+    assert num3 == num1 + 2
+
+
 def test_shell_comma_backets(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli = _feed_cli_with_input("print 1 2\r")
+    result, cli, _ = _feed_cli_with_input("print 1 2\r")
     assert result == "print(1,2)"
 
 
 def test_shell_string_input(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli = _feed_cli_with_input("a='to to'\r")
+    result, cli, _ = _feed_cli_with_input("a='to to'\r")
     assert result == "a='to to'"
 
 
 def test_shell_string_parameter(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli = _feed_cli_with_input("print 'bla bla'\r")
+    result, cli, _ = _feed_cli_with_input("print 'bla bla'\r")
     assert result == "print('bla bla')"
 
 
 def test_shell_function_without_parameter(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli = _feed_cli_with_input("print \r")
+    result, cli, _ = _feed_cli_with_input("print \r")
     assert result == "print()"
 
 
 def test_shell_function_with_return_only(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli = _feed_cli_with_input("\r")
+    result, cli, _ = _feed_cli_with_input("\r")
     assert result == ""
 
 
 ## missing test for semicolon which is not working in this test settingpri
 # def test_shell_semicolon():
-#    result, cli = _feed_cli_with_input("print 1 2 ;print 1\r")
+#    result, cli, _ = _feed_cli_with_input("print 1 2 ;print 1\r")
 #    assert result == "print(1,2);print(1)"

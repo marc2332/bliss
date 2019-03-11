@@ -1,5 +1,6 @@
 import sys
 import gevent
+import pytest
 
 from bliss.common.greenlet_utils import protect_from_kill, protect_from_one_kill
 from bliss.common.greenlet_utils import AllowKill
@@ -117,3 +118,16 @@ def test_unkillmask_with_kill_after_mask():
     event2.set()
     task.join()
     assert not event3.is_set()
+
+
+def test_timeout_with_kill_mask():
+    @protect_from_kill
+    def f():
+        with gevent.Timeout(0.1, RuntimeError("Bla")):
+            gevent.sleep(1)
+
+    t = gevent.spawn(f)
+    with pytest.raises(RuntimeError):
+        with gevent.Timeout(0.2):
+            t.get()
+    t.kill()

@@ -57,7 +57,7 @@ def test_concurency(command):
         assert command.write_readline(msg + b"\n") == msg
 
     def task_with_exception(msg, i):
-        msg += "_exception"
+        msg += b"_exception"
         try:
             transaction = command._write(msg)
             command._readline(
@@ -76,7 +76,7 @@ def test_concurency(command):
             tasks.append(gevent.spawn(task_with_exception, msg, i))
 
     for t in tasks:
-        t.join(3)
+        t.get(3)
 
 
 def test_connect_socket(socket):

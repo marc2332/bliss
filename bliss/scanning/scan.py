@@ -26,7 +26,7 @@ from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
-from bliss.config.settings import Parameters, _change_to_obj_marshalling
+from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
 from bliss.config.settings import _get_connection, pipeline
 from bliss.data.node import (
     _get_or_create_node,
@@ -83,7 +83,7 @@ def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
     )
 
 
-class StepScanDataWatch(object):
+class StepScanDataWatch:
     """
     This class is an helper to follow data generation by a step scan like:
     an acquisition chain with motor(s) as the top-master.
@@ -127,7 +127,7 @@ class StepScanDataWatch(object):
         self._last_point_display = min_nb_points
 
 
-class ScanSaving(Parameters):
+class ScanSaving(ParametersWardrobe):
     SLOTS = []
     WRITER_MODULE_PATH = "bliss.scanning.writer"
 
@@ -154,39 +154,43 @@ class ScanSaving(Parameters):
         keys = dict()
         _change_to_obj_marshalling(keys)
 
-        Parameters.__init__(
-            self,
+        # default and not removable values
+        _default_values = {
+            "base_path": "/tmp/scans",
+            "data_filename": "data",
+            "user_name": getpass.getuser(),
+            "template": "{session}/",
+            "images_path_relative": True,
+            "images_path_template": "scan{scan_number}",
+            "images_prefix": "{img_acq_device}_",
+            "date_format": "%Y%m%d",
+            "scan_number_format": "%04d",
+            "_writer_module": "hdf5",
+        }
+        # read only attributes implemented with python properties
+        _property_attributes = [
+            "session",
+            "date",
+            "scan_name",
+            "scan_number",
+            "img_acq_device",
+            "writer",
+        ]
+
+        super().__init__(
             "scan_saving:%s" % name if name else "scan_saving:%s" % uuid.uuid4().hex,
-            default_values={
-                "base_path": "/tmp/scans",
-                "data_filename": "data",
-                "user_name": getpass.getuser(),
-                "template": "{session}/",
-                "images_path_relative": True,
-                "images_path_template": "scan{scan_number}",
-                "images_prefix": "{img_acq_device}_",
-                "date_format": "%Y%m%d",
-                "scan_number_format": "%04d",
-                "_writer_module": "hdf5",
-                "_last_scan_number": 0,
-                "_last_scan_file": "",
-            },
+            default_values=_default_values,
+            property_attributes=_property_attributes,
+            not_removable=_default_values.items(),
             **keys,
         )
 
     def __dir__(self):
-        keys = Parameters.__dir__(self)
+        keys = super().__dir__()
         return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
 
     def __repr__(self):
-        d = self._proxy.get_all()
-        d["writer"] = d.get("_writer_module")
-        d["session"] = self.session
-        d["date"] = self.date
-        d["scan_name"] = "scan name"
-        d["scan_number"] = "scan number"
-        d["img_acq_device"] = "<images_* only> acquisition device name"
-        return self._repr(d)
+        return super().__repr__()
 
     @property
     def scan_name(self):
@@ -215,7 +219,7 @@ class ScanSaving(Parameters):
         """
         Scan writer object.
         """
-        return self._proxy["_writer_module"]
+        return self._writer_module
 
     @writer.setter
     def writer(self, value):
@@ -234,7 +238,7 @@ class ScanSaving(Parameters):
                 " class named Writer (%s)" % (value, exc)
             )
         else:
-            self._proxy["_writer_module"] = value
+            self._writer_module = value
 
     def get(self):
         """
@@ -253,7 +257,7 @@ class ScanSaving(Parameters):
             images_prefix = self.images_prefix
             data_filename = self.data_filename
             formatter = string.Formatter()
-            cache_dict = self._proxy.get_all()
+            cache_dict = self.to_dict()
             cache_dict["session"] = self.session
             cache_dict["date"] = self.date
             cache_dict["scan_name"] = self.scan_name
@@ -332,7 +336,7 @@ class ScanSaving(Parameters):
         return klass(path, images_path, data_filename)
 
 
-class ScanDisplay(Parameters):
+class ScanDisplay(ParametersWardrobe):
     SLOTS = []
 
     def __init__(self):
@@ -341,16 +345,21 @@ class ScanDisplay(Parameters):
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
-        Parameters.__init__(
-            self,
+        super().__init__(
             "%s:scan_display_params" % self.session,
             default_values={"auto": False, "motor_position": True},
+            property_attributes=("session",),
+            not_removable=("auto", "motor_position"),
             **keys,
         )
 
     def __dir__(self):
-        keys = Parameters.__dir__(self)
+        keys = super().__dir__()
         return keys + ["session", "auto"]
+
+    def __repr__(self):
+        d = self.to_dict()
+        return self._repr(d)
 
     @property
     def session(self):
@@ -429,7 +438,7 @@ class ScanPreset:
         pass
 
 
-class Scan(object):
+class Scan:
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = list(range(4))
 
     def __init__(

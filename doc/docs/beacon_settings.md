@@ -41,9 +41,11 @@ assert isinstance(iii.get(), int)
 The `default_value` is returned by the `SimpleSetting` object until it has been
 set. Once the object has been set, the value is persisted in redis.
 
-### HashSetting
+### BaseHashSetting and HashSetting
 
-The `HashSetting` class is used to represent a dictionary of scalar values:
+The `BaseHashSetting` class is used to represent a dictionary of scalar values,
+`HashSetting` simply adds a kwarg `default_values` that is a dictionary containing
+values taken as a fallback.
 
 ```py
 myDict = {"C1":"riri", "C2":"fifi"}
@@ -60,15 +62,15 @@ The `QueueSetting` class is used to represent a list of scalar values:
 >>> sqs.set(myList)
 ```
 
-### Parameters
+### ParametersWardrobe
 
-`Parameters` are more advanced objects -- it is used to group
+`ParametersWardrobe` are more advanced objects -- it is used to group
 simple settings, and to be able to switch from one set of values for
 the parameters to another:
 
 ```py
->>> from bliss.config.settings import Parameters
->>> p = Parameters("my_params")
+>>> from bliss.config.settings import ParametersWardrobe
+>>> p = ParametersWardrobe("my_params")
 >>> p.add("test", 42)
 >>> p
 Parameters (default)
@@ -79,10 +81,10 @@ Parameters (default)
 >>> p.test=43
 >>> p.configs
 ['default']
->>> p.switch("another_config")
+>>> p.switch("another_config") - default
 >>> p.add("test2", 10)
 >>> p
-Parameters (another_config)
+Parameters (another_config) - default
   .test2 = 10
 >>> p.switch("default")
 >>> p

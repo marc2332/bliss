@@ -7,6 +7,7 @@
 
 from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain, ChainPreset, ChainIterationPreset
+from bliss.scanning.scan import ScanPreset
 from bliss.common import scans
 
 
@@ -81,3 +82,29 @@ def test_iteration_preset(session):
     assert preset.prepare_called == 10
     assert preset.start_called == 10
     assert preset.stop_called == 10
+
+
+def test_scan_preset(beacon):
+    class Preset(ScanPreset):
+        def __init__(self):
+            self.prepare_counter = 0
+            self.start_counter = 0
+            self.stop_counter = 0
+
+        def prepare(self, scan):
+            self.prepare_counter += 1
+
+        def start(self, scan):
+            self.start_counter += 1
+
+        def stop(self, scan):
+            self.stop_counter += 1
+
+    preset = Preset()
+    diode = beacon.get("diode")
+    s = scans.loopscan(2, 0, diode, run=False)
+    s.add_preset(preset)
+    s.run()
+    assert preset.prepare_counter == 1
+    assert preset.start_counter == 1
+    assert preset.stop_counter == 1

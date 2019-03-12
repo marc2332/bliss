@@ -24,15 +24,15 @@ def test_alias_data_channel(alias_session):
         return_scan=True,
     )
 
-    dump1 = """test_alias:{a2scan}:axis:roby robyy
-test_alias:{a2scan}:axis:robz robzz
-test_alias:{a2scan}:axis:timer:elapsed_time None
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum myroi
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum None
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum myroi3
-test_alias:{a2scan}:axis:timer:simu1:deadtime_det0 dtime
-test_alias:{a2scan}:axis:timer:simu1:spectrum_det0 None""".format(
-        a2scan=s.node.name
+    dump1 = """{a2scan}:axis:roby robyy
+{a2scan}:axis:robz robzz
+{a2scan}:axis:timer:elapsed_time None
+{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum myroi
+{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum None
+{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum myroi3
+{a2scan}:axis:timer:simu1:deadtime_det0 dtime
+{a2scan}:axis:timer:simu1:spectrum_det0 None""".format(
+        a2scan=s.node.db_name
     ).split(
         "\n"
     )
@@ -40,15 +40,15 @@ test_alias:{a2scan}:axis:timer:simu1:spectrum_det0 None""".format(
     for n in s.node.iterator.walk(filter="channel", wait=False):
         assert " ".join([n.db_name, n.alias]) in dump1
 
-    dump2 = """test_alias:{a2scan}:axis:roby True
-test_alias:{a2scan}:axis:robz True
-test_alias:{a2scan}:axis:timer:elapsed_time False
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum True
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum False
-test_alias:{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum True
-test_alias:{a2scan}:axis:timer:simu1:deadtime_det0 True
-test_alias:{a2scan}:axis:timer:simu1:spectrum_det0 False""".format(
-        a2scan=s.node.name
+    dump2 = """{a2scan}:axis:roby True
+{a2scan}:axis:robz True
+{a2scan}:axis:timer:elapsed_time False
+{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum True
+{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum False
+{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum True
+{a2scan}:axis:timer:simu1:deadtime_det0 True
+{a2scan}:axis:timer:simu1:spectrum_det0 False""".format(
+        a2scan=s.node.db_name
     ).split(
         "\n"
     )

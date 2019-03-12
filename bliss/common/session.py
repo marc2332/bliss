@@ -364,6 +364,7 @@ class Session(object):
             env_dict["SCANS"] = SCANS
             env_dict["SCAN_SAVING"] = ScanSaving(self.name)
             env_dict["SCAN_DISPLAY"] = ScanDisplay()
+
             from bliss.common.measurementgroup import ACTIVE_MG
 
             env_dict["ACTIVE_MG"] = ACTIVE_MG

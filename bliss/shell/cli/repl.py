@@ -24,6 +24,69 @@ from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
 
+
+class ErrorReport:
+    """ 
+    Manage the behavior of the error reporting in the shell.
+    
+    - ErrorReport.expert_mode = False (default) => prints a user friendly error message without traceback
+    - ErrorReport.expert_mode = True            => prints the full error message with traceback
+    
+    - ErrorReport.last_error stores the last error traceback
+
+    """
+
+    def __init__(self):
+
+        self._expert_mode = False
+        self._last_error = ""
+
+    @property
+    def last_error(self):
+        print(self._last_error)
+
+    @property
+    def expert_mode(self):
+        return self._expert_mode
+
+    @expert_mode.setter
+    def expert_mode(self, enable):
+        self._expert_mode = bool(enable)
+
+
+ERROR_REPORT = ErrorReport()
+
+# patch the system exception hook
+def repl_excepthook(exc_type, exc_value, tb):
+
+    err_file = sys.stderr
+
+    # Store latest traceback (as a string to avoid memory leaks)
+    ERROR_REPORT._last_error = "".join(
+        traceback.format_exception(exc_type, exc_value, tb)
+    )
+
+    # Adapt the error message depending on the ERROR_REPORT expert_mode
+    if not ERROR_REPORT._expert_mode:
+        print(
+            f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
+            file=err_file,
+        )
+    else:
+        traceback.print_exception(exc_type, exc_value, tb, file=err_file)
+
+
+sys.excepthook = repl_excepthook
+
+
+# patch the print_exception for gevent greenlet
+def print_exception(self, context, exc_type, exc_value, tb):
+    repl_excepthook(exc_type, exc_value, tb)
+
+
+gevent.hub.Hub.print_exception = print_exception
+
+
 # don't patch the event loop on windows
 if not is_windows():
     from prompt_toolkit.eventloop.posix import PosixEventLoop
@@ -175,6 +238,10 @@ def cli(
 
     import __main__
 
+    # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
+    user_ns["ERROR_REPORT"] = ERROR_REPORT
+    user_ns["last_error"] = lambda: ERROR_REPORT.last_error
+
     __main__.__dict__.update(user_ns)
 
     def get_globals():
@@ -305,16 +372,8 @@ def embed(*args, **kwargs):
                 # kill and exit()
                 print("")
                 break
-            except BaseException as e:
-                # all unexpected Errors and exceptions ... should be logged
-
-                # this could be the output in a less scary way for non python users
-                # related to isssu 402
-                # for x in traceback.format_exception_only(type(e), e): print(x)
-
-                # a bit more verbose output should/could be activated/deactivated
-                traceback.print_exception(type(e), e, e.__traceback__)
-                pass
+            except BaseException:
+                sys.excepthook(*sys.exc_info())
 
     finally:
         warnings.filterwarnings("default")

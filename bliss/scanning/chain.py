@@ -148,8 +148,8 @@ class DeviceIteratorWrapper(object):
 
 class ChainPreset(object):
     """
-    This class interface will be called by the scan object
-    at the beginning and at the end of a scan.
+    This class interface will be called by the chain object
+    at the beginning and at the end of a chain iteration.
 
     A typical usage of this class is to manage the opening/closing
     by software or to control beamline multiplexer(s)
@@ -161,19 +161,19 @@ class ChainPreset(object):
 
     def prepare(self, chain):
         """
-        Called on the preparation phase of a scan.
+        Called on the preparation phase of the chain iteration.
         """
         pass
 
     def start(self, chain):
         """
-        Called on the starting phase of a scan.
+        Called on the starting phase of the chain iteration.
         """
         pass
 
     def stop(self, chain):
         """
-        Called at the end of a scan.
+        Called at the end of the chain iteration.
         """
         pass
 
@@ -790,7 +790,7 @@ class AcquisitionChain(object):
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
         self._device_to_node = dict()
-        self._presets_list = list()
+        self._presets_master_list = weakref.WeakKeyDictionary()
         self._parallel_prepare = parallel_prepare
         self._stats_dict = dict()
 
@@ -840,16 +840,25 @@ class AcquisitionChain(object):
             self._tree.move_node(slave, master)
         slave.parent = master
 
-    def add_preset(self, preset):
+    def add_preset(self, preset, master=None):
         """
-        Add a preset for the scan.
+        Add a preset on a top-master.
+        If it None mean the first in the chain
 
         Args:
             preset should be inherited for class Preset
+            master if None take the first top-master from the chain
         """
         if not isinstance(preset, ChainPreset):
             raise ValueError("Expected ChainPreset instance")
-        self._presets_list.append(preset)
+        top_masters = [x.identifier for x in self._tree.children("root")]
+        if master is not None and master not in top_masters:
+            raise ValueError(f"master {master} not in {top_masters}")
+
+        # set the preset on the chain itself if master is None
+        # this is to manage the case where the chain tree is still empty.
+        presets_list = self._presets_master_list.setdefault(master or self, list())
+        presets_list.append(preset)
 
     def get_iter_list(self):
         if len(self._tree) > 1:
@@ -860,24 +869,31 @@ class AcquisitionChain(object):
                 del master.slaves[:]
                 master.slaves.extend(self._tree.get_node(master).fpointer)
 
-            sub_trees = [
-                self._tree.subtree(x.identifier) for x in self._tree.children("root")
-            ]
+            top_masters = [x.identifier for x in self._tree.children("root")]
+            sub_trees = [self._tree.subtree(x) for x in top_masters]
 
+            first_top_master = top_masters.pop(0)
+            first_tree = sub_trees.pop(0)
+            # default => first top master is also store in self
+            presets_list = self._presets_master_list.get(self, list())
+            presets_list += self._presets_master_list.get(first_top_master, list())
             iterators = [
                 AcquisitionChainIter(
                     self,
-                    sub_trees.pop(0),
-                    self._presets_list,
+                    first_tree,
+                    presets_list,
                     parallel_prepare=self._parallel_prepare,
                 )
             ]
             iterators.extend(
                 [
                     AcquisitionChainIter(
-                        self, sub_tree, list(), parallel_prepare=self._parallel_prepare
+                        self,
+                        sub_tree,
+                        self._presets_master_list.get(master, list()),
+                        parallel_prepare=self._parallel_prepare,
                     )
-                    for sub_tree in sub_trees
+                    for master, sub_tree in zip(top_masters, sub_trees)
                 ]
             )
             return iterators

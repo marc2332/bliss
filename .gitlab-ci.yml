@@ -18,7 +18,7 @@ tests:
   stage: tests
   before_script:
     # install Xvfb and opengl libraries
-    - apt-get update && apt-get -y install xvfb
+    - apt-get update && apt-get -y install xvfb libxi6
     # set pip cache to the Docker volume
     - export PIP_CACHE_DIR="/opt/cache/pip"
     # create test env and install BLISS
@@ -33,7 +33,7 @@ tests:
 tests_master:
   stage: tests
   before_script:
-    - apt-get update && apt-get -y install xvfb
+    - apt-get update && apt-get -y install xvfb libxi6
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv

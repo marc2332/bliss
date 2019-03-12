@@ -24,8 +24,6 @@ from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
 
-from bliss import setup_globals
-
 
 class ErrorReport:
     """ 
@@ -41,7 +39,7 @@ class ErrorReport:
     def __init__(self):
 
         self._expert_mode = False
-        self._last_error = "No error"
+        self._last_error = ""
 
     @property
     def last_error(self):
@@ -56,7 +54,38 @@ class ErrorReport:
         self._expert_mode = bool(enable)
 
 
-setup_globals.ERROR_REPORT = ErrorReport()
+ERROR_REPORT = ErrorReport()
+
+# patch the system exception hook
+def repl_excepthook(exc_type, exc_value, tb):
+
+    err_file = sys.stderr
+
+    # Store latest traceback (as a string to avoid memory leaks)
+    ERROR_REPORT._last_error = "".join(
+        traceback.format_exception(exc_type, exc_value, tb)
+    )
+
+    # Adapt the error message depending on the ERROR_REPORT expert_mode
+    if not ERROR_REPORT._expert_mode:
+        print(
+            f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
+            file=err_file,
+        )
+    else:
+        traceback.print_exception(exc_type, exc_value, tb, file=err_file)
+
+
+sys.excepthook = repl_excepthook
+
+
+# patch the print_exception for gevent greenlet
+def print_exception(self, context, exc_type, exc_value, tb):
+    repl_excepthook(exc_type, exc_value, tb)
+
+
+gevent.hub.Hub.print_exception = print_exception
+
 
 # don't patch the event loop on windows
 if not is_windows():
@@ -210,8 +239,8 @@ def cli(
     import __main__
 
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
-    user_ns["ERROR_REPORT"] = setup_globals.ERROR_REPORT
-    user_ns["last_error"] = lambda: setup_globals.ERROR_REPORT.last_error
+    user_ns["ERROR_REPORT"] = ERROR_REPORT
+    user_ns["last_error"] = lambda: ERROR_REPORT.last_error
 
     __main__.__dict__.update(user_ns)
 
@@ -343,24 +372,8 @@ def embed(*args, **kwargs):
                 # kill and exit()
                 print("")
                 break
-            except BaseException as e:
-
-                # Store latest traceback (as a string to avoid memory leaks)
-                setup_globals.ERROR_REPORT._last_error = str(traceback.format_exc())
-
-                # Adapt the error message depending on the ERROR_REPORT expert_mode
-                if not setup_globals.ERROR_REPORT._expert_mode:
-                    err_txt = "Error occurs in command: '%s' => '%s' " % (inp, e)
-
-                    print(
-                        "!!! === %s === !!! ( for more details type cmd 'last_error' )"
-                        % err_txt
-                    )
-                    print("\n")
-                else:
-                    traceback.print_exception(type(e), e, e.__traceback__)
-                    print("\n")
-                pass
+            except BaseException:
+                sys.excepthook(*sys.exc_info())
 
     finally:
         warnings.filterwarnings("default")

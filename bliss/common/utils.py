@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import os
+import os, sys
 import traceback
 import inspect
 import gevent
@@ -22,13 +22,10 @@ import collections.abc
 class ErrorWithTraceback:
     def __init__(self, error_txt="!ERR"):
         self._ERR = error_txt
-        self.traceback = ""
+        self.exc_info = None
 
     def __str__(self):
         return self._ERR
-
-    def set_traceback(self, traceback_str):
-        self.traceback = traceback_str
 
 
 class WrappedMethod(object):
@@ -451,10 +448,10 @@ def safe_get(obj, member, on_error=None, **kwargs):
             return getattr(obj, member)
         else:
             return getattr(obj, member)(**kwargs)
-    except Exception as e:
+    except Exception:
         if on_error:
             if isinstance(on_error, ErrorWithTraceback):
-                on_error.set_traceback(traceback.format_exc())
+                on_error.exc_info = sys.exc_info()
             return on_error
 
 

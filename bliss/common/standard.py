@@ -16,6 +16,8 @@ from bliss.common.axis import SoftAxis
 from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 
+import sys
+
 __all__ = (
     [
         "wa",
@@ -86,36 +88,18 @@ def __pyhighlight(code, bg="dark", outfile=None):
     return highlight(code, PythonLexer(), formatter, outfile=outfile)
 
 
-def _print_errors_with_traceback(errors, device_type="Motor"):
-
+def _print_errors_with_traceback(errors, device_type="motor"):
+    """ RE-raise caught errors with original traceback """
     for (label, error_with_traceback_obj) in errors:
-
-        # Store latest traceback (as a string to avoid memory leaks)
-        setup_globals.ERROR_REPORT._last_error = txt = str(
-            error_with_traceback_obj.traceback
-        )
-
-        # Adapt the error message depending on the ERROR_REPORT expert_mode
-        if not setup_globals.ERROR_REPORT._expert_mode:
-
-            err_txt = "Error: %s '%s' has failed => %s" % (
-                device_type,
-                label,
-                txt.strip().split("\n")[-1],
-            )
-
-            print(
-                "\n!!! === %s === !!! ( for more details type cmd 'last_error' )\n"
-                % err_txt
-            )
-
-        else:
-
-            print(
-                "\n!!! ========= Error: %s '%s' has failed ============== !!!\n"
-                % (device_type, label)
-            )
-            print("%s\n" % (error_with_traceback_obj.traceback,))
+        exc_type, exc_val, exc_tb = error_with_traceback_obj.exc_info
+        try:
+            # we re-raise in order to pass the motor label to the error msg
+            # else calling sys.excepthook(*sys.exc_info()) would be fine
+            raise exc_type(
+                f"Error on {device_type} '{label}': {str(exc_val)}"
+            ).with_traceback(exc_tb)
+        except:
+            sys.excepthook(*sys.exc_info())
 
 
 def sync(*axes):
@@ -145,28 +129,32 @@ def wa(**kwargs):
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
     errors = []
-    for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
-        on_error=ErrorWithTraceback(error_txt=err)
-    ):
-        if len(header) == max_cols:
-            header, pos, dial = [], [], []
-            tables.append((header, pos, dial))
-        axis_label = axis_name
-        if axis_unit:
-            axis_label += "[{0}]".format(axis_unit)
-        header.append(axis_label)
+    try:
+        for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
+            on_error=ErrorWithTraceback(error_txt=err)
+        ):
+            if len(header) == max_cols:
+                header, pos, dial = [], [], []
+                tables.append((header, pos, dial))
+            axis_label = axis_name
+            if axis_unit:
+                axis_label += "[{0}]".format(axis_unit)
+            header.append(axis_label)
 
-        pos.append(position)
-        dial.append(dial_position)
+            pos.append(position)
+            dial.append(dial_position)
 
-        if _ERR in [str(position), str(dial_position)]:
-            errors.append((axis_label, dial_position))
+            if _ERR in [str(position), str(dial_position)]:
+                errors.append((axis_label, dial_position))
 
-    for table in tables:
-        print("")
-        print(_tabulate(table))
+        for table in tables:
+            print("")
+            print(_tabulate(table))
 
-    _print_errors_with_traceback(errors, device_type="Motor")
+        _print_errors_with_traceback(errors, device_type="motor")
+
+    finally:
+        errors.clear()
 
 
 def wm(*axes, **kwargs):
@@ -242,7 +230,7 @@ def wm(*axes, **kwargs):
         print("")
         print(_tabulate(table))
 
-    _print_errors_with_traceback(errors, device_type="Motor")
+    _print_errors_with_traceback(errors, device_type="motor")
 
 
 def stm(*axes, read_hw=False):
@@ -278,7 +266,7 @@ def stm(*axes, read_hw=False):
         if str(state) == _ERR:
             errors.append((label, state))
 
-    _print_errors_with_traceback(errors, device_type="Motor")
+    _print_errors_with_traceback(errors, device_type="motor")
 
 
 def sta(read_hw=False):
@@ -310,7 +298,7 @@ def sta(read_hw=False):
         if str(state) == _ERR:
             errors.append((label, state))
 
-    _print_errors_with_traceback(errors, device_type="Motor")
+    _print_errors_with_traceback(errors, device_type="motor")
 
 
 def mv(*args):

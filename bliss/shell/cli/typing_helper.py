@@ -24,6 +24,7 @@ class TypingHelper(object):
     def __init__(self, blissrepl):
         self.validator = PythonValidator()
         self.add_helper_key_binding(blissrepl)
+        self.blissrepl = blissrepl
 
     def is_float_str(self, s):
         return s.lstrip("-").replace(".", "", 1).isdigit()
@@ -76,14 +77,24 @@ class TypingHelper(object):
 
             # looks still like a hack but I did not find
             # another way to call the original handler for 'enter' yet
-            h = [
-                h
-                for h in event.cli.key_processor._get_matches([KeyPress(Keys.Enter)])
-                if h.handler.__qualname__ == "load_python_bindings.<locals>._"
-            ][0]
-            event.cli.key_processor._call_handler(
-                h, key_sequence=[KeyPress(Keys.Enter)]
-            )
+            matches = event.cli.key_processor._get_matches([KeyPress(Keys.Enter)])
+            # Use reverse search because forward search finds the wrong
+            # load_confirm_exit-binding
+            for handler in reversed(matches):
+                if (
+                    self.blissrepl.bliss_prompt.python_input.show_exit_confirmation
+                    and handler.handler.__qualname__
+                    == "load_confirm_exit_bindings.<locals>._"
+                ):
+                    event.cli.key_processor._call_handler(
+                        handler, key_sequence=[KeyPress(Keys.Enter)]
+                    )
+                    break
+                elif handler.handler.__qualname__ == "load_python_bindings.<locals>._":
+                    event.cli.key_processor._call_handler(
+                        handler, key_sequence=[KeyPress(Keys.Enter)]
+                    )
+                    break
 
         @repl.add_key_binding(";")
         def _(event):

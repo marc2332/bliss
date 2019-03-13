@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import sys
 
 from prompt_toolkit.input.defaults import create_pipe_input
 from bliss.shell.cli.repl import BlissRepl
@@ -36,6 +37,30 @@ def _feed_cli_with_input(text, check_line_ending=True):
 
     finally:
         inp.close()
+
+
+def test_shell_exit(clean_gevent):
+    clean_gevent["end-check"] = False
+    try:
+        _feed_cli_with_input(chr(0x4) + "y", check_line_ending=False)
+    except EOFError:
+        assert True
+
+
+def test_shell_exit2(clean_gevent):
+    clean_gevent["end-check"] = False
+    try:
+        _feed_cli_with_input(chr(0x4) + "\r", check_line_ending=False)
+    except EOFError:
+        assert True
+
+
+def test_shell_noexit(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, br = _feed_cli_with_input(
+        chr(0x4) + "nprint 1 2\r", check_line_ending=True
+    )
+    assert result == "print(1,2)"
 
 
 def test_shell_prompt_number(clean_gevent):

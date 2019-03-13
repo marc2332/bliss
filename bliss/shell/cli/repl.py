@@ -363,8 +363,9 @@ def embed(*args, **kwargs):
                 cmd_line_i._execute(inp)
 
             except KeyboardInterrupt:
+                print("\rKeyboard Interrupt\n")
                 # ctrl c
-                pass
+                # pass
             except EOFError:
                 # ctrl d
                 break

@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+import sys
 import logging
 import weakref
 import collections.abc

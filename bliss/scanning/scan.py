@@ -369,6 +369,26 @@ def display_motor(func):
     return f
 
 
+class ScanPreset:
+    def prepare(self, scan):
+        """
+        Called on the preparation phase of a scan.
+        """
+        pass
+
+    def start(self, scan):
+        """
+        Called on the starting phase of a scan.
+        """
+        pass
+
+    def stop(self, scan):
+        """
+        Called at the end of a scan.
+        """
+        pass
+
+
 class Scan(object):
     IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = list(range(4))
 
@@ -497,6 +517,7 @@ class Scan(object):
             self._data_watch_callback_done = data_watch_callback_done
         else:
             self._data_watch_task = None
+        self._preset_list = list()
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -537,6 +558,14 @@ class Scan(object):
     @property
     def statistics(self):
         return Statistics(self._acq_chain._stats_dict)
+
+    def add_preset(self, preset):
+        """
+        Add a preset for this scan
+        """
+        if not isinstance(preset, ScanPreset):
+            raise ValueError("Expected ScanPreset instance")
+        self._preset_list.append(preset)
 
     def _get_data_axis_name(self, axis=None):
         acq_chain = self._scan_info["acquisition_chain"]
@@ -743,6 +772,7 @@ class Scan(object):
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
+                self._execute_preset("prepare")
                 self.prepare(self.scan_info, self.acq_chain._tree)
                 prepare_tasks = [
                     gevent.spawn(i.prepare, self, self.scan_info) for i in current_iters
@@ -752,6 +782,7 @@ class Scan(object):
                 finally:
                     gevent.killall(prepare_tasks)
 
+            self._execute_preset("start")
             self._state = self.START_STATE
             run_next_tasks = [
                 (gevent.spawn(self._run_next, i), i) for i in current_iters
@@ -820,6 +851,8 @@ class Scan(object):
                 for node in self.nodes.values():
                     if hasattr(node, "close"):
                         node.close()
+
+                self._execute_preset("stop")
 
     def _run_next(self, next_iter):
         next_iter.start()
@@ -948,3 +981,13 @@ class Scan(object):
         Activate logging trace during scan
         """
         AcquisitionChain.trace(on)
+
+    def _execute_preset(self, method_name):
+        preset_tasks = [
+            gevent.spawn(getattr(preset, method_name), self)
+            for preset in self._preset_list
+        ]
+        try:
+            gevent.joinall(preset_tasks, raise_error=True)
+        finally:
+            gevent.killall(preset_tasks)

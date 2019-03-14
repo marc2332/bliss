@@ -400,7 +400,7 @@ def get_db_file(filename):
 def get_db_file_editor(filename):
     cfg = __config.get_config()
 
-    content = client.get_config_file(filename)
+    content = client.get_config_file(filename).decode()
 
     file_info = __config.get_file_info(filename)
     template = __get_jinja2().select_template(("editor.html",))

@@ -26,7 +26,7 @@ the ESRF BCU Conda channel needs to be configured. BLISS distribution contains a
 can be done like this (the name of the environment can - of cause - be chosen freely):
 
     $ cd bliss
-    $ conda env create -n bliss_env 
+    $ conda create --name bliss_env
     $ conda activate bliss_env
     $ conda config --env --add channels esrf-bcu
     $ conda config --env --append channels conda-forge

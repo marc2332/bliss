@@ -151,7 +151,7 @@ class PI_E727(Controller):
 
     def send(self, axis, cmd, timeout=None):
         _cmd = self._append_eoc(cmd)
-        _ans = self.sock.write_readline(_cmd, timeout=timeout)
+        _ans = self.sock.write_readline(_cmd.encode(), timeout=timeout).decode()
         _ans = self._remove_eoc(_ans)
         return _ans
 
@@ -168,7 +168,7 @@ class PI_E727(Controller):
 
     def send_no_ans(self, axis, cmd):
         _cmd = self._append_eoc(cmd)
-        self.sock.write(_cmd)
+        self.sock.write(_cmd.encode())
 
     @object_method(types_info=("None", "None"))
     def raw_flush(self, axis):
@@ -178,17 +178,17 @@ class PI_E727(Controller):
 
     def raw_write(self, cmd):
         _cmd = self._append_eoc(cmd)
-        self.sock.write(_cmd)
+        self.sock.write(_cmd.encode())
 
     def raw_write_read(self, cmd):
         _cmd = self._append_eoc(cmd)
-        _ans = self.sock.write_readline(_cmd)
+        _ans = self.sock.write_readline(_cmd.encode()).decode()
 
         # handle multiple lines answer
         _ans = _ans + "\n"
         try:
             while True:
-                _ans = _ans + self.sock.raw_read(timeout=.1)
+                _ans = _ans + self.sock.raw_read(timeout=.1).decode()
         except:
             pass
 
@@ -197,7 +197,12 @@ class PI_E727(Controller):
 
     def raw_write_readlines(self, cmd, lines):
         _cmd = self._append_eoc(cmd)
-        _ans = "\n".join(self.sock.write_readlines("%s\n" % _cmd, lines))
+        ans = "\n".join(
+            [
+                r.decode().strip()
+                for r in self._cnx.write_readlines(_cmd.encode(), lines)
+            ]
+        )
         _ans = self._remove_eoc(_ans)
         return _ans
 
@@ -209,7 +214,7 @@ class PI_E727(Controller):
         return _cmd
 
     def _remove_eoc(self, ans):
-        _ans = ans.strip().strip("\n\r")
+        _ans = ans.strip()
         elog.debug("<<<< %s" % _ans)
         return _ans
 

@@ -28,6 +28,7 @@ from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask, protect_from_kill
+from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
 
@@ -153,7 +154,7 @@ class Prologix:
             self._eos = self._gpib_kwargs["eos"]
             if self._eos == "\r\n":
                 self._debug(
-                    "Prologix::init() eos set to 0 (%s)" % [ord(c) for c in self._eos]
+                    "Prologix::init() eos set to 0 (%s)" % str(HexMsg(self._eos))
                 )
                 self._sock.write(b"++eos 0\n")
             elif self._eos == "\r":

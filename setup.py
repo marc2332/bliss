@@ -112,7 +112,6 @@ def main():
         "gevent >= 1.4",
         "pygments",
         "numpy >= 1.13",
-        "h5py",
         "mendeleev",
         "pint",
         'silx >=0.8,<0.10 ; platform_machine == "x86_64"',

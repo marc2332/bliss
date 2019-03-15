@@ -30,7 +30,7 @@ class TypingHelper(object):
         return s.lstrip("-").replace(".", "", 1).isdigit()
 
     def add_helper_key_binding(self, repl):
-        @repl.add_key_binding(" ")
+        @repl.add_key_binding(" ", filter=has_focus(DEFAULT_BUFFER))
         def _(event):
             """
             add '(' and ',' instead of 'space' if appropriate in the command-line current context

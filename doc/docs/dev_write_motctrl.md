@@ -200,7 +200,31 @@ following methods (further detailed) are mandatory:
 
 ### trajectory motion
 The trajectory methods are used by the `TrajectoryGroup` class.
- 
+
+In Bliss two type of trajectories can be send to a controller:
+
+  - `Trajectory` define **one continous movement**.
+  This movement is given by a numpy **p** osition,**v** elocity and **t** ime array.
+  This object has two argument:
+    - **axis** instance
+    - **pvt** a numpy **pvt** array ( *"position","velocity","time"* ).
+    - **events_positions** list of triplet **pvt** where the controller should send event when axes
+    reach this triplet during trajectory motion.
+
+  - and `CyclicTrajectory` define **trajectory pattern** with a **number of cycle**.
+  This object has this arguments:
+    - **origin** the absolute starting position
+    - **pvt_pattern** a numpy **pvt** array relative to the **origin** position.
+    - **nb_cycles** number of iteration for the **pvt_pattern**.
+    - **is_closed** return True if first point == to last point.
+    - **events_pattern_positions** list of event for this trajectory pattern.
+    - *pvt* full trajectory, this one is **calculated** to help controller which
+    doesn't managed trajectory pattern.
+    - *events_positions* list of all event on the full trajectory,
+    same as above, it's **calculated**.
+    
+####Methods involved:
+
 * `has_trajectory(self)`
     * Must return true if motor controller supports trajectory
 * `prepare_trajectory(self, *trajectories)`
@@ -212,6 +236,29 @@ The trajectory methods are used by the `TrajectoryGroup` class.
 * `stop_trajectory(self, *trajectories)`
     * Must interrupt running trajectory motion
 
+```python
+def prepare_trajectory(self, *trajectories):
+    for traj in trajectories:
+        axis = traj.axis #get the axis for that trajectory
+        pvt = traj.pvt # get the trajectory array
+        times = pvt['time'] # the timing array (absciss)
+        positions = pvt['position'] # all the axis positions
+        velocities = pvt['velocity'] # all axis velocity (trajectory slope)
+```
+
+When the Bliss core ask a controller to move his axis in trajectory, the calling sequence is fixed to:
+
+  - first call `prepare_trajectory`
+  - secondly call `move_to_trajectory`
+  - then `start_trajectory`
+  - and eventually `stop_trajectory` in case of movement interruption.
+
+#### event on trajectory
+
+  - `has_trajectory_event` should return True if capable.
+  - `set_trajectory_events` register events on the trajectory given has argument.
+  Use **events_positions** or **events_pattern_positions** of `Trajectory` object.
+  
 ### Calibration methods
 * `home_search(self, axis, direction)`
     * Must start a home search in the positive direction if `direction`>0, negative otherwise

@@ -63,6 +63,23 @@ def test_shell_noexit(clean_gevent):
     assert result == "print(1,2)"
 
 
+def test_shell_ctrl_r(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    result, cli, br = _feed_cli_with_input(
+        chr(0x12) + "bla blub\r\r", check_line_ending=True
+    )
+    assert result == ""
+
+    result, cli, br = _feed_cli_with_input(
+        "from bliss import setup_globals\rfrom subprocess import Popen\r"
+        + chr(0x12)
+        + "from bl\r\r",
+        check_line_ending=True,
+    )
+    assert result == "from bliss import setup_globals"
+
+
 def test_shell_prompt_number(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, br = _feed_cli_with_input("print 1\r")

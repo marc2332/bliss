@@ -355,7 +355,7 @@ class ScanPrinter:
         print(*labels, sep=", ", end="\r")
 
 
-#class ScanListener(ScanPrinter):
+# class ScanListener(ScanPrinter):
 #    """ listen to scan events and compose output """
 #    def __init__(self):
 #        ScanPrinter.__init__(self)
@@ -363,4 +363,3 @@ class ScanPrinter:
 #        dispatcher.connect(self.__on_scan_new, "scan_new", scan)
 #        dispatcher.connect(self.__on_scan_data, "scan_data", scan)
 #        dispatcher.connect(self.__on_scan_end, "scan_end", scan)
-        

@@ -54,7 +54,7 @@ if not is_windows():
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
-from bliss.shell import initialize #, ScanListener
+from bliss.shell import initialize  # , ScanListener
 
 if sys.platform in ["win32", "cygwin"]:
     import win32api
@@ -69,7 +69,7 @@ class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
-        #scan_listener = kwargs.pop("scan_listener")
+        # scan_listener = kwargs.pop("scan_listener")
         session = kwargs.pop("session")
         # bliss_bar = status_bar(self)
         # toolbars = list(kwargs.pop("extra_toolbars", ()))
@@ -85,7 +85,7 @@ class BlissRepl(PythonRepl):
         # self.bliss_bar_format = "normal"
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
-        #self.bliss_scan_listener = scan_listener
+        # self.bliss_scan_listener = scan_listener
         self.bliss_prompt = BlissPrompt(self)
         self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
@@ -199,17 +199,22 @@ def cli(
     else:
         history_filename = os.path.join(os.environ["HOME"], history_filename)
 
-    #scan_listener = ScanListener()
+    # scan_listener = ScanListener()
     from bliss.shell import ScanPrinter
     import bliss.scanning.scan
+
     scan_printer = ScanPrinter()
-    bliss.scanning.scan.SCAN_PRINTER = {"new":scan_printer._on_scan_new, "data":scan_printer._on_scan_data, "end":scan_printer._on_scan_end}
+    bliss.scanning.scan.SCAN_PRINTER = {
+        "new": scan_printer._on_scan_new,
+        "data": scan_printer._on_scan_data,
+        "end": scan_printer._on_scan_end,
+    }
 
     # Create REPL.
     repl = BlissRepl(
         get_globals=get_globals,
         session=session,
-        #scan_listener=scan_printer,
+        # scan_listener=scan_printer,
         vi_mode=vi_mode,
         prompt_label=prompt_label,
         title=session_title,

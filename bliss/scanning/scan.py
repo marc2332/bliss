@@ -47,9 +47,12 @@ from . import writer
 SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
-def void(*args): pass
-SCAN_PRINTER = {"new":void, "data":void, "end":void}
 
+def void(*args):
+    pass
+
+
+SCAN_PRINTER = {"new": void, "data": void, "end": void}
 
 
 class StepScanDataWatch(object):
@@ -730,7 +733,6 @@ class Scan(object):
         self._devices = []
 
     def run(self):
-        
 
         if hasattr(self._data_watch_callback, "on_state"):
             call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
@@ -747,7 +749,7 @@ class Scan(object):
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            #t0 = time.perf_counter()
+            # t0 = time.perf_counter()
             SCAN_PRINTER["new"](self.scan_info)
 
             self._state = self.PREPARE_STATE
@@ -815,8 +817,8 @@ class Scan(object):
 
             try:
                 SCAN_PRINTER["end"](self.scan_info)
-                #dt0 = time.perf_counter() -t0
-                #print("scan run time",dt0)
+                # dt0 = time.perf_counter() -t0
+                # print("scan run time",dt0)
             finally:
                 if self.writer:
                     self.writer.close()
@@ -959,5 +961,3 @@ class Scan(object):
         Activate logging trace during scan
         """
         AcquisitionChain.trace(on)
-
-

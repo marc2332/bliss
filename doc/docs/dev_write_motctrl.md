@@ -24,7 +24,6 @@ defined to implement very specific features of a motor controller.
 
 ## Example and skeleton of BLISS motor plugin
 
-* `bliss/controllers/motors/template.py` is a template to create a BLISS motor plugin
 * `bliss/controllers/motors/mockup.py` is an example of simulated motor
 
 ## Minimal set of functions to implement
@@ -32,7 +31,6 @@ defined to implement very specific features of a motor controller.
 In order to get a working (but limited) BLISS motor plugin, the
 following methods (further detailed) are mandatory:
 
-* `__init__()`
 * `initialize_axis()`
     * NB: If this method in not defined, it create not necessarily an error
     but initialization of axis is not done.
@@ -88,14 +86,6 @@ following methods (further detailed) are mandatory:
 * `set_off(self, axis)`
     * Must disable the given axis (power off, breaks ? park ?).
     * Not automatically called ???
-
-* `finalize(self)`
-    * ???
-    * ??? Called when no more access to the controller is needed.
-
-* `finalize_axis(self, axis)`
-    * ???
-    * Called at reset of the axis.
 
 ### Velocity/Acceleration methods
 
@@ -209,26 +199,29 @@ following methods (further detailed) are mandatory:
     * Called by `axis.stop()` or `axis.stop_jog()`
 
 ### trajectory motion
+The trajectory methods are used by the `TrajectoryGroup` class.
+ 
+* `has_trajectory(self)`
+    * Must return true if motor controller supports trajectory
+* `prepare_trajectory(self, *trajectories)`
+    * Musst prepare controller to perform given trajectories
 * `move_to_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
+    * Must to the first (or starting) point of the trajectories
 * `start_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
+    * Must move motor(s) along trajectories to the final position(s)
 * `stop_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
+    * Must interrupt running trajectory motion
 
 ### Calibration methods
-* `home_search(self, axis)`
-    * Must ???
-    * Called ???
+* `home_search(self, axis, direction)`
+    * Must start a home search in the positive direction if `direction`>0, negative otherwise
+    * Called by `axis.home(direction)`
 * `home_state(self, axis)`
-    * Must ???
-    * Called ???
+    * Must return a MOVING state when still performing home search, and a READY state when homing is finished
+    * Called by axis when polling to wait end of home search
 * `limit_search(self, axis, limit)`
-    * Must ???
-    * Called ???
+    * Must move to one hardware limit (positive if `limit`>0, negative otherwise)
+    * Called by `axis.hw_limit(limit)`
 
 ### Encoder methods
 * `initialize_encoder(self, encoder)`
@@ -238,16 +231,19 @@ following methods (further detailed) are mandatory:
 
 * `read_encoder(self, encoder)`
     * Must return the encoder position in *encoder_steps*
-    * Called ???
+    * Called by `encoder.read()` method by exported Encoder object or by `axis.measured_position()` of related axis
+    * `encoder.read()` is called at the end of a motion to check if final position has been reached.
 
 * `set_encoder(self, encoder, new_value)`
     * Must set the encoder position to ``new_value``
     * ``new_value`` is in encoder_steps
-    * Called ???
+    * Called by `encoder.set(new_value)` 
 
 ### Information methods
 * `get_id(self, axis)`
 * `get_info(self, axis)`
+    * Musst return printable infos for axis
+    * Called by `axis.get_info()`
 
 ### Direct communication methods
 These methods allow to send arbitrary commands and read responses from the controller.
@@ -262,7 +258,7 @@ They can be useful to test, to debug or to tune a controller.
     * Must send the `<com>` command and return the answer of the controller.
     * Called by user.
 
-### Positioned moves methods
+### Position triggers
 * `set_event_positions(self, axis_or_encoder, positions)`
     * This method is use to load into the controller a list of positions for
         event/trigger.  The controller should generate an event
@@ -303,5 +299,4 @@ by the created controller command.
 *`move(m1, 3)`: uses `Group.move()`
 *`m1.move(3)`: uses `Axis.move()`
 
-![Screenshot](img/dial_user_ctrl.svg)
 

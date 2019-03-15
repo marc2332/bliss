@@ -38,20 +38,16 @@ class PI_C663(Controller):
         self._status = ""
         try:
             _ans = self.serial.write_readline(b"ERR?\n").decode()
-            print("err=%r" % _ans)
             _ans = self.serial.write_readline(b"*IDN?\n").decode()
-            print(_ans)
             # _ans =='(c)2013 Physik Instrumente(PI) Karlsruhe, C-663.11,0,1.2.1.0'
             elog.debug(_ans)
             if _ans.index("C-663.11") == 0:
-                print("zero")
                 elog.debug("*IDN? -> %r" % _ans)
         except:
             self._status = (
                 'communication error : no PI C663 found on serial "%s"'
                 % self.serial_line
             )
-            print(self._status)
             elog.debug(self._status)
 
     def finalize(self):
@@ -77,9 +73,9 @@ class PI_C663(Controller):
         # Checks referencing.
         _ref = self._get_referencing(axis)
         if _ref == 0:
-            print("axis '%s' must be referenced before being movable" % axis.name)
+            elog.debug("axis '%s' must be referenced before being movable" % axis.name)
         else:
-            print("axis '%s' is referenced." % axis.name)
+            elog.debug("axis '%s' is referenced." % axis.name)
 
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
@@ -350,7 +346,7 @@ class PI_C663(Controller):
         return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
-        print("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
+        elog.debug("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
 
     def _stop(self):
         self.serial.write(b"STP\n")

@@ -137,8 +137,8 @@ def _find_unit(obj):
         return
 
 
-class ScanListener:
-    """listen to scan events and compose output"""
+class ScanPrinter:
+    """compose scan output"""
 
     HEADER = (
         "Total {npoints} points{estimation_str}\n"
@@ -152,12 +152,9 @@ class ScanListener:
     DEFAULT_WIDTH = 12
 
     def __init__(self):
-        dispatcher.connect(self.__on_scan_new, "scan_new", scan)
-        dispatcher.connect(self.__on_scan_data, "scan_data", scan)
-        dispatcher.connect(self.__on_scan_end, "scan_end", scan)
         self.real_motors = []
 
-    def __on_scan_new(self, scan_info):
+    def _on_scan_new(self, scan_info):
 
         scan_type = scan_info.get("type")
         if scan_type is None:
@@ -195,7 +192,7 @@ class ScanListener:
                         self.real_motors.append(motor)
                         if self.term.is_a_tty:
                             dispatcher.connect(
-                                self.__on_motor_position_changed,
+                                self._on_motor_position_changed,
                                 signal="position",
                                 sender=motor,
                             )
@@ -276,7 +273,7 @@ class ScanListener:
             ]
         print(header)
 
-    def __on_scan_data(self, scan_info, values):
+    def _on_scan_data(self, scan_info, values):
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -322,14 +319,14 @@ class ScanListener:
             else:
                 print(line)
 
-    def __on_scan_end(self, scan_info):
+    def _on_scan_end(self, scan_info):
         scan_type = scan_info.get("type")
         if scan_type is None or scan_type == "ct":
             return
 
         for motor in self.real_motors:
             dispatcher.disconnect(
-                self.__on_motor_position_changed, signal="position", sender=motor
+                self._on_motor_position_changed, signal="position", sender=motor
             )
 
         end = datetime.datetime.fromtimestamp(time.time())
@@ -345,7 +342,7 @@ class ScanListener:
             )
         print(msg)
 
-    def __on_motor_position_changed(self, position, signal=None, sender=None):
+    def _on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []
         for motor in self.real_motors:
             position = "{0:.03f}".format(motor.position)
@@ -356,3 +353,14 @@ class ScanListener:
 
         print("\33[2K", end="")
         print(*labels, sep=", ", end="\r")
+
+
+#class ScanListener(ScanPrinter):
+#    """ listen to scan events and compose output """
+#    def __init__(self):
+#        ScanPrinter.__init__(self)
+#
+#        dispatcher.connect(self.__on_scan_new, "scan_new", scan)
+#        dispatcher.connect(self.__on_scan_data, "scan_data", scan)
+#        dispatcher.connect(self.__on_scan_end, "scan_end", scan)
+        

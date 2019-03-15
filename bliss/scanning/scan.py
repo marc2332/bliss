@@ -42,9 +42,14 @@ from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
 
+
 # Globals
 SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
+
+def void(*args): pass
+SCAN_PRINTER = {"new":void, "data":void, "end":void}
+
 
 
 class StepScanDataWatch(object):
@@ -83,7 +88,8 @@ class StepScanDataWatch(object):
                 ch_name: ch.get(point_nb)
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
-            send(current_module, "scan_data", scan_info, values)
+            SCAN_PRINTER["data"](scan_info, values)
+
         self._last_point_display = min_nb_points
 
 
@@ -724,6 +730,8 @@ class Scan(object):
         self._devices = []
 
     def run(self):
+        
+
         if hasattr(self._data_watch_callback, "on_state"):
             call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
             call_on_stop = self._data_watch_callback.on_state(self.STOP_STATE)
@@ -739,7 +747,8 @@ class Scan(object):
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            send(current_module, "scan_new", self.scan_info)
+            #t0 = time.perf_counter()
+            SCAN_PRINTER["new"](self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -805,7 +814,9 @@ class Scan(object):
             self._state = self.IDLE_STATE
 
             try:
-                send(current_module, "scan_end", self.scan_info)
+                SCAN_PRINTER["end"](self.scan_info)
+                #dt0 = time.perf_counter() -t0
+                #print("scan run time",dt0)
             finally:
                 if self.writer:
                     self.writer.close()
@@ -948,3 +959,5 @@ class Scan(object):
         Activate logging trace during scan
         """
         AcquisitionChain.trace(on)
+
+

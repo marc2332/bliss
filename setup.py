@@ -118,6 +118,7 @@ def main():
         "psutil",
         "requests",
         "cffi",
+        "pygraphviz",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

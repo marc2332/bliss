@@ -23,3 +23,5 @@ psutil
 requests
 prompt_toolkit >= 2.0
 gxx_linux-64
+networkX
+pygraphviz

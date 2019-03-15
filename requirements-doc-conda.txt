@@ -1,5 +1,6 @@
-# Conda requirement file (python 2.7)
+# Conda requirement file 
 # Documentation requirements
 sphinx
 graphviz
 pygments
+markdown-inline-graphviz

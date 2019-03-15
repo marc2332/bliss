@@ -14,12 +14,17 @@ import warnings
 import functools
 import traceback
 import gevent
+import time
+import datetime
+import numpy
+import operator
 
 warnings.filterwarnings("ignore", module="jinja2")
 
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.history import History
+
+# from prompt_toolkit.history import History
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
@@ -54,10 +59,27 @@ if not is_windows():
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
-from bliss.shell import initialize  # , ScanListener
+from bliss import setup_globals
+from bliss.shell import initialize
+from bliss.config import static
+from bliss.common.utils import counter_dict
+from bliss.common.axis import Axis
+from bliss.common.event import dispatcher
+from bliss.scanning.scan import _SCAN_PRINTER
 
 if sys.platform in ["win32", "cygwin"]:
     import win32api
+
+
+if sys.platform not in ["win32", "cygwin"]:
+    from blessings import Terminal
+else:
+
+    class Terminal:
+        def __getattr__(self, prop):
+            if prop.startswith("__"):
+                raise AttributeError(prop)
+            return ""
 
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
@@ -69,7 +91,6 @@ class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
-        # scan_listener = kwargs.pop("scan_listener")
         session = kwargs.pop("session")
         # bliss_bar = status_bar(self)
         # toolbars = list(kwargs.pop("extra_toolbars", ()))
@@ -85,7 +106,6 @@ class BlissRepl(PythonRepl):
         # self.bliss_bar_format = "normal"
         self.bliss_prompt_label = prompt_label
         self.bliss_session = session
-        # self.bliss_scan_listener = scan_listener
         self.bliss_prompt = BlissPrompt(self)
         self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
@@ -122,6 +142,243 @@ class BlissRepl(PythonRepl):
         current_task = self.current_task
         if current_task is not None:
             current_task.kill(block=block, exception=exception)
+
+
+def _find_obj(name):
+    return operator.attrgetter(name)(setup_globals)
+
+
+def _find_unit(obj):
+    try:
+        if isinstance(obj, str):
+            # in the form obj.x.y
+            obj = _find_obj(obj)
+        if hasattr(obj, "unit"):
+            return obj.unit
+        if hasattr(obj, "config"):
+            return obj.config.get("unit")
+        if hasattr(obj, "controller"):
+            return _find_unit(obj.controller)
+    except:
+        return
+
+
+class ScanPrinter:
+    """compose scan output"""
+
+    HEADER = (
+        "Total {npoints} points{estimation_str}\n"
+        + "{not_shown_counters_str}\n"
+        + "Scan {scan_nb} {start_time_str} {filename} "
+        + "{session_name} user = {user_name}\n"
+        + "{title}\n\n"
+        + "{column_header}"
+    )
+
+    DEFAULT_WIDTH = 12
+
+    def __init__(self):
+        self.real_motors = []
+
+    def _on_scan_new(self, scan_info):
+
+        scan_type = scan_info.get("type")
+        if scan_type is None:
+            return
+        config = static.get_config()
+        scan_info = dict(scan_info)
+        self.term = Terminal(scan_info.get("stream"))
+        nb_points = scan_info.get("npoints")
+        if nb_points is None:
+            return
+
+        self.col_labels = ["#"]
+        self.real_motors = []
+        self.counter_names = []
+        self._point_nb = 0
+        motor_labels = []
+        counter_labels = []
+
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+
+        for channel_name in channels["master"]["scalars"]:
+            channel_short_name = channel_name.split(":")[-1]
+            # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
+            if channel_short_name == "elapsed_time":
+                # timescan
+                self.col_labels.insert(1, "dt[s]")
+            else:
+                # we can suppose channel_name to be a motor name
+                try:
+                    motor = _find_obj(channel_short_name)
+                except Exception:
+                    continue
+                else:
+                    if isinstance(motor, Axis):
+                        self.real_motors.append(motor)
+                        if self.term.is_a_tty:
+                            dispatcher.connect(
+                                self._on_motor_position_changed,
+                                signal="position",
+                                sender=motor,
+                            )
+                        unit = motor.config.get("unit", default=None)
+                        motor_label = motor.name
+                        if unit:
+                            motor_label += "[{0}]".format(unit)
+                        motor_labels.append(motor_label)
+
+        self.cntlist = [
+            x.name for x in counter_dict().values()
+        ]  # get all available counter names
+        self.cnt_chanlist = [
+            x.replace(".", ":") for x in self.cntlist
+        ]  # channel names can not contain "." so we have to take care of that
+        self.cntdict = dict(zip(self.cnt_chanlist, self.cntlist))
+
+        for channel_name in channels["scalars"]:
+            if channel_name.split(":")[-1] == "elapsed_time":
+                self.col_labels.insert(1, "dt[s]")
+                continue
+            else:
+                potential_cnt_channels = [
+                    channel_name.split(":", i)[-1]
+                    for i in range(channel_name.count(":") + 1)
+                ]
+                potential_cnt_channel_name = [
+                    e for e in potential_cnt_channels if e in self.cntlist
+                ]
+                if len(potential_cnt_channel_name) > 0:
+                    self.counter_names.append(potential_cnt_channel_name[0])
+                    unit = _find_unit(self.cntdict[potential_cnt_channel_name[0]])
+                    if unit:
+                        counter_name += "[{0}]".format(unit)
+                    counter_labels.append(self.cntdict[potential_cnt_channel_name[0]])
+
+        self.col_labels.extend(sorted(motor_labels))
+        self.col_labels.extend(sorted(counter_labels))
+
+        other_channels = [
+            channel_name.split(":")[-1]
+            for channel_name in channels["spectra"] + channels["images"]
+        ]
+        if other_channels:
+            not_shown_counters_str = "Activated counters not shown: %s\n" % ", ".join(
+                other_channels
+            )
+        else:
+            not_shown_counters_str = ""
+
+        if scan_type == "ct":
+            header = not_shown_counters_str
+        else:
+            estimation = scan_info.get("estimation")
+            if estimation:
+                total = datetime.timedelta(seconds=estimation["total_time"])
+                motion = datetime.timedelta(seconds=estimation["total_motion_time"])
+                count = datetime.timedelta(seconds=estimation["total_count_time"])
+                estimation_str = ", {0} (motion: {1}, count: {2})".format(
+                    total, motion, count
+                )
+            else:
+                estimation_str = ""
+
+            col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
+            h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
+            header = "  ".join(
+                [templ.format(label) for templ, label in zip(h_templ, self.col_labels)]
+            )
+            header = self.HEADER.format(
+                column_header=header,
+                estimation_str=estimation_str,
+                not_shown_counters_str=not_shown_counters_str,
+                **scan_info
+            )
+            self.col_templ = [
+                "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens
+            ]
+        print(header)
+
+    def _on_scan_data(self, scan_info, values):
+        scan_type = scan_info.get("type")
+        if scan_type is None:
+            return
+
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+
+        elapsed_time_col = []
+        if "elapsed_time" in values:
+            elapsed_time_col.append(values.pop("elapsed_time"))
+
+        motor_labels = sorted(m.name for m in self.real_motors)
+        motor_values = [values[motor_name] for motor_name in motor_labels]
+        counter_values = [
+            values[counter_name] for counter_name in sorted(self.counter_names)
+        ]
+
+        values = elapsed_time_col + motor_values + counter_values
+        if scan_type == "ct":
+            # ct is actually a timescan(npoints=1).
+            norm_values = numpy.array(values) / scan_info["count_time"]
+            col_len = max(map(len, self.col_labels)) + 2
+            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
+                col_len
+            )
+            lines = "\n".join(
+                [
+                    template.format(label=label, value=v, norm=nv)
+                    for label, v, nv in zip(self.col_labels[1:], values, norm_values)
+                ]
+            )
+            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+            msg = "{0}\n\n{1}".format(end_time_str, lines)
+            print(msg)
+        else:
+            values.insert(0, self._point_nb)
+            self._point_nb += 1
+            line = "  ".join(
+                [self.col_templ[i].format(v) for i, v in enumerate(values)]
+            )
+            if self.term.is_a_tty:
+                monitor = scan_info.get("output_mode", "tail") == "monitor"
+                print("\r" + line, end=monitor and "\r" or "\n")
+            else:
+                print(line)
+
+    def _on_scan_end(self, scan_info):
+        scan_type = scan_info.get("type")
+        if scan_type is None or scan_type == "ct":
+            return
+
+        for motor in self.real_motors:
+            dispatcher.disconnect(
+                self._on_motor_position_changed, signal="position", sender=motor
+            )
+
+        end = datetime.datetime.fromtimestamp(time.time())
+        start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
+        dt = end - start
+        if scan_info.get("output_mode", "tail") == "monitor" and self.term.is_a_tty:
+            print()
+        msg = "\nTook {0}".format(dt)
+        if "estimation" in scan_info:
+            time_estimation = scan_info["estimation"]["total_time"]
+            msg += " (estimation was for {0})".format(
+                datetime.timedelta(seconds=time_estimation)
+            )
+        print(msg)
+
+    def _on_motor_position_changed(self, position, signal=None, sender=None):
+        labels = []
+        for motor in self.real_motors:
+            position = "{0:.03f}".format(motor.position)
+            unit = motor.config.get("unit", default=None)
+            if unit:
+                position += "[{0}]".format(unit)
+            labels.append("{0}: {1}".format(motor.name, position))
+
+        print("\33[2K", end="")
+        print(*labels, sep=", ", end="\r")
 
 
 CONFIGS = weakref.WeakValueDictionary()
@@ -199,22 +456,19 @@ def cli(
     else:
         history_filename = os.path.join(os.environ["HOME"], history_filename)
 
-    # scan_listener = ScanListener()
-    from bliss.shell import ScanPrinter
-    import bliss.scanning.scan
-
     scan_printer = ScanPrinter()
-    bliss.scanning.scan.SCAN_PRINTER = {
-        "new": scan_printer._on_scan_new,
-        "data": scan_printer._on_scan_data,
-        "end": scan_printer._on_scan_end,
-    }
+    _SCAN_PRINTER.update(
+        {
+            "new": scan_printer._on_scan_new,
+            "data": scan_printer._on_scan_data,
+            "end": scan_printer._on_scan_end,
+        }
+    )
 
     # Create REPL.
     repl = BlissRepl(
         get_globals=get_globals,
         session=session,
-        # scan_listener=scan_printer,
         vi_mode=vi_mode,
         prompt_label=prompt_label,
         title=session_title,

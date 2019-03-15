@@ -24,7 +24,7 @@ from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_ex
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, get_axes_positions_iter
-from bliss.common.utils import Statistics
+from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
 from bliss.config.settings import Parameters, _change_to_obj_marshalling
 from bliss.config.settings import _get_connection, pipeline
@@ -47,12 +47,8 @@ from . import writer
 SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
-
-def void(*args):
-    pass
-
-
-SCAN_PRINTER = {"new": void, "data": void, "end": void}
+_null = Null()
+_SCAN_PRINTER = {"new": _null, "data": _null, "end": _null}
 
 
 class StepScanDataWatch(object):
@@ -91,7 +87,7 @@ class StepScanDataWatch(object):
                 ch_name: ch.get(point_nb)
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
-            SCAN_PRINTER["data"](scan_info, values)
+            _SCAN_PRINTER["data"](scan_info, values)
 
         self._last_point_display = min_nb_points
 
@@ -749,8 +745,7 @@ class Scan(object):
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            # t0 = time.perf_counter()
-            SCAN_PRINTER["new"](self.scan_info)
+            _SCAN_PRINTER["new"](self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -816,9 +811,7 @@ class Scan(object):
             self._state = self.IDLE_STATE
 
             try:
-                SCAN_PRINTER["end"](self.scan_info)
-                # dt0 = time.perf_counter() -t0
-                # print("scan run time",dt0)
+                _SCAN_PRINTER["end"](self.scan_info)
             finally:
                 if self.writer:
                     self.writer.close()

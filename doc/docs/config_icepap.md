@@ -118,7 +118,7 @@ controller:
          opened_position: 1
 ```
 
-More information about **Shutter** objects [here](motion_shutter.md)
+More information about **Shutter** objects [here](using_shutter.md)
 
 ### Linked axis configuration
 

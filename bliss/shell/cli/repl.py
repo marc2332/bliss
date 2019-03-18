@@ -209,6 +209,10 @@ def configure_repl(repl):
     #    sys.stderr.write("<<BLISS REPL TEST>>")
 
 
+def old_history_cmd():
+    print("Please press F3-key to view history!")
+
+
 def cli(
     locals=None,
     session_name=None,
@@ -241,6 +245,8 @@ def cli(
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = lambda: ERROR_REPORT.last_error
+
+    user_ns["history"] = old_history_cmd
 
     __main__.__dict__.update(user_ns)
 

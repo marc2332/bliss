@@ -105,6 +105,7 @@ nav:
                 - Writing a MCA controller: dev_write_mca.md
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Logging a controller: dev_maplog_controller.md
+                - Writing a shutter: dev_write_shutter.md
                 - Counters: dev_ct.md
                 - Acquisition objects: dev_acq.md
                 - Tips'n'tricks: dev_tipsntricks.md

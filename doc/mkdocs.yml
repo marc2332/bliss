@@ -80,7 +80,6 @@ nav:
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
-                - Shutter: motion_shutter.md
         - Scanning:
                 - Counters and measurement groups: scan_ctmg.md
                 - Default scans: scan_default.md
@@ -91,6 +90,7 @@ nav:
                 - Continuous scans: scan_continuous.md
         - Instruments:
                 - ESRF BeamViewer (EBV): using_beamviewer.md
+                - Shutter: using_shutter.md
         - Online data display:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md

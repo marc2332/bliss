@@ -188,7 +188,10 @@ following methods (further detailed) are mandatory:
     * Must stop all movements defined in `motions`
     * Called on a `ctrl-c` during a group move
 
-### jog motion
+### Jog motion
+A Jog motion is a movement controlled in velocity instead of being
+controller in position.
+
 * `start_jog(self, axis, velocity, direction)`
     * Must start a "jog" movement: an unfinished movement at `velocity` speed.
       Movement will be finished when user calls `stop_jog()`.
@@ -198,42 +201,53 @@ following methods (further detailed) are mandatory:
     * Must stops a jog motion.
     * Called by `axis.stop()` or `axis.stop_jog()`
 
-### trajectory motion
+
+### Trajectory motion
 The trajectory methods are used by the `TrajectoryGroup` class.
 
-In Bliss two type of trajectories can be send to a controller:
+In Bliss, two types of trajectories can be send to a controller:
+`Trajectory` which defines **one continous movement** and
+`CyclicTrajectory` which defines a **trajectory pattern** with a
+**number of cycles**.
 
-  - `Trajectory` define **one continous movement**.
-  This movement is given by a numpy **p** osition,**v** elocity and **t** ime array.
-  This object has two argument:
-    - **axis** instance
-    - **pvt** a numpy **pvt** array ( *"position","velocity","time"* ).
-    - **events_positions** list of triplet **pvt** where the controller should send event when axes
-    reach this triplet during trajectory motion.
+#### `Trajectory`
+The movement is defined by a numpy array (PVT) containing *Position*,
+*Velocity* and *Time* parameters.
 
-  - and `CyclicTrajectory` define **trajectory pattern** with a **number of cycle**.
-  This object has this arguments:
-    - **origin** the absolute starting position
-    - **pvt_pattern** a numpy **pvt** array relative to the **origin** position.
-    - **nb_cycles** number of iteration for the **pvt_pattern**.
-    - **is_closed** return True if first point == to last point.
-    - **events_pattern_positions** list of event for this trajectory pattern.
-    - *pvt* full trajectory, this one is **calculated** to help controller which
-    doesn't managed trajectory pattern.
-    - *events_positions* list of all event on the full trajectory,
-    same as above, it's **calculated**.
-    
-####Methods involved:
+This object has the following arguments and properties:
 
-* `has_trajectory(self)`
-    * Must return true if motor controller supports trajectory
-* `prepare_trajectory(self, *trajectories)`
-    * Musst prepare controller to perform given trajectories
-* `move_to_trajectory(self, *trajectories)`
-    * Must to the first (or starting) point of the trajectories
-* `start_trajectory(self, *trajectories)`
+* **axis** instance
+* **pvt**: a `(position, velocity, time)` numpy array
+* **events_positions** (property): list of **PVT** triplets where the controller
+    should send events when axes reach this triplet during a trajectory
+    motion
+
+#### `CyclicTrajectory`
+This object has the following arguments and properties:
+
+* **origin**: the absolute starting position
+* **pvt_pattern** (property): a numpy **PVT** array relative to the **origin** position
+* **nb_cycles**: number of iteration for the **pvt_pattern**
+* **is_closed** (property): True if trajectory is closed, ie: first point = last point
+* **events_pattern_positions** (property): list of event for this trajectory pattern
+* **pvt** (property): full trajectory, this one is **calculated** to help controller which
+  doesn't managed trajectory pattern
+* **events_positions** (property): list of all events on the full trajectory,
+  same as above, it's **calculated**
+
+#### Involved methods
+
+Methods to implement in the controller:
+
+* `has_trajectory(self)`:
+    * Must return `True` if motor controller supports trajectories
+* `prepare_trajectory(self, *trajectories)`:
+    * Must prepare the controller to perform given trajectories
+* `move_to_trajectory(self, *trajectories)`:
+    * Must move to the first (or starting) point of the trajectories
+* `start_trajectory(self, *trajectories)`:
     * Must move motor(s) along trajectories to the final position(s)
-* `stop_trajectory(self, *trajectories)`
+* `stop_trajectory(self, *trajectories)`:
     * Must interrupt running trajectory motion
 
 ```python
@@ -246,28 +260,34 @@ def prepare_trajectory(self, *trajectories):
         velocities = pvt['velocity'] # all axis velocity (trajectory slope)
 ```
 
-When the Bliss core ask a controller to move his axis in trajectory, the calling sequence is fixed to:
+When the Bliss core ask a controller to move its axis in trajectory,
+the calling sequence is fixed to:
 
-  - first call `prepare_trajectory`
-  - secondly call `move_to_trajectory`
-  - then `start_trajectory`
-  - and eventually `stop_trajectory` in case of movement interruption.
+* `prepare_trajectory()`
+* `move_to_trajectory()`
+* `start_trajectory()`
+* eventually `stop_trajectory()` in case of movement interruption.
 
-#### event on trajectory
+#### Event on trajectory
 
-  - `has_trajectory_event` should return True if capable.
-  - `set_trajectory_events` register events on the trajectory given has argument.
-  Use **events_positions** or **events_pattern_positions** of `Trajectory` object.
-  
+Methods to implement in the controller:
+
+* `has_trajectory_event` should return `True` if capable.
+* `set_trajectory_events` register events on the trajectory given has
+  argument. Uses **events_positions** or **events_pattern_positions**
+  of `Trajectory` object.
+
+
 ### Calibration methods
 * `home_search(self, axis, direction)`
     * Must start a home search in the positive direction if `direction`>0, negative otherwise
     * Called by `axis.home(direction)`
 * `home_state(self, axis)`
-    * Must return a MOVING state when still performing home search, and a READY state when homing is finished
+    * Must return the `MOVING` state when still performing home
+      search, and the `READY` state when homing is finished
     * Called by axis when polling to wait end of home search
 * `limit_search(self, axis, limit)`
-    * Must move to one hardware limit (positive if `limit`>0, negative otherwise)
+    * Must move axis to the hardware limit (positive if `limit`>0, negative otherwise)
     * Called by `axis.hw_limit(limit)`
 
 ### Encoder methods

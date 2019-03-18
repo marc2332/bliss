@@ -24,7 +24,6 @@ defined to implement very specific features of a motor controller.
 
 ## Example and skeleton of BLISS motor plugin
 
-* `bliss/controllers/motors/template.py` is a template to create a BLISS motor plugin
 * `bliss/controllers/motors/mockup.py` is an example of simulated motor
 
 ## Minimal set of functions to implement
@@ -32,7 +31,6 @@ defined to implement very specific features of a motor controller.
 In order to get a working (but limited) BLISS motor plugin, the
 following methods (further detailed) are mandatory:
 
-* `__init__()`
 * `initialize_axis()`
     * NB: If this method in not defined, it create not necessarily an error
     but initialization of axis is not done.
@@ -88,14 +86,6 @@ following methods (further detailed) are mandatory:
 * `set_off(self, axis)`
     * Must disable the given axis (power off, breaks ? park ?).
     * Not automatically called ???
-
-* `finalize(self)`
-    * ???
-    * ??? Called when no more access to the controller is needed.
-
-* `finalize_axis(self, axis)`
-    * ???
-    * Called at reset of the axis.
 
 ### Velocity/Acceleration methods
 
@@ -198,7 +188,10 @@ following methods (further detailed) are mandatory:
     * Must stop all movements defined in `motions`
     * Called on a `ctrl-c` during a group move
 
-### jog motion
+### Jog motion
+A Jog motion is a movement controlled in velocity instead of being
+controller in position.
+
 * `start_jog(self, axis, velocity, direction)`
     * Must start a "jog" movement: an unfinished movement at `velocity` speed.
       Movement will be finished when user calls `stop_jog()`.
@@ -208,27 +201,94 @@ following methods (further detailed) are mandatory:
     * Must stops a jog motion.
     * Called by `axis.stop()` or `axis.stop_jog()`
 
-### trajectory motion
-* `move_to_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
-* `start_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
-* `stop_trajectory(self, *trajectories)`
-    * Must ???
-    * Called ???
+
+### Trajectory motion
+The trajectory methods are used by the `TrajectoryGroup` class.
+
+In Bliss, two types of trajectories can be send to a controller:
+`Trajectory` which defines **one continous movement** and
+`CyclicTrajectory` which defines a **trajectory pattern** with a
+**number of cycles**.
+
+#### `Trajectory`
+The movement is defined by a numpy array (PVT) containing *Position*,
+*Velocity* and *Time* parameters.
+
+This object has the following arguments and properties:
+
+* **axis** instance
+* **pvt**: a `(position, velocity, time)` numpy array
+* **events_positions** (property): list of **PVT** triplets where the controller
+    should send events when axes reach this triplet during a trajectory
+    motion
+
+#### `CyclicTrajectory`
+This object has the following arguments and properties:
+
+* **origin**: the absolute starting position
+* **pvt_pattern** (property): a numpy **PVT** array relative to the **origin** position
+* **nb_cycles**: number of iteration for the **pvt_pattern**
+* **is_closed** (property): True if trajectory is closed, ie: first point = last point
+* **events_pattern_positions** (property): list of event for this trajectory pattern
+* **pvt** (property): full trajectory, this one is **calculated** to help controller which
+  doesn't managed trajectory pattern
+* **events_positions** (property): list of all events on the full trajectory,
+  same as above, it's **calculated**
+
+#### Involved methods
+
+Methods to implement in the controller:
+
+* `has_trajectory(self)`:
+    * Must return `True` if motor controller supports trajectories
+* `prepare_trajectory(self, *trajectories)`:
+    * Must prepare the controller to perform given trajectories
+* `move_to_trajectory(self, *trajectories)`:
+    * Must move to the first (or starting) point of the trajectories
+* `start_trajectory(self, *trajectories)`:
+    * Must move motor(s) along trajectories to the final position(s)
+* `stop_trajectory(self, *trajectories)`:
+    * Must interrupt running trajectory motion
+
+```python
+def prepare_trajectory(self, *trajectories):
+    for traj in trajectories:
+        axis = traj.axis #get the axis for that trajectory
+        pvt = traj.pvt # get the trajectory array
+        times = pvt['time'] # the timing array (absciss)
+        positions = pvt['position'] # all the axis positions
+        velocities = pvt['velocity'] # all axis velocity (trajectory slope)
+```
+
+When the Bliss core ask a controller to move its axis in trajectory,
+the calling sequence is fixed to:
+
+* `prepare_trajectory()`
+* `move_to_trajectory()`
+* `start_trajectory()`
+* eventually `stop_trajectory()` in case of movement interruption.
+
+#### Event on trajectory
+
+Methods to implement in the controller:
+
+* `has_trajectory_event` should return `True` if capable.
+* `set_trajectory_events` register events on the trajectory given has
+  argument. Uses **events_positions** or **events_pattern_positions**
+  of `Trajectory` object.
+
 
 ### Calibration methods
-* `home_search(self, axis)`
-    * Must ???
-    * Called ???
+* `home_search(self, axis, direction)`
+    * Must start a home search in the positive direction if `direction`>0, negative otherwise
+    * Called by `axis.home(direction)`
 * `home_state(self, axis)`
-    * Must ???
-    * Called ???
+    * Must return the `MOVING` state when still performing home
+      search, and the `READY` state when homing is finished
+    * Called by axis when polling to wait end of home search
 * `limit_search(self, axis, limit)`
-    * Must ???
-    * Called ???
+    * Must move axis to the hardware limit (positive if `limit`>0, negative otherwise)
+    * Called by `axis.hw_limit(limit)`
 
 ### Encoder methods
 * `initialize_encoder(self, encoder)`
@@ -238,16 +298,19 @@ following methods (further detailed) are mandatory:
 
 * `read_encoder(self, encoder)`
     * Must return the encoder position in *encoder_steps*
-    * Called ???
+    * Called by `encoder.read()` method by exported Encoder object or by `axis.measured_position()` of related axis
+    * `encoder.read()` is called at the end of a motion to check if final position has been reached.
 
 * `set_encoder(self, encoder, new_value)`
     * Must set the encoder position to ``new_value``
     * ``new_value`` is in encoder_steps
-    * Called ???
+    * Called by `encoder.set(new_value)` 
 
 ### Information methods
 * `get_id(self, axis)`
 * `get_info(self, axis)`
+    * Musst return printable infos for axis
+    * Called by `axis.get_info()`
 
 ### Direct communication methods
 These methods allow to send arbitrary commands and read responses from the controller.
@@ -262,7 +325,7 @@ They can be useful to test, to debug or to tune a controller.
     * Must send the `<com>` command and return the answer of the controller.
     * Called by user.
 
-### Positioned moves methods
+### Position triggers
 * `set_event_positions(self, axis_or_encoder, positions)`
     * This method is use to load into the controller a list of positions for
         event/trigger.  The controller should generate an event
@@ -303,5 +366,4 @@ by the created controller command.
 *`move(m1, 3)`: uses `Group.move()`
 *`m1.move(3)`: uses `Axis.move()`
 
-![Screenshot](img/dial_user_ctrl.svg)
 

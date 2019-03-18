@@ -64,7 +64,6 @@ measurement, there is some main way to operate:
   See: [BLISS scan engine](scan_engine.md)
 * To to change triggering or gating of intrument,
   the *acquisition chain* has to be adapted.
-  See: [Acquisition Chain](acq_chain.md)
 * Customizing the presets. See: [Scans' presets](scan_presets.md)
 
 

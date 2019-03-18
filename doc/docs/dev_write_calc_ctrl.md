@@ -24,4 +24,7 @@ For example : N-legs tables, energy motor, slits, rotated translations.
 
 ![Screenshot](img/axis_group_calc.svg)
 
+![Screenshot](img/dial_user_ctrl.svg)
+
+
 

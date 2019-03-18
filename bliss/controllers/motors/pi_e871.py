@@ -38,11 +38,9 @@ class PI_E871(Controller):
 
         self._status = ""
         try:
-            self.serial.write("ERR?\n")
-            _ans = self.serial.readline()
+            _ans = self.serial.write_readline(b"ERR?\n").decode()
             print("err=%r" % _ans)
-            self.serial.write("*IDN?\n")
-            _ans = self.serial.readline()
+            _ans = self.serial.write_readline(b"*IDN?\n").decode()
             print(_ans)
             # 871 : '(c)2013 Physik Instrumente (PI) GmbH & Co. KG, E-871.1A1, 0, 01.00'
             # 873 : '(c)2015 Physik Instrumente (PI) GmbH & Co. KG, E-873.1A1, 115072229, 01.09'
@@ -209,13 +207,12 @@ class PI_E871(Controller):
     def raw_write(self, com):
         elog.debug("com=%s" % repr(com))
         _com = com + "\n"
-        self.serial.write(_com)
+        self.serial.write(_com.encode())
 
     def raw_write_read(self, com):
         elog.debug("com=%s" % repr(com))
         _com = com + "\n"
-        self.serial.write(_com)
-        _ans = self.serial.readline().rstrip()
+        _ans = self.serial.write_readline(_com.encode()).decode().rstrip()
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
@@ -357,7 +354,7 @@ class PI_E871(Controller):
         print("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
 
     def _stop(self):
-        self.serial.write("STP\n")
+        self.serial.write(b"STP\n")
 
     def send(self, axis, cmd):
         """
@@ -380,8 +377,7 @@ class PI_E871(Controller):
 
         elog.debug("cmd=%s" % repr(cmd))
         _cmd = cmd + "\n"
-        self.serial.write(_cmd)
-        _ans = self.serial.readline().rstrip()
+        _ans = self.serial.write_readline(_cmd.encode()).decode().rstrip()
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
@@ -395,18 +391,18 @@ class PI_E871(Controller):
         """
         elog.debug('cmd="%s" ' % cmd)
         _cmd = cmd + "\n"
-        self.serial.write(_cmd)
+        self.serial.write(_cmd.encode())
 
     @object_method(types_info=("None", "str"))
     def _get_all_params(self, axis):
-        self.serial.write("1 HPA?\n")
+        self.serial.write(b"1 HPA?\n")
         _txt = ""
 
-        _ans = self.serial.readline()
+        _ans = self.serial.readline().decode()
         _txt += _ans
 
         while _ans != "end of help\n":
-            _ans = self.serial.readline()
+            _ans = self.serial.readline().decode()
             _txt += _ans
 
         return _txt

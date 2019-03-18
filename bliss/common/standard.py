@@ -15,6 +15,8 @@ from bliss.common.plot import plot
 from bliss.common.axis import SoftAxis
 from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
+from bliss.common import logtools
+from bliss.common.logtools import *
 
 import sys
 
@@ -34,6 +36,7 @@ __all__ = (
         "sync",
     ]
     + scans.__all__
+    + logtools.__all__
     + ["cleanup", "error_cleanup", "plot", "lscnt"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
 )

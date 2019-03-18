@@ -35,6 +35,8 @@
 
 import socket, sys
 from struct import *
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 # debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
 debug = ["ignore_not_impl"]
@@ -64,7 +66,7 @@ def _not_impl(name):
     return _dbg(wrap, name)
 
 
-class EnetSocket(object):
+class EnetSocket(LogMixin):
     def __init__(self, host, port=5000):
         self._host = host
         self._port = port
@@ -73,10 +75,17 @@ class EnetSocket(object):
         self.sta = self.err = self.cnt = 0
         self.enet1000 = False
         self._extra_socket = list()
+        mapping.register(self, parents_list=["comms"], tag=str(self))
 
     def _open(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect((self._host, self._port))
+        mapping.register(
+            self, parents_list=["comms"], children_list=[self._sock], tag=str(self)
+        )
+
+    def __str__(self):
+        return f"{self.__class__.__name__}={self._host}:{self._port}"
 
     def close(self):
         if self._sock:

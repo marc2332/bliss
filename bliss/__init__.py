@@ -36,3 +36,4 @@ version_info = release.version_info
 from gevent import monkey
 
 monkey.patch_all(thread=False)
+from bliss.common import logtools

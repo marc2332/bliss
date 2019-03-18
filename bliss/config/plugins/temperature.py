@@ -12,7 +12,6 @@ from bliss.config.plugins.bliss import find_class
 
 
 def create_objects_from_config_node(config, item_cfg_node):
-    # import pdb; pdb.set_trace()
     parent_node = item_cfg_node.parent
     item_name = item_cfg_node["name"]
 

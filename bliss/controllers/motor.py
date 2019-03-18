@@ -18,6 +18,8 @@ from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 from bliss.config.channels import Cache, Channel
 from bliss.config import static, settings
 from gevent import lock
@@ -38,7 +40,7 @@ def get_setting_or_config_value(axis, name):
     return value
 
 
-class Controller(object):
+class Controller(LogMixin):
     """
     Motor controller base class
 
@@ -87,6 +89,7 @@ class Controller(object):
                 if obj_class is None:
                     raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
+        mapping.register(self)
 
     def _init(self):
         controller_axes = [

@@ -33,18 +33,20 @@ controller:
             output: $heater         <- mandatory
 """
 
-from bliss.common import log
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
 
 
-class Controller(object):
+class Controller(LogMixin):
     """
     Temperature controller base class
     """
 
     def __init__(self, config, inputs, outputs, loops):
-        # log.info("on Controller")
+        mapping.register(self)
+        # self._logger.info("on Controller")
         self.__config = config
         self._objects = dict()
         self._inputs = dict()
@@ -54,8 +56,8 @@ class Controller(object):
         self.initialize()
 
         for name, cfg in inputs:
-            log.debug("  input name: %s" % (name))
-            log.debug("  input config: %s" % (cfg))
+            self._logger.debug("  input name: %s" % (name))
+            self._logger.debug("  input config: %s" % (cfg))
             self._objects[name] = Input(self, cfg)
             self._inputs[name] = Input(self, cfg)
 
@@ -68,8 +70,8 @@ class Controller(object):
             self.initialize_input(self.get_object(name))
 
         for name, cfg in outputs:
-            log.debug("  output name: %s" % (name))
-            log.debug("  output config: %s" % (cfg))
+            self._logger.debug("  output name: %s" % (name))
+            self._logger.debug("  output config: %s" % (cfg))
             self._objects[name] = Output(self, cfg)
             self._outputs[name] = Output(self, cfg)
 
@@ -82,8 +84,8 @@ class Controller(object):
             set_custom_members(self, self._objects[name])
 
         for name, cfg in loops:
-            log.debug("  loops name: %s" % (name))
-            log.debug("  loops config: %s" % (cfg))
+            self._logger.debug("  loops name: %s" % (name))
+            self._logger.debug("  loops config: %s" % (cfg))
             self._objects[name] = Loop(self, cfg)
             self._loops[name] = Loop(self, cfg)
 
@@ -112,7 +114,7 @@ class Controller(object):
         Returns:
            the object
         """
-        log.info("Controller:get_object: %s" % (name))
+        self._logger.info("Controller:get_object: %s" % (name))
         # it is used by Loop class
         return self._objects.get(name)
 
@@ -160,7 +162,7 @@ class Controller(object):
         Returns:
            read value         
         """
-        log.info("Controller:read_input: %s" % (tinput))
+        self._logger.info("Controller:read_input: %s" % (tinput))
         raise NotImplementedError
 
     def read_output(self, toutput):
@@ -174,7 +176,7 @@ class Controller(object):
         Returns:
            read value         
         """
-        log.info("Controller:read_output: %s" % (toutput))
+        self._logger.info("Controller:read_output: %s" % (toutput))
         raise NotImplementedError
 
     def start_ramp(self, toutput, sp, **kwargs):
@@ -187,7 +189,7 @@ class Controller(object):
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
-        log.info("Controller:start_ramp: %s" % (toutput))
+        self._logger.info("Controller:start_ramp: %s" % (toutput))
         raise NotImplementedError
 
     def set_ramprate(self, toutput, rate):
@@ -199,7 +201,7 @@ class Controller(object):
            toutput:  Output class type object 
            rate:     ramp rate
        """
-        log.info("Controller:set_ramprate: %s" % (toutput))
+        self._logger.info("Controller:set_ramprate: %s" % (toutput))
         raise NotImplementedError
 
     def read_ramprate(self, toutput):
@@ -213,7 +215,7 @@ class Controller(object):
         Returns:
            ramp rate
         """
-        log.info("Controller:read_ramprate: %s" % (toutput))
+        self._logger.info("Controller:read_ramprate: %s" % (toutput))
         raise NotImplementedError
 
     def set_dwell(self, toutput, dwell):
@@ -225,7 +227,7 @@ class Controller(object):
            toutput:  Output class type object 
            dwell
        """
-        log.info("Controller:set_dwell: %s" % (toutput))
+        self._logger.info("Controller:set_dwell: %s" % (toutput))
         raise NotImplementedError
 
     def read_dwell(self, toutput):
@@ -239,7 +241,7 @@ class Controller(object):
         Returns:
            dwell value
         """
-        log.info("Controller:read_dwell: %s" % (toutput))
+        self._logger.info("Controller:read_dwell: %s" % (toutput))
         raise NotImplementedError
 
     def set_step(self, toutput, step):
@@ -251,7 +253,7 @@ class Controller(object):
            toutput:  Output class type object 
            step
        """
-        log.info("Controller:set_step: %s" % (toutput))
+        self._logger.info("Controller:set_step: %s" % (toutput))
         raise NotImplementedError
 
     def read_step(self, toutput):
@@ -265,7 +267,7 @@ class Controller(object):
         Returns:
            step value
         """
-        log.info("Controller:read_step: %s" % (toutput))
+        self._logger.info("Controller:read_step: %s" % (toutput))
         raise NotImplementedError
 
     def set_kp(self, tloop, kp):
@@ -277,7 +279,7 @@ class Controller(object):
            tloop:  Loop class type object 
            kp
        """
-        log.info("Controller:set_kp: %s" % (toutput))
+        self._logger.info("Controller:set_kp: %s" % (toutput))
         raise NotImplementedError
 
     def read_kp(self, tloop):
@@ -291,7 +293,7 @@ class Controller(object):
         Returns:
            kp value
         """
-        log.info("Controller:read_kp: %s" % (toutput))
+        self._logger.info("Controller:read_kp: %s" % (toutput))
         raise NotImplementedError
 
     def set_ki(self, tloop, ki):
@@ -303,7 +305,7 @@ class Controller(object):
            tloop:  Loop class type object 
            ki
        """
-        log.info("Controller:set_ki: %s" % (toutput))
+        self._logger.info("Controller:set_ki: %s" % (toutput))
         raise NotImplementedError
 
     def read_ki(self, tloop):
@@ -317,7 +319,7 @@ class Controller(object):
         Returns:
            ki value
         """
-        log.info("Controller:read_ki: %s" % (toutput))
+        self._logger.info("Controller:read_ki: %s" % (toutput))
         raise NotImplementedError
 
     def set_kd(self, tloop, kd):
@@ -329,7 +331,7 @@ class Controller(object):
            tloop:  Loop class type object 
            kd
        """
-        log.info("Controller:set_kd: %s" % (toutput))
+        self._logger.info("Controller:set_kd: %s" % (toutput))
         raise NotImplementedError
 
     def read_kd(self, tloop):
@@ -343,7 +345,7 @@ class Controller(object):
         Returns:
            kd value
         """
-        log.info("Controller:read_kd: %s" % (toutput))
+        self._logger.info("Controller:read_kd: %s" % (toutput))
         raise NotImplementedError
 
     def set(self, toutput, sp, **kwargs):
@@ -356,7 +358,7 @@ class Controller(object):
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
-        log.info("Controller:set: %s" % (toutput))
+        self._logger.info("Controller:set: %s" % (toutput))
         raise NotImplementedError
 
     def get_setpoint(self, toutput):
@@ -370,7 +372,7 @@ class Controller(object):
         Returns:
            (float) setpoint value. Must be None if not setpoint is set
         """
-        log.info("Controller:get_setpoint: %s" % (toutput))
+        self._logger.info("Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError
 
     def state_input(self, tinput):
@@ -384,7 +386,7 @@ class Controller(object):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        log.info("Controller:state_input:")
+        self._logger.info("Controller:state_input:")
         raise NotImplementedError
 
     def state_output(self, toutput):
@@ -398,7 +400,7 @@ class Controller(object):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        log.info("Controller:state_output:")
+        self._logger.info("Controller:state_output:")
         raise NotImplementedError
 
     def _f(self):
@@ -412,7 +414,7 @@ class Controller(object):
         Args:
            toutput:  Output class type object
         """
-        log.info("Controller:setpoint_stop")
+        self._logger.info("Controller:setpoint_stop")
         raise NotImplementedError
 
     def setpoint_abort(self, toutput):
@@ -423,7 +425,7 @@ class Controller(object):
         Args:
            toutput:  Output class type object
         """
-        log.info("Controller:setpoint_stop")
+        self._logger.info("Controller:setpoint_stop")
         raise NotImplementedError
 
     def on(self, tloop):
@@ -434,7 +436,7 @@ class Controller(object):
         Args: 
            tloop:  Loop class type object
         """
-        log.info("Controller:on:")
+        self._logger.info("Controller:on:")
         raise NotImplementedError
 
     def off(self, tloop):
@@ -445,7 +447,7 @@ class Controller(object):
         Args: 
            tloop:  Loop class type object
         """
-        log.info("Controller:on:")
+        self._logger.info("Controller:on:")
         raise NotImplementedError
 
     def Wraw(self, str):
@@ -456,7 +458,7 @@ class Controller(object):
         Args:
            str:  the string to write
         """
-        log.info("Controller:Wraw:")
+        self._logger.info("Controller:Wraw:")
         raise NotImplementedError
 
     def Rraw(self):
@@ -467,7 +469,7 @@ class Controller(object):
         returns:
            response from the controller
         """
-        log.info("Controller:Rraw:")
+        self._logger.info("Controller:Rraw:")
         raise NotImplementedError
 
     def WRraw(self, str):
@@ -480,5 +482,5 @@ class Controller(object):
         returns:
            response from the controller
         """
-        log.info("Controller:WRraw:")
+        self._logger.info("Controller:WRraw:")
         raise NotImplementedError

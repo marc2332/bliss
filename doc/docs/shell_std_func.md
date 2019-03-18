@@ -137,18 +137,4 @@ NB: `move()` can take `wait=False` argument to be non-bloquant.
             """
             __umove(*args)
 
-### set_log_level
-```set_log_level(<level>)```: level (int or str): new log level can be constant (ex: logging.INFO) or case insensitive equivalent string (ex: 'Info')
-
-        CYRIL [31]: set_log_level("Info")
-        
-        CYRIL [32]: set_log_level(logging.INFO)
-
-
-        Levels:
-               logging.CRITICAL
-               logging.DEBUG
-               logging.ERROR
-               logging.FATAL
-               logging.NOTSET
 

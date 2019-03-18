@@ -18,6 +18,9 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask, protect_from_kill
 from . import serial
 
+from bliss.common import mapping
+from bliss.common.logtools import LogMixin
+
 
 class ModbusError(CommunicationError):
     pass
@@ -86,11 +89,12 @@ class Modbus_ASCII:
         return lrc & 0xff
 
 
-class Modbus_RTU:
+class Modbus_RTU(LogMixin):
     def __init__(self, node, *args, **kwargs):
         self._serial = serial.Serial(*args, **kwargs)
         self.node = node
         self._lock = lock.RLock()
+        mapping.register(self, children_list=[self._serial])
 
     def __del__(self):
         self._serial.close()

@@ -8,6 +8,7 @@
 """Communication tools (:func:`~bliss.comm.util.get_interface`,
 :func:`~bliss.comm.util.HexMsg`)"""
 
+
 __all__ = [
     "get_interface",
     "get_comm_type",

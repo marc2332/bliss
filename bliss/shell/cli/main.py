@@ -170,6 +170,7 @@ def main():
     log_level = getattr(logging, arguments["--log-level"][0].upper())
     fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
     logging.basicConfig(level=log_level, format=fmt)
+    logging.getLogger("bliss").setLevel(log_level)
 
     # Print version
     if arguments["--version"]:

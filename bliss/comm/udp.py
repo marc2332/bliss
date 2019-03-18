@@ -23,7 +23,7 @@ class Socket(BaseSocket):
         return fd
 
     def _sendall(self, data):
-        self._debug("Tx: %r %r", data, HexMsg(data))
+        self._logger.debug_data("Tx:", data)
         return self._fd.send(data)
 
     @staticmethod
@@ -31,7 +31,7 @@ class Socket(BaseSocket):
         try:
             while 1:
                 raw_data = fd.recv(16 * 1024)
-                sock._debug("Rx: %r %r", raw_data, HexMsg(raw_data))
+                sock._logger.debug_data("Rx:", raw_data)
                 if raw_data:
                     sock._data += raw_data
                     sock._event.set()

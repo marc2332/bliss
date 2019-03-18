@@ -37,23 +37,17 @@ class PI_C663(Controller):
 
         self._status = ""
         try:
-            self.serial.write("ERR?\n")
-            _ans = self.serial.readline()
-            print("err=%r" % _ans)
-            self.serial.write("*IDN?\n")
-            _ans = self.serial.readline()
-            print(_ans)
+            _ans = self.serial.write_readline(b"ERR?\n").decode()
+            _ans = self.serial.write_readline(b"*IDN?\n").decode()
             # _ans =='(c)2013 Physik Instrumente(PI) Karlsruhe, C-663.11,0,1.2.1.0'
             elog.debug(_ans)
             if _ans.index("C-663.11") == 0:
-                print("zero")
                 elog.debug("*IDN? -> %r" % _ans)
         except:
             self._status = (
                 'communication error : no PI C663 found on serial "%s"'
                 % self.serial_line
             )
-            print(self._status)
             elog.debug(self._status)
 
     def finalize(self):
@@ -79,9 +73,9 @@ class PI_C663(Controller):
         # Checks referencing.
         _ref = self._get_referencing(axis)
         if _ref == 0:
-            print("axis '%s' must be referenced before being movable" % axis.name)
+            elog.debug("axis '%s' must be referenced before being movable" % axis.name)
         else:
-            print("axis '%s' is referenced." % axis.name)
+            elog.debug("axis '%s' is referenced." % axis.name)
 
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
@@ -194,13 +188,12 @@ class PI_C663(Controller):
     def raw_write(self, com):
         elog.debug("com=%s" % repr(com))
         _com = com + "\n"
-        self.serial.write(_com)
+        self.serial.write(_com.encode())
 
     def raw_write_read(self, com):
         elog.debug("com=%s" % repr(com))
         _com = com + "\n"
-        self.serial.write(_com)
-        _ans = self.serial.readline().rstrip()
+        _ans = self.serial.write_readline(_com.encode()).decode().rstrip()
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
@@ -353,10 +346,10 @@ class PI_C663(Controller):
         return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
-        print("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
+        elog.debug("_check_error: axis %s got %s" % (axis.name, self._get_error(axis)))
 
     def _stop(self):
-        self.serial.write("STP\n")
+        self.serial.write(b"STP\n")
 
     def send(self, axis, cmd):
         """
@@ -379,8 +372,7 @@ class PI_C663(Controller):
 
         elog.debug("cmd=%s" % repr(cmd))
         _cmd = cmd + "\n"
-        self.serial.write(_cmd)
-        _ans = self.serial.readline().rstrip()
+        _ans = self.serial.write_readline(_cmd.encode()).decode().rstrip()
         elog.debug("ans=%s" % repr(_ans))
         return _ans
 
@@ -394,18 +386,18 @@ class PI_C663(Controller):
         """
         elog.debug('cmd="%s" ' % cmd)
         _cmd = cmd + "\n"
-        self.serial.write(_cmd)
+        self.serial.write(_cmd.encode())
 
     @object_method(types_info=("None", "str"))
     def _get_all_params(self, axis):
-        self.serial.write("1 HPA?\n")
+        self.serial.write(b"1 HPA?\n")
         _txt = ""
 
-        _ans = self.serial.readline()
+        _ans = self.serial.readline().decode()
         _txt += _ans
 
         while _ans != "end of help\n":
-            _ans = self.serial.readline()
+            _ans = self.serial.readline().decode()
             _txt += _ans
 
         return _txt

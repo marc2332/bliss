@@ -355,7 +355,7 @@ class ScanPrinter:
                 column_header=header,
                 estimation_str=estimation_str,
                 not_shown_counters_str=not_shown_counters_str,
-                **scan_info
+                **scan_info,
             )
             self.col_templ = [
                 "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens

@@ -178,7 +178,6 @@ class Bliss(Device):
             util = Util.instance()
             self.session_name = util.get_ds_inst_name()
 
-        self.__scan_listener = shell.ScanListener()
         if self.__startup:
             shell_info = _SHELL_INFO
         else:

@@ -345,6 +345,9 @@ def with_custom_members(klass):
 class Null(object):
     __slots__ = []
 
+    def __call__(self, *args, **kwargs):
+        pass
+
 
 class StripIt(object):
     """

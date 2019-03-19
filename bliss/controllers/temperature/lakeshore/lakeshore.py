@@ -9,6 +9,10 @@
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output, Loop
 
+# Next 3 are no more necessary since we do not use 'standard'
+# way of doing custom commands and attributes but rather define/add
+# them in initialize methods for each type of object (input, output, loop)
+
 # from bliss.common.utils import object_attribute_get, object_attribute_type_get
 # from bliss.common.utils import object_attribute_set, object_attribute_type_set
 # from bliss.common.utils import object_method
@@ -23,6 +27,12 @@ class Base(Controller):
         """ Initializes the controller.
         """
         self._lakeshore.clear()
+
+    def initialize_input(self, tinput):
+        """Initialize the input device
+        """
+        if hasattr(self._lakeshore, "_initialize_input"):
+            self._lakeshore._initialize_input(tinput)
 
     def initialize_output(self, toutput):
         """Initialize the output device
@@ -41,19 +51,54 @@ class Base(Controller):
         if hasattr(self._lakeshore, "_initialize_loop"):
             self._lakeshore._initialize_loop(tloop)
 
-    def initialize_input(self, tinput):
-        """Initialize the input device
-        """
-        if hasattr(self._lakeshore, "_initialize_input"):
-            self._lakeshore._initialize_input(tinput)
-
+    # Input-object related methods
+    # ----------------------------
     def read_input(self, tinput):
         """Read the current temperature
            Returns:
-              (float): current temperature
+              (float): current temperature in Kelvin or Celsius 
+                       or sensor-unit reading (Ohm or Volt)
+                       depending on read_type.
         """
         channel = tinput.config.get("channel")
-        return self._lakeshore.read_temperature(channel)
+        read_type = tinput.config.get("type", "temperature_K")
+        print("Read_type = %s" % read_type)
+        if read_type == "temperature_K":
+            return self._lakeshore.read_temperature(channel, "kelvin")
+        elif read_type == "temperature_C":
+            return self._lakeshore.read_temperature(channel, "celsius")
+        elif read_type == "sensorunit":
+            # sensor unit can be Ohm or Volt depending on sensor type
+            return self._lakeshore.read_insensorunits(channel)
+
+    # the method state_input(self, tinput) is not implemented
+    # (is inherited from temp.py)
+
+    # Output-object related methods
+    # -----------------------------
+
+    # the method state_output(self, toutput) is not implemented
+    # (is inherited from temp.py)
+
+    def set(self, toutput, sp, **kwargs):
+        """Set the value of the output setpoint
+           Args:
+              sp (float): final temperature [K] or [deg]
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        channel = toutput.config.get("channel")
+        self._lakeshore.setpoint(channel, sp)
+        self.__set_point = sp
+
+    def get_setpoint(self, toutput):
+        """Read the value of the output setpoint
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        channel = toutput.config.get("channel")
+        self.__set_point = self._lakeshore.setpoint(channel)
+        return self.__set_point
 
     def read_output(self, toutput):
         """Read the setpoint temperature
@@ -75,11 +120,19 @@ class Base(Controller):
     def read_ramprate(self, toutput):
         """Read the ramp rate
            Returns:
-              (int): ramprate [K/min] - cashed cvalue only
+              (int): ramprate [K/min]
         """
         channel = toutput.config.get("channel")
         self.__ramp_rate = self._lakeshore.ramp_rate(channel)
         return self.__ramp_rate
+
+    # the methods:
+    # set_dwell(self, toutput, dwell)
+    # read_dwell(self, toutput)
+    # set_step(self, toutput, step)
+    # read_step(self, toutput)
+    # are not implemented
+    # (are inherited from temp.py)
 
     def start_ramp(self, toutput, sp, **kwargs):
         """Start ramping to setpoint
@@ -118,10 +171,11 @@ class Base(Controller):
         """Emergency stop the going to setpoint.
            Switch off the heater.
         """
-        channel = toutput.config.get("channel")
         # set heater range to 0, which means heater power OFF
-        self._lakeshore.heater_range(channel, 0)
+        self._lakeshore.heater_range(0)
 
+    # Loop-object related methods
+    # ---------------------------
     def on(self, tloop):
         """Start the regulation on loop
            Args:
@@ -147,26 +201,6 @@ class Base(Controller):
         self._lakeshore._cset(channel, onoff="off")
         (input, units, onoff) = self._lakeshore._cset(channel)
         print("Regulation on loop %d is %s." % (channel, onoff))
-
-    def set(self, toutput, sp, **kwargs):
-        """Set the value of the output setpoint
-           Args:
-              sp (float): final temperature [K] or [deg]
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        channel = toutput.config.get("channel")
-        self._lakeshore.setpoint(channel, sp)
-        self.__set_point = sp
-
-    def get_setpoint(self, toutput):
-        """Read the value of the output setpoint
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        channel = toutput.config.get("channel")
-        self.__set_point = self._lakeshore.setpoint(channel)
-        return self.__set_point
 
     def set_kp(self, tloop, kp):
         """ Set the proportional gain
@@ -228,14 +262,17 @@ class Base(Controller):
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
 
+    # Raw communication methods, callable from any
+    # type of object (Input/Output/Loop)
+    # --------------------------------------------
     def Wraw(self, string):
+
         """
         A string to write to the controller
 
         Args:
            string:  the string to write
         """
-        ##log.info("Controller:Wraw:")
         self._lakeshore.wraw(string)
 
     def Rraw(self):
@@ -245,7 +282,6 @@ class Base(Controller):
         returns:
            response from the controller
         """
-        ##log.info("Controller:Rraw:")
         ans = self._lakeshore.rraw()
         return ans
 
@@ -258,6 +294,5 @@ class Base(Controller):
         returns:
            response from the controller
         """
-        ##log.info("Controller:WRraw:")
         ans = self._lakeshore.wrraw(string)
         return ans

@@ -5,7 +5,7 @@
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Base hook system. Check the :ref:`bliss-motion-hook-how-to` to find
+"""Base hook system. Check the doc to find
 how to use motion hooks in your system"""
 
 import weakref

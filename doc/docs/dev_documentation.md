@@ -130,8 +130,13 @@ There are 6 levels of titles.
 #### Level 4 title
 
 !!! note
-     A note of made with an empty line and 3 !!!
+    A note is made with an empty line, 3 !!!, `note` keyword and indented text.
+    ```
 
+    !!! note
+        A note of made with an empty line and 3 !!!
+    ```
+    
 ##### Level 5 title
 
 ###### Level 6 title

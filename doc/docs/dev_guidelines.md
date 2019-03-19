@@ -8,7 +8,7 @@ Cloning
 
 To clone bliss:
 
-    $ git clone git@gitlab.esrf.fr:bliss/bliss.git
+    $ git clone https://gitlab.esrf.fr/bliss/bliss.git
 
 The first thing to do after cloning bliss is to set up the pre-commit hook:
 

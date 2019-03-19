@@ -80,7 +80,6 @@ nav:
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
-                - Shutter: motion_shutter.md
                 - Hook: motion_hook.md
         - Scanning:
                 - Counters and measurement groups: scan_ctmg.md

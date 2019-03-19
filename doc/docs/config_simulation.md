@@ -38,6 +38,24 @@ This simulation axis can now be used by BLISS:
       Out [8]: 4.0
 
 
+## Calculational motor
+
+
+```yaml
+controller:
+    class: calc_motor_mockup
+    module: mockup
+    axes:
+        -
+          name: $m1
+          tags: real real_mot
+        -
+          name: calc_mot
+          tags: calc_mot
+          s_param: 3.1415
+```
+
+
 ## Counter
 
 

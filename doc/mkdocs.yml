@@ -81,6 +81,7 @@ nav:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
                 - Hook: motion_hook.md
+                - Trajectories: motion_traj.md
         - Scanning:
                 - Counters and measurement groups: scan_ctmg.md
                 - Default scans: scan_default.md

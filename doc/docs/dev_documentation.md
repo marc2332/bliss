@@ -153,11 +153,19 @@ To create a list, an empty line must be respected:
         * etc.
 
 
-### Links
+### Links and references
+use:
+```
+* mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
+* inner links to section: [code formatting](dev_guidelines.md#code-formatting)
+* outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
+```
+to produce:
 
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
 * mkdocs inner links fir section ref: [code formatting](dev_guidelines.md#code-formatting)
 * outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
+
 
 ### Raw text
 

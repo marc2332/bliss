@@ -188,6 +188,7 @@ def _watch_data(
                                         "channel_index": i,
                                         "channel_name": channel_name,
                                         "data": scan_data,
+                                        "scan_info": scan_info,
                                     },
                                 )
                             raise StopIteration
@@ -202,6 +203,7 @@ def _watch_data(
                                         "channel_index": i,
                                         "channel_name": channel_name,
                                         "data": data,
+                                        "scan_info": scan_info,
                                     },
                                 )
                             raise StopIteration
@@ -215,6 +217,7 @@ def _watch_data(
                                         "channel_index": i,
                                         "channel_name": channel_name,
                                         "data": data,
+                                        "scan_info": scan_info,
                                     },
                                 )
                             raise StopIteration

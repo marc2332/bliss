@@ -167,9 +167,7 @@ def test_scan_callbacks(session):
     def on_scan_end(scan_info):
         res["end"] = True
 
-    event.connect(scan, "scan_new", on_scan_new)
-    event.connect(scan, "scan_data", on_scan_data)
-    event.connect(scan, "scan_end", on_scan_end)
+    scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
     counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     counter = counter_class("gaussian", 2, cnt_time=0.1)
@@ -177,6 +175,8 @@ def test_scan_callbacks(session):
     assert res["new"]
     assert res["end"]
     assert numpy.array_equal(numpy.array(res["values"]), counter.data)
+
+    scan.set_scan_watch_callbacks()
 
 
 def test_calc_counters(session):

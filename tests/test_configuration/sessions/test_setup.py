@@ -77,12 +77,10 @@ class AutoScanGaussianCounter(SamplingCounter):
         self.i = 0
         self._in_a_scan = False
 
-        # Connect scan events.
-        #                  cb function          event_name   event_source_filter
-        dispatcher.connect(self.__on_scan_new, "scan_new", scan)
+        scan.set_scan_watch_callbacks(scan_new=self.__on_scan_new)
 
     def close(self):
-        dispatcher.disconnect(self.__on_scan_new, "scan_new", scan)
+        scan.set_scan_watch_callbacks()
 
     def __on_scan_new(self, scan_info):
         # ! also called on a "ct"

@@ -65,7 +65,7 @@ from bliss.config import static
 from bliss.common.utils import counter_dict
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
-from bliss.scanning.scan import _SCAN_PRINTER
+from bliss.scanning.scan import set_scan_watch_callbacks
 
 if sys.platform in ["win32", "cygwin"]:
     import win32api
@@ -457,12 +457,8 @@ def cli(
         history_filename = os.path.join(os.environ["HOME"], history_filename)
 
     scan_printer = ScanPrinter()
-    _SCAN_PRINTER.update(
-        {
-            "new": scan_printer._on_scan_new,
-            "data": scan_printer._on_scan_data,
-            "end": scan_printer._on_scan_end,
-        }
+    set_scan_watch_callbacks(
+        scan_printer._on_scan_new, scan_printer._on_scan_data, scan_printer._on_scan_end
     )
 
     # Create REPL.

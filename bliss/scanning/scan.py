@@ -47,8 +47,21 @@ from . import writer
 SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
-_null = Null()
-_SCAN_PRINTER = {"new": _null, "data": _null, "end": _null}
+# STORE THE CALLBACK FUNCTIONS THAT ARE CALLED DURING A SCAN ON THE EVENTS SCAN_NEW, SCAN_DATA, SCAN_END
+# THIS FUNCTIONS ARE EXPECTED TO PRINT INFO ABOUT THE SCAN AT THE CONSOLE LEVEL (see bliss/shell/cli/repl => ScanPrinter )
+# USERS CAN OVERRIDE THE DEFAULT TO SPECIFY ITS OWN SCAN INFO DISPLAY
+# BY DEFAULT THE CALLBACKS ARE SET TO NULL() TO AVOID UNNECESSARY PRINTS OUTSIDE A SHELL CONTEXT
+_SCAN_WATCH_CALLBACKS = {"new": Null(), "data": Null(), "end": Null()}
+
+
+def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
+    if scan_new is None:
+        scan_new = Null()
+    if scan_data is None:
+        scan_data = Null()
+    if scan_end is None:
+        scan_end = Null()
+    _SCAN_WATCH_CALLBACKS.update({"new": scan_new, "data": scan_data, "end": scan_end})
 
 
 class StepScanDataWatch(object):
@@ -87,7 +100,7 @@ class StepScanDataWatch(object):
                 ch_name: ch.get(point_nb)
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
-            _SCAN_PRINTER["data"](scan_info, values)
+            _SCAN_WATCH_CALLBACKS["data"](scan_info, values)
 
         self._last_point_display = min_nb_points
 
@@ -745,7 +758,7 @@ class Scan(object):
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            _SCAN_PRINTER["new"](self.scan_info)
+            _SCAN_WATCH_CALLBACKS["new"](self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -811,7 +824,7 @@ class Scan(object):
             self._state = self.IDLE_STATE
 
             try:
-                _SCAN_PRINTER["end"](self.scan_info)
+                _SCAN_WATCH_CALLBACKS["end"](self.scan_info)
             finally:
                 if self.writer:
                     self.writer.close()

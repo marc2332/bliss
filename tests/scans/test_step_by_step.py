@@ -165,29 +165,12 @@ def test_scan_watch_data_no_print(beacon, capsys):
 
 def test_scan_watch_data_callback_not_a_callable():
     a = 5
-    err = False
-    try:
+    with pytest.raises(TypeError):
         scan.set_scan_watch_callbacks(scan_new=a, scan_data=None, scan_end=None)
-    except Exception as e:
-        assert type(e) == TypeError
-        err = True
-    assert err == True
-
-    err = False
-    try:
+    with pytest.raises(TypeError):
         scan.set_scan_watch_callbacks(scan_new=None, scan_data=a, scan_end=None)
-    except Exception as e:
-        assert type(e) == TypeError
-        err = True
-    assert err == True
-
-    err = False
-    try:
+    with pytest.raises(TypeError):
         scan.set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=a)
-    except Exception as e:
-        assert type(e) == TypeError
-        err = True
-    assert err == True
 
 
 def test_scan_callbacks(session):

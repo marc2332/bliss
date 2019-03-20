@@ -80,6 +80,7 @@ nav:
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
+                - Soft Axis: motion_softaxis.md
                 - Hook: motion_hook.md
                 - Trajectories: motion_traj.md
         - Scanning:

@@ -154,6 +154,42 @@ def test_all_anscan(session):
     scans.a3scan(roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False)
 
 
+def test_scan_watch_data_no_print(beacon, capsys):
+    roby = beacon.get("roby")
+    diode = beacon.get("diode")
+    scans.ascan(roby, 0, 10, 10, 0.01, diode)
+    captured = capsys.readouterr()
+
+    assert captured.out == ""
+
+
+def test_scan_watch_data_callback_not_a_callable():
+    a = 5
+    err = False
+    try:
+        scan.set_scan_watch_callbacks(scan_new=a, scan_data=None, scan_end=None)
+    except Exception as e:
+        assert type(e) == TypeError
+        err = True
+    assert err == True
+
+    err = False
+    try:
+        scan.set_scan_watch_callbacks(scan_new=None, scan_data=a, scan_end=None)
+    except Exception as e:
+        assert type(e) == TypeError
+        err = True
+    assert err == True
+
+    err = False
+    try:
+        scan.set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=a)
+    except Exception as e:
+        assert type(e) == TypeError
+        err = True
+    assert err == True
+
+
 def test_scan_callbacks(session):
 
     res = {"new": False, "end": False, "values": []}
@@ -176,7 +212,39 @@ def test_scan_callbacks(session):
     assert res["end"]
     assert numpy.array_equal(numpy.array(res["values"]), counter.data)
 
-    scan.set_scan_watch_callbacks()
+
+def test_scan_watch_data_set_callback_to_test_saferef(beacon, capsys):
+    roby = beacon.get("roby")
+    diode = beacon.get("diode")
+
+    def on_scan_new(*args):
+        print("scan_new")
+
+    def on_scan_data(*args):
+        print("scan_data")
+
+    def on_scan_end(*args):
+        print("scan_end")
+
+    scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
+
+    scans.ascan(roby, 0, 9, 10, 0.01, diode)
+    captured = capsys.readouterr()
+
+    assert captured.out == "scan_new\n" + "scan_data\n" * 10 + "scan_end\n"
+
+
+def test_scan_watch_data_no_print_on_saferef(beacon, capsys):
+    """ 
+    In the previous function 'test_scan_watch_data_set_callback_to_test_saferef', we set a callback on scan_new event that produces a print.
+    Thanks to the underlying usage of a weakref, the print should not append once we get out of the context of the previous function.
+    """
+    roby = beacon.get("roby")
+    diode = beacon.get("diode")
+    scans.ascan(roby, 0, 10, 10, 0.01, diode)
+    captured = capsys.readouterr()
+
+    assert captured.out == ""
 
 
 def test_calc_counters(session):

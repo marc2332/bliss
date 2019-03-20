@@ -42,13 +42,45 @@ from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
 
+from louie import saferef
+
 
 # Globals
 SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
-_null = Null()
-_SCAN_PRINTER = {"new": _null, "data": _null, "end": _null}
+# STORE THE CALLBACK FUNCTIONS THAT ARE CALLED DURING A SCAN ON THE EVENTS SCAN_NEW, SCAN_DATA, SCAN_END
+# THIS FUNCTIONS ARE EXPECTED TO PRINT INFO ABOUT THE SCAN AT THE CONSOLE LEVEL (see bliss/shell/cli/repl => ScanPrinter )
+# USERS CAN OVERRIDE THE DEFAULT TO SPECIFY ITS OWN SCAN INFO DISPLAY
+# BY DEFAULT THE CALLBACKS ARE SET TO NULL() TO AVOID UNNECESSARY PRINTS OUTSIDE A SHELL CONTEXT
+_SCAN_WATCH_CALLBACKS = {"new": Null(), "data": Null(), "end": Null()}
+
+
+def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
+    if scan_new is None:
+        r_scan_new = Null()
+    elif not hasattr(scan_new, "__call__"):
+        raise TypeError(f"{scan_new} is not callable")
+    else:
+        r_scan_new = saferef.safe_ref(scan_new)
+
+    if scan_data is None:
+        r_scan_data = Null()
+    elif not hasattr(scan_data, "__call__"):
+        raise TypeError(f"{scan_data} is not callable")
+    else:
+        r_scan_data = saferef.safe_ref(scan_data)
+
+    if scan_end is None:
+        r_scan_end = Null()
+    elif not hasattr(scan_end, "__call__"):
+        raise TypeError(f"{scan_end} is not callable")
+    else:
+        r_scan_end = saferef.safe_ref(scan_end)
+
+    _SCAN_WATCH_CALLBACKS.update(
+        {"new": r_scan_new, "data": r_scan_data, "end": r_scan_end}
+    )
 
 
 class StepScanDataWatch(object):
@@ -87,7 +119,10 @@ class StepScanDataWatch(object):
                 ch_name: ch.get(point_nb)
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
-            _SCAN_PRINTER["data"](scan_info, values)
+
+            cb = _SCAN_WATCH_CALLBACKS["data"]()
+            if cb is not None:
+                cb(scan_info, values)
 
         self._last_point_display = min_nb_points
 
@@ -136,7 +171,7 @@ class ScanSaving(Parameters):
                 "_last_scan_number": 0,
                 "_last_scan_file": "",
             },
-            **keys
+            **keys,
         )
 
     def __dir__(self):
@@ -310,7 +345,7 @@ class ScanDisplay(Parameters):
             self,
             "%s:scan_display_params" % self.session,
             default_values={"auto": False, "motor_position": True},
-            **keys
+            **keys,
         )
 
     def __dir__(self):
@@ -774,7 +809,9 @@ class Scan(object):
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            _SCAN_PRINTER["new"](self.scan_info)
+            cb = _SCAN_WATCH_CALLBACKS["new"]()
+            if cb is not None:
+                cb(self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -842,7 +879,9 @@ class Scan(object):
             self._state = self.IDLE_STATE
 
             try:
-                _SCAN_PRINTER["end"](self.scan_info)
+                cb = _SCAN_WATCH_CALLBACKS["end"]()
+                if cb is not None:
+                    cb(self.scan_info)
             finally:
                 if self.writer:
                     self.writer.close()

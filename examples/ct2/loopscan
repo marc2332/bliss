@@ -15,12 +15,13 @@ import logging
 import louie
 
 from bliss.config.static import get_config
-from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.scan import Scan, StepScanDataWatch, set_scan_watch_callbacks
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
+    
 
 def loopscan(npoints, acq_time, p201):
     counters = p201.acq_counters.values()
@@ -49,16 +50,15 @@ def loopscan(npoints, acq_time, p201):
     chain.add(timer, acq_master)
     chain.add(acq_master, acq_counter_group)
     chain.timer = timer
-    watch = StepScanDataWatch(scan_info)
+    watch = StepScanDataWatch() 
     scan = Scan(chain, name=name, scan_info=scan_info,
                 data_watch_callback=watch)
 
-    louie.connect(on_new_scan, 'scan_new')
-    louie.connect(on_scan_point, 'scan_data')
-    louie.connect(on_scan_end, 'scan_end')
-
+    set_scan_watch_callbacks(on_new_scan, on_scan_point, on_scan_end) 
+    
     scan.run()
 
+    set_scan_watch_callbacks()
 
 def on_new_scan(scan_info):
     print('started scan # {0} {1!r} at {2}'.format(scan_info['scan_nb'],

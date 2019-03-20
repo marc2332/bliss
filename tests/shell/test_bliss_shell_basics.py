@@ -28,9 +28,7 @@ def _feed_cli_with_input(text, check_line_ending=True):
 
     try:
 
-        br = BlissRepl(
-            input=inp, output=DummyOutput(), scan_listener=None, session="test_session"
-        )
+        br = BlissRepl(input=inp, output=DummyOutput(), session="test_session")
         inp.send_text(text)
         result = br.app.run()
         return result, br.app, br

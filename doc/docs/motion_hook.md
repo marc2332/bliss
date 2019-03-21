@@ -1,6 +1,6 @@
 # Motion hooks
 
-a *Motion hook* is a piece of code that can be attached to a motor or
+A *Motion hook* is a piece of code that can be attached to a motor or
 a list of motors and executed at particular moments.
 
 !!! note

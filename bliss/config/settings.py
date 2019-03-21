@@ -1013,6 +1013,11 @@ class ParametersType(type):
     two different instances
     """
 
+    def __call__(cls, *args, **kwargs):
+        class_dict = {"__slots__": tuple(cls.SLOTS), "SLOTS": cls.SLOTS}
+        new_cls = type(cls.__name__, (cls,), class_dict)
+        return type.__call__(new_cls, *args, **kwargs)
+
     def __new__(cls, name, bases, attrs):
         attrs["__slots__"] = tuple(attrs["SLOTS"])
         return type.__new__(cls, name, bases, attrs)

@@ -181,7 +181,7 @@ class ScanSaving(ParametersWardrobe):
             "scan_saving:%s" % name if name else "scan_saving:%s" % uuid.uuid4().hex,
             default_values=_default_values,
             property_attributes=_property_attributes,
-            not_removable=_default_values.items(),
+            not_removable=_default_values.keys(),
             **keys,
         )
 
@@ -190,7 +190,11 @@ class ScanSaving(ParametersWardrobe):
         return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
 
     def __repr__(self):
-        return super().__repr__()
+        d = self.to_dict()
+        d["scan_name"] = "scan name"
+        d["scan_number"] = "scan number"
+        d["img_acq_device"] = "<images_* only> acquisition device name"
+        return super()._repr(d)
 
     @property
     def scan_name(self):
@@ -258,12 +262,6 @@ class ScanSaving(ParametersWardrobe):
             data_filename = self.data_filename
             formatter = string.Formatter()
             cache_dict = self.to_dict()
-            cache_dict["session"] = self.session
-            cache_dict["date"] = self.date
-            cache_dict["scan_name"] = self.scan_name
-            cache_dict["scan_number"] = self.scan_number
-            cache_dict["img_acq_device"] = self.img_acq_device
-            writer_module = cache_dict.get("_writer_module")
             template_keys = [key[1] for key in formatter.parse(template)]
 
             for key in template_keys:
@@ -358,8 +356,7 @@ class ScanDisplay(ParametersWardrobe):
         return keys + ["session", "auto"]
 
     def __repr__(self):
-        d = self.to_dict()
-        return self._repr(d)
+        return super().__repr__()
 
     @property
     def session(self):

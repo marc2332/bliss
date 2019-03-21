@@ -184,8 +184,15 @@ class Base(Controller):
         """
         channel = tloop.config.get("channel")
 
-        self._lakeshore._cset(channel, onoff="on")
-        (input, units, onoff) = self._lakeshore._cset(channel)
+        model = self._lakeshore.model()
+        if model == 340:
+            self._lakeshore._cset(channel, onoff="on")
+            (input, units, onoff) = self._lakeshore._cset(channel)
+        elif model == 336:
+            raise NotImplementedError
+        else:
+            print("Unknown Lakeshore model")
+        print("Regulation on loop %d is %s." % (channel, onoff))
 
     def off(self, tloop):
         """Stop the regulation on loop
@@ -196,8 +203,15 @@ class Base(Controller):
         """
         channel = tloop.config.get("channel")
 
-        self._lakeshore._cset(channel, onoff="off")
-        (input, units, onoff) = self._lakeshore._cset(channel)
+        model = self._lakeshore.model()
+        if model == 340:
+            self._lakeshore._cset(channel, onoff="off")
+            (input, units, onoff) = self._lakeshore._cset(channel)
+        elif model == 336:
+            raise NotImplementedError
+        else:
+            print("Unknown Lakeshore model")
+        print("Regulation on loop %d is %s." % (channel, onoff))
 
     def set_kp(self, tloop, kp):
         """ Set the proportional gain

@@ -62,7 +62,6 @@ class Base(Controller):
         """
         channel = tinput.config.get("channel")
         read_type = tinput.config.get("type", "temperature_K")
-        print("Read_type = %s" % read_type)
         if read_type == "temperature_K":
             return self._lakeshore.read_temperature(channel, "kelvin")
         elif read_type == "temperature_C":
@@ -187,7 +186,6 @@ class Base(Controller):
 
         self._lakeshore._cset(channel, onoff="on")
         (input, units, onoff) = self._lakeshore._cset(channel)
-        print("Regulation on loop %d is %s." % (channel, onoff))
 
     def off(self, tloop):
         """Stop the regulation on loop
@@ -200,7 +198,6 @@ class Base(Controller):
 
         self._lakeshore._cset(channel, onoff="off")
         (input, units, onoff) = self._lakeshore._cset(channel)
-        print("Regulation on loop %d is %s." % (channel, onoff))
 
     def set_kp(self, tloop, kp):
         """ Set the proportional gain

@@ -529,11 +529,6 @@ def cli(
     else:
         history_filename = os.path.join(os.environ["HOME"], history_filename)
 
-    scan_printer = ScanPrinter()
-    set_scan_watch_callbacks(
-        scan_printer._on_scan_new, scan_printer._on_scan_data, scan_printer._on_scan_end
-    )
-
     # Create REPL.
     repl = BlissRepl(
         get_globals=get_globals,
@@ -585,6 +580,14 @@ def embed(*args, **kwargs):
     warnings.filterwarnings("ignore")
     try:
         cmd_line_i = cli(*args, **kwargs)
+
+        # set print methods for the scans
+        scan_printer = ScanPrinter()
+        set_scan_watch_callbacks(
+            scan_printer._on_scan_new,
+            scan_printer._on_scan_data,
+            scan_printer._on_scan_end,
+        )
 
         if stop_signals:
 

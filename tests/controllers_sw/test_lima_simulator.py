@@ -41,10 +41,8 @@ def test_lima_simulator(beacon, lima_simulator):
 def test_lima_sim_bpm(beacon, lima_simulator):
     simulator = beacon.get("lima_simulator")
 
-    assert pytest.raises(RuntimeError, "simulator.bpm")
-
-    assert "bpm" not in simulator.counters._fields
-    assert "bpm" not in simulator.counter_groups._fields
+    assert "fwhm_x" in simulator.counters._fields
+    assert "bpm" in simulator.counter_groups._fields
 
 
 def assert_lima_rois(lima_roi_counter, rois):

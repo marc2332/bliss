@@ -17,7 +17,8 @@ with generic TANGO servers on top of BLISS controllers.
 
 On user point of view, BLISS presents different aspects:
 
-* BLISS shell to interact with devices and run sequences
+* [BLISS shell](shell_cmdline.md): a command line interface to
+  interact with devices and to run sequences
 * Sequences programming to create customized experiments
 * Configuration of all devices involved in the experiments
 
@@ -87,6 +88,7 @@ A session can be created using `-c` option:
 
 [Learn more about BLISS sessions](config_sessions.md)
 
+[Learn more about BLISS shell](shell_cmdline.md)
 
 ### Examples of standard shell functions
 

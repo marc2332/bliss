@@ -48,7 +48,8 @@ def test_scan_saving(beacon, scan_saving):
     assert (
         repr(scan_saving)
         == """\
-Parameters (default)
+Parameters (default) - 
+
   .base_path            = '/tmp'
   .data_filename        = 'data'
   .date                 = '{date}'

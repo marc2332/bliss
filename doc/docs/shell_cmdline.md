@@ -1,4 +1,8 @@
-# "bliss" command line usage
+# BLISS command line usage
+
+BLISS is a library, but a command line interface (*BLISS shell*) is
+provided to easily and interactively execute BLISS *commands* and
+*sequences* within an evolved REPL (Read Eval Print Loop).
 
 ## Usage
 

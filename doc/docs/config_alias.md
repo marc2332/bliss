@@ -2,39 +2,55 @@
 
 Aliases in Bliss serves the following main purposes:
 
-- Handle potential duplication of motor names in a beamline-wide configuration 
-- Shorten key names e.g. in the hdf5 files while conserving uniqueness of the keys 
+* Handle potential duplication of motor names in a beamline-wide
+  configuration
 
-Aliases are handled on a session level. In case they are added dynamically they are 
-not propagated to other instances of of the session. If there is a python object in 
-setup_globlas or the env_dict of the repl that has a 'name' or 'fullname' property 
-corresponding to the 'original_name' it will be linked to this alias if not specified
-differently.
+* Shorten key names e.g. in the hdf5 files while conserving uniqueness
+  of the keys
+
+Aliases are handled at the **session level**. In case they are added
+dynamically, they are not propagated to other instances of the
+session. If there is a python object in `setup_globals` or the
+`env_dict` of the [REPL]() that has a '*name*' or '*fullname*'
+property corresponding to the '*original_name*' it will be linked to
+this alias if not specified differently.
 
 ## Creation of aliases
 
 ### Creating aliases through the session yml file
 
-In a session configuration file a list of aliases can be defined using the key `aliases`. 
-An Alias mandatory need the two properties:
+In a session configuration file, a **list of aliases** can be defined
+using the `aliases` keyword. An alias requires the two properties:
 
-*  `original_name` : (old) name that will be masked by the alias_name
-*  `alias_name` : (new) name that will be assigned to the alias
+* `original_name`: (old) name that will be masked by the alias_name
+* `alias_name`: (new) name that will be assigned to the alias
 
-The `alias_name` needs to be unique that means it can not be used by any object in the Beacon config, 
-not be used as alias name of any other object and not be used by any object exported to setup_globals.
+The `alias_name` needs to be unique. That means:
 
-Further there are three parameters to tune the behavior of the alias and adopt it to its usecase:
+* it can not be used by any object in the Beacon config,
+* it can not be used as alias name of any other object
+* it can not be used by any object exported to `setup_globals`
 
-*  `export_to_globals` : Alias will be acessible from the command line when set `True` (default:`True`). 
-*  `hide_controller` : `True` if the controller name should be hidden when in the output (mainly of interest 
-for aliases that are used modify axes names with respect to the beacon config name. For an axis to behave 
-like any other axis without alias this needs to be set `False` (default: `True`)
-*  `remove_original` : The reference with the original name will be removed from the scope of the session 
-(and only the one with the new alias name will be kept). Only usable in connection with `export_to_globals`.
-(default: `False`)
+Further there are three parameters to tune the behavior of the alias
+and adopt it to its use-case:
 
-Example of a session .yml file containing an alias configuration:
+* `export_to_globals` (default:`True`)
+    * Alias will be accessible from the command line when set to `True`.
+
+* `hide_controller` (default: `True`)
+    * `True` if the controller name should be hidden when in the output
+    * Mainly of interest for aliases that are used to modify axes
+      names with respect to the beacon config name.
+    * For an aliased axis to behave like any other axis, this needs to
+      be set `False`
+
+* `remove_original` (default: `False`):
+    * The reference with the original name will be removed from the
+      scope of the session. Only the reference to the new alias name
+      will be kept.
+    * Only usable in connection with `export_to_globals`.
+
+Example of a `.yml` session file containing alias configurations:
 ```yaml
 - class: Session
   name: test_alias
@@ -55,7 +71,7 @@ Example of a session .yml file containing an alias configuration:
      remove_original: True
    - original_name: simu1.deadtime_det0
      alias_name: dtime
-   - original_name: simu1.realtime_det0 
+   - original_name: simu1.realtime_det0
      alias_name: rtime
      export_to_globals: False
    - original_name: simu1.livetime_det0
@@ -66,40 +82,44 @@ Example of a session .yml file containing an alias configuration:
 ```
 
 ### Dynamic creation
-Inside a session aliases can be added during the runtime. E.g. one can look at the list of existing counters
-via `lscnt()` to see valid counter names available in the session
+
+Inside a session, aliases can be added at runtime. E.g. one can look
+at the list of existing counters via `lscnt()` to see valid counter
+names available in the session.
 
 ```
-TEST_ALIAS [1]: lscnt()                                                                                             
+TEST_ALIAS [1]: lscnt()
 
-Fullname                              Shape    Controller      Name           Alias
-------------------------------------  -------  --------------  -------------  -------
-lima_simulator.image                  2D       lima_simulator  image
+Fullname                          Shape    Controller      Name           Alias
+--------------------------------  -------  --------------  -------------  -------
+lima_simulator.image              2D       lima_simulator  image
 ...
-simu1.realtime_det0                   0D       simu1           realtime_det0  rtime
-simu1.realtime_det1                   0D       simu1           realtime_det1
+simu1.realtime_det0               0D       simu1           realtime_det0  rtime
+simu1.realtime_det1               0D       simu1           realtime_det1
 ...
 
 ```
-in order to assign an alias _rt1_ to _simu1.realtime_det1_ one can use
+in order to assign an alias **rt1** to **simu1.realtime_det1** one can use
 
 ```python
 ALIASES.create_alias('rt1','simu1.realtime_det1')
 ```
 
-from now on the counter is accessible as 'rt1' from the command line. 
+from now on the counter is accessible as 'rt1' from the command line.
 
-Objects that inherit the _alias_ functionality have a `.set_alias()` method. E.g.:
+Objects that inherit the *alias* functionality have a `.set_alias()` method. E.g.:
 
 ```
-TEST_ALIAS [1]: m0=config.get("m0")                                                                                                                     
-TEST_ALIAS [1]: m0.set_alias("m24",export_to_globals=True,remove_original=True)                                                                         
+TEST_ALIAS [1]: m0 = config.get("m0")
+
+TEST_ALIAS [2]: m0.set_alias("m24", export_to_globals=True, remove_original=True)
 Alias 'm24' added for 'm0'
-TEST_ALIAS [1]: m24  
-                                                                                                                                   
+
+TEST_ALIAS [3]: m24
+
         Out [1]: <bliss.common.axis.Axis object at 0x7ff086643470>
 
-TEST_ALIAS [1]: m0                                                                                                                                      
+TEST_ALIAS [4]: m0
 
         NameError: name 'm0' is not defined
 ```
@@ -107,27 +127,29 @@ TEST_ALIAS [1]: m0
 
 ## Alias handling
 
-From the bliss command line all aliases can be managed through 'ALIASES' and its methods.
-To list all aliases there is a `.list_aliases` method:
+From the BLISS command line all aliases can be managed through
+`'ALIASES'` global object and its methods. To list all aliases there
+is a `.list_aliases` method:
 
 ```
-TEST_ALIAS [1]: ALIASES.list_aliases()                                                                                                                  
+TEST_ALIAS [1]: ALIASES.list_aliases()
 
-Alias    Original name        Linked to py obj
--------  -------------------  ------------------
-robyy    roby                 True
-robzz    robz                 True
-dtime    simu1.deadtime_det0  True
-rtime    simu1.realtime_det0  True
-ltime    simu1.livetime_det0  True
+Alias    Original name          Linked to py obj
+------   -------------------    ------------------
+robyy    roby                   True
+robzz    robz                   True
+dtime    simu1.deadtime_det0    True
+rtime    simu1.realtime_det0    True
+ltime    simu1.livetime_det0    True
 ```
 
 ### Alias in hdf5 output
 
-Running the following scan in  a session with configuration giben above (test_alias session of the test suite):
+Running the following scan in a session with configuration given above
+(test_alias session of the test suite):
 
 ```python
-a2scan(robyy,0,5,robzz,0,5,5,0.001,dtime, simu1.counters.spectrum_det0) 
+a2scan(robyy, 0, 5, robzz, 0, 5, 5, 0.001, dtime, simu1.counters.spectrum_det0)
 ```
 results in a hdf5 file with the following dump:
 ```
@@ -149,16 +171,19 @@ results in a hdf5 file with the following dump:
 	<HDF5 dataset "title": shape (), type "|O">
 ```
 
-On this example we can discuss the following impacts of aliases:
+In this example we can discuss the following impacts of aliases:
 
-* The motors are called "robyy" and "robzz" as specified in the aliases tag of the configuration
-* For "robzz" there is 'HDF5 dataset __"axis:robzz"__ ' (hide_controller: False) 
-while there is 'HDF5 dataset __"robyy"__' for robyy (hide_controller: True) 
-* The alias "dtime" is used to shorten the counter name in the output and also when typing the 
-scan command in the shell.
+* The motors are called "robyy" and "robzz" as specified in the
+  aliases tag of the configuration
+* For "robzz" differences can be noted between `robzz` and `robyy`:
+     * 'HDF5 dataset **"axis:robzz"** ' for robzz (`hide_controller: False`)
+     * 'HDF5 dataset **"robyy"**' for robyy (`hide_controller: True`)
+* The alias `dtime` is used to shorten the counter name in the output
+  and also when typing the scan command in the shell.
 
-A more detailed look at the hdf5 reveals attributes on each dataset to provide the the systematic names
-in case they are needed.
+A more detailed look at the hdf5 reveals attributes on each dataset to
+provide the the systematic names in case they are needed.
+
 ```
 71_a2scan/measurement/axis:robzz
     fullname: axis:robz
@@ -172,4 +197,6 @@ in case they are needed.
 
 ## Writing code containing aliases and technical details
 
-There is a `AliasMixin` class that can be inherited to provide alias functionality to any object in Bliss.
+There is a `AliasMixin` class that can be inherited to provide alias
+functionality to any object in Bliss.
+

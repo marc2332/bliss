@@ -207,7 +207,7 @@ class DataNodeIterator(object):
             self.last_child_id[db_name] = i + 1
             child_node = data_nodes.get(child_name)
             if child_node is None:
-                pipeline.lrem("%s_children_list" % db_name, child_name)
+                pipeline.lrem("%s_children_list" % db_name, 0, child_name)
                 continue
             if filter is None or child_node.type in filter:
                 yield child_node

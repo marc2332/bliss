@@ -56,7 +56,7 @@ class Lima(object):
     """
 
     _ROI_COUNTERS = "roicounter"
-    _BPM = "beamviewer"
+    _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
 
     # Standard interface

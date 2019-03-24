@@ -10,3 +10,5 @@ lima-tango-server
 scipy
 black == 18.6b4
 umodbus == 1.0.2.1
+socat
+ser2net

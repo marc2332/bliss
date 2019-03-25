@@ -1196,8 +1196,10 @@ class ParametersWardrobe(metaclass=ParametersType):
         self._proxy_default = BaseHashSetting(self._hash("default"), **keys)
 
         # Managing default written to proxy_default
-        for name, value in default_values.items():
-            self.add(name, value)
+        for k, v in default_values.items():
+            if k not in self._proxy_default.keys():
+                # add only if default values does not exist
+                self.add(k, v)
 
         self.switch(self._sets[0])
 

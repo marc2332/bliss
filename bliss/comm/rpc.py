@@ -592,6 +592,11 @@ def Client(address, timeout=30., **kwargs):
 
             try:
                 client.try_connect()
+            except FileNotFoundError:
+                # in case of disconnection of a local client
+                # The uds socket file has been removed
+                # In that case can't return a best answer than:
+                raise AttributeError(f"{name}, not connected")
             except:
                 # in case of isinstance and
                 # not connected don't know the type

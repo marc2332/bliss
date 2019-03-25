@@ -1,7 +1,8 @@
 # Conda requirements file
 python >= 3.7
 gevent >= 1.4
-redis  >= 2.8
+redis-py >= 3.2
+redis >= 5.0
 jinja2 >= 2.7
 flask
 jedi
@@ -23,5 +24,5 @@ psutil
 requests
 prompt_toolkit >= 2.0
 gxx_linux-64
-networkX
+networkx
 pygraphviz

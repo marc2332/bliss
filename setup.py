@@ -119,6 +119,7 @@ def main():
         "requests",
         "cffi",
         "pygraphviz",
+        "networkx",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

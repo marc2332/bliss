@@ -27,13 +27,13 @@ with a factor of 42.
 ```python
 def calc_from_real(self, positions_dict):
     calc_mot_axis = self._tagged["calc_mot"][0]
-    calc_pos = 42 * positions_dict["real_mot"]
+    calc_pos = 3.1415 * positions_dict["real_mot"]
 
     return {"calc_mot": calc_pos}
 
 def calc_to_real(self, positions_dict):
     calc_mot_axis = self._tagged["calc_mot"][0]
-    real_pos = positions_dict["calc_mot"] / 42
+    real_pos = positions_dict["calc_mot"] / 3.1415
 
     return {"real_mot": real_pos}
 ```
@@ -56,7 +56,7 @@ controller:
         -
           name: calc_mot
           tags: calc_mot
-          s_param: 3.1415
+
 ```
 
 example of usage:

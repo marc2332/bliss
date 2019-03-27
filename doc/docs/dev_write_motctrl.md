@@ -34,7 +34,103 @@ defined to implement very specific features of a motor controller.
 
 ## Example and skeleton of BLISS motor plugin
 
-* `bliss/controllers/motors/mockup.py` is an example of simulated motor
+`bliss/controllers/motors/mockup.py` is an example of simulated
+motor. It can be used to test BLISS with fake motors. As it is base on
+some *hacks* to work, it is NOT well suited to learn how to create a
+new controller. Better have a look into `template` controller.
+
+template :
+```python
+
+from bliss.controllers.motor import Controller
+from bliss.comm.util import get_comm
+from bliss.common.axis import AxisState
+
+"""
+Bliss controller for XXX.
+"""
+
+class XXX(Controller):
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
+
+    def initialize(self):
+        self.comm = get_comm(self.config)
+
+    def initialize_axis(self, axis):
+        """
+        Reads specific config
+        Adds specific methods
+        """
+        pass
+
+    def read_position(self, axis):
+        """
+        Returns position's setpoint or measured position.
+
+        Args:
+            - <axis> : bliss axis.
+            - [<measured>] : boolean : if True, function returns
+              measured position in ???
+        Returns:
+            - <position> : float : axis setpoint in ???.
+        """
+        raise NotImplementedError
+
+    def read_encoder(self, encoder):
+        raise NotImplementedError
+
+    def read_velocity(self, axis):
+        """
+        Args:
+            - <axis> : Bliss axis object.
+        Returns:
+            - <velocity> : float
+        """
+
+    def set_velocity(self, axis, new_velocity):
+        pass
+
+    def state(self, axis):
+        _ans = self.comm.write_read("state")
+        if _ans == "moving":
+            return AxisState("MOVING")
+        else:
+            return AxisState("READY")
+
+    def prepare_move(self, motion):
+        pass
+
+    def start_one(self, motion):
+        """
+        sdf
+        """
+        self.comm.write("MOVE")
+
+    def stop(self, axis):
+        # Halt a scan (not a movement ?)
+        self.comm.write("STOP")
+
+    def raw_write(self, axis, cmd):
+        self.comm.write(cmd)
+
+    def raw_write_read(self, axis, cmd):
+        return self.comm.write_readline(cmd)
+
+    def get_id(self, axis):
+        """
+        Returns firmware version.
+        """
+        return self.comm.write_readline("?VER")
+
+    def get_info(self, axis):
+        """
+        Returns information about controller.
+        """
+        return "blabla"
+```
+
+
 
 ## Minimal set of functions to implement
 

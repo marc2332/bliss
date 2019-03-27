@@ -294,44 +294,90 @@ There is also a tolerance parameter for encoder, see:
 ### Axis state
 
 The `.state` property returns the current state of an axis. The
-returned value is an `AxisState` instance, which holds *a list of
-states*, which can be combined to represent more complex
-situations. Indeed, for example a motor can be both ready to move, and
-still touching a limit or being at home position.
-
-Standard states are constants:
-
-* MOVING, 'Axis is moving'
-* READY, 'Axis is ready to be moved'
-* FAULT, 'Error from controller'
-* LIMPOS, 'Hardware high limit active'
-* LIMNEG, 'Hardware low limit active'
-* HOME, 'Home signal active'
-* OFF, 'Axis is disabled'
-
-*READY* and *MOVING* are mutually exclusive.
+returned value is an `AxisState` instance, which holds **a list of
+states**.
 
 A description is associated to each state. The string representation
 of the `AxisState` object shows a human-readable description of the
-state:
+state. Example here present the `READY` state with its *"Axis is
+READY"* description:
+```python
+DEMO [1]: m0.state
+ Out [1]: AxisState: READY (Axis is READY)
+```
+
+Pre-defined standard states are:
+
+* `MOVING`, *'Axis is moving'*
+* `READY`, *'Axis is ready to be moved'*
+* `FAULT`, *'Error from controller'*
+* `LIMPOS`, *'Hardware high limit active'*
+* `LIMNEG`, *'Hardware low limit active'*
+* `HOME`, *'Home signal active'*
+* `OFF`, *'Axis is disabled'*
+
+A motor can then have more than one state at once, states can be
+combined to represent complex situations. For example, a motor can be
+both ready to move and still touching a limit or being at home
+position.
 
 ```python
-TEST_SESSION [1]: m0.state
-         Out [1]: AxisState: READY (Axis is READY)
+DEMO [1]: m0.state
+ Out [1]: AxisState: MOVING (Axis is moving)
 
-TEST_SESSION [2]: 'READY' in m0.state
-         Out [2]: True
+DEMO [2]: m1.state
+ Out [2]: AxisState: READY (Axis is READY) | LIMPOS (Hardware high limit active)
+```
 
-TEST_SESSION [3]: m0.state.MOVING
-         Out [3]: False
+A given state can be tested to know if a motor is in this state:
+```python
+if m0.state.MOVING:
+    print ("m0 motor is moving, please wait...")
 ```
 
 !!! note
-    The `in` operator of the Python language can be used to check whether an axis is in a certain state.
+    The `in` operator of the Python language can be used to check
+    whether an axis is in a certain state.
+    
+    ``` TEST_SESSION [2]: 'READY' in m0.state
+         Out [2]: True```
+    means:
+    
+    ```
+    "m0 has 'READY' state in it's current states list."```
 
-Motor controllers assign states to `Axis` objects. It is possible to
-  define custom states (see
-  [how to write motor controllers](dev_write_motctrl.md)).
+*READY* and *MOVING* are the states tested by the Axis engine to
+ determine allowed actions on an axis object.
+
+It is possible to define custom states (see
+[how to write motor controllers](dev_write_motctrl.mdMotor controllers assign states to `Axis` objects.)).
+
+!!! note
+    `state` property is the list of current states, not the list
+    of all existing states.
+
+    To get the list of all existing states for a motor, use
+    `states_list()` method:
+    
+    ```
+    DEMO [16]: m1.state.states_list()
+     Out [16]: ['READY', 'MOVING', 'FAULT', 'LIMPOS', 'LIMNEG', 'HOME', 'OFF']
+    ```
+
+
+#### Caching
+
+For performance considerations, the state of an axis is managed via a
+*caching mechanism*. There can be a discrepancy between real state of
+a motor and BLISS returned state.
+
+To get a direct reading of the hardware, use: `hw_state` property.
+
+The reading `hw_state` property does not update `state` property.
+
+It is possible to disable the caching mechanism in the config file ???
+
+
 
 #### State change events
 

@@ -189,7 +189,6 @@ class LakeShore340(object):
     #   -----------
     def _initialize_loop(self, loop):
         self.log.info("_initialize_loop")
-
         self._add_custom_method_loop(loop)
 
         # Get input object channel

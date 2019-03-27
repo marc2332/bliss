@@ -148,6 +148,11 @@ __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
 
 REPL = None
 
+############# patch ptpython signaturetoolbar
+import bliss.shell.cli.ptpython_signature_patch
+
+#############
+
 
 class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):

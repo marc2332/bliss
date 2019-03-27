@@ -120,7 +120,7 @@ def test_shell_function_with_return_only(clean_gevent):
     assert result == ""
 
 
-## missing test for semicolon which is not working in this test settingpri
-# def test_shell_semicolon():
-#    result, cli, _ = _feed_cli_with_input("print 1 2 ;print 1\r")
-#    assert result == "print(1,2);print(1)"
+def test_shell_semicolon(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")
+    assert result == "print(1,2);print(1)"

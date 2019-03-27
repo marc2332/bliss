@@ -23,6 +23,8 @@ import operator
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
 
+from bliss.shell.cli import style as repl_style
+
 # from prompt_toolkit.history import History
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
@@ -177,8 +179,10 @@ class BlissRepl(PythonRepl):
         self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
         self.show_signature = True
-        # self.install_ui_colorscheme("bliss", bliss_ui_style)
-        # self.use_ui_colorscheme("bliss")
+        self.ui_styles["bliss_ui"] = repl_style.bliss_ui_style
+        self.use_ui_colorscheme("bliss_ui")
+        self.code_styles["bliss_code"] = repl_style.bliss_code_style
+        self.use_code_colorscheme("bliss_code")
 
         self.typing_helper = TypingHelper(self)
 

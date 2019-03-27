@@ -61,14 +61,15 @@ class Base(Controller):
                        depending on read_type.
         """
         channel = tinput.config.get("channel")
-        read_type = tinput.config.get("type", "temperature_K")
-        if read_type == "temperature_K":
-            return self._lakeshore.read_temperature(channel, "kelvin")
-        elif read_type == "temperature_C":
-            return self._lakeshore.read_temperature(channel, "celsius")
-        elif read_type == "sensorunit":
+        read_unit = tinput.config.get("unit", "Kelvin")
+        print("Read_unit = %s" % read_unit)
+        if read_unit == "Kelvin":
+            return self._lakeshore.read_temperature(channel, "Kelvin")
+        elif read_unit == "Celsius":
+            return self._lakeshore.read_temperature(channel, "Celsius")
+        elif read_unit == "Sensor_unit":
             # sensor unit can be Ohm or Volt depending on sensor type
-            return self._lakeshore.read_insensorunits(channel)
+            return self._lakeshore.read_temperature(channel, "Sensor_unit")
 
     # the method state_input(self, tinput) is not implemented
     # (is inherited from temp.py)
@@ -105,7 +106,8 @@ class Base(Controller):
               (float): setpoint temperature
         """
         channel = toutput.config.get("channel")
-        return self._lakeshore.setpoint(channel)
+        self.__set_point = self._lakeshore.setpoint(channel)
+        return self.__set_point
 
     def set_ramprate(self, toutput, rate):
         """Set the ramp rate
@@ -184,14 +186,18 @@ class Base(Controller):
         """
         channel = tloop.config.get("channel")
 
-        model = self._lakeshore.model()
+        model = self._lakeshore._model()
         if model == 340:
             self._lakeshore._cset(channel, onoff="on")
             (input, units, onoff) = self._lakeshore._cset(channel)
-        elif model == 336:
-            raise NotImplementedError
+        elif model == 332 or model == 336:
+            self._lakeshore._heater_range(channel, value=1)
+            print("Heater range is set to the lowest power value (1).")
+            print("You can set it higher with heater_range.")
+            onoff = "on"
         else:
-            print("Unknown Lakeshore model")
+            raise ValueError("Unknown Lakeshore model")
+
         print("Regulation on loop %d is %s." % (channel, onoff))
 
     def off(self, tloop):
@@ -207,10 +213,12 @@ class Base(Controller):
         if model == 340:
             self._lakeshore._cset(channel, onoff="off")
             (input, units, onoff) = self._lakeshore._cset(channel)
-        elif model == 336:
-            raise NotImplementedError
+        elif model == 332 or model == 336:
+            self._lakeshore._heater_range(channel, value=0)
+            onoff = "off"
         else:
-            print("Unknown Lakeshore model")
+            raise ValueError("Unknown Lakeshore model")
+
         print("Regulation on loop %d is %s." % (channel, onoff))
 
     def set_kp(self, tloop, kp):

@@ -47,7 +47,7 @@ def _run_incomplete(cmd_input, local_locals):
     return None
 
 
-def test_shell_signature(clean_gevent, beacon, set_pt_event_loop):
+def test_shell_signature(clean_gevent, beacon):
     env_dict = dict()
     session = beacon.get("test_session")
     session.setup(env_dict)
@@ -80,7 +80,7 @@ def _get_completion(br):
         return {cc.text for cc in cl[0].content._render_pos_to_completion.values()}
 
 
-def test_shell_autocomplete_property(clean_gevent, set_pt_event_loop):
+def test_shell_autocomplete_property(clean_gevent):
     clean_gevent["end-check"] = False
 
     class Test_property_class:

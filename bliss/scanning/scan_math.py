@@ -16,11 +16,33 @@ def com(x, y):
 
 
 def cen(x, y):
+    slope = numpy.gradient(y, x)
+    # check if function is continuous
+    if numpy.inf in slope or -numpy.inf in slope:
+        # if not remove double values
+        adjacent_index = dict()
+        prev_x = None
+        for i, xval in enumerate(x):
+            if prev_x is None:
+                prev_x = xval
+                continue
+            if prev_x == xval:
+                l = adjacent_index.setdefault(xval, list())
+                l.append(i)
+            prev_x = xval
+        remove_index = list()
+        for index in adjacent_index.values():
+            min_index = min(index) - 1
+            y[min_index] = y[[min_index] + index].mean()
+            remove_index.extend(index)
+
+        x = numpy.delete(x, remove_index)
+        y = numpy.delete(y, remove_index)
+        slope = numpy.gradient(y, x)
+
     half_val = (max(y) + min(y)) / 2.
     nb_value = len(x)
     index_above_half = numpy.where(y >= half_val)[0]
-    slope = numpy.gradient(y, x)
-
     if index_above_half[0] != 0 and index_above_half[-1] != (nb_value - 1):
         # standard peak
         if len(index_above_half) == 1:  # only one point above half_value

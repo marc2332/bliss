@@ -48,12 +48,12 @@ def duration_split(duration):
 
     debug = False
     if debug:
-        print "-------------------------"
-        print "d=%f" % duration
-        print "us=%f" % nb_us
-        print "ms=%f" % nb_ms
-        print "s=%f" % nb_seconds
-        print "mn=%f" % nb_minutes
+        print("-------------------------")
+        print("d=%f" % duration)
+        print("us=%f" % nb_us)
+        print("ms=%f" % nb_ms)
+        print("s=%f" % nb_seconds)
+        print("mn=%f" % nb_minutes)
 
     return (nb_days, nb_hours, nb_minutes, nb_seconds, nb_ms, nb_us)
 
@@ -118,15 +118,15 @@ def duration_format(duration):
 
 
 def test_display(duration):
-    print "%15f -> \"%s\"" % (duration, duration_format(duration))
+    print("%15f -> \"%s\"" % (duration, duration_format(duration)))
 
 
 def main(args):
     """
     main function provided for demonstration and testing purpose.
     """
-    print ""
-    print "--------------------{ timedisplay }----------------------------------"
+    print("")
+    print("--------------------{ timedisplay }----------------------------------")
 
     test_display(0.000123)
     test_display(0.123)
@@ -134,7 +134,7 @@ def main(args):
     test_display(123.456789)
     test_display(123456)
     test_display(1234567)
-    print ""
+    print("")
 #        0.000123 -> "123𝜇s"
 #        0.123000 -> "123ms"
 #      123.000000 -> "2mn 3s"

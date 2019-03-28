@@ -22,6 +22,9 @@ import operator
 
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.filters import has_focus
+from prompt_toolkit.enums import DEFAULT_BUFFER
+
 
 from bliss.shell.cli import style as repl_style
 
@@ -467,7 +470,7 @@ CONFIGS = weakref.WeakValueDictionary()
 
 
 def configure_repl(repl):
-    @repl.add_key_binding(Keys.ControlC)
+    @repl.add_key_binding(Keys.ControlC, eager=True)
     def _(event):
         repl.stop_current_task()
 
@@ -483,6 +486,23 @@ def configure_repl(repl):
     #    sys.stderr.write(repl.default_buffer.history._loaded_strings[-1])
     #    sys.stderr.write("<<HISTORY>>")
     #    sys.stderr.write("<<BLISS REPL TEST>>")
+
+    @repl.add_key_binding(
+        Keys.ControlSpace, filter=has_focus(DEFAULT_BUFFER), eager=True
+    )
+    def _(event):
+        """
+        Initialize autocompletion at cursor.
+        If the autocompletion menu is not showing, display it with the
+        appropriate completions for the context.
+        If the menu is showing, select the next completion.
+        """
+
+        b = event.app.current_buffer
+        if b.complete_state:
+            b.complete_next()
+        else:
+            b.start_completion(select_first=False)
 
 
 def old_history_cmd():

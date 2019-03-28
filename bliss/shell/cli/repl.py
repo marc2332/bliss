@@ -93,32 +93,37 @@ def print_exception(self, context, exc_type, exc_value, tb):
 gevent.hub.Hub.print_exception = print_exception
 
 
+# Patch eventloop of prompt_toolkit to be synchronous
 # don't patch the event loop on windows
-if not is_windows():
-    from prompt_toolkit.eventloop.posix import PosixEventLoop
+def _set_pt_event_loop():
+    if not is_windows():
+        from prompt_toolkit.eventloop.posix import PosixEventLoop
 
-    class _PosixLoop(PosixEventLoop):
-        def run_in_executor(self, callback, _daemon=False):
-            t = gevent.spawn(callback)
+        class _PosixLoop(PosixEventLoop):
+            def run_in_executor(self, callback, _daemon=False):
+                t = gevent.spawn(callback)
 
-            class F(future.Future):
-                def result(self):
-                    if not t.ready():
-                        raise future.InvalidStateError
-                    return t.get()
+                class F(future.Future):
+                    def result(self):
+                        if not t.ready():
+                            raise future.InvalidStateError
+                        return t.get()
 
-                def add_done_callback(self, callback):
-                    t.link(callback)
+                    def add_done_callback(self, callback):
+                        t.link(callback)
 
-                def exception(self):
-                    return t.exception
+                    def exception(self):
+                        return t.exception
 
-                def done(self):
-                    return t.ready()
+                    def done(self):
+                        return t.ready()
 
-            return F()
+                return F()
 
-    set_event_loop(_PosixLoop())
+        set_event_loop(_PosixLoop())
+
+
+_set_pt_event_loop()
 
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper

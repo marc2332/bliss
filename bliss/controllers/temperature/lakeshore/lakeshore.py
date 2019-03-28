@@ -62,7 +62,7 @@ class Base(Controller):
         """
         channel = tinput.config.get("channel")
         read_unit = tinput.config.get("unit", "Kelvin")
-        print("Read_unit = %s" % read_unit)
+        # print("Read_unit = %s" % read_unit)
         if read_unit == "Kelvin":
             return self._lakeshore.read_temperature(channel, "Kelvin")
         elif read_unit == "Celsius":

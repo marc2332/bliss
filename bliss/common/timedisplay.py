@@ -19,8 +19,8 @@
 import sys
 
 __author__ = "cyril.guilloud@esrf.fr"
-__date__ = "2014-2018"
-__version__ = "0.1"
+__date__ = "2014-2019"
+__version__ = "0.9.0"
 
 
 def duration_split(duration):

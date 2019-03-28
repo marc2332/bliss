@@ -21,7 +21,15 @@ def _get_group_reader(counters_or_groupreadhandler):
     try:
         list_iter = iter(counters_or_groupreadhandler)
     except TypeError:
-        return counters_or_groupreadhandler, list()
+        if isinstance(counters_or_groupreadhandler, GroupedReadMixin):
+            return counters_or_groupreadhandler, []
+
+        return (
+            Counter.GROUPED_READ_HANDLERS.get(
+                counters_or_groupreadhandler, counters_or_groupreadhandler
+            ),
+            [counters_or_groupreadhandler],
+        )
     else:
         first_counter = next(list_iter)
         reader = Counter.GROUPED_READ_HANDLERS.get(first_counter)

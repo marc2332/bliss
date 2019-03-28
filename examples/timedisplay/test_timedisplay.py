@@ -14,7 +14,7 @@ import timedisplay
 print ("")
 print ("this code:")
 print ("  import timedisplay")
-print ("  timedisplay.duration_format(123.456789)")
+print ("  print(timedisplay.duration_format(123.456789))")
 print ("")
 
 print ("will print: \"" + timedisplay.duration_format(123.456789) + "\"")

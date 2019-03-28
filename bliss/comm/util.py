@@ -71,11 +71,12 @@ def get_interface(*args, **kwargs):
             interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp)
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
-                    ikwargs = kwargs.pop(iname)
+                    ikwargs = kwargs[iname]
                     if isinstance(ikwargs, dict):
-                        interface = iclass(**ikwargs)
+                        interface = get_com(kwargs)
                     else:
                         interface = ikwargs
+                    del kwargs[iname]
                     break
             else:
                 raise RuntimeError("Cannot find proper interface")
@@ -186,7 +187,8 @@ def get_comm(config, ctype=None, **opts):
         from .gpib import Gpib as klass
     elif comm_type == SERIAL:
         opts.update(config["serial"])
-        opts["port"] = opts.pop("url")
+        url = opts.pop("url", None)
+        opts.setdefault("port", url)
         from .serial import Serial as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)

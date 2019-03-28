@@ -150,9 +150,15 @@ __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
 
 REPL = None
 
-############# patch ptpython signaturetoolbar
+#############
+# patch ptpython signaturetoolbar
 import bliss.shell.cli.ptpython_signature_patch
 
+# add autocomplete_property to jedi's ALLOWED_DESCRIPTOR_ACCESS
+from bliss.common.utils import autocomplete_property
+from jedi.evaluate.compiled import access
+
+access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
 #############
 
 

@@ -4,6 +4,19 @@ This chapter will introduce function needed for alignment. Those
 function will use the **selected counter** data (plotselect) of the
 **last scan** (SCANS[-1]) for calculation.
 
+In case of multi counters, it is possible to specify the counter to use
+for the alignment as parameters. i.e:
+    cen(counter=my_counter)
+    goto_com(counter=my_counter)
+
+
+In case of multi motors (anscan), all this function can use a specific
+axis either for the calculation or the movement (`goto_` functions). 
+   goto_cen(axis=robz)
+   peak(axis=robz)
+If the axis is not specify, `cen,com,peak` function will return value
+for all axis and the *goto_* function will move all motors.
+
 ## counter selection
 
 The counter selection can be done graphically with *Flint* or with the

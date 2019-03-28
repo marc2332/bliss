@@ -614,6 +614,23 @@ class Scan:
         self._preset_list.append(preset)
 
     def _get_data_axis_name(self, axis=None):
+        axes_name = self._get_data_axes_name()
+        if len(axes_name) > 1 and axis is None:
+            raise ValueError(
+                "Multiple axes detected, please provide axis for \
+                                 calculation."
+            )
+        if axis is None:
+            return axes_name[0]
+        else:
+            if axis.name not in axes_name:
+                raise ValueError("No master for axis '%s`." % axis.name)
+            return axis.name
+
+    def _get_data_axes_name(self):
+        """
+        Return all axes in this scan
+        """
         acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
         for top_level_master in acq_chain.keys():
@@ -624,22 +641,10 @@ class Scan:
 
         if len(master_axes) == 0:
             if self._scan_info.get("type") == "timescan":
-                axis_name = "elapsed_time"
+                return ["elapsed_time"]
             else:
                 raise RuntimeError("No axis detected in scan.")
-        else:
-            if len(master_axes) > 1 and axis is None:
-                raise ValueError(
-                    "Multiple axes detected, please provide axis for \
-                                 calculation."
-                )
-            if axis is None:
-                axis_name = master_axes[0]
-            else:
-                axis_name = axis.name
-                if axis_name not in master_axes:
-                    raise ValueError("No master for axis '%s`." % axis_name)
-        return axis_name
+        return master_axes
 
     def _get_x_y_data(self, counter, axis=None):
         axis_name = self._get_data_axis_name(axis)

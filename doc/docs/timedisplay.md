@@ -39,8 +39,7 @@ Units managed are :
 
 import timedisplay
 
-timedisplay.
-
+timedisplay.duration_format(123.456789)
 
 ```
 

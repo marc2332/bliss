@@ -19,7 +19,6 @@ import datetime
 import numpy
 import operator
 
-warnings.filterwarnings("ignore", module="jinja2")
 
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys

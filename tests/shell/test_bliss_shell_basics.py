@@ -11,9 +11,11 @@ import sys
 from prompt_toolkit.input.defaults import create_pipe_input
 from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
+from bliss.shell.cli.repl import _set_pt_event_loop
 
 
 def _feed_cli_with_input(text, check_line_ending=True):
+    _set_pt_event_loop()
     """
     Create a Prompt, feed it with the given user input and return the CLI
     object.

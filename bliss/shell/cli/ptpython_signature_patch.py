@@ -30,13 +30,13 @@ def NEWsignature_toolbar(python_input):
 
             append((Signature, " "))
             try:
-                append((Signature, sig.name))  ### HERE IS THE BLISS PATCH
+                append((Signature, sig.name))  ### PATCHED HERE
             except IndexError:
                 # Workaround for #37: https://github.com/jonathanslenders/python-prompt-toolkit/issues/37
                 # See also: https://github.com/davidhalter/jedi/issues/490
                 return []
 
-            append((Signature + ".operator", "("))
+            append((Signature + ".operator", "("))  ### PATCHED HERE
 
             try:
                 enumerated_params = enumerate(sig.params)
@@ -56,16 +56,18 @@ def NEWsignature_toolbar(python_input):
                 if i == sig_index:
                     # Note: we use `_Param.description` instead of
                     #       `_Param.name`, that way we also get the '*' before args.
-                    append((Signature + ".current-name", str(description)))
+                    append(
+                        (Signature + ".current-name", str(description))
+                    )  ### PATCHED HERE
                 else:
                     append((Signature, str(description)))
-                append((Signature + ".operator", ", "))
+                append((Signature + ".operator", ", "))  ### PATCHED HERE
 
             if sig.params:
                 # Pop last comma
                 result.pop()
 
-            append((Signature + ".operator", ")"))
+            append((Signature + ".operator", ")"))  ### PATCHED HERE
             append((Signature, " "))
         return result
 

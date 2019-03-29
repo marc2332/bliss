@@ -24,6 +24,27 @@ from bliss.common.logtools import LogMixin
 
 import serial
 
+# Export serial globals to the current module
+globals().update(
+    {
+        name: getattr(serial, name)
+        for name in [
+            "EIGHTBITS",
+            "FIVEBITS",
+            "PARITY_EVEN",
+            "PARITY_MARK",
+            "PARITY_NONE",
+            "PARITY_ODD",
+            "PARITY_SPACE",
+            "SEVENBITS",
+            "SIXBITS",
+            "STOPBITS_ONE",
+            "STOPBITS_ONE_POINT_FIVE",
+            "STOPBITS_TWO",
+        ]
+    }
+)
+
 try:
     from serial import rfc2217
     from serial import serialutil

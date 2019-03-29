@@ -89,7 +89,7 @@ The following database files:
 -
   name: object_2
   param: 43
-```            
+```
 
 Produce the following internal representation:
 
@@ -143,3 +143,38 @@ my_global: hello
 >>> object_1.get_inherited("my_global")
 hello
 ```
+
+## SPEC vs BLISS
+
+When restarting a SPEC session, all the config was reloaded and
+parameters taken into account automatically.
+
+For performance consideration, in BLISS:
+
+* the config is reloaded:
+    * on-demand: `config.reload()`
+    * at the (re)start of a session
+* the parameters **from config** of an object are taken into account:
+    * at first start of a session
+    * on demand with `obj.apply_config()`
+* it is possible to mix both reload and apply with: `obj.apply_config(reload=True)`
+
+
+## configuration behavior
+
+Changing a configuration parameter, example of the velocity of a BlissAxis.
+
+![Changing a configuration parameter](img/apply_config_path.svg)
+
+
+## Saving parameters
+
+example to save the velocity of an axis into YAML configuration file:
+
+```python
+DEMO [1]: m1.config.set("velocity", 9)
+DEMO [2]: m1.config.save()
+```
+
+??? no easier way ?
+

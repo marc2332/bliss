@@ -70,6 +70,9 @@ Example: after changing velocity of **ssu** motor in YML file:
 `ssu.apply_config(reload=False)` is a common way to reset parameters
 after changes of settings in a session for example.
 
+see [beacon db](beacon_db.md#configuration-behavior) for usage
+examples of `apply_config()`.
+
 ## Custom axis classes
 
 `Axis` is the default class that corresponds to controller motors,

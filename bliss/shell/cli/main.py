@@ -26,6 +26,10 @@ Options:
     --show-sessions-only          Display available sessions names only
 """
 
+import warnings
+
+warnings.filterwarnings("ignore", module="jinja2")
+
 import os
 import sys
 import logging

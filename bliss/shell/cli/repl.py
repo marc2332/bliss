@@ -313,9 +313,10 @@ class ScanPrinter:
                 if len(potential_cnt_channel_name) > 0:
                     self.counter_names.append(potential_cnt_channel_name[0])
                     unit = _find_unit(self.cntdict[potential_cnt_channel_name[0]])
+                    counter_name = self.cntdict[potential_cnt_channel_name[0]]
                     if unit:
                         counter_name += "[{0}]".format(unit)
-                    counter_labels.append(self.cntdict[potential_cnt_channel_name[0]])
+                    counter_labels.append(counter_name)
 
         self.col_labels.extend(sorted(motor_labels))
         self.col_labels.extend(sorted(counter_labels))

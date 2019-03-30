@@ -88,6 +88,7 @@ def test_ptpython_signature_patch(clean_gevent):
     diff_dump = _generate_diff(o, p)
     _compare_dump(ptpython_signature_patch_diff_dump, diff_dump)
 
-    # put the patch pack in place for further tests...
     if "ptpython.layout" in importlib.sys.modules:
-        exec("import bliss.shell.cli.ptpython_signature_patch")
+        import bliss.shell.cli.ptpython_signature_patch
+
+        importlib.reload(bliss.shell.cli.ptpython_signature_patch)

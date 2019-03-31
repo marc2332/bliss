@@ -96,7 +96,7 @@ class TypingHelper(object):
                     )
                     break
 
-        @repl.add_key_binding(";")
+        @repl.add_key_binding(";", filter=has_focus(DEFAULT_BUFFER))
         def _(event):
             text = repl.default_buffer.text
             if not self._check_callable(repl, event):

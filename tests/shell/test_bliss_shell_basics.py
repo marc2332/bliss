@@ -11,9 +11,11 @@ import sys
 from prompt_toolkit.input.defaults import create_pipe_input
 from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
+from bliss.shell.cli.repl import _set_pt_event_loop
 
 
 def _feed_cli_with_input(text, check_line_ending=True):
+    _set_pt_event_loop()
     """
     Create a Prompt, feed it with the given user input and return the CLI
     object.
@@ -120,7 +122,7 @@ def test_shell_function_with_return_only(clean_gevent):
     assert result == ""
 
 
-## missing test for semicolon which is not working in this test settingpri
-# def test_shell_semicolon():
-#    result, cli, _ = _feed_cli_with_input("print 1 2 ;print 1\r")
-#    assert result == "print(1,2);print(1)"
+def test_shell_semicolon(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")
+    assert result == "print(1,2);print(1)"

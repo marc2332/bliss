@@ -13,7 +13,7 @@ from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
 from .bgsub import BgSub
-from bliss.common.utils import common_prefix
+from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
 from bliss.config import settings
@@ -205,7 +205,7 @@ class Lima(object):
             )
         return self._acquisition
 
-    @property
+    @autocomplete_property
     def roi_counters(self):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
@@ -238,7 +238,7 @@ class Lima(object):
     def camera_type(self):
         return self._proxy.camera_type
 
-    @property
+    @autocomplete_property
     def bpm(self):
         if self.__bpm is None:
             bpm_proxy = self._get_proxy(Lima._BPM)
@@ -314,7 +314,7 @@ class Lima(object):
 
     # Expose counters
 
-    @property
+    @autocomplete_property
     def counters(self):
         all_counters = [self.image]
         all_counters += list(self.roi_counters.counters)
@@ -324,7 +324,7 @@ class Lima(object):
             pass
         return counter_namespace(all_counters)
 
-    @property
+    @autocomplete_property
     def counter_groups(self):
         dct = {}
 

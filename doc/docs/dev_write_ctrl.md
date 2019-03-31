@@ -2,6 +2,20 @@
 
 Here you can find somt tips about the wrinting of a BLISS controller.
 
+## @autocomplete_property decorator
+
+in many controllers the `@property` decorator is heavily used to protect certain attributes of the instance or to limit the access to read-only. When using the bliss command line interface the autocompletion will __not__ suggeste any completion based on the return value of the method underneath the property. This is a wanted behavior e.g. in case this would trigger hardware communication. There are however also usecases where a _deeper_ autocompletion is wanted. E.g. the `.counter` namespace of a controller. If implemented as `@property`
+
+    BLISS [1]: lima_simulator.counters.
+
+would not show any autocompletion suggestions. To enable _deeper_ autocompletion there is a special decorator called `@autocomplete_property` that can be imported via `from bliss.common.utils import autocomplete_property`. Using the `@autocomplete_property` decorator befor the `def counters(self):` method of the controller would e.g. result in 
+
+    BLISS [1]: lima_simulator.counters.
+                                      _roi1_
+                                      _roi2_
+                                      _bpm_
+
+autocompletion suggestions. 
 
 ## __str__ and __repr__ methods
 

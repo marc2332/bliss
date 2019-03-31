@@ -22,6 +22,11 @@ import operator
 
 from ptpython.repl import PythonRepl
 from prompt_toolkit.keys import Keys
+from prompt_toolkit.filters import has_focus
+from prompt_toolkit.enums import DEFAULT_BUFFER
+
+
+from bliss.shell.cli import style as repl_style
 
 # from prompt_toolkit.history import History
 from prompt_toolkit.utils import is_windows
@@ -91,32 +96,37 @@ def print_exception(self, context, exc_type, exc_value, tb):
 gevent.hub.Hub.print_exception = print_exception
 
 
+# Patch eventloop of prompt_toolkit to be synchronous
 # don't patch the event loop on windows
-if not is_windows():
-    from prompt_toolkit.eventloop.posix import PosixEventLoop
+def _set_pt_event_loop():
+    if not is_windows():
+        from prompt_toolkit.eventloop.posix import PosixEventLoop
 
-    class _PosixLoop(PosixEventLoop):
-        def run_in_executor(self, callback, _daemon=False):
-            t = gevent.spawn(callback)
+        class _PosixLoop(PosixEventLoop):
+            def run_in_executor(self, callback, _daemon=False):
+                t = gevent.spawn(callback)
 
-            class F(future.Future):
-                def result(self):
-                    if not t.ready():
-                        raise future.InvalidStateError
-                    return t.get()
+                class F(future.Future):
+                    def result(self):
+                        if not t.ready():
+                            raise future.InvalidStateError
+                        return t.get()
 
-                def add_done_callback(self, callback):
-                    t.link(callback)
+                    def add_done_callback(self, callback):
+                        t.link(callback)
 
-                def exception(self):
-                    return t.exception
+                    def exception(self):
+                        return t.exception
 
-                def done(self):
-                    return t.ready()
+                    def done(self):
+                        return t.ready()
 
-            return F()
+                return F()
 
-    set_event_loop(_PosixLoop())
+        set_event_loop(_PosixLoop())
+
+
+_set_pt_event_loop()
 
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
@@ -148,6 +158,17 @@ __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
 
 REPL = None
 
+#############
+# patch ptpython signaturetoolbar
+import bliss.shell.cli.ptpython_signature_patch
+
+# add autocomplete_property to jedi's ALLOWED_DESCRIPTOR_ACCESS
+from bliss.common.utils import autocomplete_property
+from jedi.evaluate.compiled import access
+
+access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
+#############
+
 
 class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):
@@ -172,8 +193,10 @@ class BlissRepl(PythonRepl):
         self.all_prompt_styles["bliss"] = self.bliss_prompt
         self.prompt_style = "bliss"
         self.show_signature = True
-        # self.install_ui_colorscheme("bliss", bliss_ui_style)
-        # self.use_ui_colorscheme("bliss")
+        self.ui_styles["bliss_ui"] = repl_style.bliss_ui_style
+        self.use_ui_colorscheme("bliss_ui")
+        self.code_styles["bliss_code"] = repl_style.bliss_code_style
+        self.use_code_colorscheme("bliss_code")
 
         self.typing_helper = TypingHelper(self)
 
@@ -447,7 +470,7 @@ CONFIGS = weakref.WeakValueDictionary()
 
 
 def configure_repl(repl):
-    @repl.add_key_binding(Keys.ControlC)
+    @repl.add_key_binding(Keys.ControlC, eager=True)
     def _(event):
         repl.stop_current_task()
 
@@ -463,6 +486,23 @@ def configure_repl(repl):
     #    sys.stderr.write(repl.default_buffer.history._loaded_strings[-1])
     #    sys.stderr.write("<<HISTORY>>")
     #    sys.stderr.write("<<BLISS REPL TEST>>")
+
+    @repl.add_key_binding(
+        Keys.ControlSpace, filter=has_focus(DEFAULT_BUFFER), eager=True
+    )
+    def _(event):
+        """
+        Initialize autocompletion at cursor.
+        If the autocompletion menu is not showing, display it with the
+        appropriate completions for the context.
+        If the menu is showing, select the next completion.
+        """
+
+        b = event.app.current_buffer
+        if b.complete_state:
+            b.complete_next()
+        else:
+            b.start_completion(select_first=False)
 
 
 def old_history_cmd():

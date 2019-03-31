@@ -592,3 +592,22 @@ def counter_dict():
                     counters_dict[cnt.fullname] = cnt
 
     return counters_dict
+
+
+class autocomplete_property(property):
+    """
+    a custom property class that will be added to 
+    jedi's ALLOWED_DESCRIPTOR_ACCESS via 
+    
+    from jedi.evaluate.compiled import access
+    access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
+    
+    in the bliss shell so
+    @property  --> not evaluated for autocompletion
+    @autocomplete_property  --> evaluated for autocompletion
+    
+    the @autocomplete_property decorator is especially useful for
+    counter namespaces or similar object
+    """
+
+    pass

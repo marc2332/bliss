@@ -294,8 +294,9 @@ class LimaImageChannelDataNode(DataNode):
     def close(self):
         if self._storage_task is None:
             return
-        self._storage_task.join(timeout=3.)
-        self._storage_task.kill()
+        storage_task = self._storage_task
+        storage_task.join(timeout=3.)
+        storage_task.kill()
         self._storage_task = None
 
     def get(self, from_index, to_index=None):

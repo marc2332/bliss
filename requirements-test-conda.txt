@@ -7,3 +7,4 @@ pytest-cov >= 2.6.1
 pytest-mock
 lima-camera-simulator-tango
 scipy
+black == 18.6b4

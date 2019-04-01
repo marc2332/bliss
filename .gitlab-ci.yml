@@ -22,7 +22,7 @@ tests:
     # set pip cache to the Docker volume
     - export PIP_CACHE_DIR="/opt/cache/pip"
     # create test env and install BLISS
-    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt --file requirements-dev.txt
+    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
     - pip install .
   script: 

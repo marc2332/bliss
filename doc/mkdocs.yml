@@ -121,6 +121,7 @@ nav:
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
                 - Testing: dev_testing.md
+                - Release: dev_release.md
 theme:
         name: material
         language: en

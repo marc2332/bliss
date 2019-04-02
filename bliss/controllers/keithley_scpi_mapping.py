@@ -290,6 +290,21 @@ _sens_commands = {
     # SENSe1
     "FUNCtion": StrCmd(doc="measure function (CURRent:DC)", default="CURRent"),
     "DATA[:LATest]": StrCmdRO(doc="return last instrument reading"),
+    # median filter
+    "MEDian[:STATe]": OnOffCmd(doc="median filter enable", default=False),
+    "MEDian:RANK": IntCmd(doc="median filter rank (1-5)", default=1),
+    # digital filter
+    "AVERage[:STATe]": OnOffCmd(doc="digital filter enable", default=False),
+    "AVERage:TCONtrol": StrCmd(doc="filter control (MOV, REP)", default="REP"),
+    "AVERage:COUNt": IntCmd(doc="filter count (2-100)", default=10),
+    "AVERage:ADVanced[:STATe]": OnOffCmd(
+        doc="advanced digital filter enable", default=False
+    ),
+    "AVERage:ADVanced:NTOLerance": IntCmd(doc="noise tolerance (%) (0-105)", default=0),
+}
+
+_sens_curr_commands = {
+    # SENSe1
     "CURRent[:DC]:NPLCycles": FloatCmd(
         doc="integration rate in line cycles (PLCs) (0.01..5/6)"
     ),
@@ -301,19 +316,52 @@ _sens_commands = {
     "CURRent[:DC]:RANGe[:AUTO]:LLIM": FloatCmd(
         doc="auto-range lower limit (A) (-0.021..0.021)"
     ),
-    # median filter
-    "MEDian[:STATe]": OnOffCmd(doc="median filter enable", default=False),
-    "MEDian:RANK": IntCmd(doc="median filter rank (1-5)", default=1),
-    # digital filter
-    "AVERage[:STATe]": OnOffCmd(doc="digital filter enable", default=False),
-    "AVERage:TCONtrol": StrCmd(doc="filter control (MOV, REP)", default="REP"),
-    "AVERage:COUNt": IntCmd(doc="filter count (1-100)", default=10),
-    "AVERage:ADVanced[:STATe]": OnOffCmd(
-        doc="advanced digital filter enable", default=False
-    ),
-    "AVERage:ADVanced:NTOLerance": IntCmd(doc="noise tolerance (%) (0-105)", default=0),
 }
 
+_sens_volt_commands = {
+    # SENSe1
+    "VOLTage[:DC]:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "VOLTage[:DC]:RANGe[:UPPer]": FloatCmd(doc="select range (V) (-210..210)"),
+    "VOLTage[:DC]:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "VOLTage[:DC]:RANGe[:AUTO]:ULIM": FloatCmd(
+        doc="auto-range upper limit (V) (-210..210)"
+    ),
+    "VOLTage[:DC]:RANGe[:AUTO]:LLIM": FloatCmd(
+        doc="auto-range lower limit (V) (-210..210)"
+    ),
+    "VOLTage[:DC]:GUARd": OnOffCmd(doc="enable/disable driven guard"),
+    "VOLTage[:DC]:XFEedback": OnOffCmd(doc="enable/disable external feedback"),
+}
+
+_sens_res_commands = {
+    # SENSe1
+    "RESistance:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "RESistance:RANGe[:UPPer]": FloatCmd(doc="select range (ohms) (0..2.1e-11)"),
+    "RESistance:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "RESistance:RANGe[:AUTO]:ULIM": FloatCmd(
+        doc="auto-range upper limit (ohms) (0..2.1e-11)"
+    ),
+    "RESistance:RANGe[:AUTO]:LLIM": FloatCmd(
+        doc="auto-range lower limit (ohms) (0..2.1e-11)"
+    ),
+    "RESistance:GUARd": OnOffCmd(doc="enable/disable driven guard"),
+}
+
+_sens_char_commands = {
+    # SENSe1
+    "CHARge:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "CHARge:RANGe[:UPPer]": FloatCmd(doc="select range (coulombs) (-21e-6..21e-6)"),
+    "CHARge:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "CHARge:RANGe[:AUTO]:LGRoup": StrCmd(doc="auto-range limit (HIGH, LOW)"),
+    "CHARge:ADIScharge:LEVel": FloatCmd(doc="set auto-discharge level (-21e-6..21e-6)"),
+    "CHARge:ADIScharge:STATe": OnOffCmd(doc="enable/disable auto-discharge")
+}
 
 def __get_commands(cmds, subsystem):
     r = {}
@@ -337,6 +385,10 @@ __get_limits_commands = partial(__get_commands, _limits_commands)
 __get_buffer_config_commands = partial(__get_commands, _buffer_config_commands)
 __get_ratio_commands = partial(__get_commands, _ratio_commands)
 __get_sens_commands = partial(__get_commands, _sens_commands)
+__get_sens_curr_commands = partial(__get_commands, _sens_curr_commands)
+__get_sens_volt_commands = partial(__get_commands, _sens_volt_commands)
+__get_sens_res_commands = partial(__get_commands, _sens_res_commands)
+__get_sens_char_commands = partial(__get_commands, _sens_char_commands)
 
 _6482_commands = Commands()
 _6482_commands.update(__get_mXb_commands("CALCulate[1]:"))
@@ -352,7 +404,9 @@ _6482_commands.update(__get_buffer_config_commands("CALCulate8:"))
 _6482_commands.update(__get_display_commands("[:WINDow1]"))
 _6482_commands.update(__get_display_commands("[:WINDow2]"))
 _6482_commands.update(__get_sens_commands("[SENSe[1]:]"))
+_6482_commands.update(__get_sens_curr_commands("[SENSe[1]:]"))
 _6482_commands.update(__get_sens_commands("SENSe2:"))
+_6482_commands.update(__get_sens_curr_commands("SENSe2:"))
 
 _6485_commands = Commands()
 _6485_commands.update(__get_mXb_commands("CALCulate[1]:"))
@@ -361,8 +415,21 @@ _6485_commands.update(__get_limits_commands("CALCulate2:"))
 _6485_commands.update(__get_buffer_config_commands("CALCulate3:"))
 _6485_commands.update(__get_display_commands("[:WINDow1]"))
 _6485_commands.update(__get_sens_commands("[SENSe[1]:]"))
+_6485_commands.update(__get_sens_curr_commands("[SENSe[1]:]"))
+
+_6514_commands = Commands()
+_6514_commands.update(__get_mXb_commands("CALCulate[1]:"))
+_6514_commands.update(__get_offset_commands("CALCulate2:"))
+_6514_commands.update(__get_limits_commands("CALCulate2:"))
+_6514_commands.update(__get_buffer_config_commands("CALCulate3:"))
+_6514_commands.update(__get_display_commands("[:WINDow1]"))
+_6514_commands.update(__get_sens_commands("[SENSe[1]:]"))
+_6514_commands.update(__get_sens_curr_commands("[SENSe[1]:]"))
+_6514_commands.update(__get_sens_volt_commands("[SENSe[1]:]"))
+_6514_commands.update(__get_sens_res_commands("[SENSe[1]:]"))
+_6514_commands.update(__get_sens_char_commands("[SENSe[1]:]"))
 
 import collections
 
 MODEL_COMMANDS = collections.defaultdict(Commands)
-MODEL_COMMANDS.update({"6482": _6482_commands, "6485": _6485_commands})
+MODEL_COMMANDS.update({"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands})

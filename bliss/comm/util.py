@@ -73,7 +73,7 @@ def get_interface(*args, **kwargs):
                 if iname in kwargs:
                     ikwargs = kwargs[iname]
                     if isinstance(ikwargs, dict):
-                        interface = get_com(kwargs)
+                        interface = get_comm(kwargs)
                     else:
                         interface = ikwargs
                     del kwargs[iname]

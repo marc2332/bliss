@@ -363,6 +363,40 @@ _sens_char_commands = {
     "CHARge:ADIScharge:STATe": OnOffCmd(doc="enable/disable auto-discharge"),
 }
 
+_sens_2000_commands = {
+    # SENSe1
+    "CURRent:DC:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "CURRent:DC:RANGe[:UPPer]": FloatCmd(doc="select range (A) (0..3.1)"),
+    "CURRent:DC:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "CURRent:AC:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "CURRent:AC:RANGe[:UPPer]": FloatCmd(doc="select range (A) (0..3.1)"),
+    "CURRent:AC:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "VOLTage:DC:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "VOLTage:DC:RANGe[:UPPer]": FloatCmd(doc="select range (V) (0..1010)"),
+    "VOLTage:DC:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "VOLTage:AC:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "VOLTage:AC:RANGe[:UPPer]": FloatCmd(doc="select range (V) (0..757.5)"),
+    "VOLTage:AC:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "RESistance:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "RESistance:RANGe[:UPPer]": FloatCmd(doc="select range (V) (0..120e6)"),
+    "RESistance:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "FRESistance:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..5/6)"
+    ),
+    "FRESistance:RANGe[:UPPer]": FloatCmd(doc="select range (V) (0..101e6)"),
+    "FRESistance:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+}
+
 
 def __get_commands(cmds, subsystem):
     r = {}
@@ -390,6 +424,7 @@ __get_sens_curr_commands = partial(__get_commands, _sens_curr_commands)
 __get_sens_volt_commands = partial(__get_commands, _sens_volt_commands)
 __get_sens_res_commands = partial(__get_commands, _sens_res_commands)
 __get_sens_char_commands = partial(__get_commands, _sens_char_commands)
+__get_sens_2000_commands = partial(__get_commands, _sens_2000_commands)
 
 _6482_commands = Commands()
 _6482_commands.update(__get_mXb_commands("CALCulate[1]:"))
@@ -430,9 +465,13 @@ _6514_commands.update(__get_sens_volt_commands("[SENSe[1]:]"))
 _6514_commands.update(__get_sens_res_commands("[SENSe[1]:]"))
 _6514_commands.update(__get_sens_char_commands("[SENSe[1]:]"))
 
+_2000_commands = Commands()
+_2000_commands.update(__get_sens_2000_commands("[SENSe[1]:]"))
+_2000_commands.update(__get_display_commands("[:WINDow1]"))
+
 import collections
 
 MODEL_COMMANDS = collections.defaultdict(Commands)
 MODEL_COMMANDS.update(
-    {"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands}
+    {"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands, "2000": _2000_commands}
 )

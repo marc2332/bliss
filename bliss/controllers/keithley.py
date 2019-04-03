@@ -754,6 +754,10 @@ class Multimeter2000(BaseMultimeter):
         }
     )
 
+    get_range, set_range = sensor_meas_cmd("RANGe:UPPer")
+
+    def _initialize(self):
+        pass
 
 class AmmeterDDC(object):
     def __init__(self, config):

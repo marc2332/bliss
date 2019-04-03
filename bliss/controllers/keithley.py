@@ -497,7 +497,7 @@ class BaseMultimeter(KeithleySCPI):
 
     def get_meas_func(self):
         func = self["CONF"]
-        func = func.replace('"', '')
+        func = func.replace('"', "")
         return self.MeasureFunctions[func]["max_command"]
 
     def set_meas_func(self, func=None):
@@ -635,7 +635,6 @@ class Ammeter6482(BaseAmmeter):
             self["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
 
 
-
 class Multimeter6514(BaseMultimeter):
 
     MeasureFunctions = SCPICommands(
@@ -666,21 +665,17 @@ class Multimeter6514(BaseMultimeter):
     get_voltage_dc_auto_range, set_voltage_dc_auto_range = sensor_cmd(
         "VOLT:DC:RANG:AUTO", "voltage_dc_auto_range"
     )
-    get_resistance_nplc, set_resistance_nplc = sensor_cmd(
-        "RES:NPLC", "resistance_nplc"
-    )
+    get_resistance_nplc, set_resistance_nplc = sensor_cmd("RES:NPLC", "resistance_nplc")
     get_resistance_auto_range, set_resistance_auto_range = sensor_cmd(
         "RES:RANG:AUTO", "resistance_auto_range"
     )
-    get_charge_nplc, set_charge_nplc = sensor_cmd(
-        "CHAR:NPLC", "charge_nplc"
-    )
+    get_charge_nplc, set_charge_nplc = sensor_cmd("CHAR:NPLC", "charge_nplc")
     get_charge_auto_range, set_charge_auto_range = sensor_cmd(
         "CHAR:RANG:AUTO", "charge_auto_range"
     )
 
     get_range = read_sensor_meas_cmd("RANG")
-    
+
     def _initialize(self):
         with self:
             self["FORM:ELEM"] = [
@@ -714,7 +709,18 @@ class Multimeter6514(BaseMultimeter):
         cmd = self._meas_func_sensor_cmd(sensor, "RANGe:UPPer")
         func = self._meas_func()
         if func == "CURRENT:DC":
-            possible_range = [20e-12, 200e-12, 2e-9, 20e-9, 200e-9, 2e-6, 20e-6, 200e-6, 2e-3, 20e-3]
+            possible_range = [
+                20e-12,
+                200e-12,
+                2e-9,
+                20e-9,
+                200e-9,
+                2e-6,
+                20e-6,
+                200e-6,
+                2e-3,
+                20e-3,
+            ]
         elif func == "VOLTAGE:DC":
             possible_range = [2, 20, 200]
         elif func == "RESISTANCE":

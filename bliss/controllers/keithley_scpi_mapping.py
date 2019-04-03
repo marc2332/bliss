@@ -360,8 +360,9 @@ _sens_char_commands = {
     "CHARge:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
     "CHARge:RANGe[:AUTO]:LGRoup": StrCmd(doc="auto-range limit (HIGH, LOW)"),
     "CHARge:ADIScharge:LEVel": FloatCmd(doc="set auto-discharge level (-21e-6..21e-6)"),
-    "CHARge:ADIScharge:STATe": OnOffCmd(doc="enable/disable auto-discharge")
+    "CHARge:ADIScharge:STATe": OnOffCmd(doc="enable/disable auto-discharge"),
 }
+
 
 def __get_commands(cmds, subsystem):
     r = {}
@@ -432,4 +433,6 @@ _6514_commands.update(__get_sens_char_commands("[SENSe[1]:]"))
 import collections
 
 MODEL_COMMANDS = collections.defaultdict(Commands)
-MODEL_COMMANDS.update({"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands})
+MODEL_COMMANDS.update(
+    {"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands}
+)

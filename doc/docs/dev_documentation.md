@@ -20,77 +20,105 @@ BLISS Documentation is furnished in various manners:
 ## Installing documentation requirements
 
 In order to be able to test documentation on a PC where BLISS is
-installed, the documentation requirements need to be installed:
+installed, the documentation requirements need to be installed 
+in a conda environment.
 
-    $ cd <bliss.git directory>
-    $ conda install --file requirements-doc-conda.txt
-    $ pip install -r requirements-doc.txt
+!!! note
+At ESRF, enter the BLISS development conda environment to install documentation requirements:
+```bash
+$ . blissenv -d
+```
+
+
+```bash
+$ cd <bliss.git directory>
+$ conda install --file requirements-doc-conda.txt
+$ pip install -r requirements-doc.txt
+```
 
 This installs `mkdocs` and all dependencies.
 
 In order to serve a local version of the documentation, start
 the mkdocs serve with:
-
-    $ cd doc/
-    $ mkdocs serve
-
+```bash
+$ cd <bliss.git directory>/doc/
+$ mkdocs serve
+```
 And visit http://localhost:8000
+
+
+In order to update the codumentation   
+http://localhost:8000/dev_documentation.html  
+Please do the following
+
+```bash
+$ cd <bliss.git directory>/doc/docs
+$ <your favorite editor> dev_documentation.md
+```
+
+Once you save **dev_documentation.md** you can see the new version 
+by reloading  
+http://localhost:8000/dev_documentation.html
 
 ## New controller documentation
 
 What to include in code  / What to put in mkdoc ???
 
 
-Example:
+### Example:
 
-    """ESRF - PePU controller
+**ESRF - PePU controller**
 
-    Example YAML_ configuration:
+Example YAML_ configuration:
 
-    .. code-block:: yaml
+```yaml
 
-        plugin: bliss
-        class: PEPU
-        module: pepu
-        name: pepudcm2
-        tcp:
-          url: pepudcm2
-        template: renishaw    # optional
+	plugin: bliss
+	class: PEPU
+	module: pepu
+	name: pepudcm2
+	tcp:
+	  url: pepudcm2
+	template: renishaw    # optional
+```
 
-    Usage::
-       >>> from bliss.config.static import get_config
-       >>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
+Usage:
 
-       >>> config = get_config()
+```
+>>> from bliss.config.static import get_config
+>>> from bliss.controllers.pepu import Stream, Trigger, Signal, ChannelMode
 
-       >>> pepudcm2 = config.get('pepudcm2')
+>>> config = get_config()
 
-    For the counter interface, see the
-    `PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`__.
-    """
+>>> pepudcm2 = config.get('pepudcm2')
+```
+
+For the counter interface, see the
+`PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`
 
 
-template:
+###template:
 
 
-    """ESRF - XXX controller
+**ESRF - XXX controller**
 
-    Example YAML configuration:
+Example YAML configuration:
 
-    .. code-block:: yaml
+```yaml
 
-        plugin: bliss
-        class: XXX
-        module: xxx
-        name: xxx
-        tcp:
-          url: xxx.esrf.fr
+	plugin: bliss
+	class: XXX
+	module: xxx
+	name: xxx
+	tcp:
+	  url: xxx.esrf.fr
+```
 
-    Usage::
-        XXX
+Usage:
+     XXX
 
-    For more information, see the XXX documentation: XXX.
-    """
+For more information, see the XXX documentation: XXX.
+
 
 ## Markdown examples
 
@@ -110,15 +138,28 @@ To easily view the result of your writing, using a local rendering:
     * pymdown-extensions==5.0 / markdown-inline-graphviz / Markdown < 3
 * These packages are in `requirements-doc.txt` and `requirements-doc.txt`
 
-        conda install --yes --file requirements-doc-conda.txt
-        pip install -r requirements-doc.txt
+!!! note
+At ESRF, enter the BLISS development conda environment to install documentation requirements:
+```bash
+$ . blissenv -d
+```
 
-* launch `mkdocs` in server mode:
+```bash
+$ cd <bliss.git directory>
+$ conda install --file requirements-doc-conda.txt
+$ pip install -r requirements-doc.txt
+```
 
-        cd doc/
-        mkdocs serve -a <computer_name>:8888
+* launch `mkdocs` in server mode in your conda environment:
 
-* and visit [http:\\\\computername:8888](http:\\computername:8888) to see the documentation
+```bash
+$ hostname
+myhost
+$ cd <bliss.git directory>/doc/
+$ mkdocs serve -a myhost:8888
+```
+
+* and visit [http://myhost:8888](http://myhost:888) to see the documentation
 
 
 ### Level 3 title
@@ -155,11 +196,13 @@ To create a list, an empty line must be respected:
 
 ### Links and references
 use:
+
 ```
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
 * inner links to section: [code formatting](dev_guidelines.md#code-formatting)
 * outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
 ```
+
 to produce:
 
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
@@ -179,13 +222,35 @@ result: `raw text in monospace font`
 A raw text block is defined using 4 spaces to begin a line and
 respecting an empty line before block.
 
-    % bliss -h
-    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-           bliss [-v | --version]
-           bliss [-c <name> | --create=<name>]
-           bliss [-d <name> | --delete=<name>]
-           bliss [-h | --help]
+    My text without any change, 
+    but it has to be text without symbols.
+    
+In case you want to have a line break  
+just insert two *spaces* at the end of the line, like this:  
+line1  
+line2  
+line3  
 
+A bash command line is defined with 3 \` (backquotes) followed by **bash**<br>
+It looks like 
+```markdown
+ ```bash
+```
+and you finish your script with 3  \` (backquotes)  like
+```markdown
+ ```   
+```
+
+Here is an example with <,> and [ in the text
+
+```bash
+% bliss -h
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+       bliss [-v | --version]
+       bliss [-c <name> | --create=<name>]
+       bliss [-d <name> | --delete=<name>]
+       bliss [-h | --help]
+```
 
 
 ### Formated text
@@ -199,7 +264,7 @@ There are many formating marker to write text in *italic* or `raw text
 
 #### Python code
 
-To specify a programing language, 3 back-quotes can be used:
+To specify a programing language, 3 backquotes can be used:
 
 ```python
 from bliss.common.axis import Axis

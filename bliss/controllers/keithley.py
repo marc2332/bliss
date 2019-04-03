@@ -759,6 +759,7 @@ class Multimeter2000(BaseMultimeter):
     def _initialize(self):
         pass
 
+
 class AmmeterDDC(object):
     def __init__(self, config):
         self.interface = get_comm(config)

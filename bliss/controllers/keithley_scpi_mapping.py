@@ -473,5 +473,10 @@ import collections
 
 MODEL_COMMANDS = collections.defaultdict(Commands)
 MODEL_COMMANDS.update(
-    {"6482": _6482_commands, "6485": _6485_commands, "6514": _6514_commands, "2000": _2000_commands}
+    {
+        "6482": _6482_commands,
+        "6485": _6485_commands,
+        "6514": _6514_commands,
+        "2000": _2000_commands,
+    }
 )

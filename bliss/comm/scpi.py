@@ -165,8 +165,8 @@ def cmd_expr_to_reg_expr_str(cmd_expr):
     Return a regular expression string from the given SCPI command expression.
     """
     # Basicaly we replace [] -> ()?, and LOWercase -> LOW(ercase)?
-    # Also we add :? optional to the start and $ to the end to make sure we have
-    # exact match
+    # Also we add :? optional to the start and $ to the end to make sure
+    # we have an exact match
     reg_expr, low_zone = "\:?", False
     for c in cmd_expr:
         cl = c.islower()
@@ -338,7 +338,7 @@ class SCPIError(CommunicationError):
 
 def sanitize_msgs(*msgs, **opts):
     """
-    Transform a list of messages into a tuple  of
+    Transform a tuple of messages into a list  of
     (<individual commands>, <individual queries>, <full_message>):
 
     if strict_query=True, sep=';', eol='\n' (default):
@@ -350,6 +350,9 @@ def sanitize_msgs(*msgs, **opts):
             (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?;*CLS')
     """
     eol = opts.get("eol", "\n")
+    # eol has to be a string
+    if isinstance(eol, bytes):
+        eol = eol.decode()
     sep = opts.get("sep", ";")
     strict_query = opts.get("strict_query", True)
     # in case a single message comes with several eol separated commands
@@ -437,7 +440,7 @@ class SCPI(object):
 
     def __getitem__(self, cmd):
         command = self.commands[cmd]
-        if not "get" in command:
+        if "get" not in command:
             raise SCPIError("command {0} is not gettable".format(cmd))
         result = self.command(cmd + "?")
         if result:
@@ -527,10 +530,10 @@ class SCPI(object):
 
     def read(self, *msgs, **kwargs):
         """
-        Perfoms query(ies). If keyword argument *raw* is *True*, a single string
-        is returned. Otherwise (default), the result is a sequence where each
-        item is the query result processed according to the registered command
-        data type.
+        Perfoms query(ies). If keyword argument *raw* is *True*, a single
+        string is returned. Otherwise (default), the result is a sequence
+        where each item is the query result processed according to the
+        registered command data type.
 
         The method supports interleaving query commands with operations. The
         resulting sequence length corresponds to the number of queries in the
@@ -560,7 +563,8 @@ class SCPI(object):
             **kwargs: supported kwargs: *raw* (default: False), *eol*,
                       *sep* (command separator)
         Returns:
-            list: list of query results. Each result is a pair (query, return value)
+            list: list of query results. Each result is a pair
+                  (query, return value)
 
         Raises:
             SCPIError: in case an of unexpected result

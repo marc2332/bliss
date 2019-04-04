@@ -28,7 +28,6 @@ YAML_ configuration example:
       address: 1                   # (12)
       current_dc_nplc: 0.1         # (13)
       current_dc_auto_range: False # (14)
-      
 
 #. plugin name (mandatory: keithley)
 #. controller name (mandatory). Some controller settings are needed. To hook the

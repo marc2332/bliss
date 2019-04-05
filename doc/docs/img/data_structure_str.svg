@@ -1,0 +1,1239 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="297mm"
+   height="210mm"
+   viewBox="0 0 297 210"
+   version="1.1"
+   id="svg17842"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   sodipodi:docname="data_structure_str.svg">
+  <defs
+     id="defs17836">
+    <marker
+       inkscape:stockid="Arrow1Mend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="Arrow1Mend-9-1-0"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         inkscape:connector-curvature="0"
+         id="path4778-9-8-4"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.00000003pt;stroke-opacity:1"
+         transform="matrix(-0.4,0,0,-0.4,-4,0)" />
+    </marker>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.9002897"
+     inkscape:cx="526.38583"
+     inkscape:cy="367.80521"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="true"
+     inkscape:window-width="1920"
+     inkscape:window-height="1137"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1">
+    <inkscape:grid
+       type="xygrid"
+       id="grid17844" />
+  </sodipodi:namedview>
+  <metadata
+     id="metadata17839">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Calque 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-87)">
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot17868"
+       style="fill:black;fill-opacity:1;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;letter-spacing:0px;word-spacing:0px"><flowRegion
+         id="flowRegion17870"><rect
+           id="rect17872"
+           width="420"
+           height="80"
+           x="190"
+           y="23.700806" /></flowRegion><flowPara
+         id="flowPara17874" /></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot17878"
+       style="font-style:normal;font-weight:normal;font-size:40px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.26458333,0,0,0.26458333,0,87)"><flowRegion
+         id="flowRegion17880"><rect
+           id="rect17882"
+           width="130"
+           height="60"
+           x="60"
+           y="133.70081" /></flowRegion><flowPara
+         id="flowPara17884">Session</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24109"
+       style="fill:black;fill-opacity:1;stroke:none;font-family:sans-serif;font-style:normal;font-weight:normal;font-size:16px;line-height:1.25;letter-spacing:0px;word-spacing:0px;"><flowRegion
+         id="flowRegion24111"
+         style="font-size:16px;"><rect
+           id="rect24113"
+           width="100"
+           height="20"
+           x="140"
+           y="93.700806"
+           style="font-size:16px;" /></flowRegion><flowPara
+         id="flowPara24115" /></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24117"
+       style="font-style:normal;font-weight:normal;font-size:13.3333335px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;"
+       transform="matrix(0.26458333,0,0,0.26458333,0,87)"><flowRegion
+         id="flowRegion24119"
+         style="font-size:13.3333335px;"><rect
+           id="rect24121"
+           width="90"
+           height="30"
+           x="150"
+           y="93.700806"
+           style="font-size:13.3333335px;" /></flowRegion><flowPara
+         id="flowPara24123" /></flowRoot>    <g
+       id="g24871"
+       transform="matrix(0.77938192,0,0,0.89313059,67.328474,0.28094824)">
+      <rect
+         y="148.83334"
+         x="50.270832"
+         height="10.58333"
+         width="39.026051"
+         id="rect12271-8-4"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.12923068;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="141.95415"
+         x="50.270832"
+         height="6.8791914"
+         width="39.026051"
+         id="rect12271-2"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.16550826;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text24107-1"
+         y="146.89668"
+         x="60.617573"
+         style="font-style:normal;font-weight:normal;font-size:4.93888855px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+         xml:space="preserve"><tspan
+           style="stroke-width:0.26458332"
+           y="146.89668"
+           x="60.617573"
+           id="tspan24105-9"
+           sodipodi:role="line">sample1</tspan></text>
+      <flowRoot
+         transform="matrix(0.26458333,0,0,0.26458333,14.967404,125.84978)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9">DataNodeContainer</flowPara></flowRoot>    </g>
+    <g
+       id="g24861"
+       transform="matrix(0.77938199,0,0,0.89313059,80.024071,0.28094824)">
+      <rect
+         y="148.83334"
+         x="158.75"
+         height="10.58333"
+         width="39.026051"
+         id="rect12271-8-3"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.12923068;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="141.95415"
+         x="158.75"
+         height="6.8791914"
+         width="39.026051"
+         id="rect12271-1"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.16550826;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text24107-3"
+         y="146.89668"
+         x="169.09674"
+         style="font-style:normal;font-weight:normal;font-size:4.93888855px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+         xml:space="preserve"><tspan
+           style="stroke-width:0.26458332"
+           y="146.89668"
+           x="169.09674"
+           id="tspan24105-3"
+           sodipodi:role="line">sample2</tspan></text>
+      <flowRoot
+         transform="matrix(0.26458333,0,0,0.26458333,123.44657,125.84978)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-2"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-4"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-8" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-5">DataNodeContainer</flowPara></flowRoot>    </g>
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0"
+       width="28.243612"
+       height="9.4522963"
+       x="63.05695"
+       y="164.40118" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3"
+       width="28.243612"
+       height="6.1440167"
+       x="63.05695"
+       y="158.25716" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072244px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271728"
+       x="78.368385"
+       y="146.43227"
+       id="text24107-1-8"
+       transform="scale(0.90017168,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4"
+         x="78.368385"
+         y="146.43227"
+         style="stroke-width:0.21271728">1_ascan</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0"
+       style="font-style:normal;font-weight:normal;font-size:14.92591476px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148208,0,0,0.23630746,45.442375,143.57998)"><flowRegion
+         id="flowRegion24127-1-9-4"
+         style="font-size:14.92591476px"><rect
+           id="rect24129-5-3-9"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806"
+           style="font-size:14.92591476px" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1"
+         style="font-size:14.92591476px">scan</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10781974;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-07"
+       width="30.416195"
+       height="9.4522963"
+       x="134.75226"
+       y="164.40118" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13808684;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-5"
+       width="30.416195"
+       height="6.1440163"
+       x="134.75226"
+       y="158.25717" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:4.1206131px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.22074714"
+       x="152.88335"
+       y="151.95995"
+       id="text24107-1-1"
+       transform="scale(0.93415224,1.0704893)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-0"
+         x="152.88335"
+         y="151.95995"
+         style="stroke-width:0.22074714">2_ascan</tspan></text>
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10781976;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-9"
+       width="30.416201"
+       height="9.4522963"
+       x="203.75098"
+       y="164.40118" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13808687;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-36"
+       width="30.416201"
+       height="6.1440163"
+       x="203.75098"
+       y="158.25716" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:4.12061357px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.22074716"
+       x="226.74568"
+       y="151.95995"
+       id="text24107-1-19"
+       transform="scale(0.93415238,1.0704892)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-1"
+         x="226.74568"
+         y="151.95995"
+         style="stroke-width:0.22074716">1_ascan</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 73.919868,173.85347 v 10.39756"
+       id="path25770"
+       inkscape:connector-curvature="0" />
+    <g
+       id="g827">
+      <rect
+         y="190.39503"
+         x="63.056942"
+         height="9.4522953"
+         width="28.243612"
+         id="rect12271-8-4-0-5"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="184.25102"
+         x="63.056942"
+         height="6.1440163"
+         width="28.243612"
+         id="rect12271-2-3-8"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.90017168,1.1108992)"
+         id="text24107-1-8-4"
+         y="170.09573"
+         x="80.99424"
+         style="font-style:normal;font-weight:normal;font-size:3.97072244px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271728"
+         xml:space="preserve"><tspan
+           style="font-size:4.23333359px;stroke-width:0.21271728"
+           y="170.09573"
+           x="80.99424"
+           id="tspan24105-9-4-3"
+           sodipodi:role="line">axis</tspan></text>
+      <flowRoot
+         transform="matrix(0.19148207,0,0,0.23630746,37.507432,169.86772)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-6"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-5"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-3" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-1">DataNodeContainer</flowPara></flowRoot>      <g
+         transform="matrix(0.82113471,0,0,0.98244499,56.539184,-8.7584909)"
+         id="g25627">
+        <rect
+           style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect12271-8-4-0-4"
+           width="34.395832"
+           height="9.6211958"
+           x="7.9375"
+           y="223.87881" />
+        <rect
+           style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect12271-2-3-88"
+           width="34.395832"
+           height="6.2538018"
+           x="7.9375"
+           y="217.625" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+           x="18.3978"
+           y="218.70386"
+           id="text24107-1-8-42"
+           transform="scale(0.98462818,1.0156118)"><tspan
+             sodipodi:role="line"
+             id="tspan24105-9-4-38"
+             x="18.3978"
+             y="218.70386"
+             style="stroke-width:0.23683257;font-size:4.71325721px">timer</tspan></text>
+        <flowRoot
+           xml:space="preserve"
+           id="flowRoot24125-5-0-0-4"
+           style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+           transform="matrix(0.23319203,0,0,0.24052996,-23.177381,202.9847)"><flowRegion
+             id="flowRegion24127-1-9-4-2"><rect
+               id="rect24129-5-3-9-2"
+               width="147.20168"
+               height="17.783363"
+               x="140"
+               y="93.700806" /></flowRegion><flowPara
+             id="flowPara24131-2-9-1-9"
+             style="font-size:13.33333397px">DataNodeContainer</flowPara></flowRoot>      </g>
+      <g
+         transform="matrix(0.82113471,0,0,0.98244499,56.539184,-8.7584909)"
+         id="g25637">
+        <rect
+           style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect12271-8-4-0-47"
+           width="34.395832"
+           height="9.6211958"
+           x="7.9375"
+           y="245.04547" />
+        <rect
+           style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect12271-2-3-7"
+           width="34.395832"
+           height="6.2538013"
+           x="7.9375"
+           y="238.79167" />
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+           x="15.710661"
+           y="239.54515"
+           id="text24107-1-8-9"
+           transform="scale(0.98462819,1.0156118)"><tspan
+             sodipodi:role="line"
+             id="tspan24105-9-4-2"
+             x="15.710661"
+             y="239.54515"
+             style="stroke-width:0.23683257;font-size:4.71325718px">diode</tspan></text>
+        <flowRoot
+           xml:space="preserve"
+           id="flowRoot24125-5-0-0-9"
+           style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+           transform="matrix(0.23319203,0,0,0.24052996,-23.177381,224.15136)"><flowRegion
+             id="flowRegion24127-1-9-4-28"><rect
+               id="rect24129-5-3-9-0"
+               width="147.20168"
+               height="17.783363"
+               x="140"
+               y="93.700806" /></flowRegion><flowPara
+             id="flowPara24131-2-9-1-3"
+             style="font-size:13.33333397px">DataNodeContainer</flowPara></flowRoot>      </g>
+      <rect
+         y="190.39505"
+         x="95.645721"
+         height="9.4522963"
+         width="28.243616"
+         id="rect12271-8-4-0-5-2"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="184.25102"
+         x="95.645721"
+         height="6.1440163"
+         width="28.243616"
+         id="rect12271-2-3-8-6"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.9001717,1.1108992)"
+         id="text24107-1-8-4-1"
+         y="169.83122"
+         x="115.92624"
+         style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+         xml:space="preserve"><tspan
+           style="font-size:4.23333359px;stroke-width:0.21271729"
+           y="169.83122"
+           x="115.92624"
+           id="tspan24105-9-4-3-1"
+           sodipodi:role="line">roby</tspan></text>
+      <flowRoot
+         transform="matrix(0.1914821,0,0,0.23630747,70.096214,169.86773)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-6-4"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-5-3"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-3-8" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-1-7">ChannelDataNode</flowPara></flowRoot>      <rect
+         y="211.19014"
+         x="95.645721"
+         height="9.4522963"
+         width="28.243616"
+         id="rect12271-8-4-0-4-9"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="205.04611"
+         x="95.645721"
+         height="6.1440163"
+         width="28.243616"
+         id="rect12271-2-3-88-5"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.9001717,1.1108992)"
+         id="text24107-1-8-42-9"
+         y="188.55037"
+         x="107.87336"
+         style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+         xml:space="preserve"><tspan
+           style="font-size:4.23333359px;stroke-width:0.21271729"
+           y="188.55037"
+           x="107.87336"
+           id="tspan24105-9-4-38-4"
+           sodipodi:role="line">elapsed_time</tspan></text>
+      <flowRoot
+         transform="matrix(0.1914821,0,0,0.23630747,70.096214,190.66282)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-4-6"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-2-6"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-2-7" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-9-8">ChannelDataNode</flowPara></flowRoot>      <rect
+         y="231.98521"
+         x="95.645721"
+         height="9.4522963"
+         width="28.243614"
+         id="rect12271-8-4-0-47-3"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="225.8412"
+         x="95.645721"
+         height="6.1440167"
+         width="28.243614"
+         id="rect12271-2-3-7-6"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.90017168,1.1108992)"
+         id="text24107-1-8-9-3"
+         y="207.26952"
+         x="115.66912"
+         style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+         xml:space="preserve"><tspan
+           style="font-size:4.23333311px;stroke-width:0.21271729"
+           y="207.26952"
+           x="115.66912"
+           id="tspan24105-9-4-2-8"
+           sodipodi:role="line">diode</tspan></text>
+      <flowRoot
+         transform="matrix(0.19148209,0,0,0.23630746,70.096215,211.4579)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-9-0"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-28-6"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-0-9" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-3-9">ChannelDataNode</flowPara></flowRoot>      <path
+         inkscape:connector-curvature="0"
+         id="path25764"
+         d="m 91.300553,192.04917 c 4.345171,0 4.345171,0 4.345171,0"
+         style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path25766"
+         d="m 91.300553,212.84425 h 4.345171"
+         style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path25768"
+         d="m 91.300553,233.63934 h 4.345171"
+         style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path25772"
+         d="m 73.919868,199.84734 v 5.19875"
+         style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path25774"
+         d="m 73.919868,220.64241 v 5.19877"
+         style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+    </g>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 73.919868,158.25716 V 150.459 h 45.624292 v -7.79816"
+       id="path25776"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.20781218px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 119.54416,150.459 h 28.24362 v 7.79816"
+       id="path25778"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.29009569;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 150.94291,119.26638 v 5.19875 h -30.03358 -1.36517 v 2.59941"
+       id="path25780"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.26054201px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 150.94291,124.46514 h 65.28672 v 2.5994"
+       id="path25782"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 216.78643,142.66086 v 15.59631"
+       id="path25784"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 216.7864,173.85348 v 10.39756"
+       id="path26097"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 147.78778,173.85347 v 10.39756"
+       id="path26099"
+       inkscape:connector-curvature="0" />
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10781977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8"
+       width="30.416204"
+       height="9.4523001"
+       x="135.87677"
+       y="110.53986" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.1380869;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271"
+       width="30.416204"
+       height="6.1440187"
+       x="135.87677"
+       y="104.39587" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:4.12061405px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.22074719"
+       x="149.36809"
+       y="101.64527"
+       id="text24107"
+       transform="scale(0.93415211,1.0704895)"><tspan
+         sodipodi:role="line"
+         id="tspan24105"
+         x="149.36809"
+         y="101.64527"
+         style="stroke-width:0.22074719">test_session</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.20621148,0,0,0.23630756,108.36188,90.012557)"><flowRegion
+         id="flowRegion24127-1"><rect
+           id="rect24129-5"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2"
+         style="font-size:13.33333397px">DataNodeContainer</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot26217"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#008000;fill-opacity:1;stroke:none"
+       transform="matrix(0.3029451,0,0,0.33333583,-4.5593228,52.885186)"><flowRegion
+         id="flowRegion26219"
+         style="fill:#008000"><rect
+           id="rect26221"
+           width="118.49476"
+           height="101.36037"
+           x="40"
+           y="163.70081"
+           style="fill:#008000" /></flowRegion><flowPara
+         id="flowPara26223"
+         style="font-size:13.94231319px;text-align:center;text-anchor:middle;fill:#008000">Reflect the content of the session directory and the underlying files tree (see SCAN_SAVING)</flowPara></flowRoot>    <path
+       style="fill:none;stroke:#008000;stroke-width:0.52996737;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 58.350228,144.92372 H 51.725224 V 98.256713 h 6.625004"
+       id="path26225"
+       inkscape:connector-curvature="0" />
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot26217-7"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#008000;fill-opacity:1;stroke:#6b9bff;stroke-opacity:1"
+       transform="matrix(0.3029451,0,0,0.33333583,-6.4128145,127.09347)"><flowRegion
+         id="flowRegion26219-8"
+         style="fill:#008000;stroke:#6b9bff;stroke-opacity:1"><rect
+           id="rect26221-2"
+           width="129.64124"
+           height="155.51639"
+           x="40"
+           y="163.70081"
+           style="fill:#008000;stroke:#6b9bff;stroke-opacity:1" /></flowRegion><flowPara
+         id="flowPara26223-2"
+         style="font-size:13.94231319px;text-align:center;text-anchor:middle;fill:#0000ff;stroke:none;stroke-opacity:1">Reflect the acquisition chaine of each scan performed within the session context</flowPara></flowRoot>    <path
+       style="fill:none;stroke:#6b9bff;stroke-width:0.51989841;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 58.350228,244.92446 h -6.625004 v -96.66738 h 6.625004"
+       id="path26225-9"
+       inkscape:connector-curvature="0" />
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot32885"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.26458333,0,0,0.26458333,27.656308,84.742087)"><flowRegion
+         id="flowRegion32887"><rect
+           id="rect32889"
+           width="880"
+           height="20"
+           x="200"
+           y="653.70081" /></flowRegion><flowPara
+         id="flowPara32891"
+         style="font-size:16px">Structure of the data retrieve from Redis using the DataNode module</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-8"
+       style="font-style:normal;font-weight:normal;font-size:14.92591476px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148208,0,0,0.23630746,118.93794,143.57998)"><flowRegion
+         id="flowRegion24127-1-9-4-8"
+         style="font-size:14.92591476px"><rect
+           id="rect24129-5-3-9-8"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806"
+           style="font-size:14.92591476px" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-7"
+         style="font-size:14.92591476px">scan</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-1"
+       style="font-style:normal;font-weight:normal;font-size:14.92591476px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148208,0,0,0.23630746,187.14097,143.57998)"><flowRegion
+         id="flowRegion24127-1-9-4-1"
+         style="font-size:14.92591476px"><rect
+           id="rect24129-5-3-9-9"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806"
+           style="font-size:14.92591476px" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-75"
+         style="font-size:14.92591476px">scan</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-5-0"
+       width="28.243612"
+       height="9.4522953"
+       x="134.9375"
+       y="189.37318" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-8-2"
+       width="28.243612"
+       height="6.1440163"
+       x="134.9375"
+       y="183.22917" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072244px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271728"
+       x="160.8463"
+       y="169.17589"
+       id="text24107-1-8-4-7"
+       transform="scale(0.90017168,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-3-5"
+         x="160.8463"
+         y="169.17589"
+         style="font-size:4.23333359px;stroke-width:0.21271728">axis</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-6-7"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148207,0,0,0.23630746,109.38799,168.84586)"><flowRegion
+         id="flowRegion24127-1-9-4-5-2"><rect
+           id="rect24129-5-3-9-3-6"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-1-3"
+         style="font-size:13.33333397px">DataNodeContainer</flowPara></flowRoot>    <g
+       id="g25627-3"
+       transform="matrix(0.82113471,0,0,0.98244499,128.41974,-9.7803466)">
+      <rect
+         y="223.87881"
+         x="7.9375"
+         height="9.6211958"
+         width="34.395832"
+         id="rect12271-8-4-0-4-7"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="217.625"
+         x="7.9375"
+         height="6.2538018"
+         width="34.395832"
+         id="rect12271-2-3-88-9"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.98462818,1.0156118)"
+         id="text24107-1-8-42-5"
+         y="218.70386"
+         x="18.3978"
+         style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+         xml:space="preserve"><tspan
+           style="font-size:4.71325731px;stroke-width:0.23683257"
+           y="218.70386"
+           x="18.3978"
+           id="tspan24105-9-4-38-8"
+           sodipodi:role="line">timer</tspan></text>
+      <flowRoot
+         transform="matrix(0.23319203,0,0,0.24052996,-23.177381,202.9847)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-4-1"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-2-3"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-2-4" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-9-3">DataNodeContainer</flowPara></flowRoot>    </g>
+    <g
+       id="g25637-1"
+       transform="matrix(0.82113471,0,0,0.98244499,128.41974,-9.7803466)">
+      <rect
+         y="245.04547"
+         x="7.9375"
+         height="9.6211958"
+         width="34.395832"
+         id="rect12271-8-4-0-47-2"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="238.79167"
+         x="7.9375"
+         height="6.2538013"
+         width="34.395832"
+         id="rect12271-2-3-7-0"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.98462819,1.0156118)"
+         id="text24107-1-8-9-5"
+         y="239.54515"
+         x="15.710661"
+         style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+         xml:space="preserve"><tspan
+           style="font-size:4.71325731px;stroke-width:0.23683257"
+           y="239.54515"
+           x="15.710661"
+           id="tspan24105-9-4-2-0"
+           sodipodi:role="line">diode</tspan></text>
+      <flowRoot
+         transform="matrix(0.23319203,0,0,0.24052996,-23.177381,224.15136)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-9-3"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-28-5"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-0-4" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-3-8">DataNodeContainer</flowPara></flowRoot>    </g>
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-5-2-1"
+       width="28.243616"
+       height="9.4522963"
+       x="167.52628"
+       y="189.3732" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-8-6-7"
+       width="28.243616"
+       height="6.1440163"
+       x="167.52628"
+       y="183.22917" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="195.77829"
+       y="168.91138"
+       id="text24107-1-8-4-1-1"
+       transform="scale(0.90017169,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-3-1-0"
+         x="195.77829"
+         y="168.91138"
+         style="font-size:4.23333359px;stroke-width:0.21271729">roby</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-6-4-5"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.1914821,0,0,0.23630747,141.97677,168.84587)"><flowRegion
+         id="flowRegion24127-1-9-4-5-3-8"><rect
+           id="rect24129-5-3-9-3-8-0"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-1-7-4"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-4-9-4"
+       width="28.243616"
+       height="9.4522963"
+       x="167.52628"
+       y="210.16829" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-88-5-9"
+       width="28.243616"
+       height="6.1440163"
+       x="167.52628"
+       y="204.02426" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="187.72542"
+       y="187.63052"
+       id="text24107-1-8-42-9-3"
+       transform="scale(0.90017169,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-38-4-1"
+         x="187.72542"
+         y="187.63052"
+         style="font-size:4.23333359px;stroke-width:0.21271729">elapsed_time</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-4-6-1"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.1914821,0,0,0.23630747,141.97677,189.64096)"><flowRegion
+         id="flowRegion24127-1-9-4-2-6-6"><rect
+           id="rect24129-5-3-9-2-7-2"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-9-8-5"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-47-3-2"
+       width="28.243614"
+       height="9.4522963"
+       x="167.52628"
+       y="230.96336" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-7-6-4"
+       width="28.243614"
+       height="6.1440167"
+       x="167.52628"
+       y="224.81935" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="195.52118"
+       y="206.34967"
+       id="text24107-1-8-9-3-9"
+       transform="scale(0.90017168,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-2-8-2"
+         x="195.52118"
+         y="206.34967"
+         style="font-size:4.23333311px;stroke-width:0.21271729">diode</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-9-0-6"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148209,0,0,0.23630746,141.97677,210.43604)"><flowRegion
+         id="flowRegion24127-1-9-4-28-6-3"><rect
+           id="rect24129-5-3-9-0-9-9"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-3-9-3"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 163.18111,191.02731 c 4.34517,0 4.34517,0 4.34517,0"
+       id="path25764-7"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 163.18111,211.82239 h 4.34517"
+       id="path25766-3"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 163.18111,232.61748 h 4.34517"
+       id="path25768-5"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 147.91711,198.82548 v 5.19875"
+       id="path25772-0"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 147.91711,219.62055 v 5.19877"
+       id="path25774-0"
+       inkscape:connector-curvature="0" />
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-5-7"
+       width="28.243612"
+       height="9.4522953"
+       x="203.72916"
+       y="189.37318" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-8-0"
+       width="28.243612"
+       height="6.1440163"
+       x="203.72916"
+       y="183.22917" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072244px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271728"
+       x="237.26689"
+       y="169.17589"
+       id="text24107-1-8-4-3"
+       transform="scale(0.90017168,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-3-3"
+         x="237.26689"
+         y="169.17589"
+         style="font-size:4.23333359px;stroke-width:0.21271728">axis</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-6-9"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148207,0,0,0.23630746,178.17965,168.84586)"><flowRegion
+         id="flowRegion24127-1-9-4-5-4"><rect
+           id="rect24129-5-3-9-3-67"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-1-8"
+         style="font-size:13.33333397px">DataNodeContainer</flowPara></flowRoot>    <g
+       id="g25627-9"
+       transform="matrix(0.82113471,0,0,0.98244499,197.2114,-9.7803466)">
+      <rect
+         y="223.87881"
+         x="7.9375"
+         height="9.6211958"
+         width="34.395832"
+         id="rect12271-8-4-0-4-5"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="217.625"
+         x="7.9375"
+         height="6.2538018"
+         width="34.395832"
+         id="rect12271-2-3-88-1"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.98462818,1.0156118)"
+         id="text24107-1-8-42-6"
+         y="218.70386"
+         x="18.3978"
+         style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+         xml:space="preserve"><tspan
+           style="font-size:4.71325731px;stroke-width:0.23683257"
+           y="218.70386"
+           x="18.3978"
+           id="tspan24105-9-4-38-9"
+           sodipodi:role="line">timer</tspan></text>
+      <flowRoot
+         transform="matrix(0.23319203,0,0,0.24052996,-23.177381,202.9847)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-4-0"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-2-1"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-2-2" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-9-7">DataNodeContainer</flowPara></flowRoot>    </g>
+    <g
+       id="g25637-7"
+       transform="matrix(0.82113471,0,0,0.98244499,197.2114,-9.7803466)">
+      <rect
+         y="245.04547"
+         x="7.9375"
+         height="9.6211958"
+         width="34.395832"
+         id="rect12271-8-4-0-47-1"
+         style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.11567635;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <rect
+         y="238.79167"
+         x="7.9375"
+         height="6.2538013"
+         width="34.395832"
+         id="rect12271-2-3-7-08"
+         style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.14814897;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         transform="scale(0.98462819,1.0156118)"
+         id="text24107-1-8-9-1"
+         y="239.54515"
+         x="15.710661"
+         style="font-style:normal;font-weight:normal;font-size:4.4208746px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.23683257"
+         xml:space="preserve"><tspan
+           style="font-size:4.71325731px;stroke-width:0.23683257"
+           y="239.54515"
+           x="15.710661"
+           id="tspan24105-9-4-2-4"
+           sodipodi:role="line">diode</tspan></text>
+      <flowRoot
+         transform="matrix(0.23319203,0,0,0.24052996,-23.177381,224.15136)"
+         style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+         id="flowRoot24125-5-0-0-9-6"
+         xml:space="preserve"><flowRegion
+           id="flowRegion24127-1-9-4-28-3"><rect
+             y="93.700806"
+             x="140"
+             height="17.783363"
+             width="147.20168"
+             id="rect24129-5-3-9-0-3" /></flowRegion><flowPara
+           style="font-size:13.33333397px"
+           id="flowPara24131-2-9-1-3-6">DataNodeContainer</flowPara></flowRoot>    </g>
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-5-2-0"
+       width="28.243616"
+       height="9.4522963"
+       x="236.31795"
+       y="189.3732" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-8-6-8"
+       width="28.243616"
+       height="6.1440163"
+       x="236.31795"
+       y="183.22917" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="272.19888"
+       y="168.91138"
+       id="text24107-1-8-4-1-5"
+       transform="scale(0.90017169,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-3-1-5"
+         x="272.19888"
+         y="168.91138"
+         style="font-size:4.23333359px;stroke-width:0.21271729">roby</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-6-4-6"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.1914821,0,0,0.23630747,210.76843,168.84587)"><flowRegion
+         id="flowRegion24127-1-9-4-5-3-6"><rect
+           id="rect24129-5-3-9-3-8-00"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-1-7-9"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.10389771;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-4-9-9"
+       width="28.243616"
+       height="9.4522963"
+       x="236.31795"
+       y="210.16829" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306382;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-88-5-6"
+       width="28.243616"
+       height="6.1440163"
+       x="236.31795"
+       y="204.02426" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="264.14603"
+       y="187.63052"
+       id="text24107-1-8-42-9-0"
+       transform="scale(0.90017169,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-38-4-9"
+         x="264.14603"
+         y="187.63052"
+         style="font-size:4.23333359px;stroke-width:0.21271729">elapsed_time</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-4-6-6"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.1914821,0,0,0.23630747,210.76843,189.64096)"><flowRegion
+         id="flowRegion24127-1-9-4-2-6-8"><rect
+           id="rect24129-5-3-9-2-7-0"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-9-8-7"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:#493636;stroke-width:0.1038977;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-8-4-0-47-3-0"
+       width="28.243614"
+       height="9.4522963"
+       x="236.31795"
+       y="230.96336" />
+    <rect
+       style="fill:#f1f1f1;fill-opacity:1;stroke:#493636;stroke-width:0.13306381;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect12271-2-3-7-6-8"
+       width="28.243614"
+       height="6.1440167"
+       x="236.31795"
+       y="224.81935" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:3.97072268px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.21271729"
+       x="271.94177"
+       y="206.34967"
+       id="text24107-1-8-9-3-3"
+       transform="scale(0.90017168,1.1108992)"><tspan
+         sodipodi:role="line"
+         id="tspan24105-9-4-2-8-7"
+         x="271.94177"
+         y="206.34967"
+         style="font-size:4.23333311px;stroke-width:0.21271729">diode</tspan></text>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot24125-5-0-0-9-0-9"
+       style="font-style:normal;font-weight:normal;font-size:13.33333302px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none"
+       transform="matrix(0.19148209,0,0,0.23630746,210.76843,210.43604)"><flowRegion
+         id="flowRegion24127-1-9-4-28-6-9"><rect
+           id="rect24129-5-3-9-0-9-1"
+           width="147.20168"
+           height="17.783363"
+           x="140"
+           y="93.700806" /></flowRegion><flowPara
+         id="flowPara24131-2-9-1-3-9-5"
+         style="font-size:13.33333397px">ChannelDataNode</flowPara></flowRoot>    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 231.97277,191.02731 c 4.34517,0 4.34517,0 4.34517,0"
+       id="path25764-3"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 231.97277,211.82239 h 4.34517"
+       id="path25766-0"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 231.97277,232.61748 h 4.34517"
+       id="path25768-9"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 216.70877,198.82548 v 5.19875"
+       id="path25772-8"
+       inkscape:connector-curvature="0" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.23764232px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 216.70877,219.62055 v 5.19877"
+       id="path25774-09"
+       inkscape:connector-curvature="0" />
+  </g>
+</svg>

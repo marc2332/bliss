@@ -44,29 +44,6 @@ chain for those scans is built using the `DefaultChain` class.
 
    }
 %}
-
-
-## Devices
-
-Devices involved in standard scans must support
-`INTERNAL_TRIGGER_MULTI` triggering mode.
-
-
-
-
-## To go further...
-
-To adapt the behaviour of scans and devices to the needs of the
-measurement, there is some main way to operate:
-
-* To make a unusual scan (like a 5-regions scans), a new scan has to
-  be defined.
-  See: [BLISS scan engine](scan_engine.md)
-* To to change triggering or gating of intrument,
-  the *acquisition chain* has to be adapted.
-* Customizing the presets. See: [Scans' presets](scan_presets.md)
-
-
 ## Parameters (common to all scans)
 
 ### Counters parameters
@@ -89,8 +66,11 @@ Common keyword arguments that can be used in all scans:
 
 
 ## Scan example
-    ascan(<mot>, <start>, <stop>, <nb_points>, <acq_time>, <title>)
-    ascan( sy,    1,       2,      3,           0.5, title="Jadarite_LiNaSiB3O7(OH)")
+
+```
+ascan(<mot>, <start>, <stop>, <nb_points>, <acq_time>, <title>)
+ascan( sy,    1,       2,      3,           0.5, title="Jadarite_LiNaSiB3O7(OH)")
+```
 
 This command performs a scan of fifteen 500ms-counts of current
 measurement group counters at `<sy>` motor positions 1, 1.5 and 2.
@@ -253,10 +233,6 @@ Similar to `timescan` but `<npoints>` is mandatory.
 
 Counts for a specified time.
 
-
-Note: This function blocks the current greenlet
-
-
 ## pointscan
 
 Performs a scan over many positions given as a list.
@@ -286,4 +262,222 @@ example:
 
     lookupscan(0.1, m0, np.arange(0, 2, 0.5), m1, np.linspace(1, 3, 4), diode2)
 
+## Default chain
+
+All standard scan (step scans) are build the same way using the
+`DefaultAcquisitionChain` object accessible with the global
+`DEFAULT_CHAIN` if you are in a session. It's the entry point to
+parameterize detector in a step scan procedure. For any detector, it's
+easy to set **acquisition parameters** and **saving parameters** for step
+scan or to change it's master.
+
+!!! note
+    **Acquisition parameters** are all the parameters that define the
+    number of trigger and points, trigger type, exposure time...
+    Other detector parameters should be not part of the `DefaultAcquisitionChain`
+    configuration.<br>
+    i.e: *Image configuration* of a Lima device like binning, flip, rotation...
+    should be exclude from this configuration. And set before any scan.
+
+    **Saving parameters** are parameters on some device (like: Lima)
+    that configure the saving.<br>
+    i.e: On Lima device *saving_mode*, *saving_format*... may be part of the
+    `DEFAULT_CHAIN` configuration.
+    
+
+i.e: Two basler camera with an hardware trigger provide by you counter card.
+Most of the time the configuration come from `Beacon` and the `yaml` file may look like this:
+
+```yaml
+- name: default_acq_chain
+  plugin: default
+  chain_config:
+  - device: $basler_1
+    acquisition_settings:
+      acq_trigger_mode: EXTERNAL_TRIGGER_MULTI
+      saving_format: "HDF5"
+    master: $p201_0
+  - device: $basler_2
+    acquisition_settings:
+      acq_trigger_mode: EXTERNAL_TRIGGER_MULTI
+      saving_format: "HDF5"
+    master: $p201_0
+```
+
+In this example you notice that both camera will be triggered externally
+(**EXTERNAL_TRIGGER_MULTI**) and their saving format will be
+*HDF5*. Their master will be the *p201* counter card.  To activate
+this setting for all steps scan of you *session* do as follow in the
+[session setup file](config_sessions.md#setup-file-example) :
+
+```python
+    DEFAULT_CHAIN.set_settings(default_acq_chain['chain_config'])
+```
+
+[ChainPreset](scan_engine_preset.md#chainpreset) can also be added to
+the `DEFAULT_CHAIN`.  Usually this is also done in the session setup
+like this:
+
+```python
+    DEFAULT_CHAIN.add_preset(my_preset)
+```
+
+## To go further...
+
+To adapt the behavior of scans and devices to the needs of the
+measurement, there is some main way to operate.
+
+### Steps scans
+
+Most of unusual step scans can be defined with the existing standard scan.
+
+#### n-regions scan example
+
+In this example you want to define a scan with several
+region.  Region as to be defined as a list of tuple like:
+[(start1,stop1,npoints1),(start2,stop2,npoints2),...]
+
+```python
+import numpy
+from bliss.common.scans import pointscan
+def n_region_scan(motor, regions, count_time, *counter_args, **kwargs):
+    positions = list()
+    for start,stop,npoints in regions:
+        positions.extend(numpy.linspace(start,stop,npoints))
+    kwargs.setdefault('type', f'{len(regions)}_region_scan') # change to new defined scan
+    # Build a **meaning** title
+    kwargs.setdefault('title',f'{kwargs.get("type")} on {motor.name}')
+    return pointscan(motor,positions,count_time,*counter_args,**kwargs)
+```
+
+Run it
+
+```
+TEST_SESSION [1]: s = n_region_scan(roby,[(0,2,3),(10,15,11)],0.1,diode,save=False)                  
+Total 14 points
+
+Scan 9 Tue Apr 02 14:58:33 2019 <no saving> test_session user = seb
+2_region_scan on roby
+
+           #         dt[s]          roby         diode
+           0             0             0       23.8889
+           1      0.232985             1       23.5556
+           2       0.46471             2      -2.11111
+           3      0.823396            10       16.5556
+           4       1.01696          10.5      -8.88889
+           5       1.20862            11      -17.3333
+           6       1.39964          11.5       20.6667
+           7       1.59078            12      0.444444
+           8       1.78076          12.5       17.7778
+           9       1.97064            13     -0.111111
+          10       2.16226          13.5            26
+          11       2.35261            14       28.2222
+          12       2.54606          14.5      -1.55556
+          13        2.7383            15       59.2222
+
+Took 0:00:03.366149
+```
+
+#### ascan like which take step size instead of number of point
+
+```python
+import numpy
+from bliss.common.scans import ascan
+def step_scan(motor, start, stop, step_size, count_time, *counter_args, **kwargs):
+    npoints = int(numpy.ceil(abs(start-stop)/step_size))
+    return ascan(motor,start,stop,npoints,count_time,*counter_args,**kwargs)
+```
+
+Run it
+```
+TEST_SESSION [42]: s = step_scan(roby,0,1,0.2,0.1,diode)                                                                                                                                         
+Total 5 points, 0:00:01.615242 (motion: 0:00:01.115242, count: 0:00:00.500000)
+
+Scan 17 Tue Apr 02 16:04:31 2019 /tmp/scans/test_session/data.h5 test_session user = seb
+ascan roby 0 1 5 0.1
+
+           #         dt[s]          roby         diode
+           0             0             0      -9.33333
+           1      0.193154          0.25      -38.5556
+           2      0.385237           0.5      -6.55556
+           3      0.575978          0.75      -13.5556
+           4      0.765097             1      -9.55556
+
+Took 0:00:01.229621 (estimation was for 0:00:01.615242)
+```
+
+#### Using preset to customize
+
+In this example, the scan will pump a certain amount of liquid using a
+syringe before each point.  To do this we will use
+[ChainPreset](scan_engine_preset.md#chainpreset).
+
+```python
+from bliss.scanning.chain import ChainPreset,ChainIterationPreset
+from bliss.common.scans import ascan
+
+class Syringe:
+      def __init__(self, available_liquid):
+          self._available_liquid = available_liquid
+
+      def pump(self,amount):
+          if self._available_liquid < amount:
+              raise RuntimeError("No more liquid to pump")
+          self._available_liquid -= amount
+
+my_syringe = Syringe(10) # liquid volume == 10
+
+def syringe_ascan(syringe,liquid_amount,
+                  motor, start, stop, step_size, count_time, *counter_args, **kwargs):
+    class Preset(ChainPreset):
+        class Point(ChainIterationPreset):
+            def prepare(self):
+                syringe.pump(liquid_amount)
+        def get_iterator(self,acq_chain):
+            while True:
+                yield Preset.Point()
+    kwargs.setdefault('run',False)
+    s = ascan(motor,start,stop,step_size,count_time,*counter_args,**kwargs)
+    preset = Preset()
+    s.acq_chain.add_preset(preset)
+    s.run()
+    return s
+```
+
+Run it
+```
+TEST_SESSION [16]: syringe_ascan(my_syringe,1,roby,0,1,15,0.1,diode)                                                                                                                    
+Total 15 points, 0:00:04.384344 (motion: 0:00:02.884344, count: 0:00:01.500000)
+
+Scan 22 Tue Apr 02 16:37:24 2019 /tmp/scans/test_session/data.h5 test_session user = seb
+ascan roby 0 1 15 0.1
+
+           #         dt[s]          roby         diode
+           0             0             0       12.6667
+           1       0.19153        0.0714      -12.2222
+           2      0.381468        0.1429             9
+           3      0.570563        0.2143       11.6667
+           4      0.761761        0.2857      -12.1111
+           5      0.953436        0.3571       10.8889
+           6       1.14317        0.4286      -1.44444
+           7       1.33038           0.5      -21.3333
+           8       1.51747        0.5714       51.3333
+           9        1.7079        0.6429       9.77778
+!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
+!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
+
+Took 0:00:02.008699 (estimation was for 0:00:04.384344)
+!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
+
+```
+
+In this example before each of a point *preparation*, the syringe will pump one unity of a volume. 
+And raise an error when there syringe is empty.
+
+!!! note
+    Any exception in `Preset` method stop the scan.
+
+### More complex scans
+
+For more complex scans, you may be need to use a lower level api see [Scan engine](scan_engine.md)
 

@@ -85,15 +85,14 @@ nav:
                 - Hook: motion_hook.md
                 - Trajectories: motion_traj.md
         - Scanning:
-                - Scan saving: scan_saving.html#scan_saving
                 - Measurement groups: config_mg.md
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
                 - Data saving: scan_saving.md
                 - Counters on the fly: scan_ctmg.md
-                - BLISS scan engine explained: 
+                - BLISS scan engine explained:
                     - Overview: scan_engine.md
-                    - Scan: scan_engine_scan.md 
+                    - Scan: scan_engine_scan.md
                     - Acquisition chain: scan_engine_acquisition_chain.md
                     - Acquisition Master/Device: scan_engine_acquisition_master_and_devices.md
                     - Preset: scan_engine_preset.md

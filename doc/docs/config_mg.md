@@ -189,15 +189,15 @@ diagnostic counters are enabled.
 
 At creation, a measurement group is in the `default` state:
 
+```
+CYRIL [41]: align_counters
+  Out [41]: MeasurementGroup:  align_counters (default) # <-- default state
 
-    CYRIL [41]: align_counters
-      Out [41]: MeasurementGroup:  align_counters (default) # <-- default state
-
-                Enabled  Disabled
-                -------  -------
-                simct2   simct1         #   <-- counters simct1 and simct2
-                         simct3         #       were previously disabled
-
+            Enabled  Disabled
+            -------  -------
+            simct2   simct1         #   <-- counters simct1 and simct2
+                     simct3         #       were previously disabled
+```
 A new state can be created in a measurement group with the `switch_state(<new_state_name>)`
 method:
 

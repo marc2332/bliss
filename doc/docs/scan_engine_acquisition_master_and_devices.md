@@ -1,24 +1,19 @@
 Those objects describe the behavior you need in a scan of basic device
-(axis,counters...) in therm of triggering and data flow.  Those object
+(axis, counters...) in therm of triggering and data flow. Those objects
 can be:
 
-  * `master` means that can trigger other device
-  * `device` any data producer device
+* `master` means that can trigger other device
+* `device` any data producer device
 
-##Master
+## Master
 
-###motors
-The exhaustive list of `motor master` are available in **bliss.scanning.acquisition.motor**
+### motors
 
-####MotorMaster
+The exhaustive list of *motor master* are available in
+`bliss.scanning.acquisition.motor`
 
-Drive one motor from a **start** position to a **end** position at a
-constant speed. If **undershoot** is None, it is calculated according
-the acceleration of the motor. **undershoot start and end** can be
-added to the calculated **undershoot**. **backnforth** option will do
-every pair motion in one direction and odd in the other direction.
+#### MotorMaster
 
-![motor_master](img/motor_master.svg)
 
 ```python
 from bliss.scanning.acquisition.motor import MotorMaster
@@ -31,37 +26,61 @@ master = MotorMaster(axis, # axis you want to drive
                      undershoot_end_margin=0,
                      backnforth=False)
 ```
-####SoftwarePositionTriggerMaster
 
-Drive the axis the same way as the `MotorMaster`.
-Plus it send a software trigger for each step position ( $$step =
-(start + end)/npoints$$ ) to slaves between *start position* and *end position*
+* Drives one motor from a `start` position to a `end` position at
+a constant speed.
+
+* If `undershoot` is None, it is calculated according
+the acceleration of the motor.
+
+* `undershoot_start_margin` and `undershoot_end_margin` can be
+added to the calculated **undershoot**.
+
+* `backnforth` option will do every even motions in one direction and
+  odd motions in the other direction.
+
+![motor_master](img/motor_master.png)
+
+#### SoftwarePositionTriggerMaster
+
+* Drives the axis the same way as the `MotorMaster`.
+* Sends a software trigger to slaves for each step position between
+  *start position* and *end position*
+
+$$ step = (start + end)/npoints $$
+
 
 ```python
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-master = SoftwarePositionTriggerMaster(axis,
-                                       start,
-                                       end,
-                                       npoints=1, #number of trigger between start and end position
-                                       time=0,
-                                       undershoot=None, # leave it to None to let it calculated
-                                       undershoot_start_margin=0,
-                                       undershoot_end_margin=0,
-                                       backnforth=False)
-				       
+master = SoftwarePositionTriggerMaster(
+      axis,
+      start,
+      end,
+      npoints=1, #number of trigger between start and end position
+      time=0,
+      undershoot=None, # leave it to None to let it calculated
+      undershoot_start_margin=0,
+      undershoot_end_margin=0,
+      backnforth=False)
+
 ```
-####JogMotorMaster
+#### JogMotorMaster
 
 On some motor controller, to reach the top speed, you need to drive it
-in *speed* instead of *position*.  You may need this master to archive
+in *speed* instead of *position*.  You may need this master to achive
 that.  This master helper will calculate for you the **undershoot**
-needed to reach the **jog_speed** at the **start** position. In case
+needed to reach the `jog_speed` at the `start` position. In case
 of margin, just *add* or *subtract* the position value to your start
-position. **jog_speed** is sign to control the rotation clockwise or
-counterclockwise. To ends the movement two options; either you *stop*
-externally the axis or you may provide a function **end_jog_func**
-which will be called during the motion. The return of this function
-will end the movement if it return != True.
+position.
+
+* `jog_speed` is sign to control the rotation clockwise or
+counterclockwise.
+
+* To end the movement:
+  * either you *stop* externally the axis
+  * or you may provide a  `end_jog_function` function which will be called
+during the motion. The return of this function will end the movement
+if it does not return `True`.
 
 ```python
 from bliss.scanning.acquisition.motor import JogMotorMaster
@@ -71,12 +90,14 @@ def end_jog_function(axis):
     This function will ends the movement if returns != True.
     """
     return axis.position < 720.
-    
-master = JogMotorMaster(axis,start,jog_speed,
+
+master = JogMotorMaster(axis,
+                        start,
+                        jog_speed,
                         end_jog_function=end_jog_function)
 ```
 
-####MeshStepTriggerMaster
+#### MeshStepTriggerMaster
 
 Control from 2 to n motors to drive them during a mesh step scan.
 This master will build a position *grid* for all axis.
@@ -145,8 +166,8 @@ rayon = 5
 angles = numpy.linspace(-45,45,90)
 x_positions = rayon * numpy.cos(numpy.deg2rad(angles))
 y_positions = rayon * numpy.sin(numpy.deg2rad(angles))
-master = VariableStepTriggerMaster(X,x_positions,
-                                   Y,y_positions)
+master = VariableStepTriggerMaster(X, x_positions,
+                                   Y, y_positions)
 ```
 
 ####CalcAxisTrajectoryMaster
@@ -161,7 +182,7 @@ from bliss.scanning.acquisition.motor import CalcAxisTrajectoryMaster
 master = CalcAxisTrajectoryMaster(calc_axis,
                                   start, #start position
                                   end, #end position
-                                  nb_points, # nb sampling point for trajectory 
+                                  nb_points, # nb sampling point for trajectory
                                   time_per_point)
 ```
 
@@ -173,65 +194,65 @@ master = CalcAxisTrajectoryMaster(calc_axis,
 
 This master control 2 axis to program a mesh trajectory on a motor controller capabale.
 
-![motor_master](img/traj_mesh.svg)
+![motor_master](img/traj_mesh.png)
 
 ```python
 from bliss.scanning.acquisition.motor import MeshTrajectoryMaster
-master = MeshTrajectoryMaster(X, # axis instance for colums
-                              X0, # first column position
-                              Xend, # last column position
-                              nb_columns, # number of point on column
-                              Y, #axis instance for lines
-                              Y0, # first line position
-                              Yend, # last line position
-                              time_per_point,
-                              # if None calculate it with the axes acceleration
-                              undershoot = None,
-                              # margin before first column position for each lines
-                              undershoot_start_margin=0,
-                              # margin at the end of each line
-                              undershoot_end_margin=0)
+master = MeshTrajectoryMaster(
+   X,     # axis instance for colums
+   X0,    # first column position
+   Xend,  # last column position
+   nb_columns, # number of point on column
+   Y,    #axis instance for lines
+   Y0,   # first line position
+   Yend, # last line position
+   time_per_point,
+   undershoot = None,  # if None calculate it with the axes acceleration
+   undershoot_start_margin=0, # margin before 1st column position for each line
+   undershoot_end_margin=0    # margin at the end of each line)
 
 ```
 
 !!! note
-    **undershoot**, **undershoot_start_margin** and **undershoot_end_margin** are
+    `undershoot`, `undershoot_start_margin` and `undershoot_end_margin` are
     for each line of the mesh. Same meaning as `MotorMaster`
     [variables](scan_engine_acquisition_master_and_devices.html#motormaster).
 
-####SweepMotorMaster
+#### SweepMotorMaster
 
-Main usage of this master is with a camera with a high dead time. This
-deadtime prevent you to acquire images during only one motion (like
-`MotorMaster`) because the gape between images are to high. This
-master split a continous motion into several, basically one motion per
-image. Final motion look like this:
+Main usage of this master is to deal with a camera with a high *dead
+time*. This dead time prevents you to acquire images during only one
+motion (like `MotorMaster`) because the gaps between images are to
+high. This master splits a continous motion into several, basically one
+motion per image. Final motion looks like:
 
-![motor_master](img/sweep_motor_master.svg)
+![motor_master](img/sweep_motor_master.png)
 
 One the first iteration, the motion is at constant speed between
 **start** position and *P1*, then the second iteration rewind the axis
 and restart an other motion and reach the constant between *P1* and
-*P2*... and so one until **end** position.  The number of movement is
-defined by the **npoints**. **time** defined the elapsed time between points.
+*P2*... and so one until `end` position.  The number of movement is
+defined by the `npoints`. `time` defines the elapsed time between points.
 
 ```python
 from bliss.scanning.acquisition.motor import SweepMotorMaster
-master = SweepMotorMaster(axis, # axis instance
-                          start, # first point position
-                          end, # last point position
-                          npoints=1, # number of points (images)
-                          time=0, # see above schema
-                          undershoot=None, # if None calculated with axis acceleration
-                          undershoot_start_margin=0,
-                          undershoot_end_margin=0)
+master = SweepMotorMaster(
+    axis,  # axis instance
+    start, # first point position
+    end,   # last point position
+    npoints=1, # number of points (images)
+    time=0,    # see above schema
+    undershoot=None, # if None calculated with axis acceleration
+    undershoot_start_margin=0,
+    undershoot_end_margin=0)
 ```
 
 !!! note
-    **undershoot**, **undershoot_start_margin** and **undershoot_end_margin** are
+    `undershoot`, `undershoot_start_margin` and `undershoot_end_margin` are
     for each point (images). Same meaning as `MotorMaster`
     [variables](scan_engine_acquisition_master_and_devices.html#motormaster).
 
 ###lima
 
 ##Device
+

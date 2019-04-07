@@ -264,9 +264,11 @@ class ScanPrinter:
 
     def __init__(self):
         self.real_motors = []
+        set_scan_watch_callbacks(
+            self._on_scan_new, self._on_scan_data, self._on_scan_end
+        )
 
     def _on_scan_new(self, scan_info):
-
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -623,11 +625,6 @@ def embed(*args, **kwargs):
 
         # set print methods for the scans
         scan_printer = ScanPrinter()
-        set_scan_watch_callbacks(
-            scan_printer._on_scan_new,
-            scan_printer._on_scan_data,
-            scan_printer._on_scan_end,
-        )
 
         if stop_signals:
 

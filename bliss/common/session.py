@@ -179,7 +179,6 @@ class Session(object):
 
     def __init__(self, name, config_tree):
         self.__name = name
-        self.__config = static.get_config()
         self.__env_dict = {}
 
         self.init(config_tree)
@@ -226,7 +225,7 @@ class Session(object):
 
     @property
     def config(self):
-        return self.__config
+        return static.get_config()
 
     @property
     def setup_file(self):

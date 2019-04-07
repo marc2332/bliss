@@ -67,6 +67,8 @@ from bliss.data.display import ScanPrinter, ScanEventHandler
 if sys.platform in ["win32", "cygwin"]:
     import win32api
 
+from bliss.common import session
+
 
 # =================== ERROR REPORTING ============================
 class ErrorReport:
@@ -329,6 +331,7 @@ def cli(
     startup_paths=None,
     eventloop=None,
     use_tmux=False,
+    **kwargs,
 ):
     """
     Create a command line interface without running it::
@@ -353,18 +356,14 @@ def cli(
     else:
         user_ns, session = initialize(session_name=None)
 
-    import __main__
-
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = lambda: ERROR_REPORT.last_error
 
     user_ns["history"] = old_history_cmd
 
-    __main__.__dict__.update(user_ns)
-
     def get_globals():
-        return __main__.__dict__
+        return user_ns
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name
@@ -396,6 +395,7 @@ def cli(
         startup_paths=startup_paths,
         session_name=session_name,
         use_tmux=use_tmux,
+        **kwargs,
     )
 
     global REPL

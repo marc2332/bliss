@@ -7,13 +7,15 @@
 
 import pytest
 import time
-import __main__ as main
+from bliss.shell.cli import repl
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement
 from bliss.common.session import get_current
 from treelib import Tree
+from prompt_toolkit.input.defaults import create_pipe_input
+from prompt_toolkit.output import DummyOutput
 
 
 def test_session_does_not_load_session(session):
@@ -126,4 +128,6 @@ def test_prdef(beacon, capsys):
 
 
 def test_session_env_dict(session):
-    assert id(main.__dict__) == id(session.env_dict)
+    inp = create_pipe_input()
+    cli = repl.cli(input=inp, output=DummyOutput(), session_name="test_session")
+    assert id(cli.get_globals()) == id(session.env_dict)

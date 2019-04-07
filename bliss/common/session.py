@@ -348,6 +348,7 @@ class Session(object):
         # use existing env dict
         env_dict = self.env_dict
 
+        env_dict["config"] = self.config
         self._load_config(env_dict, verbose)
 
         global CURRENT_SESSION
@@ -359,6 +360,8 @@ class Session(object):
 
         if not "load_script" in env_dict:
             env_dict["load_script"] = functools.partial(load_script, env_dict)
+
+            exec("from bliss.common.standard import *", env_dict)
 
             from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
 

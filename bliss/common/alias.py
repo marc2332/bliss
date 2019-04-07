@@ -18,6 +18,7 @@ from tabulate import tabulate
 from bliss.config import static
 from bliss import setup_globals
 from bliss.common.utils import counter_dict, closable
+from bliss.common import session
 
 
 class AliasMixin(object):
@@ -32,8 +33,6 @@ class AliasMixin(object):
             )
 
         """Assign an alias for this object"""
-        from bliss.common.utils import _get_env_dict
-
         alias_config = {
             "original_name": self.name,
             "alias_name": alias,
@@ -43,7 +42,9 @@ class AliasMixin(object):
         }
 
         if not hasattr(setup_globals, "ALIASES"):
-            setattr(setup_globals, "ALIASES", Aliases(self, _get_env_dict()))
+            setattr(
+                setup_globals, "ALIASES", Aliases(self, session.get_current().env_dict)
+            )
 
         setup_globals.ALIASES.create_alias(
             **alias_config,

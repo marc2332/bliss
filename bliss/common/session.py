@@ -10,10 +10,10 @@ import sys
 from types import ModuleType
 import functools
 from treelib import Tree
+import __main__ as interpreter_main
 
 from bliss import setup_globals
 from bliss.config import static
-from bliss.common.utils import closable
 from bliss.common.alias import Aliases
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 
@@ -331,21 +331,23 @@ class Session(object):
 
     @property
     def env_dict(self):
-        return self.__env_dict
+        try:
+            # does Python run in interactive mode ?
+            interpreter_main.__file__
+        except AttributeError:
+            # interactive interpreter: use the main dict
+            # in order to export objects naturally as globals
+            return interpreter_main.__dict__
+        else:
+            # running as a library
+            return self.__env_dict
 
     def setup(self, env_dict=None, verbose=False):
-        if env_dict is None:
-            # does Python run in interactive mode?
-            import __main__ as main
-
-            if not hasattr(main, "__file__"):
-                # interactive interpreter
-                self.__env_dict = main.__dict__
-            else:
-                self.__env_dict = {}
-        else:
+        if env_dict is not None:
+            # set a new env dict
             self.__env_dict = env_dict
-        env_dict = self.__env_dict
+        # use existing env dict
+        env_dict = self.env_dict
 
         self._load_config(env_dict, verbose)
 
@@ -421,14 +423,16 @@ class Session(object):
         if get_current() is self:
             global CURRENT_SESSION
             CURRENT_SESSION = None
-        for obj_name, obj in self.__env_dict.items():
+        for obj_name, obj in self.env_dict.items():
             if obj is self:
                 continue
             if hasattr(setup_globals, obj_name):
                 delattr(setup_globals, obj_name)
-            if closable(obj):
+            try:
                 obj.close()
-        self.__env_dict.clear()
+            except AttributeError:
+                pass
+        self.env_dict.clear()
 
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
@@ -454,7 +458,7 @@ class Session(object):
             del o
 
     def resetup(self, verbose=False):
-        env_dict = self.__env_dict
+        env_dict = self.env_dict
 
         for name in self.object_names:
             delattr(setup_globals, name)
@@ -463,8 +467,10 @@ class Session(object):
             except KeyError:
                 pass
             else:
-                if closable(obj):
+                try:
                     obj.close()
+                except AttributeError:
+                    pass
 
         self.config.reload()
 

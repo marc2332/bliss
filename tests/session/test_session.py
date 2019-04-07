@@ -7,6 +7,7 @@
 
 import pytest
 import time
+import __main__ as main
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
@@ -122,3 +123,7 @@ def test_prdef(beacon, capsys):
     output = capsys.readouterr()[0]
     assert output.endswith(visible_func_code)
     session.close()
+
+
+def test_session_env_dict(session):
+    assert id(main.__dict__) == id(session.env_dict)

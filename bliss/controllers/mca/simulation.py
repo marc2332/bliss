@@ -27,6 +27,7 @@ class SimulatedMCA(BaseMCA):
         self._current_data = None
         self._current_stats = None
         self._realtime = float("inf")
+        self._bad_counters = False
 
     def initialize_hardware(self):
         gevent.sleep(self._init_time)
@@ -47,6 +48,13 @@ class SimulatedMCA(BaseMCA):
     @property
     def elements(self):
         return (0, 1, 2, 3)
+
+    @property
+    def counters(self):
+        if self._bad_counters:
+            raise RuntimeError("Failed to get counters")
+        else:
+            return super().counters
 
     # Settings
 

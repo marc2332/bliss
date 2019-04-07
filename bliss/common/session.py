@@ -480,9 +480,7 @@ class Session(object):
 
 class DefaultSession(Session):
     def __init__(self):
-        Session.__init__(
-            self, "default", {"exclude-objects": static.get_config().names_list}
-        )
+        Session.__init__(self, "default", {"config-objects": []})
 
     def _load_config(self, env_dict, verbose=True):
         return

@@ -91,71 +91,24 @@ To create a simulation MCA, just use `SimulatedMCA` class:
 
 ## Lima Device
 
-### Use an existing TANGO_HOST
+Any Tango lima device (for example: **id99/limaccd/simul_cam**) server
+can be used in a BLISS session.
 
-#### Install Lima-Simulator with dependecies
+Make sure the server is well running. If you don't have a camera
+installed, use the Lima Simulator.
 
 !!! note
-    At ESRF, open blissinstaller and install:
-    **Control:Tango:Server:LimaCCDs-simulator**
 
-#### Open jive and create a simulator
-
-**Tools** -> **Server Wizard** and fill it up
+    At ESRF, see:
+    http://wikiserv.esrf.fr/bliss/index.php/Lima_ds_installation#Device_Servers
 
 ![Screenshot](img/LimaCCDs_simulation.png)
 
-* Start **LimaCCDs simulation** on the command line
-* Click **Next >** on the Wizard
-* Select **LimaCCDs** and do **Edit Class** and fill it up with
-**id99/limaccds/simul_cam**
+The corresponding YAML configuration file looks like:
 
-![Screenshot](img/limaccds_simul_cam.png)
-
-* Click on **Next >** on the Wizard until you get to **LimaCameraType**
-where you fill it with **Simulator**
-
-![Screenshot](img/LimaCameraType_Simulator.png)
-
-* Click on **Next >** on the Wizard until you get to **Configuration done**
-
-![Screenshot](img/LimaCCDs_Configuration_done.png)
-
-* Select **New Class** and select **Simulator** and do **Edit Class**
-and fill it with **id99/simulator/simul_cam**
-
-![Screenshot](img/simulator_simul_cam.png)
-
-* Click on **Next >** on the Wizard until you get to **Configuration done**
-* Click on **Finish** and say OK to restart and your new nice simulator is ready to be started
-
-### Make sure this Tango server starts as **LimaCCDs simulator**
-
-!!! note
-    At ESRF you can use the servers.conf in *config/supervisor.d/templates*
-    and create an entry like:
-    ```
-    [group:linohlsson2]
-    programs=LimaCCDs_simulator
-    
-    [program:LimaCCDs_lima_sim]
-    command=bash -c ". [...]/bin/blissrc && exec [...]/server/src/LimaCCDs simulator"
-    environment=TANGO_HOST="linohlsson2:20000",HOME="/users/blissadm"
-    user=blissadm
-    startsecs=2
-    autostart=true
-    redirect_stderr=true
-    stdout_logfile=/var/log/%(program_name)s.log
-    stdout_logfile_maxbytes=1MB
-    stdout_logfile_backups=10
-    stdout_capture_maxbytes=1MB
-    ```
-
-### Put this in your YML file
-Create a Lima class
-
-```YAML
+```yaml
 name: simul_cam
 class: Lima
 tango_url: id99/limaccd/simul_cam
 ```
+

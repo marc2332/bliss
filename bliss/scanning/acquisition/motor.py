@@ -21,6 +21,8 @@ from bliss.common.utils import grouped
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.physics.trajectory import find_pvt
 
+from bliss.controllers.motor import CalcController
+
 from ..chain import AcquisitionMaster, AcquisitionChannel
 
 
@@ -272,7 +274,6 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def __init__(self, *args, **keys):
         trigger_type = keys.pop("trigger_type", AcquisitionMaster.SOFTWARE)
-        self.broadcast_len = keys.pop("broadcast_len", 1)
         self.next_mv_cmd_arg = list()
         if len(args) % 4:
             raise TypeError(
@@ -280,6 +281,7 @@ class _StepTriggerMaster(AcquisitionMaster):
             )
         self._motor_pos = []
         self._axes = []
+        self._monitor_axes = []
         for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
             self._motor_pos.append(numpy.linspace(start, stop, nb_point))
@@ -297,6 +299,19 @@ class _StepTriggerMaster(AcquisitionMaster):
                 for axis in self._axes
             )
         )
+        ctrl_seen = set()
+        for axis in self._axes:
+            ctrl = axis.controller
+            if ctrl not in ctrl_seen and isinstance(ctrl, CalcController):
+                if ctrl.config.get("emit_real_position", lambda x: x, True):
+                    self._monitor_axes.extend(ctrl.reals)
+                    self.channels.extend(
+                        (
+                            AcquisitionChannel(self, axis.name, numpy.double, ())
+                            for axis in ctrl.reals
+                        )
+                    )
+                    ctrl_seen.add(ctrl)
 
     @property
     def npoints(self):
@@ -320,16 +335,8 @@ class _StepTriggerMaster(AcquisitionMaster):
     def trigger(self):
         self.trigger_slaves()
 
-        if self.broadcast_len > 1:
-            self.channels.update_from_iterable(
-                [
-                    numpy.ones(self.broadcast_len, numpy.float) * axis.position
-                    for axis in self._axes
-                ]
-            )
-        else:
-            self.channels.update_from_iterable([axis.position for axis in self._axes])
-
+        positions = [axis.position for axis in self._axes + self._monitor_axes]
+        self.channels.update_from_iterable(positions)
         self.wait_slaves()
 
 

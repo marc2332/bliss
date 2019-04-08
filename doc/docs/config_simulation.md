@@ -102,7 +102,6 @@ installed, use the Lima Simulator.
     At ESRF, see:
     http://wikiserv.esrf.fr/bliss/index.php/Lima_ds_installation#Device_Servers
 
-![Screenshot](img/LimaCCDs_simulation.png)
 
 The corresponding YAML configuration file looks like:
 

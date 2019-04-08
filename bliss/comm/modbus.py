@@ -99,6 +99,9 @@ class Modbus_RTU(LogMixin):
     def __del__(self):
         self._serial.close()
 
+    def __str__(self):
+        return "{0}({1})".format(self.__class__.__name__, self._serial)
+
     @property
     def lock(self):
         return self._lock

@@ -17,7 +17,6 @@ outputs:
     -
       name: heatblower
       type: sp
-      resolution: full
       unit: deg
       low_limit: 10
       high_limit: 30
@@ -31,6 +30,8 @@ inputs:
       #tango_server: euro2400_ss
 """
 import logging
+from collections import namedtuple
+from tabulate import tabulate
 
 from bliss.comm import modbus
 from bliss.comm.exceptions import CommunicationError
@@ -40,7 +41,12 @@ from warnings import warn
 """ TempController import """
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output
-from bliss.common.utils import object_attribute_type_get, object_attribute_type_set
+from bliss.common.utils import (
+    object_attribute_type_get,
+    object_attribute_type_set,
+    object_attribute_get,
+    object_method,
+)
 from bliss.common import mapping
 from bliss.common.logtools import LogMixin
 
@@ -49,9 +55,49 @@ class Eurotherm2000Error(CommunicationError):
     pass
 
 
-class Eurotherm2000:
+class Eurotherm2000Device(LogMixin):
+    RampRateUnits = ("sec", "min", "hour")
+    SensorTypes = (
+        "J",
+        "K",
+        "L",
+        "R",
+        "B",
+        "N",
+        "T",
+        "S",
+        "PL 2",
+        "Custom (factory)",
+        "RTD",
+        "Linear mV (+/- 100mV)",
+        "Linear V (0-10V)",
+        "Linear mA",
+        "Square root V",
+        "Square root mA",
+        "Custom mV",
+        "Custom V",
+        "Custom mA",
+    )
+    StatusFields = (
+        "Alarm_1",
+        "Alarm_2",
+        "Alarm_3",
+        "Alarm_4",
+        "Manual_mode",
+        "Sensor_broken",
+        "Open_loop",
+        "Heater_fail",
+        "Auto_tune_active",
+        "Ramp_program_complete",
+        "PV_out_of_range",
+        "DC_control_module_fault",
+        "Programmer_Segment_Sync_running",
+        "Remote_input_sensor_broken",
+    )
+    EuroStatus = namedtuple("EuroStatus", StatusFields)
+
     def __init__(self, modbus_address, serialport):
-        """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
+        """ RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
         mapping.register(
             self, parents_list=["comms"]
@@ -59,42 +105,70 @@ class Eurotherm2000:
         self._logger.debug(
             "Eurotherm2000: __init__(address %d, port %s)", modbus_address, serialport
         )
-        self.device = modbus.Modbus_RTU(
+        self.comm = modbus.Modbus_RTU(
             modbus_address, serialport, baudrate=9600, eol="\r"
         )
         mapping.register(
-            self, parents_list=["comms"], children_list=[self.device]
+            self, parents_list=["comms"], children_list=[self.comm]
         )  # twice to attach child
-        self.setpointvalue = None
-        self._scale = None
+
         self._model = None
         self._ident = None
+        self._version = None
         self._ramping = None
 
     def __exit__(self, etype, evalue, etb):
-        self.device._serial.close()
+        self.comm._serial.close()
 
     def close(self):
         """Close the serial line
         """
         self._logger.debug("close()")
-        self.device._serial.close()
+        self.comm._serial.close()
+
+    def flush(self):
+        self.comm._serial.flush()
+
+    def read_register(self, address):
+        return self.comm.read_holding_registers(address, "H")
+
+    def write_register(self, address, value):
+        self.comm.write_registers(address, "H", value)
+
+    def read_float_register(self, address):
+        """ reading floating point value from IEEE address zone"""
+        return self.comm.read_holding_registers(2 * address + 0x8000, "f")
+
+    def write_float_register(self, address, value):
+        """ writing floating point value from IEEE address zone"""
+        self.comm.write_register(2 * address + 0x8000, "f", value)
+
+    def read_time_register(self, address):
+        """ reading time (in sec) from IEEE address zone (precision of ms) """
+        value = self.comm.read_holding_registers(2 * address + 0x8000, "i")
+        value /= 1000.0
+        return value
+
+    def write_time_register(self, address, value):
+        """ writing time (in sec) from IEEE address zone (precision of ms) """
+        valset = int(1000.0 * value)
+        self.comm.write_register(2 * address + 0x8000, "i", valset)
 
     def initialize(self):
         """Get the model, the firmware version and the resolution of the module.
         """
         self._logger.debug("initialize")
-        self.identification()
-        version = self.firmware()
-        self.resolution()
+        self.flush()
+        self._read_identification()
+        self._read_version()
         self._logger.info(
-            "Eurotherm %x (firmware: %x), connected to serial port: %s",
+            "Eurotherm2000 %x (firmware: %x) (comm: %s)",
             self._ident,
-            version,
-            self.device._serial,
+            self._version,
+            str(self.comm),
         )
 
-    def identification(self):
+    def _read_identification(self):
         """ Ident contains a number in hex format which will identify
         your controller in format >ABCD (hex):
         A = 2 (series 2000) B = Range number  C = Size       D = Type
@@ -103,8 +177,7 @@ class Eurotherm2000:
           8: 1/8 din
           4: 1/4 din
         """
-        self.device._serial.flush()
-        ident = self.device.read_holding_registers(122, "H")
+        ident = self.read_register(122)
         if ident >> 12 == 2:
             self._logger.debug("Connected to Eurotherm model %x" % ident)
             self._ident = ident
@@ -115,7 +188,11 @@ class Eurotherm2000:
                 % (ident)
             )
 
-    def firmware(self):
+    @property
+    def model(self):
+        return "{0:x}".format(self._ident)
+
+    def _read_version(self):
         """There is the possibility to config the 2400 series with floating
         point or integer values. Tag address 525 tells you how many digits
         appear after the radix character.
@@ -124,230 +201,250 @@ class Eurotherm2000:
         The sample environment controllers have version 0x0461.
         """
 
-        version = self.device.read_holding_registers(107, "H")
+        self._version = self.read_register(107)
         self._logger.info(
-            "Firmware V%x.%x" % ((version & 0xff00) >> 8, (version & 0x00ff))
+            "Firmware V%x.%x"
+            % ((self._version & 0xff00) >> 8, (self._version & 0x00ff))
         )
-        return version
 
-    def resolution(self):
-        """ Get the resolution and the number of decimal points value.
-            Calculate the scaling factor as their function.
+    @property
+    def version(self):
+        return self._version
+
+    def display_resolution(self):
+        """ Get the display resolution and the number of decimal points value.
             Raises:
               Eurotherm2000Error
         """
         if self._model == 4:  # 2400 series
             # 0:full, 1:integer or the oposite
-            resol = self.device.read_holding_registers(12550, "H")
+            resol = self.read_register(12550)
             # 0:0, #1:1, 2:2
-            decimal = self.device.read_holding_registers(525, "H")
+            decimal = self.read_register(525)
         elif self._model == 7:  # 2700 series
             # 0:full, 1:integer
-            resol = self.device.read_holding_registers(12275, "H")
+            resol = self.read_register(12275)
             # 0:0, #1:1, 2:2
-            decimal = self.device.read_holding_registers(5076, "H")
+            decimal = self.read_register(5076)
         else:
             raise Eurotherm2000Error("Unsuported model")
 
         if resol == 0:
-            self._scale = pow(10, decimal)
-            self._logger.debug("Resolution full, decimal %d" % decimal)
+            scale = pow(10, decimal)
+            self._logger.debug("Display Resolution full, decimal %d" % decimal)
         else:
-            self._scale = 1
-            self._logger.debug("Resolution integer")
+            scale = 1
+            self._logger.debug("Display Resolution integer")
+        return scale
 
-    def ramprate_units(self, value=None):
-        """ Get/Set the ramprate time unit.
-            Args:
-              value (str): Time unit - 'sec', 'min' or 'hour'
-            Returns:
-              (str): Time unit - 'sec', 'min' or 'hour
-        """
-        units = ("sec", "min", "hour")
-        if value in units:
-            self.device.write_registers(531, "H", units.index(value))
-            return value
-        else:
-            rate = self.device.read_holding_registers(531, "H")
-            return units[rate]
-
-    def setpoint(self, value):
-        """ Set the temperature target.
-            Args:
-              value (float): Desired setpoint [degC]
-        """
-        self.setpointvalue = value
-        value *= self._scale
-        self.device.write_registers(2, "H", int(value))
-
-    def get_setpoint(self, address=2):
-        if address != 5:  # working setpoint rather than setp
-            address = 2
+    @property
+    def sp(self):
         try:
-            value = self.device.read_holding_registers(address, "H")
-            value /= float(self._scale)
-            if address == 2:
-                self.setpointvalue = value
+            value = self.read_float_register(2)
+            return value
+        except:
+            raise Eurotherm2000Error("Cannot read the sp value")
+
+    @sp.setter
+    def sp(self, value):
+        self.write_float_register(2, value)
+        self._set_point = value
+
+    @property
+    def wsp(self):
+        try:
+            value = self.read_float_register(5)
             return value
         except TypeError:
-            raise Eurotherm2000Error("Cannot read the setpoint value")
+            raise Eurotherm2000Error("Cannot read the wsp value")
 
+    @property
     def pv(self):
         try:
-            value = self.device.read_holding_registers(1, "H")
-            return value / self._scale
+            value = self.read_float_register(1)
+            return value
         except TypeError:
             raise Eurotherm2000Error("Cannot read the pv value")
 
+    @property
     def op(self):
         try:
-            value = self.device.read_holding_registers(3, "H")
-            return value / self._scale
+            value = self.read_float_register(3)
+            return value
         except TypeError:
             raise Eurotherm2000Error("Cannot read the op value")
 
-    def abort(self):
-        if self.sp_status() == 2:
-            raise Eurotherm2000Error(
-                "Cannot abort, an internal program is running; RESET device first"
-            )
-
-        self.setpoint(self.pv())
-
-    def set_ramprate(self, value):
-        """ Set the ramp rate.
-            Args:
-              value (float): ramp rate [degC/unit]
-        """
-        value *= self._scale
-        self.device.write_registers(35, "H", int(value))
-        self._ramping = False
-        if value:
-            self._ramping = True
-
-    def get_ramprate(self):
+    @property
+    def ramprate(self):
         """ Read the current ramprate
             Returns:
               (float): current ramprate [degC/unit]
             Raises:
               Eurotherm2000Error
         """
-        value = self.device.read_holding_registers(35, "H")
         try:
-            return float(value / self._scale)
+            value = self.read_float_register(35)
+            return value
         except TypeError:
             raise Eurotherm2000Error("Cannot read the ramp rate")
 
-    def sp_status(self):
+    @ramprate.setter
+    def ramprate(self, value):
+        self.write_float_register(35, value)
+        if value:
+            self._ramping = True
+        else:
+            self._ramping = False
+
+    @property
+    def ramprate_units(self):
+        """ Get the ramprate time unit.
+            Returns:
+              (str): Time unit - 'sec', 'min' or 'hour'
+        """
+        value = self.read_register(531)
+        return self.RampRateUnits[value]
+
+    @ramprate_units.setter
+    def ramprate_units(self, value):
+        """ Set the ramprate time unit
+            Args:
+              value (str): Time unit - 'sec', 'min' or 'hour'
+        """
+        if value not in self.RampRateUnits:
+            raise ValueError(
+                "Invalid eurotherm ramp rate units. Should be in %s".format(
+                    self.RampRateUnits
+                )
+            )
+        self.write_register(531, self.RampRateUnits.index(value))
+
+    @property
+    def pid(self):
+        return (self.P, self.I, self.D)
+
+    @property
+    def P(self):
+        return self.read_float_register(6)
+
+    @property
+    def I(self):
+        return self.read_time_register(8)
+
+    @property
+    def D(self):
+        return self.read_time_register(9)
+
+    @property
+    def sensor_type(self):
+        sensor = self.read_register(12290)
+        return self.SensorTypes[sensor]
+
+    def prog_status(self):
         """Read the setpoint status
            Returns:
               (int): 0 - ready
                      1 - wsp != sp so running
                      2 - busy, a program is running
         """
-        if self._model == 4 and self.device.read_holding_registers(23, "H") != 1:
+        if self._model == 4 and self.read_register(23) != 1:
             return 2
         else:
-            sp = self.get_setpoint(2)
-            wsp = self.get_setpoint(5)
-            if sp is not wsp:
+            if self.wsp != self.sp:
                 return 1
         return 0
 
-    def update_cmd(self):
-        return self.sp_status()
-
-    def _fast_status(self):
-        """Read the fast status
-           Returns:
-              (int): current status byte
-        """
-        _status = [
-            "Alarm 1",
-            "Alarm 2",
-            "Alarm 3",
-            "Alarm 4",
-            "Manual mode",
-            "Sensor broken",
-            "Open loop",
-            "Heater fail",
-            "Auto tune active",
-            "Ramp program complete",
-            "PV out of range",
-            "DC control module fault",
-            "Programmer Segment Sync running",
-            "Remote input sensor break",
-        ]
-        value = self.device.read_holding_registers(74, "H")  # Fast Status Byte
-        if value:
-            for stat in _status:
-                if pow(2, _status.index(stat)) & value:
-                    print(stat)
-            return value
-        return 0
-
-    def _output_status(self):
-        """Read the output status
-           Returns:
-              (int): current status byte
-        """
-        value = self.device.read_holding_registers(75, "H")
-        if not (value & 0x200):
-            return 2
-        return 0
-
-    def device_status(self):
-        status = self._fast_status()
-        if self._ramping:
-            status = status or self._output_status()
+    @property
+    def status(self):
+        value = self.read_register(75)
+        status = self.EuroStatus(
+            *[bool(value & (1 << i)) for i in range(len(self.EuroStatus._fields))]
+        )
         return status
 
-    def _rd(self, address, format="H"):
-        return self.device.read_holding_registers(address, format)
-
-    def _wr(self, address, format, value):
-        return self.device.write_registers(address, format, value)
-
-    def pid(self):
-        try:
-            value = self.device.read_holding_registers(6, "HHHH")
-            _pid = (value[0] / self._scale, value[2], value[3])
-        except TypeError:
-            raise Eurotherm2000Error("Cannot read PID")
-        return _pid
+    def show_status(self):
+        status = self.status
+        rows = [(field, str(getattr(status, field))) for field in status._fields]
+        heads = ["EuroStatus", "Value"]
+        print(tabulate(rows, headers=heads))
 
 
 class eurotherm2000(Controller):
+    InputTypes = ("pv", "wsp", "op")
+    OutputTypes = ("sp",)
+
     def __init__(self, config, *args):
         """
         controller configuration
         """
-
         try:
             port = config["serial"]["url"]
         except KeyError:
             port = config["port"]
             warn("'port' is deprecated. Use 'serial' instead", DeprecationWarning)
-        self._dev = Eurotherm2000(1, port)
+        self.device = Eurotherm2000Device(1, port)
         Controller.__init__(self, config, *args)
         self._logger.debug("eurotherm2000:__init__ (%s %s)" % (config, args))
+        self._set_point = None
 
     def initialize(self):
         self._logger.debug("initialize")
-        self._dev.initialize()
+        self.device.initialize()
 
     def initialize_input(self, tinput):
         self._logger.debug("initialize_input")
         if "type" not in tinput.config:
             tinput.config["type"] = "pv"
+        else:
+            if tinput.config["type"] not in self.InputTypes:
+                raise ValueError(
+                    "Invalid input type [{0}]. Should one of {1}.".format(
+                        tinput.config["type"], self.InputTypes
+                    )
+                )
 
     def initialize_output(self, toutput):
         self._logger.debug("initialize_output")
-
-        self.ramp_rate = None
-
         if "type" not in toutput.config:
             toutput.config["type"] = "sp"
+        else:
+            if toutput.config["type"] not in self.OutputTypes:
+                raise ValueError(
+                    "Invalid input type [{0}]. Should one of {1}.".format(
+                        toutput.config["type"], self.OutputTypes
+                    )
+                )
+
+    def set(self, toutput, sp):
+        """Go to the desired temperature as quickly as possible.
+           Args:
+              toutput (object): Output class type object
+              sp (float): final temperature [degC]
+        """
+        self._logger.debug("set() %r" % sp)
+
+        # Ramprate should be 0 in order to get there ASAP
+        self.device.ramprate = 0
+        self.device.sp = sp
+        self._set_point = sp
+
+    def get_setpoint(self, toutput):
+        """Read the as quick as possible setpoint
+           Args:
+              toutput (object): Output class type object
+           Returns:
+              (float): current temperature setpoint
+        """
+        self._logger.debug("get_setpoint")
+        return self._set_point
+
+    def setpoint_abort(self, touput):
+        if self.device.prog_status() == 2:
+            raise Eurotherm2000Error(
+                "Cannot abort, an internal program is running; RESET device first"
+            )
+
+        self.setpoint(self.device.pv)
 
     def read_output(self, toutput):
         """Read the current temperature
@@ -359,39 +456,9 @@ class eurotherm2000(Controller):
         self._logger.info("read_output %s" % toutput.config["type"])
         typ = toutput.config["type"]
         if typ is "wsp":
-            return self._dev.get_setpoint(5)
-        return self._dev.get_setpoint(5)
-
-    def set(self, toutput, sp):
-        """Go to the desired temperature as quickly as possible.
-           Args:
-              toutput (object): Output class type object
-              sp (float): final temperature [degC]
-        """
-        self._logger.debug("set() %r" % sp)
-
-        # Ramprate should be 0 in order to get there AQAP
-        self._dev.set_ramprate(0)
-        self._dev.setpoint(sp)
-
-    def get_setpoint(self, toutput):
-        """Read the as quick as possible setpoint
-           Args:
-              toutput (object): Output class type object
-           Returns:
-              (float): current temperature setpoint
-        """
-        self._logger.debug("get_setpoint")
-        return self._dev.setpointvalue
-
-        """
-        or
-        print "eurotherm2000:get_setpoint",toutput.config['type']
-        typ = toutput.config['type']
-        if typ is 'wsp':
-            return self._dev.get_setpoint(5)
-        return self._dev.get_setpoint()
-        """
+            return self.device.wsp
+        else:
+            return self.device.sp
 
     def start_ramp(self, toutput, sp, **kwargs):
         """Start ramping to setpoint
@@ -401,13 +468,14 @@ class eurotherm2000(Controller):
            Kwargs:
               rate (int): The ramp rate [degC/unit]
         """
-        try:
-            rate = int(kwargs.get("rate", self.ramp_rate))
-            self._dev.set_ramprate(rate)
-        except TypeError:
-            raise Eurotherm2000Error("Cannot start ramping, ramp rate not set")
-
-        self._dev.setpoint(sp)
+        rate = kwargs.get("rate", None)
+        if rate is None:
+            rate = self.device.ramprate
+            if not ramprate:
+                raise Eurotherm2000Error("Cannot start ramping, ramp rate not set")
+        else:
+            self.device.ramprate = rate
+        self.device.sp = sp
 
     def set_ramprate(self, toutput, rate):
         """Set the ramp rate
@@ -415,16 +483,14 @@ class eurotherm2000(Controller):
               toutput (object): Output class type object
               rate (float): The ramp rate [degC/unit]
        """
-        self.ramp_rate = rate
-        self._dev.set_ramprate(self.ramp_rate)
+        self.device.ramprate = rate
 
     def read_ramprate(self, toutput):
         """Read the ramp rate
            Returns:
               (float): Previously set ramp rate  [degC/unit]
         """
-        self.ramp_rate = self._dev.get_ramprate()
-        return self.ramp_rate
+        return self.device.ramprate
 
     def state_output(self, toutput):
         """Read the state parameters of the controller
@@ -433,24 +499,33 @@ class eurotherm2000(Controller):
         Returns:
            (string): This is one of READY/RUNNING/ALARM
         """
-        _status = self._dev.device_status()
+        return self.control_status()
 
-        if 0 == _status:
-            return "READY"
-        if 2 == _status:
+    def control_status(self):
+        status = self.device.status
+        if (
+            status.Heater_fail
+            or status.Sensor_broken
+            or status.PV_out_of_range
+            or status.DC_control_module_fault
+        ):
+            return "FAULT"
+        if status.Alarm_1 or status.Alarm_2 or status.Alarm_3 or status.Alarm_4:
+            return "ALARM"
+        if not status.Ramp_program_complete:
             return "RUNNING"
-        return "ALARM"
+        return "READY"
 
     def read_input(self, tinput):
         self._logger.debug("read_input")
-        typ = tinput.config["type"]
-        if typ is "op":
-            return self._dev.op()
-        elif typ is "sp":
-            return self._dev.get_setpoint()
-        elif typ is "wsp":
-            return self._dev.get_setpoint(5)
-        return self._dev.pv()
+        typ = str(tinput.config["type"])
+        if typ == "op":
+            return self.device.op
+        elif typ == "sp":
+            return self.device.sp
+        elif typ == "wsp":
+            return self.device.wsp
+        return self.device.pv
 
     def state_input(self, tinput):
         """Read the state parameters of the controller
@@ -459,19 +534,28 @@ class eurotherm2000(Controller):
            Returns:
               (string): This is one of READY/RUNNING/ALARM
         """
-
-        _status = self._dev.device_status()
-
-        if 0 == _status:
-            return "READY"
-        if 2 == _status:
-            return "RUNNING"
-        return "ALARM"
+        return self.control_status()
 
     @object_attribute_type_get(type_info=("str"), type=Output)
     def get_ramprate_unit(self, toutput):
-        return self._dev.ramprate_units()
+        return self.device.ramprate_units
 
     @object_attribute_type_set(type_info=("str"), type=Output)
     def set_ramprate_unit(self, toutput, value):
-        return self._dev.ramprate_units(value)
+        self.device.ramprate_units = value
+
+    @object_attribute_type_get(type_info=("str"), type=Input)
+    def sensor_type(self, tinput):
+        return self.device.sensor_type
+
+    @object_method()
+    def status(self, tobj):
+        self.device.show_status()
+
+    @object_attribute_get()
+    def get_device(self, tobj):
+        return self.device
+
+    @object_attribute_get(type_info=("str"))
+    def get_model(self, tobj):
+        return self.device.model

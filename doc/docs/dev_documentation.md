@@ -24,10 +24,10 @@ installed, the documentation requirements need to be installed
 in a conda environment.
 
 !!! note
-At ESRF, enter the BLISS development conda environment to install documentation requirements:
-```bash
-$ . blissenv -d
-```
+    At ESRF, enter the BLISS development conda environment to install documentation requirements:
+    ```bash
+    $ . blissenv -d
+    ```
 
 
 ```bash
@@ -139,10 +139,10 @@ To easily view the result of your writing, using a local rendering:
 * These packages are in `requirements-doc.txt` and `requirements-doc.txt`
 
 !!! note
-At ESRF, enter the BLISS development conda environment to install documentation requirements:
-```bash
-$ . blissenv -d
-```
+    At ESRF, enter the BLISS development conda environment to install documentation requirements:
+    ```bash
+    $ . blissenv -d
+    ```
 
 ```bash
 $ cd <bliss.git directory>
@@ -319,7 +319,7 @@ result:
 ![Screenshot](img/std_bpm.svg)
 
 !!! note
-    To avoir fonts problems with svg files, texts can be converted to
+    To avoid fonts problems with svg files, texts can be converted to
     pathes. Select all and use Shift-Ctrl-C in Inkscape for example.
 
 #### Bitmap

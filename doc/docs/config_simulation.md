@@ -93,12 +93,12 @@ To create a simulation MCA, just use `SimulatedMCA` class:
 
 ### Use an existing TANGO_HOST
 
-#### Install Lima-Simulator with dependecies 
+#### Install Lima-Simulator with dependecies
 
 !!! note
     At ESRF, open blissinstaller and install:
     **Control:Tango:Server:LimaCCDs-simulator**
-    
+
 #### Open jive and create a simulator
 
 **Tools** -> **Server Wizard** and fill it up
@@ -107,12 +107,12 @@ To create a simulation MCA, just use `SimulatedMCA` class:
 
 * Start **LimaCCDs simulation** on the command line
 * Click **Next >** on the Wizard
-* Select **LimaCCDs** and do **Edit Class** and fill it up with  
+* Select **LimaCCDs** and do **Edit Class** and fill it up with
 **id99/limaccds/simul_cam**
 
 ![Screenshot](img/limaccds_simul_cam.png)
 
-* Click on **Next >** on the Wizard until you get to **LimaCameraType**  
+* Click on **Next >** on the Wizard until you get to **LimaCameraType**
 where you fill it with **Simulator**
 
 ![Screenshot](img/LimaCameraType_Simulator.png)
@@ -121,7 +121,7 @@ where you fill it with **Simulator**
 
 ![Screenshot](img/LimaCCDs_Configuration_done.png)
 
-* Select **New Class** and select **Simulator** and do **Edit Class**  
+* Select **New Class** and select **Simulator** and do **Edit Class**
 and fill it with **id99/simulator/simul_cam**
 
 ![Screenshot](img/simulator_simul_cam.png)
@@ -133,13 +133,13 @@ and fill it with **id99/simulator/simul_cam**
 
 !!! note
     At ESRF you can use the servers.conf in *config/supervisor.d/templates*
-    and create an entry like
-    
+    and create an entry like:
+    ```
     [group:linohlsson2]
-     programs=LimaCCDs_simulator
-     
+    programs=LimaCCDs_simulator
+    
     [program:LimaCCDs_lima_sim]
-    command=bash -c ". /users/blissadm/bin/blissrc && exec /users/blissadm/server/src/LimaCCDs simulator"
+    command=bash -c ". [...]/bin/blissrc && exec [...]/server/src/LimaCCDs simulator"
     environment=TANGO_HOST="linohlsson2:20000",HOME="/users/blissadm"
     user=blissadm
     startsecs=2
@@ -149,8 +149,8 @@ and fill it with **id99/simulator/simul_cam**
     stdout_logfile_maxbytes=1MB
     stdout_logfile_backups=10
     stdout_capture_maxbytes=1MB
-    
-    
+    ```
+
 ### Put this in your YML file
 Create a Lima class
 
@@ -159,4 +159,3 @@ name: simul_cam
 class: Lima
 tango_url: id99/limaccd/simul_cam
 ```
-

@@ -8,7 +8,10 @@
 import pytest
 import numpy
 from bliss.common.measurement import SamplingCounter, IntegratingCounter
-from bliss.common.scans import loopscan
+from bliss.common.scans import loopscan, ct
+from bliss.shell.cli.repl import ScanPrinter
+from bliss import setup_globals
+from unittest import mock
 
 
 class Diode(SamplingCounter):
@@ -119,3 +122,16 @@ def test_integ_counter(beacon):
     counter = IntegCounter(acq_controller, multiply_by_two)
 
     assert list(counter.get_values(0)) == list(2 * acq_controller.raw_value)
+
+
+def test_bad_counters(session, beacon):
+    sp = ScanPrinter()
+    diode = session.env_dict["diode"]
+    simu_mca = beacon.get("simu1")
+    setup_globals.simu_mca = simu_mca
+    try:
+        simu_mca._bad_counters = True
+
+        s = ct(0.1, diode)
+    finally:
+        simu_mca._bad_counters = False

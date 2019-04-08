@@ -523,10 +523,7 @@ class Scan:
 
         if scan_saving is None:
             session_obj = _current_session()
-            if session_obj is None:
-                scan_saving = ScanSaving("default")
-            else:
-                scan_saving = session_obj.env_dict["SCAN_SAVING"]
+            scan_saving = session_obj.env_dict["SCAN_SAVING"]
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving

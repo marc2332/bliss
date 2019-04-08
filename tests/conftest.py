@@ -107,7 +107,6 @@ def clean_session():
     current_session = session_module.get_current()
     if current_session is not None:
         current_session.close()
-        assert False
     assert session_module.CURRENT_SESSION is None
 
 

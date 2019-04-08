@@ -25,6 +25,10 @@ def get_current():
     """
     return the current session object
     """
+    global CURRENT_SESSION
+    if CURRENT_SESSION is None:
+        CURRENT_SESSION = DefaultSession()
+        CURRENT_SESSION.setup()
     return CURRENT_SESSION
 
 
@@ -369,17 +373,17 @@ class Session(object):
         if not "load_script" in env_dict:
             env_dict["load_script"] = functools.partial(load_script, env_dict)
 
-            exec("from bliss.common.standard import *", env_dict)
+        exec("from bliss.common.standard import *", env_dict)
 
-            from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
+        from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
 
-            env_dict["SCANS"] = SCANS
-            env_dict["SCAN_SAVING"] = ScanSaving(self.name)
-            env_dict["SCAN_DISPLAY"] = ScanDisplay()
+        env_dict["SCANS"] = SCANS
+        env_dict["SCAN_SAVING"] = ScanSaving(self.name)
+        env_dict["SCAN_DISPLAY"] = ScanDisplay()
 
-            from bliss.common.measurementgroup import ACTIVE_MG
+        from bliss.common.measurementgroup import ACTIVE_MG
 
-            env_dict["ACTIVE_MG"] = ACTIVE_MG
+        env_dict["ACTIVE_MG"] = ACTIVE_MG
 
         sessions_tree = self.sessions_tree
         for child_session in reversed(

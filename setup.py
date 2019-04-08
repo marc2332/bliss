@@ -8,6 +8,7 @@
 import os
 import sys
 import inspect
+import subprocess
 
 from setuptools.extension import Extension
 from setuptools import setup, find_packages
@@ -68,6 +69,61 @@ def abspath(*path):
     return os.path.join(setup_dir, *path)
 
 
+def generate_release_file():
+    dirname = os.path.dirname(__file__)
+    try:
+        process = subprocess.run(
+            ["git", "describe", "--tags", "--always"], capture_output=True, cwd=dirname
+        )
+    except:
+        version = "master"
+    else:
+        version = process.stdout.strip().decode()
+    name = "bliss"
+    author = "BCU (ESRF)"
+    author_email = ""
+    license = "LGPLv3"
+    copyright = "2016-2018 Beamline Control Unit, ESRF"
+    description = "BeamLine Instrumentation Support Software"
+    url = "bliss.gitlab-pages.esrf.fr/bliss"
+
+    src = f"""\
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
+
+#Single source of truth for the version number and the like
+
+import os
+import subprocess
+dirname = os.path.dirname(__file__)
+
+name = "{name}"
+author = "{author}"
+author_email = "{author_email}"
+license = "{license}"
+copyright = "{copyright}"
+description = "{description}"
+url = "{url}"
+try:
+    process = subprocess.run(["git","describe","--tags","--always"],
+                             capture_output=True,
+                             cwd=dirname)
+except:
+    short_version = version = "{version}"
+else:
+    short_version = version = process.stdout.strip().decode()
+    
+version_info = [x.split('-')[0] for x in version.split('.')]
+"""
+    with open(os.path.join(dirname, "bliss", "release.py"), "w") as f:
+        f.write(src)
+    return locals()
+
+
 def main():
     """run setup"""
 
@@ -78,15 +134,7 @@ def main():
         print(("Incompatible python version ({0}). Needs python 3.x ".format(py_str)))
         sys.exit(1)
 
-    meta = {}
-    exec(
-        compile(
-            open(abspath("bliss", "release.py")).read(),
-            abspath("bliss", "release.py"),
-            "exec",
-        ),
-        meta,
-    )
+    meta = generate_release_file()
 
     packages = find_packages(where=abspath(), exclude=("extensions*",))
 

@@ -372,7 +372,6 @@ def _get_channels_dict(acq_object, channels_dict):
     display_names = channels_dict.setdefault("display_names", {})
 
     for acq_chan in acq_object.channels:
-        acq_chan._device_name = acq_object.name
         name = acq_chan.fullname
         shape = acq_chan.shape
         display_names[name] = acq_chan.alias_or_name

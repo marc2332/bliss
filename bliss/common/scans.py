@@ -274,6 +274,7 @@ def amesh(
         "save": kwargs.get("save", True),
         "title": kwargs.get("title"),
         "sleep_time": kwargs.get("sleep_time"),
+        "data_dim": 2,
     }
 
     if scan_info["title"] is None:

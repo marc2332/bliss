@@ -297,7 +297,10 @@ class Flint:
                 scalars_plot_win.set_x_axes(channels["master"]["scalars"])
                 scalars_plot_win.set_y_axes(scalars)
 
-                if len(channels["master"]["scalars"]) >= 2:
+                if (
+                    len(channels["master"]["scalars"]) >= 2
+                    and scan_info.get("data_dim", 1) == 2
+                ):
                     window_title = "Scatter: " + master + " -> counters"
                     window_titles.append(window_title)
                     scatter_plot_win = self.mdi_windows_dict.get(window_title)

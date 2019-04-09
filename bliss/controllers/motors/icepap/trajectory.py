@@ -66,6 +66,17 @@ class TrajectoryAxis(Axis):
         """
         self._disabled_axes.add(axis)
 
+    def show(self):
+        print("")
+        print("ENABLED :  ", end="")
+        for m in self.enabled_axes:
+            print("%s" % m.name, end=" ")
+        print("")
+        print("DISABLED:  ", end="")
+        for m in self.disabled_axes:
+            print("%s" % m.name, end=" ")
+        print("")
+
     @property
     def enabled_axes(self):
         """
@@ -186,6 +197,28 @@ class TrajectoryAxis(Axis):
     def _load_trajectories(self, axes, parameter, positions):
         data = numpy.array([], dtype=numpy.int8)
         update_cache = list()
+
+        # set trajectory mode
+        t_mode = {
+            TrajectoryAxis.LINEAR: "LINEAR",
+            TrajectoryAxis.SPLINE: "SPLINE",
+            TrajectoryAxis.CYCLIC: "CYCLIC",
+        }
+        t_mode_str = t_mode.get(self._trajectory_mode)
+
+        # check memory
+        # memory_max = int(self.controller.raw_write("0:?memory").split(" ")[2])
+        # limited to 400000 due to the timeout on the icepap DSP
+        memory_max = 390000
+
+        # build parameter table
+        param_data = _vdata_header(parameter, self, PARAMETER, addr="255")
+        data = numpy.append(data, param_data)
+
+        # build axis table
+        table_length_test_done = False
+        at_least_one_axis_to_load = False
+        axis_name_list = ""
         for mot_name, pos in positions.items():
             axis = axes[mot_name]
             if axis._trajectory_cache.value == self._hash_cache.get(
@@ -194,28 +227,50 @@ class TrajectoryAxis(Axis):
                 continue
 
             axis_data = _vdata_header(pos, axis, POSITION)
-            axis_data = numpy.append(
-                axis_data, _vdata_header(parameter, axis, PARAMETER)
-            )
+
+            if not table_length_test_done:
+                table_length_test_done = True
+                if (axis_data.size + param_data.size) > memory_max:
+                    raise RuntimeError(
+                        "Axis %s: trajectory table too long (%d byte) for icepap memory (%d byte)"
+                        % (self.name, axis_data.size + param_data.size, memory_max)
+                    )
+
+            if (data.size + axis_data.size) > memory_max:
+                # print("Sending trajectory for %s"%axis_name_list)
+                _command(
+                    self.controller._cnx,
+                    "#*PARDAT {}".format(t_mode_str),
+                    data=data,
+                    timeout=30,
+                )
+                axis_name_list = ""
+                data = numpy.array([], dtype=numpy.int8)
+                data = numpy.append(data, param_data)
+
+            axis_name_list = axis_name_list + " " + mot_name
+
             h = hashlib.md5()
             h.update(axis_data.tobytes())
             digest = h.hexdigest()
             if axis._trajectory_cache.value != digest:
+                at_least_one_axis_to_load = True
                 data = numpy.append(data, axis_data)
                 update_cache.append((axis, digest))
             else:
                 self._hash_cache[axis.name] = digest
 
-        if not data.size:  # nothing to do
+        if not at_least_one_axis_to_load:  # nothing to do
             return
-        t_mode = {
-            TrajectoryAxis.LINEAR: "LINEAR",
-            TrajectoryAxis.SPLINE: "SPLINE",
-            TrajectoryAxis.CYCLIC: "CYCLIC",
-        }
-        t_mode_str = t_mode.get(self._trajectory_mode)
 
-        _command(self.controller._cnx, "#*PARDAT {}".format(t_mode_str), data=data)
+        # print("Send trajectory for %s (LAST)"%axis_name_list)
+        _command(
+            self.controller._cnx,
+            "#*PARDAT {}".format(t_mode_str),
+            data=data,
+            timeout=15,
+        )
+
         # update axis trajectory cache
         for axis, value in update_cache:
             axis._trajectory_cache.value = value

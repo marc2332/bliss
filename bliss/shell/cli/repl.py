@@ -341,7 +341,7 @@ class ScanPrinter:
                         counter_name += "[{0}]".format(unit)
                     counter_labels.append(counter_name)
 
-        self.col_labels.extend(sorted(motor_labels))
+        self.col_labels.extend(motor_labels)
         self.col_labels.extend(sorted(counter_labels))
 
         other_channels = [

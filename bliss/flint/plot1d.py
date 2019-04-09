@@ -63,7 +63,7 @@ class LivePlot1D(qt.QWidget):
         self.axes_list_model.setHorizontalHeaderLabels(
             ["Counter", "X", "Y1", "Y2", "Legend", ""]
         )
-        for i, axis_name in enumerate(sorted(axis_names_list)):
+        for i, axis_name in enumerate(axis_names_list):
             item_name = qt.QStandardItem(axis_name)
             item_name.setEditable(False)
 
@@ -344,7 +344,7 @@ class LiveScatterPlot(qt.QWidget):
         self.axes_list_model.setHorizontalHeaderLabels(["Counter", "X", "Y", "Z", ""])
         self.silx_plot.setData([], [], [], copy=False)
 
-        for i, axis_name in enumerate(sorted(axis_names_list)):
+        for i, axis_name in enumerate(axis_names_list):
             item_name = qt.QStandardItem(axis_name)
             item_name.setEditable(False)
 

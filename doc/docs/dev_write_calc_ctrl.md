@@ -86,3 +86,6 @@ Current Positions (user, dial)
 
 ![Screenshot](img/dial_user_ctrl.svg)
 
+!!! note
+    Real axis position will be emitted during a step scan on a calculated axis unless
+    "emit_real_position" is set to False in the controller configuration

@@ -63,6 +63,7 @@ from bliss.scanning.acquisition.motor import (
     LinearStepTriggerMaster,
     MeshStepTriggerMaster,
 )
+from bliss.controllers.motor import CalcController
 
 _log = logging.getLogger("bliss.scans")
 
@@ -1347,6 +1348,18 @@ def plotselect(*counters):
     plot_select.set(counter_names)
 
 
+def _remove_real_dependent_of_calc(motors):
+    """
+    remove real motors if depend of a calc axis
+    """
+    realmot = set()
+    for mot in motors:
+        ctrl = mot.controller
+        if isinstance(ctrl, CalcController):
+            realmot.update(ctrl.reals)
+    return set(motors) - realmot
+
+
 def _multimotors(func):
     def f(counter=None, axis=None):
         try:
@@ -1357,6 +1370,10 @@ def _multimotors(func):
             motors = last_scan_motors()
             if len(motors) <= 1:
                 raise
+            # check if there is some calcaxis with associated real
+            motors = _remove_real_dependent_of_calc(motors)
+            if len(motors) == 1:
+                return func(counter=counter, axis=motors.pop())
             return {mot: func(counter=counter, axis=mot) for mot in motors}
 
     return f
@@ -1372,6 +1389,10 @@ def _goto_multimotors(func):
             motors = last_scan_motors()
             if len(motors) <= 1:
                 raise
+            motors = _remove_real_dependent_of_calc(motors)
+            if len(motors) == 1:
+                return func(counter=counter, axis=motors.pop())
+
             with error_cleanup(*motors, restore_list=(cleanup_axis.POS,), verbose=True):
                 tasks = [
                     gevent.spawn(func, counter=counter, axis=mot) for mot in motors

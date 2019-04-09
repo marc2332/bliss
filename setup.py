@@ -152,7 +152,7 @@ def main():
         "bottle",
         "tabulate",
         "pyserial > 2",
-        "ruamel.yaml",
+        "pyyaml",
         "msgpack >= 0.6.1",
         "msgpack_numpy >= 0.4.4.2",
         "blessings",

@@ -50,7 +50,7 @@ import gc
 import weakref
 
 
-from ruamel import yaml
+import yaml
 
 from .conductor import client
 

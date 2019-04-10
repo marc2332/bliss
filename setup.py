@@ -152,7 +152,7 @@ def main():
         "bottle",
         "tabulate",
         "pyserial > 2",
-        "pyyaml",
+        "pyyaml >= 5.1",
         "msgpack >= 0.6.1",
         "msgpack_numpy >= 0.4.4.2",
         "blessings",

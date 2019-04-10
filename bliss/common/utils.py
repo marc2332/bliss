@@ -143,6 +143,8 @@ def object_method(
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
+        # We strip the first argument in the signature as it will be the 'self'
+        # of the instance to which the method will be attached
         sig = inspect.signature(func)
         sig = sig.replace(parameters=tuple(sig.parameters.values())[1:])
         wrapper.__signature__ = sig

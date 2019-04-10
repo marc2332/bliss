@@ -371,7 +371,7 @@ class Mockup(Controller):
     # VOID VOID
     @object_method
     def custom_park(self, axis):
-        """another docstr"""
+        """doc-str of custom_park"""
         self._logger.debug("custom_park : parking")
         self._hw_state.set("PARKED")
 
@@ -388,7 +388,7 @@ class Mockup(Controller):
     # STRING STRING
     @object_method(types_info=("str", "str"))
     def custom_get_chapi(self, axis, value):
-        """here is a doc string to test"""
+        """doc-str of custom_get_chapi"""
         if value == "chapi":
             return "chapo"
         elif value == "titi":
@@ -443,10 +443,12 @@ class Mockup(Controller):
 
     @object_attribute_get(type_info="int")
     def get_voltage(self, axis):
+        """doc-str of get_voltage"""
         return self.__voltages.setdefault(axis, 10000)
 
     @object_attribute_set(type_info="int")
     def set_voltage(self, axis, voltage):
+        """doc-str of set_voltage"""
         self.__voltages[axis] = voltage
 
     @object_attribute_get(type_info="float")

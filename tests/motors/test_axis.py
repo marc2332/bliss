@@ -13,6 +13,7 @@ from bliss.common import event
 from bliss.common.axis import Modulo, AxisState
 from unittest import mock
 import random
+import inspect
 
 
 def test_property_setting(robz):
@@ -605,3 +606,14 @@ def test_axis_disable_cache_settings_from_config(beacon):
         new_position.return_value = position
         assert m1.position == mot1_position
         assert m2.position == pytest.approx(position / m2.steps_per_unit)
+
+
+def test_object_methode_signatures_and_docstr(m0):
+    assert inspect.getdoc(m0.get_voltage) == "doc-str of get_voltage"
+    assert str(inspect.signature(m0.set_voltage)) == "(voltage)"
+    assert inspect.getdoc(m0.set_voltage) == "doc-str of set_voltage"
+    assert str(inspect.signature(m0.get_voltage)) == "()"
+    assert inspect.getdoc(m0.custom_get_chapi) == "doc-str of custom_get_chapi"
+    assert str(inspect.signature(m0.custom_get_chapi)) == "(value)"
+    assert inspect.getdoc(m0.custom_park) == "doc-str of custom_park"
+    assert str(inspect.signature(m0.custom_park)) == "()"

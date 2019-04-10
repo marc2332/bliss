@@ -160,8 +160,7 @@ class Node(dict):
                 return
             if self._parent is not None:
                 return self._parent.plugin
-            else:
-                return None
+            return None
         else:
             return plugin
 
@@ -179,8 +178,7 @@ class Node(dict):
             return self, filename
         elif self._parent is not None:
             return self._parent.get_node_filename()
-        else:
-            return None, None
+        return None, None
 
     def get_inherited_value_and_node(self, key):
         """
@@ -229,7 +227,7 @@ class Node(dict):
             save_nodes = self._get_save_dict(node, filename)
         else:
             save_nodes = self._get_save_list(nodes_2_save, filename)
-        file_content = yaml.dump(save_nodes, default_flow_style=False)
+        file_content = yaml.dump(save_nodes, default_flow_style=False, sort_keys=False)
         self._config.set_config_db_file(filename, file_content)
 
     def deep_copy(self):

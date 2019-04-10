@@ -1,7 +1,4 @@
 # Conda requirements file
-blessings
-colorama
-bottle
 docopt
 flask
 gevent >= 1.4
@@ -9,20 +6,13 @@ gxx_linux-64
 h5py
 jedi
 jinja2 >= 2.7
-louie
-mendeleev
 mock
-msgpack-numpy >= 0.4.4.2
 msgpack-python >= 0.6.1
-netifaces
 networkx
-nose >=0.10.1
 numpy >= 1.13
 pandas
-pint
 prompt_toolkit >= 2.0
 psutil
-pyfiglet
 pygments
 pygraphviz >= 1.5
 pyserial > 2
@@ -30,11 +20,9 @@ pytango > 9.2.4
 python >= 3.7
 pyyaml >= 5.1
 pyzmq
-ptpython >= 2.0
 redis >= 5.0
 redis-py >= 3.2
 requests
 silx == 0.10.1
 sqlalchemy
 tabulate
-treelib

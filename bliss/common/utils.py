@@ -114,11 +114,13 @@ def add_object_method(
     def call(self, *args, **kwargs):
         if callable(pre_call):
             pre_call(self, *args, **kwargs)
-
         return method.__func__(method.__self__, *args, **kwargs)
 
     obj._add_custom_method(
-        types.MethodType(functools.partial(call, *([obj] + args)), obj),
+        types.MethodType(
+            functools.update_wrapper(functools.partial(call, *([obj] + args)), method),
+            obj,
+        ),
         name,
         types_info,
     )
@@ -132,21 +134,33 @@ def object_method(
 
     The same as add_object_method but its purpose is to be used as a
     decorator to the controller method which is to be exported as object method.
+    
+    Returns a method where _object_method_ attribute is filled with a dict of elements to characterize it.
     """
-    if method is None:
-        # Passes here if decorator parameters are not present ???.
-        # ...
-        return functools.partial(
-            object_method, name=name, args=args, types_info=types_info, filter=filter
+
+    def get_wrapper(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        sig = inspect.signature(func)
+        sig = sig.replace(parameters=tuple(sig.parameters.values())[1:])
+        wrapper.__signature__ = sig
+
+        wrapper._object_method_ = dict(
+            name=name, args=args, types_info=types_info, filter=filter
         )
+        return wrapper
 
-    # Returns a method where _object_method_ attribute is filled with a
-    # dict of elements to characterize it.
-    method._object_method_ = dict(
-        name=name, args=args, types_info=types_info, filter=filter
-    )
+    if method is None:
+        # Passes here if decorator is called with decorator arguments
+        def object_method_wrap(func):
+            return get_wrapper(func)
 
-    return method
+        return object_method_wrap
+    else:
+        # Passes here if the decorator is called without arguments
+        return get_wrapper(method)
 
 
 def object_method_type(

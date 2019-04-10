@@ -371,6 +371,7 @@ class Mockup(Controller):
     # VOID VOID
     @object_method
     def custom_park(self, axis):
+        """another docstr"""
         self._logger.debug("custom_park : parking")
         self._hw_state.set("PARKED")
 
@@ -387,6 +388,7 @@ class Mockup(Controller):
     # STRING STRING
     @object_method(types_info=("str", "str"))
     def custom_get_chapi(self, axis, value):
+        """here is a doc string to test"""
         if value == "chapi":
             return "chapo"
         elif value == "titi":

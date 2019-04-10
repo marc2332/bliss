@@ -20,7 +20,7 @@ from bliss.comm.rpc import Client
 
 def test_channel_not_initialized(beacon):
     c = channels.Channel("tagada")
-    assert c.timeout == 3.
+    assert c.timeout == 3.0
     assert c.value is None
 
 
@@ -120,8 +120,8 @@ from bliss.config.conductor import connection
 from bliss.config import channels
 from bliss.comm.rpc import Server
 
-beacon_host = sys.argv[2]
-beacon_port = int(sys.argv[3])
+beacon_host = sys.argv[1]
+beacon_port = int(sys.argv[2])
 beacon_connection = connection.Connection(beacon_host, beacon_port)
 client._default_connection = beacon_connection
  
@@ -138,27 +138,31 @@ class Test:
 
 test = Test()
 server = Server(test)
-server.bind(f'tcp://0:{sys.argv[1]}')
-print('HELLO\\n')
+server.bind('tcp://0:0')
+port=server._socket.getsockname()[1]
+print(f'{port}')
 server.run()
 """
     tmpfile = tempfile.NamedTemporaryFile()
     tmpfile.write(subprocess_code)
-    tmpfile.seek(0)
+    tmpfile.flush()
     p = subprocess.Popen(
         [
             sys.executable,
             "-u",
             tmpfile.name,
-            "60231",
             f"{beacon_host_port[0]}",
             f"{beacon_host_port[1]}",
         ],
         stdout=subprocess.PIPE,
     )
-    p.stdout.readline()  # synchronize process start
+    line = p.stdout.readline()  # synchronize process start
+    try:
+        port = int(line)
+    except ValueError:
+        raise RuntimeError("server didn't starts")
 
-    test_subprocess = Client("tcp://localhost:60231")
+    test_subprocess = Client(f"tcp://localhost:{port}")
 
     yield p, test_subprocess
 

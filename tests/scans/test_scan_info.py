@@ -52,3 +52,34 @@ def test_scan_info_display_names(session):
         s.scan_info["acquisition_chain"]["axis"]["display_names"]["heater:heater"]
         == "heater"
     )
+
+
+def test_scan_meta_function(scan_meta):
+    scan_meta.clear()
+    info_dict = {"name": "gold", "bla": 10, "truc": "super mario"}
+
+    def f(scan):
+        return info_dict
+
+    scan_meta.sample.set("my_func", f)
+    scan_meta_dict = scan_meta.to_dict(None)
+    assert scan_meta_dict["sample"] == info_dict
+
+
+def test_scan_meta_order_function(scan_meta):
+    scan_meta.clear()
+    first_info = {"name": "gold", "bla": 10, "truc": "super mario"}
+    scan_meta.sample.set("direct", first_info)
+    second_dict = {"name": "silver"}
+
+    def f(scan):
+        return second_dict
+
+    scan_meta.sample.set("func", f)
+    scan_meta_dict = scan_meta.to_dict(None)
+    final = first_info
+    final.update(second_dict)
+    assert scan_meta_dict["sample"] == final
+    scan_meta.sample.remove("func")
+    scan_meta_dict = scan_meta.to_dict(None)
+    assert scan_meta_dict["sample"] == first_info

@@ -655,3 +655,6 @@ class calc_motor_mockup(CalcController):
         real_pos = positions_dict["calc_mot"] / s_param
 
         return {"real_mot": real_pos}
+
+
+# a fake change

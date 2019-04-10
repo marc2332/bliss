@@ -26,7 +26,7 @@ tests:
     - source activate testenv
     - pip install .
   script: 
-    - "(if ! (git diff --name-only $(git merge-base HEAD origin/master) | grep -E '.py|requirements'); then echo 'Nothing to do' ;else (python setup.py test --addopts '--cov bliss --cov-report html --cov-report term');fi)"
+    - "(if ! (git diff --name-only $(git merge-base HEAD origin/master) | grep -E '.py|requirements'); then echo 'Nothing to do' ;else (python setup.py test --addopts '--cov bliss --cov-report html --cov-report term --durations=20' );fi)"
   except:
     - master
 
@@ -39,7 +39,7 @@ tests_master:
     - source activate testenv
     - pip install .
   script:
-    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
+    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term --durations=20"
   artifacts:
     paths:
       - htmlcov/

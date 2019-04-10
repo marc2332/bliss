@@ -16,6 +16,7 @@ Information are classify into categories like:
 __all__ = ["get_user_scan_meta"]
 
 import enum
+from bliss.common.utils import get_axes_positions_iter
 
 USER_SCAN_META = None
 
@@ -24,6 +25,7 @@ def get_user_scan_meta():
     global USER_SCAN_META
     if USER_SCAN_META is None:
         USER_SCAN_META = scan_meta()
+        USER_SCAN_META.instrument.set("positioners", fill_positioners)
     return USER_SCAN_META
 
 
@@ -86,3 +88,14 @@ def scan_meta():
 
     klass = type("ScanMeta", (object,), attrs)
     return klass()
+
+
+def fill_positioners(scan):
+    rd = {"positioners": dict(), "positioners_dial": dict()}
+    for axis_name, axis_pos, axis_dial_pos, unit in get_axes_positions_iter(
+        on_error="ERR"
+    ):
+
+        rd["positioners"][axis_name] = axis_pos
+        rd["positioners_dial"][axis_name] = axis_dial_pos
+    return rd

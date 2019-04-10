@@ -325,7 +325,8 @@ class Flint:
                     scatter_plot_win.set_x_axes(channels["master"]["scalars"])
                     scatter_plot_win.set_z_axes(scalars)
                     scatter_plot_win.set_scan_info(
-                        scan_info.get("title", ""), scan_info.get("positioners", dict())
+                        scan_info.get("title", ""),
+                        scan_info.get("instrument", {}).get("positioners", dict()),
                     )
 
             for spectrum in spectra:

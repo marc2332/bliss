@@ -54,11 +54,13 @@ class Writer(FileWriter):
         positioners.attrs["NX_class"] = u"NXcollection"
         positioners_dial = instrument.create_group("positioners_dial")
         positioners_dial.attrs["NX_class"] = u"NXcollection"
-        positioners_dict = scan_info.get("positioners", {})
+        positioners_dict = scan_info.get("instrument", {}).get("positioners", {})
         for pname, ppos in positioners_dict.items():
             if isinstance(ppos, float):
                 positioners.create_dataset(pname, dtype="float64", data=ppos)
-        positioners_dial_dict = scan_info.get("positioners_dial", {})
+        positioners_dial_dict = scan_info.get("instrument", {}).get(
+            "positioners_dial", {}
+        )
         for pname, ppos in positioners_dial_dict.items():
             if isinstance(ppos, float):
                 positioners_dial.create_dataset(pname, dtype="float64", data=ppos)

@@ -26,3 +26,4 @@ prompt_toolkit >= 2.0
 gxx_linux-64
 networkx
 pygraphviz
+pyyaml >= 5.1

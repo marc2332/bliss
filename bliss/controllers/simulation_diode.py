@@ -6,10 +6,27 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import random
-
 import gevent
 
 from bliss.common.measurement import SamplingCounter, IntegratingCounter
+
+"""
+example of configuration:
+-
+  name: simulated_diode1
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+-
+  name: simulated_diode2
+  plugin: bliss
+  class: simulation_diode
+-
+  name: simulated_diode3
+  plugin: bliss
+  class: simulation_diode
+  integration: True
+"""
 
 
 class simulation_diode_controller(object):
@@ -32,12 +49,18 @@ class SimulationDiodeSamplingCounter(SamplingCounter):
             gevent.sleep(0.01)  # simulate hw reading
         return random.randint(-100, 100)
 
+    def __repr__(self):
+        return "Simulation diode in SamplingCounter mode."
+
 
 class SimulationDiodeIntegratingCounter(IntegratingCounter):
     def get_values(self, from_index, sleep=True):
         if sleep:
             gevent.sleep(0.01)
         return 10 * [random.randint(-100, 100)]
+
+    def __repr__(self):
+        return "Simulation diode in IntegratingCounter mode."
 
 
 DEFAULT_CONTROLLER = simulation_diode_controller()

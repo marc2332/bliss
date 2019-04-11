@@ -10,7 +10,7 @@ import argparse
 from bliss.comm.rpc import Server
 import msgpack_numpy
 
-from .speedgoat import Speedgoat
+from .speedgoat_server import Speedgoat
 
 
 DEFAULT_BIND = "0.0.0.0"

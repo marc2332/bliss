@@ -409,9 +409,10 @@ def set_scope(handle, scope_dict):
 
 def sc_get_signals(handle, scope_id):
     nb_signals = sc_get_num_signals(handle, scope_id)
-    buff = ffi.new("int[{}]".format(nb_signals))
+    buff = ffi.new("int[{}]".format(nb_signals + 1))
     _error(xpc.xPCScGetSignals(handle, scope_id, buff))
-    return list(buff)
+    ret = list(buff)[:-1]
+    return ret
 
 
 def sc_get_data(

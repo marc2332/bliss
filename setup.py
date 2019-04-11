@@ -162,7 +162,7 @@ def main():
         "numpy >= 1.13",
         "mendeleev",
         "pint",
-        'silx >=0.8,<0.10 ; platform_machine == "x86_64"',
+        'silx >=0.10.1; platform_machine == "x86_64"',
         "psutil",
         "requests",
         "cffi",

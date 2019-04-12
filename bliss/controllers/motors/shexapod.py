@@ -43,7 +43,6 @@ YAML_ configuration example:
 """
 
 import re
-import logging
 from collections import namedtuple
 
 import numpy
@@ -54,19 +53,20 @@ from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
+from bliss.common.mapping import register
+from bliss.common.logtools import LogMixin
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
 Pose = namedtuple("Pose", ROLES)
 
 
-class BaseHexapodProtocol(object):
+class BaseHexapodProtocol(LogMixin):
 
     DEFAULT_PORT = None
 
     Pose = Pose
 
     def __init__(self, config):
-        self._log = logging.getLogger("SHexapod")
         self.config = config
         self.eol = "\r\n"
         self.comm = get_comm(config, ctype=TCP, port=self.DEFAULT_PORT, eol=self.eol)
@@ -218,6 +218,7 @@ class SHexapod(Controller):
         for klass in all_klass:
             try:
                 protocol = klass(self.config.config_dict)
+                register(protocol, parents_list=[self], children_list=[protocol.comm])
                 protocol.comm.open()
                 self._protocol = protocol
                 break

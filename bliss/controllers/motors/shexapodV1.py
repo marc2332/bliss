@@ -3,6 +3,7 @@ import socket
 import string
 import numpy
 from collections import namedtuple
+from tabulate import tabulate
 
 from bliss.controllers.motors.shexapod import (
     ROLES,
@@ -62,9 +63,10 @@ class TurboPmacCommand(object):
 
     def __send(self, requestType, request, command, convtype):
         data = self.__data.pack(requestType, request, 0, 0, socket.htons(len(command)))
-        raw = self.__s.write_readline(data + command, eol="\x06")
+        raw = self.__s.write_readline(data + command.encode(), eol="\x06")
         if len(raw):
-            ans = list(map(string.strip, raw.split("\r")[:-1]))
+            raw = raw.decode()
+            ans = list(map(str.strip, raw.split("\r")[:-1]))
             if convtype is not None:
                 ans = list(map(convtype, ans))
             if len(ans) > 1:

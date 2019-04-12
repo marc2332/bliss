@@ -122,6 +122,7 @@ nav:
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
                 - Testing: dev_testing.md
+
 theme:
         name: material
         language: en

@@ -212,7 +212,7 @@ class BlockMixin(object):
 
 
 def _to_host_port(url, default_port=None):
-    pars = url.rsplit(":", 1) if isinstance(url, (str, unicode)) else url
+    pars = url.rsplit(":", 1) if isinstance(url, str) else url
     port = int(pars[1]) if len(pars) > 1 else default_port
     return pars[0], port
 
@@ -507,10 +507,10 @@ class CountersController(object):
 
         # remove cnt not in sig and par
         for cnt in sig_cnt.keys():
-            if not par_cnt.has_key(cnt):
+            if cnt not in par_cnt:
                 sig_cnt.pop(cnt)
         for cnt in par_cnt.keys():
-            if not sig_cnt.has_key(cnt):
+            if cnt not in sig_cnt:
                 par_cnt.pop(cnt)
 
         # create counters
@@ -575,8 +575,7 @@ class Counter(object):
 class SpeedgoatCounter(SamplingCounter):
     def __init__(self, name, config):
 
-        self.speedgoat = config.get("speedgoat")
-
+        self.speedgoat = config.get_inherited("speedgoat")
         SamplingCounter.__init__(self, name, self.speedgoat.counters_controller)
 
         try:
@@ -747,10 +746,10 @@ class MotorsController(object):
 
         # remove motor not in sig and par
         for mot in sig_mot.keys():
-            if not par_mot.has_key(mot):
+            if mot not in par_mot:
                 sig_mot.pop(mot)
         for mot in par_mot.keys():
-            if not sig_mot.has_key(mot):
+            if mot not in sig_mot:
                 par_mot.pop(mot)
 
         # create counters
@@ -815,6 +814,7 @@ class Motor(object):
 
     @velocity.setter
     def velocity(self, velocity):
+
         self.set_param("velocity/Value", velocity)
 
     @property
@@ -1067,6 +1067,20 @@ class Signals(object):
 ##########                                                      ##########
 ##########################################################################
 
+# def print_trace(func):
+#    def f(*args,**kwargs):
+#        print('ENTER',func.__name__)
+#        try:
+#            return func(*args,**kwargs)
+#        except:
+#            import traceback
+#            traceback.print_exc()
+#            print('EXCEPT',func.__name__)
+#            raise
+#        finally:
+#            print('LEAVE',func.__name__)
+#    return f
+
 
 class Speedgoat(object):
     def __init__(self, name, config):
@@ -1147,6 +1161,7 @@ class Speedgoat(object):
     def param_tree(self):
         return self.load()["param_tree"]
 
+    # @print_trace
     def load(self, force=False):
         """Reload cache (parameter, signals, counters, motors and scope information)"""
 
@@ -1182,13 +1197,13 @@ class Speedgoat(object):
             self._cache["motors_controller"] = None
             # register Speedgoat signal for motors controller
             tree = self._cache["signal_tree"]
-            signal_node = tree.filter_nodes(
-                functools.partial(is_motors_controller_node, tree)
+            signal_node = list(
+                tree.filter_nodes(functools.partial(is_motors_controller_node, tree))
             )
             # register Speedgoat params for motors controller
             tree = self._cache["param_tree"]
-            param_node = tree.filter_nodes(
-                functools.partial(is_motors_controller_node, tree)
+            param_node = list(
+                tree.filter_nodes(functools.partial(is_motors_controller_node, tree))
             )
             if (len(signal_node) == 1) and (len(param_node) == 1):
                 self._cache["motors_controller"] = ctrl = MotorsController(
@@ -1202,13 +1217,13 @@ class Speedgoat(object):
             self._cache["counters_controller"] = None
             # register Speedgoat signals for counters
             tree = self._cache["signal_tree"]
-            signal_node = tree.filter_nodes(
-                functools.partial(is_counters_controller_node, tree)
+            signal_node = list(
+                tree.filter_nodes(functools.partial(is_counters_controller_node, tree))
             )
             # register Speedgoat params for counters
             tree = self._cache["param_tree"]
-            param_node = tree.filter_nodes(
-                functools.partial(is_counters_controller_node, tree)
+            param_node = list(
+                tree.filter_nodes(functools.partial(is_counters_controller_node, tree))
             )
             if (len(signal_node) == 1) and (len(param_node) == 1):
                 self._cache["counters_controller"] = ctrl = CountersController(
@@ -1243,7 +1258,7 @@ class Speedgoat(object):
         return ScopeMode(self._conn.tg_sc_get_mode(scope_id))
 
     def __getattr__(self, name):
-
+        print("__getattr__", name)
         server_call = getattr(self._conn, name)
 
         def func(*args):

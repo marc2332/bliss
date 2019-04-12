@@ -427,7 +427,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         while True:
             try:
                 reply = self.comm._readline()
-                self._log.info("Rx: %r", reply)
+                self._logger.debug_data("Rx: %r", reply)
             except SocketTimeout:
                 continue
             except gevent.socket.error as error:
@@ -495,7 +495,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         is_query = "?" in cmd
         cmd_id = cmd.split("?", 1)[0]
         cmd_line = "{0}{1}{2}".format(cmd, ",".join(map(str, args)), self.eol)
-        self._log.info("Tx: %r", cmd_line)
+        self._logger.debug_data("Tx: %r", cmd_line)
         result = gevent.event.AsyncResult()
         if ack:
             result_ack = gevent.event.AsyncResult()

@@ -105,7 +105,8 @@ import time
 import numpy as np
 import gevent
 import treelib
-import zerorpc
+from bliss.comm import rpc
+
 import msgpack_numpy
 
 from bliss.common.measurement import SamplingCounter, counter_namespace
@@ -1071,7 +1072,7 @@ class Speedgoat(object):
     def __init__(self, name, config):
         url = _to_zerorpc_url(config["url"], default_port=8200)
         self._log = logging.getLogger("{}({})".format(type(self).__name__, name))
-        self._conn = zerorpc.Client(url)
+        self._conn = rpc.Client(url)
         self._cache = dict(
             params=None,
             param_dict=None,

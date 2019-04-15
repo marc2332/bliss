@@ -275,8 +275,6 @@ class micos(Controller):
         Opens serial line.
         """
 
-        print("Log level = %d" % self.log.level)
-
         self.log.info("initialize()")
         try:
             self.serial = get_comm(
@@ -641,10 +639,8 @@ class micos(Controller):
 
         if axis.low_endswitch_type != 2 and axis.high_endswitch_type != 2:
             # Set hardware limits as found in config
-            print("Before call to _set_hw_limits()")
             self._set_hw_limits(axis)
 
-            print("Before setting velocity to go to / from low and high endswitch")
             self._set_tofrom_endsw_velocity(axis)
 
         # Set velocity for moving to reference position (can be considered
@@ -2812,10 +2808,6 @@ class micos(Controller):
                                     position is expected to be found
 	"""
 
-        print("*************")
-        print(axis.is_moving)
-        print("*************")
-
         self.log.info("_move_to_reference()")
 
         self._wait_home_task = None
@@ -3043,16 +3035,14 @@ class micos(Controller):
             "CRITICAL",
             "FATAL",
         ]:
-            print(
-                "\nWarning!!!: Bad value %s given for log-level. Should be one of:\n"
-                % loglevel
+            raise ValueError(
+                f"""
+                Warning!!!: Bad value {loglevel} given for log-level. Should be one of:
+                NOTSET/noset, DEBUG/debug, INFO/info, WARNING/warning,
+                WARN/warn, ERROR/error, CRITICAL/critical, FATAL/fatal
+                WARN=WARNING=warn=warning
+                CRITICAL=critical=FATAL=fatal"""
             )
-            print("NOTSET/noset, DEBUG/debug, INFO/info, WARNING/warning,")
-            print("WARN/warn, ERROR/error, CRITICAL/critical, FATAL/fatal\n")
-            print("WARN=WARNING=warn=warning")
-            print("CRITICAL=critical=FATAL=fatal\n")
-            # raise ValueError("Log-Level %s is invalid" % loglevel)
-            return
 
         loglevel_as_number = int(logging._nameToLevel[loglevel])
         self.log.setLevel(loglevel_as_number)

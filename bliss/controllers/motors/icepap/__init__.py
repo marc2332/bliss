@@ -122,7 +122,7 @@ class Icepap(Controller, LogMixin):
         try:
             self._power(axis, True)
         except Exception as e:
-            raise type(e)("Axis '%s`: %s" % (axis.name, e.message))
+            raise type(e)("Axis '%s`: %s" % (axis.name, str(e)))
 
     def set_off(self, axis):
         """

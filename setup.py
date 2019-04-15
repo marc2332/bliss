@@ -210,6 +210,7 @@ def main():
                 "bliss-ct2-server = bliss.controllers.ct2.server:main",
                 "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
                 "bliss-handel-server = bliss.controllers.mca.handel.server:main",
+                "bliss-speedgoat-server = bliss.controllers.speedgoat.server:main",
                 "flint = bliss.flint:main",
                 "CT2 = bliss.tango.servers.ct2_ds:main",
                 "Bliss = bliss.tango.servers.bliss_ds:main",

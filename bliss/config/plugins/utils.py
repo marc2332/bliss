@@ -7,6 +7,10 @@
 
 
 def find_class(cfg_node, base_path="bliss.controllers"):
+    return find_class_and_node(cfg_node, base_path)[0]
+
+
+def find_class_and_node(cfg_node, base_path="bliss.controllers"):
     klass_name, node = cfg_node.get_inherited_value_and_node("class")
     if klass_name is None:
         raise KeyError("class")
@@ -25,7 +29,7 @@ def find_class(cfg_node, base_path="bliss.controllers"):
     except AttributeError:
         klass = getattr(module, klass_name.title())
 
-    return klass
+    return klass, node
 
 
 def _checkref(config, item_cfg_node, referenced_objects, name, value):

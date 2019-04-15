@@ -13,6 +13,8 @@ from bliss.common.axis import (
     Motion,
 )
 from . import _ackcommand, _command
+from bliss.common.utils import autocomplete_property
+import types
 import gevent
 
 
@@ -21,15 +23,14 @@ class LinkedAxis(Axis):
         Axis.__init__(self, name, controller, config)
         if config.get("address") is None:
             self.config.set("address", name)
-        self.__config = config.deep_copy()
-        self.real_axes = list()
+        self.__real_axes_namespace = None
 
     def _init_hardware(self):
         linked_axis = self.controller.get_linked_axis()
         if linked_axis.get(self.address) is None:
             raise RuntimeError(
-                "Linked axis named %s doesn't exist"
-                "linked axis configure in the system are : %s"
+                "Linked axis named %s doesn't exist ;"
+                "linked axis configured in the system are : %s"
                 % (self.address, linked_axis.keys())
             )
 
@@ -46,25 +47,29 @@ class LinkedAxis(Axis):
                     % (self.name, axis.name)
                 )
 
-        for address in mot_addresses:
-            mot_name = _command(self.controller._cnx, "%d:?NAME" % address)
-            config_dict = {
-                "autopower": False,
-                "steps_per_unit": self.steps_per_unit,
-                "acceleration": self.acceleration,
-                "velocity": self.velocity,
-            }
-            real_motor = NoSettingsAxis(mot_name, self.controller, config_dict)
-            real_motor.address = address
-            real_motor.no_offset = True
-            self.controller._Controller__initialized_axis[real_motor] = True
-            setattr(self, mot_name, real_motor)
-            self.real_axes.append(real_motor)
-
-    @property
+    @autocomplete_property
     @lazy_init
-    def real_motor_names(self):
-        return [x.name for x in self.real_axes]
+    def real_axes(self):
+        if self.__real_axes_namespace is None:
+            real_axes = {}
+            linked_axis = self.controller.get_linked_axis()
+            mot_addresses = linked_axis.get(self.address)
+
+            for address in mot_addresses:
+                axis_name = _command(self.controller._cnx, "%d:?NAME" % address)
+                config_dict = {
+                    "autopower": False,
+                    "steps_per_unit": self.steps_per_unit,
+                    "acceleration": self.acceleration,
+                    "velocity": self.velocity,
+                }
+                real_axis = NoSettingsAxis(axis_name, self.controller, config_dict)
+                real_axis.address = address
+                real_axis.no_offset = True
+                self.controller._Controller__initialized_axis[real_axis] = True
+                real_axes[axis_name] = real_axis
+            self.__real_axes_namespace = types.SimpleNamespace(**real_axes)
+        return self.__real_axes_namespace
 
     @lazy_init
     def sync(self, user_position):
@@ -74,7 +79,7 @@ class LinkedAxis(Axis):
         The position is given in user units of the virtual axis.
         """
         dial_position = self.user2dial(user_position)
-        for slave_axis in self.real_axes:
+        for slave_axis in self.real_axes.__dict__.values():
             slave_axis.dial = dial_position
 
         self.acceleration = self.acceleration
@@ -151,13 +156,18 @@ class LinkedAxis(Axis):
                 cnx = controller._cnx
                 home_dir = "+1" if motions[0].target_pos > 0 else "-1"
                 cmd = "#HOME STRICT %s" % " ".join(
-                    (str(rm.address) + " " + home_dir for rm in self.real_axes)
+                    (
+                        str(rm.address) + " " + home_dir
+                        for rm in self.real_axes.__dict__.values()
+                    )
                 )
                 _command(
                     cnx,
                     cmd,
                     pre_cmd="#DISPROT ALL %s ; "
-                    % " ".join((str(rm.address) for rm in self.real_axes)),
+                    % " ".join(
+                        (str(rm.address) for rm in self.real_axes.__dict__.values())
+                    ),
                 )
                 # IcePAP status is not immediately MOVING after home search command is sent
                 gevent.sleep(0.2)

@@ -345,6 +345,15 @@ class Icepap(Controller, LogMixin):
                 s.set("HOMENOTFOUND")
         return s
 
+    def linked_home_state(self, axis):
+        states = [self.home_state(real_axis) for real_axis in axis.real_axes]
+        s = self._icestate.new()
+        if any([s.MOVING for s in states]):
+            s.set("MOVING")
+        elif all([s.READY for s in states]):
+            s.set("READY")
+        return s
+
     def limit_search(self, axis, limit):
         cmd = "SRCH LIM" + ("+" if limit > 0 else "-")
         _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))

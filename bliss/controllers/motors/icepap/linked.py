@@ -67,15 +67,15 @@ class LinkedAxis(Axis):
         return [x.name for x in self.real_axes]
 
     @lazy_init
-    def sync(self, position):
+    def sync(self, user_position):
         """
         Synchronizes all real linked axes members of the given virtual axis
-        to the give position. No motion will take place.
+        to the given position. No motion will take place.
         The position is given in user units of the virtual axis.
         """
-        dial_position = self.user2dial(position)
+        dial_position = self.user2dial(user_position)
         for slave_axis in self.real_axes:
-            slave_axis.position = dial_position
+            slave_axis.dial = dial_position
 
         self.acceleration = self.acceleration
         self.velocity = self.velocity
@@ -84,7 +84,11 @@ class LinkedAxis(Axis):
         _ackcommand(self.controller._cnx, "CTRLRST %s" % self.address)
         # switch power on (should re-enable the closed loop)
         self.on()
-        self.position = position
+
+        self.sync_hard()
+
+        self.position = user_position
+
         return self.position
 
     @lazy_init
@@ -161,11 +165,14 @@ class LinkedAxis(Axis):
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
 
+            def wait_home(self, *args):
+                self._move_loop(ctrl_state_funct="linked_home_state")
+
             self._group_move.move(
                 {self.controller: [motion]},
                 start_one,
                 stop_one,
-                "_wait_home",
+                wait_home,
                 wait=False,
                 polling_time=polling_time,
             )

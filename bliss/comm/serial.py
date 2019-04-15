@@ -19,7 +19,7 @@ from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import capture_exceptions
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 import serial
@@ -746,7 +746,7 @@ class Serial(LogMixin):
         self._timeout = timeout
         self._raw_handler = None
         self._lock = lock.RLock()
-        mapping.register(self, parents_list=["comms"], tag=str(self))
+        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
@@ -771,7 +771,7 @@ class Serial(LogMixin):
                 self._raw_handler = TangoSerial(self, **self._serial_kwargs)
             else:  # LOCAL
                 self._raw_handler = LocalSerial(self, **self._serial_kwargs)
-            mapping.register(
+            session.get_current().map.register(
                 self,
                 parents_list=["comms"],
                 children_list=[self._raw_handler],

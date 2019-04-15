@@ -35,7 +35,7 @@
 
 import socket, sys
 from struct import *
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 # debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
@@ -75,12 +75,12 @@ class EnetSocket(LogMixin):
         self.sta = self.err = self.cnt = 0
         self.enet1000 = False
         self._extra_socket = list()
-        mapping.register(self, parents_list=["comms"], tag=str(self))
+        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
 
     def _open(self):
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._sock.connect((self._host, self._port))
-        mapping.register(
+        session.get_current().map.register(
             self, parents_list=["comms"], children_list=[self._sock], tag=str(self)
         )
 

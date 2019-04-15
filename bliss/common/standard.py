@@ -17,6 +17,7 @@ from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import logtools
 from bliss.common.logtools import *
+from bliss.common.utils import get_counters_iter
 
 import sys
 
@@ -487,7 +488,7 @@ def cntdict():
     counters_dict = dict()
     shape = ["0D", "1D", "2D"]
 
-    for fname, cnt in counter_dict().items():
+    for cnt in get_counters_iter():
         tmp = cnt.fullname.split(".")
         tmp_controller_name = ".".join(tmp[:-1])
         counters_dict[cnt.fullname] = (

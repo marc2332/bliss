@@ -10,7 +10,8 @@ import logging
 import re
 
 from bliss.common.logtools import map_update_loggers, Log, LogMixin
-from bliss.common.mapping import BeamlineMap, register
+from bliss.common.mapping import Map
+from bliss.common import session
 import bliss
 
 
@@ -19,7 +20,7 @@ def beamline():
     """
     Creates a new graph
     """
-    map = BeamlineMap(singleton=False)
+    map = Map()
 
     map.register("beamline")
     map.register("devices", parents_list=["beamline"])
@@ -68,7 +69,7 @@ class MappedController(NotMappedController, LogMixin):
     name = "mc"
 
     def __init__(self):
-        register(self)
+        session.get_current().map.register(self)
 
 
 def test_bare_system(params):
@@ -92,20 +93,6 @@ def test_add_motor_m0(params):
 
     all_loggers = logging.getLogger().manager.loggerDict
 
-    fake_regex = [
-        r"bamline",
-        r"baamline\.device",
-        r"bamline\.sessions",
-        r"beamline\.coms",
-        r"bamline\.counters",
-        r"beamline\.deices\.\w",
-        r"bamline\.devices\.\[a-zA-Z0-9]+.axs\.s1d",
-    ]
-
-    for regex in fake_regex:
-        # those should not exists
-        assert not any(re.match(regex, key_) for key_ in all_loggers.keys())
-
     regex_list = [
         r"beamline",
         r"beamline\.devices",
@@ -113,10 +100,7 @@ def test_add_motor_m0(params):
         r"beamline\.comms",
         r"beamline\.counters",
         r"beamline\.devices\.\w",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.s1b",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.hooked_error_m0",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.hooked_m0",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.roby",
+        r"beamline\.devices\.default\.axes\.m0",
     ]
 
     for regex in regex_list:
@@ -218,11 +202,11 @@ def test_LogMixin(params, caplog):
 
     nmc = NotMappedController()
     mc = MappedController()
-    with pytest.raises(UnboundLocalError):
+    with pytest.raises(AttributeError):
         nmc.msg_debug()
-    with pytest.raises(UnboundLocalError):
+    with pytest.raises(AttributeError):
         nmc.msg_debug_data()
-    with pytest.raises(UnboundLocalError):
+    with pytest.raises(AttributeError):
         nmc.msg_info()
 
     mc._logger.debugon()  # activates debug logging level

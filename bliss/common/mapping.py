@@ -5,21 +5,11 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.import logging
 import networkx as nx
-from functools import wraps
+from functools import wraps, partial
 import weakref
 import logging
-from functools import partial
 
-__all__ = [
-    "BEAMLINE_GRAPH",  # networkX GRAPH of the beamline
-    # will be copied in the node dictionary
-    # you can attach here dinamically
-    # and on node instantiation they will be
-    # taken from the instance
-    "map_draw_matplotlib",
-    "map_draw_pygraphviz",
-]
-
+__all__ = ["Map", "format_node"]
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +25,7 @@ def map_id(node):
     return node if isinstance(node, str) else id(node)
 
 
-class _BeamlineMap:
+class Map:
     def __init__(self):
         self.G = nx.DiGraph()
         self.handlers_list = []
@@ -43,17 +33,9 @@ class _BeamlineMap:
         self.G.find_children = self.find_children
         self.G.find_predecessors = self.find_predecessors
         self.node_attributes_list = ["name", "address", "plugin"]
-        self.__trash_queue = []
-        self.__lock = False
 
     def register(
-        self,
-        instance,
-        parents_list=None,
-        children_list=None,
-        tag: str = None,
-        attrs={},
-        **kwargs,
+        self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
     ):
         """
         Registers a devicename and instance inside a global device graph
@@ -79,12 +61,10 @@ class _BeamlineMap:
             parents_list: list of parent's instances
             children_list: list of children's instances
             tag: user tag to describe the instance in the more appropriate way
-            attrs: more key,value pairs attributes to be attached to the node
-        
+            kwargs: more key,value pairs attributes to be attached to the node
+       
         ToDo:
             * Avoid recreation of nodes/edges if not necessary
-
-
         """
         # get always a list of arguments
         if parents_list is None:
@@ -96,7 +76,6 @@ class _BeamlineMap:
             raise TypeError("parents_list and children_list should be of type list")
 
         # First create this node
-
         logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
         self.G.add_node(
             map_id(instance),
@@ -117,7 +96,7 @@ class _BeamlineMap:
             if hasattr(instance, attr):
                 self.G.node[map_id(instance)][attr] = getattr(instance, attr)
 
-        for name, value in attrs:
+        for name, value in kwargs:
             # populating self defined attributes
             if self.G.node[map_id(instance)].get(name):
                 logger.debug("Overwriting node {name}")
@@ -159,38 +138,38 @@ class _BeamlineMap:
         return self.G.node.get(map_id(instance))  # return the dictionary of the node
 
     def _trash_node(self, *args, id_=None):
-        self.__trash_queue.append(id_)
-        if not self.__lock:
-            self.trigger_update()
+        if id_ is None:
+            return
+        self.delete(id_)
+        self.trigger_update()
 
     def __len__(self):
         return len(self.G)
+
+    def instance_iter(self, tag):
+        node_list = list(self.G[tag])
+        for node_id in node_list:
+            node = self.G.node.get(node_id)
+            if node is not None:
+                inst_ref = self.G.node.get(node_id)["instance"]
+                inst = inst_ref()
+                if inst:
+                    yield inst
 
     def trigger_update(self):
         """
         Triggers execution of handler functions on the map
         """
-        self.__lock = True
         self.add_parent_if_missing()
 
-        try:
-            while self.__trash_queue:
-                self.delete(self.__trash_queue.pop())  # deleting nodes
-
-            logger.debug(f"trigger_update: executing")
-            for func in self.handlers_list:
-                try:
-                    func(self.G)
-                except Exception:
-                    logger.exception(
-                        f"Failed trigger_update on map handlers for {func.__name__}"
-                    )
-        finally:
-            self.__lock = False
-
-        if self.__trash_queue:
-            # if in the meanwhile there are new nodes to trash trigger the update
-            self.trigger_update()
+        logger.debug(f"trigger_update: executing")
+        for func in self.handlers_list:
+            try:
+                func(self.G)
+            except Exception:
+                logger.exception(
+                    f"Failed trigger_update on map handlers for {func.__name__}"
+                )
 
     def find_predecessors(self, node):
         """
@@ -242,19 +221,18 @@ class _BeamlineMap:
             True: The node was removed
             False: The node was not in the graph
         """
-        if id_:
-            logger.debug(f"Calling mapping.delete for {id_}")
-            if id_ in self.G:
-                logger.debug(f"mapping.delete: Removing node id:{id_}")
-                predecessors_id = self.find_predecessors(id_)
-                children_id = self.find_children(id_)
-                self.G.remove_node(id_)
-                # Remaps parents edges on children
-                if predecessors_id and children_id:
-                    for pred in predecessors_id:
-                        for child in children_id:
-                            self.G.add_edge(pred, child)
-                return True
+        logger.debug(f"Calling mapping.delete for {id_}")
+        if id_ in self.G:
+            logger.debug(f"mapping.delete: Removing node id:{id_}")
+            predecessors_id = self.find_predecessors(id_)
+            children_id = self.find_children(id_)
+            self.G.remove_node(id_)
+            # Remaps parents edges on children
+            if predecessors_id and children_id:
+                for pred in predecessors_id:
+                    for child in children_id:
+                        self.G.add_edge(pred, child)
+            return True
         return False
 
     def get_node_name(self, node):
@@ -293,6 +271,9 @@ class _BeamlineMap:
         else:
             node_name = self.G.node[id_]
         return node_name
+
+    def format_node(self, node, format_string="tag->inst.name->inst.__class__->id"):
+        return format_node(self.G, node, format_string)
 
     def add_map_handler(self, func):
         self.handlers_list.append(func)
@@ -384,107 +365,64 @@ class _BeamlineMap:
 
         """
         for n in self.G:
-            value = self.format_node(self.G, n, format_string=format_string)
+            value = self.format_node(n, format_string=format_string)
             self.G.node[n][dict_key] = value
 
-    @staticmethod
-    def format_node(graph, node, format_string="tag->inst.name->inst.__class__->id"):
-        """
-        It inspects the node attributes to create a proper representation
 
-        It recognizes the following operators:
-            * inst.
-            * -> : apply a hierarchy, if the first on left is found it stops, 
-                   otherwise continues searching for an attribute
-            * + : links two attributes in one
-
-        Typical attribute names are:
-            * id: id of instance
-            * tag: defined argument during instantiation
-            * inst: representation of instance
-            * inst.name: attribute "name" of the instance (if present)
-            * inst.__class__: class of the instance
-            * user defined: as long as they are defined inside the node's 
-                            dictionary using register or later modifications
-
-        Args:
-            graph: DiGraph instance
-            node: id of the node
-            format_string: formatting string
-
-        Returns:
-            str: representation of the node according to the format string
-        
-       """
-        G = graph
-        n = node
-        format_arguments = format_string.split("->")
-        value = ""  # clears the dict_key
-        for format_arg in format_arguments:
-            # known arguments
-            all_args = []
-            for arg in format_arg.split("+"):
-                if arg == "id":
-                    all_args.append(str(n))
-                elif arg.startswith("inst"):
-                    attr_name = arg[5:]  # separates inst. from the rest
-                    reference = G.node[n].get("instance")
-                    inst = reference if isinstance(reference, str) else reference()
-                    if len(attr_name) == 0:  # requested only instance
-                        all_args.append(str(inst))
-                    if hasattr(inst, attr_name):
-                        # if finds the attr assigns to dict_key
-                        attr = getattr(inst, attr_name)
-                        all_args.append(str(attr))
-                else:
-                    val = G.node[n].get(arg)
-                    if val:
-                        # if finds the value assigns to dict_key
-                        all_args.append(str(val))
-            if len(all_args):
-                value = " ".join(all_args)
-                break
-        return value
-
-
-def BeamlineMap(singleton=True):
+def format_node(graph, node, format_string="tag->inst.name->inst.__class__->id"):
     """
-    Instantiates a beamline map and creates global references to it
+    It inspects the node attributes to create a proper representation
+
+    It recognizes the following operators:
+       * inst.
+       * -> : apply a hierarchy, if the first on left is found it stops, 
+              otherwise continues searching for an attribute
+       * + : links two attributes in one
+
+    Typical attribute names are:
+       * id: id of instance
+       * tag: defined argument during instantiation
+       * inst: representation of instance
+       * inst.name: attribute "name" of the instance (if present)
+       * inst.__class__: class of the instance
+       * user defined: as long as they are defined inside the node's 
+                       dictionary using register or later modifications
 
     Args:
-        singleton: True if singleton, false for new instance
-    returns:
-        instance of _BeamlineMap
+       graph: DiGraph instance
+       node: id of the node
+       format_string: formatting string
 
+    Returns:
+       str: representation of the node according to the format string
+    
     """
-    global _BEAMLINE_MAP
-    global BEAMLINE_GRAPH
-    global register
-    global map_draw_matplotlib
-    global map_draw_pygraphviz
-    global format_node
-    if singleton:
-        if _BEAMLINE_MAP is None:
-            _BEAMLINE_MAP = _BeamlineMap()
-
-            # shortcuts for external usage
-            BEAMLINE_GRAPH = _BEAMLINE_MAP.G
-            register = _BEAMLINE_MAP.register
-            map_draw_matplotlib = _BEAMLINE_MAP.map_draw_matplotlib
-            map_draw_pygraphviz = _BEAMLINE_MAP.map_draw_pygraphviz
-            format_node = _BeamlineMap.format_node
-
-            # base nodes
-            register("beamline", tag="beamline")  # Root node
-            register("devices", parents_list=["beamline"], tag="devices")
-            register("sessions", parents_list=["beamline"], tag="sessions")
-            register("comms", parents_list=["beamline"], tag="comms")
-            register("counters", parents_list=["beamline"], tag="counters")
-        return _BEAMLINE_MAP
-    else:
-        # return a new instance
-        return _BeamlineMap()
-
-
-_BEAMLINE_MAP = None
-BeamlineMap()
+    G = graph
+    n = node
+    format_arguments = format_string.split("->")
+    value = ""  # clears the dict_key
+    for format_arg in format_arguments:
+        # known arguments
+        all_args = []
+        for arg in format_arg.split("+"):
+            if arg == "id":
+                all_args.append(str(n))
+            elif arg.startswith("inst"):
+                attr_name = arg[5:]  # separates inst. from the rest
+                reference = G.node[n].get("instance")
+                inst = reference if isinstance(reference, str) else reference()
+                if len(attr_name) == 0:  # requested only instance
+                    all_args.append(str(inst))
+                if hasattr(inst, attr_name):
+                    # if finds the attr assigns to dict_key
+                    attr = getattr(inst, attr_name)
+                    all_args.append(str(attr))
+            else:
+                val = G.node[n].get(arg)
+                if val:
+                    # if finds the value assigns to dict_key
+                    all_args.append(str(val))
+        if len(all_args):
+            value = " ".join(all_args)
+            break
+    return value

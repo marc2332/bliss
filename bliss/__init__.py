@@ -7,11 +7,6 @@
 
 """Bliss main package
 
-For your convenience, configuration motion and scan APIs have been made available
-directly at this level.
-
-Here are the main bliss sub-systems:
-
 .. autosummary::
     :toctree:
 
@@ -40,5 +35,3 @@ monkey.patch_all(thread=False)
 from redis import selector
 
 selector._DEFAULT_SELECTOR = selector.SelectSelector
-
-from bliss.common import logtools

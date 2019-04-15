@@ -11,10 +11,11 @@ from fnmatch import fnmatch, fnmatchcase
 import functools
 import networkx as nx
 
-from bliss.common.utils import common_prefix, autocomplete_property
-from bliss.common.mapping import _BEAMLINE_MAP, BEAMLINE_GRAPH, format_node
+from bliss.common.utils import autocomplete_property
+from bliss.common.mapping import format_node
+from bliss.common import session
 
-__all__ = ["log", "lslog", "lsdebug"]
+__all__ = ["lslog", "lsdebug"]
 
 
 def logging_startup(
@@ -31,12 +32,11 @@ def logging_startup(
 class LogMixin:
     @autocomplete_property
     def _logger(self, *args, **kwargs):
+        m = session.get_current().map
         id_ = id(self)
-        if id_ not in BEAMLINE_GRAPH:
-            raise UnboundLocalError(
-                "Instance should be registered with mapping.register before using _logger"
-            )
-        return BEAMLINE_GRAPH.node[id_]["_logger"]
+        if id_ not in m.G:
+            return None
+        return m.G.node[id_]["_logger"]
 
 
 def improve_logger(logger_instance):
@@ -156,9 +156,9 @@ class Log:
 
     def __init__(self, map_beamline):
         self.map_beamline = map_beamline
-        logging.getLogger("beamline").setLevel(
-            logging.WARNING
-        )  # setting starting level
+        map_beamline.add_map_handler(map_update_loggers)
+        logging.getLogger("session").setLevel(logging.WARNING)  # setting starting level
+        map_beamline.trigger_update()
 
     def _check_log_level(self: (str, int), level):
         """
@@ -513,20 +513,9 @@ def map_update_loggers(G):
                     G.node[node]["_logger"].name = logger_name
 
 
-def set_log(map_beamline):
-    """
-    Instantiates a logger bliss instance and creates global references to it
-    """
-    global log
-    global lslog
-    global lsdebug
-
-    log = Log(map_beamline=map_beamline)
-
-    log.map_beamline.add_map_handler(map_update_loggers)
-    log.map_beamline.trigger_update()
-    lslog = log.lslog  # shortcut
-    lsdebug = log.lsdebug  # shortcut
+def lslog(glob: str = None, level: int = None, inherited: bool = True):
+    return session.get_current().log.lslog(glob, level, inherited)
 
 
-set_log(_BEAMLINE_MAP)
+def lsdebug(inherited=True):
+    return session.get_current().log.lsdebug(inherited)

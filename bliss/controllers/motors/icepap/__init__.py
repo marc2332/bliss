@@ -15,8 +15,8 @@ from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
-from bliss.common import mapping
 from bliss.common.logtools import LogMixin
+from bliss.common import session
 from bliss.comm.tcp import Command
 import struct
 import numpy
@@ -75,15 +75,12 @@ class Icepap(Controller, LogMixin):
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
-        self._cnx = None
-        self._last_axis_power_time = dict()
-        mapping.register(self, parents_list=["devices"])
-
-    def initialize(self):
         hostname = self.config.get("host")
         self._cnx = Command(hostname, 5000, eol="\n")
-        mapping.register(self, children_list=[self._cnx], parents_list=["devices"])
+        session.get_current().map.register(self, children_list=[self._cnx])
+        self._last_axis_power_time = dict()
 
+    def initialize(self):
         self._icestate = AxisState()
         self._icestate.create_state("POWEROFF", "motor power is off")
         self._icestate.create_state("HOMEFOUND", "home signal found")

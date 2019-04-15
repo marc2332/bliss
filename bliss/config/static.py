@@ -688,6 +688,17 @@ class Config:
                 self._name2instance.update(name2items)
                 instance_object = name2items.get(name)
 
+        from bliss.common.axis import Axis
+
+        if isinstance(instance_object, Axis):
+            from bliss.common import session
+
+            session.get_current().map.register(
+                instance_object,
+                parents_list=[instance_object.controller, "axes"],
+                tag=instance_object.name,
+            )
+
         return instance_object
 
     def _create_index(self, node):

@@ -40,8 +40,6 @@ from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
 from bliss.common.alias import AliasMixin
 from bliss.physics.trajectory import LinearTrajectory
-from bliss import setup_globals
-from bliss.common import mapping
 from bliss.common.logtools import LogMixin
 import gevent
 import re
@@ -590,7 +588,6 @@ class Axis(AliasMixin, LogMixin):
         disabled_cache.extend(config.get("disabled_cache", []))  # get it for this axis
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
-        mapping.register(self, parents_list=[self.__controller], tag=f"axis.{name}")
         self._unit = self.config.get("unit", str, None)
 
     def __close__(self):

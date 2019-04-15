@@ -87,7 +87,8 @@ class Controller(LogMixin):
                 if obj_class is None:
                     raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
-        mapping.register(self)
+        mapping_name = config.get("name") or self.__class__.__name__.lower()
+        mapping.register(self, parents_list=["controllers"], tag=mapping_name)
 
     def _init(self):
         for axis in self.axes.values():

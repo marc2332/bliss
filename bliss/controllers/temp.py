@@ -45,7 +45,8 @@ class Controller(LogMixin):
     """
 
     def __init__(self, config, inputs, outputs, loops):
-        mapping.register(self)
+        mapping_name = config.get("name") or self.__class__.__name__.lower()
+        mapping.register(self, parents_list=["controllers"], tag=mapping_name)
         # self._logger.info("on Controller")
         self.__config = config
         self._objects = dict()

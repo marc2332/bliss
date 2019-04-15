@@ -7,7 +7,7 @@
 
 import pytest
 
-from bliss.common.mapping import BeamlineMap
+from bliss.common.mapping import Map
 import networkx as nx
 import logging
 from typing import Generator
@@ -27,7 +27,7 @@ def beamline():
     """
     Creates a new graph
     """
-    map = BeamlineMap(singleton=False)
+    map = Map()
 
     map.register("beamline")
     map.register("devices", parents_list=["beamline"])
@@ -179,26 +179,15 @@ def test_complex_map_remove_children(complex_beamline):
 def test_format_node_1(beamline):
     tn = SimpleNode(attr="1234")
     beamline.register(tn, tag="myname")  # under devices
+    assert beamline.format_node(id(tn), format_string="inst.attr->id") == "1234"
     assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.attr->id")
-        == "1234"
-    )
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.partial_id->id")
+        beamline.format_node(id(tn), format_string="inst.partial_id->id")
         == str(id(tn))[:4]
     )
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.arg1->name")
-        == "arg1"
-    )
+    assert beamline.format_node(id(tn), format_string="inst.arg1->name") == "arg1"
     assert not hasattr(beamline.G.node[id(tn)], "name")
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="name->inst.arg1")
-        == "arg1"
-    )
-    assert (
-        beamline.format_node(beamline.G, "beamline", format_string="inst") == "beamline"
-    )
+    assert beamline.format_node(id(tn), format_string="name->inst.arg1") == "arg1"
+    assert beamline.format_node("beamline", format_string="inst") == "beamline"
 
 
 def test_check_formatting_1(beamline):

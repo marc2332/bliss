@@ -53,7 +53,7 @@ from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
-from bliss.common.mapping import register
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
@@ -218,7 +218,9 @@ class SHexapod(Controller):
         for klass in all_klass:
             try:
                 protocol = klass(self.config.config_dict)
-                register(protocol, parents_list=[self], children_list=[protocol.comm])
+                session.get_current().map.register(
+                    protocol, parents_list=[self], children_list=[protocol.comm]
+                )
                 protocol.comm.open()
                 self._protocol = protocol
                 break

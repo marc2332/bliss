@@ -12,10 +12,10 @@ import pprint
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.scanning.acquisition.counter import SamplingMode
 from bliss.common.measurement import GroupedReadMixin, Counter
+from bliss.common import session
 
 # for logging
 import logging
-from bliss.common import mapping
 from bliss.common.logtools import LogMixin
 
 """
@@ -111,7 +111,7 @@ dscan(m1,-1,1, 13, 0.01)
 
 class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
     def __init__(self, counter, scan_param, distribution, gauss_param, noise_factor):
-        mapping.register(self)
+        session.get_current().map.register(self)
         self._logger.debug(
             "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounter_AcquisitionDevice()"
         )
@@ -320,7 +320,7 @@ class SimulationCounter(Counter, LogMixin):
     def __init__(self, name, config):
         Counter.__init__(self, name)
 
-        mapping.register(self)
+        session.get_current().map.register(self)
 
         self.config = config
         self.acq_device = None

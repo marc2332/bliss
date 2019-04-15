@@ -14,7 +14,8 @@ import __main__ as interpreter_main
 
 from bliss import setup_globals
 from bliss.config import static
-from bliss.common.alias import Aliases
+from bliss.common.mapping import Map
+from bliss.common.logtools import Log
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 
 
@@ -192,6 +193,8 @@ class Session(object):
         self.__objects_names = None
         self.__children_tree = None
         self.__include_sessions = []
+        self.__map = None
+        self.__log = None
 
         self.init(config_tree)
 
@@ -246,6 +249,14 @@ class Session(object):
     @property
     def synoptic_file(self):
         return self.__synoptic_file
+
+    @property
+    def map(self):
+        return self.__map
+
+    @property
+    def log(self):
+        return self.__log
 
     @property
     def _scripts_module_path(self):
@@ -361,10 +372,21 @@ class Session(object):
         env_dict = self.env_dict
 
         env_dict["config"] = self.config
-        self._load_config(env_dict, verbose)
 
         global CURRENT_SESSION
         CURRENT_SESSION = self
+
+        self.__map = Map()
+        self.__map.register(self)
+        self.__map.register("devices", parents_list=[self], tag="devices")
+        self.__map.register("controllers", parents_list=[self], tag="controllers")
+        self.__map.register("comms", parents_list=[self], tag="comms")
+        self.__map.register("axes", parents_list=[self], tag="axes")
+        self.__map.register("counters", parents_list=[self], tag="counters")
+
+        self.__log = Log(map_beamline=self.__map)
+
+        self._load_config(env_dict, verbose)
 
         if self.__scripts_module_path and self.name not in _SESSION_IMPORTERS:
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
@@ -405,6 +427,8 @@ class Session(object):
         self._setup(env_dict)
 
         ###### add alias suppport
+
+        from bliss.common.alias import Aliases
 
         setattr(setup_globals, "ALIASES", Aliases(self, env_dict))
         env_dict["ALIASES"] = setup_globals.ALIASES

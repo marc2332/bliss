@@ -86,6 +86,8 @@ class Icepap(Controller, LogMixin):
 
         self._icestate = AxisState()
         self._icestate.create_state("POWEROFF", "motor power is off")
+        self._icestate.create_state("HOMEFOUND", "home signal found")
+        self._icestate.create_state("HOMENOTFOUND", "home signal not found")
         for codes in (self.STATUS_DISCODE, self.STATUS_MODCODE, self.STATUS_STOPCODE):
             for state, desc in codes.values():
                 self._icestate.create_state(state, desc)
@@ -331,9 +333,16 @@ class Icepap(Controller, LogMixin):
         gevent.sleep(0.2)
 
     def home_state(self, axis):
-        s = self.state(axis)
-        if "READY" not in s and "POWEROFF" not in s:
+        home_state = _command(self._cnx, "%s:?HOMESTAT" % axis.address)
+        s = self._icestate.new()
+        if home_state.startswith("MOVING"):
             s.set("MOVING")
+        else:
+            s.set("READY")
+            if home_state.startswith("FOUND"):
+                s.set("HOMEFOUND")
+            else:
+                s.set("HOMENOTFOUND")
         return s
 
     def limit_search(self, axis, limit):

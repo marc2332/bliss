@@ -52,7 +52,8 @@ import weakref
 
 import yaml
 
-from .conductor import client
+from bliss.config.conductor import client
+from bliss.config import channels
 
 CONFIG = None
 
@@ -360,6 +361,11 @@ class Config:
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
+
+    def close(self):
+        self._clear_instances()
+        channels.Bus.clear_cache()
+        self._connection.close()
 
     def reload(self, base_path=None, timeout=3):
         """

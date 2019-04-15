@@ -158,12 +158,8 @@ def beacon(ports):
     static.CONFIG = None
     client._default_connection = None
     config = static.get_config()
-    connection = get_default_connection()
     yield config
-    clear_cache()
-    Bus.clear_cache()
-    config._clear_instances()
-    connection.close()
+    config.close()
     client._default_connection = None
     static.CONFIG = None
 

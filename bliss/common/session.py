@@ -422,19 +422,24 @@ class Session(object):
             return True
 
     def close(self):
-        if get_current() is self:
+        try:
+            for obj_name, obj in self.__env_dict.items():
+                if obj is self or obj is self.config:
+                    continue
+                try:
+                    delattr(setup_globals, obj_name)
+                except Exception:
+                    pass
+                try:
+                    obj.__close__()
+                except Exception:
+                    pass
+            self.__env_dict.clear()
+        finally:
+            self.config.close()
             global CURRENT_SESSION
-            CURRENT_SESSION = None
-        for obj_name, obj in self.env_dict.items():
-            if obj is self:
-                continue
-            if hasattr(setup_globals, obj_name):
-                delattr(setup_globals, obj_name)
-            try:
-                obj.close()
-            except AttributeError:
-                pass
-        self.env_dict.clear()
+            if CURRENT_SESSION is self:
+                CURRENT_SESSION = None
 
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
@@ -470,8 +475,8 @@ class Session(object):
                 pass
             else:
                 try:
-                    obj.close()
-                except AttributeError:
+                    obj.__close__()
+                except Exception:
                     pass
 
         self.config.reload()

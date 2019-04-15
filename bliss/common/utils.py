@@ -499,15 +499,6 @@ def common_prefix(paths, sep=os.path.sep):
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
-def closable(obj):
-    """Return True if the given object is closable, False otherwise."""
-    return (
-        hasattr(obj, "close")
-        and inspect.ismethod(obj.close)
-        and obj.close.__self__ is not None
-    )
-
-
 def human_time_fmt(num, suffix="s"):
     """
     format time second in human readable format

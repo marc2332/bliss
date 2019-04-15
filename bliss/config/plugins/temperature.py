@@ -8,7 +8,7 @@
 
 import logging
 from bliss.common import log
-from bliss.config.plugins.bliss import find_class
+from bliss.config.plugins.utils import find_class
 
 
 def create_objects_from_config_node(config, item_cfg_node):

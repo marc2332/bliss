@@ -6,4 +6,4 @@ Bliss
 
 The bliss control library.
 
-Latest documentation from master can be found [here](http://bliss.gitlab-pages.esrf.fr/bliss)
+Latest documentation from master can be found [here](http://bliss.gitlab-pages.esrf.fr/bliss/master)

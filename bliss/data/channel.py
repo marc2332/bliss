@@ -43,6 +43,7 @@ class ChannelDataNode(DataNode):
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
+        unit = keys.pop("unit", None)
         alias = keys.pop("alias", None)
         fullname = keys.pop("fullname", None)
 
@@ -56,6 +57,7 @@ class ChannelDataNode(DataNode):
             self.info["alias"] = alias or "None"
             self.info["has_alias"] = alias is not None
             self.info["fullname"] = fullname or "None"
+            self.info["unit"] = unit
 
         self._queue = None
 
@@ -120,6 +122,10 @@ class ChannelDataNode(DataNode):
     @property
     def has_alias(self):
         return self.info.get("has_alias")
+
+    @property
+    def unit(self):
+        return self.info.get("unit")
 
     def _get_db_names(self):
         db_names = DataNode._get_db_names(self)

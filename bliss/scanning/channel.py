@@ -43,12 +43,14 @@ class AcquisitionChannel(AliasMixin, object):
         shape,
         description=None,
         reference=False,
+        unit=None,
         data_node_type="channel",
     ):
         self.__name = name.replace(".", ":")
         self.__acq_device = acq_device
         self.__dtype = dtype
         self.__shape = shape
+        self.__unit = unit
         self.__reference = reference
         self.__description = {"reference": reference}
         self.__data_node_type = data_node_type
@@ -103,6 +105,10 @@ class AcquisitionChannel(AliasMixin, object):
     def shape(self, value):
         self.__shape = value
 
+    @property
+    def unit(self):
+        return self.__unit
+
     def emit(self, data):
         if not self.reference:
             data = self._check_and_reshape(data)
@@ -110,7 +116,12 @@ class AcquisitionChannel(AliasMixin, object):
                 return
         self.__description["dtype"] = self.dtype
         self.__description["shape"] = self.shape
-        data_dct = {"name": self.name, "description": self.__description, "data": data}
+        self.__description["unit"] = self.unit
+        data_dct = {
+            "name": self.fullname,
+            "description": self.__description,
+            "data": data,
+        }
         dispatcher.send("new_data", self, data_dct)
 
     def _check_and_reshape(self, data):

@@ -56,7 +56,13 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         if not isinstance(counter, GroupedReadMixin):
             self.channels.append(
-                AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
+                AcquisitionChannel(
+                    counter,
+                    counter.name,
+                    counter.dtype,
+                    counter.shape,
+                    unit=counter.unit,
+                )
             )
 
     @property
@@ -78,7 +84,9 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
 
         self.__grouped_read_counters_list.append(counter)
         self.channels.append(
-            AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(
+                counter, counter.name, counter.dtype, counter.shape, unit=counter.unit
+            )
         )
 
     def _emit_new_data(self, data):

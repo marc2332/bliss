@@ -367,6 +367,7 @@ class ScanDisplay(ParametersWardrobe):
 
 def _get_channels_dict(acq_object, channels_dict):
     scalars = channels_dict.setdefault("scalars", [])
+    scalars_units = channels_dict.setdefault("scalars_units", {})
     spectra = channels_dict.setdefault("spectra", [])
     images = channels_dict.setdefault("images", [])
     display_names = channels_dict.setdefault("display_names", {})
@@ -375,6 +376,7 @@ def _get_channels_dict(acq_object, channels_dict):
         name = acq_chan.fullname
         shape = acq_chan.shape
         display_names[name] = acq_chan.alias_or_name
+        scalars_units[name] = acq_chan.unit
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
         elif len(shape) == 1 and not name in spectra:
@@ -770,6 +772,7 @@ class Scan:
                 shape=channel.shape,
                 dtype=channel.dtype,
                 alias=channel.alias,
+                unit=channel.unit,
                 fullname=channel.fullname,
             )
             connect(channel, "new_data", self._channel_event)

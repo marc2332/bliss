@@ -174,11 +174,17 @@ class Counter(BaseCounter):
     ACQUISITION_DEVICE_CLASS = NotImplemented
 
     def __init__(
-        self, name, grouped_read_handler=None, conversion_function=None, controller=None
+        self,
+        name,
+        grouped_read_handler=None,
+        conversion_function=None,
+        controller=None,
+        unit=None,
     ):
         self._name = name
         self._controller = controller
         self._conversion_function = conversion_function
+        self._unit = unit
         if grouped_read_handler:
             Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
 
@@ -199,6 +205,10 @@ class Counter(BaseCounter):
     @property
     def shape(self):
         return ()
+
+    @property
+    def unit(self):
+        return self._unit
 
     # Default chain handling
 
@@ -259,6 +269,7 @@ class SamplingCounter(Counter):
         grouped_read_handler=None,
         conversion_function=None,
         acquisition_device_mode=None,
+        unit=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
             grouped_read_handler = DefaultSamplingCounterGroupedReadHandler(controller)
@@ -273,7 +284,7 @@ class SamplingCounter(Counter):
         self.acquisition_device_mode = acquisition_device_mode
 
         super(SamplingCounter, self).__init__(
-            name, grouped_read_handler, conversion_function, controller
+            name, grouped_read_handler, conversion_function, controller, unit=unit
         )
 
     def read(self):
@@ -350,6 +361,7 @@ class SoftCounter(SamplingCounter):
         controller=None,
         apply=None,
         acquisition_device_mode=None,
+        unit=None,
     ):
         if obj is None and inspect.ismethod(value):
             obj = value.__self__
@@ -368,7 +380,7 @@ class SoftCounter(SamplingCounter):
             apply = lambda x: x
         self.apply = apply
         super(SoftCounter, self).__init__(
-            name, controller, acquisition_device_mode=acquisition_device_mode
+            name, controller, acquisition_device_mode=acquisition_device_mode, unit=unit
         )
 
     @staticmethod
@@ -451,6 +463,7 @@ class IntegratingCounter(Counter):
         master_controller,
         grouped_read_handler=None,
         conversion_function=None,
+        unit=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "get_values"):
             grouped_read_handler = DefaultIntegratingCounterGroupedReadHandler(
@@ -467,7 +480,7 @@ class IntegratingCounter(Counter):
                 add_conversion_function(self, "get_values", conversion_function)
 
         super(IntegratingCounter, self).__init__(
-            name, grouped_read_handler, conversion_function, controller
+            name, grouped_read_handler, conversion_function, controller, unit=unit
         )
 
         self._master_controller_ref = weakref.ref(master_controller)

@@ -19,11 +19,11 @@ pygments
 sqlalchemy
 pandas
 mock
-silx == 0.8
+silx == 0.10.1
 psutil
 requests
 prompt_toolkit >= 2.0
 gxx_linux-64
 networkx
-pygraphviz
+pygraphviz >= 1.5
 pyyaml >= 5.1

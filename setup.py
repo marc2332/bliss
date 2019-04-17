@@ -162,11 +162,11 @@ def main():
         "numpy >= 1.13",
         "mendeleev",
         "pint",
-        'silx >=0.10.1; platform_machine == "x86_64"',
+        'silx == 0.10.1; platform_machine == "x86_64"',
         "psutil",
         "requests",
         "cffi",
-        "pygraphviz",
+        "pygraphviz >= 1.5",
         "networkx",
     ]
 

@@ -44,6 +44,7 @@ class ChannelDataNode(DataNode):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
         alias = keys.pop("alias", None)
+        fullname = keys.pop("fullname", None)
 
         DataNode.__init__(self, "channel", name, **keys)
 
@@ -54,6 +55,7 @@ class ChannelDataNode(DataNode):
                 self.info["dtype"] = dtype
             self.info["alias"] = alias or "None"
             self.info["has_alias"] = alias is not None
+            self.info["fullname"] = fullname or "None"
 
         self._queue = None
 
@@ -103,6 +105,17 @@ class ChannelDataNode(DataNode):
     @property
     def alias(self):
         return self.info.get("alias")
+
+    @property
+    def fullname(self):
+        return self.info.get("fullname")
+
+    @property
+    def alias_or_name(self):
+        if self.has_alias:
+            return self.alias
+        else:
+            return self.name
 
     @property
     def has_alias(self):

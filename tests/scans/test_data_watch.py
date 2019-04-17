@@ -147,10 +147,16 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {
         master.name: {
+            "display_names": {"diode:diode": "diode"},
             "scalars": ["diode:diode"],
             "images": [],
             "spectra": [],
-            "master": {"scalars": ["%s:m1" % master.name], "images": [], "spectra": []},
+            "master": {
+                "scalars": ["%s:m1" % master.name],
+                "images": [],
+                "spectra": [],
+                "display_names": {"%s:m1" % master.name: "m1"},
+            },
         }
     }
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)

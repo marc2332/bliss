@@ -83,9 +83,12 @@ a2scan_dump = """{a2scan}
 """
 
 
-def test_alias_hdf5_file_items(alias_session):
+def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
 
     env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
     s = scans.a2scan(
         env_dict["robyy"],
@@ -106,7 +109,6 @@ def test_alias_hdf5_file_items(alias_session):
     )
 
     scan_dump = h5dump(s.writer.filename)
-
     ref_a2scan_dump = a2scan_dump.split("\n")
 
     i = -1
@@ -148,9 +150,12 @@ con_scan_dump = """{scan}
 """
 
 
-def test_alias_hdf5_continuous_scan(alias_session):
+def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
 
     env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
     diode = session.config.get("diode")
     diode.set_alias("myDiode")

@@ -181,7 +181,8 @@ def test_scan_callbacks(session):
         res["new"] = True
 
     def on_scan_data(scan_info, values):
-        res["values"].append(values[counter.name])
+        # values is indexed by *channel* full name
+        res["values"].append(values[f"{counter.name}:gaussian"])
 
     def on_scan_end(scan_info):
         res["end"] = True

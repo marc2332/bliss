@@ -100,7 +100,7 @@ class StepScanDataWatch:
             for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
                     channel = data_node
-                    self._channel_name_2_channel[channel.name] = channel
+                    self._channel_name_2_channel[channel.fullname] = channel
             self._init_done = True
 
         min_nb_points = None
@@ -369,11 +369,12 @@ def _get_channels_dict(acq_object, channels_dict):
     scalars = channels_dict.setdefault("scalars", [])
     spectra = channels_dict.setdefault("spectra", [])
     images = channels_dict.setdefault("images", [])
+    display_names = channels_dict.setdefault("display_names", {})
 
     for acq_chan in acq_object.channels:
-        acq_chan._device_name = acq_object.name
         name = acq_chan.fullname
         shape = acq_chan.shape
+        display_names[name] = acq_chan.alias_or_name
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
         elif len(shape) == 1 and not name in spectra:
@@ -769,6 +770,7 @@ class Scan:
                 shape=channel.shape,
                 dtype=channel.dtype,
                 alias=channel.alias,
+                fullname=channel.fullname,
             )
             connect(channel, "new_data", self._channel_event)
 

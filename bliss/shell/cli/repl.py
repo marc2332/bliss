@@ -233,21 +233,6 @@ def _find_obj(name):
     return operator.attrgetter(name)(setup_globals)
 
 
-def _find_unit(obj):
-    try:
-        if isinstance(obj, str):
-            # in the form obj.x.y
-            obj = _find_obj(obj)
-        if hasattr(obj, "unit"):
-            return obj.unit
-        if hasattr(obj, "config"):
-            return obj.config.get("unit")
-        if hasattr(obj, "controller"):
-            return _find_unit(obj.controller)
-    except:
-        return
-
-
 class ScanPrinter:
     """compose scan output"""
 
@@ -264,9 +249,11 @@ class ScanPrinter:
 
     def __init__(self):
         self.real_motors = []
+        set_scan_watch_callbacks(
+            self._on_scan_new, self._on_scan_data, self._on_scan_end
+        )
 
     def _on_scan_new(self, scan_info):
-
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -280,14 +267,15 @@ class ScanPrinter:
         self.col_labels = ["#"]
         self.real_motors = []
         self.counter_names = []
+        self.counter_fullnames = []
         self._point_nb = 0
         motor_labels = []
-        counter_labels = []
+        self.motor_fullnames = []
 
         master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         for channel_name in channels["master"]["scalars"]:
-            channel_short_name = channel_name.split(":")[-1]
+            channel_short_name = channels["master"]["display_names"][channel_name]
             # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
@@ -308,44 +296,31 @@ class ScanPrinter:
                                 sender=motor,
                             )
                         unit = motor.config.get("unit", default=None)
-                        motor_label = motor.name
+                        motor_label = motor.alias_or_name
                         if unit:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
+                        self.motor_fullnames.append("axis:" + motor.name)
 
-        self.cntlist = [
-            x.name for x in counter_dict().values()
-        ]  # get all available counter names
-        self.cnt_chanlist = [
-            x.replace(".", ":") for x in self.cntlist
-        ]  # channel names can not contain "." so we have to take care of that
-        self.cntdict = dict(zip(self.cnt_chanlist, self.cntlist))
-
-        for channel_name in channels["scalars"]:
-            if channel_name.split(":")[-1] == "elapsed_time":
+        for channel_fullname in channels["scalars"]:
+            channel_name = channels["display_names"][channel_fullname]
+            if channel_name == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
-            else:
-                potential_cnt_channels = [
-                    channel_name.split(":", i)[-1]
-                    for i in range(channel_name.count(":") + 1)
-                ]
-                potential_cnt_channel_name = [
-                    e for e in potential_cnt_channels if e in self.cntlist
-                ]
-                if len(potential_cnt_channel_name) > 0:
-                    self.counter_names.append(potential_cnt_channel_name[0])
-                    unit = _find_unit(self.cntdict[potential_cnt_channel_name[0]])
-                    counter_name = self.cntdict[potential_cnt_channel_name[0]]
-                    if unit:
-                        counter_name += "[{0}]".format(unit)
-                    counter_labels.append(counter_name)
+            self.counter_names.append(channel_name)  ### TODO: Missing units for now!!
+            self.counter_fullnames.append(channel_fullname)
 
         self.col_labels.extend(motor_labels)
-        self.col_labels.extend(sorted(counter_labels))
+        self.col_labels.extend(sorted(self.counter_names))
+
+        self.motor_fullnames = [mn for _, mn in zip(motor_labels, self.motor_fullnames)]
+
+        self.col_labels.extend(
+            [cn for _, cn in sorted(zip(self.counter_fullnames, self.counter_names))]
+        )
 
         other_channels = [
-            channel_name.split(":")[-1]
+            channels["display_names"][channel_name]
             for channel_name in channels["spectra"] + channels["images"]
         ]
         if other_channels:
@@ -393,13 +368,13 @@ class ScanPrinter:
         master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
         elapsed_time_col = []
-        if "elapsed_time" in values:
-            elapsed_time_col.append(values.pop("elapsed_time"))
+        if "timer:elapsed_time" in values:
+            elapsed_time_col.append(values.pop("timer:elapsed_time"))
 
-        motor_labels = sorted(m.name for m in self.real_motors)
-        motor_values = [values[motor_name] for motor_name in motor_labels]
+        motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
         counter_values = [
-            values[counter_name] for counter_name in sorted(self.counter_names)
+            values[counter_fullname]
+            for counter_fullname in sorted(self.counter_fullnames)
         ]
 
         values = elapsed_time_col + motor_values + counter_values
@@ -623,11 +598,6 @@ def embed(*args, **kwargs):
 
         # set print methods for the scans
         scan_printer = ScanPrinter()
-        set_scan_watch_callbacks(
-            scan_printer._on_scan_new,
-            scan_printer._on_scan_data,
-            scan_printer._on_scan_end,
-        )
 
         if stop_signals:
 

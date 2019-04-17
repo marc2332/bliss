@@ -10,7 +10,6 @@ from conda_env.cli import main_export
 CURDIR = os.path.dirname(os.path.abspath(__file__))
 BLISS_DIR = os.path.dirname(CURDIR)
 REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
-REQ_PACK_PATH = os.path.join(BLISS_DIR, "requirements-package.txt")
 META = os.path.join(CURDIR, "meta.yaml")
 
 # regex
@@ -187,7 +186,6 @@ def main():
     # reading requirements-conda.txt to get only package names
     # versions will be taken from current environment
     conda_req_file = conda_requirements_txt(REQ_PATH)
-    conda_req_pack_file = conda_requirements_txt(REQ_PACK_PATH)
 
     # populating meta.yaml with names and versions
 
@@ -198,12 +196,12 @@ def main():
             print(f"Not found pip dependency on conda for {name}=={version}")
 
     # finding dependencies
-    for name in (*conda_req_file, *conda_req_pack_file):
+    for name in conda_req_file:
         if name in conda_req_current_env:
             version = conda_req_current_env[name]
             body["requirements"]["run"].append(f"{name} {version}")
         else:
-            body["requirements"]["run"].append(f"{name} # missing conda package")
+            body["requirements"]["run"].append(name + " # missing conda package")
 
     # writing meta.yaml
     with open(META, "w") as f:

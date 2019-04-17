@@ -32,9 +32,9 @@ run_tests:source:
     - pip install git+https://github.com/manahl/pytest-plugins#subdirectory=pytest-profiling
     - pip install .
     # run tests on source
-    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term"
+    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term --profile --durations=30"
   after_script:
-    - python scripts/profining2txt.py
+    - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   artifacts:
     paths:
@@ -64,7 +64,7 @@ package:
     # triggering the creation of bliss/release.py file
     - python -c "from setup import generate_release_file;generate_release_file()"
     # creating the meta.yaml file for conda packet generation
-    - cd conda_recipe
+    - cd scripts
     - python create_recipe.py
     - conda build . --prefix-length=80  --output-folder=../dist/
     # creating a local conda channel to serve bliss packet for next stage

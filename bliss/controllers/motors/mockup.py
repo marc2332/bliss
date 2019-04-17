@@ -622,7 +622,7 @@ class calc_motor_mockup(CalcController):
         self._axis = axis
         CalcController.initialize_axis(self, axis)
         event.connect(axis, "s_param", self._calc_from_real)
-        axis.unit = "keV"
+        axis._unit = "keV"
 
     def close(self):
         if self._axis is not None:
@@ -645,7 +645,7 @@ class calc_motor_mockup(CalcController):
 
     def calc_from_real(self, positions_dict):
         calc_mot_axis = self._tagged["calc_mot"][0]
-        calc_mot_axis.unit == "keV"
+        calc_mot_axis._unit == "keV"
         s_param = calc_mot_axis.settings.get("s_param")
         # this formula is just an example
         calc_pos = s_param * positions_dict["real_mot"]

@@ -59,7 +59,7 @@ package:
   image: continuumio/miniconda3:latest
   script:
     # create package env and install all requirements and conda-build
-    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt --file requirements-package.txt conda-build
+    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
     - source activate buildenv
     # triggering the creation of bliss/release.py file
     - python -c "from setup import generate_release_file;generate_release_file()"

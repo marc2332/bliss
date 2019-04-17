@@ -1,4 +1,5 @@
 import pytest
+from bliss.common import scans
 
 alias_dump = """Alias    Original name                       Linked to py obj
 -------  ----------------------------------  ------------------
@@ -97,3 +98,15 @@ def test_alias_get(alias_session):
 
     with pytest.raises(ValueError):
         r = env_dict["ALIASES"].get("myroi")
+
+
+def test_scan_info_display_names_with_alias(alias_session):
+
+    env_dict, session = alias_session
+    robyy = env_dict["ALIASES"].get("robyy")
+    diode = session.config.get("diode")
+    s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
+    assert (
+        s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"]["axis:roby"]
+        == "robyy"
+    )

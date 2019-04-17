@@ -268,3 +268,14 @@ def test_ttl_on_data_node(beacon, redis_data_conn):
     assert redis_data_conn.ttl("testing") == -1
     del node
     assert redis_data_conn.ttl("testing") == DataNode.default_time_to_live
+
+
+def test_ttl_setter(session, capsys):
+    pytest.xfail()
+    heater = getattr(setup_globals, "heater")
+    diode = getattr(setup_globals, "diode")
+    roby = getattr(setup_globals, "roby")
+    robz = getattr(setup_globals, "robz")
+    s = scans.loopscan(1, .1, heater, diode, run=False)
+    out, err = capsys.readouterr()
+    assert err == ""

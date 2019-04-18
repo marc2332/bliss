@@ -17,7 +17,7 @@ class _GroupReadHandler(IntegratingCounter.GroupedReadHandler):
     def prepare(self, *counters):
         self.controller._proxy.On()
 
-    def end(self, *counters):
+    def stop(self, *counters):
         self.controller._proxy.Off()
 
     def get_values(self, from_index, *counters):

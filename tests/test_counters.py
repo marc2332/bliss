@@ -13,6 +13,11 @@ from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from unittest import mock
 
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
+from bliss.scanning.scan import Scan
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+
 
 class Diode(SamplingCounter):
     def __init__(self, diode, convert_func):
@@ -135,3 +140,15 @@ def test_bad_counters(session, beacon):
         s = ct(0.1, diode)
     finally:
         simu_mca._bad_counters = False
+
+
+def test_single_integ_counter(beacon):
+    timer = SoftwareTimerMaster(0, npoints=1)
+    acq_controller = AcquisitionController()
+    acq_controller.name = "bla"
+    counter = IntegCounter(acq_controller, None)
+    acq_device = IntegratingCounterAcquisitionDevice(counter, 0, npoints=1)
+    chain = AcquisitionChain()
+    chain.add(timer, acq_device)
+    s = Scan(chain, save=False)
+    s.run()

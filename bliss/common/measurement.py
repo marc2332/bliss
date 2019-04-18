@@ -294,6 +294,7 @@ class SamplingCounter(Counter):
             raise NotImplementedError
         else:
             grouped_read_handler.prepare(self)
+            grouped_read_handler.start(self)
             try:
                 return grouped_read_handler.read(self)[0]
             finally:

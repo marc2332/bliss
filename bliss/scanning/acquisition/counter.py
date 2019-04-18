@@ -307,7 +307,7 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         if self.grouped_read_counters:
             return self.device.get_values(from_index, *self.grouped_read_counters)
         else:
-            return [numpy.array(self.device.get_value(from_index), dtype=numpy.double)]
+            return [numpy.array(self.device.get_values(from_index), dtype=numpy.double)]
 
     def reading(self):
         from_index = 0

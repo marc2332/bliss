@@ -7,13 +7,12 @@
 
 
 import sys
-from bliss.data.display import ScanDataListener
+from bliss.shell.cli.repl import embed
 
 
 def main():
     session_name = sys.argv[1]
-    sdl = ScanDataListener(session_name)
-    sdl.start()
+    embed(session_name=session_name)
 
 
 if __name__ == "__main__":

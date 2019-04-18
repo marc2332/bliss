@@ -35,6 +35,7 @@ __all__ = [
     "ct",
     "DEFAULT_CHAIN",
     "plotselect",
+    "scan_display_filter",
     "cen",
     "goto_cen",
     "peak",
@@ -1404,6 +1405,25 @@ def _goto_multimotors(func):
                     gevent.killall(tasks)
 
     return f
+
+
+def scan_display_filter(*counters):
+    """
+    Select counter(s) which will be displayed in scan output. If no counters are given, it clears the filter list.
+    """
+    current_session = session.get_current()
+    display_select = HashSetting("%s:scan_display_filter" % current_session.name)
+    if counters == ():
+        display_select.clear()
+    else:
+        counter_names = dict()
+        for cnt in counters:
+            fullname = cnt.fullname
+            fullname = fullname.replace(".", ":", 1)
+            if not fullname.find(":") > -1:
+                fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
+            counter_names[fullname] = "Y1"
+        display_select.set(counter_names)
 
 
 @_multimotors

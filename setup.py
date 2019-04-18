@@ -204,6 +204,7 @@ def main():
                 "res/*.*",
             ],
             "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
+            "bliss.config": ["tmux.conf"],
         },
         ext_modules=extensions,
         scripts=["bin/beacon-server-list", "bin/sps_data_watch"],

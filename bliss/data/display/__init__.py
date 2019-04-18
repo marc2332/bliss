@@ -12,6 +12,9 @@ import time
 import datetime
 import numpy
 import operator
+import termios
+import shutil
+import signal
 
 from bliss.data.scan import watch_session_scans
 
@@ -33,6 +36,18 @@ else:
             if prop.startswith("__"):
                 raise AttributeError(prop)
             return ""
+
+
+def catch_sigint(*args):
+    pass
+
+
+def print_full_line(msg, deco="=", head="\n", tail="\n"):
+    width = shutil.get_terminal_size().columns
+    fac = (width - len(msg)) // 2
+    deco = deco * fac
+
+    print("".join([head, deco, msg, deco, tail]))
 
 
 def _find_obj(name):
@@ -273,6 +288,22 @@ class ScanDataListener:
         self.session_name = session_name
         self.scan_name = None
         self.scan_is_running = None
+        self.counter_selection = []
+
+    def update_counter_selection(self):
+        ps = HashSetting(f"{self.session_name}:scan_display_filter")
+        self.counter_selection = list(ps.keys())
+
+    def get_selected_counters(self, counter_names):
+        if self.counter_selection == []:
+            return counter_names
+
+        selection = []
+        for cname in counter_names:
+            if cname in self.counter_selection or cname == "timer:elapsed_time":
+                selection.append(cname)
+
+        return selection
 
     def on_scan_new(self, scan_info):
 
@@ -298,6 +329,7 @@ class ScanDataListener:
         else:
             self.scan_is_running = True
             self.scan_name = scan_info.get("node_name")
+            self.update_counter_selection()
 
             # session_name = scan_info.get('session_name')             # ex: 'test_session'
             # user_name = scan_info.get('user_name')                   # ex: 'pguillou'
@@ -329,11 +361,12 @@ class ScanDataListener:
 
             acquisition_chain = scan_info.get("acquisition_chain")
 
-            self.channel_names = (
+            self.channel_names = acquisition_chain["axis"]["master"][
+                "scalars"
+            ] + self.get_selected_counters(acquisition_chain["axis"]["scalars"])
+            self.channels_number = len(
                 acquisition_chain["axis"]["master"]["scalars"]
-                + acquisition_chain["axis"]["scalars"]
-            )
-            self.channels_number = len(self.channel_names)
+            ) + len(acquisition_chain["axis"]["scalars"])
 
             self.scan_steps_index = 1
             self.col_labels = ["#"]
@@ -419,6 +452,7 @@ class ScanDataListener:
             return
 
         # Skip if missing channels
+        # print(len(channel_info["data"]), self.channels_number)
         if len(channel_info["data"]) != self.channels_number:
             return
 
@@ -427,10 +461,11 @@ class ScanDataListener:
             if len(channel_info["data"][channel_name]) != self.scan_steps_index:
                 return
 
-        # Get the data for the current scan step
+        # Get data for the current scan step
         values_dict = {}
         for channel_name in channel_info["data"]:
-            values_dict[channel_name] = channel_info["data"][channel_name][-1]
+            if channel_name in self.channel_names:
+                values_dict[channel_name] = channel_info["data"][channel_name][-1]
 
         # Extract time data
         elapsed_time_col = []
@@ -490,14 +525,33 @@ class ScanDataListener:
             )
         print(msg)
 
-        # width = shutil.get_terminal_size().columns
-        print(
-            "\n==========  >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<<  ==========\n"
+        print_full_line(
+            " >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ",
+            deco="=",
+            head="\n",
+            tail="\n",
         )
 
         self.scan_is_running = False
 
     def start(self):
+
+        signal.signal(signal.SIGINT, catch_sigint)
+
+        # Prevent user inputs
+        fd = sys.stdin.fileno()
+        new = termios.tcgetattr(fd)
+        new[3] &= ~termios.ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, new)
+
+        print_full_line(
+            f" Bliss session '{self.session_name}': watching scans ",
+            deco="=",
+            head="",
+            tail="\n",
+        )
+
+        # Start the watch, winter is coming...
         watch_session_scans(
             self.session_name,
             self.on_scan_new,

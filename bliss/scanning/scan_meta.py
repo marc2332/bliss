@@ -19,6 +19,13 @@ import enum
 from bliss.common.utils import get_axes_positions_iter
 
 USER_SCAN_META = None
+CATEGORIES = enum.Enum(
+    "categories", "INSTRUMENT SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE"
+)
+
+
+def categories_names():
+    return [cat.name.lower() for cat in CATEGORIES]
 
 
 def get_user_scan_meta():
@@ -30,9 +37,6 @@ def get_user_scan_meta():
 
 
 def scan_meta(info=None):
-    CATEGORIES = enum.Enum(
-        "categories", "INSTRUMENT SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE"
-    )
 
     _infos = dict() if info is None else info
 

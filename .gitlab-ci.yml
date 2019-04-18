@@ -1,96 +1,171 @@
-image: continuumio/miniconda3:latest
+before_script:
+  # set pip cache to the Docker volume
+  - echo ${CI_PROJECT_DIR} 
+  - export PIP_CACHE_DIR="/opt/cache/pip"
+  - conda config --append channels conda-forge
+  - conda config --add channels defaults
+  - conda config --add channels http://bcu-ci.esrf.fr/stable 
+  - conda config --add channels tango-controls
 
 stages:
   - style
   - tests
-  - doc
+  - build
+  - package_tests
   - deploy
 
-style:
+check_style:
   stage: style
-  before_script:
-    - export PIP_CACHE_DIR="/opt/cache/pip"
-    - pip install -r requirements-dev.txt
+  image: continuumio/miniconda3:latest
   script:
+    - pip install -r requirements-dev.txt
     - LC_ALL=C.UTF-8 black --check --safe .
 
-tests:
+run_tests:source:
   stage: tests
-  before_script:
-    # install Xvfb and opengl libraries
+  image: continuumio/miniconda3:latest
+  script: 
+    # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
-    # set pip cache to the Docker volume
-    - export PIP_CACHE_DIR="/opt/cache/pip"
     # create test env and install BLISS
-    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
+    - conda create --quiet --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
     - pip install git+https://github.com/manahl/pytest-plugins#subdirectory=pytest-profiling
     - pip install .
-  script: 
-    - "(if ! (git diff --name-only $(git merge-base HEAD origin/master) | grep -E '.py|requirements'); then echo 'Nothing to do' ;else (python setup.py test --addopts '--cov bliss --cov-report html --cov-report term --profile --durations=30' );fi)"
+    # run tests on source
+    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term --profile --durations=30"
   after_script:
-    - python scripts/profining2txt.py
+    - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
-  except:
-    - master
-
-tests_master:
-  stage: tests
-  before_script:
-    - apt-get update && apt-get -y install xvfb libxi6
-    - export PIP_CACHE_DIR="/opt/cache/pip"
-    - conda create --quiet --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-conda.txt --file requirements-test-conda.txt
-    - source activate testenv
-    - pip install .
-  script:
-    - python setup.py test --addopts "--cov bliss --cov-report html --cov-report term --durations=20"
   artifacts:
     paths:
       - htmlcov/
     expire_in: 7 days
   only:
-    - master
+    changes: # skip tests for doc changes
+      - "bin/**/*"
+      - "bliss/**/*"
+      - "conda_recipe/**/*"
+      - "extensions/**/*"
+      - "scripts/**/*"
+      - "spec/**/*"
+      - "tests/**/*"
+      - ".gitlab-ci.yml"
+      - "requirements*"
+      - "setup.*"
 
-build_doc:
-  stage: doc
-  before_script:
-    - export PIP_CACHE_DIR="/opt/cache/pip"
-    - conda create -q --yes --name docenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge  python=3 --file requirements-conda.txt --file requirements-doc-conda.txt
+
+package:
+  stage: build
+  image: continuumio/miniconda3:latest
+  script:
+    # create package env and install all requirements and conda-build
+    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
+    - source activate buildenv
+    # triggering the creation of bliss/release.py file
+    - python -c "from setup import generate_release_file;generate_release_file()"
+    # creating the meta.yaml file for conda packet generation
+    - cd scripts
+    - python create_recipe.py
+    - conda build . --prefix-length=80  --output-folder=../dist/
+    # creating a local conda channel to serve bliss packet for next stage
+    - cd ..
+    - mkdir conda-local-channel conda-local-channel/linux-64
+    - cp -r dist/linux-64/*.tar.bz2 conda-local-channel/linux-64/
+    - conda index conda-local-channel
+  artifacts:
+    paths:
+      - dist/
+      - conda-local-channel/
+    expire_in: 7 days
+  only:
+    - tags
+
+create_doc:reference:
+  stage: build
+  image: continuumio/miniconda3:latest
+  script:
+    # create doc env and install all requirements
+    - conda create -q --yes --name docenv --file requirements-conda.txt --file requirements-doc-conda.txt
     - source activate docenv
     - pip install -r requirements-doc.txt
-  script:
+    # build of documentation
     - python setup.py build_sphinx
   artifacts:
     paths:
       - build/
     expire_in: 7 days
 
-build_user_doc:
-  stage: doc
-  before_script:
-    - export PIP_CACHE_DIR="/opt/cache/pip"
-    - conda create --quiet --name mkdocsenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel conda-forge python=3 --file requirements-doc-conda.txt
-    - source activate mkdocsenv
-    - pip install -r requirements-doc.txt
+create_doc:user:
+  stage: build
+  image: continuumio/miniconda3:latest
   script:
+    # create doc env and install all requirements
+    - conda create -q --yes --name mkdocsenv --file requirements-conda.txt --file requirements-doc-conda.txt
+    - source activate mkdocsenv
+    - pip install -r requirements-doc.txt 
+    # build of documentation
     - cd doc && mkdocs build
   artifacts:
-      paths:
-          - doc/site
+    paths:
+      - doc/site
+    expire_in: 7 days
+
+run_tests:package:
+  stage: package_tests
+  image: continuumio/miniconda3:latest
+  script:
+    # install Xvfb and opengl libraries (needed for test_flint)
+    - apt-get update && apt-get -y install xvfb libxi6
+    - mv bliss source # to avoid import errors (we want to test the packet, not local bliss folder)
+    - conda create -y --name testenv
+    - source activate testenv
+    - conda install bliss==$CI_COMMIT_TAG --file requirements-test-conda.txt --channel file://${CI_PROJECT_DIR}/conda-local-channel
+    - pytest --cov=bliss --cov-report html --cov-report term
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 7 days
+  only:
+    - tags
 
 pages:
   stage: deploy
-  dependencies:
-    - build_user_doc
-    - build_doc
-    - tests_master
+  tags: 
+    - conda
+    - builder
+    - linux
   script:
-    - mv doc/site/ public
-    - mv build/sphinx/html public/api
-    - mv htmlcov public/
+    # Publishing to intranet folders
+    # if we have a tag it will be published under the intranet gitlab page under /tag/ otherwhise under /master/
+    - if [[ ( $CI_COMMIT_REF_NAME == master && -z $CI_COMMIT_TAG ) ]]; then export DOC_DIR='master'; else export DOC_DIR=${CI_COMMIT_TAG}; fi
+    #- rm -rf public/* # target dir should be cleaned at first time
+    - rm -rf public/${DOC_DIR}
+    - mkdir -p public/${DOC_DIR}/api/
+    - mkdir -p public/${DOC_DIR}/htmlcov/
+    - cp -rT doc/site public/${DOC_DIR}/
+    - cp -rT build/sphinx/html public/${DOC_DIR}/api/
+    - cp -rT htmlcov public/${DOC_DIR}/htmlcov/
   artifacts:
     paths:
       - public
     expire_in: 7 days
   only:
+    - tags
     - master
+  
+deploy_bliss:
+  stage: deploy
+  tags: 
+    - conda
+    - builder
+    - linux
+  script:
+    # for tags with 'rc' the package will be published to http://bcu-ci.esrf.fr/stable/
+    # for other tags the package will be published to http://bcu-ci.esrf.fr/stable/
+    - if [[ $COMMIT_TAG == *rc* ]]; then export BASEDIR='/conda-devel'; else export BASEDIR='/conda'; fi
+    - cp -r dist/linux-64/*.tar.bz2 ${BASEDIR}/linux-64/
+    # Updating conda package index metadata
+    - conda index ${BASEDIR}
+  only:
+    - tags

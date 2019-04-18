@@ -75,6 +75,8 @@ def generate_release_file():
         process = subprocess.run(
             ["git", "describe", "--tags", "--always"], capture_output=True, cwd=dirname
         )
+        if process.returncode:
+            raise Exception("Not a git repository")
     except:
         version = "master"
     else:
@@ -95,10 +97,11 @@ def generate_release_file():
 # Copyright (c) 2016 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-#Single source of truth for the version number and the like
+# Single source of truth for the version number and the like
 
 import os
 import subprocess
+
 dirname = os.path.dirname(__file__)
 
 name = "{name}"
@@ -109,15 +112,17 @@ copyright = "{copyright}"
 description = "{description}"
 url = "{url}"
 try:
-    process = subprocess.run(["git","describe","--tags","--always"],
-                             capture_output=True,
-                             cwd=dirname)
+    process = subprocess.run(
+        ["git", "describe", "--tags", "--always"], capture_output=True, cwd=dirname
+    )
+    if process.returncode:
+        raise Exception("Not a git repository")
 except:
     short_version = version = "{version}"
 else:
     short_version = version = process.stdout.strip().decode()
-    
-version_info = [x.split('-')[0] for x in version.split('.')]
+
+version_info = [x.split("-")[0] for x in version.split(".")]
 """
     with open(os.path.join(dirname, "bliss", "release.py"), "w") as f:
         f.write(src)

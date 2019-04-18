@@ -1,29 +1,38 @@
 # Conda requirements file
-python >= 3.7
-gevent >= 1.4
-redis-py >= 3.2
-redis >= 5.0
-jinja2 >= 2.7
-flask
-jedi
+blessings
+colorama
 docopt
-numpy >= 1.13
-tabulate
-pyserial > 2
-h5py
-msgpack-python >= 0.6.1
-pyzmq
-pytango > 9.2.4
-h5py
-pygments
-sqlalchemy
-pandas
-mock
-silx == 0.10.1
-psutil
-requests
-prompt_toolkit >= 2.0
+flask
+louie
+gevent >= 1.4
 gxx_linux-64
+h5py
+jedi
+jinja2 >= 2.7
+mendeleev
+mock
+msgpack-numpy >= 0.4.4.2
+msgpack-python >= 0.6.1
+netifaces
 networkx
+numpy >= 1.13
+pandas
+pint
+prompt_toolkit >= 2.0
+psutil
+ptpython >= 2.0
+pyfiglet
+pygments
 pygraphviz >= 1.5
+pyserial > 2
+tango >= 9.3.2
+python >= 3.7
 pyyaml >= 5.1
+pyzmq
+redis >= 5.0
+redis-py >= 3.2
+requests
+silx == 0.10.1
+sqlalchemy
+tabulate
+treelib

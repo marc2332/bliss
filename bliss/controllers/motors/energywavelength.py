@@ -71,7 +71,7 @@ class EnergyWavelength(CalcController):
         axis.no_offset = self.no_offset
         if not self.energy_array:
             event.connect(axis, "dspace", self._calc_from_real)
-        axis.unit = axis.config.get("unit", str, default="keV")
+        axis._unit = axis.config.get("unit", str, default="keV")
 
     def _load_en_table(self, filename):
         """Load the look-up table.

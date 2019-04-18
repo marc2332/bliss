@@ -148,11 +148,13 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert vars["scan_acq_chain"] == {
         master.name: {
             "display_names": {"diode:diode": "diode"},
+            "scalars_units": {"diode:diode": None},
             "scalars": ["diode:diode"],
             "images": [],
             "spectra": [],
             "master": {
                 "scalars": ["%s:m1" % master.name],
+                "scalars_units": {"%s:m1" % master.name: None},
                 "images": [],
                 "spectra": [],
                 "display_names": {"%s:m1" % master.name: "m1"},

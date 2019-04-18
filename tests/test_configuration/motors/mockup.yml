@@ -16,6 +16,7 @@ controller:
     acceleration: 300
     low_limit: -1000
     high_limit: 1000000000.0
+    unit: mm
   - name: robz2
     steps_per_unit: 10000
     velocity: 1000

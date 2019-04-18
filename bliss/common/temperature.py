@@ -26,7 +26,9 @@ class TempControllerCounter(SamplingCounter):
     """
 
     def __init__(self, name, parent):
-        SamplingCounter.__init__(self, name, parent)
+        SamplingCounter.__init__(
+            self, name, parent, unit=parent.config.get("unit", None)
+        )
         self.parent = parent
 
     def read(self):

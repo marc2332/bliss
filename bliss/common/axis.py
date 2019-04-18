@@ -618,6 +618,7 @@ class Axis(AliasMixin, LogMixin):
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
         mapping.register(self, parents_list=[self.__controller], tag=f"axis.{name}")
+        self._unit = self.config.get("unit", str, None)
 
     def close(self):
         try:
@@ -626,6 +627,11 @@ class Axis(AliasMixin, LogMixin):
             pass
         else:
             controller_close()
+
+    @property
+    def unit(self):
+        """Axis name"""
+        return self._unit
 
     @property
     def name(self):

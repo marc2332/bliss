@@ -3,12 +3,12 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''
+"""
 Replaces header of bliss source code
-'''
+"""
 
 import shutil
 import os.path
@@ -19,58 +19,58 @@ import magic
 
 
 # header for .c, .cpp, .h, .hpp, .js, .css, .java
-HEADER = '''\
+HEADER = """\
 /* -*- coding: utf-8 -*- */
 /*
  * This file is part of the bliss project
  *
- * Copyright (c) 2016 Beamline Control Unit, ESRF
+ * Copyright (c) 2015-2019 Beamline Control Unit, ESRF
  * Distributed under the GNU LGPLv3. See LICENSE for more info.
 */
 
-'''
+"""
 
-HTML_HEADER = '''\
+HTML_HEADER = """\
 <!--
  This file is part of the bliss project
 
- Copyright (c) 2016 Beamline Control Unit, ESRF
+ Copyright (c) 2015-2019 Beamline Control Unit, ESRF
  Distributed under the GNU LGPLv3. See LICENSE for more info.
 -->
-'''
+"""
 
-PY_HEADER = '''\
+PY_HEADER = """\
 # -*- coding: utf-8 -*-
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-'''
+"""
 
 PY_HEADER_LINES = PY_HEADER.splitlines(True)
 
 
 def __replace_py_lines_iter(lines):
-    '''
+    """
     Formats the lines coming from a read of a file
 
     :param iterable<str> lines: sequence of lines
-    '''
-    if lines:      # prevent error in empty files (ex: __init__.py files)
+    """
+    if lines:  # prevent error in empty files (ex: __init__.py files)
         # replace binary chevron
-        if lines[0].startswith('#!'):
-            yield '#!/usr/bin/env python\n'
+        if lines[0].startswith("#!"):
+            yield "#!/usr/bin/env python\n"
             lines.pop(0)
 
         # replace encoding chevron
-        if 'coding' in lines[0] and 'utf' in lines[0]:
+        if "coding" in lines[0] and "utf" in lines[0]:
             lines.pop(0)
 
         for i, line in enumerate(lines):
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
             break
         lines = lines[i:]
@@ -82,14 +82,14 @@ def __replace_py_lines_iter(lines):
 
 
 def replace_py_file(file_name):
-    '''
+    """
     Replaces the given python file
 
     :param str file_name: absolute path to python file
-    '''
-    prefix = 'tmp_{0}_'.format(os.path.basename(file_name))
-    with NamedTemporaryFile(mode='w', prefix=prefix, delete=False) as fout:
-        with file(file_name, mode='r') as fin:
+    """
+    prefix = "tmp_{0}_".format(os.path.basename(file_name))
+    with NamedTemporaryFile(mode="w", prefix=prefix, delete=False) as fout:
+        with file(file_name, mode="r") as fin:
             lines_iter = __replace_py_lines_iter(fin.readlines())
             fout.writelines(lines_iter)
     os.unlink(file_name)
@@ -99,19 +99,19 @@ def replace_py_file(file_name):
 
 
 def replace_multiline_comment_file(file_name, header=HEADER):
-    '''
+    """
     Replace the given multi line based comment files (/* */, <!-- -->)
     (.c, .cpp, .h, .hpp, .js, .css, .html, .java)
 
     :param str file_name: absolute path to file
-    '''
+    """
     # multi line comment patterns are to hard to parse so this
     # just inserts a header in the beginning of the file no matter what.
     # after it needs a human hand to clean up
-    prefix = 'tmp_{0}_'.format(os.path.basename(file_name))
-    with NamedTemporaryFile(mode='w', prefix=prefix, delete=False) as fout:
+    prefix = "tmp_{0}_".format(os.path.basename(file_name))
+    with NamedTemporaryFile(mode="w", prefix=prefix, delete=False) as fout:
         fout.write(header)
-        with file(file_name, mode='r') as fin:
+        with file(file_name, mode="r") as fin:
             fout.write(fin.read())
     os.unlink(file_name)
     # must use shutil because temp file might be in another device
@@ -120,36 +120,36 @@ def replace_multiline_comment_file(file_name, header=HEADER):
 
 
 FTYPE_MAP = {
-    'text/x-python': replace_py_file,
-    'text/x-c': replace_multiline_comment_file,
-    'text/html': functools.partial(replace_multiline_comment_file,
-                                   header=HTML_HEADER),
+    "text/x-python": replace_py_file,
+    "text/x-c": replace_multiline_comment_file,
+    "text/html": functools.partial(replace_multiline_comment_file, header=HTML_HEADER),
 }
 
+
 def replace_file(file_name):
-    '''
+    """
     Replaces the given file
 
     :param str file_name: absolute path to file
-    '''
+    """
     with magic.Magic(flags=magic.MAGIC_MIME_TYPE) as fmagic:
         fid = fmagic.id_filename(file_name)
         if fid in FTYPE_MAP:
             return FTYPE_MAP[fid](file_name)
         # magic does not discover .js or .css files
-        elif file_name.endswith('.js') or file_name.endswith('.css'):
+        elif file_name.endswith(".js") or file_name.endswith(".css"):
             return replace_multiline_comment_file(file_name)
         return False
 
 
 def replace_dir(filters, dir_name, file_names):
-    '''
+    """
     Replaces given directory
 
     :param iterable<str> filters: list of filters
     :param str dir_name: directory name
     :param iterable<str> file_names: list of filenames
-    '''
+    """
     for file_name in tuple(file_names):
         for filt in filters:
             if shutil.fnmatch.fnmatch(file_name, filt):
@@ -158,36 +158,37 @@ def replace_dir(filters, dir_name, file_names):
         full_name = os.path.join(dir_name, file_name)
         if os.path.isfile(full_name):
             if replace_file(full_name):
-                print('  Reformatted {0}'.format(full_name))
+                print("  Reformatted {0}".format(full_name))
                 file_names.remove(file_name)
 
 
 def replace_project(pdir):
-    '''
+    """
     Replaces entire project directory
 
     :param str pdir: project directory
-    '''
-    filters = '.*',
+    """
+    filters = (".*",)
     pdir = os.path.expanduser(pdir)
     os.path.walk(pdir, replace_dir, filters)
 
 
 def main():
-    '''main function'''
+    """main function"""
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('file_or_dir', help='file or directory (recursive)')
+    parser.add_argument("file_or_dir", help="file or directory (recursive)")
 
     args = parser.parse_args()
 
     base = os.path.realpath(os.path.expanduser(args.file_or_dir))
 
-    print_('Replacing {0}'.format(base))
+    print_("Replacing {0}".format(base))
 
     func = replace_project if os.path.isdir(base) else replace_py_file
     func(base)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

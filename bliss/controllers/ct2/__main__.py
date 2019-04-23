@@ -1,15 +1,10 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of the CT2 project
+# This file is part of the bliss project
 #
-# Copyright (c) : 2015
-# Beamline Control Unit, European Synchrotron Radiation Facility
-# BP 220, Grenoble 38043
-# FRANCE
-#
-# Distributed under the terms of the GNU Lesser General Public License,
-# either version 3 of the License, or (at your option) any later version.
-# See LICENSE.txt for more info.
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.static import get_config
 from bliss.controllers.ct2 import device

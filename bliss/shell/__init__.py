@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """Shell (:term:`CLI` and Web based)"""
@@ -78,7 +78,7 @@ def initialize(session_name=None):
         "Welcome to BLISS %s running on {t.blue}%s{t.normal} %s".format(t=t)
         % (_version, _hostname, _conda_env)
     )
-    print("Copyright (c) ESRF, 2015-2018")
+    print("Copyright (c) 2015-2019 Beamline Control Unit, ESRF")
     print("-")
     print(
         "Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t)

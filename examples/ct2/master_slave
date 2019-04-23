@@ -3,7 +3,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
@@ -32,35 +32,54 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--log-level', default='INFO',
-                    choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO',
-                             'DEBUG'],
-                    help='log level',  type=lambda c: c.upper())
-parser.add_argument('master_card_name',
-                    help='bliss configuration name of the CT2 card')
-parser.add_argument('slave_card_name',
-                    help='bliss configuration name of the slave CT2 card')
-parser.add_argument('expo_time', default=1.0, type=float,
-                    help='exposure time [default: %(default)s]')
-parser.add_argument('point_period', default=1.1, type=float,
-                    help='point period [default: %(default)s]')
-parser.add_argument('nb_points', default=1, type=int,
-                    help='number of acquisition points [default: %(default)s]')
-parser.add_argument('--master_output_channel', default=None, type=int,
-                    help='master CT2 output channel [default: %(default)s, meaning ' \
-                         'use the output channel defined in the static configuration]')
-parser.add_argument('--slave_input_channel', default=None, type=int,
-                    help='slave CT2 input channel [default: %(default)s, meaning ' \
-                         'use the input channel defined in the static configuration]')
+parser.add_argument(
+    "--log-level",
+    default="INFO",
+    choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+    help="log level",
+    type=lambda c: c.upper(),
+)
+parser.add_argument("master_card_name", help="bliss configuration name of the CT2 card")
+parser.add_argument(
+    "slave_card_name", help="bliss configuration name of the slave CT2 card"
+)
+parser.add_argument(
+    "expo_time", default=1.0, type=float, help="exposure time [default: %(default)s]"
+)
+parser.add_argument(
+    "point_period", default=1.1, type=float, help="point period [default: %(default)s]"
+)
+parser.add_argument(
+    "nb_points",
+    default=1,
+    type=int,
+    help="number of acquisition points [default: %(default)s]",
+)
+parser.add_argument(
+    "--master_output_channel",
+    default=None,
+    type=int,
+    help="master CT2 output channel [default: %(default)s, meaning "
+    "use the output channel defined in the static configuration]",
+)
+parser.add_argument(
+    "--slave_input_channel",
+    default=None,
+    type=int,
+    help="slave CT2 input channel [default: %(default)s, meaning "
+    "use the input channel defined in the static configuration]",
+)
 
 
 args = parser.parse_args()
 
-logging.basicConfig(format='%(levelname)s %(asctime)-15s %(name)s: %(message)s',
-                    level=getattr(logging, args.log_level))
+logging.basicConfig(
+    format="%(levelname)s %(asctime)-15s %(name)s: %(message)s",
+    level=getattr(logging, args.log_level),
+)
 
 if args.point_period <= args.expo_time:
-    parser.error('point_period must be bigger than expo_time')
+    parser.error("point_period must be bigger than expo_time")
 
 config = get_config()
 
@@ -88,39 +107,50 @@ with contextlib.closing(master_device), contextlib.closing(slave_device):
     slave_finish_event = Event()
 
     last_master = time.time()
+
     def on_master_card_event(value, signal, sender):
         global last_master
         curr = time.time()
         dt = curr - last_master
         last_master = curr
-        logging.info('Event from=%s signal=%s value=%s elapsed=%s',
-                     sender.name, signal, value, dt)
+        logging.info(
+            "Event from=%s signal=%s value=%s elapsed=%s",
+            sender.name,
+            signal,
+            value,
+            dt,
+        )
         if signal == StatusSignal and value == AcqStatus.Ready:
             master_finish_event.set()
 
     last_slave = time.time()
+
     def on_slave_card_event(value, signal, sender):
         global last_slave
         curr = time.time()
         dt = curr - last_slave
         last_slave = curr
-        logging.info('Event from=%s signal=%s value=%s elapsed=%s',
-                     sender.name, signal, value, dt)
+        logging.info(
+            "Event from=%s signal=%s value=%s elapsed=%s",
+            sender.name,
+            signal,
+            value,
+            dt,
+        )
         if signal == StatusSignal and value == AcqStatus.Ready:
             slave_finish_event.set()
 
     def triggers(n, period):
         # need n-1 triggers
-        logging.info('Start trigger loop')
+        logging.info("Start trigger loop")
         start = time.time()
         i = 0
         while i < n:
-            sleep((start + (i+1)*period) - time.time())
-            logging.info('Triggering...')
+            sleep((start + (i + 1) * period) - time.time())
+            logging.info("Triggering...")
             master_device.trigger_point()
             i += 1
-        logging.info('finished triggering')
-
+        logging.info("finished triggering")
 
     dispatcher.connect(on_master_card_event, sender=master_device)
     dispatcher.connect(on_slave_card_event, sender=slave_device)
@@ -129,7 +159,7 @@ with contextlib.closing(master_device), contextlib.closing(slave_device):
     master_device.prepare_acq()
     slave_device.start_acq()
     start = time.time()
-    trigger_task = spawn(triggers, args.nb_points-1, args.point_period)
+    trigger_task = spawn(triggers, args.nb_points - 1, args.point_period)
     master_device.start_acq()
 
     try:
@@ -140,15 +170,23 @@ with contextlib.closing(master_device), contextlib.closing(slave_device):
         slave_device.stop_acq()
 
     end = time.time()
-    logging.info('Finished! Took %fs' % (end-start))
+    logging.info("Finished! Took %fs" % (end - start))
 
     master_data = master_device.get_data()
     m_cols, m_points = master_data.shape
     slave_data = slave_device.get_data()
     s_cols, s_points = slave_data.shape
-    m_channels = ', '.join(map(str, master_device.acq_channels))
-    s_channels = ', '.join(map(str, slave_device.acq_channels))
-    logging.info('Master card %r has %d point(s) of [%s, time, point_nb]',
-                 master_device.name, m_cols, m_channels)
-    logging.info('Slave card %r has %d point(s) of [%s, time, point_nb]',
-                 slave_device.name, s_cols, s_channels)
+    m_channels = ", ".join(map(str, master_device.acq_channels))
+    s_channels = ", ".join(map(str, slave_device.acq_channels))
+    logging.info(
+        "Master card %r has %d point(s) of [%s, time, point_nb]",
+        master_device.name,
+        m_cols,
+        m_channels,
+    )
+    logging.info(
+        "Slave card %r has %d point(s) of [%s, time, point_nb]",
+        slave_device.name,
+        s_cols,
+        s_channels,
+    )

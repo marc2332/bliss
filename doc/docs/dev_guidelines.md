@@ -277,7 +277,7 @@ Here is a template that can be used to start writing a new bliss module:
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2019 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """A brief description goes here.

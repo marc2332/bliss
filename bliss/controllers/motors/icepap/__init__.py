@@ -341,6 +341,9 @@ class Icepap(Controller, LogMixin):
             raise RuntimeError("Home switch not found.")
         return state
 
+    def home_pos(self, axis):
+        return int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
+
     def limit_search(self, axis, limit):
         cmd = "SRCH LIM" + ("+" if limit > 0 else "-")
         _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))

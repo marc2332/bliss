@@ -287,7 +287,7 @@ def main():
                     win2,
                     "python",
                     "-m",
-                    "bliss.data.display.start_listener",
+                    "bliss.data.start_listener",
                     session,
                 ]
             )

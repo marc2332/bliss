@@ -7,7 +7,7 @@
 
 """
  
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [-t | --notmux]
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -22,7 +22,7 @@ Options:
     -c, --create=<session_name>   Create a new session with the given name
     -d, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
-    -t, --notmux                  Deactivate Tmux usage
+    --no-tmux                     Deactivate Tmux usage
     --show-sessions               Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
@@ -229,14 +229,16 @@ def main():
     else:
         session_name = None
 
-    if arguments["--notmux"]:
+    if arguments["--no-tmux"] or sys.platform in ["win32", "cygwin"]:
         # If session_name is None, an empty session is started.
         embed(session_name=session_name)
 
     else:
 
-        if session_name == None:
-            session = "empty_session"
+        if session_name is None:
+            session = (
+                f"__DEFAULT__{os.getpid()}"
+            )  # see __DEFAULT__ in bliss.shell.cli.repl => def cli()
         else:
             session = session_name
 

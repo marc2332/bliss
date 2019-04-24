@@ -15,6 +15,7 @@ import operator
 import termios
 import shutil
 import signal
+import subprocess
 
 from bliss.data.scan import watch_session_scans
 
@@ -567,8 +568,7 @@ class ScanEventHandler:
         self.repl = repl
 
     def on_scan_new(self, scan_info):
-        self.repl.tmux_session.select_window("scan")
-        pass
+        subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
 
     def on_scan_data(self, scan_info, values):
         pass

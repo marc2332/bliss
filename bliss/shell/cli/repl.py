@@ -16,9 +16,6 @@ import traceback
 import gevent
 import time
 
-import libtmux
-
-
 from ptpython.repl import PythonRepl
 
 from prompt_toolkit.keys import Keys
@@ -218,7 +215,9 @@ class BlissRepl(PythonRepl):
         # toolbars = list(kwargs.pop("extra_toolbars", ()))
         # kwargs["_extra_toolbars"] = [bliss_bar] + toolbars
 
-        self.session_name = kwargs.pop("session_name")
+        # Catch and remove additional kwargs
+        self.session_name = kwargs.pop("session_name", "default")
+        self.use_tmux = kwargs.pop("use_tmux", False)
 
         super(BlissRepl, self).__init__(*args, **kwargs)
 
@@ -243,24 +242,9 @@ class BlissRepl(PythonRepl):
         # PTPYTHON SHELL PREFERENCES
         self.enable_history_search = True
         self.show_status_bar = True
-        self.confirm_exit = False
+        self.confirm_exit = True
 
         self.typing_helper = TypingHelper(self)
-
-        # TMUX
-        self.tmux_server = libtmux.Server()
-
-        try:
-
-            self.tmux_session = self.tmux_server.find_where(
-                {"session_name": self.session_name}
-            )
-            print("Connecting to tmux_session", self.tmux_session)
-
-        except:
-            print("Cannot find a tmux session %s" % self.session_name)
-            self.tmux_server = None
-            self.tmux_session = None
 
     def _execute_task(self, *args, **kwargs):
         try:
@@ -335,7 +319,12 @@ def old_history_cmd():
 
 
 def cli(
-    locals=None, session_name=None, vi_mode=False, startup_paths=None, eventloop=None
+    locals=None,
+    session_name=None,
+    vi_mode=False,
+    startup_paths=None,
+    eventloop=None,
+    use_tmux=False,
 ):
     """
     Create a command line interface without running it::
@@ -354,7 +343,11 @@ def cli(
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
-    user_ns, session = initialize(session_name)
+
+    if session_name and not session_name.startswith("__DEFAULT__"):
+        user_ns, session = initialize(session_name)
+    else:
+        user_ns, session = initialize(session_name=None)
 
     import __main__
 
@@ -369,7 +362,7 @@ def cli(
     def get_globals():
         return __main__.__dict__
 
-    if session_name:
+    if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name
         session_title = "Bliss shell ({0})".format(session_name)
         history_filename = ".%s_%s_history" % (
@@ -398,6 +391,7 @@ def cli(
         history_filename=history_filename,
         startup_paths=startup_paths,
         session_name=session_name,
+        use_tmux=use_tmux,
     )
 
     global REPL
@@ -442,10 +436,7 @@ def embed(*args, **kwargs):
     try:
         cmd_line_i = cli(*args, **kwargs)
 
-        if (
-            sys.platform not in ["win32", "cygwin"]
-            and cmd_line_i.tmux_session is not None
-        ):
+        if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
             # Catch scan events to show the scan display window
             seh = ScanEventHandler(cmd_line_i)
             set_scan_watch_callbacks(

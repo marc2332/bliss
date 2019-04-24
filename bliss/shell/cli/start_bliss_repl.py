@@ -12,7 +12,7 @@ from bliss.shell.cli.repl import embed
 
 def main():
     session_name = sys.argv[1]
-    embed(session_name=session_name)
+    embed(session_name=session_name, use_tmux=True)
 
 
 if __name__ == "__main__":

@@ -353,7 +353,7 @@ if m0.state.MOVING:
  determine allowed actions on an axis object.
 
 It is possible to define custom states (see
-[how to write motor controllers](dev_write_motctrl.mdMotor controllers assign states to `Axis` objects.)).
+[how to write motor controllers](dev_write_motctrl.md)).
 
 !!! note
     `state` property is the list of current states, not the list

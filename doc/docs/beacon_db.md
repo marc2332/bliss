@@ -95,7 +95,8 @@ Produce the following internal representation:
 
 ```py
 >>> from bliss.config.static import get_config
->>> config = get_config() # load YAML tree from Beacon server, and parse it to create a 'config' object
+>>> config = get_config()  # loads YAML tree from Beacon server,
+                           # and parse it to create a 'config' object
 >>> config.pprint()
 
 { filename: None
@@ -137,7 +138,7 @@ children:
 my_global: hello
 ```
 
-```py
+```python
 >>> config.reload() # since the files changed, reload all config from server
 >>> object_1 = config.get("object_1") #indexing by name (flattened dictionary)
 >>> object_1.get_inherited("my_global")
@@ -149,7 +150,7 @@ hello
 When restarting a SPEC session, all the config was reloaded and
 parameters taken into account automatically.
 
-For performance consideration, in BLISS:
+For performance considerations, in BLISS:
 
 * the config is reloaded:
     * on-demand: `config.reload()`
@@ -164,17 +165,16 @@ For performance consideration, in BLISS:
 
 Changing a configuration parameter, example of the velocity of a BlissAxis.
 
-![Changing a configuration parameter](img/apply_config_path.svg)
+![Changing a configuration parameter](img/apply_config.png)
 
 
 ## Saving parameters
 
-example to save the velocity of an axis into YAML configuration file:
+Example to save the velocity of an axis into YAML configuration file:
 
 ```python
 DEMO [1]: m1.config.set("velocity", 9)
 DEMO [2]: m1.config.save()
 ```
 
-??? no easier way ?
 

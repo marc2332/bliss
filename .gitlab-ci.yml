@@ -145,7 +145,7 @@ pages:
     - mkdir -p public/${DOC_DIR}/htmlcov/
     - cp -rT doc/site public/${DOC_DIR}/
     - cp -rT build/sphinx/html public/${DOC_DIR}/api/
-    - cp -rT htmlcov public/${DOC_DIR}/htmlcov/
+    - cp -rT htmlcov public/${DOC_DIR}/htmlcov/ || :
   artifacts:
     paths:
       - public

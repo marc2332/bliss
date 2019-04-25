@@ -20,12 +20,14 @@ environment can - of cause - be chosen freely):
 !!! note
     ESRF BCU conda channels need to be configured, as well as channels providing BLISS dependencies
 
+```bash
     $ conda create --name bliss_env
     $ conda activate bliss_env
     $ conda config --env --add channels esrf-bcu
     $ conda config --env --append channels conda-forge
     $ conda config --env --append channels tango-controls
     $ conda install bliss
+```
 
 ### From source
 

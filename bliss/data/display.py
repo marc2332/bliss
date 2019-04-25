@@ -24,8 +24,9 @@ from bliss.config import static
 from bliss.common.utils import counter_dict
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
-from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.config.settings import HashSetting
+from bliss.scanning.scan import set_scan_watch_callbacks
+
 
 
 if sys.platform not in ["win32", "cygwin"]:
@@ -203,7 +204,7 @@ class ScanPrinter:
         motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
         counter_values = [
             values[counter_fullname]
-            for counter_fullname in sorted(self.counter_fullnames)
+            for counter_fullname in self.counter_fullnames  #sorted
         ]
 
         values = elapsed_time_col + motor_values + counter_values
@@ -536,7 +537,8 @@ class ScanDataListener:
         self.scan_is_running = False
 
     def start(self):
-
+        
+        # Prevent user to close the listener with Ctrl-C
         signal.signal(signal.SIGINT, catch_sigint)
 
         # Prevent user inputs

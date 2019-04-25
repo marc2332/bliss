@@ -99,6 +99,7 @@ class ErrorReport:
 
 
 ERROR_REPORT = ErrorReport()
+ERROR_REPORT.expert_mode = True
 
 # patch the system exception hook
 def repl_excepthook(exc_type, exc_value, tb):
@@ -448,11 +449,6 @@ def embed(*args, **kwargs):
         else:
             # set old style print methods for the scans
             scan_printer = ScanPrinter()
-            #set_scan_watch_callbacks(
-            #    scan_printer.on_scan_new,
-            #    scan_printer.on_scan_data,
-            #    scan_printer.on_scan_end,
-            #)
 
         if stop_signals:
 

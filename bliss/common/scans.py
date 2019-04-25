@@ -1349,6 +1349,7 @@ def plotselect(*counters):
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
 
+
 def scan_display_filter(*counters):
     """
     Select counter(s) which will be displayed in scan output. If no counters are given, it clears the filter list.
@@ -1364,8 +1365,9 @@ def scan_display_filter(*counters):
             fullname = fullname.replace(".", ":", 1)
             if not fullname.find(":") > -1:
                 fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
-            counter_names[fullname] = "Y1"
+            counter_names[fullname] = cnt.alias_or_name
         display_select.set(counter_names)
+
 
 def _remove_real_dependent_of_calc(motors):
     """

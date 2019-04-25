@@ -53,6 +53,23 @@ class SimulationDiodeSamplingCounter(SamplingCounter):
         return "Simulation diode in SamplingCounter mode."
 
 
+class CstSimulationDiodeSamplingCounter(SamplingCounter):
+    def __init__(self, *args, **kwargs):
+        super(CstSimulationDiodeSamplingCounter, self).__init__(*args, **kwargs)
+        self.cst_val = 0
+
+    def set_cst_value(self, value):
+        self.cst_val = value
+
+    def read(self, sleep=True):
+        if sleep:
+            gevent.sleep(0.01)  # simulate hw reading
+        return self.cst_val
+
+    def __repr__(self):
+        return "Simulation diode in SamplingCounter mode."
+
+
 class SimulationDiodeIntegratingCounter(IntegratingCounter):
     def get_values(self, from_index, sleep=True):
         if sleep:
@@ -70,4 +87,8 @@ def simulation_diode(name, config, default=DEFAULT_CONTROLLER):
     controller = None if config.get("independent") else default
     if config.get("integration"):
         return SimulationDiodeIntegratingCounter(name, controller, lambda: None)
+    if config.get("constant") is not None:
+        diode = CstSimulationDiodeSamplingCounter(name, controller)
+        diode.set_cst_value(int(config.get("constant")))
+        return diode
     return SimulationDiodeSamplingCounter(name, controller)

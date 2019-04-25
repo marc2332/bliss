@@ -28,7 +28,6 @@ from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 
 
-
 if sys.platform not in ["win32", "cygwin"]:
     from blessings import Terminal
 else:
@@ -100,6 +99,8 @@ class ScanPrinter:
         if nb_points is None:
             return
 
+        # print("acquisition_chain",scan_info["acquisition_chain"])
+
         self.col_labels = ["#"]
         self.real_motors = []
         self.counter_names = []
@@ -110,14 +111,16 @@ class ScanPrinter:
 
         master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
-        for channel_name in channels["master"]["scalars"]:
-            channel_short_name = channels["master"]["display_names"][channel_name]
+        for channel_fullname in channels["master"]["scalars"]:
+            channel_short_name = channels["master"]["display_names"][channel_fullname]
+            channel_unit = channels["master"]["scalars_units"][channel_fullname]
+
             # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
-                self.col_labels.insert(1, "dt[s]")
+                self.col_labels.insert(1, f"dt[{channel_unit}]")
             else:
-                # we can suppose channel_name to be a motor name
+                # we can suppose channel_fullname to be a motor name
                 try:
                     motor = _find_obj(channel_short_name)
                 except Exception:
@@ -139,19 +142,23 @@ class ScanPrinter:
                         self.motor_fullnames.append("axis:" + motor.name)
 
         for channel_fullname in channels["scalars"]:
-            channel_name = channels["display_names"][channel_fullname]
-            if channel_name == "elapsed_time":
+            channel_short_name = channels["display_names"][channel_fullname]
+            channel_unit = channels["scalars_units"][channel_fullname]
+
+            if channel_short_name == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
-            self.counter_names.append(channel_name)  ### TODO: Missing units for now!!
+            self.counter_names.append(
+                channel_short_name + (f"[{channel_unit}]" if channel_unit else "")
+            )
             self.counter_fullnames.append(channel_fullname)
 
         self.col_labels.extend(motor_labels)
         self.col_labels.extend(self.counter_names)
 
         other_channels = [
-            channels["display_names"][channel_name]
-            for channel_name in channels["spectra"] + channels["images"]
+            channels["display_names"][channel_fullname]
+            for channel_fullname in channels["spectra"] + channels["images"]
         ]
         if other_channels:
             not_shown_counters_str = "Activated counters not shown: %s\n" % ", ".join(
@@ -203,8 +210,7 @@ class ScanPrinter:
 
         motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
         counter_values = [
-            values[counter_fullname]
-            for counter_fullname in self.counter_fullnames  #sorted
+            values[counter_fullname] for counter_fullname in self.counter_fullnames
         ]
 
         values = elapsed_time_col + motor_values + counter_values
@@ -297,7 +303,7 @@ class ScanDataListener:
         self.counter_selection = list(ps.keys())
 
     def get_selected_counters(self, counter_names):
-        if self.counter_selection == []:
+        if not self.counter_selection:
             return counter_names
 
         selection = []
@@ -361,38 +367,58 @@ class ScanDataListener:
             # estimation = scan_info.get('estimation')                 # ex: {'total_motion_time': 2.298404048112306, 'total_count_time': 0.1, 'total_time': 2.398404048112306}
             # acquisition_chain = scan_info.get('acquisition_chain')   # ex: {'axis': {'master': {'scalars': ['axis:roby'], 'spectra': [], 'images': []}, 'scalars': ['timer:elapsed_time', 'diode:diode'], 'spectra': [], 'images': []}}
 
-            acquisition_chain = scan_info.get("acquisition_chain")
-
-            self.channel_names = acquisition_chain["axis"]["master"][
-                "scalars"
-            ] + self.get_selected_counters(acquisition_chain["axis"]["scalars"])
-            self.channels_number = len(
-                acquisition_chain["axis"]["master"]["scalars"]
-            ) + len(acquisition_chain["axis"]["scalars"])
-
             self.scan_steps_index = 1
             self.col_labels = ["#"]
             self._point_nb = 0
 
-            # GET THE LIST OF CHANNELS ('scalars')
-            self.channel_short_names = []
-            for channel_name in self.channel_names:
-                idx = channel_name.rfind(":") + 1
-                channel_short_name = channel_name[idx:]
-                if channel_short_name == "elapsed_time":
-                    self.col_labels.insert(1, "dt[s]")
-                else:
-                    self.channel_short_names.append(channel_short_name)
+            master, channels = next(iter(scan_info["acquisition_chain"].items()))
 
-            self.col_labels.extend(self.channel_short_names)
+            selected_counters = self.get_selected_counters(channels["scalars"])
+
+            self.channel_names = channels["master"]["scalars"] + selected_counters
+
+            # get the number of masters and counters unfiltered
+            self.channels_number = len(channels["master"]["scalars"]) + len(
+                channels["scalars"]
+            )
+
+            # BUILD THE LABEL COLUMN
+            channel_labels = []
+            # GET THE LIST OF MASTER CHANNELS SHORT NAMES
+            for channel_name in channels["master"]["scalars"]:
+                channel_short_name = channels["master"]["display_names"][channel_name]
+                channel_unit = channels["master"]["scalars_units"][channel_name]
+
+                if channel_short_name == "elapsed_time":
+                    self.col_labels.insert(1, f"dt[{channel_unit}]")
+                else:
+                    channel_labels.append(
+                        channel_short_name
+                        + (f"[{channel_unit}]" if channel_unit else "")
+                    )
+
+            # GET THE LIST OF SCALAR CHANNELS SHORT NAMES
+            for channel_name in selected_counters:
+                channel_short_name = channels["display_names"][channel_name]
+                channel_unit = channels["scalars_units"][channel_name]
+
+                if channel_short_name == "elapsed_time":
+                    self.col_labels.insert(1, f"dt[{channel_unit}]")
+                else:
+                    channel_labels.append(
+                        channel_short_name
+                        + (f"[{channel_unit}]" if channel_unit else "")
+                    )
+
+            self.col_labels.extend(channel_labels)
 
             # GET THE LIST OF OTHER CHANNELS ('spectra' and 'images')
-            channels = acquisition_chain["axis"]
             other_channels = []
             for channel_name in channels["spectra"] + channels["images"]:
-                idx = channel_name.rfind(":") + 1
-                channel_short_name = channel_name[idx:]
-                other_channels.append(channel_short_name)
+                # idx = channel_name.rfind(":") + 1
+                # channel_short_name = channel_name[idx:]
+                # other_channels.append(channel_short_name)
+                other_channels.append(channel_name)
 
             if other_channels:
                 not_shown_counters_str = (
@@ -537,7 +563,7 @@ class ScanDataListener:
         self.scan_is_running = False
 
     def start(self):
-        
+
         # Prevent user to close the listener with Ctrl-C
         signal.signal(signal.SIGINT, catch_sigint)
 

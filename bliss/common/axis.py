@@ -332,16 +332,6 @@ def get_axis(name):
     return axis
 
 
-def get_motion_hook(name):
-    cfg = get_config()
-    if name.startswith("$"):
-        name = name[1:]
-    hook = cfg.get(name)
-    if not isinstance(hook, MotionHook):
-        raise TypeError("%s is not a MotionHook" % name)
-    return hook
-
-
 class Modulo:
     def __init__(self, mod=360):
         self.modulo = mod
@@ -582,18 +572,18 @@ class Axis(AliasMixin, LogMixin):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
         self.__move_done_callback.set()
-        motion_hooks = []
-        for hook_ref in config.get("motion_hooks", ()):
-            hook = get_motion_hook(hook_ref)
+        self.__motion_hooks = config.get("motion_hooks", [])
+        hooks = []
+        for hook in self.__motion_hooks:
             hook.add_axis(self)
-            motion_hooks.append(hook)
-        self.__motion_hooks = motion_hooks
+            hooks.append(hook.name)
+        config["motion_hooks"] = hooks
+        self.__config = StaticConfig(config)
         self._group_move = GroupMove()
         self._beacon_channels = dict()
         self._move_stop_channel = Channel(

@@ -356,6 +356,11 @@ def create_objects_from_config_node(config, node):
                 except AttributeError:
                     axis_class = getattr(controller_module, axis_class_name)
             axes_names.append(axis_name)
+        hooks = []
+        for hook in axis_config.get("motion_hooks", ()):
+            if hook.startswith("$"):
+                hooks.append(get_config().get(hook.lstrip("$")))
+        axis_config["motion_hooks"] = hooks
         axes.append((axis_name, axis_class, axis_config))
 
     for objects, objects_names, default_class, default_class_name, objects_config in (

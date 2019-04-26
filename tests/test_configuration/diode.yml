@@ -11,9 +11,23 @@
   name: diode3
   plugin: bliss
   class: simulation_diode
+
 -
   name: integ_diode
   plugin: bliss
   class: simulation_diode
   integration: True
 
+-
+  name: diode4
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+  constant: 4
+  
+-
+  name: diode5
+  plugin: bliss
+  class: simulation_diode
+  independent: True
+  constant: 5

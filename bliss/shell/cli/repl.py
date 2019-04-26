@@ -99,7 +99,7 @@ class ErrorReport:
 
 
 ERROR_REPORT = ErrorReport()
-ERROR_REPORT.expert_mode = True
+# ERROR_REPORT.expert_mode = True
 
 # patch the system exception hook
 def repl_excepthook(exc_type, exc_value, tb):
@@ -175,19 +175,21 @@ from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.scanning.scan import set_scan_watch_callbacks
 
+
 if sys.platform in ["win32", "cygwin"]:
+
     import win32api
-
-
-if sys.platform not in ["win32", "cygwin"]:
-    from blessings import Terminal
-else:
 
     class Terminal:
         def __getattr__(self, prop):
             if prop.startswith("__"):
                 raise AttributeError(prop)
             return ""
+
+
+else:
+
+    from blessings import Terminal
 
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")

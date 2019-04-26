@@ -16,6 +16,7 @@ import termios
 import shutil
 import signal
 import subprocess
+import atexit
 
 from bliss.data.scan import watch_session_scans
 
@@ -291,12 +292,13 @@ class ScanDataListener:
 
     DEFAULT_WIDTH = 12
 
-    def __init__(self, session_name=""):
+    def __init__(self, session_name="", exit_read_fd=None):
 
         self.session_name = session_name
         self.scan_name = None
         self.scan_is_running = None
         self.counter_selection = []
+        self.exit_read_fd = exit_read_fd
 
     def update_counter_selection(self):
         ps = HashSetting(f"{self.session_name}:scan_display_filter")
@@ -562,10 +564,19 @@ class ScanDataListener:
 
         self.scan_is_running = False
 
+    def reset_terminal(self):
+        # Prevent user inputs
+        fd = sys.stdin.fileno()
+        new = termios.tcgetattr(fd)
+        new[3] |= termios.ECHO
+        termios.tcsetattr(fd, termios.TCSANOW, new)
+
     def start(self):
 
         # Prevent user to close the listener with Ctrl-C
         signal.signal(signal.SIGINT, catch_sigint)
+
+        atexit.register(self.reset_terminal)
 
         # Prevent user inputs
         fd = sys.stdin.fileno()
@@ -587,6 +598,7 @@ class ScanDataListener:
             self.on_scan_new_child,
             self.on_scan_data,
             self.on_scan_end,
+            exit_read_fd=self.exit_read_fd,
         )
 
 

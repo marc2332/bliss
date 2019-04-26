@@ -237,15 +237,17 @@ def watch_session_scans(
     scan_data_callback,
     scan_end_callback=None,
     ready_event=None,
+    exit_read_fd=None,
 ):
     session_node = _get_or_create_node(session_name, node_type="session")
 
     if session_node is None:
         return
 
-    data_iterator = DataNodeIterator(session_node)
+    data_iterator = DataNodeIterator(session_node, wakeup_fd=exit_read_fd)
     watch_data_task = None
     rpipe, wpipe = os.pipe()
+
     try:
         pubsub = data_iterator.children_event_register()
         [
@@ -255,10 +257,17 @@ def watch_session_scans(
             )
         ]
         current_scan_node = None
+
         for event_type, scan_node in data_iterator.wait_for_event(
             pubsub, filter="scan"
         ):
-            if event_type == data_iterator.EVENTS.NEW_CHILD:
+            if event_type == data_iterator.EVENTS.EXTERNAL_EVENT:
+                if watch_data_task:
+                    os.write(wpipe, b".")
+                    watch_data_task.join()
+                break
+
+            elif event_type == data_iterator.EVENTS.NEW_CHILD:
                 if (
                     current_scan_node is not None
                     and current_scan_node.db_name == scan_node.db_name
@@ -293,5 +302,5 @@ def watch_session_scans(
                 if scan_data_callback is not None:
                     scan_end_callback(scan_info)
     finally:
-        if watch_data_task is not None:
+        if watch_data_task:
             watch_data_task.kill()

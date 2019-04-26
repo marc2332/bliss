@@ -10,11 +10,10 @@ import sys
 from bliss.data.display import ScanDataListener
 
 
-def main():
-    session_name = sys.argv[1]
-    sdl = ScanDataListener(session_name)
+def main(session_name, exit_read_fd=None):
+    sdl = ScanDataListener(session_name, exit_read_fd)
     sdl.start()
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1])

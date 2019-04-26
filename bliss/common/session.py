@@ -180,6 +180,14 @@ class Session(object):
     def __init__(self, name, config_tree):
         self.__name = name
         self.__env_dict = {}
+        self.__scripts_module_path = None
+        self.__setup_file = None
+        self.__synoptic_file = None
+        self.__config_objects_names = []
+        self.__exclude_objects_names = []
+        self.__objects_names = None
+        self.__children_tree = None
+        self.__include_sessions = []
 
         self.init(config_tree)
 
@@ -436,9 +444,9 @@ class Session(object):
                     pass
             self.__env_dict.clear()
         finally:
-            self.config.close()
             global CURRENT_SESSION
             if CURRENT_SESSION is self:
+                self.config.close()
                 CURRENT_SESSION = None
 
     def _load_config(self, env_dict, verbose=True):
@@ -465,25 +473,13 @@ class Session(object):
             del o
 
     def resetup(self, verbose=False):
-        env_dict = self.env_dict
-
-        for name in self.object_names:
-            delattr(setup_globals, name)
-            try:
-                obj = env_dict.pop(name)
-            except KeyError:
-                pass
-            else:
-                try:
-                    obj.__close__()
-                except Exception:
-                    pass
+        self.close()
 
         self.config.reload()
 
         self.init(self.config.get_config(self.name))
 
-        self.setup(env_dict, verbose)
+        self.setup(self.env_dict, verbose)
 
 
 class DefaultSession(Session):

@@ -361,6 +361,12 @@ def create_objects_from_config_node(config, node):
             if hook.startswith("$"):
                 hooks.append(get_config().get(hook.lstrip("$")))
         axis_config["motion_hooks"] = hooks
+        associated_encoder = axis_config.get("encoder")
+        if associated_encoder:
+            if associated_encoder.startswith("$"):
+                axis_config["encoder"] = get_config().get(
+                    associated_encoder.lstrip("$")
+                )
         axes.append((axis_name, axis_class, axis_config))
 
     for objects, objects_names, default_class, default_class_name, objects_config in (

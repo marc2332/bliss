@@ -11,8 +11,9 @@ import gevent
 
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, ENCODER_AXIS, CalcController
-from bliss.common.axis import Axis, AxisState, get_axis
+from bliss.common.axis import Axis, AxisState
 from bliss.common import event
+from bliss.config.static import get_config
 
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
@@ -108,7 +109,7 @@ class Mockup(Controller):
         self.__encoders[encoder]["steps"] = None
         axis_name = ENCODER_AXIS[encoder.name]
         self.__encoders[encoder]["axis"] = axis_name
-        axis = get_axis(axis_name)
+        axis = get_config().get(axis_name)
         if not axis in self._axis_moves:
             self.initialize_axis(axis)
 
@@ -201,7 +202,7 @@ class Mockup(Controller):
             enc_steps = self.__encoders[encoder]["steps"]
         else:
             axis_name = self.__encoders[encoder]["axis"]
-            axis = get_axis(axis_name)
+            axis = get_config().get(axis_name)
 
             _pos = self.read_position(axis) / float(axis.steps_per_unit)
 

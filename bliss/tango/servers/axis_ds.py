@@ -21,11 +21,11 @@ import gevent
 from gevent.backdoor import BackdoorServer
 
 import bliss.common.log as elog
-from bliss.common.axis import get_axis
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
 from bliss.common.motor_group import Group
+from bliss.common.axis import Axis
 
 import tango
 from tango.server import Device, device_property
@@ -40,6 +40,14 @@ except:
 
     class ConnectionException(Exception):
         pass
+
+
+def get_axis(name):
+    cfg = beacon_get_config()
+    axis = cfg.get(name)
+    if not isinstance(axis, Axis):
+        raise TypeError(f"{name} is not an Axis")
+    return axis
 
 
 class bcolors:

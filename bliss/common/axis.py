@@ -35,7 +35,6 @@ from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import Null, with_custom_members
-from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
@@ -314,22 +313,6 @@ class GroupMove:
                         motion.axis._set_move_done()
                 if self.parent:
                     event.send(self.parent, "move_done", True)
-
-
-def get_encoder(name):
-    cfg = get_config()
-    enc = cfg.get(name)
-    if not isinstance(enc, Encoder):
-        raise TypeError("%s is not an Encoder" % name)
-    return enc
-
-
-def get_axis(name):
-    cfg = get_config()
-    axis = cfg.get(name)
-    if not isinstance(axis, Axis):
-        raise TypeError("%s is not an Axis" % name)
-    return axis
 
 
 class Modulo:

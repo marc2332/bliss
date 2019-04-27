@@ -74,7 +74,6 @@ from bliss.common.utils import (
     get_axes_positions_iter,
     safe_get,
     ErrorWithTraceback,
-    counter_dict,
 )
 from bliss.common.measurement import BaseCounter
 

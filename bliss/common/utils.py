@@ -558,34 +558,6 @@ class Statistics(object):
         return standard._tabulate(data)
 
 
-def counter_dict():
-    """
-    Return a list of counters
-    """
-    from bliss import setup_globals
-    from bliss.common.measurement import BaseCounter
-
-    counters_dict = dict()
-
-    env_dict = session.get_current().env_dict
-
-    for name, obj in itertools.chain(
-        inspect.getmembers(setup_globals),
-        iter(env_dict.items()) if env_dict is not None else {},
-    ):
-        if isinstance(obj, BaseCounter):
-            counters_dict[obj.fullname] = obj
-
-        elif hasattr(obj, "counters") and isinstance(
-            obj.counters, collections.abc.Iterable
-        ):
-            for cnt in obj.counters:
-                if isinstance(cnt, BaseCounter):
-                    counters_dict[cnt.fullname] = cnt
-
-    return counters_dict
-
-
 class autocomplete_property(property):
     """
     a custom property class that will be added to 

@@ -24,7 +24,6 @@ from bliss.data.scan import watch_session_scans
 
 from bliss import setup_globals
 from bliss.config import static
-from bliss.common.utils import counter_dict
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting

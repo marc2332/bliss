@@ -9,14 +9,13 @@
 import os
 import sys
 import pkgutil
-import weakref
 
 from bliss.common import axis as axis_module
-from bliss.common.axis import Axis, AxisRef
+from bliss.common.axis import Axis
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config, get_config
 from bliss.common.tango import DeviceProxy
-from bliss.config.plugins.utils import find_class
+from bliss.config.plugins.utils import find_class, replace_reference_by_object
 import bliss.controllers.motors
 
 import gevent
@@ -314,6 +313,21 @@ def add_axis(cfg, request):
         )
 
 
+class Reference:
+    def __init__(self, name, *args, **kwargs):
+        self.__name = name.lstrip("$")
+
+    @property
+    def name(self):
+        return self.__name
+
+    def __call__(self, *args, **kwargs):
+        return get_config().get(self.name)
+
+    def __str__(self):
+        return f"${self.name}"
+
+
 def create_objects_from_config_node(config, node):
     if "axes" in node or "encoders" in node:
         # asking for a controller
@@ -341,52 +355,36 @@ def create_objects_from_config_node(config, node):
     switches_names = list()
     shutters = list()
     shutters_names = list()
-    for axis_config in node.get("axes"):
-        axis_name = axis_config.get("name")
-        if axis_name.startswith("$"):
-            axis_class = AxisRef
-            axis_name = axis_name.lstrip("$")
-        else:
-            axis_class_name = axis_config.get("class")
-            if axis_class_name is None:
-                axis_class = Axis
-            else:
-                try:
-                    axis_class = getattr(axis_module, axis_class_name)
-                except AttributeError:
-                    axis_class = getattr(controller_module, axis_class_name)
-            axes_names.append(axis_name)
-        hooks = []
-        for hook in axis_config.get("motion_hooks", ()):
-            if hook.startswith("$"):
-                hooks.append(get_config().get(hook.lstrip("$")))
-        axis_config["motion_hooks"] = hooks
-        associated_encoder = axis_config.get("encoder")
-        if associated_encoder:
-            if associated_encoder.startswith("$"):
-                axis_config["encoder"] = get_config().get(
-                    associated_encoder.lstrip("$")
-                )
-        axes.append((axis_name, axis_class, axis_config))
 
     for objects, objects_names, default_class, default_class_name, objects_config in (
+        (axes, axes_names, Axis, "", node.get("axes", [])),
         (encoders, encoders_names, Encoder, "", node.get("encoders", [])),
         (shutters, shutters_names, None, "Shutter", node.get("shutters", [])),
         (switches, switches_names, None, "Switch", node.get("switches", [])),
     ):
         for object_config in objects_config:
-            object_name = object_config.get("name")
-            object_class_name = object_config.get("class")
-            object_config = _checkref(config, object_config)
-            if object_class_name is None:
-                object_class = default_class
-                if object_class is None:
-                    try:
-                        object_class = getattr(controller_module, default_class_name)
-                    except AttributeError:
-                        pass
+            replace_reference_by_object(config, object_config, placeholder=Reference)
+            if not isinstance(object_config.get("name"), str):
+                # reference
+                object_class = object_config.get("name")
+                object_name = object_class.name
             else:
-                object_class = getattr(controller_module, object_class_name)
+                object_name = object_config.get("name")
+                object_class_name = object_config.get("class")
+                if object_class_name is None:
+                    object_class = default_class
+                    if object_class is None:
+                        try:
+                            object_class = getattr(
+                                controller_module, default_class_name
+                            )
+                        except AttributeError:
+                            pass
+                else:
+                    try:
+                        object_class = getattr(controller_module, object_class_name)
+                    except AttributeError:
+                        object_class = getattr(axis_module, object_class_name)
             objects_names.append(object_name)
             objects.append((object_name, object_class, object_config))
 
@@ -417,13 +415,3 @@ def create_object_from_cache(config, name, controller):
         except KeyError:
             pass
     raise KeyError(name)
-
-
-def _checkref(config, cfg):
-    obj_cfg = cfg.deep_copy()
-    for key, value in obj_cfg.items():
-        if isinstance(value, str) and value.startswith("$"):
-            # convert reference to item from config
-            obj = weakref.proxy(config.get(value))
-            obj_cfg[key] = obj
-    return obj_cfg

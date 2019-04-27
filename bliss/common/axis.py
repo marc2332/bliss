@@ -560,12 +560,12 @@ class Axis(AliasMixin, LogMixin):
         self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
         self.__move_done_callback.set()
-        self.__motion_hooks = config.get("motion_hooks", [])
-        hooks = []
-        for hook in self.__motion_hooks:
+        self.__motion_hooks = []
+        for hook in config.get("motion_hooks", []):
+            hook = hook()
             hook.add_axis(self)
-            hooks.append(hook.name)
-        config["motion_hooks"] = hooks
+            self.__motion_hooks.append(hook)
+        self.__encoder = config.get("encoder")
         self.__config = StaticConfig(config)
         self._group_move = GroupMove()
         self._beacon_channels = dict()
@@ -671,14 +671,13 @@ class Axis(AliasMixin, LogMixin):
         Reference to :class:`~bliss.common.encoder.Encoder` or None if no
         encoder is defined
         """
-        try:
-            encoder_name = self.config.get("encoder")
-        except KeyError:
-            return None
+        if isinstance(self.__encoder, Encoder):
+            return self.__encoder
         else:
-            enc = get_encoder(encoder_name)
-            enc.controller._initialize_encoder(enc)
-            return enc
+            if self.__encoder:
+                self.__encoder = self.__encoder()
+                self.__encoder.controller._initialize_encoder(self.__encoder)
+                return self.__encoder
 
     @property
     def motion_hooks(self):
@@ -1117,13 +1116,13 @@ class Axis(AliasMixin, LogMixin):
         return (position - self.offset) / self.sign
 
     def __execute_pre_move_hook(self, motion):
-        for hook in self.__motion_hooks:
+        for hook in self.motion_hooks:
             hook.pre_move([motion])
 
         self._check_ready()
 
     def __execute_post_move_hook(self, motions):
-        for hook in self.__motion_hooks:
+        for hook in self.motion_hooks:
             try:
                 hook.post_move(motions)
             except:
@@ -1562,25 +1561,6 @@ class Axis(AliasMixin, LogMixin):
         )
         dial_positions = self.dial2user(step_positions)
         return dial_positions / self.steps_per_unit
-
-
-class AxisRef(object):
-    """Object representing a named reference to an :class:`Axis`."""
-
-    def __init__(self, name, _, config):
-        self.__name = name
-        self.__config = config
-        self.settings = AxisSettings(None)
-
-    @property
-    def name(self):
-        """Axis reference name"""
-        return self.__name
-
-    @property
-    def config(self):
-        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
-        return self.__config
 
 
 class AxisState(object):

@@ -19,8 +19,8 @@ from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
-from bliss.common import mapping
 from bliss.common.logtools import LogMixin
+from bliss.common import session
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
@@ -88,7 +88,9 @@ class Controller(LogMixin):
                     raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
         mapping_name = config.get("name") or self.__class__.__name__.lower()
-        mapping.register(self, parents_list=["controllers"], tag=mapping_name)
+        session.get_current().map.register(
+            self, parents_list=["controllers"], tag=mapping_name
+        )
 
     def _init(self):
         for axis in self.axes.values():

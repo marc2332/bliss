@@ -7,7 +7,6 @@
 
 from bliss.config import channels
 from bliss.common.utils import Null
-from bliss.config.static import get_config
 
 
 def _get_config():

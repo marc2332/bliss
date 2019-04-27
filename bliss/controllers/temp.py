@@ -35,7 +35,7 @@ controller:
 
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 
@@ -46,7 +46,9 @@ class Controller(LogMixin):
 
     def __init__(self, config, inputs, outputs, loops):
         mapping_name = config.get("name") or self.__class__.__name__.lower()
-        mapping.register(self, parents_list=["controllers"], tag=mapping_name)
+        session.get_current().map.register(
+            self, parents_list=["controllers"], tag=mapping_name
+        )
         # self._logger.info("on Controller")
         self.__config = config
         self._objects = dict()

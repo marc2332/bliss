@@ -15,7 +15,6 @@ The alias serves the following purposes:
 import weakref
 from tabulate import tabulate
 
-from bliss.config import static
 from bliss import setup_globals
 from bliss.common import session
 from bliss.common.utils import get_counters_iter
@@ -162,7 +161,7 @@ class Alias(object):
             raise RuntimeError(
                 f"Alias '{alias_name}' for '{original_name}' can not be set! There is alreadey an Object or Alias with this name"
             )
-        elif alias_name in static.get_config().names_list:
+        elif alias_name in session.get_current().config.names_list:
             raise RuntimeError(
                 f"Alias '{alias_name}' for '{original_name}' can not be set! {alias_name} already used as name-key in config"
             )

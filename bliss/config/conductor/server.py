@@ -391,13 +391,15 @@ def _send_config_db_files(client_id, message):
                         client_id.sendall(
                             protocol.message(
                                 protocol.CONFIG_DB_FAILED,
-                                b"%s|%s" % (message_key, str(e).encode()),
+                                b"%s|%s" % (message_key, repr(e).encode()),
                             )
                         )
     except Exception as e:
         sys.excepthook(*sys.exc_info())
         client_id.sendall(
-            protocol.message(protocol.CONFIG_DB_FAILED, b"%s|%s" % (message_key, e))
+            protocol.message(
+                protocol.CONFIG_DB_FAILED, b"%s|%s" % (message_key, repr(e).encode())
+            )
         )
     finally:
         client_id.sendall(

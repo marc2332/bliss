@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
@@ -85,7 +85,7 @@ def generate_release_file():
     author = "BCU (ESRF)"
     author_email = ""
     license = "LGPLv3"
-    copyright = "2016-2018 Beamline Control Unit, ESRF"
+    copyright = "2015-2019 Beamline Control Unit, ESRF"
     description = "BeamLine Instrumentation Support Software"
     url = "bliss.gitlab-pages.esrf.fr/bliss"
 
@@ -94,7 +94,7 @@ def generate_release_file():
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 # Single source of truth for the version number and the like

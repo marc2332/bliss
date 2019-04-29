@@ -3,7 +3,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """Bliss axis TANGO_ DS class (:class:`BlissAxisManager` and :class:`BlissAxis`)

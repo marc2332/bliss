@@ -3,7 +3,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
@@ -25,25 +25,36 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--log-level', default='INFO',
-                    choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO',
-                             'DEBUG'],
-                    help='log level',  type=lambda c: c.upper())
-parser.add_argument('card_name', help='bliss configuration name of the CT2 card')
-parser.add_argument('expo_time', default=1.0, type=float,
-                    help='exposure time [default: %(default)s]')
-parser.add_argument('point_period', default=1.1, type=float,
-                    help='point period [default: %(default)s]')
-parser.add_argument('nb_points', default=1, type=int,
-                    help='number of acquisition points [default: %(default)s]')
+parser.add_argument(
+    "--log-level",
+    default="INFO",
+    choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+    help="log level",
+    type=lambda c: c.upper(),
+)
+parser.add_argument("card_name", help="bliss configuration name of the CT2 card")
+parser.add_argument(
+    "expo_time", default=1.0, type=float, help="exposure time [default: %(default)s]"
+)
+parser.add_argument(
+    "point_period", default=1.1, type=float, help="point period [default: %(default)s]"
+)
+parser.add_argument(
+    "nb_points",
+    default=1,
+    type=int,
+    help="number of acquisition points [default: %(default)s]",
+)
 
 args = parser.parse_args()
 
-logging.basicConfig(format='%(levelname)s %(asctime)-15s %(name)s: %(message)s',
-                    level=getattr(logging, args.log_level))
+logging.basicConfig(
+    format="%(levelname)s %(asctime)-15s %(name)s: %(message)s",
+    level=getattr(logging, args.log_level),
+)
 
 if args.point_period <= args.expo_time:
-    parser.error('point_period must be bigger than expo_time')
+    parser.error("point_period must be bigger than expo_time")
 
 config = get_config()
 
@@ -59,45 +70,43 @@ with contextlib.closing(device):
     finish_event = Event()
 
     last = time.time()
+
     def on_card_event(value, signal):
         global last
         curr = time.time()
         dt = curr - last
         last = curr
-        logging.info('Event signal=%s value=%s elapsed=%s', signal, value, dt)
+        logging.info("Event signal=%s value=%s elapsed=%s", signal, value, dt)
         if signal == StatusSignal and value == AcqStatus.Ready:
             finish_event.set()
 
-
     def triggers(n, point_period):
         # need n-1 triggers
-        logging.info('Start trigger loop')
+        logging.info("Start trigger loop")
         while n > 0:
             sleep(point_period)
-            logging.info('Triggering...')
+            logging.info("Triggering...")
             device.trigger_point()
             n -= 1
-        logging.info('finished triggering')
-
+        logging.info("finished triggering")
 
     def triggers(n, period):
         # need n-1 triggers
-        logging.info('Start trigger loop')
+        logging.info("Start trigger loop")
         start = time.time()
         i = 0
         while i < n:
-            sleep((start + (i+1)*period) - time.time())
-            logging.info('Triggering...')
+            sleep((start + (i + 1) * period) - time.time())
+            logging.info("Triggering...")
             device.trigger_point()
             i += 1
-        logging.info('finished triggering')
-
+        logging.info("finished triggering")
 
     dispatcher.connect(on_card_event, sender=device)
 
     device.prepare_acq()
     start = time.time()
-    trigger_task = spawn(triggers, args.nb_points-1, args.point_period)
+    trigger_task = spawn(triggers, args.nb_points - 1, args.point_period)
     device.start_acq()
 
     try:
@@ -106,4 +115,4 @@ with contextlib.closing(device):
         device.stop_acq()
 
     end = time.time()
-    print('Took %fs' % (end-start))
+    print("Took %fs" % (end - start))

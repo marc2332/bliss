@@ -3,7 +3,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2016 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
@@ -27,18 +27,27 @@ from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--log-level', default='INFO',
-                    choices=['CRITICAL', 'ERROR', 'WARNING', 'INFO',
-                             'DEBUG'],
-                    help='log level',  type=lambda c: c.upper())
-parser.add_argument('card_name', help='bliss configuration name of the CT2 card')
-parser.add_argument('nb_points', default=1, type=int,
-                    help='number of acquisition points [default: %(default)s]')
+parser.add_argument(
+    "--log-level",
+    default="INFO",
+    choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+    help="log level",
+    type=lambda c: c.upper(),
+)
+parser.add_argument("card_name", help="bliss configuration name of the CT2 card")
+parser.add_argument(
+    "nb_points",
+    default=1,
+    type=int,
+    help="number of acquisition points [default: %(default)s]",
+)
 
 args = parser.parse_args()
 
-logging.basicConfig(format='%(levelname)s %(asctime)-15s %(name)s: %(message)s',
-                    level=getattr(logging, args.log_level))
+logging.basicConfig(
+    format="%(levelname)s %(asctime)-15s %(name)s: %(message)s",
+    level=getattr(logging, args.log_level),
+)
 
 config = get_config()
 
@@ -54,12 +63,13 @@ with contextlib.closing(device):
     finish_event = Event()
 
     last = time.time()
+
     def on_card_event(value, signal):
         global last
         curr = time.time()
         dt = curr - last
         last = curr
-        logging.info('Event signal=%s value=%s elapsed=%s', signal, value, dt)
+        logging.info("Event signal=%s value=%s elapsed=%s", signal, value, dt)
         if signal == StatusSignal and value == AcqStatus.Ready:
             finish_event.set()
 
@@ -69,7 +79,7 @@ with contextlib.closing(device):
     device.start_acq()
 
     while True:
-        logging.info('Waiting for another Ctrl-C to trigger point')
+        logging.info("Waiting for another Ctrl-C to trigger point")
         try:
             if finish_event.wait():
                 break
@@ -77,4 +87,4 @@ with contextlib.closing(device):
             device.trigger_point()
 
     end = time.time()
-    print('Took %fs' % (end-start))
+    print("Took %fs" % (end - start))

@@ -92,7 +92,7 @@ This code will make a session to look like:
      
      
      Welcome to BLISS version 0.02 running on pcsht (in bliss Conda environment)
-     Copyright (c) ESRF, 2015-2018
+     Copyright (c) 2015-2019 Beamline Control Unit, ESRF
      -
      Connected to Beacon server on pcsht (port 3412)
      eh1: Executing setup...

@@ -761,24 +761,17 @@ class Multimeter2000(BaseMultimeter):
 
 class AmmeterDDC(object):
     def __init__(self, config):
-        self.interface = get_comm(config)
+        self.interface = get_comm(config, eos="\r\n")
         self.name = config["name"]
 
     def initialize(self):
         self.interface.write(b"F1X\r\n")  # Amp function
-        self.interface.write(b"G0X\r\n")  # Reading with prefix (NDCA<value>)
-        self.interface.write(b"T4X\r\n")  # Continuous triggered by X
+        self.interface.write(b"B0X\r\n")  # electrometer reading
+        self.interface.write(b"G1X\r\n")  # Reading without prefix
+        self.interface.write(b"T4X\r\n")
 
     def initialize_sensor(self, sensor):
         pass
-
-    def measure(self, func=None):
-        # change to '\r\n' will make it faster but we don't know what it does!
-        cmd = b"X\r\n"
-        return [float(self.interface.write_readline(cmd)[4:])]
-
-    def read_all(self, *counters):
-        return self.measure()
 
     def __enter__(self):
         return self
@@ -786,8 +779,31 @@ class AmmeterDDC(object):
     def __exit__(self, *args):
         pass
 
+    def measure(self, func=None):
+        svalue = self.interface.write_readline(b"X\r\n")
+        return [float(svalue)]
+
+    def data(self):
+        return self.measure()
+
+    def read(self):
+        return self.measure()
+
+    def read_all(self, *counters):
+        return self.measure()
+
+    def get_meas_func(self):
+        return "CURRENT"
+
+    def set_meas_func(self):
+        raise NotImplementedError
+
 
 class Ammeter6512(AmmeterDDC):
+    pass
+
+
+class Ammeter485(AmmeterDDC):
     pass
 
 

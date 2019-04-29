@@ -333,26 +333,16 @@ class Icepap(Controller, LogMixin):
         gevent.sleep(0.2)
 
     def home_state(self, axis):
+        state = self.state(axis)
+        if "MOVING" in state:
+            return state
         home_state = _command(self._cnx, "%s:?HOMESTAT" % axis.address)
-        s = self._icestate.new()
-        if home_state.startswith("MOVING"):
-            s.set("MOVING")
-        else:
-            s.set("READY")
-            if home_state.startswith("FOUND"):
-                s.set("HOMEFOUND")
-            else:
-                s.set("HOMENOTFOUND")
-        return s
+        if not home_state.startswith("FOUND"):
+            raise RuntimeError("Home switch not found.")
+        return state
 
-    def linked_home_state(self, axis):
-        states = [self.home_state(real_axis) for real_axis in axis.real_axes]
-        s = self._icestate.new()
-        if any([s.MOVING for s in states]):
-            s.set("MOVING")
-        elif all([s.READY for s in states]):
-            s.set("READY")
-        return s
+    def home_pos(self, axis):
+        return int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
 
     def limit_search(self, axis, limit):
         cmd = "SRCH LIM" + ("+" if limit > 0 else "-")

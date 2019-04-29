@@ -24,6 +24,7 @@ class LinkedAxis(Axis):
         if config.get("address") is None:
             self.config.set("address", name)
         self.__real_axes_namespace = None
+        self.__in_disprotected_move = False
 
     def _init_hardware(self):
         linked_axis = self.controller.get_linked_axis()
@@ -143,49 +144,58 @@ class LinkedAxis(Axis):
         return r
 
     @lazy_init
-    def home(self, switch=1, wait=True, polling_time=DEFAULT_POLLING_TIME):
-        with self._lock:
-            if self.is_moving:
-                raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
+    def _disprotected_command(self, cmd, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        try:
+            self.__in_disprotected_move = True
+            with self._lock:
+                if self.is_moving:
+                    raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-            # create motion object for hooks
-            motion = Motion(self, switch, None, "homing")
-            self._Axis__execute_pre_move_hook(motion)
+                # create motion object for hooks
+                motion = Motion(self, None, None)
+                self._Axis__execute_pre_move_hook(motion)
 
-            def start_one(controller, motions):
-                cnx = controller._cnx
-                home_dir = "+1" if motions[0].target_pos > 0 else "-1"
-                cmd = "#HOME STRICT %s" % " ".join(
-                    (
-                        str(rm.address) + " " + home_dir
-                        for rm in self.real_axes.__dict__.values()
+                def start_one(controller, motions):
+                    cnx = controller._cnx
+                    _command(
+                        cnx,
+                        cmd,
+                        pre_cmd="#DISPROT ALL %s ; "
+                        % " ".join(
+                            (str(rm.address) for rm in self.real_axes.__dict__.values())
+                        ),
                     )
+                    # IcePAP status is not immediately MOVING after home search command is sent
+                    gevent.sleep(0.2)
+
+                def stop_one(controller, motions):
+                    controller.stop(motions[0].axis)
+
+                self._group_move.move(
+                    {self.controller: [motion]},
+                    start_one,
+                    stop_one,
+                    wait=False,
+                    polling_time=polling_time,
                 )
-                _command(
-                    cnx,
-                    cmd,
-                    pre_cmd="#DISPROT ALL %s ; "
-                    % " ".join(
-                        (str(rm.address) for rm in self.real_axes.__dict__.values())
-                    ),
-                )
-                # IcePAP status is not immediately MOVING after home search command is sent
-                gevent.sleep(0.2)
-
-            def stop_one(controller, motions):
-                controller.stop(motions[0].axis)
-
-            def wait_home(self, *args):
-                self._move_loop(ctrl_state_funct="linked_home_state")
-
-            self._group_move.move(
-                {self.controller: [motion]},
-                start_one,
-                stop_one,
-                wait_home,
-                wait=False,
-                polling_time=polling_time,
-            )
-
+        finally:
+            self.__in_disprotected_move = False
         if wait:
             self.wait_move()
+
+    @property
+    @lazy_init
+    def _hw_position(self):
+        if self.__in_disprotected_move or self.is_moving:
+            # do not really read hw pos when moving,
+            # since it can be a disprotected move, that
+            # would report an error
+            return self.dial
+        else:
+            return super()._hw_position
+
+    @lazy_init
+    def home(self, switch=1, wait=True, polling_time=DEFAULT_POLLING_TIME):
+        raise NotImplementedError(
+            "Linked axis homing cannot be an automatic procedure, see with electronics unit."
+        )

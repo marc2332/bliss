@@ -626,7 +626,7 @@ class Aerotech(Controller):
 
     def initialize_axis(self, axis):
         if axis.name not in self._aero_axis.keys():
-            aero_name = axis.config.get("aero_name", str, "X")
+            aero_name = axis.config.get("aero_name", str, "")
             if aero_name in self._aero_axis.values():
                 others = [
                     name
@@ -651,7 +651,7 @@ class Aerotech(Controller):
             print(time.time(), ">>", mesg)
 
     def raw_write(self, cmd):
-        self._debug("SEND " + cmd)
+        self._debug(f"SEND {cmd}")
         send_cmd = cmd + self.CMD_TERM
         with self._comm.lock:
             self._comm.flush()
@@ -690,7 +690,6 @@ class Aerotech(Controller):
         self.raw_write("FAULTACK %s" % self._aero_name(axis))
 
     def read_status(self, axis):
-
         status = self.raw_write_read("AXISSTATUS(%s)" % self._aero_name(axis))
         axis_status = AerotechStatus(int(status), self.AXIS_STATUS_BITS)
 
@@ -766,7 +765,7 @@ class Aerotech(Controller):
         aero_name = self._aero_name(axis)
         speed = self._aero_speed[axis.name]
 
-        move_cmd = "%s %f" % (aero_name, pos)
+        move_cmd = "%s %f" % ("D" if not aero_name else aero_name, pos)
         speed_cmd = "%sF %f" % (aero_name, speed)
 
         cmd = "MOVEABS %s %s" % (move_cmd, speed_cmd)
@@ -783,7 +782,7 @@ class Aerotech(Controller):
             aero_name = self._aero_name(axis)
             speed = self._aero_speed[axis.name]
 
-            moves.append("%s %f" % (aero_name, pos))
+            moves.append("%s %f" % ("D" if not aero_name else aero_name, pos))
             speeds.append("%sF %f" % (aero_name, speed))
 
         move_cmd = " ".join(moves)
@@ -828,7 +827,7 @@ class Aerotech(Controller):
 
     def set_acceleration(self, axis, new_acc):
         acc = new_acc / abs(axis.steps_per_unit)
-        self.raw_write("RAMP RATE X %f" % acc)
+        self.raw_write(f"RAMP RATE {self._aero_name(axis)} {acc}")
         self._aero_acc[axis.name] = acc
 
     def stop(self, axis=None):

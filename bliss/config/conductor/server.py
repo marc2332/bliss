@@ -775,8 +775,6 @@ def main(args=None):
 
     # Tango databaseds
     if _options.tango_port > 0:
-        # Stdout pipe
-        _tlog.info("Database started on port: %s", _options.tango_port)
         tango_rp, tango_wp = os.pipe()
         # Environment
         env = dict(os.environ)
@@ -828,7 +826,7 @@ def main(args=None):
 
     # Safe context
     try:
-        fd_list = [udp, tcp, uds, rp, sig_read] + ([tango_rp] if tango_rp else [])
+        fd_list = filter(None, [udp, tcp, uds, rp, sig_read, tango_rp])
         logger = {rp: _rlog, tango_rp: _tlog}
         udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
 
@@ -877,16 +875,27 @@ def main(args=None):
                 # Log the message properly
                 if msg:
                     logger.get(fd, _log).info(msg.decode())
-                # Tango DB is not alive
-                elif fd == tango_rp:
-                    fd_list.remove(tango_rp)
-                    os.close(tango_rp)
-                    logger.get(fd, _log).warning("database exit")
 
         rp_processing = gevent.spawn(do_rp_processing, rp)
 
+        def do_tango_rp_processing(fd):
+            while True:
+                msg = gevent.os.tp_read(fd, 8192)
+                if msg:
+                    logger.get(fd, _log).info(msg.decode())
+
+        if tango_rp:
+            tango_rp_processing = gevent.spawn(do_tango_rp_processing, tango_rp)
+        else:
+            tango_rp_processing = None
+
         # ==== Define processes list ============
-        proc_list = [udp_processing, tcp_processing, rp_processing]
+        proc_list = list(
+            filter(
+                None,
+                [udp_processing, tcp_processing, rp_processing, tango_rp_processing],
+            )
+        )
 
         # ==== UDS case (UNIX only) ============
         if sys.platform not in ["win32", "cygwin"]:

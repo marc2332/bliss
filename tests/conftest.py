@@ -140,10 +140,7 @@ def ports(beacon_directory):
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    wait_for(
-        proc.stderr,
-        "The server is now ready to accept connections at {}".format(redis_uds),
-    )
+    wait_for(proc.stderr, "database started on port")
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port

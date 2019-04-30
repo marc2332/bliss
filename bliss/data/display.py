@@ -482,7 +482,6 @@ class ScanDataListener:
             return
 
         # Skip if missing channels
-        # print(len(channel_info["data"]), self.channels_number)
         if len(channel_info["data"]) != self.channels_number:
             return
 
@@ -576,13 +575,17 @@ class ScanDataListener:
         # Prevent user to close the listener with Ctrl-C
         signal.signal(signal.SIGINT, catch_sigint)
 
-        atexit.register(self.reset_terminal)
-
-        # Prevent user inputs
+        # Prevent user inputs if using a terminal
         fd = sys.stdin.fileno()
-        new = termios.tcgetattr(fd)
-        new[3] &= ~termios.ECHO
-        termios.tcsetattr(fd, termios.TCSANOW, new)
+        try:
+            new = termios.tcgetattr(fd)
+            new[3] &= ~termios.ECHO
+            termios.tcsetattr(fd, termios.TCSANOW, new)
+        except termios.error:
+            pass  # not in terminal (example in tests)
+        else:
+            # revert 'Prevent user inputs if using a terminal'
+            atexit.register(self.reset_terminal)
 
         print_full_line(
             f" Bliss session '{self.session_name}': watching scans ",

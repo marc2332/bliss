@@ -95,7 +95,18 @@ class StepScanDataWatch:
         self._channel_name_2_channel = dict()
         self._init_done = False
 
-    def __call__(self, data_events, nodes, scan_info):
+    def on_scan_new(self, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["new"]()
+        if cb is not None:
+            cb(scan_info)
+
+    def on_scan_data(self, data_events, nodes, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["data"]()
+        if cb is None:
+            return
+
         if self._init_done is False:
             for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
@@ -120,11 +131,15 @@ class StepScanDataWatch:
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
 
-            cb = _SCAN_WATCH_CALLBACKS["data"]()
-            if cb is not None:
-                cb(scan_info, values)
+            cb(scan_info, values)
 
         self._last_point_display = min_nb_points
+
+    def on_scan_end(self, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["end"]()
+        if cb is not None:
+            cb(scan_info)
 
 
 class ScanSaving(ParametersWardrobe):
@@ -547,8 +562,6 @@ class Scan:
         )
 
         if data_watch_callback is not None:
-            if not callable(data_watch_callback):
-                raise TypeError("data_watch_callback needs to be callable")
             data_watch_callback_event = gevent.event.Event()
             data_watch_callback_done = gevent.event.Event()
 
@@ -743,7 +756,9 @@ class Scan:
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
                 self._scan_info["state"] = self._state
-                self._data_watch_callback(data_events, self.nodes, self._scan_info)
+                self._data_watch_callback.on_scan_data(
+                    data_events, self.nodes, self._scan_info
+                )
             else:
                 self._data_watch_callback_event.set()
 
@@ -825,9 +840,7 @@ class Scan:
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            cb = _SCAN_WATCH_CALLBACKS["new"]()
-            if cb is not None:
-                cb(self.scan_info)
+            self._data_watch_callback.on_scan_new(self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -895,9 +908,8 @@ class Scan:
             self._state = self.IDLE_STATE
 
             try:
-                cb = _SCAN_WATCH_CALLBACKS["end"]()
-                if cb is not None:
-                    cb(self.scan_info)
+                self._data_watch_callback.on_scan_end(self.scan_info)
+
             finally:
                 if self.writer:
                     self.writer.close()
@@ -931,7 +943,9 @@ class Scan:
                 scan._data_events = dict()
                 scan._data_watch_running = True
                 scan.scan_info["state"] = scan._state
-                scan._data_watch_callback(data_events, scan.nodes, scan.scan_info)
+                scan._data_watch_callback.on_scan_data(
+                    data_events, scan.nodes, scan.scan_info
+                )
                 scan._data_watch_running = False
             except ReferenceError:
                 break

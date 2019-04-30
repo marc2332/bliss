@@ -43,8 +43,18 @@ config example:
 """
 
 
+def _atomic_communication(fn):
+    def f(self, *args, **kwargs):
+        with self._cnx.lock:
+            return fn(self, *args, **kwargs)
+
+    return f
+
+
 class PI_HEXA(Controller):
-    COMMAND = enum.Enum("PI_HEXA.COMMAND", "POSITIONS MOVE_STATE MOVE_SEP INIT")
+    COMMAND = enum.Enum(
+        "PI_HEXA.COMMAND", "POSITIONS MOVE_STATE MOVE_SEP INIT STOP_ERROR"
+    )
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -93,12 +103,14 @@ class PI_HEXA(Controller):
                 self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x)),
                 self.COMMAND.MOVE_SEP: "",
                 self.COMMAND.INIT: "INI X",
+                self.COMMAND.STOP_ERROR: 2,
             },
             887: {
                 self.COMMAND.POSITIONS: "\3",
                 self.COMMAND.MOVE_STATE: ("\5", lambda x: int(x, 16)),
                 self.COMMAND.MOVE_SEP: " ",
                 self.COMMAND.INIT: "FRF X",
+                self.COMMAND.STOP_ERROR: 10,
             },
         }
 
@@ -114,6 +126,7 @@ class PI_HEXA(Controller):
     def read_position(self, axis):
         return self._read_all_positions()[axis.channel]
 
+    @_atomic_communication
     def state(self, axis):
         cmd, test_func = self._commands[self.COMMAND.MOVE_STATE]
         moving_flag = test_func(self.command(cmd, 1))
@@ -136,6 +149,7 @@ class PI_HEXA(Controller):
     def start_one(self, motion):
         self.start_all(motion)
 
+    @_atomic_communication
     def start_all(self, *motions):
         sep = self._commands[self.COMMAND.MOVE_SEP]
         cmd = "MOV " + " ".join(
@@ -150,6 +164,7 @@ class PI_HEXA(Controller):
     def stop(self, axis):
         self.stop_all()
 
+    @_atomic_communication
     def stop_all(self, *motions):
         self.command("STP")
         self._check_error_and_raise(ignore_stop=True)
@@ -173,6 +188,7 @@ class PI_HEXA(Controller):
         else:
             return self._cnx.write(cmd)
 
+    @_atomic_communication
     def home_search(self, axis, switch):
         init_cmd = self._commands[self.COMMAND.INIT]
         self.command(init_cmd)
@@ -196,7 +212,9 @@ class PI_HEXA(Controller):
     def _check_error_and_raise(self, ignore_stop=False, **kwargs):
         err = int(self.command("ERR?", **kwargs))
         if err > 0:
-            if ignore_stop and err == 10:  # stopped by user
+            if (
+                ignore_stop and err == self._commands[self.COMMAND.STOP_ERROR]
+            ):  # stopped by user
                 return
             human_error = get_error_str(err)
             errors = [self.name, err, human_error]

@@ -8,6 +8,8 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
+from bliss.scanning.scan import Scan
 
 
 def test_scan_info_scalars_units(session):
@@ -83,3 +85,45 @@ def test_scan_meta_order_function(scan_meta):
     scan_meta.sample.remove("func")
     scan_meta_dict = scan_meta.to_dict(None)
     assert scan_meta_dict["sample"] == first_info
+
+
+def test_scan_meta_master_and_device(scan_meta, clean_gevent):
+    clean_gevent["end-check"] = False
+    scan_meta.clear()
+    master_dict = {"super master": 10}
+
+    class DummyMaster(AcquisitionMaster):
+        name = "my_master"
+
+        def __init__(self):
+            super().__init__(self, None, "my_master")
+
+        def fill_info(self, scan_meta):
+            scan_meta.instrument.set(self, master_dict)
+
+    device_name = "my_slave"
+    device_dict = {
+        "lima": {
+            device_name: {
+                "threshold": 12000,
+                "rois counter": {"roi1", (0, 10, 100, 200)},
+            }
+        }
+    }
+
+    class DummyDevice(AcquisitionDevice):
+        name = device_name
+
+        def __init__(self):
+            super().__init__(self, None, device_name)
+
+        def fill_info(self, scan_meta):
+            scan_meta.instrument.set(self, device_dict)
+
+    master = DummyMaster()
+    slave = DummyDevice()
+    chain = AcquisitionChain()
+    chain.add(master, slave)
+
+    s = Scan(chain, name="my_simple")
+    assert s.scan_info["instrument"] == {**master_dict, **device_dict}

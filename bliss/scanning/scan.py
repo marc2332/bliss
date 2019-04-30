@@ -511,6 +511,10 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
+        user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan info
+        for dev in chain.nodes_list:
+            dev.fill_info(user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info["scan_nb"] = self.__scan_number
@@ -522,7 +526,7 @@ class Scan:
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        self._scan_info.update(get_user_scan_meta().to_dict(self))
+        self._scan_info.update(user_scan_meta.to_dict(self))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain

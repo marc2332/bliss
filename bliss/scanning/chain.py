@@ -295,6 +295,14 @@ class AcquisitionMaster(object):
 
             return self.prepare()
 
+    def fill_info(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object.
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
+
     def prepare(self):
         raise NotImplementedError
 
@@ -505,6 +513,14 @@ class AcquisitionDevice(object):
             if not self._check_reading_task():
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
+
+    def fill_info(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object.
+        i.e: scan_meta.instrument.set(self,{"mca":{"calibration":calib_name}})
+        """
+        pass
 
     def prepare(self):
         raise NotImplementedError

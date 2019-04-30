@@ -29,25 +29,31 @@ def get_user_scan_meta():
     return USER_SCAN_META
 
 
-def scan_meta():
+def scan_meta(info=None):
     CATEGORIES = enum.Enum(
         "categories", "INSTRUMENT SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE"
     )
 
-    _infos = dict()
+    _infos = dict() if info is None else info
 
     class Category:
         def __init__(self, cat):
             self._cat = cat
 
-        def set(self, name, values):
+        def set(self, name_or_device, values):
             """
             set metadata information to scans.
 
-            :param name is the access name must be unique
+            :param name_or_device is the access name must be unique or a device
+            with a name property
             :param values is a dictionary or a callable which returns
             a  dictionary
             """
+            name = (
+                name_or_device
+                if isinstance(name_or_device, str)
+                else name_or_device.name
+            )
             categories_info = _infos.setdefault(self._cat, dict())
             categories_info[name] = values
 
@@ -85,6 +91,11 @@ def scan_meta():
         _infos.clear()
 
     attrs["clear"] = clear
+
+    def copy(self):
+        return scan_meta(_infos.copy())
+
+    attrs["copy"] = copy
 
     klass = type("ScanMeta", (object,), attrs)
     return klass()

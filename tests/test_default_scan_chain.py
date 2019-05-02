@@ -63,7 +63,6 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode2
     assert diode3
 
-    assert diode.controller is None
     assert diode2.controller == diode3.controller == diode_controller
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
@@ -83,12 +82,14 @@ def test_default_chain_with_three_sampling_counters(beacon):
 
     assert nodes[2] != nodes[1]
 
-    counter_names = [c.name for c in nodes[1].channels]
-    assert counter_names == ["diode"]
+    counter_names = [c.fullname for c in nodes[1].channels]
+    assert counter_names == ["simulation_diode_controller:diode"]
     # counters order is not important
     # as we use **set** to eliminate duplicated counters
-    counter_names = set([c.name for c in nodes[2].channels])
-    assert counter_names == set(["diode2", "diode3"])
+    counter_names = set([c.fullname for c in nodes[2].channels])
+    assert counter_names == set(
+        ["simulation_diode_controller:diode2", "simulation_diode_controller:diode3"]
+    )
 
 
 def test_default_chain_with_roi_counter(beacon, lima_simulator):
@@ -174,15 +175,15 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
         nodes = chain.nodes_list
         assert len(nodes) == 4
         assert isinstance(nodes[0], timer.__class__)
-        assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
-        assert isinstance(nodes[2], LimaAcquisitionMaster)
-        assert isinstance(nodes[3], IntegratingCounterAcquisitionDevice)
+        assert isinstance(nodes[1], LimaAcquisitionMaster)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
 
-        assert nodes[3].parent == nodes[2]
-        assert nodes[1].parent == timer
+        assert nodes[2].parent == nodes[1]
+        assert nodes[3].parent == timer
 
-        assert nodes[1].count_time == timer.count_time
-        assert nodes[3].count_time == nodes[1].count_time
+        assert nodes[3].count_time == timer.count_time
+        assert nodes[2].count_time == timer.count_time
     finally:
         lima_sim.roi_counters.clear()
 

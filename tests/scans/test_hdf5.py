@@ -87,7 +87,7 @@ def test_hdf5_file_items(beacon, session):
         f"{scan_name}/instrument": {"NX_class": "NXinstrument"},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/axis:roby": {},
-        f"{scan_name}/measurement/diode:diode": {},
+        f"{scan_name}/measurement/simulation_diode_controller:diode": {},
         f"{scan_name}/measurement/simu1:spectrum_det0": {},
         f"{scan_name}/measurement/timer:elapsed_time": {},
         f"{scan_name}/start_time": {},
@@ -105,7 +105,7 @@ def test_hdf5_values(beacon, session):
     scan_file = s.writer.filename
     data = s.get_data()["diode"]
     f = h5py.File(scan_file)
-    dataset = f[s.node.name]["measurement"]["diode:diode"]
+    dataset = f[s.node.name]["measurement"]["simulation_diode_controller:diode"]
     assert list(dataset) == list(data)
 
 

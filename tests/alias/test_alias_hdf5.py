@@ -143,7 +143,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/myDiode": {
             "alias": "myDiode",
-            "fullname": "diode:diode",
+            "fullname": "simulation_diode_controller:diode",
             "has_alias": True,
         },
         f"{scan_name}/measurement/robyy": {

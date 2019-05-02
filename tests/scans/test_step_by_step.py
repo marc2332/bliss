@@ -432,10 +432,13 @@ def test_motor_group(beacon):
     assert items["roby"].parent.db_name == scan.node.db_name + ":axis"
     assert items["robz"].parent.db_name == scan.node.db_name + ":axis"
     assert items["timer"].parent.db_name == scan.node.db_name + ":axis"
-    timer_channels = list(items["timer"].children())
-    timer_channel_names = set([chan.name.split(":")[-1] for chan in timer_channels])
-    assert "elapsed_time" in timer_channel_names
-    assert "diode" in timer_channel_names
+    timer_channels = dict((chan.name, chan) for chan in items["timer"].children())
+    assert "elapsed_time" in timer_channels
+    assert "simulation_diode_controller" in timer_channels
+    assert (
+        "diode"
+        in list(timer_channels["simulation_diode_controller"].children())[0].name
+    )
 
 
 def test_calc_counters_std_scan(session):

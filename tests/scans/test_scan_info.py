@@ -23,7 +23,9 @@ def test_scan_info_scalars_units(session):
         == "deg"
     )
     assert (
-        s.scan_info["acquisition_chain"]["timer"]["scalars_units"]["diode:diode"]
+        s.scan_info["acquisition_chain"]["timer"]["scalars_units"][
+            "simulation_diode_controller:diode"
+        ]
         is None
     )
     s2 = scans.ascan(robz, 0, 1, 3, .1, heater, run=False)

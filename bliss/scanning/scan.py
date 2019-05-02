@@ -840,7 +840,8 @@ class Scan:
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            self._data_watch_callback.on_scan_new(self.scan_info)
+            if self._data_watch_callback:
+                self._data_watch_callback.on_scan_new(self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -908,7 +909,8 @@ class Scan:
             self._state = self.IDLE_STATE
 
             try:
-                self._data_watch_callback.on_scan_end(self.scan_info)
+                if self._data_watch_callback:
+                    self._data_watch_callback.on_scan_end(self.scan_info)
 
             finally:
                 if self.writer:

@@ -144,12 +144,12 @@ def ports(beacon_directory):
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port
-    try:
-        yield ports
-    finally:
-        atexit._run_exitfuncs()
-        proc.terminate()
-        print(proc.stderr.read().decode(), file=sys.stderr)
+
+    yield ports
+
+    atexit._run_exitfuncs()
+    proc.terminate()
+    print(proc.stderr.read().decode(), file=sys.stderr)
 
 
 @pytest.fixture
@@ -212,10 +212,8 @@ def lima_simulator(ports, beacon):
                 break
 
     gevent.sleep(1)
-    try:
-        yield device_fqdn, dev_proxy
-    finally:
-        p.terminate()
+    yield device_fqdn, dev_proxy
+    p.terminate()
 
 
 @pytest.fixture

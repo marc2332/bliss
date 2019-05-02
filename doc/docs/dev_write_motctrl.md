@@ -23,23 +23,19 @@ defined to implement very specific features of a motor controller.
 !!! note
     About units management
 
-    * On the user point of view, motors are driven in **user units**,
+    * On the user point of view, axes are moved in **user units**,
       whatever unit is used in the controller API
-    * **user_unit** can be millimeter, micron, degree etc.
     * On the programmer point of view, the BLISS plugin is dealing with
       controller units (steps, microns, ...)
     * The programmer should not have to deal with units conversions.
+    * see [motion axis / position](motion_axis.html#position) for more details.
 
 ---
 
 ## Example and skeleton of BLISS motor plugin
 
-`bliss/controllers/motors/mockup.py` is an example of simulated
-motor. It can be used to test BLISS with fake motors. As it is base on
-some *hacks* to work, it is NOT well suited to learn how to create a
-new controller. Better have a look into `template` controller.
+Template for motor controller:
 
-template :
 ```python
 
 from bliss.controllers.motor import Controller
@@ -125,9 +121,9 @@ class XXX(Controller):
 
     def get_info(self, axis):
         """
-        Returns information about controller.
+        Returns information about controller as a string.
         """
-        return "blabla"
+        return 'IcePapMotorController - FW 2.71'
 ```
 
 
@@ -275,7 +271,7 @@ following methods (further detailed) are mandatory:
 
     Motion object: this object holds requested motion parameters:
     
-        * motion.axis:       axis to be moved (object, not only the name)
+        * motion.axis:       axis object to be moved
         * motion.target_pos: absolute motion target position (in controller units)
         * motion.delta:      corresponding relative motion delta (in controller units)
         * motion.backlash:   backlash (in controller units ?)

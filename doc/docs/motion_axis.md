@@ -180,7 +180,18 @@ alias ??
 * offset
 * steps_per_unit
 
-`Axis` objects keep track of both a **dial** and a **user** position.
+!!! note
+    About units management
+
+    * On the user point of view, axes are moved in **user units**,
+      whatever unit is used in the controller API
+    * **user unit** can be millimeter, micron, degree etc.
+    * **controller unit** is often *steps* or *micron*
+    * On the programmer point of view, the BLISS plugin is dealing with
+      controller units (steps, microns, ...)
+    * The programmer should not have to deal with units conversions.
+
+`Axis` object keeps track of both a **dial** and a **user** position.
 
 The dial position is meant to agree with the readout of the physical
 dial on the hardware stage. The value and the sign of the
@@ -193,7 +204,7 @@ The user position allows to use a logical reference frame, that does
 not interfere with the motor controller.
 
 ```python
-    user position = (sign * dial position) + offset
+    user_position = (sign * dial_position) + offset
 ```
 
 Assigning a value to the `.position` property sets the user

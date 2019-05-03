@@ -115,7 +115,7 @@ class LivePlot1D(qt.QWidget):
                     legend = "%s -> %s" % (x_axis, axis_name)
                     self.silx_plot.addCurve([], [], legend=legend, copy=False)
                     curve = self.silx_plot.getCurve(legend)
-                    curve.setYAxis("left" if k == 2 else "right")
+                    curve.setYAxis("right" if k == 2 else "left")
                     curve.sigItemChanged.connect(self._refresh_legend)
 
             row_id = self.axes_list_model.rowCount()

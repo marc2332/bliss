@@ -1,0 +1,32 @@
+-
+  name: sim_ct_gauss
+  plugin: bliss
+  class: simulation_counter
+  distribution: GAUSSIAN
+  mu_offset: 0.0
+  sigma_factor: 1.0
+  height_factor: 100.0
+  noise_factor: 0.0
+-
+  name: sim_ct_gauss_noise
+  plugin: bliss
+  class: simulation_counter
+  distribution: GAUSSIAN
+  mu_offset: -1.0
+  sigma_factor: 0.4
+  height_factor: 100.0
+  noise_factor: 0.1
+-
+  name: sim_ct_flat_12
+  plugin: bliss
+  class: simulation_counter
+  distribution: FLAT
+  height_factor: 12.0
+  noise_factor: 0.0
+-
+  name: sim_ct_rand_12
+  plugin: bliss
+  class: simulation_counter
+  distribution: FLAT
+  height_factor: 12.0
+  noise_factor: 1.01

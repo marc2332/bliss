@@ -7,7 +7,7 @@
 
 """
  
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -22,6 +22,7 @@ Options:
     -c, --create=<session_name>   Create a new session with the given name
     -d, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
+    --no-tmux                     Deactivate Tmux usage
     --show-sessions               Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
@@ -33,6 +34,7 @@ warnings.filterwarnings("ignore", module="jinja2")
 import os
 import sys
 import logging
+import subprocess
 from docopt import docopt, DocoptExit
 
 from bliss import release
@@ -227,8 +229,84 @@ def main():
     else:
         session_name = None
 
-    # If session_name is None, an empty session is started.
-    embed(session_name=session_name)
+    if arguments["--no-tmux"] or sys.platform in ["win32", "cygwin"]:
+        # If session_name is None, an empty session is started.
+        embed(session_name=session_name)
+
+    else:
+
+        if session_name is None:
+            session = (
+                f"__DEFAULT__{os.getpid()}"
+            )  # see __DEFAULT__ in bliss.shell.cli.repl => def cli()
+        else:
+            session = session_name
+
+        from bliss import config
+
+        config_path = os.path.join(os.path.dirname(config.__file__), "tmux.conf")
+
+        win1 = "bliss"
+        win2 = "scan"
+
+        ans = subprocess.run(
+            ["tmux", "has-session", "-t", "=%s" % session],
+            capture_output=True,
+            text=True,
+        )
+        # print("stdout = ",ans.stdout,", stderr = ", ans.stderr,", returncode = ", ans.returncode)
+
+        if ans.returncode == 0:
+            print(f"Tmux session {session} already exist, joining session...")
+        else:
+            print(f"Starting new tmux session {session}...")
+            ans = subprocess.run(["tmux", "start-server"])
+            ans = subprocess.run(
+                [
+                    "tmux",
+                    "-f",
+                    config_path,
+                    "new-session",
+                    "-d",
+                    "-s",
+                    session,
+                    "-n",
+                    win1,
+                    "python",
+                    "-m",
+                    "bliss.shell.cli.start_bliss_repl",
+                    session,
+                ]
+            )
+            ans = subprocess.run(
+                [
+                    "tmux",
+                    "new-window",
+                    "-d",
+                    "-n",
+                    win2,
+                    "python",
+                    "-m",
+                    "bliss.data.start_listener",
+                    session,
+                ]
+            )
+
+        ans = subprocess.run(
+            ["tmux", "bind-key", "-n", "F5", "next-window", "-t", session]
+        )
+        ans = subprocess.run(
+            [
+                "tmux",
+                "set-hook",
+                "-g",
+                "-t",
+                session,
+                "pane-exited",
+                "kill-session -t %s" % session,
+            ]
+        )
+        ans = subprocess.run(["tmux", "attach-session", "-t", session])
 
 
 if __name__ == "__main__":

@@ -15,25 +15,60 @@ import functools
 import traceback
 import gevent
 import time
-import datetime
-import numpy
-import operator
-
 
 from ptpython.repl import PythonRepl
+
 from prompt_toolkit.keys import Keys
-from prompt_toolkit.filters import has_focus
-from prompt_toolkit.enums import DEFAULT_BUFFER
-
-
-from bliss.shell.cli import style as repl_style
-
-# from prompt_toolkit.history import History
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
 
+from prompt_toolkit.filters import has_focus
+from prompt_toolkit.enums import DEFAULT_BUFFER
 
+from bliss.shell.cli import style as repl_style
+
+from prompt_toolkit.eventloop.defaults import run_in_executor
+
+
+# don't patch the event loop on windows
+if not is_windows():
+    from prompt_toolkit.eventloop.posix import PosixEventLoop
+
+    class _PosixLoop(PosixEventLoop):
+        def run_in_executor(self, callback, _daemon=False):
+            t = gevent.spawn(callback)
+
+            class F(future.Future):
+                def result(self):
+                    if not t.ready():
+                        raise future.InvalidStateError
+                    return t.get()
+
+                def add_done_callback(self, callback):
+                    t.link(callback)
+
+                def exception(self):
+                    return t.exception
+
+                def done(self):
+                    return t.ready()
+
+            return F()
+
+    set_event_loop(_PosixLoop())
+
+from .prompt import BlissPrompt
+from .typing_helper import TypingHelper
+
+from bliss.shell import initialize
+from bliss.data.display import ScanPrinter, ScanEventHandler
+
+if sys.platform in ["win32", "cygwin"]:
+    import win32api
+
+
+# =================== ERROR REPORTING ============================
 class ErrorReport:
     """ 
     Manage the behavior of the error reporting in the shell.
@@ -64,6 +99,7 @@ class ErrorReport:
 
 
 ERROR_REPORT = ErrorReport()
+# ERROR_REPORT.expert_mode = True
 
 # patch the system exception hook
 def repl_excepthook(exc_type, exc_value, tb):
@@ -139,19 +175,21 @@ from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.scanning.scan import set_scan_watch_callbacks
 
+
 if sys.platform in ["win32", "cygwin"]:
+
     import win32api
-
-
-if sys.platform not in ["win32", "cygwin"]:
-    from blessings import Terminal
-else:
 
     class Terminal:
         def __getattr__(self, prop):
             if prop.startswith("__"):
                 raise AttributeError(prop)
             return ""
+
+
+else:
+
+    from blessings import Terminal
 
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
@@ -175,9 +213,15 @@ class BlissRepl(PythonRepl):
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
         session = kwargs.pop("session")
+
         # bliss_bar = status_bar(self)
         # toolbars = list(kwargs.pop("extra_toolbars", ()))
         # kwargs["_extra_toolbars"] = [bliss_bar] + toolbars
+
+        # Catch and remove additional kwargs
+        self.session_name = kwargs.pop("session_name", "default")
+        self.use_tmux = kwargs.pop("use_tmux", False)
+
         super(BlissRepl, self).__init__(*args, **kwargs)
 
         self.current_task = None
@@ -197,6 +241,11 @@ class BlissRepl(PythonRepl):
         self.use_ui_colorscheme("bliss_ui")
         self.code_styles["bliss_code"] = repl_style.bliss_code_style
         self.use_code_colorscheme("bliss_code")
+
+        # PTPYTHON SHELL PREFERENCES
+        self.enable_history_search = True
+        self.show_status_bar = True
+        self.confirm_exit = True
 
         self.typing_helper = TypingHelper(self)
 
@@ -227,219 +276,6 @@ class BlissRepl(PythonRepl):
         current_task = self.current_task
         if current_task is not None:
             current_task.kill(block=block, exception=exception)
-
-
-def _find_obj(name):
-    return operator.attrgetter(name)(setup_globals)
-
-
-class ScanPrinter:
-    """compose scan output"""
-
-    HEADER = (
-        "Total {npoints} points{estimation_str}\n"
-        + "{not_shown_counters_str}\n"
-        + "Scan {scan_nb} {start_time_str} {filename} "
-        + "{session_name} user = {user_name}\n"
-        + "{title}\n\n"
-        + "{column_header}"
-    )
-
-    DEFAULT_WIDTH = 12
-
-    def __init__(self):
-        self.real_motors = []
-        set_scan_watch_callbacks(
-            self._on_scan_new, self._on_scan_data, self._on_scan_end
-        )
-
-    def _on_scan_new(self, scan_info):
-        scan_type = scan_info.get("type")
-        if scan_type is None:
-            return
-        config = static.get_config()
-        scan_info = dict(scan_info)
-        self.term = Terminal(scan_info.get("stream"))
-        nb_points = scan_info.get("npoints")
-        if nb_points is None:
-            return
-
-        self.col_labels = ["#"]
-        self.real_motors = []
-        self.counter_names = []
-        self.counter_fullnames = []
-        self._point_nb = 0
-        motor_labels = []
-        self.motor_fullnames = []
-
-        master, channels = next(iter(scan_info["acquisition_chain"].items()))
-
-        for channel_name in channels["master"]["scalars"]:
-            channel_short_name = channels["master"]["display_names"][channel_name]
-            # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
-            if channel_short_name == "elapsed_time":
-                # timescan
-                self.col_labels.insert(1, "dt[s]")
-            else:
-                # we can suppose channel_name to be a motor name
-                try:
-                    motor = _find_obj(channel_short_name)
-                except Exception:
-                    continue
-                else:
-                    if isinstance(motor, Axis):
-                        self.real_motors.append(motor)
-                        if self.term.is_a_tty:
-                            dispatcher.connect(
-                                self._on_motor_position_changed,
-                                signal="position",
-                                sender=motor,
-                            )
-                        unit = motor.config.get("unit", default=None)
-                        motor_label = motor.alias_or_name
-                        if unit:
-                            motor_label += "[{0}]".format(unit)
-                        motor_labels.append(motor_label)
-                        self.motor_fullnames.append("axis:" + motor.name)
-
-        for channel_fullname in channels["scalars"]:
-            channel_name = channels["display_names"][channel_fullname]
-            if channel_name == "elapsed_time":
-                self.col_labels.insert(1, "dt[s]")
-                continue
-            self.counter_names.append(channel_name)  ### TODO: Missing units for now!!
-            self.counter_fullnames.append(channel_fullname)
-
-        self.col_labels.extend(motor_labels)
-        self.col_labels.extend(sorted(self.counter_names))
-
-        self.motor_fullnames = [mn for _, mn in zip(motor_labels, self.motor_fullnames)]
-
-        self.col_labels.extend(
-            [cn for _, cn in sorted(zip(self.counter_fullnames, self.counter_names))]
-        )
-
-        other_channels = [
-            channels["display_names"][channel_name]
-            for channel_name in channels["spectra"] + channels["images"]
-        ]
-        if other_channels:
-            not_shown_counters_str = "Activated counters not shown: %s\n" % ", ".join(
-                other_channels
-            )
-        else:
-            not_shown_counters_str = ""
-
-        if scan_type == "ct":
-            header = not_shown_counters_str
-        else:
-            estimation = scan_info.get("estimation")
-            if estimation:
-                total = datetime.timedelta(seconds=estimation["total_time"])
-                motion = datetime.timedelta(seconds=estimation["total_motion_time"])
-                count = datetime.timedelta(seconds=estimation["total_count_time"])
-                estimation_str = ", {0} (motion: {1}, count: {2})".format(
-                    total, motion, count
-                )
-            else:
-                estimation_str = ""
-
-            col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
-            h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
-            header = "  ".join(
-                [templ.format(label) for templ, label in zip(h_templ, self.col_labels)]
-            )
-            header = self.HEADER.format(
-                column_header=header,
-                estimation_str=estimation_str,
-                not_shown_counters_str=not_shown_counters_str,
-                **scan_info,
-            )
-            self.col_templ = [
-                "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens
-            ]
-        print(header)
-
-    def _on_scan_data(self, scan_info, values):
-        scan_type = scan_info.get("type")
-        if scan_type is None:
-            return
-
-        master, channels = next(iter(scan_info["acquisition_chain"].items()))
-
-        elapsed_time_col = []
-        if "timer:elapsed_time" in values:
-            elapsed_time_col.append(values.pop("timer:elapsed_time"))
-
-        motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
-        counter_values = [
-            values[counter_fullname]
-            for counter_fullname in sorted(self.counter_fullnames)
-        ]
-
-        values = elapsed_time_col + motor_values + counter_values
-        if scan_type == "ct":
-            # ct is actually a timescan(npoints=1).
-            norm_values = numpy.array(values) / scan_info["count_time"]
-            col_len = max(map(len, self.col_labels)) + 2
-            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
-                col_len
-            )
-            lines = "\n".join(
-                [
-                    template.format(label=label, value=v, norm=nv)
-                    for label, v, nv in zip(self.col_labels[1:], values, norm_values)
-                ]
-            )
-            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            msg = "{0}\n\n{1}".format(end_time_str, lines)
-            print(msg)
-        else:
-            values.insert(0, self._point_nb)
-            self._point_nb += 1
-            line = "  ".join(
-                [self.col_templ[i].format(v) for i, v in enumerate(values)]
-            )
-            if self.term.is_a_tty:
-                monitor = scan_info.get("output_mode", "tail") == "monitor"
-                print("\r" + line, end=monitor and "\r" or "\n")
-            else:
-                print(line)
-
-    def _on_scan_end(self, scan_info):
-        scan_type = scan_info.get("type")
-        if scan_type is None or scan_type == "ct":
-            return
-
-        for motor in self.real_motors:
-            dispatcher.disconnect(
-                self._on_motor_position_changed, signal="position", sender=motor
-            )
-
-        end = datetime.datetime.fromtimestamp(time.time())
-        start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
-        dt = end - start
-        if scan_info.get("output_mode", "tail") == "monitor" and self.term.is_a_tty:
-            print()
-        msg = "\nTook {0}".format(dt)
-        if "estimation" in scan_info:
-            time_estimation = scan_info["estimation"]["total_time"]
-            msg += " (estimation was for {0})".format(
-                datetime.timedelta(seconds=time_estimation)
-            )
-        print(msg)
-
-    def _on_motor_position_changed(self, position, signal=None, sender=None):
-        labels = []
-        for motor in self.real_motors:
-            position = "{0:.03f}".format(motor.position)
-            unit = motor.config.get("unit", default=None)
-            if unit:
-                position += "[{0}]".format(unit)
-            labels.append("{0}: {1}".format(motor.name, position))
-
-        print("\33[2K", end="")
-        print(*labels, sep=", ", end="\r")
 
 
 CONFIGS = weakref.WeakValueDictionary()
@@ -491,7 +327,7 @@ def cli(
     vi_mode=False,
     startup_paths=None,
     eventloop=None,
-    refresh_interval=1.0,
+    use_tmux=False,
 ):
     """
     Create a command line interface without running it::
@@ -510,7 +346,11 @@ def cli(
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
-    user_ns, session = initialize(session_name)
+
+    if session_name and not session_name.startswith("__DEFAULT__"):
+        user_ns, session = initialize(session_name)
+    else:
+        user_ns, session = initialize(session_name=None)
 
     import __main__
 
@@ -525,7 +365,7 @@ def cli(
     def get_globals():
         return __main__.__dict__
 
-    if session_name:
+    if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name
         session_title = "Bliss shell ({0})".format(session_name)
         history_filename = ".%s_%s_history" % (
@@ -553,6 +393,8 @@ def cli(
         title=session_title,
         history_filename=history_filename,
         startup_paths=startup_paths,
+        session_name=session_name,
+        use_tmux=use_tmux,
     )
 
     global REPL
@@ -565,6 +407,7 @@ def cli(
         except:
             sys.excepthook(*sys.exc_info())
 
+    # Custom keybindings
     configure_repl(repl)
 
     return repl
@@ -596,8 +439,18 @@ def embed(*args, **kwargs):
     try:
         cmd_line_i = cli(*args, **kwargs)
 
-        # set print methods for the scans
-        scan_printer = ScanPrinter()
+        if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
+            # Catch scan events to show the scan display window
+            seh = ScanEventHandler(cmd_line_i)
+            set_scan_watch_callbacks(
+                scan_new=seh.on_scan_new,
+                # scan_data=seh.on_scan_data,
+                # scan_end=seh.on_scan_end,
+            )
+
+        else:
+            # set old style print methods for the scans
+            scan_printer = ScanPrinter()
 
         if stop_signals:
 
@@ -639,17 +492,14 @@ def embed(*args, **kwargs):
             try:
                 inp = cmd_line_i.app.run()
                 cmd_line_i._execute(inp)
-
             except KeyboardInterrupt:
-                print("\rKeyboard Interrupt\n")
                 # ctrl c
-                # pass
+                print("\rKeyboard Interrupt\n")
             except EOFError:
                 # ctrl d
                 break
             except (SystemExit):
                 # kill and exit()
-                print("")
                 break
             except BaseException:
                 sys.excepthook(*sys.exc_info())

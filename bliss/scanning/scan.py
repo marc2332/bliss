@@ -95,7 +95,18 @@ class StepScanDataWatch:
         self._channel_name_2_channel = dict()
         self._init_done = False
 
-    def __call__(self, data_events, nodes, scan_info):
+    def on_scan_new(self, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["new"]()
+        if cb is not None:
+            cb(scan_info)
+
+    def on_scan_data(self, data_events, nodes, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["data"]()
+        if cb is None:
+            return
+
         if self._init_done is False:
             for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
@@ -120,11 +131,15 @@ class StepScanDataWatch:
                 for ch_name, ch in iter(self._channel_name_2_channel.items())
             }
 
-            cb = _SCAN_WATCH_CALLBACKS["data"]()
-            if cb is not None:
-                cb(scan_info, values)
+            cb(scan_info, values)
 
         self._last_point_display = min_nb_points
+
+    def on_scan_end(self, scan_info):
+
+        cb = _SCAN_WATCH_CALLBACKS["end"]()
+        if cb is not None:
+            cb(scan_info)
 
 
 class ScanSaving(ParametersWardrobe):
@@ -337,23 +352,32 @@ class ScanSaving(ParametersWardrobe):
 class ScanDisplay(ParametersWardrobe):
     SLOTS = []
 
-    def __init__(self):
+    def __init__(self, session=None):
         """
         This class represents the display parameters for scans for a session.
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
+
+        if session is None:
+            cs = _current_session()
+            session_name = cs.name if cs is not None else "default"
+        else:
+            session_name = session
+
         super().__init__(
-            "%s:scan_display_params" % self.session,
-            default_values={"auto": False, "motor_position": True},
-            property_attributes=("session",),
+            "%s:scan_display_params" % session_name,
+            default_values={"auto": False, "motor_position": True, "_counters": []},
+            property_attributes=("session", "counters"),
             not_removable=("auto", "motor_position"),
             **keys,
         )
 
+        self.add("_session_name", session_name)
+
     def __dir__(self):
         keys = super().__dir__()
-        return keys + ["session", "auto"]
+        return keys + ["session", "auto", "counters"]
 
     def __repr__(self):
         return super().__repr__()
@@ -361,8 +385,30 @@ class ScanDisplay(ParametersWardrobe):
     @property
     def session(self):
         """ This give the name of the current session or default if no current session is defined """
-        session = _current_session()
-        return session.name if session is not None else "default"
+        return self._session_name
+
+    @property
+    def counters(self):
+        return self._counters
+
+    @counters.setter
+    def counters(self, counters_selection):
+        """
+        Select counter(s) which will be displayed in scan output. If no counters are given, it clears the filter list.
+        """
+
+        if counters_selection in [[], (), "All", "all", None, ""]:
+            self._counters = []
+        else:
+            cnts = []
+            for cnt in counters_selection:
+                fullname = cnt.fullname
+                fullname = fullname.replace(".", ":", 1)
+                if not fullname.find(":") > -1:
+                    fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
+                cnts.append(fullname)
+
+            self._counters = cnts
 
 
 def _get_channels_dict(acq_object, channels_dict):
@@ -547,8 +593,6 @@ class Scan:
         )
 
         if data_watch_callback is not None:
-            if not callable(data_watch_callback):
-                raise TypeError("data_watch_callback needs to be callable")
             data_watch_callback_event = gevent.event.Event()
             data_watch_callback_done = gevent.event.Event()
 
@@ -743,7 +787,9 @@ class Scan:
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
                 self._scan_info["state"] = self._state
-                self._data_watch_callback(data_events, self.nodes, self._scan_info)
+                self._data_watch_callback.on_scan_data(
+                    data_events, self.nodes, self._scan_info
+                )
             else:
                 self._data_watch_callback_event.set()
 
@@ -825,9 +871,8 @@ class Scan:
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
-            cb = _SCAN_WATCH_CALLBACKS["new"]()
-            if cb is not None:
-                cb(self.scan_info)
+            if self._data_watch_callback:
+                self._data_watch_callback.on_scan_new(self.scan_info)
 
             self._state = self.PREPARE_STATE
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
@@ -895,9 +940,9 @@ class Scan:
             self._state = self.IDLE_STATE
 
             try:
-                cb = _SCAN_WATCH_CALLBACKS["end"]()
-                if cb is not None:
-                    cb(self.scan_info)
+                if self._data_watch_callback:
+                    self._data_watch_callback.on_scan_end(self.scan_info)
+
             finally:
                 if self.writer:
                     self.writer.close()
@@ -931,7 +976,9 @@ class Scan:
                 scan._data_events = dict()
                 scan._data_watch_running = True
                 scan.scan_info["state"] = scan._state
-                scan._data_watch_callback(data_events, scan.nodes, scan.scan_info)
+                scan._data_watch_callback.on_scan_data(
+                    data_events, scan.nodes, scan.scan_info
+                )
                 scan._data_watch_running = False
             except ReferenceError:
                 break

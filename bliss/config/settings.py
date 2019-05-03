@@ -673,8 +673,8 @@ class BaseHashSetting:
         cnx = self._cnx()
         cnx.delete(self._name)
 
-    def copy(self):
-        return self.get()
+    # def copy(self):
+    #    return self.get()
 
     @write_decorator_dict
     def set(self, values):
@@ -1239,7 +1239,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             **self._get_redis_single_set(self._sets[0]),
             **{attr: getattr(self, attr) for attr in self._property_attributes},
         }
-        return all_params
 
     def from_dict(self, d):
         """

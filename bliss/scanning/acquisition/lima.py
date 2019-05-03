@@ -38,12 +38,19 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         save_flag=False,
         prepare_once=False,
         start_once=False,
+        wait_frame_id=None,
         **keys
     ):
         """
         Acquisition device for lima camera.
 
         All parameters are directly matched with the lima device server
+
+        **wait_frame_id** it's the frame number to wait for the next
+        sequence in case the synchronisation is base on data.
+        i.e: for a mesh with one fast axes (continous), 
+        combine with one slow step motor. if you do 20 images per line,
+        the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
         """
         if not isinstance(device, lima.Lima):
             raise TypeError(
@@ -58,8 +65,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters["keys"]
         del self.parameters["prepare_once"]
         del self.parameters["start_once"]
+        del self.parameters["wait_frame_id"]
         self.parameters.update(keys)
-
+        if wait_frame_id is None:
+            wait_frame_id = range(acq_nb_frames)
         trigger_type = (
             AcquisitionMaster.SOFTWARE
             if "INTERNAL" in acq_trigger_mode
@@ -86,7 +95,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.__image_status = (False, -1)
         self.__lock = lock.Semaphore()
         self._ready_event = event.Event()
-        self._ready_event.set()
+        self.__wait_frame_id = wait_frame_id
+        self.__current_wait_frame_id = -1
 
     @property
     def fast_synchro(self):
@@ -96,12 +106,14 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         internal_trigger_mode = (
             self.parameters.get("acq_trigger_mode") == "INTERNAL_TRIGGER"
         )
+        wait_frame_id_iter = iter(self.__wait_frame_id)
         if self.npoints == 0 or internal_trigger_mode:
             # infinite number of frames (npoints == 0)
             # or internal trigger (one trigger for all frames)
             # in this case there is only 1 iteration for the
             # whole acquisition
             while True:
+                self.__current_wait_frame_id = next(wait_frame_id_iter)
                 yield self
                 if internal_trigger_mode:
                     break
@@ -111,17 +123,17 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             total_frames = self.npoints - 1
             while True:
                 # in case of fast synchro, we know we can take a new trigger before
-                # last image acquired is updated in Lima
+                # last image acquired is updated in Limaself.__current_wait_frame_id
                 new_image_acquired, last_image_acquired = self.__image_status
                 if self.fast_synchro:
                     if new_image_acquired:
                         last_image_acquired -= 1
                 if last_image_acquired < total_frames:
+                    self.__current_wait_frame_id = next(wait_frame_id_iter)
                     yield self
                     self.__sequence_index += 1
                 else:
                     break
-        self._ready_event.clear()
 
     def add_counter(self, counter):
         if counter.name != "image":
@@ -192,8 +204,23 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         return True
 
     def wait_ready(self):
-        if self._reading_task:
-            self._ready_event.wait()
+        acq_state = self.device.acq_status.lower()
+        while acq_state == "running":
+            if self.fast_synchro:
+                if self.device.ready_for_next_image:
+                    break
+                gevent.idle()
+            else:
+                self._ready_event.clear()
+                new_image_acquired, last_image_acquired = self.__image_status
+                if self.__current_wait_frame_id == last_image_acquired:
+                    break
+                elif last_image_acquired > self.__current_wait_frame_id:
+                    raise RuntimeError(
+                        "Synchronisation error, **wait_frame_id** is wrongly set for this scan"
+                    )
+                self._ready_event.wait()
+            acq_state = self.device.acq_status.lower()
 
     def trigger(self):
         self.trigger_slaves()
@@ -207,14 +234,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             acq_trigger_mode = self.parameters.get(
                 "acq_trigger_mode", "INTERNAL_TRIGGER"
             )
-            if self.prepare_once and acq_trigger_mode in (
-                "INTERNAL_TRIGGER_MULTI",
-                "EXTERNAL_GATE",
-                "EXTERNAL_TRIGGER_MULTI",
-            ):
-                self._ready_event.clear()
-            else:
-                self._ready_event.set()
 
         if not self._reading_task:
             self._reading_task = gevent.spawn(self.reading)
@@ -242,8 +261,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         last_image_acquired = -1
         try:
             while True:
-                self._ready_event.clear()
-
                 acq_state = self.device.acq_status.lower()
                 status = self._get_lima_status()
                 status["acq_state"] = acq_state
@@ -269,7 +286,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         else:
                             new_image_acquired = False
                         self.__image_status = (new_image_acquired, last_image_acquired)
-                        self._ready_event.set()
                 else:
                     if status["last_image_acquired"] != last_image_acquired:
                         last_image_acquired = status["last_image_acquired"]
@@ -294,10 +310,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         finally:
             self._ready_event.set()
 
-    def wait_reading(self, block=True):
-        if self._reading_task is None or self._reading_task.ready():
+    def wait_reading(self):
+        if self._reading_task is None:
             return True
-        try:
-            return self._reading_task.get(block=block)
-        except gevent.Timeout:
-            return False
+        return self._reading_task.get()

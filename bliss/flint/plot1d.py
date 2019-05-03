@@ -115,7 +115,7 @@ class LivePlot1D(qt.QWidget):
                     legend = "%s -> %s" % (x_axis, axis_name)
                     self.silx_plot.addCurve([], [], legend=legend, copy=False)
                     curve = self.silx_plot.getCurve(legend)
-                    curve.setYAxis("left" if k == 2 else "right")
+                    curve.setYAxis("right" if k == 2 else "left")
                     curve.sigItemChanged.connect(self._refresh_legend)
 
             row_id = self.axes_list_model.rowCount()
@@ -201,6 +201,7 @@ class LivePlot1D(qt.QWidget):
                         x_data, y_data, legend=legend, copy=False
                     )
                     curve = self.silx_plot.getCurve(key)
+                    curve.setVisible(True)
                     if not existed_curve:
                         curve.sigItemChanged.connect(self._refresh_legend)
                     curve.setYAxis("left" if column == 2 else "right")
@@ -211,7 +212,8 @@ class LivePlot1D(qt.QWidget):
                     )
                 else:
                     self.redis_cnx.hdel("%s:plot_select" % self._session_name, y_axis)
-                    self.silx_plot.removeCurve(legend)
+                    curve = self.silx_plot.getCurve(legend)
+                    curve.setVisible(False)
                     color = qt.QColor.fromRgbF(0., 0., 0., 0.)
 
                     qindex = self.axes_list_model.index(row, 4, qt.QModelIndex())
@@ -299,6 +301,7 @@ class LivePlot1D(qt.QWidget):
                         self.silx_plot.addCurve(
                             x_data, y_data, legend=legend, copy=False
                         )
+                        plot.setVisible(True)
 
     def update_all(self):
         self.update_enabled_plots()

@@ -61,14 +61,50 @@ controller:
 A pretty generic simulation counter is provided by
 `simulation_counter` module to define a fake counter.
 
-This fake counter is usable in a `ct` or in a `scan`.
+This fake counter is usable in a `ct` or in a [default
+scan](scan_default.md).
 
-If included in a scan (excepted timescan/loopscan without predefined
+It returns floats numbers that can be:
+
+* constant
+* random
+* following a gaussian distribution
+
+If included in a scan (except timescan/loopscan without predefined
 number of points), it returns values according to a user defined
-distribution (FLAT or GAUSSIAN).
+distribution:
 
-If included in a ct or timescan, it returns either a fixed value, or a
-random value.
+* FLAT (constant value)
+* GAUSSIAN
+
+If included in a `ct` or a `timescan`, it returns either a constant
+value.
+
+Returned values can be altered by adding a random "noise".
+
+### Parameters
+
+* `<distribution>`:  'GAUSSIAN' | 'FLAT'
+* `<noise_factor>`:
+    * `>= 0.0`
+    * add a random noise to the distribution
+    * 0 means 'no random noise added'
+    * noise added is only positive.
+* `<height_factor>`:
+    * `>= 0.0`
+    * multiplication factor to adjust height (Y)
+
+Parameters if using GAUSSIAN:
+
+* `<mu_offset>`: shitfs mean value by `<mu_offset> `(X-offset)
+* `<sigma_factor>`: standard deviation adjustement factor.
+
+
+!!! note
+
+    TODO: adding an option to be able to furnish to counter a
+    user-defined array for tests on a deterministic curve.
+
 
 ### Examples
 
@@ -94,7 +130,7 @@ NB: the real height depends also on the sigma value.
 ```
 
 
-`sim_ct_2` counter is configured to generate a gaussian curve:
+`sim_ct_2` counter is configured to generate a noisy gaussian curve:
 
 * centered in -1 (mu = -1.0)
 * with a standard deviation of 0.4 (sigma_factor = 0.4) (narrower than sim_ct_1's curve)
@@ -141,7 +177,6 @@ NB: the real height depends also on the sigma value.
   height_factor: 12.0
   noise_factor: 1.01
 ```
-
 
 
 ## MCA

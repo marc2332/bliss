@@ -2,42 +2,51 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2019 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy as np
+import time
+import pprint
 
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.scanning.acquisition.counter import SamplingMode
 from bliss.common.measurement import GroupedReadMixin, Counter
 
 # for logging
+import logging
 from bliss.common import mapping
 from bliss.common.logtools import LogMixin
-
-import time
 
 """
 `simulation_counter` allows to define a fake counter.
 
-It returns a random number.
+This fake counter is usable in a `ct` or in a scan.
+
+It returns floats numbers that can be:
+
+* constant
+* random
+* following a gaussian distribution
 
 If included in a scan (except timescan/loopscan without predefined
 number of points), it returns values according to a user defined
-distribution (FLAT or GAUSSIAN).
+distribution:
+
+* FLAT (constant value)
+* GAUSSIAN
+
 
 Parameters:
 * <distribution>:  'GAUSSIAN' | 'FLAT'
 * <noise_factor>:
-  * >= 0.0
-  * add a random noise to the distribution
-  * 0 means 'no random noise added'
-  * noise added is only positive.
+    * >= 0.0
+    * add a random noise to the distribution
+    * 0 means 'no random noise added'
+    * noise added is only positive.
 * <height_factor>:
-  * >= 0.0
-  * multiplication factor to adjust height (Y)
-
-Parameters if using FLAT:
+    * >= 0.0
+    * multiplication factor to adjust height (Y)
 
 Parameters if using GAUSSIAN:
 * <mu_offset>: shitfs mean value by <mu_offset> (X-offset)
@@ -68,14 +77,11 @@ Parameters if using GAUSSIAN:
 # tests:
 """
 
-
 ct(0.1)
-ct(0.2)
-loopscan(3, 0.1)
-loopscan(13, 0.1)
 
 sim_ct_1.get_acquisition_device()._logger.debugon()
 sim_ct_1._logger.debugon()
+
 
 plotselect(sim_ct_1)
 ascan(m1,-5,5,35,0.001, sim_ct_1); print(cen())
@@ -85,8 +91,18 @@ plotselect(sim_ct_2)
 ascan(m1,-5,5,35,0.001, sim_ct_2);print(cen())
 (-1.0121850156448249, 1.6335338706093914)
 
+ct(0.1)        # does not produce a gaussian
+timescan(0.1)  # does not produce a gaussian
+
+
+ascan(m1,-5,5,35,0.001)
+loopscan(13, 0.1)
+pointscan(m1, [-3 , -2, -1,  0, 0.2,1, 1.1], 0.1)
+timescan(0.1, npoints=13)
+
 a2scan(m1,-5,5, m2, 0, 3, 13, 0.01)
 cen()
+
 
 dscan(m1,-1,1, 13, 0.01)
 
@@ -105,6 +121,7 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
         self.distribution = distribution
         self.gauss_param = gauss_param
         self.noise_factor = noise_factor
+        self.scan_type = self.scan_param.get("type")
 
         AcquisitionDevice.__init__(
             self,
@@ -120,12 +137,10 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
 
     def is_count_scan(self):
         """
-        Return True if the scan involving this acq_device has not a
-        predefined number of points or is just a single count.
+        Return True if the scan involving this acq_device has NOT a
+        predefined (timescan) number of points or is just a single count (ct).
         """
-        self.scan_type = self.scan_param.get("type")
-
-        if self.scan_type in ["ct", "loopscan", "timescan"]:
+        if self.scan_param.get("npoints") < 2:
             return True
         else:
             return False
@@ -135,18 +150,28 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
         self._index = 0
 
         #### Get scan paramerters
+        nbpoints = self.scan_param.get("npoints")
 
-        if self.is_count_scan():
+        # npoints should be 0 only in case of timescan without 'npoints' parameter
+        if nbpoints == 0:
+            nbpoints = 1
+
+        if self.is_count_scan() or self.scan_type in ["pointscan"]:
+            # ct, timescan(without npoints), pointscan
             scan_start = self.scan_param.get("start")
             scan_stop = self.scan_param.get("stop")
+        elif self.scan_type in ["loopscan", "timescan"]:
+            # no user defined start/stop or timescan-with-npoints
+            scan_start = 0
+            scan_stop = nbpoints
         else:
+            # ascan etc.
             scan_start = self.scan_param.get("start")[0]
             scan_stop = self.scan_param.get("stop")[0]
 
-        nbpoints = self.scan_param.get("npoints")
         self._logger.debug(
             f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- type={self.scan_type} \
-        npoints={nbpoints} start={scan_start} stop={scan_stop}"
+        nbpoints={nbpoints} start={scan_start} stop={scan_stop}"
         )
 
         #### Get gaussian distribution parameters
@@ -165,25 +190,30 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
         #### Generation of the distribution
         # base data
         if self.is_count_scan() or self.distribution == "FLAT":
+            self._logger.debug(
+                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- is count scan or FLAT"
+            )
             self.data = np.ones(nbpoints)
         else:
+            self._logger.debug(
+                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- neither count nor FLAT"
+            )
             self.data = np.linspace(scan_start, scan_stop, nbpoints)
 
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- data(linspace)=")
+        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data(linspace)=")
         self._logger.debug(self.data)
 
-        # create distribution
-
-        if self.is_count_scan():
-            self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- FLAT")
+        # creates distribution
+        if self.is_count_scan() or self.distribution == "FLAT":
+            self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
             pass
         else:
             self._logger.debug(
-                f"SIMULATION_COUNTER_ACQ_DEV -- GAUSSIAN -- start={scan_start} stop={scan_stop} npoints={nbpoints}"
+                f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start={scan_start} stop={scan_stop} nbpoints={nbpoints}"
             )
             self.data = self.gauss(self.data, mu_offset, sigma_factor)
 
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- data=")
+        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data=")
         self._logger.debug(self.data)
 
         # applying Y factor.
@@ -266,14 +296,23 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
     def trigger(self):
         """
         Called at each point
+         * not called during ct()
+         * called during timescan()
         """
-        self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- trigger()")
+        self._logger.debug(
+            f"SIMULATION_COUNTER_ACQ_DEV -- **************** trigger() **************************"
+        )
+        if self._logger.isEnabledFor(logging.DEBUG):
+            print(self.data)
+            print("_index=", self._index)
+
         value = self.data[self._index]
 
         # publishes the data
         self.channels[0].emit(value)
 
-        self._index += 1
+        if not self.is_count_scan():
+            self._index += 1
         self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
 
@@ -308,8 +347,14 @@ class SimulationCounter(Counter, LogMixin):
             noise_factor=self.config.get("noise_factor", 0.0),
         )
 
-        self._logger.debug("SCAN_PARS")
-        self._logger.debug(scan_pars)
+        self._logger.debug("SIMULATION_COUNTER -- COUNTER CONFIG")
+        if self._logger.isEnabledFor(logging.DEBUG):
+            pprint.pprint(self.config)
+
+        self._logger.debug("SIMULATION_COUNTER -- SCAN_PARS")
+
+        if self._logger.isEnabledFor(logging.DEBUG):
+            pprint.pprint(scan_pars)
         """ SCAN_PARS
         {'type': 'ascan', 'save': True, 'title': 'ascan mm1 0 1 5 0.2', 'sleep_time': None,
          'npoints': 5, 'total_acq_time': 1.0, 'start': [0], 'stop': [1], 'count_time': 0.2,

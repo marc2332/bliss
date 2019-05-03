@@ -125,21 +125,19 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
 
 
 def test_scan_data_0d(session, redis_data_conn):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 10, cnt_time=0.1)
-    s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
+
+    counter_name = "sim_ct_gauss"
+    simul_counter = getattr(setup_globals, counter_name)
+    s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
 
     assert s == setup_globals.SCANS[-1]
-    redis_data = list(
-        map(
-            float,
-            redis_data_conn.lrange(
-                s.node.db_name + ":timer:gaussian:gaussian_data", 0, -1
-            ),
-        )
-    )
 
-    assert numpy.array_equal(redis_data, counter.data)
+    # redis key is build from node name and counter name with _data suffix
+    # ":timer:<counter_name>:<counter_name>_data"
+    redis_key = s.node.db_name + f":timer:{counter_name}:{counter_name}_data"
+    redis_data = list(map(float, redis_data_conn.lrange(redis_key, 0, -1)))
+
+    assert numpy.array_equal(redis_data, simul_counter.data)
 
     redis_keys = set(redis_scan(session.name + "*", connection=redis_data_conn))
     session_node = get_node(session.name)

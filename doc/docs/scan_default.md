@@ -109,11 +109,12 @@ At the end of the `dscan` (even in case of error or scan abortion, on a
 
 Absolute 2 motors scan.
 
-Scans two motors, as specified by `<motor1>` and `<motor2>`. The motors start
-at the positions given by `<start1>` and `<start2>` and end at the positions
-given by `<stop1>` and `<stop2>`. The step size for each motor is given by
-`(<start>-<stop>)/(<npoints>-1)`. The number of intervals will be
-`<npoints>-1`. Count time is given by `<count_time>` (seconds).
+Scans two motors, as specified by `<motor1>` and `<motor2>`. The
+motors start at the positions given by `<start1>` and `<start2>` and
+end at the positions given by `<stop1>` and `<stop2>`. The step size
+for each motor is given by `(<start>-<stop>)/(<npoints>-1)`. The
+number of intervals will be `<npoints>-1`. Count time is given by
+`<count_time>` (seconds).
 
 
 ## d2scan
@@ -138,10 +139,10 @@ example:
 
     CYRIL [2]: a5scan(m1,1,2, m2,3,4, m3,5,6, m4,7,8, m5,8,9, 10, 0.1)
     Total 10 points, 0:00:04.100000 (motion: 0:00:03.100000, count: 0:00:01)
-    
+
     Scan 2 Fri Oct 26 16:07:08 2018 /tmp/scans/cyril/ cyril user = guilloud
     a5scan m1 1 2 m2 3 4 m3 5 6 m4 7 8 m5 8 9 10 0.1
-    
+
          #      dt[s]      m1      m2       m3       m4       m5      simct1
          0          0       1       3        5        7        8    0.038648
          1   0.432173    1.11    3.11     5.11     7.11     8.11    0.022345
@@ -153,7 +154,7 @@ example:
          7    2.98574    1.78    3.78     5.78     7.78     8.78    0.128783
          8     3.4303    1.89    3.89     5.89     7.89     8.89    0.073870
          9    3.84454       2       4        6        8        9    0.019919
-    
+
     Took 0:00:05.226827 (estimation was for 0:00:04.100000)
       Out [2]: Scan(name=a5scan_2, run_number=2, path=/tmp/scans/cyril/)
 
@@ -178,10 +179,11 @@ idem for dnscan with relative start and stop positions:
 
 Mesh scan.
 
-The amesh scan traces out a grid using motor `<motor1>` and motor `<motor2>`. The first
-motor scans from position `<start1>` to `<end1>` using the specified number of
-intervals. The second motor similarly scans from `<start2>` to `<end2>`. Each
-point is counted for for time seconds (or monitor counts).
+The amesh scan traces out a grid using motor `<motor1>` and motor
+`<motor2>`. The first motor scans from position `<start1>` to `<end1>`
+using the specified number of intervals. The second motor similarly
+scans from `<start2>` to `<end2>`. Each point is counted for for time
+seconds (or monitor counts).
 
 The scan of motor1 is done at each point scanned by motor2. That is,
 the first motor scan is nested within the second motor scan. (motor1
@@ -239,9 +241,10 @@ Performs a scan over many positions given as a list.
 
     pointscan(motor, positions, count_time, *counter_args, **kwargs)
 
-Scans one motor, as specified by `<motor>`. The motor starts at the position
-given by the first value in `<positions>` and ends at the position given by last value `<positions>`.
-Count time is given by `<count_time>` (seconds).
+Scans one motor, as specified by `<motor>`. The motor starts at the
+position given by the first value in `<positions>` and ends at the
+position given by last value `<positions>`.  Count time is given by
+`<count_time>` (seconds).
 
 *Special parameter*:
 
@@ -261,6 +264,27 @@ usage:
 example:
 
     lookupscan(0.1, m0, np.arange(0, 2, 0.5), m1, np.linspace(1, 3, 4), diode2)
+
+
+
+
+
+## Scans behaviour
+
+* create acquisition device
+* `prepare()`
+* `start()`
+* `trigger()` called `<nbpoints>` times.
+* `stop()`
+
+Scan       |  nbpoints | start/stop type
+-----------|-----------|-------------------
+def.       |   N       |  list
+timescan   |   0       |  []
+loopscan   |   N       |  []
+pointscan  |   N       |  float
+ct         |   1       |  []
+
 
 ## Default chain
 
@@ -283,10 +307,10 @@ scan or to change it's master.
     that configure the saving.<br>
     i.e: On Lima device *saving_mode*, *saving_format*... may be part of the
     `DEFAULT_CHAIN` configuration.
-    
 
-i.e: Two basler camera with an hardware trigger provide by you counter card.
-Most of the time the configuration come from `Beacon` and the `yaml` file may look like this:
+i.e: Two basler camera with an hardware trigger provide by you counter
+card.  Most of the time the configuration come from `Beacon` and the
+`yaml` file may look like this:
 
 ```yaml
 - name: default_acq_chain
@@ -353,7 +377,7 @@ def n_region_scan(motor, regions, count_time, *counter_args, **kwargs):
 Run it
 
 ```
-TEST_SESSION [1]: s = n_region_scan(roby,[(0,2,3),(10,15,11)],0.1,diode,save=False)                  
+TEST_SESSION [1]: s = n_region_scan(roby,[(0,2,3),(10,15,11)],0.1,diode,save=False)
 Total 14 points
 
 Scan 9 Tue Apr 02 14:58:33 2019 <no saving> test_session user = seb
@@ -390,7 +414,7 @@ def step_scan(motor, start, stop, step_size, count_time, *counter_args, **kwargs
 
 Run it
 ```
-TEST_SESSION [42]: s = step_scan(roby,0,1,0.2,0.1,diode)                                                                                                                                         
+TEST_SESSION [42]: s = step_scan(roby, 0, 1, 0.2, 0.1, diode)
 Total 5 points, 0:00:01.615242 (motion: 0:00:01.115242, count: 0:00:00.500000)
 
 Scan 17 Tue Apr 02 16:04:31 2019 /tmp/scans/test_session/data.h5 test_session user = seb
@@ -446,7 +470,7 @@ def syringe_ascan(syringe,liquid_amount,
 
 Run it
 ```
-TEST_SESSION [16]: syringe_ascan(my_syringe,1,roby,0,1,15,0.1,diode)                                                                                                                    
+TEST_SESSION [16]: syringe_ascan(my_syringe, 1, roby, 0, 1, 15, 0.1, diode)
 Total 15 points, 0:00:04.384344 (motion: 0:00:02.884344, count: 0:00:01.500000)
 
 Scan 22 Tue Apr 02 16:37:24 2019 /tmp/scans/test_session/data.h5 test_session user = seb
@@ -471,13 +495,14 @@ Took 0:00:02.008699 (estimation was for 0:00:04.384344)
 
 ```
 
-In this example before each of a point *preparation*, the syringe will pump one unity of a volume. 
-And raise an error when there syringe is empty.
+In this example before each of a point *preparation*, the syringe will
+pump one unity of a volume.  And raise an error when there syringe is
+empty.
 
 !!! note
     Any exception in `Preset` method stop the scan.
 
 ### More complex scans
 
-For more complex scans, you may be need to use a lower level api see [Scan engine](scan_engine.md)
-
+For more complex scans, you may be need to use a lower level api see
+[Scan engine](scan_engine.md)

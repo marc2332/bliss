@@ -15,12 +15,10 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 def test_timescan(session):
-    # test with sampling counter defined in setup file
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 10, cnt_time=0.1)
-    s = scans.timescan(0.1, counter, npoints=10, return_scan=True, save=False)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
     scan_data = s.get_data()
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_ct(beacon):

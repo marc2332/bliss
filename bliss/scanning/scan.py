@@ -352,23 +352,32 @@ class ScanSaving(ParametersWardrobe):
 class ScanDisplay(ParametersWardrobe):
     SLOTS = []
 
-    def __init__(self):
+    def __init__(self, session=None):
         """
         This class represents the display parameters for scans for a session.
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
+
+        if session is None:
+            cs = _current_session()
+            session_name = cs.name if cs is not None else "default"
+        else:
+            session_name = session
+
         super().__init__(
-            "%s:scan_display_params" % self.session,
-            default_values={"auto": False, "motor_position": True},
-            property_attributes=("session",),
+            "%s:scan_display_params" % session_name,
+            default_values={"auto": False, "motor_position": True, "_counters": []},
+            property_attributes=("session", "counters"),
             not_removable=("auto", "motor_position"),
             **keys,
         )
 
+        self.add("_session_name", session_name)
+
     def __dir__(self):
         keys = super().__dir__()
-        return keys + ["session", "auto"]
+        return keys + ["session", "auto", "counters"]
 
     def __repr__(self):
         return super().__repr__()
@@ -376,8 +385,30 @@ class ScanDisplay(ParametersWardrobe):
     @property
     def session(self):
         """ This give the name of the current session or default if no current session is defined """
-        session = _current_session()
-        return session.name if session is not None else "default"
+        return self._session_name
+
+    @property
+    def counters(self):
+        return self._counters
+
+    @counters.setter
+    def counters(self, counters_selection):
+        """
+        Select counter(s) which will be displayed in scan output. If no counters are given, it clears the filter list.
+        """
+
+        if counters_selection in [[], (), "All", "all", None, ""]:
+            self._counters = []
+        else:
+            cnts = []
+            for cnt in counters_selection:
+                fullname = cnt.fullname
+                fullname = fullname.replace(".", ":", 1)
+                if not fullname.find(":") > -1:
+                    fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
+                cnts.append(fullname)
+
+            self._counters = cnts
 
 
 def _get_channels_dict(acq_object, channels_dict):

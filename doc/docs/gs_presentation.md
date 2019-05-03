@@ -56,10 +56,10 @@ i.e. configuration objects defined in the session are initialized,
 then the setup file is executed. Finally the prompt returns to user.
 
 
-`-h` option allows to get an overview of other commad-line features.
+`-h` option allows to get an overview of other command-line features.
 
     % bliss -h
-    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
            bliss [-v | --version]
            bliss [-c <name> | --create=<name>]
            bliss [-d <name> | --delete=<name>]
@@ -75,6 +75,7 @@ then the setup file is executed. Finally the prompt returns to user.
       -c, --create=<session_name>   Create a new session with the given name
       -d, --delete=<session_name>   Delete the given session
       -h, --help                    Show help screen and exit
+      --no-tmux                     Deactivate Tmux usage
       --show-sessions               Display sessions and tree of sub-sessions
       --show-sessions-only          Display available sessions names only
 

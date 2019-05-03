@@ -11,6 +11,7 @@ import sys
 
 from bliss.data import start_listener
 from bliss.common import scans
+from bliss.scanning.scan import ScanDisplay
 
 import subprocess
 import gevent
@@ -36,6 +37,8 @@ def grab_lines(
 
 def test_a2scan_display(session):
     """ PERFORM TESTS TO CHECK THE OUTPUT DISPLAYED BY THE ScanDataListener FOR THE DIFFERENT STANDARD SCANS"""
+
+    sd = ScanDisplay(session.name)
 
     # put scan file in a different tmp directory or use SAVE = False
     # env_dict, session_obj = session
@@ -182,7 +185,7 @@ def test_a2scan_display(session):
                 # print(' finished')
 
             # ============= START THE A2SCAN (filtered counters) ================
-            scans.scan_display_filter(diode4)  # show only diode4
+            sd.counters = (diode4,)  # show only diode4
             lines = []
             # print('Start a2scan(robz, 0, 9, roby, 10, 19, 10, 0.01, diode4, diode5) ...', end='', flush=True)
             s = scans.a2scan(
@@ -242,7 +245,7 @@ def test_a2scan_display(session):
                 # print(' finished')
 
             # ============= START THE ASCAN ===================================
-            scans.scan_display_filter()  # reset filtering, i.e show all
+            sd.counters = ()  # reset filtering, i.e show all
             lines = []
             # print('Start ascan(roby, 0, 9, 10, 0.1, diode4, diode5) ...', end='', flush=True)
             s = scans.ascan(roby, 0, 9, 10, 0.1, diode4, diode5, save=False)

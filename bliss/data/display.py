@@ -27,6 +27,7 @@ from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
+from bliss.scanning.scan import ScanDisplay
 
 
 if sys.platform not in ["win32", "cygwin"]:
@@ -299,10 +300,10 @@ class ScanDataListener:
         self.scan_is_running = None
         self.counter_selection = []
         self.exit_read_fd = exit_read_fd
+        self.scan_display = ScanDisplay(self.session_name)
 
     def update_counter_selection(self):
-        ps = HashSetting(f"{self.session_name}:scan_display_filter")
-        self.counter_selection = list(ps.keys())
+        self.counter_selection = self.scan_display.counters
 
     def get_selected_counters(self, counter_names):
         if not self.counter_selection:

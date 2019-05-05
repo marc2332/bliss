@@ -184,7 +184,6 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     assert len(channels_data["diode"]) == npts
 
     x = DataNodeIterator(get_node(s.node.db_name))
-    print(x)
     for n in x.walk_from_last(filter="channel", wait=False):
         assert n.get(0, -1) == channels_data[n.name]
     assert isinstance(n, ChannelDataNode)
@@ -271,7 +270,6 @@ def test_ttl_on_data_node(beacon, redis_data_conn):
 
 
 def test_ttl_setter(session, capsys):
-    pytest.xfail()
     heater = getattr(setup_globals, "heater")
     diode = getattr(setup_globals, "diode")
     roby = getattr(setup_globals, "roby")

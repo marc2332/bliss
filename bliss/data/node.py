@@ -375,23 +375,10 @@ class DataNodeIterator(object):
                         yield self.EVENTS.END_SCAN, scan_node
 
 
-class _TTL_setter(object):
-    def __init__(self, db_name):
-        self._db_name = db_name
-        self._disable = False
-
-    def disable(self):
-        self._disable = True
-
-    def __del__(self):
-        if self._disable:
-            return
-        try:
-            node = get_node(self._db_name)
-            if node is not None:
-                node.set_ttl()
-        except TypeError:
-            pass
+def set_ttl(db_name):
+    node = get_node(db_name)
+    if node is not None:
+        node.set_ttl()
 
 
 class DataNode(object):
@@ -429,7 +416,7 @@ class DataNode(object):
             if parent:
                 self._data.parent = parent.db_name
                 parent.add_children(self)
-            self._ttl_setter = _TTL_setter(self.db_name)
+            self._ttl_setter = weakref.finalize(self, set_ttl, self.db_name)
         else:
             self.__new_node = False
             self._ttl_setter = None
@@ -488,7 +475,7 @@ class DataNode(object):
             pipeline.expire(name, DataNode.default_time_to_live)
         pipeline.execute()
         if self._ttl_setter is not None:
-            self._ttl_setter.disable()
+            self._ttl_setter.detach()
 
     def _get_db_names(self):
         db_name = self.db_name

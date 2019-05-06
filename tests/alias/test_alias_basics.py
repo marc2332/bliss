@@ -121,6 +121,49 @@ def test_alias_included_session(alias_session):
     assert env_dict["mot0"] is m0
 
 
+def test_alias_scan_title(alias_session):
+    env_dict, session = alias_session
+
+    robyy = env_dict["robyy"]
+    m1 = env_dict["m1"]
+    mot0 = env_dict["mot0"]
+    diode = session.config.get("diode")
+
+    s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
+    assert "ascan" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+
+    s = scans.dmesh(robyy, 0, 1, 3, m1, 0, 1, 3, 0.1, diode, run=False)
+    assert "dmesh" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+    assert "m1" in s.scan_info["title"]
+
+    s = scans.a2scan(robyy, 0, 1, m1, 0, 1, 3, 0.1, diode, run=False)
+    assert "a2scan" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+    assert "m1" in s.scan_info["title"]
+
+    s = scans.d2scan(robyy, 0, 1, m1, 0, 1, 3, 0.1, diode, run=False)
+    assert "d2scan" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+    assert "m1" in s.scan_info["title"]
+
+    # starting from 3, the underlying scan function is 'anscan',
+    # so it does not need to test aNscan,dNscan with N>3 it is all the
+    # same code
+    s = scans.a3scan(robyy, 0, 1, m1, 0, 1, mot0, 0, 1, 3, 0.1, diode, run=False)
+    assert "a3scan" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+    assert "m1" in s.scan_info["title"]
+    assert "mot0" in s.scan_info["title"]
+
+    s = scans.d3scan(robyy, 0, 1, m1, 0, 1, mot0, 0, 1, 3, 0.1, diode, run=False)
+    assert "d3scan" in s.scan_info["type"]
+    assert "robyy" in s.scan_info["title"]
+    assert "m1" in s.scan_info["title"]
+    assert "mot0" in s.scan_info["title"]
+
+
 def test_alias_add_remove_set_get(alias_session):
     env_dict = alias_session.env_dict
     roby = alias_session.config.get("roby")

@@ -764,7 +764,7 @@ class Config:
                 instance_object = name2items.get(name)
 
         if add_axes_counters:
-            update_map_for_object(instance_object)  # , add_axes_counters)
+            update_map_for_object(instance_object)
 
         return instance_object
 

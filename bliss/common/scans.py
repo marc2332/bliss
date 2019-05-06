@@ -8,9 +8,6 @@
 """
 Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 :func:`~bliss.common.scans.dscan`, :func:`~bliss.common.scans.timescan`, etc)
-
-TODO LIST:
-* to make ascan a2scan dscan d2scan coherent by using anscan / dnscan ?
 """
 
 __all__ = [
@@ -115,7 +112,7 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     }
 
     if scan_info["title"] is None:
-        args = scan_info["type"], motor.name, start, stop, npoints, count_time
+        args = (scan_info["type"], motor.name, start, stop, npoints, count_time)
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         scan_info["title"] = template.format(*args)
 
@@ -208,7 +205,7 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     run = kwargs.pop("run", True)
     kwargs["run"] = False
     kwargs.setdefault("name", "dscan")
-    args = kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time
+    args = (kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time)
     template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
     title = template.format(*args)
     kwargs.setdefault("title", title)
@@ -411,21 +408,6 @@ def dmesh(
     kwargs.setdefault("name", "dmesh")
     run = kwargs.pop("run", True)
     kwargs["run"] = False
-    if kwargs.get("title") is None:
-        args = (
-            kwargs["type"],
-            motor1.name,
-            start1,
-            stop1,
-            npoints1,
-            motor2.name,
-            start2,
-            stop2,
-            npoints2,
-            count_time,
-        )
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        kwargs["title"] = template.format(*args)
 
     start1 += motor1.position
     stop1 += motor1.position
@@ -685,7 +667,14 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     kwargs.setdefault("start", starts_list)
     kwargs.setdefault("stop", stops_list)
 
-    scan_type = kwargs.setdefault("type", "a%dscan" % (len(title_list) / 3))
+    # scan type is forced to be either aNscan or dNscan
+    scan_type = kwargs.pop("type", None)
+    if scan_type == "dscan":
+        scan_type = f"d{len(title_list)//3}scan"
+    else:
+        scan_type = f"a{len(title_list)//3}scan"
+    kwargs["type"] = scan_type
+
     scan_name = kwargs.setdefault("name", scan_type)
     if "title" not in kwargs:
         args = [scan_type]
@@ -711,7 +700,6 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
 
-    title_list = list()
     starts_list = []  # absolute start values.
     stops_list = []  # absolute stop values.
     old_pos_list = []  # absolute original motor positions.
@@ -721,29 +709,21 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
         val = tmp_l.pop(0)
         if isinstance(val, Axis):
             motors_list.append(val)
-            oldpos = val.position()
+            oldpos = val.position
             old_pos_list.append(oldpos)
             start = tmp_l.pop(0)
             starts_list.append(start)
             stop = tmp_l.pop(0)
             stops_list.append(stop)
-            title_list.extend((val.name, start, stop))
             motors_positions.extend((val, oldpos + start, oldpos + stop))
         else:
             counter_list.append(val)
 
     run = kwargs.pop("run", True)
     kwargs["run"] = False
+    kwargs["type"] = "dscan"
     kwargs.setdefault("start", starts_list)
     kwargs.setdefault("stop", stops_list)
-    scan_type = kwargs.setdefault("type", "d%dscan" % (len(title_list) / 3))
-    scan_name = kwargs.setdefault("name", scan_type)
-    if "title" not in kwargs:
-        args = [scan_type]
-        args += title_list
-        args += [npoints, count_time]
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        kwargs["title"] = template.format(*args)
 
     motors_positions += counter_list
 
@@ -1048,9 +1028,6 @@ def d2scan(
         npoints,
         count_time,
     )
-    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-    title = template.format(*args)
-    kwargs.setdefault("title", title)
     kwargs.setdefault("name", "d2scan")
 
     oldpos1 = motor1.position

@@ -11,13 +11,14 @@ from fnmatch import fnmatch, fnmatchcase
 import functools
 import networkx as nx
 
+from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.mapping import _BEAMLINE_MAP, BEAMLINE_GRAPH, format_node
 
 __all__ = ["log", "lslog", "lsdebug"]
 
 
 class LogMixin:
-    @property
+    @autocomplete_property
     def _logger(self, *args, **kwargs):
         id_ = id(self)
         if id_ not in BEAMLINE_GRAPH:

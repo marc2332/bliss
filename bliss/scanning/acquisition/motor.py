@@ -302,7 +302,10 @@ class _StepTriggerMaster(AcquisitionMaster):
             )
         )
         ctrl_seen = set()
-        for axis in self._axes:
+        self._fill_monitor_axes(self._axes, ctrl_seen)
+
+    def _fill_monitor_axes(self, axes, ctrl_seen):
+        for axis in axes:
             ctrl = axis.controller
             if ctrl not in ctrl_seen and isinstance(ctrl, CalcController):
                 if ctrl.config.get("emit_real_position", lambda x: x, True):
@@ -316,6 +319,7 @@ class _StepTriggerMaster(AcquisitionMaster):
                         )
                     )
                     ctrl_seen.add(ctrl)
+                    self._fill_monitor_axes(ctrl.reals, ctrl_seen)
 
     @property
     def npoints(self):

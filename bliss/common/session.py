@@ -437,7 +437,7 @@ class Session(object):
                 continue
 
             if verbose:
-                print("Initializing '%s`" % item_name)
+                print(f"Initializing '{item_name}'")
 
             self._add_from_config(item_name, env_dict)
 

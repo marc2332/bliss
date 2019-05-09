@@ -16,6 +16,7 @@ from bliss.scanning.chain import (
     AcquisitionDevice,
     AcquisitionChannel,
 )
+from bliss.scanning import scan_meta as scan_meta_module
 
 
 class DummyMaster(AcquisitionMaster):
@@ -159,3 +160,10 @@ def dummy_acq_master():
             return DummyMaster(*args, **kwargs)
 
     return DummyAcqMasterFactory()
+
+
+@pytest.fixture
+def scan_meta():
+    s = scan_meta_module.get_user_scan_meta()
+    yield s
+    scan_meta_module.USER_SCAN_META = None

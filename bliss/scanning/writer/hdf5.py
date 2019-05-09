@@ -11,7 +11,9 @@ import h5py
 import numpy
 import time
 import datetime
+from silx.io.dictdump import dicttoh5
 from bliss.scanning.writer.file import FileWriter
+from bliss.scanning.scan_meta import categories_names
 
 
 class Writer(FileWriter):
@@ -23,7 +25,7 @@ class Writer(FileWriter):
             data_filename,
             master_event_callback=self._on_event,
             device_event_callback=self._on_event,
-            **keys
+            **keys,
         )
 
         self.file = None
@@ -51,17 +53,29 @@ class Writer(FileWriter):
         instrument = scan_entry.create_group("instrument")
         instrument.attrs["NX_class"] = "NXinstrument"
         positioners = instrument.create_group("positioners")
-        positioners.attrs["NX_class"] = u"NXcollection"
+        positioners.attrs["NX_class"] = "NXcollection"
         positioners_dial = instrument.create_group("positioners_dial")
-        positioners_dial.attrs["NX_class"] = u"NXcollection"
-        positioners_dict = scan_info.get("positioners", {})
+        positioners_dial.attrs["NX_class"] = "NXcollection"
+
+        hdf5_scan_info = {
+            cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()
+        }
+        positioners_dict = hdf5_scan_info.get("instrument", {}).pop("positioners", {})
         for pname, ppos in positioners_dict.items():
             if isinstance(ppos, float):
                 positioners.create_dataset(pname, dtype="float64", data=ppos)
-        positioners_dial_dict = scan_info.get("positioners_dial", {})
+        positioners_dial_dict = hdf5_scan_info.get("instrument", {}).pop(
+            "positioners_dial", {}
+        )
         for pname, ppos in positioners_dial_dict.items():
             if isinstance(ppos, float):
                 positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
+
+        # pop rest of instrument
+        instrument_info = hdf5_scan_info.pop("instrument")
+        dicttoh5(instrument_info, self.file, h5path=f"{scan_name}/instrument")
+        dicttoh5(hdf5_scan_info, self.file, h5path=f"{scan_name}/scan_info")
+
         return measurement
 
     def _on_event(self, parent, event_dict, signal, sender):

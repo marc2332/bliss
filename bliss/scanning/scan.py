@@ -23,7 +23,8 @@ from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
-from bliss.common.utils import periodic_exec, get_axes_positions_iter
+from bliss.common.utils import periodic_exec
+from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
 from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
@@ -556,6 +557,10 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
+        user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan info
+        for dev in chain.nodes_list:
+            dev.fill_info(user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info["scan_nb"] = self.__scan_number
@@ -567,14 +572,7 @@ class Scan:
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        self._scan_info["positioners"] = {}
-        self._scan_info["positioners_dial"] = {}
-        for axis_name, axis_pos, axis_dial_pos, unit in get_axes_positions_iter(
-            on_error="ERR"
-        ):
-            self._scan_info["positioners"][axis_name] = axis_pos
-            self._scan_info["positioners_dial"][axis_name] = axis_dial_pos
-
+        self._scan_info.update(user_scan_meta.to_dict(self))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -683,7 +681,7 @@ class Scan:
         for top_level_master in acq_chain.keys():
             for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
                 ma = scalar_master.split(":")[-1]
-                if ma in self._scan_info["positioners"]:
+                if ma in self._scan_info["instrument"]["positioners"]:
                     master_axes.append(ma)
 
         if len(master_axes) == 0:
@@ -768,7 +766,7 @@ class Scan:
                         "scalars"
                     ]:
                         axis_name = scalar_master.split(":")[-1]
-                        if axis_name in self._scan_info["positioners"]:
+                        if axis_name in self._scan_info["instrument"]["positioners"]:
                             raise StopIteration
             except StopIteration:
                 axis = getattr(setup_globals, axis_name)

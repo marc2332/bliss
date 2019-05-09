@@ -22,47 +22,13 @@ import os
 import h5py
 
 
-def _h5dump(scan_file):
-    # Get items
-    items = []
+def h5dict(scan_file):
     with h5py.File(scan_file, "r") as f:
+        items = []
         f.visititems(lambda *args: items.append(args))
-        # Yield lines
-        for name, obj in items:
-            yield name
-            for key, val in obj.attrs.items():
-                yield "    %s: %s" % (key, val)
-
-
-def h5dump(scan_file):
-    return "\n".join(_h5dump(scan_file))
-
-
-ascan_dump = """{ascan}
-    NX_class: NXentry
-{ascan}/instrument
-    NX_class: NXinstrument
-{ascan}/measurement
-    NX_class: NXcollection
-{ascan}/measurement/axis:roby
-    fullname: axis:roby
-    alias: None
-    has_alias: False
-{ascan}/measurement/diode:diode
-    fullname: diode:diode
-    alias: None
-    has_alias: False
-{ascan}/measurement/simu1:spectrum_det0
-    fullname: simu1:spectrum_det0
-    alias: None
-    has_alias: False
-{ascan}/measurement/timer:elapsed_time
-    fullname: timer:elapsed_time
-    alias: None
-    has_alias: False
-{ascan}/start_time
-{ascan}/title
-"""
+        return {
+            name: {key: val for key, val in obj.attrs.items()} for name, obj in items
+        }
 
 
 def test_hdf5_metadata(beacon, session):
@@ -114,30 +80,22 @@ def test_hdf5_file_items(beacon, session):
         return_scan=True,
     )
 
-    scan_dump = h5dump(s.writer.filename)
-
-    ref_ascan_dump = ascan_dump.split("\n")
-
-    i = 0
-    in_positioner = False
-    in_scan = False
-    group_name = None
-    for l in scan_dump.split("\n"):
-        if l.startswith(" "):
-            if in_positioner:
-                continue
-        else:
-            in_scan = l == s.node.name or l.startswith(s.node.name + "/")
-        if not in_scan:
-            continue
-        if "positioner" in l:
-            in_positioner = True
-            continue
-        else:
-            in_positioner = False
-
-        assert l == ref_ascan_dump[i].format(ascan=s.node.name)
-        i += 1
+    scan_dict = h5dict(s.writer.filename)
+    scan_name = s.node.name
+    expected_dict = {
+        f"{scan_name}": {"NX_class": "NXentry"},
+        f"{scan_name}/instrument": {"NX_class": "NXinstrument"},
+        f"{scan_name}/measurement": {"NX_class": "NXcollection"},
+        f"{scan_name}/measurement/axis:roby": {},
+        f"{scan_name}/measurement/diode:diode": {},
+        f"{scan_name}/measurement/simu1:spectrum_det0": {},
+        f"{scan_name}/measurement/timer:elapsed_time": {},
+        f"{scan_name}/start_time": {},
+        f"{scan_name}/title": {},
+    }
+    for key, val in expected_dict.items():
+        assert key in scan_dict
+        assert val.items() <= scan_dict[key].items()
 
 
 def test_hdf5_values(beacon, session):

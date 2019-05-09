@@ -293,9 +293,6 @@ def main():
             )
 
         ans = subprocess.run(
-            ["tmux", "bind-key", "-n", "F5", "next-window", "-t", session]
-        )
-        ans = subprocess.run(
             [
                 "tmux",
                 "set-hook",

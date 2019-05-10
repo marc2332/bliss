@@ -159,11 +159,7 @@ def _watch_data(
                 try:
                     for channel_name in master_channels["scalars"]:
                         scan_data.setdefault(channel_name, [])
-                        data_channel_name = "%s:%s" % (
-                            data_channel.parent.name,
-                            data_channel.name,
-                        )
-                        if data_channel_name == channel_name:
+                        if data_channel.fullname == channel_name:
                             scan_data[channel_name] = numpy.concatenate(
                                 (scan_data[channel_name], data)
                             )
@@ -171,11 +167,7 @@ def _watch_data(
 
                     for i, channel_name in enumerate(scalars):
                         scan_data.setdefault(channel_name, [])
-                        data_channel_name = "%s:%s" % (
-                            data_channel.parent.name,
-                            data_channel.name,
-                        )
-                        if data_channel_name == channel_name:
+                        if data_channel.fullname == channel_name:
                             scan_data[channel_name] = numpy.concatenate(
                                 (scan_data.get(channel_name, []), data)
                             )

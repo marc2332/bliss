@@ -488,14 +488,16 @@ class ScanDataListener:
 
         # Skip if partial data
         for channel_name in channel_info["data"]:
-            if len(channel_info["data"][channel_name]) != self.scan_steps_index:
+            if len(channel_info["data"][channel_name]) < self.scan_steps_index:
                 return
 
         # Get data for the current scan step
         values_dict = {}
         for channel_name in channel_info["data"]:
             if channel_name in self.channel_names:
-                values_dict[channel_name] = channel_info["data"][channel_name][-1]
+                values_dict[channel_name] = channel_info["data"][channel_name][
+                    self.scan_steps_index - 1
+                ]
 
         # Extract time data
         elapsed_time_col = []

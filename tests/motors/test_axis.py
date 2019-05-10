@@ -76,6 +76,43 @@ def test_position_callback(robz):
     assert storage["last_dial_pos"] == pytest.approx(robz.user2dial(pos + 1))
 
 
+def test_position_callback_with_exception(roby, calc_mot1):
+    # Init
+    roby.position
+    calc_mot1.position
+    # issue 719
+    def callback(pos):
+        raise RuntimeError("Nasty exception")
+
+    event.connect(roby, "position", callback)
+
+    try:
+        roby.move(.1)
+    except RuntimeError:
+        pytest.fail("Unwanted exception")
+
+    assert "READY" in roby.state
+
+    event.disconnect(roby, "position", callback)
+    event.connect(calc_mot1, "position", callback)
+
+    # check calc_mot1 is at 2.0 since it depends on roby
+    # (an exception in callback should not affect the calc mot)
+    assert calc_mot1.position == pytest.approx(.2)
+
+    # now do the opposite: move calc and see how it behaves with
+    # exception raised in callback
+    event.connect(calc_mot1, "position", callback)
+
+    try:
+        calc_mot1.move(.1)
+    except RuntimeError:
+        pytest.fail("Unwanted exception")
+
+    assert "READY" in calc_mot1.state
+    assert roby.position == pytest.approx(0.05)
+
+
 def test_rmove(robz):
     robz.move(0)
     assert robz.position == pytest.approx(0)

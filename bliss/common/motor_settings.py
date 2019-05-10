@@ -8,10 +8,11 @@
 from bliss.common import log as elog
 from bliss.common import event
 from bliss.config import settings
+import sys
 
 
 def setting_update_from_channel(value, setting_name=None, axis=None):
-    # print 'setting update from channel', axis.name, setting_name, str(value)
+    # print('setting update from channel', axis.name, setting_name, str(value))
     if setting_name == "state":
         if "MOVING" in str(value):
             axis._set_moving_state(from_channel=True)
@@ -19,7 +20,10 @@ def setting_update_from_channel(value, setting_name=None, axis=None):
             if axis.is_moving:
                 axis._set_move_done()
 
-    event.send(axis, setting_name, value)
+    try:
+        event.send(axis, setting_name, value)
+    except Exception:
+        sys.excepthook(*sys.exc_info())
 
 
 def floatOrNone(x):
@@ -109,7 +113,10 @@ class ControllerAxisSettings:
 
         axis._beacon_channels[setting_name].value = value
         event.send(axis, "internal_" + setting_name, value)
-        event.send(axis, setting_name, value)
+        try:
+            event.send(axis, setting_name, value)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
 
 
 class AxisSettings:

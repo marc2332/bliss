@@ -36,4 +36,9 @@ version_info = release.version_info
 from gevent import monkey
 
 monkey.patch_all(thread=False)
+
+from redis import selector
+
+selector._DEFAULT_SELECTOR = selector.SelectSelector
+
 from bliss.common import logtools

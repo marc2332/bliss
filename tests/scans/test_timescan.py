@@ -41,5 +41,6 @@ def test_long_trigger_timescan(beacon, diode_acq_device_factory):
     s = Scan(chain, save=False)
     s.run()
 
-    assert len(s.get_data()) == 2  # check that the dictionary has 2 entries
+    assert "diode0" in s.get_data()
+    assert "elapsed_time" in s.get_data()
     assert len(s.get_data()["elapsed_time"]) == 3  # check data is present

@@ -37,8 +37,12 @@ def test_alias_data_channel(alias_session):
         "\n"
     )
 
+    d = list()
     for n in s.node.iterator.walk(filter="channel", wait=False):
-        assert " ".join([n.db_name, n.alias]) in dump1
+        d.append(" ".join([n.db_name, n.alias]))
+
+    for l in dump1:
+        assert l in d
 
     dump2 = """{a2scan}:axis:roby True
 {a2scan}:axis:robz True
@@ -53,5 +57,9 @@ def test_alias_data_channel(alias_session):
         "\n"
     )
 
+    d = list()
     for n in s.node.iterator.walk(filter="channel", wait=False):
-        assert " ".join([n.db_name, str(n.has_alias)]) in dump2
+        d.append(" ".join([n.db_name, str(n.has_alias)]))
+
+    for l in dump2:
+        assert l in d

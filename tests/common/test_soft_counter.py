@@ -155,6 +155,7 @@ def test_soft_counter_scan(beacon):
         "voltage",
         "get_pressure",
         "temp_f",
+        "epoch",
     }
     assert set(data.keys()) == counter_names
 

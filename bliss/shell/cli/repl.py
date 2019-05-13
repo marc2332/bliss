@@ -228,6 +228,8 @@ class BlissRepl(PythonRepl):
         self.show_signature = True
         self.ui_styles["bliss_ui"] = repl_style.bliss_ui_style
         self.use_ui_colorscheme("bliss_ui")
+
+        # Records bliss color style and make it active in bliss shell.
         self.code_styles["bliss_code"] = repl_style.bliss_code_style
         self.use_code_colorscheme("bliss_code")
 

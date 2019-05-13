@@ -267,6 +267,10 @@ class BlissRepl(PythonRepl):
                 raise return_value[1].with_traceback(return_value[2])
         except gevent.Timeout:
             self._handle_exception(*args)
+        except KeyboardInterrupt:
+            self.current_task.kill(KeyboardInterrupt)
+            print("\n")
+            raise
         finally:
             if args[0]:
                 self.bliss_prompt.python_input.current_statement_index += 1
@@ -282,9 +286,6 @@ CONFIGS = weakref.WeakValueDictionary()
 
 
 def configure_repl(repl):
-    @repl.add_key_binding(Keys.ControlC, eager=True)
-    def _(event):
-        repl.stop_current_task()
 
     # intended to be used for testing as ctrl+t can be send via stdin.write(bytes.fromhex("14"))
     # @repl.add_key_binding(Keys.ControlT)
@@ -467,7 +468,10 @@ def embed(*args, **kwargs):
                 stop_current_task(signum, frame)
                 os.close(w)
 
+            # traps SIGINT (from ctrl-c or kill -INT)
             signal.signal(signal.SIGINT, stop_with_keyboard_interrupt)
+
+            # traps SIGTERM (ctrl-d or kill)
             signal.signal(signal.SIGTERM, stop_current_task_and_exit)
 
             def watch_pipe(r):
@@ -493,8 +497,7 @@ def embed(*args, **kwargs):
                 inp = cmd_line_i.app.run()
                 cmd_line_i._execute(inp)
             except KeyboardInterrupt:
-                # ctrl c
-                print("\rKeyboard Interrupt\n")
+                cmd_line_i.default_buffer.reset()
             except EOFError:
                 # ctrl d
                 break

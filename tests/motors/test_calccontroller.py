@@ -9,6 +9,7 @@ import pytest
 from bliss.common.axis import Axis
 from bliss.common.standard import ascan
 from bliss.common.motor_group import Group
+from bliss.common import scans
 
 
 def test_tags(s1ho):
@@ -163,3 +164,16 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
         "RuntimeError: Virtual axis 'calc_mot1` cannot be present in group with any of its corresponding real axes: ['roby']"
         in str(exc)
     )
+
+
+def test_calc_motor_publishing(beacon, calc_mot2):
+    diode = beacon.get("diode")
+    m0 = beacon.get("m0")
+
+    s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, .1, diode)
+    pub_motors = s.scan_info["acquisition_chain"]["axis"]["master"]["scalars"]
+
+    assert "axis:calc_mot2" in pub_motors
+    assert "axis:m0" in pub_motors
+    assert "axis:calc_mot1" in pub_motors
+    assert "axis:roby" in pub_motors

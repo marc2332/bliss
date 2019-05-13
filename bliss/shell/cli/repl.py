@@ -25,10 +25,14 @@ from prompt_toolkit.eventloop import future
 
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
+from prompt_toolkit.eventloop.defaults import run_in_executor
 
 from bliss.shell.cli import style as repl_style
-
-from prompt_toolkit.eventloop.defaults import run_in_executor
+from bliss.shell import initialize
+from bliss.data.display import ScanPrinter, ScanEventHandler
+from bliss.scanning.scan import set_scan_watch_callbacks
+from .prompt import BlissPrompt
+from .typing_helper import TypingHelper
 
 
 # don't patch the event loop on windows
@@ -57,12 +61,6 @@ if not is_windows():
             return F()
 
     set_event_loop(_PosixLoop())
-
-from .prompt import BlissPrompt
-from .typing_helper import TypingHelper
-
-from bliss.shell import initialize
-from bliss.data.display import ScanPrinter, ScanEventHandler
 
 if sys.platform in ["win32", "cygwin"]:
     import win32api
@@ -165,17 +163,6 @@ def _set_pt_event_loop():
 
 
 _set_pt_event_loop()
-
-from .prompt import BlissPrompt
-from .typing_helper import TypingHelper
-
-from bliss import setup_globals
-from bliss.shell import initialize
-from bliss.config import static
-from bliss.common.utils import counter_dict
-from bliss.common.axis import Axis
-from bliss.common.event import dispatcher
-from bliss.scanning.scan import set_scan_watch_callbacks
 
 
 if sys.platform in ["win32", "cygwin"]:

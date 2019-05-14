@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
+import inspect
 import functools
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import (
@@ -98,7 +99,28 @@ class Controller(LogMixin):
             if not isinstance(axis, AxisRef)
         ]
         self._update_refs()
-        self._init_settings()
+
+        for axis in self.axes.values():
+            axis._beacon_channels.clear()
+            hash_setting = settings.HashSetting("axis.%s" % axis.name)
+
+            for setting_name in axis.settings:
+                setting_value = get_setting_or_config_value(axis, setting_name)
+                if setting_value is not None:
+                    # write setting to cache
+                    hash_setting[setting_name] = setting_value
+
+                chan_name = "axis.%s.%s" % (axis.name, setting_name)
+                cb = functools.partial(
+                    setting_update_from_channel, setting_name=setting_name, axis=axis
+                )
+                if setting_value is None:
+                    chan = Channel(chan_name, callback=cb)
+                else:
+                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
+                chan._setting_update_cb = cb
+                axis._beacon_channels[setting_name] = chan
+
         self.initialize()
 
         for axis_name, axis in controller_axes:
@@ -154,28 +176,6 @@ class Controller(LogMixin):
                 self.axes[axis.name] = referenced_axis
                 axis_list[i] = referenced_axis
 
-    def _init_settings(self):
-        for axis in self.axes.values():
-            axis._beacon_channels.clear()
-            hash_setting = settings.HashSetting("axis.%s" % axis.name)
-
-            for setting_name in axis.settings:
-                setting_value = get_setting_or_config_value(axis, setting_name)
-                if setting_value is not None:
-                    # write setting to cache
-                    hash_setting[setting_name] = setting_value
-
-                chan_name = "axis.%s.%s" % (axis.name, setting_name)
-                cb = functools.partial(
-                    setting_update_from_channel, setting_name=setting_name, axis=axis
-                )
-                if setting_value is None:
-                    chan = Channel(chan_name, callback=cb)
-                else:
-                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
-                chan._setting_update_cb = cb
-                axis._beacon_channels[setting_name] = chan
-
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()
         max_pos = user_positions.max()
@@ -226,53 +226,59 @@ class Controller(LogMixin):
 
         if isinstance(axis, NoSettingsAxis):
             return
+        else:
+            try:
+                self._init_settings(axis)
+            except:
+                self.__initialized_axis[axis] = False
+                raise
 
-        try:
-            for setting_name in axis.settings.config_settings():
-                # check if setting is in config
-                if axis.config.get(setting_name) is None:
-                    raise RuntimeError(
-                        "Axis %s: missing configuration key '%s`"
-                        % (axis.name, setting_name)
-                    )
-                # check if setting has a method to initialize (set) its value
-                try:
-                    getattr(axis, setting_name)
-                except AttributeError:
-                    raise RuntimeError(
-                        "Axis %s: missing method '%s` to set setting value"
-                        % (axis.name, setting_name)
-                    )
+    def _init_settings(self, axis):
+        props = dict(
+            inspect.getmembers(axis.__class__, lambda o: isinstance(o, property))
+        )
 
-            for setting_name in axis.settings.config_settings():
+        for setting_name in axis.settings.config_settings():
+            # check if setting is in config
+            if axis.config.get(setting_name) is None:
+                raise RuntimeError(
+                    "Axis %s: missing configuration key '%s`"
+                    % (axis.name, setting_name)
+                )
+            # check if setting has a method to initialize (set) its value,
+            # without actually executing the property
+            try:
+                props[setting_name].fset
+            except AttributeError:
+                raise RuntimeError(
+                    "Axis %s: missing method '%s` to set setting value"
+                    % (axis.name, setting_name)
+                )
 
-                if setting_name == "steps_per_unit":
-                    cval = float(axis.config.get(setting_name))
-                    rval = axis.settings.get(setting_name)
+        for setting_name in axis.settings.config_settings():
 
-                    if cval != rval and rval != None:
-                        ratio = rval / cval
-                        newdial = axis.dial * ratio
-                        newpos = axis.sign * newdial + axis.offset
-                        newsetpos = (
-                            ratio * (axis._set_position - axis.offset) + axis.offset
-                        )
+            if setting_name == "steps_per_unit":
+                cval = float(axis.config.get(setting_name))
+                rval = axis.settings.get(setting_name)
 
-                        axis.settings.set("dial_position", newdial)
-                        axis.settings.set("position", newpos)
-                        axis.settings.set("_set_position", newsetpos)
-                        axis.settings.set("steps_per_unit", cval)
+                if cval != rval and rval != None:
+                    ratio = rval / cval
+                    newdial = axis.dial * ratio
+                    newpos = axis.sign * newdial + axis.offset
+                    newsetpos = ratio * (axis._set_position - axis.offset) + axis.offset
 
-                else:
-                    value = get_setting_or_config_value(axis, setting_name)
-                    setattr(axis, setting_name, value)
+                    axis.settings.set("dial_position", newdial)
+                    axis.settings.set("position", newpos)
+                    axis.settings.set("_set_position", newsetpos)
+                    axis.settings.set("steps_per_unit", cval)
 
-            low_limit = get_setting_or_config_value(axis, "low_limit")
-            high_limit = get_setting_or_config_value(axis, "high_limit")
-            axis.limits = low_limit, high_limit
-        except:
-            self.__initialized_axis[axis] = False
-            raise
+            else:
+                value = get_setting_or_config_value(axis, setting_name)
+                setattr(axis, setting_name, value)
+
+        low_limit = get_setting_or_config_value(axis, "low_limit")
+        high_limit = get_setting_or_config_value(axis, "high_limit")
+        axis.limits = low_limit, high_limit
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]

@@ -128,9 +128,9 @@ def test_session_add_del(beacon, beacon_directory):
 
 Create a conda environemnt dedicated to tests.
 
-Go to bliss directory and:
+Go to bliss directory and do:
 ```
-conda create --name testenv --channel http://bcu-ci.esrf.fr/stable python=2 --file requirements-conda.txt  --file requirements-test-conda.txt
+conda create --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel tango-controls --channel conda-forge --file requirements-conda.txt  --file requirements-test-conda.txt
 source activate testenv
 pip install .
 ```
@@ -138,7 +138,7 @@ pip install .
 
 ### to run tests on bcu-ci computer
 
-Some timing problesm occuring during continuous integration but not on
+Some timing problems occuring during continuous integration but not on
 a local computer have been observed.
 
 To track them, it can be interesting to run tests on `bcu-ci` computer.
@@ -151,7 +151,7 @@ sudo docker run -it docker-registry.esrf.fr/bcu/ci-conda
 conda install git
 git clone git://gitlab.esrf.fr/bliss/bliss.git
 cd bliss
-conda create --name testenv --channel http://bcu-ci.esrf.fr/stable python=2 --file requirements-conda.txt  --file requirements-test-conda.txt
+conda create --name testenv --channel http://bcu-ci.esrf.fr/stable  --channel defaults --channel tango-controls --channel conda-forge --file requirements-conda.txt  --file requirements-test-conda.txt
 source activate testenv
 pip install .
 ```

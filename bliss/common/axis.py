@@ -1570,22 +1570,11 @@ class Axis(AliasMixin, LogMixin):
         """
         if reload:
             self.config.reload()
-        # Applies velocity and acceleration only if possible.
-        # Try to execute <config_name> function to check if axis supports it.
-        for config_param in ["velocity", "acceleration"]:
-            try:
-                config_value = getattr(self, "config_%s" % config_param)
-                setattr(self, config_param, config_value)
-            except (NotImplementedError, KeyError):
-                self._logger.debug(
-                    "'%s' for '%s' is not implemented" % (config_param, self.name)
-                )
-            else:
-                self._logger.debug(
-                    "set '%s' for '%s' done." % (config_param, self.name)
-                )
-
-        self.limits = self.config_limits
+        self.controller.axis_settings._clear(self, "velocity")
+        self.controller.axis_settings._clear(self, "acceleration")
+        self.controller.axis_settings._clear(self, "low_limit")
+        self.controller.axis_settings._clear(self, "high_limit")
+        self.controller._init_settings(self)
 
     @lazy_init
     def set_event_positions(self, positions):

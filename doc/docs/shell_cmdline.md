@@ -140,8 +140,8 @@ line window.
 * `PageDown`: go one *command* down in history (group of lines if multi-line command)
 * `Ctrl-a` or `Home`: go to begining of the current line
 * `Ctrl-e` or `End`: go to end of the current line
-* `Shift-PageUp`: Scroll up terminal buffer by half a page
-* `Shift-PageDown`: Scroll down terminal buffer by half a page
+* ~~`Shift-PageUp`: Scroll up terminal buffer by half a page~~
+* ~~`Shift-PageDown`: Scroll down terminal buffer by half a page~~
 * `Shift-Up`: Scroll up terminal buffer by one line
 * `Shift-Down`: Scroll down terminal buffer by one line
 * `Shift-Home`: go to begining of terminal buffer

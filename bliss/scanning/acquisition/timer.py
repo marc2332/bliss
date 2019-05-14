@@ -18,8 +18,12 @@ class SoftwareTimerMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(self, None, name, **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
+
         self.channels.append(
             AcquisitionChannel(self, "elapsed_time", numpy.double, (), unit="s")
+        )
+        self.channels.append(
+            AcquisitionChannel(self, "epoch", numpy.float, (), unit="s")
         )
 
         self._nb_point = 0
@@ -55,6 +59,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
             self._started_time = start_trigger
 
         self.channels[0].emit(start_trigger - self._started_time)
+        self.channels[1].emit(start_trigger)
 
         self.wait_slaves()
 

@@ -54,7 +54,7 @@ class ControllerAxisSettings:
         self.add("_set_position", float)
         self.add("position", float)
         self.add("state", stateSetting, persistent=False)
-        self.add("steps_per_unit", float, persistent=True, config=True)
+        self.add("steps_per_unit", float, config=True)
 
     def config_settings(self):
         return tuple(

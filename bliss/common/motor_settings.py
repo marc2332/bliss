@@ -83,15 +83,14 @@ class ControllerAxisSettings:
             value = hash_setting.get(setting_name)
         else:
             value = None
-        if value is None:
-            chan = axis._beacon_channels.get(setting_name)
-            if chan:
-                value = chan.value
         if value is not None:
             convert_func = self.convert_func.get(setting_name)
             if convert_func is not None:
                 value = convert_func(value)
         return value
+
+    def _clear(self, axis, setting_name):
+        settings.HashSetting("axis.%s" % axis.name)[setting_name] = None
 
     def set(self, axis, setting_name, value):
         """

@@ -987,7 +987,6 @@ class Axis(AliasMixin, LogMixin):
         return _user_vel
 
     @property
-    @lazy_init
     def config_velocity(self):
         """
         Returns the config velocity.
@@ -1026,7 +1025,6 @@ class Axis(AliasMixin, LogMixin):
         return _acceleration
 
     @property
-    @lazy_init
     def config_acceleration(self):
         return self.config.get("acceleration", float)
 
@@ -1049,7 +1047,6 @@ class Axis(AliasMixin, LogMixin):
         return self.velocity / self.acceleration
 
     @property
-    @lazy_init
     def config_acctime(self):
         """
         Returns the config acceleration time.
@@ -1105,7 +1102,6 @@ class Axis(AliasMixin, LogMixin):
         return self.high_limit
 
     @property
-    @lazy_init
     def config_limits(self):
         ll = self.config.get("low_limit", float, float("-inf"))
         hl = self.config.get("high_limit", float, float("+inf"))

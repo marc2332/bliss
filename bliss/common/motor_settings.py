@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common import log as elog
 from bliss.common import event
 from bliss.config import settings
 import sys
@@ -144,7 +143,7 @@ class AxisSettings:
 
     def disable_cache(self, setting_name, flag=True):
         """
-        Remove the cache setting for the a setting_name.
+        Remove cache for specified setting
         """
         disabled_settings = self.__axis.controller.axis_settings.disabled_settings.setdefault(
             self.__axis, set()

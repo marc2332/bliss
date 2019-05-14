@@ -772,7 +772,7 @@ class CalcController(Controller):
 
         if error_list:
             error_message = (
-                "Trajectory on calc axis **%s** can not be done.\n" % calc_axis.name
+                "Trajectory on calc axis **%s** cannot be done.\n" % calc_axis.name
             )
             error_message += "\n".join(error_list)
             raise ValueError(error_message)

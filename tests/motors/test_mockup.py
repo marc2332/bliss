@@ -1,18 +1,22 @@
-
-
-from math import sqrt
-from collections import OrderedDict
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from math import sqrt
 
+from bliss.config.conductor.client import get_default_connection
 from bliss.physics.trajectory import LinearTrajectory
 
 
 parameters = [
     dict(
         desc="long movement (reaches top velocity)",
-        motion=OrderedDict(pi=10, pf=100, velocity=10, acceleration=40, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=10, pf=100, velocity=10, acceleration=40, ti=0),
+        expected_trajectory=dict(
             p=90,
             dp=90,
             positive=True,
@@ -36,8 +40,8 @@ parameters = [
     ),
     dict(
         desc="negative long movement (reaches top velocity)",
-        motion=OrderedDict(pi=-10, pf=-100, velocity=10, acceleration=40, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=-10, pf=-100, velocity=10, acceleration=40, ti=0),
+        expected_trajectory=dict(
             p=-90,
             dp=90,
             positive=False,
@@ -61,8 +65,8 @@ parameters = [
     ),
     dict(
         desc="short movement",
-        motion=OrderedDict(pi=10, pf=15, velocity=10, acceleration=5, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=10, pf=15, velocity=10, acceleration=5, ti=0),
+        expected_trajectory=dict(
             p=5,
             dp=5,
             positive=True,
@@ -86,8 +90,8 @@ parameters = [
     ),
     dict(
         desc="negative short movement",
-        motion=OrderedDict(pi=2.5, pf=-2.5, velocity=10, acceleration=5, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=2.5, pf=-2.5, velocity=10, acceleration=5, ti=0),
+        expected_trajectory=dict(
             p=-5,
             dp=5,
             positive=False,

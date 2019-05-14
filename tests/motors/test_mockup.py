@@ -190,3 +190,32 @@ def test_steps_per_unit_modified(beacon, factor=2., offset=10.):
     assert values_1[0] * factor == values_0[0]
     assert (values_1[1] - offset) * factor == (values_0[1] - offset)
     assert (values_1[2] - offset) * factor == (values_0[2] - offset)
+
+
+def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
+    client_conn = get_default_connection()
+    redis_conn = client_conn.get_redis_connection()
+
+    m = beacon.get("invalid_acc")
+
+    with pytest.raises(RuntimeError):
+        # this will initialize the axis object,
+        # and exception will be triggered for
+        # acceleration
+        m.position
+
+    # change config with good acc
+    m.config.set("acceleration", 100)
+    m.config.save()
+
+    m.apply_config(reload=True)
+
+    assert m.acceleration == 100
+
+    m = beacon.get("invalid_vel")
+    with pytest.raises(RuntimeError):
+        m.position
+    m.config.set("velocity", 10)
+    m.config.save()
+    m.apply_config(reload=True)
+    assert m.velocity == 10

@@ -189,6 +189,20 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     assert isinstance(n, ChannelDataNode)
 
 
+def test_lima_data_channel_node(redis_data_conn, lima_session):
+    lima_sim = getattr(setup_globals, "lima_simulator")
+
+    timescan = scans.timescan(0.1, lima_sim, npoints=1)
+
+    session_node = get_node(lima_session.name)
+    image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name
+    image_node = _get_or_create_node(image_node_db_name)
+    assert image_node.db_name == image_node_db_name
+    assert image_node.fullname == "lima_simulator:image"
+    assert image_node.shape == (1024, 1024)
+    assert image_node.dtype == numpy.uint32
+
+
 @pytest.mark.parametrize("with_roi", [False, True], ids=["without ROI", "with ROI"])
 def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     lima_sim = getattr(setup_globals, "lima_simulator")
@@ -198,7 +212,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     if with_roi:
         lima_sim.roi_counters["myroi"] = [0, 0, 1, 1]
 
-    timescan = scans.timescan(0.1, lima_sim, npoints=3, return_scan=True)
+    timescan = scans.timescan(0.1, lima_sim, npoints=3)
 
     session_node = get_node(lima_session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])

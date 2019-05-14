@@ -45,7 +45,7 @@ class Output:
         config = dict(config_dict)
 
         self.__multiplex = multiplex
-        self.__name = config.pop("label")
+        self.__name = config.pop("label").upper()
         self.__comment = config.pop("comment", "")
         self.__nodes = dict()
 

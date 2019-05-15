@@ -856,6 +856,7 @@ class PI_E712(Controller):
         """
         _infos = [
             ("Identifier                 ", "*IDN?"),
+            ("Stage serial number        ", "SPA? %s 0xf000200" % axis.channel),
             ("Com level                  ", "CCL?"),
             ("GCS Syntax version         ", "CSV?"),
             ("Last error code            ", "ERR?"),
@@ -877,6 +878,8 @@ class PI_E712(Controller):
             ("Digital filter type        ", "SPA? %s 0x5000000" % axis.channel),
             ("Digital filter Bandwidth   ", "SPA? %s 0x5000001" % axis.channel),
             ("Digital filter order       ", "SPA? %s 0x5000002" % axis.channel),
+            ("Range limit min            ", "SPA? %s 0x7000000" % axis.channel),
+            ("Range limit max            ", "SPA? %s 0x7000001" % axis.channel),
         ]
 
         _txt = ""

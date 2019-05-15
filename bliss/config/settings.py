@@ -1757,20 +1757,3 @@ class ParametersWardrobe(metaclass=ParametersType):
             self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
             self._populate(attr_name)
         return getattr(self, attr_name)
-
-
-if __name__ == "__main__":
-
-    class A(object):
-        x = SimpleSettingProp("counter")
-        y = SimpleObjSettingProp("obj")
-        q = QueueSettingProp("seb")
-        ol = QueueObjSettingProp("seb-list")
-        h = HashSettingProp("seb-hash")
-        oh = HashObjSettingProp("seb-hash-object")
-
-        def __init__(self, name):
-            self.name = name
-
-    a = A("m0")
-    p = Struct("optics:zap:params")

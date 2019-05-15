@@ -95,6 +95,7 @@ class Mockup(Controller):
     """
 
     def initialize_axis(self, axis):
+        self._logger.debug(f"initializing axis {axis.name}")
         self._axis_moves[axis] = {"motion": None}
 
         if self.read_hw_position(axis) is None:
@@ -141,6 +142,7 @@ class Mockup(Controller):
         return motion
 
     def set_hw_limits(self, axis, low_limit, high_limit):
+        self._logger.debug(f"set axis limit low={low_limit}, high={high_limit}")
         if low_limit is None:
             low_limit = float("-inf")
         if high_limit is None:
@@ -162,6 +164,7 @@ class Mockup(Controller):
 
     def start_one(self, motion, t0=None):
         axis = motion.axis
+        self._logger.debug(f"moving {axis.name} to {motion.target_pos}")
         if self._get_axis_motion(axis):
             raise RuntimeError("Cannot start motion. Motion already in place")
         pos = self.read_position(axis)
@@ -196,6 +199,7 @@ class Mockup(Controller):
             pos = self.read_hw_position(axis)
         else:
             pos = motion.trajectory.position(t)
+        self._logger.debug(f"{axis.name} position is {pos}")
         return int(round(pos))
 
     def read_encoder(self, encoder):

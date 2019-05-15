@@ -8,17 +8,91 @@
 
 import os
 import sys
+import numpy
 
 from bliss.data import start_listener
 from bliss.common import scans
 from bliss.scanning.scan import ScanDisplay
 
+from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.chain import AcquisitionChain, AcquisitionDevice
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.acquisition import timer
 import subprocess
 import gevent
 import pytest
 
 # from bliss.shell.cli import repl
 # repl.ERROR_REPORT.expert_mode = True
+
+
+def test_fast_scan(nb=1234, chunk=20):
+    class BlockDataDevice(AcquisitionDevice):
+        def __init__(self, npoints, chunk):
+            super().__init__(
+                None,
+                "block_data_device",
+                npoints=npoints,
+                prepare_once=True,
+                start_once=True,
+            )
+            self.event = gevent.event.Event()
+            self.channels.append(AcquisitionChannel(self, "block_data", numpy.int, ()))
+            self.pending_trigger = 0
+            self.chunk = chunk
+
+        def prepare(self):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def trigger(self):
+            self.pending_trigger += 1
+            self.event.set()
+
+        def wait_ready(self):
+            return True
+
+        def reading(self):
+            data = numpy.arange(self.npoints, dtype=numpy.int)
+            acq_npoint = 0
+            chunk = self.chunk
+            i = 0
+            while acq_npoint < self.npoints:
+
+                # print("acq_npoint",acq_npoint,i)
+                while not self.pending_trigger:
+                    self.event.clear()
+                    self.event.wait()
+
+                self.pending_trigger -= 1
+
+                if (acq_npoint + 1) % (chunk) == 0 and acq_npoint:
+                    self.channels[0].emit(data[i * chunk : (i + 1) * chunk])
+                    i += 1
+
+                acq_npoint += 1
+
+            if self.npoints - i * chunk > 0:
+                # print("remain",self.npoints - i*chunk ,i*chunk)
+                self.channels[0].emit(data[i * chunk :])
+
+    soft_timer = timer.SoftwareTimerMaster(0, npoints=nb)
+    block_data_device = BlockDataDevice(nb, chunk)
+    acq_chain = AcquisitionChain()
+    acq_chain.add(soft_timer, block_data_device)
+    s = Scan(
+        acq_chain,
+        "scan",
+        {"type": "fast_scan", "npoints": nb},
+        save=False,
+        data_watch_callback=StepScanDataWatch(),
+    )
+    s.run()
 
 
 def grab_lines(

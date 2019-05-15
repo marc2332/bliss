@@ -12,7 +12,7 @@ def motor_fixture(name):
     def get_motor(beacon):
         m = beacon.get(name)
         yield m
-        m.close()
+        m.__close__()
 
     get_motor.__name__ = name
     return pytest.fixture(get_motor)
@@ -22,7 +22,7 @@ def calc_motor_fixture(name):
     def get_motor(beacon):
         m = beacon.get(name)
         yield m
-        m.close()
+        m.__close__()
 
     get_motor.__name__ = name
     return pytest.fixture(get_motor)
@@ -50,7 +50,7 @@ calc_mot1 = calc_motor_fixture("calc_mot1")
 _calc_mot2 = calc_motor_fixture("calc_mot2")
 custom_axis = motor_fixture("custom_axis")
 
-# this ensures .close() is called
+# this ensures .__close__() is called
 # for calc_mot1 when calc_mot2 is used
 @pytest.fixture
 def calc_mot2(calc_mot1, _calc_mot2):

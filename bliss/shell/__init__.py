@@ -35,14 +35,8 @@ _log = logging.getLogger("bliss.shell")
 
 
 def initialize(session_name=None):
-    # Initialize user namespace with bliss.common.standard
-    from bliss.common import standard
-
-    user_ns = {name: getattr(standard, name) for name in standard.__all__}
-
     # Add config to the user namespace
     config = static.get_config()
-    user_ns["config"] = config
     error_flag = False
 
     """ BLISS CLI welcome messages """
@@ -92,8 +86,10 @@ def initialize(session_name=None):
         session = config.get(session_name)
         print("%s: Executing setup..." % session.name)
 
+    env_dict = {}
+
     try:
-        session.setup(env_dict=user_ns, verbose=True)
+        session.setup(env_dict, verbose=True)
     except Exception:
         error_flag = True
         sys.excepthook(*sys.exc_info())
@@ -104,4 +100,4 @@ def initialize(session_name=None):
         print("Done.")
         print("")
 
-    return user_ns, session
+    return session.env_dict, session

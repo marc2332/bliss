@@ -291,7 +291,7 @@ class LimaImageChannelDataNode(DataNode):
         self._storage_task = None
         self.from_stream = False
 
-    def close(self):
+    def __close__(self):
         if self._storage_task is None:
             return
         storage_task = self._storage_task

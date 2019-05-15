@@ -14,7 +14,7 @@ import itertools
 import functools
 import numpy
 from bliss.common.event import saferef
-
+from bliss.common import session
 import sys
 import collections.abc
 
@@ -499,15 +499,6 @@ def common_prefix(paths, sep=os.path.sep):
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
-def closable(obj):
-    """Return True if the given object is closable, False otherwise."""
-    return (
-        hasattr(obj, "close")
-        and inspect.ismethod(obj.close)
-        and obj.close.__self__ is not None
-    )
-
-
 def human_time_fmt(num, suffix="s"):
     """
     format time second in human readable format
@@ -570,18 +561,6 @@ class Statistics(object):
         return standard._tabulate(data)
 
 
-def _get_env_dict():
-    if "bliss.shell.cli.repl" in sys.modules.keys():
-        repl = sys.modules["bliss.shell.cli.repl"]
-
-        if repl.REPL is not None:
-            return repl.REPL.get_globals()
-        else:
-            return dict()
-    else:
-        return dict()
-
-
 def counter_dict():
     """
     Return a list of counters
@@ -591,7 +570,7 @@ def counter_dict():
 
     counters_dict = dict()
 
-    env_dict = _get_env_dict()
+    env_dict = session.get_current().env_dict
 
     for name, obj in itertools.chain(
         inspect.getmembers(setup_globals),

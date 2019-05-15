@@ -17,7 +17,7 @@ from tabulate import tabulate
 
 from bliss.config import static
 from bliss import setup_globals
-from bliss.common.utils import counter_dict, closable
+from bliss.common import session
 
 
 class AliasMixin(object):
@@ -32,8 +32,6 @@ class AliasMixin(object):
             )
 
         """Assign an alias for this object"""
-        from bliss.common.utils import _get_env_dict
-
         alias_config = {
             "original_name": self.name,
             "alias_name": alias,
@@ -43,7 +41,9 @@ class AliasMixin(object):
         }
 
         if not hasattr(setup_globals, "ALIASES"):
-            setattr(setup_globals, "ALIASES", Aliases(self, _get_env_dict()))
+            setattr(
+                setup_globals, "ALIASES", Aliases(self, session.get_current().env_dict)
+            )
 
         setup_globals.ALIASES.create_alias(
             **alias_config,
@@ -173,6 +173,8 @@ class Alias(object):
 
         # check if there is a counter around that can be linked to this alias
         if not disable_link_search:
+            from bliss.common.utils import counter_dict
+
             for key, item in counter_dict().items():
                 if key == original_name:
                     self._link_to(item)
@@ -366,5 +368,7 @@ class Aliases(object):
             if hasattr(setup_globals, obj.name):
                 delattr(setup_globals, obj.name)
             if not hasattr(setup_globals, obj_name) and obj.has_object_ref:
-                if closable(obj.object_ref):
-                    obj.object_ref.close()
+                try:
+                    obj.object_ref.__close__()
+                except Exception:
+                    pass

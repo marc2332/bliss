@@ -61,17 +61,17 @@ def test_references(beacon):
     s1hg = beacon.get("s1hg")
     s1vo = beacon.get("s1vo")
 
-    assert refs_cfg["scan"]["axis"].__repr__() == repr(m0)
-    assert refs_cfg["slits"][0]["axis"].__repr__() == repr(s1hg)
-    assert refs_cfg["slits"][0]["position"] == 0
-    assert refs_cfg["slits"][1]["axis"].__repr__() == repr(s1vo)
-    assert refs_cfg["slits"][1]["position"] == 1
-    assert refs_cfg["m0"].__repr__() == repr(m0)
-
-    # Clean-up
-    m0.close()
-    s1hg.close()
-    s1vo.close()
+    try:
+        assert refs_cfg["scan"]["axis"].__repr__() == repr(m0)
+        assert refs_cfg["slits"][0]["axis"].__repr__() == repr(s1hg)
+        assert refs_cfg["slits"][0]["position"] == 0
+        assert refs_cfg["slits"][1]["axis"].__repr__() == repr(s1vo)
+        assert refs_cfg["slits"][1]["position"] == 1
+        assert refs_cfg["m0"].__repr__() == repr(m0)
+    finally:
+        m0.__close__()
+        s1hg.__close__()
+        s1vo.__close__()
 
 
 def test_issue_451_infinite_recursion(beacon):

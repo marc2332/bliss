@@ -620,7 +620,7 @@ class Axis(AliasMixin, LogMixin):
         mapping.register(self, parents_list=[self.__controller], tag=f"axis.{name}")
         self._unit = self.config.get("unit", str, None)
 
-    def close(self):
+    def __close__(self):
         try:
             controller_close = self.__controller.close
         except AttributeError:

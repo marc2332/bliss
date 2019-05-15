@@ -107,7 +107,6 @@ def clean_session():
     current_session = session_module.get_current()
     if current_session is not None:
         current_session.close()
-        assert False
     assert session_module.CURRENT_SESSION is None
 
 
@@ -158,12 +157,8 @@ def beacon(ports):
     static.CONFIG = None
     client._default_connection = None
     config = static.get_config()
-    connection = get_default_connection()
     yield config
-    clear_cache()
-    Bus.clear_cache()
-    config._clear_instances()
-    connection.close()
+    config.close()
     client._default_connection = None
     static.CONFIG = None
 

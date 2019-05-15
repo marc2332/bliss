@@ -10,10 +10,10 @@ import sys
 from types import ModuleType
 import functools
 from treelib import Tree
+import __main__ as interpreter_main
 
 from bliss import setup_globals
 from bliss.config import static
-from bliss.common.utils import closable
 from bliss.common.alias import Aliases
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 
@@ -25,6 +25,10 @@ def get_current():
     """
     return the current session object
     """
+    global CURRENT_SESSION
+    if CURRENT_SESSION is None:
+        CURRENT_SESSION = DefaultSession()
+        CURRENT_SESSION.setup()
     return CURRENT_SESSION
 
 
@@ -179,8 +183,15 @@ class Session(object):
 
     def __init__(self, name, config_tree):
         self.__name = name
-        self.__config = static.get_config()
         self.__env_dict = {}
+        self.__scripts_module_path = None
+        self.__setup_file = None
+        self.__synoptic_file = None
+        self.__config_objects_names = []
+        self.__exclude_objects_names = []
+        self.__objects_names = None
+        self.__children_tree = None
+        self.__include_sessions = []
 
         self.init(config_tree)
 
@@ -226,7 +237,7 @@ class Session(object):
 
     @property
     def config(self):
-        return self.__config
+        return static.get_config()
 
     @property
     def setup_file(self):
@@ -331,22 +342,25 @@ class Session(object):
 
     @property
     def env_dict(self):
-        return self.__env_dict
+        try:
+            # does Python run in interactive mode ?
+            interpreter_main.__file__
+        except AttributeError:
+            # interactive interpreter: use the main dict
+            # in order to export objects naturally as globals
+            return interpreter_main.__dict__
+        else:
+            # running as a library
+            return self.__env_dict
 
     def setup(self, env_dict=None, verbose=False):
-        if env_dict is None:
-            # does Python run in interactive mode?
-            import __main__ as main
-
-            if not hasattr(main, "__file__"):
-                # interactive interpreter
-                self.__env_dict = main.__dict__
-            else:
-                self.__env_dict = {}
-        else:
+        if env_dict is not None:
+            # set a new env dict
             self.__env_dict = env_dict
-        env_dict = self.__env_dict
+        # use existing env dict
+        env_dict = self.env_dict
 
+        env_dict["config"] = self.config
         self._load_config(env_dict, verbose)
 
         global CURRENT_SESSION
@@ -359,15 +373,17 @@ class Session(object):
         if not "load_script" in env_dict:
             env_dict["load_script"] = functools.partial(load_script, env_dict)
 
-            from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
+        exec("from bliss.common.standard import *", env_dict)
 
-            env_dict["SCANS"] = SCANS
-            env_dict["SCAN_SAVING"] = ScanSaving(self.name)
-            env_dict["SCAN_DISPLAY"] = ScanDisplay()
+        from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
 
-            from bliss.common.measurementgroup import ACTIVE_MG
+        env_dict["SCANS"] = SCANS
+        env_dict["SCAN_SAVING"] = ScanSaving(self.name)
+        env_dict["SCAN_DISPLAY"] = ScanDisplay()
 
-            env_dict["ACTIVE_MG"] = ACTIVE_MG
+        from bliss.common.measurementgroup import ACTIVE_MG
+
+        env_dict["ACTIVE_MG"] = ACTIVE_MG
 
         sessions_tree = self.sessions_tree
         for child_session in reversed(
@@ -418,17 +434,24 @@ class Session(object):
             return True
 
     def close(self):
-        if get_current() is self:
+        try:
+            for obj_name, obj in self.__env_dict.items():
+                if obj is self or obj is self.config:
+                    continue
+                try:
+                    delattr(setup_globals, obj_name)
+                except Exception:
+                    pass
+                try:
+                    obj.__close__()
+                except Exception:
+                    pass
+            self.__env_dict.clear()
+        finally:
             global CURRENT_SESSION
-            CURRENT_SESSION = None
-        for obj_name, obj in self.__env_dict.items():
-            if obj is self:
-                continue
-            if hasattr(setup_globals, obj_name):
-                delattr(setup_globals, obj_name)
-            if closable(obj):
-                obj.close()
-        self.__env_dict.clear()
+            if CURRENT_SESSION is self:
+                self.config.close()
+                CURRENT_SESSION = None
 
     def _load_config(self, env_dict, verbose=True):
         for item_name in self.object_names:
@@ -454,30 +477,18 @@ class Session(object):
             del o
 
     def resetup(self, verbose=False):
-        env_dict = self.__env_dict
-
-        for name in self.object_names:
-            delattr(setup_globals, name)
-            try:
-                obj = env_dict.pop(name)
-            except KeyError:
-                pass
-            else:
-                if closable(obj):
-                    obj.close()
+        self.close()
 
         self.config.reload()
 
         self.init(self.config.get_config(self.name))
 
-        self.setup(env_dict, verbose)
+        self.setup(self.env_dict, verbose)
 
 
 class DefaultSession(Session):
     def __init__(self):
-        Session.__init__(
-            self, "default", {"exclude-objects": static.get_config().names_list}
-        )
+        Session.__init__(self, "default", {"config-objects": []})
 
     def _load_config(self, env_dict, verbose=True):
         return

@@ -25,10 +25,14 @@ from prompt_toolkit.eventloop import future
 
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
+from prompt_toolkit.eventloop.defaults import run_in_executor
 
 from bliss.shell.cli import style as repl_style
-
-from prompt_toolkit.eventloop.defaults import run_in_executor
+from bliss.shell import initialize
+from bliss.data.display import ScanPrinter, ScanEventHandler
+from bliss.scanning.scan import set_scan_watch_callbacks
+from .prompt import BlissPrompt
+from .typing_helper import TypingHelper
 
 
 # don't patch the event loop on windows
@@ -58,14 +62,10 @@ if not is_windows():
 
     set_event_loop(_PosixLoop())
 
-from .prompt import BlissPrompt
-from .typing_helper import TypingHelper
-
-from bliss.shell import initialize
-from bliss.data.display import ScanPrinter, ScanEventHandler
-
 if sys.platform in ["win32", "cygwin"]:
     import win32api
+
+from bliss.common import session
 
 
 # =================== ERROR REPORTING ============================
@@ -163,17 +163,6 @@ def _set_pt_event_loop():
 
 
 _set_pt_event_loop()
-
-from .prompt import BlissPrompt
-from .typing_helper import TypingHelper
-
-from bliss import setup_globals
-from bliss.shell import initialize
-from bliss.config import static
-from bliss.common.utils import counter_dict
-from bliss.common.axis import Axis
-from bliss.common.event import dispatcher
-from bliss.scanning.scan import set_scan_watch_callbacks
 
 
 if sys.platform in ["win32", "cygwin"]:
@@ -329,6 +318,7 @@ def cli(
     startup_paths=None,
     eventloop=None,
     use_tmux=False,
+    **kwargs,
 ):
     """
     Create a command line interface without running it::
@@ -353,18 +343,14 @@ def cli(
     else:
         user_ns, session = initialize(session_name=None)
 
-    import __main__
-
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = lambda: ERROR_REPORT.last_error
 
     user_ns["history"] = old_history_cmd
 
-    __main__.__dict__.update(user_ns)
-
     def get_globals():
-        return __main__.__dict__
+        return user_ns
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name
@@ -396,6 +382,7 @@ def cli(
         startup_paths=startup_paths,
         session_name=session_name,
         use_tmux=use_tmux,
+        **kwargs,
     )
 
     global REPL

@@ -1,18 +1,22 @@
-
-
-from math import sqrt
-from collections import OrderedDict
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from math import sqrt
 
+from bliss.config.conductor.client import get_default_connection
 from bliss.physics.trajectory import LinearTrajectory
 
 
 parameters = [
     dict(
         desc="long movement (reaches top velocity)",
-        motion=OrderedDict(pi=10, pf=100, velocity=10, acceleration=40, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=10, pf=100, velocity=10, acceleration=40, ti=0),
+        expected_trajectory=dict(
             p=90,
             dp=90,
             positive=True,
@@ -36,8 +40,8 @@ parameters = [
     ),
     dict(
         desc="negative long movement (reaches top velocity)",
-        motion=OrderedDict(pi=-10, pf=-100, velocity=10, acceleration=40, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=-10, pf=-100, velocity=10, acceleration=40, ti=0),
+        expected_trajectory=dict(
             p=-90,
             dp=90,
             positive=False,
@@ -61,8 +65,8 @@ parameters = [
     ),
     dict(
         desc="short movement",
-        motion=OrderedDict(pi=10, pf=15, velocity=10, acceleration=5, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=10, pf=15, velocity=10, acceleration=5, ti=0),
+        expected_trajectory=dict(
             p=5,
             dp=5,
             positive=True,
@@ -86,8 +90,8 @@ parameters = [
     ),
     dict(
         desc="negative short movement",
-        motion=OrderedDict(pi=2.5, pf=-2.5, velocity=10, acceleration=5, ti=0),
-        expected_trajectory=OrderedDict(
+        motion=dict(pi=2.5, pf=-2.5, velocity=10, acceleration=5, ti=0),
+        expected_trajectory=dict(
             p=-5,
             dp=5,
             positive=False,
@@ -186,3 +190,32 @@ def test_steps_per_unit_modified(beacon, factor=2., offset=10.):
     assert values_1[0] * factor == values_0[0]
     assert (values_1[1] - offset) * factor == (values_0[1] - offset)
     assert (values_1[2] - offset) * factor == (values_0[2] - offset)
+
+
+def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
+    client_conn = get_default_connection()
+    redis_conn = client_conn.get_redis_connection()
+
+    m = beacon.get("invalid_acc")
+
+    with pytest.raises(RuntimeError):
+        # this will initialize the axis object,
+        # and exception will be triggered for
+        # acceleration
+        m.position
+
+    # change config with good acc
+    m.config.set("acceleration", 100)
+    m.config.save()
+
+    m.apply_config(reload=True)
+
+    assert m.acceleration == 100
+
+    m = beacon.get("invalid_vel")
+    with pytest.raises(RuntimeError):
+        m.position
+    m.config.set("velocity", 10)
+    m.config.save()
+    m.apply_config(reload=True)
+    assert m.velocity == 10

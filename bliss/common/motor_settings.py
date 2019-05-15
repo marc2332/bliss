@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common import log as elog
 from bliss.common import event
 from bliss.config import settings
 import sys
@@ -55,7 +54,7 @@ class ControllerAxisSettings:
         self.add("_set_position", float)
         self.add("position", float)
         self.add("state", stateSetting, persistent=False)
-        self.add("steps_per_unit", float, persistent=True, config=True)
+        self.add("steps_per_unit", float, config=True)
 
     def config_settings(self):
         return tuple(
@@ -83,16 +82,19 @@ class ControllerAxisSettings:
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
             value = hash_setting.get(setting_name)
         else:
-            value = None
-        if value is None:
             chan = axis._beacon_channels.get(setting_name)
             if chan:
                 value = chan.value
+            else:
+                value = None
         if value is not None:
             convert_func = self.convert_func.get(setting_name)
             if convert_func is not None:
                 value = convert_func(value)
         return value
+
+    def _clear(self, axis, setting_name):
+        settings.HashSetting("axis.%s" % axis.name)[setting_name] = None
 
     def set(self, axis, setting_name, value):
         """
@@ -144,7 +146,7 @@ class AxisSettings:
 
     def disable_cache(self, setting_name, flag=True):
         """
-        Remove the cache setting for the a setting_name.
+        Remove cache for specified setting
         """
         disabled_settings = self.__axis.controller.axis_settings.disabled_settings.setdefault(
             self.__axis, set()

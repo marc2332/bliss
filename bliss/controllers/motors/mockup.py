@@ -240,6 +240,8 @@ class Mockup(Controller):
         <new_velocity> is in motor units
         """
         vel = new_velocity / abs(axis.steps_per_unit)
+        if vel >= 1e9:
+            raise RuntimeError("Invalid velocity")
         axis.settings.set("velocity", vel)
         return vel
 
@@ -258,6 +260,8 @@ class Mockup(Controller):
         <new_acceleration> is in controller units / s2
         """
         acc = new_acceleration / abs(axis.steps_per_unit)
+        if acc >= 1e9:
+            raise RuntimeError("Invalid acceleration")
         axis.settings.set("acceleration", acc)
         return acc
 

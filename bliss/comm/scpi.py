@@ -167,7 +167,7 @@ def cmd_expr_to_reg_expr_str(cmd_expr):
     # Basicaly we replace [] -> ()?, and LOWercase -> LOW(ercase)?
     # Also we add :? optional to the start and $ to the end to make sure
     # we have an exact match
-    reg_expr, low_zone = "\:?", False
+    reg_expr, low_zone = r"\:?", False
     for c in cmd_expr:
         cl = c.islower()
         if not cl:
@@ -204,7 +204,7 @@ def cmd_expr_to_reg_expr(cmd_expr):
 
 
 class Commands(object):
-    """
+    r"""
     A dict like container for SCPI commands. Construct a Commands object like a
     dict.  When creating a Commands object, *args* must either:
 

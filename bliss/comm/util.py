@@ -122,7 +122,7 @@ def get_comm_type(config):
 
 
 def get_comm(config, ctype=None, **opts):
-    """
+    r"""
     Expects a dict like config object. It recognizes keywords: *tcp*, *gpib* or
     *serial*.
 

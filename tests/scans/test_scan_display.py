@@ -244,7 +244,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]      robz[mm]          roby      epoch[s]        diode4        diode5"
+                    == "#         dt[s]      robz[mm]          roby        diode4        diode5"
                 )
 
                 arry = []
@@ -253,7 +253,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 1:
                         tab.pop(1)
-                        tab.pop(3)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0", "10", "4", "5"]
@@ -304,7 +303,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]          roby      robz[mm]      epoch[s]        diode4        diode5"
+                    == "#         dt[s]          roby      robz[mm]        diode4        diode5"
                 )
 
                 arry = []
@@ -313,7 +312,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 1:
                         tab.pop(1)
-                        tab.pop(3)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0", "10", "4", "5"]
@@ -422,7 +420,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]          roby      epoch[s]        diode4        diode5"
+                    == "#         dt[s]          roby        diode4        diode5"
                 )
 
                 arry = []
@@ -431,7 +429,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 1:
                         tab.pop(1)
-                        tab.pop(2)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0", "4", "5"]
@@ -476,8 +473,8 @@ def test_standard_scan_display(session):
                         arry.append(tab)
 
                 assert arry[0] == ["dt[s]", "0.0"]
-                assert arry[2] == ["diode4", "4.0"]
-                assert arry[3] == ["diode5", "5.0"]
+                assert arry[1] == ["diode4", "4.0"]
+                assert arry[2] == ["diode5", "5.0"]
 
                 # print(' finished')
 
@@ -511,17 +508,13 @@ def test_standard_scan_display(session):
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[6].strip()
-                    == "#         dt[s]      epoch[s]        diode4        diode5"
-                )
+                assert lines[6].strip() == "#         dt[s]        diode4        diode5"
 
                 arry = []
                 for line in lines[7:]:
                     line = " ".join(line.strip().split())
                     tab = line.split(" ")
                     if len(tab) > 1:
-                        tab.pop(1)
                         tab.pop(1)
                         arry.append(tab)
 
@@ -572,7 +565,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]          roby      robz[mm]      epoch[s]        diode4        diode5"
+                    == "#         dt[s]          roby      robz[mm]        diode4        diode5"
                 )
 
                 arry = []
@@ -581,7 +574,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 1:
                         tab.pop(1)
-                        tab.pop(3)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0", "10", "4", "5"]
@@ -625,7 +617,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]          roby      epoch[s]        diode4        diode5"
+                    == "#         dt[s]          roby        diode4        diode5"
                 )
 
                 arry = []
@@ -634,7 +626,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 2:
                         tab.pop(1)
-                        tab.pop(2)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0.5", "4", "5"]
@@ -670,7 +661,7 @@ def test_standard_scan_display(session):
 
                 assert (
                     lines[6].strip()
-                    == "#         dt[s]          roby      epoch[s]        diode4        diode5"
+                    == "#         dt[s]          roby        diode4        diode5"
                 )
 
                 arry = []
@@ -679,7 +670,6 @@ def test_standard_scan_display(session):
                     tab = line.split(" ")
                     if len(tab) > 2:
                         tab.pop(1)
-                        tab.pop(2)
                         arry.append(tab)
 
                 assert arry[0] == ["0", "0.5", "4", "5"]

@@ -27,12 +27,10 @@ class StaticConfig(object):
             if not "axes" in config_dict and not "encoders" in config_dict:
                 # axis config
                 self.config_channel = channels.Channel(
-                    config_chan_name,
-                    config_dict.to_dict(),
-                    callback=self._config_changed,
+                    config_chan_name, config_dict, callback=self._config_changed
                 )
 
-    def get(self, property_name, converter=str, default=NO_VALUE, inherited=False):
+    def get(self, property_name, converter=str, default=NO_VALUE):
         """Get static property
 
         Args:
@@ -47,8 +45,7 @@ class StaticConfig(object):
         Raises:
             KeyError, ValueError
         """
-        get_method = "get_inherited" if inherited else "get"
-        property_value = getattr(self.config_dict, get_method)(property_name)
+        property_value = self.config_dict.get(property_name)
         if property_value is not None:
             return converter(property_value)
         else:
@@ -58,10 +55,15 @@ class StaticConfig(object):
             raise KeyError("no property '%s` in config" % property_name)
 
     def set(self, property_name, value):
-        self.config_dict[property_name] = value
+        cfg = get_config()
+        config_node = cfg.get_config(self.config_dict["name"])
+        config_node[property_name] = value
+        self.config_dict = config_node.to_dict()
 
     def save(self):
-        self.config_dict.save()
+        cfg = get_config()
+        config_node = cfg.get_config(self.config_dict["name"])
+        config_node.save()
         self._update_channel()
 
     def reload(self):
@@ -71,14 +73,18 @@ class StaticConfig(object):
         # we could selectively reload only parts of the config (e.g one
         # single object yml file)
         cfg.reload()
-        self.config_dict = cfg.get_config(self.config_dict["name"])
+        config_node = cfg.get_config(self.config_dict["name"])
+        self.config_dict = config_node.to_dict()
         self._update_channel()
 
     def _update_channel(self):
         if self.config_channel is not None:
             # inform all clients that config has changed
-            self.config_channel.value = dict(self.config_dict)
+            self.config_channel.value = self.config_dict
 
     def _config_changed(self, config_dict):
+        cfg = get_config()
+        config_node = cfg.get_config(self.config_dict["name"])
         for key, value in config_dict.items():
+            config_node[key] = value
             self.config_dict[key] = value

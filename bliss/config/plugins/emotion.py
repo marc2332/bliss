@@ -355,22 +355,29 @@ def create_objects_from_config_node(config, node):
     switches_names = list()
     shutters = list()
     shutters_names = list()
+    node = node.to_dict()
 
-    for objects, objects_names, default_class, default_class_name, objects_config in (
+    for (
+        objects,
+        objects_names,
+        default_class,
+        default_class_name,
+        config_nodes_list,
+    ) in (
         (axes, axes_names, Axis, "", node.get("axes", [])),
         (encoders, encoders_names, Encoder, "", node.get("encoders", [])),
         (shutters, shutters_names, None, "Shutter", node.get("shutters", [])),
         (switches, switches_names, None, "Switch", node.get("switches", [])),
     ):
-        for object_config in objects_config:
-            replace_reference_by_object(config, object_config, placeholder=Reference)
-            if not isinstance(object_config.get("name"), str):
+        for config_dict in config_nodes_list:
+            replace_reference_by_object(config, config_dict, placeholder=Reference)
+            if not isinstance(config_dict.get("name"), str):
                 # reference
-                object_class = object_config.get("name")
+                object_class = config_dict.get("name")
                 object_name = object_class.name
             else:
-                object_name = object_config.get("name")
-                object_class_name = object_config.get("class")
+                object_name = config_dict.get("name")
+                object_class_name = config_dict.get("class")
                 if object_class_name is None:
                     object_class = default_class
                     if object_class is None:
@@ -386,7 +393,7 @@ def create_objects_from_config_node(config, node):
                     except AttributeError:
                         object_class = getattr(axis_module, object_class_name)
             objects_names.append(object_name)
-            objects.append((object_name, object_class, object_config))
+            objects.append((object_name, object_class, config_dict))
 
     controller = controller_class(
         controller_name, node, axes, encoders, shutters, switches

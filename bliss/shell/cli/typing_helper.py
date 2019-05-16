@@ -158,8 +158,20 @@ class TypingHelper(object):
 
                 try:
                     self.validator.validate(new_doc)
-                    repl.default_buffer.insert_text("()")
-                    return True
+
+                    # check if any parameters that are not keyword-arguments
+                    # are needed, if yes -> don't complete!
+                    try:
+                        if len(cs_plus_open_bracket[-1].params) > 0:
+                            for p in cs_plus_open_bracket[-1].params:
+                                assert p.defined_names() != []
+
+                        repl.default_buffer.insert_text("()")
+                        return True
+
+                    except AssertionError:
+                        pass
+
                 except ValidationError:
                     pass
         return False

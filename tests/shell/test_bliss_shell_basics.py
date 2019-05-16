@@ -122,6 +122,24 @@ def test_shell_function_with_return_only(clean_gevent):
     assert result == ""
 
 
+def test_shell_callable_with_args(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("sum\r")
+    assert result == "sum"
+
+
+def test_shell_callable_with_kwargs_only(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("property\r")
+    assert result == "property()"
+
+
+def test_shell_callable_with_args_and_kwargs(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("compile\r")
+    assert result == "compile"
+
+
 def test_shell_semicolon(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")

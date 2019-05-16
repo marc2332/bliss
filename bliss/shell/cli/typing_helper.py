@@ -50,7 +50,7 @@ class TypingHelper(object):
                 )
                 cs_plus_open_bracket = ji_plus_open_bracket.call_signatures()
 
-                # add open bracket or '
+                # add open bracket or ,
                 if len(cs) < len(cs_plus_open_bracket):
                     repl.default_buffer.insert_text("(")
                 elif len(cs) > len(cs_plus_open_bracket):
@@ -62,11 +62,19 @@ class TypingHelper(object):
                     except ValidationError as e:  # e.g. inside string ... print('bla bla
                         if e.message == "Syntax Error":
                             repl.default_buffer.insert_text(" ")
-
-                elif self.is_float_str(re.split(r",|\(", text)[-1]):  # e.g. ascan(m0,1
-                    repl.default_buffer.insert_text(",")
                 else:
-                    repl.default_buffer.insert_text(" ")
+                    try:  # e.g. ascan(m0,1   or ascan(run=False,1
+                        tmp = re.split(r",|\(", text)[-1]
+                        if len(tmp) > 0 and tmp[-1] != "," and cs != []:
+                            doc = Document(text=tmp, cursor_position=len(tmp))
+                            self.validator.validate(doc)
+                            repl.default_buffer.insert_text(",")
+                        else:
+                            repl.default_buffer.insert_text(" ")
+
+                    except ValidationError as e:
+                        repl.default_buffer.insert_text(" ")
+
             else:
                 repl.default_buffer.insert_text(" ")
 
@@ -111,7 +119,7 @@ class TypingHelper(object):
         text = repl.default_buffer.text
         curs_pos = repl.default_buffer.cursor_position
 
-        if curs_pos == len(text) & len(text) > 0:
+        if curs_pos == len(text) & len(text) > 0 and text[-1] != ",":
             doc = Document(text=text, cursor_position=curs_pos)
             try:
                 self.validator.validate(doc)

@@ -1,0 +1,12 @@
+- ctrl: hello
+  obj:
+    - name: controller_setting1
+      speed: 10
+      velocity: 1.2
+    - name: controller_setting2
+      speed: 20
+      velocity: 1.9
+      mode: fixed
+      reading_speed: slow
+
+      

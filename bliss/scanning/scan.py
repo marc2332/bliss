@@ -554,10 +554,10 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
-        user_scan_meta = get_user_scan_meta().copy()
-        # call all master and device to fill scan info
+        self.user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan_meta
         for dev in chain.nodes_list:
-            dev.fill_info(user_scan_meta)
+            dev.fill_meta_at_scan_init(self.user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info["scan_nb"] = self.__scan_number
@@ -569,7 +569,7 @@ class Scan:
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        self._scan_info.update(user_scan_meta.to_dict(self))
+        self._scan_info.update(self.user_scan_meta.to_dict(self))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -816,6 +816,7 @@ class Scan:
                 unit=channel.unit,
                 fullname=channel.fullname,
             )
+            channel.data_node = self.nodes[channel]
             connect(channel, "new_data", self._channel_event)
 
     def prepare(self, scan_info, devices_tree):
@@ -939,8 +940,24 @@ class Scan:
                     self._data_watch_callback.on_scan_end(self.scan_info)
 
             finally:
+                # check if there is any master or device that would like
+                # to provide meta data at the end of the scan
+                for dev in self.acq_chain.nodes_list:
+                    dev.fill_meta_at_scan_end(self.user_scan_meta)
+                tmp_dict = self.user_scan_meta.to_dict(self)
+                # make sure that 'positioners' entry is not updated
+                tmp_dict["instrument"].pop("positioners")
+                tmp_dict["instrument"].pop("positioners_dial")
+                nested_dict_update(self._scan_info, tmp_dict)
+
+                # update scan_info in redis
+                self.node._info.update(self.scan_info)
+
                 if self.writer:
+                    # write scan_info to file
+                    self.writer.finalize_scan_entry(self.node.name, self._scan_info)
                     self.writer.close()
+
                 # Add scan to the globals
                 SCANS.append(self)
                 # Disconnect events
@@ -1094,3 +1111,24 @@ class Scan:
             gevent.joinall(preset_tasks, raise_error=True)
         finally:
             gevent.killall(preset_tasks)
+
+
+# there should be something like this in the python standard lib, but I didn't find it...
+# ... suggestions welcome
+# ... in case we keep our own implementation ... where should it be? in utils?
+def nested_dict_update(dict_to_update, newdict):
+    present_key_value_pairs = [
+        (key, value) for (key, value) in newdict.items() if key in dict_to_update.keys()
+    ]
+    new_key_value_pairs = [
+        (key, value)
+        for (key, value) in newdict.items()
+        if not key in dict_to_update.keys()
+    ]
+    for key, new_value in present_key_value_pairs:
+        if isinstance(new_value, dict):
+            dict_to_update[key] = nested_dict_update(dict_to_update[key], new_value)
+        else:
+            dict_to_update[key] = new_value
+    dict_to_update.update(dict(new_key_value_pairs))
+    return dict_to_update

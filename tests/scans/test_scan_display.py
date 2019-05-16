@@ -8,10 +8,16 @@
 
 import os
 import sys
+import numpy
 
 from bliss.data import start_listener
 from bliss.common import scans
 from bliss.scanning.scan import ScanDisplay
+
+from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.chain import AcquisitionChain, AcquisitionDevice
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.acquisition import timer
 
 import subprocess
 import gevent
@@ -32,10 +38,147 @@ def grab_lines(
                 if finish_line in line:
                     break
     except gevent.Timeout:
-        pass
+        raise TimeoutError
 
 
-def test_a2scan_display(session):
+def test_fast_scan_display(session):
+    class BlockDataDevice(AcquisitionDevice):
+        def __init__(self, npoints, chunk):
+            super().__init__(
+                None,
+                "block_data_device",
+                npoints=npoints,
+                prepare_once=True,
+                start_once=True,
+            )
+            self.event = gevent.event.Event()
+            self.channels.append(AcquisitionChannel(self, "block_data", numpy.int, ()))
+            self.pending_trigger = 0
+            self.chunk = chunk
+
+        def prepare(self):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def trigger(self):
+            self.pending_trigger += 1
+            self.event.set()
+
+        def wait_ready(self):
+            return True
+
+        def reading(self):
+            data = numpy.arange(self.npoints, dtype=numpy.int)
+            acq_npoint = 0
+            chunk = self.chunk
+            i = 0
+            while acq_npoint < self.npoints:
+
+                while not self.pending_trigger:
+                    self.event.clear()
+                    self.event.wait()
+
+                self.pending_trigger -= 1
+
+                if (acq_npoint + 1) % (chunk) == 0 and acq_npoint:
+                    self.channels[0].emit(data[i * chunk : (i + 1) * chunk])
+                    i += 1
+
+                acq_npoint += 1
+
+            if self.npoints - i * chunk > 0:
+                self.channels[0].emit(data[i * chunk :])
+
+    nb = 1234
+    chunk = 20
+
+    soft_timer = timer.SoftwareTimerMaster(0, npoints=nb)
+    block_data_device = BlockDataDevice(nb, chunk)
+    acq_chain = AcquisitionChain()
+    acq_chain.add(soft_timer, block_data_device)
+
+    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
+    rp, wp = os.pipe()
+
+    with subprocess.Popen(
+        [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+        stdin=rp,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    ) as p:
+
+        try:
+
+            # WAIT FOR THE FIRST LINE (====== Bliss session 'test_session': watching scans ======)
+            with gevent.Timeout(5):
+                startline = p.stdout.readline()
+                assert "Bliss session" in startline  # NOW LISTENER IS STARTED AND READY
+
+            # ============= START THE SCAN ===================================
+            lines = []
+
+            s = Scan(
+                acq_chain,
+                scan_info={"type": "fast_scan", "npoints": nb},
+                save=False,
+                save_images=False,
+                data_watch_callback=StepScanDataWatch(),
+            )
+            s.run()
+
+            # EXPECTED OUTPUT
+            if 1:
+                # line 0
+                # line 1 Total 1234 points
+                # line 2
+                # line 3 Scan 1268 Wed May 15 17:58:41 2019 <no saving> test_session user = pguillou
+                # line 4 scan
+                # line 5
+                # line 6               #         dt[s]    block_data
+                # line 7               0             0             0
+                # line 8               1      0.167275             1
+                # line 9               2      0.364229             2
+                # line 10              3      0.562693             3
+                # line 11              4      0.727321             4
+                # line 12              5        0.8995             5
+                # line 13              6        1.0627             6
+                # line 14              7       1.22539             7
+                # line 15              8       1.38847             8
+                # line 16              9       1.55273             9
+                # ..................................................
+                # line 1240         1233       xxxxxxx          1233
+                # line 1241
+                # line 1242  Took 0:00:02.126591 (estimation was for 0:00:02.271460)
+                # line 1243
+                # line 1244  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                # GRAB THE SCAN DISPLAY LINES
+                grab_lines(p, lines)
+
+                assert lines[6].strip() == "#         dt[s]    block_data"
+
+                arry = []
+                for line in lines[7:]:
+                    line = " ".join(line.strip().split())
+                    tab = line.split(" ")
+                    if len(tab) > 1:
+                        tab.pop(1)
+                        arry.append(tab)
+
+                for i in range(nb):
+                    assert arry[i] == [str(i), str(i)]
+
+        finally:
+            p.terminate()
+
+
+def test_standard_scan_display(session):
     """ PERFORM TESTS TO CHECK THE OUTPUT DISPLAYED BY THE ScanDataListener FOR THE DIFFERENT STANDARD SCANS"""
 
     sd = ScanDisplay(session.name)

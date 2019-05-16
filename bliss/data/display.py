@@ -302,6 +302,10 @@ class ScanDataListener:
         self.exit_read_fd = exit_read_fd
         self.scan_display = ScanDisplay(self.session_name)
 
+        # self.start_time = 0
+        # self.last_time = 0
+        # self.stop_time = 0
+
     def update_counter_selection(self):
         self.counter_selection = self.scan_display.counters
 
@@ -317,7 +321,7 @@ class ScanDataListener:
         return selection
 
     def on_scan_new(self, scan_info):
-
+        # self.start_time = time.time()
         # Skip other session
         if scan_info.get("session_name") != self.session_name:
             # print(f"{scan_info.get('session_name')} != {self.session_name}")
@@ -487,57 +491,79 @@ class ScanDataListener:
             return
 
         # Skip if partial data
-        for channel_name in channel_info["data"]:
+        # for channel_name in channel_info["data"]:   # ??? for channel_name in self.channel_names:  ???
+        for channel_name in self.channel_names:
             if len(channel_info["data"][channel_name]) < self.scan_steps_index:
                 return
 
-        # Get data for the current scan step
-        values_dict = {}
-        for channel_name in channel_info["data"]:
-            if channel_name in self.channel_names:
+        # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
+        data_lens = [
+            len(channel_info["data"][channel_name])
+            for channel_name in channel_info["data"]
+        ]
+        bsize = min(data_lens)
+        # if bsize != self.scan_steps_index:
+        #    print("receive", bsize, "lines at step", self.scan_steps_index-1, "printing", bsize - self.scan_steps_index+1, "lines" )
+
+        for i in range(bsize - self.scan_steps_index + 1):
+            # Get data for the current scan step
+            values_dict = {}
+
+            # for channel_name in channel_info["data"]:    # ??? for channel_name in self.channel_names:  ???
+            #    if channel_name in self.channel_names:
+            for channel_name in self.channel_names:
                 values_dict[channel_name] = channel_info["data"][channel_name][
                     self.scan_steps_index - 1
                 ]
 
-        # Extract time data
-        elapsed_time_col = []
-        if "timer:elapsed_time" in values_dict:
-            elapsed_time_col.append(values_dict.pop("timer:elapsed_time"))
+            # Extract time data
+            elapsed_time_col = []
+            if "timer:elapsed_time" in values_dict:
+                elapsed_time_col.append(values_dict.pop("timer:elapsed_time"))
 
-        # Build data line
-        values = elapsed_time_col + [
-            values_dict[channel_name] for channel_name in values_dict
-        ]
+            # Build data line
+            values = elapsed_time_col + [
+                values_dict[channel_name] for channel_name in values_dict
+            ]
 
-        # Format output line
-        if scan_type == "ct":
-            # ct is actually a timescan(npoints=1).
-            norm_values = numpy.array(values) / scan_info["count_time"]
-            col_len = max(map(len, self.col_labels)) + 2
-            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
-                col_len
-            )
-            lines = "\n".join(
-                [
-                    template.format(label=label, value=v, norm=nv)
-                    for label, v, nv in zip(self.col_labels[1:], values, norm_values)
-                ]
-            )
-            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            msg = "{0}\n\n{1}".format(end_time_str, lines)
-            print(msg)
-        else:
-            values.insert(0, self._point_nb)
-            self._point_nb += 1
-            line = "  ".join(
-                [self.col_templ[i].format(v) for i, v in enumerate(values)]
-            )
+            # Format output line
+            if scan_type == "ct":
+                # ct is actually a timescan(npoints=1).
+                norm_values = numpy.array(values) / scan_info["count_time"]
+                col_len = max(map(len, self.col_labels)) + 2
+                template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
+                    col_len
+                )
+                lines = "\n".join(
+                    [
+                        template.format(label=label, value=v, norm=nv)
+                        for label, v, nv in zip(
+                            self.col_labels[1:], values, norm_values
+                        )
+                    ]
+                )
+                end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+                msg = "{0}\n\n{1}".format(end_time_str, lines)
+                print(msg)
+            else:
+                values.insert(0, self._point_nb)
+                self._point_nb += 1
+                line = "  ".join(
+                    [self.col_templ[i].format(v) for i, v in enumerate(values)]
+                )
 
-            print(line)
+                print(line)
 
-        self.scan_steps_index += 1
+            self.scan_steps_index += 1
+
+        # self.last_time = time.time()
+        # print("dt_last = ",self.last_time -self.start_time)
 
     def on_scan_end(self, scan_info):
+
+        # self.stop_time = time.time()
+        # print("stop_time ", self.stop_time)
+        # print("dt_stop = ",self.stop_time -self.start_time)
 
         if scan_info.get("session_name") != self.session_name:
             return

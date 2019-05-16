@@ -647,6 +647,19 @@ class Scan:
     def statistics(self):
         return Statistics(self._acq_chain._stats_dict)
 
+    @property
+    def get_channels_dict(self):
+        """
+        returns a dict containing all channels used in this scan 
+        identified by their fullname
+        """
+        flatten = lambda l: [item for sublist in l for item in sublist]
+
+        return {
+            c.fullname: c
+            for c in flatten([n.channels for n in self.acq_chain.nodes_list])
+        }
+
     def add_preset(self, preset):
         """
         Add a preset for this scan
@@ -955,7 +968,7 @@ class Scan:
 
                 if self.writer:
                     # write scan_info to file
-                    self.writer.finalize_scan_entry(self.node.name, self._scan_info)
+                    self.writer.finalize_scan_entry(self)
                     self.writer.close()
 
                 # Add scan to the globals

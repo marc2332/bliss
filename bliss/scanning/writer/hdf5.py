@@ -50,31 +50,6 @@ class Writer(FileWriter):
         scan_entry["start_time"] = utc_time
         measurement = scan_entry.create_group("measurement")
         measurement.attrs["NX_class"] = "NXcollection"
-        instrument = scan_entry.create_group("instrument")
-        instrument.attrs["NX_class"] = "NXinstrument"
-        positioners = instrument.create_group("positioners")
-        positioners.attrs["NX_class"] = "NXcollection"
-        positioners_dial = instrument.create_group("positioners_dial")
-        positioners_dial.attrs["NX_class"] = "NXcollection"
-
-        hdf5_scan_info = {
-            cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()
-        }
-        positioners_dict = hdf5_scan_info.get("instrument", {}).pop("positioners", {})
-        for pname, ppos in positioners_dict.items():
-            if isinstance(ppos, float):
-                positioners.create_dataset(pname, dtype="float64", data=ppos)
-        positioners_dial_dict = hdf5_scan_info.get("instrument", {}).pop(
-            "positioners_dial", {}
-        )
-        for pname, ppos in positioners_dial_dict.items():
-            if isinstance(ppos, float):
-                positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
-
-        # pop rest of instrument
-        instrument_info = hdf5_scan_info.pop("instrument")
-        dicttoh5(instrument_info, self.file, h5path=f"{scan_name}/instrument")
-        dicttoh5(hdf5_scan_info, self.file, h5path=f"{scan_name}/scan_info")
 
         return measurement
 
@@ -122,6 +97,69 @@ class Writer(FileWriter):
             dataset[last_point_index:new_point_index] = data
 
             self.last_point_index[channel] += data_len
+
+    def finalize_scan_entry(self, scan):
+        scan_name = scan.node.name
+        scan_info = scan._scan_info
+
+        ###    fill image references   ###
+
+        for fname, channel in scan.get_channels_dict.items():
+            if channel.reference:
+                try:
+                    data = channel.acq_device.to_ref_array(channel, self.root_path)
+
+                    shape = numpy.shape(data)
+                    dtype = data.dtype
+
+                    dataset = self.file.create_dataset(
+                        f"{scan_name}/measurement/{channel.alias_or_fullname}",
+                        shape=shape,
+                        dtype=dtype,
+                        compression="gzip",
+                    )
+                    dataset.attrs.modify("fullname", channel.fullname)
+                    dataset.attrs.modify("alias", channel.alias or "None")
+                    dataset.attrs.modify("has_alias", channel.has_alias)
+
+                    dataset[:] = data
+
+                except Exception as e:
+                    pass
+
+        ####   use scan_meta to fill fields   ####
+        instrument = self.file.create_group(f"{scan_name}/instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
+        try:
+            positioners = instrument.create_group("positioners")
+            positioners.attrs["NX_class"] = "NXcollection"
+            positioners_dial = instrument.create_group("positioners_dial")
+            positioners_dial.attrs["NX_class"] = "NXcollection"
+
+            hdf5_scan_meta = {
+                cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()
+            }
+            positioners_dict = hdf5_scan_meta.get("instrument", {}).pop(
+                "positioners", {}
+            )
+            for pname, ppos in positioners_dict.items():
+                if isinstance(ppos, float):
+                    positioners.create_dataset(pname, dtype="float64", data=ppos)
+            positioners_dial_dict = hdf5_scan_meta.get("instrument", {}).pop(
+                "positioners_dial", {}
+            )
+            for pname, ppos in positioners_dial_dict.items():
+                if isinstance(ppos, float):
+                    positioners_dial.create_dataset(pname, dtype="float64", data=ppos)
+        except Exception:
+            # dealing with cases where there are no positioners in the session
+            hdf5_scan_meta.get("instrument", {}).pop("positioners", {})
+            hdf5_scan_meta.get("instrument", {}).pop("positioners_dial", {})
+
+        # pop rest of instrument
+        instrument_meta = hdf5_scan_meta.pop("instrument")
+        dicttoh5(instrument_meta, self.file, h5path=f"{scan_name}/instrument")
+        dicttoh5(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
 
     def close(self):
         super(Writer, self).close()

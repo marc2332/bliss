@@ -550,10 +550,7 @@ class Config:
     def _create_file_index(self, node, filename):
         if filename:
             self._node2file[node] = filename
-            weak_set = self._file2node.get(filename)
-            if weak_set is None:
-                weak_set = weakref.WeakSet()
-                self._file2node[filename] = weak_set
+            weak_set = self._file2node.setdefault(filename, weakref.WeakSet())
             weak_set.add(node)
 
     def _get_or_create_path_node(self, base_path):

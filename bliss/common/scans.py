@@ -32,6 +32,7 @@ __all__ = [
     "timescan",
     "loopscan",
     "lookupscan",
+    "pointscan",
     "ct",
     "DEFAULT_CHAIN",
     "plotselect",

@@ -17,33 +17,29 @@ from bliss.common import event
 
 
 def test_ascan(session):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     robz2 = getattr(setup_globals, "robz2")
-    counter = counter_class("gaussian", 2, cnt_time=0)
-    s = scans.ascan(robz2, 0, 0.1, 2, 0, counter, return_scan=True, save=False)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    s = scans.ascan(robz2, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.1
     scan_data = s.get_data()
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
-def test_ascan_gauss(session):
-    counter_class = getattr(setup_globals, "AutoScanGaussianCounter")
+def test_ascan_gauss2(session):
     robz2 = getattr(setup_globals, "robz2")
-    counter = counter_class("gaussianCurve")
-    s = scans.ascan(robz2, 0, 0.1, 2, 0, counter, return_scan=True, save=False)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    s = scans.ascan(robz2, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.1
     scan_data = s.get_data()
-    assert numpy.array_equal(scan_data["gaussianCurve"], counter.data)
-    counter.close()
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_dscan(session):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 2, cnt_time=0)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
     robz2 = getattr(setup_globals, "robz2")
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
-    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, counter, return_scan=True, save=False)
+    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
@@ -51,12 +47,11 @@ def test_dscan(session):
         numpy.linspace(start_pos - 0.2, start_pos + 0.2, 2),
         atol=5e-4,
     )
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_dscan_move_done(session):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 2, cnt_time=0)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
     robz2 = getattr(setup_globals, "robz2")
 
     # Callback
@@ -70,7 +65,7 @@ def test_dscan_move_done(session):
 
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
-    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, counter, return_scan=True, save=False)
+    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
@@ -78,7 +73,7 @@ def test_dscan_move_done(session):
         numpy.linspace(start_pos - 0.2, start_pos + 0.2, 2),
         atol=5e-4,
     )
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
     assert positions[0] == -0.2
     assert positions[-2] == 0.2
     assert positions[-1] == 0
@@ -88,14 +83,13 @@ def test_dscan_move_done(session):
 
 def test_pointscan(session):
     robz2 = getattr(setup_globals, "robz2")
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 4, cnt_time=0)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
     points = [0.0, 0.1, 0.3, 0.7]
-    s = scans.pointscan(robz2, points, 0, counter, return_scan=True, save=False)
+    s = scans.pointscan(robz2, points, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.7
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["robz2"], points)
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_lookupscan(session):
@@ -182,19 +176,18 @@ def test_scan_callbacks(session):
 
     def on_scan_data(scan_info, values):
         # values is indexed by *channel* full name
-        res["values"].append(values[f"{counter.name}:gaussian"])
+        res["values"].append(values[f"{simul_counter.name}:sim_ct_gauss"])
 
     def on_scan_end(scan_info):
         res["end"] = True
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    counter = counter_class("gaussian", 2, cnt_time=0.1)
-    s = scans.timescan(0.1, counter, npoints=2, return_scan=True, save=False)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    s = scans.timescan(0.1, simul_counter, npoints=2, return_scan=True, save=False)
     assert res["new"]
     assert res["end"]
-    assert numpy.array_equal(numpy.array(res["values"]), counter.data)
+    assert numpy.array_equal(numpy.array(res["values"]), simul_counter.data)
 
 
 def test_scan_watch_data_set_callback_to_test_saferef(beacon, capsys):
@@ -219,9 +212,12 @@ def test_scan_watch_data_set_callback_to_test_saferef(beacon, capsys):
 
 
 def test_scan_watch_data_no_print_on_saferef(beacon, capsys):
-    """ 
-    In the previous function 'test_scan_watch_data_set_callback_to_test_saferef', we set a callback on scan_new event that produces a print.
-    Thanks to the underlying usage of a weakref, the print should not append once we get out of the context of the previous function.
+    """
+    In the previous function
+    'test_scan_watch_data_set_callback_to_test_saferef', we set a
+    callback on scan_new event that produces a print.
+    Thanks to the underlying usage of a weakref, the print should not
+    append once we get out of the context of the previous function.
     """
     roby = beacon.get("roby")
     diode = beacon.get("diode")
@@ -234,15 +230,22 @@ def test_scan_watch_data_no_print_on_saferef(beacon, capsys):
 def test_calc_counters(session):
     robz2 = getattr(setup_globals, "robz2")
     c = chain.AcquisitionChain()
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    cnt = counter_class("gaussian", 2, cnt_time=0)
+    cnt = getattr(setup_globals, "sim_ct_gauss")
+
+    # To force (lazy) initialization of sim_ct_1 ...
+    s = scans.ascan(robz2, 0, 0.1, 2, 0, cnt, return_scan=True, save=False)
+
     t = timer.SoftwareTimerMaster(0, npoints=2)
-    cnt_acq_device = counter.SamplingCounterAcquisitionDevice(cnt, count_time=0)
+
+    # get the acq device of simulatiion counter and add it to the chain
+    cnt_acq_device = cnt.get_acquisition_device()
     c.add(t, cnt_acq_device)
+
+    # Creates a calc counter which returns the square of the original counter
     calc_cnt = calc.CalcAcquisitionDevice(
         "bla",
         (cnt_acq_device,),
-        lambda y, x: {"pow": x["gaussian"] ** 2},
+        lambda y, x: {"pow": x["sim_ct_gauss"] ** 2},
         (chain.AcquisitionChannel(cnt_acq_device, "pow", numpy.float, ()),),
     )
     c.add(t, calc_cnt)
@@ -252,16 +255,19 @@ def test_calc_counters(session):
     s = scan.Scan(c, name="calc_scan", save=False)
     s.run()
     scan_data = s.get_data()
-    assert numpy.array_equal(scan_data["gaussian"] ** 2, scan_data["pow"])
+    assert numpy.array_equal(scan_data["sim_ct_gauss"] ** 2, scan_data["pow"])
 
 
 def test_calc_counter_callback(session):
     m1 = getattr(setup_globals, "m1")
     c = chain.AcquisitionChain()
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
-    cnt = counter_class("gaussian", 10, cnt_time=0)
+    cnt = getattr(setup_globals, "sim_ct_gauss")
+
+    # To force (lazy) initialization of sim_ct_1 ...
+    s = scans.ascan(m1, 0, 0.1, 10, 0, cnt, return_scan=True, save=False)
+
     t = timer.SoftwareTimerMaster(0, npoints=10)
-    cnt_acq_device = counter.SamplingCounterAcquisitionDevice(cnt, count_time=0)
+    cnt_acq_device = cnt.get_acquisition_device()
     c.add(t, cnt_acq_device)
 
     class CBK(calc.CalcHook):
@@ -271,7 +277,7 @@ def test_calc_counter_callback(session):
             self.stop_called = 0
 
         def compute(self, sender, data_dict):
-            return {"pow": data_dict["gaussian"] ** 2}
+            return {"pow": data_dict["sim_ct_gauss"] ** 2}
 
         def prepare(self):
             self.prepare_called += 1
@@ -301,12 +307,22 @@ def test_calc_counter_callback(session):
 
 
 def test_amesh(session):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     robz2 = getattr(setup_globals, "robz2")
     robz = getattr(setup_globals, "robz")
-    counter = counter_class("gaussian", 15, cnt_time=0.01)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
     s = scans.amesh(
-        robz2, 0, 10, 5, robz, 0, 5, 3, 0.01, counter, return_scan=True, save=False
+        robz2,
+        0,
+        10,
+        5,
+        robz,
+        0,
+        5,
+        3,
+        0.01,
+        simul_counter,
+        return_scan=True,
+        save=False,
     )
     assert robz2.position == 10
     assert robz.position == 5
@@ -318,18 +334,28 @@ def test_amesh(session):
     assert scan_data["robz2"][-1] == 10
     assert scan_data["robz"][0] == 0
     assert scan_data["robz"][-1] == 5
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_dmesh(session):
-    counter_class = getattr(setup_globals, "TestScanGaussianCounter")
     robz2 = getattr(setup_globals, "robz2")
     robz = getattr(setup_globals, "robz")
-    counter = counter_class("gaussian", 15, cnt_time=0.01)
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
     start_robz2 = robz2.position
     start_robz = robz.position
     s = scans.dmesh(
-        robz2, -5, 5, 5, robz, -3, 3, 3, 0.01, counter, return_scan=True, save=False
+        robz2,
+        -5,
+        5,
+        5,
+        robz,
+        -3,
+        3,
+        3,
+        0.01,
+        simul_counter,
+        return_scan=True,
+        save=False,
     )
     assert robz2.position == start_robz2
     assert robz.position == start_robz
@@ -340,7 +366,7 @@ def test_dmesh(session):
     assert scan_data["robz2"][-1] == start_robz2 + 5
     assert scan_data["robz"][0] == start_robz - 3
     assert scan_data["robz"][-1] == start_robz + 3
-    assert numpy.array_equal(scan_data["gaussian"], counter.data)
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
 def test_save_images(session, beacon, lima_simulator, scan_tmpdir):

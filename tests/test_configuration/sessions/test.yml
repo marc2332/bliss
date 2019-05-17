@@ -46,6 +46,10 @@
     - s1vo
     - sample_regulation
     - sensor
+    - sim_ct_gauss
+    - sim_ct_gauss_noise
+    - sim_ct_flat_12
+    - sim_ct_rand_12
     - test
     - test_mg
     - thermo_sample

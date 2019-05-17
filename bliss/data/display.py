@@ -117,6 +117,9 @@ class ScanPrinter:
             channel_short_name = channels["master"]["display_names"][channel_fullname]
             channel_unit = channels["master"]["scalars_units"][channel_fullname]
 
+            if channel_fullname == "timer:epoch":
+                continue
+
             # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
@@ -150,6 +153,10 @@ class ScanPrinter:
             if channel_short_name == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
+
+            if channel_fullname == "timer:epoch":
+                continue
+
             self.counter_names.append(
                 channel_short_name + (f"[{channel_unit}]" if channel_unit else "")
             )

@@ -23,7 +23,7 @@ from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
-from bliss.common.utils import periodic_exec
+from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
@@ -961,7 +961,7 @@ class Scan:
                 # make sure that 'positioners' entry is not updated
                 tmp_dict["instrument"].pop("positioners")
                 tmp_dict["instrument"].pop("positioners_dial")
-                nested_dict_update(self._scan_info, tmp_dict)
+                deep_update(self._scan_info, tmp_dict)
 
                 # update scan_info in redis
                 self.node._info.update(self.scan_info)
@@ -1124,24 +1124,3 @@ class Scan:
             gevent.joinall(preset_tasks, raise_error=True)
         finally:
             gevent.killall(preset_tasks)
-
-
-# there should be something like this in the python standard lib, but I didn't find it...
-# ... suggestions welcome
-# ... in case we keep our own implementation ... where should it be? in utils?
-def nested_dict_update(dict_to_update, newdict):
-    present_key_value_pairs = [
-        (key, value) for (key, value) in newdict.items() if key in dict_to_update.keys()
-    ]
-    new_key_value_pairs = [
-        (key, value)
-        for (key, value) in newdict.items()
-        if not key in dict_to_update.keys()
-    ]
-    for key, new_value in present_key_value_pairs:
-        if isinstance(new_value, dict):
-            dict_to_update[key] = nested_dict_update(dict_to_update[key], new_value)
-        else:
-            dict_to_update[key] = new_value
-    dict_to_update.update(dict(new_key_value_pairs))
-    return dict_to_update

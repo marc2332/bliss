@@ -54,9 +54,9 @@ class ChannelDataNode(DataNode):
                 self.info["shape"] = shape
             if dtype is not None:
                 self.info["dtype"] = dtype
-            self.info["alias"] = alias or "None"
             self.info["has_alias"] = alias is not None
-            self.info["fullname"] = fullname or "None"
+            self.info["alias"] = alias or "None"
+            self.info["fullname"] = fullname
             self.info["unit"] = unit
 
         self._queue = None
@@ -78,7 +78,9 @@ class ChannelDataNode(DataNode):
         self._create_queue()
 
         data = event_dict.get("data")
+        self.info.update(event_dict["description"])
         shape = event_dict["description"]["shape"]
+
         if len(shape) == data.ndim:
             self._queue.append(data)
         else:

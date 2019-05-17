@@ -277,19 +277,41 @@ class LimaImageChannelDataNode(DataNode):
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
+        fullname = keys.pop("fullname", None)
 
         DataNode.__init__(self, "lima", name, **keys)
 
         if keys.get("create", False):
             self.info["shape"] = shape
             self.info["dtype"] = dtype
+            self.info["fullname"] = fullname
 
-        cnx = self.db_connection
-        self.data = QueueObjSetting("%s_data" % self.db_name, connection=cnx)
+        self.data = QueueObjSetting(
+            "%s_data" % self.db_name, connection=self.db_connection
+        )
         self._new_image_status_event = gevent.event.Event()
         self._new_image_status = dict()
         self._storage_task = None
         self.from_stream = False
+
+    @property
+    def shape(self):
+        return self.info.get("shape")
+
+    @property
+    def dtype(self):
+        return self.info.get("dtype")
+
+    @property
+    def fullname(self):
+        return self.info.get("fullname")
+
+    @property
+    def db_name(self):
+        fullname = self.fullname or self.name
+        d = {x: None for x in self.parent.db_name.split(":")}
+        d.update({x: None for x in fullname.split(":")})
+        return ":".join(d.keys())
 
     def __close__(self):
         if self._storage_task is None:
@@ -329,6 +351,8 @@ class LimaImageChannelDataNode(DataNode):
             self.data.append(ref_status)
             self.add_reference_data(desc)
         else:
+            self.info.update(desc)
+
             self._new_image_status.update(data)
             self._new_image_status_event.set()
 

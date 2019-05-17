@@ -24,10 +24,14 @@ To update BLISS on an ESRF installation:
 
      `git pull`
 
-     * install up-to-date dependencies: `conda install --file
-       ./requirements-conda.txt`
+     * install up-to-date dependencies:
+
+     `conda install --file ./requirements-conda.txt`
+
      * Pip-install BLISS making a link from conda environmnet
-       directory to git repository: `pip install --no-deps -e .`
+       directory to git repository:
+       
+       `pip install --no-deps -e .`
 
 !!! note
 

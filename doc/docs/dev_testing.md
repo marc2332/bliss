@@ -31,6 +31,14 @@ tests/test_channels.py::test_channel_cb PASSED                         [  0%]
 [...]
 ```
 
+
+!!! note
+
+    In case of strange error (like `ImportError: bad magic number`), try to remove old `*.pyc` files:
+    
+    `find ./ -name "*.pyc" | xargs rm`
+
+
 ### to run ONLY some tests
 
 In BLISS root directory:
@@ -126,15 +134,21 @@ def test_session_add_del(beacon, beacon_directory):
 
 ### to run tests on your computer
 
-Create a conda environemnt dedicated to tests.
 
-Go to bliss directory and do:
+* Create a conda environemnt dedicated to tests:
+    * Go to bliss directory and do:
 ```
-conda create --name testenv --channel http://bcu-ci.esrf.fr/stable --channel defaults --channel tango-controls --channel conda-forge --file requirements-conda.txt  --file requirements-test-conda.txt
+conda create --name testenv --channel http://bcu-ci.esrf.fr/stable \
+  --channel defaults --channel tango-controls --channel conda-forge \
+  --file requirements-conda.txt  --file requirements-test-conda.txt
 source activate testenv
 pip install .
 ```
-
+    * Install bliss:
+```
+cd bliss.git/
+pip install --no-deps -e .
+```
 
 ### to run tests on bcu-ci computer
 
@@ -143,18 +157,28 @@ a local computer have been observed.
 
 To track them, it can be interesting to run tests on `bcu-ci` computer.
 
-Log-in to bcu-ci (needs sudo rights) and:
+Log-in to bcu-ci (needs sudo rights) and copy/paste:
 
 ```
-sudo docker run -it docker-registry.esrf.fr/bcu/ci-conda
-. activate
-conda install git
-git clone git://gitlab.esrf.fr/bliss/bliss.git
+sudo docker run -it continuumio/miniconda3:latest
+
+apt-get update && apt-get -y install xvfb libxi6 git
+
+git clone https://gitlab.esrf.fr/bliss/bliss.git
+
 cd bliss
-conda create --name testenv --channel http://bcu-ci.esrf.fr/stable  --channel defaults --channel tango-controls --channel conda-forge --file requirements-conda.txt  --file requirements-test-conda.txt
+
+conda create -y --name testenv --channel http://bcu-ci.esrf.fr/stable  \
+  --channel defaults --channel tango-controls --channel conda-forge \
+  --file requirements-conda.txt  --file requirements-test-conda.txt
+
 source activate testenv
-pip install .
+
+python setup.py install
+
+pytest setup.py tests
 ```
+
 Happy debugging !
 
 

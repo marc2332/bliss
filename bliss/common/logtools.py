@@ -124,12 +124,13 @@ def improve_logger(logger_instance):
         """
 
         def __hex_format(ch):
+            if isinstance(ch, int):
+                # given a byte
+                return "\\x%02x" % ch
+            # given a string of one char
             return "\\x%02x" % ord(ch)
 
-        try:
-            return "".join(map(__hex_format, instr))
-        except:
-            return instr
+        return "".join(map(__hex_format, instr))
 
     # Appending methods to decorated class
     logger_instance.debugon = types.MethodType(debugon, logger_instance)

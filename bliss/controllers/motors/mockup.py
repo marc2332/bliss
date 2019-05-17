@@ -10,9 +10,10 @@ import random
 import gevent
 
 from bliss.physics.trajectory import LinearTrajectory
-from bliss.controllers.motor import Controller, ENCODER_AXIS, CalcController
-from bliss.common.axis import Axis, AxisState, get_axis
+from bliss.controllers.motor import Controller, CalcController
+from bliss.common.axis import Axis, AxisState
 from bliss.common import event
+from bliss.config.static import get_config
 
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
@@ -45,6 +46,8 @@ class Motion:
 
 
 class Mockup(Controller):
+    ENCODER_AXIS = dict()
+
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -83,6 +86,9 @@ class Mockup(Controller):
     def initialize(self):
         for axis_name, axis in self.axes.items():
             axis.settings.set("init_count", 0)
+            encoder_name = axis.config.get("encoder", str, "").lstrip("$")
+            if encoder_name:
+                self.ENCODER_AXIS[encoder_name] = axis_name
 
     """
     Axes initialization actions.
@@ -106,11 +112,11 @@ class Mockup(Controller):
     def initialize_encoder(self, encoder):
         self.__encoders.setdefault(encoder, {})["measured_noise"] = None
         self.__encoders[encoder]["steps"] = None
-        axis_name = ENCODER_AXIS[encoder.name]
-        self.__encoders[encoder]["axis"] = axis_name
-        axis = get_axis(axis_name)
-        if not axis in self._axis_moves:
-            self.initialize_axis(axis)
+        axis_name = self.ENCODER_AXIS.get(encoder.name)
+        if axis_name:
+            self.__encoders[encoder]["axis"] = axis_name
+            axis = get_config().get(axis_name)
+            axis.controller._initialize_axis(axis)
 
     """
     Actions to perform at controller closing.
@@ -201,7 +207,7 @@ class Mockup(Controller):
             enc_steps = self.__encoders[encoder]["steps"]
         else:
             axis_name = self.__encoders[encoder]["axis"]
-            axis = get_axis(axis_name)
+            axis = get_config().get(axis_name)
 
             _pos = self.read_position(axis) / float(axis.steps_per_unit)
 

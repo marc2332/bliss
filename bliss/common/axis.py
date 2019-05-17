@@ -35,7 +35,6 @@ from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import Null, with_custom_members
-from bliss.config.static import get_config
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
@@ -316,32 +315,6 @@ class GroupMove:
                     event.send(self.parent, "move_done", True)
 
 
-def get_encoder(name):
-    cfg = get_config()
-    enc = cfg.get(name)
-    if not isinstance(enc, Encoder):
-        raise TypeError("%s is not an Encoder" % name)
-    return enc
-
-
-def get_axis(name):
-    cfg = get_config()
-    axis = cfg.get(name)
-    if not isinstance(axis, Axis):
-        raise TypeError("%s is not an Axis" % name)
-    return axis
-
-
-def get_motion_hook(name):
-    cfg = get_config()
-    if name.startswith("$"):
-        name = name[1:]
-    hook = cfg.get(name)
-    if not isinstance(hook, MotionHook):
-        raise TypeError("%s is not a MotionHook" % name)
-    return hook
-
-
 class Modulo:
     def __init__(self, mod=360):
         self.modulo = mod
@@ -582,18 +555,18 @@ class Axis(AliasMixin, LogMixin):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
         self.__move_done_callback.set()
-        motion_hooks = []
-        for hook_ref in config.get("motion_hooks", ()):
-            hook = get_motion_hook(hook_ref)
+        self.__motion_hooks = []
+        for hook in config.get("motion_hooks", []):
+            hook = hook()
             hook.add_axis(self)
-            motion_hooks.append(hook)
-        self.__motion_hooks = motion_hooks
+            self.__motion_hooks.append(hook)
+        self.__encoder = config.get("encoder")
+        self.__config = StaticConfig(config)
         self._group_move = GroupMove()
         self._beacon_channels = dict()
         self._move_stop_channel = Channel(
@@ -698,14 +671,13 @@ class Axis(AliasMixin, LogMixin):
         Reference to :class:`~bliss.common.encoder.Encoder` or None if no
         encoder is defined
         """
-        try:
-            encoder_name = self.config.get("encoder")
-        except KeyError:
-            return None
+        if isinstance(self.__encoder, Encoder):
+            return self.__encoder
         else:
-            enc = get_encoder(encoder_name)
-            enc.controller._initialize_encoder(enc)
-            return enc
+            if self.__encoder:
+                self.__encoder = self.__encoder()
+                self.__encoder.controller._initialize_encoder(self.__encoder)
+                return self.__encoder
 
     @property
     def motion_hooks(self):
@@ -1144,13 +1116,13 @@ class Axis(AliasMixin, LogMixin):
         return (position - self.offset) / self.sign
 
     def __execute_pre_move_hook(self, motion):
-        for hook in self.__motion_hooks:
+        for hook in self.motion_hooks:
             hook.pre_move([motion])
 
         self._check_ready()
 
     def __execute_post_move_hook(self, motions):
-        for hook in self.__motion_hooks:
+        for hook in self.motion_hooks:
             try:
                 hook.post_move(motions)
             except:
@@ -1591,25 +1563,6 @@ class Axis(AliasMixin, LogMixin):
         return dial_positions / self.steps_per_unit
 
 
-class AxisRef(object):
-    """Object representing a named reference to an :class:`Axis`."""
-
-    def __init__(self, name, _, config):
-        self.__name = name
-        self.__config = config
-        self.settings = AxisSettings(None)
-
-    @property
-    def name(self):
-        """Axis reference name"""
-        return self.__name
-
-    @property
-    def config(self):
-        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
-        return self.__config
-
-
 class AxisState(object):
     """
     Standard states:
@@ -1920,41 +1873,3 @@ class NoSettingsAxis(Axis):
         Axis.__init__(self, *args, **kwags)
         self.settings.get = mock.MagicMock(return_value=None)
         self.settings.set = mock.MagicMock(return_value=None)
-
-
-def SoftAxis(
-    name,
-    obj,
-    position="position",
-    move="position",
-    stop=None,
-    low_limit=float("-inf"),
-    high_limit=float("+inf"),
-):
-    from bliss.controllers.motors.soft import SoftController
-
-    config = get_config()
-    if callable(position):
-        position = position.__name__
-    if callable(move):
-        move = move.__name__
-    if callable(stop):
-        stop = stop.__name__
-
-    controller = SoftController(
-        name,
-        obj,
-        {
-            "position": position,
-            "move": move,
-            "stop": stop,
-            "limits": (low_limit, high_limit),
-            "name": name,
-        },
-    )
-
-    controller._init()
-    axis = controller.get_axis(name)
-    config._name2instance[name] = axis
-    setattr(setup_globals, name, axis)
-    return axis

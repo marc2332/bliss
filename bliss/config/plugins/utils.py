@@ -32,10 +32,14 @@ def find_class_and_node(cfg_node, base_path="bliss.controllers"):
     return klass, node
 
 
-def _checkref(config, item_cfg_node, referenced_objects, name, value):
+def _checkref(config, item_cfg_node, referenced_objects, name, value, placeholder):
     if isinstance(value, str) and value.startswith("$"):
         # convert reference to item from config
-        obj = config.get(value)
+        value = value.lstrip("$")
+        if placeholder:
+            obj = placeholder(value)
+        else:
+            obj = config.get(value)
         item_cfg_node[name] = obj
         referenced_objects[name] = obj
         return True
@@ -43,39 +47,43 @@ def _checkref(config, item_cfg_node, referenced_objects, name, value):
         return False
 
 
-def _parse_dict(config, item_cfg_node, referenced_objects, subdict):
-    for name, node in subdict.items():
-        if _checkref(config, subdict, referenced_objects, name, node):
+def _parse_dict(config, item_cfg_node, referenced_objects, subdict, placeholder):
+    for name, value in subdict.items():
+        if _checkref(config, subdict, referenced_objects, name, value, placeholder):
             continue
-        elif isinstance(node, dict):
+        elif isinstance(value, dict):
             childdict = dict()
             childref = dict()
-            _parse_dict(config, childdict, childref, node)
+            _parse_dict(config, childdict, childref, value, placeholder)
             if childref:
-                node.update(childref)
-                referenced_objects[name] = node
+                value.update(childref)
+                referenced_objects[name] = value
             subdict.update(childdict)
-        elif isinstance(node, list):
-            return_list = _parse_list(config, node)
+        elif isinstance(value, list):
+            return_list = _parse_list(config, value, placeholder)
             if return_list:
                 referenced_objects[name] = return_list
                 item_cfg_node[name] = return_list
 
 
-def _parse_list(config, value):
+def _parse_list(config, value, placeholder):
     object_list = list()
     for node in value:
         if isinstance(node, str) and node.startswith("$"):
-            object_list.append(config.get(node))
+            node = node.lstrip("$")
+            if placeholder:
+                object_list.append(placeholder(node))
+            else:
+                object_list.append(config.get(node))
         elif isinstance(node, dict):
             subdict = dict()
             subref = dict()
-            _parse_dict(config, subdict, subref, node)
+            _parse_dict(config, subdict, subref, node, placeholder)
             if subdict:
                 node.update(subdict)
                 object_list.append(node)
         elif isinstance(node, list):
-            return_list = _parse_list(config, node)
+            return_list = _parse_list(config, node, placeholder)
             if return_list:
                 object_list.append(return_list)
         else:
@@ -83,21 +91,25 @@ def _parse_list(config, value):
     return object_list
 
 
-def replace_reference_by_object(config, item_cfg_node, ref_objects=None):
+def replace_reference_by_object(
+    config, item_cfg_node, ref_objects=None, placeholder=None
+):
     referenced_objects = ref_objects if ref_objects is not None else dict()
     for name, value in item_cfg_node.items():
-        if _checkref(config, item_cfg_node, referenced_objects, name, value):
+        if _checkref(
+            config, item_cfg_node, referenced_objects, name, value, placeholder
+        ):
             continue
 
         if isinstance(value, list):
-            return_list = _parse_list(config, value)
+            return_list = _parse_list(config, value, placeholder)
             if return_list:
                 referenced_objects[name] = return_list
                 item_cfg_node[name] = return_list
         elif isinstance(value, dict):
             subdict = dict()
             subref = dict()
-            _parse_dict(config, subdict, subref, value)
+            _parse_dict(config, subdict, subref, value, placeholder)
             if subref:
                 referenced_objects[name] = subref
             item_cfg_node.update(subdict)

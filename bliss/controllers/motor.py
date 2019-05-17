@@ -14,7 +14,7 @@ from bliss.common.motor_settings import (
     setting_update_from_channel,
     floatOrNone,
 )
-from bliss.common.axis import Axis, NoSettingsAxis, AxisRef, Trajectory
+from bliss.common.axis import Axis, NoSettingsAxis, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
@@ -22,12 +22,11 @@ from bliss.common.utils import set_custom_members, object_method
 from bliss.common import mapping
 from bliss.common.logtools import LogMixin
 from bliss.config.channels import Cache, Channel
-from bliss.config import static, settings
+from bliss.config import settings
 from gevent import lock
 
 # make the link between encoder and axis, if axis uses an encoder
 # (only 1 encoder per axis of course)
-ENCODER_AXIS = dict()
 
 # apply settings or config parameters
 def get_setting_or_config_value(axis, name):
@@ -73,10 +72,8 @@ class Controller(LogMixin):
                 for tag in axis_tags.split():
                     self._tagged.setdefault(tag, []).append(axis)
 
-            # For custom attributes and commands.
-            # NB : AxisRef has no controller.
-            if not isinstance(axis, AxisRef):
-                set_custom_members(self, axis, axis.controller._initialize_axis)
+            if axis.controller is self:
+                set_custom_members(self, axis, self._initialize_axis)
 
         for encoder_name, encoder_class, encoder_config in encoders:
             encoder = encoder_class(encoder_name, self, encoder_config)
@@ -93,13 +90,6 @@ class Controller(LogMixin):
         mapping.register(self)
 
     def _init(self):
-        controller_axes = [
-            (axis_name, axis)
-            for axis_name, axis in self.axes.items()
-            if not isinstance(axis, AxisRef)
-        ]
-        self._update_refs()
-
         for axis in self.axes.values():
             axis._beacon_channels.clear()
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
@@ -123,14 +113,12 @@ class Controller(LogMixin):
 
         self.initialize()
 
-        for axis_name, axis in controller_axes:
+        for axis_name, axis in self.axes.items():
+            if axis.controller is not self:
+                continue
             axis_initialized = Cache(axis, "initialized", default_value=0)
             self.__initialized_hw_axis[axis] = axis_initialized
             self.__initialized_axis[axis] = False
-            encoder = axis.config.get("encoder", str, "")
-            if encoder:
-                encoder_name = encoder.lstrip("$")
-                ENCODER_AXIS[encoder_name] = axis.name
 
     @property
     def axes(self):
@@ -161,20 +149,6 @@ class Controller(LogMixin):
     @property
     def config(self):
         return self.__config
-
-    def _update_refs(self):
-        config = static.get_config()
-        for tag, axis_list in self._tagged.items():
-            for i, axis in enumerate(axis_list):
-                if not isinstance(axis, AxisRef):
-                    continue
-                referenced_axis = config.get(axis.name)
-                if not isinstance(referenced_axis, Axis):
-                    raise TypeError(
-                        "%s: invalid axis '%s`, not an Axis" % (self.name, axis.name)
-                    )
-                self.axes[axis.name] = referenced_axis
-                axis_list[i] = referenced_axis
 
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()

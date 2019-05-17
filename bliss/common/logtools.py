@@ -17,6 +17,17 @@ from bliss.common.mapping import _BEAMLINE_MAP, BEAMLINE_GRAPH, format_node
 __all__ = ["log", "lslog", "lsdebug"]
 
 
+def logging_startup(
+    log_level=logging.DEBUG, fmt="%(levelname)s %(asctime)-15s %(name)s: %(message)s"
+):
+    """
+    Provides basicConfig functionality to bliss activating at proper level the root loggers
+    """
+    logging.basicConfig(level=log_level, format=fmt)
+    logging.getLogger("bliss").setLevel(log_level)
+    logging.getLogger("beamline").setLevel(log_level)
+
+
 class LogMixin:
     @autocomplete_property
     def _logger(self, *args, **kwargs):

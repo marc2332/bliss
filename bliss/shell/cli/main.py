@@ -35,11 +35,13 @@ import os
 import sys
 import subprocess
 from docopt import docopt, DocoptExit
+import logging
 
 from bliss import release
 from bliss.config import static
 from bliss.config.static import Node
 from bliss.config.conductor import client
+from bliss.common.logtools import logging_startup
 
 from .repl import embed
 from . import session_files_templates as sft
@@ -170,6 +172,10 @@ def main():
         print_sessions_list(sessions_list)
         print("")
         arguments = docopt(__doc__)
+
+    # initialize logging
+    log_level = getattr(logging, arguments["--log-level"][0].upper())
+    logging_startup(log_level)
 
     # Print version
     if arguments["--version"]:

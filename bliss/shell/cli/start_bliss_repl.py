@@ -8,19 +8,16 @@
 
 import sys
 from bliss.shell.cli.repl import embed
+from bliss.common.logtools import logging_startup
 import logging
-
-fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
 
 
 def main():
     session_name = sys.argv[1]
-    log_level = getattr(logging, sys.argv[2].upper())
 
-    # activate logging for module-level and session-level loggers
-    logging.basicConfig(format=fmt)
-    logging.getLogger("bliss").setLevel(log_level)
-    logging.getLogger("beamline").setLevel(log_level)
+    # initialize logging
+    log_level = getattr(logging, sys.argv[2].upper())
+    logging_startup(log_level)
 
     embed(session_name=session_name, use_tmux=True)
 

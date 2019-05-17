@@ -20,11 +20,113 @@ some of them are needed only if implementation of these
 functionalities is wanted. In addition, some *custom commands* can be
 defined to implement very specific features of a motor controller.
 
+!!! note
+    About units management
+
+    * On the user point of view, axes are moved in **user units**,
+      whatever unit is used in the controller API
+    * On the programmer point of view, the BLISS plugin is dealing with
+      controller units (steps, microns, ...)
+    * The programmer should not have to deal with units conversions.
+    * see [motion axis / position](motion_axis.html#position) for more details.
+
 ---
 
 ## Example and skeleton of BLISS motor plugin
 
-* `bliss/controllers/motors/mockup.py` is an example of simulated motor
+Template for motor controller:
+
+```python
+
+from bliss.controllers.motor import Controller
+from bliss.comm.util import get_comm
+from bliss.common.axis import AxisState
+
+"""
+Bliss controller for XXX.
+"""
+
+class XXX(Controller):
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
+
+    def initialize(self):
+        self.comm = get_comm(self.config)
+
+    def initialize_axis(self, axis):
+        """
+        Reads specific config
+        Adds specific methods
+        """
+        pass
+
+    def read_position(self, axis):
+        """
+        Returns position's setpoint or measured position.
+
+        Args:
+            - <axis> : bliss axis.
+            - [<measured>] : boolean : if True, function returns
+              measured position in ???
+        Returns:
+            - <position> : float : axis setpoint in ???.
+        """
+        raise NotImplementedError
+
+    def read_encoder(self, encoder):
+        raise NotImplementedError
+
+    def read_velocity(self, axis):
+        """
+        Args:
+            - <axis> : Bliss axis object.
+        Returns:
+            - <velocity> : float
+        """
+
+    def set_velocity(self, axis, new_velocity):
+        pass
+
+    def state(self, axis):
+        _ans = self.comm.write_read("state")
+        if _ans == "moving":
+            return AxisState("MOVING")
+        else:
+            return AxisState("READY")
+
+    def prepare_move(self, motion):
+        pass
+
+    def start_one(self, motion):
+        """
+        sdf
+        """
+        self.comm.write("MOVE")
+
+    def stop(self, axis):
+        # Halt a scan (not a movement ?)
+        self.comm.write("STOP")
+
+    def raw_write(self, axis, cmd):
+        self.comm.write(cmd)
+
+    def raw_write_read(self, axis, cmd):
+        return self.comm.write_readline(cmd)
+
+    def get_id(self, axis):
+        """
+        Returns firmware version.
+        """
+        return self.comm.write_readline("?VER")
+
+    def get_info(self, axis):
+        """
+        Returns information about controller as a string.
+        """
+        return 'IcePapMotorController - FW 2.71'
+```
+
+
 
 ## Minimal set of functions to implement
 
@@ -169,7 +271,7 @@ following methods (further detailed) are mandatory:
 
     Motion object: this object holds requested motion parameters:
     
-        * motion.axis:       axis to be moved
+        * motion.axis:       axis object to be moved
         * motion.target_pos: absolute motion target position (in controller units)
         * motion.delta:      corresponding relative motion delta (in controller units)
         * motion.backlash:   backlash (in controller units ?)
@@ -182,11 +284,26 @@ following methods (further detailed) are mandatory:
     * Called in a group move
         * `move(m1, 3, m2, 1)` is a group move
         * `move(m1, 3)` is a group move as well as `umvr()` `mvr()`
-        * `m1.move(3)` is a single move
+            * it uses `Group.move()`
+        * `m1.move(3)` is a single move (uses `Axis.move()`)
 
 * `stop_all(self, *motions)`
     * Must stop all movements defined in `motions`
     * Called on a `ctrl-c` during a group move
+
+
+!!! note
+    If `start_all()` is not defined, the movement is performed with `start_one()`
+    ```
+    def _start_one_controller_motions(self, controller, motions):
+        try:
+            controller.start_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                controller.start_one(motion)
+    ```
+
+
 
 ### Jog motion
 A Jog motion is a movement controlled in velocity instead of being
@@ -347,23 +464,5 @@ Example of custom command:
 
 `types_info` parameter of this decorator allows to define types of parameters used
 by the created controller command.
-
-
-## NOTES
-
-* Steps per unit is in *unit-1* (1 per default)
-* Backlash is in *user_unit*
-* *user_unit* can be millimeter, micron, degree etc..
-* *encoder_steps*
-* developer of the plugin and units management
-    * On the user point of view, motors are driven in *user units*,
-      whatever unit is used in the controller API
-    * On the programmer point of view, the BLISS plugin is dealing with
-      controller units (steps, microns, ...)
-    * The programmer should not have to deal with units conversions.
-
-
-*`move(m1, 3)`: uses `Group.move()`
-*`m1.move(3)`: uses `Axis.move()`
 
 

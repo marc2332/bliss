@@ -22,18 +22,18 @@ For example: N-legs tables, energy motor, slits, rotated translations.
 ## example of code
 
 Example of code to create a calculational controller to link 2 axes
-with a factor of 42.
+with a 3.1415 factor.
 
 ```python
 def calc_from_real(self, positions_dict):
     calc_mot_axis = self._tagged["calc_mot"][0]
-    calc_pos = 42 * positions_dict["real_mot"]
+    calc_pos = 3.1415 * positions_dict["real_mot"]
 
     return {"calc_mot": calc_pos}
 
 def calc_to_real(self, positions_dict):
     calc_mot_axis = self._tagged["calc_mot"][0]
-    real_pos = positions_dict["calc_mot"] / 42
+    real_pos = positions_dict["calc_mot"] / 3.1415
 
     return {"real_mot": real_pos}
 ```
@@ -56,7 +56,7 @@ controller:
         -
           name: calc_mot
           tags: calc_mot
-          s_param: 3.1415
+
 ```
 
 example of usage:
@@ -69,6 +69,7 @@ Current Positions (user, dial)
 ----------  -------
    3.14150  1.00000
    3.14150  1.00000
+
 CYRIL [2]: mv(m1,2)
 CYRIL [3]: wa()
 Current Positions (user, dial)
@@ -80,7 +81,7 @@ Current Positions (user, dial)
 ```
 
 !!! note
-    For efficiency considerations, real motors can be moved as *grouped axes*
+    For efficiency considerations, real motors can be moved as *grouped axes*.
 
 ![Screenshot](img/axis_group_calc.svg)
 

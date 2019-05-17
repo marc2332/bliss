@@ -51,7 +51,7 @@ Second part is the configuration of new **virtual axes**  based on **real axes**
     - `front`, `back`, `hgap`, `hoffset` are specifiers for each axis
 * The plugin is not specified in `secondary_slits.yml`, because a
   `__init__.yml` with `plugin: emotion` already exists in the directory
-* `slit_type`: can be ```horizontal``` or ```vertical```
+* `slit_type`: can be `horizontal` or `vertical` or `both` (default value)
 
         -
           controller:

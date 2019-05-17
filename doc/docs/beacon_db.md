@@ -89,13 +89,14 @@ The following database files:
 -
   name: object_2
   param: 43
-```            
+```
 
 Produce the following internal representation:
 
 ```py
 >>> from bliss.config.static import get_config
->>> config = get_config() # load YAML tree from Beacon server, and parse it to create a 'config' object
+>>> config = get_config()  # loads YAML tree from Beacon server,
+                           # and parse it to create a 'config' object
 >>> config.pprint()
 
 { filename: None
@@ -137,9 +138,43 @@ children:
 my_global: hello
 ```
 
-```py
+```python
 >>> config.reload() # since the files changed, reload all config from server
 >>> object_1 = config.get("object_1") #indexing by name (flattened dictionary)
 >>> object_1.get_inherited("my_global")
 hello
 ```
+
+## SPEC vs BLISS
+
+When restarting a SPEC session, all the config was reloaded and
+parameters taken into account automatically.
+
+For performance considerations, in BLISS:
+
+* the config is reloaded:
+    * on-demand: `config.reload()`
+    * at the (re)start of a session
+* the parameters **from config** of an object are taken into account:
+    * at first start of a session
+    * on demand with `obj.apply_config()`
+* it is possible to mix both reload and apply with: `obj.apply_config(reload=True)`
+
+
+## configuration behavior
+
+Changing a configuration parameter, example of the velocity of a BlissAxis.
+
+![Changing a configuration parameter](img/apply_config.png)
+
+
+## Saving parameters
+
+Example to save the velocity of an axis into YAML configuration file:
+
+```python
+DEMO [1]: m1.config.set("velocity", 9)
+DEMO [2]: m1.config.save()
+```
+
+

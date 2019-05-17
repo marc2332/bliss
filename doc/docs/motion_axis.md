@@ -1,8 +1,19 @@
 
 # The BLISS Axis object
 
-In most cases a **BLISS Axis** represents a motor driven by a
-physical motor controller.
+In most cases a **BLISS Axis** represents a motor driven by a physical
+motor controller.
+
+This page presents the detailed usage of a BLISS axis.
+
+Other more or less related pages:
+
+* [Short presentation of Bliss Axis usage in BLISS shell](gs_presentation.md#motors)
+* [BLISS Shell standard functions to drive motors](shell_std_func.html#motors)
+* [How to write a new class to support a motor controller in BLISS](dev_write_motctrl.md)
+* [How to write a Calculational Motor Controller](dev_write_calc_ctrl.md)
+* [Usual scans](scan_default.md)
+* [Shutters](using_shutter.md)
 
 ## Configuration
 
@@ -20,19 +31,19 @@ configuration parameters.
 Configuration parameters from Beacon YAML files are passed to
 the `Axis` constructor.
 
-Parameter name |  Required | Setting? | Type   | Description
--------------- |-----------|-----------|--------|------------
-name           |  yes      | no        | string | An unique name to identify the `Axis` object
-steps_per_unit |  yes      | no        | float  | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
-velocity       |  yes      | yes        | float  | Nominal axis velocity in *units.s<sup>-1</sup>*
-acceleration   |  yes      | yes        | float  | Nominal acceleration value in *units.s<sup>-2</sup>*
-sign           |  no       | no         | int    | Accepted values: 1 or -1. User position = (sign * dial_position) + offset ; *defaults to 1*
-low_limit      |  no       | yes        | float  | Lower user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
-high_limit     |  no       | yes        | float  | Higher user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
-backlash       |  no       | no         | float  | Axis backlash in user units ; *defaults to 0*
-tolerance      |  no       | no         | float  | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
-encoder        |  no       | no         | string | Name of an existing **Encoder** object linked with this axis
-unit           | no        | no         | string | *Informative only* - Unit (for steps per unit), e.g. mm, deg, rad, etc.
+Parameter name                              |  Required | Setting?  | Type   | Description
+------------------------------------------- |-----------|-----------|--------|------------
+[name](motion_axis.md#name)                 |  yes      | no        | string | An unique name to identify the `Axis` object
+[steps_per_unit](motion_axis.md#position)   |  yes      | no        | float  | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
+[velocity](motion_axis.md#velocity)         |  yes      | yes       | float  | Nominal axis velocity in *units.s<sup>-1</sup>*
+[acceleration](motion_axis.md#acceleration) |  yes      | yes       | float  | Nominal acceleration value in *units.s<sup>-2</sup>*
+[sign](motion_axis.md#position)             |  no       | no        | int    | Accepted values: 1 or -1. User position = (sign * dial_position) + offset ; *defaults to 1*
+[low_limit](motion_axis.md#limits)          |  no       | yes       | float  | Lower user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
+[high_limit](motion_axis.md#limits)         |  no       | yes       | float  | Higher user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
+[backlash](motion_axis.md#backlash)         |  no       | no        | float  | Axis backlash in user units ; *defaults to 0*
+[tolerance](motion_axis.md#tolerance)       |  no       | no        | float  | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
+[encoder](motion_axis.md#encoder)           |  no       | no        | string | Name of an existing **Encoder** object linked with this axis
+[unit](motion_axis.md#unit)                 | no        | no        | string | *Informative only* - Unit (for steps per unit), e.g. mm, deg, rad, etc.
 
 !!! note
     Motor controllers with extra features may require more parameters. See the
@@ -44,14 +55,25 @@ the corresponding value is also stored in redis (see [Settings documentation](be
 
 ### Applying configuration changes
 
-To apply a change in YML configuration, use `apply_config` method of `Axis`
-objects with `reload=True` keyword argument:
+A change in YML configuration can be applied with use `apply_config()`
+method of `Axis` objects.
+
+`apply_config()` has got a `reload` parameter which is `False` by default.
+
+This parameter forces the reload on YAML from file, otherwise, the
+configuration to apply is the one in memory (in redis ???).
 
 Example: after changing velocity of **ssu** motor in YML file:
+    ssu.apply_config(reload=False)   # <--- will apply old configuration
+    ssu.apply_config(reload=True)    # <--- will apply new configuration
 
-    ssu.apply_config(reload=True)
+`ssu.apply_config(reload=False)` is a common way to reset parameters
+after changes of settings in a session for example.
 
-### Custom axis classes
+see [beacon db](beacon_db.md#configuration-behavior) for usage
+examples of `apply_config()`.
+
+## Custom axis classes
 
 `Axis` is the default class that corresponds to controller motors,
 however it is possible to specify *a derived class* with extra features
@@ -60,15 +82,32 @@ if needed. Some controllers may return instances of a special class
 User can also force a particular class to be instanciated, by adding
 a `class` item within the YAML configuration for the axis.
 
-#### ModuloAxis
+### ModuloAxis
 
 An `Axis` whose positions are always between 0 and a modulo value set in the
 YAML configuration (`modulo` parameter). For example, a motor for a rotation
 can be configured with `class: ModuloAxis` and `modulo: 360`.
 
-#### NoSettingsAxis
+### NoSettingsAxis
 
 An `Axis` which does not store settings in redis -- will always refer to hardware.
+
+
+
+## Implementation details
+
+This chapter concerns who want to understand the internal mechanisms
+of BLISS Axis object.
+
+* `bliss/common/`
+    * `axis.py`
+    * `motor_config.py`
+    * `motor_group.py`
+    * `motor_settings.py`
+    * `scans.py`
+* `bliss/controllers/motor.py`
+
+
 
 ## Initialization
 
@@ -81,56 +120,101 @@ configuration parameters, i.e. the axis velocity will be changed to the
 one in redis, not to the nominal value from the configuration.
 
 !!! note
-    Axis initialization does not happen when the motor controller is loaded, or when an `Axis` object is retrieved from Beacon. Indeed `Axis` objects implement the *lazy initialization pattern*: the initialization sequence described above only happens the first time the object is accessed.
+    Axis initialization does not happen when the motor controller is
+    loaded, or when an `Axis` object is retrieved from Beacon. Indeed
+    `Axis` objects implement the *lazy initialization pattern*: the
+    initialization sequence described above only happens the first
+    time the object is accessed.
 
 ## Axis properties
 
-Axis properties are built on top of the Python language properties, which provide an elegant way to implement  "getters and setters". Assigning a value to a property sets the value, i.e. an action may be triggered by the object when the descriptor gets written. In the case of the `Axis` object, it can trigger a communication with the motor controller to set the velocity for example.
-It is enough to call the property to read the property value. Depending on the property, this can also trigger an action on the motor controller.
+Axis properties are built on top of the Python language *properties*,
+which provide an elegant way to implement "getters and setters"
+mechanisms. Assigning a value to a property sets the value, i.e. an
+action may be triggered by the object when the descriptor gets
+written. In the case of the `Axis` object, it can trigger a
+communication with the motor controller to set the velocity for
+example.
 
-Property name | R/W? | Type   | Description
---------------|------|--------|-------------
-name          | R    | string | Axis name
-velocity      |  R+W | float  | Get or set the axis velocity in *units.s<sup>-1</sup>*
-config_velocity | R  | float  | Returns the nominal velocity value from the configuration
-acceleration  | R+W  | float  | Get or set the axis acceleration in *units.s<sup>-2</sup>*
-config_acceleration | R | float | Returns the nominal acceleration value from the configuration
-acctime       | R+W  | float  | Get or set the acceleration time; note: depends on both velocity and acceleration ; *acctime = velocity / acceleration*
-config_acctime | R | float | Returns the acceleration time taking into account nominal values for velocity and acceleration
-low_limit      | R+W | float or None | Get or set the soft low limit
-high_limit     | R+W | float or None | Get or set the soft high limit
-limits         | R+W | (float or None, float or None) | Get or set soft limits
-config_limits  | R | (float or None, float or None) | Returns (low_limit, high_limit), taking values from the configuration
-steps_per_unit | R | float | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
-backlash       | R | float | Returns the backlash applied to the axis
-is_moving      | R | bool | Returns whether the axis is moving
-dial           | R+W | float | Get or set the axis *dial* position
-offset         | R  | float | Returns the current offset for user position calculation
-sign           | R  | int   | Returns the sign for user position calculation
-position       | R+W | float | Get or set the axis *user* position ; User position = (sign * dial_position) + offset
-_hw_position   | R | float | Returns the controller position for the axis ; *forces a read on the controller*
-_set_position  | R+W | float | Last set position for the axis (target of last move, or current position)
-tolerance | R | float | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
-state          | R | AxisState | Returns the state of the axis (*MOVING*, *READY*, *ON_LIMIT*, etc)
-encoder        | R | Encoder[None] | Returns the encoder object associated to this axis
+It is enough to call the property to read the property value.
+Depending on the property, this can also trigger an action on
+the motor controller.
 
-### User and Dial positions
+Property name                 | R/W? | Type   | Description
+------------------------------|------|--------|-------------
+[name](motion_axis.md#name)                         | R    | string | Axis name
+[velocity](motion_axis.md#velocity)                 |  R+W | float  | Get or set the axis velocity in *units.s<sup>-1</sup>*
+[config_velocity](motion_axis.md#velocity)          | R    | float  | Returns the nominal velocity value from the configuration
+[acceleration](motion_axis.md#acceleration)         | R+W  | float  | Get or set the axis acceleration in *units.s<sup>-2</sup>*
+[config_acceleration](motion_axis.md#acceleration)  | R    | float  | Returns the nominal acceleration value from the configuration
+[acctime](motion_axis.md#acceleration)              | R+W  | float  | Get or set the acceleration time; note: depends on both velocity and acceleration ; *acctime = velocity / acceleration*
+[config_acctime](motion_axis.md#acceleration)       | R    | float  | Returns the acceleration time taking into account nominal values for velocity and acceleration
+[low_limit](motion_axis.md#limits)                  | R+W  | float or None | Get or set the soft low limit
+[high_limit](motion_axis.md#limits)                 | R+W  | float or None | Get or set the soft high limit
+[limits](motion_axis.md#limits)                     | R+W  | (float or None, float or None) | Get or set soft limits
+[config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Returns (low_limit, high_limit), taking values from the configuration
+[steps_per_unit](motion_axis.md#position)           | R    | float | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
+[backlash](motion_axis.md#backlash)                 | R    | float | Returns the backlash applied to the axis
+[is_moving](motion_axis.md#is_moving)               | R    | bool  | Returns whether the axis is moving
+[dial](motion_axis.md#position)                     | R+W  | float | Get or set the axis *dial* position
+[offset](motion_axis.md#position)                   | R    | float | Returns the current offset for user position calculation
+[sign](motion_axis.md#position)                     | R    | int   | Returns the sign for user position calculation
+[position](motion_axis.md#position)                 | R+W  | float | Get or set the axis *user* position ; User position = (sign * dial_position) + offset
+[_hw_position](motion_axis.md#hardware_position)    | R    | float | Returns the controller position for the axis ; *forces a read on the controller*
+[_set_position](motion_axis.md#hardware_position)   | R+W  | float | Last set position for the axis (target of last move, or current position)
+[tolerance](motion_axis.md#tolerance)               | R    | float | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
+[state](motion_axis.md#axis-state)                  | R    | AxisState     | Returns the state of the axis (*MOVING*, *READY*, *ON_LIMIT*, etc)
+[encoder](motion_axis.md#encoder)                   | R    | Encoder[None] | Returns the encoder object associated to this axis
 
-`Axis` objects keep track of both a dial and a user position.
+### name
 
-The dial position is meant to agree with the readout of the physical dial on the hardware stage. The value and the sign of the *.steps_per_unit* parameter should be chosen so that the dial position and its direction agree with the physical dial reading. Assigning a value to the writable `.dial` property *sets the position on the motor controller register*.
+alias ??
 
-The user position allows to use a logical reference frame, that does not interfere with the motor controller.
+
+### position
+
+* position
+* sign
+* user
+* dial
+* offset
+* steps_per_unit
+
+!!! note
+    About units management
+
+    * On the user point of view, axes are moved in **user units**,
+      whatever unit is used in the controller API
+    * **user unit** can be millimeter, micron, degree etc.
+    * **controller unit** is often *steps* or *micron*
+    * On the programmer point of view, the BLISS plugin is dealing with
+      controller units (steps, microns, ...)
+    * The programmer should not have to deal with units conversions.
+
+`Axis` object keeps track of both a **dial** and a **user** position.
+
+The dial position is meant to agree with the readout of the physical
+dial on the hardware stage. The value and the sign of the
+*.steps_per_unit* parameter should be chosen so that the dial position
+and its direction agree with the physical dial reading. Assigning a
+value to the writable `.dial` property *sets the position on the motor
+controller register*.
+
+The user position allows to use a logical reference frame, that does
+not interfere with the motor controller.
 
 ```python
-    user position = (sign * dial position) + offset
+    user_position = (sign * dial_position) + offset
 ```
 
-Assigning a value to the `.position` property sets the user position. *The offset is determined automatically,
-using the above formula.* The offset value can be retrieved with the `.offset` property (read-only).
-The sign is read from the configuration. The sign value can be retrieved with the `.sign` property (read-only).
+Assigning a value to the `.position` property sets the user
+position. *The offset is determined automatically, using the above
+formula.* The offset value can be retrieved with the `.offset`
+property (read-only).  The sign is read from the configuration. The
+sign value can be retrieved with the `.sign` property (read-only).
 
-Changing the user position does not change anything on the motor controller. No communication with hardware is involved.
+Changing the user position does not change anything on the motor
+controller. No communication with hardware is involved.
 
 Resetting offset to 0 can be achieved with:
 
@@ -140,9 +224,12 @@ Resetting offset to 0 can be achieved with:
 0.0
 ```
 
-### Position change events
+#### Position change events
 
-Internally, the axis position is kept in a [`Channel` object](beacon_channels.md), which makes it is possible to register a callback function to be called whenever the axis position changes:
+Internally, the axis position is kept in a
+[`Channel` object](beacon_channels.md), which makes it is possible to
+register a callback function to be called whenever the axis position
+changes:
 
 ```python
 >>> from bliss.common import event
@@ -159,54 +246,163 @@ I moved to 1.0
 >>>
 ```
 
+Frequency: 20 ms ?
+
 !!! note
-    The same applies for any setting or channel: dial, state, limits, velocity, acceleration
+    The events can be used in particular for GUI
 
-## Axis state
+!!! note
+    The same applies for any setting or channel: dial, state, limits,
+    velocity, acceleration
 
-The `.state` property returns the current state of an axis. The returned value is an `AxisState` instance,
-which holds *a list of states*, which can be combined to represent more complex situations. Indeed, for example a motor can be both ready to move, and still touching a limit or being at home position.
 
-Standard states are constants:
+### hardware_position
+* _hw_position
+*_set_position
 
-* MOVING, 'Axis is moving'
-* READY, 'Axis is ready to be moved'
-* FAULT, 'Error from controller'
-* LIMPOS, 'Hardware high limit active'
-* LIMNEG, 'Hardware low limit active'
-* HOME, 'Home signal active'
-* OFF, 'Axis is disabled'
 
-*READY* and *MOVING* are mutually exclusive.
+m1._hw_position        # just read (no cache), does not update settings
+m1._hw_position = 36   # ---> INVALID
+m1._set_position = 36  # ---> VALID
 
-A description is associated to each state. The string representation of the `AxisState` object shows a human-readable description of the state:
+### limits
+* limits
+* low_limit
+* high_limit
+* config_limits
+
+
+### velocity
+* velocity
+* config_velocity
+
+### acceleration
+* acceleration
+* config_acceleration
+* acctime
+* config_acctime
+
+Changing acceleration:
+
+![changing acceleration](img/acc_change.svg)
+
+
+
+### backlash
+
+![backlash](img/backlash.svg)
+
+
+### is_moving
+
+### tolerance
+
+!!!
+
+There is also a tolerance parameter for encoder, see:
+
+
+### encoder
+
+
+### Axis state
+
+The `.state` property returns the current state of an axis. The
+returned value is an `AxisState` instance, which holds **a list of
+states**.
+
+A description is associated to each state. The string representation
+of the `AxisState` object shows a human-readable description of the
+state. Example here present the `READY` state with its *"Axis is
+READY"* description:
+```python
+DEMO [1]: m0.state
+ Out [1]: AxisState: READY (Axis is READY)
+```
+
+Pre-defined standard states are:
+
+* `MOVING`, *'Axis is moving'*
+* `READY`, *'Axis is ready to be moved'*
+* `FAULT`, *'Error from controller'*
+* `LIMPOS`, *'Hardware high limit active'*
+* `LIMNEG`, *'Hardware low limit active'*
+* `HOME`, *'Home signal active'*
+* `OFF`, *'Axis is disabled'*
+
+A motor can then have more than one state at once, states can be
+combined to represent complex situations. For example, a motor can be
+both ready to move and still touching a limit or being at home
+position.
 
 ```python
-TEST_SESSION [1]: m0.state                                                      
-         Out [1]: AxisState: READY (Axis is READY)
+DEMO [1]: m0.state
+ Out [1]: AxisState: MOVING (Axis is moving)
 
-TEST_SESSION [2]: 'READY' in m0.state                                           
-         Out [2]: True
+DEMO [2]: m1.state
+ Out [2]: AxisState: READY (Axis is READY) | LIMPOS (Hardware high limit active)
+```
 
-TEST_SESSION [3]: m0.state.MOVING                                               
-         Out [3]: False
+A given state can be tested to know if a motor is in this state:
+```python
+if m0.state.MOVING:
+    print ("m0 motor is moving, please wait...")
 ```
 
 !!! note
-    The `in` operator of the Python language can be used to check whether an axis is in a certain state.
+    The `in` operator of the Python language can be used to check
+    whether an axis is in a certain state.
+    
+    ``` TEST_SESSION [2]: 'READY' in m0.state
+         Out [2]: True```
+    means:
+    
+    ```
+    "m0 has 'READY' state in it's current states list."```
 
-Motor controllers assign states to `Axis` objects. It is possible to define custom states (see [how to
-  write motor controllers](dev_write_motctrl.md)).
+*READY* and *MOVING* are the states tested by the Axis engine to
+ determine allowed actions on an axis object.
 
-### State change events
+It is possible to define custom states (see
+[how to write motor controllers](dev_write_motctrl.md)).
 
-Similarly to the `.position` property, it is possible to be notified of state changes by registering to the state change event:
+!!! note
+    `state` property is the list of current states, not the list
+    of all existing states.
+
+    To get the list of all existing states for a motor, use
+    `states_list()` method:
+    
+    ```
+    DEMO [16]: m1.state.states_list()
+     Out [16]: ['READY', 'MOVING', 'FAULT', 'LIMPOS', 'LIMNEG', 'HOME', 'OFF']
+    ```
+
+
+#### Caching
+
+For performance considerations, the state of an axis is managed via a
+*caching mechanism*. There can be a discrepancy between real state of
+a motor and BLISS returned state.
+
+To get a direct reading of the hardware, use: `hw_state` property.
+
+The reading `hw_state` property does not update `state` property.
+
+It is possible to disable the caching mechanism in the config file ???
+
+
+
+#### State change events
+
+Similarly to the `.position` property, it is possible to be notified
+of state changes by registering to the state change event:
 
 ```python
 TEST_SESSION [12]: def state_change(new_state):
-              ...:     print(f"State changed to {str(new_state)}")              
-TEST_SESSION [13]: event.connect(m0, "state", state_change)                     
-TEST_SESSION [14]: m0.rmove(1)                                                  
+              ...:     print(f"State changed to {str(new_state)}")
+TEST_SESSION [13]: event.connect(m0, "state", state_change)
+TEST_SESSION [14]: m0.rmove(1)
 State changed to MOVING (Axis is MOVING)
 State changed to MOVING (Axis is MOVING)
 State changed to READY (Axis is READY)
@@ -214,18 +410,25 @@ State changed to READY (Axis is READY)
 
 ## Synchronization with hardware
 
-The `Axis` object tries to minimize access to the physical motor controller. In particular, it is assumed
-BLISS takes ownership of the hardware devices, i.e. devices are *not* supposed to be driven "externally",
-by another software for example. Indeed, all `Axis` settings are cached.
+The `Axis` object tries to minimize access to the physical motor
+controller. In particular, it is assumed BLISS takes ownership of the
+hardware devices, i.e. devices are *not* supposed to be driven
+"externally", by another software for example. Indeed, all `Axis`
+settings are cached.
 
-In some cases, though, another application (like **icepapcms** for the **IcePAP** motor controller) can control a BLISS axis. Then any further action on the `Axis` object would end up with an exception being raised,
-because of discrepancies between the axis cached state and the hardware state.
+In some cases, though, another application (like **icepapcms** for the
+**IcePAP** motor controller) can control a BLISS axis. Then any
+further action on the `Axis` object would end up with an exception
+being raised, because of discrepancies between the axis cached state
+and the hardware state.
 
-In order to solve the problem, and to empty the internal cache, the `.sync_hard()` method can be called.
+In order to solve the problem, and to empty the internal cache, the
+`.sync_hard()` method can be called.
 
 ## Moving
 
-The `Axis` object provides the following methods to start, monitor and stop motion:
+The `Axis` object provides the following methods to start, monitor and
+stop a movement:
 
 * `.move(target_user_position, wait=True, relative=False)`
     - move to target position (absolute, except if relative=True)
@@ -234,12 +437,16 @@ The `Axis` object provides the following methods to start, monitor and stop moti
 * `.home(switch=1, wait=True)`
     - do a home search
 * `.jog(velocity, reset_position=None)`
-    - start to move at constant speed ; *velocity* can be negative to indicate the opposite direction
-    - if reset position is set to 0, the controller position is set to 0 at the end of the jog move
-    - if reset position is a callable, it is called at the end of the jog move, passing the Axis object as first argument
+    - start to move at constant speed ; *velocity* can be negative to
+      indicate the opposite direction
+    - if reset position is set to 0, the controller position is set to
+      0 at the end of the jog move
+    - if reset position is a callable, it is called at the end of the
+      jog move, passing the Axis object as first argument
 * `.hw_limit(limit, wait=True)`
     - do a limit search
-    - a positive limit value means 'limit + switch', whereas a negative value means 'limit - switch'
+    - a positive limit value means 'limit + switch', whereas a
+      negative value means 'limit - switch'
 * `.wait_move()`
     - for motions started with `wait=False`, this allows to join with the end of the move
 * `.stop()`

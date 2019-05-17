@@ -117,6 +117,9 @@ class ScanPrinter:
             channel_short_name = channels["master"]["display_names"][channel_fullname]
             channel_unit = channels["master"]["scalars_units"][channel_fullname]
 
+            if channel_fullname == "timer:epoch":
+                continue
+
             # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
@@ -150,6 +153,10 @@ class ScanPrinter:
             if channel_short_name == "elapsed_time":
                 self.col_labels.insert(1, "dt[s]")
                 continue
+
+            if channel_fullname == "timer:epoch":
+                continue
+
             self.counter_names.append(
                 channel_short_name + (f"[{channel_unit}]" if channel_unit else "")
             )
@@ -310,13 +317,15 @@ class ScanDataListener:
         self.counter_selection = self.scan_display.counters
 
     def get_selected_counters(self, counter_names):
-        if not self.counter_selection:
-            return counter_names
-
         selection = []
-        for cname in counter_names:
-            if cname in self.counter_selection or cname == "timer:elapsed_time":
-                selection.append(cname)
+        if not self.counter_selection:
+            for cname in counter_names:
+                if cname != "timer:epoch":
+                    selection.append(cname)
+        else:
+            for cname in counter_names:
+                if cname in self.counter_selection or cname == "timer:elapsed_time":
+                    selection.append(cname)
 
         return selection
 
@@ -382,7 +391,13 @@ class ScanDataListener:
 
             selected_counters = self.get_selected_counters(channels["scalars"])
 
-            self.channel_names = channels["master"]["scalars"] + selected_counters
+            # remove epoch from channel_names
+            ch_master_scalar_wo_epoch = []
+            for cname in channels["master"]["scalars"]:
+                if cname != "timer:epoch":
+                    ch_master_scalar_wo_epoch.append(cname)
+
+            self.channel_names = ch_master_scalar_wo_epoch + selected_counters
 
             # get the number of masters and counters unfiltered
             self.channels_number = len(channels["master"]["scalars"]) + len(
@@ -392,7 +407,7 @@ class ScanDataListener:
             # BUILD THE LABEL COLUMN
             channel_labels = []
             # GET THE LIST OF MASTER CHANNELS SHORT NAMES
-            for channel_name in channels["master"]["scalars"]:
+            for channel_name in ch_master_scalar_wo_epoch:
                 channel_short_name = channels["master"]["display_names"][channel_name]
                 channel_unit = channels["master"]["scalars_units"][channel_name]
 
@@ -491,26 +506,22 @@ class ScanDataListener:
             return
 
         # Skip if partial data
-        # for channel_name in channel_info["data"]:   # ??? for channel_name in self.channel_names:  ???
         for channel_name in self.channel_names:
             if len(channel_info["data"][channel_name]) < self.scan_steps_index:
                 return
 
         # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
-        data_lens = [
-            len(channel_info["data"][channel_name])
-            for channel_name in channel_info["data"]
-        ]
-        bsize = min(data_lens)
-        # if bsize != self.scan_steps_index:
-        #    print("receive", bsize, "lines at step", self.scan_steps_index-1, "printing", bsize - self.scan_steps_index+1, "lines" )
+        bsize = min(
+            [
+                len(channel_info["data"][channel_name])
+                for channel_name in channel_info["data"]
+            ]
+        )
 
         for i in range(bsize - self.scan_steps_index + 1):
             # Get data for the current scan step
             values_dict = {}
 
-            # for channel_name in channel_info["data"]:    # ??? for channel_name in self.channel_names:  ???
-            #    if channel_name in self.channel_names:
             for channel_name in self.channel_names:
                 values_dict[channel_name] = channel_info["data"][channel_name][
                     self.scan_steps_index - 1

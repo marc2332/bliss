@@ -384,7 +384,7 @@ class Session(object):
         self.__map.register("axes", parents_list=[self], tag="axes")
         self.__map.register("counters", parents_list=[self], tag="counters")
 
-        self.__log = Log(map_beamline=self.__map)
+        self.__log = Log(map=self.__map)
 
         self._load_config(env_dict, verbose)
 

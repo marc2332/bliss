@@ -16,30 +16,28 @@ import bliss
 
 
 @pytest.fixture
-def beamline():
+def map():
     """
     Creates a new graph
     """
     map = Map()
 
-    map.register("beamline")
-    map.register("devices", parents_list=["beamline"])
-    map.register("sessions", parents_list=["beamline"])
-    map.register("comms", parents_list=["beamline"])
-    map.register("counters", parents_list=["beamline"])
+    map.register("session")
+    map.register("devices", parents_list=["session"])
+    map.register("sessions", parents_list=["session"])
+    map.register("comms", parents_list=["session"])
+    map.register("counters", parents_list=["session"])
     return map
 
 
 @pytest.fixture
-def params(beacon, beamline):
+def params(beacon, map):
     """
     Creates a new beacon and log instance
     """
     logging.basicConfig(level=logging.WARNING)
 
-    log = Log(map_beamline=beamline)
-    log.map_beamline.add_map_handler(map_update_loggers)
-    log.map_beamline.trigger_update()
+    log = Log(map=map)
 
     return beacon, log
 
@@ -74,14 +72,7 @@ class MappedController(NotMappedController, LogMixin):
 
 def test_bare_system(params):
     all_loggers = logging.getLogger().manager.loggerDict
-    names = [
-        "beamline",
-        "beamline.devices",
-        "beamline.devices",
-        "beamline.counters",
-        "beamline.sessions",
-        "beamline.comms",
-    ]
+    names = ["session", "session.devices", "session.counters", "session.comms"]
     for name in names:
         assert name in all_loggers.keys()
 
@@ -94,13 +85,12 @@ def test_add_motor_m0(params):
     all_loggers = logging.getLogger().manager.loggerDict
 
     regex_list = [
-        r"beamline",
-        r"beamline\.devices",
-        r"beamline\.sessions",
-        r"beamline\.comms",
-        r"beamline\.counters",
-        r"beamline\.devices\.\w",
-        r"beamline\.devices\.default\.axes\.m0",
+        r"session",
+        r"session\.devices",
+        r"session\.comms",
+        r"session\.counters",
+        r"session\.devices\.\w",
+        r"session\.devices\.default\.axes\.m0",
     ]
 
     for regex in regex_list:

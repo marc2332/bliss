@@ -283,7 +283,7 @@ class Map:
         Remaps nodes with missing parents to 'devices'
         """
         for node in list(self.G):
-            if node != "beamline" and not len(list(self.G.predecessors(node))):
+            if node != "session" and not len(list(self.G.predecessors(node))):
                 self.G.add_edge("devices", node)
                 logger.debug(f"Added parent to {node}")
 

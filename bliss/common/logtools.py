@@ -154,11 +154,11 @@ class Log:
     bliss logging utils
     """
 
-    def __init__(self, map_beamline):
-        self.map_beamline = map_beamline
-        map_beamline.add_map_handler(map_update_loggers)
+    def __init__(self, map):
+        self.map = map
+        self.map.add_map_handler(map_update_loggers)
         logging.getLogger("session").setLevel(logging.WARNING)  # setting starting level
-        map_beamline.trigger_update()
+        self.map.trigger_update()
 
     def _check_log_level(self: (str, int), level):
         """
@@ -219,9 +219,9 @@ class Log:
         uselevel = self._check_log_level(level)
 
         findlog = {
-            self.map_beamline.G.node[node]["_logger"].name
-            for node in self.map_beamline.G.node
-            if self.map_beamline.G.node[node]["_logger"].name
+            self.map.G.node[node]["_logger"].name
+            for node in self.map.G.node
+            if self.map.G.node[node]["_logger"].name
         }
         registered_loggers = [logging.getLogger(obj) for obj in findlog]
         filtered_loggers = [
@@ -471,14 +471,14 @@ def create_logger_name(G, node_id):
     try:
         # search before through devices
         path = nx.shortest_path(G, "devices", node_id)
-        return "beamline." + ".".join(
+        return "session." + ".".join(
             format_node(G, n, format_string="tag->name->__class__") for n in path
         )
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
         pass
     try:
         # search next starting from beamline
-        path = nx.shortest_path(G, "beamline", node_id)
+        path = nx.shortest_path(G, "session", node_id)
         return ".".join(
             format_node(G, n, format_string="tag->name->__class__") for n in path
         )
@@ -490,7 +490,7 @@ def create_logger_name(G, node_id):
 
 def map_update_loggers(G):
     """
-    Function to be called after map update (add to map_beamline handlers)
+    Function to be called after map update (add to map handlers)
 
     Args:
         G: networkX DiGraph (given by mapping module)

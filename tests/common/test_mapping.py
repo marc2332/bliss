@@ -29,11 +29,11 @@ def beamline():
     """
     map = Map()
 
-    map.register("beamline")
-    map.register("devices", parents_list=["beamline"])
-    map.register("sessions", parents_list=["beamline"])
-    map.register("comms", parents_list=["beamline"])
-    map.register("counters", parents_list=["beamline"])
+    map.register("session")
+    map.register("devices", parents_list=["session"])
+    map.register("sessions", parents_list=["session"])
+    map.register("comms", parents_list=["session"])
+    map.register("counters", parents_list=["session"])
     return map
 
 
@@ -68,7 +68,7 @@ def test_starting_map_length(beamline):
 
 def test_path_to_non_existing_node(beamline):
     with pytest.raises(nx.exception.NodeNotFound):
-        beamline.shortest_path("beamline", "non_existing_node")
+        beamline.shortest_path("session", "non_existing_node")
 
 
 def test_path_to_with_non_existing_path(beamline):
@@ -77,9 +77,9 @@ def test_path_to_with_non_existing_path(beamline):
 
 
 def test_find_children(beamline):
-    children = beamline.find_children("beamline")
+    children = beamline.find_children("session")
     assert isinstance(children, list)
-    assert len(list(beamline.find_children("beamline"))) == 4
+    assert len(list(beamline.find_children("session"))) == 4
 
 
 def test_find_predecessor(beamline):
@@ -87,14 +87,14 @@ def test_find_predecessor(beamline):
     assert isinstance(predecessors, list)
     _pre = list(predecessors)
     assert len(_pre) == 1
-    assert _pre.pop() == "beamline"
+    assert _pre.pop() == "session"
 
 
 def test_find_shortest_path(beamline):
     """this should be: beamline -> devices -> MotorControllerForM0 -> motor0"""
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
@@ -113,7 +113,7 @@ def test_find_shortest_path_reverse_order(beamline):
     """
     beamline.register("MotorControllerForM0")
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
@@ -125,10 +125,10 @@ def test_find_shortest_path_parallel(beamline):
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 3
-    path = beamline.shortest_path("beamline", "MotorControllerForM0")
+    path = beamline.shortest_path("session", "MotorControllerForM0")
     assert isinstance(path, list)
     assert len(path) == 3
 
@@ -142,7 +142,7 @@ def test_remap_children(beamline):
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0", children_list=["motor0"])
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert len(path) == 4
 
 
@@ -173,7 +173,7 @@ def test_complex_map_remove_children(complex_beamline):
     complex_beamline.delete(id_="devices")
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
-    assert _pre.pop() == "beamline"
+    assert _pre.pop() == "session"
 
 
 def test_format_node_1(beamline):
@@ -187,7 +187,7 @@ def test_format_node_1(beamline):
     assert beamline.format_node(id(tn), format_string="inst.arg1->name") == "arg1"
     assert not hasattr(beamline.G.node[id(tn)], "name")
     assert beamline.format_node(id(tn), format_string="name->inst.arg1") == "arg1"
-    assert beamline.format_node("beamline", format_string="inst") == "beamline"
+    assert beamline.format_node("session", format_string="inst") == "session"
 
 
 def test_check_formatting_1(beamline):

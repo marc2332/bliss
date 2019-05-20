@@ -651,7 +651,7 @@ class ScanEventHandler:
         self.repl = repl
 
     def on_scan_new(self, scan_info):
-        subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
+        pass  # subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
 
     def on_scan_data(self, scan_info, values):
         pass

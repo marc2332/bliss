@@ -436,6 +436,11 @@ class DataNode(object):
 
     @property
     @protect_from_kill
+    def fullname(self):
+        return self._data.fullname
+
+    @property
+    @protect_from_kill
     def type(self):
         if self.node_type is not None:
             return self.node_type

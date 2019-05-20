@@ -377,12 +377,6 @@ class Session(object):
         CURRENT_SESSION = self
 
         self.__map = Map()
-        self.__map.register(self)
-        self.__map.register("devices", parents_list=[self], tag="devices")
-        self.__map.register("controllers", parents_list=[self], tag="controllers")
-        self.__map.register("comms", parents_list=[self], tag="comms")
-        self.__map.register("axes", parents_list=[self], tag="axes")
-        self.__map.register("counters", parents_list=[self], tag="counters")
 
         self.__log = Log(map=self.__map)
 

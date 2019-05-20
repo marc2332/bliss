@@ -34,6 +34,12 @@ class Map:
         self.G.find_predecessors = self.find_predecessors
         self.node_attributes_list = ["name", "address", "plugin"]
 
+        self.register("session")
+        self.register("devices", parents_list=["session"])
+        self.register("comms", parents_list=["session"])
+        self.register("counters", parents_list=["session"])
+        self.register("axes", parents_list=["session"])
+
     def register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
     ):
@@ -50,9 +56,7 @@ class Map:
         remapped if another instance will have as a child the other instance.
 
         There could be node parents in form of a string, system defined are:
-            * 'beamline'
             * 'devices'
-            * 'sessions'
             * 'counters'
             * 'comms'
 

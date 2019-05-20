@@ -22,11 +22,6 @@ def map():
     """
     map = Map()
 
-    map.register("session")
-    map.register("devices", parents_list=["session"])
-    map.register("sessions", parents_list=["session"])
-    map.register("comms", parents_list=["session"])
-    map.register("counters", parents_list=["session"])
     return map
 
 

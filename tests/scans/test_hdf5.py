@@ -200,3 +200,21 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     )
     assert "acq_mode" in f["1_ascan/instrument/lima_simulator/lima_parameters"]
     assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
+
+
+def test_positioners_in_scan_info(alias_session, scan_tmpdir):
+
+    env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    s = scans.ascan(
+        env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"], run=False
+    )
+
+    assert "positioners" in s.scan_info["instrument"]
+
+    s.run()
+
+    assert "positioners" in s.scan_info["instrument"]

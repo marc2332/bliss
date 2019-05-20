@@ -11,6 +11,7 @@ import h5py
 import numpy
 import time
 import datetime
+import copy
 from silx.io.dictdump import dicttoh5
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
@@ -130,15 +131,16 @@ class Writer(FileWriter):
         ####   use scan_meta to fill fields   ####
         instrument = self.file.create_group(f"{scan_name}/instrument")
         instrument.attrs["NX_class"] = "NXinstrument"
-        try:
-            positioners = instrument.create_group("positioners")
-            positioners.attrs["NX_class"] = "NXcollection"
-            positioners_dial = instrument.create_group("positioners_dial")
-            positioners_dial.attrs["NX_class"] = "NXcollection"
+        positioners = instrument.create_group("positioners")
+        positioners.attrs["NX_class"] = "NXcollection"
+        positioners_dial = instrument.create_group("positioners_dial")
+        positioners_dial.attrs["NX_class"] = "NXcollection"
 
-            hdf5_scan_meta = {
-                cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()
-            }
+        # copy should be removed once positioners are no longer treated as special case
+        hdf5_scan_meta = copy.deepcopy(
+            {cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()}
+        )
+        try:
             positioners_dict = hdf5_scan_meta.get("instrument", {}).pop(
                 "positioners", {}
             )

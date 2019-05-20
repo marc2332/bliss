@@ -280,7 +280,6 @@ class Flint:
                 scalars_plot_win = self.mdi_windows_dict.get(window_title)
                 if not scalars_plot_win:
                     scalars_plot_win = LivePlot1D(
-                        data_dict=self.data_dict,
                         session_name=self._session_name,
                         redis_connection=self._qt_redis_connection,
                     )
@@ -434,32 +433,21 @@ class Flint:
                 local_event = self._last_event
                 self._last_event = dict()
                 for (master_name, _), (data_type, data) in local_event.items():
-                    last_data = data["data"]
-                    if data_type in ("1d", "2d"):
-                        if data_type == "2d":
-                            last_data.from_stream = True
-                        try:
-                            last_data = last_data[-1]
-                        except IndexError:
-                            continue
-                    else:
-                        data["channel_index"] = 0
                     try:
-                        self._new_scan_data(data_type, master_name, data, last_data)
+                        self._new_scan_data(data_type, master_name, data)
                     except:
                         sys.excepthook(*sys.exc_info())
         finally:
             self._refresh_task = None
 
-    def _new_scan_data(self, data_type, master_name, data, last_data):
+    def _new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
             for plot in self.live_scan_plots_dict[master_name]["0d"]:
-                for channel_name, channel_data in last_data.items():
-                    self.update_data(plot.plot_id, channel_name, channel_data)
+                plot._set_data(data["data"])
                 plot.update_all()
         elif data_type == "1d":
-            spectrum_data = last_data
             channel_name = data["channel_name"]
+            spectrum_data = data["channel_data_node"].get(-1)
             plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
             self.update_data(plot.plot_id, channel_name, spectrum_data)
             if spectrum_data.ndim == 1:
@@ -472,9 +460,13 @@ class Flint:
                 y = spectrum_data[1]
             plot.addCurve(x, y, legend=channel_name)
         elif data_type == "2d":
+
             plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_name = data["channel_name"]
-            image_data = last_data
+            channel_data_node = data["channel_data_node"]
+            channel_data_node.from_stream = True
+            image_view = channel_data_node.get(-1)
+            image_data = image_view.get(-1)
             self.update_data(plot.plot_id, channel_name, image_data)
             plot_image = plot.getImage(channel_name)  # returns last plotted image
             if plot_image is None:

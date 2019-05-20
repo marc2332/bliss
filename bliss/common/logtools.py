@@ -231,15 +231,17 @@ class Log:
         ]
         return sorted(filtered_loggers)
 
-    def _find_map_logger_by_name(self, name):
+    def _find_map_logger_by_name(self, glob):
         loggers = self._get_map_loggers()
-        findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
+        findlog = [logname for logname, _, _ in loggers if fnmatchcase(logname, glob)]
+        # findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
         findlog.sort()
         return findlog
 
-    def _find_bliss_logger_by_name(self, name):
+    def _find_bliss_logger_by_name(self, glob):
         loggers = self._get_bliss_loggers()
-        findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
+        findlog = [logname for logname, _, _ in loggers if fnmatchcase(logname, glob)]
+        # findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
         findlog.sort()
         return findlog
 
@@ -252,26 +254,32 @@ class Log:
         # return str(name).lower()
         return name
 
-    def debugon(self, name: str):
+    def debugon(self, glob: str) -> None:
         """
         Activates debug-level logging for a specifig logger
 
         Args:
-            name: The name of the logger
+            glob: glob style pattern matching
+
+        Hints on glob: pattern matching normally used by shells
+                       common operators are * for any number of characters
+                       and ? for one character of any type
 
         Returns:
             None
 
         Examples:
-            >>> log = Log()
-            >>> log.debugon('motorsrv')
+            >>> log.debugon('*motorsrv')
             Set logger [motorsrv] to DEBUG level
             Set logger [motorsrv.Connection] to DEBUG level
+            >>> log.debugon('*rob?')
+            Set logger [session.device.controller.roby] to DEBUG level
+            Set logger [session.device.controller.robz] to DEBUG level
         """
-        strname = self._check_log_name(name)
+        strname = self._check_log_name(glob)
         loggers = self._find_bliss_logger_by_name(strname)
         if not len(loggers):
-            print("NO bliss loggers found for [{0}]".format(name))
+            print("NO bliss loggers found for [{0}]".format(glob))
         else:
             for logname in loggers:
                 print("Set logger [{0}] to {1} level".format(logname, "DEBUG"))
@@ -279,23 +287,27 @@ class Log:
 
         loggers = self._find_map_logger_by_name(strname)
         if not len(loggers):
-            print("NO map loggers found for [{0}]".format(name))
+            print("NO map loggers found for [{0}]".format(glob))
         else:
             for logname in loggers:
                 print("Set logger [{0}] to {1} level".format(logname, "DEBUG"))
                 logging.getLogger(logname).setLevel(logging.DEBUG)
 
-    def debugoff(self, name: str) -> None:
+    def debugoff(self, glob: str) -> None:
         """
         Sets the debug level of the specified logger to INFO
 
         Args:
-            name: name of the logger
+            glob: glob style pattern matching
+
+        Hints on glob: pattern matching normally used by shells
+                       common operators are * for any number of characters
+                       and ? for one character of any type
         """
-        strname = self._check_log_name(name)
+        strname = self._check_log_name(glob)
         loggers = self._find_bliss_logger_by_name(strname)
         if not len(loggers):
-            print("NO bliss loggers found for [{0}]".format(strname))
+            print("NO bliss loggers found for [{0}]".format(glob))
         else:
             for logname in loggers:
                 print(
@@ -305,7 +317,7 @@ class Log:
 
         loggers = self._find_map_logger_by_name(strname)
         if not len(loggers):
-            print("NO map loggers found for [{0}]".format(name))
+            print("NO map loggers found for [{0}]".format(glob))
         else:
             for logname in loggers:
                 print("Remove {0} level from map logger [{1}]".format("DEBUG", logname))
@@ -410,6 +422,10 @@ class Log:
                    for example logging.ERROR or logging.INFO
             inherited: False to visualize only loggers that are not
                        inheriting the level from ancestors
+
+        Hints on glob: pattern matching normally used by shells
+                       common operators are * for any number of characters
+                       and ? for one character of any type
         Examples:
 
             >>> lslog()  # prints all loggers

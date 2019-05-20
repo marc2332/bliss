@@ -630,6 +630,8 @@ def test_axis_disable_cache_settings_from_config(beacon):
     mot1_state = m1.state  # init
     mot1_position = m1.position
     mot2_state = m2.state  # init
+    # initialize position
+    m2.position
 
     # test no cache on both motors
     with mock.patch.object(m1.controller, "state") as new_state:

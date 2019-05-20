@@ -15,6 +15,7 @@ import functools
 import traceback
 import gevent
 import time
+import logging
 
 from ptpython.repl import PythonRepl
 
@@ -34,6 +35,7 @@ from bliss.scanning.scan import set_scan_watch_callbacks
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
+logger = logging.getLogger(__name__)
 
 # don't patch the event loop on windows
 if not is_windows():
@@ -484,6 +486,7 @@ def embed(*args, **kwargs):
         while True:
             try:
                 inp = cmd_line_i.app.run()
+                logger.debug(f"USER INPUT: {inp}")
                 cmd_line_i._execute(inp)
             except KeyboardInterrupt:
                 cmd_line_i.default_buffer.reset()

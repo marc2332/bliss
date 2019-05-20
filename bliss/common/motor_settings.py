@@ -148,6 +148,9 @@ class AxisSettings:
         """
         Remove cache for specified setting
         """
+        if setting_name == "position":
+            self.disable_cache("dial_position", flag)
+
         disabled_settings = self.__axis.controller.axis_settings.disabled_settings.setdefault(
             self.__axis, set()
         )

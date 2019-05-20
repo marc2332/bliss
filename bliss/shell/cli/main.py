@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
- 
+
 Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
@@ -33,14 +33,15 @@ warnings.filterwarnings("ignore", module="jinja2")
 
 import os
 import sys
-import logging
 import subprocess
 from docopt import docopt, DocoptExit
+import logging
 
 from bliss import release
 from bliss.config import static
 from bliss.config.static import Node
 from bliss.config.conductor import client
+from bliss.common.logtools import logging_startup
 
 from .repl import embed
 from . import session_files_templates as sft
@@ -172,11 +173,9 @@ def main():
         print("")
         arguments = docopt(__doc__)
 
-    # log level
+    # initialize logging
     log_level = getattr(logging, arguments["--log-level"][0].upper())
-    fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
-    logging.basicConfig(level=log_level, format=fmt)
-    logging.getLogger("bliss").setLevel(log_level)
+    logging_startup(log_level)
 
     # Print version
     if arguments["--version"]:
@@ -276,6 +275,7 @@ def main():
                     "-m",
                     "bliss.shell.cli.start_bliss_repl",
                     session,
+                    arguments["--log-level"][0],
                 ]
             )
             ans = subprocess.run(

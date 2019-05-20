@@ -8,10 +8,17 @@
 
 import sys
 from bliss.shell.cli.repl import embed
+from bliss.common.logtools import logging_startup
+import logging
 
 
 def main():
     session_name = sys.argv[1]
+
+    # initialize logging
+    log_level = getattr(logging, sys.argv[2].upper())
+    logging_startup(log_level)
+
     embed(session_name=session_name, use_tmux=True)
 
 

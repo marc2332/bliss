@@ -12,7 +12,7 @@ import functools
 import networkx as nx
 
 from bliss.common.utils import autocomplete_property
-from bliss.common.mapping import format_node
+from bliss.common.mapping import format_node, map_id
 from bliss.common import session
 
 __all__ = ["lslog", "lsdebug"]
@@ -46,6 +46,27 @@ def improve_logger(logger_instance):
 
     def debugon(self):
         """Activates debug on the device"""
+        # get the map
+        session_map = session.get_current().map
+        # find the node that has this logger
+        for node_name in session_map:
+            node = session_map[node_name]
+            if node.get("_logger") is self:
+                break
+        else:
+            raise RuntimeError("Could not find node!")
+
+        # find successor nodes
+        instance = node["instance"]()
+        if instance is None:
+            raise RuntimeError("Underlying object has been destroyed")
+
+        for n in session_map.G.successors(map_id(instance)):
+            node = session_map[n]
+            try:
+                node["_logger"].setLevel(logging.DEBUG)
+            except KeyError:
+                continue
         self.setLevel(logging.DEBUG)
 
     def debugoff(self):

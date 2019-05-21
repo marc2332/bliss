@@ -36,6 +36,9 @@ class Roi(object):
     def __repr__(self):
         return "<%s,%s> <%s x %s>" % (self.x, self.y, self.width, self.height)
 
+    def to_dict(self):
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
+
     def __eq__(self, other):
         return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
 

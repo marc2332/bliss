@@ -95,6 +95,11 @@ class FileWriter(object):
         """
         raise NotImplementedError
 
+    def finalize_scan_entry(self, scan):
+        """Called at the end of a scan
+        """
+        pass
+
     def new_scan(self, scan_name, scan_info):
         raise NotImplementedError
 

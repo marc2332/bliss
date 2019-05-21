@@ -223,11 +223,11 @@ class LimaImageChannelDataNode(DataNode):
                     raise RuntimeError("Image %d was not saved" % image_nb)
 
                 image_index_in_file = image_nb % nb_image_per_file
-                file_nb = first_file_number + image_index_in_file
+                file_nb = first_file_number + image_nb // nb_image_per_file
                 file_path = path_format % file_nb
                 if file_format == "HDF5":
                     returned_params.append(
-                        (file_path, "/entry_%04d" % 1, image_index_in_file, file_format)
+                        (file_path, "/entry_%04d" % 0, image_index_in_file, file_format)
                     )
                 else:
                     returned_params.append(

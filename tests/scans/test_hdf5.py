@@ -137,3 +137,84 @@ def test_subscan_in_hdf5(beacon, lima_simulator, dummy_acq_master, dummy_acq_dev
     assert f[subscan_name]["measurement"]["timer2:elapsed_time"]
     assert f[scan.node.name]["measurement"]["dummy1:nb"]
     assert f[subscan_name]["measurement"]["dummy2:nb"]
+
+
+def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
+
+    env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
+
+    f = h5py.File(s.writer.filename)
+
+    refs = numpy.array(f["1_ascan/measurement/lima_simulator:image"])
+
+    assert numpy.array_equal(
+        refs,
+        numpy.array(
+            [
+                [
+                    "lima_simulator_0000.edf",
+                    "EDF",
+                    "0",
+                    "",
+                    "scan0001/lima_simulator_0000.edf",
+                ],
+                [
+                    "lima_simulator_0001.edf",
+                    "EDF",
+                    "0",
+                    "",
+                    "scan0001/lima_simulator_0001.edf",
+                ],
+                [
+                    "lima_simulator_0002.edf",
+                    "EDF",
+                    "0",
+                    "",
+                    "scan0001/lima_simulator_0002.edf",
+                ],
+            ],
+            dtype=object,
+        ),
+    )
+
+
+def test_lima_instrument_entry(alias_session, scan_tmpdir):
+
+    env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
+
+    f = h5py.File(s.writer.filename)
+
+    assert (
+        "saving_frame_per_file"
+        in f["1_ascan/instrument/lima_simulator/lima_parameters"]
+    )
+    assert "acq_mode" in f["1_ascan/instrument/lima_simulator/lima_parameters"]
+    assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
+
+
+def test_positioners_in_scan_info(alias_session, scan_tmpdir):
+
+    env_dict, session = alias_session
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    s = scans.ascan(
+        env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"], run=False
+    )
+
+    assert "positioners" in s.scan_info["instrument"]
+
+    s.run()
+
+    assert "positioners" in s.scan_info["instrument"]

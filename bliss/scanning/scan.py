@@ -23,7 +23,7 @@ from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, CurvePlot, ImagePlot
-from bliss.common.utils import periodic_exec
+from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
@@ -554,10 +554,10 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
-        user_scan_meta = get_user_scan_meta().copy()
-        # call all master and device to fill scan info
+        self.user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan_meta
         for dev in chain.nodes_list:
-            dev.fill_info(user_scan_meta)
+            dev.fill_meta_at_scan_init(self.user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info["scan_nb"] = self.__scan_number
@@ -569,7 +569,7 @@ class Scan:
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        self._scan_info.update(user_scan_meta.to_dict(self))
+        self._scan_info.update(self.user_scan_meta.to_dict(self))
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -646,6 +646,19 @@ class Scan:
     @property
     def statistics(self):
         return Statistics(self._acq_chain._stats_dict)
+
+    @property
+    def get_channels_dict(self):
+        """
+        returns a dict containing all channels used in this scan 
+        identified by their fullname
+        """
+        flatten = lambda l: [item for sublist in l for item in sublist]
+
+        return {
+            c.fullname: c
+            for c in flatten([n.channels for n in self.acq_chain.nodes_list])
+        }
 
     def add_preset(self, preset):
         """
@@ -816,6 +829,7 @@ class Scan:
                 unit=channel.unit,
                 fullname=channel.fullname,
             )
+            channel.data_node = self.nodes[channel]
             connect(channel, "new_data", self._channel_event)
 
     def prepare(self, scan_info, devices_tree):
@@ -939,8 +953,24 @@ class Scan:
                     self._data_watch_callback.on_scan_end(self.scan_info)
 
             finally:
+                # check if there is any master or device that would like
+                # to provide meta data at the end of the scan
+                for dev in self.acq_chain.nodes_list:
+                    dev.fill_meta_at_scan_end(self.user_scan_meta)
+                tmp_dict = self.user_scan_meta.to_dict(self)
+                # make sure that 'positioners' entry is not updated
+                tmp_dict["instrument"].pop("positioners")
+                tmp_dict["instrument"].pop("positioners_dial")
+                deep_update(self._scan_info, tmp_dict)
+
+                # update scan_info in redis
+                self.node._info.update(self.scan_info)
+
                 if self.writer:
+                    # write scan_info to file
+                    self.writer.finalize_scan_entry(self)
                     self.writer.close()
+
                 # Add scan to the globals
                 SCANS.append(self)
                 # Disconnect events

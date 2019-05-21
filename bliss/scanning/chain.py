@@ -295,10 +295,18 @@ class AcquisitionMaster(object):
 
             return self.prepare()
 
-    def fill_info(self, scan_meta):
+    def fill_meta_at_scan_init(self, scan_meta):
         """
         In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object.
+        the scan_meta object. It is called during the scan initialization
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
+
+    def fill_meta_at_scan_end(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called at the scan end
         i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
         """
         pass
@@ -514,11 +522,19 @@ class AcquisitionDevice(object):
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
 
-    def fill_info(self, scan_meta):
+    def fill_meta_at_scan_init(self, scan_meta):
         """
         In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object.
-        i.e: scan_meta.instrument.set(self,{"mca":{"calibration":calib_name}})
+        the scan_meta object. It is called during the scan initialization
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
+
+    def fill_meta_at_scan_end(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called at the scan end
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
         """
         pass
 

@@ -8,6 +8,9 @@
 from .roi import Roi
 from .properties import LimaProperty
 from bliss.common.measurement import BaseCounter
+import numpy
+import h5py
+import os
 
 
 class ImageCounter(BaseCounter):
@@ -57,3 +60,33 @@ class ImageCounter(BaseCounter):
                 "Lima.image: set roi only accepts roi (class)"
                 " or (x,y,width,height) values"
             )
+
+    # handling of reference saving in hdf5
+
+    def to_ref_array(self, channel, root_path):
+        """ used to produce a string version of a lima reference that can be saved in hdf5
+        """
+        # looks like the events are not emitted after saving,
+        # therefore we will use 'last_image_ready' instead
+        # of "last_image_saved" for now
+        # last_image_saved = event_dict["data"]["last_image_saved"]
+
+        lima_data_view = channel.data_node.get(0, -1)
+
+        tmp = lima_data_view._get_filenames(
+            channel.data_node.info, *range(0, len(lima_data_view))
+        )
+
+        if tmp != []:
+            tmp = numpy.array(tmp, ndmin=2)
+            relpath = [os.path.relpath(i, start=root_path) for i in tmp[:, 0]]
+            basename = [os.path.basename(i) for i in tmp[:, 0]]
+            entry = tmp[:, 1]
+            frame = tmp[:, 2]
+            file_type = tmp[:, 3]
+
+            return numpy.array(
+                (basename, file_type, frame, entry, relpath),
+                dtype=h5py.special_dtype(vlen=str),
+            ).T
+        return None

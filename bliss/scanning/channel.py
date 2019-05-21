@@ -54,6 +54,7 @@ class AcquisitionChannel(AliasMixin, object):
         self.__reference = reference
         self.__description = {"reference": reference}
         self.__data_node_type = data_node_type
+        self.__node = None
 
         if isinstance(description, dict):
             self.__description.update(description)
@@ -108,6 +109,14 @@ class AcquisitionChannel(AliasMixin, object):
     @property
     def unit(self):
         return self.__unit
+
+    @property
+    def data_node(self):
+        return self.__node
+
+    @data_node.setter
+    def data_node(self, node):
+        self.__node = node
 
     def emit(self, data):
         if not self.reference:

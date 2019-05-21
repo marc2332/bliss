@@ -314,3 +314,18 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if self._reading_task is None:
             return True
         return self._reading_task.get()
+
+    def fill_meta_at_scan_end(self, scan_meta):
+        scan_meta.instrument.set(
+            self, {self.name: {"lima_parameters": self.parameters}}
+        )
+
+    def fill_meta_at_scan_init(self, scan_meta):
+        try:
+            rois = dict(self.channels[0].acq_device.master_controller.roi_counters)
+            roi_counters = dict()
+            for roi_name, roi in rois.items():
+                roi_counters[roi_name] = roi.to_dict()
+            scan_meta.instrument.set(self, {self.name: {"roi_counters": roi_counters}})
+        except Exception:
+            pass

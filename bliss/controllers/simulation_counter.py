@@ -320,8 +320,6 @@ class SimulationCounter(Counter, LogMixin):
     def __init__(self, name, config):
         Counter.__init__(self, name)
 
-        session.get_current().map.register(self)
-
         self.config = config
         self.acq_device = None
         self.scan_pars = None
@@ -378,10 +376,3 @@ class SimulationCounter(Counter, LogMixin):
     # If no controller, a warning is emited in `master_to_devices_mapping()`
     # def controller(self):
     #     return None
-
-
-# class or function ???
-# * Receives config dict from beacon.
-# * Returns object which is an instance of SimulationCounter to use in the session.
-def simulation_counter(name, config):
-    return SimulationCounter(name, config)

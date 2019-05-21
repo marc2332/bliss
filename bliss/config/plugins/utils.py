@@ -5,6 +5,13 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import re
+
+
+def camel_case_to_snake_style(name):
+    s1 = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    return re.sub("([a-z0-9])([A-Z])", r"\1_\2", s1).lower()
+
 
 def find_class(cfg_node, base_path="bliss.controllers"):
     return find_class_and_node(cfg_node, base_path)[0]
@@ -23,7 +30,12 @@ def find_class_and_node(cfg_node, base_path="bliss.controllers"):
         # discover module and class name
         module_name = "%s.%s" % (base_path, klass_name.lower())
 
-    module = __import__(module_name, fromlist=[""])
+    try:
+        module = __import__(module_name, fromlist=[""])
+    except ModuleNotFoundError:
+        module_name = "%s.%s" % (base_path, camel_case_to_snake_style(klass_name))
+        module = __import__(module_name, fromlist=[""])
+
     try:
         klass = getattr(module, klass_name)
     except AttributeError:

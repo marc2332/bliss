@@ -490,6 +490,9 @@ class ScanDataListener:
 
     def on_scan_data(self, data_dim, master_name, channel_info):
 
+        if data_dim != "0d":
+            return
+
         scan_info = channel_info["scan_info"]
         scan_type = scan_info.get("type")
 

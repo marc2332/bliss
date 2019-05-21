@@ -23,7 +23,7 @@ In order to be able to test documentation on a PC where BLISS is
 installed, the documentation requirements need to be installed
 in a conda environment.
 
-!!! note
+!!! note "At ESRF"
     At ESRF, enter the BLISS development conda environment to install documentation requirements:
     ```bash
     $ . blissenv -d
@@ -138,7 +138,7 @@ To easily view the result of your writing, using a local rendering:
     * pymdown-extensions==5.0 / markdown-inline-graphviz / Markdown < 3
 * These packages are in `requirements-doc.txt` and `requirements-doc.txt`
 
-!!! note
+!!! note  "At ESRF"
     At ESRF, enter the BLISS development conda environment to install documentation requirements:
     ```bash
     $ . blissenv -d
@@ -165,16 +165,16 @@ $ mkdocs serve -a myhost:8888
 ### Level 3 title
 There are 6 levels of titles.
 
-!!! note
+!!! note  "Title of the note"
      Titles of levels 2 to 6 are referenced in lateral right bar.
 
 #### Level 4 title
 
-!!! note
+!!! note  "Title of the note"
     A note is made with an empty line, 3 !!!, `note` keyword and indented text.
     ```
 
-    !!! note
+    !!! note "Title of the note"
         A note of made with an empty line and 3 !!!
     ```
 

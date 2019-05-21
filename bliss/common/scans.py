@@ -35,7 +35,6 @@ __all__ = [
     "pointscan",
     "ct",
     "DEFAULT_CHAIN",
-    "plotselect",
     "cen",
     "goto_cen",
     "peak",
@@ -1277,7 +1276,13 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
 # Alignment Helpers
 def _get_selected_counter_name(counter=None):
     """
-    Return the selected counter name in flint.
+    Returns the name of the counter selected *in flint*.
+
+    Returns ONLY ONE counter.
+
+    Raises RuntimeError if more than one counter is selected.
+
+    Used to determine which counter to use for cen pic curs functions.
     """
     SCANS = setup_globals.SCANS
     if not SCANS:
@@ -1336,18 +1341,39 @@ def last_scan_motors():
 
 def plotselect(*counters):
     """
-    Select counter(s) which will be use for alignment and in flint display
+    Select counter(s) to use for:
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
     """
     current_session = session.get_current()
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     counter_names = dict()
     for cnt in counters:
-        fullname = cnt.fullname
+        fullname = cnt.fullname  # should be like: <controller.counter>
         fullname = fullname.replace(".", ":", 1)
         if not fullname.find(":") > -1:
+            # name of the counter is used in place of controller name
+            # for counters without controller (should not happend (too often))
             fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
+
+
+def get_plotted_counters():
+    """
+    Returns names of plotted counters as a list (get list from a HashSetting
+    with '<session_name>:plot_select' key).
+    """
+    current_session = session.get_current()
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+
+    plotted_cnt_list = list()
+
+    for cnt_name in plot_select.get_all():
+        plotted_cnt_list.append(cnt_name.split(":")[1])
+
+    return plotted_cnt_list
 
 
 def _remove_real_dependent_of_calc(motors):

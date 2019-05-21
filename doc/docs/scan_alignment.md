@@ -17,13 +17,48 @@ axis either for the calculation or the movement (`goto_` functions).
 If the axis is not specify, `cen,com,peak` function will return value
 for all axis and the *goto_* function will move all motors.
 
-## counter selection
+## Counters selection
 
 The counter selection can be done graphically with *Flint* or with the
-*plotselect* function. You can select **only one** counter.
-```
-plotselect(counter)
-```
+*plotselect* user function: `plotselect(<counter_list>)`
+
+
+!!! example
+    ```python
+    DEMO [2]: plotselect(sim_ct_2)
+    
+    Currently plotted counter(s):
+    - sim_ct_2
+    ```
+
+Without argument, the command will display a help message and the list of
+currently selected counters.
+
+!!! example
+    ```python
+    DEMO [5]: plotselect()
+    
+    plotselect usage:
+        plotselect(<counters>*)
+    example:
+        plotselect(counter1, counter2)
+    
+    
+    Currently plotted counter(s):
+    - sim_ct_1
+    - sim_ct_calib_gauss
+    - elapsed_time
+    ```
+
+
+!!! note "For Developpers"
+
+    `plotselect()` user function is imported from `bliss.common.standard`
+    and is built on top of `bliss.common.scans.plotselect()` which can
+    be advantageously used in non interactive sequences.
+    
+    The list of selected counters is stored via a HashSetting using
+    `<session_name>:plot_select` as key.
 
 ## `cen()`
 

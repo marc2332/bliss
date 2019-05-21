@@ -81,6 +81,8 @@ class LivePlot1D(qt.QWidget):
 
     def set_y_axes(self, axis_names_list):
         self.y_axis_names = axis_names_list
+
+        # Why do not use a an HashSetting ?
         raw_plot_selected = self.redis_cnx.hgetall(
             "%s:plot_select" % self._session_name
         )

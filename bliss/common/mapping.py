@@ -40,6 +40,16 @@ class Map:
         self.register("counters", parents_list=["session"])
         self.register("axes", parents_list=["session"])
 
+    def _create_node(self, instance):
+        logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
+        self.G.add_node(
+            map_id(instance),
+            instance=instance
+            if isinstance(instance, str)
+            else weakref.ref(instance, partial(self._trash_node, id_=id(instance))),
+        )  # weakreference to the instance with callback on removal
+        return self.G.node[map_id(instance)]
+
     def register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
     ):
@@ -80,31 +90,23 @@ class Map:
             raise TypeError("parents_list and children_list should be of type list")
 
         # First create this node
-        logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
-        self.G.add_node(
-            map_id(instance),
-            instance=instance if isinstance(instance, str)
-            # else weakref.ref(instance) )
-            else weakref.ref(instance, partial(self._trash_node, id_=id(instance))),
-        )  # weakreference to the instance with callback on removal
-        if tag or isinstance(instance, str):  # tag creation
-            self.G.node[map_id(instance)]["tag"] = (
-                tag if tag else instance
-            )  # if is a string represent as self
+        node = self._create_node(instance)
 
         # adding attributes
+        if tag or isinstance(instance, str):  # tag creation
+            node["tag"] = tag if tag else instance  # if is a string represent as self
 
         for attr in self.node_attributes_list:
             # Adding attributes from the node_attributes_list
             # attributes can be appended also at runtime
             if hasattr(instance, attr):
-                self.G.node[map_id(instance)][attr] = getattr(instance, attr)
+                node[attr] = getattr(instance, attr)
 
         for name, value in kwargs:
             # populating self defined attributes
             if self.G.node[map_id(instance)].get(name):
                 logger.debug("Overwriting node {name}")
-            self.G.node[map_id(instance)][name] = value
+            node[name] = value
 
         # parents
         for inst in parents_list:
@@ -139,7 +141,7 @@ class Map:
 
         self.trigger_update()
 
-        return self.G.node.get(map_id(instance))  # return the dictionary of the node
+        return node  # return the dictionary of the node
 
     def _trash_node(self, *args, id_=None):
         if id_ is None:
@@ -149,6 +151,12 @@ class Map:
 
     def __len__(self):
         return len(self.G)
+
+    def __getitem__(self, key):
+        return self.G.nodes[key]
+
+    def __iter__(self):
+        return iter(self.G)
 
     def instance_iter(self, tag):
         node_list = list(self.G[tag])
@@ -386,9 +394,9 @@ def format_node(graph, node, format_string="tag->inst.name->inst.__class__->id")
     Typical attribute names are:
        * id: id of instance
        * tag: defined argument during instantiation
+       * class: class of the instance
        * inst: representation of instance
        * inst.name: attribute "name" of the instance (if present)
-       * inst.__class__: class of the instance
        * user defined: as long as they are defined inside the node's 
                        dictionary using register or later modifications
 

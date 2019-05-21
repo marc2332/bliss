@@ -122,7 +122,55 @@ def test_shell_function_with_return_only(clean_gevent):
     assert result == ""
 
 
+def test_shell_callable_with_args(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("sum\r")
+    assert result == "sum"
+
+
+def test_shell_callable_with_kwargs_only(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("property\r")
+    assert result == "property()"
+
+
+def test_shell_callable_with_args_and_kwargs(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("compile\r")
+    assert result == "compile"
+
+
 def test_shell_semicolon(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")
     assert result == "print(1,2);print(1)"
+
+
+def test_shell_comma_outside_callable_assignment(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("a=True \r")
+    assert result == "a=True"
+
+
+def test_shell_comma_outside_callable_bool(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("True \r")
+    assert result == "True"
+
+
+def test_shell_comma_outside_callable_string(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("'bla' \r")
+    assert result == "'bla'"
+
+
+def test_shell_comma_outside_callable_number(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("1.1 + 1  \r")
+    assert result == "1.1 + 1"
+
+
+def test_shell_comma_after_comma(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("1, \r")
+    assert result == "1,"

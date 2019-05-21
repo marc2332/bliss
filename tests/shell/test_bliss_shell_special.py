@@ -115,3 +115,45 @@ def test_shell_autocomplete_property(clean_gevent):
     br = _run_incomplete("tpc.z.", {"tpc": tpc})
     completions = _get_completion(br)
     assert "b" in completions
+
+
+def test_shell_comma_object(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print self \r", {})
+    assert br.default_buffer.text == "print(self,\n"
+
+
+def test_shell_comma_after_comma_inside_callable(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print(1, ", {})
+    assert br.default_buffer.text == "print(1, "
+
+
+def test_shell_comma_int(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print 1 ", {})
+    assert br.default_buffer.text == "print(1,"
+
+
+def test_shell_comma_float(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print 1.1 ", {})
+    assert br.default_buffer.text == "print(1.1,"
+
+
+def test_shell_comma_bool(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print False ", {})
+    assert br.default_buffer.text == "print(False,"
+
+
+def test_shell_comma_string(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print 'bla' ", {})
+    assert br.default_buffer.text == "print('bla',"
+
+
+def test_shell_comma_kwarg(clean_gevent):
+    clean_gevent["end-check"] = False
+    br = _run_incomplete("print run=True ", {})
+    assert br.default_buffer.text == "print(run=True,"

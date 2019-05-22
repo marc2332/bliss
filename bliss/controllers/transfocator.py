@@ -19,6 +19,9 @@ Example YAML_ configuration:
     pinhole: 1                   # (2)
     safety: True                 # (3)
     controller_ip: 192.168.1.1   # (4)
+    read_mode: 0                 # (5)
+    cmd_mode: 0                  # (6)
+    safety: 0                    # (7)
 
 1. number of lenses (mandatory)
 2. number of pinholes [0..2]. If 1, assumes pinhole is at beginning.
@@ -26,6 +29,12 @@ Example YAML_ configuration:
 3. If safety is active forces a pinhole in if any lens is in
    (optional, default: False)
 4. wago adress (mandatory)
+5. First lense in beam status is wired first in Wago (0) or inversed (>0)
+   (optional, default: 0)
+6. First lense in beam status is wired first in Wago (0) or inversed (>0)
+   (optional, default: 0)
+7. If true, the pinhole will be always put in, when any lense is in
+   (optional, default: 0)
 
 Usage::
 
@@ -60,12 +69,7 @@ Usage::
     >>> t1[1:6] = 1       # put everything IN
 """
 
-import sys
 import gevent
-import os
-import time
-import types
-import math
 import tabulate
 from bliss.common.utils import grouped
 from bliss.controllers.wago import WagoController
@@ -74,6 +78,8 @@ from bliss.common.event import dispatcher
 
 
 class TfWagoMapping:
+    """ Create wago mapping for a tranfocator """
+
     def __init__(self, nb_lens, nb_pinhole):
         self.nb_lens = nb_lens
         self.nb_pinhole = nb_pinhole
@@ -84,26 +90,24 @@ class TfWagoMapping:
         return "\n".join(self.mapping)
 
     def generate_mapping(self):
+        """ Generate the mapping. There are three types - 0, 1 or 2 pinholes.
+        All the control and status modules should be consecutive. We assume
+        always 2 status channels for 1 control channel.
+        The 750-530 and 750-1515 Digital Output modules are identical.
+        The 750-436 and 740-1417 Digital Input modules are identical as well.
+        """
         STATUS_MODULE = "750-436,%s"
         CONTROL_MODULE = "750-530,%s"
         STATUS = ["status"] * 2
         CONTROL = ["ctrl"]
 
-        """
-        There are three types - 0, 1 or 2 pinholes. All the control modules
-        and status modules should be consecutive. There are always 2 status
-        channels for 1 control channel. The pressure and interlock modules
-        are not yet implemented.
-        The 750-530 and 750-1515 Digital Output modules are identical.
-        The 750-436 and 740-1417 Digital Input modules are identical as well.
-        """
         mapping = []
         nb_chan = self.nb_lens + self.nb_pinhole
         ch_ctrl = nb_chan // 8
         ch_stat = (nb_chan * 2) // 8
 
+        ch = nb_chan % 8
         if nb_chan > 8:
-            ch = nb_chan % 8
             for i in range(ch_ctrl):
                 mapping += [CONTROL_MODULE % ",".join(CONTROL * 8)]
             if ch > 0:
@@ -138,19 +142,19 @@ def _display(status):
 def _encode(status):
     if status in (1, "in", "IN", True):
         return True
-    elif status in (0, "out", "OUT", False):
+    if status in (0, "out", "OUT", False):
         return False
     raise ValueError("Invalid position {!r}".format(status))
 
 
 class Transfocator:
+    """
+    The lenses are controlled pneumatically via WAGO output modules.
+    The position is red from WAGO input modules.
+    """
+
     def __init__(self, name, config):
         self.exec_timeout = int(config.get("timeout", 3))
-        # read_mode 0 means:
-        # 'first transfocator in beam status is wired first in Wago',
-        # read_mode >0 means:
-        # 'first transfocator in beam status is wired last in Wago'
-        # the same goes for cmd_mode
         self.name = name
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
@@ -160,7 +164,7 @@ class Transfocator:
         self.empty_jacks = []
         self.pinhole = []
         self._state_chan = channels.Channel(
-            "transfocator:%s" % name, callback=self.__state_changed
+            "transfocator: %s" % name, callback=self.__state_changed
         )
 
         if "lenses" in config:
@@ -191,19 +195,23 @@ class Transfocator:
                 else:
                     raise ValueError("%s: layout: unknown element `%s'" % (name, c))
 
-            if len(self.pinhole) > 2:
-                raise ValueError("%s: layout can only have 2 pinholes maximum" % name)
-
             self.nb_lens = len(lenses) + len(self.empty_jacks)
             self.nb_pinhole = len(self.pinhole)
+            if self.nb_pinhole > 2:
+                raise ValueError("%s: layout can only have 2 pinholes maximum" % name)
 
     def connect(self):
+        """ Connect to the WAGO module, if not already done """
         if self.wago is None:
             self.wago = WagoController(self.wago_ip)
             mapping = TfWagoMapping(self.nb_lens, self.nb_pinhole)
             self.wago.set_mapping(str(mapping), ignore_missing=True)
 
     def pos_read(self):
+        """ Read the WAGO position
+        Returns:
+           (int): The value, representing the addition of the active bits
+        """
         self.connect()
 
         state = list(grouped(self.wago.get("status"), 2))
@@ -220,6 +228,10 @@ class Transfocator:
         return bits
 
     def pos_write(self, value):
+        """ Write bit value in the WAGO
+        Args:
+            value (int): The value, representing the addition of the active bits
+        """
         self.connect()
 
         valarr = [False] * (self.nb_lens + self.nb_pinhole)
@@ -235,6 +247,13 @@ class Transfocator:
         self.wago.set(valarr)
 
     def tfstatus_set(self, value):
+        """ Write the bit value in the WAGO. Check if the status corresponds
+            to the value.
+        Args:
+            value (int): The value, representing the addition of the active bits
+        Raises:
+            RuntimeError: Timeout waiting for status to be the sane as value.
+        """
         self.pos_write(value)
         try:
             check = self.pos_read()
@@ -243,12 +262,16 @@ class Transfocator:
                 RuntimeError("Timeout waiting for status to be %d" % value),
             ):
                 while check != value:
-                    time.sleep(0.2)
+                    gevent.sleep(0.2)
                     check = self.pos_read()
         finally:
             self._state_chan.value = self.status_read()
 
     def status_dict(self):
+        """ The status of the transfocator as dictionary
+        Returns:
+            (dict): Keys are the labels of the lenses, values are True or False
+        """
         positions = {}
         value = self.pos_read()
         for i in range(self.nb_lens + self.nb_pinhole):
@@ -261,6 +284,11 @@ class Transfocator:
         return positions
 
     def status_read(self):
+        """ The status of the transfocator as tuple
+        Returns:
+            (tuple): Two strings, where the first contains all the labels and
+                     the second - all the positions (IN or OUT)
+        """
         header, positions = zip(*self.status_dict().items())
         header = "".join(("{:<4}".format(col) for col in header))
         positions = (_display(col) for col in positions)
@@ -268,22 +296,41 @@ class Transfocator:
         return header, positions
 
     def set(self, *lenses):
+        """ set the lenses
+        """
         status = len(self) * [False]
         for i, lense in enumerate(lenses):
             status[i] = lense
         self[:] = status
 
     def set_in(self, lense_index):
+        """ Set a lese in
+        Args:
+            (int): The index of the lense.
+        """
         self[lense_index] = True
 
     def set_out(self, lense_index):
+        """ Set a lese out
+        Args:
+            (int): The index of the lense.
+        """
         self[lense_index] = False
 
     def toggle(self, lense_index):
+        """ Toggle a lense
+        Args:
+            (int): The index of the lense.
+        """
         current_bits = self.pos_read()
         self[lense_index] = current_bits & (1 << lense_index) == 0
 
     def set_n(self, *idx_values):
+        """ Set the lenses. Check if there is a security pinhole to be set.
+            To be used by __setitem__()
+        Args:
+            (list): Lense index, lens value
+        """
         bits = self.pos_read()
         for idx, value in zip(idx_values[::2], idx_values[1::2]):
             if value is None or idx in self.empty_jacks:
@@ -302,9 +349,17 @@ class Transfocator:
         self.tfstatus_set(bits)
 
     def set_all(self, set_in=True):
+        """ Set all the lenses IN or OUT
+        Args:
+           set_in(bool): True for IN, False for OUT
+        """
         self[:] = set_in
 
     def set_pin(self, set_in=True):
+        """ Put IN or OUT the pinhole(s) only.
+        Args:
+            set_in(bool): True for IN, False for OUT
+        """
         self[self.pinhole] = set_in
 
     def __state_changed(self, st):
@@ -317,7 +372,7 @@ class Transfocator:
         pos = list(self.status_dict().values())
         if isinstance(idx, int):
             return _display(pos[idx])
-        elif isinstance(idx, slice):
+        if isinstance(idx, slice):
             idx = list(range(*idx.indices(self.nb_lens + self.nb_pinhole)))
         return [_display(pos[i]) for i in idx]
 
@@ -350,9 +405,12 @@ class Transfocator:
             return "{}: Error: {}".format(prefix, err)
 
     def __str__(self):
-        # Channel uses louie behind which calls this object str.
-        # str is overloaded to avoid calling repr which triggers a connection.
-        # We want to avoid creating a connection just because of a louie signal
+        """ Channel uses louie behind which calls this object str.
+            str is overloaded to avoid calling repr which triggers a connection.
+            As the wago hardware controller only accepts a limited number of
+            connections, we want to avoid creating a connection just because
+            of a louie signal.
+        """
         return (
             "<bliss.controllers.transfocator.Transfocator "
             "instance at {:x}>".format(id(self))

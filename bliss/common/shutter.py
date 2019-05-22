@@ -90,7 +90,7 @@ class BaseShutter(object):
         raise NotImplementedError
 
     def __repr__(self):
-        return self.state_string
+        return f"{self.name}: {self.state_string[1]}"
 
     def __enter__(self):
         self.open()

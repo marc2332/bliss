@@ -35,7 +35,7 @@ class Map:
         self.node_attributes_list = ["name", "address", "plugin"]
 
         self.register("session")
-        self.register("devices", parents_list=["session"])
+        self.register("controllers", parents_list=["session"])
         self.register("comms", parents_list=["session"])
         self.register("counters", parents_list=["session"])
         self.register("axes", parents_list=["session"])
@@ -60,13 +60,13 @@ class Map:
         register(self, children_list=[self.comm])  # with the communication layer
         register(self, parents_list=[self.controller])  # with parent controller
         register(self, tag=f"{host}:{port}")  # instance with proper name
-        register(self, parents_list=['devices','comms'])  # two parents
+        register(self, parents_list=['controllers','comms'])  # two parents
 
-        If no parent is attached it will be 'devices' and then eventually
+        If no parent is attached it will be 'controllers' and then eventually
         remapped if another instance will have as a child the other instance.
 
         There could be node parents in form of a string, system defined are:
-            * 'devices'
+            * 'controllers'
             * 'counters'
             * 'comms'
 
@@ -126,16 +126,16 @@ class Map:
             self.G.add_edge(map_id(parent), map_id(instance))
 
         for child in children_list:
-            # remap children removing the parent connection to devices
-            if (map_id("devices"), map_id(child)) in self.G.edges:
-                self.G.remove_edge(map_id("devices"), map_id(child))
+            # remap children removing the parent connection to controllers
+            if (map_id("controllers"), map_id(child)) in self.G.edges:
+                self.G.remove_edge(map_id("controllers"), map_id(child))
             # add child
             self.G.add_edge(map_id(instance), map_id(child))
 
         for parent in parents_list:
             # remap parents removing the parent connection to the device
-            if (map_id("devices"), map_id(instance)) in self.G.edges:
-                self.G.remove_edge(map_id("devices"), map_id(instance))
+            if (map_id("controllers"), map_id(instance)) in self.G.edges:
+                self.G.remove_edge(map_id("controllers"), map_id(instance))
             # add child
             self.G.add_edge(map_id(parent), map_id(instance))
 
@@ -292,14 +292,14 @@ class Map:
 
     def add_parent_if_missing(self):
         """
-        Remaps nodes with missing parents to 'devices'
+        Remaps nodes with missing parents to 'controllers'
         """
         for node in list(self.G):
             if node != "session" and not len(list(self.G.predecessors(node))):
-                self.G.add_edge("devices", node)
+                self.G.add_edge("controllers", node)
                 logger.debug(f"Added parent to {node}")
 
-    def map_draw_matplotlib(self, format_node: str = "tag->name->id"):
+    def draw_matplotlib(self, format_node: str = "tag->name->id"):
         """
         Simple tool to draw the map with matplotlib
         """
@@ -326,7 +326,7 @@ class Map:
         except ImportError:
             logger.error("Missing pygraphviz package")
 
-    def map_draw_pygraphviz(self, filename="graph", format_node="tag->name->id"):
+    def draw_pygraphviz(self, filename="graph", format_node="tag->name->id"):
         """
         Simple tool to draw the map into graphviz format
 

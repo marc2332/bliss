@@ -30,10 +30,10 @@ def beamline():
     map = Map()
 
     map.register("session")
-    map.register("devices", parents_list=["session"])
-    map.register("sessions", parents_list=["session"])
+    map.register("controllers", parents_list=["session"])
     map.register("comms", parents_list=["session"])
     map.register("counters", parents_list=["session"])
+    map.register("axes", parents_list=["session"])
     return map
 
 
@@ -73,7 +73,7 @@ def test_path_to_non_existing_node(beamline):
 
 def test_path_to_with_non_existing_path(beamline):
     with pytest.raises(nx.exception.NetworkXNoPath):
-        beamline.shortest_path("sessions", "comms")
+        beamline.shortest_path("controllers", "comms")
 
 
 def test_find_children(beamline):
@@ -83,7 +83,7 @@ def test_find_children(beamline):
 
 
 def test_find_predecessor(beamline):
-    predecessors = beamline.find_predecessors("sessions")
+    predecessors = beamline.find_predecessors("counters")
     assert isinstance(predecessors, list)
     _pre = list(predecessors)
     assert len(_pre) == 1
@@ -100,16 +100,16 @@ def test_find_shortest_path(beamline):
 
 
 def test_find_no_path(beamline):
-    """this motor0 is attached to devices, so there is no link with sessions"""
+    """this motor0 is attached to controllers, so there is no link with counters"""
     beamline.register("motor0")
     with pytest.raises(nx.exception.NetworkXNoPath):
-        beamline.shortest_path("sessions", "motor0")
+        beamline.shortest_path("axes", "motor0")
 
 
 def test_find_shortest_path_reverse_order(beamline):
     """
     reverting the order of device mapping, the path should be the same
-    this should be: beamline -> devices -> MotorControllerForM0 -> motor0
+    this should be: beamline -> controllers -> MotorControllerForM0 -> motor0
     """
     beamline.register("MotorControllerForM0")
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
@@ -135,7 +135,7 @@ def test_find_shortest_path_parallel(beamline):
 
 def test_remap_children(beamline):
     """
-    this should be: beamline -> devices -> MotorControllerForM0 -> motor0
+    this should be: beamline -> controllers -> MotorControllerForM0 -> motor0
     creating before motor0 that will be child of devices
     then adding MotorControllerForM0 that will have motor0 as a child
     motor0 should remap removing the connection device -> motor0
@@ -160,7 +160,7 @@ def test_complex_map_remove_children(complex_beamline):
     """find predecessors of Contr_1, should be devices"""
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
-    assert _pre.pop() == "devices"
+    assert _pre.pop() == "controllers"
     # finding children of Contr_1, should be Serial, Ax1, Ax2
     _children = complex_beamline.find_children("Contr_1")
     assert isinstance(_children, list)
@@ -170,7 +170,7 @@ def test_complex_map_remove_children(complex_beamline):
     assert "Axis_2" in list_children
     assert "Serial_1" in list_children
     # deleting devices node, now should be beamline
-    complex_beamline.delete(id_="devices")
+    complex_beamline.delete(id_="controllers")
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
     assert _pre.pop() == "session"

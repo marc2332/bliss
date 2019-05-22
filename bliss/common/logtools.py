@@ -26,7 +26,7 @@ def logging_startup(
     """
     logging.basicConfig(level=log_level, format=fmt)
     logging.getLogger("bliss").setLevel(log_level)
-    logging.getLogger("beamline").setLevel(log_level)
+    logging.getLogger("session").setLevel(log_level)
 
 
 class LogMixin:
@@ -365,7 +365,7 @@ class Log:
             maxlen = max([len(name) for (name, _, _) in loggers])
             msgfmt = "{0:{width}} {1:8} {2:5}"
 
-            print("BEAMLINE INSTANCE MAP LOGGERS")
+            print("SESSION INSTANCE MAP LOGGERS")
             print(msgfmt.format("instance", "level", "set", width=maxlen))
             print(msgfmt.format("=" * maxlen, 8 * "=", 5 * "=", width=maxlen))
             for (name, efflvl, setlvl) in loggers:
@@ -490,15 +490,15 @@ def create_logger_name(G, node_id):
     """
     # TODO: implement different starting point
     try:
-        # search before through devices
-        path = nx.shortest_path(G, "devices", node_id)
+        # search before through controllers
+        path = nx.shortest_path(G, "controllers", node_id)
         return "session." + ".".join(
             format_node(G, n, format_string="tag->name->__class__") for n in path
         )
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
         pass
     try:
-        # search next starting from beamline
+        # search next starting from session
         path = nx.shortest_path(G, "session", node_id)
         return ".".join(
             format_node(G, n, format_string="tag->name->__class__") for n in path

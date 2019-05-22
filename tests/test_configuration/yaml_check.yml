@@ -1,0 +1,21 @@
+-
+  plugin: default
+  name: fake_multiplexer_config
+  boards:
+      - class: Opiom
+        name: opiom_eh
+        serial:
+          url: ser2net://lid312:29000/dev/ttyRP19
+          timeout: 30
+        program: 20180910_120725_fastscan
+  outputs:
+    - label: PCOEDGE
+      comment: Pco Edge trigger
+      board: opiom_eh
+      register: IMA
+      shift: 0
+      mask: 0x3
+      OFF: 0
+      ON: 1
+      COUNTER_CARD: 2
+      MUSST: 3

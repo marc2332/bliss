@@ -47,10 +47,12 @@ Accessing the configured elements from python is easy
 
 import os
 import gc
+import re
 import weakref
-
+import collections
 
 import yaml
+from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Resolver
 
 from bliss.config.conductor import client
 from bliss.config import channels
@@ -58,13 +60,34 @@ from bliss.config import channels
 CONFIG = None
 
 
-def load_cfg_fromstring(cfg_string):
-    return yaml.safe_load(cfg_string)
+class BlissYamlResolver(Resolver):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        new_resolvers = collections.defaultdict(list)
+        for k, resolver in self.__class__.yaml_implicit_resolvers.items():
+            for item in resolver:
+                tag, regexp = item
+                if tag.endswith("2002:bool"):
+                    regexp = re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$", re.X)
+                new_resolvers[k].append((tag, regexp))
+        self.__class__.yaml_implicit_resolvers = new_resolvers
 
 
-def load_cfg(filename):
-    cfg_string = client.get_config_file(filename)
-    return load_cfg_fromstring(cfg_string)
+class BlissSafeConstructor(SafeConstructor):
+    bool_values = {"true": True, "false": False}
+
+
+class BlissSafeYamlLoader(
+    Reader, Scanner, Parser, Composer, BlissSafeConstructor, BlissYamlResolver
+):
+    def __init__(self, stream):
+        Reader.__init__(self, stream)
+        Scanner.__init__(self)
+        Parser.__init__(self)
+        Composer.__init__(self)
+        BlissSafeConstructor.__init__(self)
+        BlissYamlResolver.__init__(self)
 
 
 def get_config(base_path="", timeout=3.):
@@ -407,7 +430,7 @@ class Config:
                 continue
 
             try:
-                d = yaml.safe_load(file_content)
+                d = yaml.load(file_content, BlissSafeYamlLoader)
             except yaml.scanner.ScannerError as exp:
                 exp.note = "Error in YAML parsing:\n"
                 exp.note += "----------------\n"

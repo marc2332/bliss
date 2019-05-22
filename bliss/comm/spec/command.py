@@ -16,7 +16,6 @@ SpecCommandA
 
 import sys
 import types
-import logging
 import gevent
 from gevent.event import Event
 from .connection import SpecConnection

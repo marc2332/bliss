@@ -12,11 +12,10 @@ import weakref
 import gevent
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.utils import object_method
 from bliss.common.utils import grouped
 from bliss.common.utils import add_property
-
+from bliss.common import session
 from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 from bliss.common.switch import Switch as BaseSwitch
@@ -73,6 +72,7 @@ class PI_E712(Controller):
         Controller intialization : opens a single socket for all 3 axes.
         """
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
+        session.get_current().map.register(self, children_list=[self.sock])
 
     def finalize(self):
         """
@@ -93,7 +93,7 @@ class PI_E712(Controller):
         Returns:
             - None
         """
-        elog.info("initialize_axis() called for axis %r" % axis.name)
+        self._logger.info("initialize_axis() called for axis %r" % axis.name)
 
         self._hw_status = AxisState("READY")
 
@@ -115,10 +115,10 @@ class PI_E712(Controller):
         add_property(axis, "closed_loop", lambda x: self.__axis_closed_loop[x].value)
         self.check_power_cut()
 
-        elog.debug("axis = %r" % axis.name)
-        # elog.debug("axis.encoder = %r" % axis.encoder)
+        self._logger.debug("axis = %r" % axis.name)
+        # self._logger.debug("axis.encoder = %r" % axis.encoder)
         # if axis.encoder:
-        # elog.debug("axis = %r" % axis)
+        # self._logger.debug("axis = %r" % axis)
 
         # POSSIBLE DATA RECORDER TYPE
         axis.TARGET_POSITION_OF_AXIS = 1
@@ -165,7 +165,7 @@ class PI_E712(Controller):
         """
         if axis._last_on_target:
             _pos = self._get_target_pos(axis)
-            elog.debug("position read : %g" % _pos)
+            self._logger.debug("position read : %g" % _pos)
         else:  # if moving return real position
             _pos = self._get_pos(axis)
 
@@ -179,12 +179,12 @@ class PI_E712(Controller):
         # _ans should look like "A=+0012.0000"
         # removes 'X=' prefix
         _velocity = float(self.command("VEL? %s" % axis.channel))
-        elog.debug("read_velocity : %g " % _velocity)
+        self._logger.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
         self.command("VEL %s %f" % (axis.channel, new_velocity))
-        elog.debug("velocity set : %g" % new_velocity)
+        self._logger.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
     def read_acceleration(self, axis):
@@ -199,7 +199,9 @@ class PI_E712(Controller):
     """ STATE """
 
     def state(self, axis):
-        elog.debug("axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop))
+        self._logger.debug(
+            "axis.closed_loop for axis %s is %s" % (axis.name, axis.closed_loop)
+        )
         with self.sock.lock:
             # check if WAV motion is active
             if self.sock.write_readline(chr(9).encode()) != b"0":
@@ -211,14 +213,14 @@ class PI_E712(Controller):
                 else:
                     return AxisState("MOVING")
             else:
-                elog.debug("CLOSED-LOOP is False")
+                self._logger.debug("CLOSED-LOOP is False")
                 # ok for open loop mode...
                 return AxisState("READY")
 
     """ MOVEMENTS """
 
     def prepare_move(self, motion):
-        elog.debug("pass")
+        self._logger.debug("pass")
         pass
 
     def start_one(self, motion):
@@ -780,7 +782,7 @@ class PI_E712(Controller):
         Activate/Desactivate closed loop status (Servo state) (SVO command)
         """
         self.command("SVO %s %d" % (axis.channel, onoff))
-        elog.debug("Piezo Servo %r" % onoff)
+        self._logger.debug("Piezo Servo %r" % onoff)
 
         # Only when closing loop: waits to be ON-Target.
         if onoff:
@@ -788,18 +790,18 @@ class PI_E712(Controller):
             cl_timeout = .5
 
             _ont_state = self._get_on_target_status(axis)
-            elog.info("axis {0:s} waiting to be ONTARGET".format(axis.name))
+            self._logger.info("axis {0:s} waiting to be ONTARGET".format(axis.name))
             while (not _ont_state) and (time.time() - _t0) < cl_timeout:
                 time.sleep(0.01)
                 _ont_state = self._get_on_target_status(axis)
             if not _ont_state:
-                elog.error("axis {0:s} NOT on-target".format(axis.name))
+                self._logger.error("axis {0:s} NOT on-target".format(axis.name))
                 raise RuntimeError(
                     "Unable to close the loop : "
                     "not ON-TARGET after %gs :( " % cl_timeout
                 )
             else:
-                elog.info(
+                self._logger.info(
                     "axis {0:s} ONT ok after {1:g} s".format(
                         axis.name, time.time() - _t0
                     )
@@ -900,7 +902,7 @@ class PI_E712(Controller):
         in that case, set command level to 1
         """
         _ans = self.command("CCL?")  # get command level
-        elog.debug("command_level was : %d " % int(_ans))
+        self._logger.debug("command_level was : %d " % int(_ans))
         if _ans == "0":
             self.command("CCL 1 advanced")
 
@@ -937,11 +939,11 @@ class PI_E712(Controller):
         for _ in range(10):
             time.sleep(0.01)
             _ans = self.command("TNS? %s" % axis.channel)
-            # elog.debug("TNS? %d : %r" % (axis.channel, _ans))
+            # self._logger.debug("TNS? %d : %r" % (axis.channel, _ans))
             if _ans != "0":
                 accu += float(_ans)
                 accu /= 2
-        elog.debug("TNS? %r" % accu)
+        self._logger.debug("TNS? %r" % accu)
         # during tests with the piezojack, problems with a blocked socket
         # towards the controller were encountered. Usually, that was
         # manifesting with 0 TNS readings. If The accumulated value of
@@ -949,15 +951,15 @@ class PI_E712(Controller):
         # Use self.finalize() to close the socket, it should be reopened
         # by the next communication attempt.
         if accu == 0:
-            elog.info(
+            self._logger.info(
                 "%s##########################################################%s"
                 % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
             )
-            elog.info(
+            self._logger.info(
                 "%sPIEZO READ TNS, accu is zero, resetting socket connection!%s"
                 % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
             )
-            elog.info(
+            self._logger.info(
                 "%s##########################################################%s"
                 % (bcolors.GREEN + bcolors.BOLD, bcolors.ENDC)
             )
@@ -967,25 +969,25 @@ class PI_E712(Controller):
     def _get_tsp(self, axis):
         """Get Input Signal Position Value"""
         _ans = self.command("TSP? %s" % axis.channel)
-        elog.debug("TSP? %s" % _ans)
+        self._logger.debug("TSP? %s" % _ans)
         return float(_ans)
 
     def _get_sva(self, axis):
         """Get Input Signal Position Value"""
         _ans = self.command("SVA? %s" % axis.channel)
-        elog.debug("SVA? %s" % _ans)
+        self._logger.debug("SVA? %s" % _ans)
         return float(_ans)
 
     def _get_vol(self, axis):
         """Get Input Signal Position Value"""
         _ans = self.command("VOL? %s" % axis.channel)
-        elog.debug("VOL? %s" % _ans)
+        self._logger.debug("VOL? %s" % _ans)
         return float(_ans)
 
     def _get_mov(self, axis):
         """Get Input Signal Position Value"""
         _ans = self.command("MOV? %s" % axis.channel)
-        elog.debug("MOV? %s" % _ans)
+        self._logger.debug("MOV? %s" % _ans)
         return float(_ans)
 
     def _get_offset(self, axis):
@@ -1007,7 +1009,7 @@ class PI_E712(Controller):
             if _ans != "0":
                 accu += float(_ans)
                 accu /= 2
-        elog.debug("TAD? %r" % accu)
+        self._logger.debug("TAD? %r" % accu)
         return accu
 
 

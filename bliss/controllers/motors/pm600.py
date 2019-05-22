@@ -6,13 +6,11 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from warnings import warn
-from logging import ERROR, INFO, DEBUG, NOTSET
-
 from bliss.controllers.motor import Controller
-from bliss.common.log import log
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
+from bliss.common import session
 
 MAX_VELOCITY = 400000
 MIN_VELOCITY = 1
@@ -29,9 +27,6 @@ Bliss controller for McLennan PM600/PM1000 motor controller.
 
 
 class PM600(Controller):
-    def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
-
     def initialize(self):
         try:
             self.sock = get_comm(self.config.config_dict, TCP)
@@ -44,6 +39,8 @@ class PM600(Controller):
             )
             comm_cfg = {"tcp": {"url": "{0}:{1}".format(host, port)}}
             self.sock = get_comm(comm_cfg)
+
+        session.get_current().map.register(self, children_list=[self.sock])
 
         # read spurious 'd' character when connected
         self.sock.readline(eol="\r")
@@ -171,36 +168,46 @@ class PM600(Controller):
 
     def set_velocity(self, axis, velocity):
         if velocity > MAX_VELOCITY or velocity < MIN_VELOCITY:
-            log(ERROR, "PM600 Error: velocity out of range")
+            self._logger.error("PM600 Error: velocity out of range")
         reply = self.io_command("SV", axis.channel, velocity)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to set_velocity" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to set_velocity" + reply
+            )
 
     def set_firstvelocity(self, axis, creep_speed):
         if creep_speed > MAX_CREEP_SPEED or velocity < MIN_CREEP_SPEED:
-            log(ERROR, "PM600 Error: creep_speed out of range")
+            self._logger.error("PM600 Error: creep_speed out of range")
         reply = self.io_command("SC", axis.channel, creep_speed)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to set_firstvelocity" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to set_firstvelocity" + reply
+            )
 
     def set_acceleration(self, axis, acceleration):
         if acceleration > MAX_ACCELERATION or acceleration < MIN_ACCELERATION:
-            log(ERROR, "PM600 Error: acceleration out of range")
+            self._logger.error("PM600 Error: acceleration out of range")
         reply = self.io_command("SA", axis.channel, acceleration)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to set_acceleration" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to set_acceleration" + reply
+            )
 
     def set_decel(self, axis, deceleration):
         if deceleration > MAX_DECELERATION or deceleration < MIN_DECELERATION:
-            log(ERROR, "PM600 Error: deceleration out of range")
+            self._logger.error("PM600 Error: deceleration out of range")
         reply = self.io_command("SD", axis.channel, deceleration)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to set_deceleration" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to set_deceleration" + reply
+            )
 
     def set_position(self, axis, position):
         reply = self.io_command("AP", axis.channel, position)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to set_position" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to set_position" + reply
+            )
 
     def state(self, axis):
         """
@@ -224,12 +231,14 @@ class PM600(Controller):
     def start_one(self, motion):
         reply = self.io_command("MA", motion.axis.channel, motion.target_pos)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to move absolute" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to move absolute" + reply
+            )
 
     def stop(self, motion):
         reply = self.io_command("ST", motion.axis.channel)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to stop" + reply)
+            self._logger.error("PM600 Error: Unexpected response to stop" + reply)
 
     def start_all(self, *motion_list):
         for motion in motion_list:
@@ -242,10 +251,12 @@ class PM600(Controller):
     def home_search(self, axis, switch):
         reply = self.io_command("DM00100000", axis.channel)
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to datum mode" + reply)
+            self._logger.error("PM600 Error: Unexpected response to datum mode" + reply)
         reply = self.io_command("HD", axis.channel, (+1 if switch > 0 else -1))
         if reply != "OK":
-            log(ERROR, "PM600 Error: Unexpected response to home to datum" + reply)
+            self._logger.error(
+                "PM600 Error: Unexpected response to home to datum" + reply
+            )
 
     def home_state(self, axis):
         return self.state(axis)
@@ -260,7 +271,7 @@ class PM600(Controller):
         first_line = reply_list[0].decode()
         idx = first_line.find("\r")
         if idx == -1:
-            log(ERROR, "PM600 Error: No echoed command")
+            self._logger.error("PM600 Error: No echoed command")
         answer = first_line[idx + 1 :]
         for i in range(1, nlines):
             answer = answer + "\n" + reply_list[i].decode()
@@ -281,18 +292,20 @@ class PM600(Controller):
         # carriage return
         idx = newreply.find("\r")
         if idx == -1:
-            log(ERROR, "PM600 Error: No echoed command")
+            self._logger.error("PM600 Error: No echoed command")
         answer = newreply[idx + 1 :]
         # check for the error character !
         idx = answer.find("!")
         if idx != -1:
-            log(ERROR, "PM600 Error: " + answer[idx:])
+            self._logger.error("PM600 Error: " + answer[idx:])
             return
         # Now remove the channel from the reply and check against the requested channel
         idx = answer.find(":")
         replied_channel = int(answer[:idx])
         if int(channel) != replied_channel:
-            log(ERROR, "PM600 Error: Wrong channel replied []".format(replied_channel))
+            self._logger.error(
+                "PM600 Error: Wrong channel replied []".format(replied_channel)
+            )
         return answer[idx + 1 :]
 
     def raw_write_read(self, command):

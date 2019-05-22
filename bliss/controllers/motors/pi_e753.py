@@ -6,11 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-
 from bliss.common.axis import AxisState
+from bliss.common import session
 
 from . import pi_gcs
 from bliss.comm.util import TCP
@@ -42,12 +41,14 @@ class PI_E753(Controller):
 
         self.comm = pi_gcs.get_pi_comm(self.config, TCP)
 
+        session.get_current().map.register(self, children_list=[self.comm])
+
     def close(self):
         if self.comm is not None:
             self.comm.close()
 
     def initialize_axis(self, axis):
-        elog.debug("axis initialization")
+        self._logger.debug("axis initialization")
 
         # Enables the closed-loop.
         # Can be dangerous ??? test diff between target and position before ???
@@ -68,12 +69,12 @@ class PI_E753(Controller):
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
-        elog.debug("read_position = %f" % _ans)
+        self._logger.debug("read_position = %f" % _ans)
         return _ans
 
     def read_encoder(self, encoder):
         _ans = self._get_pos()
-        elog.debug("read_position measured = %f" % _ans)
+        self._logger.debug("read_position measured = %f" % _ans)
         return _ans
 
     """ VELOCITY """
@@ -85,7 +86,7 @@ class PI_E753(Controller):
         """
         - <new_velocity>: 'float'
         """
-        elog.debug("set_velocity new_velocity = %f" % new_velocity)
+        self._logger.debug("set_velocity new_velocity = %f" % new_velocity)
         self.send_no_ans(axis, "VEL 1 %f" % new_velocity)
 
         return self.read_velocity(axis)
@@ -151,7 +152,7 @@ class PI_E753(Controller):
 
         _duration = time.time() - _t0
         if _duration > 0.005:
-            elog.info(
+            self._logger.info(
                 "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
                 % (_ans, _cmd, _duration * 1000)
             )

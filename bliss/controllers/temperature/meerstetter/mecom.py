@@ -26,20 +26,6 @@ import struct
 
 import time
 
-# Different debug levels are:
-# log.NOTSET = 0, log.DEBUG = 10, log.INFO = 20, log.ERROR=40
-import logging
-
-
-def set_mecom_log_level(level):
-    level = level.upper()
-    logging.getLogger("MeComProtocol").setLevel(level)
-    logging.getLogger("TECFamilyProtocol").setLevel(level)
-
-
-# set_mecom_log_level('debug')
-
-
 ######################################################################
 ###########################                ###########################
 ########################### MeCOM PROTOCOL ###########################
@@ -63,34 +49,12 @@ class MeComProtocol(object):
         self.sequence = 0
         self._sock = sock_comm
         self.dev_addr = dev_addr
-        self.log = logging.getLogger("MeComProtocol")
-        self.log.info("__init__: %s %d" % (sock_comm, dev_addr))
 
     def PutGet(self, cmd, anslen, eof):
-        # self.log.info("PutGet: %s, %d, %c" %(cmd,anslen,eof))
-        self.log.info("PutGet: %s, %d, %r" % (cmd, anslen, eof))
-
         frame = self.FrameConstruction(cmd, eof)
-
-        try:
-            return self._PutGet(frame, cmd, anslen, eof)
-
-        except AssertionError as e:
-            self.log.error("PutGet: Device communication assertion error: %s" % (e))
-        except tcp.SocketTimeout:
-            self.log.error("PutGet: Socket communication timed out")
-        except gevent.socket.error as e:
-            self.log.error("PutGet: Socket communication error: %s" % (e))
-        # except RunTimeError, e:
-        #    log.error("MeComProtocol::PutGet: Runtime error: %s" %(e))
+        return self._PutGet(frame, cmd, anslen, eof)
 
     def _PutGet(self, frame, cmd, anslen, eof):
-
-        self.log.info("_PutGet: Frame  = %s" % frame)
-        self.log.info("_PutGet: cmd    = %s" % cmd)
-        self.log.info("_PutGet: anslen = %d" % anslen)
-        self.log.info("_PutGet: eof    = %r" % eof)
-
         _error = [
             "Unknown error",
             "Command not available",
@@ -108,75 +72,45 @@ class MeComProtocol(object):
 
         answer = self._sock.write_readline(frame.encode(), eol=eof.encode())
 
-        self.log.debug("_PutGet: Read buffer = %r " % answer)
-
         if answer == "":
-            self.log.error("_PutGet: Socket connection broken")
             raise RuntimeError("MeComProtocol::_PutGet: Socket connection broken")
 
         resp = (frame[:7].replace("#", "!")).encode()
-        self.log.debug("_PutGet: 1st 7 char of frame with ! as 1st char: %s" % resp)
         if answer.startswith(resp):
 
             if answer[7] == "+":
                 err = answer[8:10]
-                self.log.debug("_PutGet:Error: %s", err)
-                self.log.debug("_PutGet:Error: %d", int(err))
-                self.log.debug("_PutGet:Error: %s", _error[int(err)])
-
             else:
                 if cmd[0] == "?":  # query commands
-                    self.log.debug("_PutGet: It is a query command")
-
                     assert len(answer) == (11 + anslen), "answer length not expected."
                     answ = answer[7 : anslen + 7]
                     blacrc = self._CRC16Algorithm(resp + answ)
-                    self.log.debug("_PutGet: %s", answ)
                     return answ
-
                 else:  # set commands
-                    self.log.debug("_PutGet: ACK")
                     return "ACK"
 
-        self.log.debug("_PutGet: NAK")
         return "NAK"
 
     def FrameConstruction(self, payload, eof):
-        self.log.info("FrameConstruction: %s, %r" % (payload, eof))
-
         frame = []
 
-        try:
-            frame.extend("%02x" % (self.dev_addr))
-            frame.extend("%04x" % (self._AssignSequenceNumber()))
-            frame.extend(payload)
-            frame.insert(0, "#")
+        frame.extend("%02x" % (self.dev_addr))
+        frame.extend("%04x" % (self._AssignSequenceNumber()))
+        frame.extend(payload)
+        frame.insert(0, "#")
 
-            frame = "".join(frame)
-            self.CRC = self._CRC16Algorithm(frame.encode())
+        frame = "".join(frame)
+        self.CRC = self._CRC16Algorithm(frame.encode())
 
-            if self.CRC > 0xFFFF:
-                self.log.error(
-                    "FrameConstruction: too large numeric CRC: %x" % (self.CRC)
-                )
-                raise RuntimeError("too large numeric CRC: %x." % (self.CRC))
+        if self.CRC > 0xFFFF:
+            raise RuntimeError("too large numeric CRC: %x." % (self.CRC))
 
-            frame = frame + ("%04x%s" % (self.CRC, eof))
+        frame = frame + ("%04x%s" % (self.CRC, eof))
 
-        except RuntimeError as e:
-            self.log.error("FrameConstruction ERROR %s" % (e))
-
-        finally:
-            pass
-
-        # self.log.debug("FrameConstruction %s" %(frame))
-        self.log.debug("FrameConstruction %r" % (frame))
         return "".join(frame).upper()
 
     def _CRC16Algorithm(self, frame):
         frame = frame.upper()
-        self.log.info("_CRC16Algorithm %s" % (frame))
-
         crc = 0
         genpoly = 0x1021
 
@@ -190,7 +124,6 @@ class MeComProtocol(object):
                     crc = crc << 1
             crc &= 0xFFFF
 
-        self.log.debug("_CRC16Algorithm %04x" % (crc))
         return crc
 
     def _AssignSequenceNumber(self):
@@ -200,7 +133,6 @@ class MeComProtocol(object):
         else:
             self.sequence = 0
 
-        self.log.debug("_AssignSequenceNumber %d" % (self.sequence))
         return self.sequence
 
 
@@ -215,29 +147,18 @@ class TECFamilyProtocol(object):
     def __init__(self, sock_comm, dev_addr):
 
         self.mecom = MeComProtocol(sock_comm, dev_addr)
-        self.log = logging.getLogger("TECFamilyProtocol")
-        self.log.info("__init__: %s %d" % (sock_comm, dev_addr))
 
     def putget(self, command, anslen=0, EOF="\r"):
-        self.log.info("putget")
-        self.log.debug("putget: cmd = %s, anslen = %d " % (command, anslen))
-
         ret = self.mecom.PutGet(command, anslen, EOF)
 
         return ret
 
     # getModel = get Firmware Identification String
     def getModel(self):
-        self.log.info("getModel")
-
         self.model = self.putget("?IF", 20)
-
-        self.log.debug("getModel: %s" % (self.model))
         return self.model
 
     def _getParameter(self, id, anslen, instance=1):
-        self.log.debug("_getParameter %04x %d %02x" % (id, anslen, instance))
-
         if id > 0xFFFF:
             raise RuntimeError("wrong parameter id: %x." % (id))
 
@@ -247,16 +168,12 @@ class TECFamilyProtocol(object):
         payload = ["?", "V", "R"]
         payload.extend("%04x" % (id))
         payload.extend("%02x" % (instance))
-        self.log.debug("_getParameter payload %r" % payload)
 
         answer = self.putget("".join(payload), anslen)
 
-        self.log.debug("_getParameter: %s" % (answer))
         return answer
 
     def _setParameter(self, id, parameter, instance=1):
-        self.log.info("_setParameter %04x %04x %02x" % (id, parameter, instance))
-
         if id > 0xFFFF:
             raise RuntimeError("wrong parameter id: %x." % (id))
 
@@ -272,5 +189,4 @@ class TECFamilyProtocol(object):
 
         answer = self.putget(payload)
 
-        self.log.debug("_getParameter %s" % (answer))
         return answer

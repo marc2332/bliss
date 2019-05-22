@@ -11,6 +11,7 @@ import gevent
 from bliss.comm.util import get_comm, get_comm_type, TCP, SERIAL
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
+from bliss.common import session
 from .pi_gcs import get_error_str
 
 """
@@ -95,6 +96,8 @@ class PI_HEXA(Controller):
         self.controler_model = controler_model
 
         self._cnx = get_comm(self.config.config_dict, **comm_option)
+
+        session.get_current().map.register(self, children_list=[self._cnx])
 
         commands = {
             850: {

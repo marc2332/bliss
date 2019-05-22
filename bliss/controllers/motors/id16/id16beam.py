@@ -14,9 +14,6 @@ ID16A (ni)
 """
 # IMPORTS #
 from bliss.controllers.motor import CalcController
-from bliss.common import log as elog
-
-
 import math
 
 

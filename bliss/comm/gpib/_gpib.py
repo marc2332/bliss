@@ -21,7 +21,6 @@ __all__ = [
 
 import re
 import enum
-import logging
 import gevent
 from gevent import lock
 import numpy

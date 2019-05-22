@@ -8,7 +8,6 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.axis import AxisState
 
 from . import pi_gcs
@@ -76,4 +75,4 @@ class PI_E518(PI_E51X):
         Raises:
             ?
         """
-        print("   TO BE CHANGED fro E518")
+        raise NotImplementedError

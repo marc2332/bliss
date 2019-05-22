@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import itertools
-import logging
 import errno
 import os
 
@@ -60,8 +59,6 @@ class FileWriter(object):
         self._master_event_callback = master_event_callback
         self._device_event_callback = device_event_callback
         self._event_receivers = list()
-
-        self.log = logging.getLogger(type(self).__name__)
 
     @property
     def template(self):

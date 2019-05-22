@@ -16,7 +16,7 @@ import tango
 from tango.server import Device, attribute, command
 from tango.server import get_worker
 
-import bliss.common.log as elog
+import bliss.tango.servers.log as elog
 from bliss.common import temperature
 from bliss.config.static import get_config
 

@@ -6,8 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-import logging
-from bliss.common import log
 from bliss.config.plugins.utils import find_class
 
 

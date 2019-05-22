@@ -37,8 +37,6 @@ controller:
 
 import time
 
-from bliss.common import log
-
 # communication
 from bliss.comm.tcp import Tcp
 from bliss.comm.gpib import Gpib

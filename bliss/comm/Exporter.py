@@ -6,10 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from warnings import warn
-import logging
+from .embl import ExporterClient
+from bliss.common.logtools import LogMixin
+from bliss.common import session
+
 import gevent
 from gevent.queue import Queue
-from .embl import ExporterClient
 
 exporter_clients = {}
 
@@ -25,7 +27,7 @@ def start_exporter(address, port, timeout=3, retries=1):
         return exporter_clients[(address, port)]
 
 
-class Exporter(ExporterClient.ExporterClient):
+class Exporter(ExporterClient.ExporterClient, LogMixin):
     STATE_EVENT = "State"
     STATUS_EVENT = "Status"
     VALUE_EVENT = "Value"
@@ -56,6 +58,10 @@ class Exporter(ExporterClient.ExporterClient):
         self.callbacks = {}
         self.events_queue = Queue()
         self.events_processing_task = None
+
+        session.get_current().map.register(
+            self, parents_list=["comms"], tag=f"exporter: {address}:{port}"
+        )
 
     def start(self):
         pass
@@ -139,7 +145,7 @@ class Exporter(ExporterClient.ExporterClient):
                 try:
                     cb(self._to_python_value(value))
                 except:
-                    logging.exception(
+                    self._logger.exception(
                         "Exception while executing callback %s for event %s", cb, name
                     )
                     continue

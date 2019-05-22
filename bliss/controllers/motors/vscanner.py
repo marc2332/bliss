@@ -10,10 +10,9 @@ import sys
 import traceback
 from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm
-from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common import event
-
+from bliss.common import session
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 
@@ -40,24 +39,26 @@ class VSCANNER(Controller):
         self.axis_settings.config_setting["acceleration"] = False
 
         self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
+
+        session.get_current().map.register(self, children_list=[self.serial])
+
         self._status = "SERIAL communication configuration found"
 
         try:
             # should be like : 'VSCANNER 01.02\r\n'
             _ans = self.serial.write_readline(b"?VER\r\n").decode()
             self._status += "\ncommunication ok "
-            # elog.debug(self._status + _ans)
         except OSError:
             _ans = "no ans"
             self._status = sys.exc_info()[1]
-            elog.error(self._status)
+            self._logger.error(self._status)
         except:
             _ans = "no ans"
             self._status = (
                 'communication error : cannot communicate with serial "%s"'
                 % self.serial
             )
-            elog.error(self._status)
+            self._logger.error(self._status)
             traceback.print_exc()
 
         try:
@@ -70,7 +71,7 @@ class VSCANNER(Controller):
                 'communication error : no VSCANNER found on serial "%s"' % self.serial
             )
 
-        elog.debug(self._status)
+        self._logger.debug(self._status)
 
     def close(self):
         """
@@ -88,12 +89,12 @@ class VSCANNER(Controller):
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
-            elog.info("reseting VSCANNER negative position to 0 !!")
+            self._logger.info("reseting VSCANNER negative position to 0 !!")
             _cmd = "V%s 0" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
         if ini_pos > 10:
-            elog.info("reseting VSCANNER >10-position to 10 !!")
+            self._logger.info("reseting VSCANNER >10-position to 10 !!")
             _cmd = "V%s 10" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
@@ -111,9 +112,9 @@ class VSCANNER(Controller):
         """
         _cmd = "?V%s" % axis.chan_letter
         _ans = self.send(axis, _cmd)
-        # elog.debug("_ans =%s" % _ans)
+        # self._logger.debug("_ans =%s" % _ans)
         _pos = float(_ans)
-        elog.debug("position=%f" % _pos)
+        self._logger.debug("position=%f" % _pos)
 
         return _pos
 
@@ -137,12 +138,12 @@ class VSCANNER(Controller):
         elif len(_float_ans) == 2:
             (_vel, _line_waiting) = _float_ans
         else:
-            elog.info("WHAT THE F.... ?VEL answer is there ???")
+            self._logger.info("WHAT THE F.... ?VEL answer is there ???")
 
         #     V/s = V/ms * 1000
         _velocity = _vel * 1000
 
-        elog.debug("read_velocity : %g " % _velocity)
+        self._logger.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -151,7 +152,7 @@ class VSCANNER(Controller):
 
         # "VEL <vel>" command sets velocity in V/ms
         self.send_no_ans(axis, "VEL %f 0" % _new_vel)
-        elog.debug("velocity set : %g" % _new_vel)
+        self._logger.debug("velocity set : %g" % _new_vel)
 
     def state(self, axis):
         _ans = self.send(axis, "?STATE")
@@ -171,9 +172,9 @@ class VSCANNER(Controller):
     def prepare_move(self, motion):
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            elog.debug("immediate move")
+            self._logger.debug("immediate move")
         else:
-            elog.debug("scan move")
+            self._logger.debug("scan move")
 
             if motion.axis.chan_letter == "X":
                 scan_val1 = motion.delta
@@ -192,15 +193,15 @@ class VSCANNER(Controller):
                 number_of_pixel,
                 line_mode,
             )
-            elog.debug("_cmd_LINE=%s" % _cmd)
+            self._logger.debug("_cmd_LINE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "SCAN 0 0 1 U"
-            elog.debug("_cmd_SCAN=%s" % _cmd)
+            self._logger.debug("_cmd_SCAN=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "PSHAPE ALL"
-            elog.debug("_cmd_PSHAPE=%s" % _cmd)
+            self._logger.debug("_cmd_PSHAPE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
     def start_one(self, motion):
@@ -213,13 +214,13 @@ class VSCANNER(Controller):
         """
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            elog.debug("immediate move")
+            self._logger.debug("immediate move")
             _cmd = "V%s %s" % (motion.axis.chan_letter, motion.target_pos)
             self.send_no_ans(motion.axis, _cmd)
         else:
-            elog.debug("SCAN move")
+            self._logger.debug("SCAN move")
             _cmd = "START 1 NORET"
-            elog.debug("_cmd_START=%s" % _cmd)
+            self._logger.debug("_cmd_START=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
     def start_all(self, *motion_list):
@@ -228,7 +229,7 @@ class VSCANNER(Controller):
         returns immediately,
         positions in motor units
         """
-        elog.debug("start_all() called")
+        self._logger.debug("start_all() called")
 
     def stop(self, axis):
         # Halt a scan (not a movement ?)
@@ -304,7 +305,7 @@ class VSCANNER(Controller):
         Raises:
             ?
         """
-        elog.debug("cmd=%r" % cmd)
+        self._logger.debug("cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd.encode())
 
@@ -312,7 +313,7 @@ class VSCANNER(Controller):
 
         _ans = self.serial.readline().decode().rstrip()
 
-        # elog.debug("ans=%s" % repr(_ans))
+        # self._logger.debug("ans=%s" % repr(_ans))
         # _duration = time.time() - _t0
         # print "    Sending: %r Receiving: %r  (duration : %g)" % (_cmd, _ans, _duration)
         return _ans
@@ -327,7 +328,7 @@ class VSCANNER(Controller):
         - <axis> is passed for debugging purposes
         - Used for answer-less commands, then returns nothing
         """
-        # elog.debug("send_no_ans : cmd=%r" % cmd)
+        # self._logger.debug("send_no_ans : cmd=%r" % cmd)
 
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd.encode())

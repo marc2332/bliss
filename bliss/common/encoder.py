@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common import log as elog
 from bliss.common.motor_config import StaticConfig
 from bliss.common import event
 import time

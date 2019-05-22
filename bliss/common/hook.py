@@ -9,18 +9,23 @@
 how to use motion hooks in your system"""
 
 import weakref
-
+from bliss.common import session
+from bliss.common.logtools import LogMixin
 
 __all__ = ["MotionHook"]
 
 
-class MotionHook(object):
+class MotionHook(LogMixin):
     """
     Base motion hook. Executed before a motion starts and after motion ends.
     """
 
     def __init__(self):
         self.__axes = weakref.WeakValueDictionary()
+
+        session.get_current().map.register(
+            self, parents_list=["motion hooks"], tag=self.__class__.__name__
+        )
 
     def add_axis(self, axis):
         """Add a new axis to the hook. Called by bliss when an axis is created

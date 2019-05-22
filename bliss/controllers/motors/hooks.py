@@ -9,8 +9,6 @@
 General purpose motion hooks.
 """
 
-import logging
-
 from gevent import sleep
 
 from bliss.common.hook import MotionHook
@@ -36,8 +34,6 @@ class SleepHook(MotionHook):
     """
 
     def __init__(self, name, config):
-        self._log = logging.getLogger("{0}({1})".format(self.__class__.__name__, name))
-        self.debug = self._log.debug
         self.config = config
         self.name = name
         super(SleepHook, self).__init__()
@@ -45,9 +41,9 @@ class SleepHook(MotionHook):
     def wait(self, phase):
         t = float(self.config.get("{0}_wait".format(phase)))
         if t:
-            self.debug("start %s wait (%ss)...", phase, t)
+            self._logger.debug("start %s wait (%ss)...", phase, t)
             sleep(t)
-            self.debug("finished %s wait (%ss)", phase, t)
+            self._logger.debug("finished %s wait (%ss)", phase, t)
 
     def pre_move(self, motion_list):
         self.wait("pre_move")
@@ -78,8 +74,6 @@ class WagoHook(MotionHook):
     """
 
     def __init__(self, name, config):
-        self._log = logging.getLogger("{0}({1})".format(self.__class__.__name__, name))
-        self.debug = self._log.debug
         self.config = config
         self.name = name
         self.wago = config["wago"]
@@ -100,13 +94,13 @@ class WagoHook(MotionHook):
     def set(self, phase):
         value = self.config[phase]["value"]
         wait = self.config[phase].get("wait", 0)
-        self.debug("start setting %s value to %s...", phase, value)
+        self._logger.debug("start setting %s value to %s...", phase, value)
         self.wago.set(self.channel, value)
-        self.debug("finished setting %s value to %s", phase, value)
+        self._logger.debug("finished setting %s value to %s", phase, value)
         if wait:
-            self.debug("start %s wait (%ss)...", phase, wait)
+            self._logger.debug("start %s wait (%ss)...", phase, wait)
             sleep(wait)
-            self.debug("finished %s wait (%ss)", phase, wait)
+            self._logger.debug("finished %s wait (%ss)", phase, wait)
 
     def pre_move(self, motion_list):
         self.set("pre_move")

@@ -12,8 +12,6 @@ Bliss controller for  5-motors spectrometer test bench in EH1
 """
 # IMPORTS #
 from bliss.controllers.motor import CalcController
-from bliss.common import log as elog
-
 import math
 
 # GLOBAL VARIABLES #

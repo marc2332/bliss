@@ -5,7 +5,7 @@ Bliss controller for ethernet Galil DC controller.
 from warnings import warn
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
+from bliss.common import session
 
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
@@ -41,6 +41,7 @@ class GalilDMC213(Controller):
             warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=23)
+        session.get_current().map.register(self, children_list=[self.sock])
 
     def initialize_hardware(self):
         # perform hw reset

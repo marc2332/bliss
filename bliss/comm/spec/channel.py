@@ -15,7 +15,6 @@ from bliss.common import event
 import gevent
 import weakref
 import types
-import logging
 
 (DOREG, DONTREG, WAITREG) = (0, 1, 2)
 

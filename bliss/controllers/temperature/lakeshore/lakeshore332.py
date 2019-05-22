@@ -1,5 +1,3 @@
-from bliss.common import log
-
 from bliss.controllers.temperature.lakeshore.lakeshore import Base
 from bliss.controllers.temperature.lakeshore.lakeshore330 import LakeShore330
 

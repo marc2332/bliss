@@ -101,3 +101,10 @@ def test_inherited_package(beacon):
         assert isinstance(beacon.get("dummy2"), DummyObject)
     finally:
         sys.path.pop()
+
+
+def test_yaml_boolean(beacon):
+    m = beacon.get("fake_multiplexer_config")
+
+    assert m["outputs"][0]["ON"] == 1
+    assert m["outputs"][0]["OFF"] == 0

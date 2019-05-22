@@ -71,7 +71,7 @@ def improve_logger(logger_instance):
 
     def debugoff(self):
         """Activates debug on the device"""
-        self.setLevel(logging.WARNING)
+        self.setLevel(logging.NOTSET)
 
     def debug_data(self, msg: str, data) -> None:
         """
@@ -282,20 +282,8 @@ class Log:
         Args:
             glob: glob style pattern matching
 
-        Hints on glob: pattern matching normally used by shells
-                       common operators are * for any number of characters
-                       and ? for one character of any type
-
         Returns:
             None
-
-        Examples:
-            >>> log.debugon('*motorsrv')
-            Set logger [motorsrv] to DEBUG level
-            Set logger [motorsrv.Connection] to DEBUG level
-            >>> log.debugon('*rob?')
-            Set logger [session.device.controller.roby] to DEBUG level
-            Set logger [session.device.controller.robz] to DEBUG level
         """
         strname = self._check_log_name(glob)
         loggers = self._find_bliss_logger_by_name(strname)
@@ -320,10 +308,6 @@ class Log:
 
         Args:
             glob: glob style pattern matching
-
-        Hints on glob: pattern matching normally used by shells
-                       common operators are * for any number of characters
-                       and ? for one character of any type
         """
         strname = self._check_log_name(glob)
         loggers = self._find_bliss_logger_by_name(strname)

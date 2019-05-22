@@ -9,7 +9,7 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
-from bliss.common import scans
+from bliss.common import scans, session
 from bliss.common.scans import *
 from bliss.common.plot import plot
 from bliss.common.soft_axis import SoftAxis
@@ -18,6 +18,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.utils import get_counters_iter
+from bliss.common import session
 
 import sys
 
@@ -33,7 +34,8 @@ __all__ = (
         "umvr",
         "move",
         "prdef",
-        "set_log_level",
+        "debugon",
+        "debugoff",
         "sync",
     ]
     + scans.__all__
@@ -77,6 +79,58 @@ _FLOAT_FORMAT = ".05f"
 
 
 _log = logging.getLogger("bliss.standard")
+
+
+def debugon(glob_logger_pattern_or_obj):
+    """
+    Activates debug-level logging for a specifig logger or an object
+
+    Args:
+        glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
+
+    Hints on glob: pattern matching normally used by shells
+                   common operators are * for any number of characters
+                   and ? for one character of any type
+
+    Returns:
+        None
+
+    Examples:
+        >>> log.debugon('*motorsrv')
+        Set logger [motorsrv] to DEBUG level
+        Set logger [motorsrv.Connection] to DEBUG level
+        >>> log.debugon('*rob?')
+        Set logger [session.device.controller.roby] to DEBUG level
+        Set logger [session.device.controller.robz] to DEBUG level
+    """
+    if isinstance(glob_logger_pattern_or_obj, str):
+        glob_logger_pattern = glob_logger_pattern_or_obj
+        return session.get_current().log.debugon(glob_logger_pattern)
+    else:
+        obj = glob_logger_pattern_or_obj
+        return obj._logger.debugon()
+
+
+def debugoff(glob_logger_pattern_or_obj):
+    """
+    Desactivates debug-level logging for a specifig logger or an object
+
+    Args:
+        glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
+
+    Hints on glob: pattern matching normally used by shells
+                   common operators are * for any number of characters
+                   and ? for one character of any type
+
+    Returns:
+        None
+    """
+    if isinstance(glob_logger_pattern_or_obj, str):
+        glob_logger_pattern = glob_logger_pattern_or_obj
+        return session.get_current().log.debugoff(glob_logger_pattern)
+    else:
+        obj = glob_logger_pattern_or_obj
+        return obj._logger.debugoff()
 
 
 def _tabulate(data, **kwargs):
@@ -456,28 +510,6 @@ def prdef(obj_or_name):
         )
     print(header)
     print(__pyhighlight("".join(lines)))
-
-
-def _check_log_level(level):
-    if isinstance(level, int):
-        rv = level
-    else:
-        rv = getattr(logging, level.upper())
-    return rv
-
-
-def set_log_level(level=logging.root.level):
-    """
-    Adjusts the log level
-
-    Without arguments, resets the level back to the one setup at
-    beginning of the session.
-
-    Args:
-        level (int or str): new log level can be constant (ex: logging.INFO) or
-                            case insensitive equivalent string (ex: 'Info')
-    """
-    logging.root.setLevel(_check_log_level(level))
 
 
 def cntdict():

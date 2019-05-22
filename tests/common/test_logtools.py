@@ -10,6 +10,7 @@ import logging
 import re
 
 from bliss.common.logtools import map_update_loggers, Log, LogMixin
+from bliss.common.standard import debugon, debugoff
 from bliss.common.mapping import Map
 from bliss.common import session
 import bliss
@@ -119,7 +120,7 @@ def test_m0_logger_debugoff(params, caplog):
 
     m0 = beacon.get("m0")  # creating a device
     m0._logger.debugoff()
-    assert m0._logger.level == logging.WARNING
+    assert m0._logger.level == logging.NOTSET
     m0._logger.debug(msg)
     assert msg not in caplog.text
 
@@ -208,3 +209,24 @@ def test_LogMixin(params, caplog):
     assert expected in caplog.text
 
     assert hasattr(mc._logger, "debug_data")
+
+
+def test_standard_debugon_debugoff(session):
+    roby = session.config.get("roby")
+
+    debugon(roby)
+
+    assert roby._logger.level == logging.DEBUG
+
+    debugoff(roby)
+
+    assert roby._logger.level == logging.NOTSET
+
+    debugon("*roby")
+
+    assert roby._logger.level == logging.DEBUG
+
+    debugoff("*roby")
+
+    assert roby._logger.level == logging.NOTSET
+    assert roby._logger.getEffectiveLevel() == logging.WARNING

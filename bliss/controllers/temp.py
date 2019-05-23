@@ -50,8 +50,6 @@ class Controller(LogMixin):
         self.__name = config.get("name")
         self._objects = {}
 
-        session.get_current().map.register(self, parents_list=["controllers"])
-
         for name, klass, cfg in itertools.chain(inputs, outputs, loops):
             self._logger.debug(f"  {klass.__name__} name: {name}")
             self._logger.debug(f"  {klass.__name__} config: {cfg}")

@@ -23,10 +23,6 @@ class MotionHook(LogMixin):
     def __init__(self):
         self.__axes = weakref.WeakValueDictionary()
 
-        session.get_current().map.register(
-            self, parents_list=["motion hooks"], tag=self.__class__.__name__
-        )
-
     def add_axis(self, axis):
         """Add a new axis to the hook. Called by bliss when an axis is created
         which is linked to this hook
@@ -35,6 +31,7 @@ class MotionHook(LogMixin):
             axis (Axis): new axis to be added to the hook
         """
         self.__axes[axis.name] = axis
+        session.get_current().map.register(self, children_list=list(self.axes.values()))
 
     @property
     def axes(self):

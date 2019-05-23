@@ -56,6 +56,7 @@ from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Reso
 
 from bliss.config.conductor import client
 from bliss.config import channels
+from bliss.config.map import update_map_for_object
 
 CONFIG = None
 
@@ -640,7 +641,7 @@ class Config:
         """
         return set(self._usertag2node.get(tag_name, ()))
 
-    def get(self, name):
+    def get(self, name, add_axes_counters=True):
         """
         Returns an object instance from its configuration name
 
@@ -688,33 +689,8 @@ class Config:
                 self._name2instance.update(name2items)
                 instance_object = name2items.get(name)
 
-        from bliss.common.axis import Axis
-        from bliss.common.temperature import Input, Output, Loop
-
-        if isinstance(instance_object, Axis):
-            from bliss.common import session
-
-            session.get_current().map.register(
-                instance_object,
-                parents_list=[instance_object.controller, "axes"],
-                tag=instance_object.name,
-            )
-        elif isinstance(instance_object, (Input, Output, Loop)):
-            from bliss.common import session
-
-            parents_list = [instance_object.controller]
-            if isinstance(instance_object, Loop):
-                children_list = [instance_object.input, instance_object.output]
-            else:
-                parents_list.append("counters")
-                children_list = []
-
-            session.get_current().map.register(
-                instance_object,
-                parents_list=parents_list,
-                children_list=children_list,
-                tag=instance_object.name,
-            )
+        if add_axes_counters:
+            update_map_for_object(instance_object)  # , add_axes_counters)
 
         return instance_object
 

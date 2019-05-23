@@ -8,9 +8,9 @@
 import pytest
 
 from bliss.common.mapping import Map
+from bliss.common.logtools import create_logger_name
 import networkx as nx
 import logging
-from typing import Generator
 
 
 class SimpleNode:
@@ -55,6 +55,14 @@ def complex_beamline(beamline):
     beamline.register("m0")
     beamline.register("Serial_1", parents_list=["Contr_1", "comms"], tag="Serial_1")
     beamline.register("TcpIp", parents_list=["Contr_2", "comms"], tag="TcpIp")
+
+    class A:
+        pass
+
+    a = A()
+    beamline.register(a)
+    assert create_logger_name(beamline.G, id(a)) == "session.controllers.A"
+
     return beamline
 
 
@@ -192,14 +200,14 @@ def test_format_node_1(beamline):
 
 def test_check_formatting_1(beamline):
     """Should plot only the id as fakearg doesn't exists"""
-    beamline.update_all_keys("fakearg+id->name", dict_key="mykey")
+    beamline._update_key_for_nodes("fakearg+id->name", dict_key="mykey")
     for el in beamline.G:
         assert beamline.G.node[el]["mykey"] == str(el)
 
 
 def test_check_formatting_2(beamline):
     """Should plot only the id as fakearg doesn't exists"""
-    beamline.update_all_keys("fakearg+id->name")
+    beamline._update_key_for_nodes("fakearg+id->name")
     for el in beamline.G:
         assert beamline.G.node[el]["label"] == str(el)
 
@@ -207,7 +215,7 @@ def test_check_formatting_2(beamline):
 def test_check_formatting_3(beamline):
     tn = SimpleNode(attr="1234")
     beamline.register(tn, tag="myname")  # under devices
-    beamline.update_all_keys("tag->name->id", dict_key="ee")
+    beamline._update_key_for_nodes("tag->name->id", dict_key="ee")
     for el in beamline.G:
         if el == id(tn):  # SimpleNode should have a tag=myname
             assert beamline.G.node[el]["ee"] == "myname"
@@ -217,19 +225,19 @@ def test_check_formatting_3(beamline):
 
 
 def test_bad_formatting(beamline):
-    beamline.update_all_keys("asda11@@@1", dict_key="ee")
+    beamline._update_key_for_nodes("asda11@@@1", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]  # check existance
         assert beamline.G.node[el]["ee"] == ""  # check isnull string
-    beamline.update_all_keys("!!!!", dict_key="ee")
+    beamline._update_key_for_nodes("!!!!", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
-    beamline.update_all_keys("_2aasdad1", dict_key="ee")
+    beamline._update_key_for_nodes("_2aasdad1", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
-    beamline.update_all_keys("2", dict_key="ee")
+    beamline._update_key_for_nodes("2", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
@@ -251,8 +259,8 @@ def test_deleted_instance(beamline):
 
 
 def manual_test_draw_matplotlib(complex_beamline):
-    complex_beamline.map_draw_matplotlib(format_node="tag+name->name->inst.__class__")
+    complex_beamline.map_draw_matplotlib(format_node="tag+name->name->class")
 
 
 def manual_test_draw_pygraphviz(complex_beamline):
-    complex_beamline.map_draw_pygraphviz(format_node="name->tag->id->inst.__class__")
+    complex_beamline.map_draw_pygraphviz(format_node="name->tag->id->class")

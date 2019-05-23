@@ -187,12 +187,11 @@ If you need something more machine-friendly the way to go is:
 
 ```python
 m = session.get_current().map
-m.update_all_keys(format_string="tag->inst.name->inst.__class__->id", dict_key="label")
+m.update_labels(format_string="tag->inst.name->class->id")
 ```
 
-This will update a key,value pair inside the DiGraph (default key is `label`) with the values
-introspected from the instance as defined by format_string. 
-This could be used by scripts or future modules to extract info from the graph.
+This will update the label attribute of each node inside the DiGraph with the values
+computed from the instance through the format_string. 
 
 More detailed information about the mini-language can be retrieved with:
 

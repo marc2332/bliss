@@ -477,7 +477,7 @@ def create_logger_name(G, node_id):
         # search before through controllers
         path = nx.shortest_path(G, "controllers", node_id)
         return "session." + ".".join(
-            format_node(G, n, format_string="tag->name->__class__") for n in path
+            format_node(G, n, format_string="tag->name->class->id") for n in path
         )
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
         pass
@@ -485,12 +485,12 @@ def create_logger_name(G, node_id):
         # search next starting from session
         path = nx.shortest_path(G, "session", node_id)
         return ".".join(
-            format_node(G, n, format_string="tag->name->__class__") for n in path
+            format_node(G, n, format_string="tag->name->class->id") for n in path
         )
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
         pass
 
-    return format_node(G, node_id, format_string="tag->name->__class__")
+    return format_node(G, node_id, format_string="tag->name->class->id")
 
 
 def map_update_loggers(G):

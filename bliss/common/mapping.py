@@ -8,6 +8,7 @@ import networkx as nx
 from functools import wraps, partial
 import weakref
 import logging
+import subprocess
 
 __all__ = ["Map", "format_node"]
 
@@ -99,14 +100,16 @@ class Map:
         for attr in self.node_attributes_list:
             # Adding attributes from the node_attributes_list
             # attributes can be appended also at runtime
-            if hasattr(instance, attr):
+            try:
                 node[attr] = getattr(instance, attr)
+            except AttributeError:
+                pass
 
-        for name, value in kwargs:
+        for key, value in kwargs.items():
             # populating self defined attributes
-            if self.G.node[map_id(instance)].get(name):
-                logger.debug("Overwriting node {name}")
-            node[name] = value
+            if self.G.node[map_id(instance)].get(key):
+                logger.debug("Overwriting node {key}")
+            node[key] = value
 
         # parents
         for inst in parents_list:
@@ -247,44 +250,7 @@ class Map:
             return True
         return False
 
-    def get_node_name(self, node):
-        """
-        Creates a name for the node introspecting node attributes
-
-        Args:
-            id_: python id of the node instance 'id(instance)'
-
-        Returns:
-            str : chosen name for the node
-        """
-        id_ = node if isinstance(node, int) else map_id(node)
-        if self.G.node[id_].get("tag"):  # will use the tag
-            node_name = self.G.node[id_].get("tag")
-        if isinstance(
-            self.G.node[id_].get("instance"), str
-        ):  # if instance is a string we use it
-            node_name = self.G.node[id_].get("instance")
-        elif hasattr(self.G.node[id_].get("instance"), "name"):  # if it has a name
-            node_name = self.G.node[id_].get("instance").name
-        elif hasattr(self.G.node[id_].get("instance"), "address"):
-            node_name = self.G.node[id_].get("instance").address
-        elif hasattr(self.G.node[id_].get("instance"), "class"):
-            node_name = (
-                str(getattr(self.G.node[id_]["instance"], "class"))
-                .split("'")[1]
-                .lstrip("bliss.")
-            )
-        elif hasattr(self.G.node[id_].get("instance"), "__class__"):
-            node_name = (
-                str(getattr(self.G.node[id_]["instance"], "__class__"))
-                .split("'")[1]
-                .lstrip("bliss.")
-            )
-        else:
-            node_name = self.G.node[id_]
-        return node_name
-
-    def format_node(self, node, format_string="tag->inst.name->inst.__class__->id"):
+    def format_node(self, node, format_string):
         return format_node(self.G, node, format_string)
 
     def add_map_handler(self, func):
@@ -299,14 +265,14 @@ class Map:
                 self.G.add_edge("controllers", node)
                 logger.debug(f"Added parent to {node}")
 
-    def draw_matplotlib(self, format_node: str = "tag->name->id"):
+    def draw_matplotlib(self, format_node: str = "tag->name->class->id"):
         """
         Simple tool to draw the map with matplotlib
         """
         try:
             import matplotlib.pyplot as plt
 
-            self.update_all_keys(format_node)
+            self.update_labels(format_node)
             labels = {node: self.G.node[node]["label"] for node in self.G}
             nx.draw_networkx(self.G, with_labels=True, labels=labels)
             plt.show()
@@ -320,13 +286,13 @@ class Map:
         try:
             from networkx.drawing.nx_agraph import graphviz_layout, to_agraph
 
-            self.update_all_keys(format_node)
+            self.update_labels(format_node)
             C = to_agraph(self.G)
             C.write(f"{filename}.dot")
         except ImportError:
             logger.error("Missing pygraphviz package")
 
-    def draw_pygraphviz(self, filename="graph", format_node="tag->name->id"):
+    def draw_pygraphviz(self, filename="graph", format_node="tag->name->class->id"):
         """
         Simple tool to draw the map into graphviz format
 
@@ -335,8 +301,6 @@ class Map:
                       create a filename.dot and filename.png
         """
         self.save_to_dotfile(filename=filename, format_node=format_node)
-
-        import subprocess
 
         try:
             subprocess.run(["dot", f"{filename}.dot", "-Tpng", "-o", f"{filename}.png"])
@@ -348,8 +312,8 @@ class Map:
         except Exception:
             logger.exception("Exception opening xdg-open")
 
-    def update_all_keys(
-        self, format_string="tag->inst.name->inst.__class__->id", dict_key="label"
+    def _update_key_for_nodes(
+        self, format_string="tag->name->class->id", dict_key="label"
     ):
         """
         Create or recreate a key,value pair inside the node dictionary 
@@ -358,30 +322,29 @@ class Map:
         the graph passing node proper names to 'label' attribute that
         will be read by pygraphviz
 
-        It is useful also for logging to create a proper logger name for
-        the node.
-
         Args:
             format_string: formatting string (see method format_node for details)
             dict_key: the output key that will be used to store values inside node's dictionary
 
         Examples:
-            >>> G.update_all_keys("inst.__class__", dict_key='logger_name')
+            >>> G.update_key_for_nodes("class", dict_key='logger_name')
             This creates a key,value pair inside the node's dict called
             'logger_name' and assigns the name of the instance class or empty
 
-            >>> G.update_all_keys("tag+address->id", dict_key='description')
+            >>> G.update_key_for_nodes("tag+address->id", dict_key='description')
             This creates a key,value pair inside the node's dict called
             'description' and assigns the tag plus address or if not found
             the id of the node
-
         """
         for n in self.G:
             value = self.format_node(n, format_string=format_string)
             self.G.node[n][dict_key] = value
 
+    def update_labels(self, format_string="tag->name->class->id"):
+        self._update_key_for_nodes(format_string, "label")
 
-def format_node(graph, node, format_string="tag->inst.name->inst.__class__->id"):
+
+def format_node(graph, node, format_string="tag->name->class->id"):
     """
     It inspects the node attributes to create a proper representation
 
@@ -413,16 +376,24 @@ def format_node(graph, node, format_string="tag->inst.name->inst.__class__->id")
     n = node
     format_arguments = format_string.split("->")
     value = ""  # clears the dict_key
+    reference = G.node[n].get("instance")
+    inst = reference if isinstance(reference, str) else reference()
+    if inst is None:
+        raise RuntimeError(
+            "Trying to get string representation of garbage collected node instance"
+        )
+
     for format_arg in format_arguments:
         # known arguments
         all_args = []
         for arg in format_arg.split("+"):
             if arg == "id":
                 all_args.append(str(n))
+            elif arg == "class":
+                if not isinstance(inst, str):
+                    all_args.append(inst.__class__.__name__)
             elif arg.startswith("inst"):
                 attr_name = arg[5:]  # separates inst. from the rest
-                reference = G.node[n].get("instance")
-                inst = reference if isinstance(reference, str) else reference()
                 if len(attr_name) == 0:  # requested only instance
                     all_args.append(str(inst))
                 if hasattr(inst, attr_name):

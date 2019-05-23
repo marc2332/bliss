@@ -12,31 +12,40 @@ has been put in place in order to facilitate the work on beamlines.
 
 To update BLISS on an ESRF installation:
 
-* for production (in `bliss` Conda environement):
-     * update the conda package:
-         * `conda update bliss`
-         * or `conda install bliss=X.Y.Z`
+#### production (bliss)
+For production i.e in `bliss` Conda environement, update the conda package:
+     * `conda update bliss`
+     * or `conda install bliss=X.Y.Z`
 
-* for development (in `bliss_env` Conda environement):
-     * update bliss repository:
+#### development (bliss_dev)
+
+For development, i.e in `bliss_env` Conda environement:
+
+* update bliss repository:
      
-     `cd local/bliss.git/`
+    `cd local/bliss.git/`
+    
+    `git pull`
 
-     `git pull`
+* install up-to-date dependencies:
 
-     * install up-to-date dependencies:
+    `conda install --file ./requirements-conda.txt`
 
-     `conda install --file ./requirements-conda.txt`
-
-     * Pip-install BLISS making a link from conda environmnet
-       directory to git repository:
+* Pip-install BLISS making a link from conda environment directory pointing to
+  git repository:
        
-       `pip install --no-deps -e .`
+      `pip install --no-deps -e .`
 
 !!! note
 
-    Take care to have Conda channels up-to-date.
-
+    Take care to have Conda channels up-to-date. (with `conda info`) and correct if
+    needed:
+    
+    ```bash
+    $ conda config --env --add channels esrf-bcu
+    $ conda config --env --append channels conda-forge
+    $ conda config --env --append channels tango-controls
+    ```
 
 ## Installation outside ESRF
 
@@ -51,14 +60,14 @@ name of the environment can - of course - be chosen freely):
     ESRF BCU conda channels need to be configured, as well as channels
     providing BLISS dependencies
 
-```bash
-$ conda create --name bliss_env
-$ conda activate bliss_env
-$ conda config --env --add channels esrf-bcu
-$ conda config --env --append channels conda-forge
-$ conda config --env --append channels tango-controls
-$ conda install bliss
-```
+    ```bash
+    $ conda create --name bliss_env
+    $ conda activate bliss_env
+    $ conda config --env --add channels esrf-bcu
+    $ conda config --env --append channels conda-forge
+    $ conda config --env --append channels tango-controls
+    $ conda install bliss
+    ```
 
 ### From sources
 

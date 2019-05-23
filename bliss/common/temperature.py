@@ -13,7 +13,6 @@ import math
 
 import gevent
 import gevent.event
-from bliss.common import session
 from bliss.common.task import task
 from bliss.common.logtools import LogMixin
 from bliss.common.utils import with_custom_members
@@ -48,10 +47,6 @@ class Input(LogMixin):
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
-
-        session.get_current().map.register(
-            self, parents_list=[controller, "counters"], tag=f"{self.name}"
-        )
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -119,10 +114,6 @@ class Output(LogMixin):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
-
-        session.get_current().map.register(
-            self, parents_list=[controller, "counters"], tag=f"{self.name}"
-        )
 
     @property
     def controller(self):
@@ -387,21 +378,14 @@ class Loop(LogMixin):
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
-        self.__input = controller.get_object(config["input"][1:])
-        self.__output = controller.get_object(config["output"][1:])
+        self.__input = config.get("input")
+        self.__output = config.get("output")
         self._Pval = None
         self._Ival = None
         self._Dval = None
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
-
-        session.get_current().map.register(
-            self,
-            parents_list=[controller],
-            children_list=[self.__input, self.__output],
-            tag=f"{self.name}",
-        )
 
     @property
     def controller(self):
@@ -421,11 +405,15 @@ class Loop(LogMixin):
     @property
     def input(self):
         """ returns the loop input object """
+        if not isinstance(self.__input, Input):
+            self.__input = self.__input()
         return self.__input
 
     @property
     def output(self):
         """ returns the loop output object """
+        if not isinstance(self.__output, Output):
+            self.__output = self.__output()
         return self.__output
 
     def set(self, new_setpoint=None, wait=False, **kwargs):

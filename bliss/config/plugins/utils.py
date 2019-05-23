@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from bliss.config.static import get_config
 import re
 
 
@@ -103,6 +104,21 @@ def _parse_list(config, value, placeholder):
     return object_list
 
 
+class Reference:
+    def __init__(self, name, *args, **kwargs):
+        self.__name = name.lstrip("$")
+
+    @property
+    def name(self):
+        return self.__name
+
+    def __call__(self, *args, **kwargs):
+        return get_config().get(self.name)
+
+    def __str__(self):
+        return f"${self.name}"
+
+
 def replace_reference_by_object(
     config, item_cfg_node, ref_objects=None, placeholder=None
 ):
@@ -125,3 +141,9 @@ def replace_reference_by_object(
             if subref:
                 referenced_objects[name] = subref
             item_cfg_node.update(subdict)
+
+
+def replace_reference(config, item_cfg_node, ref_objects=None):
+    return replace_reference_by_object(
+        config, item_cfg_node, ref_objects, placeholder=Reference
+    )

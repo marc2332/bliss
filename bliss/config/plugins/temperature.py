@@ -5,59 +5,77 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import sys
+import itertools
+from bliss.common.temperature import Input, Output, Loop
+from bliss.config.plugins.utils import find_class, replace_reference
 
-from bliss.config.plugins.utils import find_class
 
+def create_objects_from_config_node(config, node):
+    if "inputs" in node or "outputs" in node or "loops" in node:
+        # asking for a controller
+        obj_name = None
+    else:
+        obj_name = node.get("name")
+        node = node.parent
 
-def create_objects_from_config_node(config, item_cfg_node):
-    parent_node = item_cfg_node.parent
-    item_name = item_cfg_node["name"]
+    controller_class_name = node.get("class")
+    controller_name = node.get("name")
+    controller_class = find_class(node, "bliss.controllers.temperature")
+    controller_module = sys.modules[controller_class.__module__]
 
-    inputs = list()
-    outputs = list()
-    loops = list()
-    names = dict()
-    for category, objects in [
-        ("inputs", inputs),
-        ("outputs", outputs),
-        ("ctrl_loops", loops),
-    ]:
-        pnode_cat = parent_node.get(category)
-        if pnode_cat:
-            for config_item in pnode_cat:
-                name = config_item.get("name")
-                objects.append((name, config_item))
-                names.setdefault(category, list()).append(name)
+    inputs, inputs_names = [], []
+    outputs, outputs_names = [], []
+    loops, loops_names = [], []
+    node = node.to_dict()
 
-    controller_class = find_class(parent_node, "bliss.controllers.temperature")
-    controller = controller_class(parent_node, inputs, outputs, loops)
+    for (
+        objects,
+        objects_names,
+        default_class,
+        default_class_name,
+        config_nodes_list,
+    ) in (
+        (inputs, inputs_names, Input, "", node.get("inputs", [])),
+        (outputs, outputs_names, Output, "", node.get("outputs", [])),
+        (loops, loops_names, Loop, "", node.get("ctrl_loops", [])),
+    ):
+        for config_dict in config_nodes_list:
+            replace_reference(config, config_dict)
+            if not isinstance(config_dict.get("name"), str):
+                # reference
+                object_class = config_dict.get("name")
+                object_name = object_class.name
+            else:
+                object_name = config_dict.get("name")
+                object_class_name = config_dict.get("class")
+                if object_class_name is None:
+                    object_class = default_class
+                    if object_class is None:
+                        try:
+                            object_class = getattr(
+                                controller_module, default_class_name
+                            )
+                        except AttributeError:
+                            pass
+                else:
+                    object_class = getattr(controller_module, object_class_name)
+            objects_names.append(object_name)
+            objects.append((object_name, object_class, config_dict))
 
-    cache_dict = dict()
-    for category in ("inputs", "outputs", "ctrl_loops"):
-        try:
-            cache_dict.update(
-                dict(zip(names[category], [controller] * len(names[category])))
-            )
-        except KeyError:
-            pass
+    controller = controller_class(node, inputs, outputs, loops)
 
-    # controller.initialize()
-    o = controller.get_object(item_name)
-    if item_name in dict(loops).keys():
-        referenced_object = o.config["input"][1:]
-        if referenced_object in controller._objects:
-            # referencing an object in same controller
-            o._Loop__input = controller._objects[referenced_object]
-        else:
-            o._Loop__input = config.get(referenced_object)
-        referenced_object = o.config["output"][1:]
-        if referenced_object in controller._objects:
-            # referencing an object in same controller
-            o._Loop__output = controller._objects[referenced_object]
-        else:
-            o._Loop__output = config.get(referenced_object)
+    controller._init()
 
-    return {item_name: o}, cache_dict
+    all_names = inputs_names + outputs_names + loops_names
+    cache_dict = dict(zip(all_names, [controller] * len(all_names)))
+    objects_dict = {}
+    if controller_name:
+        objects_dict[controller_name] = controller
+    if obj_name is not None:
+        obj = controller.get_object(obj_name)
+        objects_dict[obj_name] = obj
+    return objects_dict, cache_dict
 
 
 def create_object_from_cache(config, name, controller):

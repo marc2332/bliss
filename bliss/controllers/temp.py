@@ -32,6 +32,7 @@ controller:
             input: $thermo_sample   <- mandatory
             output: $heater         <- mandatory
 """
+import itertools
 
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
@@ -45,50 +46,25 @@ class Controller(LogMixin):
     """
 
     def __init__(self, config, inputs, outputs, loops):
-        mapping_name = config.get("name") or self.__class__.__name__.lower()
-        session.get_current().map.register(
-            self, parents_list=["controllers"], tag=mapping_name
-        )
-        # self._logger.info("on Controller")
         self.__config = config
-        self._inputs = dict()
-        self._outputs = dict()
-        self._loops = dict()
+        self.__name = config.get("name")
+        self._objects = {}
 
-        self.initialize()
+        session.get_current().map.register(self, parents_list=["controllers"])
 
-        for name, cfg in inputs:
-            self._logger.debug("  input name: %s" % (name))
-            self._logger.debug("  input config: %s" % (cfg))
-            new_input = Input(self, cfg)
-            self._inputs[name] = new_input
+        for name, klass, cfg in itertools.chain(inputs, outputs, loops):
+            self._logger.debug(f"  {klass.__name__} name: {name}")
+            self._logger.debug(f"  {klass.__name__} config: {cfg}")
+            new_obj = klass(self, cfg)
 
-            self.initialize_input(new_input)
+            self._objects[name] = new_obj
 
             # For custom attributes and commands.
-            set_custom_members(self, new_input)
+            set_custom_members(self, new_obj)
 
-        for name, cfg in outputs:
-            self._logger.debug("  output name: %s" % (name))
-            self._logger.debug("  output config: %s" % (cfg))
-            new_output = Output(self, cfg)
-            self._outputs[name] = new_output
-
-            self.initialize_output(new_output)
-
-            # For custom attributes and commands.
-            set_custom_members(self, new_output)
-
-        for name, cfg in loops:
-            self._logger.debug("  loops name: %s" % (name))
-            self._logger.debug("  loops config: %s" % (cfg))
-            new_loop = Loop(self, cfg)
-            self._loops[name] = new_loop
-
-            self.initialize_loop(new_loop)
-
-            # For custom attributes and commands.
-            set_custom_members(self, new_loop)
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def config(self):
@@ -109,7 +85,18 @@ class Controller(LogMixin):
         """
         self._logger.info("Controller:get_object: %s" % (name))
         # it is used by Loop class
-        return self._inputs.get(name, self._outputs.get(name, self._loops.get(name)))
+        return self._objects.get(name)
+
+    def _init(self):
+        self.initialize()
+
+        for obj in self._objects.values():
+            if isinstance(obj, Input):
+                self.initialize_input(obj)
+            elif isinstance(obj, Output):
+                self.initialize_output(obj)
+            elif isinstance(obj, Loop):
+                self.initialize_loop(obj)
 
     def initialize(self):
         """ 

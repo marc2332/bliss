@@ -7,7 +7,7 @@
 
 from bliss.config.conductor import client
 import pytest
-import os
+import sys, os
 
 
 def test_config_save(beacon, beacon_directory):
@@ -62,12 +62,12 @@ def test_references(beacon):
     s1vo = beacon.get("s1vo")
 
     try:
-        assert refs_cfg["scan"]["axis"].__repr__() == repr(m0)
-        assert refs_cfg["slits"][0]["axis"].__repr__() == repr(s1hg)
+        assert repr(refs_cfg["scan"]["axis"]) == repr(m0)
+        assert repr(refs_cfg["slits"][0]["axis"]) == repr(s1hg)
         assert refs_cfg["slits"][0]["position"] == 0
-        assert refs_cfg["slits"][1]["axis"].__repr__() == repr(s1vo)
+        assert repr(refs_cfg["slits"][1]["axis"]) == repr(s1vo)
         assert refs_cfg["slits"][1]["position"] == 1
-        assert refs_cfg["m0"].__repr__() == repr(m0)
+        assert repr(refs_cfg["m0"]) == repr(m0)
     finally:
         m0.__close__()
         s1hg.__close__()
@@ -93,8 +93,6 @@ class DummyObject:
 
 
 def test_inherited_package(beacon):
-    import sys, os
-
     try:
         sys.path.append(os.path.dirname(__file__))
         assert isinstance(beacon.get("dummy1"), DummyObject)

@@ -13,13 +13,12 @@ import pkgutil
 from bliss.common import axis as axis_module
 from bliss.common.axis import Axis
 from bliss.common.encoder import Encoder
-from bliss.config.static import Config, get_config
+from bliss.config.static import Config
 from bliss.common.tango import DeviceProxy
-from bliss.config.plugins.utils import find_class, replace_reference_by_object
+from bliss.config.plugins.utils import find_class, replace_reference
 import bliss.controllers.motors
 
 import gevent
-import hashlib
 import sys
 
 
@@ -313,21 +312,6 @@ def add_axis(cfg, request):
         )
 
 
-class Reference:
-    def __init__(self, name, *args, **kwargs):
-        self.__name = name.lstrip("$")
-
-    @property
-    def name(self):
-        return self.__name
-
-    def __call__(self, *args, **kwargs):
-        return get_config().get(self.name)
-
-    def __str__(self):
-        return f"${self.name}"
-
-
 def create_objects_from_config_node(config, node):
     if "axes" in node or "encoders" in node:
         # asking for a controller
@@ -338,13 +322,6 @@ def create_objects_from_config_node(config, node):
 
     controller_class_name = node.get("class")
     controller_name = node.get("name")
-    if controller_name is None:
-        h = hashlib.md5()
-        for axis_config in node.get("axes"):
-            name = axis_config.get("name")
-            if name is not None:
-                h.update(name.encode())
-        controller_name = h.hexdigest()
     controller_class = find_class(node, "bliss.controllers.motors")
     controller_module = sys.modules[controller_class.__module__]
     axes = list()
@@ -370,7 +347,7 @@ def create_objects_from_config_node(config, node):
         (switches, switches_names, None, "Switch", node.get("switches", [])),
     ):
         for config_dict in config_nodes_list:
-            replace_reference_by_object(config, config_dict, placeholder=Reference)
+            replace_reference(config, config_dict)
             if not isinstance(config_dict.get("name"), str):
                 # reference
                 object_class = config_dict.get("name")
@@ -402,12 +379,13 @@ def create_objects_from_config_node(config, node):
 
     all_names = axes_names + encoders_names + switches_names + shutters_names
     cache_dict = dict(zip(all_names, [controller] * len(all_names)))
-    ctrl = cache_dict.pop(obj_name, None)
-    if ctrl is not None:
+    objects_dict = {}
+    if controller_name:
+        objects_dict[controller_name] = controller
+    if obj_name is not None:
         obj = create_object_from_cache(None, obj_name, controller)
-        return {controller_name: controller, obj_name: obj}, cache_dict
-    else:
-        return {controller_name: controller}, cache_dict
+        objects_dict[obj_name] = obj
+    return objects_dict, cache_dict
 
 
 def create_object_from_cache(config, name, controller):

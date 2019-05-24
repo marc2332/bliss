@@ -16,6 +16,7 @@ import numpy
 from bliss.common.event import saferef
 from bliss.common import session
 import sys
+import copy
 import collections.abc
 
 
@@ -610,15 +611,32 @@ class autocomplete_property(property):
 
 def deep_update(source, overrides):
     """
-    Update a nested dictionary or similar mapping.
+    Update a nested dictionary
     Modify ``source`` in place.
 
-    Copied from https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth/32357112#32357112
+    initial idea based on https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth/32357112#32357112
     """
     for key, value in overrides.items():
-        if isinstance(value, collections.abc.Mapping) and value:
-            returned = deep_update(source.get(key, {}), value)
-            source[key] = returned
+        if isinstance(value, dict):
+            if key in source.keys() and isinstance(source[key], dict):
+                source[key] = deep_update(source[key], value)
+            else:
+                source[key] = recursive_dict_copy(value)
         else:
             source[key] = overrides[key]
+
     return source
+
+
+def recursive_dict_copy(dict_to_copy):
+    """
+    intermediat between copy.copy and copy.deepcopy
+    subdictionaries are copyied recursively while other references are kept untouched
+    :param dict_to_copy:
+    :return: copy of dict_to_copy with objects references for all object of other type than dict kept in place
+    """
+    new_dict = copy.copy(dict_to_copy)
+    for key, value in new_dict.items():
+        if isinstance(value, dict):
+            new_dict[key] = recursive_dict_copy(value)
+    return new_dict

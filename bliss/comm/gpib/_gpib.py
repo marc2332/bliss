@@ -153,18 +153,18 @@ class Prologix(LogMixin):
             self._logger.debug("Prologix::init() auto (read_after_write) set to 0")
             self._sock.write(b"++auto 0\n")
 
-            self._eos = self._gpib_kwargs["eos"]
-            if self._eos == "\r\n":
-                self._logger.debug_data("Prologix::init() eos set to 0 (%s)", self._eos)
+            self._eol = self._gpib_kwargs["eol"]
+            if self._eol == "\r\n":
+                self._logger.debug_data("Prologix::init() eos set to 0 (%s)", self._eol)
                 self._sock.write(b"++eos 0\n")
-            elif self._eos == "\r":
-                self._logger.debug("Prologix::init() eos set to 1 (%s)" % self._eos)
+            elif self._eol == "\r":
+                self._logger.debug("Prologix::init() eos set to 1 (%s)" % self._eol)
                 self._sock.write(b"++eos 1\n")
-            elif self._eos == "\n":
-                self._logger.debug("Prologix::init() eos set to 2 (%s)" % self._eos)
+            elif self._eol == "\n":
+                self._logger.debug("Prologix::init() eos set to 2 (%s)" % self._eol)
                 self._sock.write(b"++eos 2\n")
             else:
-                self._logger.debug("Prologix::init() eos set to 3 (%s)" % self._eos)
+                self._logger.debug("Prologix::init() eos set to 3 (%s)" % self._eol)
                 self._sock.write(b"++eos 3\n")
 
             self._logger.debug("Prologix::init() eoi set to 1")
@@ -356,7 +356,7 @@ class Gpib(LogMixin):
 
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eos="\n"):
+    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eol="\n"):
 
         self._gpib_kwargs = {
             "url": url,
@@ -364,10 +364,10 @@ class Gpib(LogMixin):
             "sad": sad,
             "tmo": tmo,
             "timeout": timeout,
-            "eos": eos,
+            "eol": eol,
         }
 
-        self._eos = eos
+        self._eol = eol
         self._timeout = timeout
         self._lock = lock.RLock()
         self._raw_handler = None
@@ -435,7 +435,7 @@ class Gpib(LogMixin):
 
     @try_open
     def _readline(self, eol):
-        local_eol = eol or self._eos
+        local_eol = eol or self._eol
         if not isinstance(local_eol, bytes):
             local_eol = local_eol.encode()
         url = self._gpib_kwargs.get("url")

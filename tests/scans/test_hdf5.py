@@ -215,18 +215,18 @@ def test_positioners_in_scan_info(alias_session, scan_tmpdir):
     # test that positioners are remaining in for a simple counter that does not update 'scan_info'
     s1 = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
     assert "positioners" in s1.scan_info["instrument"]
-    old_pos = s.scan_info["instrument"]["positioners"]
+    old_pos = s1.scan_info["instrument"]["positioners"]
     s1.run()
     assert "positioners" in s1.scan_info["instrument"]
-    assert s.scan_info["instrument"]["positioners"] == old_pos
+    assert s1.scan_info["instrument"]["positioners"] == old_pos
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, run=False)
     assert "positioners" in s2.scan_info["instrument"]
-    old_pos = s.scan_info["instrument"]["positioners"]
+    old_pos = s2.scan_info["instrument"]["positioners"]
     s2.run()
     assert "positioners" in s2.scan_info["instrument"]
-    assert s.scan_info["instrument"]["positioners"] == old_pos
+    assert s2.scan_info["instrument"]["positioners"] == old_pos
 
 
 def test_scan_info_cleaning(alias_session, scan_tmpdir):

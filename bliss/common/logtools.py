@@ -33,10 +33,11 @@ class LogMixin:
     @autocomplete_property
     def _logger(self, *args, **kwargs):
         m = session.get_current().map
-        id_ = id(self)
-        if id_ not in m.G:
-            return None
-        return m.G.node[id_]["_logger"]
+        id_ = map_id(self)
+        if id_ in m.G:
+            return m.G.node[id_]["_logger"]
+        n = m.register(self)
+        return n["_logger"]
 
 
 def improve_logger(logger_instance):

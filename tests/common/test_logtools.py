@@ -187,13 +187,9 @@ def test_LogMixin(params, caplog):
     beacon, log = params
 
     nmc = NotMappedController()
+    assert nmc._logger.name == "session.controllers.nmc"
     mc = MappedController()
-    with pytest.raises(AttributeError):
-        nmc.msg_debug()
-    with pytest.raises(AttributeError):
-        nmc.msg_debug_data()
-    with pytest.raises(AttributeError):
-        nmc.msg_info()
+    assert mc._logger.name == "session.controllers.mc"
 
     mc._logger.debugon()  # activates debug logging level
     expected = "Debug message"

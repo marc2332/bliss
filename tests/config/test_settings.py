@@ -9,6 +9,7 @@ import pytest
 from bliss.config import settings
 import pickle
 from bliss.common.axis import Axis
+import datetime
 
 
 class DummyObject(object):
@@ -192,9 +193,16 @@ def test_parameters_wardrobe_switch(session):
     dress = settings.ParametersWardrobe("dress")
     slots = ("head", "body", "legs")
     default = ("nothing", "t-shirt", "jeans")
+
     # creating default
     for k, v in zip(slots, default):
         dress.add(k, v)
+
+    check = dress.to_dict()
+    for k, v in zip(slots, default):
+        assert check[k] == v
+    len(check) == 5
+
     dress.switch("casual")  # on casual
     dress.head = "football hat"
     dress.switch("default")  # on default
@@ -207,7 +215,12 @@ def test_parameters_wardrobe_switch(session):
     with pytest.raises(KeyError):
         dress.legs
 
-    assert dress.to_dict() == {"head": "nothing", "body": "shirt"}
+    check = dress.to_dict()
+    assert check.get("head") == "nothing"
+    assert check.get("body") == "shirt"
+    assert check.get("_creation_date") is not None
+    assert isinstance(check.get("_last_accessed"), str)
+    assert len(check) == 4
 
     # testing configs method
     for suite in ("a", "b", "c"):
@@ -316,3 +329,91 @@ def test_wardrobe_show_table(session, capsys):
     assert "* football" in captured.out
     assert "* tennis" not in captured.out
     assert "tennis" in captured.out
+
+
+def test_wardrobe_get_current_config(session):
+    games = settings.ParametersWardrobe("games")
+    for name in "soccer tennis football squash".split():
+        # create and switch to different sets
+        games.switch(name)
+        assert games.current_config == name
+    for name in "soccer tennis football squash".split():
+        # just switch to different created sets
+        games.switch(name)
+        assert games.current_config == name
+
+
+def test_creation_time(session):
+    drinks = settings.ParametersWardrobe("drinks")
+    assert "wine" not in drinks.configs
+    drinks.switch("wine")
+    # get current time
+    now = datetime.datetime.now()
+    # convert string to datetime obj
+    creation_date = datetime.datetime.strptime(drinks.creation_date, "%Y-%m-%d-%H:%M")
+    assert abs(now - creation_date) < datetime.timedelta(seconds=60)
+    last_accessed = datetime.datetime.strptime(drinks.creation_date, "%Y-%m-%d-%H:%M")
+    assert abs(now - last_accessed) < datetime.timedelta(seconds=60)
+
+    # an empty Wardrobe has only creation/access info
+    food = settings.ParametersWardrobe("food")
+    assert len(food.to_dict()) == 2
+    creation_time = "2018-07-22-07:00"
+
+    food._creation_date = creation_time
+    food._last_accessed = creation_time
+
+    food.switch("first")
+    food.switch("default")
+    assert food.creation_date == creation_time
+    assert food.last_accessed != creation_time
+
+
+def test_from_dict_ok(session):
+    colors = settings.ParametersWardrobe("colors")
+    colors.add("background", "black")
+    colors.add("foreground", "white")
+    colors.switch("portrait")
+    new_colors = {"background": "yellow", "foreground": "blue"}
+
+    colors.from_dict(new_colors)
+    assert colors.background == "yellow"
+    assert colors.foreground == "blue"
+
+    colors.switch("default")
+
+    assert colors.background == "black"
+    assert colors.foreground == "white"
+
+    with pytest.raises(TypeError):
+        # attribute does not exist in Wardrobe
+        colors.from_dict({**new_colors, **{"border": "pink"}})
+
+
+def test_from_dict_not_ok(session):
+    cats = settings.ParametersWardrobe("cats")
+    with pytest.raises(TypeError):
+        cats.from_dict({"breed": "snowcat"})
+    with pytest.raises(TypeError):
+        cats.from_dict({})
+
+
+def test_creation_and_update_appear_on_shell(session, capsys):
+    fake = settings.ParametersWardrobe("fake")
+    print(fake)
+    captured = capsys.readouterr()
+    assert "last_accessed" in captured.out
+    assert "creation_date" in captured.out
+    fake.show_table()
+    captured = capsys.readouterr()
+    assert "last_accessed" in captured.out
+    assert "creation_date" in captured.out
+
+
+def test_non_removable(session):
+    fake = settings.ParametersWardrobe("fake", not_removable=("immortal",))
+    with pytest.raises(AttributeError):
+        fake.immortal  # not yet created
+    fake.add("immortal", "me")
+    with pytest.raises(AttributeError):
+        fake.remove(".immortal")

@@ -11,6 +11,8 @@ import pickle
 import keyword
 import re
 import reprlib
+import datetime
+import logging
 
 import numpy
 
@@ -18,6 +20,8 @@ from .conductor import client
 from bliss.common.utils import Null
 from bliss import setup_globals
 from tabulate import tabulate
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidValue(Null):
@@ -1133,10 +1137,11 @@ class ParametersWardrobe(metaclass=ParametersType):
     SLOTS = [
         "_proxy",
         "_proxy_default",
-        "_sets",
+        "_configs",
         "_wardr_name",
         "_property_attributes",
         "_not_removable",
+        "__update",
     ]
 
     def __init__(
@@ -1173,23 +1178,35 @@ class ParametersWardrobe(metaclass=ParametersType):
                            default values (that usually should not be removed)
             **keys: other key,value pairs will be directly passed to Redis proxy
         """
+        logger.debug(
+            f"""In {type(self).__name__}.__init__({name}, 
+                      default_values={default_values}, 
+                      property_attributes={property_attributes}, 
+                      not_removable={not_removable}
+                      )"""
+        )
+
         if not default_values:
             default_values = {}
         if not property_attributes:
-            property_attributes = []
+            property_attributes = set()
         if not not_removable:
-            not_removable = []
+            not_removable = set()
+
+        self.__update = True
 
         # different set names are stored in a queue where
         # the first item is the currently used one
-        self._sets = QueueSetting("parameters:%s" % name)
+        self._configs = QueueSetting("parameters:%s" % name)
         self._wardr_name = name  # name of the ParametersWardrobe
-        self._property_attributes = property_attributes  # list of property_attributes
-        self._not_removable = not_removable
+        self._property_attributes = set(
+            property_attributes
+        )  # set of property_attributes
+        self._not_removable = set(not_removable)
 
-        if "default" not in self._sets:
-            # if it is a new created one, append default set
-            self._sets.append("default")
+        # adding attributes for last_accessed and creation_date
+        self._property_attributes.add("last_accessed")
+        self._property_attributes.add("creation_date")
 
         # creates the two needed proxies
         self._proxy = BaseHashSetting(self._hash("default"), **keys)
@@ -1201,7 +1218,12 @@ class ParametersWardrobe(metaclass=ParametersType):
                 # add only if default values does not exist
                 self.add(k, v)
 
-        self.switch(self._sets[0])
+        if "default" not in self._configs:
+            # New created Wardrobe, switch to default
+            self.switch("default")
+        else:
+            # Existant Wardrobe, switch to last used
+            self.switch(self.current_config)
 
     def _hash(self, name):
         """
@@ -1219,45 +1241,51 @@ class ParametersWardrobe(metaclass=ParametersType):
             "remove",
             "switch",
             "configs",
+            "current_config",
             "to_dict",
             "from_dict",
             "freeze",
             "show_table",
+            "creation_date",
+            "last_accessed",
         ]
 
     def to_dict(self):
         """
         Retrieve all parameters inside a set in a dict form
         If a parameter is not present inside the set, the
-        default will be taken, property (computed) attributes are included.
+        default will be taken, property (computed) attributes are NOT included.
 
         Returns:
             dictionary with (parameter,value) pairs
         """
         return {
             **self._get_redis_single_set("default"),
-            **self._get_redis_single_set(self._sets[0]),
-            **{attr: getattr(self, attr) for attr in self._property_attributes},
+            **self._get_redis_single_set(self.current_config),
         }
 
     def from_dict(self, d):
         """
         Updates the current set of values from a dictionary.
 
-        You should provide a dictionary with the same attribute names as
+        You should provide a dictionary that contains the same attribute names as
         current existing inside the ParametersWardrobe you want to update.
+        Giving more names will log a WARNING level message.
         Property attributes should not be given.
 
         Raises:
-            TypeError: Dictionary empty or attribute different from current ParameterWardrobe attributes
+            AttributeError, TypeError
         """
-        if (
-            d
-            and set(self._get_redis_single_set("default").keys()).difference(d.keys())
-            == set()
-        ):
-            # if dictionary not empty and attribute names are same as currente set of parameters
-            for name, value in d.items():
+        logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
+        if not d:
+            raise TypeError("Dictionary empty")
+
+        redis_default_attrs = set(self._get_redis_single_set("default").keys())
+        found_attrs = set()
+
+        for name, value in d.items():
+            if name in redis_default_attrs:
+                found_attrs.add(name)  # we keep track of remaining values
                 setattr(
                     self.__class__,
                     name,
@@ -1265,9 +1293,13 @@ class ParametersWardrobe(metaclass=ParametersType):
                         self._proxy, self._proxy_default, name, value, True
                     ),
                 )
-        else:
-            raise TypeError(
-                f"Dictionary empty or attribute different from current {type(self).__name__} attributes"
+            else:
+                raise TypeError(
+                    f"Attribute '{name}' does not find an equivalent in current set"
+                )
+        if found_attrs != redis_default_attrs:
+            logger.warning(
+                f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
             )
 
     def show_table(self):
@@ -1279,20 +1311,18 @@ class ParametersWardrobe(metaclass=ParametersType):
         - parameters with a name starting with underscore are omitted
         """
 
-        redis_data = self._get_redis_all_sets()
+        all_sets = self._get_all_sets()
+        all_sets_redis = self._get_redis_all_sets()
 
-        column_names = self._sets
+        column_names = self._configs
         column_repr = (
-            self._sets[0] + " (SELECTED)",
-            *self._sets[1:],
+            self.current_config + " (SELECTED)",
+            *self.configs[1:],
         )  # adds SELECTED to first name
-        row_names = (
-            # gets attribute names, remove underscore attributes
-            *(k for k in redis_data["default"].keys() if not k.startswith("_")),
-            *(k for k in self._property_attributes if not k.startswith("_")),
-        )
 
-        # data creation
+        # gets attribute names, remove underscore attributes
+        row_names = (k for k in all_sets["default"].keys() if not k.startswith("_"))
+
         data = list()
         data.append(column_repr)  # set names on first row
         for row_name in sorted(row_names):
@@ -1300,11 +1330,11 @@ class ParametersWardrobe(metaclass=ParametersType):
             row_data.append(row_name)
             for col in column_names:
                 if row_name in self._property_attributes:
-                    cell = "# " + str(getattr(self, row_name))
-                elif row_name in redis_data[col].keys():
-                    cell = str(redis_data[col][row_name])
+                    cell = "# " + str(all_sets[col][row_name])
+                elif row_name in all_sets_redis[col].keys():
+                    cell = str(all_sets[col][row_name])
                 else:
-                    cell = "* " + str(redis_data["default"][row_name])
+                    cell = "* " + str(all_sets["default"][row_name])
 
                 row_data.append(cell)
             data.append(row_data)
@@ -1315,10 +1345,12 @@ class ParametersWardrobe(metaclass=ParametersType):
         print(tabulate(data, headers="firstrow", stralign="right"))
 
     def __repr__(self):
-        return self._repr(self.to_dict())
+        return self._repr(self._get_set(self.current_config))
 
     def _repr(self, d):
-        rep_str = f"Parameters ({self._sets[0]}) - " + " ".join(self._sets[1:]) + "\n\n"
+        rep_str = (
+            f"Parameters ({self.current_config}) - " + " | ".join(self.configs) + "\n\n"
+        )
         max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
         for key, value in sorted(d.items()):
@@ -1327,31 +1359,42 @@ class ParametersWardrobe(metaclass=ParametersType):
             rep_str += str_format % (key, value)
         return rep_str
 
-    def _get_redis_single_set(self, name):
+    def _get_redis_single_set(self, name) -> dict:
         """
-        Retrieve a single set of parameters
+        Retrieve a single set of parameters from redis
         """
         try:
             name_backup = self._proxy._name
-            if name in self._sets:
+            if name in self.configs:
                 self._proxy._name = self._hash(name)
-                return self._proxy.get_all()
+                results = self._proxy.get_all()
+                """
+                # avoid returning parameters starting with underscore
+                results = {k:v for k,v in self._proxy.get_all().items() if not k.startswith('_')}
+                for prop in self._property_attributes:
+                    # retrieves properties for the set
+                    results[prop] = getattr(self, prop)
+                    """
+                return results
             return {}
         finally:
             self._proxy._name = name_backup
 
-    def _get_redis_all_sets(self):
+    def _get_redis_all_sets(self) -> dict:
         """
         Retrieve all parameters of all sets from redis as dict of dicts
+
+        Returns:
+            dict of dicts: Example: {'first_set':{...}, 'second_set':{...}}
         """
         params_all = {}
 
-        for config in self._sets:
+        for config in self.configs:
             params = self._get_redis_single_set(config)
             params_all[config] = {**params}
         return params_all
 
-    def _get_set(self, name):
+    def _get_set(self, name) -> dict:
         """
         Retrieve all parameters inside a set
         Taking from default if not present inside the set
@@ -1359,12 +1402,37 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         Returns:
             dictionary with (parameter,value) pairs
+
+        Raises:
+            NameError
         """
-        return {
-            **self._get_redis_single_set("default"),
-            **self._get_redis_single_set(self._sets[0]),
-            **self._property_attributes,
-        }
+
+        if name not in self.configs:
+            raise NameError(f"The set name '{name}' does not exist")
+
+        self.__update = False  # to not change current set
+        self.switch(name)
+
+        attrs = self._get_redis_single_set("default").keys()
+        set_ = {}
+        for attr in list(attrs) + list(self._property_attributes):
+            set_[attr] = getattr(self, attr)
+
+        self.switch(self.current_config)  # back to current config
+        self.__update = True
+        return set_
+
+    def _get_all_sets(self):
+        """
+        Retrieve all parameters of all sets from as dict of dicts
+        Property are included
+        """
+        params_all = {}
+
+        for config in self.configs:
+            params = self._get_set(config)
+            params_all[config] = {**params}
+        return params_all
 
     def add(self, name, value=None):
         """
@@ -1380,6 +1448,9 @@ class ParametersWardrobe(metaclass=ParametersType):
         Raises:
             NameError: Existing attribute name
         """
+        logger.debug(
+            f"In {type(self).__name__}({self._wardr_name}).add({name}, value={value})"
+        )
         if name in self._property_attributes:
             raise NameError(f"Existing computed property with this name: {name}")
 
@@ -1410,7 +1481,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         """
         redis_params = {
             **self._get_redis_single_set("default"),
-            **self._get_redis_single_set(self._sets[0]),
+            **self._get_redis_single_set(self.current_config),
         }
         for name, value in redis_params.items():
             setattr(
@@ -1438,20 +1509,21 @@ class ParametersWardrobe(metaclass=ParametersType):
 
             >>> p.remove('casual') # without dot to remove a complete set
         """
+        logger.debug(f"In {type(self).__name__}({self._wardr_name}).remove({param})")
 
         if param.startswith("."):
             # removing a parameter from every set
             param = param[1:]
             if param in self._not_removable or param in self._property_attributes:
                 raise AttributeError("Can't remove attribute")
-            for param_set in self._sets:
+            for param_set in self.configs:
                 pr = BaseHashSetting(self._hash(param_set))
                 pr.remove(param)
-        elif param != "default" and param in self._sets:
+        elif param != "default" and param in self.configs:
             # removing a set of parameters
             pr = BaseHashSetting(self._hash(param))
             pr.clear()
-            self._sets.remove(param)  # removing from Queue
+            self._configs.remove(param)  # removing from Queue
         else:
             raise NameError(f"Can't remove {param}")
 
@@ -1478,25 +1550,39 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             None
         """
+        logger.debug(f"In {type(self).__name__}.switch({name},copy={copy})")
         for key, value in dict(self.__class__.__dict__).items():
             if isinstance(value, self.DESCRIPTOR):
                 delattr(self.__class__, key)
 
-        # removing and prepending the name so it will be the first
-        self._sets.remove(name)
-        self._sets.prepend(name)
-
         self._proxy._name = self._hash(name)
+
+        # if is a new set we will set the creation date
+        if name not in self.configs:
+            self._proxy["_creation_date"] = datetime.datetime.now().strftime(
+                "%Y-%m-%d-%H:%M"
+            )
+
+        # updating last_accessed
+        if self.__update:
+            self._proxy["_last_accessed"] = datetime.datetime.now().strftime(
+                "%Y-%m-%d-%H:%M"
+            )
 
         # adding default
         for key in self._proxy_default.keys():
             self._populate(key)
 
         # copy values from existing set
-        if copy and copy in self._sets:
+        if copy and copy in self.configs:
             copy_params = self._get_redis_single_set(copy)
             for key, value in copy_params.items():
                 self._populate(key, value=value)
+
+        # removing and prepending the name so it will be the first
+        if self.__update:
+            self._configs.remove(name)
+            self._configs.prepend(name)
 
         for key in self._proxy.keys():
             self._populate(key)
@@ -1507,7 +1593,23 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             A list containing all sets names
         """
-        return list(self._sets)
+        return list(self._configs)
+
+    @property
+    def current_config(self):
+        """
+        Returns:
+            Name of the current selected set
+        """
+        return self.configs[0]
+
+    @property
+    def last_accessed(self):
+        return self._last_accessed
+
+    @property
+    def creation_date(self):
+        return self._creation_date
 
 
 if __name__ == "__main__":

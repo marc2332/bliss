@@ -206,7 +206,7 @@ class ScanSaving(ParametersWardrobe):
         return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
 
     def __repr__(self):
-        d = self.to_dict()
+        d = self._get_set(self.current_config)
         d["scan_name"] = "scan name"
         d["scan_number"] = "scan number"
         d["img_acq_device"] = "<images_* only> acquisition device name"

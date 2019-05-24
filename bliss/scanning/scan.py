@@ -971,6 +971,12 @@ class Scan:
                     self.writer.finalize_scan_entry(self)
                     self.writer.close()
 
+                ### we should think of a better way to clean up user_scan_meta
+                instr_keys = self.user_scan_meta.instrument.names
+                instr_keys.remove("positioners")
+                for key in instr_keys:
+                    self.user_scan_meta.instrument.remove(key)
+
                 # Add scan to the globals
                 SCANS.append(self)
                 # Disconnect events

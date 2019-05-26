@@ -9,6 +9,7 @@ import pytest
 
 from bliss.common.mapping import Map
 from bliss.common.logtools import create_logger_name
+from bliss.common import session as session_module
 import networkx as nx
 import logging
 
@@ -253,6 +254,50 @@ def test_deleted_instance(beamline):
     assert id_tn in beamline.G
     del tn
     assert id_tn not in beamline.G
+
+
+def test_session_map(beacon, s1hg, roby):
+    session = session_module.get_current()
+    m = session.map
+    sr = session.config.get("sample_regulation")
+    heater = session.config.get("heater")
+    # m.draw_pygraphviz()
+
+    assert len(m) == 33
+    axes = list(m.find_children("axes"))
+    assert id(roby) in axes
+    assert id(s1hg) in axes
+    assert len(axes) == 2
+    counters = list(m.find_children("counters"))
+    assert id(heater) in counters
+    assert len(counters) == 1
+    slits_children = m.find_children(id(s1hg.controller))
+    for real_axis in s1hg.controller.reals:
+        assert id(real_axis) in slits_children
+    assert id(s1hg) in slits_children
+    s1hg_pred = m.find_predecessors(id(s1hg))
+    assert len(s1hg_pred) == 2
+    assert id(s1hg.controller) in s1hg_pred
+    sr_children = m.find_children(id(sr))
+    assert len(sr_children) == 2
+    inp, outp = sr.input, sr.output
+    assert outp is heater
+    assert id(inp) in sr_children
+    assert id(outp) in sr_children
+    inp_pred = m.find_predecessors(id(inp))
+    outp_pred = m.find_predecessors(id(outp))
+    outp_pred.remove("counters")
+    assert set(outp_pred) == set(inp_pred)
+    assert "motion_hooks" in m.find_children("controllers")
+    motion_hooks_children = m.find_children("motion_hooks")
+    assert len(motion_hooks_children) == 3
+    hooked_m0 = beacon.get("hooked_m0")
+    hooked_m0_pred = m.find_predecessors(id(hooked_m0))
+    assert "axes" in hooked_m0_pred
+    hooked_m0_pred.remove("axes")
+    assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
+        ["controllers", "motion_hooks"]
+    )
 
 
 #########################  MANUAL TESTING  ###################################

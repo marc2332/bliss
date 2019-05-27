@@ -16,6 +16,7 @@ import numpy
 from bliss.common.event import saferef
 from bliss.common import session
 import sys
+import copy
 import collections.abc
 
 
@@ -608,17 +609,40 @@ class autocomplete_property(property):
     pass
 
 
-def deep_update(source, overrides):
-    """
-    Update a nested dictionary or similar mapping.
-    Modify ``source`` in place.
+def deep_update(d, u):
+    """Do a deep merge of one dict into another.
 
-    Copied from https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth/32357112#32357112
+    This will update d with values in u, but will not delete keys in d
+    not found in u at some arbitrary depth of d. That is, u is deeply
+    merged into d.
+
+    Args -
+      d, u: dicts
+
+    Note: this is destructive to d, but not u.
+
+    Returns: None
     """
-    for key, value in overrides.items():
-        if isinstance(value, collections.abc.Mapping) and value:
-            returned = deep_update(source.get(key, {}), value)
-            source[key] = returned
-        else:
-            source[key] = overrides[key]
-    return source
+    stack = [(d, u)]
+    while stack:
+        d, u = stack.pop(0)
+        for k, v in u.items():
+            if not isinstance(v, collections.abc.Mapping):
+                # u[k] is not a dict, nothing to merge, so just set it,
+                # regardless if d[k] *was* a dict
+                d[k] = v
+            else:
+                # note: u[k] is a dict
+
+                # get d[k], defaulting to a dict, if it doesn't previously
+                # exist
+                dv = d.setdefault(k, {})
+
+                if not isinstance(dv, collections.abc.Mapping):
+                    # d[k] is not a dict, so just set it to u[k],
+                    # overriding whatever it was
+                    d[k] = v
+                else:
+                    # both d[k] and u[k] are dicts, push them on the stack
+                    # to merge
+                    stack.append((dv, v))

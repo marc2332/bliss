@@ -195,3 +195,38 @@ def test_deep_update():
     overrides = {"hello": {"value": 2}}
     deep_update(source, overrides)
     assert source == {"hello": {"value": 2, "no_change": 1}}
+
+    # check for changing types
+    source = {"a": 1, "b": 2}
+    overrides = {"a": {"value": 2}}
+    deep_update(source, overrides)
+    assert source == {"a": {"value": 2}, "b": 2}
+
+    # check for correct copying
+    subsource = {"hello": {"value": {}, "no_change": 1}}
+    source = {"a": 1}
+    overrides = {"a": {"value": 2}, "subsource": subsource}
+    deep_update(source, overrides)
+    assert source == {
+        "a": {"value": 2},
+        "subsource": {"hello": {"value": {}, "no_change": 1}},
+    }
+    subsource.pop("hello")
+    assert source == {
+        "a": {"value": 2},
+        "subsource": {"hello": {"value": {}, "no_change": 1}},
+    }
+
+    # check references
+    class A:
+        def __init__(self, arg):
+            self.myatt = arg
+
+    a = A("a")
+    source = {"a": 1}
+    overrides = {"a": a}
+    deep_update(source, overrides)
+    assert id(a) == id(source["a"])
+    overrides = {"a": {"aa": a}}
+    deep_update(source, overrides)
+    assert id(a) == id(source["a"]["aa"])

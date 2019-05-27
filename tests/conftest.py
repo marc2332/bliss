@@ -17,7 +17,7 @@ import gevent
 
 from bliss.common import subprocess
 from bliss.common import session as session_module
-
+from bliss import setup_globals
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.channels import clear_cache, Bus
@@ -108,6 +108,7 @@ def clean_session():
     if current_session is not None:
         current_session.close()
     assert session_module.CURRENT_SESSION is None
+    setup_globals.__dict__.clear()
 
 
 @pytest.fixture(scope="session")

@@ -15,6 +15,7 @@ Information are classify into categories like:
 """
 __all__ = ["get_user_scan_meta"]
 
+import copy as copy_module
 import enum
 from bliss.common.utils import get_axes_positions_iter
 
@@ -97,7 +98,7 @@ def scan_meta(info=None):
     attrs["clear"] = clear
 
     def copy(self):
-        return scan_meta(_infos.copy())
+        return scan_meta(copy_module.deepcopy(_infos))
 
     attrs["copy"] = copy
 

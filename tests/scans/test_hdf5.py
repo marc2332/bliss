@@ -205,16 +205,70 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
 def test_positioners_in_scan_info(alias_session, scan_tmpdir):
 
     env_dict, session = alias_session
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = session.config.get("diode")
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
-    s = scans.ascan(
-        env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"], run=False
-    )
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
+    assert "positioners" in s1.scan_info["instrument"]
+    old_pos = s1.scan_info["instrument"]["positioners"]
+    s1.run()
+    assert "positioners" in s1.scan_info["instrument"]
+    assert s1.scan_info["instrument"]["positioners"] == old_pos
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, run=False)
+    assert "positioners" in s2.scan_info["instrument"]
+    old_pos = s2.scan_info["instrument"]["positioners"]
+    s2.run()
+    assert "positioners" in s2.scan_info["instrument"]
+    assert s2.scan_info["instrument"]["positioners"] == old_pos
+
+
+def test_scan_info_cleaning(alias_session, scan_tmpdir):
+
+    env_dict, session = alias_session
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = session.config.get("diode")
+
+    # put scan file in a tmp directory
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    assert "lima_simulator" not in s1.scan_info["instrument"]
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator)
+    assert "lima_simulator" in s2.scan_info["instrument"]
+
+    # test that 'lima_simulator' does not remain in 'scan_info' for a scan that it is not involved in
+    s3 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    assert "lima_simulator" not in s3.scan_info["instrument"]
+
+
+def test_scan_saving_without_axis_in_session(beacon, scan_tmpdir):
+    # to me this is really strage, but `session.get_current()` seems to initialize a session
+    # the goal is to have the 'default' session in library mode
+
+    from bliss.common import session
+    from bliss import setup_globals
+
+    session = session.get_current()
+    # put scan file in a tmp directory
+    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+
+    diode = session.config.get("diode")
+
+    s = scans.loopscan(3, .1, diode, run=False)
 
     assert "positioners" in s.scan_info["instrument"]
-
+    assert s.scan_info["instrument"]["positioners"] == {}
     s.run()
-
     assert "positioners" in s.scan_info["instrument"]
+    assert s.scan_info["instrument"]["positioners"] == {}

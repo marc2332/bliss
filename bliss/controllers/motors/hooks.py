@@ -138,3 +138,82 @@ class AirpadHook(WagoHook):
         config.setdefault("pre_move")["value"] = 1
         config.setdefault("post_move")["value"] = 0
         super(AirpadHook, self).__init__(name, config)
+
+
+class WagoAirHook(WagoHook):
+    """
+    Wago air hook. Turn on air (pad/brake/...) before moving. Turn off air (pad/brake/...) 
+    after moving.
+     - Optionally a channel_in can be added to get an hardware check like pressostat 
+      device which tells if air is really on or off.
+     - Optionally a direction can be specified to limit the hook to one motion 
+      direction: positive (+1), negative (-1) or for both (0).
+
+    Configuration example:
+
+    .. code-block:: yaml
+
+        name: ccm_brake
+        class: WagoAirHook
+        module: motors.hooks
+        wago: $wcid10b
+        channel: ccmbrk
+        channel_in:  ccmpress  # optional
+        direction:   1         # optional 1/0/-1 (default: 0) 
+        pre_move:
+            wait:    1         # optional (default: 0s)
+        post_move:
+            wait:    2         # optional (default: 0s)
+    """
+
+    class SafetyError(Exception):
+        pass
+
+    def __init__(self, name, config):
+        config.setdefault("pre_move")["value"] = 1
+        config.setdefault("post_move")["value"] = 0
+        super(WagoAirHook, self).__init__(name, config)
+
+    def set(self, phase, motion_list):
+        value = self.config[phase]["value"]
+        wait = self.config[phase].get("wait", 0)
+        direction = self.config.get("direction", 0)
+        channel_in = self.config.get("channel_in", None)
+
+        # A WagoHook is only attached to one axis, see WagoHook::add_axis()
+        motion = motion_list[0]
+        axis_name = motion.axis.name
+        # check if direction is valid
+        if direction != 0 and motion.delta is None:
+            raise self.SafetyError(
+                "Cannot move {0!r}: direction is unknown. "
+                "WagoAirHook {1} is set for {2} direction".format(
+                    axis_name, self.name, ("positive" if direction == 1 else "negative")
+                )
+            )
+        if (
+            direction == 0
+            or (direction > 0 and motion.delta > 0)
+            or (direction < 0 and motion.delta < 0)
+        ):
+            self.debug("start setting %s value to %s...", phase, value)
+            self.wago.set(self.channel, value)
+            self.debug("finished setting %s value to %s", phase, value)
+            if wait:
+                self.debug("start %s wait (%ss)...", phase, wait)
+                sleep(wait)
+                self.debug("finished %s wait (%ss)", phase, wait)
+            # if channel_in, check it, input musst be equal to output
+            if channel_in and self.wago.get(channel_in) != self.wago.get(self.channel):
+                raise self.SafetyError(
+                    "Cannot set air {0} for axis {1!r}, "
+                    "check air pressure or the pressostat".format(
+                        ("ON" if value == 1 else "OFF"), axis_name
+                    )
+                )
+
+    def pre_move(self, motion_list):
+        self.set("pre_move", motion_list)
+
+    def post_move(self, motion_list):
+        self.set("post_move", motion_list)

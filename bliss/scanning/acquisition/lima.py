@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from itertools import count
 from ..chain import AcquisitionMaster, AcquisitionChannel
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
@@ -68,7 +69,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters["wait_frame_id"]
         self.parameters.update(keys)
         if wait_frame_id is None:
-            wait_frame_id = range(acq_nb_frames)
+            wait_frame_id = [acq_nb_frames - 1]
         trigger_type = (
             AcquisitionMaster.SOFTWARE
             if "INTERNAL" in acq_trigger_mode
@@ -112,6 +113,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             # or internal trigger (one trigger for all frames)
             # in this case there is only 1 iteration for the
             # whole acquisition
+            if self.npoints == 0:
+                wait_frame_id_iter = count()
+            image_waiting_number = 0
             while True:
                 self.__current_wait_frame_id = next(wait_frame_id_iter)
                 yield self

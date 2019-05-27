@@ -16,6 +16,7 @@ import logging
 
 import numpy
 from tabulate import tabulate
+import yaml
 
 from .conductor import client
 from bliss.common.utils import Null
@@ -1259,10 +1260,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             dictionary with (parameter,value) pairs
         """
-        return {
-            **self._get_redis_single_set("default"),
-            **self._get_redis_single_set(self.current_config),
-        }
+        return {**self._get_config("default"), **self._get_config(self.current_config)}
 
     def from_dict(self, d):
         """
@@ -1271,19 +1269,21 @@ class ParametersWardrobe(metaclass=ParametersType):
         You should provide a dictionary that contains the same attribute names as
         current existing inside the ParametersWardrobe you want to update.
         Giving more names will log a WARNING level message.
-        Property attributes should not be given.
+        Property attributes are ignored.
 
         Raises:
             AttributeError, TypeError
         """
         logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
         if not d:
-            raise TypeError("Dictionary empty")
+            raise TypeError("You should provide a dictionary")
 
         redis_default_attrs = set(self._get_redis_single_config("default").keys())
         found_attrs = set()
 
         for name, value in d.items():
+            if name in self._property_attributes:
+                continue
             if name in redis_default_attrs:
                 found_attrs.add(name)  # we keep track of remaining values
                 setattr(
@@ -1301,6 +1301,44 @@ class ParametersWardrobe(metaclass=ParametersType):
             logger.warning(
                 f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
             )
+
+    def to_file(self, path: str, all_configs=False):
+        """
+        Dumps to yml file all parameters that are stored in Redis
+        No property (computed) parameter is stored.
+
+        Args:
+            path: file path
+            all_configs: True for dumping all configs, False (default) only current config
+        """
+        if all_configs:
+            data_to_dump = {
+                "WardrobeName": self._wardr_name,
+                "configs": {**self._get_redis_all_configs()},
+            }
+        else:
+            data_to_dump = {
+                "WardrobeName": self._wardr_name,
+                "configs": {
+                    self.current_config: self._get_redis_single_config(
+                        self.current_config
+                    )
+                },
+            }
+        with open(path, "w") as file_out:
+            file_out.write(
+                yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
+            )
+
+    def from_file(self, path, all_configs=False):
+        with client.remote_open(path) as file:
+            data_in = yaml.load(file)
+            if data_in.get("WardrobeName") != self._wardr_name:
+                logger.warning("Wardrobe Names are different")
+            configs = data_in["configs"]
+            for config in configs:
+                self.switch(config)
+                self.from_dict(data_in["configs"][config])
 
     def show_table(self):
         """

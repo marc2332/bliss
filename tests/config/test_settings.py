@@ -201,7 +201,7 @@ def test_parameters_wardrobe_switch(session):
     check = dress.to_dict()
     for k, v in zip(slots, default):
         assert check[k] == v
-    len(check) == 5
+    len(check) == 7
 
     dress.switch("casual")  # on casual
     dress.head = "football hat"
@@ -220,7 +220,7 @@ def test_parameters_wardrobe_switch(session):
     assert check.get("body") == "shirt"
     assert check.get("_creation_date") is not None
     assert isinstance(check.get("_last_accessed"), str)
-    assert len(check) == 4
+    assert len(check) == 6
 
     # testing configs method
     for suite in ("a", "b", "c"):
@@ -270,7 +270,7 @@ def test_parameter_wardrobe_from_dict(session):
     for k in def_val.keys():
         # all default are None
         assert getattr(food, k) == None
-    with pytest.raises(TypeError):
+    with pytest.raises(AttributeError):
         food.from_dict({"wrong": 1, "parameters": 2})
 
 
@@ -357,7 +357,7 @@ def test_creation_time(session):
 
     # an empty Wardrobe has only creation/access info
     food = settings.ParametersWardrobe("food")
-    assert len(food.to_dict()) == 2
+    assert len(food.to_dict()) == 4
     creation_time = "2018-07-22-07:00"
 
     food._creation_date = creation_time
@@ -385,17 +385,51 @@ def test_from_dict_ok(session):
     assert colors.background == "black"
     assert colors.foreground == "white"
 
-    with pytest.raises(TypeError):
+    with pytest.raises(AttributeError):
         # attribute does not exist in Wardrobe
         colors.from_dict({**new_colors, **{"border": "pink"}})
 
 
 def test_from_dict_not_ok(session):
     cats = settings.ParametersWardrobe("cats")
-    with pytest.raises(TypeError):
+    with pytest.raises(AttributeError):
         cats.from_dict({"breed": "snowcat"})
     with pytest.raises(TypeError):
         cats.from_dict({})
+    with pytest.raises(TypeError):
+        cats.from_dict(None)
+    with pytest.raises(TypeError):
+        cats.from_dict()
+
+
+class MyPar(settings.ParametersWardrobe):
+    """
+    Test class to check property attributes
+    """
+
+    SLOTS = []
+
+    def __init__(self, name):
+        super().__init__(name, property_attributes=["myproperty"])
+
+    @property
+    def myproperty(self):
+        return "OK"
+
+
+def test_from_and_to_dict_with_inheritance(session):
+    mypar = MyPar("mypar")
+    mypar.add("first", "I")
+    mypar.add("second", "I(")
+    assert mypar.myproperty == "OK"
+    dict_ = mypar.to_dict()
+    assert len(dict_) == 7
+    mypar.from_dict(dict_)
+    with pytest.raises(AttributeError):
+        mypar.from_dict({**dict_, **{"fakeattr": 123}})
+    with pytest.raises(AttributeError):
+        # can't set attribute
+        mypar.myproperty = 23
 
 
 def test_creation_and_update_appear_on_shell(session, capsys):

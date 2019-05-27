@@ -101,6 +101,7 @@ class Lima(object):
             acq_mode=acq_mode,
             acc_max_expo_time=scan_pars.get("acc_max_expo_time", 1.),
             save_flag=save_flag,
+            wait_frame_id=range(acq_nb_frames),
             prepare_once=prepare_once,
             start_once=start_once,
         )

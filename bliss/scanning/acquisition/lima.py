@@ -69,7 +69,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters["wait_frame_id"]
         self.parameters.update(keys)
         if wait_frame_id is None:
-            wait_frame_id = range(acq_nb_frames)
+            wait_frame_id = [acq_nb_frames - 1]
         trigger_type = (
             AcquisitionMaster.SOFTWARE
             if "INTERNAL" in acq_trigger_mode

@@ -957,11 +957,8 @@ class Scan:
                 # to provide meta data at the end of the scan
                 for dev in self.acq_chain.nodes_list:
                     dev.fill_meta_at_scan_end(self.user_scan_meta)
-                tmp_dict = self.user_scan_meta.to_dict(self)
-                # make sure that 'positioners' entry is not updated
-                tmp_dict["instrument"].pop("positioners")
-                tmp_dict["instrument"].pop("positioners_dial")
-                deep_update(self._scan_info, tmp_dict)
+                self.user_scan_meta.instrument.remove("positioners")
+                deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
 
                 # update scan_info in redis
                 self.node._info.update(self.scan_info)
@@ -970,12 +967,6 @@ class Scan:
                     # write scan_info to file
                     self.writer.finalize_scan_entry(self)
                     self.writer.close()
-
-                ### we should think of a better way to clean up user_scan_meta
-                instr_keys = self.user_scan_meta.instrument.names
-                instr_keys.remove("positioners")
-                for key in instr_keys:
-                    self.user_scan_meta.instrument.remove(key)
 
                 # Add scan to the globals
                 SCANS.append(self)

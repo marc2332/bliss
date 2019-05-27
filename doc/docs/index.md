@@ -47,6 +47,15 @@ For development, i.e in `bliss_env` Conda environement:
     $ conda config --env --append channels tango-controls
     ```
 
+
+#### Local code
+
+At ESRF, it has been decided to put all beamline specific code in a dedicated
+git repository.
+
+For more details, see: https://bliss.gitlab-pages.esrf.fr/ansible/local_code.html
+
+
 ## Installation outside ESRF
 
 ### Using Conda

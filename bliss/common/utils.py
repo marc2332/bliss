@@ -609,34 +609,40 @@ class autocomplete_property(property):
     pass
 
 
-def deep_update(source, overrides):
-    """
-    Update a nested dictionary
-    Modify ``source`` in place.
+def deep_update(d, u):
+    """Do a deep merge of one dict into another.
 
-    initial idea based on https://stackoverflow.com/questions/3232943/update-value-of-a-nested-dictionary-of-varying-depth/32357112#32357112
+    This will update d with values in u, but will not delete keys in d
+    not found in u at some arbitrary depth of d. That is, u is deeply
+    merged into d.
+
+    Args -
+      d, u: dicts
+
+    Note: this is destructive to d, but not u.
+
+    Returns: None
     """
-    for key, value in overrides.items():
-        if isinstance(value, dict):
-            if key in source.keys() and isinstance(source[key], dict):
-                source[key] = deep_update(source[key], value)
+    stack = [(d, u)]
+    while stack:
+        d, u = stack.pop(0)
+        for k, v in u.items():
+            if not isinstance(v, collections.abc.Mapping):
+                # u[k] is not a dict, nothing to merge, so just set it,
+                # regardless if d[k] *was* a dict
+                d[k] = v
             else:
-                source[key] = recursive_dict_copy(value)
-        else:
-            source[key] = overrides[key]
+                # note: u[k] is a dict
 
-    return source
+                # get d[k], defaulting to a dict, if it doesn't previously
+                # exist
+                dv = d.setdefault(k, {})
 
-
-def recursive_dict_copy(dict_to_copy):
-    """
-    intermediat between copy.copy and copy.deepcopy
-    subdictionaries are copyied recursively while other references are kept untouched
-    :param dict_to_copy:
-    :return: copy of dict_to_copy with objects references for all object of other type than dict kept in place
-    """
-    new_dict = copy.copy(dict_to_copy)
-    for key, value in new_dict.items():
-        if isinstance(value, dict):
-            new_dict[key] = recursive_dict_copy(value)
-    return new_dict
+                if not isinstance(dv, collections.abc.Mapping):
+                    # d[k] is not a dict, so just set it to u[k],
+                    # overriding whatever it was
+                    d[k] = v
+                else:
+                    # both d[k] and u[k] are dicts, push them on the stack
+                    # to merge
+                    stack.append((dv, v))

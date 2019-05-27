@@ -75,26 +75,16 @@ def test_bare_system(params):
 
 def test_add_motor_m0(params):
     beacon, log = params
-    log.lslog()
     m0 = beacon.get("m0")  # creating a device
-
-    all_loggers = logging.getLogger().manager.loggerDict
-
-    regex_list = [
-        r"session",
-        r"session\.devices",
-        r"session\.comms",
-        r"session\.counters",
-        r"session\.devices\.\w",
-        r"session\.devices\.default\.axes\.m0",
-    ]
-
-    for regex in regex_list:
-        # those loggers should exists
-        assert any(re.match(regex, key_) for key_ in all_loggers.keys())
 
     # Check if _logger appended to instance
     assert isinstance(m0._logger, logging.Logger)
+
+    all_loggers = logging.getLogger().manager.loggerDict
+    assert (
+        f"session.controllers.{m0.controller.__class__.__name__}.m0"
+        in all_loggers.keys()
+    )
 
 
 def test_m0_logger_debugon(params, caplog):

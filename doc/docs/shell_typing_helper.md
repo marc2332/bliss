@@ -4,7 +4,7 @@ To serve the demand of a simplified syntax when entering commands in the bliss s
 - enable scientist to type commands in similar way as they are used to e.g. in ‘spec’
 
 ## Tying in the shell
-!!! note
+!!! info
     Here ⏎ represents pressing the Enter key and ␣ represents pressing the space bar
 
 lets look at the ```wm``` command as example. Lets say we want to see the position of two motors m0 and m0.

@@ -451,3 +451,67 @@ def test_non_removable(session):
     fake.add("immortal", "me")
     with pytest.raises(AttributeError):
         fake.remove(".immortal")
+
+
+def test_wardrobe_to_yml_file(session):
+    materials = settings.ParametersWardrobe("materials")
+    materials.add("color")
+    materials.add("specific_weight")
+    materials.switch("water")
+    materials.color = "transparent"
+    materials.specific_weight = 1
+    materials.switch("gold")
+    materials.color = "gold"
+    materials.specific_weight = 19.32
+    materials.switch("copper")
+    materials.color = "yellow-brown"
+    materials.specific_weight = 8.96
+    materials.to_file("/tmp/materials_copper.yml")
+
+    materials.to_file("/tmp/materials_all.yml", all_configs=True)
+
+
+def test_wardrobe_from_yml_file(session):
+    copper_reload = settings.ParametersWardrobe("materials_reload")
+
+    # setting default values
+    copper_reload.add("color", "nocolor")
+    copper_reload.add("specific_weight", 0)
+
+    copper_reload.from_file("/tmp/materials_copper.yml")
+    assert copper_reload.color == "yellow-brown"
+    assert copper_reload.specific_weight == 8.96
+
+    materials_reload = settings.ParametersWardrobe("materials_reload")
+
+    materials_reload.from_file("/tmp/materials_all.yml", all_configs=True)
+
+    materials_reload.switch("gold")
+    assert materials_reload.color == "gold"
+    assert materials_reload.specific_weight == 19.32
+    materials_reload.switch("copper")
+    assert materials_reload.color == "yellow-brown"
+    assert materials_reload.specific_weight == 8.96
+
+    materials_reload.switch("default")
+    # default should be loaded from file and be different
+    # from previous values
+    assert materials_reload.color == None
+    assert materials_reload.specific_weight == None
+
+
+def test_wardrobe_empty_from_yml_file(session):
+    empty_material = settings.ParametersWardrobe("empty_material")
+    with pytest.raises(AttributeError):
+        # current set is empty and to be strict we should not be able
+        # to load values
+        empty_material.from_file("/tmp/materials_all.yml")
+
+
+def test_wardrobe_from_yml_file_partial(session):
+    materials = settings.ParametersWardrobe("material")
+    materials.add("color")
+    materials.add("specific_weight")
+    materials.add("other")  # this is not in the yml file
+    # this should succeed
+    materials.from_file("/tmp/materials_all.yml", all_configs=True)

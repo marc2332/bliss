@@ -68,7 +68,7 @@ class MappedController(NotMappedController, LogMixin):
 
 def test_bare_system(params):
     all_loggers = logging.getLogger().manager.loggerDict
-    names = ["session", "session.devices", "session.counters", "session.comms"]
+    names = ["session", "session.controllers"]
     for name in names:
         assert name in all_loggers.keys()
 

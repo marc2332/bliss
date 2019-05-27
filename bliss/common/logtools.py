@@ -243,7 +243,7 @@ class Log:
         findlog = {
             self.map.G.node[node]["_logger"].name
             for node in self.map.G.node
-            if self.map.G.node[node]["_logger"].name
+            if self.map.G.node[node].get("_logger")
         }
         registered_loggers = [logging.getLogger(obj) for obj in findlog]
         filtered_loggers = [
@@ -503,9 +503,13 @@ def map_update_loggers(G):
     """
     for node in list(G):
         reference = G.node[node].get("instance")
-        inst = (
-            reference if isinstance(reference, str) else reference()
-        )  # gets the instance
+        if isinstance(reference, str):
+            if reference in ("axes", "counters"):
+                continue
+            else:
+                inst = reference
+        else:
+            inst = reference()
 
         if inst:  # if weakref is still alive
             logger_name = create_logger_name(G, node)  # get proper name

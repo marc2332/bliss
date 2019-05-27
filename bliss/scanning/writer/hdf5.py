@@ -11,7 +11,6 @@ import h5py
 import numpy
 import time
 import datetime
-import copy
 from silx.io.dictdump import dicttoh5
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
@@ -137,9 +136,10 @@ class Writer(FileWriter):
         positioners_dial.attrs["NX_class"] = "NXcollection"
 
         # copy should be removed once positioners are no longer treated as special case
-        hdf5_scan_meta = copy.deepcopy(
-            {cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()}
-        )
+        hdf5_scan_meta = {
+            cat_name: scan_info.get(cat_name, {}).copy()
+            for cat_name in categories_names()
+        }
         try:
             positioners_dict = hdf5_scan_meta.get("instrument", {}).pop(
                 "positioners", {}

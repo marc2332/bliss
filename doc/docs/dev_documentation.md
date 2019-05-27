@@ -20,7 +20,7 @@ BLISS Documentation is furnished in various manners:
 ## Installing documentation requirements
 
 In order to be able to test documentation on a PC where BLISS is
-installed, the documentation requirements need to be installed 
+installed, the documentation requirements need to be installed
 in a conda environment.
 
 !!! note
@@ -47,8 +47,8 @@ $ mkdocs serve
 And visit http://localhost:8000
 
 
-In order to update the codumentation   
-http://localhost:8000/dev_documentation.html  
+In order to update the codumentation
+http://localhost:8000/dev_documentation.html
 Please do the following
 
 ```bash
@@ -56,8 +56,8 @@ $ cd <bliss.git directory>/doc/docs
 $ <your favorite editor> dev_documentation.md
 ```
 
-Once you save **dev_documentation.md** you can see the new version 
-by reloading  
+Once you save **dev_documentation.md** you can see the new version
+by reloading
 http://localhost:8000/dev_documentation.html
 
 ## New controller documentation
@@ -177,10 +177,87 @@ There are 6 levels of titles.
     !!! note
         A note of made with an empty line and 3 !!!
     ```
-    
+
+
 ##### Level 5 title
 
 ###### Level 6 title
+
+### emphasis blocks
+
+There are some ways to outline information in blocks:
+
+with admonition plugin:
+https://squidfunk.github.io/mkdocs-material/extensions/admonition/
+
+* `note`
+* `info` / `todo`
+* `example` / `snippet`
+* `warning`
+* `abstract` / `summary` / `tldr`
+* `tip` / `hint` / `important`
+* `success` / `check` / `done`
+* `question` / `help` / `faq`
+* `failure` / `fail` / `missing`
+* `danger` / `error`
+* `bug`
+* `quote` / `cite`
+
+
+!!! note "This is a note"
+
+     « Au contraire, il est impossible de partager soit un cube en deux cubes, soit
+     un bicarré en deux bicarrés, soit en général une puissance quelconque supérieure
+     au carré en deux puissances de même degré : j'en ai découvert une démonstration
+     véritablement merveilleuse que cette marge est trop étroite pour contenir. »
+     *Pierre de Fermat*
+
+
+!!! warning "ATTENTION !!!!"
+
+    “Beware the ides of March.”
+    ― *William Shakespeare*, Julius Caesar
+
+!!! info
+
+    bla bla
+
+!!! abstract
+
+    bla bla
+
+!!! example
+
+    just do like that
+
+!!! tip
+
+    Do you known you can do... ?
+
+!!! success
+
+    And voila !
+
+!!! question "to be or not to be"
+
+    That's the question.
+
+!!! failure
+
+    a marche pas...
+
+!!! danger
+
+    "Use that at your own risks"
+
+!!! quote "Quote of the day"
+
+    *People think that computer science is the art of geniuses but the actual reality
+    is the opposite, just many people doing things that build on eachother, like a
+    wall of mini stones.*
+
+    Donald Knuth
+
 
 ### Lists
 
@@ -222,23 +299,23 @@ result: `raw text in monospace font`
 A raw text block is defined using 4 spaces to begin a line and
 respecting an empty line before block.
 
-    My text without any change, 
+    My text without any change,
     but it has to be text without symbols.
-    
-In case you want to have a line break  
-just insert two *spaces* at the end of the line, like this:  
-line1  
-line2  
-line3  
+
+In case you want to have a line break
+just insert two *spaces* at the end of the line, like this:
+line1
+line2
+line3
 
 A bash command line is defined with 3 \` (backquotes) followed by **bash**<br>
-It looks like 
+It looks like
 ```markdown
  ```bash
 ```
 and you finish your script with 3  \` (backquotes)  like
 ```markdown
- ```   
+ ```
 ```
 
 Here is an example with <,> and [ in the text

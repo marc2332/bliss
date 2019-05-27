@@ -18,8 +18,8 @@ Use cases for settings:
     - scan saving path, file template...
 
 
-!!! note
-    To directly access the Redis database:
+!!! danger "Direct access to the Redis database"
+    `redis-cli` is a command-line tool to directly access to the Redis database.
 
     `redis-cli -s /tmp/redis.sock -n 0`
 

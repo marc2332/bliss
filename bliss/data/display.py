@@ -17,6 +17,7 @@ import shutil
 import signal
 import subprocess
 import atexit
+from gevent.threadpool import ThreadPool
 
 from bliss.data.scan import watch_session_scans
 
@@ -70,6 +71,15 @@ def _find_unit(obj):
             return _find_unit(obj.controller)
     except:
         return
+
+
+def _post_in_pool(func):
+    # post in a thread to avoid blocking call due to print function
+    def f(self, *args):
+        task = self._pool.spawn(func, self, *args)
+        return task.get()
+
+    return f
 
 
 class ScanPrinter:
@@ -308,7 +318,7 @@ class ScanDataListener:
         self.counter_selection = []
         self.exit_read_fd = exit_read_fd
         self.scan_display = ScanDisplay(self.session_name)
-
+        self._pool = ThreadPool(1)
         # self.start_time = 0
         # self.last_time = 0
         # self.stop_time = 0
@@ -488,6 +498,7 @@ class ScanDataListener:
     def on_scan_new_child(self, scan_info, data_channel):
         pass
 
+    @_post_in_pool
     def on_scan_data(self, data_dim, master_name, channel_info):
 
         if data_dim != "0d":

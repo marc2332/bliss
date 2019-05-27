@@ -21,7 +21,6 @@ Plot1D = silx_plot.Plot1D
 
 class LivePlot1D(qt.QWidget):
     def __init__(self, *args, **kw):
-        self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
         self.redis_cnx = kw.pop("redis_connection")
@@ -42,11 +41,15 @@ class LivePlot1D(qt.QWidget):
         qt.QVBoxLayout(self)
         self.layout().addWidget(self.silx_plot)
         self.layout().addWidget(self.axes_list_view)
+        self._data = dict()
+
+    def _set_data(self, data):
+        self._data = data
 
     def _get_data(self, x_axis, y_axis):
         data_len = self._enabled_plots[(x_axis, y_axis)]
-        x_data = self._data_dict[self.plot_id].get(x_axis)
-        y_data = self._data_dict[self.plot_id].get(y_axis)
+        x_data = self._data.get(x_axis)
+        y_data = self._data.get(y_axis)
         if x_data is None or y_data is None:
             return None, None
         return x_data[:data_len], y_data[:data_len]
@@ -278,8 +281,8 @@ class LivePlot1D(qt.QWidget):
     def update_enabled_plots(self):
         for x_axis in self.x_axis_names:
             for y_axis in self.y_axis_names:
-                x_data = self._data_dict[self.plot_id].get(x_axis, [])
-                y_data = self._data_dict[self.plot_id].get(y_axis, [])
+                x_data = self._data.get(x_axis, [])
+                y_data = self._data.get(y_axis, [])
                 data_len = min(len(x_data), len(y_data))
                 self._enabled_plots[(x_axis, y_axis)] = data_len
 

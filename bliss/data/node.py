@@ -427,7 +427,7 @@ class DataNode(object):
     @property
     @protect_from_kill
     def db_name(self):
-        return self._data.db_name
+        return self._data._proxy.name
 
     @property
     @protect_from_kill

@@ -405,15 +405,12 @@ class Command(LogMixin):
     """Raw command class. Provides command like API through sockets.
     Consider using :class:`Tcp` with url starting with  *command://* instead."""
 
-    class Transaction(LogMixin):
+    class Transaction:
         def __init__(self, socket, transaction, clear_transaction=True):
             self.__socket = socket
             self.__transaction = transaction
             self.__clear_transaction = clear_transaction
             self.data = b""
-            session.get_current().map.register(
-                self, children_list=[self.__socket], parents_list=["comms"]
-            )
 
         def __enter__(self):
             return self
@@ -501,11 +498,6 @@ class Command(LogMixin):
                 return True
 
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            session.get_current().map.register(
-                self._fd,
-                parents_list=[self, "comms"],
-                tag=f"Socket[{local_host}:{local_port}",
-            )
 
             err_msg = "timeout on command(%s, %d)" % (local_host, local_port)
             with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):

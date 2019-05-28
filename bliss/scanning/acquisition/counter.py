@@ -8,13 +8,12 @@
 import numpy
 import time
 import warnings
-import enum
 import gevent
 from gevent import event
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import GroupedReadMixin, Counter
-from bliss.common.utils import all_equal
+from bliss.common.measurement import GroupedReadMixin, Counter, SamplingMode
+from bliss.common.utils import all_equal, apply_vectorized
 
 
 def _get_group_reader(counters_or_groupreadhandler):
@@ -44,10 +43,9 @@ def _get_group_reader(counters_or_groupreadhandler):
 
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
-    def __init__(self, counter, count_time, **keys):
-        npoints = keys.pop("npoints")
-        prepare_once = keys.pop("prepare_once")
-        start_once = keys.pop("start_once")
+    def __init__(
+        self, counter, count_time, npoints, prepare_once, start_once, **unused_keys
+    ):
         AcquisitionDevice.__init__(
             self,
             counter,
@@ -101,22 +99,9 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         self.channels.update_from_iterable(data)
 
 
-@enum.unique
-class SamplingMode(enum.IntEnum):
-    """SamplingCounterAcquisitionDevice Mode Class """
-
-    SIMPLE_AVERAGE = 0
-    TIME_AVERAGE = 1
-    INTEGRATE = 2
-
-
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def __init__(
-        self,
-        counters_or_groupreadhandler,
-        count_time=None,
-        mode=SamplingMode.SIMPLE_AVERAGE,
-        **keys
+        self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
     ):
         """
         Helper to manage acquisition of a sampling counter.
@@ -124,53 +109,36 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         counters_or_groupreadhandler -- can be a list,tuple of SamplingCounter or
         a group_read_handler
         count_time -- the master integration time.
-        mode -- three mode are available *SIMPLE_AVERAGE* (the default)
-        which sum all the sampling values and divide by the number of read value.
-        the *TIME_AVERAGE* which sum all integration  then divide by the sum
-        of time spend to measure all values. And *INTEGRATION* which sum all integration
-        and then normalize it when the *count_time*.
         Other keys are:
-          * npoints -- number of point for this acquisition
-          * prepare_once --
-          * start_once --
+          * npoints -- number of point for this acquisition (0: endless acquisition)
         """
-        npoints = max(1, keys.pop("npoints", 1))
-        prepare_once = keys.pop("prepare_once", True)
-        start_once = keys.pop("start_once", npoints > 1)
+
+        if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):
+            warnings.warn(
+                "SamplingCounterAcquisitionDevice: prepare_once or start_once"
+                "flags will be ignored"
+            )
+
+        start_once = npoints > 0
+        npoints = max(1, npoints)
 
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
         BaseCounterAcquisitionDevice.__init__(
             self,
             reader,
             count_time,
-            npoints=npoints,
-            prepare_once=prepare_once,
-            start_once=start_once,
-            **keys
+            npoints,
+            True,  # prepare_once
+            start_once,  # start_once
         )
 
         self._event = event.Event()
         self._stop_flag = False
         self._ready_event = event.Event()
         self._ready_event.set()
-        self.__mode = mode
 
         for cnt in counters:
             self.add_counter(cnt)
-
-    @property
-    def mode(self):
-        return self.__mode
-
-    @mode.setter
-    def mode(self, value):
-        try:
-            self.__mode = SamplingMode[value]
-        except KeyError:
-            raise ValueError(
-                "Invalid mode '%s', the mode must be in %s"
-                % (value, list(SamplingMode.__members__.keys()))
-            )
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
@@ -204,6 +172,24 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.wait()
 
     def reading(self):
+        if len(self.channels) == 0:
+            return
+
+        # mode dependent helpers that are evaluated once per point
+        mode_lambdas = {
+            SamplingMode.SIMPLE_AVERAGE: lambda acc_value, acc_read_time, nb_read, count_time: acc_value
+            / nb_read,
+            SamplingMode.INTEGRATE: lambda acc_value, acc_read_time, nb_read, count_time: (
+                acc_value / nb_read
+            )
+            * count_time,
+        }
+
+        mode_helpers = list()
+        for c in self.channels:
+            mode_helpers.append(mode_lambdas[c.acq_device.mode])
+        mode_helpers = numpy.array(mode_helpers)
+
         while not self._stop_flag and self._nb_acq_points < self.npoints:
             # trigger wait
             self._event.wait()
@@ -219,6 +205,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             acc_read_time = 0
             acc_value = numpy.zeros((len(self.channels),), dtype=numpy.double)
             stop_time = trig_time + self.count_time or 0
+
             # Counter integration loop
             while not self._stop_flag:
                 start_read = time.time()
@@ -226,12 +213,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     self.device.read(*self.grouped_read_counters), dtype=numpy.double
                 )
                 end_read = time.time()
-                read_time = end_read - start_read
 
-                if self.__mode == SamplingMode.TIME_AVERAGE:
-                    acc_value += read_value * (end_read - start_read)
-                else:
-                    acc_value += read_value
+                acc_value += read_value
 
                 nb_read += 1
                 acc_read_time += end_read - start_read
@@ -241,13 +224,11 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     break
                 gevent.sleep(0)  # to be able to kill the task
             self._nb_acq_points += 1
-            if self.__mode == SamplingMode.TIME_AVERAGE:
-                data = acc_value / acc_read_time
-            else:
-                data = acc_value / nb_read
 
-            if self.__mode == SamplingMode.INTEGRATE:
-                data *= self.count_time
+            # apply the necessary operation per channel to convert the read data depending on the mode of each channel
+            data = apply_vectorized(
+                mode_helpers, acc_value, acc_read_time, nb_read, self.count_time
+            )
 
             self._emit_new_data(data)
 
@@ -255,13 +236,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    def __init__(self, counters_or_groupreadhandler, count_time=None, **keys):
+    def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
 
         if any(
-            filter(
-                None,
-                (keys.pop(k, None) for k in ("npoints", "prepare_once", "start_once")),
-            )
+            [x in ["npoints", "prepare_once", "start_once"] for x in unused_keys.keys()]
         ):
             warnings.warn(
                 "IntegratingCounterAcquisitionDevice: npoints, prepare_once or "
@@ -270,13 +248,7 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
         reader, counters = _get_group_reader(counters_or_groupreadhandler)
         BaseCounterAcquisitionDevice.__init__(
-            self,
-            reader,
-            count_time,
-            npoints=None,
-            prepare_once=None,
-            start_once=None,
-            **keys
+            self, reader, count_time, npoints=None, prepare_once=None, start_once=None
         )
         for cnt in counters:
             self.add_counter(cnt)

@@ -138,6 +138,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                     self.__sequence_index += 1
                 else:
                     break
+        self._ready_event.clear()
+        self.__image_status = (False, -1)
 
     def add_counter(self, counter):
         if counter.name != "image":

@@ -12,6 +12,7 @@ import numpy
 import inspect
 import weakref
 from collections import namedtuple
+import enum
 
 from bliss.common.utils import add_conversion_function
 from bliss.common.alias import AliasMixin
@@ -237,6 +238,19 @@ class Counter(BaseCounter):
         pass
 
 
+@enum.unique
+class SamplingMode(enum.IntEnum):
+    """SamplingCounter Mode Class 
+    two mode are available: *SIMPLE_AVERAGE* (the default)
+    which sum all the sampling values and divide by the number of read value.
+    Further there is *INTEGRATION* which sum all integration
+    and then normalize it with the *count_time*.
+    """
+
+    SIMPLE_AVERAGE = 0
+    INTEGRATE = 1
+
+
 class SamplingCounter(Counter):
     @classmethod
     def get_acquisition_device_class(cls):
@@ -268,7 +282,7 @@ class SamplingCounter(Counter):
         controller,
         grouped_read_handler=None,
         conversion_function=None,
-        acquisition_device_mode=None,
+        mode=SamplingMode.SIMPLE_AVERAGE,
         unit=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
@@ -281,7 +295,10 @@ class SamplingCounter(Counter):
             if callable(conversion_function):
                 add_conversion_function(self, "read", conversion_function)
 
-        self.acquisition_device_mode = acquisition_device_mode
+        if isinstance(mode, SamplingMode):
+            self._mode = mode
+        else:
+            self._mode = SamplingMode[mode]
 
         super(SamplingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller, unit=unit
@@ -299,6 +316,23 @@ class SamplingCounter(Counter):
                 return grouped_read_handler.read(self)[0]
             finally:
                 grouped_read_handler.stop(self)
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, value):
+        try:
+            if value in list(SamplingMode):
+                self._mode = SamplingMode(value)
+            else:
+                self._mode = SamplingMode[value]
+        except KeyError:
+            raise ValueError(
+                "Invalid mode '%s', the mode must be in %s"
+                % (value, list(SamplingMode.__members__.keys()))
+            )
 
 
 class SoftCounter(SamplingCounter):
@@ -361,7 +395,7 @@ class SoftCounter(SamplingCounter):
         name=None,
         controller=None,
         apply=None,
-        acquisition_device_mode=None,
+        mode=SamplingMode.SIMPLE_AVERAGE,
         unit=None,
     ):
         if obj is None and inspect.ismethod(value):
@@ -380,9 +414,7 @@ class SoftCounter(SamplingCounter):
         if apply is None:
             apply = lambda x: x
         self.apply = apply
-        super(SoftCounter, self).__init__(
-            name, controller, acquisition_device_mode=acquisition_device_mode, unit=unit
-        )
+        super(SoftCounter, self).__init__(name, controller, mode=mode, unit=unit)
 
     @staticmethod
     def get_read_func(obj, value):

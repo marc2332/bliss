@@ -45,6 +45,9 @@ class Encoder(object):
 
     @property
     def tolerance(self):
+        """
+        Returns Encoder tolerance in user units.
+        """
         return self.config.get("tolerance", float, 0)
 
     @lazy_init

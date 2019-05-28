@@ -421,7 +421,7 @@ Methods to implement in the controller:
 * `set_encoder(self, encoder, new_value)`
     * Must set the encoder position to ``new_value``
     * ``new_value`` is in encoder_steps
-    * Called by `encoder.set(new_value)` 
+    * Called by `encoder.set(new_value)`
 
 ### Information methods
 * `get_id(self, axis)`

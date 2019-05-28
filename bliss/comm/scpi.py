@@ -417,10 +417,7 @@ class SCPI(object):
         self._logger = logging.getLogger(str(self))
         self._debug = self._logger.debug
         self._contexts = []
-        try:
-            self._eol = interface._eol
-        except AttributeError:
-            self._eol = interface._eos
+        self._eol = interface._eol
         self.commands = Commands(kwargs.get("commands", COMMANDS))
 
     def enter_context(self):

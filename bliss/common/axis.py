@@ -662,7 +662,7 @@ class Axis(AliasMixin, LogMixin):
 
     @property
     def tolerance(self):
-        """Current tolerance in dial units (:obj:`float`)"""
+        """Current Axis tolerance in dial units (:obj:`float`)"""
         return self.config.get("tolerance", float, 1e-4)
 
     @property

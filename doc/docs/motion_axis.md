@@ -453,6 +453,27 @@ stop a movement:
     - send a stop command to the controller
     - the move loop will exit
 
+
+*Before* a movement, the position of the axis is read and compared to
+the BLISS Axis internal position. In case of difference outside the
+limit fixed by **Axis tolerance** configuration parameter, an
+exception is raised with message:
+
+```
+"discrepancy between dial (0.123) and controller position (0.100), aborting"
+```
+
+*After* a movement, if an [encoder is associated to the
+axis](motion_encoder.md), the encoder position is read and compared to
+the target position of the movement. In case of difference outside the
+limit fixed by **Encoder tolerance**, an exception is raised with
+message:
+
+```
+"didn't reach final position"
+```
+
+
 ### Move loop
 
 ![Move procedure](img/move_loop.svg)

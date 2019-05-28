@@ -455,17 +455,29 @@ def test_non_removable(session):
 
 def test_wardrobe_to_yml_file(session):
     materials = settings.ParametersWardrobe("materials")
+
     materials.add("color")
     materials.add("specific_weight")
+    materials.add("dimensions")
+    materials.add("pieces")
+
     materials.switch("water")
+
     materials.color = "transparent"
     materials.specific_weight = 1
+
     materials.switch("gold")
     materials.color = "gold"
     materials.specific_weight = 19.32
+    materials.dimensions = (1, 2, 3)
+    materials.pieces = {"first": 10.3, "second": 20.2, "count": [5, 2, 5]}
+
     materials.switch("copper")
     materials.color = "yellow-brown"
     materials.specific_weight = 8.96
+    materials.dimensions = (5, 10, 15)
+    materials.pieces = {"first": 40.3, "second": 27.2, "count": [1, 2, 3]}
+
     materials.to_file("/tmp/materials_copper.yml")
 
     materials.to_file("/tmp/materials_all.yml", all_configs=True)
@@ -477,26 +489,46 @@ def test_wardrobe_from_yml_file(session):
     # setting default values
     copper_reload.add("color", "nocolor")
     copper_reload.add("specific_weight", 0)
+    copper_reload.add("dimensions")
+    copper_reload.add("pieces")
 
-    copper_reload.from_file("/tmp/materials_copper.yml")
+    copper_reload.from_file("/tmp/materials_copper.yml", config_name="copper")
     assert copper_reload.color == "yellow-brown"
     assert copper_reload.specific_weight == 8.96
 
     materials_reload = settings.ParametersWardrobe("materials_reload")
 
-    materials_reload.from_file("/tmp/materials_all.yml", all_configs=True)
+    materials_reload.from_file("/tmp/materials_all.yml", config_name="copper")
+    materials_reload.from_file("/tmp/materials_all.yml", config_name="gold")
+    materials_reload.from_file("/tmp/materials_all.yml", config_name="default")
 
     materials_reload.switch("gold")
     assert materials_reload.color == "gold"
     assert materials_reload.specific_weight == 19.32
+    assert materials_reload.dimensions == (1, 2, 3)
+    breakpoint()
+    assert materials_reload.pieces == {
+        "first": 10.3,
+        "second": 20.2,
+        "count": [5, 2, 5],
+    }
+
     materials_reload.switch("copper")
     assert materials_reload.color == "yellow-brown"
     assert materials_reload.specific_weight == 8.96
+    assert materials_reload.dimensions == (5, 10, 15)
+    assert materials_reload.pieces == {
+        "first": 40.3,
+        "second": 27.2,
+        "count": [1, 2, 3],
+    }
 
     materials_reload.switch("default")
     # default should be loaded from file and be different
     # from previous values
     assert materials_reload.color == None
+    assert materials_reload.specific_weight == None
+    assert materials_reload.dimensions == None
     assert materials_reload.specific_weight == None
 
 
@@ -514,4 +546,44 @@ def test_wardrobe_from_yml_file_partial(session):
     materials.add("specific_weight")
     materials.add("other")  # this is not in the yml file
     # this should succeed
-    materials.from_file("/tmp/materials_all.yml", all_configs=True)
+    materials.from_file("/tmp/materials_all.yml", config_name="copper")
+    materials.from_file("/tmp/materials_all.yml", config_name="gold")
+    materials.from_file("/tmp/materials_all.yml", config_name="default")
+
+
+def test_to_and_from_yml(session):
+    metals = settings.ParametersWardrobe("metals")
+    yml_string = "WardrobeName: metals\nconfigs:\n  default:\n    _creation_date: 2019-05-29-15:33\n    _creation_date_type: str\n    _last_accessed: 2019-05-29-15:35\n    _last_accessed_type: str\n    color: None\n    color_type: None\n    specific_weight: None\n    specific_weight_type: None\n    price: None\n    price_type: None\n  iron:\n    _creation_date: 2019-05-29-15:34\n    _creation_date_type: str\n    _last_accessed: 2019-05-29-15:34\n    _last_accessed_type: str\n    color: grey\n    color_type: str\n    specific_weight: 6.98\n    specific_weight_type: other\n    price: low\n    price_type: str\n  gold:\n    _creation_date: 2019-05-29-15:33\n    _creation_date_type: str\n    _last_accessed: 2019-05-29-15:33\n    _last_accessed_type: str\n    color: gold\n    color_type: str\n    specific_weight: 19.32\n    specific_weight_type: other\n    price: high\n    price_type: str\n"
+
+    # create default attributes
+    metals.add("color")
+    metals.add("specific_weight")
+    metals.add("price")
+
+    # partial load of one set
+    metals.from_yml(yml_string)
+    for c in "gold iron".split():
+        assert c not in metals.configs
+
+    # full load of all sets
+    for config_name in "gold iron default".split():
+        metals.from_yml(yml_string, config_name=config_name)
+
+    for c in "default gold iron".split():
+        assert c in metals.configs
+    metals.switch("gold")
+    assert metals.color == "gold"
+    assert metals.specific_weight == 19.32
+    assert metals.price == "high"
+    metals.switch("iron")
+    assert metals.color == "grey"
+    assert metals.specific_weight == 6.98
+    assert metals.price == "low"
+    metals.switch("default")
+    assert metals.color == None
+    assert metals.specific_weight == None
+    assert metals.price == None
+
+    # checks that the output is the same (order of lines may change)
+    for line in metals.to_yml(all_configs=True):
+        line in yml_string.split()

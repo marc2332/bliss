@@ -1245,6 +1245,10 @@ class ParametersWardrobe(metaclass=ParametersType):
             "current_config",
             "to_dict",
             "from_dict",
+            "to_yml",
+            "from_yml",
+            "to_file",
+            "from_file",
             "freeze",
             "show_table",
             "creation_date",
@@ -1302,14 +1306,15 @@ class ParametersWardrobe(metaclass=ParametersType):
                 f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
             )
 
-    def to_file(self, path: str, all_configs=False):
+    def to_yml(self, all_configs: bool = False) -> str:
         """
-        Dumps to yml file all parameters that are stored in Redis
+        Dumps to yml string all parameters that are stored in Redis
         No property (computed) parameter is stored.
 
         Args:
-            path: file path
             all_configs: True for dumping all configs, False (default) only current config
+        Returns:
+            str: configs in yml format
         """
         if all_configs:
             data_to_dump = {
@@ -1325,22 +1330,58 @@ class ParametersWardrobe(metaclass=ParametersType):
                     )
                 },
             }
+
+        return yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
+
+    def to_file(self, path: str, all_configs: bool = False) -> None:
+        """
+        Dumps to yml file the current configuration of parameters
+        No property (computed) parameter is written.
+
+        Args:
+            path: file path
+            all_configs: True for dumping all configs, False (default) only current config
+        """
+        yml_data = self.to_yml(all_configs=all_configs)
         with open(path, "w") as file_out:
-            file_out.write(
-                yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
+            file_out.write(yml_data)
+
+    def from_yml(self, yml, config_name: str = None) -> None:
+        """
+        Import a single configuration from a yml raw string
+        behaviour similar to 'from_dict'
+
+        Params:
+            config_name: the name of the configuration that you want to import
+                         if no name is provided the current selected configuration
+                         will be used (self.current_config)
+        """
+        dict_in = yaml.load(yml)
+        if dict_in.get("WardrobeName") != self._wardr_name:
+            logger.warning("Wardrobe Names are different")
+        configs = dict_in["configs"]
+        if config_name:
+            name = config_name
+        else:
+            name = self.current_config
+        try:
+            config = configs[name]  # getting config informations
+        except KeyError:
+            raise KeyError(
+                f"Can't find a configuration with name {self.current_config}"
             )
 
-    def from_file(self, path, all_configs=False):
-        with client.remote_open(path) as file:
-            data_in = yaml.load(file)
-            if data_in.get("WardrobeName") != self._wardr_name:
-                logger.warning("Wardrobe Names are different")
-            configs = data_in["configs"]
-            for config in configs:
-                self.switch(config)
-                self.from_dict(data_in["configs"][config])
+        self.switch(name)
+        self.from_dict(dict_in["configs"][name])
 
-    def show_table(self):
+    def from_file(self, path: str, config_name: str = None) -> None:
+        """
+        Import a single configuration from a file
+        """
+        with client.remote_open(path) as file:
+            self.from_yml(file, config_name=config_name)
+
+    def show_table(self) -> None:
         """
         Shows all data inside ParameterWardrobe different configurations
 
@@ -1387,7 +1428,9 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     def _repr(self, d):
         rep_str = (
-            f"Parameters ({self.current_config}) - " + " | ".join(self.configs) + "\n\n"
+            f"Parameters ({self.current_config}) - "
+            + " | ".join(self.configs[1:])
+            + "\n\n"
         )
         max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"

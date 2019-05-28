@@ -9,7 +9,7 @@ import pytest
 import logging
 import re
 
-from bliss.common.logtools import map_update_loggers, Log, LogMixin
+from bliss.common.logtools import map_update_loggers, Log, LogMixin, logging_startup
 from bliss.common.standard import debugon, debugoff
 from bliss.common.mapping import Map
 from bliss.common import session
@@ -31,11 +31,14 @@ def params(beacon, map):
     """
     Creates a new beacon and log instance
     """
-    logging.basicConfig(level=logging.WARNING)
+    logging_startup()
 
     log = Log(map=map)
 
-    return beacon, log
+    yield beacon, log
+
+    logging.shutdown()
+    logging.setLoggerClass(logging.Logger)
 
 
 class NotMappedController(LogMixin):
@@ -197,8 +200,10 @@ def test_LogMixin(params, caplog):
     assert hasattr(mc._logger, "debug_data")
 
 
-def test_standard_debugon_debugoff(session):
-    roby = session.config.get("roby")
+def test_standard_debugon_debugoff(params):
+    beacon, log = params
+
+    roby = beacon.get("roby")
 
     debugon(roby)
 

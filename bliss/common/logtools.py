@@ -6,9 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import logging
-import types
+import contextlib
+from logging import Logger, StreamHandler, NullHandler, Formatter
 from fnmatch import fnmatch, fnmatchcase
-import functools
 import networkx as nx
 
 from bliss.common.utils import autocomplete_property
@@ -19,14 +19,21 @@ __all__ = ["lslog", "lsdebug"]
 
 
 def logging_startup(
-    log_level=logging.DEBUG, fmt="%(levelname)s %(asctime)-15s %(name)s: %(message)s"
+    log_level=logging.WARNING, fmt="%(levelname)s %(asctime)-15s %(name)s: %(message)s"
 ):
     """
     Provides basicConfig functionality to bliss activating at proper level the root loggers
     """
-    logging.basicConfig(level=log_level, format=fmt)
-    logging.getLogger("bliss").setLevel(log_level)
+    # save log messages format
+    session.get_current().log.set_log_format(fmt)
+
+    # setting startup level for session and bliss logger
     logging.getLogger("session").setLevel(log_level)
+    logging.getLogger("bliss").setLevel(log_level)
+
+    # install an additional handler, only for debug messages
+    # (debugon / debugoff)
+    session.get_current().log.set_debug_handler(StreamHandler())
 
 
 class LogMixin:
@@ -40,39 +47,60 @@ class LogMixin:
         return n["_logger"]
 
 
-def improve_logger(logger_instance):
+@contextlib.contextmanager
+def bliss_logger():
+    saved_logger_class = logging.getLoggerClass()
+    logging.setLoggerClass(BlissLogger)
+    yield
+    logging.setLoggerClass(saved_logger_class)
+
+
+class BlissLogger(Logger):
     """
-    Adds methods to a logging.Logger instance that are are useful for communication debug concerning data format
+    Special logger class with useful methods for communication debug concerning data format
     """
+
+    def __init__(self, name, level=logging.NOTSET):
+        super().__init__(name, level=level)
+        self.__default_level = level  # used to keep track of default shell level
+        self.__saved_level = self.level  # used to allow the user to change level
+
+        self.set_ascii_format()
+
+        # this is to prevent the error message about 'no handler found for logger XXX'
+        self.addHandler(NullHandler())  # this handler does nothing
 
     def debugon(self):
-        """Activates debug on the device"""
-        # get the map
-        session_map = session.get_current().map
-        # find the node that has this logger
-        for node_name in session_map:
-            node = session_map[node_name]
-            if node.get("_logger") is self:
-                break
-        else:
-            raise RuntimeError("Could not find node!")
+        """Activates debug on the logger
 
-        # find successor nodes
-        instance = node["instance"]()
-        if instance is None:
-            raise RuntimeError("Underlying object has been destroyed")
-
-        for n in session_map.G.successors(map_id(instance)):
-            node = session_map[n]
-            try:
-                node["_logger"].setLevel(logging.DEBUG)
-            except KeyError:
-                continue
-        self.setLevel(logging.DEBUG)
+        This enables debug-level logging for this logger and all descendants
+        """
+        super().setLevel(logging.DEBUG)
+        if self.level != logging.DEBUG:
+            self.__saved_level = self.level
+        for name, logger in Log._find_loggers(self.name + ".*").items():
+            logger.debugon()
 
     def debugoff(self):
-        """Activates debug on the device"""
-        self.setLevel(logging.NOTSET)
+        """Deactivates debug on the logger"""
+        super().setLevel(self.__saved_level)
+        for name, logger in Log._find_loggers(self.name + ".*").items():
+            logger.debugoff()
+        self.__saved_level = self.level
+
+    def setLevel(self, level):
+        # Setting level to DEBUG is equivalent to enabling debug log messages
+        if level == logging.DEBUG:
+            self.debugon()
+        else:
+            if self.level == logging.DEBUG:
+                self.debugoff()
+            super().setLevel(level)
+            if level != self.__default_level:
+                # if the set level is not one of the two toggle values
+                # DEBUG or the __default_level initialized on startup
+                # change the toggle value for this logger
+                self.__saved_level = level
 
     def debug_data(self, msg: str, data) -> None:
         """
@@ -116,6 +144,12 @@ def improve_logger(logger_instance):
             f"{name}={self.log_format_ascii(value)}" for (name, value) in indict.items()
         )
 
+    def _ascii_format(self, ch):
+        if ord(ch) > 31 and ord(ch) < 127:
+            return ch
+        else:
+            return "\\x%02x" % ord(ch)
+
     def log_format_ascii(self, instr: str):
         """
         Gives a convenient representation of a bytestring:
@@ -125,17 +159,17 @@ def improve_logger(logger_instance):
         Returns:
             str: formatted bytestring
         """
-
-        def __ascii_format(ch):
-            if ord(ch) > 31 and ord(ch) < 127:
-                return ch
-            else:
-                return "\\x%02x" % ord(ch)
-
         try:
-            return "".join(map(__ascii_format, instr))
-        except:
+            return "".join(map(self._ascii_format, instr))
+        except Exception:
             return instr
+
+    def _hex_format(self, ch):
+        if isinstance(ch, int):
+            # given a byte
+            return "\\x%02x" % ch
+        # given a string of one char
+        return "\\x%02x" % ord(ch)
 
     def log_format_hex(self, instr: str):
         """
@@ -144,137 +178,49 @@ def improve_logger(logger_instance):
         Returns:
             str: formatted hex
         """
-
-        def __hex_format(ch):
-            if isinstance(ch, int):
-                # given a byte
-                return "\\x%02x" % ch
-            # given a string of one char
-            return "\\x%02x" % ord(ch)
-
-        return "".join(map(__hex_format, instr))
-
-    # Appending methods to decorated class
-    logger_instance.debugon = types.MethodType(debugon, logger_instance)
-    logger_instance.debugoff = types.MethodType(debugoff, logger_instance)
-    logger_instance.__format_data = types.MethodType(log_format_ascii, logger_instance)
-    logger_instance.set_hex_format = types.MethodType(set_hex_format, logger_instance)
-    logger_instance.set_ascii_format = types.MethodType(
-        set_ascii_format, logger_instance
-    )
-    logger_instance.debug_data = types.MethodType(debug_data, logger_instance)
-    logger_instance.log_format_dict = types.MethodType(log_format_dict, logger_instance)
-    logger_instance.log_format_ascii = types.MethodType(
-        log_format_ascii, logger_instance
-    )
-    logger_instance.log_format_hex = types.MethodType(log_format_hex, logger_instance)
-    return logger_instance
+        return "".join(map(self._hex_format, instr))
 
 
 class Log:
     """
-    bliss logging utils
+    Main utility class for BLISS logging 
     """
 
-    def __init__(self, map):
-        self.map = map
-        self.map.add_map_handler(map_update_loggers)
-        logging.getLogger("session").setLevel(logging.WARNING)  # setting starting level
-        self.map.trigger_update()
+    _LOG_FORMAT = None
 
-    def _check_log_level(self: (str, int), level):
-        """
-        Checks if a logging level is a valid one
-
-        Args:
-            level: level to be checked
-        Returns:
-            An integer with a logging level or None
-
-        Raises:
-            ValueError: If level is not valid
-        """
-        if level is None:
-            return None
-        if str(level) == level:
-            return logging._checkLevel(level.upper())
-        else:
-            return logging._checkLevel(level)
-
-    def _filter_logger(self, level, name, _logger, uselevel, inherited):
-        """
-        Filters loggers based on
-        """
-        if level is not None:
-            if _logger.getEffectiveLevel() != level:
-                return False
-        if inherited is False:
-            if _logger.level == logging.NOTSET:
-                return False
-        return True
-
-    def _get_bliss_loggers(self, level=None, inherited=True):
-        """\
-        Returns:
-            name, loglevel, set
-        """
-        uselevel = self._check_log_level(level)
-
+    @staticmethod
+    def _find_loggers(glob):
         manager = logging.getLogger().manager
-        loggers = [
-            (name, obj.getEffectiveLevel(), obj.level != logging.NOTSET)
+        loggers = {
+            name: obj
             for (
                 name,
                 obj,
             ) in manager.loggerDict.items()  # All loggers registered in the system
-            if isinstance(obj, logging.Logger)
-            and name.startswith("bliss")
-            and self._filter_logger(level, name, obj, uselevel, inherited) is True
-        ]
+            if isinstance(obj, Logger)
+            and fnmatchcase(name, glob)  # filter out logging Placeholder objects
+        }
         return loggers
 
-    def _get_map_loggers(self, level=None, inherited=True):
-        """\
-        Returns:
-            name, loglevel, set
-        """
-        uselevel = self._check_log_level(level)
+    def __init__(self, map):
+        self.map = map
+        self.map.add_map_handler(map_update_loggers)
+        self.map.trigger_update()
+        self._debug_handler = None
 
-        findlog = {
-            self.map.G.node[node]["_logger"].name
-            for node in self.map.G.node
-            if self.map.G.node[node].get("_logger")
-        }
-        registered_loggers = [logging.getLogger(obj) for obj in findlog]
-        filtered_loggers = [
-            (obj.name, obj.getEffectiveLevel(), obj.level != logging.NOTSET)
-            for obj in registered_loggers
-            if self._filter_logger(level, obj.name, obj, uselevel, inherited) is True
-        ]
-        return sorted(filtered_loggers)
+    def set_debug_handler(self, handler):
+        if self._debug_handler:
+            logging.getLogger().removeHandler(self._debug_handler)
+        self._debug_handler = handler
+        self._debug_handler.setFormatter(Formatter(self._LOG_FORMAT))
+        self._debug_handler.setLevel(logging.DEBUG)
+        logging.getLogger().addHandler(self._debug_handler)
 
-    def _find_map_logger_by_name(self, glob):
-        loggers = self._get_map_loggers()
-        findlog = [logname for logname, _, _ in loggers if fnmatchcase(logname, glob)]
-        # findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
-        findlog.sort()
-        return findlog
-
-    def _find_bliss_logger_by_name(self, glob):
-        loggers = self._get_bliss_loggers()
-        findlog = [logname for logname, _, _ in loggers if fnmatchcase(logname, glob)]
-        # findlog = [logname for logname, _, _ in loggers if logname.find(name) != -1]
-        findlog.sort()
-        return findlog
-
-    def _check_log_name(self, name):
-        if str(name) != name:
-            try:
-                return name.__module__
-            except:
-                pass
-        # return str(name).lower()
-        return name
+    def set_log_format(self, fmt):
+        self._LOG_FORMAT = fmt
+        logger = logging.getLogger()
+        for handler in logger.handlers:
+            handler.setFormatter(Formatter(self._LOG_FORMAT))
 
     def debugon(self, glob: str) -> None:
         """
@@ -286,140 +232,38 @@ class Log:
         Returns:
             None
         """
-        strname = self._check_log_name(glob)
-        loggers = self._find_bliss_logger_by_name(strname)
-        if not len(loggers):
-            print("NO bliss loggers found for [{0}]".format(glob))
-        else:
-            for logname in loggers:
-                print("Set logger [{0}] to {1} level".format(logname, "DEBUG"))
-                logging.getLogger(logname).setLevel(logging.DEBUG)
+        loggers = self._find_loggers(glob)
 
-        loggers = self._find_map_logger_by_name(strname)
-        if not len(loggers):
-            print("NO map loggers found for [{0}]".format(glob))
+        if loggers:
+            for logger in loggers.values():
+                print(f"Setting {logger.name} to show debug messages")
+                logger.setLevel(logging.DEBUG)
         else:
-            for logname in loggers:
-                print("Set logger [{0}] to {1} level".format(logname, "DEBUG"))
-                logging.getLogger(logname).setLevel(logging.DEBUG)
+            print("NO loggers found for [{0}]".format(glob))
 
     def debugoff(self, glob: str) -> None:
         """
-        Sets the debug level of the specified logger to INFO
+        Sets the debug level of the specified logger to the previous level
+        (before debugon) or to WARNING
 
         Args:
             glob: glob style pattern matching
         """
-        strname = self._check_log_name(glob)
-        loggers = self._find_bliss_logger_by_name(strname)
-        if not len(loggers):
-            print("NO bliss loggers found for [{0}]".format(glob))
+        loggers = self._find_loggers(glob)
+        if loggers:
+            for name, logger in loggers.items():
+                try:
+                    print(f"Setting {logger.name} to hide debug messages")
+                    # better if logger is a BlissLogger => debugoff will set the right level
+                    # to all descendants
+                    logger.debugoff()
+                except AttributeError:
+                    print(f"Setting logger {name} level to WARNING")
+                    logger.setLevel(logging.WARNING)
         else:
-            for logname in loggers:
-                print(
-                    "Remove {0} level from bliss logger [{1}]".format("DEBUG", logname)
-                )
-                logging.getLogger(logname).setLevel(logging.NOTSET)
+            print("NO loggers found for [{0}]".format(glob))
 
-        loggers = self._find_map_logger_by_name(strname)
-        if not len(loggers):
-            print("NO map loggers found for [{0}]".format(glob))
-        else:
-            for logname in loggers:
-                print("Remove {0} level from map logger [{1}]".format("DEBUG", logname))
-                logging.getLogger(logname).setLevel(logging.NOTSET)
-
-    def ls_map_loggers(
-        self, glob: str = None, level: int = None, inherited: bool = True
-    ) -> None:
-        """
-        Prints informations about existing loggers
-
-        Args:
-            glob: glob style pattern matching
-            level: level TODO
-        """
-        loggers_ = self._get_map_loggers(level, inherited)
-        if glob and len(loggers_):  # apply glob to find wanted cases
-            loggers = [logger for logger in loggers_ if fnmatchcase(logger[0], glob)]
-        else:
-            loggers = loggers_
-
-        if len(loggers):
-            loggers.sort()
-            maxlen = max([len(name) for (name, _, _) in loggers])
-            msgfmt = "{0:{width}} {1:8} {2:5}"
-
-            print("SESSION INSTANCE MAP LOGGERS")
-            print(msgfmt.format("instance", "level", "set", width=maxlen))
-            print(msgfmt.format("=" * maxlen, 8 * "=", 5 * "=", width=maxlen))
-            for (name, efflvl, setlvl) in loggers:
-                print(
-                    msgfmt.format(
-                        name,
-                        logging.getLevelName(efflvl),
-                        "YES" if bool(setlvl) else "-",
-                        width=maxlen,
-                    )
-                )
-        else:
-            if level is None:
-                print("NO map loggers registered !!")
-            else:
-                uselevel = self._check_log_level(level)
-                print(
-                    "NO map loggers for {0} level !!".format(
-                        logging.getLevelName(uselevel)
-                    )
-                )
-
-    def ls_bliss_loggers(
-        self, glob: str = None, level: int = None, inherited: bool = True
-    ) -> None:
-        """
-        Prints informations about existing loggers
-
-        Args:
-            glob: glob style pattern matching
-            level: level TODO
-        """
-        loggers_ = self._get_bliss_loggers(level, inherited)
-        if glob and len(loggers_):
-            loggers = [logger for logger in loggers_ if fnmatchcase(logger[0], glob)]
-        else:
-            loggers = loggers_
-
-        if len(loggers):
-            loggers.sort()
-            maxlen = max([len(name) for (name, _, _) in loggers])
-            msgfmt = "{0:{width}} {1:8} {2:5}"
-
-            print("BLISS MODULE LOGGERS")
-            print(msgfmt.format("module", "level", "set", width=maxlen))
-            print(msgfmt.format("=" * maxlen, 8 * "=", 5 * "=", width=maxlen))
-            for (name, efflvl, setlvl) in loggers:
-                print(
-                    msgfmt.format(
-                        name,
-                        logging.getLevelName(efflvl),
-                        setlvl is True and "YES" or "-",
-                        width=maxlen,
-                    )
-                )
-        else:
-            if level is None:
-                print("NO bliss loggers registered !!")
-            else:
-                uselevel = self._check_log_level(level)
-                print(
-                    "NO bliss loggers for {0} level !!".format(
-                        logging.getLevelName(uselevel)
-                    )
-                )
-
-    def lslog(
-        self, glob: str = None, level: int = None, inherited: bool = True
-    ) -> None:
+    def lslog(self, glob: str = None, debug_only=False) -> None:
         """
         Search for loggers
         Args:
@@ -440,27 +284,35 @@ class Log:
 
             >>> lslog(level=logging.CRITICAL)  # prints only logger at critical level
         """
-
-        self.ls_bliss_loggers(glob=glob, level=level, inherited=inherited)
-        print("\n\n")
-        self.ls_map_loggers(glob=glob, level=level, inherited=inherited)
-
-    def lsdebug(self, inherited=True):
-        """
-        Shows loggers with debug level
-        """
-        self.lslog(level=logging.DEBUG, inherited=inherited)
-
-    def set_level(self, level, name=None):
-        uselevel = self._check_log_level(level)
-        if name is None:
-            loggers = ["bliss"]
+        if glob is None:
+            loggers = {**self._find_loggers("bliss*"), **self._find_loggers("session*")}
         else:
-            strname = self._check_log_name(name)
-            loggers = self._find_bliss_logger_by_name(strname)
-        for logname in loggers:
-            print(f"Set logger [{logname}] to {logging.getLevelName(uselevel)} level")
-            logging.getLogger(logname).setLevel(uselevel)
+            loggers = self._find_loggers(glob)
+        maxlen = max([len(name) for name, _ in loggers.items()])
+        msgfmt = "{0:{width}} {1:8}"
+        output = False
+
+        for name in sorted(loggers.keys()):
+            logger = loggers[name]
+            try:
+                has_debug = logger.getEffectiveLevel() == logging.DEBUG
+            except AttributeError:
+                has_debug = False
+            if debug_only and not has_debug:
+                continue
+            if not output:
+                output = True
+                print("\n" + msgfmt.format("logger name", "level", width=maxlen))
+                print(msgfmt.format("=" * maxlen, 8 * "=", width=maxlen))
+            print(
+                msgfmt.format(
+                    name, logging.getLevelName(logger.getEffectiveLevel()), width=maxlen
+                )
+            )
+        if output:
+            print("")
+        else:
+            print("No loggers found.\n")
 
 
 def create_logger_name(G, node_id):
@@ -504,7 +356,7 @@ def map_update_loggers(G):
     for node in list(G):
         reference = G.node[node].get("instance")
         if isinstance(reference, str):
-            if reference in ("axes", "counters"):
+            if reference in ("axes", "counters", "comms"):
                 continue
             else:
                 inst = reference
@@ -512,20 +364,29 @@ def map_update_loggers(G):
             inst = reference()
 
         if inst:  # if weakref is still alive
-            logger_name = create_logger_name(G, node)  # get proper name
-            if not G.node[node].get("_logger"):
-                # if the logger does not exist create it
-                G.node[node]["_logger"] = improve_logger(logging.getLogger(logger_name))
-
-            else:
+            node_dict = G.node[node]
+            logger = node_dict.get("_logger")
+            if logger:
+                existing_logger_name = logger.name
+                logger_name = create_logger_name(G, node)  # get name from map
                 # the logger exists, update the name if necessary
-                if G.node[node].get("_logger").name != logger_name:
-                    G.node[node]["_logger"].name = logger_name
+                if existing_logger_name != logger_name:
+                    manager = logger.manager
+                    manager.loggerDict.pop(existing_logger_name, None)
+                    logger.name = logger_name
+                    manager.loggerDict[logger.name] = logger
+                    manager._fixupParents(logger)
+            else:
+                # if the logger does not exist create it
+                # use our own Logger class
+                new_logger_name = create_logger_name(G, node)  # get proper name
+                with bliss_logger():
+                    node_dict["_logger"] = logging.getLogger(new_logger_name)
 
 
-def lslog(glob: str = None, level: int = None, inherited: bool = True):
-    return session.get_current().log.lslog(glob, level, inherited)
+def lslog(glob: str = None):
+    return session.get_current().log.lslog(glob)
 
 
-def lsdebug(inherited=True):
-    return session.get_current().log.lsdebug(inherited)
+def lsdebug():
+    return session.get_current().log.lslog(debug_only=True)

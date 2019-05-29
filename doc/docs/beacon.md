@@ -4,7 +4,9 @@
 provides services on which essential features of BLISS are built upon:
 
 * **configuration database**
-    - text files in [*YAML*](https://yaml.org) format
+    - text files in **YAML** format
+        * Official YAML documentation: https://yaml.org
+        * BLISS YAML documentation: [YAML in Beacon](beacon_db.md).
     - **complete description of an entire beamline
     experimental setup at a centralized place**: devices, sessions, etc.
 * **configuration editor** web application

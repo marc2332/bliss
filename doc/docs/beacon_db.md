@@ -1,5 +1,6 @@
 The path specified with `--db_path` on the beacon server command line
 points to the root directory of the **configuration database**.
+
 Beacon uses plain text files in [YAML](http://yaml.org/) format (with `.yml`
 extension) to describe the set of objects representing a BLISS system.
 The idea is to have **a centralized configuration database per beamline**.
@@ -16,6 +17,8 @@ mapping nodes from the files. Ultimately this structure is flattened and
 exposed as a Python dictionary with key-value pairs, keys being object names
 and values being the corresponding configuration information.
 
+
+
 ## YAML items
 
 A *YAML item* is a key-value pair, using `key: value` syntax. A *YAML mapping*
@@ -31,6 +34,33 @@ example_key3: a string #string value
 !!! info
     An [online YAML parser](http://yaml-online-parser.appspot.com/) can help finding YAML syntax errors.
 
+## Beacon YAML references
+
+In a Beacon YAML file, an already defined object can be referenced using the '$'
+character as a prefix.
+
+`$front_blade` refers to the object named `front_blade`.
+
+As a real example, here are defined 'slits' ie. calculational motors based on
+real axes. The references to the real axes are denoted by the `$` character.
+
+```yaml
+-
+  controller:
+    class: slits
+    name: secondary_slits
+    axes:
+        -
+            name: $ssf  <----------  A reference to existing 'ssf' axis,
+            tags: real front  <----  has got the role of *real front* axis.
+        -
+            name: $ssb
+            tags: real back
+        -
+            name: sshg <------------ The (new) virtual axis 'sshg',
+            tags: hgap      <------- is the *horizontal gap* axis.
+            tolerance: 0.04
+```
 
 ## Definition of a Beacon object
 

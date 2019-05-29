@@ -466,7 +466,7 @@ class Flint:
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            image_data = image_view.get(-1)
+            image_data = image_view.get_image(-1)
             self.update_data(plot.plot_id, channel_name, image_data)
             plot_image = plot.getImage(channel_name)  # returns last plotted image
             if plot_image is None:
@@ -476,7 +476,7 @@ class Flint:
         data_event = (
             self.data_event[master_name]
             .setdefault(data_type, {})
-            .setdefault(data["channel_index"], gevent.event.Event())
+            .setdefault(data.get("channel_index", 0), gevent.event.Event())
         )
         data_event.set()
 

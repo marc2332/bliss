@@ -332,6 +332,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             roi_counters = dict()
             for roi_name, roi in rois.items():
                 roi_counters[roi_name] = roi.to_dict()
-            scan_meta.instrument.set(self, {self.name: {"roi_counters": roi_counters}})
+            scan_meta.instrument.set(
+                self,
+                {self.name: {"NX_class": "NXdetector", "roi_counters": roi_counters}},
+            )
         except Exception:
             pass

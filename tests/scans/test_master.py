@@ -1,7 +1,7 @@
 import numpy
 import gevent
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
 from bliss.scanning.acquisition import timer
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MotorMaster
@@ -142,3 +142,53 @@ def test_master_synchro(beacon, dummy_acq_master, dummy_acq_device):
     scan.run()
     assert master.child_started == 2
     assert master.child_prepared == 2
+
+
+def test_lima_reintrant_iterator(beacon, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+
+    class TriggerMaster(AcquisitionMaster):
+        def __init__(self):
+            super().__init__(None, "trigger")
+            self.iter_val = -1
+
+        def __iter__(self):
+            for i in range(3):
+                self.iter_val = i
+                yield self
+
+        def prepare(self):
+            pass
+
+        def start(self):
+            self.trigger_slaves()
+            self.wait_slaves()
+            self.wait_slaves_ready()
+            self.trigger_slaves()
+            gevent.sleep(0.1)  # avoid synchro error in Lima
+
+        def stop(self):
+            pass
+
+    class LimaMaster(LimaAcquisitionMaster):
+        @property
+        def fast_synchro(self):
+            return False
+
+    trigger_mster = TriggerMaster()
+    lima_mster = LimaMaster(
+        simulator,
+        acq_nb_frames=2,
+        acq_expo_time=1e-3,
+        acq_trigger_mode="INTERNAL_TRIGGER_MULTI",
+        wait_frame_id=range(2),
+        prepare_once=False,
+        start_once=False,
+    )
+    chain = AcquisitionChain()
+    chain.add(trigger_mster, lima_mster)
+    s = Scan(chain, "test", save=False)
+    # s.trace()
+    with gevent.Timeout(3, "Failed"):
+        s.run()
+    assert trigger_mster.iter_val == 2

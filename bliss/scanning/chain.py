@@ -456,6 +456,16 @@ class AcquisitionMaster(object):
         finally:
             gevent.killall(tasks)
 
+    def wait_slaves_ready(self):
+        """
+        This method will wait that all slaves are **ready** to take an other trigger
+        """
+        tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
+        try:
+            gevent.joinall(tasks, raise_error=True)
+        finally:
+            gevent.killall(tasks)
+
 
 class AcquisitionDevice(object):
     HARDWARE, SOFTWARE = list(range(2))

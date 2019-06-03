@@ -7,6 +7,7 @@
 
 import time
 
+import numpy as np
 import pytest
 import gevent
 
@@ -74,6 +75,29 @@ def test_software_position_trigger_master(beacon):
     expected_triggers = [0.034, 0.054, 0.074, 0.09, 0.11]
     assert len(data["debug_time"]) == 5
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
+
+
+def test_iter_software_position_trigger_master(beacon):
+    robz = beacon.get("robz")
+    robz.velocity = 100
+    chain = AcquisitionChain()
+    start_pos = [0, 12, 24]
+    master = SoftwarePositionTriggerMaster(robz, start_pos, 30, 10, time=0.5)
+    device = DebugMotorMockupAcquisitionDevice("debug", robz)
+    chain.add(master, device)
+    s = Scan(chain, save=False)
+    with gevent.Timeout(10):
+        s.run()
+
+    data = s.get_data()
+    assert len(data["robz"]) == 25
+    assert data["robz"] == pytest.approx(data["debug_pos"], abs=0.2)
+    assert len(data["debug_time"]) == len(data["robz"])
+    assert list(master._positions) == list(
+        np.linspace(24, 30, master._SoftwarePositionTriggerMaster__last_npoints + 1)[
+            :-1
+        ]
+    )
 
 
 def test_multi_top_master(beacon, diode_acq_device_factory, diode):

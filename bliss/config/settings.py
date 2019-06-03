@@ -1210,6 +1210,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         self._property_attributes.add("creation_date")
 
         # creates the two needed proxies
+        _change_to_obj_marshalling(keys)  # allows pickling complex objects
         self._proxy = BaseHashSetting(self._hash("default"), **keys)
         self._proxy_default = BaseHashSetting(self._hash("default"), **keys)
 

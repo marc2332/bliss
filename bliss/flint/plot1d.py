@@ -291,7 +291,7 @@ class LivePlot1D(qt.QWidget):
             x_axis, y_axis = axis_names
             legend = "%s -> %s" % (x_axis, y_axis)
             plot = self.silx_plot.getCurve(legend)
-            if plot is not None:
+            if plot is not None and plot.isVisible():
                 # plot is displayed
                 if self._curves.get(plot, 0) > data_len:
                     # existing curve need to be removed

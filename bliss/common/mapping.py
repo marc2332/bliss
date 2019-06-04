@@ -261,9 +261,14 @@ class Map:
         Remaps nodes with missing parents to 'controllers'
         """
         for node in list(self.G):
-            if node != "session" and not len(list(self.G.predecessors(node))):
-                self.G.add_edge("controllers", node)
-                logger.debug(f"Added parent to {node}")
+            try:
+                preds = list(self.G.predecessors(node))
+            except nx.NetworkXError:
+                continue
+            else:
+                if not preds and node != "session":
+                    self.G.add_edge("controllers", node)
+                    logger.debug(f"Added parent to {node}")
 
     def draw_matplotlib(self, format_node: str = "tag->name->class->id"):
         """

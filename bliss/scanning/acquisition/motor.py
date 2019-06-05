@@ -763,12 +763,6 @@ class SweepMotorMaster(AcquisitionMaster):
         self._undershoot_start_margin = undershoot_start_margin
         self._undershoot_end_margin = undershoot_end_margin
 
-        self.sweep_pos = None
-        self.first_sweep = None
-
-    def __iter__(self):
-
-        self._iter_index = 0
         if isinstance(self.start_pos, list):
             self.sweep_move = (
                 float(self.start_pos[1] - self.start_pos[0]) / self._nb_points
@@ -778,9 +772,25 @@ class SweepMotorMaster(AcquisitionMaster):
                 if self.time > 0
                 else self.initial_speed
             )
-            if self._undershoot is None:
-                acctime = float(self.sweep_speed) / self.movable.acceleration
-                self._undershoot = self.sweep_speed * acctime / 2
+        else:
+            self.sweep_move = float(self.end_pos - self.start_pos) / self._nb_points
+            self.sweep_speed = (
+                abs(self.sweep_move) / float(self.time)
+                if self.time > 0
+                else self.initial_speed
+            )
+
+        if self._undershoot is None:
+            acctime = float(self.sweep_speed) / self.movable.acceleration
+            self._undershoot = self.sweep_speed * acctime / 2
+
+        self.sweep_pos = None
+        self.first_sweep = None
+
+    def __iter__(self):
+
+        self._iter_index = 0
+        if isinstance(self.start_pos, list):
             iter_pos = iter(self.start_pos)
             # in case nb points for last iter is different from first iter
             last_npoints = (
@@ -806,15 +816,6 @@ class SweepMotorMaster(AcquisitionMaster):
                 self.start_pos = self.end_pos
                 self._iter_index += 1
         else:
-            self.sweep_move = float(self.end_pos - self.start_pos) / self._nb_points
-            self.sweep_speed = (
-                abs(self.sweep_move) / float(self.time)
-                if self.time > 0
-                else self.initial_speed
-            )
-            if self._undershoot is None:
-                acctime = float(self.sweep_speed) / self.movable.acceleration
-                self._undershoot = self.sweep_speed * acctime / 2
             self.sweep_pos = numpy.linspace(
                 self.start_pos, self.end_pos, self._nb_points + 1
             )[:-1]

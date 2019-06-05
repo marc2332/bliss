@@ -63,7 +63,7 @@ def test_iter_sweep_motor_master(beacon):
     device = DebugMotorMockupPositionAcquisitionDevice("debug", roby)
     chain.add(master, device)
     s = Scan(chain, save=False)
-    with gevent.Timeout(10):
+    with gevent.Timeout(50):
         s.run()
 
     data = s.get_data()

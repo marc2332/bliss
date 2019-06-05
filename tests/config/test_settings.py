@@ -156,8 +156,8 @@ def test_pipeline_bad_setting_object(beacon):
 def test_parameter_wardrobe_1(session):
     spw = settings.ParametersWardrobe("myPWkey")
     # checking default is created
-    assert "default" in spw.configs
-    assert len(spw.configs) == 1
+    assert "default" in spw.instances
+    assert len(spw.instances) == 1
 
     numbers = (("first", 1), ("second", 2), ("third", 3))
     romans_numbers = (("first", "I"), ("second", "II"), ("third", "III"))
@@ -186,8 +186,8 @@ def test_parameter_wardrobe_1(session):
         assert isinstance(getattr(spw, k), int)  # check types
     # deleting
     spw.remove("roman")
-    assert "roman" not in spw.configs
-    assert "default" in spw.configs
+    assert "roman" not in spw.instances
+    assert "default" in spw.instances
 
 
 def test_parameters_wardrobe_switch(session):
@@ -223,12 +223,12 @@ def test_parameters_wardrobe_switch(session):
     assert isinstance(check.get("_last_accessed"), str)
     assert len(check) == 6
 
-    # testing configs method
+    # testing instances method
     for suite in ("a", "b", "c"):
         with pytest.raises(AssertionError):
-            assert suite in dress.configs
+            assert suite in dress.instances
     for suite in ("casual", "default", "night"):
-        assert suite in dress.configs
+        assert suite in dress.instances
 
 
 def test_parameter_wardrobe_init_with_default(session):
@@ -332,21 +332,21 @@ def test_wardrobe_show_table(session, capsys):
     assert "tennis" in captured.out
 
 
-def test_wardrobe_get_current_config(session):
+def test_wardrobe_get_current_instance(session):
     games = settings.ParametersWardrobe("games")
     for name in "soccer tennis football squash".split():
         # create and switch to different sets
         games.switch(name)
-        assert games.current_config == name
+        assert games.current_instance == name
     for name in "soccer tennis football squash".split():
         # just switch to different created sets
         games.switch(name)
-        assert games.current_config == name
+        assert games.current_instance == name
 
 
 def test_creation_time(session):
     drinks = settings.ParametersWardrobe("drinks")
-    assert "wine" not in drinks.configs
+    assert "wine" not in drinks.instances
     drinks.switch("wine")
     # get current time
     now = datetime.datetime.now()
@@ -457,7 +457,7 @@ def test_dir_shows_attrs_on_shell(session, capsys):
     captured = capsys.readouterr()
     for (
         name
-    ) in "add remove switch config current_config to_dict from_dict from_file freeze show_table creation_date last_accessed band music myproperty".split():
+    ) in "add remove switch instance current_instance to_dict from_dict from_file freeze show_table creation_date last_accessed band music myproperty".split():
         assert name in captured.out
 
 
@@ -533,7 +533,7 @@ def test_wardrobe_to_yml_file(session, materials):
 
     materials.switch("copper")
 
-    # export only copper (current config)
+    # export only copper (current instance)
     materials.to_file(path)
 
     materials.switch("gold")
@@ -543,7 +543,7 @@ def test_wardrobe_to_yml_file(session, materials):
         assert f.read() == f1.read()
 
     # export all materials
-    materials.to_file("/tmp/materials_all.yml", *materials.configs)
+    materials.to_file("/tmp/materials_all.yml", *materials.instances)
 
 
 def test_wardrobe_from_yml_file(session):
@@ -557,7 +557,7 @@ def test_wardrobe_from_yml_file(session):
     copper_reload.add("precious")
     copper_reload.add("motor")
 
-    copper_reload.from_file("/tmp/materials_copper.yml", config_name="copper")
+    copper_reload.from_file("/tmp/materials_copper.yml", instance_name="copper")
     assert copper_reload.color == "yellow-brown"
     assert copper_reload.specific_weight == 8.96
     assert copper_reload.dimensions == (5, 10, 15)
@@ -574,11 +574,11 @@ def test_wardrobe_from_yml_file(session):
     materials_reload.add("motor")
 
     materials_reload.switch("copper")
-    materials_reload.from_file("/tmp/materials_all.yml", config_name="copper")
+    materials_reload.from_file("/tmp/materials_all.yml", instance_name="copper")
     materials_reload.switch("gold")
-    materials_reload.from_file("/tmp/materials_all.yml", config_name="gold")
+    materials_reload.from_file("/tmp/materials_all.yml", instance_name="gold")
     materials_reload.switch("default")
-    materials_reload.from_file("/tmp/materials_all.yml", config_name="default")
+    materials_reload.from_file("/tmp/materials_all.yml", instance_name="default")
 
     materials_reload.switch("gold")
     assert materials_reload.color == "gold"
@@ -633,9 +633,9 @@ def test_wardrobe_from_yml_file_partial(session):
     material.add("precious")
     material.add("motor")
     # this should succeed
-    material.from_file("/tmp/materials_all.yml", config_name="copper")
-    material.from_file("/tmp/materials_all.yml", config_name="gold")
-    material.from_file("/tmp/materials_all.yml", config_name="default")
+    material.from_file("/tmp/materials_all.yml", instance_name="copper")
+    material.from_file("/tmp/materials_all.yml", instance_name="gold")
+    material.from_file("/tmp/materials_all.yml", instance_name="default")
 
 
 def test_wardrobe_check_atomic_operation(session):
@@ -659,21 +659,25 @@ def test_wardrobe_freeze(session):
     temperature.add("water", "liquid")
     temperature.switch("t20")
 
-    assert "water" not in temperature._get_redis_single_config("t20")  # not in redis
+    assert "water" not in temperature._get_redis_single_instance("t20")  # not in redis
     temperature.freeze()
     temperature.switch("warm", copy="default")
-    assert "water" in temperature._get_redis_single_config("t20")  # should be in Redis
-    assert "water" in temperature._get_redis_single_config("warm")  # should be in Redis
+    assert "water" in temperature._get_redis_single_instance(
+        "t20"
+    )  # should be in Redis
+    assert "water" in temperature._get_redis_single_instance(
+        "warm"
+    )  # should be in Redis
 
 
 def test_wardrobe_low_level_methods(materials):
-    assert materials._get_redis_single_config("not existant") == {}
+    assert materials._get_redis_single_instance("not existant") == {}
     with pytest.raises(NameError):
-        assert materials._get_config("not existant") == {}
+        assert materials._get_instance("not existant") == {}
 
 
 def test_to_beacon(materials):
-    materials.to_beacon("mat_eri-als23", *materials.configs)
+    materials.to_beacon("mat_eri-als23", *materials.instances)
 
 
 def test_from_beacon(session):

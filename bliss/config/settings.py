@@ -1139,7 +1139,7 @@ class ParametersWardrobe(metaclass=ParametersType):
     SLOTS = [
         "_proxy",
         "_proxy_default",
-        "_configs",
+        "_instances",
         "_wardr_name",
         "_property_attributes",
         "_not_removable",
@@ -1157,16 +1157,16 @@ class ParametersWardrobe(metaclass=ParametersType):
         """
         ParametersWardrobe is a convenient way of storing parameters
         tipically to be passed to a function or procedure.
-        The advantage is that you can easily create new configurations
+        The advantage is that you can easily create new instances
         in which you can modify only some parameters and
         keep the rest to default.
         Is like having different dresses for different purposes and
         changing them easily.
 
-        All configurations are stored in Redis, you will have:
+        All instances are stored in Redis, you will have:
         * A list of Names with the chosen key parameters:name
-        * Hash types with key 'parameters:wardrobename:config_name'
-            one for each configuration
+        * Hash types with key 'parameters:wardrobename:instance_name'
+            one for each instance
 
         Args:
             name: the name of the ParametersWardrobe
@@ -1197,9 +1197,9 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         self.__update = True
 
-        # different configuration names are stored in a queue where
+        # different instance names are stored in a queue where
         # the first item is the currently used one
-        self._configs = QueueSetting("parameters:%s" % name)
+        self._instances = QueueSetting("parameters:%s" % name)
         self._wardr_name = name  # name of the ParametersWardrobe
         self._property_attributes = set(
             property_attributes
@@ -1221,16 +1221,16 @@ class ParametersWardrobe(metaclass=ParametersType):
                 # add only if default values does not exist
                 self.add(k, v)
 
-        if "default" not in self._configs:
+        if "default" not in self._instances:
             # New created Wardrobe, switch to default
             self.switch("default")
         else:
             # Existant Wardrobe, switch to last used
-            self.switch(self.current_config)
+            self.switch(self.current_instance)
 
     def _hash(self, name):
         """
-        Helper for extracting the redis name of parameter configurations
+        Helper for extracting the redis name of parameter instances
         """
         return "parameters:%s:%s" % (self._wardr_name, name)
 
@@ -1245,8 +1245,8 @@ class ParametersWardrobe(metaclass=ParametersType):
                 "add",
                 "remove",
                 "switch",
-                "configs",
-                "current_config",
+                "instances",
+                "current_instance",
                 "to_dict",
                 "from_dict",
                 "to_file",
@@ -1263,18 +1263,21 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     def to_dict(self):
         """
-        Retrieve all parameters inside a configuration in a dict form
-        If a parameter is not present inside the configuration, the
+        Retrieve all parameters inside an instance in a dict form
+        If a parameter is not present inside the instance, the
         default will be taken, property (computed) attributes are included.
 
         Returns:
             dictionary with (parameter,value) pairs
         """
-        return {**self._get_config("default"), **self._get_config(self.current_config)}
+        return {
+            **self._get_instance("default"),
+            **self._get_instance(self.current_instance),
+        }
 
     def from_dict(self, d: dict) -> None:
         """
-        Updates the current configuration of values from a dictionary.
+        Updates the current instance of values from a dictionary.
 
         You should provide a dictionary that contains the same attribute names as
         current existing inside the ParametersWardrobe you want to update.
@@ -1289,7 +1292,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             raise TypeError("You should provide a dictionary")
         backup = self.to_dict()
 
-        redis_default_attrs = set(self._get_redis_single_config("default").keys())
+        redis_default_attrs = set(self._get_redis_single_instance("default").keys())
         found_attrs = set()
 
         try:
@@ -1307,7 +1310,7 @@ class ParametersWardrobe(metaclass=ParametersType):
                     )
                 else:
                     raise AttributeError(
-                        f"Attribute '{name}' does not find an equivalent in current configuration"
+                        f"Attribute '{name}' does not find an equivalent in current instance"
                     )
             if found_attrs != redis_default_attrs:
                 logger.warning(
@@ -1317,83 +1320,84 @@ class ParametersWardrobe(metaclass=ParametersType):
             self.from_dict(backup)  # rollback in case of exception
             raise exc
 
-    def _to_yml(self, *configs) -> str:
+    def _to_yml(self, *instances) -> str:
         """
         Dumps to yml string all parameters that are stored in Redis
         No property (computed) parameter is stored.
 
         Args:
-            configs: list of configs to export
+            instances: list of instances to export
 
         Returns:
-            str: configs in yml format
+            str: instances in yml format
         """
-        configurations = {}
-        for conf in configs:
-            configurations.update(
+        _instances = {}
+        for inst in instances:
+            _instances.update(
                 {
-                    conf: {
-                        **self._get_redis_single_config("default"),
-                        **self._get_redis_single_config(conf),
+                    inst: {
+                        **self._get_redis_single_instance("default"),
+                        **self._get_redis_single_instance(inst),
                     }
                 }
             )
-        data_to_dump = {"WardrobeName": self._wardr_name, "configs": configurations}
+        data_to_dump = {"WardrobeName": self._wardr_name, "instances": _instances}
 
         return yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
 
-    def to_file(self, fullpath: str, *configs) -> None:
+    def to_file(self, fullpath: str, *instances) -> None:
         """
-        Dumps to yml file the current configuration of parameters
+        Dumps to yml file the current instance of parameters
         No property (computed) parameter is written.
 
         Args:
             fullpath: file full path including name of file
-            configs: list of config names to import
+            instances: list of instance names to import
         """
-        if not configs:
-            configs = [self.current_config]
-        yml_data = self._to_yml(*configs)
+        if not instances:
+            instances = [self.current_instance]
+        yml_data = self._to_yml(*instances)
         with open(fullpath, "w") as file_out:
             file_out.write(yml_data)
 
-    def _from_yml(self, yml: str, config_name: str = None) -> None:
+    def _from_yml(self, yml: str, instance_name: str = None) -> None:
         """
-        Import a single configuration from a yml raw string
+        Import a single instance from a yml raw string
         behaviour similar to 'from_dict' but dict manages also
         property attributes, instead yml manages only attributes
         stored on Redis
 
         Params:
             yml: string containing yml data
-            config_name: the name of the configuration that you want to import
+            instance_name: the name of the instance that you want to import
         """
         dict_in = yaml.load(yml)
         if dict_in.get("WardrobeName") != self._wardr_name:
             logger.warning("Wardrobe Names are different")
-        configs = dict_in["configs"]
         try:
-            config = configs[config_name]  # getting config informations
+            instance = dict_in["instances"][
+                instance_name
+            ]  # getting instance informations
         except KeyError:
-            raise KeyError(f"Can't find a configuration with name {config_name}")
+            raise KeyError(f"Can't find an instance with name {instance_name}")
 
-        self.from_dict(dict_in["configs"][config_name])
+        self.from_dict(dict_in["instances"][instance_name])
 
-    def from_file(self, fullpath: str, config_name: str = None) -> None:
+    def from_file(self, fullpath: str, instance_name: str = None) -> None:
         """
-        Import a single configuration from a file
+        Import a single instance from a file
         """
         with open(fullpath) as file:
-            self._from_yml(file, config_name=config_name)
+            self._from_yml(file, instance_name=instance_name)
 
-    def from_beacon(self, name: str, config_name: str = None):
+    def from_beacon(self, name: str, instance_name: str = None):
         """
-        Imports a single config from Beacon.
+        Imports a single instance from Beacon.
         It assumes the Wardrobe is under Beacon subfolder /wardrobe/
 
         Args:
             name: name of the file (will be saved with .dat extension)
-            config_name: name of the wardrobe config to dump
+            instance_name: name of the wardrobe instance to dump
         """
 
         if re.match("[A-Za-z_]+[A-Za-j0-9_-]*", name) is None:
@@ -1401,71 +1405,73 @@ class ParametersWardrobe(metaclass=ParametersType):
                 "Name of beacon wardrobe saving file should start with a letter or underscore and contain only letters, numbers, underscore and minus"
             )
         remote_file = remote_open(f"wardrobe/{name}.dat")
-        self._from_yml(remote_file, config_name=config_name)
+        self._from_yml(remote_file, instance_name=instance_name)
 
-    def to_beacon(self, name: str, *configs):
+    def to_beacon(self, name: str, *instances):
         """
-        Export one or more configurations to Beacon.
+        Export one or more instance to Beacon.
         It will save the Wardrobe under Beacon subfolder /wardrobe/
 
         Args:
             name: name of the file (will be saved with .dat extension)
-            configs: arguments passed as comma separated
+            instances: arguments passed as comma separated
 
         Example:
             >>>materials = ParametersWardrobe("materials")
             >>>materials.switch('copper')
 
-            >>># exporting current config
+            >>># exporting current instance
             >>>materials.to_beacon('2019-06-23-materials')
 
-            >>># exporting a config giving the name
+            >>># exporting a instance giving the name
             >>>materials.to_beacon('2019-06-23-materials', 'copper')
 
-            >>># exporting all configs
-            >>>materials.to_beacon('2019-06-23-materials', *materials.configs)  # uses python list unpacking
+            >>># exporting all instances
+            >>>materials.to_beacon('2019-06-23-materials', *materials.instances)  # uses python list unpacking
 
         """
         if re.match("[A-Za-z_]+[A-Za-z0-9_-]*", name) is None:
             raise NameError(
                 "Name of beacon wardrobe saving file should start with a letter or underscore and contain only letters, numbers, underscore and minus"
             )
-        yml_data = self._to_yml(*configs)
+        yml_data = self._to_yml(*instances)
         set_config_db_file(f"wardrobe/{name}.dat", yml_data)
 
     def show_table(self) -> None:
         """
-        Shows all data inside ParameterWardrobe different configurations
+        Shows all data inside ParameterWardrobe different instances
 
         - Property attributes are identified with an # (hash)
         - parameters taken from default are identified with an * (asterisk)
         - parameters with a name starting with underscore are omitted
         """
 
-        all_configs = self._get_all_configs()
-        all_configs_redis = self._get_redis_all_configs()
+        all_instances = self._get_all_instances()
+        all_instances_redis = self._get_redis_all_instances()
 
-        column_names = self._configs
+        column_names = self._instances
         column_repr = (
-            self.current_config + " (SELECTED)",
-            *self.configs[1:],
+            self.current_instance + " (SELECTED)",
+            *self.instances[1:],
         )  # adds SELECTED to first name
 
         # gets attribute names, remove underscore attributes
-        row_names = (k for k in all_configs["default"].keys() if not k.startswith("_"))
+        row_names = (
+            k for k in all_instances["default"].keys() if not k.startswith("_")
+        )
 
         data = list()
-        data.append(column_repr)  # configuration names on first row
+        data.append(column_repr)  # instance names on first row
         for row_name in sorted(row_names):
             row_data = []
             row_data.append(row_name)
             for col in column_names:
                 if row_name in self._property_attributes:
-                    cell = "# " + str(all_configs[col][row_name])
-                elif row_name in all_configs_redis[col].keys():
-                    cell = str(all_configs[col][row_name])
+                    cell = "# " + str(all_instances[col][row_name])
+                elif row_name in all_instances_redis[col].keys():
+                    cell = str(all_instances[col][row_name])
                 else:
-                    cell = "* " + str(all_configs["default"][row_name])
+                    cell = "* " + str(all_instances["default"][row_name])
 
                 row_data.append(cell)
             data.append(row_data)
@@ -1476,12 +1482,12 @@ class ParametersWardrobe(metaclass=ParametersType):
         print(tabulate(data, headers="firstrow", stralign="right"))
 
     def __repr__(self):
-        return self._repr(self._get_config(self.current_config))
+        return self._repr(self._get_instance(self.current_instance))
 
     def _repr(self, d):
         rep_str = (
-            f"Parameters ({self.current_config}) - "
-            + " | ".join(self.configs[1:])
+            f"Parameters ({self.current_instance}) - "
+            + " | ".join(self.instances[1:])
             + "\n\n"
         )
         max_len = max((0,) + tuple(len(x) for x in d.keys()))
@@ -1492,13 +1498,13 @@ class ParametersWardrobe(metaclass=ParametersType):
             rep_str += str_format % (key, value)
         return rep_str
 
-    def _get_redis_single_config(self, name) -> dict:
+    def _get_redis_single_instance(self, name) -> dict:
         """
-        Retrieve a single configuration of parameters from redis
+        Retrieve a single instance of parameters from redis
         """
         try:
             name_backup = self._proxy._name
-            if name in self.configs:
+            if name in self.instances:
                 self._proxy._name = self._hash(name)
                 results = self._proxy.get_all()
                 return results
@@ -1506,24 +1512,24 @@ class ParametersWardrobe(metaclass=ParametersType):
         finally:
             self._proxy._name = name_backup
 
-    def _get_redis_all_configs(self) -> dict:
+    def _get_redis_all_instances(self) -> dict:
         """
-        Retrieve all parameters of all configurations from redis as dict of dicts
+        Retrieve all parameters of all instances from redis as dict of dicts
 
         Returns:
-            dict of dicts: Example: {'first_configuration':{...}, 'second_configuration':{...}}
+            dict of dicts: Example: {'first_instance':{...}, 'second_instance':{...}}
         """
         params_all = {}
 
-        for config in self.configs:
-            params = self._get_redis_single_config(config)
-            params_all[config] = {**params}
+        for instance in self.instances:
+            params = self._get_redis_single_instance(instance)
+            params_all[instance] = {**params}
         return params_all
 
-    def _get_config(self, name) -> dict:
+    def _get_instance(self, name) -> dict:
         """
-        Retrieve all parameters inside a configuration
-        Taking from default if not present inside the configuration
+        Retrieve all parameters inside an instance
+        Taking from default if not present inside the instance
         Property are included
 
         Returns:
@@ -1533,36 +1539,36 @@ class ParametersWardrobe(metaclass=ParametersType):
             NameError
         """
 
-        if name not in self.configs:
-            raise NameError(f"The configuration name '{name}' does not exist")
+        if name not in self.instances:
+            raise NameError(f"The instance name '{name}' does not exist")
 
-        self.__update = False  # to not change current configuration
+        self.__update = False  # to not change current instance
         self.switch(name)
 
-        attrs = self._get_redis_single_config("default").keys()
-        configuration_ = {}
+        attrs = self._get_redis_single_instance("default").keys()
+        instance_ = {}
         for attr in list(attrs) + list(self._property_attributes):
-            configuration_[attr] = getattr(self, attr)
+            instance_[attr] = getattr(self, attr)
 
-        self.switch(self.current_config)  # back to current config
+        self.switch(self.current_instance)  # back to current instance
         self.__update = True
-        return configuration_
+        return instance_
 
-    def _get_all_configs(self):
+    def _get_all_instances(self):
         """
-        Retrieve all parameters of all configurations from as dict of dicts
+        Retrieve all parameters of all instances from as dict of dicts
         Property are included
         """
         params_all = {}
 
-        for config in self.configs:
-            params = self._get_config(config)
-            params_all[config] = {**params}
+        for instance in self.instances:
+            params = self._get_instance(instance)
+            params_all[instance] = {**params}
         return params_all
 
     def add(self, name, value=None):
         """
-        Adds a parameter to all configurations storing the value only on
+        Adds a parameter to all instances storing the value only on
         'default' parameter
 
         Args:
@@ -1601,15 +1607,15 @@ class ParametersWardrobe(metaclass=ParametersType):
     def freeze(self):
         """
         Freezing values for current set: all default taken values will be
-        written inside the configuration so changes on 'default' configuration will not cause
-        change on the current configuration.
+        written inside the instance so changes on 'default' instance will not cause
+        change on the current instance.
 
         If you later add another parameter this will still refer to 'default'
         so you will need to freeze again
         """
         redis_params = {
-            **self._get_redis_single_config("default"),
-            **self._get_redis_single_config(self.current_config),
+            **self._get_redis_single_instance("default"),
+            **self._get_redis_single_instance(self.current_instance),
         }
         for name, value in redis_params.items():
             setattr(
@@ -1620,11 +1626,11 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     def remove(self, param):
         """
-        Remove a parameter or a configuration of parameters from all configurations
+        Remove a parameter or an instance of parameters from all instances
 
         Args:
-            param: name of a configuration to remove a whole configuration
-                   .name of a parameter to remove a parameter from all configurations
+            param: name of an instance to remove a whole instance
+                   .name of a parameter to remove a parameter from all instances
 
         Examples:
             >>> p = ParametersWardrobe('p')
@@ -1635,45 +1641,45 @@ class ParametersWardrobe(metaclass=ParametersType):
 
             >>> p.remove('.head')  # with dot to remove a parameter
 
-            >>> p.remove('casual') # without dot to remove a complete configuration
+            >>> p.remove('casual') # without dot to remove a complete instance
         """
         logger.debug(f"In {type(self).__name__}({self._wardr_name}).remove({param})")
 
         if param.startswith("."):
-            # removing a parameter from every configuration
+            # removing a parameter from every instance
             param = param[1:]
             if param in self._not_removable or param in self._property_attributes:
                 raise AttributeError("Can't remove attribute")
-            for param_configuration in self.configs:
-                pr = BaseHashSetting(self._hash(param_configuration))
+            for param_instance in self.instances:
+                pr = BaseHashSetting(self._hash(param_instance))
                 pr.remove(param)
-        elif param != "default" and param in self.configs:
-            # removing a configuration of parameters
+        elif param != "default" and param in self.instances:
+            # removing an instance of parameters
             pr = BaseHashSetting(self._hash(param))
             pr.clear()
-            self._configs.remove(param)  # removing from Queue
+            self._instances.remove(param)  # removing from Queue
         else:
             raise NameError(f"Can't remove {param}")
 
     def switch(self, name, copy=None):
         """
-        Switches to a new configuration of parameters.
+        Switches to a new instance of parameters.
 
         Values of parameters will be retrieved from redis (if existent).
-        In case of a non existing configuration name, a new configuration of parameters will
+        In case of a non existing instance name, a new instance of parameters will
         be created and It will be populated with name,value pairs from
-        the current 'default' configuration.
+        the current 'default' instance.
         This is not a copy, but only a reference, so changes on default
-        will reflect to the new configuration.
+        will reflect to the new instance.
 
         The value of an attribute is stored in Redis after an assigment
         operation (also if assigned value is same as default).
 
-        To freeze the full configuration you can use the 'freeze' method.
+        To freeze the full instance you can use the 'freeze' method.
 
         Args:
-            name: name of configuration of parameters to switch to
-            copy: name of configuration of parameters to copy for initialization
+            name: name of instance of parameters to switch to
+            copy: name of instance of parameters to copy for initialization
 
         Returns:
             None
@@ -1685,8 +1691,8 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         self._proxy._name = self._hash(name)
 
-        # if is a new configuration we will set the creation date
-        if name not in self.configs:
+        # if is a new instance we will set the creation date
+        if name not in self.instances:
             self._proxy["_creation_date"] = datetime.datetime.now().strftime(
                 "%Y-%m-%d-%H:%M"
             )
@@ -1701,35 +1707,35 @@ class ParametersWardrobe(metaclass=ParametersType):
         for key in self._proxy_default.keys():
             self._populate(key)
 
-        # copy values from existing configuration
-        if copy and copy in self.configs:
-            copy_params = self._get_redis_single_config(copy)
+        # copy values from existing instance
+        if copy and copy in self.instances:
+            copy_params = self._get_redis_single_instance(copy)
             for key, value in copy_params.items():
                 self._populate(key, value=value)
 
         # removing and prepending the name so it will be the first
         if self.__update:
-            self._configs.remove(name)
-            self._configs.prepend(name)
+            self._instances.remove(name)
+            self._instances.prepend(name)
 
         for key in self._proxy.keys():
             self._populate(key)
 
     @property
-    def configs(self):
+    def instances(self):
         """
         Returns:
-            A list containing all configurations names
+            A list containing all instance names
         """
-        return list(self._configs)
+        return list(self._instances)
 
     @property
-    def current_config(self):
+    def current_instance(self):
         """
         Returns:
-            Name of the current selected configuration
+            Name of the current selected instance
         """
-        return self.configs[0]
+        return self.instances[0]
 
     @property
     def last_accessed(self):

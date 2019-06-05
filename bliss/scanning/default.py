@@ -148,11 +148,6 @@ def master_to_devices_mapping(
             scan_pars, **settings
         )
 
-        # Set the AcquisitionDevice mode
-        if isinstance(counter, SamplingCounter):
-            if counter.acquisition_device_mode is not None:
-                acquisition_device.mode = counter.acquisition_device_mode
-
         # Parent handling
         if master_controller is None:
             master_controller = master_settings.get(device_controller)

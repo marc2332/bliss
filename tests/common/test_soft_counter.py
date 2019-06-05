@@ -9,7 +9,7 @@ import pytest
 import numpy.testing
 
 from bliss.common.standard import loopscan
-from bliss.common.measurement import SoftCounter
+from bliss.common.measurement import SoftCounter, SamplingMode
 
 
 class NullObject(object):
@@ -167,23 +167,23 @@ def test_soft_counter_scan(beacon):
     return data
 
 
-def test_sampling_counter_acquisition_device_mode(beacon):
+def test_soft_sampling_counter_mode(beacon):
 
     diode = beacon.get("diode")
 
     # USING DEFAULT MODE
     c = SoftCounter(diode, "read")
-    assert c.acquisition_device_mode is None
+    assert c.mode.name == "SIMPLE_AVERAGE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].mode.name == "SIMPLE_AVERAGE"
+    assert s.acq_chain.nodes_list[1].device.mode.name == "SIMPLE_AVERAGE"
 
     # UPDATING THE MODE
-    c.acquisition_device_mode = "INTEGRATE"
+    c.mode = "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].mode.name == "INTEGRATE"
+    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
 
     # SPECIFYING THE MODE
-    c = SoftCounter(diode, "read", acquisition_device_mode="INTEGRATE")
-    assert c.acquisition_device_mode == "INTEGRATE"
+    c = SoftCounter(diode, "read", mode=SamplingMode.INTEGRATE)
+    assert c.mode.name == "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].mode.name == "INTEGRATE"
+    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"

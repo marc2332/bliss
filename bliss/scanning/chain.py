@@ -25,7 +25,7 @@ from .channel import duplicate_channel, attach_channels
 # Running task for a specific device
 #
 _running_task_on_device = weakref.WeakValueDictionary()
-_logger = logging.getLogger("Scan")
+_logger = logging.getLogger("bliss.scans")
 _debug = _logger.debug
 _error = _logger.error
 
@@ -836,10 +836,6 @@ class AcquisitionChain(object):
 
     def reset_stats(self):
         self._stats_dict = dict()
-
-    @staticmethod
-    def trace(on):
-        _logger.setLevel("DEBUG" if on else 0)
 
     @property
     def nodes_list(self):

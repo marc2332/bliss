@@ -21,6 +21,10 @@ is possible to configure those directly in a session YAML file:
     counters: [simct4, simct5]
 ```
 
+!!! note
+    MeasurementGroup objects mumst be added in the list of objects to load in the
+    session (`config-objects` list)
+
 `counters` must be a list of names, corresponding to `Counter` objects.
 [Read more about Counter objects](scan_ctmg.md)
 

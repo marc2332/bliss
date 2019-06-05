@@ -1,5 +1,4 @@
 import enum
-import socket
 import operator
 from functools import partial
 from collections import namedtuple
@@ -8,7 +7,8 @@ from six.moves import reduce
 
 import numpy as np
 from gevent.lock import Semaphore as Lock
-
+from bliss.comm.tcp import Socket
+from bliss.config.channels import Cache
 
 # Constants
 
@@ -121,21 +121,17 @@ def run_command(sock, command, return_type="int", return_shape=(), payload=b""):
     raw_command = command.encode()
     if payload:
         raw_command += b" " + payload
-    sock.sendall(raw_command)
-    # Get the reply
-    raw_data = b""
     total_size = nbytes * return_size
-    while total_size != len(raw_data):
-        raw_data += sock.recv(nbytes * return_size)
-        # Detect error packet
-        if len(raw_data) != nbytes_error:
-            continue
-        # Detect error code
-        error_code = np.asscalar(decode_error(raw_data))
-        if error_code >= 0:
-            continue
-        # Raise mythen error
-        raise MythenCommandError(error_code, command)
+    with sock.lock:
+        sock.write(raw_command)
+        raw_data = sock.raw_read(total_size)
+        if len(raw_data) == nbytes_error:
+            error_code = np.asscalar(decode_error(raw_data))
+            if error_code < 0:
+                raise MythenCommandError(error_code, command)
+        if len(raw_data) != total_size:
+            raw_data += sock.read(total_size - len(raw_data))
+
     # Decode the data
     data = decode(raw_data)
     # Return string
@@ -164,14 +160,18 @@ def convert(array, nbits):
 
 
 class MythenInterface:
-    def __init__(self, hostname, protocol=socket.SOCK_STREAM, timeout=15.):
+    def __init__(self, hostname):
         self._lock = Lock()
-        self._hostname = hostname
-        self._port = TCP_PORT if protocol == socket.SOCK_STREAM else UDP_PORT
-        self._sock = socket.socket(socket.AF_INET, protocol)
-        self._sock.settimeout(timeout)
-        self._sock.connect((self._hostname, self._port))
-        self._version = self.get_version()
+        self.name = f"mythen:{hostname}"
+        self._sock = Socket(hostname, TCP_PORT)
+        self._version_cache = Cache(self, "version", default_value=None)
+
+    @property
+    def version(self):
+        if self._version_cache.value == None:
+            version = self.get_version()
+            self._version_cache.value = version
+        return self._version_cache.value
 
     def close(self):
         self._sock.close()
@@ -184,8 +184,8 @@ class MythenInterface:
         sign, version = requirement[:2], requirement[2:]
         sign = {">=": operator.ge, "<=": operator.le}[sign]
         version = tuple(map(int, version.split(".")))
-        if not sign(self._version, version):
-            raise MythenCompatibilityError(self._version, requirement, command)
+        if not sign(self.version, version):
+            raise MythenCompatibilityError(self.version, requirement, command)
 
     # Special getters
 
@@ -198,7 +198,7 @@ class MythenInterface:
 
     def get_modchannels(self):
         nmodules = self.get_nmodules()
-        if self._version < (4,):
+        if self.version < (4,):
             return (1280,) * nmodules
         shape = (nmodules,)
         modchannels = self._run_command("-get modchannels", "int", shape)

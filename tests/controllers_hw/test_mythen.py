@@ -11,12 +11,12 @@ from bliss.controllers.mca.mythen.lib import (
 )
 
 
-@pytest.fixture(params=[socket.SOCK_STREAM, socket.SOCK_DGRAM], ids=["TCP", "UDP"])
-def mythen(request):
+@pytest.fixture
+def mythen(request, beacon):
     hostname = request.config.getoption("--mythen")
     if hostname is None:
         pytest.xfail("The --mythen hostname option has to be provided.")
-    mythen = MythenInterface(hostname, request.param)
+    mythen = MythenInterface(hostname)
     yield mythen
     mythen.close()
 

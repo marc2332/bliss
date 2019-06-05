@@ -46,7 +46,7 @@ def run_command(monkeypatch):
         # Not managed
         assert False
 
-    monkeypatch.setattr(mythenlib, "socket", Mock())
+    monkeypatch.setattr(mythenlib, "Socket", Mock())
     monkeypatch.setattr(mythenlib, "run_command", run_command)
     run_command.setters = setters
     run_command.commands = commands
@@ -57,7 +57,6 @@ def test_myten_basic(run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     assert m.name == "test"
     assert m.hostname == "mymythen"
-    m._interface._sock.connect.assert_called_once_with(("mymythen", 1030))
     assert (
         repr(m)
         == """\

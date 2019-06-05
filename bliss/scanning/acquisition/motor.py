@@ -74,12 +74,43 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         self.movable = axis
         self.start_pos = start
         self.end_pos = end
-        self.velocity = (
-            abs(self.end_pos - self.start_pos) / float(time)
-            if time > 0
-            else self.movable.velocity
-        )
+        self.time = time
+
         self.backnforth = backnforth
+        if isinstance(self.start_pos, list):
+            self.velocity = (
+                abs(self.start_pos[1] - self.start_pos[0]) / float(self.time)
+                if self.time > 0
+                else self.movable.velocity
+            )
+        else:
+            self.velocity = (
+                abs(self.end_pos - self.start_pos) / float(self.time)
+                if self.time > 0
+                else self.movable.velocity
+            )
+
+    def __iter__(self):
+        self._iter_index = 0
+        if isinstance(self.start_pos, list):
+            iter_pos = iter(self.start_pos)
+            niter = len(self.start_pos)
+            self.start_pos = next(iter_pos)
+            last_end_pos = self.end_pos
+            while self._iter_index < niter:
+                if self._iter_index < niter - 1:
+                    self.end_pos = next(iter_pos)
+                else:
+                    self.end_pos = last_end_pos
+                yield self
+                self.start_pos = self.end_pos
+                self._iter_index += 1
+        else:
+            while True:
+                yield self
+                self._iter_index += 1
+                if not self.parent:
+                    break
 
     def prepare(self):
         start = self._calculate_undershoot(self.start_pos)
@@ -119,7 +150,6 @@ class SoftwarePositionTriggerMaster(MotorMaster):
     def __init__(self, axis, start, end, npoints=1, **kwargs):
         # remove trigger type kw arg, since in this case it is always software
         kwargs.pop("trigger_type", None)
-        self._positions = numpy.linspace(start, end, npoints + 1)[:-1]
         MotorMaster.__init__(
             self, axis, start, end, trigger_type=AcquisitionMaster.SOFTWARE, **kwargs
         )
@@ -127,8 +157,27 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             AcquisitionChannel(self, axis.name, numpy.double, (), unit=axis.unit)
         )
         self.__nb_points = npoints
+        if isinstance(start, list):
+            # in case nb points for last iter is different from first iter
+            self.__last_npoints = (end - start[-1]) * npoints / (start[1] - start[0])
+        else:
+            self.__last_npoints = npoints
+
         self.task = None
         self.started = gevent.event.Event()
+
+    def __iter__(self):
+        last_end_pos = self.end_pos
+        for i in MotorMaster.__iter__(self):
+            if i.end_pos != last_end_pos:
+                self._positions = numpy.linspace(
+                    i.start_pos, i.end_pos, self.__nb_points + 1
+                )[:-1]
+            else:
+                self._positions = numpy.linspace(
+                    i.start_pos, i.end_pos, self.__last_npoints + 1
+                )[:-1]
+            yield self
 
     @property
     def npoints(self):
@@ -688,37 +737,94 @@ class SweepMotorMaster(AcquisitionMaster):
         axis,
         start,
         end,
-        npoints=1,
         time=0,
+        npoints=1,
         undershoot=None,
         undershoot_start_margin=0,
-        undershoot_stop_margin=0,
+        undershoot_end_margin=0,
         trigger_type=AcquisitionMaster.SOFTWARE,
         **keys
     ):
         AcquisitionMaster.__init__(
             self, axis, axis.name, trigger_type=trigger_type, **keys
         )
+
         self.movable = axis
 
         self._nb_points = npoints
 
-        self.sweep_move = float(end - start) / self._nb_points
-        self.start_pos = numpy.linspace(start, end, npoints + 1)[:-1]
+        self.start_pos = start
+        self.end_pos = end
+        self.time = time
 
         self.initial_speed = self.movable.velocity
-        if time > 0:
-            self.sweep_speed = abs(self.sweep_move) / float(time)
-        else:
-            self.sweep_speed = self.initial_speed
 
-        if undershoot is not None:
-            self._undershoot = undershoot
-        else:
-            acctime = float(self.sweep_speed) / axis.acceleration
-            self._undershoot = self.sweep_speed * acctime / 2
+        self._undershoot = undershoot
         self._undershoot_start_margin = undershoot_start_margin
-        self._undershoot_stop_margin = undershoot_stop_margin
+        self._undershoot_end_margin = undershoot_end_margin
+
+        if isinstance(self.start_pos, list):
+            self.sweep_move = (
+                float(self.start_pos[1] - self.start_pos[0]) / self._nb_points
+            )
+            self.sweep_speed = (
+                abs(self.sweep_move) / float(self.time)
+                if self.time > 0
+                else self.initial_speed
+            )
+        else:
+            self.sweep_move = float(self.end_pos - self.start_pos) / self._nb_points
+            self.sweep_speed = (
+                abs(self.sweep_move) / float(self.time)
+                if self.time > 0
+                else self.initial_speed
+            )
+
+        if self._undershoot is None:
+            acctime = float(self.sweep_speed) / self.movable.acceleration
+            self._undershoot = self.sweep_speed * acctime / 2
+
+        self.sweep_pos = None
+        self.first_sweep = None
+
+    def __iter__(self):
+
+        self._iter_index = 0
+        if isinstance(self.start_pos, list):
+            iter_pos = iter(self.start_pos)
+            # in case nb points for last iter is different from first iter
+            last_npoints = (
+                (self.end_pos - self.start_pos[-1])
+                * self._nb_points
+                / (self.start_pos[1] - self.start_pos[0])
+            )
+            niter = len(self.start_pos)
+            self.start_pos = next(iter_pos)
+            last_end_pos = self.end_pos
+            while self._iter_index < niter:
+                if self._iter_index < niter - 1:
+                    self.end_pos = next(iter_pos)
+                    npoints = self._nb_points
+                else:
+                    self.end_pos = last_end_pos
+                    npoints = last_npoints
+                self.sweep_pos = numpy.linspace(
+                    self.start_pos, self.end_pos, npoints + 1
+                )[:-1]
+                self.first_sweep = self.sweep_pos[0]
+                yield self
+                self.start_pos = self.end_pos
+                self._iter_index += 1
+        else:
+            self.sweep_pos = numpy.linspace(
+                self.start_pos, self.end_pos, self._nb_points + 1
+            )[:-1]
+            self.first_sweep = self.sweep_pos[0]
+            while True:
+                yield self
+                self._iter_index += 1
+                if not self.parent:
+                    break
 
     def _get_real_start_pos(self, pos):
         sign = 1 if self.sweep_move > 0 else -1
@@ -731,7 +837,7 @@ class SweepMotorMaster(AcquisitionMaster):
             pos
             + self.sweep_move
             + sign * self._undershoot
-            + sign * self._undershoot_stop_margin
+            + sign * self._undershoot_end_margin
         )
         return pos
 
@@ -739,15 +845,10 @@ class SweepMotorMaster(AcquisitionMaster):
     def npoints(self):
         return self._nb_points
 
-    def __iter__(self):
-        for start_pos in self.start_pos:
-            self.next_start_pos = start_pos
-            yield self
-
     def prepare(self):
         if self.sweep_speed > self.initial_speed:
             self.movable.velocity = self.sweep_speed
-        real_start = self._get_real_start_pos(self.next_start_pos)
+        real_start = self._get_real_start_pos(self.first_sweep)
         self.movable.move(real_start)
 
     def start(self):
@@ -755,10 +856,23 @@ class SweepMotorMaster(AcquisitionMaster):
             self.trigger()
 
     def trigger(self):
-        self.movable.velocity = self.sweep_speed
-        real_end = self._get_real_stop_pos(self.next_start_pos)
-        self.movable.move(real_end, wait=False)
-        self.trigger_slaves()
+
+        for pos in self.sweep_pos:
+            if pos == self.first_sweep:
+                self.movable.velocity = self.sweep_speed
+                real_end = self._get_real_stop_pos(pos)
+                self.trigger_slaves()
+                self.movable.move(real_end)
+                self.movable.velocity = self.initial_speed
+            else:
+                if self.sweep_speed > self.initial_speed:
+                    self.movable.velocity = self.sweep_speed
+                real_start = self._get_real_start_pos(pos)
+                self.movable.move(real_start)
+                self.movable.velocity = self.sweep_speed
+                real_end = self._get_real_stop_pos(pos)
+                self.movable.move(real_end)
+                self.movable.velocity = self.initial_speed
 
     def trigger_ready(self):
         return not self.movable.is_moving

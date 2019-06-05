@@ -7,7 +7,7 @@
 
 
 import sys
-from bliss.shell.cli.repl import embed
+from bliss.shell.cli.repl import embed, ERROR_REPORT
 from bliss.common.logtools import logging_startup
 import logging
 
@@ -18,6 +18,10 @@ def main():
     # initialize logging
     log_level = getattr(logging, sys.argv[2].upper())
     logging_startup(log_level)
+
+    if len(sys.argv) >= 4:
+        if sys.argv[3] == "1":
+            ERROR_REPORT.expert_mode = True
 
     embed(session_name=session_name, use_tmux=True)
 

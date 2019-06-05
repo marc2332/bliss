@@ -19,6 +19,7 @@ from tabulate import tabulate
 import yaml
 
 from .conductor import client
+from bliss.config.conductor.client import set_config_db_file, remote_open
 from bliss.common.utils import Null
 from bliss import setup_globals
 
@@ -1238,36 +1239,40 @@ class ParametersWardrobe(metaclass=ParametersType):
         keys_proxy_default = {
             x for x in self._proxy_default.keys() if not x.startswith("_")
         }
-        return list(keys_proxy.union(keys_proxy_default)) + [
-            "add",
-            "remove",
-            "switch",
-            "configs",
-            "current_config",
-            "to_dict",
-            "from_dict",
-            "to_yml",
-            "from_yml",
-            "to_file",
-            "from_file",
-            "freeze",
-            "show_table",
-            "creation_date",
-            "last_accessed",
-        ]
+        return (
+            list(keys_proxy.union(keys_proxy_default))
+            + [
+                "add",
+                "remove",
+                "switch",
+                "configs",
+                "current_config",
+                "to_dict",
+                "from_dict",
+                "to_file",
+                "from_file",
+                "to_beacon",
+                "from_beacon",
+                "freeze",
+                "show_table",
+                "creation_date",
+                "last_accessed",
+            ]
+            + list(self._property_attributes)
+        )
 
     def to_dict(self):
         """
         Retrieve all parameters inside a configuration in a dict form
         If a parameter is not present inside the configuration, the
-        default will be taken, property (computed) attributes are NOT included.
+        default will be taken, property (computed) attributes are included.
 
         Returns:
             dictionary with (parameter,value) pairs
         """
         return {**self._get_config("default"), **self._get_config(self.current_config)}
 
-    def from_dict(self, d):
+    def from_dict(self, d: dict) -> None:
         """
         Updates the current configuration of values from a dictionary.
 
@@ -1282,105 +1287,151 @@ class ParametersWardrobe(metaclass=ParametersType):
         logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
         if not d:
             raise TypeError("You should provide a dictionary")
+        backup = self.to_dict()
 
         redis_default_attrs = set(self._get_redis_single_config("default").keys())
         found_attrs = set()
 
-        for name, value in d.items():
-            if name in self._property_attributes:
-                continue
-            if name in redis_default_attrs:
-                found_attrs.add(name)  # we keep track of remaining values
-                setattr(
-                    self.__class__,
-                    name,
-                    self.DESCRIPTOR(
-                        self._proxy, self._proxy_default, name, value, True
-                    ),
+        try:
+            for name, value in d.items():
+                if name in self._property_attributes:
+                    continue
+                if name in redis_default_attrs:
+                    found_attrs.add(name)  # we keep track of remaining values
+                    setattr(
+                        self.__class__,
+                        name,
+                        self.DESCRIPTOR(
+                            self._proxy, self._proxy_default, name, value, True
+                        ),
+                    )
+                else:
+                    raise AttributeError(
+                        f"Attribute '{name}' does not find an equivalent in current configuration"
+                    )
+            if found_attrs != redis_default_attrs:
+                logger.warning(
+                    f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
                 )
-            else:
-                raise AttributeError(
-                    f"Attribute '{name}' does not find an equivalent in current configuration"
-                )
-        if found_attrs != redis_default_attrs:
-            logger.warning(
-                f"Attribute difference for {type(self).__name__}({self._wardr_name}): Given excess({found_attrs.difference(redis_default_attrs)}"
-            )
+        except Exception as exc:
+            self.from_dict(backup)  # rollback in case of exception
+            raise exc
 
-    def to_yml(self, all_configs: bool = False) -> str:
+    def _to_yml(self, *configs) -> str:
         """
         Dumps to yml string all parameters that are stored in Redis
         No property (computed) parameter is stored.
 
         Args:
-            all_configs: True for dumping all configs, False (default) only current config
+            configs: list of configs to export
+
         Returns:
             str: configs in yml format
         """
-        if all_configs:
-            data_to_dump = {
-                "WardrobeName": self._wardr_name,
-                "configs": {**self._get_redis_all_configs()},
-            }
-        else:
-            data_to_dump = {
-                "WardrobeName": self._wardr_name,
-                "configs": {
-                    self.current_config: self._get_redis_single_config(
-                        self.current_config
-                    )
-                },
-            }
+        configurations = {}
+        for conf in configs:
+            configurations.update(
+                {
+                    conf: {
+                        **self._get_redis_single_config("default"),
+                        **self._get_redis_single_config(conf),
+                    }
+                }
+            )
+        data_to_dump = {"WardrobeName": self._wardr_name, "configs": configurations}
 
         return yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
 
-    def to_file(self, path: str, all_configs: bool = False) -> None:
+    def to_file(self, fullpath: str, *configs) -> None:
         """
         Dumps to yml file the current configuration of parameters
         No property (computed) parameter is written.
 
         Args:
-            path: file path
-            all_configs: True for dumping all configs, False (default) only current config
+            fullpath: file full path including name of file
+            configs: list of config names to import
         """
-        yml_data = self.to_yml(all_configs=all_configs)
-        with open(path, "w") as file_out:
+        if not configs:
+            configs = [self.current_config]
+        yml_data = self._to_yml(*configs)
+        with open(fullpath, "w") as file_out:
             file_out.write(yml_data)
 
-    def from_yml(self, yml, config_name: str = None) -> None:
+    def _from_yml(self, yml: str, config_name: str = None) -> None:
         """
         Import a single configuration from a yml raw string
-        behaviour similar to 'from_dict'
+        behaviour similar to 'from_dict' but dict manages also
+        property attributes, instead yml manages only attributes
+        stored on Redis
 
         Params:
+            yml: string containing yml data
             config_name: the name of the configuration that you want to import
-                         if no name is provided the current selected configuration
-                         will be used (self.current_config)
         """
         dict_in = yaml.load(yml)
         if dict_in.get("WardrobeName") != self._wardr_name:
             logger.warning("Wardrobe Names are different")
         configs = dict_in["configs"]
-        if config_name:
-            name = config_name
-        else:
-            name = self.current_config
         try:
-            config = configs[name]  # getting config informations
+            config = configs[config_name]  # getting config informations
         except KeyError:
-            raise KeyError(
-                f"Can't find a configuration with name {self.current_config}"
-            )
+            raise KeyError(f"Can't find a configuration with name {config_name}")
 
-        self.switch(name)
-        self.from_dict(dict_in["configs"][name])
+        self.from_dict(dict_in["configs"][config_name])
 
-    def from_file(self, path: str, config_name: str = None) -> None:
+    def from_file(self, fullpath: str, config_name: str = None) -> None:
         """
         Import a single configuration from a file
         """
-        with client.remote_open(path) as file:
-            self.from_yml(file, config_name=config_name)
+        with open(fullpath) as file:
+            self._from_yml(file, config_name=config_name)
+
+    def from_beacon(self, name: str, config_name: str = None):
+        """
+        Imports a single config from Beacon.
+        It assumes the Wardrobe is under Beacon subfolder /wardrobe/
+
+        Args:
+            name: name of the file (will be saved with .dat extension)
+            config_name: name of the wardrobe config to dump
+        """
+
+        if re.match("[A-Za-z_]+[A-Za-j0-9_-]*", name) is None:
+            raise NameError(
+                "Name of beacon wardrobe saving file should start with a letter or underscore and contain only letters, numbers, underscore and minus"
+            )
+        remote_file = remote_open(f"wardrobe/{name}.dat")
+        self._from_yml(remote_file, config_name=config_name)
+
+    def to_beacon(self, name: str, *configs):
+        """
+        Export one or more configurations to Beacon.
+        It will save the Wardrobe under Beacon subfolder /wardrobe/
+
+        Args:
+            name: name of the file (will be saved with .dat extension)
+            configs: arguments passed as comma separated
+
+        Example:
+            >>>materials = ParametersWardrobe("materials")
+            >>>materials.switch('copper')
+
+            >>># exporting current config
+            >>>materials.to_beacon('2019-06-23-materials')
+
+            >>># exporting a config giving the name
+            >>>materials.to_beacon('2019-06-23-materials', 'copper')
+
+            >>># exporting all configs
+            >>>materials.to_beacon('2019-06-23-materials', *materials.configs)  # uses python list unpacking
+
+        """
+        if re.match("[A-Za-z_]+[A-Za-z0-9_-]*", name) is None:
+            raise NameError(
+                "Name of beacon wardrobe saving file should start with a letter or underscore and contain only letters, numbers, underscore and minus"
+            )
+        yml_data = self._to_yml(*configs)
+        set_config_db_file(f"wardrobe/{name}.dat", yml_data)
 
     def show_table(self) -> None:
         """
@@ -1450,13 +1501,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             if name in self.configs:
                 self._proxy._name = self._hash(name)
                 results = self._proxy.get_all()
-                """
-                # avoid returning parameters starting with underscore
-                results = {k:v for k,v in self._proxy.get_all().items() if not k.startswith('_')}
-                for prop in self._property_attributes:
-                    # retrieves properties for the set
-                    results[prop] = getattr(self, prop)
-                    """
                 return results
             return {}
         finally:
@@ -1536,13 +1580,15 @@ class ParametersWardrobe(metaclass=ParametersType):
         if name in self._property_attributes:
             raise NameError(f"Existing computed property with this name: {name}")
 
-        self.DESCRIPTOR(
-            self._proxy_default,
-            self._proxy_default,
-            name,
-            value if value else "None",
-            True,
-        )
+        if re.match("[A-Za-z_]+[A-Za-z0-9_]*", name) is None:
+            raise TypeError(
+                "Attribute name should start with a letter or underscore and contain only letters, numbers or underscore"
+            )
+
+        if value is None:
+            value = "None"
+
+        self.DESCRIPTOR(self._proxy_default, self._proxy_default, name, value, True)
         self._populate(name)
 
     def _populate(self, name, value=None):

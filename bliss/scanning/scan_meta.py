@@ -34,6 +34,7 @@ def get_user_scan_meta():
     if USER_SCAN_META is None:
         USER_SCAN_META = scan_meta()
         USER_SCAN_META.instrument.set("positioners", fill_positioners)
+        USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
     return USER_SCAN_META
 
 

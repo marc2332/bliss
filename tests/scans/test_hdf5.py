@@ -272,3 +272,21 @@ def test_scan_saving_without_axis_in_session(beacon, scan_tmpdir):
     s.run()
     assert "positioners" in s.scan_info["instrument"]
     assert s.scan_info["instrument"]["positioners"] == {}
+
+
+def test_NXclass_of_scan_meta(beacon, lima_simulator, session, scan_tmpdir):
+
+    # put scan file in a tmp directory
+    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    lima_sim = beacon.get("lima_simulator")
+
+    s = scans.loopscan(3, .1, lima_sim)
+    with h5py.File(s.writer.filename, "r") as f:
+        assert f["1_loopscan/scan_meta"].attrs["NX_class"] == "NXcollection"
+        assert f["1_loopscan/scan_meta/sample"].attrs["NX_class"] == "NXsample"
+        assert (
+            f["1_loopscan/instrument/lima_simulator"].attrs["NX_class"] == "NXdetector"
+        )
+        assert (
+            f["1_loopscan/instrument/positioners"].attrs["NX_class"] == "NXcollection"
+        )

@@ -10,6 +10,7 @@ import importlib
 import inspect
 import difflib
 import black
+import re
 from pprint import pprint
 
 
@@ -92,3 +93,52 @@ def test_ptpython_signature_patch(clean_gevent):
         import bliss.shell.cli.ptpython_signature_patch
 
         importlib.reload(bliss.shell.cli.ptpython_signature_patch)
+
+
+def test_dicttoh5(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    # diffdump can be generated with pytest --pdb option using
+    # >>> import pprint
+    # >>> pprint.pprint(diff_dump)
+    dicttoh5_diff_dump = [
+        "+     # ... one could think about propagating something similar to the "
+        "changes\n",
+        "+     # made here back to silx\n",
+        "+     import h5py\n",
+        "+     from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset\n",
+        "+     import warnings\n",
+        '+                 if "NX_class" not in h5f[h5path + key].attrs:\n',
+        '+                     h5f[h5path + key].attrs["NX_class"] = "NXcollection"\n',
+        "+ \n",
+        "-                         logger.warning(\n",
+        "+                         warnings.warn(\n",
+        "+                 # use NXcollection at first, might be overwritten an time "
+        "later\n",
+        '+                 h5f[h5path + key].attrs["NX_class"] = "NXcollection"\n',
+        "+ \n",
+        '+             elif key == "NX_class":\n',
+        "+                 # assign NX_class\n",
+        "+                 try:\n",
+        '+                     h5f[h5path].attrs["NX_class"] = treedict[key]\n',
+        "+                 except KeyError:\n",
+        "+                     h5f.create_group(h5path)\n",
+        '+                     h5f[h5path].attrs["NX_class"] = treedict[key]\n',
+        "-                             logger.warning(\n",
+        "+                             warnings.warn(\n",
+        "+ \n",
+        "-                             logger.warning(\n",
+        "+                             warnings.warn(\n",
+    ]
+
+    o, p = _check_patch(
+        "silx.io.dictdump", "dicttoh5", "bliss.common.utils", "dicttoh5"
+    )
+
+    # strip docstring
+    o = re.sub('"""((.|[\n])*)"""', "", o)
+    p = re.sub('"""((.|[\n])*)"""', "", p)
+
+    diff_dump = _generate_diff(o, p)
+
+    _compare_dump(dicttoh5_diff_dump, diff_dump)

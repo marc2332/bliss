@@ -659,3 +659,102 @@ f2 = lambda x: x + 3
 f = np.array([f1,f2,f1,f2])
 new_dat=_apply_vectorized(f,dat)
 """
+
+
+def dicttoh5(
+    treedict,
+    h5file,
+    h5path="/",
+    mode="w",
+    overwrite_data=False,
+    create_dataset_args=None,
+):
+    """Write a nested dictionary to a HDF5 file, using keys as member names.
+
+    If a dictionary value is a sub-dictionary, a group is created. If it is
+    any other data type, it is cast into a numpy array and written as a
+    :mod:`h5py` dataset. Dictionary keys must be strings and cannot contain
+    the ``/`` character.
+
+    taken from silx 0.10.1 
+    (http://www.silx.org/doc/silx/0.10.1/_modules/silx/io/dictdump.html#dicttoh5)
+    
+    HERE EXTENDED TO SUPPORT 'NX_class' Attributes
+    """
+    # ... one could think about propagating something similar to the changes
+    # made here back to silx
+    import h5py
+    from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset
+    import warnings
+
+    if not h5path.endswith("/"):
+        h5path += "/"
+
+    with _SafeH5FileWrite(h5file, mode=mode) as h5f:
+        for key in treedict:
+            if isinstance(treedict[key], dict) and len(treedict[key]):
+                # non-empty group: recurse
+                dicttoh5(
+                    treedict[key],
+                    h5f,
+                    h5path + key,
+                    overwrite_data=overwrite_data,
+                    create_dataset_args=create_dataset_args,
+                )
+
+                if "NX_class" not in h5f[h5path + key].attrs:
+                    h5f[h5path + key].attrs["NX_class"] = "NXcollection"
+
+            elif treedict[key] is None or (
+                isinstance(treedict[key], dict) and not len(treedict[key])
+            ):
+                if (h5path + key) in h5f:
+                    if overwrite_data is True:
+                        del h5f[h5path + key]
+                    else:
+                        warnings.warn(
+                            "key (%s) already exists. "
+                            "Not overwriting." % (h5path + key)
+                        )
+                        continue
+                # Create empty group
+                h5f.create_group(h5path + key)
+                # use NXcollection at first, might be overwritten an time later
+                h5f[h5path + key].attrs["NX_class"] = "NXcollection"
+
+            elif key == "NX_class":
+                # assign NX_class
+                try:
+                    h5f[h5path].attrs["NX_class"] = treedict[key]
+                except KeyError:
+                    h5f.create_group(h5path)
+                    h5f[h5path].attrs["NX_class"] = treedict[key]
+
+            else:
+                ds = _prepare_hdf5_dataset(treedict[key])
+                # can't apply filters on scalars (datasets with shape == () )
+                if ds.shape == () or create_dataset_args is None:
+                    if h5path + key in h5f:
+                        if overwrite_data is True:
+                            del h5f[h5path + key]
+                        else:
+                            warnings.warn(
+                                "key (%s) already exists. "
+                                "Not overwriting." % (h5path + key)
+                            )
+                            continue
+
+                    h5f.create_dataset(h5path + key, data=ds)
+
+                else:
+                    if h5path + key in h5f:
+                        if overwrite_data is True:
+                            del h5f[h5path + key]
+                        else:
+                            warnings.warn(
+                                "key (%s) already exists. "
+                                "Not overwriting." % (h5path + key)
+                            )
+                            continue
+
+                    h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)

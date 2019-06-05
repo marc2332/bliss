@@ -1,6 +1,8 @@
 """Controller for the mythen 1d detector."""
 
+import enum
 import numpy
+import gevent
 
 from .lib import MythenInterface
 
@@ -222,13 +224,16 @@ class MythenCounter(BaseCounter):
 
 
 class MythenAcquistionDevice(AcquisitionDevice):
-
+    status = enum.Enum("status", "STOPPED RUNNING FAULT")
     # Initialization
 
     def __init__(self, counter, count_time, **kwargs):
         self.kwargs = kwargs
         self.counter = counter
         self.count_time = count_time
+        trigger_type = kwargs.setdefault("trigger_type", AcquisitionDevice.SOFTWARE)
+        kwargs.setdefault("prepare_once", trigger_type == AcquisitionDevice.HARDWARE)
+        kwargs.setdefault("start_once", trigger_type == AcquisitionDevice.HARDWARE)
         valid_names = ("npoints", "trigger_type", "prepare_once", "start_once")
         valid_kwargs = {
             key: value for key, value in kwargs.items() if key in valid_names
@@ -240,6 +245,9 @@ class MythenAcquistionDevice(AcquisitionDevice):
             AcquisitionChannel(self, counter.name, counter.dtype, counter.shape)
         )
 
+        self._software_acquisition = None
+        self._acquisition_status = self.status.STOPPED
+
     def add_counter(self, counter):
         assert self.counter == counter
 
@@ -250,15 +258,58 @@ class MythenAcquistionDevice(AcquisitionDevice):
         self.device.exposure_time = self.count_time
 
     def start(self):
-        self.device.start()
+        if self.trigger_type == AcquisitionDevice.HARDWARE:
+            self.device.start()
+        self._acquisition_status = self.status.RUNNING
 
     def trigger(self):
-        # Software trigger is not supported by the mythen
-        pass
+        if self.trigger_type == AcquisitionDevice.SOFTWARE:
+            event = gevent.event.Event()
+            self._software_acquisition = gevent.spawn(self._run_soft_acquisition, event)
+            try:
+                with gevent.Timeout(5):
+                    event.wait()
+            except:
+                self._software_acquisition.kill()
+                self._software_acquisition = None
+            else:
+                # check if there is no problem to start the acquisition
+                try:
+                    self._software_acquisition.get(block=False)
+                except gevent.Timeout:
+                    pass
 
-    def reading(self):
+    def wait_ready(self):
+        if self._software_acquisition is not None:
+            self._software_acquisition.join()
+
+    def _run_soft_acquisition(self, start_event):
+        try:
+            self.device.start()
+            start_event.set()
+            gevent.sleep(self.count_time)
+        finally:
+            self._acquisition_status = self.status.STOPPED
+            self._software_acquisition = None
+            self.device.stop()
         spectrum = self.device.readout()
         self.channels.update({self.counter.name: spectrum})
 
+    def reading(self):
+        if self.trigger_type == AcquisitionDevice.SOFTWARE:
+            return
+
+        for spectrum_nb in range(self.npoints):
+            if self._acquisition_status != self.status.RUNNING:
+                break
+
+            spectrum = self.device.readout()
+            self.channels.update({self.counter.name: spectrum})
+
     def stop(self):
-        self.device.stop()
+        if self.trigger_type == AcquisitionDevice.SOFTWARE:
+            if self._software_acquisition is not None:
+                self._software_acquisition.kill()
+        else:
+            self._acquisition_status = self.status.STOPPED
+            self.device.stop()

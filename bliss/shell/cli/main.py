@@ -7,7 +7,7 @@
 
 """
 
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux] [--tmux-debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -23,6 +23,7 @@ Options:
     -d, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
     --no-tmux                     Deactivate Tmux usage
+    --tmux-debug                  Allow debugging keeping tmux alive after Bliss shell exits   
     --show-sessions               Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
@@ -260,24 +261,47 @@ def main():
         else:
             print(f"Starting new tmux session {session}...")
             ans = subprocess.run(["tmux", "start-server"])
-            ans = subprocess.run(
-                [
-                    "tmux",
-                    "-f",
-                    config_path,
-                    "new-session",
-                    "-d",
-                    "-s",
-                    session,
-                    "-n",
-                    win1,
-                    "python",
-                    "-m",
-                    "bliss.shell.cli.start_bliss_repl",
-                    session,
-                    arguments["--log-level"][0],
-                ]
-            )
+
+            if arguments["--tmux-debug"]:
+                ans = subprocess.run(
+                    [
+                        "tmux",
+                        "-f",
+                        config_path,
+                        "new-session",
+                        "-d",
+                        "-s",
+                        session,
+                        "-n",
+                        win1,
+                    ]
+                )
+
+                sub_cmd = f"python -m bliss.shell.cli.start_bliss_repl {session} {arguments['--log-level'][0]} 1"
+                ans = subprocess.run(
+                    ["tmux", "send-keys", "-t", win1, sub_cmd, "Enter"]
+                )
+
+            else:
+                ans = subprocess.run(
+                    [
+                        "tmux",
+                        "-f",
+                        config_path,
+                        "new-session",
+                        "-d",
+                        "-s",
+                        session,
+                        "-n",
+                        win1,
+                        "python",
+                        "-m",
+                        "bliss.shell.cli.start_bliss_repl",
+                        session,
+                        arguments["--log-level"][0],
+                    ]
+                )
+
             ans = subprocess.run(
                 [
                     "tmux",

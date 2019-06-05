@@ -10,8 +10,8 @@ Use `-h` flag to get help about bliss command line interface:
 
 ```
 % bliss -h
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-             [--no-tmux]
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] 
+             [--no-tmux] [--tmux-debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -28,6 +28,7 @@ Options:
     -d, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
     --no-tmux                     Deactivate Tmux usage
+    --tmux-debug                  Allow debugging keeping tmux alive after Bliss shell exits  
     --show-sessions               Display sessions and tree of sub-sessions
     --show-sessions-only          Display sessions names only
 ```
@@ -102,13 +103,12 @@ The BLISS shell uses *Tmux* to handle multiple **panels**:
 
 * The default one is the *"Bliss shell panel"* used to enter user
   commands and to display majority of answers to commands.
-* The *Scan panel* is used to display output of scans. It is
-  automaticaly displayed when a scan starts.
+* The *Scan panel* is used to display output of scans.
 
-This behaviour has been introduced in order to avoid the used to be
+This behavior has been introduced in order to avoid the used to be
 flooded by scan outputs.
 
-The `F5` key is used to switch between thoses two panels.
+The `F5` key is used to switch between theses two panels.
 
 
 #### Deactivating Tmux (terminal multiplexer) usage
@@ -120,6 +120,17 @@ line window.
 
 ```
 % bliss -s test_session --no-tmux
+```
+
+#### Debugging within a Tmux session
+
+By default, Tmux session is closed as soon as the Bliss shell exits.
+In the case of an exception that forces Bliss shell to exit, the error information is lost.
+In order to force Tmux to remains alive after Bliss shell exits, use the option `--tmux-debug`.
+Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of the error and its traceback.
+
+```
+% bliss -s test_session --tmux-debug
 ```
 
 

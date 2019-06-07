@@ -11,7 +11,7 @@ import re
 
 from bliss.common.logtools import map_update_loggers, Log, LogMixin, logging_startup
 from bliss.common.standard import debugon, debugoff, lslog
-from bliss.common.mapping import Map
+from bliss.common.mapping import Map, map_id
 from bliss.common import session
 import bliss
 
@@ -72,6 +72,16 @@ class MappedController(NotMappedController, LogMixin):
     """
 
     def __init__(self, name="mc", parents_list=None, children_list=None):
+        self.name = name
+        session.get_current().map.register(self, parents_list, children_list)
+
+
+class Device(LogMixin):
+    """
+    Device for Logging Test
+    """
+
+    def __init__(self, name="", parents_list=None, children_list=None):
         self.name = name
         session.get_current().map.register(self, parents_list, children_list)
 
@@ -282,7 +292,6 @@ def test_chain_devices_log(params, caplog):
     #    \- d6 -- d7 -- d8
     #          \- d9 -- d10
     #                \- d11
-    map = session.get_current().map
     d1 = MappedController("d1")
     d2 = MappedController("d2", parents_list=[d1])
     d3 = MappedController("d3", parents_list=[d2])
@@ -298,6 +307,17 @@ def test_chain_devices_log(params, caplog):
     node_check(d1, caplog, children=[d2, d3, d4, d5, d6, d7, d8, d9, d10, d11])
     node_check(d2, caplog, children=[d3, d4, d5])
     node_check(d6, caplog, children=[d7, d8, d9, d10, d11])
+
+
+def test_log_name_sanitize(params):
+    beacon, log = params
+    m = session.get_current().map
+    d1 = Device(r"Hi_*2^a.o@@-[200]")
+    assert map_id(d1) in m
+    assert m[map_id(d1)]["_logger"].name == "session.controllers.Hi__2_a_o__-[200]"
+    d2 = Device(r"/`/deviceDEVICE=+{}()")
+    assert map_id(d1) in m
+    assert m[map_id(d2)]["_logger"].name == "session.controllers.___deviceDEVICE=___()"
 
 
 def test_level_switch(params, caplog):

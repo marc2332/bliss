@@ -8,6 +8,7 @@
 import logging
 import contextlib
 from logging import Logger, StreamHandler, NullHandler, Formatter
+import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
 
@@ -325,21 +326,16 @@ def create_logger_name(G, node_id):
     returns:
         logger_name for the specific node
     """
-    # TODO: implement different starting point
     try:
         # search before through controllers
         path = nx.shortest_path(G, "controllers", node_id)
-        return "session." + ".".join(
-            format_node(G, n, format_string="tag->name->class->id") for n in path
-        )
-    except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
-        pass
-    try:
-        # search next starting from session
-        path = nx.shortest_path(G, "session", node_id)
-        return ".".join(
-            format_node(G, n, format_string="tag->name->class->id") for n in path
-        )
+        logger_names = ["session"]
+        for n in path:
+            node_name = format_node(G, n, format_string="tag->name->class->id")
+            # sanitize name
+            logger_names.append(re.sub(r"[^0-9A-Za-z_:=\-\(\)\[\]]", "_", node_name))
+        return ".".join(logger_names)
+
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):
         pass
 

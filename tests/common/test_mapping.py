@@ -168,8 +168,8 @@ def test_remap_children(beamline):
     assert len(path) == 4
 
 
-def test_failed_delete(beamline):
-    """node does not exists, this should raise an exception"""
+def test_cant_delete_non_existing_node(beamline):
+    """node does not exists, this should return false"""
     assert not beamline.delete("fakenode")
 
 

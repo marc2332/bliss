@@ -161,6 +161,19 @@ from bliss.common import session
 session.get_current().map.draw_matplotlib()
 ```
 
+If you want to visualize only one part you can give a node as an argument
+and you will be given a partial view of the map.
+
+```python
+roby = config.get('roby')
+m = session.get_current().map
+
+# draw with matplotlib
+m.draw_matplotlib(roby)
+
+# draw with pygraphviz
+m.draw_pygraphviz(roby)
+
 ## Introspection
 
 You can use the same approach to introspect the map passing a specific argument:

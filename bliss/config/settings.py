@@ -1502,8 +1502,8 @@ class ParametersWardrobe(metaclass=ParametersType):
         """
         Retrieve a single instance of parameters from redis
         """
+        name_backup = self._proxy._name
         try:
-            name_backup = self._proxy._name
             if name in self.instances:
                 self._proxy._name = self._hash(name)
                 results = self._proxy.get_all()

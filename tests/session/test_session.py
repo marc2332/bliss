@@ -7,6 +7,7 @@
 
 import pytest
 import time
+import re
 from bliss.shell.cli import repl
 from bliss.common import measurementgroup
 from bliss import setup_globals
@@ -113,7 +114,7 @@ def test_load_script_namespace(beacon):
 
 
 def test_prdef(beacon, capsys):
-    visible_func_code = "\n\x1b[34;01mdef\x1b[39;49;00m \x1b[32;01mvisible_func\x1b[39;49;00m():\n    \x1b[34;01mpass\x1b[39;49;00m\n\n"
+    visible_func_code = "\ndef visible_func():\n    pass\n\n"
     env_dict = dict()
     session = beacon.get("test_session2")
     session.setup(env_dict)
@@ -123,7 +124,8 @@ def test_prdef(beacon, capsys):
     assert callable(env_dict.get("prdef"))
     env_dict["prdef"](script1.visible_func)
     output = capsys.readouterr()[0]
-    assert output.endswith(visible_func_code)
+    ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
+    assert ansi_escape.sub("", output).endswith(visible_func_code)
     session.close()
 
 

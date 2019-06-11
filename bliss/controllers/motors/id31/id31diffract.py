@@ -34,7 +34,6 @@ from bliss.common.utils import (
 )
 
 from bliss.controllers.motors.id31 import ID31_diffractometer as Diffract
-from bliss.common import log
 
 
 def initialize_parameters(klass, ctrl_pars=None):

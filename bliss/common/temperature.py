@@ -13,9 +13,8 @@ import math
 
 import gevent
 import gevent.event
-
 from bliss.common.task import task
-from bliss.common import log
+from bliss.common.logtools import LogMixin
 from bliss.common.utils import with_custom_members
 from bliss.common.measurement import SamplingCounter, counter_namespace
 
@@ -37,13 +36,12 @@ class TempControllerCounter(SamplingCounter):
 
 
 @with_custom_members
-class Input(object):
+class Input(LogMixin):
     """ Implements the access to temperature sensors
     """
 
     def __init__(self, controller, config):
         """ Constructor """
-        log.debug("On Input")
         # log.debug("  config type is: %s" % type(config))
         # log.debug("  controller type is: %s" % type(controller))
         self.__controller = controller
@@ -80,22 +78,21 @@ class Input(object):
 
     def read(self):
         """ returns the sensor value """
-        log.debug("On Input:read")
+        self._logger.debug("On Input:read")
         return self.controller.read_input(self)
 
     def state(self):
         """ returns the sensor state """
-        log.debug("On Input:state")
+        self._logger.debug("On Input:state")
         return self.controller.state_input(self)
 
 
 @with_custom_members
-class Output(object):
+class Output(LogMixin):
     """ Implements the access to temperature heaters """
 
     def __init__(self, controller, config):
         """ Constructor """
-        log.debug("On Output")
         self.__controller = controller
         self.__name = config["name"]
         try:
@@ -158,7 +155,7 @@ class Output(object):
 
     def read(self):
         """ returns the heater value """
-        log.debug("On Output:read")
+        self._logger.debug("On Output:read")
         return self.controller.read_output(self)
 
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
@@ -173,7 +170,7 @@ class Output(object):
             - setpoint_abort
             - start_ramp
         """
-        log.debug("On Output:ramp %s" % new_setpoint)
+        self._logger.debug("On Output:ramp %s" % new_setpoint)
         self.__mode = 1
         return self._ramp(new_setpoint, wait, **kwargs)
 
@@ -189,14 +186,14 @@ class Output(object):
             - setpoint_abort
             - set
         """
-        log.debug("On Output:set %s" % new_setpoint)
+        self._logger.debug("On Output:set %s" % new_setpoint)
         self.__mode = 0
         return self._ramp(new_setpoint, wait, **kwargs)
 
     def _ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ starts the ramp tasks.
         """
-        log.debug("On Output:_ramp %s" % new_setpoint)
+        self._logger.debug("On Output:_ramp %s" % new_setpoint)
         if new_setpoint is not None:
             ll, hl = self.limits
             if ll is not None and new_setpoint < ll:
@@ -218,7 +215,7 @@ class Output(object):
     def wait(self):
         """ Waits on a setpoint task
         """
-        log.debug("On Output:wait")
+        self._logger.debug("On Output:wait")
         try:
             self.__setpoint_task.get()
         except KeyboardInterrupt:
@@ -243,7 +240,7 @@ class Output(object):
 
         """
         deadband = self.deadband if deadband is None else deadband
-        log.debug("On output:_setpoint_state: %s" % (deadband))
+        self._logger.debug("On output:_setpoint_state: %s" % (deadband))
         if deadband is None:
             return "READY"
         mysp = self.controller.get_setpoint(self)
@@ -258,7 +255,7 @@ class Output(object):
         """ Stops a setpoint task.
             Calls the controller method setpoint_stop
         """
-        log.debug("On Output: stop")
+        self._logger.debug("On Output: stop")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
         self.controller.setpoint_stop(self)
@@ -267,7 +264,7 @@ class Output(object):
         """ Aborts a setpoint task.
             Calls the controller method setpoint_abort
         """
-        log.debug("On Output: abort")
+        self._logger.debug("On Output: abort")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
         self.controller.setpoint_abort(self)
@@ -290,7 +287,7 @@ class Output(object):
             Polls until setpoint is reached
             Is a gevent coroutine
         """
-        log.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
+        self._logger.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
         try:
             while self._setpoint_state() == "RUNNING":
                 gevent.sleep(self.__setpoint_event_poll)
@@ -300,7 +297,7 @@ class Output(object):
     def _start_setpoint(self, setpoint, **kwargs):
         """ launches the coroutine doing the setpoint
         """
-        log.debug("On Output:_start_setpoint")
+        self._logger.debug("On Output:_start_setpoint")
         sync_event = gevent.event.Event()
 
         @task
@@ -319,7 +316,7 @@ class Output(object):
 
     def state(self):
         """ returns the the state of a heater """
-        log.debug("On Output:state")
+        self._logger.debug("On Output:state")
         return self.controller.state_output(self)
 
     def pollramp(self, new_poll=None):
@@ -338,7 +335,7 @@ class Output(object):
         Setting/reading the setpoint ramp rate value
 
         """
-        log.debug("On Output:ramprate: %s " % (new_ramp))
+        self._logger.debug("On Output:ramprate: %s " % (new_ramp))
         if new_ramp:
             self.controller.set_ramprate(self, new_ramp)
         else:
@@ -349,7 +346,7 @@ class Output(object):
         Setting/reading the setpoint step value (for step mode ramping)
 
         """
-        log.debug("On Output:step: %s " % (new_step))
+        self._logger.debug("On Output:step: %s " % (new_step))
         if new_step:
             self.controller.set_step(self, new_step)
         else:
@@ -360,7 +357,7 @@ class Output(object):
         Setting/reading the setpoint dwell value (for step mode ramping)
 
         """
-        log.debug("On Output:setpoint dwell: %s " % (new_dwell))
+        self._logger.debug("On Output:setpoint dwell: %s " % (new_dwell))
         if new_dwell:
             self.controller.set_dwell(self, new_dwell)
         else:
@@ -373,17 +370,16 @@ class Output(object):
 
 
 @with_custom_members
-class Loop(object):
+class Loop(LogMixin):
     """ Implements the access to temperature regulation loop """
 
     def __init__(self, controller, config):
         """ Constructor """
-        log.debug("On Loop")
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
-        self.__input = controller.get_object(config["input"][1:])
-        self.__output = controller.get_object(config["output"][1:])
+        self.__input = config.get("input")
+        self.__output = config.get("output")
         self._Pval = None
         self._Ival = None
         self._Dval = None
@@ -409,40 +405,44 @@ class Loop(object):
     @property
     def input(self):
         """ returns the loop input object """
+        if not isinstance(self.__input, Input):
+            self.__input = self.__input()
         return self.__input
 
     @property
     def output(self):
         """ returns the loop output object """
+        if not isinstance(self.__output, Output):
+            self.__output = self.__output()
         return self.__output
 
     def set(self, new_setpoint=None, wait=False, **kwargs):
         """ same as a call to the the method set on its output object """
-        log.debug(("On Loop: set %s") % new_setpoint)
+        self._logger.debug(("On Loop: set %s") % new_setpoint)
         return self.__output.set(new_setpoint, wait, **kwargs)
 
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ same as the call to the method ramp on its output object """
-        log.debug(("On Loop: ramp %s") % new_setpoint)
+        self._logger.debug(("On Loop: ramp %s") % new_setpoint)
         return self.__output.ramp(new_setpoint, wait, **kwargs)
 
     def stop(self):
         """ same as the call to the method stop on its output object """
-        log.debug("On Loop: stop")
+        self._logger.debug("On Loop: stop")
         self.__output.stop()
 
     def on(self):
         """ Sets the regulation on
             - call to the method 'on' of the controller
         """
-        log.debug("On Loop: on")
+        self._logger.debug("On Loop: on")
         self.controller.on(self)
 
     def off(self):
         """ Sets the regulation off
             - call to the method 'off' of the controller
         """
-        log.debug("On Loop: off")
+        self._logger.debug("On Loop: off")
         self.controller.off(self)
 
     def kp(self, new_kp=None):
@@ -450,7 +450,7 @@ class Loop(object):
         Setting/reading the P value (for PID)
 
         """
-        log.debug("On Loop: kp (PID): ")
+        self._logger.debug("On Loop: kp (PID): ")
         if new_kp:
             self.controller.set_kp(self, new_kp)
         else:
@@ -461,7 +461,7 @@ class Loop(object):
         Setting/reading the I value (for PID)
 
         """
-        log.debug("On Loop: ki (PID): ")
+        self._logger.debug("On Loop: ki (PID): ")
         if new_ki:
             self.controller.set_ki(self, new_ki)
         else:
@@ -472,7 +472,7 @@ class Loop(object):
         Setting/reading the D value (for PID)
 
         """
-        log.debug("On Loop: kd (PID): ")
+        self._logger.debug("On Loop: kd (PID): ")
         if new_kd:
             self.controller.set_kd(self, new_kd)
         else:

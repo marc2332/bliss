@@ -6,10 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.utils import object_method
-
 from bliss.common.axis import AxisState
+from bliss.common import session
 
 from . import pi_gcs
 from bliss.comm.util import TCP
@@ -41,6 +40,7 @@ class PI_E727(Controller):
         self.host = self.config.get("host")
         self.trace("opening socket")
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
+        session.get_current().map.register(self, children_list=[self.sock])
 
         # just in case
         self.sock.flush()
@@ -59,7 +59,7 @@ class PI_E727(Controller):
             pass
 
     def trace(self, str):
-        elog.debug("{s:{c}<{n}}".format(s=str, n=80, c="-"))
+        self._logger.debug("{s:{c}<{n}}".format(s=str, n=80, c="-"))
 
     # Init of each axis.
     def initialize_axis(self, axis):
@@ -73,7 +73,7 @@ class PI_E727(Controller):
         except Exception as ex:
             _str = '%r\nERROR on "%s": switch on the controller' % (ex, self.host)
             # by default, an exception will be raised
-            elog.error(_str)
+            self._logger.error(_str)
 
         # Enables the closed-loop.
         self._set_closed_loop(axis, True)
@@ -93,12 +93,12 @@ class PI_E727(Controller):
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
-        elog.debug("read_position = %f" % _ans)
+        self._logger.debug("read_position = %f" % _ans)
         return _ans
 
     def read_encoder(self, encoder):
         _ans = self._get_pos(axis)
-        elog.debug("read_position measured = %f" % _ans)
+        self._logger.debug("read_position measured = %f" % _ans)
         return _ans
 
     """ VELOCITY """
@@ -107,7 +107,7 @@ class PI_E727(Controller):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
-        elog.debug("set_velocity new_velocity = %f" % new_velocity)
+        self._logger.debug("set_velocity new_velocity = %f" % new_velocity)
         _cmd = "VEL %s %f" % (axis.channel, new_velocity)
         self.send_no_ans(axis, _cmd)
         self.check_error(_cmd)
@@ -132,7 +132,7 @@ class PI_E727(Controller):
         pass
 
     def start_one(self, motion):
-        elog.debug("start_one target_pos = %f" % motion.target_pos)
+        self._logger.debug("start_one target_pos = %f" % motion.target_pos)
 
         # the controller latches the previous error
         self.clear_error()
@@ -144,7 +144,7 @@ class PI_E727(Controller):
         self.check_error(_cmd)
 
     def stop(self, axis):
-        elog.debug("stop requested")
+        self._logger.debug("stop requested")
         self.send_no_ans(axis, "STP %s" % (axis.channel))
 
     """ COMMUNICATIONS"""
@@ -164,7 +164,7 @@ class PI_E727(Controller):
         if _err_nb != 0:
             _str = 'ERROR on cmd "%s": #%d(%s)' % (cmd, _err_nb, _err_str)
             # by default, an exception will be raised
-            elog.error(_str)
+            self._logger.error(_str)
 
     def send_no_ans(self, axis, cmd):
         _cmd = self._append_eoc(cmd)
@@ -210,12 +210,12 @@ class PI_E727(Controller):
         _cmd = cmd.strip()
         if not _cmd.endswith("\n"):
             _cmd = cmd + "\n"
-        elog.debug(">>>> %s" % (_cmd.strip("\n")))
+        self._logger.debug(">>>> %s" % (_cmd.strip("\n")))
         return _cmd
 
     def _remove_eoc(self, ans):
         _ans = ans.strip()
-        elog.debug("<<<< %s" % _ans)
+        self._logger.debug("<<<< %s" % _ans)
         return _ans
 
     """
@@ -277,7 +277,7 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error(
+            self._logger.error(
                 "ERROR on _get_on_target_status, _ans=%r" % _ans, raise_exception=False
             )
             return -1
@@ -294,7 +294,7 @@ class PI_E727(Controller):
         elif _status == "0":
             return False
         else:
-            elog.error(
+            self._logger.error(
                 "ERROR on _get_closed_loop_status, _ans=%r" % _ans,
                 raise_exception=False,
             )

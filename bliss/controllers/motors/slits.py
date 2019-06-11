@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import CalcController
-from bliss.common import log
 
 """
 example for single VERTICAL slits:
@@ -65,8 +64,8 @@ class Slits(CalcController):
         axis.no_offset = True
 
     def calc_from_real(self, positions_dict):
-        log.info("[SLITS] calc_from_real()")
-        log.info("[SLITS]\treal: %s" % positions_dict)
+        self._logger.info("[SLITS] calc_from_real()")
+        self._logger.info("[SLITS]\treal: %s" % positions_dict)
 
         calc_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
@@ -87,13 +86,13 @@ class Slits(CalcController):
                 }
             )
 
-        log.info("[SLITS]\tcalc: %s" % calc_dict)
+        self._logger.info("[SLITS]\tcalc: %s" % calc_dict)
 
         return calc_dict
 
     def calc_to_real(self, positions_dict):
-        log.info("[SLITS] calc_to_real()")
-        log.info("[SLITS]\tcalc: %s" % positions_dict)
+        self._logger.info("[SLITS] calc_to_real()")
+        self._logger.info("[SLITS]\tcalc: %s" % positions_dict)
 
         real_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
@@ -114,6 +113,6 @@ class Slits(CalcController):
                 }
             )
 
-        log.info("[SLITS]\treal: %s" % real_dict)
+        self._logger.info("[SLITS]\treal: %s" % real_dict)
 
         return real_dict

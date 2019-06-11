@@ -12,9 +12,9 @@ from collections import defaultdict
 import numpy
 import gevent.event
 
-from ..chain import AcquisitionDevice, AcquisitionChannel
-from ...controllers.mca import TriggerMode, PresetMode, Stats
-from ...common.measurement import BaseCounter, counter_namespace, namespace
+from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.controllers.mca import TriggerMode, PresetMode, Stats
+from bliss.common.measurement import BaseCounter, counter_namespace, namespace
 
 
 class StateMachine(object):

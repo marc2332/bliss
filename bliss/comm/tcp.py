@@ -23,7 +23,7 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import error_cleanup, capture_exceptions
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 
@@ -90,7 +90,7 @@ class BaseSocket(LogMixin):
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.RLock()
-        mapping.register(self, parents_list=["comms"], tag=str(self))
+        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
@@ -405,15 +405,12 @@ class Command(LogMixin):
     """Raw command class. Provides command like API through sockets.
     Consider using :class:`Tcp` with url starting with  *command://* instead."""
 
-    class Transaction(LogMixin):
+    class Transaction:
         def __init__(self, socket, transaction, clear_transaction=True):
             self.__socket = socket
             self.__transaction = transaction
             self.__clear_transaction = clear_transaction
             self.data = b""
-            mapping.register(
-                self, children_list=[self.__socket], parents_list=["comms"]
-            )
 
         def __enter__(self):
             return self
@@ -461,7 +458,7 @@ class Command(LogMixin):
         self._raw_read_task = None
         self._transaction_list = []
         self._lock = lock.RLock()
-        mapping.register(self, parents_list=["comms"], tag=str(self))
+        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
@@ -501,11 +498,6 @@ class Command(LogMixin):
                 return True
 
             self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            mapping.register(
-                self._fd,
-                parents_list=[self, "comms"],
-                tag=f"Socket[{local_host}:{local_port}",
-            )
 
             err_msg = "timeout on command(%s, %d)" % (local_host, local_port)
             with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):

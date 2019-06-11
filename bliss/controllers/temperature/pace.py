@@ -21,25 +21,29 @@ controller:
        default_unit: 'BAR'
        channel: 1            # for 6000 only
 """
-import logging
-
 # temperature controller
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Output
 from bliss.common.utils import object_attribute_type_get
 from bliss.common.utils import object_attribute_type_set
+from bliss.common.logtools import LogMixin
+from bliss.common import session
 
 # communication
 from bliss.comm.tcp import Tcp
 
 
-class Pace:
+class Pace(LogMixin):
     def __init__(self, url=None, timeout=3):
         self.timeout = timeout
         self._units = ("ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2")
         self._eol = "\r"
 
         self._sock = Tcp(url, timeout=timeout)
+
+        session.get_current().map.register(
+            self, parents_list=["comms"], children_list=[self._sock], tag="Pace:{url}"
+        )
 
     def close(self):
         self._sock.close()
@@ -53,10 +57,6 @@ class Pace:
             model = resp.split(",")[1]
         else:
             model = str(self)
-
-        self._logger = logging.getLogger("%s" % model)
-        self._logger.setLevel(logging.DEBUG)
-        logging.basicConfig(level=logging.INFO)
 
     def _mode(self, channel=1, mode=None):
         """Set/Read the rate the controller should achieve set-point.
@@ -92,7 +92,7 @@ class Pace:
             try:
                 self._send_comm(cmd + " %f" % pressure)
             except RuntimeError as e:
-                self._logger.error("Pressure set-pointnot set: " + str(e))
+                self._logger.error("Pressure set-point not set: " + str(e))
         else:
             try:
                 return float(self._query_comm(cmd))
@@ -261,6 +261,8 @@ class pace(Controller):
         self._pace = Pace(config["url"], config.get("timeout"))
 
         super().__init__(config, *args)
+
+        session.get_current().map.register(self, children_list=[self._pace])
 
     def initialize(self):
         self._pace.init()

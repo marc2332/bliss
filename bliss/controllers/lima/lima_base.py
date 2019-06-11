@@ -13,6 +13,7 @@ from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
 from .bgsub import BgSub
+from bliss.common import session
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.measurement import namespace, counter_namespace
@@ -121,11 +122,12 @@ class Lima(object):
         self.__tg_timeout = config_tree.get("tango_timeout", 3)
         self.__bpm = None
         self.__roi_counters = None
-        self._proxy = self._get_proxy()
         self.__bg_sub = None
         self._camera = None
         self._image = None
         self._acquisition = None
+        self._proxy = self._get_proxy()
+        session.get_current().map.register(self, parents_list=["counters"])
         self._directories_mapping = config_tree.get("directories_mapping", dict())
         self._active_dir_mapping = settings.SimpleSetting(
             "%s:directories_mapping" % name

@@ -14,8 +14,24 @@ import weakref
 from collections import namedtuple
 import enum
 
-from bliss.common.utils import add_conversion_function
 from bliss.common.alias import AliasMixin
+from bliss.common import session
+
+
+def add_conversion_function(obj, method_name, function):
+    meth = getattr(obj, method_name)
+    if inspect.ismethod(meth):
+        if callable(function):
+
+            def new_method(*args, **kwargs):
+                values = meth(*args, **kwargs)
+                return function(values)
+
+            setattr(obj, method_name, new_method)
+        else:
+            raise ValueError("conversion function must be callable")
+    else:
+        raise ValueError("'%s` is not a method" % method_name)
 
 
 # Counter namespaces
@@ -188,6 +204,10 @@ class Counter(BaseCounter):
         self._unit = unit
         if grouped_read_handler:
             Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
+        parents_list = (
+            ["counters", controller] if controller is not None else ["counters"]
+        )
+        session.get_current().map.register(self, parents_list, tag=self.name)
 
     # Standard interface
 

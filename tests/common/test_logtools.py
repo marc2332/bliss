@@ -9,38 +9,38 @@ import pytest
 import logging
 import re
 
-from bliss.common.logtools import map_update_loggers, Log, LogMixin
-from bliss.common.mapping import BeamlineMap, register
+from bliss.common.logtools import map_update_loggers, Log, LogMixin, logging_startup
+from bliss.common.standard import debugon, debugoff, lslog
+from bliss.common.mapping import Map, map_id
+from bliss.common import session
 import bliss
 
 
 @pytest.fixture
-def beamline():
+def map():
     """
     Creates a new graph
     """
-    map = BeamlineMap(singleton=False)
+    map = Map()
 
-    map.register("beamline")
-    map.register("devices", parents_list=["beamline"])
-    map.register("sessions", parents_list=["beamline"])
-    map.register("comms", parents_list=["beamline"])
-    map.register("counters", parents_list=["beamline"])
     return map
 
 
 @pytest.fixture
-def params(beacon, beamline):
+def params(beacon, map):
     """
     Creates a new beacon and log instance
     """
-    logging.basicConfig(level=logging.WARNING)
+    logging_startup()
 
-    log = Log(map_beamline=beamline)
-    log.map_beamline.add_map_handler(map_update_loggers)
-    log.map_beamline.trigger_update()
+    log = Log(map=map)
 
-    return beacon, log
+    yield beacon, log
+
+    logging.shutdown()
+    logging.setLoggerClass(logging.Logger)
+    logging.getLogger().handlers.clear()  # deletes all handlers
+    logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
 
 
 class NotMappedController(LogMixin):
@@ -50,14 +50,20 @@ class NotMappedController(LogMixin):
 
     name = "nmc"
 
-    def msg_debug(self):
-        self._logger.debug("Debug message")
+    def __init__(self, name="nmc"):
+        self.name = name
 
-    def msg_debug_data(self):
-        self._logger.debug_data("Debug message", b"asdasdadsa")
+    def msg_debug(self, msg=""):
+        self._logger.debug(f"Debug message {msg}")
 
-    def msg_info(self):
-        self._logger.info("Info message")
+    def msg_debug_data(self, msg=""):
+        self._logger.debug_data(f"Debug message {msg}", b"asdasdadsa")
+
+    def msg_info(self, msg=""):
+        self._logger.info(f"Info message {msg}")
+
+    def msg_error(self, msg=""):
+        self._logger.error(f"Error message {msg}")
 
 
 class MappedController(NotMappedController, LogMixin):
@@ -65,66 +71,40 @@ class MappedController(NotMappedController, LogMixin):
     Logging on this device should succeed
     """
 
-    name = "mc"
+    def __init__(self, name="mc", parents_list=None, children_list=None):
+        self.name = name
+        session.get_current().map.register(self, parents_list, children_list)
 
-    def __init__(self):
-        register(self)
+
+class Device(LogMixin):
+    """
+    Device for Logging Test
+    """
+
+    def __init__(self, name="", parents_list=None, children_list=None):
+        self.name = name
+        session.get_current().map.register(self, parents_list, children_list)
 
 
 def test_bare_system(params):
     all_loggers = logging.getLogger().manager.loggerDict
-    names = [
-        "beamline",
-        "beamline.devices",
-        "beamline.devices",
-        "beamline.counters",
-        "beamline.sessions",
-        "beamline.comms",
-    ]
+    names = ["session", "session.controllers"]
     for name in names:
         assert name in all_loggers.keys()
 
 
 def test_add_motor_m0(params):
     beacon, log = params
-    log.lslog()
     m0 = beacon.get("m0")  # creating a device
-
-    all_loggers = logging.getLogger().manager.loggerDict
-
-    fake_regex = [
-        r"bamline",
-        r"baamline\.device",
-        r"bamline\.sessions",
-        r"beamline\.coms",
-        r"bamline\.counters",
-        r"beamline\.deices\.\w",
-        r"bamline\.devices\.\[a-zA-Z0-9]+.axs\.s1d",
-    ]
-
-    for regex in fake_regex:
-        # those should not exists
-        assert not any(re.match(regex, key_) for key_ in all_loggers.keys())
-
-    regex_list = [
-        r"beamline",
-        r"beamline\.devices",
-        r"beamline\.sessions",
-        r"beamline\.comms",
-        r"beamline\.counters",
-        r"beamline\.devices\.\w",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.s1b",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.hooked_error_m0",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.hooked_m0",
-        r"beamline\.devices\.[a-zA-Z0-9]+\.axis\.roby",
-    ]
-
-    for regex in regex_list:
-        # those loggers should exists
-        assert any(re.match(regex, key_) for key_ in all_loggers.keys())
 
     # Check if _logger appended to instance
     assert isinstance(m0._logger, logging.Logger)
+
+    all_loggers = logging.getLogger().manager.loggerDict
+    assert (
+        f"session.controllers.{m0.controller.__class__.__name__}.m0"
+        in all_loggers.keys()
+    )
 
 
 def test_m0_logger_debugon(params, caplog):
@@ -150,7 +130,7 @@ def test_m0_logger_debugoff(params, caplog):
 
     m0 = beacon.get("m0")  # creating a device
     m0._logger.debugoff()
-    assert m0._logger.level == logging.WARNING
+    assert m0._logger.level == logging.NOTSET
     m0._logger.debug(msg)
     assert msg not in caplog.text
 
@@ -216,14 +196,10 @@ def test_LogMixin(params, caplog):
     """
     beacon, log = params
 
-    nmc = NotMappedController()
-    mc = MappedController()
-    with pytest.raises(UnboundLocalError):
-        nmc.msg_debug()
-    with pytest.raises(UnboundLocalError):
-        nmc.msg_debug_data()
-    with pytest.raises(UnboundLocalError):
-        nmc.msg_info()
+    nmc = NotMappedController("nmc")
+    assert nmc._logger.name == "session.controllers.nmc"
+    mc = MappedController("mc")
+    assert mc._logger.name == "session.controllers.mc"
 
     mc._logger.debugon()  # activates debug logging level
     expected = "Debug message"
@@ -239,3 +215,133 @@ def test_LogMixin(params, caplog):
     assert expected in caplog.text
 
     assert hasattr(mc._logger, "debug_data")
+
+
+def test_standard_debugon_debugoff(params):
+    beacon, log = params
+
+    roby = beacon.get("roby")
+
+    debugon(roby)
+
+    assert roby._logger.level == logging.DEBUG
+
+    debugoff(roby)
+
+    assert roby._logger.level == logging.NOTSET
+
+    debugon("*roby")
+
+    assert roby._logger.level == logging.DEBUG
+
+    debugoff("*roby")
+
+    assert roby._logger.level == logging.NOTSET
+    assert roby._logger.getEffectiveLevel() == logging.WARNING
+
+
+def node_check(obj, caplog, children=None):
+    """
+    Activate/deactivat debug for one parent node and recursively check
+    that message on children are printed
+    """
+    if children is None:
+        children = []
+    # obj = locals()[name]
+    for child in children:
+        # for child in (locals()[obj_name] for  obj_name in children):
+        dbg_msg = f"{child!r} debug"
+        err_msg = f"{child!r} error"
+        child.msg_debug(dbg_msg)
+        child.msg_error(err_msg)
+        assert dbg_msg not in caplog.text
+        assert err_msg in caplog.text
+        debugon(obj)  # debug at parent level should activate debug on child
+        child.msg_debug(dbg_msg)
+        assert dbg_msg in caplog.text
+        debugoff(obj)
+        caplog.clear()
+        child.msg_debug(dbg_msg)
+        child.msg_error(err_msg)
+        assert dbg_msg not in caplog.text
+        assert err_msg in caplog.text
+        caplog.clear()
+
+        # activate with _logger
+        child._logger.debugon()
+        child.msg_debug(dbg_msg)
+        child.msg_error(err_msg)
+        assert dbg_msg in caplog.text
+        assert err_msg in caplog.text
+        caplog.clear()
+        child._logger.debugoff()
+        child.msg_debug(dbg_msg)
+        child.msg_error(err_msg)
+        assert dbg_msg not in caplog.text
+        assert err_msg in caplog.text
+        caplog.clear()
+        debugoff(obj)
+
+
+def test_chain_devices_log(params, caplog):
+    """
+    Complex logging structure
+    """
+    # build the device tree
+    # d1 -- d2 -- d3 -- d4 -- d5
+    #    \- d6 -- d7 -- d8
+    #          \- d9 -- d10
+    #                \- d11
+    d1 = MappedController("d1")
+    d2 = MappedController("d2", parents_list=[d1])
+    d3 = MappedController("d3", parents_list=[d2])
+    d4 = MappedController("d4", parents_list=[d3])
+    d5 = MappedController("d5", parents_list=[d4])
+    d6 = MappedController("d6", parents_list=[d1])
+    d7 = MappedController("d7", parents_list=[d6])
+    d8 = MappedController("d8", parents_list=[d7])
+    d9 = MappedController("d9", parents_list=[d6])
+    d10 = MappedController("d10", parents_list=[d9])
+    d11 = MappedController("d11", parents_list=[d9])
+
+    node_check(d1, caplog, children=[d2, d3, d4, d5, d6, d7, d8, d9, d10, d11])
+    node_check(d2, caplog, children=[d3, d4, d5])
+    node_check(d6, caplog, children=[d7, d8, d9, d10, d11])
+
+
+def test_log_name_sanitize(params):
+    beacon, log = params
+    m = session.get_current().map
+    d1 = Device(r"Hi_*2^a.o@@-[200]")
+    assert map_id(d1) in m
+    assert m[map_id(d1)]["_logger"].name == "session.controllers.Hi__2_a_o__-[200]"
+    d2 = Device(r"/`/deviceDEVICE=+{}()")
+    assert map_id(d1) in m
+    assert m[map_id(d2)]["_logger"].name == "session.controllers.___deviceDEVICE=___()"
+
+
+def test_level_switch(params, caplog):
+    """
+    When we change the level manually with a value
+    different than WARNING, this should toggle properly with
+    debugon/debugoff
+    """
+    beacon, log = params
+    m0 = beacon.get("m0")
+    assert m0._logger.level == logging.NOTSET
+    assert m0._logger.getEffectiveLevel() == logging.WARNING
+    m0._logger.debugon()
+    assert m0._logger.level == logging.DEBUG
+    assert m0._logger.getEffectiveLevel() == logging.DEBUG
+    m0._logger.debugon()  # repeat twice for replicate bug
+    assert m0._logger.level == logging.DEBUG
+    assert m0._logger.getEffectiveLevel() == logging.DEBUG
+    m0._logger.debugoff()
+    assert m0._logger.level == logging.NOTSET
+    assert m0._logger.getEffectiveLevel() == logging.WARNING
+    # this will change also the default level
+    m0._logger.setLevel(logging.INFO)
+    m0._logger.debugon()
+    m0._logger.debugoff()
+    assert m0._logger.level == logging.INFO
+    assert m0._logger.getEffectiveLevel() == logging.INFO

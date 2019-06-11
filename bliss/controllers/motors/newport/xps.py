@@ -16,12 +16,12 @@ from bliss.comm.util import get_comm, TCP
 class XPS:
     def __init__(self, config_dict):
         comm_opt = {"ctype": "tcp", "timeout": 30.0, "port": 5001}
-        self.__sock = get_comm(config_dict, **comm_opt)
+        self._sock = get_comm(config_dict, **comm_opt)
 
     # Send command and get return
     def __sendAndReceive(self, command):
         try:
-            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            ans = self._sock.write_readline(command.encode(), eol=",EndOfAPI")
             reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]
@@ -32,7 +32,7 @@ class XPS:
     # Send command and get return
     def __sendAndReceiveWithDecode(self, command):
         try:
-            ans = self.__sock.write_readline(command.encode(), eol=",EndOfAPI")
+            ans = self._sock.write_readline(command.encode(), eol=",EndOfAPI")
             reply = ans.decode()
         except:
             return [-1, "socket write_readline failed"]

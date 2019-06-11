@@ -7,7 +7,13 @@
 
 from bliss.config import channels
 from bliss.common.utils import Null
-from bliss.config.static import get_config
+
+
+def _get_config():
+    from bliss.common import session
+
+    cfg = session.get_current().config
+    return cfg
 
 
 class StaticConfig(object):
@@ -55,19 +61,19 @@ class StaticConfig(object):
             raise KeyError("no property '%s` in config" % property_name)
 
     def set(self, property_name, value):
-        cfg = get_config()
+        cfg = _get_config()
         config_node = cfg.get_config(self.config_dict["name"])
         config_node[property_name] = value
         self.config_dict = config_node.to_dict()
 
     def save(self):
-        cfg = get_config()
+        cfg = _get_config()
         config_node = cfg.get_config(self.config_dict["name"])
         config_node.save()
         self._update_channel()
 
     def reload(self):
-        cfg = get_config()
+        cfg = _get_config()
         # this reloads *all* the configuration, hopefully it is not such
         # a big task and it can be left as simple as it is, if needed
         # we could selectively reload only parts of the config (e.g one
@@ -83,7 +89,7 @@ class StaticConfig(object):
             self.config_channel.value = self.config_dict
 
     def _config_changed(self, config_dict):
-        cfg = get_config()
+        cfg = _get_config()
         config_node = cfg.get_config(self.config_dict["name"])
         for key, value in config_dict.items():
             config_node[key] = value

@@ -15,7 +15,6 @@ import gevent
 from bliss.common.cleanup import excepthook
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 from bliss.config import settings
-import logging
 import sys
 
 

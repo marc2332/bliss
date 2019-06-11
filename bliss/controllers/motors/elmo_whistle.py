@@ -11,10 +11,10 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
+from bliss.common import session
 
-import logging
 import time
-import traceback
+import sys
 
 
 class Elmo_whistle(Controller):
@@ -199,20 +199,7 @@ class Elmo_whistle(Controller):
         Controller.__init__(self, *args, **kwargs)
         self._cnx = None
 
-        # init logging
-        self.logger = logging.getLogger("elmo")
-
-        self.handler = logging.StreamHandler()
-        self.handler.setLevel("DEBUG")
-        self.formatter = logging.Formatter(
-            "%(levelname)s -- %(funcName)s -- %(message)s"
-        )
-        self.handler.setFormatter(self.formatter)
-        self.logger.addHandler(self.handler)
-        self.logger.propagate = False
-
     def initialize(self):
-        self.logger.info("Entering")
 
         config = self.config.config_dict
         if get_comm_type(config) == SERIAL:
@@ -221,6 +208,12 @@ class Elmo_whistle(Controller):
             raise RuntimeError("Serial line is not configured!")
 
         self._cnx = get_comm(config, **opt)
+
+        session.get_current().map.register(self, children_list=[self._cnx])
+
+    def initialize(self):
+        self._logger.info("Entering")
+
         self._elmostate = AxisState()
         for state, human in (
             ("INHIBITSWITCH", "Inhibit switch active"),
@@ -235,7 +228,7 @@ class Elmo_whistle(Controller):
         self.stopped = False
 
     def initialize_hardware(self):
-        self.logger.info("Entering")
+        self._logger.info("Entering")
 
         # Check that the controller is alive
         try:
@@ -246,11 +239,11 @@ class Elmo_whistle(Controller):
             )
 
     def initialize_axis(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         axis._mode = Cache(axis, "mode", default_value=None)
 
     def initialize_hardware_axis(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         # Check user-mode
         mode = int(self._query("UM"))
@@ -263,22 +256,22 @@ class Elmo_whistle(Controller):
             self.set_on(axis)
         mode = self._query("UM")
         axis._mode.value = int(mode)
-        self.logger.info("%s init done!" % axis.name)
+        self._logger.info("%s init done!" % axis.name)
 
     def set_on(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         self._set_power(axis, True)
 
     def set_off(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         self._set_power(axis, False)
 
     def _set_power(self, axis, activate):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         self._query("MO=%d" % activate)
 
     def _query(self, msg, in_error_code=False, **keys):
-        self.logger.debug("Entering for cmd = %s" % msg)
+        self._logger.debug("Entering for cmd = %s" % msg)
 
         send_message = msg + "\r"
 
@@ -303,7 +296,7 @@ class Elmo_whistle(Controller):
             except (SerialTimeout, RuntimeError) as e:
                 retry = retry + 1
                 # print exception and number of tries done
-                traceback.print_exc(limit=1)
+                sys.excepthook(*sys.exc_info())
 
                 if retry >= 3:
                     # re-throw the caught exception
@@ -324,11 +317,11 @@ class Elmo_whistle(Controller):
                     "Error %d (%s), Query (%s)" % (error_code, human_error, msg)
                 )
 
-        self.logger.debug("Leaving with reply = %s" % reply)
+        self._logger.debug("Leaving with reply = %s" % reply)
         return reply
 
     def _check_move_conditions(self):
-        self.logger.info("Entering")
+        self._logger.info("Entering")
 
         sleep = False
 
@@ -354,7 +347,7 @@ class Elmo_whistle(Controller):
         return sleep
 
     def start_jog(self, axis, velocity, direction):
-        self.logger.info(
+        self._logger.info(
             "Entering for %s with %f and %d" % (axis.name, velocity, direction)
         )
 
@@ -365,7 +358,7 @@ class Elmo_whistle(Controller):
         self._query("BG")
 
     def stop_jog(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         # stop the movement
         self._query("JV=0")
@@ -379,19 +372,19 @@ class Elmo_whistle(Controller):
 
     @object_method(types_info=("None", ("float", "float")))
     def jog_range(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         # this method should be in emotion
         # to use it in real units
         return float(self._query("VL[2]")), float(self._query("VH[2]"))
 
     def read_position(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         # Rotary movements use the main encoder PX and
         # linear movements use the auxillary encoder PY
         encoder_name = "PY" if axis._mode.value == 4 else "PX"
-        self.logger.debug("Encoder %s" % encoder_name)
+        self._logger.debug("Encoder %s" % encoder_name)
 
         # In speed control mode, always return encoder position
         if axis._mode.value == 2:
@@ -425,7 +418,7 @@ class Elmo_whistle(Controller):
                 return float(self._query("PA"))
 
     def set_position(self, axis, new_pos):
-        self.logger.info("Entering for %s with dial = %f" % (axis.name, new_pos))
+        self._logger.info("Entering for %s with dial = %f" % (axis.name, new_pos))
 
         pos = round(new_pos)
         self._set_power(axis, False)
@@ -436,28 +429,28 @@ class Elmo_whistle(Controller):
         return self.read_position(axis)
 
     def read_acceleration(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         return int(self._query("AC"))
 
     def set_acceleration(self, axis, new_acc):
-        self.logger.info("Entering for %s with acc = %f" % (axis.name, new_acc))
+        self._logger.info("Entering for %s with acc = %f" % (axis.name, new_acc))
 
         self._query("AC=%d" % new_acc)
         self._query("DC=%d" % new_acc)
         return self.read_acceleration(axis)
 
     def read_velocity(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         return float(self._query("SP"))
 
     def set_velocity(self, axis, new_vel):
-        self.logger.info("Entering for %s with velocity = %f" % (axis.name, new_vel))
+        self._logger.info("Entering for %s with velocity = %f" % (axis.name, new_vel))
 
         self._query("SP=%d" % new_vel)
         return self.read_velocity(axis)
 
     def home_search(self, axis, switch, set_pos=None):
-        self.logger.info("Entering for %s with switch = %s" % (axis.name, switch))
+        self._logger.info("Entering for %s with switch = %s" % (axis.name, switch))
 
         # Check the conditions to allow the movement
         sleep = self._check_move_conditions()
@@ -490,7 +483,7 @@ class Elmo_whistle(Controller):
             time.sleep(self.off_limit_sleep_time)
 
     def home_state(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         ans = int(self._query("SR"))
         if ans & (1 << 11):
@@ -506,14 +499,14 @@ class Elmo_whistle(Controller):
             return AxisState("READY")
 
     def state(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         state = self._elmostate.new()
 
         # check first that the controller is ready to move
         # bit0 of Status Register (page 3.135)
         ans = int(self._query("SR"))
-        self.logger.info(
+        self._logger.info(
             "Moving state for %s : %d" % (axis.name, (ans & (0x3 << 14)) >> 14)
         )
         # print ("state = %d" % ((ans & (0x3 << 14)) >> 14))
@@ -562,7 +555,7 @@ class Elmo_whistle(Controller):
         return state
 
     def start_one(self, motion):
-        self.logger.info("Entering for %s" % motion.axis.name)
+        self._logger.info("Entering for %s" % motion.axis.name)
 
         # Check the conditions to allow the movement
         sleep = self._check_move_conditions()
@@ -577,7 +570,7 @@ class Elmo_whistle(Controller):
             time.sleep(self.off_limit_sleep_time)
 
     def stop(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         # Stop cannot be executed in speed control mode
         if axis._mode.value != 2:
@@ -604,12 +597,12 @@ class Elmo_whistle(Controller):
 
     @object_method(types_info=("None", "int"))
     def get_user_mode(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         return int(self._query("UM"))
 
     @object_method(types_info=("int", "int"))
     def set_user_mode(self, axis, mode):
-        self.logger.info("Entering for %s with mode = %d" % (axis.name, mode))
+        self._logger.info("Entering for %s with mode = %d" % (axis.name, mode))
 
         commands = ["MO=0", "UM=%d" % mode]
         if mode == 2:
@@ -622,7 +615,7 @@ class Elmo_whistle(Controller):
         if mode == 5 or mode == 4:
             # set the encoder position as requested value
             encoder_name = "PY" if axis._mode.value == 4 else "PX"
-            self.logger.debug("Encoder %s" % encoder_name)
+            self._logger.debug("Encoder %s" % encoder_name)
             pos = int(self._query(encoder_name))
             self._query("PA=%d" % pos)
 
@@ -634,7 +627,7 @@ class Elmo_whistle(Controller):
         return mode
 
     def limit_search(self, axis, limit):
-        self.logger.info("Entering for %s with limit = %d" % (axis.name, limit))
+        self._logger.info("Entering for %s with limit = %d" % (axis.name, limit))
 
         # Check the conditions to allow the movement
         sleep = self._check_move_conditions()
@@ -649,10 +642,10 @@ class Elmo_whistle(Controller):
 
     # encoders
     def initialize_encoder(self, encoder):
-        self.logger.info("Entering for %s" % encoder.name)
+        self._logger.info("Entering for %s" % encoder.name)
 
     def read_encoder(self, encoder):
-        self.logger.info("Entering for %s" % encoder.name)
+        self._logger.info("Entering for %s" % encoder.name)
 
         mode = int(self._query("UM"))
         encoder_name = "PY" if mode == 4 else "PX"
@@ -660,7 +653,7 @@ class Elmo_whistle(Controller):
         return float(self._query(encoder_name))
 
     def set_encoder(self, encoder, steps):
-        self.logger.info("Entering for %s with steps = %d" % (encoder.name, steps))
+        self._logger.info("Entering for %s with steps = %d" % (encoder.name, steps))
 
         mode = int(self._query("UM"))
         encoder_name = "PY" if mode == 4 else "PX"
@@ -669,11 +662,11 @@ class Elmo_whistle(Controller):
 
     @object_method(types_info=("None", "string"))
     def get_id(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
         return self._query("VR")
 
     def get_info(self, axis):
-        self.logger.info("Entering for %s" % axis.name)
+        self._logger.info("Entering for %s" % axis.name)
 
         print("\nStatus Register:")
         _status = int(self._query("SR"))
@@ -779,5 +772,3 @@ class Elmo_whistle(Controller):
             print("--- Digital input 9 : Active")
         if _status & (1 << 25):
             print("--- Digital input 10 : Active")
-
-        return

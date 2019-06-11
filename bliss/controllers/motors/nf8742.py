@@ -3,7 +3,6 @@ Bliss controller for ethernet NewFocus 8742 piezo controller.
 A. Beteva, M. Guijarro, ESRF BCU
 """
 from bliss.controllers.motor import Controller
-from bliss.common import log
 from bliss.common.axis import AxisState
 import requests
 import itertools

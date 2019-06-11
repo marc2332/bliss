@@ -19,8 +19,8 @@ from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
-from bliss.common import mapping
 from bliss.common.logtools import LogMixin
+from bliss.common import session
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
@@ -65,7 +65,11 @@ class Controller(LogMixin):
         self.axis_settings = ControllerAxisSettings()
 
         for axis_name, axis_class, axis_config in axes:
+            # make Axis objects from the class,
+            # in case of references, eg. real axes for calc controllers,
+            # they are de-referenced (__call__ of Reference object)
             axis = axis_class(axis_name, self, axis_config)
+            #
             self._axes[axis_name] = axis
             axis_tags = axis_config.get("tags")
             if axis_tags:
@@ -87,7 +91,7 @@ class Controller(LogMixin):
                 if obj_class is None:
                     raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
-        mapping.register(self)
+        session.get_current().map.register(self, parents_list=["controllers"])
 
     def _init(self):
         for axis in self.axes.values():

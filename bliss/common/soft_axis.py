@@ -7,7 +7,6 @@
 
 from bliss.controllers.motors.soft import SoftController
 from bliss.common import session
-from bliss.common import mapping
 from bliss import setup_globals
 
 
@@ -43,6 +42,8 @@ def SoftAxis(
 
     controller._init()
     axis = controller.get_axis(name)
-    mapping.register(axis, parents_list=[controller], tag=f"axis.{name}")
+    session.get_current().map.register(
+        axis, parents_list=[controller], tag=f"axis.{name}"
+    )
     setattr(setup_globals, name, axis)
     return axis

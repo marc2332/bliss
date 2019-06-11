@@ -1,7 +1,7 @@
 import os
+import sys
 import time
 import bisect
-import logging
 import datetime
 from warnings import warn
 
@@ -12,6 +12,8 @@ import serial.serialutil as serial
 from bliss.comm.util import get_comm, SERIAL
 from bliss.common.event import dispatcher
 from bliss.common.data_manager import ScanFile
+from bliss.common.logtools import LogMixin
+from bliss.common import session
 
 __all__ = ["LinkamDsc", "LinkamScanFile", "LinkamScan"]
 
@@ -71,14 +73,12 @@ class LinkamScan:
             )
 
 
-class LinkamDsc(object):
+class LinkamDsc(LogMixin):
     def __init__(self, name, config):
         """ Linkam controller with either hot stage or dsc stage
             config_-- controller configuration,
         """
         self.name = name
-        self._logger = logging.getLogger(str(self))
-        logging.basicConfig(level=10)
         try:
             self._cnx = get_comm(config, SERIAL, baudrate=19200, eol="\r", timeout=10)
         except ValueError:
@@ -91,6 +91,10 @@ class LinkamDsc(object):
                 self._cnx = get_comm(comm_cfg, baudrate=19200, eol="\r", timeout=10)
             else:
                 raise ValueError("Must specify serial")
+
+        session.get_current().map.register(
+            self, parents_list=["controllers"], children_list=[self._cnx], tag=self.name
+        )
 
         # Possible values of the status byte
         self.STOPPED = 0x1
@@ -610,7 +614,7 @@ class LinkamDsc(object):
                 if abort == "|":
                     break  # abort the profile
         except:
-            print("CAUGHT Exception--------------------------------------")
+            sys.excepthook(*sys.exc_info())
             #            self._logger.error(self.ErrorToString.get(errCode))
             self.rampLimit = self._temperature
         finally:

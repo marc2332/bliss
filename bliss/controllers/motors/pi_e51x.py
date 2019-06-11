@@ -9,10 +9,9 @@ import time
 from warnings import warn
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.utils import object_method
-
 from bliss.common.axis import AxisState
+from bliss.common import session
 
 from . import pi_gcs
 from bliss.comm.util import TCP
@@ -32,24 +31,26 @@ class PI_E51X(Controller):
 
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
-        elog.info(
+        self._logger.info(
             "move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name)
         )
         if self.auto_gate_enabled:
             if state is True:
-                elog.info("PI_E51X.py : movement is finished")
+                self._logger.info("PI_E51X.py : movement is finished")
                 self.set_gate(sender, 0)
-                elog.debug("mvt finished, gate set to 0")
+                self._logger.debug("mvt finished, gate set to 0")
             else:
-                elog.info("PI_E51X.py : movement is starting")
+                self._logger.info("PI_E51X.py : movement is starting")
                 self.set_gate(sender, 1)
-                elog.debug("mvt started, gate set to 1")
+                self._logger.debug("mvt started, gate set to 1")
 
     def initialize(self):
         # acceleration is not mandatory in config
         self.axis_settings.config_setting["acceleration"] = False
 
         self.comm = pi_gcs.get_pi_comm(self.config, TCP)
+
+        session.get_current().map.register(self, children_list=[self.comm])
 
     def close(self):
         if self.comm is not None:
@@ -128,7 +129,7 @@ class PI_E51X(Controller):
             _pos = self._get_target_pos(axis)
             cache["pos"] = _pos
             cache["t"] = time.time()
-        elog.debug("position setpoint read : %r" % _pos)
+        self._logger.debug("position setpoint read : %r" % _pos)
 
         return _pos[axis.channel - 1]
 
@@ -145,7 +146,7 @@ class PI_E51X(Controller):
             _pos = self._get_pos()
             cache["pos"] = _pos
             cache["t"] = time.time()
-        elog.debug("position measured read : %r" % _pos)
+        self._logger.debug("position measured read : %r" % _pos)
 
         return _pos[encoder.channel - 1]
 
@@ -161,24 +162,24 @@ class PI_E51X(Controller):
         # removes 'X=' prefix
         _velocity = float(_ans[2:])
 
-        elog.debug("read_velocity : %g " % _velocity)
+        self._logger.debug("read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
         self.send_no_ans(axis, "VEL %s %f" % (axis.chan_letter, new_velocity))
-        elog.debug("velocity set : %g" % new_velocity)
+        self._logger.debug("velocity set : %g" % new_velocity)
         return self.read_velocity(axis)
 
     def state(self, axis):
         # if self._get_closed_loop_status(axis):
         if self.closed_loop:
-            # elog.debug("CLOSED-LOOP is active")
+            # self._logger.debug("CLOSED-LOOP is active")
             if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
                 return AxisState("MOVING")
         else:
-            elog.debug("CLOSED-LOOP is not active")
+            self._logger.debug("CLOSED-LOOP is not active")
             return AxisState("READY")
 
     def prepare_move(self, motion):
@@ -271,7 +272,7 @@ class PI_E51X(Controller):
 
         _duration = time.time() - _t0
         if _duration > 0.005:
-            elog.info(
+            self._logger.info(
                 "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
                 % (_ans, _cmd, _duration * 1000)
             )
@@ -422,7 +423,7 @@ class PI_E51X(Controller):
         if value:
             # auto gating
             self.auto_gate_enabled = True
-            elog.info(
+            self._logger.info(
                 "PI_E51X.py : enable_gate %s for axis.channel %s "
                 % (str(value), axis.channel)
             )
@@ -476,7 +477,7 @@ class PI_E51X(Controller):
                 _ch,
             )
 
-        elog.debug("set_gate :  _cmd = %s" % _cmd)
+        self._logger.debug("set_gate :  _cmd = %s" % _cmd)
 
         self.send_no_ans(axis, _cmd)
 

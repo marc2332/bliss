@@ -12,7 +12,6 @@
 """
 
 from bliss.controllers.motor import CalcController
-from bliss.common import log
 
 
 class kb(CalcController):

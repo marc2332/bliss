@@ -20,7 +20,7 @@ import itertools
 import gevent
 from gevent.backdoor import BackdoorServer
 
-import bliss.common.log as elog
+import bliss.tango.servers.log as elog
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config

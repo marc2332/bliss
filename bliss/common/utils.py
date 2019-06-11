@@ -14,7 +14,6 @@ import itertools
 import functools
 import numpy
 from bliss.common.event import saferef
-from bliss.common import session
 import sys
 import copy
 import collections.abc
@@ -50,22 +49,6 @@ def wrap_methods(from_object, target_object):
                 name,
                 types.MethodType(WrappedMethod(from_object, name), target_object),
             )
-
-
-def add_conversion_function(obj, method_name, function):
-    meth = getattr(obj, method_name)
-    if inspect.ismethod(meth):
-        if callable(function):
-
-            def new_method(*args, **kwargs):
-                values = meth(*args, **kwargs)
-                return function(values)
-
-            setattr(obj, method_name, new_method)
-        else:
-            raise ValueError("conversion function must be callable")
-    else:
-        raise ValueError("'%s` is not a method" % method_name)
 
 
 def add_property(inst, name, method):
@@ -452,14 +435,27 @@ def get_objects_type_iter(typ):
 
 
 def get_axes_iter():
-    from bliss.common.axis import Axis
+    from bliss.common import session
 
-    return get_objects_type_iter(Axis)
+    m = session.get_current().map
+    for mot in m.instance_iter("axes"):
+        yield mot
 
 
 def get_axes_names_iter():
     for axis in get_axes_iter():
         yield axis.alias_or_name
+
+
+def get_counters_iter():
+    from bliss.common import session
+
+    for cnt in session.get_current().map.instance_iter("counters"):
+        try:
+            for cnt in cnt.counters:
+                yield cnt
+        except AttributeError:
+            yield cnt
 
 
 def safe_get(obj, member, on_error=None, **kwargs):

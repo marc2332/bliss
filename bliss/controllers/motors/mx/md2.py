@@ -3,8 +3,8 @@ Bliss controller for Microdiff model MD2 and MD2S, using the EMBL Exporter
 protocol for communication.
 """
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.axis import AxisState
+from bliss.common import session
 from bliss.comm.Exporter import *
 import time
 import gevent
@@ -16,6 +16,7 @@ class MD2(Controller):
 
         host, port = self.config.get("exporter_address").split(":")
         self._exporter = Exporter(host, int(port))
+        session.get_current().map.register(self, children_list=[self._exporter])
         self.pos_attr_suffix = "Position"
         self.state_cmd = "getMotorState"
 

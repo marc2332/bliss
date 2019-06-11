@@ -174,6 +174,9 @@ def main():
         print("")
         arguments = docopt(__doc__)
 
+    # disable those ugly loggers from jedi
+    logging.getLogger("parso.python.diff").disabled = True
+    logging.getLogger("parso.cache").disabled = True
     # initialize logging
     log_level = getattr(logging, arguments["--log-level"][0].upper())
     logging_startup(log_level)

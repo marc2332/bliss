@@ -21,7 +21,6 @@ __all__ = [
 
 import re
 import enum
-import logging
 import gevent
 from gevent import lock
 import numpy
@@ -32,7 +31,7 @@ from ...common.greenlet_utils import KillMask, protect_from_kill
 from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 __TMO_TUPLE = (
@@ -137,7 +136,7 @@ class Prologix(LogMixin):
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 1234
         self._sock = Socket(hostname, port, timeout=keys.get("timeout"))
-        mapping.register(self, children_list=["comms", self._sock])
+        session.get_current().map.register(self, children_list=["comms", self._sock])
         self._logger.debug(f"Prologix::__init__() host = {hostname} port = {port}")
         self._gpib_kwargs = keys
 
@@ -237,7 +236,7 @@ class TangoDeviceServer(LogMixin):
         self._pad = keys["pad"]
         self._sad = keys.get("sad", 0)
         self._pad_sad = self._pad + (self._sad << 8)
-        mapping.register(self)
+        session.get_current().map.register(self)
 
     def init(self):
         self._logger.debug("TangoDeviceServer::init()")
@@ -283,7 +282,7 @@ class LocalGpib(LogMixin):
             raise LocalGpibError("LocalGpib: url is not valid (%s)" % url)
 
         self._gpib_kwargs = keys
-        mapping.register(self, tag=str(self))
+        session.get_current().map.register(self, tag=str(self))
 
     def __str__(self):
         return "{0}(board={1})".format(type(self).__name__, self.board_index)
@@ -373,7 +372,7 @@ class Gpib(LogMixin):
         self._raw_handler = None
 
         self._data = b""
-        mapping.register(self, tag=str(self))
+        session.get_current().map.register(self, tag=str(self))
 
     def __str__(self):
         opts = self._gpib_kwargs

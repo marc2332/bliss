@@ -32,10 +32,11 @@ controller:
             input: $thermo_sample   <- mandatory
             output: $heater         <- mandatory
 """
+import itertools
 
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
-from bliss.common import mapping
+from bliss.common import session
 from bliss.common.logtools import LogMixin
 
 
@@ -45,57 +46,23 @@ class Controller(LogMixin):
     """
 
     def __init__(self, config, inputs, outputs, loops):
-        mapping.register(self)
-        # self._logger.info("on Controller")
         self.__config = config
-        self._objects = dict()
-        self._inputs = dict()
-        self._outputs = dict()
-        self._loops = dict()
+        self.__name = config.get("name")
+        self._objects = {}
 
-        self.initialize()
+        for name, klass, cfg in itertools.chain(inputs, outputs, loops):
+            self._logger.debug(f"  {klass.__name__} name: {name}")
+            self._logger.debug(f"  {klass.__name__} config: {cfg}")
+            new_obj = klass(self, cfg)
 
-        for name, cfg in inputs:
-            self._logger.debug("  input name: %s" % (name))
-            self._logger.debug("  input config: %s" % (cfg))
-            self._objects[name] = Input(self, cfg)
-            self._inputs[name] = Input(self, cfg)
+            self._objects[name] = new_obj
 
             # For custom attributes and commands.
-            set_custom_members(self, self._inputs[name])
-            set_custom_members(self, self._objects[name])
+            set_custom_members(self, new_obj)
 
-            # input object is got from call of get_object
-            # and not as self._objects[name]
-            self.initialize_input(self.get_object(name))
-
-        for name, cfg in outputs:
-            self._logger.debug("  output name: %s" % (name))
-            self._logger.debug("  output config: %s" % (cfg))
-            self._objects[name] = Output(self, cfg)
-            self._outputs[name] = Output(self, cfg)
-
-            # output object is got from call of get_object
-            # and not as self._objects[name]
-            self.initialize_output(self.get_object(name))
-
-            # For custom attributes and commands.
-            set_custom_members(self, self._outputs[name])
-            set_custom_members(self, self._objects[name])
-
-        for name, cfg in loops:
-            self._logger.debug("  loops name: %s" % (name))
-            self._logger.debug("  loops config: %s" % (cfg))
-            self._objects[name] = Loop(self, cfg)
-            self._loops[name] = Loop(self, cfg)
-
-            # Loop object is got from call of get_object
-            # and not as self._objects[name]
-            self.initialize_loop(self.get_object(name))
-
-            # For custom attributes and commands.
-            set_custom_members(self, self._loops[name])
-            set_custom_members(self, self._objects[name])
+    @property
+    def name(self):
+        return self.__name
 
     @property
     def config(self):
@@ -117,6 +84,17 @@ class Controller(LogMixin):
         self._logger.info("Controller:get_object: %s" % (name))
         # it is used by Loop class
         return self._objects.get(name)
+
+    def _init(self):
+        self.initialize()
+
+        for obj in self._objects.values():
+            if isinstance(obj, Input):
+                self.initialize_input(obj)
+            elif isinstance(obj, Output):
+                self.initialize_output(obj)
+            elif isinstance(obj, Loop):
+                self.initialize_loop(obj)
 
     def initialize(self):
         """ 

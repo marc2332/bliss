@@ -27,10 +27,7 @@ import weakref
 
 import gevent
 from gevent import event
-import logging
 
-
-from bliss.common import log
 from bliss.common.temperature import Output
 from bliss.common.utils import object_attribute_get
 from bliss.comm.serial import Serial
@@ -41,9 +38,11 @@ from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
 from warnings import warn
 
 from bliss.controllers.temperature.oxfordcryo.oxford import Base
+from bliss.common.logtools import LogMixin
+from bliss.common import session
 
 
-class OxfordCryostream(object):
+class OxfordCryostream(LogMixin):
     """
     OXCRYO_ALARM = {0:"No Alarms",
                  1:"Stop button has been pressed",
@@ -87,10 +86,13 @@ class OxfordCryostream(object):
     def __init__(self, port=None):
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
-        self.log = logging.getLogger("Oxford700." + port)
-        self.log.debug("Oxford700: __init__(port %s)", port)
-
         self.serial = Serial(port, baudrate=9600, eol="\r")
+        session.get_current().map.register(
+            self,
+            parents_list=["comms"],
+            children_list=[self.serial],
+            tag=f"oxford700: {port}",
+        )
         self._status_packet = None
         self._update_task = gevent.spawn(self._update_status, weakref.proxy(self))
         self._event = event.Event()
@@ -253,7 +255,6 @@ class OxfordCryostream(object):
             except Exception:
                 pass
         data_str = b"".join(data)
-        self.log.debug("Oxford700 send_cmd: %s", [d.hex() for d in data])
         # print([ d.hex() for d in data ])
         # print(data_str.hex())
         self.serial.write(data_str)

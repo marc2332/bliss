@@ -5,8 +5,6 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import inspect
-
 import numpy
 
 from bliss.common.axis import NoSettingsAxis, AxisState

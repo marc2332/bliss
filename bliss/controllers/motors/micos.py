@@ -140,30 +140,16 @@
 
 import time
 import sys
-import traceback
 import gevent
 
-from bliss.controllers.motor import Controller
-from bliss.comm.util import get_comm
-from bliss.common.utils import Null
-
-# from bliss.common import log as elog
-# Different debug levels are:
-# log.NOTSET = 0, log.DEBUG = 10, log.INFO = 20, log.ERROR=40
-import logging
-
-from bliss.common.axis import AxisState
 from bliss.common import event
-
+from bliss.common import session
+from bliss.common.utils import Null
+from bliss.common.axis import AxisState
+from bliss.comm.util import get_comm, SERIAL
+from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-
-from bliss.comm.util import SERIAL
-
-# def set_micos_log_level(level):
-#    level = level.upper()
-#    logging.getLogger('micos').setLevel(level)
-
 
 # In the motor-controller class 'micos' the functions/methods
 # are set in groups according to on-line doc
@@ -246,18 +232,8 @@ class micos(Controller):
         """
 
         Controller.__init__(self, *args, **kwargs)
-        # self.log = logging.getLogger('micos')
-        self.log = logging.getLogger(type(self).__name__)
 
-        # Set initial value of log level to NOTSET --> no logging message
-        # The log level can be later changed at any moment by
-        # invoking set_log_level() on axis object.
-        self.log.setLevel(logging.NOTSET)
-        self.log.info("__init__()")
         self._status = "uninitialized"
-
-    #    def get_mandatory_config_parameters(self, axis):
-    #        return ('velocity', 'acceleration', 'cloop_winsize', 'cloop_wintime')
 
     def initialize(self):
         """
@@ -274,15 +250,14 @@ class micos(Controller):
 
         Opens serial line.
         """
-
-        self.log.info("initialize()")
+        self._logger.info("initialize()")
         try:
             self.serial = get_comm(
                 self.config.config_dict, SERIAL, timeout=5, baudrate=19200, eol="\r\n"
             )
             self._status = "SERIAL communication configuration found"
-            self.log.debug("initialize(): %s" % (self._status))
-            self.log.debug("initialize(): %s" % (self.serial))
+            self._logger.debug("initialize(): %s" % (self._status))
+            self._logger.debug("initialize(): %s" % (self.serial))
         except ValueError:
             try:
                 serial_line = self.config.get("serial")
@@ -294,7 +269,9 @@ class micos(Controller):
                 self.serial = get_comm(comm_cfg, timeout=1)
             except:
                 self._status = "Cannot find serial configuration"
-                self.log.error("initialize(): %s" % (self._status))
+                self._logger.error("initialize(): %s" % (self._status))
+
+        session.get_current().map.register(self, children_list=[self.serial])
 
         self._micos_state = AxisState()
         self._micos_state.create_state("INCLOSEDLOOPWINDOW", "In Closed-loop Window")
@@ -308,14 +285,14 @@ class micos(Controller):
         Executes actions COMMON for all axes.
         """
 
-        self.log.info("initialize_hardware()")
+        self._logger.info("initialize_hardware()")
 
         # Switch ALL axes (though we use only axis number 1) to HOST MODE
         _cmd = "0 nmode "
-        self.log.debug("initialize_hardware() : Switch all axes to host mode")
-        self.log.debug("initialize_hardware() : cmd=%r" % _cmd)
+        self._logger.debug("initialize_hardware() : Switch all axes to host mode")
+        self._logger.debug("initialize_hardware() : cmd=%r" % _cmd)
         self.serial.write(_cmd.encode())
-        self.log.debug("initialize_hardware() : After switching to HOST MODE")
+        self._logger.debug("initialize_hardware() : After switching to HOST MODE")
 
     def initialize_axis(self, axis):
         """
@@ -342,7 +319,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("initialize_axis()")
+        self._logger.info("initialize_axis()")
 
         self.axis_settings.add("cloop_winsize", float)
         self.axis_settings.add("cloop_wintime", float)
@@ -364,7 +341,7 @@ class micos(Controller):
         try:
             axnum = axis.config.get("number", int)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'number' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -372,7 +349,7 @@ class micos(Controller):
             msg = "Axis number %d is not within [1,99]" % axnum
             raise ValueError(msg)
         axis.number = axnum
-        self.log.debug("initialize_axis(): axis number = %d" % axis.number)
+        self._logger.debug("initialize_axis(): axis number = %d" % axis.number)
 
         # Both endswitch functions/type from config
         # The following functions are possible for 2 endswitches:
@@ -381,28 +358,28 @@ class micos(Controller):
         try:
             loesty = axis.config.get("low_endswitch_type", int)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'low_endswitch_type' defined in config for Micos axis %s"
                 % axis.name
             )
         if loesty not in (0, 1, 2):
             raise ValueError("low endswitch type %r not one of [0,1,2]" % loesty)
         axis.low_endswitch_type = loesty
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): low endswitch type = %d" % axis.low_endswitch_type
         )
 
         try:
             hiesty = axis.config.get("high_endswitch_type", int)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'high_endswitch_type' defined in config for Micos axis %s"
                 % axis.name
             )
         if hiesty not in (0, 1, 2):
             raise ValueError("high endswitch type %r not one of [0,1,2]" % hiesty)
         axis.high_endswitch_type = hiesty
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): high endswitch type = %d" % axis.high_endswitch_type
         )
 
@@ -419,7 +396,7 @@ class micos(Controller):
             try:
                 hw_lolim = axis.config.get("hw_low_limit", float)
             except:
-                self.log.error(
+                self._logger.error(
                     "initialize_axis(): No 'hw_low_limit' defined in config for Micos axis %s"
                     % axis.name
                 )
@@ -427,7 +404,7 @@ class micos(Controller):
             ####    msg = "Low hardware limit %f for Axis number %d is higher than low software limit %f" % (hw_lolim, axis.number, sw_lolim)
             ####    raise ValueError(msg)
             axis.hw_low_limit = hw_lolim
-            self.log.debug(
+            self._logger.debug(
                 "initialize_axis(): hw_low_limit = %f deg." % axis.hw_low_limit
             )
 
@@ -435,7 +412,7 @@ class micos(Controller):
             try:
                 hw_hilim = axis.config.get("hw_high_limit", float)
             except:
-                self.log.error(
+                self._logger.error(
                     "initialize_axis(): No 'hw_high_limit' defined in config for Micos axis %s"
                     % axis.name
                 )
@@ -443,7 +420,7 @@ class micos(Controller):
             ####    msg = "High hardware limit %f for Axis number %d is lower than high software limit %f" % (hw_hilim, axis.number, sw_hilim)
             ####    raise ValueError(msg)
             axis.hw_high_limit = hw_hilim
-            self.log.debug(
+            self._logger.debug(
                 "initialize_axis(): hw_high_limit = %f deg." % axis.hw_high_limit
             )
 
@@ -451,12 +428,12 @@ class micos(Controller):
             try:
                 tofrom_endsw_vel = axis.config.get("tofrom_endsw_velocity", float)
             except:
-                self.log.error(
+                self._logger.error(
                     "initialize_axis(): No 'tofrom_endsw_velocity' defined in config for Micos axis %s"
                     % axis.name
                 )
             axis.tofrom_endsw_velocity = tofrom_endsw_vel
-            self.log.debug(
+            self._logger.debug(
                 "initialize_axis(): tofrom_endsw_velocity = %f deg/sec"
                 % axis.tofrom_endsw_velocity
             )
@@ -466,7 +443,7 @@ class micos(Controller):
         try:
             torefvel = axis.config.get("to_reference_velocity", float)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'to_reference_velocity' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -486,7 +463,7 @@ class micos(Controller):
         # if torefvel > 1:
         #    raise ValueError("Velocity for moving to reference position is toohigh %f (should be <= 1.0 deg/sec)" % torefvel)
         axis.to_reference_velocity = torefvel
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): Velocity for moving to reference position is %f deg/sec"
             % axis.to_reference_velocity
         )
@@ -495,7 +472,7 @@ class micos(Controller):
         try:
             aapu = axis.config.get("action_at_powerup", int)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'action_at_powerup' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -515,24 +492,24 @@ class micos(Controller):
                 "initialize_axis(): Powerup Action selected to be %s"
                 % self.POWERUP_ACTIONS_DICT.get(aapu)
             )
-            self.log.debug(dbgmsg)
+            self._logger.debug(dbgmsg)
 
         # Closed loop on/off flag
         try:
             clon = axis.config.get("cloop_on", bool)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'cloop_on' defined in config for Micos axis %s"
                 % axis.name
             )
         axis.cloop_on = clon
-        self.log.debug("initialize_axis(): closed loop flag = %r" % axis.cloop_on)
+        self._logger.debug("initialize_axis(): closed loop flag = %r" % axis.cloop_on)
 
         # Closed loop window size
         try:
             clwinsize = axis.config.get("cloop_winsize", float)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'cloop_winsize' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -543,7 +520,7 @@ class micos(Controller):
         # setting position tolerance to be equal to clwinsize
         axis.config.set("tolerance", clwinsize / axis.steps_per_unit)
         axis.cloop_winsize = clwinsize
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): closed loop window size = %f degrees"
             % axis.cloop_winsize
         )
@@ -552,12 +529,12 @@ class micos(Controller):
         try:
             clgstbit5sel = axis.config.get("cloop_gstbit5sel", bool)
         except:
-            self.log.exception(
+            self._logger.exception(
                 "initialize_axis(): Invalid or missing 'cloop_gstbit5sel' in config for Micos axis %s"
                 % axis.name
             )
         axis.cloop_gstbit5sel = clgstbit5sel
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): closed loop general status bit 5 selection = %r"
             % axis.cloop_gstbit5sel
         )
@@ -566,7 +543,7 @@ class micos(Controller):
         try:
             cltrigopsel = axis.config.get("cloop_trigopsel", int)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'cloop_trigopsel' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -574,7 +551,7 @@ class micos(Controller):
             msg = "Trigger output selection %d not one of [0,1,2,3,4] " % cltrigopsel
             raise ValueError(msg)
         axis.cloop_trigopsel = cltrigopsel
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): closed loop trigger output selection = %d"
             % axis.cloop_trigopsel
         )
@@ -583,7 +560,7 @@ class micos(Controller):
         try:
             clwintime = axis.config.get("cloop_wintime", float)
         except:
-            self.log.error(
+            self._logger.error(
                 "initialize_axis(): No 'cloop_wintime' defined in config for Micos axis %s"
                 % axis.name
             )
@@ -591,7 +568,7 @@ class micos(Controller):
             msg = "Closed loop window settling time is %f = not positive" % clwintime
             raise ValueError(msg)
         axis.cloop_wintime = clwintime
-        self.log.debug(
+        self._logger.debug(
             "initialize_axis(): closed loop settling time = %f" % axis.cloop_wintime
         )
         # clwintime = axis.settings.get("cloop_wintime")
@@ -615,7 +592,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("initialize_hardware_axis()")
+        self._logger.info("initialize_hardware_axis()")
 
         ret = self._get_generror(axis)
 
@@ -681,7 +658,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("set_on()")
+        self._logger.info("set_on()")
 
         _cmd = "1 %d setaxis " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -689,7 +666,7 @@ class micos(Controller):
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
-        self.log.debug("set_on(): axis %d activated" % axis.number)
+        self._logger.debug("set_on(): axis %d activated" % axis.number)
         axis.axis_on = True
 
     def set_off(self, axis):
@@ -700,7 +677,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("set_off()")
+        self._logger.info("set_off()")
 
         _cmd = "0 %d setaxis " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -708,14 +685,14 @@ class micos(Controller):
         ret = self._get_generror(axis)
         if ret != 0:
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
-        self.log.debug("set_off(): axis %d desactivated" % axis.number)
+        self._logger.debug("set_off(): axis %d desactivated" % axis.number)
         axis.axis_on = False
 
     def finalize(self):
         """
         Closes the serial object.
         """
-        self.log.info("finalize()")
+        self._logger.info("finalize()")
         self.serial.close()
 
     def finalize_axis(self, axis):
@@ -727,7 +704,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("finalize_axis()")
+        self._logger.info("finalize_axis()")
         # self._save_axis_parameters(axis)
 
     # ----------------  Velocity/Acceleration methods ------------------
@@ -740,14 +717,14 @@ class micos(Controller):
             - <velocity> : float : axis velocity
         """
 
-        self.log.info("read_velocity()")
+        self._logger.info("read_velocity()")
 
         # _cmd = "%d gnv " % axis.number
         _cmd = "%d getnvel " % axis.number
         _ans = self._send(axis, _cmd)
-        self.log.debug("read_velocity(): %s" % _ans)
+        self._logger.debug("read_velocity(): %s" % _ans)
         _vel = float(_ans)
-        self.log.debug("read_velocity(): velocity = %f" % _vel)
+        self._logger.debug("read_velocity(): velocity = %f" % _vel)
         return _vel
 
     def set_velocity(self, axis, new_velocity):
@@ -757,7 +734,7 @@ class micos(Controller):
             - <new_velocity> : new velocity to be set for the axis
         """
 
-        self.log.info("set_velocity()")
+        self._logger.info("set_velocity()")
 
         # _cmd = "%f %d snv " % (new_velocity, axis.number)
         _cmd = "%f %d setnvel " % (new_velocity, axis.number)
@@ -765,7 +742,7 @@ class micos(Controller):
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
-        self.log.debug("velocity set to : %g mm/s" % new_velocity)
+        self._logger.debug("velocity set to : %g mm/s" % new_velocity)
 
     def read_acceleration(self, axis):
         """
@@ -775,14 +752,14 @@ class micos(Controller):
             - <acceleration> : float : axis acceleration
         """
 
-        self.log.info("read_acceleration()")
+        self._logger.info("read_acceleration()")
 
         # _cmd = "%d gna " % axis.number
         _cmd = "%d getnaccel " % axis.number
         _ans = self._send(axis, _cmd)
-        self.log.debug("read_acceleration(): %s" % _ans)
+        self._logger.debug("read_acceleration(): %s" % _ans)
         _acc = float(_ans)
-        self.log.debug("read_acceleration(): acceleration = %f" % _acc)
+        self._logger.debug("read_acceleration(): acceleration = %f" % _acc)
         return _acc
 
     def set_acceleration(self, axis, new_acceleration):
@@ -792,7 +769,7 @@ class micos(Controller):
             - <new_acceleration> : new acceleration to be set for the axis
         """
 
-        self.log.info("set_acceleration()")
+        self._logger.info("set_acceleration()")
 
         # _cmd = "%f %d sna " % (new_acceleration, axis.number)
         _cmd = "%f %d setnaccel " % (new_acceleration, axis.number)
@@ -800,7 +777,7 @@ class micos(Controller):
         # ret = self._get_generror(axis)
         # if ret != 0:
         #    raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
-        self.log.debug("acceleration set to : %g mm/s2" % new_acceleration)
+        self._logger.debug("acceleration set to : %g mm/s2" % new_acceleration)
 
     # ----------------  Status and Position methods ------------------
 
@@ -817,14 +794,14 @@ class micos(Controller):
             - <state> : string : current operation state of axis
         """
 
-        self.log.info("state()")
+        self._logger.info("state()")
 
         _ans = self._get_status(axis)
         # print(_ans)
 
         # status byte as integer
         status = int(_ans)
-        self.log.debug("state(): status byte = 0x%x" % status)
+        self._logger.debug("state(): status byte = 0x%x" % status)
 
         state = self._micos_state.new()
         # print("State = %r" % state)
@@ -833,7 +810,7 @@ class micos(Controller):
             state.set("FAULT")
             # TODO: analyze machine error here
             merrlist = self._get_macherror(axis)
-            self.log.debug("state(): Machine error(s): %r" % merrlist)
+            self._logger.debug("state(): Machine error(s): %r" % merrlist)
 
         if status & self.CMD_IN_EXEC:
             state.set("MOVING")
@@ -874,14 +851,14 @@ class micos(Controller):
             - <position> : float : axis dial position
         """
 
-        self.log.info("read_position()")
+        self._logger.info("read_position()")
 
         # _cmd = "%d np " % axis.number
         _cmd = "%d npos " % axis.number
         _ans = self._send(axis, _cmd)
-        self.log.debug("read_position(): %s" % _ans)
+        self._logger.debug("read_position(): %s" % _ans)
         _pos = float(_ans)
-        self.log.debug("position=%f" % _pos)
+        self._logger.debug("position=%f" % _pos)
         axis.dial_position = _pos
         return _pos
 
@@ -899,7 +876,7 @@ class micos(Controller):
             - <new_position>: new dial position
         """
 
-        self.log.info("set_position()")
+        self._logger.info("set_position()")
 
         # use "setnpos" command
 
@@ -933,7 +910,7 @@ class micos(Controller):
             - <motion> : Bliss motion object.
         """
 
-        self.log.info("prepare_move()")
+        self._logger.info("prepare_move()")
 
         return
         # raise NotImplementedError
@@ -950,7 +927,7 @@ class micos(Controller):
             - <motion> : Bliss motion object.
         """
 
-        self.log.info("start_one()")
+        self._logger.info("start_one()")
 
         # _cmd = "%f %d nm " % (motion.target_pos, motion.axis.number)
         _cmd = "%f %d nmove " % (motion.target_pos, motion.axis.number)
@@ -969,7 +946,7 @@ class micos(Controller):
         Remark: Maybe send rather CTRL-C since it does not pass via FIFO
         """
 
-        self.log.info("stop()")
+        self._logger.info("stop()")
 
         _cmd = "%d nabort " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -986,7 +963,7 @@ class micos(Controller):
         Positions in motor units
         """
 
-        self.log.info("start_all()")
+        self._logger.info("start_all()")
 
         raise NotImplementedError
 
@@ -997,7 +974,7 @@ class micos(Controller):
         Positions in motor units
         """
 
-        self.log.info("stop_all()")
+        self._logger.info("stop_all()")
 
         raise NotImplementedError
 
@@ -1017,7 +994,7 @@ class micos(Controller):
 	               if < 0, search for the negative hw limit
 	"""
 
-        self.log.info("limit_search()")
+        self._logger.info("limit_search()")
 
         # - one for searching +ve hw limit ( rm endswitch)
         # which will be called in this function
@@ -1052,7 +1029,7 @@ class micos(Controller):
 	                if < 0, search in the negative sense (= ccw)
 	"""
 
-        self.log.info("home_search()")
+        self._logger.info("home_search()")
 
         # Since in this 'standardized' BLISS motor-controller function
         # we cannot pass an additional parameter, which would be the max
@@ -1083,7 +1060,7 @@ class micos(Controller):
 				0 = if motor is not at ref.(= home) position
         """
 
-        self.log.info("home_state()")
+        self._logger.info("home_state()")
         axis_state = AxisState("READY")
         if self._home_failed:
             axis_state.set("FAULT")
@@ -1110,15 +1087,15 @@ class micos(Controller):
 	    - <id-related info>: string with Micos ID and Firmware version
         """
 
-        self.log.info("_get_id()")
+        self._logger.info("_get_id()")
 
         _cmd = "%d nidentify " % axis.number
         reply1 = self._send(axis, _cmd)
-        self.log.debug("_get_id(): Micos equipment id = %s" % reply1)
+        self._logger.debug("_get_id(): Micos equipment id = %s" % reply1)
 
         _cmd = "%d nversion " % axis.number
         reply2 = self._send(axis, _cmd)
-        self.log.debug("_get_id(): Micos firmware version = %s" % reply2)
+        self._logger.debug("_get_id(): Micos firmware version = %s" % reply2)
 
         retstr = "Micos ID = %s; Firmware version = %s" % (reply1, reply2)
         return retstr
@@ -1133,7 +1110,7 @@ class micos(Controller):
 	#    - <useful info>: some useful axis-related info
         """
 
-        self.log.info("get_info()")
+        self._logger.info("get_info()")
 
         _txt = ""
         aapup = axis.action_at_powerup
@@ -1185,8 +1162,8 @@ class micos(Controller):
             - <axis> : bliss axis object.
 	    - <cmd>  : command string 
         """
-        self.log.info("raw_write()")
-        self.log.debug("raw_write(): String to write: %s" % cmd)
+        self._logger.info("raw_write()")
+        self._logger.debug("raw_write(): String to write: %s" % cmd)
         self.serial.write(cmd.encode())
 
     def raw_write_read(self, axis, cmd):
@@ -1200,12 +1177,12 @@ class micos(Controller):
 	Returns:
 	    - <reply>: reply for the command
         """
-        self.log.info("raw_write_read()")
-        self.log.debug("raw_write_read(): String to write: %s" % cmd)
+        self._logger.info("raw_write_read()")
+        self._logger.debug("raw_write_read(): String to write: %s" % cmd)
         self.serial.write(cmd.encode())
         time.sleep(.2)
         _ans = self.serial.readline().rstrip()
-        self.log.debug("raw_write_read(): Answer received: %s" % _ans)
+        self._logger.debug("raw_write_read(): Answer received: %s" % _ans)
         _ans = _ans.decode()
         return _ans
 
@@ -1223,7 +1200,7 @@ class micos(Controller):
         Args:
             - <axis> : bliss axis object.
         """
-        self.log.info("save_axis_parameters()")
+        self._logger.info("save_axis_parameters()")
         self._save_axis_parameters(axis)
 
     @object_method
@@ -1234,7 +1211,7 @@ class micos(Controller):
         Args:
             - <axis> : bliss axis object.
         """
-        self.log.info("restore_axis_parameters()")
+        self._logger.info("restore_axis_parameters()")
         self._restore_axis_parameters(axis)
 
     @object_method
@@ -1245,7 +1222,7 @@ class micos(Controller):
         Args:
             - <axis> : bliss axis object.
         """
-        self.log.info("reset_axis()")
+        self._logger.info("reset_axis()")
         self._reset_axis(axis)
 
     # command stack related method
@@ -1258,7 +1235,7 @@ class micos(Controller):
         Args:
             - <axis> : bliss axis object.
         """
-        self.log.info("clear_axis()")
+        self._logger.info("clear_axis()")
         self._clear_axis(axis)
 
     # axis state related methods
@@ -1271,7 +1248,7 @@ class micos(Controller):
         Args:
             - <axis> : bliss axis object.
         """
-        self.log.info("set_axis_on()")
+        self._logger.info("set_axis_on()")
         self.set_on(axis)
 
     @object_method
@@ -1282,7 +1259,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("set_axis_off()")
+        self._logger.info("set_axis_off()")
         self.set_off(axis)
 
     # closed loop related
@@ -1295,7 +1272,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("set_cloop_on()")
+        self._logger.info("set_cloop_on()")
         self._set_cloop_on(axis)
 
     @object_method
@@ -1306,7 +1283,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("set_cloop_off()")
+        self._logger.info("set_cloop_off()")
         self._set_cloop_off(axis)
 
     # relative move related
@@ -1321,7 +1298,7 @@ class micos(Controller):
             - <displacement> : Relative displacement with the respect to
 			       the current position.
         """
-        self.log.info("rel_move()")
+        self._logger.info("rel_move()")
         self._rel_move(axis, displacement)
 
     # information method related
@@ -1334,7 +1311,7 @@ class micos(Controller):
 	Returns:
 	    - <id-info>: string with Micos ID and Firmware version 
         """
-        self.log.info("get_id()")
+        self._logger.info("get_id()")
         self._get_id(axis)
 
     # 'hardware' limits (= end-switches) related
@@ -1347,7 +1324,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("calibrate()")
+        self._logger.info("calibrate()")
         self._cal_limit_switch_move(axis)
 
     @object_method
@@ -1358,7 +1335,7 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         """
-        self.log.info("rangemeasure()")
+        self._logger.info("rangemeasure()")
         self._rm_limit_switch_move(axis)
 
     # closed loop related
@@ -1374,7 +1351,7 @@ class micos(Controller):
 	    - <cloop-params>: String in the form 'P I D' and even some more
 			      values, which are not ducumented.
         """
-        self.log.info("get_cloop_params()")
+        self._logger.info("get_cloop_params()")
         self._get_cloop_params(axis)
 
     @object_method(types_info=("str", "None"))
@@ -1386,7 +1363,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	    - <cloop_params>: string in form 'P I D'
 	"""
-        self.log.info("set_cloop_params()")
+        self._logger.info("set_cloop_params()")
         self._set_cloop_params(axis, cloop_params)
 
     # move to reference position related
@@ -1407,7 +1384,7 @@ class micos(Controller):
 		in the invocation of this method (like in home_search 
 		function/method).
 	"""
-        self.log.info("move_to_reference()")
+        self._logger.info("move_to_reference()")
 
         # make a move to search for the reference position
 
@@ -1432,7 +1409,7 @@ class micos(Controller):
 	Return:
 	    - <axis_on>: axis ON(= True)/OFF(= False) state
 	"""
-        self.log.info("get_axis_on()")
+        self._logger.info("get_axis_on()")
         ret = self._get_axis_on(axis)
         return ret
 
@@ -1440,24 +1417,24 @@ class micos(Controller):
 
     #    @object_attribute_get(type_info=("float", "float"))
     #    def get_hw_limits(self, axis):
-    #        self.log.info("get_hw_limits()")
+    #        self._logger.info("get_hw_limits()")
     #        ret = self._get_hw_limits(axis)
     #        return ret
 
     #    @object_attribute_set(type_info=("float","float"))
     #    def set_hw_limits(self, axis, hw_lolim,hw_hilim):
-    #        self.log.info("set_hw_limits()")
+    #        self._logger.info("set_hw_limits()")
     #        self._set_hw_limits(axis, hw_lolim, hw_hilim)
 
     #    @object_attribute_get(type_info=("int", "int"))
     #    def get_endswitch_types(self, axis):
-    #        self.log.info("get_endswitch_types()")
+    #        self._logger.info("get_endswitch_types()")
     #        ret = self._get_endswitch_types(axis)
     #        return ret
 
     #    @object_attribute_set(type_info=("int","int"))
     #    def set_endswitch_types(self, axis, loesty,hiesty):
-    #        self.log.info("set_endswitch_types()")
+    #        self._logger.info("set_endswitch_types()")
     #        self._set_endswitch_types(axis, loesty, hiesty)
 
     # power-up action related
@@ -1470,7 +1447,7 @@ class micos(Controller):
 	Returns:
 	    - <action_at_powerup>: numeric value of powerup action
 	"""
-        self.log.info("get_action_at_powerup()")
+        self._logger.info("get_action_at_powerup()")
         ret = self._get_action_at_powerup(axis)
         return ret
 
@@ -1481,8 +1458,8 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	    - <action_at_powerup>: numeric value of powerup action
 	"""
-        self.log.info("set_action_at_powerup()")
-        self.log.debug("Powerup action = %d\n", powerup_action)
+        self._logger.info("set_action_at_powerup()")
+        self._logger.debug("Powerup action = %d\n", powerup_action)
         self._set_action_at_powerup(axis, powerup_action)
 
     # closed loop related
@@ -1495,19 +1472,19 @@ class micos(Controller):
 	Returns:
 	    - <cloop_on>: closed loop enabled(True)/disabled(False) state
 	"""
-        self.log.info("get_cloop_on()")
+        self._logger.info("get_cloop_on()")
         ret = self._get_cloop_on(axis)
         return ret
 
     #    @object_attribute_get(type_info=("float", "bool", "int"))
     #    def get_cloop_window(self, axis):
-    #        self.log.info("get_cloop_window()")
+    #        self._logger.info("get_cloop_window()")
     #        (winsize,gstbit5sel,trigopsel) = self._get_cloop_window(axis)
     #        return (winsize,gstbit5sel,trigopsel)
 
     #    @object_attribute_set(type_info=("float", "bool", "int"))
     #    def set_cloop_window(self, axis, winsize,gstbit5sel,trigopsel):
-    #        self.log.info("set_cloop_window()")
+    #        self._logger.info("set_cloop_window()")
     #        self._set_cloop_window(axis,winsize,gstbit5sel,trigopsel)
 
     @object_attribute_get(type_info="float")
@@ -1518,7 +1495,7 @@ class micos(Controller):
 	Returns:
 	    - <cloop_wintime>: closed loop settling time (sec)
 	"""
-        self.log.info("get_cloop_wintime()")
+        self._logger.info("get_cloop_wintime()")
         ret = self._get_cloop_wintime(axis)
         return ret
 
@@ -1529,7 +1506,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	    - <cloop_wintime>: closed loop settling time (sec)
 	"""
-        self.log.info("set_cloop_wintime()")
+        self._logger.info("set_cloop_wintime()")
         self._set_cloop_wintime(axis, wintime)
 
     # hold and move current related
@@ -1543,7 +1520,7 @@ class micos(Controller):
 	    - <hold_current>: holding current = current supplied to the
 			      motor when not moving (unit not documented!!)
 	"""
-        self.log.info("get_hold_current()")
+        self._logger.info("get_hold_current()")
         ret = self._get_hold_current(axis)
         return ret
 
@@ -1555,7 +1532,7 @@ class micos(Controller):
 	    - <hold_current>: holding current = current supplied to the
 			      motor when not moving (unit not documented!!)
 	"""
-        self.log.info("set_hold_current()")
+        self._logger.info("set_hold_current()")
         self._set_hold_current(axis, hold_current)
 
     @object_attribute_get(type_info="float")
@@ -1567,7 +1544,7 @@ class micos(Controller):
 	    - <move_current>: moving current = current supplied to the
 			      motor when moving (unit not documented!!)
 	"""
-        self.log.info("get_move_current()")
+        self._logger.info("get_move_current()")
         ret = self._get_move_current(axis)
         return ret
 
@@ -1579,7 +1556,7 @@ class micos(Controller):
 	    - <move_current>: moving current = current supplied to the
 			      motor when moving (unit not documented!!)
 	"""
-        self.log.info("set_move_current()")
+        self._logger.info("set_move_current()")
         self._set_move_current(axis, move_current)
 
     # move to reference position velocity and status related
@@ -1593,7 +1570,7 @@ class micos(Controller):
 	    - <to_ref_vel>: velocity used in the search for the reference
 			    (= home) position
 	"""
-        self.log.info("get_to_reference_velocity()")
+        self._logger.info("get_to_reference_velocity()")
         ret = self._get_to_reference_velocity(axis)
         return ret
 
@@ -1605,7 +1582,7 @@ class micos(Controller):
 	    - <to_ref_vel>: velocity used in the search for the reference
 			    (= home) position
 	"""
-        self.log.info("set_to_reference_velocity()")
+        self._logger.info("set_to_reference_velocity()")
         self._set_to_reference_velocity(axis, ref_vel)
 
     @object_attribute_get(type_info="int")
@@ -1618,35 +1595,9 @@ class micos(Controller):
 			    1 = when the home position is reached
 			    0 = at other than reference (= home) position
 	"""
-        self.log.info("get_reference_status()")
+        self._logger.info("get_reference_status()")
         ret = self._get_reference_status(axis)
         return ret
-
-    # Log-level related
-
-    @object_attribute_get(type_info="str")
-    def get_log_level(self, axis):
-        """
-        Args:
-            - <axis> : Bliss axis object.
-	Returns:
-	    - <loglevel>: log level. Valid values: NOTSET, DEBUG, INFO, WARN(ING), 
-                                                    ERROR, FATAL/CRITICAL
-	"""
-        self.log.info("get_log_level()")
-        ret = self._get_log_level(axis)
-        return ret
-
-    @object_attribute_set(type_info="str")
-    def set_log_level(self, axis, loglevel):
-        """
-        Args:
-            - <axis> : Bliss axis object.
-	    - <loglevel>: log level. Valid values: NOTSET, DEBUG, INFO, WARN(ING), 
-                                                   ERROR, FATAL/CRITICAL
-	"""
-        self.log.info("set_log_level()")
-        self._set_log_level(axis, loglevel)
 
     ## TODO: add here more custom attributes if needed
 
@@ -1688,7 +1639,7 @@ class micos(Controller):
         ###        self.serial.flush()
 
         # Send command
-        self.log.debug("_send() : cmd=%r" % cmd)
+        self._logger.debug("_send() : cmd=%r" % cmd)
         # self.serial.write(cmd)
 
         # Read the answer
@@ -1700,7 +1651,7 @@ class micos(Controller):
         # rstrip() removes CR LF at the end of the returned string
         _ans = self.serial.write_readline(cmd.encode()).lstrip()
         _ans = _ans.decode()
-        self.log.debug("_send(): ans=%s" % repr(_ans))
+        self._logger.debug("_send(): ans=%s" % repr(_ans))
         # _duration = time.time() - _t0
         # print("    Sending: %r Receiving: %r  (duration : %g sec.)" % (_cmd, _ans, _duration))
         return _ans
@@ -1720,7 +1671,7 @@ class micos(Controller):
                       'host-mode' (the \r terminator is only needed in
                       so-called 'terminal-mode').
         """
-        self.log.debug("_send_no_ans() : cmd=%r" % cmd)
+        self._logger.debug("_send_no_ans() : cmd=%r" % cmd)
         self.serial.write(cmd.encode())
 
     # ----------------  Get errors methods ------------------
@@ -1745,7 +1696,7 @@ class micos(Controller):
 			   (see GENERAL_ERROR_DICT)
         """
 
-        self.log.info("_get_generror()")
+        self._logger.info("_get_generror()")
 
         _cmd = "%d getnerror " % axis.number
         # _cmd = "%d gne " % axis.number
@@ -1756,7 +1707,7 @@ class micos(Controller):
             dbgmsg = "No general error --> OK"
         else:
             dbgmsg = "General erorr = %s " % self.GENERAL_ERROR_DICT.get(_ans)
-        self.log.debug(dbgmsg)
+        self._logger.debug(dbgmsg)
         return _ans
 
     def _get_macherror(self, axis):
@@ -1786,7 +1737,7 @@ class micos(Controller):
 			    (see MACHINE_ERROR_DICT)
         """
 
-        self.log.info("_get_macherror()")
+        self._logger.info("_get_macherror()")
 
         macherrlist = []
 
@@ -1805,7 +1756,7 @@ class micos(Controller):
         for i in range(9):
             _ans = self._get_status(axis)
             status = int(_ans)
-            self.log.debug("_get_macherror(): status byte = 0x%x" % status)
+            self._logger.debug("_get_macherror(): status byte = 0x%x" % status)
             if status & self.HW_ERROR:
                 _cmd = "%d getmerror " % axis.number
                 # _cmd = "%d gme " % axis.number
@@ -1817,7 +1768,7 @@ class micos(Controller):
                 )
             else:
                 dbgmsg = "_get_macherror(): No (more) machine errors --> OK"
-                self.log.debug(dbgmsg)
+                self._logger.debug(dbgmsg)
                 break
         macherrlist.reverse()
         return macherrlist
@@ -1835,12 +1786,12 @@ class micos(Controller):
 	    - <status-byte> : Raw status-byte as string
 	"""
 
-        self.log.info("_get_status()")
+        self._logger.info("_get_status()")
 
         # _cmd = "%d nstatus " % axis.number
         _cmd = "%d nst " % axis.number
         _ans = self._send(axis, _cmd)
-        self.log.debug("get_status(): raw_status byte = %s" % _ans)
+        self._logger.debug("get_status(): raw_status byte = %s" % _ans)
         return _ans
 
     # ----------------  Other private methods ------------------
@@ -1855,7 +1806,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("_save_axis_parameters()")
+        self._logger.info("_save_axis_parameters()")
 
         _cmd = "%d nsave " % axis.number
         # TODO: should test general error here ?
@@ -1869,7 +1820,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("_restore_axis_parameters()")
+        self._logger.info("_restore_axis_parameters()")
 
         _cmd = "%d nrestore " % axis.number
         # TODO: should test general error here ?
@@ -1892,7 +1843,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("_reset_axis()")
+        self._logger.info("_reset_axis()")
 
         _cmd = "%d nreset " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -1915,7 +1866,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
         """
 
-        self.log.info("_clear_axis()")
+        self._logger.info("_clear_axis()")
 
         _cmd = "%d nclear " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -1937,12 +1888,12 @@ class micos(Controller):
             - <axis_on> : Boolean : axis ON(= True)/OFF(= False) state
         """
 
-        self.log.info("_get_axis_on()")
+        self._logger.info("_get_axis_on()")
 
         _cmd = "%d getaxis " % axis.number
         ret = self._send(axis, _cmd)
         axis_on = True if int(ret) == 1 else False
-        self.log.debug("_get_axis_on(): axis enabled = %s" % axis_on)
+        self._logger.debug("_get_axis_on(): axis enabled = %s" % axis_on)
         return axis_on
 
     # ------------ endswitch related methods ----------------
@@ -1961,15 +1912,15 @@ class micos(Controller):
 					end-switches, so we can make several
 					turns with the motor.
 	"""
-        self.log.info("_get_endswitch_types()")
+        self._logger.info("_get_endswitch_types()")
         _cmd = "%d getsw " % axis.number
         ret = self._send(axis, _cmd)
         # lohiesty = ret.split(" ")
         lohiesty = ret.split()
         loesty = int(lohiesty[0])
         hiesty = int(lohiesty[1])
-        self.log.debug("_get_endswitch_types(): Low endswitch type = %d" % loesty)
-        self.log.debug("_get_endswitch_types(): High endswitch type = %d" % hiesty)
+        self._logger.debug("_get_endswitch_types(): Low endswitch type = %d" % loesty)
+        self._logger.debug("_get_endswitch_types(): High endswitch type = %d" % hiesty)
         # axis.low_endswitch_type = loesty
         # axis.high_endswitch_type = hiesty
         return (loesty, hiesty)
@@ -1984,7 +1935,7 @@ class micos(Controller):
 		If not passed on input of this function then the 
 		values obtained from the configuration file are applied.
 	"""
-        self.log.info("_set_endswitch_types()")
+        self._logger.info("_set_endswitch_types()")
 
         # If parameters passed, use them.
         if not isinstance(loest, Null) and not isinstance(hiest, Null):
@@ -2021,11 +1972,15 @@ class micos(Controller):
 		   0 = end-switch not active, 
 		   1 = end-switch active
         """
-        self.log.info("_get_endswitch_status()")
+        self._logger.info("_get_endswitch_status()")
         _cmd = "%d getswst " % axis.number
         [loesststr, hiesststr] = self._send(axis, _cmd).split()
-        self.log.debug("_get_endswitch_status(): Low endswitch status = %s" % loesststr)
-        self.log.debug("_get_endswitch_types(): High endswitch status = %s" % hiesststr)
+        self._logger.debug(
+            "_get_endswitch_status(): Low endswitch status = %s" % loesststr
+        )
+        self._logger.debug(
+            "_get_endswitch_types(): High endswitch status = %s" % hiesststr
+        )
         loesst = int(loesststr)
         hiesst = int(hiesststr)
         return (loesst, hiesst)
@@ -2048,7 +2003,7 @@ class micos(Controller):
 				      'hardware' limits
         """
 
-        self.log.info("_get_hw_limits()")
+        self._logger.info("_get_hw_limits()")
 
         _cmd = "%d getnlimit " % axis.number
         # The command returns string with low and high hardware limits
@@ -2077,7 +2032,7 @@ class micos(Controller):
 		values obtained from the configuration file are applied.
         """
 
-        self.log.info("_set_hw_limits()")
+        self._logger.info("_set_hw_limits()")
 
         # If parameters passed, use them.
         if not isinstance(hw_low_limit, Null) and not isinstance(hw_high_limit, Null):
@@ -2112,13 +2067,13 @@ class micos(Controller):
 					(deg/sec)
 	"""
 
-        self.log.info("_get_tofrom_endsw_velocity()")
+        self._logger.info("_get_tofrom_endsw_velocity()")
 
         _cmd = "%d getncalvel " % axis.number
         cal_2velocities_str = self._send(axis, _cmd)
         cal_2velocities_list = cal_2velocities_str.split()
         axis.tofrom_endsw_velocity = float(cal_2velocities_list[0])
-        self.log.debug(
+        self._logger.debug(
             "_get_tofrom_endsw_velocity(): velocity for searching endswitch = %s (deg/sec)"
             % axis.tofrom_endsw_velocity
         )
@@ -2140,7 +2095,7 @@ class micos(Controller):
 					(deg/sec)
 	"""
 
-        self.log.info("_set_tofrom_endsw_velocity()")
+        self._logger.info("_set_tofrom_endsw_velocity()")
 
         if not isinstance(tofrom_endsw_velocity, Null):
             tofrom_endsw_velocity = float(tofrom_endsw_velocity)
@@ -2195,13 +2150,13 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	"""
 
-        self.log.info("_cal_limit_switch_move()")
+        self._logger.info("_cal_limit_switch_move()")
 
         # _cmd = "%d ncal " % axis.number
         _cmd = "%d ncalibrate " % axis.number
         self._send_no_ans(axis, _cmd)
 
-        self.log.debug(
+        self._logger.debug(
             "_cal_limit_switch_move(): Making movement to cal-limit switch (= -ve limit switch)"
         )
 
@@ -2224,13 +2179,13 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	"""
 
-        self.log.info("_rm_limit_switch_move()")
+        self._logger.info("_rm_limit_switch_move()")
 
         # _cmd = "%d nrm " % axis.number
         _cmd = "%d nrangemeasure " % axis.number
         self._send_no_ans(axis, _cmd)
 
-        self.log.debug(
+        self._logger.debug(
             "_rm_limit_switch_move(): Making movement to rm-limit switch (= +ve limit switch)"
         )
 
@@ -2249,12 +2204,12 @@ class micos(Controller):
             - <action_at_powerup> : numeric value for action at power up
 	"""
 
-        self.log.info("_get_action_at_powerup()")
+        self._logger.info("_get_action_at_powerup()")
 
         _cmd = "%d getnpowerup " % axis.number
         ret = int(self._send(axis, _cmd))
-        self.log.debug("_get_action_at_powerup(): powerup action = %d" % ret)
-        self.log.debug(
+        self._logger.debug("_get_action_at_powerup(): powerup action = %d" % ret)
+        self._logger.debug(
             "_get_action_at_powerup(): powerup action = %s"
             % self.POWERUP_ACTIONS_DICT.get(ret)
         )
@@ -2276,7 +2231,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	"""
 
-        self.log.info("_set_action_at_powerup()")
+        self._logger.info("_set_action_at_powerup()")
 
         loa = self.POWERUP_ACTIONS_DICT.keys()  # list of actions numbers
         loalist = sorted(loa)
@@ -2299,7 +2254,7 @@ class micos(Controller):
         if powerup_action & 32 and axis.axis_on == True:
             # enable closed loop before next switching on of the controller
             self._set_cloop_on(axis)
-        self.log.debug(dbgmsg)
+        self._logger.debug(dbgmsg)
 
     # ------------ closed loop related methods ----------------
 
@@ -2313,12 +2268,12 @@ class micos(Controller):
             - <cloop_on> : Boolean : True if closed loop enabled
 	"""
 
-        self.log.info("_get_cloop_on()")
+        self._logger.info("_get_cloop_on()")
 
         _cmd = "%d getcloop " % axis.number
         ret = self._send(axis, _cmd)
         cloop_on = True if int(ret) == 1 else False
-        self.log.debug("_get_cloop_on(): closed loop enabled = %s" % cloop_on)
+        self._logger.debug("_get_cloop_on(): closed loop enabled = %s" % cloop_on)
         return cloop_on
 
     def _set_cloop_on(self, axis):
@@ -2329,7 +2284,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	"""
 
-        self.log.info("_set_cloop_on()")
+        self._logger.info("_set_cloop_on()")
 
         _cmd = "1 %d setcloop " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -2346,7 +2301,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	"""
 
-        self.log.info("_set_cloop_off()")
+        self._logger.info("_set_cloop_off()")
 
         _cmd = "0 %d setcloop " % axis.number
         self._send_no_ans(axis, _cmd)
@@ -2380,7 +2335,7 @@ class micos(Controller):
 		  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
 	"""
 
-        self.log.info("_get_cloop_window()")
+        self._logger.info("_get_cloop_window()")
 
         if axis.cloop_on == False:
             raise RuntimeError(
@@ -2400,17 +2355,17 @@ class micos(Controller):
             axis.cloop_gstbit5sel = True
         axis.cloop_trigopsel = ans[3]
 
-        self.log.debug(
+        self._logger.debug(
             "_get_cloop_window(): closed loop window size = %f mm" % float(ans[0])
         )
         if axis.cloop_gstbit5sel == True:
-            self.log.debug("_get_cloop_window(): general status bit 5 is enabled")
+            self._logger.debug("_get_cloop_window(): general status bit 5 is enabled")
         else:
-            self.log.debug("_get_cloop_window(): general status bit 5 is disabled")
+            self._logger.debug("_get_cloop_window(): general status bit 5 is disabled")
         if int(axis.cloop_trigopsel) == 0:
-            self.log.debug("_get_cloop_window(): trigger output is disabled")
+            self._logger.debug("_get_cloop_window(): trigger output is disabled")
         else:
-            self.log.debug(
+            self._logger.debug(
                 "_get_cloop_window(): trigger is enabled on output %d"
                 % int(axis.cloop_trigopsel)
             )
@@ -2434,7 +2389,7 @@ class micos(Controller):
 		  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
 	"""
 
-        self.log.info("_set_cloop_window()")
+        self._logger.info("_set_cloop_window()")
 
         if axis.cloop_on == False:
             raise RuntimeError(
@@ -2492,7 +2447,7 @@ class micos(Controller):
             - <wintime> : Float : closed loop window settle time (sec)
 	"""
 
-        self.log.info("_get_cloop_wintime()")
+        self._logger.info("_get_cloop_wintime()")
 
         if axis.cloop_on == False:
             raise RuntimeError(
@@ -2502,7 +2457,7 @@ class micos(Controller):
         _cmd = "%d getclwintime " % axis.number
         axis.cloop_wintime = float(self._send(axis, _cmd))
 
-        self.log.debug(
+        self._logger.debug(
             "_get_cloop_wintime(): closed loop window settling time = %f sec"
             % axis.cloop_wintime
         )
@@ -2518,7 +2473,7 @@ class micos(Controller):
             - <axis> : Bliss axis object.
 	    - <wintime> : Float: closed loop window settling time (sec)
 	"""
-        self.log.info("_set_cloop_wintime()")
+        self._logger.info("_set_cloop_wintime()")
 
         if axis.cloop_on == False:
             raise RuntimeError(
@@ -2554,12 +2509,12 @@ class micos(Controller):
 	    - <P I D>: 3 closed loop parameters as 1 string
 	"""
 
-        self.log.info("_get_cloop_params()")
+        self._logger.info("_get_cloop_params()")
 
         _cmd = "%d getclpara " % axis.number
         cloop_params_str = self._send(axis, _cmd)
         # cloop_params_str = string of form: "P I D"
-        self.log.debug("_get_cloop_params(): P I D params = %s" % cloop_params_str)
+        self._logger.debug("_get_cloop_params(): P I D params = %s" % cloop_params_str)
         cloop_params_list = cloop_params_str.split()
         axis.cloop_p = float(cloop_params_list[0])
         axis.cloop_i = float(cloop_params_list[1])
@@ -2577,7 +2532,7 @@ class micos(Controller):
 	    - <cloop_params> = <"P I D"> as string
 	"""
 
-        self.log.info("_set_cloop_params()")
+        self._logger.info("_set_cloop_params()")
 
         _cmd = "%s 3 %d setclpara " % (cloop_params, axis.number)
         self._send_no_ans(axis, _cmd)
@@ -2589,7 +2544,7 @@ class micos(Controller):
         axis.cloop_p = float(cloop_params_list[0])
         axis.cloop_i = float(cloop_params_list[1])
         axis.cloop_d = float(cloop_params_list[2])
-        self.log.debug("_set_cloop_params(): P I D params = %s" % cloop_params)
+        self._logger.debug("_set_cloop_params(): P I D params = %s" % cloop_params)
 
     # ------------ relative move related method ----------------
 
@@ -2604,7 +2559,7 @@ class micos(Controller):
             - None
         """
 
-        self.log.info("_rel_move()")
+        self._logger.info("_rel_move()")
 
         # _cmd = "%f %d nr " % (displacement, axis.number)
         _cmd = "%f %d nrmove " % (displacement, axis.number)
@@ -2623,12 +2578,12 @@ class micos(Controller):
             - <hold_current> : Float : holding current (unit = ??)
 	"""
 
-        self.log.info("_get_hold_current()")
+        self._logger.info("_get_hold_current()")
 
         _cmd = "%d getumotmin " % axis.number
         axis.hold_current = float(self._send(axis, _cmd))
 
-        self.log.debug(
+        self._logger.debug(
             "_get_hold_current(): hold current = %f (x)A" % axis.hold_current
         )
         return axis.hold_current
@@ -2643,7 +2598,7 @@ class micos(Controller):
 	    - <hold_current> : Holding current (unit = ??)
 	"""
 
-        self.log.info("_set_hold_current()")
+        self._logger.info("_set_hold_current()")
 
         hold_current = float(hold_current)
         _cmd = "%f %d setumotmin " % (hold_current, axis.number)
@@ -2653,7 +2608,7 @@ class micos(Controller):
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
 
         axis.hold_current = hold_current
-        self.log.debug(
+        self._logger.debug(
             "_set_hold_current(): hold current set to = %f (x)A" % axis.hold_current
         )
 
@@ -2670,12 +2625,12 @@ class micos(Controller):
             - <move_current> : Float : moving current (unit = ??)
 	"""
 
-        self.log.info("_get_move_current()")
+        self._logger.info("_get_move_current()")
 
         _cmd = "%d getumotgrad " % axis.number
         axis.move_current = float(self._send(axis, _cmd))
 
-        self.log.debug(
+        self._logger.debug(
             "_get_move_current(): move current = %f (x)A" % axis.move_current
         )
         return axis.move_current
@@ -2690,7 +2645,7 @@ class micos(Controller):
 	    - <hold_current> : Moving current (unit = ??)
 	"""
 
-        self.log.info("_set_move_current()")
+        self._logger.info("_set_move_current()")
 
         move_current = float(move_current)
         _cmd = "%f %d setumotgrad " % (move_current, axis.number)
@@ -2700,7 +2655,7 @@ class micos(Controller):
             raise RuntimeError(self.GENERAL_ERROR_DICT.get(ret))
 
         axis.move_current = move_current
-        self.log.debug(
+        self._logger.debug(
             "_set_move_current(): move current set to = %f (x)A" % axis.move_current
         )
 
@@ -2722,13 +2677,13 @@ class micos(Controller):
 			  reference position (degrees/sec)
 	"""
 
-        self.log.info("_get_to_reference_velocity()")
+        self._logger.info("_get_to_reference_velocity()")
 
         _cmd = "%d 1 getnrefvel " % axis.number
         to_ref_vel_str = self._send(axis, _cmd)
         to_ref_vel_list = to_ref_vel_str.split()
         to_ref_vel = float(to_ref_vel_list[0])
-        self.log.debug(
+        self._logger.debug(
             "_get_to_reference_velocity(): velocity for move to reference = %f"
             % (to_ref_vel)
         )
@@ -2746,7 +2701,7 @@ class micos(Controller):
 			 search for the reference position (degrees/sec)
 	"""
 
-        self.log.info("_set_to_reference_velocity()")
+        self._logger.info("_set_to_reference_velocity()")
 
         if not isinstance(to_reference_velocity, Null):
             to_ref_vel = float(to_reference_velocity)
@@ -2808,7 +2763,7 @@ class micos(Controller):
                                     position is expected to be found
 	"""
 
-        self.log.info("_move_to_reference()")
+        self._logger.info("_move_to_reference()")
 
         self._wait_home_task = None
         self._home_failed = False
@@ -2858,10 +2813,12 @@ class micos(Controller):
         # reference position was found in max 2 moves when initial
         # reference position search velocity was 10 degrees/sec.
         while reference_status == 0 and nb_moves < 4:
-            self.log.debug(
+            self._logger.debug(
                 "_move_to_reference(): move index (start with 1) = %d" % nb_moves
             )
-            self.log.debug("_move_to_reference(): max rel.path = %f degrees" % distance)
+            self._logger.debug(
+                "_move_to_reference(): max rel.path = %f degrees" % distance
+            )
             _cmd = "%f %d nrefmove " % (distance, axis.number)
             self._send_no_ans(axis, _cmd)
 
@@ -2875,20 +2832,20 @@ class micos(Controller):
             while is_moving == 1:
                 _ans = self._get_status(axis)
                 status = int(_ans)
-                self.log.debug(
+                self._logger.debug(
                     "_move_to_reference(): move nb = %d, status byte = 0x%x"
                     % (nb_moves, status)
                 )
                 if status & self.CMD_IN_EXEC:
                     # motor is (still) moving
                     is_moving = 1
-                    self.log.debug(
+                    self._logger.debug(
                         "_move_to_reference(): move_nb = %d, motor is moving" % nb_moves
                     )
                     time.sleep(1)
                 else:
                     is_moving = 0
-                    self.log.debug(
+                    self._logger.debug(
                         "_move_to_reference(): move_nb = %d, motor has stopped"
                         % nb_moves
                     )
@@ -2900,7 +2857,7 @@ class micos(Controller):
             # If additional move is needed, reduce the max search distance
             # and velocity to 1/10 and change the direction of movement.
             reference_status = self._get_reference_status(axis)
-            self.log.debug(
+            self._logger.debug(
                 "_move_to_reference(): move_nb = %d, reference status = %d"
                 % (nb_moves, reference_status)
             )
@@ -2909,7 +2866,7 @@ class micos(Controller):
                 to_ref_vel = to_ref_vel / 10.
                 self._set_to_reference_velocity(axis, to_ref_vel)
                 nb_moves = nb_moves + 1
-                self.log.debug(
+                self._logger.debug(
                     "_move_to_reference(): makes move %d with 1/10th of distance (%f) and velocity (%f) in the opposite direction"
                     % (nb_moves, distance, to_ref_vel)
                 )
@@ -2919,18 +2876,18 @@ class micos(Controller):
         # reference status again.
         reference_status = self._get_reference_status(axis)
         if reference_status != 1:
-            self.log.debug(
+            self._logger.debug(
                 "_move_to_reference(): In %d moves motor has NOT reached the reference position"
                 % nb_moves
             )
-            self.log.debug(
+            self._logger.debug(
                 "_move_to_reference(): Either the initial search speed was too high or max search path was too short"
             )
             self._wait_home_task.kill()
             self._home_failed = True
         else:
             self._home_failed = False
-            self.log.debug(
+            self._logger.debug(
                 "_move_to_reference(): motor has reached the reference position in %d moves"
                 % nb_moves
             )
@@ -2985,64 +2942,9 @@ class micos(Controller):
 	    - <0/1> : reference position not reached / reached
 	"""
 
-        self.log.info("_get_reference_status()")
+        self._logger.info("_get_reference_status()")
 
         _cmd = "%d getrefst " % (axis.number)
         ref_status_str = self._send(axis, _cmd)
-        self.log.debug("_get_reference_status(): %s" % (ref_status_str))
+        self._logger.debug("_get_reference_status(): %s" % (ref_status_str))
         return int(ref_status_str)
-
-    def _get_log_level(self, axis):
-        """
-	Get log level.
-
-        Args:
-            - <axis> : Bliss axis object.
-	Return:
-            - <loglevel>: log level. Valid values: NOTSET, DEBUG, INFO, WARN(ING),
-                                                   ERROR, FATAL/CRITICAL
-        """
-        self.log.info("_get_log_level()")
-
-        loglevel_as_number = int(self.log.level)
-        loglevel_as_name = logging._levelToName[loglevel_as_number]
-
-        return loglevel_as_name
-
-    def _set_log_level(self, axis, loglevel):
-        """
-	Set log level.
-
-        Args:
-            - <axis> : Bliss axis object.
-            - <loglevel>: log level. Valid values: NOTSET, DEBUG, INFO, WARN(ING),
-                                                   ERROR, FATAL/CRITICAL or the 
-                                                   same strings in small letters.
-	Return:
-            None
-        """
-        self.log.info("_set_log_level()")
-
-        loglevel = loglevel.upper()
-
-        if loglevel not in [
-            "NOTSET",
-            "DEBUG",
-            "INFO",
-            "WARNING",
-            "WARN",
-            "ERROR",
-            "CRITICAL",
-            "FATAL",
-        ]:
-            raise ValueError(
-                f"""
-                Warning!!!: Bad value {loglevel} given for log-level. Should be one of:
-                NOTSET/noset, DEBUG/debug, INFO/info, WARNING/warning,
-                WARN/warn, ERROR/error, CRITICAL/critical, FATAL/fatal
-                WARN=WARNING=warn=warning
-                CRITICAL=critical=FATAL=fatal"""
-            )
-
-        loglevel_as_number = int(logging._nameToLevel[loglevel])
-        self.log.setLevel(loglevel_as_number)

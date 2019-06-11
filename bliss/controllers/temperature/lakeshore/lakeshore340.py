@@ -75,7 +75,6 @@ import re
 
 
 # Logging messages
-# from bliss.common import log
 import logging
 
 # logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s')

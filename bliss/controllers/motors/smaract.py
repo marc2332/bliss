@@ -50,7 +50,6 @@ YAML_ configuration example:
 """
 
 import enum
-import logging
 import collections
 
 import gevent
@@ -58,6 +57,7 @@ import gevent
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motor import Controller
+from bliss.common import session
 
 # Notes:
 # * After power up it reports position 0 (ie, it doesn't store its
@@ -408,9 +408,6 @@ class SmarAct(Controller):
 
     DEFAULT_PORT = 5000
 
-    def __init__(self, *args, **kwargs):
-        super(SmarAct, self).__init__(*args, **kwargs)
-
     def __getitem__(self, item):
         single = isinstance(item, (str))
         items = (item,) if single else tuple(item)
@@ -454,6 +451,7 @@ class SmarAct(Controller):
 
     def initialize(self):
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
+        session.get_current().map.register(self, children_list=[self.comm])
 
     def initialize_hardware(self):
         # set communication mode to synchronous

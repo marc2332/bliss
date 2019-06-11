@@ -8,13 +8,10 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
-
 from bliss.common.utils import object_method
-
 from bliss.common.axis import AxisState
-
 from bliss.comm.util import get_comm, TCP
+from bliss.common import session
 
 """
 - Bliss controller for PiezoMotor PMD206 piezo motor controller.
@@ -115,14 +112,16 @@ class PMD206(Controller):
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=9760)
 
-        elog.debug("socket open : %r" % self.sock)
+        session.get_current().map.register(self, children_list=[self.sock])
+
+        self._logger.debug("socket open : %r" % self.sock)
 
     def finalize(self):
         """
         Closes the controller socket.
         """
         self.sock.close()
-        elog.debug("socket closed: %r" % self.sock)
+        self._logger.debug("socket closed: %r" % self.sock)
 
     def initialize_axis(self, axis):
         axis.channel = axis.config.get("channel", int)
@@ -130,7 +129,7 @@ class PMD206(Controller):
         # Stores one axis to talk to the controller.
         if axis.channel == 1:
             self.ctrl_axis = axis
-            elog.debug("AX CH =%r" % axis.channel)
+            self._logger.debug("AX CH =%r" % axis.channel)
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -154,7 +153,7 @@ class PMD206(Controller):
         # example of answer : 'PM11MP?:fffffff6'
         _ans = self.send(axis, "TP?")
         _pos = hex_to_int(_ans[8:])
-        elog.debug(
+        self._logger.debug(
             "PMD206 position setpoint (encoder counts) read : %d (_ans=%s)"
             % (_pos, _ans)
         )
@@ -165,7 +164,7 @@ class PMD206(Controller):
 
         _ans = self.send(encoder, "MP?")
         _pos = hex_to_int(_ans[8:])
-        elog.debug(
+        self._logger.debug(
             "PMD206 position measured (encoder counts) read : %d (_ans=%s)"
             % (_pos, _ans)
         )
@@ -181,7 +180,7 @@ class PMD206(Controller):
         """
         _velocity = 1
 
-        elog.debug("read_velocity : %d" % _velocity)
+        self._logger.debug("read_velocity : %d" % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -190,7 +189,7 @@ class PMD206(Controller):
         Returns velocity in motor units.
         """
         _nv = new_velocity
-        elog.debug("velocity NOT wrotten : %d " % _nv)
+        self._logger.debug("velocity NOT wrotten : %d " % _nv)
 
         return self.read_velocity(axis)
 
@@ -267,13 +266,13 @@ class PMD206(Controller):
             self._axes_status[6],
         ) = _ans.split(":")[1].split(",")
 
-        elog.debug("ctrl status : %s" % self._ctrl_status)
-        elog.debug("mot1 status : %s" % self._axes_status[1])
-        elog.debug("mot2 status : %s" % self._axes_status[2])
-        elog.debug("mot3 status : %s" % self._axes_status[3])
-        elog.debug("mot4 status : %s" % self._axes_status[4])
-        elog.debug("mot5 status : %s" % self._axes_status[5])
-        elog.debug("mot6 status : %s" % self._axes_status[6])
+        self._logger.debug("ctrl status : %s" % self._ctrl_status)
+        self._logger.debug("mot1 status : %s" % self._axes_status[1])
+        self._logger.debug("mot2 status : %s" % self._axes_status[2])
+        self._logger.debug("mot3 status : %s" % self._axes_status[3])
+        self._logger.debug("mot4 status : %s" % self._axes_status[4])
+        self._logger.debug("mot5 status : %s" % self._axes_status[5])
+        self._logger.debug("mot6 status : %s" % self._axes_status[6])
 
     def get_controller_status(self):
         """
@@ -306,7 +305,7 @@ class PMD206(Controller):
     def motor_state(self, axis):
         _s = hex_to_int(self._axes_status[axis.channel])
 
-        elog.debug(
+        self._logger.debug(
             "axis %d status : %s" % (axis.channel, self._axes_status[axis.channel])
         )
 
@@ -382,7 +381,7 @@ class PMD206(Controller):
         #        _hex_status_string = self._axes_status[motion.axis.channel]
         #        _status = hex_to_int(_hex_status_string)
         #        if _status & 0x20:
-        #            elog.info("Motor is parked. I unpark it")
+        #            self._logger.info("Motor is parked. I unpark it")
         #            self.unpark_motor(motion.axis)
 
         # print "targetpos=", motion.target_pos
@@ -426,10 +425,10 @@ class PMD206(Controller):
         # PC: don't know how to send a broadcast command to controller, not axis
         # intercept it here ...
         # put 0 instead of channel
-        elog.debug("in send(%r)" % cmd)
+        self._logger.debug("in send(%r)" % cmd)
         broadcast_command = cmd[:4] in ["CC=4", "CC=5"]
         if broadcast_command:
-            elog.debug("BROADCAST COMMAND ")
+            self._logger.debug("BROADCAST COMMAND ")
             _prefix = "PM%d%d" % (1, 0)
         else:
             _prefix = "PM%d%d" % (1, axis.channel)
@@ -437,12 +436,12 @@ class PMD206(Controller):
         _cmd = _prefix + cmd + "\r"
         _t0 = time.time()
         _ans = self.sock.write_readline(_cmd, eol="\r")
-        elog.debug("send(%s) returns : %s " % (_cmd, _ans))
+        self._logger.debug("send(%s) returns : %s " % (_cmd, _ans))
 
         set_command = cmd[:3] in ["DR=", "CS=", "TP=", "TR=", "RS="]
 
         if set_command:
-            elog.debug("SET COMMAND ")
+            self._logger.debug("SET COMMAND ")
             if _ans != _cmd:
                 pass
                 # print "oh oh set command not answered correctly ?"
@@ -565,7 +564,7 @@ class PMD206(Controller):
         )
 
     def raw_write(self, cmd):
-        elog.info("no send_no_ans with PMD206")
+        self._logger.info("no send_no_ans with PMD206")
         pass
 
     def raw_write_read(self, cmd):

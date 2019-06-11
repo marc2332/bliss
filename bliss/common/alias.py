@@ -15,9 +15,9 @@ The alias serves the following purposes:
 import weakref
 from tabulate import tabulate
 
-from bliss.config import static
 from bliss import setup_globals
 from bliss.common import session
+from bliss.common.utils import get_counters_iter
 
 
 class AliasMixin(object):
@@ -161,7 +161,7 @@ class Alias(object):
             raise RuntimeError(
                 f"Alias '{alias_name}' for '{original_name}' can not be set! There is alreadey an Object or Alias with this name"
             )
-        elif alias_name in static.get_config().names_list:
+        elif alias_name in session.get_current().config.names_list:
             raise RuntimeError(
                 f"Alias '{alias_name}' for '{original_name}' can not be set! {alias_name} already used as name-key in config"
             )
@@ -173,14 +173,13 @@ class Alias(object):
 
         # check if there is a counter around that can be linked to this alias
         if not disable_link_search:
-            from bliss.common.utils import counter_dict
-
-            for key, item in counter_dict().items():
+            for cnt in get_counters_iter():
+                key = cnt.fullname
                 if key == original_name:
-                    self._link_to(item)
+                    self._link_to(cnt)
                     break
-                elif item.name == original_name:
-                    self._link_to(item)
+                elif cnt.name == original_name:
+                    self._link_to(cnt)
                     break
 
         print(f"Alias '{alias_name}' added for '{original_name}'")

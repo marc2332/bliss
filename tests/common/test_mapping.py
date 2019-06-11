@@ -7,10 +7,11 @@
 
 import pytest
 
-from bliss.common.mapping import BeamlineMap
+from bliss.common.mapping import Map
+from bliss.common.logtools import create_logger_name
+from bliss.common import session as session_module
 import networkx as nx
 import logging
-from typing import Generator
 
 
 class SimpleNode:
@@ -27,13 +28,13 @@ def beamline():
     """
     Creates a new graph
     """
-    map = BeamlineMap(singleton=False)
+    map = Map()
 
-    map.register("beamline")
-    map.register("devices", parents_list=["beamline"])
-    map.register("sessions", parents_list=["beamline"])
-    map.register("comms", parents_list=["beamline"])
-    map.register("counters", parents_list=["beamline"])
+    map.register("session")
+    map.register("controllers", parents_list=["session"])
+    map.register("comms", parents_list=["session"])
+    map.register("counters", parents_list=["session"])
+    map.register("axes", parents_list=["session"])
     return map
 
 
@@ -55,6 +56,14 @@ def complex_beamline(beamline):
     beamline.register("m0")
     beamline.register("Serial_1", parents_list=["Contr_1", "comms"], tag="Serial_1")
     beamline.register("TcpIp", parents_list=["Contr_2", "comms"], tag="TcpIp")
+
+    class A:
+        pass
+
+    a = A()
+    beamline.register(a)
+    assert create_logger_name(beamline.G, id(a)) == "session.controllers.A"
+
     return beamline
 
 
@@ -68,52 +77,52 @@ def test_starting_map_length(beamline):
 
 def test_path_to_non_existing_node(beamline):
     with pytest.raises(nx.exception.NodeNotFound):
-        beamline.shortest_path("beamline", "non_existing_node")
+        beamline.shortest_path("session", "non_existing_node")
 
 
 def test_path_to_with_non_existing_path(beamline):
     with pytest.raises(nx.exception.NetworkXNoPath):
-        beamline.shortest_path("sessions", "comms")
+        beamline.shortest_path("controllers", "comms")
 
 
 def test_find_children(beamline):
-    children = beamline.find_children("beamline")
+    children = beamline.find_children("session")
     assert isinstance(children, list)
-    assert len(list(beamline.find_children("beamline"))) == 4
+    assert len(list(beamline.find_children("session"))) == 4
 
 
 def test_find_predecessor(beamline):
-    predecessors = beamline.find_predecessors("sessions")
+    predecessors = beamline.find_predecessors("counters")
     assert isinstance(predecessors, list)
     _pre = list(predecessors)
     assert len(_pre) == 1
-    assert _pre.pop() == "beamline"
+    assert _pre.pop() == "session"
 
 
 def test_find_shortest_path(beamline):
     """this should be: beamline -> devices -> MotorControllerForM0 -> motor0"""
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
 
 def test_find_no_path(beamline):
-    """this motor0 is attached to devices, so there is no link with sessions"""
+    """this motor0 is attached to controllers, so there is no link with counters"""
     beamline.register("motor0")
     with pytest.raises(nx.exception.NetworkXNoPath):
-        beamline.shortest_path("sessions", "motor0")
+        beamline.shortest_path("axes", "motor0")
 
 
 def test_find_shortest_path_reverse_order(beamline):
     """
     reverting the order of device mapping, the path should be the same
-    this should be: beamline -> devices -> MotorControllerForM0 -> motor0
+    this should be: beamline -> controllers -> MotorControllerForM0 -> motor0
     """
     beamline.register("MotorControllerForM0")
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
@@ -125,24 +134,24 @@ def test_find_shortest_path_parallel(beamline):
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert isinstance(path, list)
     assert len(path) == 3
-    path = beamline.shortest_path("beamline", "MotorControllerForM0")
+    path = beamline.shortest_path("session", "MotorControllerForM0")
     assert isinstance(path, list)
     assert len(path) == 3
 
 
 def test_remap_children(beamline):
     """
-    this should be: beamline -> devices -> MotorControllerForM0 -> motor0
+    this should be: beamline -> controllers -> MotorControllerForM0 -> motor0
     creating before motor0 that will be child of devices
     then adding MotorControllerForM0 that will have motor0 as a child
     motor0 should remap removing the connection device -> motor0
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0", children_list=["motor0"])
-    path = beamline.shortest_path("beamline", "motor0")
+    path = beamline.shortest_path("session", "motor0")
     assert len(path) == 4
 
 
@@ -160,7 +169,7 @@ def test_complex_map_remove_children(complex_beamline):
     """find predecessors of Contr_1, should be devices"""
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
-    assert _pre.pop() == "devices"
+    assert _pre.pop() == "controllers"
     # finding children of Contr_1, should be Serial, Ax1, Ax2
     _children = complex_beamline.find_children("Contr_1")
     assert isinstance(_children, list)
@@ -170,47 +179,36 @@ def test_complex_map_remove_children(complex_beamline):
     assert "Axis_2" in list_children
     assert "Serial_1" in list_children
     # deleting devices node, now should be beamline
-    complex_beamline.delete(id_="devices")
+    complex_beamline.delete(id_="controllers")
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
-    assert _pre.pop() == "beamline"
+    assert _pre.pop() == "session"
 
 
 def test_format_node_1(beamline):
     tn = SimpleNode(attr="1234")
     beamline.register(tn, tag="myname")  # under devices
+    assert beamline.format_node(id(tn), format_string="inst.attr->id") == "1234"
     assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.attr->id")
-        == "1234"
-    )
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.partial_id->id")
+        beamline.format_node(id(tn), format_string="inst.partial_id->id")
         == str(id(tn))[:4]
     )
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="inst.arg1->name")
-        == "arg1"
-    )
+    assert beamline.format_node(id(tn), format_string="inst.arg1->name") == "arg1"
     assert not hasattr(beamline.G.node[id(tn)], "name")
-    assert (
-        beamline.format_node(beamline.G, id(tn), format_string="name->inst.arg1")
-        == "arg1"
-    )
-    assert (
-        beamline.format_node(beamline.G, "beamline", format_string="inst") == "beamline"
-    )
+    assert beamline.format_node(id(tn), format_string="name->inst.arg1") == "arg1"
+    assert beamline.format_node("session", format_string="inst") == "session"
 
 
 def test_check_formatting_1(beamline):
     """Should plot only the id as fakearg doesn't exists"""
-    beamline.update_all_keys("fakearg+id->name", dict_key="mykey")
+    beamline._update_key_for_nodes("fakearg+id->name", dict_key="mykey")
     for el in beamline.G:
         assert beamline.G.node[el]["mykey"] == str(el)
 
 
 def test_check_formatting_2(beamline):
     """Should plot only the id as fakearg doesn't exists"""
-    beamline.update_all_keys("fakearg+id->name")
+    beamline._update_key_for_nodes("fakearg+id->name")
     for el in beamline.G:
         assert beamline.G.node[el]["label"] == str(el)
 
@@ -218,7 +216,7 @@ def test_check_formatting_2(beamline):
 def test_check_formatting_3(beamline):
     tn = SimpleNode(attr="1234")
     beamline.register(tn, tag="myname")  # under devices
-    beamline.update_all_keys("tag->name->id", dict_key="ee")
+    beamline._update_key_for_nodes("tag->name->id", dict_key="ee")
     for el in beamline.G:
         if el == id(tn):  # SimpleNode should have a tag=myname
             assert beamline.G.node[el]["ee"] == "myname"
@@ -228,19 +226,19 @@ def test_check_formatting_3(beamline):
 
 
 def test_bad_formatting(beamline):
-    beamline.update_all_keys("asda11@@@1", dict_key="ee")
+    beamline._update_key_for_nodes("asda11@@@1", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]  # check existance
         assert beamline.G.node[el]["ee"] == ""  # check isnull string
-    beamline.update_all_keys("!!!!", dict_key="ee")
+    beamline._update_key_for_nodes("!!!!", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
-    beamline.update_all_keys("_2aasdad1", dict_key="ee")
+    beamline._update_key_for_nodes("_2aasdad1", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
-    beamline.update_all_keys("2", dict_key="ee")
+    beamline._update_key_for_nodes("2", dict_key="ee")
     for el in beamline.G:
         assert "ee" in beamline.G.node[el]
         assert beamline.G.node[el]["ee"] == ""
@@ -258,12 +256,56 @@ def test_deleted_instance(beamline):
     assert id_tn not in beamline.G
 
 
+def test_session_map(beacon, s1hg, roby):
+    session = session_module.get_current()
+    m = session.map
+    sr = session.config.get("sample_regulation")
+    heater = session.config.get("heater")
+    # m.draw_pygraphviz()
+
+    assert len(m) == 33
+    axes = list(m.find_children("axes"))
+    assert id(roby) in axes
+    assert id(s1hg) in axes
+    assert len(axes) == 2
+    counters = list(m.find_children("counters"))
+    assert id(heater) in counters
+    assert len(counters) == 1
+    slits_children = m.find_children(id(s1hg.controller))
+    for real_axis in s1hg.controller.reals:
+        assert id(real_axis) in slits_children
+    assert id(s1hg) in slits_children
+    s1hg_pred = m.find_predecessors(id(s1hg))
+    assert len(s1hg_pred) == 2
+    assert id(s1hg.controller) in s1hg_pred
+    sr_children = m.find_children(id(sr))
+    assert len(sr_children) == 2
+    inp, outp = sr.input, sr.output
+    assert outp is heater
+    assert id(inp) in sr_children
+    assert id(outp) in sr_children
+    inp_pred = m.find_predecessors(id(inp))
+    outp_pred = m.find_predecessors(id(outp))
+    outp_pred.remove("counters")
+    assert set(outp_pred) == set(inp_pred)
+    assert "motion_hooks" in m.find_children("controllers")
+    motion_hooks_children = m.find_children("motion_hooks")
+    assert len(motion_hooks_children) == 3
+    hooked_m0 = beacon.get("hooked_m0")
+    hooked_m0_pred = m.find_predecessors(id(hooked_m0))
+    assert "axes" in hooked_m0_pred
+    hooked_m0_pred.remove("axes")
+    assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
+        ["controllers", "motion_hooks"]
+    )
+
+
 #########################  MANUAL TESTING  ###################################
 
 
 def manual_test_draw_matplotlib(complex_beamline):
-    complex_beamline.map_draw_matplotlib(format_node="tag+name->name->inst.__class__")
+    complex_beamline.map_draw_matplotlib(format_node="tag+name->name->class")
 
 
 def manual_test_draw_pygraphviz(complex_beamline):
-    complex_beamline.map_draw_pygraphviz(format_node="name->tag->id->inst.__class__")
+    complex_beamline.map_draw_pygraphviz(format_node="name->tag->id->class")

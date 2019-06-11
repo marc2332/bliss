@@ -8,8 +8,6 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
-
 from bliss.common.axis import AxisState
 
 from . import pi_gcs
@@ -97,6 +95,6 @@ class PI_E517(PI_E51X):
                 _ch,
             )
 
-        elog.debug("set_gate :  _cmd = %s" % _cmd)
+        self._logger.debug("set_gate :  _cmd = %s" % _cmd)
 
         self.send_no_ans(axis, _cmd)

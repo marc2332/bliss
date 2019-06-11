@@ -10,7 +10,7 @@ import sys
 import socket
 import shutil
 from collections import namedtuple
-
+import atexit
 import redis
 import pytest
 import gevent
@@ -147,6 +147,7 @@ def ports(beacon_directory):
     try:
         yield ports
     finally:
+        atexit._run_exitfuncs()
         proc.terminate()
         print(proc.stderr.read().decode(), file=sys.stderr)
 

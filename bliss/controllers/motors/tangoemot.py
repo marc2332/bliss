@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy

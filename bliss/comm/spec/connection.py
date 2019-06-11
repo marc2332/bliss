@@ -17,8 +17,9 @@ import gevent
 import gevent.socket
 import socket
 import weakref
-import logging
 from bliss.common import event
+from bliss.common import session
+from bliss.common.logtools import LogMixin
 from .error import SpecClientNotConnectedError
 from .channel import SpecChannel
 from .message import *
@@ -118,7 +119,7 @@ def connectionHandler(conn, socket_to_spec):
                                 try:
                                     reply = conn.registeredReplies[replyID]
                                 except BaseException:
-                                    logging.getLogger("SpecClient").exception(
+                                    conn._logger.exception(
                                         "Unexpected error while receiving a message from server"
                                     )
                                 else:
@@ -142,7 +143,7 @@ def connectionHandler(conn, socket_to_spec):
             receivedStrings = [s[offset:]]
 
 
-class SpecConnection:
+class SpecConnection(LogMixin):
     """SpecConnection class
     Signals:
     connected() -- emitted when the required Spec version gets connected
@@ -182,6 +183,8 @@ class SpecConnection:
             self.scanname = self.port
             self.port = None
             self.scanport = True
+
+        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
 
     def __str__(self):
         return "<connection to Spec, host=%s, port=%s>" % (
@@ -226,7 +229,7 @@ class SpecConnection:
                 # we received a value, so emit an update signal
                 channel.update(channelValue, force=True)
         except BaseException:
-            logging.getLogger("SpecClient").exception(
+            self._logger.exception(
                 "Uncaught exception in SpecConnection.registerChannel"
             )
 
@@ -260,7 +263,7 @@ class SpecConnection:
 
     def error(self, error):
         """Emit the 'error' signal when the remote Spec version signals an error."""
-        logging.getLogger("SpecClient").error("Error from Spec: %s", error)
+        self._logger.error("Error from Spec: %s", error)
 
         event.send(self, "error", (error,))
 
@@ -273,7 +276,7 @@ class SpecConnection:
         old_state = self.state
         self.state = CONNECTED
         if old_state != CONNECTED:
-            logging.getLogger("SpecClient").info(
+            self._logger.info(
                 "Connected to %s:%s",
                 self.host,
                 (self.scanport and self.scanname) or self.port,
@@ -290,7 +293,7 @@ class SpecConnection:
         old_state = self.state
         self.state = DISCONNECTED
         if old_state == CONNECTED:
-            logging.getLogger("SpecClient").info(
+            self._logger.info(
                 "Disconnected from %s:%s",
                 self.host,
                 (self.scanport and self.scanname) or self.port,
@@ -347,7 +350,7 @@ class SpecConnection:
         cmd -- command string
         """
         if self.serverVersion < 3:
-            logging.getLogger("SpecClient").error(
+            self._logger.error(
                 "Cannot execute command in Spec : feature is available since Spec server v3 only"
             )
         else:
@@ -369,7 +372,7 @@ class SpecConnection:
         cmd -- command string
         """
         if self.serverVersion < 3:
-            logging.getLogger("SpecClient").error(
+            self._logger.error(
                 "Cannot execute command in Spec : feature is available since Spec server v3 only"
             )
         else:

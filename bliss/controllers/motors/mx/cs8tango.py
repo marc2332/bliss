@@ -1,4 +1,3 @@
-import logging
 from bliss import setup_globals
 from bliss.common.tango import DeviceProxy
 from bliss.controllers.motor import Controller

@@ -56,6 +56,7 @@ from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Reso
 
 from bliss.config.conductor import client
 from bliss.config import channels
+from bliss.config.map import update_map_for_object
 
 CONFIG = None
 
@@ -640,7 +641,7 @@ class Config:
         """
         return set(self._usertag2node.get(tag_name, ()))
 
-    def get(self, name):
+    def get(self, name, add_axes_counters=True):
         """
         Returns an object instance from its configuration name
 
@@ -687,6 +688,9 @@ class Config:
                     name2items = name2itemsAndname2itemcache
                 self._name2instance.update(name2items)
                 instance_object = name2items.get(name)
+
+        if add_axes_counters:
+            update_map_for_object(instance_object)  # , add_axes_counters)
 
         return instance_object
 

@@ -8,7 +8,6 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common import log as elog
 from bliss.common.axis import AxisState
 from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
 
@@ -24,7 +23,7 @@ class ESRF_Undulator(Controller):
         try:
             self.ds_name = self.config.get("ds_name")
         except:
-            elog.debug(
+            self._logger.debug(
                 "no 'ds_name' defined in config for %s" % self.config.get("name")
             )
 
@@ -49,7 +48,7 @@ class ESRF_Undulator(Controller):
             "attr_vel_name": attr_vel_name,
             "attr_acc_name": attr_acc_name,
         }
-        elog.debug("axis initilized--------------------------")
+        self._logger.debug("axis initialized--------------------------")
 
     """
     Actions to perform at controller closing.

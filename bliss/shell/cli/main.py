@@ -323,7 +323,6 @@ def main():
             [
                 "tmux",
                 "set-hook",
-                "-g",
                 "-t",
                 session,
                 "pane-exited",

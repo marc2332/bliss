@@ -305,7 +305,6 @@ class Flint:
                     scatter_plot_win = self.mdi_windows_dict.get(window_title)
                     if not scatter_plot_win:
                         scatter_plot_win = LiveScatterPlot(
-                            data_dict=self.data_dict,
                             session_name=self._session_name,
                             redis_connection=self._qt_redis_connection,
                         )

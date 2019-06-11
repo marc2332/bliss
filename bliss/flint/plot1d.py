@@ -319,7 +319,6 @@ class LivePlot1D(qt.QWidget):
 
 class LiveScatterPlot(qt.QWidget):
     def __init__(self, *args, **kw):
-        self._data_dict = kw.pop("data_dict")
         self._session_name = kw.pop("session_name")
         self.plot_id = None  # filled by caller
         self.redis_cnx = kw.pop("redis_connection")
@@ -338,6 +337,10 @@ class LiveScatterPlot(qt.QWidget):
         self.layout().addWidget(self.axes_list_view)
 
         self.motor_2_ranges = dict()
+        self._data = dict()
+
+    def _set_data(self, data):
+        self._data = data
 
     def __getattr__(self, attr):
         """Delegate to silx plot widget"""
@@ -433,7 +436,7 @@ class LiveScatterPlot(qt.QWidget):
         y_axis = axes.get("y_axis")
         z_axis = axes.get("z_axis")
         if x_axis and y_axis and z_axis:
-            data = self._data_dict[self.plot_id]
+            data = self._data
             x_data = data.get(x_axis)
             y_data = data.get(y_axis)
             z_data = data.get(z_axis)

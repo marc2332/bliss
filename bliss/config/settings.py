@@ -1739,11 +1739,19 @@ class ParametersWardrobe(metaclass=ParametersType):
 
     @property
     def last_accessed(self):
-        return self._last_accessed
+        attr_name = "_last_accessed"
+        if not hasattr(self, attr_name):
+            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
+            self._populate(attr_name)
+        return getattr(self, attr_name)
 
     @property
     def creation_date(self):
-        return self._creation_date
+        attr_name = "_creation_date"
+        if not hasattr(self, attr_name):
+            self._proxy[attr_name] = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M")
+            self._populate(attr_name)
+        return getattr(self, attr_name)
 
 
 if __name__ == "__main__":

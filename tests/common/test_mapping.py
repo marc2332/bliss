@@ -108,6 +108,19 @@ def test_find_shortest_path(beamline):
     assert len(path) == 4
 
 
+def test_bad_parents_list(beamline):
+    with pytest.raises(TypeError):
+        beamline.register("motor0", parents_list="MotorControllerForM0")
+
+
+def test_populate_self_defined_attributes(beamline):
+    beamline.register(
+        "motor0", parents_list=["MotorControllerForM0"], speed=100, power="0.3kW"
+    )
+    assert beamline.G.nodes["motor0"]["speed"] == 100
+    assert beamline.G.nodes["motor0"]["power"] == "0.3kW"
+
+
 def test_find_no_path(beamline):
     """this motor0 is attached to controllers, so there is no link with counters"""
     beamline.register("motor0")
@@ -155,8 +168,8 @@ def test_remap_children(beamline):
     assert len(path) == 4
 
 
-def test_failed_delete(beamline):
-    """node does not exists, this should raise an exception"""
+def test_cant_delete_non_existing_node(beamline):
+    """node does not exists, this should return false"""
     assert not beamline.delete("fakenode")
 
 
@@ -298,6 +311,58 @@ def test_session_map(beacon, s1hg, roby):
     assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
         ["controllers", "motion_hooks"]
     )
+
+
+@pytest.mark.skip(reason="works manually, but pytest doesn't raise")
+def test_bad_function_on_trigger_update(beamline):
+    def bad_func(graph):
+        raise NotImplementedError
+
+    beamline.add_map_handler(bad_func)
+
+    with pytest.raises(NotImplementedError):
+        beamline.register("new node")
+
+
+def test_create_submap_1(complex_beamline):
+    sub_G = nx.DiGraph()
+    complex_beamline.create_submap(sub_G, "comms")
+    assert len(sub_G) == 3
+    for node in "comms TcpIp Serial_1".split():
+        assert node in sub_G
+
+
+def test_create_submap_2(complex_beamline):
+    sub_G = nx.DiGraph()
+    complex_beamline.create_submap(sub_G, "Contr_1")
+    assert len(sub_G) == 8
+    for node in "Contr_1 Serial_1 Axis_1 Axis_2 m0 m1 m2 m3".split():
+        assert node in sub_G
+
+
+def test_create_submap_3(complex_beamline):
+    sub_G = nx.DiGraph()
+    # submap from the root node should be equal to the map itself
+    complex_beamline.create_submap(sub_G, "session")
+    assert len(sub_G) == len(complex_beamline.G)
+    for node in sub_G.nodes:
+        assert node in complex_beamline.G
+
+
+def test_create_partial_map_1(complex_beamline):
+    sub_G = nx.DiGraph()
+    complex_beamline.create_partial_map(sub_G, "Contr_2")
+    assert len(sub_G) == 4
+    for node in "session controllers Contr_2 TcpIp".split():
+        assert node in sub_G
+
+
+def test_create_partial_map_2(complex_beamline):
+    sub_G = nx.DiGraph()
+    complex_beamline.create_partial_map(sub_G, "Axis_2")
+    assert len(sub_G) == 7
+    for node in "session controllers Contr_1 Axis_2 m1 m2 m3".split():
+        assert node in sub_G
 
 
 #########################  MANUAL TESTING  ###################################

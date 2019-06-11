@@ -19,11 +19,13 @@ def map_id(node):
     """
     Helper to get the proper node map id
     it will be the string itself if a string
+    if the node is integer we assume that is already an id
+
     it will be the id if a different instance
 
     Needed to avoid errors caused by changing of string id
     """
-    return node if isinstance(node, str) else id(node)
+    return node if isinstance(node, (str, int)) else id(node)
 
 
 class Map:
@@ -225,6 +227,54 @@ class Map:
         id_2 = node2 if isinstance(node2, int) else map_id(node2)
         return nx.shortest_path(self.G, id_1, id_2)
 
+    def create_partial_map(self, sub_G, node):
+        """
+        Create a partial map containing all nodes that have some
+        direct or indirect connection with the given one
+
+        Args:
+            sub_G: nx.DiGraph object that will be populated
+            node: instance or id(instance)
+
+        Returns:
+            networkx.DiGraph
+        """
+        # UPSTREAM part of the map
+        # getting all simple path from the root node "session"
+        # to the given node
+        logger.debug(f"In create_partial_map of {node} map_id({map_id(node)})")
+        paths = nx.all_simple_paths(self.G, "session", map_id(node))
+        paths = list(paths)
+        for path in map(nx.utils.pairwise, paths):
+            for father, son in path:
+                sub_G.add_node(
+                    father, **self.G.nodes[father]
+                )  # adds the node copying info
+                sub_G.add_node(son, **self.G.nodes[son])  # adds the node copying info
+                sub_G.add_path([father, son])
+
+        # DOWNSTREAM part of the map
+        # getting all nodes from the given node to the end of the map
+        self.create_submap(sub_G, node)
+
+    def create_submap(self, sub_G, node):
+        """
+        Create a submap starting from given node
+        Args:
+            sub_G: nx.DiGraph object that will be populated
+            node: instance or id(instance) of the starting node
+
+        Returns:
+            networkx.DiGraph
+        """
+        id_ = node if isinstance(node, int) else map_id(node)
+        sub_G.add_node(id_, **self.G.nodes[id_])  # adds the node copying info
+        for n in self.G.adj.get(id_):
+            if n not in sub_G.neighbors(id_):
+                sub_G.add_path([id_, n])
+                sub_G.nodes[id_]
+                self.create_submap(sub_G, n)
+
     def delete(self, id_):
         """
         Removes the node from graph
@@ -270,42 +320,80 @@ class Map:
                     self.G.add_edge("controllers", node)
                     logger.debug(f"Added parent to {node}")
 
-    def draw_matplotlib(self, format_node: str = "tag->name->class->id"):
+    def draw_matplotlib(
+        self, ref_node=None, format_node: str = "tag->name->class->id"
+    ) -> None:
         """
         Simple tool to draw the map with matplotlib
+
+        Args:
+            ref_node: If given a partial map will be drawn that includes
+                      the given node and his area of interest
+            format_node: Format string (according to Bliss map formatting)
+                         that will the label of represented nodes
         """
         try:
             import matplotlib.pyplot as plt
 
             self.update_labels(format_node)
-            labels = {node: self.G.node[node]["label"] for node in self.G}
-            nx.draw_networkx(self.G, with_labels=True, labels=labels)
+            if ref_node is not None:
+                G = nx.DiGraph()
+                self.create_partial_map(G, map_id(ref_node))
+            else:
+                G = self.G
+
+            labels = {node: G.node[node]["label"] for node in G}
+            nx.draw_networkx(G, with_labels=True, labels=labels)
             plt.show()
         except ModuleNotFoundError:
             logger.error("Missing matplotlib package")
 
-    def save_to_dotfile(self, filename: str = "graph", format_node: str = "name"):
+    def save_to_dotfile(
+        self, ref_node=None, filename: str = "graph", format_node: str = "name"
+    ) -> None:
         """
         Creates a network description as a dotfile compatible with graphviz
+
+        Args:
+            ref_node: If given a partial map will be drawn that includes
+                      the given node and his area of interest
+            filename: name of the output file without extension, the function will
+                      create a filename.dot and filename.png
+            format_node: Format string (according to Bliss map formatting)
+                         that will the label of represented nodes
         """
         try:
             from networkx.drawing.nx_agraph import graphviz_layout, to_agraph
 
             self.update_labels(format_node)
-            C = to_agraph(self.G)
+            if ref_node is not None:
+                G = nx.DiGraph()
+                self.create_partial_map(G, map_id(ref_node))
+            else:
+                G = self.G
+
+            C = to_agraph(G)
             C.write(f"{filename}.dot")
         except ImportError:
             logger.error("Missing pygraphviz package")
 
-    def draw_pygraphviz(self, filename="graph", format_node="tag->name->class->id"):
+    def draw_pygraphviz(
+        self, ref_node=None, filename="graph", format_node="tag->name->class->id"
+    ) -> None:
         """
         Simple tool to draw the map into graphviz format
 
         Args:
+            ref_node: If given a partial map will be drawn that includes
+                      the given node and his area of interest
             filename: name of the output file without extension, the function will
                       create a filename.dot and filename.png
+            format_node: Format string (according to Bliss map formatting)
+                         that will the label of represented nodes
         """
-        self.save_to_dotfile(filename=filename, format_node=format_node)
+        self.save_to_dotfile(
+            ref_node=ref_node, filename=filename, format_node=format_node
+        )
 
         try:
             subprocess.run(["dot", f"{filename}.dot", "-Tpng", "-o", f"{filename}.png"])

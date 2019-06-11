@@ -1216,10 +1216,10 @@ class ParametersWardrobe(metaclass=ParametersType):
         self._proxy_default = BaseHashSetting(self._hash("default"), **keys)
 
         # Managing default written to proxy_default
-        for k, v in default_values.items():
-            if k not in self._proxy_default.keys():
-                # add only if default values does not exist
-                self.add(k, v)
+        keys = self._proxy_default.keys()
+        for k in set(default_values.keys()) - set(keys):
+            # add only if default values does not exist
+            self.add(k, default_values[k])
 
         if "default" not in self._instances:
             # New created Wardrobe, switch to default
@@ -1502,8 +1502,8 @@ class ParametersWardrobe(metaclass=ParametersType):
         """
         Retrieve a single instance of parameters from redis
         """
+        name_backup = self._proxy._name
         try:
-            name_backup = self._proxy._name
             if name in self.instances:
                 self._proxy._name = self._hash(name)
                 results = self._proxy.get_all()

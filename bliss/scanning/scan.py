@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+import enum
 import getpass
 import gevent
 import os
@@ -485,9 +486,15 @@ class ScanPreset:
         pass
 
 
-class Scan:
-    IDLE_STATE, PREPARE_STATE, START_STATE, STOP_STATE = list(range(4))
+class ScanState(enum.IntEnum):
+    IDLE = 0
+    PREPARING = 1
+    STARTING = 2
+    STOPPING = 3
+    DONE = 4
 
+
+class Scan:
     def __init__(
         self,
         chain,
@@ -581,7 +588,7 @@ class Scan:
         if scan_display_params.auto:
             get_flint()
 
-        self._state = self.IDLE_STATE
+        self.__state = ScanState.IDLE
         node_name = str(self.__scan_number) + "_" + self.name
         self.__node = _create_node(
             node_name, "scan", parent=self.root_node, info=self._scan_info
@@ -615,6 +622,10 @@ class Scan:
     @property
     def name(self):
         return self.__name
+
+    @property
+    def state(self):
+        return self.__state
 
     @property
     def writer(self):
@@ -794,7 +805,7 @@ class Scan:
                 while self._data_watch_running and not self._data_watch_task.ready():
                     self._data_watch_callback_done.wait()
                     self._data_watch_callback_done.clear()
-                self._scan_info["state"] = self._state
+                self._scan_info["state"] = self.__state
                 self._data_watch_callback.on_scan_data(
                     data_events, self.nodes, self._scan_info
                 )
@@ -864,10 +875,14 @@ class Scan:
         self._devices = []
 
     def run(self):
+        if self.state != ScanState.IDLE:
+            raise RuntimeError(
+                "Scan state is not idle. Scan objects can only be used once."
+            )
 
         if hasattr(self._data_watch_callback, "on_state"):
-            call_on_prepare = self._data_watch_callback.on_state(self.PREPARE_STATE)
-            call_on_stop = self._data_watch_callback.on_state(self.STOP_STATE)
+            call_on_prepare = self._data_watch_callback.on_state(ScanState.PREPARE)
+            call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
         else:
             call_on_prepare, call_on_stop = False, False
 
@@ -883,7 +898,7 @@ class Scan:
             if self._data_watch_callback:
                 self._data_watch_callback.on_scan_new(self.scan_info)
 
-            self._state = self.PREPARE_STATE
+            self.__state = ScanState.PREPARING
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                 self._execute_preset("prepare")
                 self.prepare(self.scan_info, self.acq_chain._tree)
@@ -895,8 +910,8 @@ class Scan:
                 finally:
                     gevent.killall(prepare_tasks)
 
+            self.__state = ScanState.STARTING
             self._execute_preset("start")
-            self._state = self.START_STATE
             run_next_tasks = [
                 (gevent.spawn(self._run_next, i), i) for i in current_iters
             ]
@@ -929,7 +944,7 @@ class Scan:
                     finally:
                         gevent.killall([t for t, _ in run_next_tasks])
 
-                self._state = self.STOP_STATE
+                self.__state = ScanState.STOPPING
 
                 with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                     stop_task = [
@@ -946,7 +961,7 @@ class Scan:
         finally:
             self.set_ttl()
 
-            self._state = self.IDLE_STATE
+            self.__state = ScanState.DONE
 
             try:
                 if self._data_watch_callback:

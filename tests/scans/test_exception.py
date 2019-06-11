@@ -41,3 +41,11 @@ def test_exception_in_first_reading(beacon, bad_diode):
     with pytest.raises(RuntimeError):
         with gevent.Timeout(1):
             scans.timescan(0, bad_diode, npoints=10, save=False)
+
+
+def test_restarted_scan(beacon):
+    diode = beacon.get("diode")
+    s = scans.loopscan(1, 0, diode, save=False, run=False)
+    s.run()
+    with pytest.raises(RuntimeError):
+        s.run()

@@ -13,7 +13,7 @@ import gevent
 
 from bliss.common import event
 from bliss.common import scans
-from bliss.scanning.scan import Scan
+from bliss.scanning.scan import Scan, ScanState
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
@@ -145,14 +145,14 @@ def test_interrupted_scan(beacon, diode_acq_device_factory):
     scan_task = gevent.spawn(s.run)
 
     gevent.sleep(0.2)
-    assert s._state == Scan.START_STATE
+    assert s.state == ScanState.STARTING
 
     try:
         scan_task.kill(KeyboardInterrupt)
     except:
         assert scan_task.ready()
 
-    assert s._state == Scan.IDLE_STATE
+    assert s.state == ScanState.DONE
     assert acquisition_device_1.stop_flag
     assert acquisition_device_2.stop_flag
 

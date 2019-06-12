@@ -557,7 +557,7 @@ class SCPI(LogMixin):
             >>> (_, idn), (_, ese) = instrument.read('*ESE 1; *IDN?; *ESE?')
 
         Args:
-            *msgs (str): raw message to be queried (ex: "\*IDN?")
+            *msgs (str): raw message to be queried (ex: '*IDN?')
             **kwargs: supported kwargs: *raw* (default: False), *eol*,
                       *sep* (command separator)
         Returns:
@@ -617,7 +617,7 @@ class SCPI(LogMixin):
             instrumment.write('*RST')
 
         Args:
-            *msgs (str): raw command (ex: "\*CLS")
+            *msgs (str): raw command (ex: '*CLS')
 
         Raises:
             CommunicationError: in case of device not accessible

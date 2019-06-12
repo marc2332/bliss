@@ -204,7 +204,7 @@ def get_acq_timeout(s):
     if m:
         return float(s)
 
-    random_re_str = "random\((?P<n1>{0}),[ ]*(?P<n2>{0})\)".format(nb_re_str)
+    random_re_str = r"random\((?P<n1>{0}),[ ]*(?P<n2>{0})\)".format(nb_re_str)
     re_obj = re.compile(random_re_str)
     m = re_obj.match(s)
     if m:

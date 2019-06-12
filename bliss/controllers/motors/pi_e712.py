@@ -313,7 +313,7 @@ class PI_E712(Controller):
 
     def get_identifier(self, axis):
         """
-        Returns Identification information (\*IDN? command).
+        Returns Identification information (*IDN? command).
         """
         return self.command("*IDN?")
 

@@ -88,13 +88,16 @@ units which are SI units. Failure to comply will result in unexpected values.
 
 ### Example
 
-    import bliss.physics.diffraction
-    from bliss.physics.units import ur
-    mass = 0.1 * ur.mg
-    E = mass * ur.c**2
-    print( E.to(ur.kJ) )
-    >>> 8987551.78737 kilojoule
+Example to convert 0.1 miligram in Kjoules with unknown formula.
 
+```python
+import bliss.physics.diffraction
+from bliss.physics.units import ur
+mass = 0.1 * ur.mg
+E = mass * ur.c**2
+print( E.to(ur.kJ) )
+>>> 8987551.78737 kilojoule
+```
 
 ## Example of usage
 
@@ -103,11 +106,12 @@ units which are SI units. Failure to comply will result in unexpected values.
 
 `mendeleev.elements` usage example:
 
-    from mendeleev import elements
-    Si = elements.Si
-    print("Atomic number of {} is {}.".format(Si.name, Si.atomic_number))
-    >>> Atomic number of Silicon is 14.
-
+```python
+from mendeleev import elements
+Si = elements.Si
+print("Atomic number of {} is {}.".format(Si.name, Si.atomic_number))
+>>> Atomic number of Silicon is 14.
+```
 
 ### Crystal
 
@@ -186,4 +190,25 @@ plane when the angle is 25.6 degrees:
     
     print( energy.to(ur.keV).magnitude )
     >>> 17.5618627264
+
+
+### spectroscopy
+
+`energy_to_wavevector(edge_energy, energy)`:
+
+`wavevector_to_energy(edge_energy, k)`:
+
+
+
+user-friendly functions:
+
+```python
+from bliss.physics import spectroscopy
+spectroscopy.energy_kev_to_wavelength_angstrom(7.5)
+#  1.6531226083801578
+
+spectroscopy.wavelength_angstrom_to_energy_kev(1.653122)
+#  7.500002760141831
+
+```
 

@@ -30,7 +30,7 @@ from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
 from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
-from bliss.config.settings import _get_connection, pipeline
+from bliss.config.settings import pipeline
 from bliss.data.node import (
     _get_or_create_node,
     _create_node,
@@ -1137,10 +1137,8 @@ class Scan:
                 p.hincrby(name, LAST_SCAN_NUMBER, 1)
                 _, scan_number = p.execute()
         else:
-            cnx = _get_connection(parent_node._data)
-            scan_number = cnx().hincrby(
-                parent_node._data._proxy.name, LAST_SCAN_NUMBER, 1
-            )
+            cnx = parent_node.connection
+            scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
         return scan_number
 
     @staticmethod

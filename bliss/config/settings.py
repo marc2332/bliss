@@ -182,38 +182,6 @@ def scan(match="*", count=1000, connection=None):
             break
 
 
-def _get_connection(setting_object):
-    """
-    Return the connection of a setting_object
-    """
-    if isinstance(setting_object, Struct):
-        return setting_object._proxy._cnx
-    elif isinstance(setting_object, (SimpleSetting, QueueSetting, BaseHashSetting)):
-        return setting_object._cnx
-    else:
-        raise TypeError(
-            f"Setting object should be one of: Struct, SimpleSetting, QueueSetting or HashSetting instead of {setting_object!r}"
-        )
-
-
-def _set_connection(setting_object, new_cnx):
-    """
-    change the connection of a setting_object
-    and return the previous connection
-    """
-    if isinstance(setting_object, Struct):
-        cnx = setting_object._proxy._cnx
-        setting_object._proxy._cnx = new_cnx
-    elif isinstance(setting_object, (SimpleSetting, QueueSetting, BaseHashSetting)):
-        cnx = setting_object._cnx
-        setting_object._cnx = new_cnx
-    else:
-        raise TypeError(
-            f"Setting object should be one of: Struct, SimpleSetting, QueueSetting or HashSetting instead of {setting_object!r}"
-        )
-    return cnx
-
-
 @contextmanager
 def pipeline(*settings):
     """
@@ -223,24 +191,52 @@ def pipeline(*settings):
     IN CASE OF you execute the pipeline, it will return raw database values
     (byte strings).
     """
-    first_settings = settings[0]
-    cnx = _get_connection(first_settings)()
-    # check they have the same connection
-    for s in settings[1:]:
-        if _get_connection(s)() != cnx:
-            raise RuntimeError("Cannot groupe redis commands in a pipeline")
+    if not all(isinstance(setting, (BaseSetting, Struct)) for setting in settings):
+        raise TypeError("Can only group commands for BaseSetting objects")
 
+    # check they have the same connection
+    connections = set(setting._cnx() for setting in settings)
+    if len(connections) > 1:
+        raise RuntimeError("Cannot groupe redis commands in a pipeline")
+    # save the connection
+    cnx = connections.pop()
+    cnx_ref = weakref.ref(cnx)
+    # make a pipeline from the connection
     pipeline = cnx.pipeline()
+    pipeline_ref = weakref.ref(pipeline)
+
+    for setting in settings:
+        setting._cnx = pipeline_ref
+
+    # replace settings connection with the pipeline
     try:
-        # replace settings connection with the pipeline
-        previous_cnx = [_set_connection(s, weakref.ref(pipeline)) for s in settings]
         yield pipeline
     finally:
-        [_set_connection(s, c) for c, s in zip(previous_cnx, settings)]
-        pipeline.execute()
+        for setting in settings:
+            setting._cnx = cnx_ref
+
+    pipeline.execute()
 
 
-class SimpleSetting:
+class BaseSetting:
+    def __init__(self, name, connection, read_type_conversion, write_type_conversion):
+        self._name = name
+        if connection is None:
+            connection = get_redis_connection()
+        self._cnx = weakref.ref(connection)
+        self._read_type_conversion = read_type_conversion
+        self._write_type_conversion = write_type_conversion
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def connection(self):
+        return self._cnx()
+
+
+class SimpleSetting(BaseSetting):
     """
     Class to manage a setting that is stored as a string on Redis
     """
@@ -253,35 +249,23 @@ class SimpleSetting:
         write_type_conversion=str,
         default_value=None,
     ):
-        if connection is None:
-            connection = get_redis_connection()
-        self._cnx = weakref.ref(connection)
-        self._name = name
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
         self._default_value = default_value
-
-    @property
-    def name(self):
-        return self._name
 
     @read_decorator
     def get(self):
-        cnx = self._cnx()
-        value = cnx.get(self._name)
+        value = self.connection.get(self.name)
         return value
 
     @write_decorator
     def set(self, value):
-        cnx = self._cnx()
-        cnx.set(self._name, value)
+        self.connection.set(self.name, value)
 
     def ttl(self, value=-1):
-        return ttl_func(self._cnx(), self._name, value)
+        return ttl_func(self.connection, self.name, value)
 
     def clear(self):
-        cnx = self._cnx()
-        cnx.delete(self._name)
+        self.connection.delete(self.name)
 
     def __add__(self, other):
         value = self.get()
@@ -290,17 +274,17 @@ class SimpleSetting:
         return value + other
 
     def __iadd__(self, other):
-        cnx = self._cnx()
+        cnx = self.connection
         if cnx is not None:
             if isinstance(other, int):
                 if other == 1:
-                    cnx.incr(self._name)
+                    cnx.incr(self.name)
                 else:
-                    cnx.incrby(self._name, other)
+                    cnx.incrby(self.name, other)
             elif isinstance(other, float):
-                cnx.incrbyfloat(self._name, other)
+                cnx.incrbyfloat(self.name, other)
             else:
-                cnx.append(self._name, other)
+                cnx.append(self.name, other)
             return self
 
     def __isub__(self, other):
@@ -311,7 +295,7 @@ class SimpleSetting:
         return self.__iadd__(-other)
 
     def __getitem__(self, ran):
-        cnx = self._cnx()
+        cnx = self.connection
         if cnx is not None:
             step = None
             if isinstance(ran, slice):
@@ -322,18 +306,17 @@ class SimpleSetting:
             else:
                 raise TypeError("indices must be integers")
 
-            value = cnx.getrange(self._name, i, j)
+            value = cnx.getrange(self.name, i, j)
             if step is not None:
                 value = value[0:-1:step]
             return value
 
     def __repr__(self):
-        cnx = self._cnx()
-        value = cnx.get(self._name)
-        return "<SimpleSetting name=%s value=%s>" % (self._name, value)
+        value = self.connection.get(self.name)
+        return "<SimpleSetting name=%s value=%s>" % (self.name, value)
 
 
-class SimpleSettingProp:
+class SimpleSettingProp(BaseSetting):
     """
     A python's property implementation for SimpleSetting
     To be used inside user defined classes
@@ -348,25 +331,18 @@ class SimpleSettingProp:
         default_value=None,
         use_object_name=True,
     ):
-        self._name = name
-        self._cnx = connection or get_redis_connection()
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
         self._default_value = default_value
         self._use_object_name = use_object_name
 
-    @property
-    def name(self):
-        return self._name
-
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
         return SimpleSetting(
             name,
-            self._cnx,
+            self.connection,
             self._read_type_conversion,
             self._write_type_conversion,
             self._default_value,
@@ -377,19 +353,19 @@ class SimpleSettingProp:
             return
 
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
 
         if value is None:
-            self._cnx.delete(name)
+            self.connection.delete(name)
         else:
             if self._write_type_conversion:
                 value = self._write_type_conversion(value)
-            self._cnx.set(name, value)
+            self.connection.set(name, value)
 
 
-class QueueSetting:
+class QueueSetting(BaseSetting):
     """
     Class to manage a setting that is stored as a list on Redis
     """
@@ -401,76 +377,68 @@ class QueueSetting:
         read_type_conversion=auto_coerce_from_redis,
         write_type_conversion=str,
     ):
-        if connection is None:
-            connection = get_redis_connection()
-        self._cnx = weakref.ref(connection)
-        self._name = name
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
-
-    @property
-    def name(self):
-        return self._name
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
 
     @read_decorator
     def get(self, first=0, last=-1, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
+            cnx = self.connection
         if first == last:
-            l = cnx.lindex(self._name, first)
+            l = cnx.lindex(self.name, first)
         else:
             if last != -1:
                 last -= 1
-            l = cnx.lrange(self._name, first, last)
+            l = cnx.lrange(self.name, first, last)
         return l
 
     @write_decorator
     def append(self, value, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        return cnx.rpush(self._name, value)
+            cnx = self.connection
+        return cnx.rpush(self.name, value)
 
     def clear(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        cnx.delete(self._name)
+            cnx = self.connection
+        cnx.delete(self.name)
 
     @write_decorator
     def prepend(self, value, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        return cnx.lpush(self._name, value)
+            cnx = self.connection
+        return cnx.lpush(self.name, value)
 
     @write_decorator_multiple
     def extend(self, values, cnx=None):
-        cnx = self._cnx()
-        return cnx.rpush(self._name, *values)
+        if cnx is None:
+            cnx = self.connection
+        return cnx.rpush(self.name, *values)
 
     @write_decorator
     def remove(self, value, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        cnx.lrem(self._name, 0, value)
+            cnx = self.connection
+        cnx.lrem(self.name, 0, value)
 
     @write_decorator_multiple
     def set(self, values, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        cnx.delete(self._name)
+            cnx = self.connection
+        cnx.delete(self.name)
         if values is not None:
-            cnx.rpush(self._name, *values)
+            cnx.rpush(self.name, *values)
 
     @write_decorator
     def set_item(self, value, pos=0, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        cnx.lset(self._name, pos, value)
+            cnx = self.connection
+        cnx.lset(self.name, pos, value)
 
     @read_decorator
     def pop_front(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        value = cnx.lpop(self._name)
+            cnx = self.connection
+        value = cnx.lpop(self.name)
         if self._read_type_conversion:
             value = self._read_type_conversion(value)
         return value
@@ -478,27 +446,27 @@ class QueueSetting:
     @read_decorator
     def pop_back(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        value = cnx.rpop(self._name)
+            cnx = self.connection
+        value = cnx.rpop(self.name)
         if self._read_type_conversion:
             value = self._read_type_conversion(value)
         return value
 
     def ttl(self, value=-1, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        return ttl_func(cnx, self._name, value)
+            cnx = self.connection
+        return ttl_func(cnx, self.name, value)
 
     def __len__(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        return cnx.llen(self._name)
+            cnx = self.connection
+        return cnx.llen(self.name)
 
     def __repr__(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        value = cnx.lrange(self._name, 0, -1)
-        return "<QueueSetting name=%s value=%s>" % (self._name, value)
+            cnx = self.connection
+        value = cnx.lrange(self.name, 0, -1)
+        return "<QueueSetting name=%s value=%s>" % (self.name, value)
 
     def __iadd__(self, other, cnx=None):
         self.extend(other, cnx)
@@ -520,8 +488,8 @@ class QueueSetting:
 
     def __iter__(self, cnx=None):
         if cnx is None:
-            cnx = self._cnx()
-        lsize = cnx.llen(self._name)
+            cnx = self.connection
+        lsize = cnx.llen(self.name)
         for first in range(0, lsize, 1024):
             last = first + 1024
             if last >= lsize:
@@ -540,7 +508,7 @@ class QueueSetting:
         return self
 
 
-class QueueSettingProp:
+class QueueSettingProp(BaseSetting):
     """
     A python's property implementation for QueueSetting
     To be used inside user defined classes
@@ -554,24 +522,20 @@ class QueueSettingProp:
         write_type_conversion=str,
         use_object_name=True,
     ):
-        self._name = name
-        self._cnx = connection or get_redis_connection()
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
         self._use_object_name = use_object_name
-
-    @property
-    def name(self):
-        return self._name
 
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
 
         return QueueSetting(
-            name, self._cnx, self._read_type_conversion, self._write_type_conversion
+            name,
+            self.connection,
+            self._read_type_conversion,
+            self._write_type_conversion,
         )
 
     def __set__(self, obj, values):
@@ -579,17 +543,20 @@ class QueueSettingProp:
             return
 
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
 
         proxy = QueueSetting(
-            name, self._cnx, self._read_type_conversion, self._write_type_conversion
+            name,
+            self.connection,
+            self._read_type_conversion,
+            self._write_type_conversion,
         )
         proxy.set(values)
 
 
-class BaseHashSetting:
+class BaseHashSetting(BaseSetting):
     """
     A Setting stored as a key,value pair in Redis
 
@@ -609,35 +576,26 @@ class BaseHashSetting:
         read_type_conversion=auto_coerce_from_redis,
         write_type_conversion=str,
     ):
-        if connection is None:
-            connection = get_redis_connection()
-        self._cnx = weakref.ref(connection)
-        self._name = name
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
-
-    @property
-    def name(self):
-        return self._name
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
 
     def __repr__(self):
         value = self.get_all()
-        return f"<{type(self).__name__} name=%s value=%s>" % (self._name, value)
+        return f"<{type(self).__name__} name=%s value=%s>" % (self.name, value)
 
     def __delitem__(self, key):
-        cnx = self._cnx()
-        cnx.hdel(self._name, key)
+        cnx = self.connection
+        cnx.hdel(self.name, key)
 
     def __len__(self):
-        cnx = self._cnx()
-        return cnx.hlen(self._name)
+        cnx = self.connection
+        return cnx.hlen(self.name)
 
     def ttl(self, value=-1):
-        return ttl_func(self._cnx(), self._name, value)
+        return ttl_func(self.connection, self.name, value)
 
     def raw_get(self, *keys):
-        cnx = self._cnx()
-        return cnx.hget(self._name, *keys)
+        cnx = self.connection
+        return cnx.hget(self.name, *keys)
 
     @read_decorator
     def get(self, key, default=None):
@@ -647,8 +605,8 @@ class BaseHashSetting:
         return v
 
     def _raw_get_all(self):
-        cnx = self._cnx()
-        return cnx.hgetall(self._name)
+        cnx = self.connection
+        return cnx.hgetall(self.name)
 
     def get_all(self):
         all_dict = dict()
@@ -658,16 +616,16 @@ class BaseHashSetting:
             if isinstance(v, InvalidValue):
                 raise ValueError(
                     "%s: Invalid value '%s` (cannot deserialize %r)"
-                    % (self._name, k, raw_v)
+                    % (self.name, k, raw_v)
                 )
             all_dict[k] = v
         return all_dict
 
     @read_decorator
     def pop(self, key, default=Null()):
-        cnx = self._cnx().pipeline()
-        cnx.hget(self._name, key)
-        cnx.hdel(self._name, key)
+        cnx = self.connection.pipeline()
+        cnx.hget(self.name, key)
+        cnx.hdel(self.name, key)
         (value, worked) = cnx.execute()
         if not worked:
             if isinstance(default, Null):
@@ -677,29 +635,29 @@ class BaseHashSetting:
         return value
 
     def remove(self, *keys):
-        cnx = self._cnx()
-        cnx.hdel(self._name, *keys)
+        cnx = self.connection
+        cnx.hdel(self.name, *keys)
 
     def clear(self):
-        cnx = self._cnx()
-        cnx.delete(self._name)
+        cnx = self.connection
+        cnx.delete(self.name)
 
     @write_decorator_dict
     def set(self, values):
-        cnx = self._cnx()
-        cnx.delete(self._name)
+        cnx = self.connection
+        cnx.delete(self.name)
         if values is not None:
-            cnx.hmset(self._name, values)
+            cnx.hmset(self.name, values)
 
     @write_decorator_dict
     def update(self, values):
-        cnx = self._cnx()
+        cnx = self.connection
         if values:
-            cnx.hmset(self._name, values)
+            cnx.hmset(self.name, values)
 
     def has_key(self, key):
-        cnx = self._cnx()
-        return cnx.hexists(self._name, key)
+        cnx = self.connection
+        return cnx.hexists(self.name, key)
 
     def keys(self):
         for k, v in self.items():
@@ -710,11 +668,11 @@ class BaseHashSetting:
             yield v
 
     def items(self):
-        cnx = self._cnx()
+        cnx = self.connection
         next_id = 0
         seen_keys = set()
         while True:
-            next_id, pd = cnx.hscan(self._name, next_id)
+            next_id, pd = cnx.hscan(self.name, next_id)
             for k, v in pd.items():
                 # Add key conversion
                 k = k.decode()
@@ -732,13 +690,13 @@ class BaseHashSetting:
         return value
 
     def __setitem__(self, key, value):
-        cnx = self._cnx()
+        cnx = self.connection
         if value is None:
-            cnx.hdel(self._name, key)
+            cnx.hdel(self.name, key)
             return
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
-        cnx.hset(self._name, key, value)
+        cnx.hset(self.name, key, value)
 
     def __contains__(self, key):
         try:
@@ -949,17 +907,17 @@ class HashSetting(BaseHashSetting):
             if isinstance(v, InvalidValue):
                 raise ValueError(
                     "%s: Invalid value '%s` (cannot deserialize %r)"
-                    % (self._name, k, raw_v)
+                    % (self.name, k, raw_v)
                 )
             all_dict[k] = v
         return all_dict
 
     def items(self):
-        cnx = self._cnx()
+        cnx = self.connection
         next_id = 0
         seen_keys = set()
         while True:
-            next_id, pd = cnx.hscan(self._name, next_id)
+            next_id, pd = cnx.hscan(self.name, next_id)
             for k, v in pd.items():
                 # Add key conversion
                 k = k.decode()
@@ -976,7 +934,7 @@ class HashSetting(BaseHashSetting):
             yield k, v
 
 
-class HashSettingProp:
+class HashSettingProp(BaseSetting):
     def __init__(
         self,
         name,
@@ -986,26 +944,19 @@ class HashSettingProp:
         default_values={},
         use_object_name=True,
     ):
-        self._name = name
-        self._cnx = connection or get_redis_connection()
-        self._read_type_conversion = read_type_conversion
-        self._write_type_conversion = write_type_conversion
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
         self._default_values = default_values
         self._use_object_name = use_object_name
 
-    @property
-    def name(self):
-        return self._name
-
     def __get__(self, obj, type=None):
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
 
         return HashSetting(
             name,
-            self._cnx,
+            self.connection,
             self._read_type_conversion,
             self._write_type_conversion,
             self._default_values,
@@ -1013,16 +964,16 @@ class HashSettingProp:
 
     def __set__(self, obj, values):
         if self._use_object_name:
-            name = obj.name + ":" + self._name
+            name = obj.name + ":" + self.name
         else:
-            name = self._name
+            name = self.name
 
         if isinstance(values, HashSetting):
             return
 
         proxy = HashSetting(
             name,
-            self._cnx,
+            self.connection,
             self._read_type_conversion,
             self._write_type_conversion,
             self._default_values,
@@ -1031,8 +982,8 @@ class HashSettingProp:
 
     def get_proxy(self):
         return HashSetting(
-            self._name,
-            self._cnx,
+            self.name,
+            self.connection,
             self._read_type_conversion,
             self._write_type_conversion,
             self._default_values,
@@ -1132,7 +1083,19 @@ class SimpleObjSettingProp(SimpleSettingProp):
 
 class Struct:
     def __init__(self, name, **keys):
-        self._proxy = HashSetting(name, **keys)
+        self.__proxy = HashSetting(name, **keys)
+
+    @property
+    def _proxy(self):
+        return self.__proxy
+
+    @property
+    def _cnx(self):
+        return self._proxy._cnx
+
+    @_cnx.setter
+    def _cnx(self, cnx):
+        self._proxy._cnx = cnx
 
     def __dir__(self):
         return self._proxy.keys()

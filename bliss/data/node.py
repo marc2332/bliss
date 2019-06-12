@@ -443,6 +443,10 @@ class DataNode(object):
         return self._data._proxy.name
 
     @property
+    def connection(self):
+        return self._data._cnx()
+
+    @property
     @protect_from_kill
     def name(self):
         return self._data.name

@@ -14,6 +14,9 @@ Bliss controller for  5-motors spectrometer test bench in EH1
 from bliss.controllers.motor import CalcController
 import math
 
+from bliss.physics import spectroscopy
+
+
 # GLOBAL VARIABLES #
 HC = 1.2398418743309972e-06  # eV * m
 ALAT_SI = 5.431065  # Ang at 25C
@@ -24,17 +27,6 @@ CRYST_MAT = "Si"  # or 'Ge' : analyser crystal material
 CRYST_HKL = [4, 4, 4]  # analyser crystal reflection [h,k,l]
 CRYST_ALPHA = 0.0  # miscut angle in degrees
 CRYST_R = 1000.  # analyser bending radius in mm (=2*Rm)
-
-
-# UTILITY FUNCTIONS #
-def kev2wlen(energy):
-    """ convert photon energy (E, keV) to wavelength ($\lambda$, \AA$^{-1}$)"""
-    return (HC / energy) * 1e7
-
-
-def wlen2kev(wlen):
-    """ convert photon wavelength ($\lambda$, \AA$^{-1}$) to energy (E, keV)"""
-    return (HC / wlen) * 1e7
 
 
 def sqrt1over(d2m):
@@ -52,9 +44,11 @@ def d_cubic(a, hkl):
 
 
 def theta_b(ene, d):
-    """Bragg angle (rad) given energy (keV) and d-spacing (\AA)"""
+    """Bragg angle (rad) given energy (keV) and d-spacing (Angstroms)"""
     if not (d == 0):
-        return math.asin((kev2wlen(ene)) / (2 * d))
+        return math.asin(
+            (spectroscopy.energy_kev_to_wavelength_angstrom(ene)) / (2 * d)
+        )
     else:
         print("ERROR: d-spacing is 0")
         return
@@ -62,7 +56,9 @@ def theta_b(ene, d):
 
 def bragg_kev(theta, d):
     """energy (keV) given Bragg angle (deg) and d-spacing (\AA)"""
-    return wlen2kev(2 * d * math.sin(math.radians(theta)))
+    return spectroscopy.wavelength_angstrom_to_energy_kev(
+        2 * d * math.sin(math.radians(theta))
+    )
 
 
 def get_dspacing(mat, hkl):

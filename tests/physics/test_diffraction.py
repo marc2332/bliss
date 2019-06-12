@@ -17,6 +17,9 @@ from bliss.physics.diffraction import CrystalPlane, MultiPlane
 from bliss.physics.diffraction import string_to_crystal_plane
 from bliss.physics.diffraction import distance_lattice_diffraction_plane
 
+import bliss.physics.diffraction as diff
+import bliss.physics.spectroscopy as spectro
+
 # Patch default 1e-12 default value for abs
 approx = partial(approx, rel=1e-3, abs=0.)
 
@@ -148,3 +151,11 @@ def test_multi_plane():
     assert multi.bragg_angle(b_energy) == approx(b_theta)
     assert multi.bragg_energy(b_thetas) == approx(b_energies)
     assert multi.bragg_angle(b_energies) == approx(b_thetas)
+
+
+def test_w2e_e2w():
+    # 7.5 keV ≈ 1.65 angstrom
+    assert spectro.energy_kev_to_wavelength_angstrom(7.5) == approx(1.653122)
+
+    # 1.653122 angstrom ≈ 7.5 keV
+    assert spectro.wavelength_angstrom_to_energy_kev(1.653122) == approx(7.5)

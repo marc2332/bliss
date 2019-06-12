@@ -50,3 +50,33 @@ def wavevector_to_energy(edge_energy, k):
     khbar = k * (1.0 * ur("hbar"))
     result = (khbar * khbar) / (2.0 * ur("electron_mass"))
     return result + edge_energy
+
+
+# same kind of functions, but usable is user code:
+def energy_kev_to_wavelength_angstrom(ene_kev):
+    """
+    Converts photon energy in keV to wavelength in angstroms
+    i.e: 1e7 * HC / ene
+    Parameters:
+    * <ene_kev>: energy in keV (float)
+
+    Returns:
+    * wavelength in angstroms (float)
+    """
+    energy_kev = ene_kev * ur.eV * 1000
+    wavelength = ur.c * ur.h / energy_kev
+    return wavelength.to(ur.angstrom).magnitude
+
+
+def wavelength_angstrom_to_energy_kev(wl_angstrom):
+    """
+    Converts wavelength in angstroms to photon energy in keV
+    Parameters:
+    * <wl_angstrom>: wavelength in angstroms (float)
+
+    Returns:
+    * energy in keV (float)
+    """
+    wavelength_angstrom = wl_angstrom * ur.angstrom
+    energy_kev = ur.c * ur.h / wavelength_angstrom
+    return energy_kev.to(ur.eV).magnitude / 1000

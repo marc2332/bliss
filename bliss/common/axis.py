@@ -272,7 +272,8 @@ class GroupMove:
                         if state is None:
                             state = AxisState("FAULT")
                         # update state and update dial pos.
-                        motion.axis._update_settings(state)
+                        with capture():
+                            motion.axis._update_settings(state)
 
                 # update set position if motor has been stopped,
                 # or if an exception happened or if motion type is

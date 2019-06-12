@@ -78,3 +78,18 @@ def test_stop_failure(bad_motor):
         bad_motor.stop()
 
     assert "READY" in bad_motor.state
+
+
+def test_state_after_bad_move(bad_motor):
+    # related to issue #788
+    try:
+        g = gevent.spawn_later(0.1, setattr, bad_motor.controller, "bad_position", True)
+        with pytest.raises(RuntimeError):
+            bad_motor.move(1)
+
+        g.get()
+    finally:
+        # make sure there is no dangling greenlet
+        g.kill()
+
+    assert "FAULT" in bad_motor.state

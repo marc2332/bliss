@@ -49,9 +49,6 @@ class SimulationDiodeSamplingCounter(SamplingCounter):
             gevent.sleep(0.01)  # simulate hw reading
         return random.randint(-100, 100)
 
-    def __repr__(self):
-        return "Simulation diode in SamplingCounter mode."
-
 
 class CstSimulationDiodeSamplingCounter(SamplingCounter):
     def __init__(self, *args, **kwargs):
@@ -66,18 +63,12 @@ class CstSimulationDiodeSamplingCounter(SamplingCounter):
             gevent.sleep(0.01)  # simulate hw reading
         return self.cst_val
 
-    def __repr__(self):
-        return "Simulation diode in SamplingCounter mode."
-
 
 class SimulationDiodeIntegratingCounter(IntegratingCounter):
     def get_values(self, from_index, sleep=True):
         if sleep:
             gevent.sleep(0.01)
         return 10 * [random.randint(-100, 100)]
-
-    def __repr__(self):
-        return "Simulation diode in IntegratingCounter mode."
 
 
 DEFAULT_CONTROLLER = simulation_diode_controller()

@@ -1376,7 +1376,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             yml: string containing yml data
             instance_name: the name of the instance that you want to import
         """
-        dict_in = yaml.load(yml)
+        dict_in = yaml.load(yml, Loader=yaml.FullLoader)
         if dict_in.get("WardrobeName") != self._wardr_name:
             logger.warning("Wardrobe Names are different")
         try:

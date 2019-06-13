@@ -103,6 +103,11 @@ def scan_meta(info=None):
 
     attrs["copy"] = copy
 
+    def cat_list(self):
+        return [n.name.lower() for n in _infos.keys()]
+
+    attrs["cat_list"] = cat_list
+
     klass = type("ScanMeta", (object,), attrs)
     return klass()
 

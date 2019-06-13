@@ -13,8 +13,11 @@ import gevent
 import h5py
 import datetime
 import time
+import os.path
+import numpy
 
-from bliss.data.node import get_node
+from bliss.data.node import get_node, _get_or_create_node
+from bliss.common.utils import dicttoh5  # derived from silx function
 
 
 class HDF5_Writer(object):
@@ -48,9 +51,10 @@ class HDF5_Writer(object):
 
         # all 0d channels that are involved in this scan will be added here
         self.channels = list()
+        self.lima_channels = list()
 
         # tracks for each channel how far the data has been written yet
-        self.indices = dict()
+        self.channel_indices = dict()
 
         # listen and treat events for this scan asynchronously
         self._greenlet = gevent.spawn(self.run)
@@ -64,7 +68,9 @@ class HDF5_Writer(object):
 
     @property
     def scan_info_dict(self):
-        return parent_node.info.get_all()
+        # data might be injected during the scan, therefor we do not
+        # keep a static reference here
+        return self.parent_node.info.get_all()
 
     def run(self):
         # ~ print("writer run", self.parent_db_name)
@@ -73,11 +79,11 @@ class HDF5_Writer(object):
         for event_type, node in n.iterator.walk_events():
             # ~  print(self.parent_db_name, event_type, node.type)
 
-            # creating new dataset for 0d channel
+            # creating new dataset for channel
             if event_type.name == "NEW_CHILD" and node.type == "channel":
                 # ~ print(self.parent_db_name,"create new dataset",node.name)
                 self.channels.append(node)
-                self.indices[node.fullname] = 0
+                self.channel_indices[node.fullname] = 0
 
                 maxshape = tuple([None] + list(node.shape))
                 npoints = self.scan_info("npoints") or 1
@@ -93,19 +99,89 @@ class HDF5_Writer(object):
                     maxshape=maxshape,
                 )
 
-            # adding data to 0d channel dataset
-            elif event_type.name == "NEW_DATA_IN_CHANNEL":
-                # ~ print(self.parent_db_name,"add data",node.name)
-                self.update_0d_data(node)
+            # creating new data set for lima data
+            elif event_type.name == "NEW_CHILD" and node.type == "lima":
+                self.lima_channels.append(node)
 
-    def update_0d_data(self, node):
+            # adding data to channel dataset
+            elif event_type.name == "NEW_DATA_IN_CHANNEL" and node.type == "channel":
+                # ~ print(self.parent_db_name,"add data",node.name)
+                self.update_data(node)
+
+            # adding data to lima dataset
+            elif event_type.name == "NEW_DATA_IN_CHANNEL" and node.type == "lima":
+                # could be done during the scan as done for channels
+                # in this demo we restrict ourselves to treating the lima data at the end of the scan
+                pass
+
+            else:
+                print(
+                    "DEBUG: untreated event: ",
+                    event_type.name,
+                    node.type,
+                    node.name,
+                    node.fullname,
+                )
+
+    def update_data(self, node):
         """Insert data until the last available point into the hdf5 datasets"""
-        data = node.get(self.indices[node.fullname], -1)
+        data = node.get(self.channel_indices[node.fullname], -1)
         if len(data) > 0:
             self.file[self.h5_scan_name + "/measurement/" + node.fullname][
-                self.indices[node.fullname] : self.indices[node.fullname] + len(data)
+                self.channel_indices[node.fullname] : self.channel_indices[
+                    node.fullname
+                ]
+                + len(data)
             ] = data
-            self.indices[node.fullname] += len(data)
+            self.channel_indices[node.fullname] += len(data)
+
+    def update_lima_data(self, node):
+        """Insert lima refs into the hdf5 datasets"""
+
+        data = self.lima_ref_array(node)
+
+        shape = numpy.shape(data)
+        dtype = data.dtype
+
+        dataset = self.file.create_dataset(
+            self.h5_scan_name
+            + "/measurement/"
+            + node.fullname,  # node.alias_or_fullname???
+            shape=shape,
+            dtype=dtype,
+            compression="gzip",
+            data=data,
+        )
+
+        dataset[:] = data
+
+    def lima_ref_array(self, node):
+        """ used to produce a string version of a lima reference that can be saved in hdf5
+        """
+        # looks like the events are not emitted after saving,
+        # therefore we will use 'last_image_ready' instead
+        # of "last_image_saved" for now
+        # last_image_saved = event_dict["data"]["last_image_saved"]
+
+        root_path = os.path.dirname(self.file.filename)
+
+        lima_data_view = node.get(0, -1)
+
+        tmp = lima_data_view._get_filenames(node.info, *range(0, len(lima_data_view)))
+
+        if tmp != []:
+            tmp = numpy.array(tmp, ndmin=2)
+            relpath = [os.path.relpath(i, start=root_path) for i in tmp[:, 0]]
+            basename = [os.path.basename(i) for i in tmp[:, 0]]
+            entry = tmp[:, 1]
+            frame = tmp[:, 2]
+            file_type = tmp[:, 3]
+
+            return numpy.array(
+                (basename, file_type, frame, entry, relpath),
+                dtype=h5py.special_dtype(vlen=str),
+            ).T
+        return None
 
     def finalize(self):
         """stop the iterator loop for this scan and pass once through all
@@ -117,17 +193,45 @@ class HDF5_Writer(object):
         # make sure that all data was written until the last point
         # in case we missed anything
         for c in self.channels:
-            self.update_0d_data(c)
+            self.update_data(c)
+
+        for c in self.lima_channels:
+            self.update_lima_data(c)
+
+        # instrument entry
+        instrument = self.file.create_group(f"{self.h5_scan_name}/instrument")
+        instrument.attrs["NX_class"] = "NXinstrument"
+        dicttoh5(
+            self.scan_info_dict["instrument"],
+            self.file,
+            h5path=f"{self.h5_scan_name}/instrument",
+        )
+
+        # deal with meta-data
+        meta_categories = self.scan_info_dict["scan_meta_categories"]
+        if "instrument" in meta_categories:
+            meta_categories.remove("instrument")
+
+        meta = self.file.create_group(f"{self.h5_scan_name}/scan_meta")
+        meta.attrs["NX_class"] = "NXcollection"
+        for cat in meta_categories:
+            dicttoh5(
+                self.scan_info_dict[cat],
+                self.file,
+                h5path=f"{self.h5_scan_name}/scan_meta/{cat}",
+            )
 
         self.file.close()
 
 
-def listen_to_session_wait_for_scans(session):
+def listen_to_session_wait_for_scans(session, event=None):
     """listen to one session and create a HDF5_Writer instance every time
     a new scan is started. Once a END_SCAN event is received the writer 
     instance is informed to finalize."""
+    # event: for external synchronization (see test)
 
-    n = get_node(session)
+    # n = get_node(session)
+    n = _get_or_create_node(session)
 
     ### one could consider to simplify this by introducing a walk_events_from_last
     it = n.iterator
@@ -138,7 +242,8 @@ def listen_to_session_wait_for_scans(session):
     def g(filter="scan"):
 
         # make all past scans go away
-        for last_node in it.walk(filter=filter, wait=False):
+        for x in it.walk_from_last(wait=False, include_last=False, ready_event=event):
+            # for last_node in it.walk(filter=filter, wait=False):
             pass
 
         # wait for new events on scan

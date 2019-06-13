@@ -6,154 +6,103 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Lakeshore 336, acessible via GPIB, USB or Ethernet
+Lakeshore 335, acessible via GPIB or USB
 
 yml configuration example:
 #controller:
-- class: lakeshore336
-  module: lakeshore.lakeshore336
-  #eos: '\r\n'
-  name: lakeshore336
+- class: lakeshore335
+  module: lakeshore.lakeshore335
+  name: lakeshore335
   timeout: 3
-#gpib
   gpib:
      url: enet://gpibid10f.esrf.fr
      pad: 9 
-#usb
   usb:
      url: ser2net://lid102:28000/dev/ttyUSB0
-     baudrate: 57600    # = the only possible value
-#ethernet
-  tcp:
-     #url: idxxlakeshore:7777
-     url: lakeshore336se2:7777
+     # when not in model 331 or model 332 emulation mode,
+     # baud-rate of 57600 is the only one possible. If configured
+     # in emulation mode, then can have also 300, 1200, 9600
+     # as possible values for baud-rate.
+     baudrate: 57600
   inputs:
-    - name: ls336_A
+    - name: ls335_A
       channel: A 
       unit: Kelvin
-      #tango_server: ls_336
-    - name: ls336_A_c    # input temperature in Celsius
+      #tango_server: ls_335
+    - name: ls335_A_c    # input temperature in Celsius
       channel: A
       unit: Celsius
-    - name: ls336_A_su  # in sensor units (Ohm or Volt)
+    - name: ls335_A_su  # in sensor units (Ohm or Volt)
       channel: A
       unit: Sensor_unit
 
-    - name: ls336_B
+    - name: ls335_B
       channel: B 
       unit: Kelvin
-      #tango_server: ls_336
-    - name: ls336_B_c    # input temperature in Celsius
+      #tango_server: ls_335
+    - name: ls335_B_c    # input temperature in Celsius
       channel: B
       unit: Celsius
-    - name: ls336_B_su  # in sensor units (Ohm or Volt)
+    - name: ls335_B_su  # in sensor units (Ohm or Volt)
       channel: B
       unit: Sensor_unit
 
-    # can add also input channels C and D
-
   outputs:
-    - name: ls336o_1
+    - name: ls335o_1
       channel: 1 
       unit: Kelvin
-    - name: ls336o_2
+    - name: ls335o_2
       channel: 2 
-      unit: Kelvin
 
   ctrl_loops:
-    - name: ls336l_1
-      input: $ls336_A
-      output: $ls336o_1
+    - name: ls335l_1
+      input: $ls335_A
+      output: $ls335o_1
       channel: 1
-    - name: ls336l_2
-      input: $ls336_B
-      output: $ls336o_2
+    - name: ls335l_2
+      input: $ls335_B
+      output: $ls335o_2
       channel: 2
-
-    # can add also output channels 3 and 4
-
 """
-
-
+import types
 import time
-import os
-import re
-
-
-# Logging messages
-# from bliss.common import log
-import logging
-
-# logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s')
-logging.basicConfig(format="%(levelname)s - %(message)s")
-
-
-# communication
-from bliss.comm.tcp import Tcp
-from bliss.comm.gpib import Gpib
+import enum
 from bliss.comm import serial
+from bliss.comm.util import get_interface, get_comm
+from bliss.common.logtools import LogMixin
+from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 
-from bliss.controllers.temperature.lakeshore.lakeshore import Base
+_last_call = time.time()
+# limit number of commands per second
+# lakeshore 331 supports at most 20 commands per second
+def _send_limit(func):
+    def f(*args, **kwargs):
+        global _last_call
+        delta_t = time.time() - _last_call
+        if delta_t <= 0.15:
+            time.sleep(0.15 - delta_t)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            _last_call = time.time()
+
+    return f
 
 
-class LakeShore336(object):
+class LakeShore335(LogMixin):
+    UNITS331 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
 
-    MODE336 = (
-        "Off",
-        "Closed Loop PID",
-        "Zone",
-        "Open Loop",
-        "Monitor Out",
-        "Warmup Supply",
-    )
-    SPUNITS336 = {"Kelvin": 1, "Celsius": 2, "Sensor_unit": 3}
-    REVSPUNITS336 = {1: "Kelvin", 2: "Celsius", 3: "Sensor_unit"}
-    CURVEFORMAT336 = {1: "mV/K", 2: "V/K", 3: "Ohms/K", 4: "logOhms/K"}
-    CURVETEMPCOEF336 = {1: "negative", 2: "positive"}
-    SENSORTYPE336 = (
-        "Disabled",
-        "Diode",
-        "Platinum RTD",
-        "NTC RTD",
-        "Thermocouple",
-        "Capacitance",
-    )
-    IPSENSORUNITS336 = {1: "volts", 2: "ohms"}
-    HTRSTATUS336 = {0: "OK", 1: "Heater open load", 2: "Heater short"}
-    INPUT336 = {"None": 0, "A": 1, "B": 2, "C": 3, "D": 4}
-    REVINPUT336 = {0: "None", 1: "A", 2: "B", 3: "C", 4: "D"}
-
-    def __init__(self, comm_type, url, **kwargs):
-        self.eos = kwargs.get("eos", "\r\n")
-        timeout = kwargs.get("timeout", 0.5)
-        if "gpib" in comm_type:
-            self._comm = Gpib(
-                url, pad=kwargs["extra_param"], eos=self.eos, timeout=timeout
-            )
-        elif ("serial" or "usb") in comm_type:
-            baudrate = kwargs.get("extra_param", 9600)
-            self._comm = serial.Serial(
-                url,
-                baudrate=baudrate,
-                bytesize=serial.SEVENBITS,
-                parity=serial.PARITY_ODD,
-                stopbits=serial.STOPBITS_ONE,
-                timeout=timeout,
-                eol=self.eos,
-            )
-        elif "tcp" in comm_type:
-            self._comm = Tcp(url, eol=self.eos, timeout=timeout)
-        else:
-            raise RuntimeError("Unknown communication  protocol")
+    def __init__(self, comm, **kwargs):
+        self._comm = comm
         self._channel = None
 
-        self.log = logging.getLogger(type(self).__name__)
-        # self.log.setLevel(logging.NOTSET)
-        # Set initial log level to logging.WARNING = 30
-        # to get only Warning, Error and Critical messages logged
-        self.log.setLevel(logging.WARNING)
+        self._logger.info("__init__")
 
-        self.log.info("__init__")
+    @property
+    def eol(self):
+        return self._comm._eol
 
     # Initialization methods
     # ----------------------
@@ -161,9 +110,9 @@ class LakeShore336(object):
     # - Controller
     #   ----------
     def clear(self):
-        """ Clears the bits in the Status Byte, Standard Event and Operation
-            Event Registers. Terminates all pending operations.
-            Returns:
+        """Clears the bits in the Status Byte, Standard Event and Operation
+           Event Registers. Terminates all pending operations.
+           Returns:
               None
         """
         self.send_cmd("*CLS")
@@ -171,185 +120,72 @@ class LakeShore336(object):
     # - Input object
     #   ------------
     def _initialize_input(self, input):
-        self.log.info("_initialize_input")
+        self._logger.info("_initialize_input")
         self._add_custom_method_input(input)
 
     # - Output object
     #   -------------
     def _initialize_output(self, output):
-        self.log.info("_initialize_output")
-        self._add_custom_method_output(output)
+        self._logger.info("_initialize_output")
+        # self._add_custom_method_output(output)
 
     # - Loop object
     #   -----------
     def _initialize_loop(self, loop):
-        self.log.info("_initialize_loop")
+        self._logger.info("_initialize_loop")
         self._add_custom_method_loop(loop)
-
         # Get input object channel
         ipc = loop.input.config["channel"]
-        # Get output object channel
-        opc = loop.output.config["channel"]
         # Get output object unit
-        opu = loop.output.config["unit"]
+        opu = loop.input.config["unit"]
+        # Get loop object channel
+        loop_channel = loop.config["channel"]
 
-        self._intype(ipc, unit=self.SPUNITS336[opu])
-        self._outmode(opc, input=ipc)
+        self.set_loop_params(loop_channel, input=ipc, unit=opu)
 
     # Standard INPUT-object related method(s)
     # ---------------------------------------
     def read_temperature(self, channel, scale):
         """ Read the current temperature
             Args:
-              channel (int): input channel. Valid entries: A,B,C or D
+              channel (int): input channel. Valid entries: A or B
               scale (str): temperature unit for reading: Kelvin or Celsius
-                           or Sensor_unit
+                           or Sensor_unit (Ohm or Volt)
             Returns:
-              (float): current temperature in Kelvin, Celsius or Sensor_unit
+              (float): current temperature
         """
-        self.log.info("read_temperature")
-        self._channel = channel
-
+        self._logger.info("read_temperature")
         # Query Input Status before reading temperature
         # If status is OK, then read the temperature
-        asw = int(self.send_cmd("RDGST?"))
+        asw = int(self.send_cmd("RDGST?", channel=channel))
         if asw == 0:
             if scale == "Kelvin":
-                return float(self.send_cmd("KRDG?"))
+                return float(self.send_cmd("KRDG?", channel=channel))
             elif scale == "Celsius":
-                return float(self.send_cmd("CRDG?"))
+                return float(self.send_cmd("CRDG?", channel=channel))
             elif scale == "Sensor_unit":
-                return float(self.send_cmd("SRDG?"))
-
+                return float(self.send_cmd("SRDG?", channel=channel))
         if asw & 16:
-            self.log.warning("Temperature UnderRange on input %s" % channel)
+            self._logger.warning("Temperature UnderRange on input %s" % channel)
             raise ValueError("Temperature value on input %s is invalid" % channel)
         if asw & 32:
-            self.log.warning("Temperature OverRange on input %s" % channel)
+            self._logger.warning("Temperature OverRange on input %s" % channel)
             raise ValueError("Temperature value on input %s is invalid" % channel)
         if asw & 64:
-            self.log.warning("0 value in sensor units on input %s" % channel)
-            raise ValueError("Value in sensor units on input %s is invalid" % channel)
+            self._logger.warning("Temperature in Sensor_unit = 0 on input %s" % channel)
+            raise ValueError("Temperature in Sensor_unit = 0 on input %s" % channel)
         if asw & 128:
-            self.log.warning("Overrange of value in sensor units on input %s" % channel)
-            raise ValueError("Value in sensor units on input %s is invalid" % channel)
+            self._logger.warning(
+                "Temperature OverRange in Sensor_unit on input %s" % channel
+            )
+            raise ValueError(
+                "Temperature OverRange in Sensor_unit on input %s" % channel
+            )
 
     # Adding CUSTOM INPUT-object related method(s)
     # --------------------------------------------
     def _add_custom_method_input(self, input):
-        self.log.info("_add_custom_method_input")
-
-        def curve_used_curve():
-            """ Get the input curve used
-                Prints:
-                   curve number (int): 0=none, 1->20 standard, 21->59 user defined curves
-                   curve name (str): limited to 15 characters
-                   curve SN (str): limited to 10 characters (Standard,...)
-                   curve format (int): 1=mV/K, 2=V/K, 3=Ohms/K, 4=logOhms/K
-                   curve temperature limit (float): in Kelvin
-                   curve temperature coefficient (int): 1=negative, 2=positive
-            """
-            self.log.info("curve_used_curve")
-            return self._curve_used_curve(input.config.get("channel"))
-
-        input.curve_used_curve = curve_used_curve
-
-        def curve_to_use(crvn=0):
-            """ Select the curve to be used on in input
-                Args:
-                  crvn (int): Curve number: 1->20 standard, 
-                                            21->60 user defined curves
-            """
-            self.log.info("curve_to_use")
-            self._curve_to_use(input.config.get("channel"), crvn)
-
-        input.curve_to_use = curve_to_use
-
-        def curve_list_all():
-            """ List all the curves
-                Returns:
-                  a row for all the curves from 1 to 59 
-            """
-            self.log.info("curve_list_all")
-            return self._curve_list_all()
-
-        input.curve_list_all = curve_list_all
-
-        def curve_write(crvn=None, crvfile=None):
-            """ Write the user curve into the Lakeshore
-                Args:
-                  crvn (int): The user curve number from 21 to 59 
-                  crvfile (str): full file name
-                Returns:
-                  Status of curve written
-            """
-            self.log.info("curve_write")
-            return self._curve_write(crvn, crvfile)
-
-        input.curve_write = curve_write
-
-        def curve_delete(crvn=None):
-            """ Delete a user curve from the Lakeshore
-                Args:
-                  crvn (int): The user curve number from 21 to 59 
-                Returns:
-                  None.
-            """
-            self.log.info("curve_delete")
-            self._curve_delete(crvn)
-
-        input.curve_delete = curve_delete
-
-        def filter(onoff=None, points=None, window=None):
-            """ Configure input filter parameters
-                Args:
-                  onoff (int): 1 = enable, 0 = disable
-                  points (int): specifies how many points the filtering
-                                function uses. Valid values: 2 to 64.
-                  window (int): specifies what percent of full scale reading
-                                limits the filtering function. Reading 
-                                changes greater than this percentage reset
-                                the filter. Valid range: 1 to 10%.
-                Returns:
-                  None
-            """
-            self.log.info("filter")
-            return self._filter(
-                input.config.get("channel"), onoff=onoff, points=points, window=window
-            )
-
-        input.filter = filter
-
-        def intype(
-            sensor_type=None, autorange=None, iprange=None, compensation=None, unit=None
-        ):
-            """ Read/set input type parameters
-                Args: 
-                  sensor_type (int): Valid entries: 0=Disabled, 1=Diode,
-                                    2=Platinum RTD, 3=NTC RTD,
-                                    4=Thermocouple (3060 option only),
-                                    5=Capacitance (3061 option only)
-                  autorange (int): 0=off, 1=on
-                  iprange (int): input range when autorange in off ;
-                                 see table 6-8 on page 136 of manual
-                  compensation (int): input compensation. 0=off, 1=on
-                  unit (int): prefered unit for sensor reading AND for the 
-                               control setpoint. 1=Kelvin, 2=Celsius, 3=Sensor_unit
-                Returns:
-                  None if set
-                  sensor_type, autorange, iprange, compensation, unit
-            """
-            self.log.info("intype")
-            return self._intype(
-                input.config.get("channel"),
-                sensor_type=sensor_type,
-                autorange=autorange,
-                iprange=iprange,
-                compensation=compensation,
-                unit=unit,
-            )
-
-        input.intype = intype
+        self._logger.info("_add_custom_method_input")
 
         def alarm_status():
             """ Shows high and low alarm state for given input
@@ -358,7 +194,7 @@ class LakeShore336(object):
                 Returns:
                   high and low alarm state (str, str): "On/Off"
             """
-            self.log.info("alarm_status")
+            self._logger.info("alarm_status")
             return self._alarm_status(input.config.get("channel"))
 
         input.alarm_status = alarm_status
@@ -368,8 +204,8 @@ class LakeShore336(object):
                 Args:
                   None (though this command does not need the input channel,
                         we put it here, since alarms are related to the state
-                        on input like for ex. measured temperature above
-                        alarm high-limit etc)
+                        on input like for ex. measured temperature above 
+                        alarm high-limit etc.)
                 Returns:
                   None
             """
@@ -422,7 +258,7 @@ class LakeShore336(object):
     def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint
             Args:
-              channel (int): output channel. Valid entries: 1,2,3 or 4
+              channel (int): output channel. Valid entries: 1 or 2
               value (float): The value of the setpoint if set
                              None if read
             Returns:
@@ -456,6 +292,8 @@ class LakeShore336(object):
         # send the ramp rate if OK
         if value < 0.1 or value > 100:
             raise ValueError("Ramp value %s is out of bounds [0.1,100]" % value)
+
+        # send the ramp rate
         self.send_cmd("RAMP", 0, value)
 
     def ramp(self, channel, sp, rate):
@@ -515,7 +353,7 @@ class LakeShore336(object):
                                1=Closed Loop PID, 2=Zone, 3=Open Loop,
                                4=Monitor Out, 5=Warmup Supply
                    input (str): which input to control from. 
-                                Valid entries: None, A, B, C or D.
+                                Valid entries: None, A, B
               Returns:
                    None if set
                    mode (str): control mode
@@ -571,9 +409,9 @@ class LakeShore336(object):
         """ Read/Set Control Loop PID Values (P, I, D)
            Args:
               channel (int): loop channel. Valid entries: 1 or 2
-              P (float): Proportional gain (0 to 1000)
-              I (float): Integral reset (1 to 1000) [value/s]
-              D (float): Derivative rate (1 to 200) [%]
+              P (float): Proportional gain (0.1 to 1000)
+              I (float): Integral reset (0.1 to 1000) [value/s]
+              D (float): Derivative rate (0 to 200) [%]
               None if read
            Returns:
               None if set
@@ -594,12 +432,14 @@ class LakeShore336(object):
                 ki = kic
             if kd is None:
                 kd = kdc
-            if float(kp) < 0 or float(kp) > 1000.:
-                raise ValueError("Proportional gain %s is out of bounds [0,1000]" % kp)
-            if float(ki) < 1 or float(ki) > 1000.:
-                raise ValueError("Integral reset %s is out of bounds [1,1000]" % ki)
-            if float(kd) < 1 or float(kd) > 200:
-                raise ValueError("Derivative rate %s is out of bounds [1,200]" % kd)
+            if float(kp) < 0.1 or float(kp) > 1000.:
+                raise ValueError(
+                    "Proportional gain %s is out of bounds [0.1,1000]" % kp
+                )
+            if float(ki) < 0.1 or float(ki) > 1000.:
+                raise ValueError("Integral reset %s is out of bounds [0.1,1000]" % ki)
+            if float(kd) < 0 or float(kd) > 200:
+                raise ValueError("Derivative rate %s is out of bounds [0,200]" % kd)
             self.send_cmd("PID", kp, ki, kd)
         else:
             kp, ki, kd = self.send_cmd("PID?").split(",")
@@ -617,7 +457,7 @@ class LakeShore336(object):
                                1=Closed Loop PID, 2=Zone, 3=Open Loop,
                                4=Monitor Out, 5=Warmup Supply
                    input (str): which input to control from. 
-                                Valid entries: A,B,C or D.
+                                Valid entries: None, A or B.
               Returns:
                    None if set
                    mode (str): control mode
@@ -677,7 +517,7 @@ class LakeShore336(object):
         """
         self.log.info("_model")
         model = self.send_cmd("*IDN?").split(",")[1]
-        return int(model[5:])
+        return int(model[5:8])
 
     def _show(self):
         """ Display all main parameters and values for the 
@@ -708,11 +548,11 @@ class LakeShore336(object):
         asw = asw.split(",")
         print(
             "Curve type = %s, SerNum = %s, Format = %s"
-            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT336[int(asw[2])])
+            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT335[int(asw[2])])
         )
         print(
             "Temp.limit = %s K , Temp.coeff. = %s"
-            % (asw[3], self.CURVETEMPCOEF336[int(asw[4])])
+            % (asw[3], self.CURVETEMPCOEF335[int(asw[4])])
         )
 
         # Get input A sensor preferred units (Kelvin,Celsius,Sensor-unit)
@@ -720,7 +560,7 @@ class LakeShore336(object):
         asw = self.send_cmd("INTYPE?")
         asw = asw.split(",")
         ipsu_A = asw[4]
-        print("Input A sensor preferred units = %s" % self.REVSPUNITS336[int(ipsu_A)])
+        print("Input A sensor preferred units = %s" % self.REVSPUNITS335[int(ipsu_A)])
 
         # Query Input Status before reading temperature
         # If status is OK, then read the temperature in
@@ -762,11 +602,11 @@ class LakeShore336(object):
         asw = asw.split(",")
         print(
             "Curve type = %s, SerNum = %s, Format = %s"
-            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT336[int(asw[2])])
+            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT335[int(asw[2])])
         )
         print(
             "Temp.limit = %s K, Temp.coeff. = %s"
-            % (asw[3], self.CURVETEMPCOEF336[int(asw[4])])
+            % (asw[3], self.CURVETEMPCOEF335[int(asw[4])])
         )
 
         # Get input B sensor preferred units (Kelvin,Celsius,Sensor-unit)
@@ -774,7 +614,7 @@ class LakeShore336(object):
         asw = self.send_cmd("INTYPE?")
         asw = asw.split(",")
         ipsu_B = asw[4]
-        print("Input B sensor preferred units = %s" % self.REVSPUNITS336[int(ipsu_B)])
+        print("Input B sensor preferred units = %s" % self.REVSPUNITS335[int(ipsu_B)])
 
         # Query Input Status before reading temperature
         # If status is OK, then read the temperature in
@@ -787,114 +627,6 @@ class LakeShore336(object):
             resorvol_B = float(self.send_cmd("SRDG?"))  # in sensor units
             print("Temperature on input B = %.3f K (%.3f C)" % (tempK_B, tempC_B))
             print("Input B reading in Sensor Units = %.3f" % resorvol_B)
-        else:
-            print("Invalid status on input %s" % self._channel)
-            if asw & 16:
-                self.log.warning("Temperature UnderRange on input %s" % self._channel)
-            if asw & 32:
-                self.log.warning("Temperature OverRange on input %s" % self._channel)
-            if asw & 64:
-                self.log.warning("0 value in sensor units on input %s" % self._channel)
-            if asw & 128:
-                self.log.warning(
-                    "Overrange of value in sensor units on input %s" % self._channel
-                )
-
-        # Sensor C
-        # --------
-        print("\nSensor C:")
-        print("=========")
-
-        # Specify channel to be used in send_cmd for the commands
-        # needing it: INCRV?, INTYPE?, KRDG?, CRDG?, SRDG?
-        self._channel = "C"
-
-        # Get temperature calibration curve for input C
-        asw = self.send_cmd("INCRV?")
-        print("Uses calibration curve number %d" % int(asw))
-        asw = self.send_cmd("CRVHDR? %s" % asw)
-        asw = asw.split(",")
-        print(
-            "Curve type = %s, SerNum = %s, Format = %s"
-            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT336[int(asw[2])])
-        )
-        print(
-            "Temp.limit = %s K, Temp.coeff. = %s"
-            % (asw[3], self.CURVETEMPCOEF336[int(asw[4])])
-        )
-
-        # Get input C sensor preferred units (Kelvin,Celsius,Sensor-unit)
-        # The same preferred units are used for the control set-point
-        asw = self.send_cmd("INTYPE?")
-        asw = asw.split(",")
-        ipsu_C = asw[4]
-        print("Input C sensor preferred units = %s" % self.REVSPUNITS336[int(ipsu_C)])
-
-        # Query Input Status before reading temperature
-        # If status is OK, then read the temperature in
-        # Kelvin, Celsius and sensor units (volt or ohm).
-        asw = int(self.send_cmd("RDGST?"))
-        if asw == 0:
-            # Read input C temperature now since input status OK
-            tempK_C = float(self.send_cmd("KRDG?"))  # in Kelvin
-            tempC_C = float(self.send_cmd("CRDG?"))  # in Celsius
-            resorvol_C = float(self.send_cmd("SRDG?"))  # in sensor units
-            print("Temperature on input C = %.3f K (%.3f C)" % (tempK_C, tempC_C))
-            print("Input C reading in Sensor Units = %.3f" % resorvol_C)
-        else:
-            print("Invalid status on input %s" % self._channel)
-            if asw & 16:
-                self.log.warning("Temperature UnderRange on input %s" % self._channel)
-            if asw & 32:
-                self.log.warning("Temperature OverRange on input %s" % self._channel)
-            if asw & 64:
-                self.log.warning("0 value in sensor units on input %s" % self._channel)
-            if asw & 128:
-                self.log.warning(
-                    "Overrange of value in sensor units on input %s" % self._channel
-                )
-
-        # Sensor D
-        # --------
-        print("\nSensor D:")
-        print("=========")
-
-        # Specify channel to be used in send_cmd for the commands
-        # needing it: INCRV?, INTYPE?, KRDG?, CRDG?, SRDG?
-        self._channel = "D"
-
-        # Get temperature calibration curve for input D
-        asw = self.send_cmd("INCRV?")
-        print("Uses calibration curve number %d" % int(asw))
-        asw = self.send_cmd("CRVHDR? %s" % asw)
-        asw = asw.split(",")
-        print(
-            "Curve type = %s, SerNum = %s, Format = %s"
-            % (asw[0].strip(), asw[1].strip(), self.CURVEFORMAT336[int(asw[2])])
-        )
-        print(
-            "Temp.limit = %s K, Temp.coeff. = %s"
-            % (asw[3], self.CURVETEMPCOEF336[int(asw[4])])
-        )
-
-        # Get input D sensor preferred units (Kelvin,Celsius,Sensor-unit)
-        # The same preferred units are used for the control set-point
-        asw = self.send_cmd("INTYPE?")
-        asw = asw.split(",")
-        ipsu_D = asw[4]
-        print("Input D sensor preferred units = %s" % self.REVSPUNITS336[int(ipsu_D)])
-
-        # Query Input Status before reading temperature
-        # If status is OK, then read the temperature in
-        # Kelvin, Celsius and sensor units (volt or ohm).
-        asw = int(self.send_cmd("RDGST?"))
-        if asw == 0:
-            # Read input D temperature now since input status OK
-            tempK_D = float(self.send_cmd("KRDG?"))  # in Kelvin
-            tempC_D = float(self.send_cmd("CRDG?"))  # in Celsius
-            resorvol_D = float(self.send_cmd("SRDG?"))  # in sensor units
-            print("Temperature on input D = %.3f K (%.3f C)" % (tempK_D, tempC_D))
-            print("Input D reading in Sensor Units = %.3f" % resorvol_D)
         else:
             print("Invalid status on input %s" % self._channel)
             if asw & 16:
@@ -925,14 +657,10 @@ class LakeShore336(object):
             units = ipsu_A
         if sensor == "2":
             units = ipsu_B
-        if sensor == "3":
-            units = ipsu_C
-        if sensor == "4":
-            units = ipsu_D
 
-        units = self.REVSPUNITS336[int(units)]
+        units = self.REVSPUNITS335[int(units)]
         print("Controlled by sensor %s in %s " % (sensor, units))
-        print("Temp Control is set to %s" % self.MODE336[int(mode)])
+        print("Temp Control is set to %s" % self.MODE335[int(mode)])
 
         # Read ramp enable/disable status and ramp rate
         rp_1 = self.send_cmd("RAMP?").split(",")
@@ -976,13 +704,9 @@ class LakeShore336(object):
             units = ipsu_A
         if sensor == "2":
             units = ipsu_B
-        if sensor == "3":
-            units = ipsu_C
-        if sensor == "4":
-            units = ipsu_D
-        units = self.REVSPUNITS336[int(units)]
+        units = self.REVSPUNITS335[int(units)]
         print("Controlled by sensor %s in %s " % (sensor, units))
-        print("Temp Control is set to %s" % self.MODE336[int(mode)])
+        print("Temp Control is set to %s" % self.MODE335[int(mode)])
 
         # Read ramp enable/disable status and ramp rate
         rp_2 = self.send_cmd("RAMP?").split(",")
@@ -1027,7 +751,7 @@ class LakeShore336(object):
 
         # Get heater status
         htr_status = int(self.send_cmd("HTRST?"))
-        print("Heater status = %s" % self.HTRSTATUS336[int(htr_status)])
+        print("Heater status = %s" % self.HTRSTATUS335[int(htr_status)])
 
         print("\nHeater 2:")
         print("=========")
@@ -1045,79 +769,7 @@ class LakeShore336(object):
 
         # Get heater status
         htr_status = int(self.send_cmd("HTRST?"))
-        print("Heater status = %s" % self.HTRSTATUS336[int(htr_status)])
-
-        print("\nOutput 3:")
-        print("=========")
-
-        # Specify channel to be used in OUTMODE? and SETP? commands
-        self._channel = "3"
-
-        # Read outmode
-        asw = self.send_cmd("OUTMODE?").split(",")
-        mode = asw[0]
-        if mode == "0":
-            units = "Kelvin"
-        else:
-            sensor = asw[1]
-            if sensor == "0":
-                units = "Kelvin"
-            else:
-                if sensor == "1":
-                    units = ipsu_A
-                if sensor == "2":
-                    units = ipsu_B
-                if sensor == "3":
-                    units = ipsu_C
-                if sensor == "4":
-                    units = ipsu_D
-                units = self.REVSPUNITS336[int(units)]
-
-        # Read setpoint
-        sp_3 = float(self.send_cmd("SETP?"))
-        print("Set-point = %.3f %s " % (sp_3, units))
-
-        htr_range = int(self.send_cmd("RANGE?"))
-        if htr_range == 0:
-            print("Heater is OFF")
-        else:
-            print("Heater is ON")
-
-        print("\nOutput 4:")
-        print("=========")
-
-        # Specify channel to be used in OUTMODE? and SETP? commands
-        self._channel = "4"
-
-        # Read outmode
-        asw = self.send_cmd("OUTMODE?").split(",")
-        mode = asw[0]
-        if mode == "0":
-            units = "Kelvin"
-        else:
-            sensor = asw[1]
-            if sensor == "0":
-                units = "Kelvin"
-            else:
-                if sensor == "1":
-                    units = ipsu_A
-                if sensor == "2":
-                    units = ipsu_B
-                if sensor == "3":
-                    units = ipsu_C
-                if sensor == "4":
-                    units = ipsu_D
-                units = self.REVSPUNITS336[int(units)]
-
-        # Read setpoint
-        sp_4 = float(self.send_cmd("SETP?"))
-        print("Set-point = %.3f %s " % (sp_4, units))
-
-        htr_range = int(self.send_cmd("RANGE?"))
-        if htr_range == 0:
-            print("Heater is OFF")
-        else:
-            print("Heater is ON")
+        print("Heater status = %s" % self.HTRSTATUS335[int(htr_status)])
 
     def _log_level(self, value=None):
 
@@ -1157,7 +809,7 @@ class LakeShore336(object):
     def _curve_used_curve(self, channel):
         """ Get the input curve used
             Args:
-              channel (str): input channel. Valied entries: A,B,C or D
+              channel (str): input channel. Valied entries: A or B
             Prints:
               curve number (int): 0=none, 1->20 standard, 21->59 user defined curves
               curve name (str): limited to 15 characters
@@ -1174,9 +826,9 @@ class LakeShore336(object):
         header = curve_header.split(",")
         curve_name = header[0]
         curve_sn = header[1]
-        curve_format = self.CURVEFORMAT336[int(header[2])]
+        curve_format = self.CURVEFORMAT335[int(header[2])]
         curve_temperature_limit = header[3]
-        curve_temperature_coefficient = self.CURVETEMPCOEF336[int(header[4])]
+        curve_temperature_coefficient = self.CURVETEMPCOEF335[int(header[4])]
 
         print("Used curve number is: %d" % int(curve_number))
         print(
@@ -1226,9 +878,9 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
             header = curve_header.split(",")
             curve_name = header[0].strip()
             curve_sn = header[1]
-            curve_format = self.CURVEFORMAT336[int(header[2])]
+            curve_format = self.CURVEFORMAT335[int(header[2])]
             curve_temperature_limit = header[3]
-            curve_temperature_coefficient = self.CURVETEMPCOEF336[int(header[4])]
+            curve_temperature_coefficient = self.CURVETEMPCOEF335[int(header[4])]
             print(
                 "%2d %15s %10s %12s %12s %s"
                 % (
@@ -1258,15 +910,15 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
         if crvn not in range(21, 60):
             raise ValueError("User curve number %d is not in [21,59]" % crvn)
 
-        print("Readings from actual curve %d in LakeShore 336 :" % crvn)
+        print("Readings from actual curve %d in LakeShore 335 :" % crvn)
         command = "CRVHDR? %d" % crvn
         loaded_curve = self.send_cmd(command)
         header = loaded_curve.split(",")
         curve_name = header[0].strip()
         curve_sn = header[1]
-        curve_format = self.CURVEFORMAT336[int(header[2])]
+        curve_format = self.CURVEFORMAT335[int(header[2])]
         curve_temp_limit = header[3]
-        curve_temp_coeff = self.CURVETEMPCOEF336[int(header[4])]
+        curve_temp_coeff = self.CURVETEMPCOEF335[int(header[4])]
         print("no channel")
         print(
             "\t%15s %10s %12s %12s %s"
@@ -1328,9 +980,9 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                 )
             if curve_nb_breakpts == "":
                 raise ValueError("No number of breakpoints")
-            elif int(curve_nb_breakpts) not in range(2, 201):
+            elif int(curve_nb_breakpts) not in range(1, 201):
                 raise ValueError(
-                    "Number of breakpoints %s not in [2,200]" % curve_nb_breakpts
+                    "Number of breakpoints %s not in [1,200]" % curve_nb_breakpts
                 )
 
         print("fichier ouvert et lu\n")
@@ -1370,7 +1022,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                     self.send_cmd(command)
 
         print(
-            "Curve %d has been written into the LakeShore model 336 temperature controller."
+            "Curve %d has been written into the LakeShore model 335 temperature controller."
             % crvn
         )
 
@@ -1403,7 +1055,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
     def _filter(self, channel, **kwargs):
         """ Configure(Set)/Read input filter parameters
             Args:
-              channel (str): input channel. Valid entries: A,B,C or D
+              channel (str): input channel. Valid entries: A or B
                              If read, only this parameter is needed.
               onoff (int): 1 = enable, 0 = disable
               points (int): specifies how many points the filtering fct uses.
@@ -1461,11 +1113,10 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
               channel (str): A to D. If read only this arg is needed
               sensor_type (int): Valid entries: 0=Disabled, 1=Diode,
                                  2=Platinum RTD, 3=NTC RTD,
-                                 4=Thermocouple (3060 option only),
-                                 5=Capacitance (3061 option only)
+                                 4=Thermocouple (3060 option only)
               autorange (int): 0=off, 1=on
               iprange (int): input range when autorange in off ;
-                             see table 6-8 on page 136 of manual
+                             see table 6-8 on page 118 of manual
               compensation (int): input compensation. 0=off, 1=on
               unit (int): prefered unit for sensor reading AND for the 
                          control setpoint. 1=Kelvin, 2=Celsius, 3=Sensor_unit
@@ -1502,8 +1153,8 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
             ).split(",")
             if sensor_type is None:
                 sensor_type = sensor_typec
-            elif sensor_type not in range(0, 6):
-                raise ValueError("Error: acceptable value for sensor type are 0->5.")
+            elif sensor_type not in range(0, 5):
+                raise ValueError("Error: acceptable value for sensor type are 0->4.")
             if autorange is None:
                 autorange = autorangec
             if iprange is None:
@@ -1513,7 +1164,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                     sensor_type == 1
                     and iprange not in [0, 1]
                     or sensor_type == 2
-                    and iprange not in range(0, 7)
+                    and iprange not in range(0, 6)
                     or sensor_type == 3
                     and iprange not in range(0, 9)
                     or sensor_type == 4
@@ -1526,7 +1177,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                 unit = unitc
             elif unit not in [1, 2, 3]:
                 raise ValueError(
-                    "Error: invalid unit for input sensor reading and for the control setpoint; should be 1,2 or 3"
+                    "Error: invalid value for input sensor reading and for the control setpoint; should be 1,2 or 3"
                 )
 
             self.send_cmd("INTYPE", sensor_type, autorange, iprange, compensation, unit)
@@ -1534,7 +1185,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
     def _alarm_status(self, channel):
         """ Shows high and low alarm state for given input
             Args:
-              channel (str): A,B,C or D
+              channel (str): A or B
             Returns:
               high and low alarm state (str, str): "On/Off"
         """
@@ -1584,10 +1235,9 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
     def _heater_range(self, channel, value=None):
         """ Set/Read the heater range (0=off 1=low 2=medium 3=high)
             Args:
-              channel (int): output channel: 1,2,3 or 4
+              channel (int): output channel: 1 or 2
               value (int): The value of the range if set. The valid range:
 			   for channels 1 and 2: 0=Off,1=Low,2=Medium,3=High
-			   for channels 3 and 4: 0=Off,1=On
                            None if read
            Returns:
               None if set
@@ -1598,10 +1248,8 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
         if value is None:
             return int(self.send_cmd("RANGE?"))
         # send the range
-        if channel in [1, 2] and value not in [0, 1, 2, 3]:
+        if value not in [0, 1, 2, 3]:
             raise ValueError("Error, the value {0} is not in 0 to 3.".format(value))
-        elif channel in [3, 4] and value not in [0, 1]:
-            raise ValueError("Error, the value {0} is not 0 or 1.".format(value))
         else:
             self.send_cmd("RANGE", value)
 
@@ -1615,7 +1263,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                            1=Closed Loop PID, 2=Zone, 3=Open Loop,
                            4=Monitor Out, 5=Warmup Supply
                input (str): which input to control from.
-                            Valid entries: None, A, B, C or D.
+                            Valid entries: None, A or B.
           Returns:
                None if set
                mode (str): control mode as string
@@ -1630,8 +1278,8 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
 
         if mode is None and input is None:
             asw = self.send_cmd("OUTMODE?").split(",")
-            mode = self.MODE336[int(asw[0])]
-            input = self.REVINPUT336[int(asw[1])]
+            mode = self.MODE335[int(asw[0])]
+            input = self.REVINPUT335[int(asw[1])]
             return (mode, input)
         else:
             modec, inputc, powerupc = self.send_cmd("OUTMODE?").split(",")
@@ -1641,12 +1289,10 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
                 raise ValueError("Error: acceptable value for control mode are 0->5.")
             if input is None:
                 input = inputc
-            elif input not in ["None", "A", "B", "C", "D"]:
-                raise ValueError(
-                    "Error: acceptable value for input are None,'A','B','C' or 'D'."
-                )
+            elif input not in ["None", "A", "B"]:
+                raise ValueError("Error: acceptable value for input are None,'A','B'.")
             else:
-                input = self.INPUT336[input]
+                input = self.INPUT335[input]
 
             self.send_cmd("OUTMODE", mode, input, powerup)
 
@@ -1747,7 +1393,7 @@ temperature limit: %sK\t\ttemp. coefficient: %s"
         return asw.decode()
 
 
-class lakeshore336(Base):
+class lakeshore335(Base):
     def __init__(self, config, *args):
         comm_type = None
         extra_param = None
@@ -1766,15 +1412,15 @@ class lakeshore336(Base):
             url = config["tcp"]["url"]
             eos = config.get("tcp").get("eos", "\r\n")
         else:
-            raise ValueError("Must specify gpib, serial or tcp url")
+            raise ValueError("Must specify gpib or serial")
 
-        _lakeshore = LakeShore336(comm_type, url, extra_param=extra_param, eos=eos)
+        _lakeshore = LakeShore335(comm_type, url, extra_param=extra_param, eos=eos)
 
         model = _lakeshore._model()
 
-        if model != 336:
+        if model != 335:
             raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 336.".format(model)
+                "Error, the Lakeshore model is {0}. It should be 335.".format(model)
             )
         # else:
         #     print("\t\t\tthe model is {0}".format(model))

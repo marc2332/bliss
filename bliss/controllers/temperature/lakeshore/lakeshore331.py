@@ -6,76 +6,72 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Lakeshore 332, acessible via GPIB and Serial line (RS232)
+Lakeshore 331, acessible via Serial line (RS232)
 
 yml configuration example:
 #controller:
-- class: lakeshore332
-  module: lakeshore.lakeshore332
-  name: lakeshore332
+- class: lakeshore331
+  module: lakeshore.lakeshore331
+  name: lakeshore331
   timeout: 3
-  gpib:
-     url: enet://gpibid10f.esrf.fr
-     pad: 12
-     eol: "\r\n"     
-  # serial:
-  #    url: ser2net://lid102:28000/dev/ttyR1
-  #    baudrate: 9600    # = max (other possible values: 300, 1200)
-  #    eol: "\r\n"     
+  serial:
+     url: ser2net://lid102:28000/dev/ttyR1
+     baudrate: 9600    # max (other possible values: 300, 1200)
+     eol: "\r\n"
+
   inputs:
-    - name: ls332_A
+    - name: ls331_A
       channel: A 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_332
-    - name: ls332_A_c    # input temperature in Celsius
+      #tango_server: ls_331
+    - name: ls331_A_c    # input temperature in Celsius
       channel: A
       unit: Celsius
-    - name: ls332_A_su  # in sensor units (Ohm or Volt)
+    - name: ls331_A_su  # in sensor units (Ohm or Volt)
       channel: A
       unit: Sensor_unit
 
-    - name: ls332_B
+    - name: ls331_B
       channel: B 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_332
-    - name: ls332_B_c    # input temperature in Celsius
+      #tango_server: ls_331
+    - name: ls331_B_c    # input temperature in Celsius
       channel: B
       unit: Celsius
-      type: temperature_C
-    - name: ls332_B_su  # in sensor units (Ohm or Volt)
+    - name: ls331_B_su  # in sensor units (Ohm or Volt)
       channel: B
       unit: Sensor_unit
 
   outputs:
-    - name: ls332o_1
+    - name: ls331o_1
       channel: 1 
-    - name: ls332o_2
+      unit: Kelvin
+    - name: ls331o_2
       channel: 2 
 
   ctrl_loops:
-    - name: ls332l_1
-      input: $ls332_A
-      output: $ls332o_1
+    - name: ls331l_1
+      input: $ls331_A
+      output: $ls331o_1
       channel: 1
-    - name: ls332l_2
-      input: $ls332_B
-      output: $ls332o_2
+    - name: ls331l_2
+      input: $ls331_B
+      output: $ls331o_2
       channel: 2
 """
 import types
 import time
 import enum
 from bliss.comm import serial
-from bliss.comm import gpib
 from bliss.comm.util import get_interface, get_comm
 from bliss.common.logtools import LogMixin
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 
 _last_call = time.time()
 # limit number of commands per second
-# lakeshore 332 supports at most 20 commands per second
+# lakeshore 331 supports at most 20 commands per second
 def _send_limit(func):
     def f(*args, **kwargs):
         global _last_call
@@ -90,10 +86,10 @@ def _send_limit(func):
     return f
 
 
-class LakeShore332(LogMixin):
-    UNITS332 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
-    REVUNITS332 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
-    IPSENSORUNITS332 = {1: "volts", 2: "ohms"}
+class LakeShore331(LogMixin):
+    UNITS331 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
 
     def __init__(self, comm, **kwargs):
         self._comm = comm
@@ -182,12 +178,13 @@ class LakeShore332(LogMixin):
 
     def _sensor_type(self, channel, type=None, compensation=None):
         """ Read or set input type parameters
-            Args: According to the model, use the appropriate args
-              type (int): 0 to ?
-              compensation (int): 0=off and 1 =on
-              example: input.sensor_type(type=3,compensation=1) 
-            Returns:
-               <type>, <compensation>
+        Args: According to the model, use the appropriate args
+            type (int): 0 to ?
+            compensation (int): 0=off and 1=on
+
+            example: input.sensor_type(type=3,compensation=1) 
+        Returns:
+            <type>, <compensation>
         """
         self._logger.info("_sensor_type")
         if type is None:
@@ -230,7 +227,6 @@ class LakeShore332(LogMixin):
             state = "ON" if int(r[0]) == 1 else "OFF"
             rate_value = float(r[1])
             return {"state": state, "rate": rate_value}
-
         if value < 0.1 or value > 100:
             raise ValueError("Ramp value %s is out of bounds [0.1,100]" % value)
         self.send_cmd("RAMP", 0, value, channel=channel)
@@ -402,11 +398,7 @@ class LakeShore332(LogMixin):
     # CUSTOM OUTPUT-object related method(s)
     # --------------------------------------
     def _heater_range(self, channel, value=None):
-        """ Set/Read the heater range (0 to 3) [see Paragaph 4.13]
-            It is used for heater output for loop 1, while for
-            loop 2 can choose only between 0(heater off) and 1(heater on)
-            though in the command syntax the output channel or loop
-            is not used!! (cmd = RANGE value)
+        """ Set/Read the heater range (0 to 3)
             Args:
               value (int): The value of the range if set
               None if read
@@ -447,7 +439,7 @@ class LakeShore332(LogMixin):
         self._logger.info("_cset")
         asw = self.send_cmd("CSET?", channel=channel).split(",")
         input = asw[0]
-        unit = self.REVUNITS332[int(asw[1])]
+        unit = self.REVUNITS331[int(asw[1])]
         powerup = "ON" if int(asw[2]) == 1 else "OFF"
         currpow = "current" if int(asw[3]) == 1 else "power"
         return {"input": input, "unit": unit, "powerup": powerup, "currpow": currpow}
@@ -465,7 +457,7 @@ class LakeShore332(LogMixin):
                 "Error: acceptables values for unit are 'Kelvin' or 'Celsius' or 'Sensor_unit'."
             )
         else:
-            unit = self.UNITS332[unit]
+            unit = self.UNITS331[unit]
 
         self.send_cmd("CSET", input, unit, powerupc, currpowc, channel=channel)
 
@@ -540,7 +532,7 @@ class LakeShore332(LogMixin):
         return asw.decode()
 
 
-class lakeshore332(LakeshoreBase):
+class lakeshore331(LakeshoreBase):
     # Number of calibration curves available
     NCURVES = 41
     NUSERCURVES = (21, 41)
@@ -576,17 +568,14 @@ class lakeshore332(LakeshoreBase):
         SHORT = 2
 
     def __init__(self, config, *args):
-        if "serial" in config:
-            comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
-        else:
-            comm_interface = get_comm(config)
+        comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
 
-        _lakeshore = LakeShore332(comm_interface)
+        _lakeshore = LakeShore331(comm_interface)
 
         model = _lakeshore._model()
-        if model != 332:
+        if model != 331:
             raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 332.".format(model)
+                "Error, the Lakeshore model is {0}. It should be 331.".format(model)
             )
 
         LakeshoreBase.__init__(self, _lakeshore, config, *args)

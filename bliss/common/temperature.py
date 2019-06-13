@@ -78,17 +78,17 @@ class Input:
 
     def read(self):
         """ returns the sensor value """
-        log_debug(self, "On Input:read")
+        self._logger.debug("On Input:read")
         return self.controller.read_input(self)
 
     def state(self):
         """ returns the sensor state """
-        log_debug(self, "On Input:state")
+        self._logger.debug("On Input:state")
         return self.controller.state_input(self)
 
 
 @with_custom_members
-class Output:
+class Output(LogMixin):
     """ Implements the access to temperature heaters """
 
     def __init__(self, controller, config):
@@ -402,14 +402,14 @@ class Loop:
         """ returns the loop config """
         return self.__config
 
-    @property
+    @autocomplete_property
     def input(self):
         """ returns the loop input object """
         if not isinstance(self.__input, Input):
             self.__input = self.__input()
         return self.__input
 
-    @property
+    @autocomplete_property
     def output(self):
         """ returns the loop output object """
         if not isinstance(self.__output, Output):

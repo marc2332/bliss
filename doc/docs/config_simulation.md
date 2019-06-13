@@ -1,4 +1,3 @@
-
 # BLISS simulation devices configuration
 
 This chapter explains how to configure simulation BLISS devices:
@@ -121,7 +120,7 @@ NB: the real height depends also on the sigma value.
 -
   name: sim_ct_1
   plugin: bliss
-  class: simulation_counter
+  class: SimulationCounter
   distribution: GAUSSIAN
   mu_offset: 0.0
   sigma_factor: 1.0
@@ -140,7 +139,7 @@ NB: the real height depends also on the sigma value.
 -
   name: sim_ct_2
   plugin: bliss
-  class: simulation_counter
+  class: SimulationCounter
   distribution: GAUSSIAN
   mu_offset: -1.0
   sigma_factor: 0.4
@@ -157,7 +156,7 @@ NB: the real height depends also on the sigma value.
 -
   name: sim_ct_3
   plugin: bliss
-  class: simulation_counter
+  class: SimulationCounter
   distribution: FLAT
   height_factor: 12.0
   noise_factor: 0.0
@@ -172,7 +171,7 @@ NB: the real height depends also on the sigma value.
 -
   name: sim_ct_4
   plugin: bliss
-  class: simulation_counter
+  class: SimulationCounter
   distribution: FLAT
   height_factor: 12.0
   noise_factor: 1.01

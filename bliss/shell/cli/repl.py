@@ -256,7 +256,7 @@ class BlissRepl(PythonRepl):
                 and len(return_value) >= 3
                 and isinstance(return_value[1], (BaseException, Exception))
             ):
-                raise return_value[1].with_traceback(return_value[2])
+                raise return_value[1].with_traceback(return_value[2]) from None
         except gevent.Timeout:
             self._handle_exception(*args)
         except KeyboardInterrupt:

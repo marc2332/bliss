@@ -7,10 +7,7 @@
 
 from bliss import setup_globals
 from bliss.common.standard import wa, wm, sta, stm
-from bliss.shell.cli import repl
 from bliss.common.utils import deep_update
-
-repl.ERROR_REPORT.expert_mode = True
 
 
 def test_wa_normal(beacon, capsys):

@@ -90,9 +90,7 @@ class HDF5_Writer(object):
                 shape = tuple([npoints] + list(node.shape))
 
                 self.file.create_dataset(
-                    self.h5_scan_name
-                    + "/measurement/"
-                    + node.fullname,  # node.alias_or_fullname???
+                    self.h5_scan_name + "/measurement/" + node.alias_or_fullname,
                     shape=shape,
                     dtype=node.dtype,
                     compression="gzip",
@@ -127,7 +125,7 @@ class HDF5_Writer(object):
         """Insert data until the last available point into the hdf5 datasets"""
         data = node.get(self.channel_indices[node.fullname], -1)
         if len(data) > 0:
-            self.file[self.h5_scan_name + "/measurement/" + node.fullname][
+            self.file[self.h5_scan_name + "/measurement/" + node.alias_or_fullname][
                 self.channel_indices[node.fullname] : self.channel_indices[
                     node.fullname
                 ]
@@ -144,9 +142,7 @@ class HDF5_Writer(object):
         dtype = data.dtype
 
         dataset = self.file.create_dataset(
-            self.h5_scan_name
-            + "/measurement/"
-            + node.fullname,  # node.alias_or_fullname???
+            self.h5_scan_name + "/measurement/" + node.fullname,
             shape=shape,
             dtype=dtype,
             compression="gzip",
@@ -230,10 +226,10 @@ def listen_to_session_wait_for_scans(session, event=None):
     instance is informed to finalize."""
     # event: for external synchronization (see test)
 
-    # n = get_node(session)
+    # n = get_node(session) ... raises if it is a 'fresh' session e.g. in tests
     n = _get_or_create_node(session)
 
-    ### one could consider to simplify this by introducing a walk_events_from_last
+    # one could consider to simplify this by introducing a walk_events_from_last
     it = n.iterator
     pubsub = it.children_event_register()
 
@@ -259,7 +255,7 @@ def listen_to_session_wait_for_scans(session, event=None):
             else:
                 print("we are in trouble")
 
-    # gevent.spawn(g) could be used to encapsulate this, here just run for one session
+    # gevent.spawn(g) could be used to instead of g()
     try:
         g()
     except KeyboardInterrupt:

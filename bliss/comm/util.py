@@ -42,10 +42,10 @@ def get_interface(*args, **kwargs):
     Useful to use in an `__init__` to parse arguments and keyword arguments
     with interface connection. Example of usage::
 
-        from ... import BaseDevice
+      ??????  from ... import BaseDevice
         from bliss.comm.util import get_interface
 
-        class Lecroy(BaseDevice):
+        class Lecroy(?????? BaseDevice):
 
             def __init__(self, *args, **kwargs):
                 interface, args, kwargs = get_interface(*args, **kwargs)

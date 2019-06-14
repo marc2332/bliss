@@ -8,7 +8,7 @@
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common.task import task
 from bliss.common.measurement import SamplingCounter
-from bliss.common import Actuator
+from bliss.common import AbstractActuator as Actuator
 from bliss.comm.Exporter import *
 import time
 import numpy

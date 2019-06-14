@@ -28,7 +28,7 @@ The set of masters and slaves acquisition objects is called an
 a new Bliss scan:
 
 ```python
-from bliss.common.continuous_scan import AcquisitionChain
+from bliss.scanning.chain import AcquisitionChain
 
 chain = AcquisitionChain()
 ```
@@ -44,7 +44,7 @@ capable of triggering slaves at evenly spaced points between a start and
 an end position.
 
 ```python
-from bliss.acquisition.motor import SoftwarePositionTriggerMaster
+from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 
 emotion_master = SoftwarePositionTriggerMaster(m0, 5, 10, 10, time=5)
 ```
@@ -117,6 +117,9 @@ data acquisition with data analysis logic. A `Container` is only
 identified by its name. Typically, a container will have a sample name,
 an each scan on this sample can be stored inside the container.
 `Container` objects can be nested without limitation.
+
+
+??? no more data_manager...
 
 ```python
 from bliss.common.data_manager import Container, Scan

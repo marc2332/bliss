@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-'''
+"""
 A script to see which are the most commonly used commands in a spec session
-'''
+"""
 
 import os
 import sys
@@ -10,90 +10,79 @@ import argparse
 import subprocess
 import collections
 
-# no collections.Counter on python 2.6
-try:
-  Counter = collections.Counter
-except AttributeError:
-  import backport_collections
-  Counter = backport_collections.Counter
+Counter = collections.Counter
 
-# no subprocess.check_output on python 2.6
-try:
-  check_output = subprocess.check_output
-except AttributeError:
-  def check_output(*args, **kwargs):
-    p = subprocess.Popen(stdout=subprocess.PIPE, *args, **kwargs)
-    out, err = p.communicate()
-    ret = p.poll()
-    if ret:
-      cmd = args[0]
-      err = subprocess.CalledProcessError(ret, cmd)
-      err.output = output
-      raise err
-    return out
+check_output = subprocess.check_output
 
 
 def is_int(s):
-  try:
-    int(s)
-    return True
-  except ValueError:
-    return False
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
 
-filter = b'for', b'print', b'while'
+
+filter = b"for", b"print", b"while"
+
 
 def count(history):
-  lines = (line.strip() for line in history.split(b'\n')) # history lines
-  lines = (line.split() for line in lines) # history line tuples
-  lines = (line for line in lines if line and is_int(line[0])) # only command lines
-  cmds = (line[1] for line in lines if len(line) > 1)
-  cmds = (cmd for cmd in cmds if not cmd.startswith(filter)) # filter out
-  return Counter(cmds)
+    lines = (line.strip() for line in history.split(b"\n"))  # history lines
+    lines = (line.split() for line in lines)  # history line tuples
+    lines = (line for line in lines if line and is_int(line[0]))  # only command lines
+    cmds = (line[1] for line in lines if len(line) > 1)
+    cmds = (cmd for cmd in cmds if not cmd.startswith(filter))  # filter out
+    return Counter(cmds)
 
 
 def gui(counter, n=None):
-  import numpy
-  import matplotlib.pyplot as plot
+    import numpy
+    import matplotlib.pyplot as plot
 
-  most_common = counter.most_common(n)
-  cmds, counts = zip(*most_common)
-  indexes = numpy.arange(len(cmds))
+    most_common = counter.most_common(n)
+    cmds, counts = zip(*most_common)
+    indexes = numpy.arange(len(cmds))
 
-  width=0.7
-  plot.bar(indexes, counts, width)
-  plot.xticks(indexes + width * 0.5, cmds)
-  plot.show()
+    width = 0.7
+    plot.bar(indexes, counts, width)
+    plot.xticks(indexes + width * 0.5, cmds)
+    plot.show()
 
 
 def console(counter, n=None):
-  import pprint
-  most_common = counter.most_common(n)
-  cmds, counts = zip(*most_common)
-  pprint.pprint(most_common)
+    import pprint
+
+    most_common = counter.most_common(n)
+    cmds, counts = zip(*most_common)
+    pprint.pprint(most_common)
 
 
 def main():
-  beamline = os.environ.get('BEAMLINENAME', 'ID00')
-  user = 'op' + beamline.lower()
+    beamline = os.environ.get("BEAMLINENAME", "ID00")
+    user = "op" + beamline.lower()
 
-  parser = argparse.ArgumentParser(description='spec history histogram')
-  parser.add_argument('session', type=str, help='name of the spec session')
-  parser.add_argument('-n', default=None, type=int,
-                      help='most common N commads [default is None, meaning all]')
-  parser.add_argument('--user', type=str, default=user,
-                      help='user [default is ' + user + ']')
-  parser.add_argument('--no-gui', action='store_true')
-  args = parser.parse_args()
+    parser = argparse.ArgumentParser(description="spec history histogram")
+    parser.add_argument("session", type=str, help="name of the spec session")
+    parser.add_argument(
+        "-n",
+        default=None,
+        type=int,
+        help="most common N commads [default is None, meaning all]",
+    )
+    parser.add_argument(
+        "--user", type=str, default=user, help="user [default is " + user + "]"
+    )
+    parser.add_argument("--no-gui", action="store_true")
+    args = parser.parse_args()
 
-  show_state = 'show_state', '+h', '-g', args.session, '-u', args.user
-  history = check_output(show_state)
+    show_state = "show_state", "+h", "-g", args.session, "-u", args.user
+    history = check_output(show_state)
 
-  counter = count(history)
+    counter = count(history)
 
-  show = console if args.no_gui else gui
-  show(counter, args.n)
+    show = console if args.no_gui else gui
+    show(counter, args.n)
 
 
-if __name__ == '__main__':
-  main()
-
+if __name__ == "__main__":
+    main()

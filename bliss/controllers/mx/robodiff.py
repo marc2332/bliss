@@ -6,7 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from StaubCom import robot
-from bliss.common.utils import grouped, subprocess
+from bliss.common.utils import grouped
+from bliss.common import subprocess
 from bliss.common.task import task
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.config import static as static_config

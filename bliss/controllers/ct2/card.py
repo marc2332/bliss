@@ -237,7 +237,7 @@ class MemoryInterface(BaseCardInterface):
     method:`BaseCard.dump_memory()` as argument to construct
     this object and then create a card object. Example::
 
-        from bliss.controllers.ct2 import P201Card, MemoryInterface
+        from bliss.controllers.ct2.card import P201Card, MemoryInterface
 
         real_card = P201Card()
         memory = real_card.dump_memory()

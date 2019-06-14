@@ -219,7 +219,6 @@ cards:
 
     from bliss.common.event import dispatcher
     from bliss.config.static import get_config
-    from bliss.controllers.ct2.client import CT2
     from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal
 
     config = get_config()

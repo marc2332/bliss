@@ -10,7 +10,8 @@ from math import cos, radians
 from numpy import arange
 
 from bliss.controllers.motor import Controller
-from bliss.controllers import motor_settings as settings
+
+import bliss.common.motor_settings as settings
 
 from bliss.common.axis import AxisState
 from bliss.common.task import task

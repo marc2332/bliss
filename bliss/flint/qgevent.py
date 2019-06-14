@@ -4,7 +4,7 @@ Example usage:
 
     import sys
     from PyQt5.QtWidgets import QApplication
-    from qgevent import set_gevent_dispatcher
+    from bliss.flint.qgevent import set_gevent_dispatcher
 
     if __name__ == '__main__':
         set_gevent_dispatcher()

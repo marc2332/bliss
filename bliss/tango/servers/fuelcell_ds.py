@@ -19,8 +19,8 @@ from tango import DevState, CmdArgType, AttrWriteType, AttrDataFormat
 from tango.server import Device, attribute, command, device_property, get_worker
 
 from bliss.config.static import get_config
-from bliss.controllers.fuelcell import FuelCell as _FuelCell
-from bliss.controllers.fuelcell import Ptc, Fcs, Attr
+from bliss.controllers.id31.fuelcell import FuelCell as _FuelCell
+from bliss.controllers.id31.fuelcell import Ptc, Fcs, Attr
 
 
 _TYPE_MAP = {

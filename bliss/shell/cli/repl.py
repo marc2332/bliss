@@ -103,35 +103,34 @@ class ErrorReport:
 ERROR_REPORT = ErrorReport()
 # ERROR_REPORT.expert_mode = True
 
-# patch the system exception hook
-def repl_excepthook(exc_type, exc_value, tb):
 
-    err_file = sys.stderr
+def install_excepthook():
+    """Patch the system exception hook,
+    and the print exception for gevent greenlet
+    """
 
-    # Store latest traceback (as a string to avoid memory leaks)
-    ERROR_REPORT._last_error = "".join(
-        traceback.format_exception(exc_type, exc_value, tb)
-    )
+    def repl_excepthook(exc_type, exc_value, tb):
+        err_file = sys.stderr
 
-    # Adapt the error message depending on the ERROR_REPORT expert_mode
-    if not ERROR_REPORT._expert_mode:
-        print(
-            f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
-            file=err_file,
+        # Store latest traceback (as a string to avoid memory leaks)
+        ERROR_REPORT._last_error = "".join(
+            traceback.format_exception(exc_type, exc_value, tb)
         )
-    else:
-        traceback.print_exception(exc_type, exc_value, tb, file=err_file)
 
+        # Adapt the error message depending on the ERROR_REPORT expert_mode
+        if not ERROR_REPORT._expert_mode:
+            print(
+                f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
+                file=err_file,
+            )
+        else:
+            traceback.print_exception(exc_type, exc_value, tb, file=err_file)
 
-sys.excepthook = repl_excepthook
+    def print_exception(self, context, exc_type, exc_value, tb):
+        repl_excepthook(exc_type, exc_value, tb)
 
-
-# patch the print_exception for gevent greenlet
-def print_exception(self, context, exc_type, exc_value, tb):
-    repl_excepthook(exc_type, exc_value, tb)
-
-
-gevent.hub.Hub.print_exception = print_exception
+    sys.excepthook = repl_excepthook
+    gevent.hub.Hub.print_exception = print_exception
 
 
 # Patch eventloop of prompt_toolkit to be synchronous
@@ -341,6 +340,7 @@ def cli(
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
+    install_excepthook()
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         user_ns, session = initialize(session_name)

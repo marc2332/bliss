@@ -33,13 +33,13 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     assert tango_s1hg.read_attribute("position").value == 1
     assert tango_s1hg.read_attribute("offset").value == 0
 
-    s1f.velocity = 0.1
-    s1b.velocity = 0.1
+    t0 = time.time()
+    s1f.velocity = 1
+    s1b.velocity = 1
 
     eval_id = proxy.eval("(s1f.velocity, s1b.velocity)")
-    gevent.sleep(0.1)
     res = proxy.get_result(eval_id)
-    assert decode_tango_eval(res) == (0.1, 0.1)
+    assert decode_tango_eval(res) == (1, 1)
 
     # trigger move
     tango_s1hg.position = 2
@@ -51,7 +51,8 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     s1hg.wait_move()
 
     assert s1hg.position == pytest.approx(2)
-
+    s1f.velocity = 10
+    s1b.velocity = 10
     s1hg.rmove(1)
 
     value = tango_s1hg.read_attribute("position").value

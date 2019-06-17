@@ -218,23 +218,16 @@ def bliss_tango_server(ports, beacon):
     device_name = "id00/bliss/test"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    bliss_ds = [sys.executable, "-m", "bliss.tango.servers.bliss_ds"]
-    p = subprocess.Popen(bliss_ds + ["test"])
+    bliss_ds = [sys.executable, "-u", "-m", "bliss.tango.servers.bliss_ds"]
+    p = subprocess.Popen(bliss_ds + ["test"], stdout=subprocess.PIPE)
 
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
-        while True:
-            try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
-                dev_proxy.state()
-            except DevFailed as e:
-                gevent.sleep(0.1)
-            else:
-                break
+        wait_for(p.stdout, "Ready to accept request")
 
-    # Might help, for other devices...
-    gevent.sleep(1)
+    dev_proxy = DeviceProxy(device_fqdn)
+
     yield device_fqdn, dev_proxy
+
     p.terminate()
 
 
@@ -246,24 +239,18 @@ def dummy_tango_server(ports, beacon):
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
     dummy_ds = [
         sys.executable,
+        "-u",
         os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
     ]
-    p = subprocess.Popen(dummy_ds + ["dummy"])
+    p = subprocess.Popen(dummy_ds + ["dummy"], stdout=subprocess.PIPE)
 
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
-        while True:
-            try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
-                dev_proxy.state()
-            except DevFailed as e:
-                gevent.sleep(0.1)
-            else:
-                break
+        wait_for(p.stdout, "Ready to accept request")
 
-    # Might help, for other devices...
-    gevent.sleep(1)
+    dev_proxy = DeviceProxy(device_fqdn)
+
     yield device_fqdn, dev_proxy
+
     p.terminate()
 
 

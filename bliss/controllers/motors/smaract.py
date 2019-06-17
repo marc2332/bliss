@@ -494,8 +494,20 @@ class SmarAct(Controller):
         states.extend([status.name.upper(), enabled.name.upper()])
         return AxisState(*states)
 
+    # temporary patch (issue #810)
+    # issue with the FW (MCS-6CC-ETHA-TAB, S/N: 2595, smaractid013)
+    # if the homing process is interrupted by a ctrl-C, the stage continue moving for ever
+    # (rotating or pushing the physical end).
+    # the ctrl-C/stop uses cmd S<channel>
+    # if we use the general stop cmd S, the issue is not dangerous
+    # it stops complete, or stops, change the direction and finish the homing.
+
     def stop(self, axis):
-        axis.channel.stop()
+        if not axis.channel.status == ChannelStatus.FindingReferenceMark:
+            axis.channel.stop()
+        else:
+            self.command("S")
+        self._logger.debug("%r sent stop", axis.name)
 
     #    def stop_all(self, *motion_list):
     #        # TODO: only stop all if motion moves all existing channels

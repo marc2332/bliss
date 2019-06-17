@@ -7,6 +7,7 @@
 
 
 from bliss.shell.cli.user_dialog import (
+    UserMsg,
     UserInput,
     UserIntInput,
     UserFloatInput,
@@ -34,10 +35,17 @@ def multi_dialog(title="Bliss dialog"):
     dlg = BlissDialog(
         [
             [
+                UserMsg(
+                    "I am a very very long message",
+                    text_align="CENTER",
+                    text_expand=True,
+                )
+            ],
+            [
                 Container(
                     [
-                        UserIntInput(label="int_1"),
-                        UserFloatInput(label="float_1.1.2"),
+                        UserIntInput(label=None),
+                        UserFloatInput(label=""),
                         UserInput(
                             label="frange_1.1.3", validator=check["frange"], defval=6
                         ),

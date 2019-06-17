@@ -289,3 +289,39 @@ def test_ttl_setter(session, capsys):
     s = scans.loopscan(1, .1, heater, diode, run=False)
     out, err = capsys.readouterr()
     assert err == ""
+
+
+def test_children_timing(beacon, session, scan_tmpdir):
+
+    # put scan file in a tmp directory
+    session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+    diode2 = session.env_dict["diode2"]
+
+    def walker(scan_node, event):
+        # print("LISTENING TO", scan_node.db_name)
+        for event_type, node in scan_node.iterator.walk_events(ready_event=event):
+            # print(event_type.name, node.db_name)
+            parent = node.parent
+            if (
+                event_type.name == "NEW_CHILD"
+                and parent is not None
+                and parent.type == "scan"
+            ):
+                children = list(parent.children())
+                # print(">>>", event_type.name, node.db_name, children)
+                if len(children) == 0:
+                    raise RuntimeError(node.db_name)
+                    # pass
+
+    s = scans.loopscan(30, .1, diode2, run=False, wait=True)
+
+    event = gevent.event.Event()
+    g = gevent.spawn(walker, s.node, event=event)
+    event.wait()
+    # print("BEFORE RUN", list([n.db_name for n in s.node.children()]))
+    s.run()
+    gevent.sleep(.5)
+    # print("AFTER RUN", list([n.db_name for n in s.node.children()]))
+
+    g.kill()

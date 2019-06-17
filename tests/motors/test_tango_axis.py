@@ -37,7 +37,6 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     s1b.velocity = 0.1
 
     eval_id = proxy.eval("(s1f.velocity, s1b.velocity)")
-    gevent.sleep(0.1)
     res = proxy.get_result(eval_id)
     assert decode_tango_eval(res) == (0.1, 0.1)
 

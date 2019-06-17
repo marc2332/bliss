@@ -218,6 +218,7 @@ class MythenCounter(BaseCounter):
     # Get acquisition device
 
     def create_acquisition_device(self, scan_pars, **settings):
+        scan_pars = scan_pars.copy()
         scan_pars.update(settings)
         count_time = scan_pars.pop("count_time")
         return MythenAcquistionDevice(self, count_time, **scan_pars)
@@ -225,15 +226,21 @@ class MythenCounter(BaseCounter):
 
 class MythenAcquistionDevice(AcquisitionDevice):
     status = enum.Enum("status", "STOPPED RUNNING FAULT")
+    TriggerMode = enum.Enum("TriggerMode", "SOFTWARE GATE")
     # Initialization
 
     def __init__(self, counter, count_time, **kwargs):
         self.kwargs = kwargs
         self.counter = counter
         self.count_time = count_time
-        trigger_type = kwargs.setdefault("trigger_type", AcquisitionDevice.SOFTWARE)
-        kwargs.setdefault("prepare_once", trigger_type == AcquisitionDevice.HARDWARE)
+        trigger_mode = kwargs.setdefault("trigger_mode", self.TriggerMode.SOFTWARE)
+        if trigger_mode == self.TriggerMode.SOFTWARE:
+            trigger_type = AcquisitionDevice.SOFTWARE
+        else:
+            trigger_type = AcquisitionDevice.HARDWARE
+        kwargs.setdefault("prepare_once", True)
         kwargs.setdefault("start_once", trigger_type == AcquisitionDevice.HARDWARE)
+        kwargs["trigger_type"] = trigger_type
         valid_names = ("npoints", "trigger_type", "prepare_once", "start_once")
         valid_kwargs = {
             key: value for key, value in kwargs.items() if key in valid_names
@@ -256,6 +263,7 @@ class MythenAcquistionDevice(AcquisitionDevice):
     def prepare(self):
         self.device.nframes = self.npoints
         self.device.exposure_time = self.count_time
+        self.device.gate_mode = self.trigger_type == AcquisitionDevice.HARDWARE
 
     def start(self):
         if self.trigger_type == AcquisitionDevice.HARDWARE:

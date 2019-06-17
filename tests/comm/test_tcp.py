@@ -189,6 +189,34 @@ def test_connection_command_event(command):
         disconnect(command, "connect", connection_cbk)
 
 
+def test_connection_command_several_times(command):
+    # this is the test to never have issue #824 again
+    command.connect()
+    assert command._connected
+    s1 = command._socket
+    command.connect()
+    assert command._connected
+    s2 = command._socket
+    assert s1 is s2
+    command.close()
+    command.connect()
+    s3 = command._socket
+    assert s3 is not s2
+    try:
+        command.connect(port=command._port + 1)
+    except:
+        pass
+    s4 = command._socket
+    assert s4 is not s3
+    command.connect()
+    s5 = command._socket
+    try:
+        command.connect(host="DOESNOTEXIST")
+    except:
+        pass
+    assert command._socket is not s5
+
+
 def test_external_timeout_plus_sockettimeout(socket_delay):
     socket, delay = socket_delay
     start_time = time.time()

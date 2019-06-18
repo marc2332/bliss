@@ -130,7 +130,7 @@ def test_scan_data_0d(session, redis_data_conn):
     simul_counter = getattr(setup_globals, counter_name)
     s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
 
-    assert s == setup_globals.SCANS[-1]
+    assert s == scans.SCANS[-1]
 
     # redis key is build from node name and counter name with _data suffix
     # ":timer:<counter_name>:<counter_name>_data"

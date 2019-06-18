@@ -8,9 +8,11 @@
 import liboxford800
 from liboxford800 import ls_oxford800
 from .oxford import Base
+from functools import wraps
 
 
 def get_cryo(func):
+    @wraps(func)
     def f(self, *args, **kwargs):
         cryo = liboxford800.get_handle(self._cryoname)
         if cryo is None:

@@ -126,6 +126,11 @@ def test_prdef(beacon, capsys):
     output = capsys.readouterr()[0]
     ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
     assert ansi_escape.sub("", output).endswith(visible_func_code)
+
+    env_dict["prdef"](scans.cen)
+    output = ansi_escape.sub("", capsys.readouterr()[0])
+    assert "@_multimotors\ndef cen(" in output
+
     session.close()
 
 

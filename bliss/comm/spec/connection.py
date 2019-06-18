@@ -17,6 +17,7 @@ import gevent
 import gevent.socket
 import socket
 import weakref
+from functools import wraps
 from bliss.common import event
 from bliss.common import session
 from bliss.common.logtools import LogMixin
@@ -67,6 +68,7 @@ def makeConnection(conn):
 
 
 def try_connect(fu):
+    @wraps(fu)
     def rfunc(self, *args, **kwargs):
         if self.connection_greenlet is None or self.connection_greenlet.ready():
             self.connection_greenlet = makeConnection(self)

@@ -48,6 +48,7 @@ __all__ = [
 import logging
 import numpy
 import gevent
+from functools import wraps
 
 from bliss import setup_globals
 from bliss.common import session
@@ -1363,6 +1364,7 @@ def _remove_real_dependent_of_calc(motors):
 
 
 def _multimotors(func):
+    @wraps(func)
     def f(counter=None, axis=None):
         try:
             return func(counter=counter, axis=axis)
@@ -1382,6 +1384,7 @@ def _multimotors(func):
 
 
 def _goto_multimotors(func):
+    @wraps(func)
     def f(counter=None, axis=None):
         try:
             return func(counter=counter, axis=axis)

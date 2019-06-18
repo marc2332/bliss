@@ -9,6 +9,7 @@ import os, sys
 import io
 from . import connection
 from .connection import StolenLockException
+from functools import wraps
 
 _default_connection = None
 
@@ -37,6 +38,7 @@ class _BytesIO(io.BytesIO):
 
 
 def check_connection(func):
+    @wraps(func)
     def f(*args, **keys):
         keys["connection"] = keys.get("connection") or get_default_connection()
         return func(*args, **keys)
@@ -71,6 +73,7 @@ def synchronized(**params):
     """
 
     def wrap(f):
+        @wraps(f)
         def func(self, *args, **keys):
             with Lock(self, **params):
                 return f(self, *args, **keys)

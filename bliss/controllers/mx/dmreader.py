@@ -1,6 +1,7 @@
 import socket
 import time
 import gevent
+from functools import wraps
 
 
 class UnknownDM:
@@ -8,6 +9,7 @@ class UnknownDM:
 
 
 def busy_state(f):
+    @wraps(f)
     def wrapper(self, *args, **kwargs):
         try:
             self._state = "MOVING"

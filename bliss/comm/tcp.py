@@ -17,6 +17,7 @@ import gevent
 from gevent import socket, event, queue, lock
 import time
 import weakref
+from functools import wraps
 from bliss.common.event import send
 
 from .exceptions import CommunicationError, CommunicationTimeout
@@ -34,6 +35,7 @@ class SocketTimeout(CommunicationTimeout):
 # Decorator function for read/write functions.
 # Performs reading of data via "_raw_read_task" in self.connect()
 def try_connect_socket(fu):
+    @wraps(fu)
     def rfunc(self, *args, **kwarg):
         write_func = fu.__name__.startswith("write")
         prev_timeout = kwarg.get("timeout", None)

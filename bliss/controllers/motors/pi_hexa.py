@@ -8,6 +8,7 @@
 import enum
 import time
 import gevent
+from functools import wraps
 from bliss.comm.util import get_comm, get_comm_type, TCP, SERIAL
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
@@ -45,6 +46,7 @@ config example:
 
 
 def _atomic_communication(fn):
+    @wraps(fn)
     def f(self, *args, **kwargs):
         with self._cnx.lock:
             return fn(self, *args, **kwargs)

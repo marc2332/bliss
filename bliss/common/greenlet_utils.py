@@ -1,5 +1,6 @@
 import sys
 from contextlib import contextmanager
+from functools import wraps
 
 from gevent import greenlet, timeout, getcurrent
 from gevent.timeout import string_types
@@ -63,6 +64,7 @@ def AllowKill():
 
 
 def protect_from_kill(fu):
+    @wraps(fu)
     def func(*args, **kwargs):
         with KillMask():
             return fu(*args, **kwargs)
@@ -71,6 +73,7 @@ def protect_from_kill(fu):
 
 
 def protect_from_one_kill(fu):
+    @wraps(fu)
     def func(*args, **kwargs):
         with KillMask(masked_kill_nb=1):
             return fu(*args, **kwargs)

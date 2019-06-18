@@ -7,6 +7,7 @@
 
 from bliss.common.motor_config import StaticConfig
 from bliss.common import event
+from functools import wraps
 import time
 import gevent
 import re
@@ -15,6 +16,7 @@ import types
 
 class Encoder(object):
     def lazy_init(func):
+        @wraps(func)
         def func_wrapper(self, *args, **kwargs):
             self.controller._initialize_encoder(self)
             return func(self, *args, **kwargs)

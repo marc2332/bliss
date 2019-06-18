@@ -82,7 +82,7 @@ class BaseSocket(LogMixin):
     ):
         self._host = host
         self._port = port
-        self._fd = None
+        self._socket = None
         self._timeout = timeout
         self._connected = False
         self._eol = eol
@@ -107,16 +107,16 @@ class BaseSocket(LogMixin):
             self.connect()
 
     def connect(self, host=None, port=None, timeout=None):
-        local_host = host or self._host
-        local_port = port or self._port
+        curr_host = host or self._host
+        curr_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        self._logger.debug(f"connect to {local_host}:{local_port}")
+        self._logger.debug(f"connect to {curr_host}:{curr_port}")
         self._logger.debug(f"timeout={local_timeout} ; eol={self._eol}")
 
         self.close()
 
-        self._host = local_host
-        self._port = local_port
+        self._host = curr_host
+        self._port = curr_port
 
         with self._lock:
             if self._connected:
@@ -126,11 +126,11 @@ class BaseSocket(LogMixin):
                 self._port,
             )
             with gevent.Timeout(local_timeout, SocketTimeout(err_message)):
-                self._fd = self._connect(local_host, local_port)
+                self._socket = self._connect(curr_host, curr_port)
             self._connected = True
 
         self._raw_read_task = gevent.spawn(
-            self._raw_read, weakref.proxy(self), self._fd
+            self._raw_read, weakref.proxy(self), self._socket
         )
         send(self, "connect", True)
 
@@ -152,14 +152,14 @@ class BaseSocket(LogMixin):
             except:  # probably closed one the server side
                 pass
             try:
-                self._fd.close()
+                self._socket.close()
             finally:
                 if self._raw_read_task:
                     self._raw_read_task.kill()
                     self._raw_read_task = None
                 self._data = b""
                 self._connected = False
-                self._fd = None
+                self._socket = None
                 send(self, "connect", False)
 
     def _shutdown(self):
@@ -333,11 +333,11 @@ class Socket(BaseSocket):
         return fd
 
     def _shutdown(self):
-        self._fd.shutdown(socket.SHUT_RDWR)
+        self._socket.shutdown(socket.SHUT_RDWR)
 
     def _sendall(self, data):
         self._logger.debug_data("write", data)
-        return self._fd.sendall(data)
+        return self._socket.sendall(data)
 
     @staticmethod
     def _raw_read(sock, fd):
@@ -450,7 +450,7 @@ class Command(LogMixin):
     ):
         self._host = host
         self._port = port
-        self._fd = None
+        self._socket = None
         self._timeout = timeout
         self._connected = False
         self._eol = eol
@@ -475,39 +475,42 @@ class Command(LogMixin):
             self.connect()
 
     def connect(self, host=None, port=None, timeout=None):
-        local_host = host or self._host
-        local_port = port or self._port
+        curr_host = host or self._host
+        curr_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        self._logger.debug(f"connect to {local_host}:{local_port}")
+        self._logger.debug(f"connect to {curr_host}:{curr_port}")
         self._logger.debug(
             f"timeout={local_timeout} ; eol={self._logger.log_format_hex(self._eol)}"
         )
         if self._connected:
-            prev_ip_host, prev_port = s.getpeername()
+            prev_ip_host, prev_port = self._socket.getpeername()
             try:
-                prev_name, aliaslist, _ = socket.gethostbyaddr(prev_ip_host)
+                prev_host, aliaslist, _ = socket.gethostbyaddr(prev_ip_host)
             except socket.herror:
-                prev_name = prev_ip_host
+                prev_host = prev_ip_host
+                aliaslist = []
 
-            fqdn_host = socket.getfqdn(host)
-            if port != prev_port or (fqdn_host != prev_name and name not in aliaslist):
+            fqdn_host = socket.getfqdn(curr_host)
+            if curr_port != prev_port or (
+                fqdn_host != prev_host and prev_host not in aliaslist
+            ):
                 self.close()
 
         with self._lock:
             if self._connected:
                 return True
 
-            self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-            err_msg = "timeout on command(%s, %d)" % (local_host, local_port)
+            err_msg = "timeout on command(%s, %d)" % (curr_host, curr_port)
             with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):
-                self._fd.connect((local_host, local_port))
-            self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-            self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-            self._host = local_host
-            self._port = local_port
+                self._socket.connect((curr_host, curr_port))
+            self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+            self._host = curr_host
+            self._port = curr_port
             self._raw_read_task = gevent.spawn(
-                self._raw_read, weakref.proxy(self), self._fd
+                self._raw_read, weakref.proxy(self), self._socket
             )
             self._connected = True
 
@@ -519,11 +522,11 @@ class Command(LogMixin):
             if self._connected:
                 try:
                     self._logger.debug("shutdown")
-                    self._fd.shutdown(socket.SHUT_RDWR)
+                    self._socket.shutdown(socket.SHUT_RDWR)
                 except:  # probably closed one the server side
                     pass
                 try:
-                    self._fd.close()
+                    self._socket.close()
                 finally:
                     if self._raw_read_task:
                         self._raw_read_task.kill()
@@ -583,7 +586,7 @@ class Command(LogMixin):
                 transaction = self.new_transaction()
             self._logger.debug_data("write", msg)
             with error_cleanup(self._pop_transaction, transaction=transaction):
-                self._fd.sendall(msg)
+                self._socket.sendall(msg)
         return transaction
 
     def write(self, msg, timeout=None):

@@ -101,7 +101,7 @@ class Enet(EnetSocket):
         self._gpib_kwargs = keys
 
     def init(self):
-        if self._sock._fd is None:
+        if not self._sock._connected:
             self.ibdev(
                 pad=self._gpib_kwargs.get("pad"),
                 sad=self._gpib_kwargs.get("sad"),
@@ -142,7 +142,7 @@ class Prologix(LogMixin):
 
     def init(self):
         self._logger.debug("Prologix::init()")
-        if self._sock._fd is None:
+        if not self._sock._connected:
             # the Prologix must be a controller (mode 1)
             self._logger.debug("Prologix::init(): set to mode 1 (Controller) ")
             self._sock.write(b"++mode 1\n")

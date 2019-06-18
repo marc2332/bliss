@@ -330,7 +330,8 @@ class Shutter(BaseShutter):
                 ret = self._external_ctrl.set("OPEN")
         elif mode != self.MANUAL:
             raise RuntimeError(
-                "Can't open the shutter, in %s" % self.MODE2STR.get(mode, "Unknown")
+                "Can't open the shutter in %s"
+                % self.MODE2STR.get(mode, ("Unknown", "Unknown mode"))[1]
             )
         else:
             ret = self._open()
@@ -353,7 +354,8 @@ class Shutter(BaseShutter):
                 ret = self._external_ctrl.set("CLOSED")
         elif mode != self.MANUAL:
             raise RuntimeError(
-                "Can't close the shutter, in %s" % self.MODE2STR.get(mode, "Unknown")
+                "Can't close the shutter in %s"
+                % self.MODE2STR.get(mode, ("Unknown", "Unknown mode"))[1]
             )
         else:
             ret = self._close()

@@ -49,7 +49,6 @@ import numpy
 import gevent
 from functools import wraps
 
-from bliss import setup_globals
 from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
@@ -1325,7 +1324,7 @@ def last_scan_motor(axis=None):
         raise RuntimeError("No scan available. Hint: do at least one ;)")
     scan = SCANS[-1]
     axis_name = scan._get_data_axis_name(axis=axis)
-    return getattr(setup_globals, axis_name)
+    return session.get_current().env_dict[axis_name]
 
 
 def last_scan_motors():
@@ -1336,7 +1335,8 @@ def last_scan_motors():
         raise RuntimeError("No scan available. Hint: do at least one ;)")
     scan = SCANS[-1]
     axes_name = scan._get_data_axes_name()
-    return [getattr(setup_globals, axis_name) for axis_name in axes_name]
+    current_session_dict = session.get_current().env_dict
+    return [current_session_dict[axis_name] for axis_name in axes_name]
 
 
 def plotselect(*counters):

@@ -17,39 +17,39 @@ from .util import HexMsg
 
 class Socket(BaseSocket):
     def _connect(self, host, port):
-        fd = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-        fd.connect((host, port))
-        return fd
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+        sock.connect((host, port))
+        return sock
 
     def _sendall(self, data):
         self._logger.debug_data("Tx:", data)
-        return self._fd.send(data)
+        return self._socket.send(data)
 
     @staticmethod
-    def _raw_read(sock, fd):
+    def _raw_read(bliss_socket, sock):
         try:
             while 1:
-                raw_data = fd.recv(16 * 1024)
-                sock._logger.debug_data("Rx:", raw_data)
+                raw_data = sock.recv(16 * 1024)
+                bliss_socket._logger.debug_data("Rx:", raw_data)
                 if raw_data:
-                    sock._data += raw_data
-                    sock._event.set()
+                    bliss_socket._data += raw_data
+                    bliss_socket._event.set()
                 else:
                     break
         except:
             pass
         finally:
-            fd.close()
+            sock.close()
             try:
-                sock._connected = False
-                sock._fd = None
-                sock._event.set()
+                bliss_socket._connected = False
+                bliss_socket._socket = None
+                bliss_socket._event.set()
             except ReferenceError:
                 pass
 
 
-class Udp(object):
+class Udp:
     def __new__(cls, url=None, **keys):
         # for now only one udp class
         # no need to test...

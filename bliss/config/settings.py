@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from contextlib import contextmanager
+from functools import wraps
 import weakref
 import pickle
 import keyword
@@ -94,6 +95,7 @@ def ttl_func(cnx, name, value=-1):
 
 
 def read_decorator(func):
+    @wraps(func)
     def _read(self, *args, **keys):
         value = func(self, *args, **keys)
         if self._read_type_conversion:
@@ -126,6 +128,7 @@ def read_decorator(func):
 
 
 def write_decorator_dict(func):
+    @wraps(func)
     def _write(self, values, **keys):
         if self._write_type_conversion:
             if not isinstance(values, dict) and values is not None:
@@ -142,6 +145,7 @@ def write_decorator_dict(func):
 
 
 def write_decorator_multiple(func):
+    @wraps(func)
     def _write(self, values, **keys):
         if self._write_type_conversion:
             if (
@@ -157,6 +161,7 @@ def write_decorator_multiple(func):
 
 
 def write_decorator(func):
+    @wraps(func)
     def _write(self, value, **keys):
         if self._write_type_conversion and value is not None:
             value = self._write_type_conversion(value)

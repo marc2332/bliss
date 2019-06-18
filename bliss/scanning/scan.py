@@ -18,6 +18,7 @@ import re
 import numpy
 import collections
 import uuid
+from functools import wraps
 
 from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
@@ -456,6 +457,7 @@ def _get_masters_and_channels(acq_chain):
 
 
 def display_motor(func):
+    @wraps(func)
     def f(self, *args, **kwargs):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()

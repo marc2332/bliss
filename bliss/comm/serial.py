@@ -13,7 +13,7 @@ import re
 import struct
 import weakref
 import binascii
-
+from functools import wraps
 import gevent
 from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
@@ -77,6 +77,7 @@ class SerialTimeout(CommunicationTimeout):
 
 
 def try_open(fu):
+    @wraps(fu)
     def rfunc(self, *args, **kwarg):
         try:
             with KillMask():

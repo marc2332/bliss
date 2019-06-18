@@ -484,13 +484,13 @@ def prdef(obj_or_name):
     if (
         inspect.ismodule(obj)
         or inspect.isclass(obj)
-        or inspect.ismethod(obj)
-        or inspect.isfunction(obj)
         or inspect.istraceback(obj)
         or inspect.isframe(obj)
         or inspect.iscode(obj)
     ):
         pass
+    elif inspect.ismethod(obj) or inspect.isfunction(obj):
+        obj = inspect.unwrap(obj)
     else:
         try:
             obj = type(obj)

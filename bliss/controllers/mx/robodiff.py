@@ -10,6 +10,7 @@ from bliss.common.utils import grouped, subprocess
 from bliss.common.task import task
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.config import static as static_config
+from functools import wraps
 import copy
 import gevent
 import math
@@ -50,6 +51,7 @@ DEFREEZING = False
 
 
 def notwhenbusy(func):
+    @wraps(func)
     def _(self, *args, **kw):
         # if caller is self, then we can always execute
         frame = inspect.currentframe(1)

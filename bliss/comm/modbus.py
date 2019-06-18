@@ -7,6 +7,7 @@
 
 import struct
 import weakref
+from functools import wraps
 from gevent import socket, select
 from gevent import lock
 from gevent import queue
@@ -284,6 +285,7 @@ class Modbus_RTU(LogMixin):
 
 
 def try_connect_modbustcp(fu):
+    @wraps(fu)
     def rfunc(self, *args, **kwargs):
         timeout = kwargs.get("timeout")
         if not self._connected:

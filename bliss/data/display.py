@@ -17,6 +17,7 @@ import shutil
 import signal
 import subprocess
 import atexit
+from functools import wraps
 from gevent.threadpool import ThreadPool
 
 from bliss.data.scan import watch_session_scans
@@ -75,6 +76,7 @@ def _find_unit(obj):
 
 def _post_in_pool(func):
     # post in a thread to avoid blocking call due to print function
+    @wraps(func)
     def f(self, *args):
         task = self._pool.spawn(func, self, *args)
         return task.get()

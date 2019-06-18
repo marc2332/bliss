@@ -13,6 +13,7 @@ from gevent import socket, select, event, queue
 from . import protocol
 import redis
 import netifaces
+from functools import wraps
 
 
 class StolenLockException(RuntimeError):
@@ -55,6 +56,7 @@ def compare_hosts(host1, host2):
 
 
 def check_connect(func):
+    @wraps(func)
     def f(self, *args, **keys):
         self.connect()
         return func(self, *args, **keys)

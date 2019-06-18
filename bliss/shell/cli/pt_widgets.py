@@ -536,15 +536,33 @@ class DlgWidget:
 
         if self.dlg.wtype == "msg":
             body = Label(
-                text=self.dlg.label, dont_extend_height=True, dont_extend_width=False
+                text=self.dlg.label,
+                dont_extend_height=True,
+                dont_extend_width=not self.dlg.text_expand,
             )
 
+            if self.dlg.text_align is not None:
+                body.window.align = self.dlg.text_align
+
         elif self.dlg.wtype in ["input", "file_input"]:
-            wlabel = Label(
-                text=self.dlg.label + " ",
-                dont_extend_height=True,
-                dont_extend_width=True,
-            )
+
+            sub_body = []
+
+            if self.dlg.label is not None:
+                msg = self.dlg.label
+                if self.dlg.label not in ["", " "]:
+                    msg += " "
+
+                wlabel = Label(
+                    text=msg,
+                    dont_extend_height=True,
+                    dont_extend_width=not self.dlg.text_expand,
+                )
+
+                if self.dlg.text_align is not None:
+                    wlabel.window.align = self.dlg.text_align
+
+                sub_body.append(wlabel)
 
             if self.dlg.wtype == "file_input":
                 if self.dlg.completer is None:
@@ -612,18 +630,23 @@ class DlgWidget:
             kb.add("tab")(focus_next_wdg)
             kb.add("s-tab")(focus_previous_wdg)
 
-            body = VSplit([wlabel, self.wdata], key_bindings=kb)
+            # === MAKE BODY LIST =========================================
+            sub_body.append(self.wdata)
+            body = VSplit(sub_body, key_bindings=kb)
 
         elif self.dlg.wtype == "choice":
-            body = []
+            sub_body = []
             if self.dlg.label is not None:
-                body.append(
-                    Label(
-                        text=self.dlg.label + " ",
-                        dont_extend_height=True,
-                        dont_extend_width=False,
-                    )
+                wlabel = Label(
+                    text=self.dlg.label + " ",
+                    dont_extend_height=True,
+                    dont_extend_width=not self.dlg.text_expand,
                 )
+
+                if self.dlg.text_align is not None:
+                    wlabel.window.align = self.dlg.text_align
+
+                sub_body.append(wlabel)
 
             self.wdata = RadioList(self.dlg.values)
 
@@ -632,8 +655,8 @@ class DlgWidget:
                 self.wdata.current_value = self.dlg.values[self.dlg.defval][0]
                 self.wdata._selected_index = self.dlg.defval
 
-            body.append(self.wdata)
-            body = HSplit(body)
+            sub_body.append(self.wdata)
+            body = HSplit(sub_body)
 
         elif self.dlg.wtype == "checkbox":
             self.wdata = Checkbox(self.dlg.label)

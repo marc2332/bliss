@@ -22,6 +22,24 @@ The predefined dialogs are:
 * `UserCheckBox( "option_name" )`: enable/disable an option.
 
 
+All dialogs have the following attributes:
+
+*  `label`:       the widget label 
+*  `defval`:      the default value
+*  `text_align`:  the label text alignment, in `["CENTER", "LEFT", "JUSTIFY", "RIGHT"]`
+*  `text_expand`: enable label text to expand (True or False)
+
+UserInput dialogs have these extra arguments:  
+
+*  `validator`:   the validator function (optional)
+*  `completer`:   the list of words for auto-completion (optional)
+
+The UserChoice dialogs have a special argument:
+
+*  `values`:      the list of choices. One choice is a pair (value, text). 
+
+                  ex: values = [(1,"red"), (2,"blue"), (3,"green")] 
+
 ## Display the dialog on screen ( Prompt-toolkit backend )
 
 ### Message and question
@@ -35,6 +53,9 @@ from bliss.shell.cli.user_dialog import UserMsg, UserYesNo
 from bliss.shell.cli.pt_widgets import display
 
 dlg = UserYesNo(label="Do you want to continue?")
+display(dlg, title='Bliss manager')
+
+dlg = UserMsg(label="This is a message")
 display(dlg, title='Bliss manager')
 
 >>> Out [17]: True

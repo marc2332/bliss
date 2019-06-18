@@ -27,6 +27,8 @@ class _UserDlg:
         defval=None,
         validator=None,
         completer=None,
+        text_align=None,
+        text_expand=True,
     ):
         self.wtype = wtype
         self.label = label
@@ -34,13 +36,8 @@ class _UserDlg:
         self.defval = defval
         self.validator = validator
         self.completer = completer
-
-
-class UserMsg(_UserDlg):
-    """ A simple message (=label) to be displayed """
-
-    def __init__(self, label="This is a message!"):
-        super().__init__(wtype="msg", label=label)
+        self.text_align = text_align  # "CENTER" "LEFT" "JUSTIFY" "RIGHT"
+        self.text_expand = text_expand
 
 
 class UserYesNo(_UserDlg):
@@ -50,11 +47,26 @@ class UserYesNo(_UserDlg):
         super().__init__(wtype="yesno", label=label, defval=defval)
 
 
+class UserMsg(_UserDlg):
+    """ A simple message (=label) to be displayed """
+
+    def __init__(self, label="This is a message!", text_align=None, text_expand=True):
+        super().__init__(
+            wtype="msg", label=label, text_align=text_align, text_expand=text_expand
+        )
+
+
 class UserInput(_UserDlg):
     """ Ask the user to enter/type a value (string, integer, float, ...) """
 
     def __init__(
-        self, label="What is your name?", defval="", validator=None, completer=None
+        self,
+        label="",
+        defval="",
+        validator=None,
+        completer=None,
+        text_align=None,
+        text_expand=False,
     ):
         super().__init__(
             wtype="input",
@@ -62,24 +74,36 @@ class UserInput(_UserDlg):
             defval=defval,
             validator=validator,
             completer=completer,
+            text_align=text_align,
+            text_expand=text_expand,
         )
 
 
 class UserIntInput(_UserDlg):
     """ Ask the user to enter/type an integer value """
 
-    def __init__(self, label="What is your number?", defval=0):
+    def __init__(self, label="", defval=0, text_align=None, text_expand=False):
         super().__init__(
-            wtype="input", label=label, defval=defval, validator=check["int"]
+            wtype="input",
+            label=label,
+            defval=defval,
+            validator=check["int"],
+            text_align=text_align,
+            text_expand=text_expand,
         )
 
 
 class UserFloatInput(_UserDlg):
     """ Ask the user to enter/type a float value """
 
-    def __init__(self, label="What is your size?", defval=0.0):
+    def __init__(self, label="", defval=0.0, text_align=None, text_expand=False):
         super().__init__(
-            wtype="input", label=label, defval=defval, validator=check["float"]
+            wtype="input",
+            label=label,
+            defval=defval,
+            validator=check["float"],
+            text_align=text_align,
+            text_expand=text_expand,
         )
 
 
@@ -87,7 +111,13 @@ class UserFileInput(_UserDlg):
     """ Ask the user to enter/type a value (string, integer, float, ...) """
 
     def __init__(
-        self, label="Select a file", defval="", validator=None, completer=None
+        self,
+        label="",
+        defval="",
+        validator=None,
+        completer=None,
+        text_align=None,
+        text_expand=False,
     ):
         super().__init__(
             wtype="file_input",
@@ -95,6 +125,8 @@ class UserFileInput(_UserDlg):
             defval=defval,
             validator=validator,
             completer=completer,
+            text_align=text_align,
+            text_expand=text_expand,
         )
 
 
@@ -105,8 +137,17 @@ class UserChoice(_UserDlg):
         defval : the index of the value selected as default.  
     """
 
-    def __init__(self, label=None, values=[], defval=0):
-        super().__init__(wtype="choice", label=label, values=values, defval=defval)
+    def __init__(
+        self, label=None, values=[], defval=0, text_align=None, text_expand=True
+    ):
+        super().__init__(
+            wtype="choice",
+            label=label,
+            values=values,
+            defval=defval,
+            text_align=text_align,
+            text_expand=text_expand,
+        )
 
 
 class UserCheckBox(_UserDlg):
@@ -114,7 +155,7 @@ class UserCheckBox(_UserDlg):
         defval : the default values for the option (True=checked, False=unchecked).  
     """
 
-    def __init__(self, label=None, defval=False):
+    def __init__(self, label="", defval=False):
         super().__init__(wtype="checkbox", label=label, defval=defval)
 
 

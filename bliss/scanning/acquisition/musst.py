@@ -31,7 +31,11 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         vars -- all variable you want to set before the musst program starts
         """
         AcquisitionMaster.__init__(
-            self, musst_dev, trigger_type=AcquisitionMaster.HARDWARE, **keys
+            self,
+            musst_dev,
+            musst_dev.name,
+            trigger_type=AcquisitionMaster.HARDWARE,
+            **keys,
         )
         self.musst = musst_dev
         self.program = program
@@ -54,7 +58,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
 
     @property
     def name(self):
-        return self.device.name
+        return f"{self.device.name}_master"
 
     def __iter__(self):
         self._iter_index = 0

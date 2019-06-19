@@ -94,6 +94,10 @@ class musst(object):
                 self._switch = None
 
         @property
+        def mode(self):
+            return self._string2mode.get(self._mode)
+
+        @property
         def value(self):
             if self._switch is not None:
                 self._switch.set(self._switch_name)

@@ -72,6 +72,33 @@ def test_pkcom_timescan_gauss(session):
     assert pytest.approx(p, center)
 
 
+def test_plotselect1(session):
+    from bliss.common.standard import plotselect
+
+    roby = getattr(setup_globals, "roby")
+
+    simul_counter1 = getattr(setup_globals, "diode2")
+    simul_counter2 = getattr(setup_globals, "diode3")
+    simul_counter4 = getattr(setup_globals, "diode4")
+
+    # Select counter via library function
+    scans.plotselect(simul_counter1)
+    s = scans.ascan(roby, 0, .1, 5, 0, save=False)
+
+    # _get_selected_counter_name() is valid only after a scan.
+    assert simul_counter1.name == scans._get_selected_counter_name()
+
+    # Select counter via user function
+    plotselect(simul_counter2)
+    assert simul_counter2.name == scans._get_selected_counter_name()
+
+
+#    # DOES not work because diode4 has no controller :((((
+# fixed soon ?
+#    plotselect(simul_counter4)
+#    assert simul_counter4.name == scans._get_selected_counter_name()
+
+
 def test_plotselect_and_global_cen(session):
 
     roby = getattr(setup_globals, "roby")

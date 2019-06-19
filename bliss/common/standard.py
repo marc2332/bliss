@@ -33,6 +33,7 @@ __all__ = (
         "mvr",
         "umvr",
         "move",
+        "plotselect",
         "prdef",
         "debugon",
         "debugoff",
@@ -462,6 +463,29 @@ def __move(*args, **kwargs):
     group.move(motor_pos, wait=wait, relative=relative)
 
     return group, motor_pos
+
+
+def plotselect(*counters):
+    """
+    Selects counters to plot and used by alignment functions (cen, peak, etc).
+    User-level function built on top of bliss.common.scans.plotselect()
+    """
+
+    # If called without arguments, prints help.
+    if not counters:
+        print("")
+        print("plotselect usage:")
+        print("    plotselect(<counters>*)")
+        print("example:")
+        print("    plotselect(counter1, counter2)")
+        print("")
+    else:
+        scans.plotselect(*counters)
+    print("")
+    print("Currently plotted counter(s):")
+    for cnt_name in scans.get_plotted_counters():
+        print(f"- {cnt_name}")
+    print("")
 
 
 def prdef(obj_or_name):

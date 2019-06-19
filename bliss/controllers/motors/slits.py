@@ -9,12 +9,12 @@ from bliss.controllers.motor import CalcController
 
 """
 example for single VERTICAL slits:
-  \     UP      /
-   \___________/
-                     VGAP
-    ___________      VOFF
-   /           \
-  /    DOWN     \
+   |    UP     |
+   |___________|           |
+                           |           ^
+    ___________      VOFF  -     VGAP  |
+   |           |           |           V
+   |   DOWN    |           |
 
 -
   controller:

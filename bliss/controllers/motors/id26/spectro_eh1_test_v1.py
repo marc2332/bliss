@@ -55,7 +55,7 @@ def theta_b(ene, d):
 
 
 def bragg_kev(theta, d):
-    """energy (keV) given Bragg angle (deg) and d-spacing (\AA)"""
+    """energy (keV) given Bragg angle (deg) and d-spacing (Angstroms)"""
     return spectroscopy.wavelength_angstrom_to_energy_kev(
         2 * d * math.sin(math.radians(theta))
     )

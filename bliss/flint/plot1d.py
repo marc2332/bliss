@@ -408,7 +408,7 @@ class LiveScatterPlot(qt.QWidget):
         """
         scan_name = re.compile(r"^(d|a?)\w+?\s+")
         mot_name_params = re.compile(
-            "(\w+)\s+(-?\d+\.\d+|-?\d+)\s+(-?\d+\.\d+|-?\d+)\s(\d+)"
+            r"(\w+)\s+(-?\d+\.\d+|-?\d+)\s+(-?\d+\.\d+|-?\d+)\s(\d+)"
         )
         self.motor_2_ranges = dict()
 

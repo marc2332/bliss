@@ -55,7 +55,7 @@ def d_cubic(a, hkl):
 
 
 def theta_b(ene, d):
-    """Bragg angle (rad) given energy (keV) and d-spacing (\AA)"""
+    """Bragg angle (rad) given energy (keV) and d-spacing (angstroms)"""
     if not (d == 0):
         return math.asin(
             (spectroscopy.energy_kev_to_wavelength_angstrom(ene)) / (2 * d)
@@ -66,7 +66,7 @@ def theta_b(ene, d):
 
 
 def bragg_kev(theta, d):
-    """energy (keV) given Bragg angle (deg) and d-spacing (\AA)"""
+    """energy (keV) given Bragg angle (deg) and d-spacing (angstroms)"""
     return spectroscopy.wavelength_angstrom_to_energy_kev(
         2 * d * math.sin(math.radians(theta))
     )

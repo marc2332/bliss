@@ -252,7 +252,20 @@ def main():
         win1 = "bliss"
         win2 = "scan"
 
-        tsock = f"/tmp/bliss_tmux.sock"
+        uid = os.geteuid()
+
+        # not sure if we should use the user id instead => os.getuid()
+        # euid (effective user id) can be different from uid.
+        # The difference between the regular UID and the Effective UID is that
+        # only the EUID is checked when you do something that requires special access
+        #  (such as reading or writing a file, or making certain system calls).
+        # The UID indicates the actual user who is performing the action,
+        # but it is (usually) not considered when examining permissions.
+        # In normal programs they will be the same.
+        # Some programs change their EUID to add or subtract from the actions they are allowed to take.
+        # A smaller number also change their UID, to effectively "become" another user.
+
+        tsock = f"/tmp/bliss_tmux_{uid}.sock"
 
         ans = subprocess.run(
             ["tmux", "-S", tsock, "has-session", "-t", "=%s" % session],

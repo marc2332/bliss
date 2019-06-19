@@ -23,9 +23,6 @@ import subprocess
 import gevent
 import pytest
 
-# from bliss.shell.cli import repl
-# repl.ERROR_REPORT.expert_mode = True
-
 
 def grab_lines(
     subproc, lines, timeout=30, finish_line="PRESS F5 TO COME BACK TO THE SHELL PROMPT"

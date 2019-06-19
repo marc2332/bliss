@@ -10,7 +10,6 @@ import sys
 from types import ModuleType
 import functools
 from treelib import Tree
-import __main__ as interpreter_main
 
 from bliss import setup_globals
 from bliss.config import static
@@ -353,16 +352,7 @@ class Session(object):
 
     @property
     def env_dict(self):
-        try:
-            # does Python run in interactive mode ?
-            interpreter_main.__file__
-        except AttributeError:
-            # interactive interpreter: use the main dict
-            # in order to export objects naturally as globals
-            return interpreter_main.__dict__
-        else:
-            # running as a library
-            return self.__env_dict
+        return self.__env_dict
 
     def setup(self, env_dict=None, verbose=False):
         if env_dict is not None:
@@ -389,13 +379,9 @@ class Session(object):
         if not "load_script" in env_dict:
             env_dict["load_script"] = functools.partial(load_script, env_dict)
 
-        exec("from bliss.common.standard import *", env_dict)
+        from bliss.scanning.scan import ScanSaving
 
-        from bliss.scanning.scan import ScanSaving, ScanDisplay, SCANS
-
-        env_dict["SCANS"] = SCANS
         env_dict["SCAN_SAVING"] = ScanSaving(self.name)
-        env_dict["SCAN_DISPLAY"] = ScanDisplay()
 
         from bliss.common.measurementgroup import ACTIVE_MG
 

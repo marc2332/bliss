@@ -45,7 +45,7 @@ def test_hdf5_metadata(beacon, session):
     diode = beacon.get("diode")
 
     s = scans.ascan(roby, 0, 10, 10, 0.01, diode, save=True, return_scan=True)
-    assert s is setup_globals.SCANS[-1]
+    assert s is scans.SCANS[-1]
 
     iso_start_time = datetime.datetime.fromtimestamp(
         s.scan_info["start_timestamp"]

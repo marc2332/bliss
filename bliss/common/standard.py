@@ -71,7 +71,6 @@ from bliss.common.utils import (
     counter_dict,
 )
 from bliss.common.measurement import BaseCounter
-from bliss.shell.cli import repl
 
 _ERR = "!ERR"
 _MAX_COLS = 9

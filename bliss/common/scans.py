@@ -49,7 +49,6 @@ import numpy
 import gevent
 from functools import wraps
 
-from bliss import setup_globals
 from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
@@ -58,7 +57,7 @@ from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss.scanning.default import DefaultAcquisitionChain
-from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.scan import Scan, StepScanDataWatch, SCANS
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import (
     LinearStepTriggerMaster,
@@ -1285,7 +1284,6 @@ def _get_selected_counter_name(counter=None):
 
     Used to determine which counter to use for cen pic curs functions.
     """
-    SCANS = setup_globals.SCANS
     if not SCANS:
         raise RuntimeError("Scans list is empty!")
     scan_counter_names = set(get_counter_names(SCANS[-1]))
@@ -1322,22 +1320,23 @@ def last_scan_motor(axis=None):
     """
     Return the last motor used in the last scan
     """
-    if not len(setup_globals.SCANS):
-        raise RuntimeError("No scan available. Hits: do at least one ;)")
-    scan = setup_globals.SCANS[-1]
+    if not len(SCANS):
+        raise RuntimeError("No scan available. Hint: do at least one ;)")
+    scan = SCANS[-1]
     axis_name = scan._get_data_axis_name(axis=axis)
-    return getattr(setup_globals, axis_name)
+    return session.get_current().env_dict[axis_name]
 
 
 def last_scan_motors():
     """
     Return a list of motor used in the last scan
     """
-    if not len(setup_globals.SCANS):
-        raise RuntimeError("No scan available. Hits: do at least one ;)")
-    scan = setup_globals.SCANS[-1]
+    if not len(SCANS):
+        raise RuntimeError("No scan available. Hint: do at least one ;)")
+    scan = SCANS[-1]
     axes_name = scan._get_data_axes_name()
-    return [getattr(setup_globals, axis_name) for axis_name in axes_name]
+    current_session_dict = session.get_current().env_dict
+    return [current_session_dict[axis_name] for axis_name in axes_name]
 
 
 def plotselect(*counters):
@@ -1439,7 +1438,6 @@ def _goto_multimotors(func):
 @_multimotors
 def cen(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    SCANS = setup_globals.SCANS
     return SCANS[-1].cen(counter_name, axis=axis)
 
 
@@ -1447,7 +1445,7 @@ def cen(counter=None, axis=None):
 def goto_cen(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
     motor = last_scan_motor(axis)
-    scan = setup_globals.SCANS[-1]
+    scan = SCANS[-1]
     motor = last_scan_motor(axis)
     cfwhm, _ = scan.cen(counter_name, axis=axis)
     _log.warning("Motor %s will move from %f to %f", motor.name, motor.position, cfwhm)
@@ -1457,16 +1455,14 @@ def goto_cen(counter=None, axis=None):
 @_multimotors
 def com(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    SCANS = setup_globals.SCANS
     return SCANS[-1].com(counter_name, axis=axis)
 
 
 @_goto_multimotors
 def goto_com(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    SCANS = setup_globals.SCANS
     motor = last_scan_motor(axis)
-    scan = setup_globals.SCANS[-1]
+    scan = SCANS[-1]
     motor = last_scan_motor(axis)
     com_pos = scan.com(counter_name, axis=axis)
     _log.warning(
@@ -1478,7 +1474,6 @@ def goto_com(counter=None, axis=None):
 @_multimotors
 def peak(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    SCANS = setup_globals.SCANS
     return SCANS[-1].peak(counter_name, axis=axis)
 
 
@@ -1486,7 +1481,7 @@ def peak(counter=None, axis=None):
 def goto_peak(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
     motor = last_scan_motor(axis)
-    scan = setup_globals.SCANS[-1]
+    scan = SCANS[-1]
     motor = last_scan_motor(axis=axis)
     peak_pos = scan.peak(counter_name, axis=axis)
     _log.warning(
@@ -1496,6 +1491,5 @@ def goto_peak(counter=None, axis=None):
 
 
 def where():
-    SCANS = setup_globals.SCANS
     for axis in last_scan_motors():
         SCANS[-1].where(axis=axis)

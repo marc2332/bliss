@@ -9,8 +9,7 @@ from bliss.scanning import scan
 import math
 
 # deactivate automatic Flint startup
-SCAN_DISPLAY.auto = False
-
+scan.ScanDisplay().auto = False
 
 load_script("script1")
 

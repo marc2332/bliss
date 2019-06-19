@@ -60,11 +60,10 @@ class tango_attr_as_counter(SamplingCounter):
         if tango_uri is None:
             raise KeyError("uri")
 
-        self.unit = config.get("unit")
         self.attribute = config["attr_name"]
         self._ctrl = _CtrGroupReadDict.setdefault(tango_uri, _CtrGroupRead(tango_uri))
         self._ctrl.add_counter(name)
-        SamplingCounter.__init__(self, name, self._ctrl)
+        SamplingCounter.__init__(self, name, self._ctrl, unit=config.get("unit"))
 
 
 TangoAttrCounter = tango_attr_as_counter

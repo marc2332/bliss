@@ -30,3 +30,11 @@
   distribution: FLAT
   height_factor: 12.0
   noise_factor: 1.01
+-
+  name: tg_dummy_counter
+  plugin: bliss
+  class: tango_attr_as_counter
+  uri: id00/tango/dummy
+  unit: mm
+  attr_name: position
+

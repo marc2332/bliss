@@ -252,8 +252,10 @@ def main():
         win1 = "bliss"
         win2 = "scan"
 
+        tsock = f"/tmp/bliss_tmux.sock"
+
         ans = subprocess.run(
-            ["tmux", "has-session", "-t", "=%s" % session],
+            ["tmux", "-S", tsock, "has-session", "-t", "=%s" % session],
             capture_output=True,
             text=True,
         )
@@ -263,12 +265,14 @@ def main():
             print(f"Tmux session {session} already exist, joining session...")
         else:
             print(f"Starting new tmux session {session}...")
-            ans = subprocess.run(["tmux", "start-server"])
+            ans = subprocess.run(["tmux", "-S", tsock, "start-server"])
 
             if arguments["--tmux-debug"]:
                 ans = subprocess.run(
                     [
                         "tmux",
+                        "-S",
+                        tsock,
                         "-f",
                         config_path,
                         "new-session",
@@ -282,13 +286,15 @@ def main():
 
                 sub_cmd = f"python -m bliss.shell.cli.start_bliss_repl {session} {arguments['--log-level'][0]} 1"
                 ans = subprocess.run(
-                    ["tmux", "send-keys", "-t", win1, sub_cmd, "Enter"]
+                    ["tmux", "-S", tsock, "send-keys", "-t", win1, sub_cmd, "Enter"]
                 )
 
             else:
                 ans = subprocess.run(
                     [
                         "tmux",
+                        "-S",
+                        tsock,
                         "-f",
                         config_path,
                         "new-session",
@@ -308,6 +314,8 @@ def main():
             ans = subprocess.run(
                 [
                     "tmux",
+                    "-S",
+                    tsock,
                     "new-window",
                     "-d",
                     "-n",
@@ -322,6 +330,8 @@ def main():
         ans = subprocess.run(
             [
                 "tmux",
+                "-S",
+                tsock,
                 "set-hook",
                 "-t",
                 session,
@@ -329,7 +339,7 @@ def main():
                 "kill-session -t %s" % session,
             ]
         )
-        ans = subprocess.run(["tmux", "attach-session", "-t", session])
+        ans = subprocess.run(["tmux", "-S", tsock, "attach-session", "-t", session])
 
 
 if __name__ == "__main__":

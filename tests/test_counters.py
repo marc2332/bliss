@@ -346,3 +346,10 @@ def test_prepare_once_prepare_many(beacon):
     assert "diode3" in dat
     assert len(s.get_data()["diode2"]) == 10
     assert len(s.get_data()["diode3"]) == 10
+
+
+def test_tango_attr_counter(beacon, dummy_tango_server):
+    counter = beacon.get("tg_dummy_counter")
+
+    assert counter.read() == 1.4
+    assert counter.unit == "mm"

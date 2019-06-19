@@ -1,10 +1,15 @@
-# coding: utf-8
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction, mode
 from silx.gui.plot import PlotWindow, PlotWidget
-from silx.gui.plot.Colors import rgba
+from silx.gui.colors import rgba
 
 
 class DrawModeAction(PlotAction):

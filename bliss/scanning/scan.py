@@ -991,6 +991,11 @@ class Scan:
                 self.disconnect_all()
                 # Kill data watch task
                 if self._data_watch_task is not None:
+                    if (
+                        self._data_watch_task.ready()
+                        and not self._data_watch_task.successful()
+                    ):
+                        self._data_watch_task.get()
                     self._data_watch_task.kill()
                 # Close nodes
                 for node in self.nodes.values():
@@ -1014,7 +1019,7 @@ class Scan:
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
-                scan.scan_info["state"] = scan._state
+                scan.scan_info["state"] = scan.state
                 scan._data_watch_callback.on_scan_data(
                     data_events, scan.nodes, scan.scan_info
                 )

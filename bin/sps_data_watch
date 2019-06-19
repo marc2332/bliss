@@ -18,7 +18,7 @@ import gevent
 
 import json
 
-from bliss.common.utils import OrderedDict
+from collections import OrderedDict
 
 try:
     import sps

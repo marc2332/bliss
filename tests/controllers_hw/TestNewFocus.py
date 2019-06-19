@@ -18,7 +18,7 @@ sys.path.insert(
 )
 
 import bliss
-from bliss.common.axis import READY, MOVING
+from bliss.common.axis import AxisState
 
 config_xml = """
 <config>
@@ -73,7 +73,7 @@ class TestNewFocus(unittest.TestCase):
 
     def testState(self):
         a1 = bliss.get_axis("a1")
-        self.assertEqual(a1.state, READY)
+        self.assertEqual(a1.state, AxisState.READY)
 
     def testSimultaneousMove(self):
         a1 = bliss.get_axis("a1")

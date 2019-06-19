@@ -56,7 +56,7 @@ class MyClass():
         if AA and not BB:
             type(e.titi)
             print('\033[31;42m salut')
-        from NameSpace import FF
+        from multiprocessing import Process
         pass
     def my_func():
         PythonRepl.__class__();print('dddD') ; # fdslkfjsd

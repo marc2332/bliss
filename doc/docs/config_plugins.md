@@ -64,7 +64,7 @@ each object
 * finally, the created object is returned in a dictionary indexed by the object name
 
 ```py
-from bliss/config.plugins.utils import find_class, replace_reference_by_object
+from bliss.config.plugins.utils import find_class, replace_reference_by_object
 
 def create_objects_from_config_node(config, cfg_node):
     item_cfg_node = cfg_node.deep_copy()

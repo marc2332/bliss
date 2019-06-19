@@ -14,7 +14,7 @@ from . import pi_gcs
 from bliss.comm import tcp
 from bliss.common import event
 
-from PI_E51X import PI_E51X
+from .pi_e51x import PI_E51X
 
 """
 Bliss controller for ethernet PI E518 piezo controller.

@@ -10,7 +10,7 @@ import random
 import pytest
 import numpy.random
 
-from bliss.controller.speedgoat import xpc
+from bliss.controllers.speedgoat import xpc
 
 pytestmark = pytest.mark.speedgoat
 

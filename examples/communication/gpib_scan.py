@@ -15,11 +15,11 @@ import logging
 import gevent
 
 from bliss.comm.gpib import Gpib, TMO_MAP
-from bliss.comm.scpi import Scpi
+from bliss.comm.scpi import SCPI
 
 
 def test_scpi(interface):
-    scpi = Scpi(interface=interface)
+    scpi = SCPI(interface=interface)
     return scpi["*IDN"]
 
 

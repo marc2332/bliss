@@ -187,6 +187,7 @@ class Map:
                 logger.exception(
                     f"Failed trigger_update on map handlers for {func.__name__}"
                 )
+                raise
 
     def find_predecessors(self, node):
         """

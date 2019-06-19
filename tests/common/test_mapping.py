@@ -314,7 +314,6 @@ def test_session_map(beacon, s1hg, roby):
     )
 
 
-@pytest.mark.skip(reason="works manually, but pytest doesn't raise")
 def test_bad_function_on_trigger_update(beamline):
     def bad_func(graph):
         raise NotImplementedError

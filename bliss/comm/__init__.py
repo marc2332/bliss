@@ -21,3 +21,5 @@ This module gathers different communication interfaces
    tcp
    util
 """
+
+from bliss.comm.util import get_comm

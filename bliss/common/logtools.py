@@ -350,7 +350,10 @@ def map_update_loggers(G):
         G: networkX DiGraph (given by mapping module)
     """
     for node in list(G):
-        reference = G.node[node].get("instance")
+        node_dict = G.node.get(node)
+        if not node_dict:
+            continue
+        reference = node_dict.get("instance")
         if isinstance(reference, str):
             if reference in ("axes", "counters", "comms"):
                 continue
@@ -360,7 +363,6 @@ def map_update_loggers(G):
             inst = reference()
 
         if inst:  # if weakref is still alive
-            node_dict = G.node[node]
             logger = node_dict.get("_logger")
             if logger:
                 existing_logger_name = logger.name

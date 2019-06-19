@@ -124,17 +124,12 @@ class KeithleySCPI(BaseSCPIDevice):
 class Sensor(SamplingCounter):
     def __init__(self, config, controller):
         name = config["name"]
-        SamplingCounter.__init__(self, name, controller)
-        self.__controller = controller
+        super().__init__(name, controller)
         self.config = config
         self.address = int(config["address"])
         self.index = self.address - 1
         self.controller.initialize_sensor(self)
         self.__init()
-
-    @property
-    def controller(self):
-        return self.__controller
 
     def __int__(self):
         return self.address

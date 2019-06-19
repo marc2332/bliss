@@ -10,15 +10,12 @@ import weakref
 import os
 import gevent
 import hashlib
-from bliss.comm.gpib import Gpib
-from bliss.comm import serial
+from bliss.comm import get_comm
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.common.measurement import SamplingCounter, counter_namespace
-
-Serial = serial.Serial
 
 
 def _get_simple_property(command_name, doc_sring):
@@ -224,23 +221,19 @@ class musst(object):
         """
 
         self.name = name
-        if "gpib_url" in config_tree:
-            self._cnx = Gpib(
-                config_tree["gpib_url"],
-                pad=config_tree["gpib_pad"],
-                eos=config_tree.get("gpib_eos", ""),
-                timeout=config_tree.get("gpib_timeout", 5),
-            )
+        gpib = config_tree.get("gpib")
+        comm_opts = dict()
+        if gpib:
+            gpib["eol"] = ""
+            comm_opts["timeout"] = 5
             self._txterm = b""
             self._rxterm = b"\n"
             self._binary_data_read = True
-        elif "serial_url" in config_tree:
-            self._cnx = Serial(config_tree["serial_url"])
+        else:
             self._txterm = b"\r"
             self._rxterm = b"\r\n"
             self._binary_data_read = False
-        else:
-            raise ValueError("Must specify gpib_url or serial_url")
+        self._cnx = get_comm(config_tree, **comm_opts)
 
         self._string2state = {
             "NOPROG": self.NOPROG_STATE,

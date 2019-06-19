@@ -12,6 +12,7 @@ from bliss.common.logtools import create_logger_name
 from bliss.common import session as session_module
 import networkx as nx
 import logging
+import sys
 
 
 class SimpleNode:
@@ -313,7 +314,6 @@ def test_session_map(beacon, s1hg, roby):
     )
 
 
-@pytest.mark.skip(reason="works manually, but pytest doesn't raise")
 def test_bad_function_on_trigger_update(beamline):
     def bad_func(graph):
         raise NotImplementedError
@@ -363,6 +363,60 @@ def test_create_partial_map_2(complex_beamline):
     assert len(sub_G) == 7
     for node in "session controllers Contr_1 Axis_2 m1 m2 m3".split():
         assert node in sub_G
+
+
+@pytest.mark.xfail
+def test_non_cyclic_ref(beacon):
+    m = Map()
+
+    class Cnt:
+        class Counter:
+            def __init__(self, name, mode):
+                self.name = name
+                self.mode = mode
+
+        def __init__(self):
+            self.in_set_mode = False
+            self.mode = None
+            self.__counter = list()
+
+        def set_mode(self, mode):
+            if self.mode == mode:
+                return
+
+            if self.in_set_mode:
+                return
+            print(f"set_mode {mode} {id(self)}")
+            self.in_set_mode = True
+            while self.__counter:
+                cnt = self.__counter.pop(0)
+                print(f"remove {cnt.name} {id(self)} {sys.getrefcount(cnt)}")
+            for i in range(10):
+                print(f"create counter {i} {id(self)}")
+                c = Cnt.Counter(f"counter {i}", mode)
+                m.register(c)
+                self.__counter.append(c)
+            self.in_set_mode = False
+            self.mode = mode
+
+    def update_mode(G):
+        for node in list(G):
+            ref = G.node[node].get("instance")
+            try:
+                inst = ref()
+            except:
+                continue
+            if isinstance(inst, Cnt):
+                inst.set_mode(current_mode)
+
+    m.add_map_handler(update_mode)
+    cnts = list()
+    for current_mode in ["bla", "truc", "chose", "hello", "mario"]:
+        print(f"create cnt {current_mode}")
+        cnt = Cnt()
+        print(f"register cnt {current_mode}")
+        m.register(cnt)
+        cnts.append(cnt)
 
 
 #########################  MANUAL TESTING  ###################################

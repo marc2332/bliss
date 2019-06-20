@@ -833,16 +833,15 @@ class Scan:
             connect(channel, "new_data", self._channel_event)
 
     def prepare(self, scan_info, devices_tree):
-        parent_node = self.node
-        prev_level = 1
         self.__nodes = dict()
-        self._devices = list(devices_tree.expand_tree(mode=Tree.WIDTH))[1:]
+        self._devices = list(devices_tree.expand_tree())[1:]
 
         for dev in self._devices:
             dev_node = devices_tree.get_node(dev)
             level = devices_tree.depth(dev_node)
-            if prev_level != level:
-                prev_level = level
+            if level == 1:
+                parent_node = self.node
+            else:
                 parent_node = self.nodes[dev_node.bpointer]
             if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
                 data_container_node = _create_node(dev.name, parent=parent_node)

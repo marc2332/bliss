@@ -274,16 +274,20 @@ class DataNodeIterator(object):
                 if event_type is self.EVENTS.NEW_NODE:
                     yield node
 
-    def walk_events(self, filter=None, ready_event=None):
+    def walk_events(self, filter=None, ready_event=None, from_next=False):
         """Walk through child nodes, just like `walk` function, yielding node events
         (like EVENTS.NEW_NODE or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
         """
         pubsub = self.children_event_register()
 
-        for node in self.walk(filter, wait=False):
-            yield self.EVENTS.NEW_NODE, node
-            if DataNode.exists("%s_data" % node.db_name):
-                yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
+        if from_next:
+            # execute the walk_from_last
+            [x for x in self.walk_from_last(wait=False, include_last=False)]
+        else:
+            for node in self.walk(filter, wait=False):
+                yield self.EVENTS.NEW_NODE, node
+                if DataNode.exists("%s_data" % node.db_name):
+                    yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
 
         if ready_event is not None:
             ready_event.set()

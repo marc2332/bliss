@@ -82,6 +82,9 @@ def protect_from_one_kill(fu):
 
 
 # gevent.greenlet module patch
+_ori_timeout = gevent.timeout.Timeout
+
+
 class Greenlet(greenlet.Greenlet):
     def throw(self, exception):
         if isinstance(exception, gevent.timeout.Timeout):
@@ -94,6 +97,13 @@ class Greenlet(greenlet.Greenlet):
                     super().throw(exception)
         else:
             super().throw(exception)
+
+    def get(self, *args, **keys):
+        try:
+            return super().get(*args, **keys)
+        except _ori_timeout as tmout:
+            t = Timeout(exception=tmout.exception)
+            raise t
 
 
 gevent.spawn = Greenlet.spawn

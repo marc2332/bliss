@@ -1,0 +1,6 @@
+name: mythen1
+module: mca.mythen
+class: Mythen
+plugin: bliss
+hostname: mymythen
+apply_defaults: True

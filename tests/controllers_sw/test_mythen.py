@@ -78,7 +78,9 @@ Mythen on mymythen:
   gate_mode                 = False
   ngates                    = 0
   input_polarity            = 0
-  output_polarity           = 0"""
+  output_polarity           = 0
+  selected_module           = 1
+  element_settings          = ('Cu',)"""
     )
     m.finalize()
     m._interface._sock.close.assert_called_once_with()

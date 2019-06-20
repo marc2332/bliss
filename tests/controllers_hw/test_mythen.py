@@ -79,10 +79,10 @@ def test_general_getters(mythen):
 
 
 def test_general_commands(mythen):
-    mythen.select_module(0)
-    assert mythen.get_module() == 0
+    mythen.set_selected_module(1)
+    assert mythen.get_selected_module() == 1
     mythen.select_all_modules()
-    assert mythen.get_module() == 0xffff
+    assert mythen.get_selected_module() == 0
     mythen.set_nmodules(1)
     assert mythen.get_nmodules() == 1
     mythen.reset()

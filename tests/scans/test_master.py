@@ -9,6 +9,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 import pytest
 import gevent
 import numpy
+from treelib import Node, Tree
 
 
 def test_dummy_scan_without_external_channel(
@@ -129,6 +130,18 @@ def test_multiple_top_masters(beacon, lima_simulator, dummy_acq_device):
     assert isinstance(scan_data["diode"], numpy.ndarray)
     assert len(scan_data["elapsed_time"]) == 2
     assert len(scan_data["timer2:elapsed_time"]) == 50
+
+    ### check structure in redis
+    tree = Tree()
+    for node in scan.node.iterator.walk(wait=False):
+        if not node.type == "channel":
+            if node.db_name == scan.node.db_name:
+                tree.create_node("acquisition chain", node.db_name)
+            else:
+                tmp = node.db_name.split(":")
+                tree.create_node(node.name, node.db_name, parent=":".join(tmp[:-1]))
+
+    assert str(scan.acq_chain._tree) == str(tree)
 
 
 def test_master_synchro(beacon, dummy_acq_master, dummy_acq_device):

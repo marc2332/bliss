@@ -40,3 +40,45 @@ filename:<directory_1/file_1.yml>,plugin:None,{'name': 'object_1', 'param': 42}
 >>>    print(f.read())
 b'- !!omap\n  - name: object_1\n  - param: 0\n- !!omap\n  - name: object_2\n  - param: 43\n'
 ```
+
+
+# To save parameters in a YAML configuration file
+
+
+```yaml
+name: titi
+truc: much
+bidule:
+- titi: rouge
+  toto: bleu
+```
+
+```python
+from bliss.config import static
+cc = static.get_config()
+cc.reload()
+n= cc.get("titi")
+n['truc']='machin'
+
+nn = n['bidule'][0]
+
+type(nn)  #  <class 'bliss.config.static.Node'>
+
+nn['titi'] = "jaune"
+
+nn.save()  # saves "jaune" and "machin"
+n.save()  # saves "jaune" and "machin"
+```
+
+resulting YAML file is:
+
+```yaml
+name: titi
+truc: machin
+bidule:
+- titi: jaune
+  toto: bleu
+```
+
+
+

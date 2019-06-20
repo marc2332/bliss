@@ -304,7 +304,7 @@ def test_children_timing(beacon, session, scan_tmpdir):
             # print(event_type.name, node.db_name)
             parent = node.parent
             if (
-                event_type.name == "NEW_CHILD"
+                event_type.name == "NEW_NODE"
                 and parent is not None
                 and parent.type == "scan"
             ):

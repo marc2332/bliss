@@ -336,7 +336,7 @@ def watch_session_scans(
             if event_type == data_iterator.EVENTS.EXTERNAL_EVENT:
                 break
 
-            elif event_type == data_iterator.EVENTS.NEW_CHILD:
+            elif event_type == data_iterator.EVENTS.NEW_NODE:
                 node_type = node.type
                 db_name = node.db_name
                 if node_type == "scan":

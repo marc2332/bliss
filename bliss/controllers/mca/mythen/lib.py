@@ -165,6 +165,7 @@ class MythenInterface:
         self.name = f"mythen:{hostname}"
         self._sock = Socket(hostname, TCP_PORT)
         self._version_cache = Cache(self, "version", default_value=None)
+        self._element_settings = ["Cu", "Cu", "Cu", "Cu"]
 
     @property
     def version(self):
@@ -306,19 +307,40 @@ class MythenInterface:
 
     # General commands
 
-    def select_module(self, module_id):
+    def set_selected_module(self, module_id):
+        """
+        Few  commands apply/return setting to the selected module
+        For instance if the DCS4 is controlling 2 modules, one should set module
+        to the module number. If module_id is 0 all the modules are selected.
+        """
+        if module_id == 0:
+            module_id = 0xffff
+        else:
+            module_id -= 1
         command = "-module {}".format(module_id)
         self._run_command(command, "int")
 
+    def get_selected_module(self):
+        command = "-get module"
+        module_id = self._run_command(command, "int")
+        if module_id == 0xffff:
+            return 0
+        else:
+            return module_id + 1
+
     def select_all_modules(self):
-        self.select_module(0xffff)
+        self.set_selected_module(0)
 
     def set_nmodules(self, nmodules):
         command = "-nmodules {}".format(nmodules)
         self._run_command(command, "int")
+        # changing number of active module returns the module to the Cupper settings
+        self._element_settings = ["Cu", "Cu", "Cu", "Cu"]
 
     def reset(self):
         self._run_command("-reset", "int")
+        # reset command return the module to the Cupper settings
+        self._element_settings = ["Cu", "Cu", "Cu", "Cu"]
 
     # Acquisition control
 
@@ -439,12 +461,20 @@ class MythenInterface:
         command = "-kthreshenergy {} {}".format(kthresh, energy)
         self._run_command(command, "int")
 
-    def load_predefined_settings(self, element):
+    def set_element_settings(self, element="Cu"):
         element = element.capitalize().strip()
         if element not in ("Cu", "Mo", "Cr", "Ag"):
             raise ValueError("Element {} is not supported".format(element))
         command = "-settings {}".format(element)
         self._run_command(command, "int")
+        smodule = self.get_selected_module()
+        if smodule == 0:  # all modules selected
+            self._element_settings = [element] * self.get_nmodules()
+        else:
+            self._element_settings[smodule - 1] = element
+
+    def get_element_settings(self):
+        return tuple(self._element_settings[: self.get_nmodules()])
 
     # Data correction
 

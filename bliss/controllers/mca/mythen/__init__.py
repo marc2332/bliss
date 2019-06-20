@@ -4,7 +4,7 @@ import enum
 import numpy
 import gevent
 
-from .lib import MythenInterface
+from .lib import MythenInterface, MythenCompatibilityError
 
 from bliss.common.measurement import BaseCounter, counter_namespace
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
@@ -51,6 +51,8 @@ class Mythen(object):
         "ngates",
         "input_polarity",
         "output_polarity",
+        "selected_module",
+        "element_settings",
     ]
 
     def __init__(self, name, config):
@@ -80,7 +82,14 @@ class Mythen(object):
                 setattr(self, key, value)
 
     def _get_configuration(self):
-        return [(key, getattr(self, key)) for key in self._settings]
+        conf = []
+        for key in self._settings:
+            try:
+                value = getattr(self, key)
+                conf.append((key, value))
+            except MythenCompatibilityError:
+                continue
+        return conf
 
     def __repr__(self):
         lines = ["Mythen on {}:".format(self._hostname)]
@@ -145,6 +154,10 @@ class Mythen(object):
     input_polarity = interface_property("inputpolarity")
 
     output_polarity = interface_property("outputpolarity")
+
+    selected_module = interface_property("selected_module")
+
+    element_settings = interface_property("element_settings")
 
     # Expose all interface getters
 

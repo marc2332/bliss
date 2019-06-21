@@ -7,7 +7,9 @@
 # Patch to modify the behavior of the jedi signature
 # The code for def SignatureParamName corresponds to jedi version 0.13.3
 
-from jedi.evaluate.base_context import Context, ContextSet
+from jedi.evaluate.base_context import ContextSet
+from jedi.evaluate.filters import AbstractNameDefinition
+from jedi.evaluate.compiled.context import create_from_access_path
 
 
 class SignatureParamName(AbstractNameDefinition):

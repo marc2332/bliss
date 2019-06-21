@@ -49,7 +49,7 @@ class Map:
             map_id(instance),
             instance=instance
             if isinstance(instance, str)
-            else weakref.ref(instance, partial(self._trash_node, id_=id(instance))),
+            else weakref.ref(instance, partial(self._trash_node, id_=map_id(instance))),
         )  # weakreference to the instance with callback on removal
         return self.G.node[map_id(instance)]
 
@@ -198,7 +198,7 @@ class Map:
         Returns:
             list: id of predecessor nodes
         """
-        id_ = node if isinstance(node, int) else map_id(node)
+        id_ = map_id(node)
         return [n for n in self.G.predecessors(id_)]
 
     def find_children(self, node) -> list:
@@ -208,7 +208,7 @@ class Map:
         Returns:
             list: id of child nodes
         """
-        id_ = node if isinstance(node, int) else map_id(node)
+        id_ = map_id(node)
         return [n for n in self.G.adj.get(id_)]
 
     def shortest_path(self, node1, node2):
@@ -224,8 +224,8 @@ class Map:
             networkx.exception.NodeNotFound
             networkx.exception.NetworkXNoPath
         """
-        id_1 = node1 if isinstance(node1, int) else map_id(node1)
-        id_2 = node2 if isinstance(node2, int) else map_id(node2)
+        id_1 = map_id(node1)
+        id_2 = map_id(node2)
         return nx.shortest_path(self.G, id_1, id_2)
 
     def create_partial_map(self, sub_G, node):
@@ -268,7 +268,7 @@ class Map:
         Returns:
             networkx.DiGraph
         """
-        id_ = node if isinstance(node, int) else map_id(node)
+        id_ = map_id(node)
         sub_G.add_node(id_, **self.G.nodes[id_])  # adds the node copying info
         for n in self.G.adj.get(id_):
             if n not in sub_G.neighbors(id_):

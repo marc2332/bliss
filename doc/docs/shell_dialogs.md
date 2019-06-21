@@ -70,7 +70,8 @@ Multiple widgets dialog can be built with the `BlissDialog` object and display o
 The first argument of the `BlissDialog` object is a 2d list of user dialogs. 
 The first dimension represent the vertical layout and the second dimension the horizontal layout.
 The space between the widgets can be specified with the `padding` argument. 
-After pressing the `ok` button, the list of widget values are returned as a flatten list, from top left widget to bottom right widget.
+After pressing the `ok` button, a dictionary with widget values is returned. 
+The dictionary is indexed by the dialog name (if not None) else by the dialog object itself.
 If pressing the `cancel` button, it returns `False`.
 
 ```python
@@ -192,7 +193,7 @@ BlissDialog( [  [dlg1], [dlg2,]  ] , title='Bliss manager').show()
 
 The BlissWizard object takes a list of BlissDialog objects and display them one by one.
 It is useful when there are too many widgets for a single page/screen.
-It returns the list of the results list of each page.
+It returns the list of the results of each page.
 
 
 ```python

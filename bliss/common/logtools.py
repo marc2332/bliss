@@ -44,8 +44,8 @@ class LogMixin:
         id_ = map_id(self)
         if id_ in m.G:
             return m.G.node[id_]["_logger"]
-        n = m.register(self)
-        return n["_logger"]
+        m.register(self)
+        return m[self]["_logger"]
 
 
 @contextlib.contextmanager

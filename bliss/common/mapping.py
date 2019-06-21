@@ -170,8 +170,6 @@ class Map:
             # add child
             self.G.add_edge(map_id(parent), map_id(instance))
 
-        return node  # return the dictionary of the node
-
     def _trash_node(self, *args, id_=None):
         if id_ is None:
             return
@@ -182,8 +180,8 @@ class Map:
     def __len__(self):
         return len(self.G)
 
-    def __getitem__(self, key):
-        return self.G.nodes[key]
+    def __getitem__(self, instance):
+        return self.G.nodes[map_id(instance)]
 
     def __iter__(self):
         return iter(self.G)

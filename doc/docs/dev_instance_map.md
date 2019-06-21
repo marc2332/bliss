@@ -97,18 +97,16 @@ You can notice some facts:
     *  If it is a string the string itself (e.g. 'my_node')
     *  If it is an instance give it as a reference (e.g. myinst in the case above or self inside a class)
  * If no parent is given the instance will be registered under "controllers"
- * The return value of register is the node dictionary where we have a weakref to the instance and a logger. We can access those also through: `session.get_current().map.G[node_id]`
+ * Going through `session.get_current().map.G[node_instance]` you can retrive node informations like *weakref*, *logger* and others.
 
 ```python
 BLISS [1]: from bliss.common import session
 BLISS [2]: m = session.get_current().map
 BLISS [3]: m.register('my_node')
-  Out [3]: {'instance': 'my_node', 'tag': 'my_node', '_logger': <Logger session.controllers.my_node (WARNING)>}
 BLISS [4]: class A():
       ...:     pass
 BLISS [5]: myinst = A()
 BLISS [6]: m.register(myinst, parents_list=['my_node','counters'])
-  Out [6]: {'instance': <weakref at 0x7fb525909318; to 'A' at 0x7fb525813da0>, '_logger': <Logger session.controllers.my_node. (WARNING)>}
 BLISS [7]: m.draw_pygraphviz()
 ```
 {% dot session_map_addnode.svg

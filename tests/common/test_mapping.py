@@ -365,7 +365,6 @@ def test_create_partial_map_2(complex_beamline):
         assert node in sub_G
 
 
-@pytest.mark.xfail
 def test_non_cyclic_ref(beacon):
     m = Map()
 

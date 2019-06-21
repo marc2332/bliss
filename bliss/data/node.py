@@ -141,7 +141,7 @@ class DataNodeIterator(object):
     NEW_CHILD_REGEX = re.compile(r"^__keyspace@.*?:(.*)_children_list$")
     NEW_DATA_IN_CHANNEL_REGEX = re.compile(r"^__keyspace@.*?:(.*)_data$")
     SCAN_EVENTS_REGEX = re.compile(r"^__scans_events__:(.+)$")
-    EVENTS = enum.Enum("event", "NEW_CHILD NEW_DATA_IN_CHANNEL END_SCAN EXTERNAL_EVENT")
+    EVENTS = enum.Enum("event", "NEW_NODE NEW_DATA_IN_CHANNEL END_SCAN EXTERNAL_EVENT")
 
     def __init__(self, node, last_child_id=None, wakeup_fd=None):
         self.node = node
@@ -197,7 +197,7 @@ class DataNodeIterator(object):
         if wait:
             # yield from self.wait_for_event(pubsub)
             for event_type, value in self.wait_for_event(pubsub, filter):
-                if event_type is self.EVENTS.NEW_CHILD:
+                if event_type is self.EVENTS.NEW_NODE:
                     yield value
 
     def __internal_walk(
@@ -271,19 +271,23 @@ class DataNodeIterator(object):
 
         if wait:
             for event_type, node in self.wait_for_event(pubsub, filter=filter):
-                if event_type is self.EVENTS.NEW_CHILD:
+                if event_type is self.EVENTS.NEW_NODE:
                     yield node
 
-    def walk_events(self, filter=None, ready_event=None):
+    def walk_events(self, filter=None, ready_event=None, from_next=False):
         """Walk through child nodes, just like `walk` function, yielding node events
-        (like EVENTS.NEW_CHILD or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
+        (like EVENTS.NEW_NODE or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
         """
         pubsub = self.children_event_register()
 
-        for node in self.walk(filter, wait=False):
-            yield self.EVENTS.NEW_CHILD, node
-            if DataNode.exists("%s_data" % node.db_name):
-                yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
+        if from_next:
+            # execute the walk_from_last
+            [x for x in self.walk_from_last(wait=False, include_last=False)]
+        else:
+            for node in self.walk(filter, wait=False):
+                yield self.EVENTS.NEW_NODE, node
+                if DataNode.exists("%s_data" % node.db_name):
+                    yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
 
         if ready_event is not None:
             ready_event.set()
@@ -335,7 +339,7 @@ class DataNodeIterator(object):
                     for i, child in enumerate(parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
-                            yield self.EVENTS.NEW_CHILD, child
+                            yield self.EVENTS.NEW_NODE, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
                         channel

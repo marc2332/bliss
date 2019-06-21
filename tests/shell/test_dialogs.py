@@ -36,7 +36,7 @@ def multi_dialog(title="Bliss dialog"):
         [
             [
                 UserMsg(
-                    "I am a very very long message",
+                    label="I am a very very long message",
                     text_align="CENTER",
                     text_expand=True,
                 )
@@ -44,10 +44,13 @@ def multi_dialog(title="Bliss dialog"):
             [
                 Container(
                     [
-                        UserIntInput(label=None),
-                        UserFloatInput(label=""),
+                        UserIntInput(label=None, name="myint"),
+                        UserFloatInput(label="", name="myfloat"),
                         UserInput(
-                            label="frange_1.1.3", validator=check["frange"], defval=6
+                            name="myinput",
+                            label="frange_1.1.3",
+                            validator=check["frange"],
+                            defval=6,
                         ),
                         UserInput(label="word_1.1.4"),
                     ],

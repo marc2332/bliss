@@ -142,3 +142,33 @@ def test_dicttoh5(clean_gevent):
     diff_dump = _generate_diff(o, p)
 
     _compare_dump(dicttoh5_diff_dump, diff_dump)
+
+
+def test_jedi_signature_patch(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    jedi_signature_patch_diff_dump = [
+        "+         if self._signature_param.has_default:  #\n",
+        "+             val = [c for c in self.infer()][0].get_safe_value()  #\n",
+        '+             return self._signature_param.name + "=" + str(val)  #\n',
+        "+         else:  #\n",
+        "-         return self._signature_param.name\n",
+        "+             return self._signature_param.name  #         ^\n",
+        "+             #  -------|-----\n",
+        "+             #  PATCHED ABOVE\n",
+    ]
+
+    o, p = _check_patch(
+        "jedi.evaluate.compiled.context",
+        "SignatureParamName",
+        "bliss.shell.cli.jedi_signature_patch",
+        "SignatureParamName",
+    )
+
+    diff_dump = _generate_diff(o, p)
+    _compare_dump(jedi_signature_patch_diff_dump, diff_dump)
+
+    if "jedi.evaluate.compiled.context" in importlib.sys.modules:
+        import bliss.shell.cli.jedi_signature_patch
+
+        importlib.reload(bliss.shell.cli.jedi_signature_patch)

@@ -764,19 +764,25 @@ class BlissDialog(Dialog):
         self.extra_bindings.add("up", filter=~has_completions)(focus_previous)
 
     def ok_handler(self):
-        results = []
+        results = {}
 
         for wdlg in self.flatten_wdlg_list:
             res = wdlg.get_result()
             if wdlg.check_input(res) is False:
                 return
 
-            results.append(res)
+            if wdlg.dlg.name is None:
+                results[wdlg.dlg] = res
+            else:
+                results[wdlg.dlg.name] = res
 
         # SECOND LOOP, NOW WE ARE SURE THAT ALL VALUES ARE OK
         # WE SET DEFVAL TO RES VALUE
         for i, wdlg in enumerate(self.flatten_wdlg_list):
-            wdlg.dlg.defval = results[i]
+            try:
+                wdlg.dlg.defval = results[wdlg.dlg.name]
+            except KeyError:
+                wdlg.dlg.defval = results[wdlg.dlg]
 
         get_app().exit(result=results)
 

@@ -36,6 +36,8 @@ class Map:
         self.G.find_children = self.find_children
         self.G.find_predecessors = self.find_predecessors
         self.node_attributes_list = ["name", "address", "plugin"]
+        self.__waiting_queue = []
+        self.__lock = False
 
         self.register("session")
         self.register("controllers", parents_list=["session"])
@@ -79,10 +81,34 @@ class Map:
             children_list: list of children's instances
             tag: user tag to describe the instance in the more appropriate way
             kwargs: more key,value pairs attributes to be attached to the node
+
        
         ToDo:
             * Avoid recreation of nodes/edges if not necessary
         """
+        if self.__lock:
+            node_info = {
+                "instance": instance,
+                "parents_list": parents_list,
+                "children_list": children_list,
+                "tag": tag,
+                "kwargs": kwargs,
+            }
+
+            self.__waiting_queue.append(("create", node_info))
+        else:
+            self._register(
+                instance,
+                parents_list=parents_list,
+                children_list=children_list,
+                tag=tag,
+                **kwargs,
+            )
+            self.trigger_update()
+
+    def _register(
+        self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
+    ):
         # get always a list of arguments
         if parents_list is None:
             parents_list = []
@@ -144,15 +170,14 @@ class Map:
             # add child
             self.G.add_edge(map_id(parent), map_id(instance))
 
-        self.trigger_update()
-
         return node  # return the dictionary of the node
 
     def _trash_node(self, *args, id_=None):
         if id_ is None:
             return
-        self.delete(id_)
-        self.trigger_update()
+        self.__waiting_queue.append(("delete", {"instance": id_}))
+        if not self.__lock:
+            self.trigger_update()
 
     def __len__(self):
         return len(self.G)
@@ -177,17 +202,47 @@ class Map:
         """
         Triggers execution of handler functions on the map
         """
-        self.add_parent_if_missing()
+        self.__lock = True  # no nested trigger update
 
         logger.debug(f"trigger_update: executing")
-        for func in self.handlers_list:
-            try:
-                func(self.G)
-            except Exception:
-                logger.exception(
-                    f"Failed trigger_update on map handlers for {func.__name__}"
-                )
-                raise
+        try:
+            while self.__waiting_queue:
+                operation, node_info = self.__waiting_queue.pop()
+                if operation == "delete":
+                    self.delete(node_info["instance"])  # deleting node
+
+                elif operation == "create":
+                    instance = node_info["instance"]
+                    parents_list = node_info["parents_list"]
+                    children_list = node_info["children_list"]
+                    tag = node_info["tag"]
+                    kwargs = node_info["kwargs"]
+
+                    self._register(
+                        instance,
+                        parents_list=parents_list,
+                        children_list=children_list,
+                        tag=tag,
+                        **kwargs,
+                    )
+                else:
+                    raise NotImplementedError
+
+            self.add_parent_if_missing()
+            for func in self.handlers_list:
+                try:
+                    func(self.G)
+                except Exception:
+                    logger.exception(
+                        f"Failed trigger_update on map handlers for {func.__name__}"
+                    )
+                    raise
+        finally:
+            self.__lock = False  # we can trigger update again
+
+        if self.__waiting_queue:
+            # if in the meanwhile there are waiting nodes
+            self.trigger_update()
 
     def find_predecessors(self, node):
         """

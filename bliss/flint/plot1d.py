@@ -81,7 +81,7 @@ class LivePlot1D(qt.QWidget):
 
     def set_y_axes(self, axis_names_list):
         self.y_axis_names = axis_names_list
-
+        self.x_axis_names.extend(axis_names_list)
         # Why do not use a an HashSetting ?
         raw_plot_selected = self.redis_cnx.hgetall(
             "%s:plot_select" % self._session_name
@@ -108,6 +108,7 @@ class LivePlot1D(qt.QWidget):
             item_name.setEditable(False)
             x_select = qt.QStandardItem("")
             x_select.setEditable(False)
+            x_select.setCheckable(True)
             items = [item_name, x_select]
 
             for k in range(1, 3):

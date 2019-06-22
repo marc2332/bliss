@@ -136,5 +136,10 @@ def test_prdef(beacon, capsys):
 
 def test_session_env_dict(session):
     inp = create_pipe_input()
-    cli = repl.cli(input=inp, output=DummyOutput(), session_name="test_session")
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_session",
+        expert_error_report=True,
+    )
     assert id(cli.get_globals()) == id(session.env_dict)

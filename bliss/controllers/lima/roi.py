@@ -40,6 +40,8 @@ class Roi(object):
         return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
 
     def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
         return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
 
     @classmethod

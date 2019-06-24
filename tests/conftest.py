@@ -44,17 +44,20 @@ def get_open_ports(n):
             s.close()
 
 
-def wait_for(stream, target, data=b""):
-    target = target.encode()
-    while target not in data:
-        char = stream.read(1)
-        if not char:
-            raise RuntimeError(
-                "Target {!r} not found in the following stream:\n{}".format(
-                    target, data.decode()
+def wait_for(stream, target):
+    def do_wait_for(stream, target, data=b""):
+        target = target.encode()
+        while target not in data:
+            char = stream.read(1)
+            if not char:
+                raise RuntimeError(
+                    "Target {!r} not found in the following stream:\n{}".format(
+                        target, data.decode()
+                    )
                 )
-            )
-        data += char
+            data += char
+
+    return do_wait_for(stream, target)
 
 
 @pytest.fixture
@@ -141,6 +144,9 @@ def ports(beacon_directory):
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     wait_for(proc.stderr, "database started on port")
+    gevent.sleep(
+        1
+    )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port

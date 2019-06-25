@@ -35,6 +35,7 @@ nav:
                             - Symetrie Hexapod: config_shexapod.md
                             - Vscanner: config_vscanner.md
                       - Encoders: config_encoder.md
+                      - Multiple positions: config_mp.md
                       - Slits: config_slits.md
                       - Energy and Wavelength: config_enwl.md
                       - 2D detectors (Lima): config_lima.md

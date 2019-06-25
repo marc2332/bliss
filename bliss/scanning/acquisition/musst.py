@@ -10,6 +10,7 @@ from bliss.common.event import dispatcher
 import gevent
 from gevent import event
 import numpy
+import time
 
 
 class MusstAcquisitionMaster(AcquisitionMaster):
@@ -51,6 +52,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         self._iter_index = 0
         self._running_state = False
         self._event = event.Event()
+        self._start_epoch = None
 
     @property
     def running_state(self):
@@ -84,11 +86,13 @@ class MusstAcquisitionMaster(AcquisitionMaster):
 
         for var_name, value in self.next_vars.items():
             self.musst.putget("VAR %s %s" % (var_name, value))
+        self._start_epoch = None
         self._running_state = False
         self._event.set()
 
     def start(self):
         self.musst.run(self.program_start_name)
+        self._start_epoch = time.time()
         self._running_state = True
         self._event.set()
 
@@ -196,6 +200,10 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
     @property
     def musst(self):
         return self.__musst_device
+
+    @property
+    def start_epoch(self):
+        return self._master._start_epoch
 
     def start(self):
         if isinstance(self.device, MusstAcquisitionMaster):

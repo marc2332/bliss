@@ -618,16 +618,14 @@ class Flint:
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
         plot = self.plot_dict[plot_id]
-        selector = qt_safe(cls)(plot)
+        selector = cls(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection
-        queue = QtSignalQueue(selector.selectionFinished)
-        qt_safe(selector.start)(*args)
-        try:
-            positions, = queue.get()
-        finally:
-            queue.disconnect()
+        queue = gevent.queue.Queue()
+        selector.selectionFinished.connect(queue.put)
+        selector.start(*args)
+        positions = queue.get()
         return positions
 
     def select_points(self, plot_id, nb):

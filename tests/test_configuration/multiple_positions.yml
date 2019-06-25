@@ -1,0 +1,23 @@
+name: beamstop
+plugin: bliss
+class: MultiplePositions
+simultaneous_move: True
+positions:
+- label: IN
+  description: Beamstop position IN the beam
+  axes:
+  - axis: $roby
+    target: 2.5
+    delta: 0.01
+  - axis: $robz
+    target: 1.0
+    delta: 0.2
+- label: OUT
+  description: Beamstop position OUT of the beam
+  axes:
+  - axis: $roby
+    target: 3.5
+    delta: 0.01
+  - axis: $robz
+    target: 2.0
+    delta: 0.2

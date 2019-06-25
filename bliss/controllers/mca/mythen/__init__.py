@@ -231,7 +231,6 @@ class MythenCounter(BaseCounter):
     # Get acquisition device
 
     def create_acquisition_device(self, scan_pars, **settings):
-        scan_pars = scan_pars.copy()
         scan_pars.update(settings)
         count_time = scan_pars.pop("count_time")
         return MythenAcquistionDevice(self, count_time, **scan_pars)

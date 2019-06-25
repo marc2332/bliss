@@ -1,5 +1,6 @@
 
 from ..chain import AcquisitionDevice
+from ..channel import AcquisitionChannel
 from bliss.common.event import dispatcher
 import bliss
 import numpy
@@ -36,7 +37,7 @@ class CalcAcquisitionDevice(AcquisitionDevice):
          - optionally you can redefine prepare,start,stop. 
     """
 
-    def __init__(self, name, src_acq_devices_list, func, output_channels_list):
+    def __init__(self, name, src_acq_devices_list, func, output_channels_list=None):
         AcquisitionDevice.__init__(
             self, None, name, trigger_type=AcquisitionDevice.HARDWARE
         )
@@ -51,7 +52,15 @@ class CalcAcquisitionDevice(AcquisitionDevice):
                     return func(sender, data_dict)
 
             self.cbk = CBK()
-        self.channels.extend(output_channels_list)
+        if output_channels_list is not None:
+            self.channels.extend(output_channels_list)
+
+    def add_counter(self, counter):
+        self.channels.append(
+            AcquisitionChannel(
+                counter.controller, counter.name, counter.dtype, counter.shape
+            )
+        )
 
     def connect(self):
         if self._connected:

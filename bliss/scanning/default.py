@@ -7,12 +7,13 @@
 
 import warnings
 import operator
+import functools
 
 from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common import measurementgroup
-from bliss.common.measurement import BaseCounter, SamplingCounter
+from bliss.common.measurement import BaseCounter, SamplingCounter, CalcCounter
 
 
 def _get_object_from_name(name):
@@ -123,7 +124,7 @@ def master_to_devices_mapping(
         master_dict[
             master_controller
         ] = acquisition_master = master_controller.create_master_device(
-            scan_pars, **settings
+            scan_pars.copy(), **settings
         )
         # Parent handling
         parent_controller = master_settings.get(master_controller)
@@ -135,7 +136,7 @@ def master_to_devices_mapping(
         return acquisition_master
 
     # Non-recursive device handling
-    def add_device(device_controller, master_controller):
+    def add_device(counter, device_controller, master_controller):
         # Existing device
         if device_controller in device_dict:
             return device_dict[device_controller]
@@ -145,7 +146,10 @@ def master_to_devices_mapping(
         device_dict[
             device_controller
         ] = acquisition_device = counter.create_acquisition_device(
-            scan_pars, **settings
+            scan_pars.copy(),
+            device_dict=device_dict,
+            master_dict=master_dict,
+            **settings
         )
 
         # Parent handling
@@ -158,39 +162,60 @@ def master_to_devices_mapping(
         return acquisition_device
 
     # Loop over counters
-    for counter in counters:
+    def loop_over_counter(counters):
+        for counter in counters:
 
-        # Master settings shortcuts
-        if counter in master_settings and counter.controller:
-            if counter.controller in master_settings:
-                raise ValueError("Conflict in master settings")
-            master_settings[counter.controller] = master_settings[counter]
+            # Master settings shortcuts
+            if counter in master_settings and counter.controller:
+                if counter.controller in master_settings:
+                    raise ValueError("Conflict in master settings")
+                master_settings[counter.controller] = master_settings[counter]
 
-        # Acquisition settings shortcuts
-        if counter in acquisition_settings and counter.controller:
-            if counter.controller in acquisition_settings:
-                raise ValueError("Conflict in acquisition settings")
-            acquisition_settings[counter.controller] = acquisition_settings[counter]
+            # Acquisition settings shortcuts
+            if counter in acquisition_settings and counter.controller:
+                if counter.controller in acquisition_settings:
+                    raise ValueError("Conflict in acquisition settings")
+                acquisition_settings[counter.controller] = acquisition_settings[counter]
 
-        # Get acquisition master
-        master_controller = counter.master_controller
-        acquisition_master = add_master(master_controller)
+            # Get acquisition master
+            master_controller = counter.master_controller
+            acquisition_master = add_master(master_controller)
 
-        # Get acquisition device
-        device_controller = counter.controller
-        acquisition_device = add_device(device_controller, master_controller)
+            # Get acquisition device
+            device_controller = counter.controller
+            acquisition_device = add_device(
+                counter, device_controller, master_controller
+            )
 
-        # Add counter
-        if device_controller:
-            acquisition_device.add_counter(counter)
-        elif master_controller:
-            acquisition_master.add_counter(counter)
+            # Add counter
+            if device_controller:
+                acquisition_device.add_counter(counter)
+            elif master_controller:
+                acquisition_master.add_counter(counter)
 
-        # Special case: counters without controllers
+            # Special case: counters without controllers
+            else:
+                warnings.warn(
+                    "Counter {!r} has no associated controller".format(counter)
+                )
+                add_device(counter, counter, None)
+
+    # First the real counters
+    real_counters = [x for x in counters if not isinstance(x, CalcCounter)]
+    loop_over_counter(real_counters)
+    # Then the calc counters
+    calc_counters = [x for x in counters if isinstance(x, CalcCounter)]
+    # Need to sort if some calc depends of an other calc
+    def cmp_sort(cnt1, cnt2):
+        if cnt1 in cnt2.counters:
+            return -1
+        elif cnt2 in cnt1.counters:
+            return 1
         else:
-            warnings.warn("Counter {!r} has no associated controller".format(counter))
-            add_device(counter, None)
+            return len(cnt1.counters) - len(cnt2.counters)
 
+    calc_counters.sort(key=functools.cmp_to_key(cmp_sort))
+    loop_over_counter(calc_counters)
     return mapping_dict
 
 

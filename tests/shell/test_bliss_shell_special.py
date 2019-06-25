@@ -68,6 +68,37 @@ def test_shell_signature(clean_gevent, beacon):
     session.close()
 
 
+def test_shell_kwarg_signature(clean_gevent):
+    import bliss.shell.cli.jedi_signature_patch
+
+    env_dict = dict()
+
+    clean_gevent["end-check"] = False
+
+    loc = dict()
+    exec(
+        """
+class B():
+    def f(self,arg,mykw=12):
+        pass
+b=B()
+    """,
+        None,
+        loc,
+    )
+
+    br = _run_incomplete("b.f(", {"b": loc["b"]})
+
+    sb = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "signature_toolbar" in str(n)
+    ][0]
+    sc = sb.content.text()
+
+    assert ("class:signature-toolbar", "param mykw=12") in sc
+
+
 def _get_completion(br):
     cl = [
         n

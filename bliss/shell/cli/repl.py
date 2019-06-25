@@ -189,6 +189,8 @@ REPL = None
 #############
 # patch ptpython signaturetoolbar
 import bliss.shell.cli.ptpython_signature_patch
+import bliss.shell.cli.jedi_signature_patch
+
 
 # add autocomplete_property to jedi's ALLOWED_DESCRIPTOR_ACCESS
 from bliss.common.utils import autocomplete_property

@@ -310,29 +310,6 @@ def wago_tango_server(ports, default_session, wago_mockup):
 
 
 @pytest.fixture
-def tango_serial(ports, beacon):
-    from bliss.common.tango import DeviceProxy, DevFailed
-
-    device_name = "id00/tango/serial"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
-    serial_ds = [
-        sys.executable,
-        "-u",
-        os.path.join(os.path.dirname(__file__), "serial_tg_server.py"),
-    ]
-    p = subprocess.Popen(serial_ds + ["serial"], stdout=subprocess.PIPE)
-
-    with gevent.Timeout(10, RuntimeError("Serial tango server is not running")):
-        wait_for(p.stdout, "Ready to accept request")
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    yield device_fqdn, dev_proxy
-
-    p.terminate()
-
-
-@pytest.fixture
 def session(beacon):
     session = beacon.get("test_session")
     session.setup()

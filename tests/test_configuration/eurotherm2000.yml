@@ -1,0 +1,8 @@
+plugin: temperature
+class: eurotherm2000
+serial:
+        url: tango://id00/tango/dummy
+inputs:
+        - name: euroT1
+          type: pv
+

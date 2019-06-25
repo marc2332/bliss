@@ -56,7 +56,7 @@ class Data(BaseCounter):
     def shape(self):
         return (self._spectrum_size,)
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         return AcqDevice(self.controller, **scan_pars)
 
 
@@ -81,7 +81,7 @@ class Intensity(BaseCounter):
     def shape(self):
         return ()
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         return AcqDevice(self.controller, **scan_pars)
 
 

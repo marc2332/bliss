@@ -431,22 +431,26 @@ class musst(object):
 
         with remote_open(program_file) as program:
             program_bytes = program.read()
-            for old, new in template_replacement.items():
-                if isinstance(old, str):
-                    old = old.encode()
-                if isinstance(new, str):
-                    new = new.encode()
-                program_bytes = program_bytes.replace(old, new)
 
-        self.upload_program(program_bytes)
+        self.upload_program(program_bytes, template_replacement)
 
-    def upload_program(self, program_data):
+    def __replace_using_template(self, program_bytes, template_replacement):
+        for old, new in template_replacement.items():
+            if isinstance(old, str):
+                old = old.encode()
+            if isinstance(new, str):
+                new = new.encode()
+            program_bytes = program_bytes.replace(old, new)
+        return program_bytes
+
+    def upload_program(self, program_data, template_replacement={}):
         """ Upload a program.
 
         program_data -- program data you want to upload
         """
         if isinstance(program_data, str):
             program_data = program_data.encode()
+        program_data = self.__replace_using_template(program_data, template_replacement)
         m = hashlib.md5()
         m.update(program_data)
         md5sum = m.hexdigest()

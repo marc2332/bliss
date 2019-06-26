@@ -18,6 +18,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         self,
         musst_dev,
         program=None,
+        program_data=None,
         program_start_name=None,
         program_abort_name=None,
         vars=None,
@@ -27,7 +28,12 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         """
         Acquisition master for the musst card.
 
-        program -- the program you need to load for your scan
+        program -- program filename you need to load for your scan
+        program_data -- program data string you need to load for you scan
+            Either program or program_data needs to be specified. 
+            If both are set, program_data is used rather than program.
+        program_start_name -- name of program to be started (RUN musst command)
+        program_abort_name -- name of program called on cleanup
         program_template_replacement -- substitution variable before sending it to the card
         vars -- all variable you want to set before the musst program starts
         """
@@ -40,6 +46,9 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         )
         self.musst = musst_dev
         self.program = program
+        self.program_data = program_data
+        if self.program is None and self.program_data is None:
+            raise ValueError("Either program or program_data needs to be set")
         self.program_start_name = program_start_name
         self.program_abort_name = program_abort_name
         if program_template_replacement is not None:
@@ -80,9 +89,15 @@ class MusstAcquisitionMaster(AcquisitionMaster):
 
     def prepare(self):
         if self._iter_index == 0:
-            self.musst.upload_file(
-                self.program, template_replacement=self.program_template_replacement
-            )
+            if self.program_data is not None:
+                self.musst.upload_program(
+                    self.program_data,
+                    template_replacement=self.program_template_replacement,
+                )
+            else:
+                self.musst.upload_file(
+                    self.program, template_replacement=self.program_template_replacement
+                )
 
         for var_name, value in self.next_vars.items():
             self.musst.putget("VAR %s %s" % (var_name, value))

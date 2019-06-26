@@ -145,7 +145,7 @@ def main():
 
     install_requires = [
         "redis >= 3",
-        "louie-latest",
+        "louie",
         "netifaces",
         "jinja2 >= 2.7",
         "flask",
@@ -154,7 +154,6 @@ def main():
         "ptpython >= 2.0",
         "prompt_toolkit >= 2.0",
         "docopt",
-        "bottle",
         "tabulate",
         "pyserial > 2",
         "pyyaml >= 5.1",

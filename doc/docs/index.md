@@ -153,3 +153,37 @@ pip install .
     The code will get deployed in Python **site-packages** directory as a symbolic link,
     thus removing the need to re-install each time a modification is made.
 
+
+
+
+# Use Bliss without Hardware
+
+BLISS is distributed with a set of _test_ sessions_ which can be used to work without accessing real beamline hardware. In order to use the provided
+_simulated_ beamline the following steps have to be taken:
+
+1) Install BLISS in a [conda environment](index.md#installation-outside-esrf) or activate
+an existing conda env. in which BLISS is installed.
+
+2) Install additional dependencies for the test environment
+    
+        $ conda install --file ./requirements-test-conda.txt
+        
+3) start a BEACON server using the provided _test_configuration_ (path relative to root of bliss repository)
+    
+        $ beacon-server --db_path tests/test_configuration/ --tango_port 20000
+
+4) to simulate a lima camera run also
+
+        $ TANGO_HOST=localhost:20000 LimaCCDs simulator
+        
+5) start a BLISS test_session 
+
+        $ BEACON_HOST=localhost TANGO_HOST=localhost:20000 bliss -s test_session
+
+and enjoy or have a look at the following doc sections:
+
+- [BLISS in a nutshell](gs_presentation.md)
+- [Standard functions](shell_std_func.md)
+- [Graphical online data display Flint](gs_presentation.md#online-data-display)
+- [Typing helper](shell_typing_helper.md)
+

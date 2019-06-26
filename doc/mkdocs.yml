@@ -6,7 +6,6 @@ nav:
         - Getting started:
                 - BLISS in a nutshell: gs_presentation.md
                 - Installation: index.md
-                - Data structure & access: gs_data_structure.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md
@@ -110,8 +109,11 @@ nav:
         - Online data display:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
+        - Data publishing:
+                - Data structure & access: data_structure.md
+                - "External saving": data_external_saving.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': api.md
+                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/master/api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md

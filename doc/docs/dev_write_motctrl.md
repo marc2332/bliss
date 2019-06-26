@@ -28,7 +28,7 @@ defined to implement very specific features of a motor controller.
     * On the programmer point of view, the BLISS plugin is dealing with
       controller units (steps, microns, ...)
     * The programmer should not have to deal with units conversions.
-    * see [motion axis / position](motion_axis.html#position) for more details.
+    * see [motion axis / position](motion_axis.md#position) for more details.
 
 ---
 

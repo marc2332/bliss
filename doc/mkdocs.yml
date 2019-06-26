@@ -24,9 +24,11 @@ nav:
                       - Motor controllers:
                             - Aerotech: config_aerotech.md
                             - Elmo: config_elmo.md
+                            - Elmo Whistle: config_elmo_whistle.md
                             - Galil: config_galil.md
                             - IcePAP: config_icepap.md
                             - MD2S, MD3: config_md2s_motors.md
+                            - Micos: config_micos.md
                             - NewFocus: config_newfocus.md
                             - PI Hexapod: config_pi_hexa.md
                             - PI Piezo: config_pi_piezo.md
@@ -126,7 +128,8 @@ nav:
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
                 - Testing: dev_testing.md
-
+                - Xia handle: config_mca_handel.md
+                - Speedgoat: config_speedgoat.md
 theme:
         name: material
         language: en

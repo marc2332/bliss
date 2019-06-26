@@ -1,9 +1,9 @@
 Is the top level object of the scan engine and it's the one who
 performe the scan according to the [acquisition
-chain](scan_engine_acquisition_chain.html) passed as argument when
+chain](scan_engine_acquisition_chain.md) passed as argument when
 calling the `run` method.  It save and publish Acquisition data
 following the configuartion of [scan
-saving](gs_presentation.html#scan-saving).
+saving](gs_presentation.md#scan-saving).
 
 ## Scan data
 
@@ -105,7 +105,7 @@ DEMO [16]: SCANS[-1].statistics
             timer.wait_slaves       200.987us  330.567us  536.203us  0.00014
 ```
 
-more details in [acquisition statistics](scan_engine_acquisition_chain.html#statistics)
+more details in [acquisition statistics](scan_engine_acquisition_chain.md#statistics)
 
 ## Debugging
 

@@ -55,39 +55,44 @@ Example of YML configuration file to be used with previous controller:
 ### Optional parameters
 
 * `baudrate`
-    * Usually in:
-      1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200
-    * Default: 9600
+    - Usually in:
+      `1200`, `2400`, `4800`, `9600`, `19200`, `38400`, `57600`, `115200`
+    - Default: `9600`
 
 * `bytesize`
-    * Default: 8
+    - Usually in: 
+         * `7` (for true ASCII)
+         * `8` (for most kinds of data, as this size matches the size of a byte)
+    - Default: `8`
 
 * `dsrdtr`
-    * Default: False
+    - Default: False
 
 * `interCharTimeout`
-    * Default: None
+    - Default: `None`
 
 * `parity`
-    * Default: None
+    - Usually in: `'N'`: None `'O'`: Odd, `'E'`: Even (not really used: `'M'`:
+      Mark, `'S'`: Space)
+    - Default: `None`
 
 * `port`
-    * Default: identic to url
+    - Default: identic to url
 
 * `rtscts`
-    * Default: False
+    - Default: `False`
 
 * `stopbits`
-    * Default: 1
+    - Default: `1`
 
 * `timeout`
-    * Default: 5.0
+    - Default: `5.0`
 
 * `writeTimeout`
-    * Default: None
+    - Default: `None`
 
 * `xonxoff`
-    * Default: False
+    - Default: `False`
 
 
 ### ser2net

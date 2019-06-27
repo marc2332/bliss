@@ -296,7 +296,7 @@ class Icepap(Controller, LogMixin):
 
         _ackcommand(
             self._cnx,
-            "MOVE %s %d" % (motion.axis.address, (motion.target_pos + 0.5)),
+            "MOVE %s %d" % (motion.axis.address, round(motion.target_pos)),
             pre_cmd=pre_cmd,
         )
 
@@ -304,7 +304,7 @@ class Icepap(Controller, LogMixin):
         if len(motions) > 1:
             cmd = "MOVE GROUP "
             cmd += " ".join(
-                ["%s %d" % (m.axis.address, (m.target_pos + 0.5)) for m in motions]
+                ["%s %d" % (m.axis.address, round(m.target_pos)) for m in motions]
             )
             _ackcommand(self._cnx, cmd)
         elif motions:

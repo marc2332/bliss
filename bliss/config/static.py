@@ -91,6 +91,50 @@ class BlissSafeYamlLoader(
         BlissYamlResolver.__init__(self)
 
 
+def _replace_object_with_ref(obj):
+    try:
+        obj_name = obj.name
+    except AttributeError:
+        return False, obj
+    else:
+        config = get_config()
+        if config._name2instance.get(obj_name):
+            return True, f"${obj_name}"
+        else:
+            return False, obj
+
+
+def _replace_list_node_with_ref(node_list):
+    final_list = []
+    for sub_node in node_list:
+        if isinstance(sub_node, list):
+            sub_list = _replace_list_node_with_ref(sub_node)
+            final_list.append(sub_list)
+        elif isinstance(sub_node, dict):
+            _replace_node_with_ref(sub_node)
+            final_list.append(sub_node)
+        else:
+            replaced, new_value = _replace_object_with_ref(sub_node)
+            final_list.append(new_value if replaced else sub_node)
+    return final_list
+
+
+def _replace_node_with_ref(node):
+    """
+    replace all object with theirs references
+    """
+    for key, value in list(node.items()):
+        replaced, new_value = _replace_object_with_ref(value)
+        if replaced:
+            node[key] = new_value
+            continue
+
+        if isinstance(value, dict):
+            _replace_node_with_ref(value)
+        elif isinstance(value, list):
+            node[key] = _replace_list_node_with_ref(value)
+
+
 def get_config(base_path="", timeout=3.):
     """
     Return configuration from bliss configuration server
@@ -198,7 +242,8 @@ class Node(dict):
            ~bliss.config.static.Node: the Node file object where this Node is
            defined
         """
-        filename = self._config._node2file.get(self)
+        node = self if not hasattr(self, "_copied_from") else self._copied_from
+        filename = self._config._node2file.get(node)
         if filename is not None:
             return self, filename
         elif self._parent is not None:
@@ -243,7 +288,18 @@ class Node(dict):
         """
         Saves the Node configuration persistently in the server
         """
+        # Get the original node, synchronize it with
+        # the copied one
         parent, filename = self.get_node_filename()
+        if hasattr(self, "_copied_from"):
+            # first copy to not modify
+            copied_node = self.deep_copy()
+            _replace_node_with_ref(copied_node)
+            self._copied_from.clear()
+            self._copied_from.update(copied_node)
+        else:
+            _replace_node_with_ref(self)
+
         if filename is None:
             return  # Memory
         nodes_2_save = self._config._file2node[filename]
@@ -262,9 +318,17 @@ class Node(dict):
         node = Node()
         node._config = self._config
         node._parent = self._parent
+        # keep source node in case of saving
+        if hasattr(self, "_copied_from"):
+            node._copied_from = self._copied_from
+        else:
+            node._copied_from = self
         for key, value in self.items():
             if isinstance(value, Node):
                 child_node = value.deep_copy()
+                node[key] = child_node
+            elif isinstance(value, dict):
+                child_node = value.copy()
                 node[key] = child_node
             elif isinstance(value, list):
                 new_list = Node._copy_list(value)
@@ -298,6 +362,8 @@ class Node(dict):
             if isinstance(v, Node):
                 new_node = v.deep_copy() if not dict_mode else v.to_dict()
                 new_list.append(new_node)
+            elif isinstance(v, dict):
+                new_list.append(v.copy())
             elif isinstance(v, list):
                 child_list = Node._copy_list(v, dict_mode=dict_mode)
                 new_list.append(child_list)

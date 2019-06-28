@@ -1,10 +1,11 @@
 # Getting started with BLISS
 
-This page will present what is BLISS and how to start using it.
+This page will present what is the **BLISS control system** and how to start using
+it.
 
 ## BLISS presentation
 
-BLISS control system provides a global approach to run synchrotron
+*BLISS control system* provides a global approach to run synchrotron
 experiments requiring to synchronously control motors, detectors and
 various acquisition devices thanks to hardware integration, Python
 sequences and an advanced scanning engine.
@@ -27,29 +28,33 @@ On user point of view, BLISS presents different aspects:
 
 BLISS comes with a command line interface based on [ptpython](8).
 
-BLISS uses the *session* concept to allow user to define a set of procedures
-and devices to use in a particular circumstance (like alignment,
-specific hutch or specific experiment)
+BLISS uses the concept of *session* to allow user to define a set of procedures
+and devices to use in a particular circumstance (like alignment, specific hutch
+or specific experiment).
 
 
-        $ bliss -s eh1
-                               __         __   __
-                              |__) |   | /__` /__`
-                              |__) |__ | .__/ .__/
+```
+$ bliss -s eh1
+```
+
+```python
+                       __         __   __
+                      |__) |   | /__` /__`
+                      |__) |__ | .__/ .__/
 
 
-        Welcome to BLISS version 0.01 running on pcsht (in bliss Conda environment)
-        Copyright (c) 2015-2019 Beamline Control Unit, ESRF
-        -
-        Connected to Beacon server on pcsht (port 3412)
-        eh1: Executing setup...
-        Initializing 'pzth`
-        Initializing 'simul_mca`
-        Initializing 'pzth_enc`
-        Done.
+Welcome to BLISS version 0.01 running on pcsht (in bliss Conda environment)
+Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+-
+Connected to Beacon server on pcsht (port 3412)
+eh1: Executing setup...
+Initializing 'pzth`
+Initializing 'simul_mca`
+Initializing 'pzth_enc`
+Done.
 
-        EH1 [1]:
-
+EH1 [1]:
+```
 
 The `-s` command line option loads the specified session at startup,
 i.e. configuration objects defined in the session are initialized,
@@ -59,7 +64,8 @@ then the setup file is executed. Finally the prompt returns to user.
 `-h` option allows to get an overview of other command-line features.
 
     % bliss -h
-    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux]
+    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+                 [--no-tmux]
            bliss [-v | --version]
            bliss [-c <name> | --create=<name>]
            bliss [-d <name> | --delete=<name>]

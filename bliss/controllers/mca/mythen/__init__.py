@@ -252,12 +252,17 @@ class MythenAcquistionDevice(AcquisitionDevice):
         else:
             trigger_type = AcquisitionDevice.HARDWARE
         kwargs.setdefault("prepare_once", True)
-        kwargs.setdefault("start_once", trigger_type == AcquisitionDevice.HARDWARE)
+        if kwargs["npoints"] == 0:
+            kwargs["npoints"] = 1
+        else:
+            kwargs.setdefault("start_once", trigger_type == AcquisitionDevice.HARDWARE)
+
         kwargs["trigger_type"] = trigger_type
         valid_names = ("npoints", "trigger_type", "prepare_once", "start_once")
         valid_kwargs = {
             key: value for key, value in kwargs.items() if key in valid_names
         }
+
         super(MythenAcquistionDevice, self).__init__(
             counter.controller, counter.controller.name, **valid_kwargs
         )

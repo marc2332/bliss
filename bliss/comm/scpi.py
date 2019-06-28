@@ -57,7 +57,7 @@ def __decode_Err(s):
 
 
 def __decode_ErrArray(s):
-    msgs = map(str.strip, s.split(","))
+    msgs = list(map(str.strip, s.split(",")))
     result = []
     for i in range(0, len(msgs), 2):
         code, desc = int(msgs[i]), msgs[i + 1][1:-1]
@@ -324,7 +324,7 @@ COMMANDS = Commands(
         "*SRE": IntCmdWO(doc="service request enable register"),
         "*STB": StrCmdRO(doc="status byte register"),
         "*TRG": FuncCmd(doc="bus trigger"),
-        "*TST": Cmd(get=lambda x: not decode_OnOff(x), doc="self-test query"),
+        "*TST": Cmd(get=lambda x: not __decode_OnOff(x), doc="self-test query"),
         "*WAI": FuncCmd(doc="wait to continue"),
         "SYSTem:ERRor[:NEXT]": ErrCmd(doc="return and clear oldest system error"),
     }

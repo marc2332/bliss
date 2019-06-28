@@ -302,6 +302,15 @@ def main():
                     ["tmux", "-S", tsock, "send-keys", "-t", win1, sub_cmd, "Enter"]
                 )
 
+                ans = subprocess.run(
+                    ["tmux", "-S", tsock, "new-window", "-d", "-n", win2]
+                )
+
+                sub_cmd = f"python -m bliss.data.start_listener {session}"
+                ans = subprocess.run(
+                    ["tmux", "-S", tsock, "send-keys", "-t", win2, sub_cmd, "Enter"]
+                )
+
             else:
                 ans = subprocess.run(
                     [
@@ -324,21 +333,21 @@ def main():
                     ]
                 )
 
-            ans = subprocess.run(
-                [
-                    "tmux",
-                    "-S",
-                    tsock,
-                    "new-window",
-                    "-d",
-                    "-n",
-                    win2,
-                    "python",
-                    "-m",
-                    "bliss.data.start_listener",
-                    session,
-                ]
-            )
+                ans = subprocess.run(
+                    [
+                        "tmux",
+                        "-S",
+                        tsock,
+                        "new-window",
+                        "-d",
+                        "-n",
+                        win2,
+                        "python",
+                        "-m",
+                        "bliss.data.start_listener",
+                        session,
+                    ]
+                )
 
         ans = subprocess.run(
             [

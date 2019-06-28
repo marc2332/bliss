@@ -61,7 +61,6 @@ Example configuration
             unit: mrad
 """
 from bliss.controllers.motor import CalcController
-import math
 import numpy
 
 
@@ -95,12 +94,14 @@ class tab3(CalcController):
                 positions_dict["back1"] - positions_dict["back2"]
             )
 
-        xtilt = math.atan((positions_dict["back2"] - positions_dict["back1"]) / self.d1)
+        xtilt = numpy.atan(
+            (positions_dict["back2"] - positions_dict["back1"]) / self.d1
+        )
 
-        ytilt = math.atan((back - positions_dict["front"]) / self.d2)
+        ytilt = numpy.atan((back - positions_dict["front"]) / self.d2)
 
         if self.geometry in (2, 6):
-            xtilt, ytilt = map(math.degrees, (xtilt, ytilt))
+            xtilt, ytilt = map(numpy.degrees, (xtilt, ytilt))
         else:
             xtilt = 1000 * xtilt
             ytilt = 1000 * ytilt
@@ -119,8 +120,8 @@ class tab3(CalcController):
 
     def calc_to_real(self, positions_dict):
         if self.geometry in (2, 6):
-            xtan = math.tan(math.radians(positions_dict["xtilt"]))
-            ytan = math.tan(math.radians(positions_dict["ytilt"]))
+            xtan = numpy.tan(numpy.radians(positions_dict["xtilt"]))
+            ytan = numpy.tan(numpy.radians(positions_dict["ytilt"]))
         else:
             xtan = numpy.tan(positions_dict["xtilt"] / 1000)
             ytan = numpy.tan(positions_dict["ytilt"] / 1000)

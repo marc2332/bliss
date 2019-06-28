@@ -27,7 +27,7 @@ Top view (S=sample position)::
 Top view
 """
 from bliss.controllers.motor import CalcController
-import math
+import numpy
 
 
 class tabsup(CalcController):
@@ -45,7 +45,7 @@ class tabsup(CalcController):
 
         return {
             "ttrans": (d1 * tyb - d2 * tyf) / (d1 - d2),
-            "trot": math.atan((tyf - tyb) / (d2 - d1)),
+            "trot": numpy.atan((tyf - tyb) / (d2 - d1)),
         }
 
     def calc_to_real(self, positions_dict):
@@ -55,6 +55,6 @@ class tabsup(CalcController):
         d2 = self.d2
 
         return {
-            "back": ttrans - d2 * math.tan(trot),
-            "front": ttrans - d1 * math.tan(trot),
+            "back": ttrans - d2 * numpy.tan(trot),
+            "front": ttrans - d1 * numpy.tan(trot),
         }

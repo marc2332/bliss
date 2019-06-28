@@ -98,7 +98,7 @@ Example configuration::
 """
 
 from bliss.controllers.motor import CalcController
-import math
+import numpy
 
 
 class trans4(CalcController):
@@ -116,8 +116,8 @@ class trans4(CalcController):
         """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = math.atan(d2 / d1)
-        cos2_alpha = math.cos(alpha) ** 2
+        alpha = numpy.atan(d2 / d1)
+        cos2_alpha = numpy.cos(alpha) ** 2
 
         dh = positions_dict["dh"]
         dr = positions_dict["dr"]
@@ -130,9 +130,9 @@ class trans4(CalcController):
         p2z = (ur + uh) / 2.
 
         ty = (p1y + p2y * cos2_alpha) / (1 + cos2_alpha)
-        thetaz = -math.atan((p1y - p2y) / d1 * (cos2_alpha / (1 + cos2_alpha)))
+        thetaz = -numpy.atan((p1y - p2y) / d1 * (cos2_alpha / (1 + cos2_alpha)))
         tz = (p2z + p1z) / 2.
-        thetay = math.atan((p2z - p1z) / (2 * d1))
+        thetay = numpy.atan((p2z - p1z) / (2 * d1))
 
         thetaz *= 1000.
         thetay *= 1000.
@@ -149,18 +149,18 @@ class trans4(CalcController):
         """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = math.atan(d2 / d1)
-        cos2_alpha = math.cos(alpha) ** 2
+        alpha = numpy.atan(d2 / d1)
+        cos2_alpha = numpy.cos(alpha) ** 2
 
         ty = positions_dict["ty"]
         tz = positions_dict["tz"]
         thetay = positions_dict["thetay"] / 1000.
         thetaz = -positions_dict["thetaz"] / 1000.
 
-        p1y = ty + d1 * math.tan(thetaz)
-        p2y = ty - d1 * math.tan(thetaz) / cos2_alpha
-        p1z = tz - d1 * math.tan(thetay)
-        p2z = tz + d1 * math.tan(thetay)
+        p1y = ty + d1 * numpy.tan(thetaz)
+        p2y = ty - d1 * numpy.tan(thetaz) / cos2_alpha
+        p1z = tz - d1 * numpy.tan(thetay)
+        p2z = tz + d1 * numpy.tan(thetay)
 
         dh = p1z - p1y
         dr = p1z + p1y

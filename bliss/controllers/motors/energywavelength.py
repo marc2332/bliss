@@ -143,7 +143,8 @@ class EnergyWavelength(CalcController):
            (dict): Dictionary containing the monoangle
         """
         # check if the input is energy or wavelength
-        if abs(self._tagged["energy"][0].position - positions_dict["energy"]) < 0.0005:
+        energy_position = numpy.arrays(positions_dict["energy"])
+        if all(abs(self._tagged["energy"][0].position - energy_position) < 0.0005):
             # this is wavelength
             egy = self.e_factor * 12.3984 // positions_dict["wavelength"]
         else:

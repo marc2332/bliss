@@ -9,7 +9,7 @@ This page presents the detailed usage of a BLISS axis.
 Other more or less related pages:
 
 * [Short presentation of Bliss Axis usage in BLISS shell](gs_presentation.md#motors)
-* [BLISS Shell standard functions to drive motors](shell_std_func.html#motors)
+* [BLISS Shell standard functions to drive motors](shell_std_func.md#motors)
 * [How to write a new class to support a motor controller in BLISS](dev_write_motctrl.md)
 * [How to write a Calculational Motor Controller](dev_write_calc_ctrl.md)
 * [Usual scans](scan_default.md)

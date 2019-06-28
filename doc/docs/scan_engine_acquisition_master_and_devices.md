@@ -216,7 +216,7 @@ master = MeshTrajectoryMaster(
 !!! note
     `undershoot`, `undershoot_start_margin` and `undershoot_end_margin` are
     for each line of the mesh. Same meaning as `MotorMaster`
-    [variables](scan_engine_acquisition_master_and_devices.html#motormaster).
+    [variables](scan_engine_acquisition_master_and_devices.md#motormaster).
 
 #### SweepMotorMaster
 
@@ -250,7 +250,7 @@ master = SweepMotorMaster(
 !!! note
     `undershoot`, `undershoot_start_margin` and `undershoot_end_margin` are
     for each point (images). Same meaning as `MotorMaster`
-    [variables](scan_engine_acquisition_master_and_devices.html#motormaster).
+    [variables](scan_engine_acquisition_master_and_devices.md#motormaster).
 
 ###lima
 

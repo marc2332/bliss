@@ -579,6 +579,7 @@ class Scan:
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
         self._scan_info.update(self.user_scan_meta.to_dict(self))
+        self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -975,6 +976,7 @@ class Scan:
                     dev.fill_meta_at_scan_end(self.user_scan_meta)
                 self.user_scan_meta.instrument.remove("positioners")
                 deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+                self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
 
                 # update scan_info in redis
                 self.node._info.update(self.scan_info)

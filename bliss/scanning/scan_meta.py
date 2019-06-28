@@ -35,6 +35,9 @@ def get_user_scan_meta():
         USER_SCAN_META = scan_meta()
         USER_SCAN_META.instrument.set("positioners", fill_positioners)
         USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
+        USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
     return USER_SCAN_META
 
 
@@ -102,6 +105,11 @@ def scan_meta(info=None):
         return scan_meta(copy_module.deepcopy(_infos))
 
     attrs["copy"] = copy
+
+    def cat_list(self):
+        return [n.name.lower() for n in _infos.keys()]
+
+    attrs["cat_list"] = cat_list
 
     klass = type("ScanMeta", (object,), attrs)
     return klass()

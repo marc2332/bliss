@@ -122,6 +122,13 @@ class ChannelDataNode(DataNode):
             return self.name
 
     @property
+    def alias_or_fullname(self):
+        if self.has_alias:
+            return self.alias
+        else:
+            return self.fullname
+
+    @property
     def has_alias(self):
         return self.info.get("has_alias")
 

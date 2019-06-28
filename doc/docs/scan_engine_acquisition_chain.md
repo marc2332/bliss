@@ -1,15 +1,15 @@
 Is a tree which describe the trigger relation between master and
 slaves. To define such a relation we insert into the *Acquisition
 chain* sub object inherited from [Acquisition
-Master](scan_engine_acquisition_master_and_devices.html#Master) or
+Master](scan_engine_acquisition_master_and_devices.md#Master) or
 [Acquisition
-Device](scan_engine_acquisition_master_and_devices.html#Device).  With
+Device](scan_engine_acquisition_master_and_devices.md#Device).  With
 `add` method the tree is build with the master and a slave passes as
 arguments.
 
 Sometime it's needed to control the state of device like shutter,
 multiplexeur, detector cover... Those devices should be control with
-[Preset](scan_engine_preset.html) objects.
+[Preset](scan_engine_preset.md) objects.
 
 *Acquisition chain*
 !!! note

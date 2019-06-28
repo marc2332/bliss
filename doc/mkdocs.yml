@@ -6,7 +6,6 @@ nav:
         - Getting started:
                 - BLISS in a nutshell: gs_presentation.md
                 - Installation: index.md
-                - Data structure & access: gs_data_structure.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md
@@ -24,9 +23,11 @@ nav:
                       - Motor controllers:
                             - Aerotech: config_aerotech.md
                             - Elmo: config_elmo.md
+                            - Elmo Whistle: config_elmo_whistle.md
                             - Galil: config_galil.md
                             - IcePAP: config_icepap.md
                             - MD2S, MD3: config_md2s_motors.md
+                            - Micos: config_micos.md
                             - NewFocus: config_newfocus.md
                             - PI Hexapod: config_pi_hexa.md
                             - PI Piezo: config_pi_piezo.md
@@ -108,8 +109,11 @@ nav:
         - Online data display:
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
+        - Data publishing:
+                - Data structure & access: data_structure.md
+                - "External saving": data_external_saving.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/api/index.html': api.md
+                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/master/api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md
@@ -126,7 +130,8 @@ nav:
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
                 - Testing: dev_testing.md
-
+                - Xia handle: config_mca_handel.md
+                - Speedgoat: config_speedgoat.md
 theme:
         name: material
         language: en

@@ -255,12 +255,7 @@ class DataNodeIterator(object):
             for last_node in self.walk(filter, wait=False):
                 pass
         else:
-            db_name = self.node.db_name
-            data_node_2_children = self._get_grandchildren(db_name)
-            self.last_child_id = {
-                db_name: len(children)
-                for db_name, children in data_node_2_children.items()
-            }
+            self.jumpahead()
 
         if last_node is not None:
             if include_last:
@@ -274,20 +269,34 @@ class DataNodeIterator(object):
                 if event_type is self.EVENTS.NEW_NODE:
                     yield node
 
-    def walk_events(self, filter=None, ready_event=None, from_next=False):
+    def jumpahead(self):
+        """Move the iterator to the last available node so that only new nodes will be concerned"""
+        db_name = self.node.db_name
+        data_node_2_children = self._get_grandchildren(db_name)
+        self.last_child_id = {
+            db_name: len(children) for db_name, children in data_node_2_children.items()
+        }
+
+    def walk_on_new_events(self, filter=None):
+        """Yields future events"""
+
+        pubsub = self.children_event_register()
+
+        self.jumpahead()
+
+        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
+            yield event_type, event_data
+
+    def walk_events(self, filter=None, ready_event=None):
         """Walk through child nodes, just like `walk` function, yielding node events
         (like EVENTS.NEW_NODE or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
         """
         pubsub = self.children_event_register()
 
-        if from_next:
-            # execute the walk_from_last
-            [x for x in self.walk_from_last(wait=False, include_last=False)]
-        else:
-            for node in self.walk(filter, wait=False):
-                yield self.EVENTS.NEW_NODE, node
-                if DataNode.exists("%s_data" % node.db_name):
-                    yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
+        for node in self.walk(filter, wait=False):
+            yield self.EVENTS.NEW_NODE, node
+            if DataNode.exists("%s_data" % node.db_name):
+                yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
 
         if ready_event is not None:
             ready_event.set()

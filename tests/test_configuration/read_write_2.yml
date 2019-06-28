@@ -1,0 +1,16 @@
+name: rw_test_2
+one:
+- pink: martini
+  red: apples
+  blue: berry
+two:
+- a: true
+  b: false
+  c: null
+test_list:
+  - $diode
+dict_list:
+  - cnt_channel: a
+    instance: $diode2
+  - cnt_channel: b
+    instance: $diode3

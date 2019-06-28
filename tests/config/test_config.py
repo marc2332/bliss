@@ -6,14 +6,26 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.conductor import client
+from bliss.config.plugins.utils import replace_reference_by_object
 import pytest
 import sys, os
 
 
-def test_config_save(beacon, beacon_directory):
-    test_file_path = os.path.join(beacon_directory, "read_write.yml")
-    rw_cfg = beacon.get_config("rw_test")
-    test_file_contents = client.get_text_file("read_write.yml")
+@pytest.mark.parametrize(
+    "file_name, node_name, copy",
+    [
+        ["read_write.yml", "rw_test", False],
+        ["read_write_2.yml", "rw_test_2", False],
+        ["read_write.yml", "rw_test", True],
+        ["read_write_2.yml", "rw_test_2", True],
+    ],
+)
+def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
+    test_file_path = os.path.join(beacon_directory, file_name)
+    rw_cfg = beacon.get_config(node_name)
+    if copy:
+        rw_cfg = rw_cfg.deep_copy()
+    test_file_contents = client.get_text_file(file_name)
 
     with open(test_file_path, "r") as f:
         assert f.read() == test_file_contents
@@ -29,7 +41,7 @@ def test_config_save(beacon, beacon_directory):
 
         beacon.reload()
 
-        rw_cfg2 = beacon.get_config("rw_test")
+        rw_cfg2 = beacon.get_config(node_name)
 
         assert id(rw_cfg2) != id(rw_cfg)
         assert rw_cfg2["one"][0]["red"] == "strawberry"
@@ -106,3 +118,32 @@ def test_yaml_boolean(beacon):
 
     assert m["outputs"][0]["ON"] == 1
     assert m["outputs"][0]["OFF"] == 0
+
+
+def test_config_save_reference(beacon, beacon_directory):
+    file_name = "read_write_2.yml"
+    node_name = "rw_test_2"
+    rw_cfg = beacon.get_config(node_name).deep_copy()
+    replace_reference_by_object(beacon, rw_cfg, dict())
+    diode = beacon.get("diode")
+    diode2 = beacon.get("diode2")
+    diode3 = beacon.get("diode3")
+
+    rw_cfg["test_list"].append(diode2)
+    rw_cfg["dict_list"].append({"cnt_channel": "c", "instance": diode})
+    rw_cfg.save()
+
+    beacon.reload()
+
+    rw_cfg2 = beacon.get_config(node_name)
+    replace_reference_by_object(beacon, rw_cfg2, dict())
+    assert id(rw_cfg2) != id(rw_cfg)
+    assert len(rw_cfg2["test_list"]) == len(rw_cfg["test_list"])
+    assert [x.name for x in rw_cfg2["test_list"]] == [
+        x.name for x in rw_cfg["test_list"]
+    ]
+    assert len(rw_cfg2["dict_list"]) == len(rw_cfg["dict_list"])
+    assert (
+        rw_cfg2["dict_list"][2]["instance"].name
+        == rw_cfg["dict_list"][2]["instance"].name
+    )

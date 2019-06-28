@@ -29,10 +29,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def __init__(
         self,
         device,
+        acq_mode="SINGLE",
         acq_nb_frames=1,
         acq_expo_time=1,
         acq_trigger_mode="INTERNAL_TRIGGER",
-        acq_mode="SINGLE",
         acc_time_mode="LIVE",
         acc_max_expo_time=1,
         latency_time=0,

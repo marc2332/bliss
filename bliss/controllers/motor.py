@@ -154,6 +154,13 @@ class Controller(LogMixin):
     def config(self):
         return self.__config
 
+    def check_limits(self, *axis_positions):
+        """
+        check limits for list of axis and positions
+        """
+        for axis, position in axis_positions:
+            self._check_limits(axis, position)
+
     def _check_limits(self, axis, user_positions):
         min_pos = user_positions.min()
         max_pos = user_positions.max()
@@ -518,24 +525,69 @@ class CalcController(Controller):
             axis.settings.set("_set_position", axis.dial2user(setpos))
 
     def _check_limits(self, axis, positions):
-        return
-        assert axis not in self.reals
-        assert axis in self.pseudos
+        self.check_limits((axis, positions))
 
-        pseudo_axis_tag = self._axis_tag(axis)
-
-        axis_positions = self._get_set_positions()
-        for ptag, ppos in axis_positions.items():
-            if ptag == pseudo_axis_tag:
-                axis_positions[ptag] = positions
+    def check_limits(self, *axis_positions):
+        axes = [axis for axis, _ in axis_positions]
+        positions_len = []
+        for axis, pos in axis_positions:
+            axes.append(axis)
+            try:
+                iter(pos)
+            except TypeError:
+                positions_len.append(1)
             else:
-                axis_positions[ptag] = numpy.full_like(positions, ppos)
+                positions_len.append(len(pos))
+        axes = set(axes)
+        try:
+            left_axis = axes - set(self.pseudos)
+            assert not left_axis
+        except AssertionError:
+            raise RuntimeError(f"Axes {left_axis} are not managed in this controller")
 
-        real_positions = self.calc_to_real(axis_positions)
+        # number of positions must be equals
+        try:
+            assert min(positions_len) == max(positions_len)
+        except AssertionError:
+            raise RuntimeError(
+                f"Axes {axes} doesn't have the same number of positions to check"
+            )
 
-        for rtag, rpos in real_positions.items():
-            real_axis = self._tagged[rtag][0]
-            real_axis.controller._check_limits(real_axis, rpos)
+        # we supposed that only all other axis
+        # stay at their current position
+        position_len = positions_len[0]
+        axis_to_positions = {
+            self._axis_tag(axis): axis.user2dial(axis._set_position)
+            for axis in self.pseudos
+            if axis not in axes
+        }
+        if position_len > 1:
+            # need to extend other
+            axis_to_positions = {
+                tag: numpy.ones(position_len) * pos
+                for tag, pos in axis_to_positions.items()
+            }
+        axis_to_positions.update(
+            {self._axis_tag(axis): pos for axis, pos in axis_positions}
+        )
+        real_positions = self.calc_to_real(axis_to_positions)
+        real_min_max = dict()
+        for rtag, pos in real_positions.items():
+            try:
+                iter(pos)
+            except TypeError:
+                real_min_max[self._tagged[rtag][0]] = [pos]
+            else:
+                real_min_max[self._tagged[rtag][0]] = min(pos), max(pos)
+        for real_axis, positions in real_min_max.items():
+            for pos in set(positions):
+                try:
+                    real_axis.controller._check_limits(real_axis, pos)
+                except ValueError as e:
+                    message = e.args[0]
+                    new_message = f"Tried to move {axes} to {positions} but "
+                    f"reaches limits of\n{message}"
+                    raise ValueError(new_message)
 
     def _do_calc_from_real(self):
         real_positions_by_axis = self._reals_group.position

@@ -46,6 +46,7 @@ For development, i.e in `bliss_env` Conda environement:
     $ conda config --env --add channels esrf-bcu
     $ conda config --env --append channels conda-forge
     $ conda config --env --append channels tango-controls
+    $ conda config --env --append channels http://bcu-ci.esrf.fr/stable
     ```
 
 

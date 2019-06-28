@@ -571,3 +571,65 @@ def DefaultIntegratingCounterGroupedReadHandler(
     return handlers.setdefault(
         controller, DefaultIntegratingCounterGroupedReadHandler(controller)
     )
+
+
+class CalcCounter(BaseCounter):
+    def __init__(self, name, calc_function, *dependent_counters):
+        self.__name = name
+        self.__dependent_counters = dependent_counters
+        self.__calc_function = calc_function
+        session.get_current().map.register(self, ["counters"], tag=name)
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def fullname(self):
+        return self.name
+
+    @property
+    def dtype(self):
+        return numpy.float
+
+    @property
+    def shape(self):
+        return ()
+
+    @property
+    def controller(self):
+        return self
+
+    @property
+    def counters(self):
+        cnts = [self]
+        for c in self.__dependent_counters:
+            if isinstance(c, CalcCounter):
+                cnts.extend(c.counters)
+            else:
+                cnts.append(c)
+        return cnts
+
+    @property
+    def acquisition_channels(self):
+        # Avoid circular import
+        from bliss.scanning.channel import AcquisitionChannel
+
+        return [AcquisitionChannel(self.controller, self.name, self.dtype, self.shape)]
+
+    def create_acquisition_device(self, scan_pars, device_dict=None, **settings):
+        # Avoid circular import
+        from bliss.scanning.acquisition.calc import CalcAcquisitionDevice
+
+        acq_devices = set()
+        counters = self.counters
+        counters.pop(0)  # remove self
+        for cnt in counters:
+            try:
+                controller = cnt.controller if cnt.controller is not None else cnt
+                acq_devices.add(device_dict[controller])
+            except KeyError:
+                raise RuntimeError(
+                    f"Can't find acquisition device for counter {cnt.name}"
+                )
+        return CalcAcquisitionDevice(self.name, list(acq_devices), self.__calc_function)

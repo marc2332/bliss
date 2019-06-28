@@ -13,7 +13,7 @@ from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
-from bliss.common import event
+from bliss.common import event, measurement, scans
 
 
 def test_ascan(session):
@@ -436,3 +436,59 @@ def test_motor_group(beacon):
     timer_channel_names = set([chan.name.split(":")[-1] for chan in timer_channels])
     assert "elapsed_time" in timer_channel_names
     assert "diode" in timer_channel_names
+
+
+def test_calc_counters_std_scan(session):
+    robz2 = getattr(setup_globals, "robz2")
+    cnt = getattr(setup_globals, "sim_ct_gauss")
+    calc_name = f"pow2_{cnt.name}"
+    variables = {"nb_points": 0}
+
+    def pow2(sender, data_dict):
+        variables["nb_points"] += 1
+        return {calc_name: data_dict["sim_ct_gauss"] ** 2}
+
+    calc_counter = measurement.CalcCounter(calc_name, pow2, cnt)
+    s = scans.ascan(robz2, 0, .1, 10, 0, calc_counter)
+    assert variables["nb_points"] == 10
+    data = s.get_data()
+    src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}
+    assert all(data[calc_name] == pow2(None, src_data)[calc_name])
+
+
+def test_calc_counters_with_two(session):
+    calc_name = "mean"
+
+    class Mean(calc.CalcHook):
+        def prepare(self):
+            self.data = {}
+
+        def compute(self, sender, data_dict):
+            nb_point_to_emit = numpy.inf
+            for cnt_name in ("diode", "diode2"):
+                cnt_data = data_dict.get(cnt_name, [])
+                data = self.data.get(cnt_name, [])
+                if len(cnt_data):
+                    data = numpy.append(data, cnt_data)
+                    self.data[cnt_name] = data
+                nb_point_to_emit = min(nb_point_to_emit, len(data))
+            if not nb_point_to_emit:
+                return
+
+            mean_data = (
+                self.data["diode"][:nb_point_to_emit]
+                + self.data["diode2"][:nb_point_to_emit]
+            ) / 2.
+            self.data = {
+                key: data[nb_point_to_emit:] for key, data in self.data.items()
+            }
+            return {calc_name: mean_data}
+
+    robz2 = getattr(setup_globals, "robz2")
+    diode = getattr(setup_globals, "diode")
+    diode2 = getattr(setup_globals, "diode2")
+    mean_func = Mean()
+    mean_counter = measurement.CalcCounter(calc_name, mean_func, diode, diode2)
+    s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter)
+    data = s.get_data()
+    assert all(data[calc_name] == (data["diode"] + data["diode2"]) / 2.)

@@ -324,7 +324,7 @@ class SimulationCounter(Counter, LogMixin):
         self.acq_device = None
         self.scan_pars = None
 
-    def create_acquisition_device(self, scan_pars):
+    def create_acquisition_device(self, scan_pars, **settings):
         self._logger.debug("SIMULATION_COUNTER -- create_acquisition_device")
 
         mu_offset = self.config.get("mu_offset", 0.0)

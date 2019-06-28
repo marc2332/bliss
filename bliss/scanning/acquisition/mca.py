@@ -284,7 +284,9 @@ class BaseMcaCounter(BaseCounter):
 
     # Default chain integration
 
-    def create_acquisition_device(self, scan_pars, **settings):
+    def create_acquisition_device(
+        self, scan_pars, device_dict=None, master_dict=None, **settings
+    ):
         npoints = scan_pars["npoints"]
         count_time = scan_pars["count_time"]
 

@@ -250,3 +250,51 @@ A controller exporting N counters.
 ## NOTES
 ![Screenshot](img/counters_hierarchy.svg)
 
+## Calculation counter
+
+Calculation counters can be use to do some computation on raw values
+of real counters.
+
+### Simple example
+
+In this example the calculation counter will return the mean of two
+real counters.
+Real counters are **diode** and **diode2**.
+
+```python
+from bliss.common.measurement import CalcCounter
+from bliss.scanning.acquisition.calc import CalcHook
+
+# Mean caclulaion
+class Mean(CalcHook):
+    def prepare(self):
+        self.data = {}
+    def compute(self,sender,data_dict):
+    	# Gathering all needed data to calculate the mean
+	# Datas of several counters are not emitted at the same time
+        nb_point_to_emit = numpy.inf
+        for cnt_name in ('diode','diode2'):
+            cnt_data = data_dict.get(cnt_name,[])
+            data = self.data.get(cnt_name,[])
+            if len(cnt_data):
+                data = numpy.append(data,cnt_data)
+                self.data[cnt_name]=data
+            nb_point_to_emit = min(nb_point_to_emit,len(data))
+	# Maybe noting to do
+        if not nb_point_to_emit:
+            return
+
+        # Calculation
+        mean_data = (self.data['diode'][:nb_point_to_emit] +
+                     self.data['diode2'][:nb_point_to_emit]) / 2.
+        # Removing already computed raw datas
+        self.data = {key:data[nb_point_to_emit:]
+                     for key,data in self.data.items()}
+        # Return name musst be the same as the counter name:
+	# **mean** in that case
+        return {"mean":mean_data}
+
+mean = CalcCounter("mean",Mean(),diode,diode2)
+```
+
+

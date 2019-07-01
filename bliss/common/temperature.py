@@ -10,13 +10,22 @@ Classes implemented with temperature Controller
 """
 
 import math
-
+import functools
 import gevent
 import gevent.event
 from bliss.common.task import task
 from bliss.common.logtools import *
 from bliss.common.utils import with_custom_members
 from bliss.common.measurement import SamplingCounter, counter_namespace
+
+
+def lazy_init(func):
+    @functools.wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        self.controller._initialize_obj(self)
+        return func(self, *args, **kwargs)
+
+    return func_wrapper
 
 
 class TempControllerCounter(SamplingCounter):
@@ -67,6 +76,7 @@ class Input:
         return self.__config
 
     @property
+    @lazy_init
     def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
@@ -76,11 +86,13 @@ class Input:
         """Standard counter namespace."""
         return counter_namespace([self.counter])
 
+    @lazy_init
     def read(self):
         """ returns the sensor value """
         self._logger.debug("On Input:read")
         return self.controller.read_input(self)
 
+    @lazy_init
     def state(self):
         """ returns the sensor state """
         self._logger.debug("On Input:state")
@@ -144,6 +156,7 @@ class Output(LogMixin):
         return self.__deadband
 
     @property
+    @lazy_init
     def counter(self):
         """ returns the counter object """
         return TempControllerCounter(self.name, self)
@@ -153,11 +166,13 @@ class Output(LogMixin):
         """Standard counter namespace."""
         return counter_namespace([self.counter])
 
+    @lazy_init
     def read(self):
         """ returns the heater value """
         log_debug(self, "On Output:read")
         return self.controller.read_output(self)
 
+    @lazy_init
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ Starts a ramp on an output.
             - if no setpoint is provided, returns the present setpoint value
@@ -174,6 +189,7 @@ class Output(LogMixin):
         self.__mode = 1
         return self._ramp(new_setpoint, wait, **kwargs)
 
+    @lazy_init
     def set(self, new_setpoint=None, wait=False, **kwargs):
         """ Sets as quickly as possible a temperature.
             - if no setpoint is provided, returns the present setpoint value
@@ -190,6 +206,7 @@ class Output(LogMixin):
         self.__mode = 0
         return self._ramp(new_setpoint, wait, **kwargs)
 
+    @lazy_init
     def _ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ starts the ramp tasks.
         """
@@ -212,6 +229,7 @@ class Output(LogMixin):
         else:
             return self.controller.get_setpoint(self)
 
+    @lazy_init
     def wait(self):
         """ Waits on a setpoint task
         """
@@ -221,6 +239,7 @@ class Output(LogMixin):
         except KeyboardInterrupt:
             self.stop()
 
+    @lazy_init
     def _setpoint_state(self, deadband=None):
         """
         Return a string representing the setpoint state of an Output class type object.
@@ -251,6 +270,7 @@ class Output(LogMixin):
         else:
             return "RUNNING"
 
+    @lazy_init
     def stop(self):
         """ Stops a setpoint task.
             Calls the controller method setpoint_stop
@@ -260,6 +280,7 @@ class Output(LogMixin):
             self.__setpoint_task.kill()
         self.controller.setpoint_stop(self)
 
+    @lazy_init
     def abort(self):
         """ Aborts a setpoint task.
             Calls the controller method setpoint_abort
@@ -269,6 +290,7 @@ class Output(LogMixin):
             self.__setpoint_task.kill()
         self.controller.setpoint_abort(self)
 
+    @lazy_init
     def rampstate(self):
         """
         Returns the setpoint state:
@@ -282,6 +304,7 @@ class Output(LogMixin):
         else:
             return "READY"
 
+    @lazy_init
     def _do_setpoint(self, setpoint):
         """ Subtask launching the setpoint
             Polls until setpoint is reached
@@ -294,6 +317,7 @@ class Output(LogMixin):
         finally:
             self.__ramping = 0
 
+    @lazy_init
     def _start_setpoint(self, setpoint, **kwargs):
         """ launches the coroutine doing the setpoint
         """
@@ -314,11 +338,13 @@ class Output(LogMixin):
         sync_event.wait()
         return sp_task
 
+    @lazy_init
     def state(self):
         """ returns the the state of a heater """
         log_debug(self, "On Output:state")
         return self.controller.state_output(self)
 
+    @lazy_init
     def pollramp(self, new_poll=None):
         """
         Setting/reading the polling time (in seconds) in the event loop waiting
@@ -330,6 +356,7 @@ class Output(LogMixin):
         else:
             return self.__setpoint_event_poll
 
+    @lazy_init
     def ramprate(self, new_ramp=None):
         """
         Setting/reading the setpoint ramp rate value
@@ -341,6 +368,7 @@ class Output(LogMixin):
         else:
             return self.controller.read_ramprate(self)
 
+    @lazy_init
     def step(self, new_step=None):
         """
         Setting/reading the setpoint step value (for step mode ramping)
@@ -352,6 +380,7 @@ class Output(LogMixin):
         else:
             return self.controller.read_step(self)
 
+    @lazy_init
     def dwell(self, new_dwell=None):
         """
         Setting/reading the setpoint dwell value (for step mode ramping)
@@ -416,21 +445,25 @@ class Loop:
             self.__output = self.__output()
         return self.__output
 
+    @lazy_init
     def set(self, new_setpoint=None, wait=False, **kwargs):
         """ same as a call to the the method set on its output object """
         log_debug(self, ("On Loop: set %s") % new_setpoint)
         return self.__output.set(new_setpoint, wait, **kwargs)
 
+    @lazy_init
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ same as the call to the method ramp on its output object """
         log_debug(self, ("On Loop: ramp %s") % new_setpoint)
         return self.__output.ramp(new_setpoint, wait, **kwargs)
 
+    @lazy_init
     def stop(self):
         """ same as the call to the method stop on its output object """
         log_debug(self, "On Loop: stop")
         self.__output.stop()
 
+    @lazy_init
     def on(self):
         """ Sets the regulation on
             - call to the method 'on' of the controller
@@ -438,6 +471,7 @@ class Loop:
         log_debug(self, "On Loop: on")
         self.controller.on(self)
 
+    @lazy_init
     def off(self):
         """ Sets the regulation off
             - call to the method 'off' of the controller
@@ -445,6 +479,7 @@ class Loop:
         log_debug(self, "On Loop: off")
         self.controller.off(self)
 
+    @lazy_init
     def kp(self, new_kp=None):
         """
         Setting/reading the P value (for PID)
@@ -456,6 +491,7 @@ class Loop:
         else:
             return self.controller.read_kp(self)
 
+    @lazy_init
     def ki(self, new_ki=None):
         """
         Setting/reading the I value (for PID)
@@ -467,6 +503,7 @@ class Loop:
         else:
             return self.controller.read_ki(self)
 
+    @lazy_init
     def kd(self, new_kd=None):
         """
         Setting/reading the D value (for PID)

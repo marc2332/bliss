@@ -33,14 +33,14 @@ controller:
             output: $heater         <- mandatory
 """
 import itertools
-
-from bliss.common.temperature import *
+from gevent import lock
+from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import set_custom_members
-from bliss.common import session
-from bliss.common.logtools import *
+from bliss.common.logtools import LogMixin
+from bliss.config.channels import Cache
 
 
-class Controller:
+class Controller(LogMixin):
     """
     Temperature controller base class
     """
@@ -48,7 +48,11 @@ class Controller:
     def __init__(self, config, inputs, outputs, loops):
         self.__config = config
         self.__name = config.get("name")
+        self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self._objects = {}
+        self.__initialized_hw_obj = {}
+        self.__initialized_obj = {}
+        self.__lock = lock.RLock()
 
         for name, klass, cfg in itertools.chain(inputs, outputs, loops):
             log_debug(self, f"  {klass.__name__} name: {name}")
@@ -57,8 +61,8 @@ class Controller:
 
             self._objects[name] = new_obj
 
-            # For custom attributes and commands.
-            set_custom_members(self, new_obj)
+            if new_obj.controller is self:
+                set_custom_members(self, new_obj, self._initialize_obj)
 
     @property
     def name(self):
@@ -88,18 +92,53 @@ class Controller:
     def _init(self):
         self.initialize()
 
-        for obj in self._objects.values():
+        for name, obj in self._objects.items():
+            if obj.controller is not self:
+                continue
+            obj_initialized = Cache(obj, "initialized", default_value=0)
+            self.__initialized_hw_obj[obj] = obj_initialized
+            self.__initialized_obj[obj] = False
+
+    def _initialize_obj(self, obj, *args, **kwargs):
+        with self.__lock:
+            if self.__initialized_obj[obj]:
+                return
+
+            if not self.__initialized_hw.value:
+                self.initialize_hardware()
+                self.__initialized_hw.value = True
+
             if isinstance(obj, Input):
                 self.initialize_input(obj)
+                hw_init_func = self.initialize_input_hardware
             elif isinstance(obj, Output):
                 self.initialize_output(obj)
+                hw_init_func = self.initialize_output_hardware
             elif isinstance(obj, Loop):
                 self.initialize_loop(obj)
+                hw_init_func = self.initialize_loop_hardware
+
+            obj_initialized = self.__initialized_hw_obj[obj]
+            if not obj_initialized.value:
+                hw_init_func(obj)
+                obj_initialized.value = 1
+
+            self.__initialized_obj[obj] = True
+
+    def initialize_hardware(self):
+        """ 
+        Initializes the controller hardware
+        (only once, by the first client)        
+        """
+        pass
 
     def initialize(self):
         """ 
         Initializes the controller.
         """
+        pass
+
+    def initialize_input_hardware(self, tinput):
         pass
 
     def initialize_input(self, tinput):
@@ -380,9 +419,6 @@ class Controller:
         """
         log_info(self, "Controller:state_output:")
         raise NotImplementedError
-
-    def _f(self):
-        pass
 
     def setpoint_stop(self, toutput):
         """

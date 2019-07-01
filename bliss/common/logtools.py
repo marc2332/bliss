@@ -11,12 +11,72 @@ from logging import Logger, StreamHandler, NullHandler, Formatter
 import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
+from functools import wraps
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
 from bliss.common import session
 
-__all__ = ["lslog", "lsdebug"]
+
+__all__ = [
+    "log_debug",
+    "log_debug_data",
+    "log_info",
+    "log_warning",
+    "log_error",
+    "log_critical",
+    "log_exception",
+    "set_log_format",
+    "hexify",
+    "asciify",
+    "debugon",
+    "debugoff",
+    "get_logger",
+]
+
+
+def asciify(in_str: str) -> str:
+    """
+    Helper function.
+
+    Gives a convenient representation of a bytestring:
+    * Chars with value under 31 and over 127 are represented as hex
+    * Otherwise represented as ascii
+
+    Returns:
+        str: formatted bytestring
+    """
+    try:
+        return "".join(map(_ascii_format, in_str))
+    except Exception:
+        return in_str
+
+
+def _ascii_format(ch):
+    if ord(ch) > 31 and ord(ch) < 127:
+        return ch
+    else:
+        return "\\x%02x" % ord(ch)
+
+
+def hexify(in_str: str) -> str:
+    """
+    Helper function.
+
+    Represents the given string in hexadecimal
+
+    Returns:
+        str: formatted hex
+    """
+    return "".join(map(_hex_format, in_str))
+
+
+def _hex_format(ch):
+    if isinstance(ch, int):
+        # given a byte
+        return "\\x%02x" % ch
+    # given a string of one char
+    return "\\x%02x" % ord(ch)
 
 
 def logging_startup(
@@ -37,15 +97,107 @@ def logging_startup(
     session.get_current().log.set_debug_handler(StreamHandler())
 
 
-class LogMixin:
-    @autocomplete_property
-    def _logger(self, *args, **kwargs):
-        m = session.get_current().map
-        id_ = map_id(self)
-        if id_ in m.G:
-            return m.G.node[id_]["_logger"]
-        m.register(self)
-        return m[self]["_logger"]
+def get_logger(instance):
+    """
+    Provides a way to retrieve the logger for a give instance
+
+    Keep in mind that if the instance is not jet registered in the map
+    this function will add it automatically.
+
+    Returns:
+        BlissLogger instance for the specific instance
+    """
+
+    m = session.get_current().map
+    id_ = map_id(instance)
+    if id_ in m.G:
+        return m.G.node[id_]["_logger"]
+    m.register(instance)
+    return m[instance]["_logger"]
+
+
+LOG_DOCSTRING = """
+Print a log message associated to a specific instance
+
+Normally instance is self if we are inside a class, but could
+be any instance that you would like to log.
+Notice that if the instance will be registered automatically
+if is not jet in the device map.\n\n
+
+Args:
+    msg: string containing the log message
+"""
+
+
+def log_debug(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: DEBUG"
+    logger = get_logger(instance)
+    logger.debug(msg)
+
+
+def log_debug_data(instance, msg, data):
+    """
+    Convenient function to print log messages and associated data
+    Usually useful to debug low level communication like serial and sockets
+
+    Properly represents:
+        bytestrings/strings to hex or ascii
+        dictionaries
+
+    The switch beetween a hex or ascii representation can be done
+    with the function set_log_format
+    """
+    logger = get_logger(instance)
+    logger.debug_data(msg, data)
+
+
+def log_info(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: INFO"
+    logger = get_logger(instance)
+    logger.info(msg)
+
+
+def log_warning(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: WARNING"
+    logger = get_logger(instance)
+    logger.warning(msg)
+
+
+def log_error(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: ERROR"
+    logger = get_logger(instance)
+    logger.error(msg)
+
+
+def log_critical(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: CRITICAL"
+    logger = get_logger(instance)
+    logger.critical(msg)
+
+
+def log_exception(instance, msg):
+    __doc__ = LOG_DOCSTRING + "Log level: ERROR with added exception trace"
+    logger = get_logger(instance)
+    logger.exception(msg)
+
+
+def set_log_format(instance, frmt):
+    """
+    This command changes the output format of log_debug_data
+
+    Args:
+        instance: instance of a device
+        frmt: 'ascii' or 'hex'
+    """
+    logger = get_logger(instance)
+    try:
+        if frmt.lower() == "ascii":
+            logger.set_ascii_format()
+        elif frmt.lower() == "hex":
+            logger.set_hex_format()
+    except AttributeError as exc:
+        exc.message = "only 'ascii' and 'hex' are valid formats"
+        raise
 
 
 @contextlib.contextmanager
@@ -72,22 +224,36 @@ class BlissLogger(Logger):
         self.addHandler(NullHandler())  # this handler does nothing
 
     def debugon(self):
-        """Activates debug on the logger
+        """
+        Activates debug on the logger
 
         This enables debug-level logging for this logger and all descendants
+
+        Returns:
+            set: names of activated loggers
         """
         super().setLevel(logging.DEBUG)
+        activated = set([self.name])
         if self.level != logging.DEBUG:
             self.__saved_level = self.level
         for name, logger in Log._find_loggers(self.name + ".*").items():
-            logger.debugon()
+            activated |= logger.debugon()
+        return activated
 
     def debugoff(self):
-        """Deactivates debug on the logger"""
+        """Deactivates debug on the logger
+
+        This disables debug-level logging for this logger and all descendants
+
+        Returns:
+            set: names of activated loggers
+        """
         super().setLevel(self.__saved_level)
+        deactivated = set([self.name])
         for name, logger in Log._find_loggers(self.name + ".*").items():
-            logger.debugoff()
+            deactivated |= logger.debugoff()
         self.__saved_level = self.level
+        return deactivated
 
     def setLevel(self, level):
         # Setting level to DEBUG is equivalent to enabling debug log messages
@@ -120,7 +286,10 @@ class BlissLogger(Logger):
         if isinstance(data, dict):
             self.debug(f"{msg} {self.log_format_dict(data)}")
         else:
-            self.debug(f"{msg} bytes={len(data)} {self.__format_data(data)}")
+            try:
+                self.debug(f"{msg} bytes={len(data)} {self.__format_data(data)}")
+            except Exception:
+                self.debug(f"{msg} {data}")
 
     def set_hex_format(self):
         """
@@ -145,13 +314,7 @@ class BlissLogger(Logger):
             f"{name}={self.log_format_ascii(value)}" for (name, value) in indict.items()
         )
 
-    def _ascii_format(self, ch):
-        if ord(ch) > 31 and ord(ch) < 127:
-            return ch
-        else:
-            return "\\x%02x" % ord(ch)
-
-    def log_format_ascii(self, instr: str):
+    def log_format_ascii(self, in_str: str):
         """
         Gives a convenient representation of a bytestring:
         * Chars with value under 31 and over 127 are represented as hex
@@ -160,31 +323,21 @@ class BlissLogger(Logger):
         Returns:
             str: formatted bytestring
         """
-        try:
-            return "".join(map(self._ascii_format, instr))
-        except Exception:
-            return instr
+        return asciify(in_str)
 
-    def _hex_format(self, ch):
-        if isinstance(ch, int):
-            # given a byte
-            return "\\x%02x" % ch
-        # given a string of one char
-        return "\\x%02x" % ord(ch)
-
-    def log_format_hex(self, instr: str):
+    def log_format_hex(self, in_str: str):
         """
         Represents the given string in hexadecimal
 
         Returns:
             str: formatted hex
         """
-        return "".join(map(self._hex_format, instr))
+        return hexify(in_str)
 
 
 class Log:
     """
-    Main utility class for BLISS logging 
+    Main utility class for BLISS logging
     """
 
     _LOG_FORMAT = None
@@ -223,97 +376,79 @@ class Log:
         for handler in logger.handlers:
             handler.setFormatter(Formatter(self._LOG_FORMAT))
 
-    def debugon(self, glob: str) -> None:
+    def debugon(self, glob_logger_pattern_or_obj):
         """
-        Activates debug-level logging for a specifig logger
+        Activates debug-level logging for a specifig logger or an object
 
         Args:
-            glob: glob style pattern matching
-
-        Returns:
-            None
-        """
-        loggers = self._find_loggers(glob)
-
-        if loggers:
-            for logger in loggers.values():
-                print(f"Setting {logger.name} to show debug messages")
-                logger.setLevel(logging.DEBUG)
-        else:
-            print("NO loggers found for [{0}]".format(glob))
-
-    def debugoff(self, glob: str) -> None:
-        """
-        Sets the debug level of the specified logger to the previous level
-        (before debugon) or to WARNING
-
-        Args:
-            glob: glob style pattern matching
-        """
-        loggers = self._find_loggers(glob)
-        if loggers:
-            for name, logger in loggers.items():
-                try:
-                    print(f"Setting {logger.name} to hide debug messages")
-                    # better if logger is a BlissLogger => debugoff will set the right level
-                    # to all descendants
-                    logger.debugoff()
-                except AttributeError:
-                    print(f"Setting logger {name} level to WARNING")
-                    logger.setLevel(logging.WARNING)
-        else:
-            print("NO loggers found for [{0}]".format(glob))
-
-    def lslog(self, glob: str = None, debug_only=False) -> None:
-        """
-        Search for loggers
-        Args:
-            glob: a logger name with optional glob matching
-            level: a logger level from standard logging module
-                   for example logging.ERROR or logging.INFO
-            inherited: False to visualize only loggers that are not
-                       inheriting the level from ancestors
+            glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
 
         Hints on glob: pattern matching normally used by shells
                        common operators are * for any number of characters
                        and ? for one character of any type
+
+        Returns:
+            None
+
         Examples:
-
-            >>> lslog()  # prints all loggers
-
-            >>> lslog('*motor0')  # prints only loggers that contains 'motor0'
-
-            >>> lslog(level=logging.CRITICAL)  # prints only logger at critical level
+            >>> log.debugon(robz)  # passing the object
+            Set logger [session.device.controller.robz] to DEBUG level
+            >>> log.debugon('*motorsrv')  # using a glob
+            Set logger [motorsrv] to DEBUG level
+            Set logger [motorsrv.Connection] to DEBUG level
+            >>> log.debugon('*rob?')  # again a glob
+            Set logger [session.device.controller.roby] to DEBUG level
+            Set logger [session.device.controller.robz] to DEBUG level
         """
-        if glob is None:
-            loggers = {**self._find_loggers("bliss*"), **self._find_loggers("session*")}
-        else:
-            loggers = self._find_loggers(glob)
-        maxlen = max([len(name) for name, _ in loggers.items()])
-        msgfmt = "{0:{width}} {1:8}"
-        output = False
+        if isinstance(glob_logger_pattern_or_obj, str):
+            glob_logger_pattern = glob_logger_pattern_or_obj
+            loggers = self._find_loggers(glob_logger_pattern)
+            activated = set()
+            if loggers:
+                for name, logger in loggers.items():
+                    try:
+                        logger.debugon()
+                    except AttributeError:
+                        logger.setLevel(logging.WARNING)
+                    activated.add(name)
 
-        for name in sorted(loggers.keys()):
-            logger = loggers[name]
-            try:
-                has_debug = logger.getEffectiveLevel() == logging.DEBUG
-            except AttributeError:
-                has_debug = False
-            if debug_only and not has_debug:
-                continue
-            if not output:
-                output = True
-                print("\n" + msgfmt.format("logger name", "level", width=maxlen))
-                print(msgfmt.format("=" * maxlen, 8 * "=", width=maxlen))
-            print(
-                msgfmt.format(
-                    name, logging.getLevelName(logger.getEffectiveLevel()), width=maxlen
-                )
-            )
-        if output:
-            print("")
         else:
-            print("No loggers found.\n")
+            obj = glob_logger_pattern_or_obj
+            activated = get_logger(obj).debugon()
+
+        return activated
+
+    def debugoff(self, glob_logger_pattern_or_obj):
+        """
+        Desactivates debug-level logging for a specifig logger or an object
+
+        Args:
+            glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
+
+        Hints on glob: pattern matching normally used by shells
+                    common operators are * for any number of characters
+                    and ? for one character of any type
+
+        Returns:
+            None
+        """
+        if isinstance(glob_logger_pattern_or_obj, str):
+            glob_logger_pattern = glob_logger_pattern_or_obj
+            loggers = self._find_loggers(glob_logger_pattern)
+            deactivated = set()
+            if loggers:
+                for name, logger in loggers.items():
+                    try:
+                        logger.debugoff()
+                    except AttributeError:
+                        logger.setLevel(logging.WARNING)
+                    deactivated.add(name)
+
+        else:
+            obj = glob_logger_pattern_or_obj
+            deactivated = get_logger(obj).debugoff()
+
+        return deactivated
 
 
 def create_logger_name(G, node_id):
@@ -382,9 +517,13 @@ def map_update_loggers(G):
                     node_dict["_logger"] = logging.getLogger(new_logger_name)
 
 
-def lslog(glob: str = None):
-    return session.get_current().log.lslog(glob)
+@wraps(Log.debugon)
+def debugon(glob_logger_pattern_or_obj):
+
+    return session.get_current().log.debugon(glob_logger_pattern_or_obj)
 
 
-def lsdebug():
-    return session.get_current().log.lslog(debug_only=True)
+@wraps(Log.debugoff)
+def debugoff(glob_logger_pattern_or_obj):
+
+    return session.get_current().log.debugoff(glob_logger_pattern_or_obj)

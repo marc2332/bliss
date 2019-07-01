@@ -9,6 +9,8 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
+from functools import wraps
+
 from bliss.common import scans, session
 from bliss.common.scans import *
 from bliss.common.plot import plot
@@ -35,9 +37,9 @@ __all__ = (
         "move",
         "plotselect",
         "prdef",
-        "debugon",
-        "debugoff",
         "sync",
+        "lslog",
+        "lsdebug",
     ]
     + scans.__all__
     + logtools.__all__
@@ -81,7 +83,69 @@ _FLOAT_FORMAT = ".05f"
 _log = logging.getLogger("bliss.standard")
 
 
-def debugon(glob_logger_pattern_or_obj):
+def lslog(glob: str = None, debug_only=False) -> None:
+    """
+    Search for loggers
+    Args:
+        glob: a logger name with optional glob matching
+        debug_only: True to display only loggers at debug level 
+                    (equivalent to lslog)
+
+
+    Hints on glob: pattern matching normally used by shells
+                    common operators are * for any number of characters
+                    and ? for one character of any type
+    Examples:
+
+        >>> lslog()  # prints all loggers
+
+        >>> lslog('*motor?')  # prints loggers that finish with 'motor' + 1 char
+                              # like motor1, motor2, motork
+
+        >>> lslog('*Socket*')  # prints loggers that contains 'Socket'
+
+    """
+    log = session.get_current().log
+
+    if glob is None:
+        loggers = {**log._find_loggers("bliss*"), **log._find_loggers("session*")}
+    else:
+        loggers = log._find_loggers(glob)
+    maxlen = max([len(name) for name, _ in loggers.items()])
+    msgfmt = "{0:{width}} {1:8}"
+    output = False
+
+    for name in sorted(loggers.keys()):
+        logger = loggers[name]
+        try:
+            has_debug = logger.getEffectiveLevel() == logging.DEBUG
+        except AttributeError:
+            has_debug = False
+        if debug_only and not has_debug:
+            continue
+        if not output:
+            output = True
+            print("\n" + msgfmt.format("logger name", "level", width=maxlen))
+            print(msgfmt.format("=" * maxlen, 8 * "=", width=maxlen))
+        print(
+            msgfmt.format(
+                name, logging.getLevelName(logger.getEffectiveLevel()), width=maxlen
+            )
+        )
+    if output:
+        print("")
+    else:
+        print("No loggers found.\n")
+
+
+def lsdebug():
+    """
+    Displays current Loggers at DEBUG level
+    """
+    lslog(debug_only=True)
+
+
+def debugon(glob_logger_pattern_or_obj) -> None:
     """
     Activates debug-level logging for a specifig logger or an object
 
@@ -103,34 +167,22 @@ def debugon(glob_logger_pattern_or_obj):
         Set logger [session.device.controller.roby] to DEBUG level
         Set logger [session.device.controller.robz] to DEBUG level
     """
-    if isinstance(glob_logger_pattern_or_obj, str):
-        glob_logger_pattern = glob_logger_pattern_or_obj
-        return session.get_current().log.debugon(glob_logger_pattern)
+    activated = logtools.debugon(glob_logger_pattern_or_obj)
+    if activated:
+        for name in activated:
+            print(f"Setting {name} to show debug messages")
     else:
-        obj = glob_logger_pattern_or_obj
-        return obj._logger.debugon()
+        print(f"NO loggers found for [{glob_logger_pattern_or_obj}]")
 
 
 def debugoff(glob_logger_pattern_or_obj):
-    """
-    Desactivates debug-level logging for a specifig logger or an object
 
-    Args:
-        glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
-
-    Hints on glob: pattern matching normally used by shells
-                   common operators are * for any number of characters
-                   and ? for one character of any type
-
-    Returns:
-        None
-    """
-    if isinstance(glob_logger_pattern_or_obj, str):
-        glob_logger_pattern = glob_logger_pattern_or_obj
-        return session.get_current().log.debugoff(glob_logger_pattern)
+    deactivated = logtools.debugoff(glob_logger_pattern_or_obj)
+    if deactivated:
+        for name in deactivated:
+            print(f"Setting {name} to hide debug messages")
     else:
-        obj = glob_logger_pattern_or_obj
-        return obj._logger.debugoff()
+        print(f"NO loggers found for [{glob_logger_pattern_or_obj}]")
 
 
 def _tabulate(data, **kwargs):

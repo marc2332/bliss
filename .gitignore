@@ -26,3 +26,4 @@ htmlcov/
 *.so
 bliss/release.py
 prof
+.mypy_cache/

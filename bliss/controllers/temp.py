@@ -37,10 +37,10 @@ import itertools
 from bliss.common.temperature import *
 from bliss.common.utils import set_custom_members
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 
-class Controller(LogMixin):
+class Controller:
     """
     Temperature controller base class
     """
@@ -51,8 +51,8 @@ class Controller(LogMixin):
         self._objects = {}
 
         for name, klass, cfg in itertools.chain(inputs, outputs, loops):
-            self._logger.debug(f"  {klass.__name__} name: {name}")
-            self._logger.debug(f"  {klass.__name__} config: {cfg}")
+            log_debug(self, f"  {klass.__name__} name: {name}")
+            log_debug(self, f"  {klass.__name__} config: {cfg}")
             new_obj = klass(self, cfg)
 
             self._objects[name] = new_obj
@@ -81,7 +81,7 @@ class Controller(LogMixin):
         Returns:
            the object
         """
-        self._logger.info("Controller:get_object: %s" % (name))
+        log_info(self, "Controller:get_object: %s" % (name))
         # it is used by Loop class
         return self._objects.get(name)
 
@@ -140,7 +140,7 @@ class Controller(LogMixin):
         Returns:
            read value         
         """
-        self._logger.info("Controller:read_input: %s" % (tinput))
+        log_info(self, "Controller:read_input: %s" % (tinput))
         raise NotImplementedError
 
     def read_output(self, toutput):
@@ -154,7 +154,7 @@ class Controller(LogMixin):
         Returns:
            read value         
         """
-        self._logger.info("Controller:read_output: %s" % (toutput))
+        log_info(self, "Controller:read_output: %s" % (toutput))
         raise NotImplementedError
 
     def start_ramp(self, toutput, sp, **kwargs):
@@ -167,7 +167,7 @@ class Controller(LogMixin):
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
-        self._logger.info("Controller:start_ramp: %s" % (toutput))
+        log_info(self, "Controller:start_ramp: %s" % (toutput))
         raise NotImplementedError
 
     def set_ramprate(self, toutput, rate):
@@ -179,7 +179,7 @@ class Controller(LogMixin):
            toutput:  Output class type object 
            rate:     ramp rate
        """
-        self._logger.info("Controller:set_ramprate: %s" % (toutput))
+        log_info(self, "Controller:set_ramprate: %s" % (toutput))
         raise NotImplementedError
 
     def read_ramprate(self, toutput):
@@ -193,7 +193,7 @@ class Controller(LogMixin):
         Returns:
            ramp rate
         """
-        self._logger.info("Controller:read_ramprate: %s" % (toutput))
+        log_info(self, "Controller:read_ramprate: %s" % (toutput))
         raise NotImplementedError
 
     def set_dwell(self, toutput, dwell):
@@ -205,7 +205,7 @@ class Controller(LogMixin):
            toutput:  Output class type object 
            dwell
        """
-        self._logger.info("Controller:set_dwell: %s" % (toutput))
+        log_info(self, "Controller:set_dwell: %s" % (toutput))
         raise NotImplementedError
 
     def read_dwell(self, toutput):
@@ -219,7 +219,7 @@ class Controller(LogMixin):
         Returns:
            dwell value
         """
-        self._logger.info("Controller:read_dwell: %s" % (toutput))
+        log_info(self, "Controller:read_dwell: %s" % (toutput))
         raise NotImplementedError
 
     def set_step(self, toutput, step):
@@ -231,7 +231,7 @@ class Controller(LogMixin):
            toutput:  Output class type object 
            step
        """
-        self._logger.info("Controller:set_step: %s" % (toutput))
+        log_info(self, "Controller:set_step: %s" % (toutput))
         raise NotImplementedError
 
     def read_step(self, toutput):
@@ -245,7 +245,7 @@ class Controller(LogMixin):
         Returns:
            step value
         """
-        self._logger.info("Controller:read_step: %s" % (toutput))
+        log_info(self, "Controller:read_step: %s" % (toutput))
         raise NotImplementedError
 
     def set_kp(self, tloop, kp):
@@ -257,7 +257,7 @@ class Controller(LogMixin):
            tloop:  Loop class type object 
            kp
        """
-        self._logger.info("Controller:set_kp: %s" % (toutput))
+        log_info(self, "Controller:set_kp: %s" % (tloop))
         raise NotImplementedError
 
     def read_kp(self, tloop):
@@ -271,7 +271,7 @@ class Controller(LogMixin):
         Returns:
            kp value
         """
-        self._logger.info("Controller:read_kp: %s" % (toutput))
+        log_info(self, "Controller:read_kp: %s" % (tloop))
         raise NotImplementedError
 
     def set_ki(self, tloop, ki):
@@ -283,7 +283,7 @@ class Controller(LogMixin):
            tloop:  Loop class type object 
            ki
        """
-        self._logger.info("Controller:set_ki: %s" % (toutput))
+        log_info(self, "Controller:set_ki: %s" % (tloop))
         raise NotImplementedError
 
     def read_ki(self, tloop):
@@ -297,7 +297,7 @@ class Controller(LogMixin):
         Returns:
            ki value
         """
-        self._logger.info("Controller:read_ki: %s" % (toutput))
+        log_info(self, "Controller:read_ki: %s" % (tloop))
         raise NotImplementedError
 
     def set_kd(self, tloop, kd):
@@ -309,7 +309,7 @@ class Controller(LogMixin):
            tloop:  Loop class type object 
            kd
        """
-        self._logger.info("Controller:set_kd: %s" % (toutput))
+        log_info(self, "Controller:set_kd: %s" % (tloop))
         raise NotImplementedError
 
     def read_kd(self, tloop):
@@ -323,7 +323,7 @@ class Controller(LogMixin):
         Returns:
            kd value
         """
-        self._logger.info("Controller:read_kd: %s" % (toutput))
+        log_info(self, "Controller:read_kd: %s" % (toutput))
         raise NotImplementedError
 
     def set(self, toutput, sp, **kwargs):
@@ -336,7 +336,7 @@ class Controller(LogMixin):
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
-        self._logger.info("Controller:set: %s" % (toutput))
+        log_info(self, "Controller:set: %s" % (toutput))
         raise NotImplementedError
 
     def get_setpoint(self, toutput):
@@ -350,7 +350,7 @@ class Controller(LogMixin):
         Returns:
            (float) setpoint value. Must be None if not setpoint is set
         """
-        self._logger.info("Controller:get_setpoint: %s" % (toutput))
+        log_info(self, "Controller:get_setpoint: %s" % (toutput))
         raise NotImplementedError
 
     def state_input(self, tinput):
@@ -364,7 +364,7 @@ class Controller(LogMixin):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        self._logger.info("Controller:state_input:")
+        log_info(self, "Controller:state_input:")
         raise NotImplementedError
 
     def state_output(self, toutput):
@@ -378,7 +378,7 @@ class Controller(LogMixin):
         Returns:
            object state string. This is one of READY/RUNNING/ALARM/FAULT
         """
-        self._logger.info("Controller:state_output:")
+        log_info(self, "Controller:state_output:")
         raise NotImplementedError
 
     def _f(self):
@@ -392,7 +392,7 @@ class Controller(LogMixin):
         Args:
            toutput:  Output class type object
         """
-        self._logger.info("Controller:setpoint_stop")
+        log_info(self, "Controller:setpoint_stop")
         raise NotImplementedError
 
     def setpoint_abort(self, toutput):
@@ -403,7 +403,7 @@ class Controller(LogMixin):
         Args:
            toutput:  Output class type object
         """
-        self._logger.info("Controller:setpoint_stop")
+        log_info(self, "Controller:setpoint_stop")
         raise NotImplementedError
 
     def on(self, tloop):
@@ -414,7 +414,7 @@ class Controller(LogMixin):
         Args: 
            tloop:  Loop class type object
         """
-        self._logger.info("Controller:on:")
+        log_info(self, "Controller:on:")
         raise NotImplementedError
 
     def off(self, tloop):
@@ -425,7 +425,7 @@ class Controller(LogMixin):
         Args: 
            tloop:  Loop class type object
         """
-        self._logger.info("Controller:on:")
+        log_info(self, "Controller:on:")
         raise NotImplementedError
 
     def Wraw(self, str):
@@ -436,7 +436,7 @@ class Controller(LogMixin):
         Args:
            str:  the string to write
         """
-        self._logger.info("Controller:Wraw:")
+        log_info(self, "Controller:Wraw:")
         raise NotImplementedError
 
     def Rraw(self):
@@ -447,7 +447,7 @@ class Controller(LogMixin):
         returns:
            response from the controller
         """
-        self._logger.info("Controller:Rraw:")
+        log_info(self, "Controller:Rraw:")
         raise NotImplementedError
 
     def WRraw(self, str):
@@ -460,5 +460,5 @@ class Controller(LogMixin):
         returns:
            response from the controller
         """
-        self._logger.info("Controller:WRraw:")
+        log_info(self, "Controller:WRraw:")
         raise NotImplementedError

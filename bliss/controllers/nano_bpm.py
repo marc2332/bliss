@@ -15,7 +15,7 @@ import gevent
 import logging
 from warnings import warn
 from gevent import lock
-
+from bliss.common.logtools import *
 from bliss.comm.util import get_comm, TCP
 
 
@@ -63,7 +63,7 @@ def _h_result_property(key, doc_str):
     return property(get, set, doc=doc_str)
 
 
-class NanoBpm(object):
+class NanoBpm:
     # Errors codes
     NO_ERROR, CODE1, CODE2, CODE3, CODE4, CODE5, CODE6, CODE7, CODE8 = list(range(9))
     BPP8, BPP16, BPP32 = list(range(3))
@@ -292,9 +292,6 @@ class NanoBpm(object):
             "CalibOffset",
         ]
 
-        self._logger = logging.getLogger("NanoBpmCtrl.NanoBpm")
-        logging.basicConfig(level=logging.INFO)
-        self._logger.setLevel(logging.DEBUG)
         self._controlWord = 0
         self._nbFramesToSum = 8
         self._thread = None
@@ -392,15 +389,16 @@ class NanoBpm(object):
     def _checkReplyOK(self, command_sent, reply):
         errorCode = struct.unpack(">I", reply[2:])[0]
         if command_sent != reply[0:2]:
-            self._logger.error(
+            log_error(
+                self,
                 "Acknowledged the wrong Code: sent {0} replied {1}".format(
                     [c for c in command_sent], [c for c in reply[0:2]]
-                )
+                ),
             )
             return False
         elif errorCode != self.NO_ERROR:
-            self._logger.error(
-                "Acknowledgement error: " + self._errorCode2string[errorCode]
+            log_error(
+                self, "Acknowledgement error: " + self._errorCode2string[errorCode]
             )
             return False
         else:
@@ -545,10 +543,11 @@ class NanoBpm(object):
                 zip(self._imageDescriptorKeys, struct.unpack(">HIHHI", reply[6:]))
             )
             self._frameNbAcquired = imageDescriptor["FrameNb"]
-            self._logger.debug(
+            log_debug(
+                self,
                 "imageDescriptor returned image size [{0},{1}]".format(
                     imageDescriptor["XSize"], imageDescriptor["YSize"]
-                )
+                ),
             )
 
             image_length = imageDescriptor["XSize"] * imageDescriptor["YSize"]
@@ -637,18 +636,17 @@ class NanoBpm(object):
                 doCallback(None, None, None, None, None, imageData)
 
     def readContinuousFrame(self, dataSelector):
-        self._logger.debug(
-            "readContinuousFrame(): dataSelector {0}".format(dataSelector)
-        )
+        log_debug(self, "readContinuousFrame(): dataSelector {0}".format(dataSelector))
         buf = struct.pack(">B6H", dataSelector, *self._quadConfig.values())
         reply = self.command_socket.write_read(
             self.commandContinuous + buf, size=10, timeout=10
         )
         sensorConfig = struct.unpack(">3H", reply[:6])
-        self._logger.debug(
+        log_debug(
+            self,
             "readContinuousFrame(): sensor config [{0},{1}]".format(
                 sensorConfig[0], sensorConfig[1]
-            )
+            ),
         )
         payloadSize = struct.unpack(">I", reply[6:])
         while 1:
@@ -659,10 +657,10 @@ class NanoBpm(object):
             self._frameNbAcquired = imageDescriptor["FrameNb"]
             xsize = imageDescriptor["XSize"]
             ysize = imageDescriptor["YSize"]
-            self._logger.debug(
-                "readContinuousFrame(): image size [{0},{1}]".format(xsize, ysize)
+            log_debug(
+                self, "readContinuousFrame(): image size [{0},{1}]".format(xsize, ysize)
             )
-            self._logger.debug("readContinuousFrame(): payload {0}".format(payload))
+            log_debug(self, "readContinuousFrame(): payload {0}".format(payload))
             data = self.command_socket.read(size=payloadSize[0], timeout=10)
             nextIndex = 0
             (imageSum, XMultAcc, YMultAcc) = struct.unpack(">3Q", data[:24])
@@ -683,7 +681,7 @@ class NanoBpm(object):
                 xfit = numpy.ndarray(
                     shape=(xsize,), dtype=">u4", buffer=data[nextIndex : nextIndex + 40]
                 )
-                self._logger.debug("readContinuousFrame(): xfit {0}".format(xfit))
+                log_debug(self, "readContinuousFrame(): xfit {0}".format(xfit))
                 nextIndex += 20
             else:
                 xfit = None
@@ -691,21 +689,21 @@ class NanoBpm(object):
                 yfit = numpy.ndarray(
                     shape=(xsize,), dtype=">u4", buffer=data[nextIndex : nextIndex + 40]
                 )
-                self._logger.debug("readContinuousFrame(): yfit {0}".format(yfit))
+                log_debug(self, "readContinuousFrame(): yfit {0}".format(yfit))
                 nextIndex += 20
             else:
                 yfit = None
             xcog = XMultAcc / imageSum
             ycog = YMultAcc / imageSum
             cog = (xcog, ycog)
-            self._logger.debug(
-                "readContinuousFrame(): xcog,ycog [{0},{1}]".format(xcog, ycog)
+            log_debug(
+                self, "readContinuousFrame(): xcog,ycog [{0},{1}]".format(xcog, ycog)
             )
             # do callback function
             for func in self.callbacks:
                 func(cog, xprofile, yprofile, xfit, yfit)
-            self._logger.debug(
-                "readContinuousFrame(): actionByte {0}".format(self._actionByte)
+            log_debug(
+                self, "readContinuousFrame(): actionByte {0}".format(self._actionByte)
             )
             buf = struct.pack(">B", self._actionByte)
             self.command_socket.write(buf)
@@ -718,7 +716,7 @@ class NanoBpm(object):
         dataSelector |= self.DataSelector.XPROFILE | self.DataSelector.YPROFILE
         #        dataSelector |= self.DataSelector.XPROFILE_FIT | self.DataSelector.YPROFILE_FIT
         self._actionByte = 1
-        self._logger.info("startContinuousFrame(): Starting")
+        log_info(self, "startContinuousFrame(): Starting")
         self._thread = gevent.spawn(self.readContinuousFrame, dataSelector)
 
     def stopContinuousFrame(self):
@@ -735,9 +733,7 @@ class NanoBpm(object):
         if dataSelector & self.DataSelector.IMAGE:
             dataSelector & ~0xe
         self._thread = gevent.spawn(self.streamData, dataSelector)
-        self._logger.info(
-            "startDataStreaming(): data selector {0}".format(dataSelector)
-        )
+        log_info(self, "startDataStreaming(): data selector {0}".format(dataSelector))
 
     def stopDataStreaming(self):
         self.deviceInterrupt()
@@ -751,21 +747,21 @@ class NanoBpm(object):
             self.commandStreamData + buf, size=10, timeout=10
         )
         (xsize, ysize, darkSubtract) = struct.unpack(">3H", reply[:6])
-        self._logger.debug("streamData(): sensor config [{0},{1}]".format(xsize, ysize))
+        log_debug(self, "streamData(): sensor config [{0},{1}]".format(xsize, ysize))
         (payloadSize,) = struct.unpack(">I", reply[6:10])
-        self._logger.debug("streamData(): payload size {0}".format(payloadSize))
+        log_debug(self, "streamData(): payload size {0}".format(payloadSize))
         while 1:
             try:
                 data = self.command_socket.read(size=payloadSize, timeout=10)
             except:
                 break
             (frameNb,) = struct.unpack(">H", data[:2])
-            self._logger.debug("streamData(): frame nos {0}".format(frameNb))
+            log_debug(self, "streamData(): frame nos {0}".format(frameNb))
             nextIndex = 2
             cog = xfit = yfit = xprofile = yprofile = None
             xcentre = ycentre = 0.0  # beware 0.0 means do nothing
             if dataSelector & self.DataSelector.IMAGE:
-                self._logger.debug("streamData(): decode image {0}".format(len(data)))
+                log_debug(self, "streamData(): decode image {0}".format(len(data)))
                 image = numpy.ndarray(
                     shape=(ysize, xsize), dtype=">u1", buffer=data[2:]
                 )
@@ -776,10 +772,11 @@ class NanoBpm(object):
                 (imageSum, XMultAcc, YMultAcc) = struct.unpack(
                     ">3Q", data[nextIndex : nextIndex + 24]
                 )
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): imageSum, XMultAcc, YMultAcc {0} {1} {2}".format(
                         imageSum, XMultAcc, YMultAcc
-                    )
+                    ),
                 )
                 nextIndex += 24
                 # Deprecated use cog from profile fitting instead
@@ -787,10 +784,11 @@ class NanoBpm(object):
                 # ycog = YMultAcc / imageSum
                 # cog = (xcog, ycog)
             if dataSelector & self.DataSelector.XPROFILE:
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): decode xprofile from {0} to {1}".format(
                         nextIndex, nextIndex + xsize * 4
-                    )
+                    ),
                 )
                 xprofile = numpy.ndarray(
                     shape=(xsize,),
@@ -798,16 +796,18 @@ class NanoBpm(object):
                     buffer=data[nextIndex : nextIndex + xsize * 4],
                 )
                 nextIndex += xsize * 4
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): x {0} {1} {2}".format(
                         xprofile[0], xprofile[1], xprofile[ysize - 1]
-                    )
+                    ),
                 )
             if dataSelector & self.DataSelector.YPROFILE:
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): decode yprofile from {0} to {1}".format(
                         nextIndex, nextIndex + xsize * 4
-                    )
+                    ),
                 )
                 yprofile = numpy.ndarray(
                     shape=(ysize,),
@@ -815,24 +815,27 @@ class NanoBpm(object):
                     buffer=data[nextIndex : nextIndex + ysize * 4],
                 )
                 nextIndex += ysize * 4
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): y {0} {1} {2}".format(
                         yprofile[0], yprofile[1], yprofile[ysize - 1]
-                    )
+                    ),
                 )
             if dataSelector & self.DataSelector.XPROFILE_FIT:
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): decode xprofile fit from {0} to {1}".format(
                         nextIndex, nextIndex + 20
-                    )
+                    ),
                 )
                 (xb, xa, x0, xsigma, xrsq) = struct.unpack(
                     ">5f", data[nextIndex : nextIndex + 20]
                 )
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): xfit {0} {1} {2} {3} {4}".format(
                         xb, xa, x0, xsigma, xrsq
-                    )
+                    ),
                 )
                 nextIndex += 20
                 if xrsq <= 1.0 and xrsq > 0.8:  # its a good fit
@@ -840,18 +843,20 @@ class NanoBpm(object):
                     if x0 <= xsize:
                         xcentre = x0
             if dataSelector & self.DataSelector.YPROFILE_FIT:
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): decode yprofile fit from {0} to {1}".format(
                         nextIndex, nextIndex + 20
-                    )
+                    ),
                 )
                 (yb, ya, y0, ysigma, yrsq) = struct.unpack(
                     ">5f", data[nextIndex : nextIndex + 20]
                 )
-                self._logger.debug(
+                log_debug(
+                    self,
                     "streamData(): yfit {0} {1} {2} {3} {4}".format(
                         yb, ya, y0, ysigma, yrsq
-                    )
+                    ),
                 )
                 nextIndex += 20
                 if yrsq <= 1.0 and yrsq > 0.8:  # its a good fit

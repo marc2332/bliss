@@ -85,7 +85,7 @@ class CaseInsensitiveDict(weakref.WeakValueDictionary):
             self.update(kwargs)
 
 
-class beacon(object):
+class beacon:
 
     DB_API_NAME = "beacon"
     TANGO_ATTR_ALIAS = "tango.attr.alias"

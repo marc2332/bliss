@@ -9,6 +9,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.common import session
+from bliss.common.logtools import *
 
 from . import pi_gcs
 from bliss.comm.util import SERIAL
@@ -42,15 +43,15 @@ class PI_C663(Controller):
             _ans = self.serial.write_readline(b"ERR?\n").decode()
             _ans = self.serial.write_readline(b"*IDN?\n").decode()
             # _ans =='(c)2013 Physik Instrumente(PI) Karlsruhe, C-663.11,0,1.2.1.0'
-            self._logger.debug(_ans)
+            log_debug(self, _ans)
             if _ans.index("C-663.11") == 0:
-                self._logger.debug("*IDN? -> %r" % _ans)
+                log_debug(self, "*IDN? -> %r" % _ans)
         except:
             self._status = (
                 'communication error : no PI C663 found on serial "%s"'
                 % self.serial_line
             )
-            self._logger.debug(self._status)
+            log_debug(self, self._status)
 
     def finalize(self):
         """
@@ -64,22 +65,22 @@ class PI_C663(Controller):
 
     # Init of each axis.
     def initialize_axis(self, axis):
-        self._logger.debug("axis initialization")
+        log_debug(self, "axis initialization")
         axis.axis_id = axis.config.get("axis_id", str)
         axis.address = axis.config.get("address", int)
 
         # Enables servo mode.
-        self._logger.debug("Switches %s servo mode ON" % axis.name)
+        log_debug(self, "Switches %s servo mode ON" % axis.name)
         self._enable_servo_mode(axis)
 
         # Checks referencing.
         _ref = self._get_referencing(axis)
         if _ref == 0:
-            self._logger.debug(
-                "axis '%s' must be referenced before being movable" % axis.name
+            log_debug(
+                self, "axis '%s' must be referenced before being movable" % axis.name
             )
         else:
-            self._logger.debug("axis '%s' is referenced." % axis.name)
+            log_debug(self, "axis '%s' is referenced." % axis.name)
 
     @object_method(types_info=("float", "None"))
     def custom_initialize_axis(self, axis, current_pos):
@@ -90,7 +91,7 @@ class PI_C663(Controller):
         * Sets <current_pos> as current position.
         * Synchronizes axis position.
         """
-        self._logger.debug("custom axis initialization , current_pos=%g" % current_pos)
+        log_debug(self, "custom axis initialization , current_pos=%g" % current_pos)
         self.send_no_ans(axis, "%d RON %s 0" % (axis.address, axis.axis_id))
         self._check_error(axis)
         self.send_no_ans(
@@ -114,12 +115,12 @@ class PI_C663(Controller):
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
-        self._logger.debug("read_position = %f" % _ans)
+        log_debug(self, "read_position = %f" % _ans)
         return _ans
 
     #     def set_position(self, axis, new_pos):
     #         """Set axis position to a new value given in motor units"""
-    #         self._logger.debug("set_position = %g" % new_pos)
+    #         log_debug(self, "set_position = %g" % new_pos)
     #         #l = libicepap.PosList()
     #         #l[axis.libaxis] = new_pos
     #         #self.libgroup.pos(l)
@@ -127,7 +128,7 @@ class PI_C663(Controller):
 
     #    def read_encoder(self, encoder):
     #        _ans = self._get_pos(encoder.axis)
-    #        self._logger.debug("read_position measured = %f" % _ans)
+    #        log_debug(self, "read_position measured = %f" % _ans)
     #        return _ans
 
     """ VELOCITY """
@@ -136,7 +137,7 @@ class PI_C663(Controller):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
-        self._logger.debug("set_velocity new_velocity = %f" % new_velocity)
+        log_debug(self, "set_velocity new_velocity = %f" % new_velocity)
         self.send_no_ans(
             axis, "%d VEL %s %f" % (axis.address, axis.axis_id, new_velocity)
         )
@@ -157,7 +158,7 @@ class PI_C663(Controller):
     """ STATE """
 
     def state(self, axis):
-        self._logger.debug("in state(%s)" % axis.name)
+        log_debug(self, "in state(%s)" % axis.name)
 
         # _ref = self._get_referencing(axis)
         # if _ref == 0:
@@ -174,7 +175,7 @@ class PI_C663(Controller):
         pass
 
     def start_one(self, motion):
-        self._logger.debug("start_one target_pos = %g" % motion.target_pos)
+        log_debug(self, "start_one target_pos = %g" % motion.target_pos)
         self.send_no_ans(
             motion.axis,
             "%d MOV %s %g"
@@ -190,19 +191,19 @@ class PI_C663(Controller):
     """ RAW COMMANDS """
     # Adds \n before to send command.
     def raw_write(self, com):
-        self._logger.debug("com=%s" % repr(com))
+        log_debug(self, "com=%s" % repr(com))
         _com = com + "\n"
         self.serial.write(_com.encode())
 
     def raw_write_read(self, com):
-        self._logger.debug("com=%s" % repr(com))
+        log_debug(self, "com=%s" % repr(com))
         _com = com + "\n"
         _ans = self.serial.write_readline(_com.encode()).decode().rstrip()
-        self._logger.debug("ans=%s" % repr(_ans))
+        log_debug(self, "ans=%s" % repr(_ans))
         return _ans
 
     def get_id(self, axis):
-        return self.send(axis, "%d IDN?", axis.address)
+        return self.send(axis, "%d IDN?" % axis.address)
 
     """
     C663 specific
@@ -248,7 +249,7 @@ class PI_C663(Controller):
         try:
             self.send_no_ans(axis, "%d ACC %s %g" % (axis.address, axis.axis_id, value))
         except:
-            self._logger.error("impossible to set acceleration...")
+            log_error(self, "impossible to set acceleration...")
 
     def _get_target_pos(self, axis):
         """
@@ -350,8 +351,8 @@ class PI_C663(Controller):
         return "ERR %d : %s" % (_error_number, _error_str)
 
     def _check_error(self, axis):
-        self._logger.debug(
-            "_check_error: axis %s got %s" % (axis.name, self._get_error(axis))
+        log_debug(
+            self, "_check_error: axis %s got %s" % (axis.name, self._get_error(axis))
         )
 
     def _stop(self):
@@ -376,10 +377,10 @@ class PI_C663(Controller):
             ?
         """
 
-        self._logger.debug("cmd=%s" % repr(cmd))
+        log_debug(self, "cmd=%s" % repr(cmd))
         _cmd = cmd + "\n"
         _ans = self.serial.write_readline(_cmd.encode()).decode().rstrip()
-        self._logger.debug("ans=%s" % repr(_ans))
+        log_debug(self, "ans=%s" % repr(_ans))
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -390,7 +391,7 @@ class PI_C663(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         """
-        self._logger.debug('cmd="%s" ' % cmd)
+        log_debug(self, 'cmd="%s" ' % cmd)
         _cmd = cmd + "\n"
         self.serial.write(_cmd.encode())
 

@@ -14,7 +14,7 @@ import math
 import gevent
 import gevent.event
 from bliss.common.task import task
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common.utils import with_custom_members
 from bliss.common.measurement import SamplingCounter, counter_namespace
 
@@ -36,7 +36,7 @@ class TempControllerCounter(SamplingCounter):
 
 
 @with_custom_members
-class Input(LogMixin):
+class Input:
     """ Implements the access to temperature sensors
     """
 
@@ -78,17 +78,17 @@ class Input(LogMixin):
 
     def read(self):
         """ returns the sensor value """
-        self._logger.debug("On Input:read")
+        log_debug(self, "On Input:read")
         return self.controller.read_input(self)
 
     def state(self):
         """ returns the sensor state """
-        self._logger.debug("On Input:state")
+        log_debug(self, "On Input:state")
         return self.controller.state_input(self)
 
 
 @with_custom_members
-class Output(LogMixin):
+class Output:
     """ Implements the access to temperature heaters """
 
     def __init__(self, controller, config):
@@ -155,7 +155,7 @@ class Output(LogMixin):
 
     def read(self):
         """ returns the heater value """
-        self._logger.debug("On Output:read")
+        log_debug(self, "On Output:read")
         return self.controller.read_output(self)
 
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
@@ -170,7 +170,7 @@ class Output(LogMixin):
             - setpoint_abort
             - start_ramp
         """
-        self._logger.debug("On Output:ramp %s" % new_setpoint)
+        log_debug(self, "On Output:ramp %s" % new_setpoint)
         self.__mode = 1
         return self._ramp(new_setpoint, wait, **kwargs)
 
@@ -186,14 +186,14 @@ class Output(LogMixin):
             - setpoint_abort
             - set
         """
-        self._logger.debug("On Output:set %s" % new_setpoint)
+        log_debug(self, "On Output:set %s" % new_setpoint)
         self.__mode = 0
         return self._ramp(new_setpoint, wait, **kwargs)
 
     def _ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ starts the ramp tasks.
         """
-        self._logger.debug("On Output:_ramp %s" % new_setpoint)
+        log_debug(self, "On Output:_ramp %s" % new_setpoint)
         if new_setpoint is not None:
             ll, hl = self.limits
             if ll is not None and new_setpoint < ll:
@@ -215,7 +215,7 @@ class Output(LogMixin):
     def wait(self):
         """ Waits on a setpoint task
         """
-        self._logger.debug("On Output:wait")
+        log_debug(self, "On Output:wait")
         try:
             self.__setpoint_task.get()
         except KeyboardInterrupt:
@@ -240,7 +240,7 @@ class Output(LogMixin):
 
         """
         deadband = self.deadband if deadband is None else deadband
-        self._logger.debug("On output:_setpoint_state: %s" % (deadband))
+        log_debug(self, "On output:_setpoint_state: %s" % (deadband))
         if deadband is None:
             return "READY"
         mysp = self.controller.get_setpoint(self)
@@ -255,7 +255,7 @@ class Output(LogMixin):
         """ Stops a setpoint task.
             Calls the controller method setpoint_stop
         """
-        self._logger.debug("On Output: stop")
+        log_debug(self, "On Output: stop")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
         self.controller.setpoint_stop(self)
@@ -264,7 +264,7 @@ class Output(LogMixin):
         """ Aborts a setpoint task.
             Calls the controller method setpoint_abort
         """
-        self._logger.debug("On Output: abort")
+        log_debug(self, "On Output: abort")
         if self.__setpoint_task and not self.__setpoint_task.ready():
             self.__setpoint_task.kill()
         self.controller.setpoint_abort(self)
@@ -287,7 +287,7 @@ class Output(LogMixin):
             Polls until setpoint is reached
             Is a gevent coroutine
         """
-        self._logger.debug("On Output:_do_setpoint : mode = %s" % (self.__mode))
+        log_debug(self, "On Output:_do_setpoint : mode = %s" % (self.__mode))
         try:
             while self._setpoint_state() == "RUNNING":
                 gevent.sleep(self.__setpoint_event_poll)
@@ -297,7 +297,7 @@ class Output(LogMixin):
     def _start_setpoint(self, setpoint, **kwargs):
         """ launches the coroutine doing the setpoint
         """
-        self._logger.debug("On Output:_start_setpoint")
+        log_debug(self, "On Output:_start_setpoint")
         sync_event = gevent.event.Event()
 
         @task
@@ -316,7 +316,7 @@ class Output(LogMixin):
 
     def state(self):
         """ returns the the state of a heater """
-        self._logger.debug("On Output:state")
+        log_debug(self, "On Output:state")
         return self.controller.state_output(self)
 
     def pollramp(self, new_poll=None):
@@ -335,7 +335,7 @@ class Output(LogMixin):
         Setting/reading the setpoint ramp rate value
 
         """
-        self._logger.debug("On Output:ramprate: %s " % (new_ramp))
+        log_debug(self, "On Output:ramprate: %s " % (new_ramp))
         if new_ramp:
             self.controller.set_ramprate(self, new_ramp)
         else:
@@ -346,7 +346,7 @@ class Output(LogMixin):
         Setting/reading the setpoint step value (for step mode ramping)
 
         """
-        self._logger.debug("On Output:step: %s " % (new_step))
+        log_debug(self, "On Output:step: %s " % (new_step))
         if new_step:
             self.controller.set_step(self, new_step)
         else:
@@ -357,7 +357,7 @@ class Output(LogMixin):
         Setting/reading the setpoint dwell value (for step mode ramping)
 
         """
-        self._logger.debug("On Output:setpoint dwell: %s " % (new_dwell))
+        log_debug(self, "On Output:setpoint dwell: %s " % (new_dwell))
         if new_dwell:
             self.controller.set_dwell(self, new_dwell)
         else:
@@ -370,7 +370,7 @@ class Output(LogMixin):
 
 
 @with_custom_members
-class Loop(LogMixin):
+class Loop:
     """ Implements the access to temperature regulation loop """
 
     def __init__(self, controller, config):
@@ -418,31 +418,31 @@ class Loop(LogMixin):
 
     def set(self, new_setpoint=None, wait=False, **kwargs):
         """ same as a call to the the method set on its output object """
-        self._logger.debug(("On Loop: set %s") % new_setpoint)
+        log_debug(self, ("On Loop: set %s") % new_setpoint)
         return self.__output.set(new_setpoint, wait, **kwargs)
 
     def ramp(self, new_setpoint=None, wait=False, **kwargs):
         """ same as the call to the method ramp on its output object """
-        self._logger.debug(("On Loop: ramp %s") % new_setpoint)
+        log_debug(self, ("On Loop: ramp %s") % new_setpoint)
         return self.__output.ramp(new_setpoint, wait, **kwargs)
 
     def stop(self):
         """ same as the call to the method stop on its output object """
-        self._logger.debug("On Loop: stop")
+        log_debug(self, "On Loop: stop")
         self.__output.stop()
 
     def on(self):
         """ Sets the regulation on
             - call to the method 'on' of the controller
         """
-        self._logger.debug("On Loop: on")
+        log_debug(self, "On Loop: on")
         self.controller.on(self)
 
     def off(self):
         """ Sets the regulation off
             - call to the method 'off' of the controller
         """
-        self._logger.debug("On Loop: off")
+        log_debug(self, "On Loop: off")
         self.controller.off(self)
 
     def kp(self, new_kp=None):
@@ -450,7 +450,7 @@ class Loop(LogMixin):
         Setting/reading the P value (for PID)
 
         """
-        self._logger.debug("On Loop: kp (PID): ")
+        log_debug(self, "On Loop: kp (PID): ")
         if new_kp:
             self.controller.set_kp(self, new_kp)
         else:
@@ -461,7 +461,7 @@ class Loop(LogMixin):
         Setting/reading the I value (for PID)
 
         """
-        self._logger.debug("On Loop: ki (PID): ")
+        log_debug(self, "On Loop: ki (PID): ")
         if new_ki:
             self.controller.set_ki(self, new_ki)
         else:
@@ -472,7 +472,7 @@ class Loop(LogMixin):
         Setting/reading the D value (for PID)
 
         """
-        self._logger.debug("On Loop: kd (PID): ")
+        log_debug(self, "On Loop: kd (PID): ")
         if new_kd:
             self.controller.set_kd(self, new_kd)
         else:

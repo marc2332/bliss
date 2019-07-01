@@ -20,7 +20,7 @@ import weakref
 from functools import wraps
 from bliss.common import event
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from .error import SpecClientNotConnectedError
 from .channel import SpecChannel
 from .message import *
@@ -121,8 +121,9 @@ def connectionHandler(conn, socket_to_spec):
                                 try:
                                     reply = conn.registeredReplies[replyID]
                                 except BaseException:
-                                    conn._logger.exception(
-                                        "Unexpected error while receiving a message from server"
+                                    log_exception(
+                                        conn,
+                                        "Unexpected error while receiving a message from server",
                                     )
                                 else:
                                     del conn.registeredReplies[replyID]
@@ -145,7 +146,7 @@ def connectionHandler(conn, socket_to_spec):
             receivedStrings = [s[offset:]]
 
 
-class SpecConnection(LogMixin):
+class SpecConnection:
     """SpecConnection class
     Signals:
     connected() -- emitted when the required Spec version gets connected
@@ -231,9 +232,7 @@ class SpecConnection(LogMixin):
                 # we received a value, so emit an update signal
                 channel.update(channelValue, force=True)
         except BaseException:
-            self._logger.exception(
-                "Uncaught exception in SpecConnection.registerChannel"
-            )
+            log_exception(self, "Uncaught exception in SpecConnection.registerChannel")
 
     @try_connect
     def unregisterChannel(self, chanName):
@@ -265,7 +264,7 @@ class SpecConnection(LogMixin):
 
     def error(self, error):
         """Emit the 'error' signal when the remote Spec version signals an error."""
-        self._logger.error("Error from Spec: %s", error)
+        log_error(self, f"Error from Spec: {error}")
 
         event.send(self, "error", (error,))
 
@@ -278,10 +277,9 @@ class SpecConnection(LogMixin):
         old_state = self.state
         self.state = CONNECTED
         if old_state != CONNECTED:
-            self._logger.info(
-                "Connected to %s:%s",
-                self.host,
-                (self.scanport and self.scanname) or self.port,
+            log_info(
+                self,
+                f"Connected to {self.host}:{(self.scanport and self.scanname) or self.port}",
             )
 
             self.connected_event.set()
@@ -295,10 +293,9 @@ class SpecConnection(LogMixin):
         old_state = self.state
         self.state = DISCONNECTED
         if old_state == CONNECTED:
-            self._logger.info(
-                "Disconnected from %s:%s",
-                self.host,
-                (self.scanport and self.scanname) or self.port,
+            log_info(
+                self,
+                f"Disconnected from {self.host}:{(self.scanport and self.scanname) or self.port}",
             )
 
             event.send(self, "disconnected")
@@ -341,7 +338,7 @@ class SpecConnection(LogMixin):
         """
         return self.__send_msg_with_reply(
             replyCallback=callback,
-            *msg_cmd_with_return(cmd, version=self.serverVersion)
+            *msg_cmd_with_return(cmd, version=self.serverVersion),
         )
 
     @try_connect
@@ -352,8 +349,9 @@ class SpecConnection(LogMixin):
         cmd -- command string
         """
         if self.serverVersion < 3:
-            self._logger.error(
-                "Cannot execute command in Spec : feature is available since Spec server v3 only"
+            log_error(
+                self,
+                "Cannot execute command in Spec : feature is available since Spec server v3 only",
             )
         else:
             message = msg_func_with_return(cmd, version=self.serverVersion)
@@ -374,8 +372,9 @@ class SpecConnection(LogMixin):
         cmd -- command string
         """
         if self.serverVersion < 3:
-            self._logger.error(
-                "Cannot execute command in Spec : feature is available since Spec server v3 only"
+            log_error(
+                self,
+                "Cannot execute command in Spec : feature is available since Spec server v3 only",
             )
         else:
             self.__send_msg_no_reply(msg_func(cmd, version=self.serverVersion))

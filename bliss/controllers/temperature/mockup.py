@@ -15,6 +15,7 @@ import math
 from bliss.common.utils import object_method, object_method_type
 from bliss.common.utils import object_attribute_get, object_attribute_type_get
 from bliss.common.utils import object_attribute_set, object_attribute_type_set
+from bliss.common.logtools import *
 
 DEGREE_PER_SECOND = 0.5
 """ all channels will start at this temperature """
@@ -35,20 +36,20 @@ class mockup(Controller):
 
     def initialize(self):
         # host becomes mandatory
-        self._logger.debug("mockup: initialize ")
+        log_debug(self, "mockup: initialize ")
         self.host = self.config.get("host", str)
 
     def initialize_input(self, tinput):
-        self._logger.debug("mockup: initialize_input: %s" % (tinput))
+        log_debug(self, "mockup: initialize_input: %s" % (tinput))
 
     def initialize_output(self, toutput):
-        self._logger.debug("mockup: initialize_output: %s" % (toutput))
+        log_debug(self, "mockup: initialize_output: %s" % (toutput))
         toutput._attr_dict["ramprate"] = None
         toutput._attr_dict["dwell"] = None
         toutput._attr_dict["step"] = None
 
     def initialize_loop(self, tloop):
-        self._logger.debug("mockup: initialize_loop: %s" % (tloop))
+        log_debug(self, "mockup: initialize_loop: %s" % (tloop))
         tloop._attr_dict["kp"] = None
         tloop._attr_dict["ki"] = None
         tloop._attr_dict["kd"] = None
@@ -59,7 +60,7 @@ class mockup(Controller):
         Returned value is None if not setpoint is set
         """
         channel = tinput.config.get("channel", str)
-        self._logger.debug("mockup: read input: %s" % (channel))
+        log_debug(self, "mockup: read input: %s" % (channel))
         sp = self.setpoints.setdefault(
             channel,
             {"setpoint": None, "temp": INITIAL_TEMP, "target": None, "end_time": 0},
@@ -72,7 +73,7 @@ class mockup(Controller):
             elapsed_time = time.time() - sp["t0"]
             sp["temp"] = +sp["sign"] * (elapsed_time * DEGREE_PER_SECOND)
 
-        self._logger.info("mockup: read input: returns: %s" % (sp["temp"]))
+        log_info(self, "mockup: read input: returns: %s" % (sp["temp"]))
         return sp["temp"]
 
     def read_output(self, toutput):
@@ -80,7 +81,7 @@ class mockup(Controller):
         Returned value is None if not setpoint is set
         """
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: read output: %s" % (channel))
+        log_debug(self, "mockup: read output: %s" % (channel))
         sp = self.setpoints.setdefault(
             channel, {"setpoint": None, "temp": INITIAL_TEMP, "end_time": 0}
         )
@@ -94,7 +95,7 @@ class mockup(Controller):
                 elapsed_time * DEGREE_PER_SECOND
             )
 
-        self._logger.info("mockup: read output: returns: %s" % (sp["temp"]))
+        log_info(self, "mockup: read output: returns: %s" % (sp["temp"]))
         return sp["temp"]
 
     def set_ramprate(self, toutput, rate):
@@ -156,7 +157,7 @@ class mockup(Controller):
         if "step" in kwargs:
             self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: set %s on channel %s" % (sp, channel))
+        log_debug(self, "mockup: set %s on channel %s" % (sp, channel))
         # print kwargs
         start_temp = self.read_output(toutput)
         delta = sp - start_temp
@@ -186,7 +187,7 @@ class mockup(Controller):
         if "step" in kwargs:
             self.set_step(toutput, kwargs["step"])
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: start_ramp %s on channel %s" % (sp, channel))
+        log_debug(self, "mockup: start_ramp %s on channel %s" % (sp, channel))
         # print kwargs
         start_temp = self.read_output(toutput)
         delta = sp - start_temp
@@ -210,10 +211,12 @@ class mockup(Controller):
         Returned value is None if not setpoint is set
         """
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: get_setpoint %s" % (channel))
+        log_debug(self, "mockup: get_setpoint %s" % (channel))
         try:
-            self._logger.info(
-                "mockup: get_setpoint: returns %s" % (self.setpoints[channel]["target"])
+            log_info(
+                self,
+                "mockup: get_setpoint: returns %s"
+                % (self.setpoints[channel]["target"]),
             )
             return self.setpoints[channel]["target"]
         except KeyError:
@@ -223,18 +226,18 @@ class mockup(Controller):
         """Get the status of a Input object
 
         """
-        self._logger.debug("mockup: state Input")
+        log_debug(self, "mockup: state Input")
         return "READY"
 
     def state_output(self, toutput):
         """Get the status of a Output object
 
         """
-        self._logger.debug("mockup: state Output")
-        self._logger.debug("mockup: ramp : %s" % self.read_ramprate(toutput))
-        self._logger.debug("mockup: step : %s" % self.read_step(toutput))
-        self._logger.debug("mockup: dwell : %s" % self.read_dwell(toutput))
-        self._logger.debug("mockup: host : %s" % self.host)
+        log_debug(self, "mockup: state Output")
+        log_debug(self, "mockup: ramp : %s" % self.read_ramprate(toutput))
+        log_debug(self, "mockup: step : %s" % self.read_step(toutput))
+        log_debug(self, "mockup: dwell : %s" % self.read_dwell(toutput))
+        log_debug(self, "mockup: host : %s" % self.host)
         return "READY"
 
     def setpoint_stop(self, toutput):
@@ -242,7 +245,7 @@ class mockup(Controller):
 
         """
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: stop: %s" % (channel))
+        log_debug(self, "mockup: stop: %s" % (channel))
         sp = self.setpoints.setdefault(
             channel, {"setpoint": None, "temp": INITIAL_TEMP, "end_time": 0}
         )
@@ -253,35 +256,37 @@ class mockup(Controller):
 
         """
         channel = toutput.config.get("channel", str)
-        self._logger.debug("mockup: abort: %s" % (channel))
+        log_debug(self, "mockup: abort: %s" % (channel))
         self.setpoint_stop(toutput)
 
     def on(self, tloop):
         """
         Starting the regulation on a Loop
         """
-        self._logger.debug(
+        log_debug(
+            self,
             "mockup: on: starting regulation between input:%s and output:%s"
             % (
                 tloop.input.config.get("channel", str),
                 tloop.output.config.get("channel", str),
-            )
+            ),
         )
         print("Mockup: regulation on")
-        self._logger.debug("mockup: P: %s" % (tloop.kp()))
-        self._logger.debug("mockup: I: %s" % (tloop.ki()))
-        self._logger.debug("mockup: D: %s" % (tloop.kd()))
+        log_debug(self, "mockup: P: %s" % (tloop.kp()))
+        log_debug(self, "mockup: I: %s" % (tloop.ki()))
+        log_debug(self, "mockup: D: %s" % (tloop.kd()))
 
     def off(self, tloop):
         """
         Stopping the regulation on a Loop object
         """
-        self._logger.debug(
+        log_debug(
+            self,
             "mockup: off: stopping regulation between input:%s and output:%s"
             % (
                 tloop.input.config.get("channel", str),
                 tloop.output.config.get("channel", str),
-            )
+            ),
         )
         print("Mockup: regulation off")
 
@@ -289,20 +294,20 @@ class mockup(Controller):
         """
         Writing to the controller
         """
-        self._logger.debug("mockup: writeraw: %s" % (str))
+        log_debug(self, "mockup: writeraw: %s" % (str))
 
     def Rraw(self):
         """
         Reading the controller
         """
-        self._logger.debug("mockup: readraw: ")
+        log_debug(self, "mockup: readraw: ")
         return time.asctime()
 
     def WRraw(self, str):
         """
         Writing then Reading the controller
         """
-        self._logger.debug("mockup: writeraw: %s" % (str))
+        log_debug(self, "mockup: writeraw: %s" % (str))
         return "%s : %s" % (time.asctime(), str)
 
     """

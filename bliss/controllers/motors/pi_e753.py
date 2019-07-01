@@ -10,6 +10,7 @@ from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.axis import AxisState
 from bliss.common import session
+from bliss.common.logtools import *
 
 from . import pi_gcs
 from bliss.comm.util import TCP
@@ -48,7 +49,7 @@ class PI_E753(Controller):
             self.comm.close()
 
     def initialize_axis(self, axis):
-        self._logger.debug("axis initialization")
+        log_debug(self, "axis initialization")
 
         # Enables the closed-loop.
         # Can be dangerous ??? test diff between target and position before ???
@@ -69,12 +70,12 @@ class PI_E753(Controller):
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
-        self._logger.debug("read_position = %f" % _ans)
+        log_debug(self, "read_position = %f" % _ans)
         return _ans
 
     def read_encoder(self, encoder):
         _ans = self._get_pos()
-        self._logger.debug("read_position measured = %f" % _ans)
+        log_debug(self, "read_position measured = %f" % _ans)
         return _ans
 
     """ VELOCITY """
@@ -86,7 +87,7 @@ class PI_E753(Controller):
         """
         - <new_velocity>: 'float'
         """
-        self._logger.debug("set_velocity new_velocity = %f" % new_velocity)
+        log_debug(self, "set_velocity new_velocity = %f" % new_velocity)
         self.send_no_ans(axis, "VEL 1 %f" % new_velocity)
 
         return self.read_velocity(axis)
@@ -152,9 +153,10 @@ class PI_E753(Controller):
 
         _duration = time.time() - _t0
         if _duration > 0.005:
-            self._logger.info(
+            log_info(
+                self,
                 "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
-                % (_ans, _cmd, _duration * 1000)
+                % (_ans, _cmd, _duration * 1000),
             )
 
         self.check_error(_cmd)

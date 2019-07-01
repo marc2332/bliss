@@ -92,6 +92,7 @@ from bliss.comm.exceptions import CommunicationError
 from bliss.comm.scpi import Cmd as SCPICmd
 from bliss.comm.scpi import Commands as SCPICommands
 from bliss.comm.scpi import BaseSCPIDevice
+from bliss.common.logtools import *
 
 from .keithley_scpi_mapping import COMMANDS as SCPI_COMMANDS
 from .keithley_scpi_mapping import MODEL_COMMANDS as SCPI_MODEL_COMMANDS
@@ -247,8 +248,8 @@ class HardwareAcquisition(BaseAcquisition):
         nb_points, acq_time = self._calc(self.acq_time)
         self.nb_points, self.real_acq_time = nb_points, acq_time
         keithley = self.keithley
-        keithley._logger.info(
-            "nb points=%s; effective acq. time=%s", nb_points, acq_time
+        log_info(
+            keithley, "nb points=%s; effective acq. time=%s" % (nb_points, acq_time)
         )
 
         if nb_points == 0:

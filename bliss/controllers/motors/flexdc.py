@@ -11,7 +11,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 from bliss.common import session
-
+from bliss.common.logtools import *
 from bliss.comm.util import get_comm, TCP
 
 
@@ -82,11 +82,11 @@ class FlexDC(Controller):
         # Checks if closed loop parameters have been set.
         _ans = self._flexdc_query("%sTT" % axis.channel)
         if _ans == "0":
-            self._logger.error("Missing closed loop param TT (Target Time)!!")
+            log_error(self, "Missing closed loop param TT (Target Time)!!")
 
         _ans = self._flexdc_query("%sTR" % axis.channel)
         if _ans == "0":
-            self._logger.error("Missing closed loop param TR (Target Radius)!!")
+            log_error(self, "Missing closed loop param TR (Target Radius)!!")
 
         # Minimum dead zone
         self.flexdc_parameter(axis, "CA[36]", axis.min_dead_zone)
@@ -106,22 +106,22 @@ class FlexDC(Controller):
         loop control reference position
         """
         _pos = int(self._flexdc_query("%sDP" % axis.channel))
-        self._logger.debug("FLEXDC *setpoint* position (in steps) : %d" % _pos)
+        log_debug(self, "FLEXDC *setpoint* position (in steps) : %d" % _pos)
         return _pos
 
     def read_encoder(self, encoder):
         """ PS : Position from Sensor """
         _pos = int(self._flexdc_query("%sPS" % encoder.channel))
-        self._logger.debug("FLEXDC *measured* position (in steps) : %d" % _pos)
+        log_debug(self, "FLEXDC *measured* position (in steps) : %d" % _pos)
         return _pos
 
     def read_velocity(self, axis):
         _velocity = float(self._flexdc_query("%sSP" % axis.channel))
-        self._logger.debug("FLEXDC read velocity : %g" % _velocity)
+        log_debug(self, "FLEXDC read velocity : %g" % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        self._logger.debug("FLEXDC write velocity (new_velocity=%g)" % new_velocity)
+        log_debug(self, "FLEXDC write velocity (new_velocity=%g)" % new_velocity)
         self._flexdc_query("%sSP=%d" % (axis.channel, new_velocity))
         return self.read_velocity(axis)
 
@@ -143,21 +143,21 @@ class FlexDC(Controller):
         else:
             _ret = AxisState("READY")
 
-        self._logger.debug("state : %s" % _ret)
+        log_debug(self, "state : %s" % _ret)
         return _ret
 
     def prepare_move(self, motion):
-        self._logger.debug("prepare_move, motion.target_pos=%g" % motion.target_pos)
+        log_debug(self, "prepare_move, motion.target_pos=%g" % motion.target_pos)
         # Prepare axis movement.
         self._flexdc_query("%sAP=%d" % (motion.axis.channel, int(motion.target_pos)))
 
     def start_one(self, motion):
-        self._logger.debug("start_one, motion.target_pos=%g" % motion.target_pos)
+        log_debug(self, "start_one, motion.target_pos=%g" % motion.target_pos)
         # Start prepared movement.
         self._flexdc_query("%sBG" % motion.axis.channel)
 
     def stop(self, axis):
-        self._logger.debug("FLEXDC stop")
+        log_debug(self, "FLEXDC stop")
         self._flexdc_query("%sST" % axis.channel)
 
     def home_search(self, axis, switch):
@@ -181,7 +181,7 @@ class FlexDC(Controller):
 
     def raw_write_read(self, cmd):
         _cmd = "%s%s" % (self.ctrl_axis.channel, cmd)
-        self._logger.debug("raw_write_read : _cmd=%s" % _cmd)
+        log_debug(self, "raw_write_read : _cmd=%s" % _cmd)
         return self._flexdc_query(_cmd)
 
     def read_acceleration(self, axis):
@@ -189,7 +189,7 @@ class FlexDC(Controller):
         returns acceleration read from flexdc controller in steps/s2
         """
         _acc_spss = float(self._flexdc_query("%sAC" % axis.channel))
-        self._logger.debug("read Acceleration : _acc_spss=%g " % _acc_spss)
+        log_debug(self, "read Acceleration : _acc_spss=%g " % _acc_spss)
         return _acc_spss
 
     def set_acceleration(self, axis, new_acc):
@@ -199,14 +199,14 @@ class FlexDC(Controller):
         Flexdc works in steps/s2
         """
         self._flexdc_query("%sAC=%d" % (axis.channel, new_acc))
-        self._logger.debug("write Acceleration : new_acc=%g" % new_acc)
+        log_debug(self, "write Acceleration : new_acc=%g" % new_acc)
         return axis.settings.get("acceleration")
 
     def _flexdc_query(self, cmd):
         # Adds "\r" at end of command.
         # TODO : test if already present ?
 
-        self._logger.debug("SENDING : %s" % cmd)
+        log_debug(self, "SENDING : %s" % cmd)
         _cmd = cmd + "\r"
 
         # Adds ACK character:

@@ -15,6 +15,7 @@ from bliss.common import event
 from bliss.common import session
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
+from bliss.common.logtools import *
 
 from bliss.comm.util import SERIAL
 
@@ -51,14 +52,14 @@ class VSCANNER(Controller):
         except OSError:
             _ans = "no ans"
             self._status = sys.exc_info()[1]
-            self._logger.error(self._status)
+            log_error(self, self._status)
         except:
             _ans = "no ans"
             self._status = (
                 'communication error : cannot communicate with serial "%s"'
                 % self.serial
             )
-            self._logger.error(self._status)
+            log_error(self, self._status)
             traceback.print_exc()
 
         try:
@@ -71,7 +72,7 @@ class VSCANNER(Controller):
                 'communication error : no VSCANNER found on serial "%s"' % self.serial
             )
 
-        self._logger.debug(self._status)
+        log_debug(self, self._status)
 
     def close(self):
         """
@@ -89,12 +90,12 @@ class VSCANNER(Controller):
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
-            self._logger.info("reseting VSCANNER negative position to 0 !!")
+            log_info(self, "reseting VSCANNER negative position to 0 !!")
             _cmd = "V%s 0" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
         if ini_pos > 10:
-            self._logger.info("reseting VSCANNER >10-position to 10 !!")
+            log_info(self, "reseting VSCANNER >10-position to 10 !!")
             _cmd = "V%s 10" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
@@ -112,9 +113,9 @@ class VSCANNER(Controller):
         """
         _cmd = "?V%s" % axis.chan_letter
         _ans = self.send(axis, _cmd)
-        # self._logger.debug("_ans =%s" % _ans)
+        # log_debug(self, "_ans =%s" % _ans)
         _pos = float(_ans)
-        self._logger.debug("position=%f" % _pos)
+        log_debug(self, "position=%f" % _pos)
 
         return _pos
 
@@ -138,12 +139,12 @@ class VSCANNER(Controller):
         elif len(_float_ans) == 2:
             (_vel, _line_waiting) = _float_ans
         else:
-            self._logger.info("WHAT THE F.... ?VEL answer is there ???")
+            log_info(self, "WHAT THE F.... ?VEL answer is there ???")
 
         #     V/s = V/ms * 1000
         _velocity = _vel * 1000
 
-        self._logger.debug("read_velocity : %g " % _velocity)
+        log_debug(self, "read_velocity : %g " % _velocity)
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
@@ -152,7 +153,7 @@ class VSCANNER(Controller):
 
         # "VEL <vel>" command sets velocity in V/ms
         self.send_no_ans(axis, "VEL %f 0" % _new_vel)
-        self._logger.debug("velocity set : %g" % _new_vel)
+        log_debug(self, "velocity set : %g" % _new_vel)
 
     def state(self, axis):
         _ans = self.send(axis, "?STATE")
@@ -172,9 +173,9 @@ class VSCANNER(Controller):
     def prepare_move(self, motion):
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            self._logger.debug("immediate move")
+            log_debug(self, "immediate move")
         else:
-            self._logger.debug("scan move")
+            log_debug(self, "scan move")
 
             if motion.axis.chan_letter == "X":
                 scan_val1 = motion.delta
@@ -193,15 +194,15 @@ class VSCANNER(Controller):
                 number_of_pixel,
                 line_mode,
             )
-            self._logger.debug("_cmd_LINE=%s" % _cmd)
+            log_debug(self, "_cmd_LINE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "SCAN 0 0 1 U"
-            self._logger.debug("_cmd_SCAN=%s" % _cmd)
+            log_debug(self, "_cmd_SCAN=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
             _cmd = "PSHAPE ALL"
-            self._logger.debug("_cmd_PSHAPE=%s" % _cmd)
+            log_debug(self, "_cmd_PSHAPE=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
     def start_one(self, motion):
@@ -214,13 +215,13 @@ class VSCANNER(Controller):
         """
         _velocity = float(motion.axis.config.get("velocity"))
         if _velocity == 0:
-            self._logger.debug("immediate move")
+            log_debug(self, "immediate move")
             _cmd = "V%s %s" % (motion.axis.chan_letter, motion.target_pos)
             self.send_no_ans(motion.axis, _cmd)
         else:
-            self._logger.debug("SCAN move")
+            log_debug(self, "SCAN move")
             _cmd = "START 1 NORET"
-            self._logger.debug("_cmd_START=%s" % _cmd)
+            log_debug(self, "_cmd_START=%s" % _cmd)
             self.send_no_ans(motion.axis, _cmd)
 
     def start_all(self, *motion_list):
@@ -229,7 +230,7 @@ class VSCANNER(Controller):
         returns immediately,
         positions in motor units
         """
-        self._logger.debug("start_all() called")
+        log_debug(self, "start_all() called")
 
     def stop(self, axis):
         # Halt a scan (not a movement ?)
@@ -305,7 +306,7 @@ class VSCANNER(Controller):
         Raises:
             ?
         """
-        self._logger.debug("cmd=%r" % cmd)
+        log_debug(self, "cmd=%r" % cmd)
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd.encode())
 
@@ -313,7 +314,7 @@ class VSCANNER(Controller):
 
         _ans = self.serial.readline().decode().rstrip()
 
-        # self._logger.debug("ans=%s" % repr(_ans))
+        # log_debug(self, "ans=%s" % repr(_ans))
         # _duration = time.time() - _t0
         # print "    Sending: %r Receiving: %r  (duration : %g)" % (_cmd, _ans, _duration)
         return _ans
@@ -328,7 +329,7 @@ class VSCANNER(Controller):
         - <axis> is passed for debugging purposes
         - Used for answer-less commands, then returns nothing
         """
-        # self._logger.debug("send_no_ans : cmd=%r" % cmd)
+        # log_debug(self, "send_no_ans : cmd=%r" % cmd)
 
         _cmd = cmd + "\r\n"
         self.serial.write(_cmd.encode())

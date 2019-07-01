@@ -54,13 +54,13 @@ from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
 Pose = namedtuple("Pose", ROLES)
 
 
-class BaseHexapodProtocol(LogMixin):
+class BaseHexapodProtocol:
 
     DEFAULT_PORT = None
 

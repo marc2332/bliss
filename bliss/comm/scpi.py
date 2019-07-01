@@ -43,7 +43,7 @@ import numpy
 from .util import get_interface
 from .exceptions import CommunicationError, CommunicationTimeout
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 
 def decode_IDN(s):
@@ -381,7 +381,7 @@ def sanitize_msgs(*msgs, **opts):
     return commands, queries, eol.join(result) + eol
 
 
-class SCPI(LogMixin):
+class SCPI:
     """
     :term:`SCPI` language helper.
 
@@ -576,10 +576,10 @@ class SCPI(LogMixin):
         eol = kwargs.setdefault("eol", self._eol)
         strict_query = kwargs.setdefault("strict_query", self._strict_query)
         cmds, queries, msg = sanitize_msgs(*msgs, **kwargs)
-        self._logger.debug("[start] read %r", msg)
+        log_debug(self, f"[start] read {msg}")
         raw_results = self.interface.write_readlines(msg.encode(), len(queries))
         raw_results = [r.decode() for r in raw_results]
-        self._logger.debug("[ end ] read %r=%r", msg, raw_results)
+        log_debug(self, f"[ end ] read {msg}={raw_results}")
         if raw:
             return raw_results
         if len(queries) != len(raw_results):
@@ -595,9 +595,7 @@ class SCPI(LogMixin):
                     try:
                         result = getf(result)
                     except:
-                        self._logger.debug(
-                            "Failed to convert result. Details:", exc_info=1
-                        )
+                        log_exception(self, "Failed to convert result.")
             results.append((query, result))
         return results
 
@@ -628,9 +626,9 @@ class SCPI(LogMixin):
             context = self._contexts[-1]["commands"].extend(msgs)
             return
         msg = self.__to_write_commands(*msgs, **kwargs)
-        self._logger.debug("[start] write %r", msg)
+        log_debug(self, f"[start] write {msg}")
         self.interface.write(msg.encode())
-        self._logger.debug("[ end ] write %r", msg)
+        log_debug(self, f"[ end ] write {msg}")
 
     _MAX_ERR_STACK_SIZE = 20
 
@@ -659,7 +657,7 @@ class SCPI(LogMixin):
         return stack or None
 
 
-class BaseSCPIDevice(LogMixin):
+class BaseSCPIDevice:
     """Base SCPI device class"""
 
     def __init__(self, *args, **kwargs):

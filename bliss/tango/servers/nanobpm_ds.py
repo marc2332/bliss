@@ -27,6 +27,8 @@ import gevent
 from gevent import lock
 from functools import wraps
 from bliss.controllers.nano_bpm import NanoBpm as nanoBpm
+from bliss.common import session
+from bliss.common.logtools import *
 
 
 def is_cmd_allowed(fisallowed):
@@ -77,9 +79,9 @@ class NanoBpm(Device):
             self.BPP16: "bpp16",
             self.BPP32: "bpp32",
         }
-        self._logger = logging.getLogger(str(self))
-        logging.basicConfig(level=logging.INFO)
-        self._logger.setLevel(logging.DEBUG)
+        session.get_current().map.register(
+            self, children_list=[self._nanoBpm], tag=f"nanobpm_ds:{self.Name}"
+        )
         self._imageDepth = self.BPP8
         self._imageData = None
         self._lock = lock.Semaphore()
@@ -462,12 +464,12 @@ class NanoBpm(Device):
                 or int(self._CoG[0]) != int(cog[0])
                 or int(self._CoG[1]) != int(cog[1])
             ):
-                self._logger.debug("bpmCallback(): pushing COG {0}".format(cog))
+                log_debug(self, f"bpmCallback(): pushing COG {cog}")
                 self.push_change_event("Centre", cog)
                 with self._lock:
                     self._CoG = cog
             else:
-                self._logger.debug("bpmCallback(): CoG is the same {0}".format(cog))
+                log_debug(self, f"bpmCallback(): CoG is the same {cog}")
         if xprofile is not None:
             xp = [float(p) for p in xprofile]
             self.push_change_event("XProfile", xp)
@@ -548,11 +550,11 @@ class NanoBpm(Device):
         gevent.spawn(self._doCollectDark)
 
     def _doCollectDark(self):
-        self._logger.info("CollectDark(): Starting dark current image collection")
+        log_info(self, "CollectDark(): Starting dark current image collection")
         self._nanoBpm.storeDark = True
         self._nanoBpm.readAve16Sum32()
         self._nanoBpm.storeDark = False
-        self._logger.info("CollectDark(): Dark current image collection complete")
+        log_info(self, "CollectDark(): Dark current image collection complete")
         with self._lock:
             if self._imageData is not None:
                 self.set_state(tango.DevState.ON)
@@ -568,15 +570,15 @@ class NanoBpm(Device):
 
     def _doCollect(self):
         if self._imageDepth == self.BPP32:
-            self._logger.info("Collect(): collecting Ave16/sum32 image")
+            log_info(self, "Collect(): collecting Ave16/sum32 image")
             self._nanoBpm.readAve16Sum32()
         elif self._imageDepth == self.BPP16:
-            self._logger.info("Collect(): collecting 16 bit image")
+            log_info(self, "Collect(): collecting 16 bit image")
             self._nanoBpm.readImage16()
         else:
-            self._logger.info("Collect(): collecting 8 bit image")
+            log_info(self, "Collect(): collecting 8 bit image")
             self._nanoBpm.readImage8()
-        self._logger.info("Collect(): collection complete")
+        log_info(self, "Collect(): collection complete")
 
         with self._lock:
             if self._imageData is not None:

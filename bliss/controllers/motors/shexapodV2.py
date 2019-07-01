@@ -50,6 +50,7 @@ from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
+from bliss.common.logtools import *
 
 from bliss.controllers.motors.shexapod import (
     ROLES,
@@ -427,7 +428,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         while True:
             try:
                 reply = self.comm._readline().decode()
-                self._logger.debug_data("Rx: %r", reply)
+                log_debug_data(self, "Rx: %r", reply)
             except SocketTimeout:
                 continue
             except gevent.socket.error as error:
@@ -495,7 +496,7 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         is_query = "?" in cmd
         cmd_id = cmd.split("?", 1)[0]
         cmd_line = "{0}{1}{2}".format(cmd, ",".join(map(str, args)), self.eol)
-        self._logger.debug_data("Tx: %r", cmd_line)
+        log_debug_data(self, "Tx: %r", cmd_line)
         result = gevent.event.AsyncResult()
         if ack:
             result_ack = gevent.event.AsyncResult()

@@ -11,6 +11,7 @@ ID31 motion hook for the carnac motors.
 
 import gevent
 from bliss.common.hook import MotionHook
+from bliss.common.logtools import *
 
 
 class CarnacHook(MotionHook):
@@ -54,15 +55,15 @@ class CarnacHook(MotionHook):
                 ready = [axis for axis in axes if axis.hw_state.READY]
                 if len(ready) == len(axes):
                     break
-        self._logger.debug("All motors ready!")
+        log_debug(self, "All motors ready!")
 
     def pre_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ", ".join([axis.name for axis in axes])
-        self._logger.debug("Start power ON for %s", axes_names)
+        log_debug(self, f"Start power ON for {axes_names}")
         tasks = [gevent.spawn(axis.controller.set_on, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        self._logger.debug("Finished power ON for %s", axes_names)
+        log_debug(self, f"Finished power ON for {axes_names}")
         # we know empirically that the carnac takes ~1.3s to reply it is
         # ready after a power on
         gevent.sleep(1.2)
@@ -71,8 +72,8 @@ class CarnacHook(MotionHook):
     def post_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ", ".join([axis.name for axis in axes])
-        self._logger.debug("Start power OFF for %s", axes_names)
+        log_debug(self, f"Start power OFF for {axes_names}")
         tasks = [gevent.spawn(axis.controller.set_off, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        self._logger.debug("Finished power OFF for %s", axes_names)
+        log_debug(self, f"Finished power OFF for {axes_names}")
         self._wait_ready(axes)

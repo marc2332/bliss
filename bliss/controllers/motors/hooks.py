@@ -12,6 +12,7 @@ General purpose motion hooks.
 from gevent import sleep
 
 from bliss.common.hook import MotionHook
+from bliss.common.logtools import *
 
 
 class SleepHook(MotionHook):
@@ -41,9 +42,9 @@ class SleepHook(MotionHook):
     def wait(self, phase):
         t = float(self.config.get("{0}_wait".format(phase)))
         if t:
-            self._logger.debug("start %s wait (%ss)...", phase, t)
+            log_debug(self, f"start {phase} wait ({t})...")
             sleep(t)
-            self._logger.debug("finished %s wait (%ss)", phase, t)
+            log_debug(self, f"finished {phase} wait ({t})...")
 
     def pre_move(self, motion_list):
         self.wait("pre_move")
@@ -94,13 +95,13 @@ class WagoHook(MotionHook):
     def set(self, phase):
         value = self.config[phase]["value"]
         wait = self.config[phase].get("wait", 0)
-        self._logger.debug("start setting %s value to %s...", phase, value)
+        log_debug(self, f"start setting {phase} value to {value}...")
         self.wago.set(self.channel, value)
-        self._logger.debug("finished setting %s value to %s", phase, value)
+        log_debug(self, f"finished setting {phase} value to {value}...")
         if wait:
-            self._logger.debug("start %s wait (%ss)...", phase, wait)
+            log_debug(self, f"start {phase} wait ({wait})...")
             sleep(wait)
-            self._logger.debug("finished %s wait (%ss)", phase, wait)
+            log_debug(self, f"finished {phase} wait ({wait})...")
 
     def pre_move(self, motion_list):
         self.set("pre_move")
@@ -190,13 +191,13 @@ class WagoAirHook(WagoHook):
             or (direction > 0 and motion.delta > 0)
             or (direction < 0 and motion.delta < 0)
         ):
-            self.debug("start setting %s value to %s...", phase, value)
+            log_debug(self, f"start setting {phase} value to {value}...")
             self.wago.set(self.channel, value)
-            self.debug("finished setting %s value to %s", phase, value)
+            log_debug(self, f"finished setting {phase} value to {value}")
             if wait:
-                self.debug("start %s wait (%ss)...", phase, wait)
+                log_debug(self, f"start {phase} wait ({wait})...")
                 sleep(wait)
-                self.debug("finished %s wait (%ss)", phase, wait)
+                log_debug(self, f"finished {phase} wait ({wait})...")
             # if channel_in, check it, input musst be equal to output
             if channel_in and self.wago.get(channel_in) != self.wago.get(self.channel):
                 raise self.SafetyError(

@@ -18,6 +18,7 @@ from bliss.config.static import get_config
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
+from bliss.common.logtools import *
 
 """
 mockup.py : a mockup controller for bliss.
@@ -67,7 +68,7 @@ class Mockup(Controller):
         try:
             self.host = self.config.get("host")
         except:
-            self._logger.debug("no 'host' defined in config for %s" % self.name)
+            log_debug(self, "no 'host' defined in config for %s" % self.name)
 
         # Adds Mockup-specific settings.
         self.axis_settings.add("init_count", int)
@@ -95,7 +96,7 @@ class Mockup(Controller):
     """
 
     def initialize_axis(self, axis):
-        self._logger.debug(f"initializing axis {axis.name}")
+        log_debug(self, f"initializing axis {axis.name}")
         self._axis_moves[axis] = {"motion": None}
 
         if self.read_hw_position(axis) is None:
@@ -142,7 +143,7 @@ class Mockup(Controller):
         return motion
 
     def set_hw_limits(self, axis, low_limit, high_limit):
-        self._logger.debug(f"set axis limit low={low_limit}, high={high_limit}")
+        log_debug(self, f"set axis limit low={low_limit}, high={high_limit}")
         if low_limit is None:
             low_limit = float("-inf")
         if high_limit is None:
@@ -164,7 +165,7 @@ class Mockup(Controller):
 
     def start_one(self, motion, t0=None):
         axis = motion.axis
-        self._logger.debug(f"moving {axis.name} to {motion.target_pos}")
+        log_debug(self, f"moving {axis.name} to {motion.target_pos}")
         if self._get_axis_motion(axis):
             raise RuntimeError("Cannot start motion. Motion already in place")
         pos = self.read_position(axis)
@@ -199,7 +200,7 @@ class Mockup(Controller):
             pos = self.read_hw_position(axis)
         else:
             pos = motion.trajectory.position(t)
-        self._logger.debug(f"{axis.name} position is {pos}")
+        log_debug(self, f"{axis.name} position is {pos}")
         return int(round(pos))
 
     def read_encoder(self, encoder):
@@ -386,7 +387,7 @@ class Mockup(Controller):
     @object_method
     def custom_park(self, axis):
         """doc-str of custom_park"""
-        self._logger.debug("custom_park : parking")
+        log_debug(self, "custom_park : parking")
         self._hw_state.set("PARKED")
 
     # VOID LONG
@@ -413,9 +414,7 @@ class Mockup(Controller):
     # STRING VOID
     @object_method(types_info=("str", "None"))
     def custom_send_command(self, axis, value):
-        self._logger.debug(
-            "custom_send_command(axis=%s value=%r):" % (axis.name, value)
-        )
+        log_debug(self, "custom_send_command(axis=%s value=%r):" % (axis.name, value))
 
     # BOOL NONE
     @object_method(name="Set_Closed_Loop", types_info=("bool", "None"))

@@ -13,6 +13,7 @@ import re
 from gevent import socket
 from .tcp import BaseSocket
 from .util import HexMsg
+from bliss.common.logtools import *
 
 
 class Socket(BaseSocket):
@@ -23,7 +24,7 @@ class Socket(BaseSocket):
         return sock
 
     def _sendall(self, data):
-        self._logger.debug_data("Tx:", data)
+        log_debug_data(self, "Tx:", data)
         return self._socket.send(data)
 
     @staticmethod
@@ -31,7 +32,7 @@ class Socket(BaseSocket):
         try:
             while 1:
                 raw_data = sock.recv(16 * 1024)
-                bliss_socket._logger.debug_data("Rx:", raw_data)
+                log_debug_data(bliss_socket, "Rx:", raw_data)
                 if raw_data:
                     bliss_socket._data += raw_data
                     bliss_socket._event.set()

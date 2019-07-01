@@ -10,12 +10,12 @@ how to use motion hooks in your system"""
 
 import weakref
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 __all__ = ["MotionHook"]
 
 
-class MotionHook(LogMixin):
+class MotionHook:
     """
     Base motion hook. Executed before a motion starts and after motion ends.
     """

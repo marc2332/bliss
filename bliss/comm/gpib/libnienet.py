@@ -36,7 +36,7 @@
 import socket, sys
 from struct import *
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 # debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
 debug = ["ignore_not_impl"]
@@ -66,7 +66,7 @@ def _not_impl(name):
     return _dbg(wrap, name)
 
 
-class EnetSocket(LogMixin):
+class EnetSocket:
     def __init__(self, host, port=5000):
         self._host = host
         self._port = port

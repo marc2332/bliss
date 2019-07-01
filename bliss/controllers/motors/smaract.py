@@ -58,6 +58,7 @@ from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motor import Controller
 from bliss.common import session
+from bliss.common.logtools import *
 
 # Notes:
 # * After power up it reports position 0 (ie, it doesn't store its
@@ -474,7 +475,8 @@ class SmarAct(Controller):
             if new_sensor_type != curr_sensor_type:
                 axis.channel.sensor_type = new_sensor_type
         if not axis.channel.is_physical_position_known:
-            self._logger.warning(
+            log_warning(
+                self,
                 "%r physical position unknown (hint: do a "
                 "homing to find reference mark)",
                 axis.name,
@@ -507,7 +509,7 @@ class SmarAct(Controller):
             axis.channel.stop()
         else:
             self.command("S")
-        self._logger.debug("%r sent stop", axis.name)
+        log_debug(self, "%r sent stop", axis.name)
 
     #    def stop_all(self, *motion_list):
     #        # TODO: only stop all if motion moves all existing channels

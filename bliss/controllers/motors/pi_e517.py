@@ -13,6 +13,7 @@ from bliss.common.axis import AxisState
 from . import pi_gcs
 from bliss.comm import tcp
 from bliss.common import event
+from bliss.common.logtools import *
 
 from .pi_e51x import PI_E51X
 
@@ -95,6 +96,6 @@ class PI_E517(PI_E51X):
                 _ch,
             )
 
-        self._logger.debug("set_gate :  _cmd = %s" % _cmd)
+        log_debug(self, "set_gate :  _cmd = %s" % _cmd)
 
         self.send_no_ans(axis, _cmd)

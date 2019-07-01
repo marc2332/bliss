@@ -7,7 +7,7 @@
 
 from warnings import warn
 from .embl import ExporterClient
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common import session
 
 import gevent
@@ -27,7 +27,7 @@ def start_exporter(address, port, timeout=3, retries=1):
         return exporter_clients[(address, port)]
 
 
-class Exporter(ExporterClient.ExporterClient, LogMixin):
+class Exporter(ExporterClient.ExporterClient):
     STATE_EVENT = "State"
     STATUS_EVENT = "Status"
     VALUE_EVENT = "Value"
@@ -145,8 +145,9 @@ class Exporter(ExporterClient.ExporterClient, LogMixin):
                 try:
                     cb(self._to_python_value(value))
                 except:
-                    self._logger.exception(
-                        "Exception while executing callback %s for event %s", cb, name
+                    log_exception(
+                        self,
+                        f"Exception while executing callback  {cb} for event {name}",
                     )
                     continue
 

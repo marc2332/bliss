@@ -66,7 +66,6 @@ import time
 import enum
 from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
-from bliss.common.logtools import LogMixin
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 
 _last_call = time.time()
@@ -86,15 +85,15 @@ def _send_limit(func):
     return f
 
 
-class LakeShore331(LogMixin):
+class LakeShore331:
     UNITS331 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
     REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
     IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
 
-    def __init__(self, comm, **kwargs):
+    def __init__(self, comm, logger, **kwargs):
         self._comm = comm
         self._channel = None
-
+        self._logger = logger
         self._logger.info("__init__")
 
     @property
@@ -570,7 +569,7 @@ class lakeshore331(LakeshoreBase):
     def __init__(self, config, *args):
         comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
 
-        _lakeshore = LakeShore331(comm_interface)
+        _lakeshore = LakeShore331(comm_interface, self._logger)
 
         model = _lakeshore._model()
         if model != 331:

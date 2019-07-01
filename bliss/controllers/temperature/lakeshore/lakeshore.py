@@ -9,6 +9,7 @@ from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output, Loop
 from bliss.common.logtools import LogMixin
 from bliss.common.utils import autocomplete_property
+from bliss.common import session
 import os
 import re
 import sys
@@ -225,8 +226,7 @@ class LakeshoreBase(Controller, LogMixin):
 
         Controller.__init__(self, config, *args)
 
-        session.get_current().map.register(comm_interface, parents_list=["comms"])
-        session.get_current().map.register(self, children_list=[comm_interface])
+        session.get_current().map.register(handler._comm, parents_list=[self, "comms"])
 
     @property
     def model(self):

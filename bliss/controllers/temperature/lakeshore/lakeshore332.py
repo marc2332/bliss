@@ -70,7 +70,6 @@ import enum
 from bliss.comm import serial
 from bliss.comm import gpib
 from bliss.comm.util import get_interface, get_comm
-from bliss.common.logtools import LogMixin
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 
 _last_call = time.time()
@@ -90,14 +89,15 @@ def _send_limit(func):
     return f
 
 
-class LakeShore332(LogMixin):
+class LakeShore332:
     UNITS332 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
     REVUNITS332 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
     IPSENSORUNITS332 = {1: "volts", 2: "ohms"}
 
-    def __init__(self, comm, **kwargs):
+    def __init__(self, comm, logger, **kwargs):
         self._comm = comm
         self._channel = None
+        self._logger = logger
 
         self._logger.info("__init__")
 
@@ -179,6 +179,7 @@ class LakeShore332(LogMixin):
             raise ValueError(
                 "Temperature OverRange in Sensor_unit on input %s" % channel
             )
+        raise RuntimeError("Could not read temperature on channel %s" % channel)
 
     def _sensor_type(self, channel, type=None, compensation=None):
         """ Read or set input type parameters
@@ -581,7 +582,7 @@ class lakeshore332(LakeshoreBase):
         else:
             comm_interface = get_comm(config)
 
-        _lakeshore = LakeShore332(comm_interface)
+        _lakeshore = LakeShore332(comm_interface, self._logger)
 
         model = _lakeshore._model()
         if model != 332:

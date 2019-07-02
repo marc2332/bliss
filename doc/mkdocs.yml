@@ -13,6 +13,7 @@ nav:
                       - Running Beacon: beacon_install.md
                       - YAML files: beacon_db.md
                       - Settings: beacon_settings.md
+                      - Mixed Config and Settings: beacon_object.md
                       - Channels: beacon_channels.md
                       - Static configuration API: beacon_static_api.md
                 - BLISS objects:

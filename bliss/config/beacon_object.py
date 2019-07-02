@@ -94,7 +94,7 @@ class BeaconObject:
                     def set(self, value):
                         if not self._in_initialize_with_setting:
                             raise RuntimeError(
-                                f"parameter {fset.__name__} is read only"
+                                f"parameter {fset.__name__} is read only."
                             )
                         fset(self, value)
 
@@ -129,7 +129,7 @@ class BeaconObject:
             if not hasattr(self, "name"):
                 self.name = name
         except KeyError:
-            raise RuntimeError("config object must have a name")
+            raise RuntimeError("config object must have a name.")
 
         self.__initialized = Cache(self, "initialized", default_value=False)
         self._in_initialize_with_setting = False
@@ -159,7 +159,7 @@ class BeaconObject:
         if not must_be_in_config <= config.keys():
             missing_keys = must_be_in_config - config.keys()
             raise RuntimeError(
-                f"For device {self.name} configuration must contains {missing_keys}"
+                f"For device {self.name} configuration must contains {missing_keys}."
             )
         config_values = {
             name: config.get(name)

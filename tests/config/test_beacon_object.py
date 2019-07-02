@@ -11,7 +11,7 @@ from bliss.config.beacon_object import BeaconObject
 
 class Ctrl(BeaconObject):
     def __init__(self, config):
-        super().__init__(config)
+        BeaconObject.__init__(self, config)
         self._speed, self._velocity = numpy.random.random(2)
         self._reading_speed = None
         self._mode = "blabla"
@@ -107,7 +107,7 @@ def test_config_and_settings_lazy_init(beacon):
 
 class Ctrl2(BeaconObject):
     def __init__(self, config):
-        super().__init__(config)
+        BeaconObject.__init__(self, config)
         self._settling_time = None
 
     @BeaconObject.property(only_in_config=True)
@@ -148,7 +148,7 @@ class Ctrl4(BeaconObject):
     name = BeaconObject.config_getter("name")
 
     def __init__(self, config):
-        super().__init__(config)
+        BeaconObject.__init__(self, config)
         assert config.get("name") == self.name
 
 

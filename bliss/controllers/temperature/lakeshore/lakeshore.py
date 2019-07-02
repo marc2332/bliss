@@ -6,13 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.temp import Controller
-from bliss.common.temperature import Input, Output, Loop
-from bliss.common.logtools import LogMixin
+from bliss.common.temperature import Input, Output, Loop, lazy_init
+from bliss.common.logtools import *
 from bliss.common.utils import autocomplete_property
 from bliss.common import session
 import os
 import re
 import sys
+import enum
 
 
 class Curve:
@@ -50,7 +51,7 @@ class Curve:
     def list_all(self):
         return self.controller._list_all()
 
-    def write(self, crvn, crvfile):
+    def load(self, crvn, crvfile):
         return self.controller._write(crvn, crvfile)
 
     def delete(self, crvn):
@@ -59,9 +60,11 @@ class Curve:
 
 class LakeshoreInput(Input):
     @autocomplete_property
+    @lazy_init
     def curve(self):
         return Curve(self)
 
+    @lazy_init
     def __repr__(self):
         return "\n".join(self.controller._show(self.name))
 
@@ -69,6 +72,7 @@ class LakeshoreInput(Input):
         # this is for the mapping: it needs a representation of instance
         return super().__repr__()
 
+    @lazy_init
     def filter(self, onoff=None, points=None, window=None):
         """ Configure input filter parameters
         Args:
@@ -87,12 +91,7 @@ class LakeshoreInput(Input):
             self.config.get("channel"), onoff=onoff, points=points, window=window
         )
 
-    # def sensor_type(self):
-    #     """Read input type unit according to the controller"""
-    #     channel = self.config.get("channel")
-    #     return self.controller._lakeshore._sensor_type(channel)
-
-    # @sensor_type.setter
+    @lazy_init
     def sensor_type(self, **kwargs):
         """ Configure input type parameters
             Hint: check the _sensor_type help in the Class Controller
@@ -104,6 +103,7 @@ class LakeshoreInput(Input):
         channel = self.config.get("channel")
         return self.controller._lakeshore._sensor_type(channel, **kwargs)
 
+    @lazy_init
     def alarm_status(self):
         """ Shows high and low alarm state for given input
             Args:
@@ -115,6 +115,7 @@ class LakeshoreInput(Input):
         channel = self.config.get("channel")
         return self.controller._lakeshore._alarm_status(channel)
 
+    @lazy_init
     def alarm_reset(self):
         """ Clears both the high and low status of all alarms
             Args:
@@ -130,6 +131,7 @@ class LakeshoreInput(Input):
 
 
 class LakeshoreOutput(Output):
+    @lazy_init
     def __repr__(self):
         return "\n".join(self.controller._show(self.name))
 
@@ -137,25 +139,30 @@ class LakeshoreOutput(Output):
         # this is for the mapping: it needs a representation of instance
         return super().__repr__()
 
+    @property
+    @lazy_init
+    def value_percent(self):
+        channel = self.config.get("channel", int)
+        return self.controller._read_value_percent(channel)
+
     @autocomplete_property
     def HeaterRange(self):
         return self.controller.HeaterRange
 
-    @autocomplete_property
-    def HeaterState(self):
-        return self.controller.HeaterState
-
     @property
+    @lazy_init
     def range(self):
         channel = self.config.get("channel", int)
-        return self.controller._heater_range(channel)
+        return self.controller._read_heater_range(channel)
 
     @range.setter
+    @lazy_init
     def range(self, value):
         channel = self.config.get("channel", int)
-        return self.controller._heater_range(channel, value)
+        return self.controller._set_heater_range(channel, value)
 
     @property
+    @lazy_init
     def ramp_info(self):
         channel = self.config.get("channel", int)
         ramp_dict = self.controller._lakeshore.ramp_rate(channel)
@@ -172,6 +179,7 @@ class LakeshoreOutput(Output):
 
 
 class LakeshoreLoop(Loop):
+    @lazy_init
     def __repr__(self):
         return "\n".join(self.controller._show(self.name))
 
@@ -184,16 +192,19 @@ class LakeshoreLoop(Loop):
         return self.controller.Mode
 
     @property
+    @lazy_init
     def mode(self):
         channel = self.config.get("channel", int)
         return self.controller._read_loop_mode(channel)
 
     @mode.setter
+    @lazy_init
     def mode(self, mode):
         channel = self.config.get("channel", int)
         return self.controller._set_loop_mode(channel, mode)
 
     @property
+    @lazy_init
     def params(self):
         channel = self.config.get("channel", int)
         return self.controller._lakeshore.read_loop_params(channel)
@@ -210,17 +221,33 @@ class LakeshoreLoop(Loop):
         return self.controller.Unit
 
     @property
+    @lazy_init
     def unit(self):
-        channel = self.config.get("channel", int)
+        if self.controller._lakeshore._model() in range(335, 337):
+            channel = self.input.config.get("channel")
+        else:
+            channel = self.config.get("channel")
         return self.controller._read_loop_unit(channel)
 
     @unit.setter
+    @lazy_init
     def unit(self, unit):
-        channel = self.config.get("channel", int)
+        if self.controller._lakeshore._model() in range(335, 337):
+            channel = self.input.config.get("channel")
+        else:
+            channel = self.config.get("channel")
         return self.controller._set_loop_unit(channel, unit)
 
+    @enum.unique
+    class INPUT(enum.IntEnum):
+        none = 0
+        A = 1
+        B = 2
+        C = 3
+        D = 4
 
-class LakeshoreBase(Controller, LogMixin):
+
+class LakeshoreBase(Controller):
     def __init__(self, handler, config, *args):
         self._lakeshore = handler
 
@@ -295,8 +322,13 @@ class LakeshoreBase(Controller, LogMixin):
 
     # Output-object related methods
     # -----------------------------
-    # the method state_output(self, toutput) is not implemented
-    # (is inherited from temp.py)
+    @autocomplete_property
+    def HeaterState(self):
+        return self.controller.HeaterState
+
+    def state_output(self, toutput):
+        channel = toutput.config.get("channel")
+        return self._read_state_output(channel)
 
     def set(self, toutput, sp, **kwargs):
         """Set the value of the output setpoint
@@ -400,58 +432,6 @@ class LakeshoreBase(Controller, LogMixin):
         """
         self._set_loop_on(tloop)
 
-    # def on(self, tloop):
-    #     """Start the regulation on loop
-    #        Args:
-    #           tloop (int): loop number. 1 to 2.
-    #        Returns:
-    #           None
-    #     """
-    #     channel = tloop.config.get("channel")
-
-    #     model = self._lakeshore._model()
-    #     if model == 340:
-    #         self._lakeshore._cset(channel, onoff="on")
-    #         (input, units, onoff) = self._lakeshore._cset(channel)
-    #     elif model == 331 or model == 332:
-    #         self._lakeshore._heater_range(value=1)
-    #         print("Heater range is set to the lowest power value (1).")
-    #         print("You can set it higher with heater_range on the according output.")
-    #         onoff = "on"
-    #     elif model == 335 or model == 336:
-    #         self._lakeshore._heater_range(channel, value=1)
-    #         print("Heater range is set to the lowest power value (1).")
-    #         print("You can set it higher with heater_range on the according output.")
-    #         onoff = "on"
-    #     else:
-    #         raise ValueError("Unknown Lakeshore model")
-
-    #     print("Regulation on loop %d is %s." % (channel, onoff))
-
-    # def off(self, tloop):
-    #     """Stop the regulation on loop
-    #        Args:
-    #           tloop (int): loop number. 1 to 2.
-    #        Returns:
-    #           None
-    #     """
-    #     channel = tloop.config.get("channel")
-
-    #     model = self._lakeshore._model()
-    #     if model == 340:
-    #         self._lakeshore._cset(channel, onoff="off")
-    #         (input, units, onoff) = self._lakeshore._cset(channel)
-    #     elif model == 331 or model == 332:
-    #         self._lakeshore._heater_range(value=0)
-    #         onoff = "off"
-    #     elif model == 335 or model == 336:
-    #         self._lakeshore._heater_range(channel, value=0)
-    #         onoff = "off"
-    #     else:
-    #         raise ValueError("Unknown Lakeshore model")
-
-    #     print("Regulation on loop %d is %s." % (channel, onoff))
-
     def off(self, tloop):
         """Stop the regulation on loop
            Args:
@@ -460,30 +440,6 @@ class LakeshoreBase(Controller, LogMixin):
               None
         """
         self._set_loop_off(tloop)
-
-    # def off(self, tloop):
-    #     """Stop the regulation on loop
-    #        Args:
-    #           tloop (int): loop number. 1 to 2.
-    #        Returns:
-    #           None
-    #     """
-    #     channel = tloop.config.get("channel")
-
-    #     model = self._lakeshore._model()
-    #     if model == 340:
-    #         self._lakeshore._cset(channel, onoff="off")
-    #         (input, units, onoff) = self._lakeshore._cset(channel)
-    #     elif model == 331 or model == 332:
-    #         self._lakeshore._heater_range(value=0)
-    #         onoff = "off"
-    #     elif model == 335 or model == 336:
-    #         self._lakeshore._heater_range(channel, value=0)
-    #         onoff = "off"
-    #     else:
-    #         raise ValueError("Unknown Lakeshore model")
-
-    #     print("Regulation on loop %d is %s." % (channel, onoff))
 
     def set_kp(self, tloop, kp):
         """ Set the proportional gain
@@ -545,7 +501,7 @@ class LakeshoreBase(Controller, LogMixin):
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
 
-    def _show(self, object_name=None):
+    def _show(self, name=None):
         """ Display all main parameters and values for the temperature controller
             Prints:
               device ID, PID, heater range, loop status, sensors configuration, inputs temperature etc.
@@ -557,9 +513,8 @@ class LakeshoreBase(Controller, LogMixin):
         repr_list.append("Lakeshore identification %s" % (full_id))
 
         # inputs
-        for name, sensor in self._inputs.items():
-            if object_name is not None and name != object_name:
-                continue
+        sensor = self.inputs.get(name)
+        if sensor is not None:
             repr_list.append(f"\nInput {name} :\n{'='*(len(name)+9)}")
             curve_dict = sensor.curve.used
             if curve_dict["curve_number"]:
@@ -574,26 +529,19 @@ class LakeshoreBase(Controller, LogMixin):
                     "Temperature limit: %(curve_temperature_limit)s\tTemp. coefficient: %(curve_temperature_coefficient)s"
                     % curve_dict
                 )
-            sensor_type = self._lakeshore.send_cmd("INTYPE?")
-            repr_list.append("Sensor type: %s" % sensor_type)
-
+            repr_list.append("Sensor type: %s" % sensor.sensor_type())
             repr_list.append(
                 "Temperature: %.3f %s" % (sensor.read(), sensor.config.get("unit"))
             )
-
         # outputs
-        for name, output in self._outputs.items():
-            if object_name is not None and name != object_name:
-                continue
+        output = self.outputs.get(name)
+        if output is not None:
             repr_list.append(f"\nOutput {name} :\n{'='*(len(name)+9)}")
-            repr_list.append("Heater is %s" % output.range.name)
+            repr_list.append("Heater range is %s" % output.range.name)
             # Get heater status
-            htr_status = int(self._lakeshore.send_cmd("HTRST?"))
-            repr_list.append(
-                "Heater status is %s" % output.HeaterState(htr_status).name
-            )
+            repr_list.append("Heater status is %s" % self.state_output(self))
             # Get heater power
-            htr_power = float(self._lakeshore.send_cmd("HTR?"))
+            htr_power = float(output.value_percent)
             repr_list.append("Heater power = %.1f %%" % htr_power)
             ramp_dict = output.ramp_info
             repr_list.append(
@@ -602,11 +550,12 @@ class LakeshoreBase(Controller, LogMixin):
             )
 
         # loops
-        for name, loop in self._loops.items():
-            if object_name is not None and name != object_name:
-                continue
+        loop = self.loops.get(name)
+        if loop is not None:
             repr_list.append(f"\nLoop {name} :\n{'='*(len(name)+7)}")
             params_dict = loop.params
+            if re.search(r"[1-4]", params_dict["input"]):
+                params_dict["input"] = loop.INPUT(int(params_dict["input"]))
             repr_list.append("Controlled by sensor %(input)s in %(unit)s" % params_dict)
             repr_list.append("Temp. control is set to %s" % loop.mode)
             repr_list.append("PID parameters")

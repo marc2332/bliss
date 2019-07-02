@@ -188,31 +188,6 @@ def test_m0_logger_debug_data_other_types(params, caplog):
     assert "STRING bytes=4 toto" in caplog.text
 
 
-def test_LogMixin(params, caplog):
-    """
-    Testing LogMixin on two classes
-    """
-    beacon, log = params
-
-    mc = MappedController("mc")
-    assert get_logger(mc).name == "session.controllers.mc"
-
-    debugon(mc)
-    expected = "Debug message"
-    mc.msg_debug()
-    assert expected in caplog.text
-
-    expected = "Debug data message"
-    mc.msg_debug_data()
-    assert expected in caplog.text
-
-    expected = "Info message"
-    mc.msg_info()
-    assert expected in caplog.text
-
-    assert hasattr(get_logger(mc), "debug_data")
-
-
 def test_standard_debugon_debugoff(params):
     beacon, log = params
 

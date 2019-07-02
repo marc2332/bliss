@@ -15,6 +15,7 @@ import gevent
 import gevent.event
 from bliss.common.task import task
 from bliss.common.logtools import *
+from bliss.common.utils import autocomplete_property
 from bliss.common.utils import with_custom_members
 from bliss.common.measurement import SamplingCounter, counter_namespace
 
@@ -89,18 +90,18 @@ class Input:
     @lazy_init
     def read(self):
         """ returns the sensor value """
-        self._logger.debug("On Input:read")
+        log_debug(self, "On Input:read")
         return self.controller.read_input(self)
 
     @lazy_init
     def state(self):
         """ returns the sensor state """
-        self._logger.debug("On Input:state")
+        log_debug(self, "On Input:state")
         return self.controller.state_input(self)
 
 
 @with_custom_members
-class Output(LogMixin):
+class Output:
     """ Implements the access to temperature heaters """
 
     def __init__(self, controller, config):

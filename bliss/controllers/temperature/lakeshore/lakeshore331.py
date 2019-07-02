@@ -67,6 +67,9 @@ import enum
 from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
+from .lakeshore import LakeshoreInput as Input
+from .lakeshore import LakeshoreOutput as Output
+from .lakeshore import LakeshoreLoop as Loop
 
 _last_call = time.time()
 # limit number of commands per second
@@ -128,13 +131,12 @@ class LakeShore331:
     def _initialize_loop(self, loop):
         self._logger.info("_initialize_loop")
         # Get input object channel
-        ipc = loop.input.config["channel"]
+        ipch = loop.input.config["channel"]
         # Get output object unit
-        opu = loop.input.config["unit"]
+        ipu = loop.input.config["unit"]
         # Get loop object channel
         loop_channel = loop.config["channel"]
-
-        self.set_loop_params(loop_channel, input=ipc, unit=opu)
+        self.set_loop_params(loop_channel, input=ipch, unit=ipu)
 
     # Standard INPUT-object related method(s)
     # ---------------------------------------
@@ -174,6 +176,7 @@ class LakeShore331:
             raise ValueError(
                 "Temperature OverRange in Sensor_unit on input %s" % channel
             )
+        raise RuntimeError("Could not read temperature on channel %s" % channel)
 
     def _sensor_type(self, channel, type=None, compensation=None):
         """ Read or set input type parameters
@@ -328,7 +331,10 @@ class LakeShore331:
                             greater than this percentage reset the filter.
                             Valid range: 1 to 10%.
             Returns:
-              None
+              None if set
+              onoff (int): filter on/off
+              points (int): nb of points used by filter function
+              window (int): filter window (in %)
         """
         self._logger.info("_filter")
         input = channel
@@ -396,19 +402,6 @@ class LakeShore331:
 
     # CUSTOM OUTPUT-object related method(s)
     # --------------------------------------
-    def _heater_range(self, channel, value=None):
-        """ Set/Read the heater range (0 to 3)
-            Args:
-              value (int): The value of the range if set
-              None if read
-            Returns:
-              None if set
-              value (int): The value of the range if read
-        """
-        self._logger.info("_heater_range")
-        if value is None:
-            return int(self.send_cmd("RANGE?"))
-        self.send_cmd("RANGE", value)
 
     # CUSTOM LOOP-object related method(s)
     # ------------------------------------
@@ -435,7 +428,7 @@ class LakeShore331:
                     possibility is to display power (2). We are thus
                     consistent with the default value (= 1 = current).
         """
-        self._logger.info("_cset")
+        self._logger.info("read_loop_params")
         asw = self.send_cmd("CSET?", channel=channel).split(",")
         input = asw[0]
         unit = self.REVUNITS331[int(asw[1])]
@@ -475,11 +468,15 @@ class LakeShore331:
         self._logger.debug("command = {0}, channel = {1})".format(command, channel))
         if channel is None:
             values = "".join(str(x) for x in args)
-            cmd = f"{command} {values} *OPC"
+            cmd = f"{command} {values}"
             # print("-------- command = {0}, values = {1}".format(cmd, values))
         else:
+            # print("args = {0}".format(args))
             values = ",".join(str(x) for x in args)
-            cmd = f"{command} {channel},{values} *OPC"
+            if len(values) == 0:
+                cmd = f"{command} {channel}"
+            else:
+                cmd = f"{command} {channel},{values}"
             # print("------------ command = {0}".format(cmd))
         self._logger.debug("values = {0}".format(values))
         if "?" in command:
@@ -502,7 +499,7 @@ class LakeShore331:
         """
         self._logger.info("wraw")
         self._logger.debug("command to send = {0}".format(string))
-        cmd = string + " *OPC" + self.eol
+        cmd = string + self.eol
         self._comm.write(cmd.encode())
 
     def rraw(self):
@@ -579,14 +576,33 @@ class lakeshore331(LakeshoreBase):
 
         LakeshoreBase.__init__(self, _lakeshore, config, *args)
 
-    def _heater_range(self, channel, value=None):
-        self._logger.info("_heater_range")
-        if value is None:
-            r = self._lakeshore._heater_range(channel, None)
-            return self.HeaterRange(r)
-        else:
-            v = self.HeaterRange(value).value
-            self._lakeshore._heater_range(channel, v)
+    def _read_state_output(self, channel):
+        self._logger.info("_state_output")
+        r = int(self._lakeshore.send_cmd("HTRST?"))
+        return self.HeaterState(r)
+
+    def _read_value_percent(self, channel):
+        self._logger.info("_state_output")
+        return self._lakeshore.send_cmd("HTR?")
+
+    def _read_heater_range(self, channel):
+        """ Read the heater range """
+        self._logger.info("_read_heater_range")
+        r = int(self._lakeshore.send_cmd("RANGE?"))
+        return self.HeaterRange(r)
+
+    def _set_heater_range(self, channel, value=None):
+        """ Set the heater range (0 to 3)
+            It is used for heater output for loop 1, while for
+            loop 2 can choose only between 0(heater off) and 1(heater on)
+            though in the command syntax the output channel or loop
+            is not used!! (cmd = RANGE value)
+            Args:
+              value (int): The value of the range
+        """
+        self._logger.info("_set_heater_range")
+        v = self.HeaterRange(value).value
+        self._lakeshore.send_cmd("RANGE", v)
 
     def _read_loop_mode(self, channel):
         return self.Mode(int(self._lakeshore.send_cmd("CMODE?", channel=channel)))

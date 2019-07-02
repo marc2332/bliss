@@ -36,11 +36,11 @@ import itertools
 from gevent import lock
 from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import set_custom_members
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.config.channels import Cache
 
 
-class Controller(LogMixin):
+class Controller:
     """
     Temperature controller base class
     """
@@ -145,14 +145,14 @@ class Controller(LogMixin):
             self.__initialized_obj[obj] = True
 
     def initialize_hardware(self):
-        """ 
+        """
         Initializes the controller hardware
-        (only once, by the first client)        
+        (only once, by the first client)
         """
         pass
 
     def initialize(self):
-        """ 
+        """
         Initializes the controller.
         """
         pass
@@ -165,8 +165,11 @@ class Controller(LogMixin):
         Initializes an Input class type object
 
         Args:
-           tinput:  Input class type object          
+           tinput:  Input class type object
         """
+        pass
+
+    def initialize_output_hardware(self, toutput):
         pass
 
     def initialize_output(self, toutput):
@@ -174,8 +177,11 @@ class Controller(LogMixin):
         Initializes an Output class type object
 
         Args:
-           toutput:  Output class type object          
+           toutput:  Output class type object
         """
+        pass
+
+    def initialize_loop_hardware(self, tloop):
         pass
 
     def initialize_loop(self, tloop):
@@ -183,7 +189,7 @@ class Controller(LogMixin):
         Initializes a Loop class type object
 
         Args:
-           tloop:  Loop class type object          
+           tloop:  Loop class type object
         """
         pass
 
@@ -193,10 +199,10 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tinput:  Input class type object 
+           tinput:  Input class type object
 
         Returns:
-           read value         
+           read value
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
         raise NotImplementedError
@@ -207,10 +213,10 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
 
         Returns:
-           read value         
+           read value
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
         raise NotImplementedError
@@ -221,7 +227,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
@@ -234,7 +240,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            rate:     ramp rate
        """
         log_info(self, "Controller:set_ramprate: %s" % (toutput))
@@ -246,8 +252,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            ramp rate
         """
@@ -260,7 +266,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            dwell
        """
         log_info(self, "Controller:set_dwell: %s" % (toutput))
@@ -272,8 +278,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            dwell value
         """
@@ -286,7 +292,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            step
        """
         log_info(self, "Controller:set_step: %s" % (toutput))
@@ -298,8 +304,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            step value
         """
@@ -312,7 +318,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            kp
        """
         log_info(self, "Controller:set_kp: %s" % (tloop))
@@ -324,8 +330,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
-        
+           tloop:  Loop class type object
+
         Returns:
            kp value
         """
@@ -338,7 +344,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            ki
        """
         log_info(self, "Controller:set_ki: %s" % (tloop))
@@ -350,8 +356,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
-        
+           tloop:  Loop class type object
+
         Returns:
            ki value
         """
@@ -364,7 +370,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            kd
        """
         log_info(self, "Controller:set_kd: %s" % (tloop))
@@ -376,8 +382,8 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Output class type object 
-        
+           tloop:  Output class type object
+
         Returns:
            kd value
         """
@@ -390,7 +396,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
@@ -403,7 +409,7 @@ class Controller(LogMixin):
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
 
         Returns:
            (float) setpoint value. Must be None if not setpoint is set
@@ -466,7 +472,7 @@ class Controller(LogMixin):
         Starts the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
 
-        Args: 
+        Args:
            tloop:  Loop class type object
         """
         log_info(self, "Controller:on:")
@@ -477,7 +483,7 @@ class Controller(LogMixin):
         Stops the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
 
-        Args: 
+        Args:
            tloop:  Loop class type object
         """
         log_info(self, "Controller:on:")

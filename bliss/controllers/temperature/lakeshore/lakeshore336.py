@@ -6,72 +6,78 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Lakeshore 335, acessible via GPIB or USB
+Lakeshore 336, acessible via GPIB, USB or Ethernet
 
 yml configuration example:
 #controller:
-- class: lakeshore335
-  module: lakeshore.lakeshore335
-  name: lakeshore335
+- class: lakeshore336
+  module: lakeshore.lakeshore336
+  name: lakeshore336
   timeout: 3
   gpib:
      url: enet://gpibid10f.esrf.fr
-     pad: 9 
+     pad: 9
+     eol: '\r\n' 
   usb:
      url: ser2net://lid102:28000/dev/ttyUSB0
-     # when not in model 331 or model 332 emulation mode,
-     # baud-rate of 57600 is the only one possible. If configured
-     # in emulation mode, then can have also 300, 1200, 9600
-     # as possible values for baud-rate.
-     baudrate: 57600
+     baudrate: 57600    # = the only possible value
+#ethernet
+  tcp:
+     #url: idxxlakeshore:7777
+     url: lakeshore336se2:7777
   inputs:
-    - name: ls335_A
+    - name: ls336_A
       channel: A 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_335
-    - name: ls335_A_c    # input temperature in Celsius
+      #tango_server: ls_336
+    - name: ls336_A_c    # input temperature in Celsius
       channel: A
       unit: Celsius
-    - name: ls335_A_su  # in sensor units (Ohm or Volt)
+    - name: ls336_A_su  # in sensor units (Ohm or Volt)
       channel: A
       unit: Sensor_unit
 
-    - name: ls335_B
+    - name: ls336_B
       channel: B 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_335
-    - name: ls335_B_c    # input temperature in Celsius
+      #tango_server: ls_336
+    - name: ls336_B_c    # input temperature in Celsius
       channel: B
       unit: Celsius
-    - name: ls335_B_su  # in sensor units (Ohm or Volt)
+    - name: ls336_B_su  # in sensor units (Ohm or Volt)
       channel: B
       unit: Sensor_unit
 
+    # can add also input channels C and D
+
   outputs:
-    - name: ls335o_1
+    - name: ls336o_1
       channel: 1 
       unit: Kelvin
-    - name: ls335o_2
+    - name: ls336o_2
       channel: 2 
 
   ctrl_loops:
-    - name: ls335l_1
-      input: $ls335_A
-      output: $ls335o_1
+    - name: ls336l_1
+      input: $ls336_A
+      output: $ls336o_1
       channel: 1
-    - name: ls335l_2
-      input: $ls335_B
-      output: $ls335o_2
+    - name: ls336l_2
+      input: $ls336_B
+      output: $ls336o_2
       channel: 2
+
+    # can add also output channels 3 and 4
+
 """
 import types
 import time
 import enum
 from bliss.comm import serial
 from bliss.comm import gpib
-from bliss.comm.util import get_interface, get_comm
+from bliss.comm.util import get_interface, get_comm, TCP
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 from .lakeshore import LakeshoreInput as Input
 from .lakeshore import LakeshoreOutput as Output
@@ -79,7 +85,7 @@ from .lakeshore import LakeshoreLoop as Loop
 
 _last_call = time.time()
 # limit number of commands per second
-# lakeshore 335 supports at most 20 commands per second
+# lakeshore 336 supports at most 20 commands per second
 def _send_limit(func):
     def f(*args, **kwargs):
         global _last_call
@@ -94,11 +100,11 @@ def _send_limit(func):
     return f
 
 
-class LakeShore335:
-    UNITS335 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
-    REVUNITS335 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
-    IPSENSORUNITS335 = {1: "volts", 2: "ohms"}
-    REVINPUT335 = {"A": 1, "B": 2}
+class LakeShore336:
+    UNITS336 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS336 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    IPSENSORUNITS336 = {1: "volts", 2: "ohms"}
+    REVINPUT336 = {"A": 1, "B": 2, "C": 3, "D": 4}
 
     def __init__(self, comm, logger, **kwargs):
         self._comm = comm
@@ -139,7 +145,7 @@ class LakeShore335:
         self._logger.info("_initialize_loop")
         # Get input object channel
         ipch = loop.input.config["channel"]
-        ipch = self.REVINPUT335[ipch]
+        ipch = self.REVINPUT336[ipch]
         # Get output object unit
         ipu = loop.input.config["unit"]
         # Get loop object channel
@@ -152,7 +158,7 @@ class LakeShore335:
     def read_temperature(self, channel, scale):
         """ Read the current temperature
             Args:
-              channel (int): input channel. Valid entries: A or B
+              channel (int): input channel. Valid entries: A,B,C or D
               scale (str): temperature unit for reading: Kelvin or Celsius
                            or Sensor_unit (Ohm or Volt)
             Returns:
@@ -197,22 +203,22 @@ class LakeShore335:
         units=None,
     ):
         """ Read or set input type parameters
-            Args: According to the model, use the appropriate args
-              channel (str): A to D. If read only this arg is needed
-              sensor_type (int): Valid entries: 0=Disabled, 1=Diode,
-                                 2=Platinum RTD, 3=NTC RTD,
-                                 4=Thermocouple (3060 option only)
-              autorange (int): 0=off, 1=on
-              range (int): input range when autorange in off ;
-                             see table 6-8 on page 118 of manual
-              compensation (int): input compensation. 0=off, 1=on
-              unit (int): prefered unit for sensor reading AND for the 
-                         control setpoint. 1=Kelvin, 2=Celsius, 3=Sensor_unit
+            Args:
+                   sensor_type (int): Valid entries: 0=Disabled, 1=Diode,
+                                    2=Platinum RTD, 3=NTC RTD,
+                                    4=Thermocouple (3060 option only),
+                                    5=Capacitance (3061 option only)
+                  autorange (int): 0=off, 1=on
+                  range (int): input range when autorange in off ;
+                                 see table 6-8 on page 136 of manual
+                  compensation (int): input compensation. 0=off, 1=on
+                  unit (int): prefered unit for sensor reading AND for the 
+                               control setpoint. 1=Kelvin, 2=Celsius, 3=Sensor_unit
               Returns:
                 None if set
                 type, autorange, range, compensation, units
 
-              example:ls335_A.sensor_type(type=2,autorange=1,range=3,compensation=1,units=1)    
+              example:ls336_A.sensor_type(type=2,autorange=1,range=3,compensation=1,units=1)    
         """
         self._logger.info("_sensor_type")
         if type is None:
@@ -239,7 +245,7 @@ class LakeShore335:
     def setpoint(self, channel, value=None):
         """ Set/Read the control setpoint
             Args:
-              channel (int): output channel. Valid entries: 1 or 2
+              channel (int): output channel. Valid entries: 1,2,3 or 4
               value (float): The value of the setpoint if set
                              None if read
             Returns:
@@ -269,12 +275,13 @@ class LakeShore335:
             state = "ON" if int(r[0]) == 1 else "OFF"
             rate_value = float(r[1])
             return {"state": state, "rate": rate_value}
+
         if value < 0.1 or value > 100:
             raise ValueError("Ramp value %s is out of bounds [0.1,100]" % value)
         self.send_cmd("RAMP", 0, value, channel=channel)
 
     def ramp(self, channel, sp, rate):
-        """ Change temperature to a set value at a controlled ramp rate
+        """Change temperature to a set value at a controlled ramp rate
             Args:
               channel (int): output channel. Valid entries: 1 or 2
               rate (float): ramp rate [K/min], values 0.1 to 100 with 0.1 resolution 
@@ -309,12 +316,13 @@ class LakeShore335:
     # --------------------------------------
     def pid(self, channel, **kwargs):
         """ Read/Set Control Loop PID Values (P, I, D)
-            Args:
+           Args:
               channel (int): loop channel. Valid entries: 1 or 2
-              P (float): Proportional gain (0.1 to 1000), None if read
-              I (float): Integral reset (0.1 to 1000) [value/s], None if read
-              D (float): Derivative rate (0 to 200) [%], None if read
-            Returns:
+              P (float): Proportional gain (0.1 to 1000)
+              I (float): Integral reset (0.1 to 1000) [value/s]
+              D (float): Derivative rate (0 to 200) [%]
+              None if read
+           Returns:
               None if set
               p (float): P
               i (float): I
@@ -362,7 +370,7 @@ class LakeShore335:
     def _filter(self, channel, **kwargs):
         """ Configure input filter parameters
             Args:
-              channel (str): input channel. Valied entries: A or B
+              channel (str): input channel. Valid entries: A,B,C or D
               onoff (int): 1 = enable, 0 = disable
               points (int): specifies how many points the filtering function
                             uses. Valid range: 2 to 64.
@@ -415,7 +423,7 @@ class LakeShore335:
     def _alarm_status(self, channel):
         """ Shows high and low alarm state for given input
             Args:
-              channel (str): A or B
+              channel (str): A,B,C or D
             Returns:
               high and low alarm state (str, str): "On/Off"
         """
@@ -473,7 +481,7 @@ class LakeShore335:
         input = asw[1]
         powerup = "ON" if int(asw[2]) == 1 else "OFF"
         asw = self.send_cmd("INTYPE?", channel=channel).split(",")
-        unit = self.REVUNITS335[int(asw[4])]
+        unit = self.REVUNITS336[int(asw[4])]
         currpow = "not needed"
         return {"input": input, "unit": unit, "powerup": powerup, "currpow": currpow}
 
@@ -491,7 +499,7 @@ class LakeShore335:
                 "Error: acceptables values for unit are 'Kelvin' or 'Celsius' or 'Sensor_unit'."
             )
         else:
-            unit = self.UNITS335[unit]
+            unit = self.UNITS336[unit]
 
         self.send_cmd("OUTMODE", modec, input, powerupc, channel=channel)
         self.send_cmd(
@@ -558,7 +566,7 @@ class LakeShore335:
             Returns:
               response from the controller
         """
-        self._logger.info("rraw")
+        self._logger.info("wraw")
         cmd = self.eol
         asw = self._comm.readline(cmd.encode())
         self._logger.debug("raw answer = {0}".format(asw))
@@ -579,7 +587,7 @@ class LakeShore335:
         return asw.decode()
 
 
-class lakeshore335(LakeshoreBase):
+class lakeshore336(LakeshoreBase):
     # Number of calibration curves available
     NCURVES = 59
     NUSERCURVES = (21, 59)
@@ -622,12 +630,12 @@ class lakeshore335(LakeshoreBase):
         else:
             comm_interface = get_comm(config)
 
-        _lakeshore = LakeShore335(comm_interface, self._logger)
+        _lakeshore = LakeShore336(comm_interface, self._logger)
 
         model = _lakeshore._model()
-        if model != 335:
+        if model != 336:
             raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 335.".format(model)
+                "Error, the Lakeshore model is {0}. It should be 336.".format(model)
             )
 
         LakeshoreBase.__init__(self, _lakeshore, config, *args)
@@ -648,12 +656,13 @@ class lakeshore335(LakeshoreBase):
         return self.HeaterRange(r)
 
     def _set_heater_range(self, channel, value=None):
-        """ Set the heater range (0 to 3) [see Paragaph 4.13]
-            It is used for heater output for loop 1, while for
-            loop 2 can choose only between 0(heater off) and 1(heater on)
-            though in the command syntax the output channel or loop
-            is not used!! (cmd = RANGE value)
-            Args:
+        """ Set the heater range (0=off 1=low 2=medium 3=high)
+            channel (int): output channel: 1,2,3 or 4
+            value (int): The value of the range if set. The valid range:
+			   for channels 1 and 2: 0=Off,1=Low,2=Medium,3=High
+			   for channels 3 and 4: 0=Off,1=On
+                           None if read
+           Args:
               value (int): The value of the range
         """
         self._logger.info("_set_heater_range")

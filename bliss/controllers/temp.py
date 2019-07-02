@@ -75,6 +75,25 @@ class Controller(LogMixin):
         """
         return self.__config
 
+    @property
+    def inputs(self):
+        return self._object_filter(Input)
+
+    @property
+    def outputs(self):
+        return self._object_filter(Output)
+
+    @property
+    def loops(self):
+        return self._object_filter(Loop)
+
+    def _object_filter(self, class_type):
+        return {
+            name: obj
+            for name, obj in self._objects.items()
+            if isinstance(obj, class_type)
+        }
+
     def get_object(self, name):
         """
         get object by name

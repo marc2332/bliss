@@ -50,14 +50,11 @@ def create_objects_from_config_node(config, node):
                 object_name = config_dict.get("name")
                 object_class_name = config_dict.get("class")
                 if object_class_name is None:
-                    object_class = default_class
-                    if object_class is None:
-                        try:
-                            object_class = getattr(
-                                controller_module, default_class_name
-                            )
-                        except AttributeError:
-                            pass
+                    try:
+                        object_class_name = default_class.__name__
+                        object_class = getattr(controller_module, object_class_name)
+                    except AttributeError:
+                        object_class = default_class
                 else:
                     object_class = getattr(controller_module, object_class_name)
             objects_names.append(object_name)

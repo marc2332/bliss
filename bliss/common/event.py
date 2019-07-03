@@ -9,6 +9,7 @@ import sys
 from gevent import GreenletExit
 
 from louie import dispatcher
+from louie.dispatcher import get_receivers
 from louie import robustapply
 from louie import saferef
 

@@ -35,6 +35,7 @@ nav:
                             - PM600: config_pm600.md
                             - Smaract: config_smaract.md
                             - Symetrie Hexapod: config_shexapod.md
+                            - ESRF Hexapode: config_esrf_hexapode.md
                             - Vscanner: config_vscanner.md
                       - Encoders: config_encoder.md
                       - Multiple positions: config_mp.md

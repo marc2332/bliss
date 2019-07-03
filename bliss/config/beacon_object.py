@@ -190,7 +190,10 @@ class BeaconObject:
                     f"in file:{self.config.filename}"
                 )
             self.config.update(d)
-        self._settings.remove(*self.__settings_properties().keys())
+        try:
+            self._settings.remove(*self.__settings_properties().keys())
+        except AttributeError:  # apply config before init
+            pass
         self.__initialized.value = False
         self._initialize_with_setting()
 

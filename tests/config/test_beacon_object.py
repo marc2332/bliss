@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import numpy
 import pytest
+import gevent
 from bliss.config.beacon_object import BeaconObject
+from bliss.common import event
 
 
 class Ctrl(BeaconObject):
@@ -228,3 +230,47 @@ def test_config_and_settings_priority_test(beacon):
         "mode",
         "speed",
     ]
+
+
+def test_event(beacon):
+    cfg = beacon.get("controller_setting2")
+    ctrl = Ctrl8(cfg)
+    events_dict = {"nb": 0}
+    current_values = dict()
+    cbk_event = gevent.event.Event()
+
+    def speed_cbk(value):
+        current_values["speed"] = value
+        cbk_event.set()
+        events_dict["nb"] += 1
+
+    def velocity_cbk(value):
+        current_values["velocity"] = value
+        cbk_event.set()
+        events_dict["nb"] += 1
+
+    def mode_cbk(value):
+        current_values["mode"] = value
+        cbk_event.set()
+        events_dict["nb"] += 1
+
+    def wait():
+        with gevent.Timeout(1):
+            while events_dict["nb"] < 3:
+                cbk_event.wait()
+                cbk_event.clear()
+            events_dict["nb"] = 0
+
+    event.connect(ctrl, "speed", speed_cbk)
+    event.connect(ctrl, "velocity", velocity_cbk)
+    event.connect(ctrl, "mode", mode_cbk)
+    # Init
+    ctrl.apply_config()
+    wait()
+    assert current_values == {"speed": 20, "velocity": 1.9, "mode": "fixed"}
+
+    ctrl.speed = 100
+    ctrl.velocity = 0.3
+    ctrl.mode = "Hello"
+    wait()
+    assert current_values == {"speed": 100, "velocity": .3, "mode": "Hello"}

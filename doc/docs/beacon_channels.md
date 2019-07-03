@@ -76,3 +76,31 @@ cached values for the list of devices provided as function arguments.
     When the last client holding a channel disconnects, the channel is
     removed. It is cleared from Redis. In case another channel with the same
     name is created afterwards, reading it returns the default value.
+
+## `EventChannel` object
+
+EventChannel object is a way to distribute event system wide.
+All pickable python object can be `post`
+The receiver will get the posted event by block.
+
+### Usage
+Process A:
+
+```py
+BLISS [1]: from bliss.config.channels import EventChannel
+BLISS [2]: c = EventChannel('test')
+BLISS [3]: for i in range(10): 
+      ...:     c.post(f'event {i}')
+```
+
+Process B:
+
+```py
+BLISS [1]: from bliss.config.channels import EventChannel
+BLISS [2]: c = EventChannel('test')
+BLISS [3]: def f(events_list):
+      ...:     print(events_list)
+BLISS [4]: c.register_callback(f)
+BLISS [5]: ['event 0', 'event 1', 'event 2', 'event 3', 'event 4', 'event 5', 'event 6', 'event 7', 'event 8', 'event 9']
+```
+

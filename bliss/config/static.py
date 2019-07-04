@@ -328,8 +328,9 @@ class Node(dict):
                 child_node = value.deep_copy()
                 node[key] = child_node
             elif isinstance(value, dict):
-                child_node = value.copy()
-                node[key] = child_node
+                child_node = Node()
+                child_node.update(value)
+                node[key] = child_node.deep_copy()
             elif isinstance(value, list):
                 new_list = Node._copy_list(value)
                 node[key] = new_list
@@ -363,7 +364,9 @@ class Node(dict):
                 new_node = v.deep_copy() if not dict_mode else v.to_dict()
                 new_list.append(new_node)
             elif isinstance(v, dict):
-                new_list.append(v.copy())
+                tmp_node = Node()
+                tmp_node.update(v)
+                new_list.append(tmp_node.deep_copy().to_dict())
             elif isinstance(v, list):
                 child_list = Node._copy_list(v, dict_mode=dict_mode)
                 new_list.append(child_list)

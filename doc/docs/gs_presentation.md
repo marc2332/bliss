@@ -63,35 +63,39 @@ then the setup file is executed. Finally the prompt returns to user.
 
 `-h` option allows to get an overview of other command-line features.
 
-    % bliss -h
-    Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-                 [--no-tmux]
-           bliss [-v | --version]
-           bliss [-c <name> | --create=<name>]
-           bliss [-d <name> | --delete=<name>]
-           bliss [-h | --help]
-           bliss --show-sessions
-           bliss --show-sessions-only
+```
+% bliss -h
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
+             [--no-tmux]
+       bliss [-v | --version]
+       bliss [-c <name> | --create=<name>]
+       bliss [-d <name> | --delete=<name>]
+       bliss [-h | --help]
+       bliss --show-sessions
+       bliss --show-sessions-only
 
-    Options:
-      -l, --log-level=<log_level>   Log level [default: WARN]
-                                    (CRITICAL ERROR INFO DEBUG NOTSET)
-      -s, --session=<session_name>  Start with the specified session
-      -v, --version                 Show version and exit
-      -c, --create=<session_name>   Create a new session with the given name
-      -d, --delete=<session_name>   Delete the given session
-      -h, --help                    Show help screen and exit
-      --no-tmux                     Deactivate Tmux usage
-      --show-sessions               Display sessions and tree of sub-sessions
-      --show-sessions-only          Display available sessions names only
+Options:
+  -l, --log-level=<log_level>   Log level [default: WARN]
+                                (CRITICAL ERROR INFO DEBUG NOTSET)
+  -s, --session=<session_name>  Start with the specified session
+  -v, --version                 Show version and exit
+  -c, --create=<session_name>   Create a new session with the given name
+  -d, --delete=<session_name>   Delete the given session
+  -h, --help                    Show help screen and exit
+  --no-tmux                     Deactivate Tmux usage
+  --show-sessions               Display sessions and tree of sub-sessions
+  --show-sessions-only          Display available sessions names only
+```
 
 A session can be created using `-c` option:
 
-        % bliss -c eh1
-        creating 'eh1' session
-        Creating: /blissadm/local/beamline_configuration/sessions/eh1_setup.py
-        Creating: /blissadm/local/beamline_configuration/sessions/eh1.yml
-        Creating: /blissadm/local/beamline_configuration/sessions/scripts/eh1.py
+```
+% bliss -c eh1
+creating 'eh1' session
+Creating: /blissadm/local/beamline_configuration/sessions/eh1_setup.py
+Creating: /blissadm/local/beamline_configuration/sessions/eh1.yml
+Creating: /blissadm/local/beamline_configuration/sessions/scripts/eh1.py
+```
 
 [Learn more about BLISS sessions](config_sessions.md)
 
@@ -119,12 +123,13 @@ actions on such devices.
 ### Help
 Help about BLISS functions can be accessed with `help(<command_name>)`:
 
-    BLISS [2]: help(wa)
-    Help on function wa in module bliss.common.standard:
+```
+BLISS [2]: help(wa)
+Help on function wa in module bliss.common.standard:
 
-    wa(**kwargs)
-        Displays all positions (Where All) in both user and dial units
-
+wa(**kwargs)
+    Displays all positions (Where All) in both user and dial units
+``
 
 
 Learn more about other [standard shell functions](shell_std_func.md).
@@ -142,27 +147,30 @@ counter is used to depict the reading of a device.
 The most simple function to read all defined counters is
 `ct(<counting_time>)`.
 
-    DEMO [3]: ct(0.1)
-    Fri Jun 7  16:32:17 2018
-       dt[s] = 0.0     (    0.0/s)
-      simct1 = 0.50109 ( 5.0109/s)
-      simct2 = 0.49920 ( 4.9920/s)
-      simct3 = 0.50403 ( 5.0403/s)
-      simct4 = 0.50311 ( 5.0311/s)
+```python
+DEMO [3]: ct(0.1)
+Fri Jun 7  16:32:17 2018
+   dt[s] = 0.0     (    0.0/s)
+  simct1 = 0.50109 ( 5.0109/s)
+  simct2 = 0.49920 ( 4.9920/s)
+  simct3 = 0.50403 ( 5.0403/s)
+  simct4 = 0.50311 ( 5.0311/s)
 
-      Out [3]: Scan(name=ct_1, run_number=1)
+  Out [3]: Scan(name=ct_1, run_number=1)
+```
 
 To use only a sub-set of counters, they have to be specified in argument:
 
-    DEMO [5]: ct(1, simct1, simct4)
+```python
+DEMO [5]: ct(1, simct1, simct4)
 
-    Fri Nov 16 16:37:43 2018
+Fri Nov 16 16:37:43 2018
 
-       dt[s] = 0.0    (    0.0/s)
-      simct1 = 0.49872 ( 0.49872/s)
-      simct4 = 0.50021 ( 0.50021/s)
-      Out [20]: Scan(name=ct_3, run_number=3)
-
+   dt[s] = 0.0    (    0.0/s)
+  simct1 = 0.49872 ( 0.49872/s)
+  simct4 = 0.50021 ( 0.50021/s)
+  Out [20]: Scan(name=ct_3, run_number=3)
+```
 
 ### Using measurement groups
 
@@ -296,22 +304,26 @@ simot1    simot2    simot3    simot4    simot5
 2.00000   4.00000   6.00000   8.00000   9.00000
 ```
 
-`wm()` shows dial and limits in addition to positions.
+`wm([motor]+)` shows dial, limits and offset in addition to positions of one or
+many motors.
 
 To use only a sub-set of motors, they have to be specified in argument:
 
-    DEMO [24]: wm('simot1', 'simot4')
-               simot1    simot4
-    -------  --------  --------
-    User
-    High     10.00000  10.00000
-    Current   2.00000   8.00000
-    Low     -10.00000 -10.00000
-    Dial
-    High     11.00000   6.00000
-    Current   3.00000   4.00000
-    Low      -9.00000 -14.00000
+```
+DEMO [24]: wm('simot1', 'simot4')
+           simot1    simot4
+-------  --------  --------
+User
+ High     10.00000  10.00000
+ Current   2.00000   8.00000
+ Low     -10.00000 -10.00000
+Offset    -1.00000   4.00000
 
+Dial
+ High     11.00000   6.00000
+ Current   3.00000   4.00000
+ Low      -9.00000 -14.00000
+```
 
 Learn more about [IcePap motors configuration](config_icepap.md).
 
@@ -359,26 +371,27 @@ More about [default scans](scan_default.md).
 
 `ascan` example with 1 motor and 2 counters.
 
+```python
 TEST_SESSION [1]: ascan(roby, 0, 10, 10, 0.1, diode, diode2)
-    Total 10 points, 0:00:03.168758 (motion: 0:00:02.168758, count: 0:00:01)
+Total 10 points, 0:00:03.168758 (motion: 0:00:02.168758, count: 0:00:01)
 
-    Scan 1 Wed Apr 18 08:46:20 2018 /tmp/scans/ test_session user = matias
-    ascan roby 0 10 10 0.1
+Scan 1 Wed Apr 18 08:46:20 2018 /tmp/scans/ test_session user = matias
+ascan roby 0 10 10 0.1
 
-        #         dt(s)          roby        diode2         diode
-        0     0.0341308             0       5.88889       7.44444
-        1      0.298563        1.1111      -2.88889      -6.88889
-        2      0.529942        2.2222           -34       1.33333
-        3      0.761447        3.3333      -30.1111      -11.7778
-        4       1.00202        4.4444      -6.22222       11.3333
-        5       1.23181        5.5556           -17      -5.11111
-        6       1.46598        6.6667       12.5556      -8.44444
-        7       1.69842        7.7778     -0.777778      -6.55556
-        8       1.92679        8.8889      -10.5556            34
-        9       2.16557            10            18      -25.5556
+    #         dt(s)          roby        diode2         diode
+    0     0.0341308             0       5.88889       7.44444
+    1      0.298563        1.1111      -2.88889      -6.88889
+    2      0.529942        2.2222           -34       1.33333
+    3      0.761447        3.3333      -30.1111      -11.7778
+    4       1.00202        4.4444      -6.22222       11.3333
+    5       1.23181        5.5556           -17      -5.11111
+    6       1.46598        6.6667       12.5556      -8.44444
+    7       1.69842        7.7778     -0.777778      -6.55556
+    8       1.92679        8.8889      -10.5556            34
+    9       2.16557            10            18      -25.5556
 
-    Took 0:00:02.328219 (estimation was for 0:00:03.168758)
-
+Took 0:00:02.328219 (estimation was for 0:00:03.168758)
+```
 
 
 ### One-shot acquisition with integration time
@@ -392,13 +405,15 @@ to 1.
 
 The `SCAN_SAVING` global is a structure to tell BLISS where to save scan data:
 
-    ID29 [1]: SCAN_SAVING
-     Out [1]: Parameters (default)
-                .base_path      = '/users/blissadm/scans'
-                .date_format    = '%Y%m%d'
-                .template       = '{session}/{date}'
-                .user_name      = 'opid29'
-                .writer         = 'hdf5'
+```python
+ID29 [1]: SCAN_SAVING
+ Out [1]: Parameters (default)
+            .base_path      = '/users/blissadm/scans'
+            .date_format    = '%Y%m%d'
+            .template       = '{session}/{date}'
+            .user_name      = 'opid29'
+            .writer         = 'hdf5'
+```
 
 Find more info about how to use it in [SCAN_SAVING section](scan_saving.md#scan_saving)
 
@@ -411,37 +426,40 @@ references are not resolved, which means 2D data is not returned.
 
 Example:
 
-    TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode,
-                                     simu1.counters.spectrum_det0, return_scan=True)
-    Total 10 points, 0:00:02.019930 (motion: 0:00:02.009930, count: 0:00:00.010000)
-    Activated counters not shown: spectrum_det0
+```python
+TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode,
+                                 simu1.counters.spectrum_det0, return_scan=True)
+Total 10 points, 0:00:02.019930 (motion: 0:00:02.009930, count: 0:00:00.010000)
+Activated counters not shown: spectrum_det0
 
-    Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/
-                                    test_session user = matias
-    ascan roby 0 1 10 0.001
+Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/
+                                test_session user = matias
+ascan roby 0 1 10 0.001
 
-           #         dt(s)          roby         diode
-           0      0.337308             0            83
-           1      0.759228        0.1111           -10
-           2       1.17105        0.2222            57
-           3       1.58996        0.3333            43
-           4       2.00024        0.4444           -44
-           5       2.41497        0.5556           -16
-           6       2.83309        0.6667           -74
-           7       3.23919        0.7778            18
-           8       3.65932        0.8889            74
-           9       4.07872             1           -43
+       #         dt(s)          roby         diode
+       0      0.337308             0            83
+       1      0.759228        0.1111           -10
+       2       1.17105        0.2222            57
+       3       1.58996        0.3333            43
+       4       2.00024        0.4444           -44
+       5       2.41497        0.5556           -16
+       6       2.83309        0.6667           -74
+       7       3.23919        0.7778            18
+       8       3.65932        0.8889            74
+       9       4.07872             1           -43
 
-    Took 0:00:04.441955 (estimation was for 0:00:02.019930)
+Took 0:00:04.441955 (estimation was for 0:00:02.019930)
 
-    TEST_SESSION [5]: data = get_data(myscan)
+TEST_SESSION [5]: data = get_data(myscan)
+```
 
 The numpy array is built with fields, it is easy to get data for a
 particular column using the counter name:
 
-    TEST_SESSION [8]: data['diode']
-             Out [8]: array([ 83., -10., 57., 43., -44., -16., -74., 18., 74., -43.])
-
+```python
+TEST_SESSION [8]: data['diode']
+         Out [8]: array([ 83., -10., 57., 43., -44., -16., -74., 18., 74., -43.])
+```
 
 ## Online data display
 
@@ -451,7 +469,7 @@ shipped with BLISS and built on top of [silx](9).
 **Flint** can be started automatically when a new scan begins, by
 configuring `SCAN_DISPLAY`:
 
-    SCAN_DISPLAY.auto = True
+`SCAN_DISPLAY.auto = True`
 
 Plots are displayed in the **Live** tab. Depending on the scan acquisition chain,
 3 types of plots can be shown:
@@ -468,36 +486,38 @@ another set of plot windows.
 So, there is no limit to the number of windows in the **Live** tab, it depends on the
 scan being executed.
 
-    !!! note
+!!! note
     2D images are always represented in their own plot window.
 
 ### Live scan data in Flint
 
-    TEST_SESSION [8]: SCAN_DISPLAY.auto=True
+```python
+TEST_SESSION [8]: SCAN_DISPLAY.auto=True
 
-    TEST_SESSION [9]: timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det
-             ...: 0, npoints=10)
-    Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
-    Activated counters not shown: spectrum_det0, image
+TEST_SESSION [9]: timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det
+         ...: 0, npoints=10)
+Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
+Activated counters not shown: spectrum_det0, image
 
-    Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
-    timescan 0.1
+Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
+timescan 0.1
 
-           #         dt(s)        diode2         diode
-           0     0.0219111       12.5556      -9.33333
-           1      0.348005        30.625         0.125
-           2      0.664058       2.88889      -10.2222
-           3      0.973582       7.11111       8.44444
-           4       1.28277       21.7778       36.3333
-           5       1.59305      -15.8889             5
-           6       1.90203       43.4444       19.4444
-           7       2.21207       20.7778       11.6667
-           8       2.52451      -7.88889       24.2222
-           9       2.83371        24.125         7.625
+       #         dt(s)        diode2         diode
+       0     0.0219111       12.5556      -9.33333
+       1      0.348005        30.625         0.125
+       2      0.664058       2.88889      -10.2222
+       3      0.973582       7.11111       8.44444
+       4       1.28277       21.7778       36.3333
+       5       1.59305      -15.8889             5
+       6       1.90203       43.4444       19.4444
+       7       2.21207       20.7778       11.6667
+       8       2.52451      -7.88889       24.2222
+       9       2.83371        24.125         7.625
 
-    Took 0:00:03.214453 (estimation was for 0:00:01)
+Took 0:00:03.214453 (estimation was for 0:00:01)
 
-    TEST_SESSION [9]:
+TEST_SESSION [9]:
+```
 
 Flint screenshot:
 
@@ -591,32 +611,33 @@ scan object has a `.get_plot()` method, that returns a `Plot`
 object. The argument to pass to `.get_plot` is a counter -- thus, the
 plot containing this counter data is returned:
 
-    TEST_SESSION [8]: s = loopscan(5, 0.1, lima, return_scan=True)
-    Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
-    Activated counters not shown: image
+```python
+TEST_SESSION [8]: s = loopscan(5, 0.1, lima, return_scan=True)
+Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
+Activated counters not shown: image
 
-    Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
-                                    test_session user = matias
-    timescan 0.1
+Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
+                                test_session user = matias
+timescan 0.1
 
-           #         dt(s)
-           0      0.959486
-           1        1.0913
-           2       1.23281
-           3       1.36573
-           4       1.50349
+       #         dt(s)
+       0      0.959486
+       1        1.0913
+       2       1.23281
+       3       1.36573
+       4       1.50349
 
-    Took 0:00:01.666654 (estimation was for 0:00:00.500000)
+Took 0:00:01.666654 (estimation was for 0:00:00.500000)
 
-      TEST_SESSION [9]: p = s.get_plot(lima)
-
-     TEST_SESSION [10]: p
-              Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
+TEST_SESSION [9]: p = s.get_plot(lima)
+TEST_SESSION [10]: p
+         Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
+```
 
 Starting from the `ImagePlot` object, it is possible to ask user for
 making a rectangular selection for example:
 
-    TEST_SESSION [11]: p.select_shape("rectangle")
+`TEST_SESSION [11]: p.select_shape("rectangle")`
 
 BLISS shell is blocked until user makes a rectangular selection:
 
@@ -624,7 +645,7 @@ BLISS shell is blocked until user makes a rectangular selection:
 
 Then, result is returned by the `.select_shape` method:
 
-              Out [11]: ((278.25146, 716.00623), (623.90546, 401.82913)
+` Out [11]: ((278.25146, 716.00623), (623.90546, 401.82913)`
 
 [Read more about interactions with plots](flint_interaction.md)
 

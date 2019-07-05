@@ -57,6 +57,9 @@ import collections.abc
 from gevent import sleep
 from tabulate import tabulate
 
+tabulate.PRESERVE_WHITESPACE = True
+
+
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import TerminalFormatter
@@ -238,7 +241,8 @@ def wa(**kwargs):
     max_cols = kwargs.get("max_cols", _MAX_COLS)
     err = kwargs.get("err", _ERR)
 
-    print("Current Positions (user, dial)")
+    print("Current Positions: user")
+    print("                   dial")
     header, pos, dial = [], [], []
     tables = [(header, pos, dial)]
     errors = []
@@ -276,6 +280,22 @@ def wm(*axes, **kwargs):
 
     Args:
         axis (~bliss.common.axis.Axis): motor axis
+
+    example:
+      DEMO [18]: wm(m2, m1, m3)
+
+                       m2      m1[mm]       m3
+      -------  ----------  ----------  -------
+      User
+       High     -123.00000   128.00000      inf
+       Current   -12.00000     7.00000  3.00000
+       Low       456.00000  -451.00000     -inf
+      Offset       0.00000     3.00000  0.00000
+      Dial
+       High      123.00000   123.00000      inf
+       Current    12.00000     2.00000  3.00000
+       Low      -456.00000  -456.00000     -inf
+
     """
     if not axes:
         print("need at least one axis name/object")
@@ -286,27 +306,43 @@ def wm(*axes, **kwargs):
 
     errors = []
     header = [""]
-    User, high_user, user, low_user = ["User"], [" High"], [" Current"], [" Low"]
-    Dial, high_dial, dial, low_dial = ["Dial"], [" High"], [" Current"], [" Low"]
+    User, high_user, user, low_user = ["User"], ["~High"], ["~Current"], ["~Low"]
+    Dial, high_dial, dial, low_dial = ["Dial"], ["~High"], ["~Current"], ["~Low"]
+    Offset, Spacer = ["Offset"], [""]
     tables = [
-        (header, User, high_user, user, low_user, Dial, high_dial, dial, low_dial)
+        (
+            header,
+            User,
+            high_user,
+            user,
+            low_user,
+            Offset,
+            Spacer,
+            Dial,
+            high_dial,
+            dial,
+            low_dial,
+        )
     ]
     for axis in get_objects_iter(*axes):
+        # get limits in USER units.
         low, high = safe_get(axis, "limits", on_error=(err, err))
+        offset = safe_get(axis, "offset", on_error=float("nan"))
         if len(header) == max_cols:
             header = [None]
             User, high_user, user, low_user = (
                 ["User"],
-                [" High"],
-                [" Current"],
-                [" Low"],
+                ["~High"],
+                ["~Current"],
+                ["~Low"],
             )
             Dial, high_dial, dial, low_dial = (
                 ["Dial"],
-                [" High"],
-                [" Current"],
-                [" Low"],
+                ["~High"],
+                ["~Current"],
+                ["~Low"],
             )
+            Offset = ["Offset"]
             tables.append(
                 (
                     header,
@@ -314,6 +350,8 @@ def wm(*axes, **kwargs):
                     high_user,
                     user,
                     low_user,
+                    Offset,
+                    Spacer,
                     Dial,
                     high_dial,
                     dial,
@@ -335,13 +373,14 @@ def wm(*axes, **kwargs):
         dial_position = get(axis, "dial")
         dial.append(dial_position)
         low_dial.append(axis.user2dial(low) if low is not None else _MISSING_VAL)
+        Offset.append(offset)
 
         if err in [str(position), str(dial_position)]:
             errors.append((axis_label, dial_position))
 
     for table in tables:
         print("")
-        print(_tabulate(table))
+        print(_tabulate(table).replace("~", " "))
 
     _print_errors_with_traceback(errors, device_type="motor")
 

@@ -16,7 +16,8 @@ def test_wa_normal(beacon, capsys):
     bad.controller.bad_position = False
     wa()
     captured = capsys.readouterr()
-    output = "Current Positions (user, dial)\n"
+    output = "Current Positions: user\n"
+    output += "                   dial\n"
     output += "\n"
     output += "    bad\n"
     output += "-------\n"
@@ -33,7 +34,8 @@ def test_wa_exception(beacon, capsys):
     wa()
     captured = capsys.readouterr()
 
-    output = "Current Positions (user, dial)\n"
+    output = "Current Positions: user\n"
+    output += "                   dial\n"
     output += "\n"
     output += "bad\n"
     output += "-----\n"
@@ -57,16 +59,18 @@ def test_wm_normal(beacon, capsys):
     captured = capsys.readouterr()
 
     output = "\n"
-    output += "             bad\n"
-    output += "-------  -------\n"
+    output += "              bad\n"
+    output += "--------  -------\n"
     output += "User\n"
-    output += "High         inf\n"
-    output += "Current  0.00000\n"
-    output += "Low         -inf\n"
+    output += " High         inf\n"
+    output += " Current  0.00000\n"
+    output += " Low         -inf\n"
+    output += "Offset    0.00000\n"
+    output += "\n"
     output += "Dial\n"
-    output += "High         inf\n"
-    output += "Current  0.00000\n"
-    output += "Low         -inf\n"
+    output += " High         inf\n"
+    output += " Current  0.00000\n"
+    output += " Low         -inf\n"
 
     assert captured.out == output
 
@@ -79,16 +83,18 @@ def test_wm_exception(beacon, capsys):
     captured = capsys.readouterr()
 
     output = "\n"
-    output += "         bad\n"
-    output += "-------  -----\n"
+    output += "          bad\n"
+    output += "--------  -----\n"
     output += "User\n"
-    output += "High     inf\n"
-    output += "Current  !ERR\n"
-    output += "Low      -inf\n"
+    output += " High     inf\n"
+    output += " Current  !ERR\n"
+    output += " Low      -inf\n"
+    output += "Offset    0\n"
+    output += "\n"
     output += "Dial\n"
-    output += "High     inf\n"
-    output += "Current  !ERR\n"
-    output += "Low      -inf\n"
+    output += " High     inf\n"
+    output += " Current  !ERR\n"
+    output += " Low      -inf\n"
 
     assert captured.out[: len(output)] == output
 

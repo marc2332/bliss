@@ -87,6 +87,9 @@ def logging_startup(
     """
     # save log messages format
     session.get_current().log.set_log_format(fmt)
+    session.get_current().log._LOG_DEFAULT_LEVEL = (
+        log_level
+    )  # to restore level of non-BlissLoggers
 
     # setting startup level for session and bliss logger
     logging.getLogger("session").setLevel(log_level)
@@ -107,7 +110,6 @@ def get_logger(instance):
     Returns:
         BlissLogger instance for the specific instance
     """
-
     m = session.get_current().map
     id_ = map_id(instance)
     if id_ in m.G:
@@ -341,6 +343,7 @@ class Log:
     """
 
     _LOG_FORMAT = None
+    _LOG_DEFAULT_LEVEL = logging.WARNING
 
     @staticmethod
     def _find_loggers(glob):
@@ -409,7 +412,8 @@ class Log:
                     try:
                         logger.debugon()
                     except AttributeError:
-                        logger.setLevel(logging.WARNING)
+                        # not a BlissLoggers
+                        logger.setLevel(logging.DEBUG)
                     activated.add(name)
 
         else:
@@ -441,7 +445,8 @@ class Log:
                     try:
                         logger.debugoff()
                     except AttributeError:
-                        logger.setLevel(logging.WARNING)
+                        # not a BlissLoggers
+                        logger.setLevel(self._LOG_DEFAULT_LEVEL)
                     deactivated.add(name)
 
         else:

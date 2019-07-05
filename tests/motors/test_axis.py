@@ -225,6 +225,41 @@ def test_home_stop(robz):
     assert robz.state.READY
 
 
+"""
+HARDWARE LIMITS
+"""
+
+
+def test_hardware_limits(roby):
+    try:
+        roby.controller.set_hw_limits(roby, -2, 2)
+        with pytest.raises(RuntimeError):
+            roby.move(3)
+
+        assert roby.position == 2
+
+        # move hit limit because of backlash
+        with pytest.raises(RuntimeError):
+            roby.move(0)
+        roby.move(1)
+
+        assert roby.position == 1
+        with pytest.raises(RuntimeError):
+            roby.move(-3)
+
+        assert roby.position == 0
+    finally:
+        roby.controller.set_hw_limits(roby, None, None)
+
+
+def test_limit_search(robz):
+    robz.controller.set_hw_limits(robz, -11.5, 12.4)
+    robz.hw_limit(1)
+    assert robz.dial == 12.4
+    robz.hw_limit(-1)
+    assert robz.dial == -11.5
+
+
 def test_limit_search_stop(robz):
     robz.controller.set_hw_limits(robz, -5, 5)
     robz.hw_limit(1, wait=False)
@@ -234,10 +269,31 @@ def test_limit_search_stop(robz):
     assert robz.state.MOVING
 
     robz.stop()
-
     robz.wait_move()
 
     assert robz.state.READY
+
+
+"""
+SOFTWARE LIMITS
+"""
+"""
+- name: robz
+    steps_per_unit: 10000
+    velocity: 100
+    acceleration: 300
+    low_limit: -1000
+    high_limit: 1000000000.0
+    unit: mm
+- name: roby
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
+"""
 
 
 def test_limits(robz):
@@ -256,6 +312,23 @@ def test_limits(robz):
     assert robz.state.READY
 
 
+def test_limits_offset(robz):
+    # check that user limits are the same than dial limits from config.
+    assert robz.limits == (-1000, 1e9)
+
+    # change limits (new limits given in user units)
+    robz.limits = (-100, 100)
+    assert robz.limits == (-100, 100)
+    assert robz.config_limits == (-1000, 1e9)
+
+    # add an offset by 5 user units.
+    _init_pos_robz = robz.position
+    robz.position = _init_pos_robz + 5
+    assert robz.offset == 5
+    assert robz.limits == (-95, 105)
+    assert robz.limits == (-95, 105)
+
+
 def test_limits2(robz, roby):
     iset_pos = robz._set_position
     assert robz.limits == (-1000, 1e9)
@@ -270,6 +343,11 @@ def test_limits3(robz):
     robz.position = 10
     assert robz.limits == (0, 20)
     assert robz._set_position == 10
+
+
+"""
+BACKLASH
+"""
 
 
 def test_backlash(roby):
@@ -447,14 +525,6 @@ def test_dial(robz):
     assert robz.position == 2
 
 
-def test_limit_search(robz):
-    robz.controller.set_hw_limits(robz, -11.5, 12.4)
-    robz.hw_limit(1)
-    assert robz.dial == 12.4
-    robz.hw_limit(-1)
-    assert robz.dial == -11.5
-
-
 def test_set_position(m0):
     assert m0.steps_per_unit == 1
     assert m0.position == m0._set_position
@@ -491,28 +561,6 @@ def test_interrupted_waitmove(m0):
     time.sleep(0.1)
     assert m0.position == pytest.approx(kill_pos)
     assert m0.state.READY
-
-
-def test_hardware_limits(roby):
-    try:
-        roby.controller.set_hw_limits(roby, -2, 2)
-        with pytest.raises(RuntimeError):
-            roby.move(3)
-
-        assert roby.position == 2
-
-        # move hit limit because of backlash
-        with pytest.raises(RuntimeError):
-            roby.move(0)
-        roby.move(1)
-
-        assert roby.position == 1
-        with pytest.raises(RuntimeError):
-            roby.move(-3)
-
-        assert roby.position == 0
-    finally:
-        roby.controller.set_hw_limits(roby, None, None)
 
 
 def test_no_offset(roby):

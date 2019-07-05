@@ -870,13 +870,6 @@ class Axis(AliasMixin, LogMixin):
         prev_offset = self.offset
         self._set_position = new_pos
         self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
-        # update limits
-        ll, hl = self.limits
-        lim_delta = self.offset - prev_offset
-        self.limits = (
-            ll + lim_delta if ll is not None else ll,
-            hl + lim_delta if hl is not None else hl,
-        )
         self.settings.set("position", new_pos)
         return new_pos
 
@@ -1027,7 +1020,7 @@ class Axis(AliasMixin, LogMixin):
     @lazy_init
     def limits(self):
         """
-        Returns or set the current software user limits.
+        Returns or set the current software limits in USER units.
 
         Returns:
             tuple<float, float>: axis software limits (user units)
@@ -1037,6 +1030,7 @@ class Axis(AliasMixin, LogMixin):
     @limits.setter
     @lazy_init
     def limits(self, limits):
+        # Set limits (low, high) in user units.
         try:
             l = len(limits)
             if l != 2:
@@ -1050,32 +1044,54 @@ class Axis(AliasMixin, LogMixin):
     @property
     @lazy_init
     def low_limit(self):
+        # Return Low Limit in USER units.
         limit = self.settings.get("low_limit")
-        return limit if limit is not None else float("-inf")
+        if limit is not None:
+            return self.dial2user(limit)
+        else:
+            return float("-inf")
 
     @low_limit.setter
     @lazy_init
     def low_limit(self, limit):
+        # Sets Low Limit
+        # <limit> must be given in USER units
+        # Saved in settings in DIAL units
+        if limit is not None:
+            limit = self.user2dial(limit)
         self.settings.set("low_limit", limit)
         return self.low_limit
 
     @property
     @lazy_init
     def high_limit(self):
+        # Returns High Limit in USER units.
         limit = self.settings.get("high_limit")
-        return limit if limit is not None else float("+inf")
+        if limit is not None:
+            return self.dial2user(limit)
+        else:
+            return float("+inf")
 
     @high_limit.setter
     @lazy_init
     def high_limit(self, limit):
+        # Sets High Limit (given in USER units)
+        # Saved in settings in DIAL units.
+        if limit is not None:
+            limit = self.user2dial(limit)
+
         self.settings.set("high_limit", limit)
         return self.high_limit
 
     @property
     def config_limits(self):
-        ll = self.config.get("low_limit", float, float("-inf"))
-        hl = self.config.get("high_limit", float, float("+inf"))
-        return list(map(self.dial2user, (ll, hl)))
+        """
+        Return a tuple (low_limit, high_limit) from IN-MEMORY config in
+        USER units.
+        """
+        ll_dial = self.config.get("low_limit", float, float("-inf"))
+        hl_dial = self.config.get("high_limit", float, float("+inf"))
+        return tuple(map(self.dial2user, (ll_dial, hl_dial)))
 
     def _update_settings(self, state):
         self.settings.set("state", state)
@@ -1083,7 +1099,7 @@ class Axis(AliasMixin, LogMixin):
 
     def dial2user(self, position, offset=None):
         """
-        Translates given position from dial units to user units
+        Translates given position from DIAL units to USER units
 
         Args:
             position (float): position in dial units
@@ -1517,7 +1533,8 @@ class Axis(AliasMixin, LogMixin):
 
     def settings_to_config(self, velocity=True, acceleration=True, limits=True):
         """
-        Saves settings (velo acc limits) into config (XML file or beacon YML).
+        Set settings values in in-memory config then save it in file.
+        Settings to save can be specified.
         """
         if velocity:
             self.__config.set("velocity", self.velocity)
@@ -1529,6 +1546,7 @@ class Axis(AliasMixin, LogMixin):
                 return self.user2dial(l) if l is not None else l
 
             ll, hl = map(limit2config, self.limits)
+            # limits are saved in DIAL units into config.
             self.__config.set("low_limit", ll)
             self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):

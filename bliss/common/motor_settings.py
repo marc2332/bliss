@@ -45,12 +45,13 @@ class ControllerAxisSettings:
         self.persistent_setting = {}
         self.config_setting = {}
 
+        # 'offset' must be set BEFORE limits to ensure good dial/user conversion.
+        self.add("offset", float)
         self.add("velocity", float, config=True)
         self.add("acceleration", float, config=True)
         self.add("low_limit", floatOrNone)
         self.add("high_limit", floatOrNone)
         self.add("dial_position", float)
-        self.add("offset", float)
         self.add("_set_position", float)
         self.add("position", float)
         self.add("state", stateSetting, persistent=False)

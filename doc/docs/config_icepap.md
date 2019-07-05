@@ -6,7 +6,7 @@ This chapter explains how to configure an IcePAP motor controller.
 
 Encoder | Shutter | Trajectories | Linked axes
 ------- | ------- | ------------ | -----------
-YES	| YES     | YES          | YES
+YES     | YES     |     YES      |     YES
 
 ### Specific IcePAP controller parameters
 

@@ -236,6 +236,9 @@ class Controller(LogMixin):
         for setting_name in axis.settings.config_settings():
 
             if setting_name == "steps_per_unit":
+                """
+                ???
+                """
                 cval = float(axis.config.get(setting_name))
                 rval = axis.settings.get(setting_name)
 
@@ -254,9 +257,9 @@ class Controller(LogMixin):
                 value = get_setting_or_config_value(axis, setting_name)
                 setattr(axis, setting_name, value)
 
-        low_limit = get_setting_or_config_value(axis, "low_limit")
-        high_limit = get_setting_or_config_value(axis, "high_limit")
-        axis.limits = low_limit, high_limit
+        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
+        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
+        axis.limits = axis.dial2user(low_limit_dial), axis.dial2user(high_limit_dial)
 
     def get_axis(self, axis_name):
         axis = self._axes[axis_name]
@@ -268,7 +271,8 @@ class Controller(LogMixin):
 
     def initialize_hardware_axis(self, axis):
         """
-        This method should contain all commands needed to initialize the hardware for this axis.
+        This method should contain all commands needed to initialize the
+        hardware for this axis.
         i.e: power, closed loop configuration...
     	This initialization will call only once (by the first client).
         """

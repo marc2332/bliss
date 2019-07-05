@@ -8,38 +8,41 @@ To know more about mapping and how to use it, see: [Session map](dev_instance_ma
 ## Logging and Mapping
 
 Logging and Mapping instances are strictly related in Bliss: every
-instance should register himself before gaining those features.
+instance should be registered to the session map before gaining logging features.
 
 ## How to Register an instance
 
 ```python
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
-class MyController(LogMixin):
+class MyController:
     def __init__(self, *args, **kwargs):
-        session.get_current().map.register(self)
+        self.comm = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        session.get_current().map.register(self, children_list=[comm], tag=self.name)
         ...
-        self._logger.info("HI, I am born")
+        log_info(self, "HI, I am born")
 ```
 
 The preceding is a barebone example of how to register an instance inside
 session map and send an INFO logging message.
 
-Key points are the following:
+### Register the device/instance to the map
 
-### Add LogMixin to the class
+```python
+session.get_current().map.register(self, children_list=[comm], tag=self.name)
+```
 
-This will add `_logger` method to class that will be the entry point for
-all logging operations and will also raise an exception if the logging
-will be used before instance is mapped inside bliss session map.
+This will add the instance to the device map of the session.
+See how we create a socket and we register it as a child of MyController.
+Notice that this single operation will register both instances (MyController as self
+and the socket) to the map putting in place the hierarchical relation
+beetween them.
+We can assign a tag to better visualize nodes in the map and in the log hierarchy. If you
+don't assign a tag the library will try its bests to assign a proper name anyway.
 
-### Register the instance
-
-This is done calling `session.get_current().map.register` passing at list the self
-parameter. If _logger methods are used before the registration this
-will fail raising an exception; for this reason mapping.register
-should be called as soon as possible.
+*Notice also that if you don't register the instance to the map the first call to a 
+`log_` method will do it for you automatically.*
 
 ## How to Create a nice session map
 
@@ -47,19 +50,19 @@ The map is in fact a Graph that wants to register every relevant
 instance of a Session, including Controller, Connections, Devices,
 Axis, and so on.
 
-When registering an instance it is convenient to add as much information
-as possible in order to have an usefull map that can be used to
-represent the session or to apply any sort of desired handler.
+When registering an instance is convenient to add as much information
+as possible in order to use them later for visualiziong or to apply any sort of elaboration.
 
 For this reason is important to add:
 
 * parents_list: a list containing the parents of the instance, in case
   of a device it will be the controller instance, in case of a
   communication it will be a controller but also "comms".
+  If no parent is specify for a node it will have `controllers` as default parent.
 * children_list: a list containing children istances as comms,
   transactions, devices, axis
 * tag: this should be the best suited name to represent the instance, if not
-       given instance.name will be used or id of the object
+       given instance name, class or id will be used.
 
 Some Examples:
 
@@ -67,7 +70,8 @@ Some Examples:
 
 Here we have a Motor that is child of a controller
 ```python
-# self is motor instance (we are inside Axis.axis class)
+# imagine this code inside an Axis.axis class
+# in this specific example we have instantiated m0
 # 'name' attribute is used as default to represent the object in the map
 # 'tag' can be passed as kwarg to replace the name
 # default is using name attribute of class
@@ -121,15 +125,14 @@ strict digraph  {
 %}
 ### Example 3:
 
-Here we have a serial connection that we also want to be child of
+Here we have a TCP connection that we also want to be child of
 "session"->"comms"
 
 ```python
-# registering m0, this normally is automatic, just as an example
-# first passage we register m0, the controller and the connection
+# during the first passage we register m0 and the controller
 m = session.get_current().map
 m.register(m0, parent_list=[m0.controller])
-# in the second passage we register the TCP connection as a child of
+# during the second passage we register the TCP connection as a child of
 # m0 and of comms
 m = session.get_current().map
 m.register(m0.conn, parent_list=[m0.controller, 'comms'])
@@ -159,16 +162,13 @@ strict digraph  {
 %}
 ### Example 4:
 
-To explain the flexibility here we are mapping inside a Command class
-(that is self) and `self._fd` is a child socket, in fact we are inside
-Command but we are recording all links beetween them. The result will
-something like this:
+To explain the flexibility here we are registering a child socket `self._fd`
+inside a Command class (self).
+If no parent is provided instances are registered under *controllers* as default.
 
+If parent is provided later (or if this instance is a child of another one) the map
+will take this into account and remap nodes automatically.
 
-
-In fact, instances that will not have parents will be childs of
-"session"->"controllers" by default and later eventually remapped if we
-register another instance as parent of `Command`.
 
 ```python
 from bliss.common import session
@@ -209,71 +209,173 @@ you want to register it a child.
 The Bliss barebone map is something like this:
 
 {% dot session_map_basic.svg
-strict digraph  {
+strict digraph {
 	node [label="\N"];
 	session;
-	controllers;'
+	controllers;
 	session -> controllers;
 	comms;
 	session -> comms;
 	counters;
 	session -> counters;
+	axes;
+	session -> axes;
 }
 %}
 
-Those Graph nodes are in fact string and they constitute the root to
-wich all other nodes will be attached.
+Those string-type graph nodes provide the skeleton to which all other 
+nodes are attached.
+As a user you can create more string-type nodes if you want.
 
-Be aware that all instances, if nothing is specify, will be child of
-controllers.
+**Be aware that all instances, if nothing is specify, will be child of
+"controllers".**
 
 
-## Logging Instance Methods
+## BlissLogger
 
-Every instance that inherits from LogMixin and is registered gains a _logger instance that is in fact a python logging.Logger instance with some more powers.
+Bliss provides a BlissLogger for instances/devices that gives some additional power.
+Normally you don't need to care about this fact except that you can use some more functionalities in respect to normal Python `logging.Logger`.
 
-This means that you will find a ._logger attribute attached to your instance that you can use to send messages and configure logging.
+This is how you can normally proceed for writing a controller:
 
-The most useful methods are:
+1. Import with `from bliss.common.logtools import *`
+2. With this you get those functions:
 
-    * .debugon()
-    * .debugoff()
-    * .debug_data(message, data)
-    * .set_ascii_format()
-    * .set_hex_format()
+  * log_debug
+  * log_debug_data
+  * log_info
+  * log_warning
+  * log_error
+  * log_exception
+  * log_critical
+  * debugon
+  * debugoff
+  * set_log_format
+  * hexify
+  * asciify
+  * get_logger
 
-### .debugon() and .debugoff()
+
+### log_debug, log_info, ...
+
+Use them to log messages to a specific level, always pass as first argument the instance (normally self).
+
+```python
+log_debug(self, "ACK received")
+log_error(self, "Connection Failed")
+log_exception(self, "No response")  # use after an except to add exception info
+```
+
+### log_debug_data
+
+Like log_debug but has an additional argument (data). 
+The idea in mind was to provide a debug function specifically for debugging row data like low communication layers.
+
+Using this function will format the data in a nice way and will allow to change dinamically the kind of visualization for string and bytestrings.
+
+
+```python
+TEST_SESSION [17]: from bliss.common import session
+TEST_SESSION [18]: session.get_current().map.register('fakenode')  # I will register this fake string node
+TEST_SESSION [19]: debugon('*fakenode')
+Setting session.controllers.fakenode to show debug messages
+TEST_SESSION [20]: log_debug_data('fakenode', "Received data", b'13$213')
+DEBUG 2019-07-04 18:11:16,799 session.controllers.fakenode: Received data bytes=6 b'13$213'
+TEST_SESSION [21]: set_log_format('fakenode','hex')
+TEST_SESSION [22]: log_debug_data('fakenode', "Received data", b'13$213')
+DEBUG 2019-07-04 18:11:49,660 session.controllers.fakenode: Received data bytes=6 \x31\x33\x24\x32\x31\x33
+```
+Use **set_log_format(instance, "ascii")** or **set_log_format_(instance, "hex")** to change
+the format of log_debug_data messages.
+
+The same kind of formatting can be obtained directly in your code with `hexify` and `asciify`:
+
+```python
+TEST_SESSION [32]: asciify(bytes([i for i in range(0,100)]))
+         Out [32]: b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abc'
+
+TEST_SESSION [33]: hexify(bytes([i for i in range(0,100)]))
+         Out [33]: '\\x00\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x09\\x0a\\x0b\\x0c\\x0d\\x0e\\x0f\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f\\x20\\x21\\x22\\x23\\x24\\x25\\x26\\x27\\x28\\x29\\x2a\\x2b\\x2c\\x2d\\x2e\\x2f\\x30\\x31\\x32\\x33\\x34\\x35\\x36\\x37\\x38\\x39\\x3a\\x3b\\x3c\\x3d\\x3e\\x3f\\x40\\x41\\x42\\x43\\x44\\x45\\x46\\x47\\x48\\x49\\x4a\\x4b\\x4c\\x4d\\x4e\\x4f\\x50\\x51\\x52\\x53\\x54\\x55\\x56\\x57\\x58\\x59\\x5a\\x5b\\x5c\\x5d\\x5e\\x5f\\x60\\x61\\x62\\x63'
+```
+
+
+
+### debugon() and debugoff()
 
 Simply to set logging level to DEBUG or reset to default level.
 
-### .debug_data, .set_ascii_format, .set_hex_format
-
-The purpose of debug_data is to have a convenient way to debug aggregate data like string, bytestrings and dictionary. This is helpful for hardware comunication.
-
-The first argument of debug_data is the user-readable message, the second is a string, bytestring or a dictionary.
-
-set_ascii_format and set_hex_format methods allows to change the representation of data at runtime.
-
-Let's do some examples:
-
-### Passing a dictionary to debug_data:
+Let's show an example:
 
 ```python
-
-T_SESSION [14]: m0._logger.debug_data('Machine connection settings',{'ip':'10.81.0.23','hostname':'wcid00b'})
-DEBUG 2019-05-17 14:58:27,861 session.controllers.8d6318d713.axis.m0: Machine connection settings ip=10.81.0.23 ; hostname=wcid00b
+TEST_SESSION [59]: from socket import *
+TEST_SESSION [60]: class MyController:
+              ...:     def __init__(self, *args, **kwargs):
+              ...:         self.comm = socket(AF_INET, SOCK_STREAM)
+              ...:         session.get_current().map.register(self, children_list=[self.comm])
+              ...:         # while you are writing/debugging your controller you keep debug on
+              ...:         debugon(self)
+              ...:         log_debug(self, "HI, I am born")
+              ...:         self.worked_times = 0
+              ...:     def work(self):
+              ...:         log_debug_data(self, 'I am working a lot', self.worked_times)
+TEST_SESSION [61]: mycon = MyController()
+Setting session.controllers.MyController.socket to show debug messages
+Setting session.controllers.MyController to show debug messages
+DEBUG 2019-07-05 09:38:26,164 session.controllers.MyController: HI, I am born
+TEST_SESSION [62]: debugoff(mycon)  # use debugon/off from shell also!
+Setting session.controllers.MyController.socket to hide debug messages
+Setting session.controllers.MyController to hide debug messages
+TEST_SESSION [63]: mycon.work()  # nothing shows
 ```
 
-### Simulating a message sent from `m0`.
-Check how debug_data works and how we can change format from ascii to hex and viceversa, this can be done at runtime.
+##More complex example
+
+First defining a class MyConnection:
 
 ```python
-TEST_SESSION [1]: m0._logger.debugon()
-TEST_SESSION [2]: raw_msg = bytes([0,2,3,12,254,255,232,121,123,83,72])
-TEST_SESSION [3]: m0._logger.set_ascii_format()
-TEST_SESSION [4]: m0._logger.debug_data('Sending Data',raw_msg)
-DEBUG 2019-05-17 15:24:26,231 session.controllers.8d6318d.axis.m0: Sending Data bytes=11 b'\x00\x02\x03\x0c\xfe\xff\xe8y{SH'
-TEST_SESSION [5]: m0._logger.set_hex_format()
-TEST_SESSION [6]: m0._logger.debug_data('Sending Data',raw_msg)
-DEBUG 2019-05-17 15:24:34,731 session.controllers.8d6318d.axis.m0: Sending Data bytes=11 \x00\x02\x03\x0c\xfe\xff\xe8\x79\x7b\x53\x48
+TEST_SESSION [84]: class MyConnection:
+              ...:     def __init__(self, address):
+              ...:         log_debug(self, f"In {type(self)}.__init__")
+              ...:         self.address = address
+              ...:         self.sock = socket(AF_INET, SOCK_STREAM)
+              ...:         session.get_current().map.register(self, children_list=[self.sock])
+              ...:         log_debug(self, f"Myconnection socket created to {address}")
+              ...:     def send(self):
+              ...:         self.sock.connect((self.address,80))
+              ...:         self.sock.send(b'GET /\n\r\n\r')
+              ...:         data = self.sock.recv(1024)
+              ...:         log_debug_data(self.sock, f"Received from {self.address}", data)
+```              
+Then define a controller that uses MyConnection:
+
+```
+TEST_SESSION [93]: class MyController:
+              ...:     def __init__(self, *args, **kwargs):
+              ...:         self.comm = MyConnection("www.google.com")
+              ...:         session.get_current().map.register(self, children_list=[self.comm])
+              ...:         # while you are writing/debugging your controller you keep debug on
+              ...:         debugon(self)
+              ...:         log_debug(self, "HI, I am born")
+              ...:         self.worked_times = 0
+              ...:     def work(self):
+              ...:         self.comm.send()
+```
+And than burn powder!
+
+```python
+TEST_SESSION [96]: mycontroller = MyController()
+Setting session.controllers.MyController to show debug messages
+Setting session.controllers.MyController.MyConnection.socket to show debug messages
+Setting session.controllers.MyController.MyConnection to show debug messages
+Setting session.controllers.MyController.socket to show debug messages
+DEBUG 2019-07-05 10:00:00,000 session.controllers.MyController: HI, I am born
+TEST_SESSION [97]: mycontroller.work()
+DEBUG 2019-07-05 10:00:08,626 session.controllers.MyController.MyConnection.socket: Received from www.google.com bytes=547 b'HTTP/1.1 301 Moved Permanently\r\nLocation: http://www.google.com/\r\nContent-Type: text/html; charset=UTF-8\r\nDate: Fri, 05 Jul 2019 07:59:30 GMT\r\nExpires: Sun, 04 Aug 2019 07:59:30 GMT\r\nCache-Control: public, max-age=2592000\r\nServer: gws\r\nContent-Length: 219\r\nX-XSS-Protection: 0\r\nX-Frame-Options: SAMEORIGIN\r\nConnection: close\r\n\r\n<HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">\n<TITLE>301 Moved</TITLE></HEAD><BODY>\n<H1>301 Moved</H1>\nThe document has moved\n<A HREF="http://www.google.com/">here</A>.\r\n</BODY></HTML>\r\n'
+TEST_SESSION [98]: debugoff(mycontroller)
+Setting session.controllers.MyController to hide debug messages
+Setting session.controllers.MyController.MyConnection.socket to hide debug messages
+Setting session.controllers.MyController.MyConnection to hide debug messages
+Setting session.controllers.MyController.socket to hide debug messages
+TEST_SESSION [99]: mycontroller.work()
+TEST_SESSION [100]:
 ```

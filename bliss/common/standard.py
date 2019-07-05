@@ -111,7 +111,10 @@ def lslog(glob: str = None, debug_only=False) -> None:
         loggers = {**log._find_loggers("bliss*"), **log._find_loggers("session*")}
     else:
         loggers = log._find_loggers(glob)
-    maxlen = max([len(name) for name, _ in loggers.items()])
+    if loggers.items():
+        maxlen = max([len(name) for name, _ in loggers.items()])
+    else:
+        maxlen = 0
     msgfmt = "{0:{width}} {1:8}"
     output = False
 
@@ -138,11 +141,11 @@ def lslog(glob: str = None, debug_only=False) -> None:
         print("No loggers found.\n")
 
 
-def lsdebug():
+def lsdebug(glob: str = None, debug_only=False) -> None:
     """
     Displays current Loggers at DEBUG level
     """
-    lslog(debug_only=True)
+    lslog(glob, debug_only=True)
 
 
 def debugon(glob_logger_pattern_or_obj) -> None:

@@ -8,8 +8,10 @@
 import time
 from math import cos, radians
 from numpy import arange
+import sys
 
 from bliss.controllers.motor import Controller
+from bliss.common.logtools import *
 
 import bliss.common.motor_settings as settings
 
@@ -147,7 +149,7 @@ class PiezoJack(Controller):
 
     def initialize_encoder(self, encoder):
         """ use the capacitive sensor as encoder"""
-        self._logger.debug("initialize_encoder %s" % encoder.name)
+        log_debug(self, "initialize_encoder %s" % encoder.name)
 
     def read_encoder(self, encoder):
         """ read the capacitive sensor over the PI E712 as an encoder """
@@ -168,43 +170,46 @@ class PiezoJack(Controller):
 
             # Conversion TNS to bender-microns
             _pos = tns * self.bender_factor
-            self._logger.debug("--PJ-bender position=%g" % _pos)
+            log_debug(self, "--PJ-bender position=%g" % _pos)
             return _pos
-        except:
+        except Exception:
             sys.excepthook(*sys.exc_info())
 
     def state(self, axis):
         return self._hw_status
 
     def prepare_move(self, motion):
-        self._logger.info(
+        log_info(
+            self,
             "--PJ--prepare_move : motion: target_pos=%g  delta=%g "
-            % (motion.target_pos, motion.delta)
+            % (motion.target_pos, motion.delta),
         )
 
         # Check for power cut.
         self.piezo.CheckPowerCut()
 
         tad = self.piezo.Get_TAD()
-        self._logger.info("TAD : %s, %s, %s" % (self.TADmax, tad, self.TADmin))
+        log_info(self, "TAD : %s, %s, %s" % (self.TADmax, tad, self.TADmin))
         if self.TADmax < tad or tad < self.TADmin:
             #            raise RuntimeError("The capacitive sensor is not in its area of linear function")
-            self._logger.info(
+            log_info(
+                self,
                 "###########################################################################\n"
                 + "##### !! The capacitive sensor is not in its area of linear function  #####\n"
                 + "###########################################################################\n"
                 + "TAD is "
-                + str(tad)
+                + str(tad),
             )
 
     def start_one(self, motion):
-        self._logger.info(
+        log_info(
+            self,
             "\n\n\n"
             + "###########################################################################\n"
             + "--PJ--start_one : motion: target_pos={0:g}  delta={1:g}\n".format(
                 motion.target_pos, motion.delta
             )
-            + "###########################################################################\n\n\n"
+            + "###########################################################################\n\n\n",
         )
 
         if self._move_task is None or self._move_task.ready():
@@ -224,7 +229,7 @@ class PiezoJack(Controller):
 
         try:
             task.get()
-        except:
+        except Exception:
             sys.excepthook(*sys.exc_info())
 
     def move_piezo_smooth(self, pos=0):
@@ -234,7 +239,7 @@ class PiezoJack(Controller):
         """
         if self.piezo.Get_Closed_Loop_Status():
             # don't do this in closed loop mode
-            self._logger.info("move_piezo_smooth : don't do this in closed loop mode")
+            log_info(self, "move_piezo_smooth : don't do this in closed loop mode")
             return
         _start = self.piezo.position
         _inc = -1 if (pos < _start) else 1
@@ -259,12 +264,12 @@ class PiezoJack(Controller):
         Returns information about controller.
         Helpful to tune the device.
         """
-        self._logger.info("PiezoJack: get_info")
+        log_info(self, "PiezoJack: get_info")
         _info_str = "---------PiezoJack %s : get_info----------\n" % axis.name
 
         if not self.piezo.controller.name.startswith("mockup"):
-            #             self._logger.info("PiezoJack::get_info: ICEPAP Identifier: " % self.icepap.get_identifier())
-            #             self._logger.info("PiezoJack::get_info: Piezo Info:" % self.piezo.get_info())
+            #             log_info(self, "PiezoJack::get_info: ICEPAP Identifier: " % self.icepap.get_identifier())
+            #             log_info(self, "PiezoJack::get_info: Piezo Info:" % self.piezo.get_info())
 
             _info_str += "bender position (set)  : %s\n" % settings.AxisSettings(
                 axis
@@ -295,9 +300,10 @@ class PiezoJack(Controller):
         This has all been built around the fact, that both icepap and
         piezo work in microns.
         """
-        self._logger.info(
+        log_info(
+            self,
             "--PJ-- _do_move : motion: target_pos=%g  delta=%g "
-            % (motion.target_pos, motion.delta)
+            % (motion.target_pos, motion.delta),
         )
 
         bender_current = self.read_position(motion.axis)  # read from TNS
@@ -310,15 +316,16 @@ class PiezoJack(Controller):
         piezo_current = self.piezo.Get_Pos()
         piezo_target = self.calc_poly_value(tns_target, self.piezo.coeffs)
 
-        self._logger.info(
+        log_info(
+            self,
             "--PJ--bender: current=%g  target=%g  "
-            % (bender_current, motion.target_pos)
+            % (bender_current, motion.target_pos),
         )
-        self._logger.info(
-            "--PJ--TNS:    current=%g  target=%g" % (tns_current, tns_target)
+        log_info(
+            self, "--PJ--TNS:    current=%g  target=%g" % (tns_current, tns_target)
         )
-        self._logger.info(
-            "--PJ--piezo:  current=%g  target=%g" % (piezo_current, piezo_target)
+        log_info(
+            self, "--PJ--piezo:  current=%g  target=%g" % (piezo_current, piezo_target)
         )
 
         # At the first movement after a restart, the piezo might be way off.
@@ -332,9 +339,10 @@ class PiezoJack(Controller):
             # Opens the loop, so that the piezo won't break, but move
             # it to zero first and waits a bit to let time to piezo to
             # come back to 0. (to avoid clacs ?)
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ--Piezo problem (C.Loop=%r) : Moves piezo to zero and opens the loop."
-                % self.piezo.Get_Closed_Loop_Status()
+                % self.piezo.Get_Closed_Loop_Status(),
             )
             self.piezo.Set_Closed_Loop(False)
             # GUILLOUD: do we really need to go to 0 ? this works whereever we are!
@@ -347,21 +355,23 @@ class PiezoJack(Controller):
             self.piezo.Put_Offset(new_piezo_offset)
 
             # Need to go to half-range so we can make small movements with piezo only.
-            self._logger.info("--PJ--Moves piezo to 50 V (half-range)")
+            log_info(self, "--PJ--Moves piezo to 50 V (half-range)")
             self.move_piezo_smooth(self._PiezoSize.middle_voltage)
 
-        self._logger.info("--PJ--ok, piezo pos is now in-range and loop is open.")
-        self._logger.info(" ")
+        log_info(self, "--PJ--ok, piezo pos is now in-range and loop is open.")
+        log_info(self, " ")
 
         piezo_current = self.piezo.Get_Pos()  # um
         piezo_target = self.calc_poly_value(tns_target, self.piezo.coeffs)
 
-        self._logger.info(
+        log_info(
+            self,
             "--PJ--New positions should be: bender=%g tns=%g"
-            % (motion.target_pos, tns_target)
+            % (motion.target_pos, tns_target),
         )
-        self._logger.info(
-            "--PJ--piezo_current=%g piezo_target=%g" % (piezo_current, piezo_target)
+        log_info(
+            self,
+            "--PJ--piezo_current=%g piezo_target=%g" % (piezo_current, piezo_target),
         )
 
         # Checks whether new position is OUTSIDE the piezo's range [2; 13].
@@ -370,11 +380,12 @@ class PiezoJack(Controller):
             piezo_target >= self._PiezoSize.high
         ):
             # #### ICEPAP MOVE #### #
-            self._logger.info("--PJ--   ICEPAP MOVE")
+            log_info(self, "--PJ--   ICEPAP MOVE")
 
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ--piezo_target %g OUTSIDE range [%g;%g] => ICEPAP movement first"
-                % (piezo_target, self._PiezoSize.low, self._PiezoSize.high)
+                % (piezo_target, self._PiezoSize.low, self._PiezoSize.high),
             )
 
             ice_pos_before = self.icepap.position
@@ -382,16 +393,17 @@ class PiezoJack(Controller):
             # Places piezo in middle range.
             # Done in open loop to avoid large damaging movements.
             self.piezo.Set_Closed_Loop(False)
-            self._logger.info("--PJ--Moves piezo to 50 V (half-range)")
+            log_info(self, "--PJ--Moves piezo to 50 V (half-range)")
             self.move_piezo_smooth(self._PiezoSize.middle_voltage)
 
             # TNS values.
             tns_current = self.piezo.Get_TNS()
             tns_delta = tns_target - tns_current
 
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ--TNS : current=%g target=%g delta=%g"
-                % (tns_current, tns_target, tns_delta)
+                % (tns_current, tns_target, tns_delta),
             )
 
             # - 3 um : to avoid backlash
@@ -402,22 +414,25 @@ class PiezoJack(Controller):
             # provoked unnecessary backlashes with movements of 10 um, where the new initial position was lower
             # than the previous one, i.e. ice_delta became negative.
 
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ-ICEPAP-before icepap REL MOVE! ice_delta = %g----------"
-                % (ice_delta)
+                % (ice_delta),
             )
             self.icepap.rmove(ice_delta)
-            self._logger.info(
-                "--PJ--AFTER initial MOVE. Now moves ICEPAP to be closest possible to the TNS target."
+            log_info(
+                self,
+                "--PJ--AFTER initial MOVE. Now moves ICEPAP to be closest possible to the TNS target.",
             )
-            self._logger.info("")
+            log_info(self, "")
 
             for ii in range(self._icepap_retries):
                 tns_current = self.piezo.Get_TNS()
                 tns_delta = tns_target - tns_current
-                self._logger.info(
+                log_info(
+                    self,
                     "--PJ-ICEPAP--loop%d-- TNS target=%g current=%g delta= %g"
-                    % (ii, tns_target, tns_current, tns_delta)
+                    % (ii, tns_target, tns_current, tns_delta),
                 )
 
                 # tns_allowed_divergence devided by icepap_factor will be um.
@@ -429,19 +444,19 @@ class PiezoJack(Controller):
                 # GUILLOUD: pas sure, comme nous allons jamais atteindre le but :-(
                 ice_delta = tns_delta * self.bender_factor
                 if ice_delta < 0:
-                    self._logger.info(
-                        "--PJ-icepap move negatif. tns_delta=%g" % tns_delta
-                    )
+                    log_info(self, "--PJ-icepap move negatif. tns_delta=%g" % tns_delta)
 
-                self._logger.info(
-                    "--PJ-ICEPAP- REL MOVE! ice_delta = %g----------" % (ice_delta)
+                log_info(
+                    self,
+                    "--PJ-ICEPAP- REL MOVE! ice_delta = %g----------" % (ice_delta),
                 )
                 self.icepap.rmove(ice_delta)
 
             icepap_after = self.icepap.position
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ- icepap after approach: %s, delta: %s"
-                % (icepap_after, icepap_after - ice_pos_before)
+                % (icepap_after, icepap_after - ice_pos_before),
             )
 
             # Changes piezo offset to compensate icepap movement. (in microns)
@@ -451,15 +466,15 @@ class PiezoJack(Controller):
                 self.piezo.Get_Offset() - self.piezo.Get_Pos() + self._PiezoSize.middle
             )
             self.piezo.Put_Offset(new_piezo_offset)
-            self._logger.info(
-                "--PJ- offset changed, close the loop and make final approach"
+            log_info(
+                self, "--PJ- offset changed, close the loop and make final approach"
             )
 
             self.piezo.Set_Closed_Loop(True)
 
             # END OF ICEPAP MOVEMENT.
         else:
-            self._logger.info("--PJ-- NO ICEPAP MOVE")
+            log_info(self, "--PJ-- NO ICEPAP MOVE")
 
         # calculate the position to move the piezo to from the calculated TNS value,
         # using the polynomial values stored as "Senson Mech. Corrections 1 to 5.
@@ -473,19 +488,20 @@ class PiezoJack(Controller):
         piezo_current = self.piezo.Get_Pos()
         piezo_target = self.calc_poly_value(tns_target, self.piezo.coeffs)
 
-        self._logger.info(
-            "--PJ--  piezo : current=%g target=%g" % (piezo_current, piezo_target)
+        log_info(
+            self, "--PJ--  piezo : current=%g target=%g" % (piezo_current, piezo_target)
         )
 
         if (piezo_target >= self._PiezoSize.low) and (
             piezo_target <= self._PiezoSize.high
         ):
             # #### PIEZO MOVE  #### #
-            self._logger.info("--PJ-- PIEZO MOVE")
+            log_info(self, "--PJ-- PIEZO MOVE")
 
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ--  piezo_target %g is in range [%g, %g] => piezo movement only"
-                % (piezo_target, self._PiezoSize.low, self._PiezoSize.high)
+                % (piezo_target, self._PiezoSize.low, self._PiezoSize.high),
             )
 
             self.piezo.Set_Closed_Loop(True)
@@ -493,18 +509,18 @@ class PiezoJack(Controller):
 
             tns_current = self.piezo.Get_TNS()
             tns_delta = tns_target - tns_current
-            self._logger.info(
+            log_info(
+                self,
                 "--PJ--after piezo move : TNS : current=%g  new=%g  delta=%g"
-                % (tns_current, tns_target, tns_delta)
+                % (tns_current, tns_target, tns_delta),
             )
-            self._logger.info(
-                "--PJ--New piezo position : %g (updated)" % self.piezo._position()
+            log_info(
+                self, "--PJ--New piezo position : %g (updated)" % self.piezo._position()
             )
 
-            self._logger.info(
-                "--PJ--new Bender pos set:%g read:%g",
-                motion.axis._set_position,
-                self.read_position(motion.axis),
+            log_info(
+                self,
+                f"--PJ--new Bender pos set:{motion.axis._set_position} read:{self.read_position(motion.axis)}",
             )
 
     def calc_poly_value(self, x, coeffs):

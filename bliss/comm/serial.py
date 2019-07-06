@@ -20,7 +20,7 @@ from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import capture_exceptions
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 import serial
 
@@ -152,7 +152,7 @@ class _BaseSerial:
 
             msg = self._data[:eol_pos]
             self._data = self._data[eol_pos + len(eol) :]
-            self._cnt()._logger.debug_data("Rx:", msg)
+            log_debug_data(self._cnt(), "Rx:", msg)
             return msg
 
     def read(self, size, timeout):
@@ -178,7 +178,7 @@ class _BaseSerial:
                         break
             msg = self._data[:size]
             self._data = self._data[size:]
-            self._cnt()._logger.debug_data("Rx:", msg)
+            log_debug_data(self._cnt(), "Rx:", msg)
             return msg
 
     def write(self, msg, timeout):
@@ -186,7 +186,7 @@ class _BaseSerial:
             return self._write(msg)
 
     def _write(self, msg):
-        self._cnt()._logger.debug_data("Tx:", msg)
+        log_debug_data(self._cnt(), "Tx:", msg)
         while msg:
             _, ready, _ = select.select([], [self.fd], [])
             size_send = os.write(self.fd, msg)
@@ -207,7 +207,7 @@ class _BaseSerial:
             msg = self._data
 
             self._data = b""
-        self._cnt()._logger.debug_data("Rx:", msg)
+        log_debug_data(self._cnt(), "Rx:", msg)
         return msg
 
     @staticmethod
@@ -710,7 +710,7 @@ class TangoSerial(_BaseSerial):
         self._device.DevSerFlush(self.FLUSH_INPUT)
 
 
-class Serial(LogMixin):
+class Serial:
     LOCAL, RFC2217, SER2NET, TANGO = list(range(4))
 
     def __init__(
@@ -762,8 +762,8 @@ class Serial(LogMixin):
     def open(self):
         if self._raw_handler is None:
             serial_type = self._check_type()
-            self._logger.debug("open - serial_type=%s" % serial_type)
-            self._logger.debug(self._logger.log_format_dict(self._serial_kwargs))
+            log_debug(self, "open - serial_type=%s" % serial_type)
+            log_debug_data(self, "serial kwargs", self._serial_kwargs)
             if serial_type == self.RFC2217:
                 self._raw_handler = RFC2217(self, **self._serial_kwargs)
             elif serial_type == self.SER2NET:
@@ -783,13 +783,13 @@ class Serial(LogMixin):
         if self._raw_handler:
             self._raw_handler.close()
             self._raw_handler = None
-            self._logger.debug("close")
+            log_debug(self, "close")
 
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.raw_read(maxsize, local_timeout)
-        self._logger.debug_data("raw_read", msg)
+        log_debug_data(self, "raw_read", msg)
         return msg
 
     def read(self, size=1, timeout=None):
@@ -800,7 +800,7 @@ class Serial(LogMixin):
     def _read(self, size=1, timeout=None):
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.read(size, local_timeout)
-        self._logger.debug_data("read", msg)
+        log_debug_data(self, "read", msg)
         if len(msg) != size:
             raise SerialError(
                 "read timeout on serial (%s)" % self._serial_kwargs.get(self._port, "")
@@ -816,7 +816,7 @@ class Serial(LogMixin):
         local_eol = eol or self._eol
         local_timeout = timeout or self._timeout
         msg = self._raw_handler.readline(local_eol, local_timeout)
-        self._logger.debug_data("readline", msg)
+        log_debug_data(self, "readline", msg)
         return msg
 
     def write(self, msg, timeout=None):
@@ -828,7 +828,7 @@ class Serial(LogMixin):
     @try_open
     def _write(self, msg, timeout=None):
         local_timeout = timeout or self._timeout
-        self._logger.debug_data("write", msg)
+        log_debug_data(self, "write", msg)
         return self._raw_handler.write(msg, local_timeout)
 
     @try_open
@@ -870,7 +870,7 @@ class Serial(LogMixin):
 
     @try_open
     def flush(self):
-        self._logger.debug("flush")
+        log_debug(self, "flush")
         self._raw_handler.flushInput()
 
     def _check_type(self):

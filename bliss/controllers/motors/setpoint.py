@@ -7,6 +7,7 @@
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
+from bliss.common.logtools import *
 
 import math
 import time
@@ -52,8 +53,8 @@ class setpoint(Controller):
         try:
             self.target_attribute = AttributeProxy(_target_attribute_name)
         except:
-            self._logger.error(
-                "Unable to connect to attrtribute %s " % _target_attribute_name
+            log_error(
+                self, "Unable to connect to attrtribute %s " % _target_attribute_name
             )
 
         # External DS to use for gating.
@@ -61,22 +62,22 @@ class setpoint(Controller):
         if _gating_ds is not None:
             self.gating_ds = DeviceProxy(_gating_ds)
             self.external_gating = True
-            self._logger.info("external gating True ; gating ds= %s " % _gating_ds)
+            log_info(self, "external gating True ; gating ds= %s " % _gating_ds)
         else:
             # No external gating by default.
             self.external_gating = False
 
         # _pos0 must be in controller unit.
         self._pos0 = self.target_attribute.read().value * self.factor
-        self._logger.info("initial position : %g (in ctrl units)" % self._pos0)
+        log_info(self, "initial position : %g (in ctrl units)" % self._pos0)
 
     def move_done_event_received(self, state):
         if self.external_gating:
             if state:
-                self._logger.debug("movement is finished  %f" % time.time())
+                log_debug(self, "movement is finished  %f" % time.time())
                 self.gating_ds.SetGate(False)
             else:
-                self._logger.debug("movement is starting  %f" % time.time())
+                log_debug(self, "movement is starting  %f" % time.time())
                 self.gating_ds.SetGate(True)
 
     """

@@ -26,14 +26,14 @@ from bliss.controllers.temp import Controller
 from bliss.common.temperature import Output
 from bliss.common.utils import object_attribute_type_get
 from bliss.common.utils import object_attribute_type_set
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common import session
 
 # communication
 from bliss.comm.tcp import Tcp
 
 
-class Pace(LogMixin):
+class Pace:
     def __init__(self, url=None, timeout=3):
         self.timeout = timeout
         self._units = ("ATM", "BAR", "MBAR", "PA", "HPA", "KPA", "MPA", "TORR", "KG/M2")
@@ -72,12 +72,12 @@ class Pace(LogMixin):
             try:
                 self._send_comm(cmd + " %s" % mode.upper())
             except RuntimeError as e:
-                self._logger.error("Mode not set: " + str(e))
+                log_error(self, "Mode not set: " + str(e))
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error("Mode not read: " + str(e))
+                log_error(self, "Mode not read: " + str(e))
 
     def _setpoint(self, channel=1, pressure=None):
         """Set/Read the pressure set-point
@@ -92,12 +92,12 @@ class Pace(LogMixin):
             try:
                 self._send_comm(cmd + " %f" % pressure)
             except RuntimeError as e:
-                self._logger.error("Pressure set-point not set: " + str(e))
+                log_error(self, "Pressure set-point not set: " + str(e))
         else:
             try:
                 return float(self._query_comm(cmd))
             except Exception as e:
-                self._logger.error("Pressure set-point not read: " + str(e))
+                log_error(self, "Pressure set-point not read: " + str(e))
 
     def _ramprate(self, channel=1, rate=None):
         """Set/Read the rate the controller should use to achieve setpoint
@@ -112,12 +112,12 @@ class Pace(LogMixin):
             try:
                 self._send_comm(cmd + " %f" % rate)
             except RuntimeError as e:
-                self._logger.error("Ramp rate not set: " + str(e))
+                log_error(self, "Ramp rate not set: " + str(e))
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error("Cannot read the current ramp rate: " + str(e))
+                log_error(self, "Cannot read the current ramp rate: " + str(e))
 
     def _unit(self, channel=1, unit=None):
         """Set/Read the pressure unit
@@ -133,16 +133,16 @@ class Pace(LogMixin):
                 try:
                     self._send_comm(cmd + " %s" % unit)
                 except RuntimeError as e:
-                    self._logger.error("Cannot set the pressure unit: %s" % str(e))
+                    log_error(self, "Cannot set the pressure unit: %s" % str(e))
             else:
                 msg = "Cannot set the pressure unit: wrong input"
-                self._logger.error(msg)
+                log_error(self, msg)
                 raise (msg)
         else:
             try:
                 return self._query_comm(cmd)
             except Exception as e:
-                self._logger.error("Cannot read the current pressure unit: " + str(e))
+                log_error(self, "Cannot read the current pressure unit: " + str(e))
 
     def setpoint(self, pressure, channel=1):
         """Set the pressure to a value at maximum speed
@@ -154,7 +154,7 @@ class Pace(LogMixin):
             self._mode(channel, "MAX")
             self._setpoint(channel, pressure)
         except Exception as e:
-            self._logger.error("setpoint: " + str(e))
+            log_error(self, "setpoint: " + str(e))
 
     def ramp(self, pressure=None, rate=None, channel=1):
         """Start ramping to the pressure setpoint
@@ -170,7 +170,7 @@ class Pace(LogMixin):
             self._mode(channel, "LIN")
             self._setpoint(channel, pressure)
         except RuntimeError as e:
-            self._logger.error("ramp: " + str(e))
+            log_error(self, "ramp: " + str(e))
 
     def read_ramp(self, channel=1):
         """Read the current ramping parameters
@@ -182,7 +182,7 @@ class Pace(LogMixin):
         try:
             return (self._setpoint(channel), self._ramprate(channel))
         except Exception as e:
-            self._logger.error(str(e))
+            log_error(self, str(e))
 
     def read_pressure(self, channel=1):
         """Read the current pressure
@@ -195,7 +195,7 @@ class Pace(LogMixin):
         try:
             return float(self._query_comm(cmd))
         except Exception as e:
-            self._logger.error("Cannot read the pressure:" + str(e))
+            log_error(self, "Cannot read the pressure:" + str(e))
 
     def putget(self, cmd):
         """Send a command. Read the responce
@@ -222,12 +222,12 @@ class Pace(LogMixin):
 
         resp = self.putget(cmd)
 
-        self._logger.debug("Command %s" % cmd)
+        log_debug(self, "Command %s" % cmd)
         try:
             _, val = resp.split()
             return val.strip(self._eol)
         except (ValueError, AttributeError) as e:
-            self._logger.error(str(e))
+            log_error(self, str(e))
             raise (e)
 
     def _read_error(self):
@@ -244,12 +244,12 @@ class Pace(LogMixin):
         Args:
            cmd (string): The comamnd
         """
-        self._logger.debug("Command %s" % cmd)
+        log_debug(self, "Command %s" % cmd)
         cmd += self._eol
         self._sock.write(cmd.encode())
         err = self._read_error()
         if err:
-            self._logger.error(err)
+            log_error(self, err)
             raise RuntimeError(err)
 
 

@@ -15,7 +15,7 @@ from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common import session
 from bliss.comm.tcp import Command
 import struct
@@ -29,7 +29,7 @@ def _object_method_filter(obj):
     return True
 
 
-class Icepap(Controller, LogMixin):
+class Icepap(Controller):
     """
     IcePAP stepper controller without Deep Technology of Communication.
     But if you prefer to have it (DTC) move to IcePAP controller class.

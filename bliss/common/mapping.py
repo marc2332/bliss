@@ -25,7 +25,12 @@ def map_id(node):
 
     Needed to avoid errors caused by changing of string id
     """
-    return node if isinstance(node, (str, int)) else id(node)
+    if isinstance(node, (str, int)):
+        return node
+    elif isinstance(node, weakref.ProxyTypes):
+        return id(node.__repr__.__self__)  # trick to get hard reference
+    else:
+        return id(node)
 
 
 class Map:
@@ -47,6 +52,8 @@ class Map:
 
     def _create_node(self, instance):
         logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
+        if isinstance(instance, weakref.ProxyTypes):
+            instance = instance.__repr__.__self__  # trick to get the hard reference
         self.G.add_node(
             map_id(instance),
             instance=instance

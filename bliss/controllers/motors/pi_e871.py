@@ -10,6 +10,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 from bliss.common import session
+from bliss.common.logtools import *
 
 from . import pi_gcs
 from bliss.comm.util import SERIAL
@@ -46,31 +47,31 @@ class PI_E871(Controller):
             print(_ans)
             # 871 : '(c)2013 Physik Instrumente (PI) GmbH & Co. KG, E-871.1A1, 0, 01.00'
             # 873 : '(c)2015 Physik Instrumente (PI) GmbH & Co. KG, E-873.1A1, 115072229, 01.09'
-            self._logger.debug(_ans)
+            log_debug(self, _ans)
 
             try:
                 id_pos = _ans.index("E-871")
             except:
-                self._logger.info("not a 871")
+                log_info(self, "not a 871")
                 raise
 
             try:
                 id_pos = _ans.index("E-873")
             except:
-                self._logger.info("not a 873")
+                log_info(self, "not a 873")
                 raise
 
             if id_pos > 0 and id_pos < 100:
-                self._logger.debug("controller is responsive ID=%s" % _ans)
+                log_debug(self, "controller is responsive ID=%s" % _ans)
             elif id_pos == 0:
-                self._logger.debug("error : *IDN? -> %r" % _ans)
+                log_debug(self, "error : *IDN? -> %r" % _ans)
         except:
             self._status = (
                 'communication error : no PI E871 or E873 found on serial "%s"'
                 % self.serial_line
             )
             print(self._status)
-            self._logger.debug(self._status)
+            log_debug(self, self._status)
 
     def finalize(self):
         """
@@ -86,12 +87,12 @@ class PI_E871(Controller):
 
     # Init of each axis.
     def initialize_axis(self, axis):
-        self._logger.debug("axis initialization")
+        log_debug(self, "axis initialization")
         axis.axis_id = axis.config.get("axis_id", str)
         axis.address = axis.config.get("address", int)
 
         # Enables servo mode.
-        self._logger.debug("Switches %s servo mode ON" % axis.name)
+        log_debug(self, "Switches %s servo mode ON" % axis.name)
         self._enable_servo_mode(axis)
 
         # Checks referencing.
@@ -110,7 +111,7 @@ class PI_E871(Controller):
         * Sets <current_pos> as current position.
         * Synchronizes axis position.
         """
-        self._logger.debug("custom axis initialization , current_pos=%g" % current_pos)
+        log_debug(self, "custom axis initialization , current_pos=%g" % current_pos)
         self.send_no_ans(axis, "%d SVO %s 1" % (axis.address, axis.axis_id))
         self._check_error(axis)
         self.reference_axis_ref_switch(axis)
@@ -132,12 +133,12 @@ class PI_E871(Controller):
 
     def read_position(self, axis):
         _ans = self._get_target_pos(axis)
-        self._logger.debug("read_position = %f" % _ans)
+        log_debug(self, "read_position = %f" % _ans)
         return _ans
 
     #     def set_position(self, axis, new_pos):
     #         """Set axis position to a new value given in motor units"""
-    #         self._logger.debug("set_position = %g" % new_pos)
+    #         log_debug(self, "set_position = %g" % new_pos)
     #         #l = libicepap.PosList()
     #         #l[axis.libaxis] = new_pos
     #         #self.libgroup.pos(l)
@@ -145,7 +146,7 @@ class PI_E871(Controller):
 
     #    def read_encoder(self, encoder):
     #        _ans = self._get_pos(encoder.axis)
-    #        self._logger.debug("read_position measured = %f" % _ans)
+    #        log_debug(self, "read_position measured = %f" % _ans)
     #        return _ans
 
     """ VELOCITY """
@@ -154,8 +155,8 @@ class PI_E871(Controller):
         return self._get_velocity(axis)
 
     def set_velocity(self, axis, new_velocity):
-        self._logger.debug("set_velocity new_velocity = %f" % new_velocity)
-        self._logger.debug("NO VELOCITY FOR THIS CONTROLLER")
+        log_debug(self, "set_velocity new_velocity = %f" % new_velocity)
+        log_debug(self, "NO VELOCITY FOR THIS CONTROLLER")
         # self.send_no_ans(axis, "%d VEL %s %f" % (axis.address, axis.axis_id, new_velocity))
         return self.read_velocity(axis)
 
@@ -174,7 +175,7 @@ class PI_E871(Controller):
     """ STATE """
 
     def state(self, axis):
-        self._logger.debug("in state(%s)" % axis.name)
+        log_debug(self, "in state(%s)" % axis.name)
 
         # _ref = self._get_referencing(axis)
         # if _ref == 0:
@@ -191,7 +192,7 @@ class PI_E871(Controller):
         pass
 
     def start_one(self, motion):
-        self._logger.debug("start_one target_pos = %f" % motion.target_pos)
+        log_debug(self, "start_one target_pos = %f" % motion.target_pos)
         self.send_no_ans(
             motion.axis,
             "%d MOV %s %g"
@@ -207,19 +208,19 @@ class PI_E871(Controller):
     """ RAW COMMANDS """
     # Adds \n before to send command.
     def raw_write(self, com):
-        self._logger.debug("com=%s" % repr(com))
+        log_debug(self, "com=%s" % repr(com))
         _com = com + "\n"
         self.serial.write(_com.encode())
 
     def raw_write_read(self, com):
-        self._logger.debug("com=%s" % repr(com))
+        log_debug(self, "com=%s" % repr(com))
         _com = com + "\n"
         _ans = self.serial.write_readline(_com.encode()).decode().rstrip()
-        self._logger.debug("ans=%s" % repr(_ans))
+        log_debug(self, "ans=%s" % repr(_ans))
         return _ans
 
     def get_id(self, axis):
-        return self.send(axis, "%d IDN?", axis.address)
+        return self.send(axis, "%d IDN?" % axis.address)
 
     """
     E871 specific
@@ -250,7 +251,7 @@ class PI_E871(Controller):
         return 1
 
     def _set_acceleration(self, axis, value):
-        self._logger.info("impossible to set acceleration on this controller")
+        log_info(self, "impossible to set acceleration on this controller")
         return 1
 
     def _get_target_pos(self, axis):
@@ -377,10 +378,10 @@ class PI_E871(Controller):
             ?
         """
 
-        self._logger.debug("cmd=%s" % repr(cmd))
+        log_debug(self, "cmd=%s" % repr(cmd))
         _cmd = cmd + "\n"
         _ans = self.serial.write_readline(_cmd.encode()).decode().rstrip()
-        self._logger.debug("ans=%s" % repr(_ans))
+        log_debug(self, "ans=%s" % repr(_ans))
         return _ans
 
     def send_no_ans(self, axis, cmd):
@@ -391,7 +392,7 @@ class PI_E871(Controller):
         - <axis> is passed for debugging purposes.
         - Used for answer-less commands, then returns nothing.
         """
-        self._logger.debug('cmd="%s" ' % cmd)
+        log_debug(self, 'cmd="%s" ' % cmd)
         _cmd = cmd + "\n"
         self.serial.write(_cmd.encode())
 
@@ -668,8 +669,6 @@ class PI_E871(Controller):
         self._check_error(axis)
 
         _txt = _txt + "###############################\n"
-
-        return _txt
 
         return _txt
 

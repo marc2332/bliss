@@ -32,7 +32,7 @@ from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 __TMO_TUPLE = (
     0.0,
@@ -126,7 +126,7 @@ class PrologixError(GpibError):
     pass
 
 
-class Prologix(LogMixin):
+class Prologix:
     def __init__(self, cnt, **keys):
         url = keys.pop("url")
         url_parse = re.compile(r"^(prologix://)?([^:/]+):?([0-9]*)$")
@@ -137,51 +137,52 @@ class Prologix(LogMixin):
         port = match.group(3) and int(match.group(3)) or 1234
         self._sock = Socket(hostname, port, timeout=keys.get("timeout"))
         session.get_current().map.register(self, children_list=["comms", self._sock])
-        self._logger.debug(f"Prologix::__init__() host = {hostname} port = {port}")
+        log_debug(self, f"Prologix::__init__() host = {hostname} port = {port}")
         self._gpib_kwargs = keys
 
     def init(self):
-        self._logger.debug("Prologix::init()")
+        log_debug(self, "Prologix::init()")
         if not self._sock._connected:
             # the Prologix must be a controller (mode 1)
-            self._logger.debug("Prologix::init(): set to mode 1 (Controller) ")
+            log_debug(self, "Prologix::init(): set to mode 1 (Controller) ")
             self._sock.write(b"++mode 1\n")
             self._sock.write(b"++clr\n")
-            self._logger.debug("Prologix::init() save the configuration set to 0")
+            log_debug(self, "Prologix::init() save the configuration set to 0")
             self._sock.write(b"++savecfg 0\n")
-            self._logger.debug("Prologix::init() auto (read_after_write) set to 0")
+            log_debug(self, "Prologix::init() auto (read_after_write) set to 0")
             self._sock.write(b"++auto 0\n")
 
             self._eol = self._gpib_kwargs["eol"]
             if self._eol == "\r\n":
-                self._logger.debug_data("Prologix::init() eos set to 0 (%s)", self._eol)
+                log_debug_data(self, "Prologix::init() eos set to 0 (%s)", self._eol)
                 self._sock.write(b"++eos 0\n")
             elif self._eol == "\r":
-                self._logger.debug("Prologix::init() eos set to 1 (%s)" % self._eol)
+                log_debug(self, "Prologix::init() eos set to 1 (%s)" % self._eol)
                 self._sock.write(b"++eos 1\n")
             elif self._eol == "\n":
-                self._logger.debug("Prologix::init() eos set to 2 (%s)" % self._eol)
+                log_debug(self, "Prologix::init() eos set to 2 (%s)" % self._eol)
                 self._sock.write(b"++eos 2\n")
             else:
-                self._logger.debug("Prologix::init() eos set to 3 (%s)" % self._eol)
+                log_debug(self, "Prologix::init() eos set to 3 (%s)" % self._eol)
                 self._sock.write(b"++eos 3\n")
 
-            self._logger.debug("Prologix::init() eoi set to 1")
+            log_debug(self, "Prologix::init() eoi set to 1")
             self._sock.write(b"++eoi 1\n")
-            self._logger.debug("Prologix::init() read_tmo_ms set to 13")
+            log_debug(self, "Prologix::init() read_tmo_ms set to 13")
             self._sock.write(b"++read_tmo_ms 13\n")
             # the gpib address
             self._sad = self._gpib_kwargs.get("sad", 0)
             self._pad = self._gpib_kwargs["pad"]
             if self._sad == 0:
-                self._logger.debug(
-                    "Prologix::init() gpib primary address set to %d" % self._pad
+                log_debug(
+                    self, "Prologix::init() gpib primary address set to %d" % self._pad
                 )
                 self._sock.write(b"++addr %d\n" % self._pad)
             else:
-                self._logger.debug(
+                log_debug(
+                    self,
                     "Prologix::init() gpib primary & secondary address' set to %d:%d"
-                    % (self._pad, self._sad)
+                    % (self._pad, self._sad),
                 )
                 self._sock.write(b"++addr %d %d\n" % (self._pad, self._sad))
 
@@ -198,7 +199,7 @@ class Prologix(LogMixin):
     """
 
     def ibwrt(self, cmd):
-        self._logger.debug("Sent: %s" % cmd)
+        log_debug(self, "Sent: %s" % cmd)
         cmd = (
             cmd.replace(b"\33", b"\33" + b"\33")
             .replace(b"+", b"\33" + b"+")
@@ -223,7 +224,7 @@ def TangoGpib(cnt, **keys):
     return Object(keys.pop("url"), green_mode=GreenMode.Gevent)
 
 
-class TangoDeviceServer(LogMixin):
+class TangoDeviceServer:
     def __init__(self, cnt, **keys):
         url = keys.pop("url")
         url_tocken = "tango_gpib_device_server://"
@@ -239,7 +240,7 @@ class TangoDeviceServer(LogMixin):
         session.get_current().map.register(self)
 
     def init(self):
-        self._logger.debug("TangoDeviceServer::init()")
+        log_debug(self, "TangoDeviceServer::init()")
         if self._proxy is None:
             self._proxy = DeviceProxy(self._tango_url)
 
@@ -247,7 +248,7 @@ class TangoDeviceServer(LogMixin):
         self._proxy = None
 
     def ibwrt(self, cmd):
-        self._logger.debug("Sent: %s" % cmd)
+        log_debug(self, "Sent: %s" % cmd)
         ncmd = numpy.zeros(4 + len(cmd), dtype=numpy.uint8)
         ncmd[3] = self._pad
         ncmd[2] = self._sad
@@ -257,7 +258,7 @@ class TangoDeviceServer(LogMixin):
     def ibrd(self, length):
         self._proxy.SetTimeout([self._pad_sad, self._gpib_kwargs.get("tmo", 12)])
         msg = self._proxy.ReceiveBinData([self._pad_sad, length])
-        self._logger.debug("Received: %s" % msg)
+        log_debug(self, "Received: %s" % msg)
         return msg.tostring()
 
     def _raw(self, length):
@@ -268,7 +269,7 @@ class LocalGpibError(GpibError):
     pass
 
 
-class LocalGpib(LogMixin):
+class LocalGpib:
 
     URL_RE = re.compile(r"^(local://)?([0-9]{1,2})$")
 
@@ -288,19 +289,19 @@ class LocalGpib(LogMixin):
         return "{0}(board={1})".format(type(self).__name__, self.board_index)
 
     def init(self):
-        self._logger.debug("init()")
+        log_debug(self, "init()")
         opts = self._gpib_kwargs
         from . import libgpib
 
         self.gpib = libgpib
-        self._logger.debug("libgpib version %s", self.gpib.ibvers())
+        log_debug(self, "libgpib version %s", self.gpib.ibvers())
         self.gpib.GPIBError = LocalGpibError
         self.ud = self.gpib.ibdev(
             self.board_index, pad=opts["pad"], sad=opts["sad"], tmo=opts["tmo"]
         )
 
     def ibwrt(self, cmd):
-        self._logger.debug("Sent: %r" % cmd)
+        log_debug(self, "Sent: %r" % cmd)
         tp = gevent.get_hub().threadpool
         return tp.spawn(self.gpib.ibwrt, self.ud, cmd).get()
 
@@ -338,7 +339,7 @@ def try_open(fu):
     return rfunc
 
 
-class Gpib(LogMixin):
+class Gpib:
     """Gpib object
 
     from bliss.comm.gpib import Gpib
@@ -388,8 +389,8 @@ class Gpib(LogMixin):
 
     def open(self):
         if self._raw_handler is None:
-            self._logger.debug(f"opening {self.gpib_type} gpib")
-            self._logger.debug(self._logger.log_format_dict(self._gpib_kwargs))
+            log_debug(self, f"opening {self.gpib_type} gpib")
+            log_debug_data(self, "kwargs", self._gpib_kwargs)
             if self.gpib_type == Gpib.GpibType.ENET:
                 self._raw_handler = Enet(self, **self._gpib_kwargs)
                 self._raw_handler.init()
@@ -409,13 +410,13 @@ class Gpib(LogMixin):
         if self._raw_handler is not None:
             self._raw_handler.close()
             self._raw_handler = None
-            self._logger.debug("close")
+            log_debug(self, "close")
 
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
         msg = self._raw_handler.ibrd(size_to_read)
-        self._logger.debug_data("raw_read", msg)
+        log_debug_data(self, "raw_read", msg)
         return msg
 
     def read(self, size=1, timeout=None):
@@ -425,7 +426,7 @@ class Gpib(LogMixin):
     @try_open
     def _read(self, size=1):
         msg = self._raw_handler.ibrd(size)
-        self._logger.debug_data("read", msg)
+        log_debug_data(self, "read", msg)
         return msg
 
     def readline(self, eol=None, timeout=None):
@@ -447,7 +448,7 @@ class Gpib(LogMixin):
                 eol_pos = self._data.find(local_eol)
         msg = self._data[:eol_pos]
         self._data = self._data[eol_pos + len(local_eol) :]
-        self._logger.debug_data("readline", msg)
+        log_debug_data(self, "readline", msg)
         return msg
 
     def write(self, msg, timeout=None):
@@ -456,7 +457,7 @@ class Gpib(LogMixin):
 
     @try_open
     def _write(self, msg):
-        self._logger.debug_data("write", msg)
+        log_debug_data(self, "write", msg)
         return self._raw_handler.ibwrt(msg)
 
     @protect_from_kill
@@ -489,7 +490,7 @@ class Gpib(LogMixin):
         return r_lines
 
     def flush(self):
-        self._logger.debug("flush")
+        log_debug(self, "flush")
         self._raw_handler = None
 
     def _check_type(self):

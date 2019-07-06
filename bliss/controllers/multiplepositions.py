@@ -70,10 +70,10 @@ positions:
 from gevent import Timeout
 from bliss.common.motor_group import Group
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 
-class MultiplePositions(LogMixin):
+class MultiplePositions:
     """ Handle multiple positions
     """
 
@@ -177,8 +177,8 @@ class MultiplePositions(LogMixin):
             self.group.move(dict(zip(axis_list, target_list)), wait=wait)
         else:
             if not wait:
-                self._logger.warning(
-                    "Motors will move one after another and not simultaneously."
+                log_warning(
+                    self, "Motors will move one after another and not simultaneously."
                 )
             for axis in self.motors[label]:
                 axis.get("axis").move(axis.get("target"), wait=True)

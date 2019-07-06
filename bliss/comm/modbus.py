@@ -20,7 +20,7 @@ from ..common.greenlet_utils import KillMask, protect_from_kill
 from . import serial
 
 from bliss.common import session
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 
 class ModbusError(CommunicationError):
@@ -90,7 +90,7 @@ class Modbus_ASCII:
         return lrc & 0xff
 
 
-class Modbus_RTU(LogMixin):
+class Modbus_RTU:
     def __init__(self, node, *args, **kwargs):
         self._serial = serial.Serial(*args, **kwargs)
         self.node = node

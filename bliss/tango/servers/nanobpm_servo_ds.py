@@ -22,6 +22,9 @@ from tango.server import device_property
 import gevent
 from gevent import event
 
+from bliss.common import session
+from bliss.common.logtools import *
+
 __all__ = ["NanoBpmServo", "main"]
 
 
@@ -77,9 +80,6 @@ class NanoBpmServo(Device):
     @DebugIt()
     def init_device(self):
         Device.init_device(self)
-        self._logger = logging.getLogger(str(self))
-        logging.basicConfig(level=logging.INFO)
-        self._logger.setLevel(logging.DEBUG)
         try:
             self._nanoBpmProxy = tango.get_device_proxy(
                 self.NanoBPM, green_mode=GreenMode.Gevent, wait=True, timeout=True
@@ -88,6 +88,14 @@ class NanoBpmServo(Device):
                 self._xcontrolProxy = tango.DeviceProxy(self.XController)
             if self.YController is not None:
                 self._ycontrolProxy = tango.DeviceProxy(self.YController)
+            session.get_current().map.register(
+                self,
+                children_list=[
+                    self._nanoBpmProxy,
+                    self._xcontrolProxy,
+                    self._ycontrolProxy,
+                ],
+            )
             self._event = gevent.event.Event()
             self._servoId = None
             self._xcoord = 0
@@ -252,16 +260,17 @@ class NanoBpmServo(Device):
 
     def _doServo(self):
         while 1:
-            self._logger.debug("Entering event wait")
+            log_debug(self, "Entering event wait")
             self._event.wait()
             self._event.clear()
             if self._xcoord != 0.0:
                 incx = (self._xcentre - self._xcoord) * self._xmovePerPixel
                 if abs(incx) > self._minimumXMove and abs(incx) < self._maximumXMove:
-                    self._logger.debug(
+                    log_debug(
+                        self,
                         "Need to move X by {0} minX {1}, maxX {2}".format(
                             incx, self._minimumXMove, self._maximumXMove
-                        )
+                        ),
                     )
                     if self._xcontrolProxy is not None:
                         xpos = self._xcontrolProxy.read_attribute("position").value
@@ -269,17 +278,19 @@ class NanoBpmServo(Device):
             if self._ycoord != 0.0:
                 incy = (self._ycentre - self._ycoord) * self._ymovePerPixel
                 if abs(incy) > self._minimumYMove and abs(incy) < self._maximumYMove:
-                    self._logger.debug(
+                    log_debug(
+                        self,
                         "Need to move Y by {0} minY {1}, maxY {2}".format(
                             incy, self._minimumYMove, self._maximumYMove
-                        )
+                        ),
                     )
                     if self._ycontrolProxy is not None:
                         ypos = self._ycontrolProxy.read_attribute("position").value
-                        self._logger.debug(
+                        log_debug(
+                            self,
                             "current position is {0} should move to {1}".format(
                                 ypos, ypos + incy
-                            )
+                            ),
                         )
                         self._ycontrolProxy.write_attribute("position", ypos + incy)
 
@@ -304,8 +315,8 @@ class NanoBpmServo(Device):
             if ev.attr_value is not None and ev.attr_value.name == "centre":
                 self._xcoord = ev.attr_value.value[0]
                 self._ycoord = ev.attr_value.value[1]
-                self._logger.debug(
-                    "Bpm centre [{0},{1}]".format(self._xcoord, self._ycoord)
+                log_debug(
+                    self, "Bpm centre [{0},{1}]".format(self._xcoord, self._ycoord)
                 )
                 self._event.set()
 

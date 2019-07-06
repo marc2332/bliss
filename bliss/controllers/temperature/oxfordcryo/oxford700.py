@@ -38,11 +38,11 @@ from bliss.controllers.temperature.oxfordcryo.oxfordcryo import split_bytes
 from warnings import warn
 
 from bliss.controllers.temperature.oxfordcryo.oxford import Base
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common import session
 
 
-class OxfordCryostream(LogMixin):
+class OxfordCryostream:
     """
     OXCRYO_ALARM = {0:"No Alarms",
                  1:"Stop button has been pressed",

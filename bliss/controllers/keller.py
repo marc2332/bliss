@@ -73,8 +73,7 @@ import gevent.lock
 from bliss.comm.util import get_comm
 from bliss.common.measurement import SamplingCounter
 from bliss.common import session
-from bliss.common.logtools import LogMixin
-
+from bliss.common.logtools import *
 
 BROADCAST_ADDR = 0
 TRANSPARENT_ADDR = 250
@@ -226,9 +225,9 @@ def debug_it(f):
 
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
-        self._logger.debug("[start] %s()", name)
+        log_debug(self, f"[start] {name}()")
         r = f(self, *args, **kwargs)
-        self._logger.debug("[end] %s() -> %r", name, r)
+        log_debug(self, f"[end] {name}() -> {r}")
         return r
 
     return wrapper
@@ -370,7 +369,7 @@ FSAttrRO = functools.partial(Attr, decode=_decode_float_status)
 
 
 @fill
-class PressureTransmitter(LogMixin):
+class PressureTransmitter:
     """
     Keller pressure transmitter for the S30 and S40 series.
 
@@ -428,10 +427,10 @@ class PressureTransmitter(LogMixin):
         for counter_config in self.config.get("counters", []):
             counter_name = counter_config["counter_name"]
             if hasattr(self, counter_name):
-                self._logger.error(
-                    "Skipped counter %r (controller already "
-                    "has a member with that name)",
-                    counter_name,
+                log_error(
+                    self,
+                    f"Skipped counter {counter_name} (controller already "
+                    f"has a member with that name)",
                 )
                 continue
             channel = counter_config.get("channel", "P1")
@@ -469,8 +468,9 @@ class PressureTransmitter(LogMixin):
         self.comm.flush()
         self._cache = {}
         if self.expected_serial_nb:
-            self._logger.info(
-                "Verifying instrument serial number against %s", self.expected_serial_nb
+            log_info(
+                self,
+                f"Verifying instrument serial number against {self.expected_serial_nb}",
             )
             if self.serial_nb != self.expected_serial_nb:
                 raise KellerError(
@@ -498,7 +498,7 @@ class PressureTransmitter(LogMixin):
         crc_h, crc_l = crc >> 8, crc & 0xFF
         request.extend([crc_h, crc_l])
         request = "".join(map(chr, request))
-        self._logger.debug_data("raw write", request)
+        log_debug_data(self, "raw write", request)
         self.comm.write(request)
 
         # REPLY: transmitted message is received again immediately as an echo
@@ -509,7 +509,7 @@ class PressureTransmitter(LogMixin):
 
         # REPLY: Addr + Function + Error code + CRC_H + CRC_L
         reply = self.comm.read(5)
-        self._logger.debug_data("raw reply", reply)
+        log_debug_data(self, "raw reply", reply)
 
     def get(self, cmd):
         with self._comm_lock:
@@ -528,7 +528,7 @@ class PressureTransmitter(LogMixin):
         else:
             request.extend([crc_h, crc_l])
         request = bytes(request)
-        self._logger.debug_data("raw write", request.hex())
+        log_debug_data(self, "raw write", request.hex())
         self.comm.write(request)
 
         # REPLY: transmitted message is received again immediately as an echo
@@ -551,7 +551,7 @@ class PressureTransmitter(LogMixin):
             reply_payload = self.comm.read(1)
             reply_crc = self.comm.read(2)
             reply += reply_payload + reply_crc
-            self._logger.debug_data("raw reply", reply)
+            log_debug_data(self, "raw reply", reply)
             err = ord(reply_payload)
             crc = crc16(reply_addr, reply_fn, err)
             if not check_message_crc16(reply_crc, crc):
@@ -565,7 +565,7 @@ class PressureTransmitter(LogMixin):
         reply_payload = self.comm.read(cmd.reply_size)
         reply_crc = self.comm.read(2)
         reply += reply_payload + reply_crc
-        self._logger.debug_data("raw reply", reply)
+        log_debug_data(self, "raw reply", reply)
         crc = crc16(reply_addr, reply_fn, *[n for n in reply_payload])
         if not check_message_crc16(reply_crc, crc):
             raise KellerError("CRC failure in reply")

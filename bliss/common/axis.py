@@ -40,7 +40,7 @@ from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
 from bliss.common.alias import AliasMixin
 from bliss.physics.trajectory import LinearTrajectory
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 import gevent
 import re
 import sys
@@ -543,7 +543,7 @@ def lazy_init(func):
 
 
 @with_custom_members
-class Axis(AliasMixin, LogMixin):
+class Axis(AliasMixin):
     """
     Bliss motor axis
 
@@ -834,7 +834,7 @@ class Axis(AliasMixin, LogMixin):
     @position.setter
     @lazy_init
     def position(self, new_pos):
-        self._logger.debug("axis.py : position(new_pos=%r)" % new_pos)
+        log_debug(self, "axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
             raise RuntimeError(
                 "%s: can't set axis user position " "while moving" % self.name
@@ -1178,9 +1178,10 @@ class Axis(AliasMixin, LogMixin):
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
-        self._logger.debug(
+        log_debug(
+            self,
             "prepare_move: user_target_pos=%g, relative=%r"
-            % (user_target_pos, relative)
+            % (user_target_pos, relative),
         )
         dial_initial_pos = self.dial
         hw_pos = self._hw_position
@@ -1254,9 +1255,10 @@ class Axis(AliasMixin, LogMixin):
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
         """
-        self._logger.debug(
+        log_debug(
+            self,
             "user_target_pos=%g  wait=%r relative=%r"
-            % (user_target_pos, wait, relative)
+            % (user_target_pos, wait, relative),
         )
         with self._lock:
             if self.is_moving:
@@ -1379,7 +1381,7 @@ class Axis(AliasMixin, LogMixin):
             wait (bool): wait or not for end of motion
             polling_time (float): motion loop polling time (seconds)
         """
-        self._logger.debug("user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
+        log_debug(self, "user_delta_pos=%g  wait=%r" % (user_delta_pos, wait))
         return self.move(user_delta_pos, wait, relative=True, polling_time=polling_time)
 
     def wait_move(self):

@@ -16,7 +16,7 @@ from bliss.common import session
 
 # for logging
 import logging
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 
 """
 `simulation_counter` allows to define a fake counter.
@@ -79,8 +79,8 @@ Parameters if using GAUSSIAN:
 
 ct(0.1)
 
-sim_ct_1.get_acquisition_device()._logger.debugon()
-sim_ct_1._logger.debugon()
+debugon(sim_ct_1.get_acquisition_device())
+debugon(sim_ct_1)
 
 
 plotselect(sim_ct_1)
@@ -109,11 +109,11 @@ dscan(m1,-1,1, 13, 0.01)
 """
 
 
-class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
+class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
     def __init__(self, counter, scan_param, distribution, gauss_param, noise_factor):
         session.get_current().map.register(self)
-        self._logger.debug(
-            "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounter_AcquisitionDevice()"
+        log_debug(
+            self, "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounter_AcquisitionDevice()"
         )
 
         self.counter = counter
@@ -146,7 +146,7 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
             return False
 
     def prepare(self):
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- prepare()")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare()")
         self._index = 0
 
         #### Get scan paramerters
@@ -169,9 +169,10 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
             scan_start = self.scan_param.get("start")[0]
             scan_stop = self.scan_param.get("stop")[0]
 
-        self._logger.debug(
+        log_debug(
+            self,
             f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- type={self.scan_type} \
-        nbpoints={nbpoints} start={scan_start} stop={scan_stop}"
+        nbpoints={nbpoints} start={scan_start} stop={scan_stop}",
         )
 
         #### Get gaussian distribution parameters
@@ -185,58 +186,58 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
         _dbg_string += (
             f"height_factor={self.height_factor} noise_factor={self.noise_factor}"
         )
-        self._logger.debug(_dbg_string)
+        log_debug(self, _dbg_string)
 
         #### Generation of the distribution
         # base data
         if self.is_count_scan() or self.distribution == "FLAT":
-            self._logger.debug(
-                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- is count scan or FLAT"
+            log_debug(
+                self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- is count scan or FLAT"
             )
             self.data = np.ones(nbpoints)
         else:
-            self._logger.debug(
-                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- neither count nor FLAT"
+            log_debug(
+                self,
+                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- neither count nor FLAT",
             )
             self.data = np.linspace(scan_start, scan_stop, nbpoints)
 
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data(linspace)=")
-        self._logger.debug(self.data)
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data(linspace)=")
+        log_debug(self, self.data)
 
         # creates distribution
         if self.is_count_scan() or self.distribution == "FLAT":
-            self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
+            log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
             pass
         else:
-            self._logger.debug(
-                f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start={scan_start} stop={scan_stop} nbpoints={nbpoints}"
+            log_debug(
+                self,
+                f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start={scan_start} stop={scan_stop} nbpoints={nbpoints}",
             )
             self.data = self.gauss(self.data, mu_offset, sigma_factor)
 
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data=")
-        self._logger.debug(self.data)
+        log_debug_data(
+            self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- data=", self.data
+        )
 
         # applying Y factor.
         self.data = self.data * self.height_factor
-        self._logger.debug("self.data with height_factor=")
-        self._logger.debug(self.data)
+        log_debug_data(self, "self.data with height_factor=", self.data)
 
         # computing noise.
         if self.is_count_scan():
             noise = (np.random.rand(1)[0] * self.noise_factor) + 1
         else:
             noise = (np.random.rand(nbpoints) * self.noise_factor) + 1
-        self._logger.debug("noise=")
-        self._logger.debug(noise)
+        log_debug_data(self, "noise=", noise)
 
         # applying noise.
         self.data = self.data * noise
-        self._logger.debug("self.data with  noise=")
-        self._logger.debug(self.data)
+        log_debug_data(self, "self.data with  noise=", self.data)
 
         self.counter.data = self.data
 
-        self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
+        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
 
     def calc_gaussian(self, x, mu, sigma):
         one_over_sqtr = 1.0 / np.sqrt(2.0 * np.pi * np.square(sigma))
@@ -272,21 +273,22 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
         self.sigma = sigma
         self.fwhm = 2 * np.sqrt(2 * np.log(2)) * sigma  # ~ 2.35 * sigma
 
-        self._logger.debug(
-            f"SIMULATION_COUNTER_ACQ_DEV -- xmin={xmin} xmax={xmax} mu_offset={mu_offset:g} mu={mu:g} sigma={sigma:g}"
+        log_debug(
+            self,
+            f"SIMULATION_COUNTER_ACQ_DEV -- xmin={xmin} xmax={xmax} mu_offset={mu_offset:g} mu={mu:g} sigma={sigma:g}",
         )
 
         _val = self.calc_gaussian(x, mu, sigma)
 
-        self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- gauss() -- returns {_val}")
+        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- gauss() -- returns {_val}")
         return _val
 
     def start(self):
-        self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- start()")
+        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- start()")
         pass
 
     def stop(self):
-        self._logger.debug("SIMULATION_COUNTER_ACQ_DEV -- stop()")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- stop()")
         if self.distribution == "GAUSSIAN" and not self.is_count_scan():
             print(
                 f"SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) {self.name} mu={self.mu:g} sigma={self.sigma:g} fwhm={self.fwhm:g}"
@@ -299,10 +301,11 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
          * not called during ct()
          * called during timescan()
         """
-        self._logger.debug(
-            f"SIMULATION_COUNTER_ACQ_DEV -- **************** trigger() **************************"
+        log_debug(
+            self,
+            f"SIMULATION_COUNTER_ACQ_DEV -- **************** trigger() **************************",
         )
-        if self._logger.isEnabledFor(logging.DEBUG):
+        if get_logger(self).isEnabledFor(logging.DEBUG):
             print(self.data)
             print("_index=", self._index)
 
@@ -313,10 +316,10 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice, LogMixin):
 
         if not self.is_count_scan():
             self._index += 1
-        self._logger.debug(f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
+        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
 
-class SimulationCounter(Counter, LogMixin):
+class SimulationCounter(Counter):
     def __init__(self, name, config):
         Counter.__init__(self, name)
 
@@ -325,7 +328,7 @@ class SimulationCounter(Counter, LogMixin):
         self.scan_pars = None
 
     def create_acquisition_device(self, scan_pars, **settings):
-        self._logger.debug("SIMULATION_COUNTER -- create_acquisition_device")
+        log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device")
 
         mu_offset = self.config.get("mu_offset", 0.0)
         sigma_factor = self.config.get("sigma_factor", 1.0)
@@ -345,13 +348,13 @@ class SimulationCounter(Counter, LogMixin):
             noise_factor=self.config.get("noise_factor", 0.0),
         )
 
-        self._logger.debug("SIMULATION_COUNTER -- COUNTER CONFIG")
-        if self._logger.isEnabledFor(logging.DEBUG):
+        log_debug(self, "SIMULATION_COUNTER -- COUNTER CONFIG")
+        if get_logger(self).isEnabledFor(logging.DEBUG):
             pprint.pprint(self.config)
 
-        self._logger.debug("SIMULATION_COUNTER -- SCAN_PARS")
+        log_debug(self, "SIMULATION_COUNTER -- SCAN_PARS")
 
-        if self._logger.isEnabledFor(logging.DEBUG):
+        if get_logger(self).isEnabledFor(logging.DEBUG):
             pprint.pprint(scan_pars)
         """ SCAN_PARS
         {'type': 'ascan', 'save': True, 'title': 'ascan mm1 0 1 5 0.2', 'sleep_time': None,
@@ -362,15 +365,15 @@ class SimulationCounter(Counter, LogMixin):
 
         self.scan_pars = scan_pars
 
-        self._logger.debug("SIMULATION_COUNTER -- create_acquisition_device END")
+        log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device END")
         return self.acq_device
 
     def get_acquisition_device(self):
-        self._logger.debug("SIMULATION_COUNTER -- get_acquisition_device()")
+        log_debug(self, "SIMULATION_COUNTER -- get_acquisition_device()")
         return self.acq_device
 
     def read(self):
-        self._logger.debug("SIMULATION_COUNTER -- read()")
+        log_debug(self, "SIMULATION_COUNTER -- read()")
         return 33
 
     # If no controller, a warning is emited in `master_to_devices_mapping()`

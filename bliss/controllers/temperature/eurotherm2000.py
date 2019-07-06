@@ -47,15 +47,15 @@ from bliss.common.utils import (
     object_attribute_get,
     object_method,
 )
-from bliss.common import mapping
-from bliss.common.logtools import LogMixin
+from bliss.common import session
+from bliss.common.logtools import *
 
 
 class Eurotherm2000Error(CommunicationError):
     pass
 
 
-class Eurotherm2000Device(LogMixin):
+class Eurotherm2000Device:
     RampRateUnits = ("sec", "min", "hour")
     SensorTypes = (
         "J",
@@ -99,16 +99,17 @@ class Eurotherm2000Device(LogMixin):
     def __init__(self, modbus_address, serialport):
         """ RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
-        mapping.register(
+        session.get_current().map.register(
             self, parents_list=["comms"]
         )  # instantiating once to allow the debug
-        self._logger.debug(
-            "Eurotherm2000: __init__(address %d, port %s)", modbus_address, serialport
+        log_debug(
+            self,
+            f"Eurotherm2000: __init__(address {modbus_address}, port {serialport})",
         )
         self.comm = modbus.Modbus_RTU(
             modbus_address, serialport, baudrate=9600, eol="\r"
         )
-        mapping.register(
+        session.get_current().map.register(
             self, parents_list=["comms"], children_list=[self.comm]
         )  # twice to attach child
 
@@ -123,7 +124,7 @@ class Eurotherm2000Device(LogMixin):
     def close(self):
         """Close the serial line
         """
-        self._logger.debug("close()")
+        log_debug(self, "close()")
         self.comm._serial.close()
 
     def flush(self):
@@ -157,15 +158,13 @@ class Eurotherm2000Device(LogMixin):
     def initialize(self):
         """Get the model, the firmware version and the resolution of the module.
         """
-        self._logger.debug("initialize")
+        log_debug(self, "initialize")
         self.flush()
         self._read_identification()
         self._read_version()
-        self._logger.info(
-            "Eurotherm2000 %x (firmware: %x) (comm: %s)",
-            self._ident,
-            self._version,
-            str(self.comm),
+        log_info(
+            self,
+            f"Eurotherm2000 {self._ident:02X} (firmware: {self._version:02X}) (comm: {self.comm!s})",
         )
 
     def _read_identification(self):
@@ -179,7 +178,7 @@ class Eurotherm2000Device(LogMixin):
         """
         ident = self.read_register(122)
         if ident >> 12 == 2:
-            self._logger.debug("Connected to Eurotherm model %x" % ident)
+            log_debug(self, "Connected to Eurotherm model %x" % ident)
             self._ident = ident
             self._model = (ident & 0xf00) >> 8
         else:
@@ -202,9 +201,10 @@ class Eurotherm2000Device(LogMixin):
         """
 
         self._version = self.read_register(107)
-        self._logger.info(
+        log_info(
+            self,
             "Firmware V%x.%x"
-            % ((self._version & 0xff00) >> 8, (self._version & 0x00ff))
+            % ((self._version & 0xff00) >> 8, (self._version & 0x00ff)),
         )
 
     @property
@@ -231,10 +231,10 @@ class Eurotherm2000Device(LogMixin):
 
         if resol == 0:
             scale = pow(10, decimal)
-            self._logger.debug("Display Resolution full, decimal %d" % decimal)
+            log_debug(self, "Display Resolution full, decimal %d" % decimal)
         else:
             scale = 1
-            self._logger.debug("Display Resolution integer")
+            log_debug(self, "Display Resolution integer")
         return scale
 
     @property
@@ -313,7 +313,7 @@ class Eurotherm2000Device(LogMixin):
         """
         if value not in self.RampRateUnits:
             raise ValueError(
-                "Invalid eurotherm ramp rate units. Should be in %s".format(
+                "Invalid eurotherm ramp rate units. Should be in {}".format(
                     self.RampRateUnits
                 )
             )
@@ -384,15 +384,15 @@ class eurotherm2000(Controller):
             warn("'port' is deprecated. Use 'serial' instead", DeprecationWarning)
         self.device = Eurotherm2000Device(1, port)
         Controller.__init__(self, config, *args)
-        self._logger.debug("eurotherm2000:__init__ (%s %s)" % (config, args))
+        log_debug(self, "eurotherm2000:__init__ (%s %s)" % (config, args))
         self._set_point = None
 
     def initialize(self):
-        self._logger.debug("initialize")
+        log_debug(self, "initialize")
         self.device.initialize()
 
     def initialize_input(self, tinput):
-        self._logger.debug("initialize_input")
+        log_debug(self, "initialize_input")
         if "type" not in tinput.config:
             tinput.config["type"] = "pv"
         else:
@@ -404,7 +404,7 @@ class eurotherm2000(Controller):
                 )
 
     def initialize_output(self, toutput):
-        self._logger.debug("initialize_output")
+        log_debug(self, "initialize_output")
         if "type" not in toutput.config:
             toutput.config["type"] = "sp"
         else:
@@ -421,7 +421,7 @@ class eurotherm2000(Controller):
               toutput (object): Output class type object
               sp (float): final temperature [degC]
         """
-        self._logger.debug("set() %r" % sp)
+        log_debug(self, "set() %r" % sp)
 
         # Ramprate should be 0 in order to get there ASAP
         self.device.ramprate = 0
@@ -435,7 +435,7 @@ class eurotherm2000(Controller):
            Returns:
               (float): current temperature setpoint
         """
-        self._logger.debug("get_setpoint")
+        log_debug(self, "get_setpoint")
         return self._set_point
 
     def setpoint_abort(self, touput):
@@ -444,7 +444,7 @@ class eurotherm2000(Controller):
                 "Cannot abort, an internal program is running; RESET device first"
             )
 
-        self.setpoint(self.device.pv)
+        self.set(touput, self.device.pv)
 
     def read_output(self, toutput):
         """Read the current temperature
@@ -453,7 +453,7 @@ class eurotherm2000(Controller):
            Returns:
               (float): current temperature [degC]
         """
-        self._logger.info("read_output %s" % toutput.config["type"])
+        log_info(self, "read_output %s" % toutput.config["type"])
         typ = toutput.config["type"]
         if typ is "wsp":
             return self.device.wsp
@@ -471,7 +471,7 @@ class eurotherm2000(Controller):
         rate = kwargs.get("rate", None)
         if rate is None:
             rate = self.device.ramprate
-            if not ramprate:
+            if not rate:
                 raise Eurotherm2000Error("Cannot start ramping, ramp rate not set")
         else:
             self.device.ramprate = rate
@@ -517,7 +517,7 @@ class eurotherm2000(Controller):
         return "READY"
 
     def read_input(self, tinput):
-        self._logger.debug("read_input")
+        log_debug(self, "read_input")
         typ = str(tinput.config["type"])
         if typ == "op":
             return self.device.op

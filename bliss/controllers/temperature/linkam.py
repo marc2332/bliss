@@ -12,7 +12,7 @@ import serial.serialutil as serial
 from bliss.comm.util import get_comm, SERIAL
 from bliss.common.event import dispatcher
 from bliss.common.data_manager import ScanFile
-from bliss.common.logtools import LogMixin
+from bliss.common.logtools import *
 from bliss.common import session
 
 __all__ = ["LinkamDsc", "LinkamScanFile", "LinkamScan"]
@@ -73,7 +73,7 @@ class LinkamScan:
             )
 
 
-class LinkamDsc(LogMixin):
+class LinkamDsc:
     def __init__(self, name, config):
         """ Linkam controller with either hot stage or dsc stage
             config_-- controller configuration,
@@ -157,24 +157,24 @@ class LinkamDsc(LogMixin):
 
     def _clearBuffer(self):
         """ Sends a "B" command to clear the buffers """
-        self._logger.debug("clearBuffer() called")
+        log_debug(self, "clearBuffer() called")
         self._cnx.write_readline("B\r")
 
     def hold(self):
         """ If the controller is heating or cooling, will hold at the current
             temperature until either a heat or a cool command is received.
         """
-        self._logger.debug("hold() called")
+        log_debug(self, "hold() called")
         self._cnx.write_readline("O\r")
 
     def start(self):
         """ Start heating or cooling at the rate specified by the Rate setting """
-        self._logger.debug("start called")
+        log_debug(self, "start called")
         self._cnx.write_readline("S\r")
 
     def stop(self):
         """ Informs the controller to stop heating or cooling. """
-        self._logger.debug("stop() called")
+        log_debug(self, "stop() called")
         if self._profile_task is None:
             self._doStop()
         else:
@@ -188,7 +188,7 @@ class LinkamDsc(LogMixin):
             is at the limit it will hold at that value, otherwise it will heat up to the
             maximum temperature and stop.
         """
-        self._logger.debug("heat() called")
+        log_debug(self, "heat() called")
         self._cnx.write_readline("H\r")
 
     def cool(self):
@@ -196,17 +196,17 @@ class LinkamDsc(LogMixin):
             is at the limit it will hold at that value, otherwise it will cool to the
             minimum temperature and stop. 
         """
-        self._logger.debug("cool() called")
+        log_debug(self, "cool() called")
         self._cnx.write_readline("C\r")
 
     def setPumpAutomatic(self):
         """ Set pump in automatic mode, where the pump speed is controlled by the controller """
-        self._logger.debug("pump automatic() called")
+        log_debug(self, "pump automatic() called")
         self._cnx.write_readline("Pa0\r")
 
     def setPumpManual(self):
         """ Set pump in manual mode, where the pump speed is controlled by the PumpSpeed setting """
-        self._logger.debug("pumpManual() called")
+        log_debug(self, "pumpManual() called")
         self._cnx.write_readline("Pm0\r")
 
     @property
@@ -245,7 +245,7 @@ class LinkamDsc(LogMixin):
         if speed < 0 or speed > 30:
             raise ValueError("speed {0} out of range (0-30)".format(speed))
         self._pumpSpeed = speed
-        self._logger.debug("pump speed() P{0}".format(chr(speed + 48)))
+        log_debug(self, "pump speed() P{0}".format(chr(speed + 48)))
         self._cnx.write_readline("P{0}\r".format(chr(speed + 48)))
 
     @property
@@ -264,7 +264,7 @@ class LinkamDsc(LogMixin):
         if limit > self._maximumTemp or limit < self._minimumTemp:
             raise ValueError("Temperature ramp limit {0} out of range ".format(limit))
         self._limit = limit
-        self._logger.debug("rampLimit() Set limit to {0}".format(self._limit))
+        log_debug(self, "rampLimit() Set limit to {0}".format(self._limit))
         self._cnx.write_readline(("L1%d\r" % int(round(limit * 10.0))))
 
     @property
@@ -292,12 +292,12 @@ class LinkamDsc(LogMixin):
                 "Temperature ramp limit {0} out of range (max is 99.99)".format(rate)
             )
         self._rate = rate
-        self._logger.debug("rampRate() set to {0}".format(rate))
+        log_debug(self, "rampRate() set to {0}".format(rate))
         self._cnx.write_readline(("R1%d\r" % int(round(rate * 100))))
 
     def _hasDscStage(self):
         reply = self._cnx.write_readline(chr(0xef) + "S\r").strip()
-        self._logger.debug("hasDscStage() reply was " + reply)
+        log_debug(self, "hasDscStage() reply was " + reply)
         return True if reply[0:3] == "DSC" else False
 
     def setTemperature(self, temp):
@@ -307,7 +307,7 @@ class LinkamDsc(LogMixin):
             or self._state == self.HEATING
             or self._state == self.COOLING
         ):
-            self._logger.error("already running")
+            log_error(self, "already running")
         else:
             self.rampLimit = temp
 
@@ -327,7 +327,7 @@ class LinkamDsc(LogMixin):
             # even though sensible error and status values have been returned so we
             # catch the normally uncaught ValueError to deal with this
         except ValueError:
-            self._logger.error("invalid literal for int() with base 16: %s" % hexString)
+            log_error(self, "invalid literal for int() with base 16: %s" % hexString)
             raise ValueError("invalid literal for int() with base 16: %s" % hexString)
 
     def _temperatureData(self):
@@ -337,7 +337,7 @@ class LinkamDsc(LogMixin):
             raise ValueError(
                 "temperature reading less than -273, check that the heating stage is connected and switched on"
             )
-        #        self._logger.debug("getTemperature() returned {0}".format(temperature))
+        #        log_debug(self, "getTemperature() returned {0}".format(temperature))
         return temperature
 
     def getTemperature(self):
@@ -364,7 +364,7 @@ class LinkamDsc(LogMixin):
                 value -= 65536
             return value
         except ValueError:
-            self._logger.error("invalid literal for int() with base 16: %s" % hexString)
+            log_error(self, "invalid literal for int() with base 16: %s" % hexString)
             raise ValueError("invalid literal for int() with base 16: %s" % hexString)
 
     def _dscData(self):
@@ -405,7 +405,7 @@ class LinkamDsc(LogMixin):
         state = ord(reply[0])
         errcode = ord(reply[1])
         temperature = self._extractTemperature(reply[6:])
-        #        self._logger.debug("state {0}, errcode {1}".format(state, errcode))
+        #        log_debug(self, "state {0}, errcode {1}".format(state, errcode))
         return (state, errcode, temperature, tstamp)
 
     def isProfileRunning(self):
@@ -428,7 +428,7 @@ class LinkamDsc(LogMixin):
                 self._dscValue = dsc
         if tstamp is not None:
             self._tstamp = self._tstamp - self._start_tstamp
-            #            self._logger.debug("sending ts, temp, dsc {0},{1},{2}".format(self._tstamp, self._temperature, self._dscValue))
+            #            log_debug(self, "sending ts, temp, dsc {0},{1},{2}".format(self._tstamp, self._temperature, self._dscValue))
             dispatcher.send(
                 "linkam_profile_data",
                 self,
@@ -452,7 +452,7 @@ class LinkamDsc(LogMixin):
                 self._getStatusString(self._state, self._errCode)
                 + ": Profile is running"
             )
-        #        self._logger.debug("status() {0}".format(status))
+        #        log_debug(self, "status() {0}".format(status))
         return status
 
     @property
@@ -468,7 +468,7 @@ class LinkamDsc(LogMixin):
         possible_range = (.3, .6, .9, 1.5, 3, 6, 9, 15, 30, 60, 90, 150)
         index = bisect.bisect_right(possible_range, rate, 0, 11)
         value = possible_range[index] / 0.05
-        self._logger.debug("dscSamplingRate() setting %f" % value)
+        log_debug(self, "dscSamplingRate() setting %f" % value)
         self._cnx.write_readline(chr(0xe7) + "%4d\r" % int(round(value)))
 
     def profile(self, ramps):
@@ -490,18 +490,20 @@ class LinkamDsc(LogMixin):
         try:
             state, errcode, temperature, _ = self._getState()  # get initial state
             if errcode != self.LINKAM_OK:
-                self._logger.error(
+                log_error(
+                    self,
                     "Profile received Linkam errcode: {0}".format(
                         self.ErrorToString.get(errCode)
-                    )
+                    ),
                 )
                 temperature = -273.15
             self._updateState(state, errcode, temperature, 0.0, None)
             for (rate, limit, holdTime) in ramps:  # get ramp and load it
-                self._logger.debug(
+                log_debug(
+                    self,
                     "loading rate={0} limit={1} holdtime={2}".format(
                         rate, limit, holdTime
-                    )
+                    ),
                 )
                 with self._lock:
                     self._rampNb = currentRamp
@@ -517,10 +519,11 @@ class LinkamDsc(LogMixin):
                         self._getState()
                     )  # get initial state
                     if errcode != self.LINKAM_OK:
-                        self._logger.error(
+                        log_error(
+                            self,
                             "Profile received Linkam errcode: {0}".format(
                                 self.ErrorToString.get(errCode)
-                            )
+                            ),
                         )
                         temperature = -273.15
                     self._updateState(state, errcode, temperature, 0.0, None)
@@ -531,10 +534,11 @@ class LinkamDsc(LogMixin):
                         break  # abort profile
                     newState, errcode, temperature, tstamp = self._getState()
                     if errcode != self.LINKAM_OK:
-                        self._logger.error(
+                        log_error(
+                            self,
                             "Profile received Linkam errcode: {0}".format(
                                 self.ErrorToString.get(errCode)
-                            )
+                            ),
                         )
                         temperature = -273.15
                     if self._hasDSC:
@@ -556,11 +560,11 @@ class LinkamDsc(LogMixin):
                     if newState != state and (
                         newState == self.HOLDINGLIMIT or newState == self.HOLDINGTEMP
                     ):
-                        self._logger.debug("changed state to {0}".format(newState))
+                        log_debug(self, "changed state to {0}".format(newState))
                         if holdTime > 0.0:
                             state = newState
-                            self._logger.debug(
-                                "start to do hold for {0}seconds".format(holdTime)
+                            log_debug(
+                                self, "start to do hold for {0}seconds".format(holdTime)
                             )
                             self._hold = True
                             gevent.spawn(self._run_hold_timer, holdTime)
@@ -575,10 +579,11 @@ class LinkamDsc(LogMixin):
                                     self._getState()
                                 )
                                 if errcode != self.LINKAM_OK:
-                                    self._logger.error(
+                                    log_error(
+                                        self,
                                         "Profile received Linkam errcode: {0}".format(
                                             self.ErrorToString.get(errCode)
-                                        )
+                                        ),
                                     )
                                     temperature = -273.15
                                 if self._hasDSC:
@@ -602,10 +607,11 @@ class LinkamDsc(LogMixin):
                                     self._updateState(
                                         newState, errcode, temperature, 0.0, tstamp
                                     )
-                        self._logger.debug(
+                        log_debug(
+                            self,
                             "starting next ramp {0} state {1} newstate {2}".format(
                                 currentRamp + 1, state, newState
-                            )
+                            ),
                         )
                         break  # start the next ramp
                     state = newState
@@ -615,10 +621,10 @@ class LinkamDsc(LogMixin):
                     break  # abort the profile
         except:
             sys.excepthook(*sys.exc_info())
-            #            self._logger.error(self.ErrorToString.get(errCode))
+            #            log_error(self, self.ErrorToString.get(errCode))
             self.rampLimit = self._temperature
         finally:
-            self._logger.debug("doing finally")
+            log_debug(self, "doing finally")
             self.rampLimit = self._temperature
             dispatcher.send("linkam_profile_end", self)
             self._profileCompleteCallback()
@@ -626,10 +632,10 @@ class LinkamDsc(LogMixin):
                 self._profile_task = None
 
     def _run_hold_timer(self, holdTime):
-        self._logger.debug("starting hold timer")
+        log_debug(self, "starting hold timer")
         rc = gevent.select.select([self._pipe[0]], [], [], holdTime)
         with self._lock:
-            self._logger.debug("select finished rc = {0}".format(rc))
+            log_debug(self, "select finished rc = {0}".format(rc))
             self._hold = False
 
     def _timeStamp(self):

@@ -9,11 +9,11 @@ import pytest
 import logging
 import re
 
-from bliss.common.logtools import map_update_loggers, Log, LogMixin, logging_startup
+from bliss.common.logtools import *
+from bliss.common.logtools import logging_startup, Log
 from bliss.common.standard import debugon, debugoff, lslog
 from bliss.common.mapping import Map, map_id
 from bliss.common import session
-import bliss
 
 
 @pytest.fixture
@@ -43,40 +43,28 @@ def params(beacon, map):
     logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
 
 
-class NotMappedController(LogMixin):
-    """
-    Logging on this device should raise an exception as is not mapped
-    """
+class MappedController:
 
-    name = "nmc"
-
-    def __init__(self, name="nmc"):
-        self.name = name
-
-    def msg_debug(self, msg=""):
-        self._logger.debug(f"Debug message {msg}")
-
-    def msg_debug_data(self, msg=""):
-        self._logger.debug_data(f"Debug message {msg}", b"asdasdadsa")
-
-    def msg_info(self, msg=""):
-        self._logger.info(f"Info message {msg}")
-
-    def msg_error(self, msg=""):
-        self._logger.error(f"Error message {msg}")
-
-
-class MappedController(NotMappedController, LogMixin):
-    """
-    Logging on this device should succeed
-    """
+    name = "mc"
 
     def __init__(self, name="mc", parents_list=None, children_list=None):
         self.name = name
         session.get_current().map.register(self, parents_list, children_list)
 
+    def msg_debug(self, msg=""):
+        log_debug(self, f"Debug message {msg}")
 
-class Device(LogMixin):
+    def msg_debug_data(self, msg=""):
+        log_debug_data(self, f"Debug data message {msg}", b"asdasdadsa")
+
+    def msg_info(self, msg=""):
+        log_info(self, f"Info message {msg}")
+
+    def msg_error(self, msg=""):
+        log_error(self, f"Error message {msg}")
+
+
+class Device:
     """
     Device for Logging Test
     """
@@ -98,7 +86,7 @@ def test_add_motor_m0(params):
     m0 = beacon.get("m0")  # creating a device
 
     # Check if _logger appended to instance
-    assert isinstance(m0._logger, logging.Logger)
+    assert isinstance(get_logger(m0), logging.Logger)
 
     all_loggers = logging.getLogger().manager.loggerDict
     assert (
@@ -109,29 +97,29 @@ def test_add_motor_m0(params):
 
 def test_m0_logger_debugon(params, caplog):
     """
-    test the use of device's self._logger
+    test the use of device's  debugon
     """
     beacon, log = params
     msg = "DEBUG TEST MESSAGE"
 
     m0 = beacon.get("m0")  # creating a device
-    m0._logger.debugon()
-    assert m0._logger.level == logging.DEBUG
-    m0._logger.debug(msg)
+    debugon(m0)
+    assert get_logger(m0).level == logging.DEBUG
+    log_debug(m0, msg)
     assert msg in caplog.text
 
 
 def test_m0_logger_debugoff(params, caplog):
     """
-    test the use of device's self._logger
+    test the use of device's debugoff
     """
     beacon, log = params
     msg = "DEBUG TEST MESSAGE"
 
     m0 = beacon.get("m0")  # creating a device
-    m0._logger.debugoff()
-    assert m0._logger.level == logging.NOTSET
-    m0._logger.debug(msg)
+    debugoff(m0)
+    assert get_logger(m0).level == logging.NOTSET
+    log_debug(m0, msg)
     assert msg not in caplog.text
 
 
@@ -144,10 +132,10 @@ def test_m0_debug_data_hex(params, caplog):
 
     m0 = beacon.get("m0")  # creating a device
     data = bytes([244, 243, 242]).decode("latin-1")
-    assert m0._logger.log_format_hex(data) == expected
-    m0._logger.debugon()
-    m0._logger.set_hex_format()
-    m0._logger.debug_data("debugging", data)
+    assert hexify(data) == get_logger(m0).log_format_hex(data) == expected
+    debugon(m0)
+    set_log_format(m0, "hex")
+    log_debug_data(m0, "debugging", data)
 
     assert expected in caplog.text
     assert "debugging" in caplog.text
@@ -163,10 +151,10 @@ def test_m0_debug_data_ascii(params, caplog):
 
     m0 = beacon.get("m0")  # creating a device
     data = bytes([97, 98, 244, 243, 242]).decode("latin-1")
-    assert m0._logger.log_format_ascii(data) == expected
-    m0._logger.debugon()
-    m0._logger.set_ascii_format()
-    m0._logger.debug_data("debugging", data)
+    assert get_logger(m0).log_format_ascii(data) == expected
+    debugon(m0)
+    set_log_format(m0, "ascii")
+    log_debug_data(m0, "debugging", data)
 
     assert expected in caplog.text
     assert "debugging" in caplog.text
@@ -185,9 +173,19 @@ def test_m0_logger_debug_data_dict(params, caplog):
     )
 
     m0 = beacon.get("m0")  # creating a device
-    m0._logger.debugon()
-    m0._logger.debug_data(msg, data)
+    debugon(m0)
+    log_debug_data(m0, msg, data)
     assert expected in caplog.text
+
+
+def test_m0_logger_debug_data_other_types(params, caplog):
+    beacon, log = params
+    m0 = beacon.get("m0")  # creating a device
+    debugon(m0)
+    log_debug_data(m0, "INTEGER", 1234)
+    log_debug_data(m0, "STRING", "toto")
+    assert "INTEGER 1234" in caplog.text
+    assert "STRING bytes=4 toto" in caplog.text
 
 
 def test_LogMixin(params, caplog):
@@ -196,17 +194,15 @@ def test_LogMixin(params, caplog):
     """
     beacon, log = params
 
-    nmc = NotMappedController("nmc")
-    assert nmc._logger.name == "session.controllers.nmc"
     mc = MappedController("mc")
-    assert mc._logger.name == "session.controllers.mc"
+    assert get_logger(mc).name == "session.controllers.mc"
 
-    mc._logger.debugon()  # activates debug logging level
+    debugon(mc)
     expected = "Debug message"
     mc.msg_debug()
     assert expected in caplog.text
 
-    expected = "Debug message"
+    expected = "Debug data message"
     mc.msg_debug_data()
     assert expected in caplog.text
 
@@ -214,7 +210,7 @@ def test_LogMixin(params, caplog):
     mc.msg_info()
     assert expected in caplog.text
 
-    assert hasattr(mc._logger, "debug_data")
+    assert hasattr(get_logger(mc), "debug_data")
 
 
 def test_standard_debugon_debugoff(params):
@@ -224,20 +220,20 @@ def test_standard_debugon_debugoff(params):
 
     debugon(roby)
 
-    assert roby._logger.level == logging.DEBUG
+    assert get_logger(roby).level == logging.DEBUG
 
     debugoff(roby)
 
-    assert roby._logger.level == logging.NOTSET
+    assert get_logger(roby).level == logging.NOTSET
 
     debugon("*roby")
 
-    assert roby._logger.level == logging.DEBUG
+    assert get_logger(roby).level == logging.DEBUG
 
     debugoff("*roby")
 
-    assert roby._logger.level == logging.NOTSET
-    assert roby._logger.getEffectiveLevel() == logging.WARNING
+    assert get_logger(roby).level == logging.NOTSET
+    assert get_logger(roby).getEffectiveLevel() == logging.WARNING
 
 
 def node_check(obj, caplog, children=None):
@@ -268,13 +264,13 @@ def node_check(obj, caplog, children=None):
         caplog.clear()
 
         # activate with _logger
-        child._logger.debugon()
+        debugon(child)
         child.msg_debug(dbg_msg)
         child.msg_error(err_msg)
         assert dbg_msg in caplog.text
         assert err_msg in caplog.text
         caplog.clear()
-        child._logger.debugoff()
+        debugoff(child)
         child.msg_debug(dbg_msg)
         child.msg_error(err_msg)
         assert dbg_msg not in caplog.text
@@ -328,20 +324,20 @@ def test_level_switch(params, caplog):
     """
     beacon, log = params
     m0 = beacon.get("m0")
-    assert m0._logger.level == logging.NOTSET
-    assert m0._logger.getEffectiveLevel() == logging.WARNING
-    m0._logger.debugon()
-    assert m0._logger.level == logging.DEBUG
-    assert m0._logger.getEffectiveLevel() == logging.DEBUG
-    m0._logger.debugon()  # repeat twice for replicate bug
-    assert m0._logger.level == logging.DEBUG
-    assert m0._logger.getEffectiveLevel() == logging.DEBUG
-    m0._logger.debugoff()
-    assert m0._logger.level == logging.NOTSET
-    assert m0._logger.getEffectiveLevel() == logging.WARNING
+    assert get_logger(m0).level == logging.NOTSET
+    assert get_logger(m0).getEffectiveLevel() == logging.WARNING
+    debugon(m0)
+    assert get_logger(m0).level == logging.DEBUG
+    assert get_logger(m0).getEffectiveLevel() == logging.DEBUG
+    debugon(m0)  # repeat twice for replicate bug
+    assert get_logger(m0).level == logging.DEBUG
+    assert get_logger(m0).getEffectiveLevel() == logging.DEBUG
+    get_logger(m0).debugoff()
+    assert get_logger(m0).level == logging.NOTSET
+    assert get_logger(m0).getEffectiveLevel() == logging.WARNING
     # this will change also the default level
-    m0._logger.setLevel(logging.INFO)
-    m0._logger.debugon()
-    m0._logger.debugoff()
-    assert m0._logger.level == logging.INFO
-    assert m0._logger.getEffectiveLevel() == logging.INFO
+    get_logger(m0).setLevel(logging.INFO)
+    get_logger(m0).debugon()
+    get_logger(m0).debugoff()
+    assert get_logger(m0).level == logging.INFO
+    assert get_logger(m0).getEffectiveLevel() == logging.INFO

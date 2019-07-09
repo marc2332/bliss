@@ -23,6 +23,7 @@ from bliss.common.logtools import *
 
 from . import pi_gcs
 from bliss.comm.util import TCP
+from bliss.common.event import connect, disconnect
 
 """
 Bliss controller for ethernet PI E712 piezo controller.
@@ -74,6 +75,7 @@ class PI_E712(Controller):
         """
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
         session.get_current().map.register(self, children_list=[self.sock])
+        connect(self.sock, "connect", self._clear_error)
 
     def finalize(self):
         """
@@ -81,6 +83,7 @@ class PI_E712(Controller):
         """
         if self.sock:
             self.sock.close()
+            disconnect(self.sock, "connect", self._clear_error)
 
     def initialize_axis(self, axis):
         """
@@ -845,6 +848,10 @@ class PI_E712(Controller):
         _error_str = pi_gcs.get_error_str(_error_number)
 
         return (_error_number, _error_str)
+
+    def _clear_error(self, connected):
+        if connected:
+            self.get_error()  # read and clear any error
 
     def get_info(self, axis):
         """

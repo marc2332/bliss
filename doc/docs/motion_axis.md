@@ -38,8 +38,8 @@ Parameter name                              |  Required | Setting?  | Type   | D
 [velocity](motion_axis.md#velocity)         |  yes      | yes       | float  | Nominal axis velocity in *units.s<sup>-1</sup>*
 [acceleration](motion_axis.md#acceleration) |  yes      | yes       | float  | Nominal acceleration value in *units.s<sup>-2</sup>*
 [sign](motion_axis.md#position)             |  no       | no        | int    | Accepted values: 1 or -1. User position = (sign * dial_position) + offset ; *defaults to 1*
-[low_limit](motion_axis.md#limits)          |  no       | yes       | float  | Lower user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
-[high_limit](motion_axis.md#limits)         |  no       | yes       | float  | Higher user limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
+[low_limit](motion_axis.md#limits)          |  no       | yes       | float  | **Dial** Lower limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
+[high_limit](motion_axis.md#limits)         |  no       | yes       | float  | **Dial** Higher limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
 [backlash](motion_axis.md#backlash)         |  no       | no        | float  | Axis backlash in user units ; *defaults to 0*
 [tolerance](motion_axis.md#tolerance)       |  no       | no        | float  | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
 [encoder](motion_axis.md#encoder)           |  no       | no        | string | Name of an existing **Encoder** object linked with this axis
@@ -140,8 +140,8 @@ It is enough to call the property to read the property value.
 Depending on the property, this can also trigger an action on
 the motor controller.
 
-Property name                 | R/W? | Type   | Description
-------------------------------|------|--------|-------------
+Property name                                       | R/W? | Type   | Description
+----------------------------------------------------|------|--------|-------------
 [name](motion_axis.md#name)                         | R    | string | Axis name
 [velocity](motion_axis.md#velocity)                 |  R+W | float  | Get or set the axis velocity in *units.s<sup>-1</sup>*
 [config_velocity](motion_axis.md#velocity)          | R    | float  | Returns the nominal velocity value from the configuration
@@ -149,10 +149,10 @@ Property name                 | R/W? | Type   | Description
 [config_acceleration](motion_axis.md#acceleration)  | R    | float  | Returns the nominal acceleration value from the configuration
 [acctime](motion_axis.md#acceleration)              | R+W  | float  | Get or set the acceleration time; note: depends on both velocity and acceleration ; *acctime = velocity / acceleration*
 [config_acctime](motion_axis.md#acceleration)       | R    | float  | Returns the acceleration time taking into account nominal values for velocity and acceleration
-[low_limit](motion_axis.md#limits)                  | R+W  | float or None | Get or set the soft low limit
-[high_limit](motion_axis.md#limits)                 | R+W  | float or None | Get or set the soft high limit
-[limits](motion_axis.md#limits)                     | R+W  | (float or None, float or None) | Get or set soft limits
-[config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Returns (low_limit, high_limit), taking values from the configuration
+[low_limit](motion_axis.md#limits)                  | R+W  | float or None | Get or set the soft low limit **in user units**
+[high_limit](motion_axis.md#limits)                 | R+W  | float or None | Get or set the soft high limit **in user units**
+[limits](motion_axis.md#limits)                     | R+W  | (float or None, float or None) | Get or set soft limits **in user units**
+[config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Returns (low_limit, high_limit), from the in-memory configuration **in user units**
 [steps_per_unit](motion_axis.md#position)           | R    | float | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
 [backlash](motion_axis.md#backlash)                 | R    | float | Returns the backlash applied to the axis
 [is_moving](motion_axis.md#is_moving)               | R    | bool  | Returns whether the axis is moving
@@ -173,12 +173,12 @@ alias ??
 
 ### position
 
-* position
-* sign
-* user
-* dial
-* offset
-* steps_per_unit
+* `position`
+* `sign`
+* `user`
+* `dial`
+* `offset`
+* `steps_per_unit`
 
 !!! note
     About units management
@@ -257,8 +257,8 @@ Frequency: 20 ms ?
 
 
 ### hardware_position
-* _hw_position
-*_set_position
+* `_hw_position`
+* `_set_position`
 
 
 m1._hw_position        # just read (no cache), does not update settings
@@ -266,21 +266,81 @@ m1._hw_position = 36   # ---> INVALID
 m1._set_position = 36  # ---> VALID
 
 ### limits
-* limits
-* low_limit
-* high_limit
-* config_limits
+
+A particular attention must be paid to the units of the limits.
+
+In user interactions, limits are treated in *USER units*, but internaly and in
+the config, limits are managed in *DIAL units*.
+
+Configuring limits in DIAL units in the config is relevant to avoid to impact
+them with `sign` and `offset`.
+
+Properties related to limits:
+* `limits` (R+W): Get or set soft limits **in user units**
+* `low_limit` (R+W): Get or set the soft low limit **in user units**
+* `high_limit` (R+W): Get or set the soft high limit **in user units**
+* `config_limits` (R): Returns (low_limit, high_limit), from the in-memory configuration **in user units**
+
+#### Pushing the limits
+
+Examples of limits behavior.
+
+in config:
+```yaml
+...
+  - acceleration: 10
+    name: m4
+    steps_per_unit: 100
+    velocity: 10
+    high_limit: 90.0
+    low_limit: -90.0
+...
+```
+
+```python
+DEMO [2]: wm(m4)
+                m4
+-------  ---------
+User
+High      90.00000
+Current    3.00000
+Low      -90.00000
+Offset     0.00000
+Dial
+High      90.00000
+Current    3.00000
+Low      -90.00000
+```
+
+Setting the user position creates an offset. USER limits are impacted but not
+DIAL limits.
+
+```
+DEMO [3]: m4.position = 12
+DEMO [4]: wm(m4)
+                m4
+-------  ---------
+User
+High      99.00000
+Current   12.00000
+Low      -81.00000
+Offset     9.00000
+Dial
+High      90.00000
+Current    3.00000
+Low      -90.00000
+```
 
 
 ### velocity
-* velocity
-* config_velocity
+* `velocity`
+* `config_velocity`
 
 ### acceleration
-* acceleration
-* config_acceleration
-* acctime
-* config_acctime
+* `acceleration`
+* `config_acceleration`
+* `acctime`
+* `config_acctime`
 
 Changing acceleration:
 
@@ -408,7 +468,24 @@ State changed to MOVING (Axis is MOVING)
 State changed to READY (Axis is READY)
 ```
 
-## Synchronization with hardware
+
+## Axis commands
+
+### settings_to_config()
+
+Saves settings (`velocity` `acceleration` `limits`) into config (XML file or
+beacon YML).
+
+
+### on()
+
+### off()
+
+### get_info()
+
+### dial2user() user2dial()
+
+### sync_hard() Synchronization with hardware
 
 The `Axis` object tries to minimize access to the physical motor
 controller. In particular, it is assumed BLISS takes ownership of the
@@ -425,7 +502,10 @@ and the hardware state.
 In order to solve the problem, and to empty the internal cache, the
 `.sync_hard()` method can be called.
 
-## Moving
+
+
+## Moving stop() move() home() jog()
+
 
 The `Axis` object provides the following methods to start, monitor and
 stop a movement:

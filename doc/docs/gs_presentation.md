@@ -275,24 +275,26 @@ Second fundamental objects to consider in BLISS are the *motors*.
 Motors are used to reflect a change of a device. It can be an object
 movement or a device set-point.
 
-Motors main properties are:
+Motors main parameters are:
 
-* user and dial positions (potentially differing by an offset)
-* velocity and acceleration
-* limits
+* *user* and *dial* positions (potentially differing by an *offset* and a *sign*)
+* *velocity* and *acceleration*
+* *high_limit* and *low_limit*
 
 
 `wa()` standard command is provided to show positions of all motors
 defined in the current session.
 
-    DEMO [21]: wa()
-    Current Positions (user, dial)
 
-      simot1    simot2    simot3    simot4    simot5
-    --------  --------  --------  --------  --------
-     2.00000   4.00000   6.00000   8.00000   9.00000
-     2.00000   4.00000   6.00000   8.00000   9.00000
+```python
+DEMO [21]: wa()
+Current Positions (user, dial)
 
+simot1    simot2    simot3    simot4    simot5
+--------  --------  --------  --------  --------
+2.00000   4.00000   6.00000   8.00000   9.00000
+2.00000   4.00000   6.00000   8.00000   9.00000
+```
 
 `wm()` shows dial and limits in addition to positions.
 

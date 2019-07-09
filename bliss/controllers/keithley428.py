@@ -29,21 +29,13 @@ class keithley428(object):
         """
 
         self.name = name
-        if "gpib_url" in config_tree:
-            self._cnx = Gpib(
-                config_tree["gpib_url"],
-                pad=config_tree["gpib_pad"],
-                eos=config_tree.get("gpib_eos", ""),
-                timeout=config_tree.get("gpib_timeout", 0.5),
-            )
-            self._txterm = ""
-            self._rxterm = "\r\n"
-            try:
-                self._cnx._readline(self._rxterm)
-            except Exception:
-                pass
-        else:
-            raise ValueError("Must specify gpib_url")
+        self._cnx = get_comm(config_tree, eol="", timeout=0.5)
+        self._txterm = ""
+        self._rxterm = "\r\n"
+        try:
+            self._cnx._readline(self._rxterm)
+        except Exception:
+            pass
 
         self._FilterRiseTimes = {
             0: "10usec",

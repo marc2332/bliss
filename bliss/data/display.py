@@ -100,7 +100,7 @@ class ScanPrinter:
         self.real_motors = []
         set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
 
-    def on_scan_new(self, scan_info):
+    def on_scan_new(self, scan, scan_info):
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -661,7 +661,7 @@ class ScanEventHandler:
 
         self.repl = repl
 
-    def on_scan_new(self, scan_info):
+    def on_scan_new(self, scan, scan_info):
         pass  # subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
 
     def on_scan_data(self, scan_info, values):

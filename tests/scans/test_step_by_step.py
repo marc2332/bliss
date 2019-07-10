@@ -170,7 +170,7 @@ def test_scan_callbacks(session):
 
     res = {"new": False, "end": False, "values": []}
 
-    def on_scan_new(scan_info):
+    def on_scan_new(scan, scan_info):
         res["new"] = True
 
     def on_scan_data(scan_info, values):

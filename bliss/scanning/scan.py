@@ -98,11 +98,11 @@ class StepScanDataWatch:
         self._channel_name_2_channel = dict()
         self._init_done = False
 
-    def on_scan_new(self, scan_info):
+    def on_scan_new(self, scan, scan_info):
 
         cb = _SCAN_WATCH_CALLBACKS["new"]()
         if cb is not None:
-            cb(scan_info)
+            cb(scan, scan_info)
 
     def on_scan_data(self, data_events, nodes, scan_info):
 
@@ -889,11 +889,12 @@ class Scan:
             set_watch_event = self._data_watch_callback_event.set
 
         self.acq_chain.reset_stats()
-        current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
         try:
             if self._data_watch_callback:
-                self._data_watch_callback.on_scan_new(self.scan_info)
+                self._data_watch_callback.on_scan_new(self, self.scan_info)
+
+            current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
             self.__state = ScanState.PREPARING
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):

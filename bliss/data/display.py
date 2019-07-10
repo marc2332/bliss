@@ -17,6 +17,8 @@ import shutil
 import signal
 import subprocess
 import atexit
+import contextlib
+import gevent
 from functools import wraps
 from gevent.threadpool import ThreadPool
 
@@ -30,6 +32,7 @@ from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
+from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 
 
 if sys.platform not in ["win32", "cygwin"]:
@@ -661,16 +664,100 @@ class ScanDataListener:
         )
 
 
+@contextlib.contextmanager
+def _local_pb(scan, repl):
+    # Shitty cyclic import
+    # we have to purge this :-(
+    from bliss.shell.cli import progressbar
+
+    try:
+        real_motors = list()
+
+        def on_motor_position_changed(position, signal=None, sender=None):
+            labels = []
+            for motor in real_motors:
+                position = "{0:.03f}".format(motor.position)
+                unit = motor.config.get("unit", default=None)
+                if unit:
+                    position += "[{0}]".format(unit)
+                labels.append("{0}: {1}".format(motor.name, position))
+            pb.bar.label = ", ".join(labels)
+            pb.invalidate()
+
+        scan_info = scan.scan_info
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+        for channel_fullname in channels["master"]["scalars"]:
+            channel_short_name = channels["master"]["display_names"][channel_fullname]
+            try:
+                motor = _find_obj(channel_short_name)
+            except Exception:
+                continue
+            else:
+                if isinstance(motor, Axis):
+                    real_motors.append(motor)
+                    dispatcher.connect(
+                        on_motor_position_changed, signal="position", sender=motor
+                    )
+
+        with progressbar.ProgressBar() as pb:
+            yield pb
+    except KeyboardInterrupt:
+        repl.stop_current_task(block=False, exception=KeyboardInterrupt)
+    finally:
+        for motor in real_motors:
+            dispatcher.disconnect(
+                on_motor_position_changed, signal="position", sender=motor
+            )
+
+
 class ScanEventHandler:
     def __init__(self, repl):
 
         self.repl = repl
+        self.progress_task = None
 
     def on_scan_new(self, scan, scan_info):
-        pass  # subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
+        if self.progress_task:
+            self.progress_task.kill()
+        started_event = gevent.event.Event()
+        self.progress_task = gevent.spawn(self._progress_bar, scan, started_event)
+        with gevent.Timeout(1.):
+            started_event.wait()
 
     def on_scan_data(self, scan_info, values):
         pass
 
     def on_scan_end(self, scan_info):
         pass
+
+    def _progress_bar(self, scan, started_event):
+
+        try:
+            npoints = scan.scan_info["npoints"]
+        except KeyError:
+            started_event.set()
+            return  # nothing to do
+        queue = gevent.queue.Queue()
+        task = self.progress_task
+
+        class Preset(ChainPreset):
+            class Iter(ChainIterationPreset):
+                def start(self):
+                    queue.put("+")
+
+            def get_iterator(self, chain):
+                while True:
+                    yield Preset.Iter()
+
+            def stop(self, chain):
+                queue.put(StopIteration)
+                task.join()
+
+        preset = Preset()
+        scan.acq_chain.add_preset(preset)
+        started_event.set()
+        with _local_pb(scan, self.repl) as pb:
+            it = pb(queue, remove_when_done=True, total=npoints or None)
+            pb.bar = it
+            for i in it:
+                pass

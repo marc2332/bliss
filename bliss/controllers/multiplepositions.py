@@ -16,22 +16,22 @@ name: att1
 positions:
 - label: Al3
   description: Aluminum 3 mm
-  axes:
+  target:
   - axis: $dummy1
-    target: 2.5
-    delta: 0.01
+    destination: 2.5
+    tolerance: 0.01
 - label: Cu2
   description: Copper 2 mm
-  axes:
+  target:
   - axis: $dummy1
-    target: 2.0
-    delta: 0.2
+    destination: 2.0
+    tolerance: 0.2
 - label: Al4
   description: Aluminum 4 mm
-  axes:
+  target:
   - axis: $dummy1
-    target: 3.5
-    delta: 0.01
+    destination: 3.5
+    tolerance: 0.01
 
 2. Beamstop with 3 predefined positions, moving 2 motors at the same time
 
@@ -41,104 +41,105 @@ simultaneous_move: True
 positions:
 - label: IN
   description: Beamstop position IN the beam
-  axes:
+  target:
   - axis: $dummy1
-    target: 2.5
-    delta: 0.01
+    destination: 2.5
+    tolerance: 0.01
   - axis: $dummy2
-    target: 1.0
-    delta: 0.2
+    destination: 1.0
+    tolerance: 0.2
 - label: OUT
   description: Beamstop position OUT of the beam
-  axes:
+  target:
   - axis: $dummy1
-    target: 3.5
-    delta: 0.01
+    destination: 3.5
+    tolerance: 0.01
   - axis: $dummy2
-    target: 2.0
-    delta: 0.2
+    destination: 2.0
+    tolerance: 0.2
 - label: PARK
   description: Beamstop in safe position
-  axes:
+  target:
   - axis: $dummy1
-    target: 1.5
-    delta: 0.01
+    destination: 1.5
+    tolerance: 0.01
   - axis: $dummy2
-    target: 0.0
-    delta: 0.2
+    destination: 0.0
+    tolerance: 0.2
 """
+from tabulate import tabulate
 from gevent import Timeout
-from bliss.common.motor_group import Group
 from bliss.common import session
-from bliss.common.logtools import *
+from bliss.common.motor_group import Group
+from bliss.common.axis import AxisState
 
 
 class MultiplePositions:
-    """ Handle multiple positions
+    """ Handle multiple positions.
     """
 
     def __init__(self, name, config):
-        self.motors = {}
-        self.labels_list = []
-        self._config = config
-        self.__lbl_max = 0
-        self.__desc_max = 0
         self.simultaneous = True
-        self.group = None
+        self.targets_dict = {}  # dict of all the targets (to be used by GUI)
+        self._positions_list = []
+        self._config = config
+        self._group = None
+        self._last_label = None
+        self._current_label = None
+        self._read_config()
         session.get_current().map.register(self, tag=name)
-        self._create_config()
 
-    def _create_config(self):
-        """ Read the configuration. Create nesessary variables
+    def _read_config(self):
+        """ Read the configuration.
         """
-        self.motors = {}
-        self.labels_list = []
+        self.targets_dict = {}
+        self._positions_list = []
         try:
             for pos in self._config.get("positions"):
-                pos = pos.to_dict()
-                if len(pos.get("label")) > self.__lbl_max:
-                    self.__lbl_max = len(pos.get("label"))
-                if len(pos.get("description")) > self.__desc_max:
-                    self.__desc_max = len(pos.get("description"))
-                self.labels_list.append(pos)
-                self.motors[pos.get("label")] = pos.get("axes")
+                self._positions_list.append(pos)
+                self.targets_dict[pos.get("label")] = pos.get("target")
+            self.simultaneous = self._config.get("move_simultaneous", True)
+            _label = self.position
+            if "unknown" not in self.position:
+                self._current_label = _label
+            if not (self._last_label and self._current_label):
+                self._last_label = self._positions_list[0]["label"]
         except TypeError:
             print("No position configured")
-        self.simultaneous = self._config.get("move_simultaneous", True)
 
+    @property
     def status(self):
         """ Print the exhaustive status of the object
         """
-        print(
-            "  LABEL%sDESCRIPTION%sMOTOR POSITION(S)"
-            % (" " * max(self.__lbl_max - 1, 4), " " * max(self.__desc_max - 7, 4))
-        )
+        # HEADER
+        table = [("", "LABEL", "DESCRIPTION", "MOTOR POSITION(S)")]
+
         curr_pos = self._get_position()
-        for pos in self.labels_list:
-            mystr = "  "
+        motpos_str = ""
+        for pos in self._positions_list:
+            descr = pos.get("description", "")
             if pos["label"] in curr_pos:
                 mystr = "* "
-            mystr += (
-                pos["label"]
-                + " " * (max(self.__lbl_max, 5) - len(pos["label"]) + 4)
-                + pos["description"]
-                + " " * (max(self.__desc_max, 11) - len(pos["description"]) + 3)
-            )
-            mstr = ""
+            else:
+                mystr = ""
+
             motstr = ""
-            n = 0
-            for mot in self.motors[pos["label"]]:
-                if n:
-                    mstr += " " * (len(mystr) + 1)
-                mstr += "%s: %3.3f  (± %2.3f)\n" % (
+            for mot in self.targets_dict[pos["label"]]:
+                motstr += "%s: %3.3f  (± %2.3f)\n" % (
                     mot["axis"].name,
-                    mot["target"],
-                    mot.get("delta", 0),
+                    mot["destination"],
+                    mot.get("tolerance", 0),
                 )
-                motstr += "%s = %3.4f\n" % (mot["axis"].name, mot["axis"].position)
-                n += 1
-            print(mystr, mstr)
-        print(motstr)
+                if mot["axis"].name not in motpos_str:
+                    motpos_str += "%s = %3.4f\n" % (
+                        mot["axis"].name,
+                        mot["axis"].position,
+                    )
+            table.append((mystr, pos["label"], descr, motstr))
+        # POSITIONS
+        print(tabulate(tuple(table), numalign="right", tablefmt="plain"))
+        # MOTORS
+        print(motpos_str)
 
     @property
     def position(self):
@@ -146,14 +147,46 @@ class MultiplePositions:
         Returns:
             (str): The position as defined in the label configuration parameter
         """
-        return self._get_position()
+        pos = self._get_position()
+        if pos == self._current_label:
+            self._last_label = pos
+        return pos
+
+    @property
+    def state(self):
+        """ Get the state of the object.
+        Returns:
+            (str): The state as a string
+        """
+        return self._state_as_motor()._current_states[0]
+
+    def _state_as_motor(self, label=None):
+        """ The state as defined by the mototr(s):
+        Args:
+            (str): The label. If not defined, the last known label will be used.
+        Returns:
+            (AxisState): The state as a motor state
+        """
+        local_state = []
+
+        if self._group:
+            return self._group.state
+        if not label:
+            label = self._current_label or self._last_label
+            for axis in self.targets_dict[label]:
+                local_state.append(axis.get("axis").state)
+
+        for stat in AxisState().states_list():
+            if all(stat in st for st in local_state):
+                return AxisState(stat)
+        return AxisState("UNKNOWN")
 
     def move(self, label, wait=True):
-        """ Move the motors to the target, simultaneously or not, as defined in
+        """ Move the motors to the destination, simultaneously or not, as defined in
             the config - move_siimultaneously parameter (default value True).
             Wait the end of the move or not. Warning: only the simultaneosly
-            moving motors can set wait to False. Otherwise the motors will be
-            moved one after another in the order of the configuration file.
+            moving motors can set wait=False. Otherwise the motors will move
+            one after another in the order of the configuration file.
         Args:
             label (str): The label of the position to move to
         Kwargs:
@@ -162,102 +195,136 @@ class MultiplePositions:
         Raises:
             RuntimeError: Wrong label
         """
-        if label not in self.motors:
+        if label not in self.targets_dict:
             raise RuntimeError("%s is not a valid label" % label)
+        self._current_label = label
 
         # create a group if motors move simultaneously
         if self.simultaneous:
             axis_list = []
-            target_list = []
-            for axis in self.motors[label]:
+            destination_list = []
+            for axis in self.targets_dict[label]:
                 axis_list.append(axis.get("axis"))
-                target_list.append(axis.get("target"))
+                destination_list.append(axis.get("destination"))
 
-            self.group = Group(*axis_list)
-            self.group.move(dict(zip(axis_list, target_list)), wait=wait)
+            self._group = Group(*axis_list)
+            self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
         else:
             if not wait:
-                log_warning(
-                    self, "Motors will move one after another and not simultaneously."
-                )
-            for axis in self.motors[label]:
-                axis.get("axis").move(axis.get("target"), wait=True)
+                # self._logger.warning(
+                print("Motors will move one after another and not simultaneously.")
+            for axis in self.targets_dict[label]:
+                axis.get("axis").move(axis.get("destination"), wait=True)
 
-    def wait(self, label=None, timeout=None):
+    def wait(self, timeout=None, label=None):
         """ Wait for the motors to finish their movement.
         Args:
+            timeout(float): Timeout [s]
             label(str): Destination position label (only in case of
                                                     non silultaneous move)
-            timeout(float): Timeout [s]
         Raises:
             RuntimeError: Timeout while waiting for motors to move.
-                          No label (if appropriate)
         """
+        if not label:
+            label = self._current_label
+
         try:
             with Timeout(
                 timeout, RuntimeError("Timeout while waiting for motors to move")
             ):
-                if self.group:
-                    self.group.wait_move()
+                if self._group:
+                    self._group.wait_move()
                 else:
-                    for axis in self.motors[label]:
+                    for axis in self.targets_dict[label]:
                         axis.get("axis").wait_move()
-        except KeyError:
-            raise RuntimeError("No label")
         finally:
-            if self.group:
-                self.group.stop()
+            if self._group:
+                self._group.stop()
             else:
-                try:
-                    for axis in self.motors[label]:
-                        axis.get("axis").stop()
-                except KeyError:
-                    raise RuntimeError("No label")
+                for axis in self.targets_dict[label]:
+                    axis.get("axis").stop()
 
-    def _in_position(self, motor):
-        """Check if the positions of a motor is within the tolerance
+    def _in_position(self, motor_destination):
+        """Check if the destination of a position is within the tolerance.
         Args:
-            motor(dict): The motor dictionary
+            motor_destination(dict): The motor dictionary
         Returns:
             (bool): True if on position
         """
 
-        delta = motor.get("delta", 0)
+        tolerance = motor_destination.get("tolerance", 0)
         if (
-            motor.get("target") - delta
-            < motor["axis"].position
-            < motor.get("target") + delta
+            motor_destination.get("destination") - tolerance
+            < motor_destination["axis"].position
+            < motor_destination.get("destination") + tolerance
         ):
             return True
         return False
 
-    def _get_position(self):
-        """Read the postion
+    @property
+    def motors(self):
+        """ Return dictionary {NAME: OBJECT} of all the axes.
         Returns:
-            (str): The position label or "unknown"
+            (dict): {string: Axis} dictionary.
         """
-        for lbl, value in self.motors.items():
+        _mot_dict = {}
+        for motor in self.targets_dict.values():
+            for idx in range(len(motor)):
+                if motor[idx]["axis"] not in _mot_dict:
+                    _mot_dict.update(
+                        {"%s" % motor[idx]["axis"].name: motor[idx]["axis"]}
+                    )
+        return _mot_dict
+
+    @property
+    def motor_names(self):
+        """Return list of NAMES of all the axes.
+        Returns:
+            (list): list of string(s).
+        """
+        return list(self.motors.keys())
+
+    @property
+    def motor_objs(self):
+        """Return list of motors OBJECTS of all the axes.
+        Returns:
+            (list): Axis object(s) list.
+        """
+        return list(self.motors.values())
+
+    def _get_position(self):
+        """Read the postion.
+        Returns:
+            (str): The position label having all axes at destination.
+                   Or 'unknown' if no valid position found.
+        """
+        # for all positions,
+        for label, motor_destinations in self.targets_dict.items():
             in_position = []
-            for mot in value:
-                in_position.append(self._in_position(mot))
+            # check all destinations of this position.
+            for motor_destination in motor_destinations:
+                in_position.append(self._in_position(motor_destination))
             if all(in_position):
-                return lbl
+                self._last_label = label
+                return label
         return "unknown"
 
-    def update_position(self, label, motors_positions_list=None):
+    def update_position(self, label, motors_destinations_list=None, description=None):
         """ Update existing label to new motor position(s). If only the label
             specified, the current motor(s) position replaces the previos one.
         Args:
             label (str): The unique position label
         Kwargs:
-            motors_positions_list (list): List of motor(s) or
-                                          tuples (motor, position).
-                Motors are Axis objects.
+            motors_destinations_list (list): List of motor(s) or
+                                          tuples (motor, position, tolerance).
+                                          Important: motor is an Axis object.
+                                          tolerance is optional
+            description (str): The description of the position
         Raises:
-            TypeError: motors_positions_list must be a list
+            TypeError: motors_destinations_list must be a list
             RuntimeError: Invalid label
         """
-        if label not in self.motors.keys():
+        if label not in self.targets_dict:
             raise RuntimeError("Invalid label")
 
         for elem in self._config["positions"]:
@@ -265,33 +332,103 @@ class MultiplePositions:
                 idx = self._config["positions"].index(elem)
                 break
 
-        if motors_positions_list:
-            if not isinstance(motors_positions_list, list):
-                raise TypeError("motors_positions_list must be a list")
-            for element in motors_positions_list:
+        if description:
+            self._config["positions"][idx]["description"] = description
+
+        if motors_destinations_list:
+            if not isinstance(motors_destinations_list, list):
+                raise TypeError("motors_destinations_list must be a list")
+            for element in motors_destinations_list:
+                iii = motors_destinations_list.index(element)
                 if isinstance(element, tuple):
-                    for ii in range(len(self.motors[label])):
-                        if element[0] == self.motors[label][ii]["axis"]:
-                            self._config["positions"][idx]["axes"][ii][
-                                "axis"
-                            ] = element[0]
-                            self._config["positions"][idx]["axes"][ii][
-                                "target"
-                            ] = element[1]
+                    if element[0] == self.targets_dict[label][iii]["axis"]:
+                        self._config["positions"][idx]["target"][iii]["axis"] = element[
+                            0
+                        ]
+                        self._config["positions"][idx]["target"][iii][
+                            "destination"
+                        ] = element[1]
+                        try:
+                            self._config["positions"][idx]["target"][iii][
+                                "tolerance"
+                            ] = element[2]
+                        except IndexError:
+                            pass
                 else:
-                    for ii in range(len(self.motors[label])):
-                        if element == self.motors[label][ii]["axis"]:
-                            self._config["positions"][idx]["axes"][ii][
-                                "target"
-                            ] = element.position
+                    if element == self.targets_dict[label][iii]["axis"]:
+                        self._config["positions"][idx]["target"][iii][
+                            "destination"
+                        ] = element.position
         else:
-            for ii in range(len(self.motors[label])):
-                self._config["positions"][idx]["axes"][ii]["axis"] = self.motors[label][
-                    ii
-                ]["axis"]
-                self._config["positions"][idx]["axes"][ii]["target"] = self.motors[
-                    label
-                ][ii]["axis"].position
+            for element in self.targets_dict[label]:
+                iii = self.targets_dict[label].index(element)
+                self._config["positions"][idx]["target"][iii]["axis"] = element["axis"]
+                self._config["positions"][idx]["target"][iii]["destination"] = element[
+                    "axis"
+                ].position
 
         self._config.save()
-        self._create_config()
+        self._read_config()
+
+    def create_position(self, label, motors_destinations_list, description=None):
+        """ Create new position.
+        Args:
+            label (str): The unique position label
+            motors_destinations_list (list): List of motor(s) or
+                                          tuples (motor, position, tolerance).
+                                          Important: motor is an Axis object.
+                                                     tolerance is optional
+            description (str): The description of the position
+        Raises:
+            TypeError: motors_destinations_list must be a list
+        """
+        if label in self.targets_dict:
+            raise RuntimeError("Label already exists. Please use update_position")
+        target_list = []
+        idx = len(self._config["positions"])
+        self._config["positions"].append({"label": label})
+        if description:
+            self._config["positions"][idx].update({"description": description})
+
+        if not isinstance(motors_destinations_list, list):
+            raise TypeError("motors_destinations_list must be a list")
+
+        for element in motors_destinations_list:
+            if isinstance(element, tuple):
+                try:
+                    tolerance = element[2]
+                except IndexError:
+                    tolerance = 0
+                target_list.append(
+                    {
+                        "axis": element[0],
+                        "destination": element[1],
+                        "tolerance": tolerance,
+                    }
+                )
+            else:
+                target_list.append(
+                    {"axis": element, "destination": element.position, "tolerance": 0}
+                )
+            self._config["positions"][idx].update({"target": target_list})
+
+        self._config.save()
+        self._read_config()
+
+    def remove_position(self, label):
+        """ Remove position.
+        Args:
+            label (str): The unique position label
+        Raises:
+            RuntimeError: Try to remove non existing position
+        """
+        if label not in self.targets_dict:
+            raise RuntimeError("Try to remove non existing position")
+
+        for elem in self._config["positions"]:
+            if elem["label"] == label:
+                self._config["positions"].remove(elem)
+                break
+
+        self._config.save()
+        self._read_config()

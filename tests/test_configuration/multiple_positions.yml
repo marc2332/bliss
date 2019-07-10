@@ -5,19 +5,19 @@ simultaneous_move: True
 positions:
 - label: IN
   description: Beamstop position IN the beam
-  axes:
+  target:
   - axis: $roby
-    target: 2.5
-    delta: 0.01
+    destination: 2.5
+    tolerance: 0.01
   - axis: $robz
-    target: 1.0
-    delta: 0.2
+    destination: 1.0
+    tolerance: 0.2
 - label: OUT
   description: Beamstop position OUT of the beam
-  axes:
+  target:
   - axis: $roby
-    target: 3.5
-    delta: 0.01
+    destination: 3.5
+    tolerance: 0.01
   - axis: $robz
-    target: 2.0
-    delta: 0.2
+    destination: 2.0
+    tolerance: 0.2

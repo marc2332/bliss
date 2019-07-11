@@ -1,0 +1,14 @@
+controller:
+  class: icepap
+  host: iceid666
+  name: iceid666
+  axes:
+  - name: v6biturbo
+    address: 1
+    steps_per_unit: 10000
+    sign: 1
+    velocity: 0.2
+    acceleration: 0.8
+    backlash: 0.005
+    high_limit: -84.0007
+    low_limit: -154.501

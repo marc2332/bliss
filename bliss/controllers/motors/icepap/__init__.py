@@ -21,6 +21,8 @@ from bliss.comm.tcp import Command
 import struct
 import numpy
 import sys
+import os
+import errno
 
 
 def _object_method_filter(obj):
@@ -662,6 +664,28 @@ def _vdata_header(data, axis, vdata_type):
 
 @protect_from_kill
 def _command(cnx, cmd, data=None, pre_cmd=None):
+    try:
+        return _command_raw(cnx, cmd, data, pre_cmd)
+    except IOError as ioex:
+        if ioex.errno == 113:
+            _msg = f"IOError {ioex.errno}:{errno.errorcode[ioex.errno]}"
+            _msg += f"\nmessage={os.strerror(ioex.errno)} "
+            _msg += f"\nPlease check that icepap controller '{cnx._host}' is ON"
+            raise RuntimeError(_msg)
+        elif ioex.errno == -2:
+            _msg = f"IOError {ioex.errno}"
+            _msg += f"\nPlease check icepap controller: '{cnx._host}'"
+            raise RuntimeError(_msg)
+        else:
+            raise ioex
+    except OSError as osex:
+        _msg = f"OSError no:{osex.errno}"
+        _msg += f"err code:{errno.errorcode[osex.errno]}"
+        _msg += f"err message:{os.strerror(osex.errno)}"
+        raise RuntimeError(_msg)
+
+
+def _command_raw(cnx, cmd, data=None, pre_cmd=None):
     reply_flag = _check_reply.match(cmd)
     cmd = cmd.encode()
     if data is not None:

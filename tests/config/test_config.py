@@ -147,3 +147,10 @@ def test_config_save_reference(beacon, beacon_directory):
         rw_cfg2["dict_list"][2]["instance"].name
         == rw_cfg["dict_list"][2]["instance"].name
     )
+
+
+def test_bad_icepap_host(beacon):
+    bad_mot = beacon.get("v6biturbo")
+
+    with pytest.raises(RuntimeError):
+        a = bad_mot.position

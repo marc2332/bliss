@@ -51,9 +51,20 @@ A brief diagram explaining how the P201 is used by bliss:
    }
 %}
 
-The driver is available as an external project. If you are at ESRF you can
-install it with blissinstaller tool. For reference, here is a link to the
-[CT2 driver project on gitlab](https://gitlab.esrf.fr/Hardware/P201)
+
+## Driver installation
+
+The driver is available as an external project.
+
+see: [CT2 driver project on gitlab](https://gitlab.esrf.fr/Hardware/P201)
+
+!!! note
+    If you are at ESRF you can install it with:
+    * `blissinstaller`
+    * `bliss_drivers config`
+    * (need root password, see: https://passdoggo.esrf.fr)
+
+BLISS has to be installed to get `bliss-ct2-server` script.
 
 The *CT2 Bliss RPC server* has to run on the PC where the card is installed by
 typing:
@@ -65,6 +76,28 @@ INFO 2017-10-30 15:14:57,680 CardInterface(/dev/ct2_0): connecting to /dev/ct2_0
 INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
 ```
 
+!!! note
+    If you are at ESRF, use supervisor to start it.
+    example of startup script:
+    ```
+    [group:EH1]
+    programs=P201_zerorpc
+    priority=100
+    
+    [program:P201_zerorpc]
+    command=bash -c ". /users/blissadm/bin/blissenv && exec bliss-ct2-server --address /dev/ct2_0"
+    priority=800
+    environment=HOME="/users/blissadm"
+    user=blissadm
+    startsecs=2
+    autostart=true
+    redirect_stderr=true
+    stdout_logfile=/var/log/%(program_name)s.log
+    stdout_logfile_maxbytes=1MB
+    stdout_logfile_backups=10
+    stdout_capture_maxbytes=1MB
+    ```
+
 By default it runs on port **8909**. To run with different options type: `bliss-ct2-server --help`.
 
 ## Configuration
@@ -73,9 +106,10 @@ Minimal configuration example:
 
 ```yaml
 plugin: ct2                   # (1)
-name: p201                    # (2)
+name: p201_eh1                # (2)
 class: CT2                    # (3)
-address: tcp://lid312:8909    # (4)
+type: P201 ???
+address: tcp://lid421:8909    # (4)
 ```
 
 (replace the address with the one that makes sense to you)
@@ -85,12 +119,20 @@ the web configuration tool which provides a more user friendly interface:
 
 ![image](img/CT2/config.png)
 
+
+To use counters in a BLISS session, the P201 object (`p201_eh1`) has to be added
+to the `config-objects` list.
+
+!!! attention
+    The counters corresponding to the channels are not exported.
+
+
 Here is a more complete example including channel configuration and external
 trigger/gate:
 
 ```yaml
 plugin: ct2                    # (1)
-name: p201                     # (2)
+name: p201_eh1                 # (2)
 class: CT2                     # (3)
 address: tcp://lid312:8909     # (4)
 type: P201                     # (5)
@@ -140,7 +182,7 @@ channels:                      # (14)
     is ignored as this channel cannot be used to count
 
 !!! note
-    If a bliss rpc *address* is set, the *type* is ignored. In this case it is
+    If a bliss rpc *address* is set, the `type` is ignored. In this case it is
     specified at the bliss rpc server command line.
 
 

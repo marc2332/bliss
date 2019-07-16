@@ -72,6 +72,9 @@ from gevent import Timeout
 from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
+from bliss.config.channels import Channel
+from bliss.common import event
+from bliss.common.logtools import log_warning
 
 
 class MultiplePositions:
@@ -86,6 +89,14 @@ class MultiplePositions:
         self._group = None
         self._last_label = None
         self._current_label = None
+        self._position_channel = Channel(
+            f"{name}:position",
+            default_value="unknown",
+            callback=self.__position_changed,
+        )
+        self._state_channel = Channel(
+            f"{name}:state", default_value="READY", callback=self.__state_changed
+        )
         self._read_config()
         session.get_current().map.register(self, tag=name)
 
@@ -152,6 +163,9 @@ class MultiplePositions:
             self._last_label = pos
         return pos
 
+    def __position_changed(self, pos):
+        event.send(self, "position", pos)
+
     @property
     def state(self):
         """ Get the state of the object.
@@ -160,6 +174,9 @@ class MultiplePositions:
         """
         return self._state_as_motor()._current_states[0]
 
+    def __state_changed(self, sta):
+        event.send(self, "state", sta)
+
     def _state_as_motor(self, label=None):
         """ The state as defined by the mototr(s):
         Args:
@@ -167,18 +184,16 @@ class MultiplePositions:
         Returns:
             (AxisState): The state as a motor state
         """
-        local_state = []
+        axis_list = []
 
         if self._group:
             return self._group.state
         if not label:
             label = self._current_label or self._last_label
             for axis in self.targets_dict[label]:
-                local_state.append(axis.get("axis").state)
-
-        for stat in AxisState().states_list():
-            if all(stat in st for st in local_state):
-                return AxisState(stat)
+                axis_list.append(axis.get("axis"))
+            grp = Group(*axis_list)
+            return grp.state
         return AxisState("UNKNOWN")
 
     def move(self, label, wait=True):
@@ -208,13 +223,24 @@ class MultiplePositions:
                 destination_list.append(axis.get("destination"))
 
             self._group = Group(*axis_list)
+            event.connect(self._group, "move_done", self.__move_done)
             self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
         else:
             if not wait:
-                # self._logger.warning(
-                print("Motors will move one after another and not simultaneously.")
+                log_warning(
+                    self, "Motors will move one after another and not simultaneously."
+                )
             for axis in self.targets_dict[label]:
+                event.connect(axis.get("axis"), "move_done", self.__move_done)
                 axis.get("axis").move(axis.get("destination"), wait=True)
+
+    def __move_done(self, move_done):
+        if move_done:
+            self._position_channel.value = self.position
+            self._state_channel.value = "READY"
+        else:
+            self._position_channel.value = "unknown"
+            self._state_channel.value = self.state
 
     def wait(self, timeout=None, label=None):
         """ Wait for the motors to finish their movement.
@@ -243,6 +269,8 @@ class MultiplePositions:
             else:
                 for axis in self.targets_dict[label]:
                     axis.get("axis").stop()
+            self.__state_changed(self.state)
+            self.__position_changed(self.position)
 
     def _in_position(self, motor_destination):
         """Check if the destination of a position is within the tolerance.

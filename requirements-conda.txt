@@ -7,7 +7,7 @@ louie >= 1.3.111         # packaged by BCU without nose
 gevent >= 1.4
 gxx_linux-64
 h5py
-jedi
+jedi >= 0.14.1
 jinja2 >= 2.7
 mendeleev
 mock
@@ -17,6 +17,7 @@ netifaces
 networkx
 numpy >= 1.13
 pandas
+parso >=0.5.1
 pint
 prompt_toolkit >= 2.0
 psutil

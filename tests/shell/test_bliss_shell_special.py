@@ -69,7 +69,6 @@ def test_shell_signature(clean_gevent, beacon):
 
 
 def test_shell_kwarg_signature(clean_gevent):
-    import bliss.shell.cli.jedi_signature_patch
 
     env_dict = dict()
 

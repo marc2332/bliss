@@ -39,52 +39,74 @@ class MD2(Controller):
         self.state_cmd = "getMotorState"
 
     def initialize(self):
-        """
-        Read the state to check if the MD2 application replies.
-        """
+        """Initialize."""
         # velocity and acceleration are not mandatory in config
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False
 
+        # read the state to check if the MD2 application replies.
         self._get_swstate()
 
     def initialize_axis(self, axis):
-        """ get the axis root name from the config
+        """Get the axis root name from the config.
         Args:
-            axis (Axis): The axis object
+            axis (Axis): The axis object.
         """
         axis.root_name = axis.config.get("root_name")
 
     def read_position(self, axis):
+        """ Read the position.
+        Args:
+            axis (Axis): The axis object.
+        Returns:
+            (float): The position.
+        """
         cmd = axis.root_name + self.pos_attr_suffix
         return self._exporter.read_property(cmd)
 
     def state(self, axis):
-        """The motor state as AxisState
+        """The motor state as AxisState.
         Args:
-            axis (Axis): The axis object
+            axis (Axis): The axis object.
         Returns:
-            (AxisState): The state of the motor
+            (AxisState): The state of the motor.
         """
         state = self._exporter.execute(self.state_cmd, axis.root_name)
         return AxisState(state.upper())
 
+    def start_all(self, *motion_list):
+        """ Move simultaneouslu all the motors, defined in motion list.
+        Args:
+            motion_list (list): List of motions (Motion).
+        """
+        if len(motion_list) > 1:
+            # prepare the command
+            cmd = ""
+            for mot in motion_list:
+                name = mot.axis.root_name
+                pos = mot.target_pos
+                cmd += "%s=%0.3f;" % (name, pos)
+            self._exporter.execute("startSimultaneousMoveMotors", cmd)
+        else:
+            self.start_one(motion_list[0])
+
     def start_one(self, motion):
-        """Start to move
+        """Start to move the motor.
+        Args:
+            motion (Motion): Motion class input .
         """
         cmd = motion.axis.root_name + self.pos_attr_suffix
         self._exporter.write_property(cmd, motion.target_pos)
 
-    def stop(self, axis):
-        """Stop the motor
+    def stop(self, axis=None):
+        """Stop the motor.
         Args:
-            axis (Axis): The axis object
+            axis (Axis): The axis object (not used).
         """
         self._exporter.execute("abort")
 
     def close(self):
-        """Disconnect from the hardware
-        """
+        """Disconnect from the hardware"""
         self._exporter.disconnect()
 
     def home_search(self, axis, switch=None):
@@ -97,6 +119,11 @@ class MD2(Controller):
         self._wait_ready(40)
 
     def home_state(self, axis):
+        """State of the axis, as there is no MD2 application command for
+           the home state.
+        Returns:
+            ((AxisState): The state of the motor.
+        """
         return self.state(axis)
 
     def _get_hwstate(self):

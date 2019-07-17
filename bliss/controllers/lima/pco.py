@@ -14,6 +14,10 @@ class Camera(object):
         self._proxy = proxy
 
     @LimaProperty
+    def synchro_mode(self):
+        return "IMAGE"
+
+    @LimaProperty
     def pixel_rate(self):
         """
         Pco Edge/2K/4K pixel rate
@@ -24,13 +28,14 @@ class Camera(object):
     def pixel_rate(self, value):
         int_val = int(value)
         possible_pixel_rate = self.pixel_rate_valid_values
+
         if int_val not in possible_pixel_rate:
             raise ValueError(
                 "Pixel rate on this camera "
-                "can only be those values: " + ",".join(pixel_rate_valid_values)
+                "can only be those values: " + ",".join(map(str, possible_pixel_rate))
             )
         else:
-            self._proxy.pixelRate = str(int_val)
+            self._proxy.pixelRate = int_val
 
     @property
     def pixel_rate_valid_values(self):

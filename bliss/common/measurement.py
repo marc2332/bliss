@@ -269,6 +269,9 @@ class SamplingMode(enum.IntEnum):
 
     SIMPLE_AVERAGE = 0
     INTEGRATE = 1
+    STATISTICS = 2
+    SINGLE_COUNT = 3
+    SAMPLES = 4
 
 
 class SamplingCounter(Counter):

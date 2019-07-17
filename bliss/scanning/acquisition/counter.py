@@ -86,7 +86,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
                 return
             raise RuntimeError(
                 "Cannot add counter to single-read counter acquisition device"
-            )
+            )  ##### What is this for??????
 
         self.__grouped_read_counters_list.append(counter)
         self.channels.append(
@@ -99,7 +99,58 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         self.channels.update_from_iterable(data)
 
 
+##this could / should be a staticmethod in SamplingCounterAcquisitionDevice
+
+### functions for rolling calculation of statistics (Welford's online algorithm)
+### based on implementation given at https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+
+# for a new value newValue, compute the new count, new mean, the new M2.
+# mean accumulates the mean of the entire dataset
+# M2 aggregates the squared distance from the mean
+# count aggregates the number of samples seen so far
+def welford_update(existingAggregate, newValue):
+    (count, mean, M2) = existingAggregate
+    count += 1
+    delta = newValue - mean
+    mean += delta / count
+    delta2 = newValue - mean
+    M2 += delta * delta2
+
+    return (count, mean, M2)
+
+
+# retrieve the mean, variance and sample variance (M2/(count - 1)) from an aggregate
+def welford_finalize(existingAggregate):
+    (count, mean, M2) = existingAggregate
+    (mean, variance) = (mean, M2 / count)
+    if count < 2:
+        return (mean, float("nan"), float("nan"))
+    else:
+        return (mean, count, numpy.sqrt(variance))
+
+
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
+
+    # mode dependent helpers that are evaluated once per point
+    mode_lambdas = {
+        SamplingMode.SIMPLE_AVERAGE: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            [acc_value / nb_read]
+        ),
+        SamplingMode.INTEGRATE: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            [(acc_value / nb_read)]
+        )
+        * count_time,
+        SamplingMode.STATISTICS: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            welford_finalize(statistics)
+        ),
+        SamplingMode.SINGLE_COUNT: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            [acc_value]
+        ),
+        SamplingMode.SAMPLES: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            [acc_value / nb_read, samples]
+        ),
+    }
+
     def __init__(
         self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
     ):
@@ -137,11 +188,58 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event = event.Event()
         self._ready_event.set()
 
+        self.mode_helpers = list()
+        self.modes = list()
+        self.SINGLE_COUNT = False
+
         for cnt in counters:
             self.add_counter(cnt)
 
+    def add_counter(self, counter):
+        super().add_counter(counter)
+
+        self.mode_helpers.append(
+            SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
+        )
+        self.modes.append(counter.mode)
+
+        if counter.mode == SamplingMode.STATISTICS:
+            self.channels.append(
+                AcquisitionChannel(
+                    counter, counter.name + "_n", counter.dtype, counter.shape, unit="#"
+                )
+            )
+            self.channels.append(
+                AcquisitionChannel(
+                    counter,
+                    counter.name + "_std",
+                    counter.dtype,
+                    counter.shape,
+                    unit=counter.unit,
+                )
+            )
+        if counter.mode == SamplingMode.SAMPLES:
+            self.channels.append(
+                AcquisitionChannel(
+                    counter,
+                    counter.name + "_samples",
+                    counter.dtype,
+                    counter.shape + (1,),
+                    unit=counter.unit,
+                )
+            )
+
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
+
+        # check modes ... single count mode not compatible with other modes
+        sing_cnt = numpy.array(self.modes) == SamplingMode.SINGLE_COUNT
+        if any(sing_cnt) and not all(sing_cnt):
+            raise RuntimeError(
+                f"SINGLE_COUNT mode can not be combined with any other mode. \n Concerned devices: \n {str([c.name + ' : ' + c.acq_device.mode.name for c in self.channels])}"
+            )
+        elif all(sing_cnt):
+            self.SINGLE_COUNT = True
 
     def start(self):
         self._nb_acq_points = 0
@@ -175,21 +273,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         if len(self.channels) == 0:
             return
 
-        # mode dependent helpers that are evaluated once per point
-        mode_lambdas = {
-            SamplingMode.SIMPLE_AVERAGE: lambda acc_value, acc_read_time, nb_read, count_time: acc_value
-            / nb_read,
-            SamplingMode.INTEGRATE: lambda acc_value, acc_read_time, nb_read, count_time: (
-                acc_value / nb_read
-            )
-            * count_time,
-        }
-
-        mode_helpers = list()
-        for c in self.channels:
-            mode_helpers.append(mode_lambdas[c.acq_device.mode])
-        mode_helpers = numpy.array(mode_helpers)
-
         while not self._stop_flag and self._nb_acq_points < self.npoints:
             # trigger wait
             self._event.wait()
@@ -203,32 +286,66 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
             nb_read = 0
             acc_read_time = 0
-            acc_value = numpy.zeros((len(self.channels),), dtype=numpy.double)
+            acc_value = 0
             stop_time = trig_time + self.count_time or 0
+            statistics = numpy.zeros(
+                (len(self.modes), 3)
+            )  # needed only in STATISTICS Mode
+            samples = [[]] * len(
+                self.modes
+            )  # len(self.modes) is an easy way get the # of counters in the scan
 
-            # Counter integration loop
-            while not self._stop_flag:
-                start_read = time.time()
-                read_value = numpy.array(
+            if not self.SINGLE_COUNT:
+                # Counter integration loop
+                while not self._stop_flag:
+                    start_read = time.time()
+                    read_value = numpy.array(
+                        self.device.read(*self.grouped_read_counters),
+                        dtype=numpy.double,
+                    )
+                    end_read = time.time()
+
+                    acc_value += read_value
+
+                    nb_read += 1
+                    acc_read_time += end_read - start_read
+
+                    for i, mode in enumerate(self.modes):
+                        if mode == SamplingMode.STATISTICS:
+                            statistics[i] = welford_update(statistics[i], read_value[i])
+                        if mode == SamplingMode.SAMPLES:
+                            samples[i].append(read_value[i])
+                        #   self.channels[1].shape = (4,)
+
+                    current_time = time.time()
+                    if (current_time + (acc_read_time / nb_read)) > stop_time:
+                        break
+                    gevent.sleep(0)  # to be able to kill the task
+            else:
+                # SINGLE_COUNT case
+                acc_value = numpy.array(
                     self.device.read(*self.grouped_read_counters), dtype=numpy.double
                 )
-                end_read = time.time()
+                acc_read_time = 0
+                nb_read = 1
 
-                acc_value += read_value
-
-                nb_read += 1
-                acc_read_time += end_read - start_read
-
-                current_time = time.time()
-                if (current_time + (acc_read_time / nb_read)) > stop_time:
-                    break
-                gevent.sleep(0)  # to be able to kill the task
             self._nb_acq_points += 1
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel
             data = apply_vectorized(
-                mode_helpers, acc_value, acc_read_time, nb_read, self.count_time
+                self.mode_helpers,
+                acc_value,
+                statistics,
+                samples,
+                acc_read_time,
+                nb_read,
+                self.count_time,
             )
+
+            for i, c in enumerate(self.channels):
+                if c.acq_device.mode == SamplingMode.SAMPLES and "_samples" in c.name:
+                    data[i] = numpy.array(data[i])
+                    c.shape = data[i].shape
 
             self._emit_new_data(data)
 

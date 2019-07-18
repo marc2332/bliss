@@ -99,36 +99,6 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         self.channels.update_from_iterable(data)
 
 
-##this could / should be a staticmethod in SamplingCounterAcquisitionDevice
-
-### functions for rolling calculation of statistics (Welford's online algorithm)
-### based on implementation given at https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
-
-# for a new value newValue, compute the new count, new mean, the new M2.
-# mean accumulates the mean of the entire dataset
-# M2 aggregates the squared distance from the mean
-# count aggregates the number of samples seen so far
-def welford_update(existingAggregate, newValue):
-    (count, mean, M2) = existingAggregate
-    count += 1
-    delta = newValue - mean
-    mean += delta / count
-    delta2 = newValue - mean
-    M2 += delta * delta2
-
-    return (count, mean, M2)
-
-
-# retrieve the mean, variance and sample variance (M2/(count - 1)) from an aggregate
-def welford_finalize(existingAggregate):
-    (count, mean, M2) = existingAggregate
-    (mean, variance) = (mean, M2 / count)
-    if count < 2:
-        return (mean, float("nan"), float("nan"))
-    else:
-        return (mean, count, numpy.sqrt(variance))
-
-
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     # mode dependent helpers that are evaluated once per point
@@ -141,7 +111,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         )
         * count_time,
         SamplingMode.STATISTICS: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
-            welford_finalize(statistics)
+            SamplingCounterAcquisitionDevice.welford_finalize(statistics)
         ),
         SamplingMode.SINGLE_COUNT: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
             [acc_value]
@@ -236,7 +206,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         sing_cnt = numpy.array(self.modes) == SamplingMode.SINGLE_COUNT
         if any(sing_cnt) and not all(sing_cnt):
             raise RuntimeError(
-                f"SINGLE_COUNT mode can not be combined with any other mode. \n Concerned devices: \n {str([c.name + ' : ' + c.acq_device.mode.name for c in self.channels])}"
+                "SINGLE_COUNT mode can not be combined with any other mode. \n Concerned devices: "
+                + f"\n {str([c.name + ' : ' + c.acq_device.mode.name for c in self.channels])}"
             )
         elif all(sing_cnt):
             self.SINGLE_COUNT = True
@@ -288,12 +259,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             acc_read_time = 0
             acc_value = 0
             stop_time = trig_time + self.count_time or 0
-            statistics = numpy.zeros(
-                (len(self.modes), 3)
-            )  # needed only in STATISTICS Mode
-            samples = [[]] * len(
-                self.modes
-            )  # len(self.modes) is an easy way get the # of counters in the scan
+
+            # needed only in STATISTICS Mode
+            statistics = numpy.zeros((len(self.modes), 3))
+
+            # len(self.modes) is an easy way get the # of counters in the scan
+            samples = [[]] * len(self.modes)
 
             if not self.SINGLE_COUNT:
                 # Counter integration loop
@@ -302,6 +273,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     read_value = numpy.array(
                         self.device.read(*self.grouped_read_counters),
                         dtype=numpy.double,
+                        ndmin=1,
                     )
                     end_read = time.time()
 
@@ -312,10 +284,11 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
                     for i, mode in enumerate(self.modes):
                         if mode == SamplingMode.STATISTICS:
-                            statistics[i] = welford_update(statistics[i], read_value[i])
+                            statistics[i] = self.welford_update(
+                                statistics[i], read_value[i]
+                            )
                         if mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
-                        #   self.channels[1].shape = (4,)
 
                     current_time = time.time()
                     if (current_time + (acc_read_time / nb_read)) > stop_time:
@@ -324,7 +297,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
-                    self.device.read(*self.grouped_read_counters), dtype=numpy.double
+                    self.device.read(*self.grouped_read_counters),
+                    dtype=numpy.double,
+                    ndmin=1,
                 )
                 acc_read_time = 0
                 nb_read = 1
@@ -363,6 +338,34 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 for f, d, s, samp in zip(functions, data, stats, samples)
             ]
         ).ravel()
+
+    ### functions for rolling calculation of statistics (Welford's online algorithm)
+    ### based on implementation given at https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+
+    # for a new value newValue, compute the new count, new mean, the new M2.
+    # mean accumulates the mean of the entire dataset
+    # M2 aggregates the squared distance from the mean
+    # count aggregates the number of samples seen so far
+    @staticmethod
+    def welford_update(existingAggregate, newValue):
+        (count, mean, M2) = existingAggregate
+        count += 1
+        delta = newValue - mean
+        mean += delta / count
+        delta2 = newValue - mean
+        M2 += delta * delta2
+
+        return (count, mean, M2)
+
+    # retrieve the mean, variance and sample variance (M2/(count - 1)) from an aggregate
+    @staticmethod
+    def welford_finalize(existingAggregate):
+        (count, mean, M2) = existingAggregate
+        (mean, variance) = (mean, M2 / count)
+        if count < 2:
+            return (mean, numpy.nan, numpy.nan)
+        else:
+            return (mean, count, numpy.sqrt(variance))
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):

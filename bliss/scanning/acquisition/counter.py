@@ -13,7 +13,7 @@ from gevent import event
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.measurement import GroupedReadMixin, Counter, SamplingMode
-from bliss.common.utils import all_equal, apply_vectorized
+from bliss.common.utils import all_equal
 
 
 def _get_group_reader(counters_or_groupreadhandler):
@@ -332,7 +332,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._nb_acq_points += 1
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel
-            data = apply_vectorized(
+            data = self.apply_vectorized(
                 self.mode_helpers,
                 acc_value,
                 statistics,
@@ -350,6 +350,19 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._emit_new_data(data)
 
             self._ready_event.set()
+
+    @staticmethod
+    def apply_vectorized(functions, data, stats, samples, *params):
+        """
+        apply_vectorized: helper to apply a 'list' of functions provided as numpy array per element on
+        a numpy array containing data.  H
+        """
+        return numpy.concatenate(
+            [
+                f(d, s, samp, *params)
+                for f, d, s, samp in zip(functions, data, stats, samples)
+            ]
+        ).ravel()
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):

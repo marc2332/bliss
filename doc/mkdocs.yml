@@ -60,6 +60,7 @@ nav:
                       - Opiom: config_opiom.md
                       - PEPU: config_pepu.md
                       - TFG: config_tango_tfg.md
+                      - Tango attribute counters: config_tac.md
                       - Nano-BPM: config_nano_bpm.md
                       - Wagos: config_wago.md
                       - Transfocators: config_transfocator.md

@@ -525,3 +525,67 @@ def clear_cache(*devices):
         cached_channels = DEVICE_CACHE.get(device, [])
         for channel in cached_channels:
             channel.value = channel.default_value
+
+
+class EventChannel(AdvancedInstantiationInterface):
+    def __new__(cls, name, *args, **kwargs):
+        bus = kwargs.get("bus")
+        if bus is None:
+            bus = Bus(kwargs.get("redis"))
+        event = bus.get_channel(name)
+        if event is None:
+            event = cls.instanciate(bus, name)
+            bus.set_channel(event)
+        return event
+
+    def __preinit__(self, bus, name):
+        self._bus = bus
+        self._name = name
+        self._callback_refs = set()
+        self.__pending_events = list()
+        self._subscribed_event = gevent.event.Event()
+        self.ready = True
+
+    @property
+    def name(self):
+        return self._name
+
+    def register_callback(self, callback):
+        if not callable(callback):
+            raise ValueError(
+                "Event {}: {!r} is not callable".format(self.name, callback)
+            )
+        cb_ref = saferef.safe_ref(callback)
+        self._callback_refs.add(cb_ref)
+
+    def unregister_callback(self, callback):
+        cb_ref = saferef.safe_ref(callback)
+        try:
+            self._callback_refs.remove(cb_ref)
+        except KeyError:
+            pass
+
+    def post(self, value):
+        self.__pending_events.append(value)
+        self._bus.schedule_update(self)
+
+    def close(self):
+        # Nothing to do
+        pass
+
+    @property
+    def _raw_value(self):
+        # create a raw value with the pending events
+        pending_events = self.__pending_events
+        self.__pending_events = list()
+        value = _Value(time.time(), pending_events)
+        return value
+
+    def _set_raw_value(self, raw_value):
+        value = raw_value.value
+        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
+        for cb in callbacks:
+            try:
+                cb(value)
+            except:
+                sys.excepthook(*sys.exc_info())

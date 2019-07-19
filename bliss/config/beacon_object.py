@@ -5,10 +5,12 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import sys
 import yaml
 from functools import wraps
 from bliss.config.settings import HashObjSetting, pipeline
-from bliss.config.channels import Cache
+from bliss.config.channels import Cache, EventChannel
+from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
 from bliss.config.conductor.client import remote_open
 
@@ -96,7 +98,9 @@ class BeaconObject:
                             raise RuntimeError(
                                 f"parameter {fset.__name__} is read only."
                             )
-                        fset(self, value)
+                        rvalue = fset(self, value)
+                        set_value = rvalue if rvalue is not None else value
+                        self._event_channel.post(fset.__name__)
 
                 else:
                     fence = {"in_set": False}
@@ -107,9 +111,9 @@ class BeaconObject:
                         try:
                             fence["in_set"] = True
                             rvalue = fset(self, value)
-                            self._settings[fset.__name__] = (
-                                rvalue if rvalue is not None else value
-                            )
+                            set_value = rvalue if rvalue is not None else value
+                            self._settings[fset.__name__] = set_value
+                            self._event_channel.post(fset.__name__)
                             self._initialize_with_setting()
                         finally:
                             fence["in_set"] = False
@@ -133,6 +137,8 @@ class BeaconObject:
 
         self.__initialized = Cache(self, "initialized", default_value=False)
         self._in_initialize_with_setting = False
+        self._event_channel = EventChannel(f"__EVENT__:{self.name}")
+        self._event_channel.register_callback(self.__event_handler)
 
     @autocomplete_property
     def config(self):
@@ -190,7 +196,10 @@ class BeaconObject:
                     f"in file:{self.config.filename}"
                 )
             self.config.update(d)
-        self._settings.remove(*self.__settings_properties().keys())
+        try:
+            self._settings.remove(*self.__settings_properties().keys())
+        except AttributeError:  # apply config before init
+            pass
         self.__initialized.value = False
         self._initialize_with_setting()
 
@@ -233,6 +242,7 @@ class BeaconObject:
                             )
                     else:  # initialize setting
                         self._settings[name] = getattr(self, name)
+                        self._event_channel.post(name)
 
                 if error_messages:
                     raise NotImplementedError("\n".join(error_messages))
@@ -267,6 +277,19 @@ class BeaconObject:
 
     def __config_getter(self):
         return self.__filter_attribute(BeaconObject._config_getter)
+
+    def __event_handler(self, events):
+        events = [ev for ev in set(events) if event.get_receivers(self, ev)]
+        if not events:
+            return  # noting to do
+
+        settings_values = self.settings.get_all()
+        for ev in events:
+            value = settings_values.get(ev)
+            try:
+                event.send(self, ev, value)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
 
     @staticmethod
     def property(

@@ -279,3 +279,35 @@ def test_2processes_set_channel_value_constructor(channel_subprocess):
     c = channels.Channel("test_chan")
 
     assert c.value == "test"
+
+
+def test_channel_event():
+    e = channels.EventChannel("bla")
+    full_event_list = list()
+    called_cbk = {"nb": 0}
+    called = gevent.event.Event()
+
+    def f(events_list):
+        called_cbk["nb"] += 1
+        full_event_list.extend(events_list)
+        called.set()
+
+    e.register_callback(f)
+    first_events = [f"ev {i}" for i in range(10)]
+    second_events = [i for i in range(4)]
+    # post first events
+    [e.post(ev) for ev in first_events]
+    # give the hand to gevent loop and wait callback to be called
+    with gevent.Timeout(1):
+        called.wait()
+        called.clear()
+
+    # post second events
+    [e.post(ev) for ev in second_events]
+    # give the hand to gevent loop and wait callback to be called
+    with gevent.Timeout(1):
+        called.wait()
+        called.clear()
+
+    assert called_cbk["nb"] == 2
+    assert full_event_list == first_events + second_events

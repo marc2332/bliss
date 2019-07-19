@@ -201,6 +201,7 @@ class Elmo_whistle(Controller):
         self._cnx = None
 
     def initialize(self):
+        log_info(self, "Entering")
 
         config = self.config.config_dict
         if get_comm_type(config) == SERIAL:
@@ -209,11 +210,7 @@ class Elmo_whistle(Controller):
             raise RuntimeError("Serial line is not configured!")
 
         self._cnx = get_comm(config, **opt)
-
         session.get_current().map.register(self, children_list=[self._cnx])
-
-    def initialize(self):
-        log_info(self, "Entering")
 
         self._elmostate = AxisState()
         for state, human in (

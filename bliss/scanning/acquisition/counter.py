@@ -119,6 +119,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         SamplingMode.SAMPLES: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
             [acc_value / nb_read, samples]
         ),
+        SamplingMode.FIRST_READ: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+            [samples]
+        ),
     }
 
     def __init__(
@@ -287,8 +290,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                             statistics[i] = self.welford_update(
                                 statistics[i], read_value[i]
                             )
-                        if mode == SamplingMode.SAMPLES:
+                        elif mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
+                        elif mode == SamplingMode.FIRST_READ and samples[i] == []:
+                            samples[i] = read_value[i]
 
                     current_time = time.time()
                     if (current_time + (acc_read_time / nb_read)) > stop_time:

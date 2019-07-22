@@ -272,6 +272,7 @@ class SamplingMode(enum.IntEnum):
     STATISTICS = 2
     SINGLE_COUNT = 3
     SAMPLES = 4
+    FIRST_READ = 5
 
 
 class SamplingCounter(Counter):

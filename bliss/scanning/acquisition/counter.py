@@ -162,19 +162,21 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
 
         self.mode_helpers = list()
-        self.modes = list()
+        self.counters = list()
         self.SINGLE_COUNT = False
 
         for cnt in counters:
             self.add_counter(cnt)
 
     def add_counter(self, counter):
+        if counter in self.counters:
+            return
         super().add_counter(counter)
 
         self.mode_helpers.append(
             SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
         )
-        self.modes.append(counter.mode)
+        self.counters.append(counter)
 
         if counter.mode == SamplingMode.STATISTICS:
             self.channels.append(
@@ -206,7 +208,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self.device.prepare(*self.grouped_read_counters)
 
         # check modes ... single count mode not compatible with other modes
-        sing_cnt = numpy.array(self.modes) == SamplingMode.SINGLE_COUNT
+        sing_cnt = (
+            numpy.array([c.mode for c in self.counters]) == SamplingMode.SINGLE_COUNT
+        )
         if any(sing_cnt) and not all(sing_cnt):
             raise RuntimeError(
                 "SINGLE_COUNT mode can not be combined with any other mode. \n Concerned devices: "
@@ -264,10 +268,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             stop_time = trig_time + self.count_time or 0
 
             # needed only in STATISTICS Mode
-            statistics = numpy.zeros((len(self.modes), 3))
+            statistics = numpy.zeros((len(self.counters), 3))
 
-            # len(self.modes) is an easy way get the # of counters in the scan
-            samples = [[]] * len(self.modes)
+            samples = [[]] * len(self.counters)
 
             if not self.SINGLE_COUNT:
                 # Counter integration loop
@@ -285,14 +288,14 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     nb_read += 1
                     acc_read_time += end_read - start_read
 
-                    for i, mode in enumerate(self.modes):
-                        if mode == SamplingMode.STATISTICS:
+                    for i, c in enumerate(self.counters):
+                        if c.mode == SamplingMode.STATISTICS:
                             statistics[i] = self.welford_update(
                                 statistics[i], read_value[i]
                             )
-                        elif mode == SamplingMode.SAMPLES:
+                        elif c.mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
-                        elif mode == SamplingMode.FIRST_READ and samples[i] == []:
+                        elif c.mode == SamplingMode.FIRST_READ and samples[i] == []:
                             samples[i] = read_value[i]
 
                     current_time = time.time()
@@ -324,6 +327,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
             for i, c in enumerate(self.channels):
                 if c.acq_device.mode == SamplingMode.SAMPLES and "_samples" in c.name:
+                    # TODO: removme _samples from condition to make it 'nicer'
                     data[i] = numpy.array(data[i])
                     c.shape = data[i].shape
 
@@ -368,7 +372,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         (count, mean, M2) = existingAggregate
         (mean, variance) = (mean, M2 / count)
         if count < 2:
-            return (mean, numpy.nan, numpy.nan)
+            return (mean, count, numpy.nan)
         else:
             return (mean, count, numpy.sqrt(variance))
 

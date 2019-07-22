@@ -24,10 +24,36 @@
   class: simulation_diode
   independent: True
   constant: 4
-  
 -
   name: diode5
   plugin: bliss
   class: simulation_diode
   independent: True
   constant: 5
+-
+  name: diode6
+  plugin: bliss
+  class: simulation_diode
+  mode : INTEGRATE
+-
+  name: diode7
+  plugin: bliss
+  class: simulation_diode
+  mode : STATISTICS
+-
+  name: diode8
+  plugin: bliss
+  class: simulation_diode
+  mode : SINGLE_COUNT
+  
+-
+  name: diode9
+  plugin: bliss
+  class: simulation_diode
+  mode : SAMPLES
+  
+-
+  name: diode10
+  plugin: bliss
+  class: simulation_diode
+  mode : FIRST_READ

@@ -95,6 +95,8 @@ from bliss.comm.scpi import BaseSCPIDevice
 from .keithley_scpi_mapping import COMMANDS as SCPI_COMMANDS
 from .keithley_scpi_mapping import MODEL_COMMANDS as SCPI_MODEL_COMMANDS
 
+CTRL = weakref.WeakValueDictionary()
+
 
 class KeithleySCPI(BaseSCPIDevice):
     """Keithley instrument through SCPI language. Can be used with any Keithley
@@ -533,6 +535,12 @@ def create_sensor(config, node):
     ctrl_node = node.parent
     while ctrl_node and "sensors" not in ctrl_node:
         ctrl_node = ctrl_node.parent
-    ctrl = config.get(ctrl_node["name"])
+
+    ctrl = CTRL.get(node["name"])
+    if ctrl is None:
+        sensor_names = [sensor_node["name"] for sensor_node in ctrl_node["sensors"]]
+        ctrl = Multimeter(ctrl_node)
+        for s_name in sensor_names:
+            CTRL[s_name] = ctrl
     obj = ctrl.Sensor(node, ctrl)
     return obj

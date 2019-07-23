@@ -127,13 +127,18 @@ class BeaconObject:
             self.priority = priority
 
     def __init__(self, config):
+        self._config = config
         try:
             name = config["name"]
-            self._config = config
+        except KeyError:
+            # try to use name property instead
+            try:
+                name = self.name
+            except AttributeError:
+                raise RuntimeError("config object must have a name.")
+        else:
             if not hasattr(self, "name"):
                 self.name = name
-        except KeyError:
-            raise RuntimeError("config object must have a name.")
 
         self.__initialized = Cache(self, "initialized", default_value=False)
         self._in_initialize_with_setting = False

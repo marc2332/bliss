@@ -328,6 +328,22 @@ class musst(object):
             cnt_list.append(cnt_obj)
         self.__counters = counter_namespace(cnt_list)
 
+    def __info__(self):
+        """Default method called by the 'BLISS shell default typing helper'
+        """
+        print("====  MUSST info  ===")
+        print(f"object name: {self.name}")
+        print("version: ", self.putget("?VER"))
+        print("url:", self._cnx._gpib_kwargs["url"])
+        print("address:", self._cnx._gpib_kwargs["pad"])
+        print("")
+        print("    CHANNELS:")
+        for ii in range(6):
+            ch_idx = ii + 1
+            ch_value, ch_status = self.putget(f"?CH CH{ch_idx}").split(" ")
+            ch_config = self.putget(f"?CHCFG CH{ch_idx}")
+            print(f"    CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}")
+
     @property
     def counters(self):
         return self.__counters

@@ -30,7 +30,8 @@ from bliss.config.conductor.client import (
     get_redis_connection,
     clean_all_redis_connection,
 )
-from bliss.flint.qgevent import set_gevent_dispatcher
+
+# from bliss.flint.qgevent import set_gevent_dispatcher
 
 from PyQt5.QtCore import pyqtRemoveInputHook
 
@@ -654,7 +655,7 @@ class QtLogHandler(logging.Handler):
 
 
 def main():
-    set_gevent_dispatcher()
+    # set_gevent_dispatcher()
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
@@ -725,6 +726,10 @@ def main():
     timer = qt.QTimer()
     timer.start(500)
     timer.timeout.connect(lambda: None)
+
+    timer2 = qt.QTimer()
+    timer2.start(10)
+    timer2.timeout.connect(lambda: gevent.sleep(0.01))
 
     stop = gevent.event.AsyncResult()
     flint = Flint(tabs)

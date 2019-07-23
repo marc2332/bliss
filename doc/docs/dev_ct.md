@@ -237,6 +237,194 @@ Example from `emh.py`:
     
             return vlist
 
+### Sampling counter modes
+
+As sampling counters represent experimental values that can be read instantaneously the _mode_ is used to specify the behaviour of a sampling counter during the integration time. E.g.
+
+    TEST_SESSION [1]: ct(1,diode)
+
+will read the `diode` as often as possible during 1s and return the averaged value afterwards.
+
+The available modes can be found in `bliss.common.measurement.SamplingMode`:
+
+    TEST_SESSION [1]: from bliss.common.measurement import SamplingMode
+    TEST_SESSION [2]: list(SamplingMode))
+             Out [3]: [<SamplingMode.SIMPLE_AVERAGE: 0>,
+                       <SamplingMode.INTEGRATE: 1>,
+                       <SamplingMode.STATISTICS: 2>,
+                       <SamplingMode.SINGLE_COUNT: 3>,
+                       <SamplingMode.SAMPLES: 4>,
+                       <SamplingMode.FIRST_READ: 5>]
+
+#### SamplingMode.SIMPLE_AVERAGE
+The default mode is `SIMPLE_AVERAGE` which returns a average value of all values read during the integration time.
+
+![SIMPLE_AVERAGE_timeline](img/sampling_timeline_simple_avg.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.SIMPLE_AVERAGE
+start
+
+:sum=0;
+repeat
+  :read data from device;
+  :add read value to sum;
+repeat while (counting time over?)
+
+:return sum / number of read cycles;
+
+stop
+
+
+@enduml
+ -->
+![SIMPLE_AVERAGE](img/sampling_counter_simple_average.svg)
+
+#### SamplingMode.INTEGRATE
+compaired to `SamplingMode.SIMPLE_AVERAGE` it takes also into account the nominal counting time and mulitplies by it.
+
+![INTEGRATE_timeline](img/sampling_timeline_integrate.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.INTEGRATE
+start
+
+:sum=0;
+repeat
+  :read data from device;
+  :add read value to sum;
+repeat while (counting time over?)
+
+:return sum * counting time / number of read cycles;
+
+stop
+
+
+@enduml
+
+-->
+
+![INTEGRATE](img/sampling_counter_integrate.svg)
+
+#### SamplingMode.STATISTICS
+publishes `mean`, number values read and `std` in three channels that appear as 3 seperate entries in hdf5 and redis.
+
+![STATISTICS_timeline](img/sampling_timeline_statistics.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.STATISTICS
+start
+
+repeat
+  :read data from device;
+  :calculate whatis 
+  needed for statistics;
+repeat while (counting time over?)
+
+:yields 3 channels:
+mean of read values, 
+number of read cycles,
+standard deviation of read values;
+
+stop
+
+
+@enduml
+
+ -->
+![STATISTICS](img/sampling_counter_statistics.svg)
+
+#### SamplingMode.SINGLE_COUNT
+
+Counters in this mode will only be read once (only one call of `read()`). Counters in this mode can not be combined with conters in other modes in the same `AquistionDevice`.
+
+![SINGLE_COUNT_timeline](img/sampling_timeline_single_count.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.SINGLE_COUNT
+start
+
+:read data from device;
+
+:return read value;
+
+stop
+
+
+@enduml
+-->
+
+![SINGLE_COUNT](img/sampling_counter_single_count.svg)
+
+#### SamplingMode.SAMPLES
+
+this mode is more complex than the other modes in a sense that it generates an additional 1d dataset per point and also publishes it.
+
+![SAMPLES_timeline](img/sampling_timeline_samples.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.SAMPLES
+start
+
+repeat
+  :read data from device;
+  :append read values to a list;
+repeat while (counting time over?)
+
+:return like SIMPLE_AVERAGE
+and
+publish all samples read as 1d data;
+
+stop
+
+
+@enduml
+
+ -->
+![SAMPLES](img/sampling_counter_samples.svg)
+
+#### SamplingMode.FIRST_READ
+The final result is simmilar to what is achivied with `SamplingMode.SINGLE_COUNT`, however here the sampling loop is used so counters in this mode can be comined with conters in other modes using the same AquisitionDevice.
+No averaging will take place but the first read value will be propagated.
+
+![FIRST_READ_timeline](img/sampling_timeline_first_read.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.FIRST_READ
+start
+
+repeat
+  :read data from device;
+  if (first loop itteration loop) then (yes)
+    :keep read value for laster;
+  else (no)
+    :do nothing;
+  endif
+
+  
+repeat while (counting time over?)
+
+:return read value of first itteration;
+
+stop
+
+ -->
+![FIRST_READ](img/sampling_counter_first_read.svg)
+
+
+
 ## Integrating counter
 
 ### example 1

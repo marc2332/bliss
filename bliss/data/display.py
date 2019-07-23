@@ -719,6 +719,11 @@ class ScanEventHandler:
     def on_scan_new(self, scan, scan_info):
         if self.progress_task:
             self.progress_task.kill()
+
+        # display progressbar only in repl greenlet
+        if self.repl.current_task != gevent.getcurrent():
+            return
+
         started_event = gevent.event.Event()
         self.progress_task = gevent.spawn(self._progress_bar, scan, started_event)
         with gevent.Timeout(1.):

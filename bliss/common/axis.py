@@ -1584,13 +1584,14 @@ class Axis(AliasMixin):
 class AxisState(object):
     """
     Standard states:
-      MOVING : 'Axis is moving'
-      READY  : 'Axis is ready to be moved (not moving ?)'
-      FAULT  : 'Error from controller'
-      LIMPOS : 'Hardware high limit active'
-      LIMNEG : 'Hardware low limit active'
-      HOME   : 'Home signal active'
-      OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
+      MOVING  : 'Axis is moving'
+      READY   : 'Axis is ready to be moved (not moving ?)'
+      FAULT   : 'Error from controller'
+      LIMPOS  : 'Hardware high limit active'
+      LIMNEG  : 'Hardware low limit active'
+      HOME    : 'Home signal active'
+      OFF     : 'Axis power is off'
+      DISABLED: 'Axis cannot move (must be enabled - not ready ?)' 
 
     When creating a new instance, you can pass any number of arguments, each
     being either a string or tuple of strings (state, description). They
@@ -1607,7 +1608,8 @@ class AxisState(object):
         "LIMPOS": "Hardware high limit active",
         "LIMNEG": "Hardware low limit active",
         "HOME": "Home signal active",
-        "OFF": "Axis is disabled (must be enabled to move (not ready ?))",
+        "OFF": "Axis power is off",
+        "DISABLED": "Axis cannot move",
     }
 
     @property
@@ -1637,13 +1639,18 @@ class AxisState(object):
 
     @property
     def OFF(self):
-        """Axis is disabled (must be enabled to move (not ready ?))"""
+        """Axis power is off"""
         return "OFF" in self._current_states
 
     @property
     def HOME(self):
         """Home signal active"""
         return "HOME" in self._current_states
+
+    @property
+    def DISABLED(self):
+        """Axis is disabled (must be enabled to move (not ready ?))"""
+        return "DISABLED" in self._current_states
 
     def __init__(self, *states):
         """

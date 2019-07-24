@@ -24,14 +24,21 @@ else:
             return ""
 
 
+import functools
 from bliss import release
 from bliss.config import static
+from bliss.common import session
 from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
 
 
 _log = logging.getLogger("bliss.shell")
+
+
+session.set_current_session = functools.partial(
+    session.set_current_session, force=False
+)
 
 
 def initialize(session_name=None):

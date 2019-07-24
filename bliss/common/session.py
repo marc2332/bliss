@@ -22,6 +22,18 @@ _SESSION_IMPORTERS = set()
 CURRENT_SESSION = None
 
 
+def set_current_session(session, force=True):
+    if force:
+        global CURRENT_SESSION
+        CURRENT_SESSION = session
+    else:
+        raise RuntimeError("It is not allowed to set another current session.")
+
+
+def get_current_session():
+    return CURRENT_SESSION
+
+
 class _StringImporter(object):
     BASE_MODULE_NAMESPACE = "bliss.session"
 
@@ -372,14 +384,12 @@ class Session:
                 sys.meta_path.remove(importer)
 
     def setup(self, env_dict=None, verbose=False):
-        if env_dict is not None:
-            # set a new env dict
-            self.__env_dict = env_dict
-        # use existing env dict
-        env_dict = self.env_dict
-
-        global CURRENT_SESSION
-        CURRENT_SESSION = self
+        if get_current_session() is None:
+            set_current_session(self, force=True)
+        if env_dict is None:
+            # use existing env dict
+            env_dict = get_current_session().env_dict
+        self.__env_dict = env_dict
 
         try:
             self._load_config(verbose)

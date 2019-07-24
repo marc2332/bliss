@@ -41,7 +41,7 @@ from bliss.common.proxy import Proxy as _Proxy
 def get_current_session():
     from bliss.common import session
 
-    return session.CURRENT_SESSION
+    return session.get_current_session()
 
 
 current_session = _Proxy(get_current_session)

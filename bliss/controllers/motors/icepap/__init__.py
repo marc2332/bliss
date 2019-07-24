@@ -84,7 +84,6 @@ class Icepap(Controller):
 
     def initialize(self):
         self._icestate = AxisState()
-        self._icestate.create_state("POWEROFF", "motor power is off")
         self._icestate.create_state("HOMEFOUND", "home signal found")
         self._icestate.create_state("HOMENOTFOUND", "home signal not found")
         for codes in (self.STATUS_DISCODE, self.STATUS_MODCODE, self.STATUS_STOPCODE):
@@ -214,7 +213,7 @@ class Icepap(Controller):
             ((1 << 18), "LIMPOS"),
             ((1 << 19), "LIMNEG"),
             ((1 << 20), "HOME"),
-            ((1 << 23), "POWEROFF"),
+            ((1 << 23), "OFF"),
         ):
             if status & mask:
                 state.set(value)

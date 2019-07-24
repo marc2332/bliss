@@ -24,9 +24,17 @@ def data_from_pipeline(data, shape=None, dtype=None):
     if len(shape) == 0:
         return numpy.array(data, dtype=dtype)
     else:
-        a = numpy.array([pickle.loads(x) for x in data], dtype=dtype)
-        a.shape = (-1,) + shape
-        return a
+        a = numpy.array([pickle.loads(x) for x in data])
+        try:
+            a = a.astype(dtype)
+            # a.shape = (-1,) + shape
+            return a
+        except ValueError:
+            shape = (len(a), numpy.max([len(x) for x in a]))
+            arr = numpy.full(shape, numpy.nan, dtype=dtype)
+            for i, d in enumerate(a):
+                arr[i][0 : len(d)] = d
+            return arr
 
 
 def data_from_bytes(data, shape=None, dtype=None):

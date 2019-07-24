@@ -44,15 +44,15 @@ class Map:
         self.__waiting_queue = []
         self.__lock = False
 
-        self.register("session")
-        self.register("controllers", parents_list=["session"])
-        self.register("comms", parents_list=["session"])
-        self.register("counters", parents_list=["session"])
-        self.register("axes", parents_list=["session"])
+        self.register("global")
+        self.register("controllers", parents_list=["global"])
+        self.register("comms", parents_list=["global"])
+        self.register("counters", parents_list=["global"])
+        self.register("axes", parents_list=["global"])
 
     def clear(self):
         for node_id in list(self):
-            if not node_id in ("session", "controllers", "comms", "counters", "axes"):
+            if not node_id in ("global", "controllers", "comms", "counters", "axes"):
                 self.delete(node_id)
 
     def _create_node(self, instance):
@@ -306,10 +306,10 @@ class Map:
             networkx.DiGraph
         """
         # UPSTREAM part of the map
-        # getting all simple path from the root node "session"
+        # getting all simple path from the root node "global"
         # to the given node
         logger.debug(f"In create_partial_map of {node} map_id({map_id(node)})")
-        paths = nx.all_simple_paths(self.G, "session", map_id(node))
+        paths = nx.all_simple_paths(self.G, "global", map_id(node))
         paths = list(paths)
         for path in map(nx.utils.pairwise, paths):
             for father, son in path:
@@ -382,7 +382,7 @@ class Map:
             except nx.NetworkXError:
                 continue
             else:
-                if not preds and node != "session":
+                if not preds and node != "global":
                     self.G.add_edge("controllers", node)
                     logger.debug(f"Added parent to {node}")
 

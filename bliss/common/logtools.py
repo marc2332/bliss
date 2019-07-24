@@ -372,13 +372,13 @@ class Log:
 
         Examples:
             >>> log.debugon(robz)  # passing the object
-            Set logger [session.device.controller.robz] to DEBUG level
+            Set logger [global.device.controller.robz] to DEBUG level
             >>> log.debugon('*motorsrv')  # using a glob
             Set logger [motorsrv] to DEBUG level
             Set logger [motorsrv.Connection] to DEBUG level
             >>> log.debugon('*rob?')  # again a glob
-            Set logger [session.device.controller.roby] to DEBUG level
-            Set logger [session.device.controller.robz] to DEBUG level
+            Set logger [global.device.controller.roby] to DEBUG level
+            Set logger [global.device.controller.robz] to DEBUG level
         """
         if isinstance(glob_logger_pattern_or_obj, str):
             glob_logger_pattern = glob_logger_pattern_or_obj
@@ -446,7 +446,7 @@ def create_logger_name(G, node_id):
     try:
         # search before through controllers
         path = nx.shortest_path(G, "controllers", node_id)
-        logger_names = ["session"]
+        logger_names = ["global"]
         for n in path:
             node_name = format_node(G, n, format_string="tag->name->class->id")
             # sanitize name

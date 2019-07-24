@@ -78,7 +78,7 @@ class Device:
 
 def test_bare_system(params):
     all_loggers = logging.getLogger().manager.loggerDict
-    names = ["session", "session.controllers"]
+    names = ["global", "global.controllers"]
     for name in names:
         assert name in all_loggers.keys()
 
@@ -92,7 +92,7 @@ def test_add_motor_m0(params):
 
     all_loggers = logging.getLogger().manager.loggerDict
     assert (
-        f"session.controllers.{m0.controller.__class__.__name__}.m0"
+        f"global.controllers.{m0.controller.__class__.__name__}.m0"
         in all_loggers.keys()
     )
 
@@ -287,14 +287,13 @@ def test_log_name_sanitize(params):
     d1 = Device(r"Hi_*2^a.o@@-[200]")
     assert map_id(d1) in global_map
     assert (
-        global_map[map_id(d1)]["_logger"].name
-        == "session.controllers.Hi__2_a_o__-[200]"
+        global_map[map_id(d1)]["_logger"].name == "global.controllers.Hi__2_a_o__-[200]"
     )
     d2 = Device(r"/`/deviceDEVICE=+{}()")
     assert map_id(d1) in global_map
     assert (
         global_map[map_id(d2)]["_logger"].name
-        == "session.controllers.___deviceDEVICE=___()"
+        == "global.controllers.___deviceDEVICE=___()"
     )
 
 

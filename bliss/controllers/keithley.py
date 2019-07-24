@@ -443,10 +443,10 @@ class K2000(BaseMultimeter):
         )
 
 
-class AmmeterDDC:
+class AmmeterDDC(BeaconObject):
     def __init__(self, config):
         self.interface = get_comm(config, eol="\r\n")
-        self.config = config
+        super().__init__(config)
 
     @property
     def name(self):

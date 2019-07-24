@@ -443,9 +443,20 @@ class K2000(BaseMultimeter):
         )
 
 
-class AmmeterDDC:
+class AmmeterDDC(BeaconObject):
     def __init__(self, config):
-        self.interface = get_comm(config, eos="\r\n")
+        self.interface = get_comm(config, eol="\r\n")
+        super().__init__(config)
+
+    @property
+    def name(self):
+        sensors_name = "/".join(
+            [sensor["name"] for sensor in self.config.get("sensors")]
+        )
+        return f"keithley:{sensors_name}"
+
+    def __str__(self):
+        return "{0}({1})".format(self.__class__.__name__, self.name)
 
     class Sensor(SamplingCounter, BeaconObject):
         name = BeaconObject.config_getter("name")

@@ -13,6 +13,7 @@ from bliss import global_map, global_log
 from bliss.common import scans
 from bliss.common.scans import *
 from bliss.common.plot import plot
+from bliss.scanning.scan import SCANS
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
@@ -658,7 +659,7 @@ def edit_roi_counters(detector, acq_time=None):
         scan = ct(acq_time, detector)
     else:
         try:
-            scan = setup_globals.SCANS[-1]
+            scan = SCANS[-1]
         except IndexError:
             print(
                 f"SCANS list is empty -- do an acquisition with {detector.name} before editing roi counters"

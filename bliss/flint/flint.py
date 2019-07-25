@@ -50,11 +50,11 @@ pyqtRemoveInputHook()
 
 # Logging
 
-LOGGER = logging.getLogger()
+ROOT_LOGGER = logging.getLogger()
 
 
 @contextlib.contextmanager
-def ignore_warnings(logger=LOGGER):
+def ignore_warnings(logger=ROOT_LOGGER):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         level = logger.level
@@ -702,11 +702,11 @@ def main():
 
     handler = QtLogHandler(log_widget)
     handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
-    LOGGER.addHandler(handler)
-    LOGGER.level = logging.INFO
+    ROOT_LOGGER.addHandler(handler)
+    ROOT_LOGGER.level = logging.INFO
 
     def handle_exception(exc_type, exc_value, exc_traceback):
-        LOGGER.critical(
+        ROOT_LOGGER.critical(
             "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
         )
 

@@ -9,10 +9,12 @@
 Provide a widget to display logs from `logging` Python module.
 """
 
+import sys
 import logging
 import functools
 import warnings
 import weakref
+import traceback
 
 
 with warnings.catch_warnings():
@@ -35,10 +37,22 @@ class _QtLogHandler(logging.Handler):
         return self._log_widget()
 
     def emit(self, record):
-        record = self.format(record)
         widget = self.get_log_widget()
-        if widget is not None:
-            concurrent.submitToQtMainThread(widget.emit(record))
+        if widget is None:
+            return
+        try:
+            msg = self.format(record)
+            concurrent.submitToQtMainThread(widget.emit(msg))
+        except Exception:
+            self.handleError(record)
+
+    def handleError(self, record):
+        t, v, tb = sys.exc_info()
+        msg = "%s %s %s" % (t, v, ''.join(traceback.format_tb(tb)))
+        widget = self.get_log_widget()
+        if widget is None:
+            return
+        concurrent.submitToQtMainThread(widget.emit(msg))
 
 
 class LogWidget(qt.QPlainTextEdit):

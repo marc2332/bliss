@@ -22,6 +22,17 @@ class TestLogWidget(TestCaseQt):
         self.assertEqual(widget.logCount(), 2)
         widget = None
 
+    def test_buggy_logging(self):
+        widget = LogWidget()
+        self.qWaitForWindowExposed(widget)
+        widget.connect_logger(logger)
+        self.assertEqual(widget.logCount(), 0)
+        logger.warning("Two fields expected %s %f", "foo")
+        logger.warning("Float field expected %f", "foo")
+        self.qWait()
+        self.assertEqual(widget.logCount(), 2)
+        widget = None
+
     def test_handler_released_on_destroy(self):
         nb = len(logger.handlers)
         widget = LogWidget()

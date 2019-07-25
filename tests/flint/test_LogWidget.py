@@ -10,6 +10,18 @@ logger = logging.getLogger(__name__)
 
 class TestLogWidget(TestCaseQt):
 
+    def test_logging(self):
+        widget = LogWidget()
+        self.qWaitForWindowExposed(widget)
+        widget.connect_logger(logger)
+        self.assertEqual(widget.logCount(), 0)
+        logger.warning("Tout le %s s'eclate", "monde")
+        self.qWait()
+        logger.error("A la queu%s%s", "leu", "leu")
+        self.qWait()
+        self.assertEqual(widget.logCount(), 2)
+        widget = None
+
     def test_handler_released_on_destroy(self):
         nb = len(logger.handlers)
         widget = LogWidget()

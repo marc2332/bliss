@@ -18,6 +18,7 @@ import weakref
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from silx.gui import qt
+    from silx.gui.utils import concurrent
 
 
 class _QtLogHandler(logging.Handler):
@@ -37,10 +38,7 @@ class _QtLogHandler(logging.Handler):
         record = self.format(record)
         widget = self.get_log_widget()
         if widget is not None:
-            # FIXME: Add something to avoid logs to grow up to infinit
-            # FIXME: A signal should be used, as the handler is not always
-            #        the Qt thread
-            widget.appendPlainText(record)
+            concurrent.submitToQtMainThread(widget.emit(record))
 
 
 class LogWidget(qt.QPlainTextEdit):
@@ -50,6 +48,7 @@ class LogWidget(qt.QPlainTextEdit):
         self.setReadOnly(True)
         self._handlers = weakref.WeakKeyDictionary()
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
+        self._logCount = 0
 
     @staticmethod
     def _remove_handlers(handlers):
@@ -58,6 +57,17 @@ class LogWidget(qt.QPlainTextEdit):
         for handler, logger in handlers.items():
             logger.removeHandler(handler)
         handlers.clear()
+
+    def logCount(self):
+        """
+        Returns the amount of log messages displayed.
+        """
+        return self._logCount
+
+    def emit(self, record):
+        # FIXME: Add something to avoid logs to grow up to infinite
+        self.appendPlainText(record)
+        self._logCount += 1
 
     def connect_logger(self, logger):
         """

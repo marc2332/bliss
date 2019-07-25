@@ -111,7 +111,7 @@ class LakeshoreInput(Input):
             Returns:
               high and low alarm state (str, str): "On/Off"
         """
-        self._logger.info("alarm_status")
+        log_info(self, "alarm_status")
         channel = self.config.get("channel")
         return self.controller._lakeshore._alarm_status(channel)
 
@@ -126,7 +126,7 @@ class LakeshoreInput(Input):
             Returns:
               None
         """
-        self._logger.info("alarm_reset")
+        log_info(self, "alarm_reset")
         return self.controller._lakeshore._alarm_reset()
 
 
@@ -261,7 +261,7 @@ class LakeshoreBase(Controller):
         Returns:
         model (int): model number
         """
-        self._logger.info("model")
+        log_info(self, "model")
         return self._lakeshore._model()
 
     def initialize(self):
@@ -507,7 +507,7 @@ class LakeshoreBase(Controller):
               device ID, PID, heater range, loop status, sensors configuration, inputs temperature etc.
         """
         repr_list = []
-        self._logger.info("_show")
+        log_info(self, "_show")
         # Get full identification string
         full_id = self._lakeshore.send_cmd("*IDN?")
         repr_list.append("Lakeshore identification %s" % (full_id))
@@ -602,7 +602,7 @@ class LakeshoreBase(Controller):
         return ans
 
     def _used_curve(self, channel):
-        self._logger.info("_used_curve")
+        log_info(self, "_used_curve")
         curve_number = self._lakeshore.send_cmd("INCRV?", channel=channel)
         command = "CRVHDR? %s" % curve_number
         curve_header = self._lakeshore.send_cmd(command, channel=channel)
@@ -622,7 +622,7 @@ class LakeshoreBase(Controller):
         }
 
     def _select(self, crvn, channel):
-        self._logger.info(f"_select_curve: {crvn}")
+        log_info(self, f"_select_curve: {crvn}")
         if crvn not in range(1, self.NCURVES + 1):
             raise ValueError(
                 f"Curve number {crvn} is invalid. Should be [1,{self.NCURVES-1}]"
@@ -635,7 +635,7 @@ class LakeshoreBase(Controller):
             Returns:
               a row for all the curves from 1 to the number of available ones
         """
-        self._logger.info("_list_all")
+        log_info(self, "_list_all")
         print(" #            Name       SN         Format     Limit(K) Temp. coef.")
         for i in range(1, self.NCURVES + 1):
             command = "CRVHDR? %s" % i
@@ -659,7 +659,7 @@ class LakeshoreBase(Controller):
             )
 
     def _write(self, crvn, crvfile):
-        self._logger.info("_curve_write")
+        log_info(self, "_curve_write")
         user_min_curve, user_max_curve = self.NUSERCURVES
 
         if crvn not in range(user_min_curve, user_max_curve + 1):
@@ -789,7 +789,7 @@ class LakeshoreBase(Controller):
             )
 
     def _delete(self, crvn):
-        self._logger.info(f"_delete: {crvn}")
+        log_info(self, f"_delete: {crvn}")
         user_min_curve, user_max_curve = self.NUSERCURVES
 
         if crvn is None:
@@ -798,7 +798,7 @@ class LakeshoreBase(Controller):
                 % (user_min_curve, user_max_curve)
             )
         else:
-            self._logger.debug("Curve number passed as arg = %d" % crvn)
+            log_debug(self, "Curve number passed as arg = %d" % crvn)
 
         if crvn not in range(user_min_curve, user_max_curve + 1):
             raise ValueError(

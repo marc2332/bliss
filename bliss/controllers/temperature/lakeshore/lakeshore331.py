@@ -66,6 +66,7 @@ import time
 import enum
 from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
+from bliss.common.logtools import *
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
 from .lakeshore import LakeshoreInput as Input
 from .lakeshore import LakeshoreOutput as Output
@@ -93,11 +94,10 @@ class LakeShore331:
     REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
     IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
 
-    def __init__(self, comm, logger, **kwargs):
+    def __init__(self, comm, **kwargs):
         self._comm = comm
         self._channel = None
-        self._logger = logger
-        self._logger.info("__init__")
+        log_info(self, "__init__")
 
     @property
     def eol(self):
@@ -119,17 +119,17 @@ class LakeShore331:
     # - Input object
     #   ------------
     def _initialize_input(self, input):
-        self._logger.info("_initialize_input")
+        log_info(self, "_initialize_input")
 
     # - Output object
     #   -------------
     def _initialize_output(self, output):
-        self._logger.info("_initialize_output")
+        log_info(self, "_initialize_output")
 
     # - Loop object
     #   -----------
     def _initialize_loop(self, loop):
-        self._logger.info("_initialize_loop")
+        log_info(self, "_initialize_loop")
         # Get input object channel
         ipch = loop.input.config["channel"]
         # Get output object unit
@@ -149,7 +149,7 @@ class LakeShore331:
             Returns:
               (float): current temperature
         """
-        self._logger.info("read_temperature")
+        log_info(self, "read_temperature")
         # Query Input Status before reading temperature
         # If status is OK, then read the temperature
         asw = int(self.send_cmd("RDGST?", channel=channel))
@@ -161,17 +161,17 @@ class LakeShore331:
             elif scale == "Sensor_unit":
                 return float(self.send_cmd("SRDG?", channel=channel))
         if asw & 16:
-            self._logger.warning("Temperature UnderRange on input %s" % channel)
+            log_warning(self, "Temperature UnderRange on input %s" % channel)
             raise ValueError("Temperature value on input %s is invalid" % channel)
         if asw & 32:
-            self._logger.warning("Temperature OverRange on input %s" % channel)
+            log_warning(self, "Temperature OverRange on input %s" % channel)
             raise ValueError("Temperature value on input %s is invalid" % channel)
         if asw & 64:
-            self._logger.warning("Temperature in Sensor_unit = 0 on input %s" % channel)
+            log_warning(self, "Temperature in Sensor_unit = 0 on input %s" % channel)
             raise ValueError("Temperature in Sensor_unit = 0 on input %s" % channel)
         if asw & 128:
-            self._logger.warning(
-                "Temperature OverRange in Sensor_unit on input %s" % channel
+            log_warning(
+                self, "Temperature OverRange in Sensor_unit on input %s" % channel
             )
             raise ValueError(
                 "Temperature OverRange in Sensor_unit on input %s" % channel
@@ -188,7 +188,7 @@ class LakeShore331:
         Returns:
             <type>, <compensation>
         """
-        self._logger.info("_sensor_type")
+        log_info(self, "_sensor_type")
         if type is None:
             return self.send_cmd("INTYPE?", channel=channel)
         else:
@@ -206,7 +206,7 @@ class LakeShore331:
               None if set
               value (float): The value of the setpoint if read
         """
-        self._logger.info("setpoint")
+        log_info(self, "setpoint")
         if value is None:
             return float(self.send_cmd("SETP?", channel=channel))
         else:
@@ -223,7 +223,7 @@ class LakeShore331:
               None if set
               value (float): The value of the ramp rate if read.
         """
-        self._logger.info("ramp_rate")
+        log_info(self, "ramp_rate")
         if value is None:
             r = self.send_cmd("RAMP?", channel=channel).split(",")
             state = "ON" if int(r[0]) == 1 else "OFF"
@@ -242,8 +242,8 @@ class LakeShore331:
             Returns:
               None
         """
-        self._logger.info("ramp")
-        self._logger.debug("ramp(): SP=%r, RR=%r" % (sp, rate))
+        log_info(self, "ramp")
+        log_debug(self, "ramp(): SP=%r, RR=%r" % (sp, rate))
         self.setpoint(channel, sp)
         if rate < 0.1 or rate > 100:
             raise ValueError("Ramp value %s is out of bounds [0.1,100]" % rate)
@@ -259,10 +259,10 @@ class LakeShore331:
         # TODO: in case rampstatus found is 0 (= no ramping active)
         #       could add sending command *STB? and checking bit 7,
         #       which indicates (when set to 1) that ramp is done.
-        self._logger.info("ramp_status")
-        self._logger.debug("ramp_status(): channel = %r" % channel)
+        log_info(self, "ramp_status")
+        log_debug(self, "ramp_status(): channel = %r" % channel)
         ramp_stat = self.send_cmd("RAMPST?", channel=channel)
-        self._logger.debug("ramp_status(): ramp_status = %r" % ramp_stat)
+        log_debug(self, "ramp_status(): ramp_status = %r" % ramp_stat)
         return int(ramp_stat)
 
     # Standard LOOP-object related method(s)
@@ -280,7 +280,7 @@ class LakeShore331:
               i (float): I
               d (float): D
         """
-        self._logger.info("pid")
+        log_info(self, "pid")
         kp = kwargs.get("P")
         ki = kwargs.get("I")
         kd = kwargs.get("D")
@@ -313,7 +313,7 @@ class LakeShore331:
             Returns:
               model (int): model number
         """
-        self._logger.info("_model")
+        log_info(self, "_model")
         model = self.send_cmd("*IDN?").split(",")[1]
         return int(model[5:8])
 
@@ -336,7 +336,7 @@ class LakeShore331:
               points (int): nb of points used by filter function
               window (int): filter window (in %)
         """
-        self._logger.info("_filter")
+        log_info(self, "_filter")
         input = channel
         onoff = kwargs.get("onoff")
         points = kwargs.get("points")
@@ -379,12 +379,12 @@ class LakeShore331:
             Returns:
               high and low alarm state (str, str): "On/Off"
         """
-        self._logger.info("_alarm_status")
+        log_info(self, "_alarm_status")
         asw = self.send_cmd("ALARMST?", channel=channel).split(",")
         hist = "On" if int(asw[0]) == 1 else "Off"
         lost = "On" if int(asw[1]) == 1 else "Off"
-        self._logger.debug("Alarm high state = %s" % hist)
-        self._logger.debug("Alarm Low  state = %s" % lost)
+        log_debug(self, "Alarm high state = %s" % hist)
+        log_debug(self, "Alarm Low  state = %s" % lost)
         return (hist, lost)
 
     def _alarm_reset(self):
@@ -397,7 +397,7 @@ class LakeShore331:
             Returns:
               None
         """
-        self._logger.info("_alarm_reset")
+        log_info(self, "_alarm_reset")
         self.send_cmd("ALMRST")
 
     # CUSTOM OUTPUT-object related method(s)
@@ -428,7 +428,7 @@ class LakeShore331:
                     possibility is to display power (2). We are thus
                     consistent with the default value (= 1 = current).
         """
-        self._logger.info("read_loop_params")
+        log_info(self, "read_loop_params")
         asw = self.send_cmd("CSET?", channel=channel).split(",")
         input = asw[0]
         unit = self.REVUNITS331[int(asw[1])]
@@ -464,8 +464,8 @@ class LakeShore331:
             Returns:
               Answer from the controller if ? in the command
         """
-        self._logger.info("send_cmd")
-        self._logger.debug("command = {0}, channel = {1})".format(command, channel))
+        log_info(self, "send_cmd")
+        log_debug(self, "command = {0}, channel = {1})".format(command, channel))
         if channel is None:
             values = "".join(str(x) for x in args)
             cmd = f"{command} {values}"
@@ -478,7 +478,7 @@ class LakeShore331:
             else:
                 cmd = f"{command} {channel},{values}"
             # print("------------ command = {0}".format(cmd))
-        self._logger.debug("values = {0}".format(values))
+        log_debug(self, "values = {0}".format(values))
         if "?" in command:
             asw = self._comm.write_readline(cmd.encode() + self.eol.encode())
             # print("asw = {0}".format(asw.decode()))
@@ -497,8 +497,8 @@ class LakeShore331:
             Returns:
               None
         """
-        self._logger.info("wraw")
-        self._logger.debug("command to send = {0}".format(string))
+        log_info(self, "wraw")
+        log_debug(self, "command to send = {0}".format(string))
         cmd = string + self.eol
         self._comm.write(cmd.encode())
 
@@ -507,10 +507,10 @@ class LakeShore331:
             Returns:
               response from the controller
         """
-        self._logger.info("rraw")
+        log_info(self, "rraw")
         cmd = self.eol
         asw = self._comm.readline(cmd.encode())
-        self._logger.debug("raw answer = {0}".format(asw))
+        log_debug(self, "raw answer = {0}".format(asw))
         return asw.decode()
 
     def wrraw(self, string):
@@ -520,11 +520,11 @@ class LakeShore331:
             Returns:
               response from the controller
         """
-        self._logger.info("wrraw")
-        self._logger.debug("command to send = {0}".format(string))
+        log_info(self, "wrraw")
+        log_debug(self, "command to send = {0}".format(string))
         cmd = string + self.eol
         asw = self._comm.write_readline(cmd.encode())
-        self._logger.debug("raw answer = {0}".format(asw))
+        log_debug(self, "raw answer = {0}".format(asw))
         return asw.decode()
 
 
@@ -566,7 +566,7 @@ class lakeshore331(LakeshoreBase):
     def __init__(self, config, *args):
         comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
 
-        _lakeshore = LakeShore331(comm_interface, self._logger)
+        _lakeshore = LakeShore331(comm_interface)
 
         model = _lakeshore._model()
         if model != 331:
@@ -577,17 +577,17 @@ class lakeshore331(LakeshoreBase):
         LakeshoreBase.__init__(self, _lakeshore, config, *args)
 
     def _read_state_output(self, channel):
-        self._logger.info("_state_output")
+        log_info(self, "_state_output")
         r = int(self._lakeshore.send_cmd("HTRST?"))
         return self.HeaterState(r)
 
     def _read_value_percent(self, channel):
-        self._logger.info("_state_output")
+        log_info(self, "_state_output")
         return self._lakeshore.send_cmd("HTR?")
 
     def _read_heater_range(self, channel):
         """ Read the heater range """
-        self._logger.info("_read_heater_range")
+        log_info(self, "_read_heater_range")
         r = int(self._lakeshore.send_cmd("RANGE?"))
         return self.HeaterRange(r)
 
@@ -600,7 +600,7 @@ class lakeshore331(LakeshoreBase):
             Args:
               value (int): The value of the range
         """
-        self._logger.info("_set_heater_range")
+        log_info(self, "_set_heater_range")
         v = self.HeaterRange(value).value
         self._lakeshore.send_cmd("RANGE", v)
 
@@ -612,23 +612,23 @@ class lakeshore331(LakeshoreBase):
         self._lakeshore.send_cmd("CMODE", value, channel=channel)
 
     def _read_loop_unit(self, channel):
-        self._logger.info("_read_loop_units")
+        log_info(self, "_read_loop_units")
         asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
         unit = int(asw[1])
         return self.Unit(unit)
 
     def _set_loop_unit(self, channel, unit):
-        self._logger.info("_set_loop_units")
+        log_info(self, "_set_loop_units")
         asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
         value = self.Unit(unit).value
         self._lakeshore.send_cmd("CSET", asw[0], value, asw[2], asw[3], channel=channel)
 
     def _set_loop_on(self, tloop):
-        self._logger.info("_set_loop_on")
+        log_info(self, "_set_loop_on")
         tloop.output.range = 1
         return tloop.output.range == self.HeaterRange.LOW
 
     def _set_loop_off(self, tloop):
-        self._logger.info("_set_loop_off")
+        log_info(self, "_set_loop_off")
         tloop.output.range = 0
         return tloop.output.range == self.HeaterRange.OFF

@@ -14,6 +14,8 @@ from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
 from bliss.common.measurement import GroupedReadMixin, Counter, SamplingMode
 from bliss.common.utils import all_equal
+from collections import namedtuple
+from datetime import datetime
 
 
 def _get_group_reader(counters_or_groupreadhandler):
@@ -111,7 +113,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         )
         * count_time,
         SamplingMode.STATISTICS: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
-            SamplingCounterAcquisitionDevice.welford_finalize(statistics)
+            statistics[:7]
         ),
         SamplingMode.SINGLE_COUNT: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
             [acc_value]
@@ -162,21 +164,21 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
 
         self.mode_helpers = list()
-        self.counters = list()
+        self._counters = list()  ### TO be removed with Matias merge request
         self.SINGLE_COUNT = False
 
         for cnt in counters:
             self.add_counter(cnt)
 
     def add_counter(self, counter):
-        if counter in self.counters:
+        if counter in self._counters:
             return
         super().add_counter(counter)
 
         self.mode_helpers.append(
             SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
         )
-        self.counters.append(counter)
+        self._counters.append(counter)
 
         if counter.mode == SamplingMode.STATISTICS:
             self.channels.append(
@@ -209,7 +211,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
         # check modes ... single count mode not compatible with other modes
         sing_cnt = (
-            numpy.array([c.mode for c in self.counters]) == SamplingMode.SINGLE_COUNT
+            numpy.array([c.mode for c in self._counters]) == SamplingMode.SINGLE_COUNT
         )
         if any(sing_cnt) and not all(sing_cnt):
             raise RuntimeError(
@@ -267,10 +269,14 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             acc_value = 0
             stop_time = trig_time + self.count_time or 0
 
-            # needed only in STATISTICS Mode
-            statistics = numpy.zeros((len(self.counters), 3))
+            # tmp buffer for rolling statistics
+            # Entries per counter:
+            # 0:count, 1:mean, 2:M2 , 3:min, 4:max
+            statistics = numpy.array(
+                [[0, 0, 0, numpy.nan, numpy.nan]] * len(self._counters)
+            )
 
-            samples = [[]] * len(self.counters)
+            samples = [[]] * len(self._counters)
 
             if not self.SINGLE_COUNT:
                 # Counter integration loop
@@ -288,12 +294,11 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     nb_read += 1
                     acc_read_time += end_read - start_read
 
-                    for i, c in enumerate(self.counters):
-                        if c.mode == SamplingMode.STATISTICS:
-                            statistics[i] = self.welford_update(
-                                statistics[i], read_value[i]
-                            )
-                        elif c.mode == SamplingMode.SAMPLES:
+                    for i, c in enumerate(self._counters):
+                        statistics[i] = self.rolling_stats_update(
+                            statistics[i], read_value[i]
+                        )
+                        if c.mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
                         elif c.mode == SamplingMode.FIRST_READ and samples[i] == []:
                             samples[i] = read_value[i]
@@ -311,14 +316,24 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 )
                 acc_read_time = 0
                 nb_read = 1
+                current_time = time.time()
 
             self._nb_acq_points += 1
+
+            # Deal with statistics
+            stats = list()
+            for i, c in enumerate(self._counters):
+                st = self.rolling_stats_finalize(
+                    statistics[i], self.count_time, current_time
+                )
+                c.statistics = st
+                stats.append(st)
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel
             data = self.apply_vectorized(
                 self.mode_helpers,
                 acc_value,
-                statistics,
+                stats,
                 samples,
                 acc_read_time,
                 nb_read,
@@ -356,25 +371,53 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     # M2 aggregates the squared distance from the mean
     # count aggregates the number of samples seen so far
     @staticmethod
-    def welford_update(existingAggregate, newValue):
-        (count, mean, M2) = existingAggregate
+    def rolling_stats_update(existingAggregate, newValue):
+        (count, mean, M2, Min, Max) = existingAggregate
         count += 1
         delta = newValue - mean
         mean += delta / count
         delta2 = newValue - mean
         M2 += delta * delta2
+        Min = numpy.nanmin((Min, newValue))
+        Max = numpy.nanmax((Max, newValue))
 
-        return (count, mean, M2)
+        return (count, mean, M2, Min, Max)
 
     # retrieve the mean, variance and sample variance (M2/(count - 1)) from an aggregate
     @staticmethod
-    def welford_finalize(existingAggregate):
-        (count, mean, M2) = existingAggregate
+    def rolling_stats_finalize(
+        existingAggregate, count_time=numpy.nan, timest=numpy.nan
+    ):
+        (count, mean, M2, Min, Max) = existingAggregate
         (mean, variance) = (mean, M2 / count)
+        stats = namedtuple(
+            "SamplingCounterStatistics",
+            "mean N std var min max p2v count_time timestamp",
+        )
         if count < 2:
-            return (mean, count, numpy.nan)
+            return stats(
+                mean,
+                count,
+                numpy.nan,
+                numpy.nan,
+                numpy.nan,
+                numpy.nan,
+                numpy.nan,
+                count_time,
+                timest,
+            )
         else:
-            return (mean, count, numpy.sqrt(variance))
+            return stats(
+                mean,
+                numpy.int(count),
+                numpy.sqrt(variance),
+                variance,
+                Min,
+                Max,
+                Max - Min,
+                count_time,
+                str(datetime.fromtimestamp(timest)),
+            )
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):

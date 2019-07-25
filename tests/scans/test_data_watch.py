@@ -12,9 +12,10 @@ import numpy
 import numpy.testing
 from bliss import setup_globals
 from bliss.common import event
+from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.scanning.scan import Scan, ScanSaving
+from bliss.scanning.scan import Scan, ScanSaving, ScanState
 from bliss.data.scan import get_data, watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 
@@ -166,3 +167,34 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
     assert pytest.approx(m1.position, end_pos)
     assert len(end_scan_args)
+
+
+def test_data_watch_callback(session, diode_acq_device_factory):
+    chain = AcquisitionChain()
+    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=1)
+    master = SoftwareTimerMaster(0.1, npoints=1)
+    chain.add(master, acquisition_device_1)
+
+    class TestDataWatchCallback:
+        def __init__(self):
+            self.SCAN_NEW = False
+            self.SCAN_DATA = False
+            self.SCAN_END = False
+
+        def on_state(self, scan_state):
+            # what is this for ?
+            return True
+
+        def on_scan_new(self, scan_info):
+            self.SCAN_NEW = True
+
+        def on_scan_data(self, *args):
+            self.SCAN_DATA = True
+
+        def on_scan_end(self, *args):
+            self.SCAN_END = True
+
+    cb = TestDataWatchCallback()
+    s = Scan(chain, save=False, data_watch_callback=cb)
+    s.run()
+    assert all([cb.SCAN_NEW, cb.SCAN_DATA, cb.SCAN_END])

@@ -883,7 +883,7 @@ class Scan:
             )
 
         if hasattr(self._data_watch_callback, "on_state"):
-            call_on_prepare = self._data_watch_callback.on_state(ScanState.PREPARE)
+            call_on_prepare = self._data_watch_callback.on_state(ScanState.PREPARING)
             call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
         else:
             call_on_prepare, call_on_stop = False, False

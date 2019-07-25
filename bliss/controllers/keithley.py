@@ -225,14 +225,6 @@ class BaseSensor(SamplingCounter, BeaconObject):
         self.controller._initialize_with_setting()
         super()._initialize_with_setting()
 
-    @BeaconObject.lazy_init
-    def measure(self, func=None):
-        return self.controller.measure(func=func)[self.index]
-
-    @BeaconObject.lazy_init
-    def data(self):
-        return self.controller.data()[self.index]
-
     def _meas_func_sensor_cmd(self, param):
         func = self.meas_func
         return "SENS%d:%s:%s" % (self.address, func, param)
@@ -320,10 +312,6 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
     def read_all(self, *counters):
         values = self["READ"]
         return [values[cnt.index] for cnt in counters]
-
-    @BeaconObject.lazy_init
-    def data(self):
-        return self["DATA"]
 
     @BeaconObject.lazy_init
     def abort(self):
@@ -472,25 +460,20 @@ class AmmeterDDC(BeaconObject):
             return self.__controller
 
         @BeaconObject.lazy_init
-        def measure(self, func=None):
-            svalue = self.interface.write_readline(b"X\r\n")
-            return [float(svalue)]
-
-        def data(self):
-            return self.measure()
-
         def read(self):
-            return self.measure()
+            interface = self.controller.interface
+            svalue = interface.write_readline(b"X\r\n")
+            return float(svalue)
 
         def _initialize_with_setting(self):
             if self._is_initialized:
                 return
 
-            ctrl = self.controller
-            ctrl.interface.write(b"F1X\r\n")  # Amp function
-            ctrl.write(b"B0X\r\n")  # electrometer reading
-            ctrl.write(b"G1X\r\n")  # Reading without prefix
-            ctrl.write(b"T4X\r\n")
+            interface = self.controller.interface
+            interface.write(b"F1X\r\n")  # Amp function
+            interface.write(b"B0X\r\n")  # electrometer reading
+            interface.write(b"G1X\r\n")  # Reading without prefix
+            interface.write(b"T4X\r\n")
             super()._initialize_with_setting()
 
 

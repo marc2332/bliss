@@ -117,7 +117,7 @@ def get_comm_type(config):
             raise ValueError("More than one communication channel found")
         comm_type = UDP
     if comm_type is None:
-        raise ValueError("No communication channel found in config")
+        raise ValueError("get_comm_type(): No communication channel found in config")
     return comm_type
 
 
@@ -192,7 +192,7 @@ def get_comm(config, ctype=None, **opts):
         from .serial import Serial as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
-        raise ValueError("No communication channel found in config")
+        raise ValueError("get_comm(): No communication channel found in config")
 
     if proxy_config is None:
         return klass(**opts)

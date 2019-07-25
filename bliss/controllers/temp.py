@@ -33,11 +33,11 @@ controller:
             output: $heater         <- mandatory
 """
 import itertools
-
-from bliss.common.temperature import *
+from gevent import lock
+from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import set_custom_members
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss.config.channels import Cache
 
 
 class Controller:
@@ -48,7 +48,11 @@ class Controller:
     def __init__(self, config, inputs, outputs, loops):
         self.__config = config
         self.__name = config.get("name")
+        self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self._objects = {}
+        self.__initialized_hw_obj = {}
+        self.__initialized_obj = {}
+        self.__lock = lock.RLock()
 
         for name, klass, cfg in itertools.chain(inputs, outputs, loops):
             log_debug(self, f"  {klass.__name__} name: {name}")
@@ -57,8 +61,8 @@ class Controller:
 
             self._objects[name] = new_obj
 
-            # For custom attributes and commands.
-            set_custom_members(self, new_obj)
+            if new_obj.controller is self:
+                set_custom_members(self, new_obj, self._initialize_obj)
 
     @property
     def name(self):
@@ -70,6 +74,25 @@ class Controller:
         returns the config structure
         """
         return self.__config
+
+    @property
+    def inputs(self):
+        return self._object_filter(Input)
+
+    @property
+    def outputs(self):
+        return self._object_filter(Output)
+
+    @property
+    def loops(self):
+        return self._object_filter(Loop)
+
+    def _object_filter(self, class_type):
+        return {
+            name: obj
+            for name, obj in self._objects.items()
+            if isinstance(obj, class_type)
+        }
 
     def get_object(self, name):
         """
@@ -88,18 +111,53 @@ class Controller:
     def _init(self):
         self.initialize()
 
-        for obj in self._objects.values():
+        for name, obj in self._objects.items():
+            if obj.controller is not self:
+                continue
+            obj_initialized = Cache(obj, "initialized", default_value=0)
+            self.__initialized_hw_obj[obj] = obj_initialized
+            self.__initialized_obj[obj] = False
+
+    def _initialize_obj(self, obj, *args, **kwargs):
+        with self.__lock:
+            if self.__initialized_obj[obj]:
+                return
+
+            if not self.__initialized_hw.value:
+                self.initialize_hardware()
+                self.__initialized_hw.value = True
+
             if isinstance(obj, Input):
                 self.initialize_input(obj)
+                hw_init_func = self.initialize_input_hardware
             elif isinstance(obj, Output):
                 self.initialize_output(obj)
+                hw_init_func = self.initialize_output_hardware
             elif isinstance(obj, Loop):
                 self.initialize_loop(obj)
+                hw_init_func = self.initialize_loop_hardware
+
+            obj_initialized = self.__initialized_hw_obj[obj]
+            if not obj_initialized.value:
+                hw_init_func(obj)
+                obj_initialized.value = 1
+
+            self.__initialized_obj[obj] = True
+
+    def initialize_hardware(self):
+        """
+        Initializes the controller hardware
+        (only once, by the first client)
+        """
+        pass
 
     def initialize(self):
-        """ 
+        """
         Initializes the controller.
         """
+        pass
+
+    def initialize_input_hardware(self, tinput):
         pass
 
     def initialize_input(self, tinput):
@@ -107,8 +165,11 @@ class Controller:
         Initializes an Input class type object
 
         Args:
-           tinput:  Input class type object          
+           tinput:  Input class type object
         """
+        pass
+
+    def initialize_output_hardware(self, toutput):
         pass
 
     def initialize_output(self, toutput):
@@ -116,8 +177,11 @@ class Controller:
         Initializes an Output class type object
 
         Args:
-           toutput:  Output class type object          
+           toutput:  Output class type object
         """
+        pass
+
+    def initialize_loop_hardware(self, tloop):
         pass
 
     def initialize_loop(self, tloop):
@@ -125,7 +189,7 @@ class Controller:
         Initializes a Loop class type object
 
         Args:
-           tloop:  Loop class type object          
+           tloop:  Loop class type object
         """
         pass
 
@@ -135,10 +199,10 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tinput:  Input class type object 
+           tinput:  Input class type object
 
         Returns:
-           read value         
+           read value
         """
         log_info(self, "Controller:read_input: %s" % (tinput))
         raise NotImplementedError
@@ -149,10 +213,10 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
 
         Returns:
-           read value         
+           read value
         """
         log_info(self, "Controller:read_output: %s" % (toutput))
         raise NotImplementedError
@@ -163,7 +227,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
@@ -176,7 +240,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            rate:     ramp rate
        """
         log_info(self, "Controller:set_ramprate: %s" % (toutput))
@@ -188,8 +252,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            ramp rate
         """
@@ -202,7 +266,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            dwell
        """
         log_info(self, "Controller:set_dwell: %s" % (toutput))
@@ -214,8 +278,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            dwell value
         """
@@ -228,7 +292,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            step
        """
         log_info(self, "Controller:set_step: %s" % (toutput))
@@ -240,8 +304,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
-        
+           toutput:  Output class type object
+
         Returns:
            step value
         """
@@ -254,7 +318,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            kp
        """
         log_info(self, "Controller:set_kp: %s" % (tloop))
@@ -266,8 +330,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
-        
+           tloop:  Loop class type object
+
         Returns:
            kp value
         """
@@ -280,7 +344,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            ki
        """
         log_info(self, "Controller:set_ki: %s" % (tloop))
@@ -292,8 +356,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
-        
+           tloop:  Loop class type object
+
         Returns:
            ki value
         """
@@ -306,7 +370,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Loop class type object 
+           tloop:  Loop class type object
            kd
        """
         log_info(self, "Controller:set_kd: %s" % (tloop))
@@ -318,8 +382,8 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           tloop:  Output class type object 
-        
+           tloop:  Output class type object
+
         Returns:
            kd value
         """
@@ -332,7 +396,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
            sp:       setpoint
            **kwargs: auxilliary arguments
         """
@@ -345,7 +409,7 @@ class Controller:
            Raises NotImplementedError if not defined by inheriting class
 
         Args:
-           toutput:  Output class type object 
+           toutput:  Output class type object
 
         Returns:
            (float) setpoint value. Must be None if not setpoint is set
@@ -381,9 +445,6 @@ class Controller:
         log_info(self, "Controller:state_output:")
         raise NotImplementedError
 
-    def _f(self):
-        pass
-
     def setpoint_stop(self, toutput):
         """
         Stops the setpoint task
@@ -411,7 +472,7 @@ class Controller:
         Starts the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
 
-        Args: 
+        Args:
            tloop:  Loop class type object
         """
         log_info(self, "Controller:on:")
@@ -422,7 +483,7 @@ class Controller:
         Stops the regulation on the loop
            Raises NotImplementedError if not defined by inheriting class
 
-        Args: 
+        Args:
            tloop:  Loop class type object
         """
         log_info(self, "Controller:on:")

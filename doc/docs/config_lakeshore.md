@@ -1,6 +1,6 @@
 # Lakeshore cryostat
 
-## Configuration of ls330, ls332, and ls336
+## Configuration of ls336
 for connection via gpib
 ```YAML
         - class: lakeshore336
@@ -33,5 +33,14 @@ for connection via tcp
             - name: ls336Gt
               channel: A
 ```
+Last alternative for the model 336 would be to use USB interface.
 
-Note that ls335 is treated differently in bliss.
+Other models (used at ESRF and fow which BLISS controller exists)
+have the following possible interfaces:
+
+model 331 can use RS232.
+model 332 can use GPIB or RS232.
+model 335 can use GPIB or USB.
+model 340 can use GPIB or RS232.
+
+

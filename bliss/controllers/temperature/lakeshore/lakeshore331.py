@@ -6,68 +6,65 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Lakeshore 340, acessible via GPIB or Serial line (RS232)
+Lakeshore 331, acessible via Serial line (RS232)
 
 yml configuration example:
 #controller:
-- class: lakeshore340
-  module: lakeshore.lakeshore340
-  name: lakeshore340
+- class: lakeshore331
+  module: lakeshore.lakeshore331
+  name: lakeshore331
   timeout: 3
-  gpib:
-     url: enet://gpibid10f.esrf.fr
-     pad: 9 
   serial:
      url: ser2net://lid102:28000/dev/ttyR1
-     baudrate: 19200    # max (other possible values: 300, 1200,
-                        #                      2400, 4800, 9600)
+     baudrate: 9600    # max (other possible values: 300, 1200)
+     eol: "\r\n"
+
   inputs:
-    - name: ls340_A
+    - name: ls331_A
       channel: A 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_340
-    - name: ls340_A_c    # input temperature in Celsius
+      #tango_server: ls_331
+    - name: ls331_A_c    # input temperature in Celsius
       channel: A
       unit: Celsius
-    - name: ls340_A_su  # in Sensor_unit (Ohm or Volt)
+    - name: ls331_A_su  # in sensor units (Ohm or Volt)
       channel: A
       unit: Sensor_unit
 
-    - name: ls340_B
+    - name: ls331_B
       channel: B 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_340
-    - name: ls340_B_c    # input temperature in Celsius
+      #tango_server: ls_331
+    - name: ls331_B_c    # input temperature in Celsius
       channel: B
       unit: Celsius
-    - name: ls340_B_su  # in Sensor_unit (Ohm or Volt)
+    - name: ls331_B_su  # in sensor units (Ohm or Volt)
       channel: B
       unit: Sensor_unit
 
   outputs:
-    - name: ls340o_1
+    - name: ls331o_1
       channel: 1 
-
-    - name: ls340o_2
+      unit: Kelvin
+    - name: ls331o_2
       channel: 2 
 
   ctrl_loops:
-    - name: ls340l_1
-      input: $ls340_A
-      output: $ls340o_1
+    - name: ls331l_1
+      input: $ls331_A
+      output: $ls331o_1
       channel: 1
-    - name: ls340l_2
-      input: $ls340_B
-      output: $ls340o_2
+    - name: ls331l_2
+      input: $ls331_B
+      output: $ls331o_2
       channel: 2
 """
 import types
 import time
 import enum
 from bliss.comm import serial
-from bliss.comm import gpib
 from bliss.comm.util import get_interface, get_comm
 from bliss.common.logtools import *
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
@@ -77,7 +74,7 @@ from .lakeshore import LakeshoreLoop as Loop
 
 _last_call = time.time()
 # limit number of commands per second
-# lakeshore 340 supports at most 20 commands per second
+# lakeshore 331 supports at most 20 commands per second
 def _send_limit(func):
     def f(*args, **kwargs):
         global _last_call
@@ -92,10 +89,10 @@ def _send_limit(func):
     return f
 
 
-class LakeShore340:
-    UNITS340 = {"Kelvin": 1, "Celsius": 2, "Sensor_unit": 3}
-    REVUNITS340 = {1: "Kelvin", 2: "Celsius", 3: "Sensor_unit"}
-    IPSENSORUNITS340 = {1: "volts", 2: "ohms"}
+class LakeShore331:
+    UNITS331 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
 
     def __init__(self, comm, **kwargs):
         self._comm = comm
@@ -181,43 +178,21 @@ class LakeShore340:
             )
         raise RuntimeError("Could not read temperature on channel %s" % channel)
 
-    def _sensor_type(
-        self,
-        channel,
-        type=None,
-        units=None,
-        coefficient=None,
-        excitation=None,
-        range=None,
-    ):
+    def _sensor_type(self, channel, type=None, compensation=None):
         """ Read or set input type parameters
-            Args :
-              [type], [units], [coefficient], [excitation], [range]
-              example: input.sensor_type(type=8,units=2,coefficient=1,excitation=6,range=11)
-              example: input.sensor_type(type=1) 
-            Returns:
-              <type>, <units>, <coefficient>, <excitation>, <range>
+        Args: According to the model, use the appropriate args
+            type (int): 0 to ?
+            compensation (int): 0=off and 1=on
+
+            example: input.sensor_type(type=3,compensation=1) 
+        Returns:
+            <type>, <compensation>
         """
         log_info(self, "_sensor_type")
         if type is None:
             return self.send_cmd("INTYPE?", channel=channel)
         else:
-            typec, unitsc, coefficientc, excitationc, rangec = self.send_cmd(
-                "INTYPE?", channel=channel
-            ).split(",")
-            if type is None:
-                type = typec
-            if units is None:
-                units = unitsc
-            if coefficient is None:
-                coefficient = coefficientc
-            if excitation is None:
-                excitation = excitationc
-            if range is None:
-                range = rangec
-            self.send_cmd(
-                "INTYPE", type, units, coefficient, excitation, range, channel=channel
-            )
+            self.send_cmd("INTYPE", type, compensation, channel=channel)
 
     # Standard OUTPUT-object related method(s)
     # ----------------------------------------
@@ -323,7 +298,7 @@ class LakeShore340:
                 )
             if float(ki) < 0.1 or float(ki) > 1000.:
                 raise ValueError("Integral reset %s is out of bounds [0.1,1000]" % ki)
-            if float(kd) < 1 or float(kd) > 200:
+            if float(kd) < 0 or float(kd) > 200:
                 raise ValueError("Derivative rate %s is out of bounds [0,200]" % kd)
             self.send_cmd("PID", kp, ki, kd, channel=channel)
         else:
@@ -436,27 +411,35 @@ class LakeShore340:
                channel(int): loop channel. Valid entries: 1 or 2
             Kwargs:
                input (str): which input to control from. Valid entries: A or B
-               unit (str):  set-point unit: Kelvin(1), Celsius(2), Sensor_unit(3)
-               onoff (str): on or off to switch on or off the control loop
+               unit (str): set-point unit: Kelvin(1), Celsius(2), Sensor_unit(3)
           Returns:
                input (str): which input to control from
-               unit (str):  set-point unit: Kelvin, Celsius, Sensor_unit
-               onoff (str): control loop on/off
-          Remark: In this method we do not pass power up state of control loop
+               unit (str): set-point unit: Kelvin, Celsius, Sensor_unit
+          Remark: In this method we do not pass 2 further arguments:
+                  - power up state of control loop
+                  - heater output display
+                    since we keep them at default values. Therefore:
+                  - We set the 4-th arg for CSET (when setting) to 0, which
+                    means that the control loop is off after powerup. This
+                    is the default value and the logic is consistent with
+                    the one for models 336 and 340.
+                  - We set the 5-th arg for CSET (when setting) to 1, which
+                    means that the heater output display current. Other
+                    possibility is to display power (2). We are thus
+                    consistent with the default value (= 1 = current).
         """
         log_info(self, "read_loop_params")
         asw = self.send_cmd("CSET?", channel=channel).split(",")
         input = asw[0]
-        unit = self.REVUNITS340[int(asw[1])]
-        onoff = "ON" if int(asw[2]) == 1 else "OFF"
-        powerup = "ON" if int(asw[3]) == 1 else "OFF"
-        return {"input": input, "unit": unit, "onoff": onoff, "powerup": powerup}
+        unit = self.REVUNITS331[int(asw[1])]
+        powerup = "ON" if int(asw[2]) == 1 else "OFF"
+        currpow = "current" if int(asw[3]) == 1 else "power"
+        return {"input": input, "unit": unit, "powerup": powerup, "currpow": currpow}
 
-    def set_loop_params(self, channel, input=None, unit=None, onoff=None):
-        log_info(self, "set_loop_params")
-        inputc, unitc, onoffc, powerupc = self.send_cmd("CSET?", channel=channel).split(
-            ","
-        )
+    def set_loop_params(self, channel, input=None, unit=None):
+        inputc, unitc, powerupc, currpowc = self.send_cmd(
+            "CSET?", channel=channel
+        ).split(",")
         if input is None:
             input = inputc
         if unit is None:
@@ -466,19 +449,9 @@ class LakeShore340:
                 "Error: acceptables values for unit are 'Kelvin' or 'Celsius' or 'Sensor_unit'."
             )
         else:
-            unit = self.UNITS340[unit]
-        if onoff is None:
-            onoff = onoffc
-        elif onoff != "on" and onoff != "off":
-            raise ValueError("Error: acceptables values for onoff are 'on' or 'off'.")
-        else:
-            onoff = 1 if onoff == "on" else 0
-            if onoff == 1:
-                # Get heater range value
-                htr_range = int(self.send_cmd("RANGE?"))
-                if htr_range == 0:
-                    self.send_cmd("RANGE", 1)
-        self.send_cmd("CSET", input, unit, onoff, 0, channel=channel)
+            unit = self.UNITS331[unit]
+
+        self.send_cmd("CSET", input, unit, powerupc, currpowc, channel=channel)
 
     # 'Internal' COMMUNICATION method
     # -------------------------------
@@ -555,10 +528,10 @@ class LakeShore340:
         return asw.decode()
 
 
-class lakeshore340(LakeshoreBase):
+class lakeshore331(LakeshoreBase):
     # Number of calibration curves available
-    NCURVES = 60
-    NUSERCURVES = (21, 60)
+    NCURVES = 41
+    NUSERCURVES = (21, 41)
     CURVEFORMAT = {1: "mV/K", 2: "V/K", 3: "Ohms/K", 4: "logOhms/K"}
     CURVETEMPCOEF = {1: "negative", 2: "positive"}
 
@@ -583,8 +556,6 @@ class lakeshore340(LakeshoreBase):
         LOW = 1
         MEDIUM = 2
         HIGH = 3
-        VERYHIGH = 4
-        HIGHEST = 5
 
     @enum.unique
     class HeaterState(enum.IntEnum):
@@ -593,18 +564,14 @@ class lakeshore340(LakeshoreBase):
         SHORT = 2
 
     def __init__(self, config, *args):
-        if "serial" in config:
-            comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
-        else:
-            comm_interface = get_comm(config)
+        comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
 
-        _lakeshore = LakeShore340(comm_interface)
+        _lakeshore = LakeShore331(comm_interface)
 
         model = _lakeshore._model()
-
-        if model != 340:
+        if model != 331:
             raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 340.".format(model)
+                "Error, the Lakeshore model is {0}. It should be 331.".format(model)
             )
 
         LakeshoreBase.__init__(self, _lakeshore, config, *args)
@@ -625,7 +592,11 @@ class lakeshore340(LakeshoreBase):
         return self.HeaterRange(r)
 
     def _set_heater_range(self, channel, value=None):
-        """ Set the heater range  (0 to 5) [see Paragaph 6.12.1]
+        """ Set the heater range (0 to 3)
+            It is used for heater output for loop 1, while for
+            loop 2 can choose only between 0(heater off) and 1(heater on)
+            though in the command syntax the output channel or loop
+            is not used!! (cmd = RANGE value)
             Args:
               value (int): The value of the range
         """
@@ -649,23 +620,15 @@ class lakeshore340(LakeshoreBase):
     def _set_loop_unit(self, channel, unit):
         log_info(self, "_set_loop_units")
         asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        v = self.Unit(unit).value
-        self._lakeshore.send_cmd("CSET", asw[0], v, asw[2], asw[3], channel=channel)
+        value = self.Unit(unit).value
+        self._lakeshore.send_cmd("CSET", asw[0], value, asw[2], asw[3], channel=channel)
 
     def _set_loop_on(self, tloop):
         log_info(self, "_set_loop_on")
-        channel = tloop.config.get("channel", int)
-        log_info(self, "_set_loop_on")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        onoff = 1
-        self._lakeshore.send_cmd("CSET", asw[0], asw[1], onoff, 0, channel=channel)
         tloop.output.range = 1
         return tloop.output.range == self.HeaterRange.LOW
 
     def _set_loop_off(self, tloop):
         log_info(self, "_set_loop_off")
-        channel = tloop.config.get("channel", int)
-        log_info(self, "_set_loop_off")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        onoff = 0
-        self._lakeshore.send_cmd("CSET", asw[0], asw[1], onoff, 0, channel=channel)
+        tloop.output.range = 0
+        return tloop.output.range == self.HeaterRange.OFF

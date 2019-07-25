@@ -33,6 +33,22 @@ class TestLogWidget(TestCaseQt):
         self.assertEqual(widget.logCount(), 2)
         widget = None
 
+    def test_max_logs(self):
+        widget = LogWidget()
+        self.qWaitForWindowExposed(widget)
+        widget.connect_logger(logger)
+        widget.setMaximumLogCount(2)
+        self.assertEqual(widget.logCount(), 0)
+        logger.warning("A1")
+        logger.warning("A1")
+        logger.warning("B2")
+        logger.warning("B2")
+        self.qWait()
+        self.assertEqual(widget.logCount(), 2)
+        self.assertEqual(widget.toPlainText().count("A1"), 0)
+        self.assertEqual(widget.toPlainText().count("B2"), 2)
+        widget = None
+
     def test_handler_released_on_destroy(self):
         nb = len(logger.handlers)
         widget = LogWidget()

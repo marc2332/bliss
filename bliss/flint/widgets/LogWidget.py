@@ -56,6 +56,11 @@ class _QtLogHandler(logging.Handler):
 
 
 class LogWidget(qt.QPlainTextEdit):
+    """"Display messages from the Python logging system.
+
+    By default only the 10000 last messages are displayed. This can be customed
+    using the method `setMaximumLogCount`
+    """
 
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
@@ -63,6 +68,7 @@ class LogWidget(qt.QPlainTextEdit):
         self._handlers = weakref.WeakKeyDictionary()
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
         self._logCount = 0
+        self.setMaximumLogCount(10000)
 
     @staticmethod
     def _remove_handlers(handlers):
@@ -72,16 +78,24 @@ class LogWidget(qt.QPlainTextEdit):
             logger.removeHandler(handler)
         handlers.clear()
 
+    def setMaximumLogCount(self, maximun):
+        self.setMaximumBlockCount(maximun + 1)
+
     def logCount(self):
         """
         Returns the amount of log messages displayed.
         """
         return self._logCount
 
-    def emit(self, record):
-        # FIXME: Add something to avoid logs to grow up to infinite
-        self.appendPlainText(record)
-        self._logCount += 1
+    def emit(self, message):
+        self.moveCursor(qt.QTextCursor.End)
+        cursor = self.textCursor()
+        cursor.insertText(message)
+        block = qt.QTextBlockFormat()
+        cursor.insertBlock(block)
+
+        if self._logCount < self.maximumBlockCount() - 1:
+            self._logCount += 1
 
     def connect_logger(self, logger):
         """

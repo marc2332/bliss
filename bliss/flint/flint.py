@@ -34,18 +34,21 @@ from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    from silx.gui import qt
+    from silx.gui.plot import Plot1D
     from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
-    from silx.gui import qt
     from silx.gui.plot.items.roi import RectangleROI
 
-from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
+from .widgets.LivePlot1D import LivePlot1D
+from .widgets.LiveScatterPlot import LiveScatterPlot
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.RoiSelectionWidget import RoiSelectionWidget
 from bliss.flint.widgets.LogWidget import LogWidget
 
 # Globals
 
+# FIXME is it really needed to call it outside the main function?
 pyqtRemoveInputHook()
 
 # Logging

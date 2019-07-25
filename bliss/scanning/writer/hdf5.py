@@ -113,24 +113,46 @@ class Writer(FileWriter):
 
         for fname, channel in scan.get_channels_dict.items():
             if channel.reference:
+                """produce a string version of a lima reference that can be saved in hdf5
+                
+                At the moment there is only Lima references ;
+                something more elaborated will be needed when we will have other
+                references.
+                """
+                lima_data_view = channel.data_node.get(0, -1)
+
                 try:
-                    data = channel.acq_device.to_ref_array(channel, self.root_path)
+                    tmp = lima_data_view._get_filenames(
+                        channel.data_node.info, *range(0, len(lima_data_view))
+                    )
                 except Exception:
-                    continue
+                    tmp = []
 
-                chan_name = channel.alias or channel.fullname
-                shape = numpy.shape(data)
-                dtype = data.dtype
+                if tmp:
+                    tmp = numpy.array(tmp, ndmin=2)
+                    relpath = [
+                        os.path.relpath(i, start=self.root_path) for i in tmp[:, 0]
+                    ]
+                    basename = [os.path.basename(i) for i in tmp[:, 0]]
+                    entry = tmp[:, 1]
+                    frame = tmp[:, 2]
+                    file_type = tmp[:, 3]
 
-                dataset = self.file.create_dataset(
-                    f"{scan_name}/measurement/{chan_name}",
-                    shape=shape,
-                    dtype=dtype,
-                    compression="gzip",
-                )
-                dataset.attrs.modify("fullname", channel.fullname)
+                    data = numpy.array(
+                        (basename, file_type, frame, entry, relpath),
+                        dtype=h5py.special_dtype(vlen=str),
+                    ).T
 
-                dataset[:] = data
+                    shape = numpy.shape(data)
+                    dtype = data.dtype
+                    dataset = self.file.create_dataset(
+                        f"{scan_name}/measurement/{chan_name}",
+                        shape=shape,
+                        dtype=dtype,
+                        compression="gzip",
+                    )
+                    dataset.attrs.modify("fullname", channel.fullname)
+                    dataset[:] = data
 
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {

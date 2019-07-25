@@ -106,10 +106,13 @@ class BaseCounter:
         """The data shape as used by numpy."""
         raise NotImplementedError
 
+    def get_metadata(self):
+        return {}
+
     # Methods
 
     def create_acquisition_device(self, scan_pars, **settings):
-        """Instanciate the corresponding acquisition device."""
+        """Instantiate the corresponding acquisition device."""
         raise NotImplementedError
 
     # Extra logic

@@ -78,6 +78,9 @@ class RoiStatCounter(IntegratingCounter):
             self, name, self.parent_roi_counters, master_controller, **kwargs
         )
 
+    def get_metadata(self):
+        return {self.roi_name: self.parent_roi_counters.get(self.roi_name).to_dict()}
+
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might

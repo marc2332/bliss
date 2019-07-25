@@ -120,6 +120,50 @@ TODO
 
 ### Tips and examples
 
+#### Using a Tango device server in tests
+
+A dummy tango device server is defined in :
+
+`tests/test_configuration/tango/dummy.yml`
+
+```yaml
+device:
+- class: Dummy
+  tango_name: id00/tango/dummy
+  personal_name: dummy
+  server: dummy_tg_server
+```
+
+It is used for example to test undulator object:
+
+config:
+```yaml
+controller:
+    class: ESRF_Undulator
+    ds_name: id00/tango/dummy
+    axes:
+        -
+            name: u23a
+            attribute_position: Position
+            attribute_velocity: Velocity
+            attribute_acceleration: Acceleration
+            steps_per_unit: 1
+            velocity: 5
+            acceleration: 125
+            tolerance: 0.1
+```
+
+test:
+```python
+import pytest
+def test_undulator(beacon, dummy_tango_server):
+    u23a = beacon.get("u23a")
+
+    assert u23a.position == 1.4
+    assert u23a.velocity == 5
+    assert u23a.acceleration == 125
+```
+
 #### acces to temporary directory
 
 ```python

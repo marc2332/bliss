@@ -1,0 +1,7 @@
+- class: tango_attr_as_counter
+  uri: id00/tango/dummy
+  plugin: bliss
+  counters:
+    - name: tac_undu_position
+      attr_name: position
+      unit: mm

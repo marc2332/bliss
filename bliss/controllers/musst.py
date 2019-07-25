@@ -145,6 +145,8 @@ class musst(object):
                 )
 
         def _convert(self, string_value):
+            """Return channel value, converted according to the configured mode.
+            """
             self._read_config()
             if self._mode == self.COUNTER:
                 return int(string_value)
@@ -156,6 +158,10 @@ class musst(object):
                 return int(string_value)
 
         def _read_config(self):
+            """Read configuration of the current channel from MUSST board to
+            detrtemine the usage mode of the channel.
+            Fill self._mode attribute.
+            """
             if self._mode is None:
                 musst = self._musst()
                 string_config = musst.putget("?CHCFG CH%d" % self._channel_id)
@@ -201,23 +207,20 @@ class musst(object):
     def __init__(self, name, config_tree):
         """Base Musst controller.
 
-        name -- the controller's name
-        config_tree -- controller configuration,
-        in this dictionary we need to have:
-        gpib_url -- url of the gpib controller i.s:enet://gpib0.esrf.fr
-        gpib_pad -- primary address of the musst controller
-        gpib_timeout -- communication timeout, default is 1s
-        gpib_eos -- end of line termination
-        musst_prg_root -- default path for musst programs
-        block_size -- default is 8k but can be lowered to 512 depend on gpib.
-        one_line_programing -- default is False we send several lines 
-                               to program the musst
-        channels: -- list of configured channels
-        in this dictionary we need to have:
-        label: -- the name alias for the channels
-        type: -- channel type (cnt,encoder,ssi,adc5,adc10 and switch)
-        channel: -- channel number
-        name: -- use to reference an external switch
+        name             -- the controller's name
+        config_tree      -- controller configuration, in this dictionary we need to have:
+          url            -- url of the gpib controller i.s:enet://gpib0.esrf.fr
+          pad            -- primary address of the musst controller
+          timeout        -- communication timeout in seconds, default is 1s
+          eos            -- end of line termination
+        musst_prg_root      -- default path for musst programs
+        block_size          -- default is 8k but can be lowered to 512 depend on gpib.
+        one_line_programing -- default is False we send several lines to program the musst
+        channels:           -- list of configured channels in this dictionary we need to have:
+          label:              -- the name alias for the channels
+          type:               -- channel type (cnt,encoder,ssi,adc5,adc10 and switch)
+          channel:            -- channel number
+          name:               -- use to reference an external switch
         """
 
         self.name = name
@@ -529,7 +532,6 @@ class musst(object):
 
     def get_event_buffer_size(self):
         """ query event buffer size.
-
         Returns buffer size and number of buffers
         """
         return [int(x) for x in self.putget("?ESIZE").split()]
@@ -544,7 +546,6 @@ class musst(object):
 
     def get_histogram_buffer_size(self):
         """ query histogram buffer size.
-        
         Returns buffer size and number of buffers
         """
         return [int(x) for x in self.putget("?HSIZE").split()]

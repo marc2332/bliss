@@ -275,7 +275,28 @@ Default: `\n`
 
 ## GPIB
 
-TODO
+There are various ways to communicate with Gpib devices:
+* Gpib PCI board
+    - localy if BLISS is run on the same computer than the Gpib driver
+    - remotely if BLISS is run on another computer
+* Gpib ethernet device: Enet box
+
+Exmaple of gpib communication with PCI gpib board and tango device server:
+```yaml
+gpib:
+  url: tango_gpib_device_server://id42/gpib_lid421/0
+  pad: 13
+  timeout: 10.
+```
+
+Exmaple of gpib communication with enet device:
+```yaml
+gpib:
+  url: enet://gpibid42a.esrf.fr
+  pad: 15
+  timeout: 3.
+```
+
 
 ## UDP Socket
 

@@ -37,12 +37,12 @@ with warnings.catch_warnings():
     from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
     from silx.gui import qt
-    from silx.gui.plot.tools.roi import RegionOfInterestManager
-    from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
     from silx.gui.plot.items.roi import RectangleROI
 
 from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
-from .interaction import PointsSelector, ShapeSelector
+from bliss.flint.interaction import PointsSelector, ShapeSelector
+from bliss.flint.widgets.RoiSelectionWidget import RoiSelectionWidget
+from bliss.flint.widgets.LogWidget import LogWidget
 
 # Globals
 
@@ -103,46 +103,6 @@ def background_task(flint, stop):
 
 
 # Flint interface
-
-
-class ROISelectionWidget(qt.QMainWindow):
-
-    selectionFinished = qt.Signal(object)
-
-    def __init__(self, plot, parent=None):
-        qt.QMainWindow.__init__(self, parent)
-        # TODO: destroy on close
-        self.plot = plot
-        panel = qt.QWidget()
-        self.setCentralWidget(panel)
-
-        self.roi_manager = RegionOfInterestManager(plot)
-        self.roi_manager.setColor("pink")
-        self.roi_manager.sigRoiAdded.connect(self.on_added)
-        self.table = RegionOfInterestTableWidget()
-        self.table.setRegionOfInterestManager(self.roi_manager)
-
-        self.toolbar = qt.QToolBar()
-        self.addToolBar(self.toolbar)
-        rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
-        self.toolbar.addAction(rectangle_action)
-        self.toolbar.addSeparator()
-        self.toolbar.addAction("Apply", self.on_apply)
-
-        layout = qt.QVBoxLayout(panel)
-        layout.addWidget(self.table)
-
-    def on_apply(self):
-        self.selectionFinished.emit(self.roi_manager.getRois())
-        self.roi_manager.clear()
-
-    def on_added(self, roi):
-        if not roi.getLabel():
-            nb_rois = len(self.roi_manager.getRois())
-            roi.setLabel("roi{}".format(nb_rois))
-
-    def add_roi(self, roi):
-        self.roi_manager.addRoi(roi)
 
 
 class Flint:
@@ -597,7 +557,7 @@ class Flint:
             done_event.set_result(shapes)
 
     def _create_roi_dock_widget(self, plot, initial_shapes):
-        roi_widget = ROISelectionWidget(plot)
+        roi_widget = RoiSelectionWidget(plot)
         dock = qt.QDockWidget("ROI selection")
         dock.setWidget(roi_widget)
         plot.addTabbedDockWidget(dock)
@@ -637,17 +597,6 @@ class Flint:
             selector.reset()
 
 
-class QtLogHandler(logging.Handler):
-    def __init__(self, log_widget):
-        logging.Handler.__init__(self)
-
-        self.log_widget = log_widget
-
-    def emit(self, record):
-        record = self.format(record)
-        self.log_widget.appendPlainText(record)
-
-
 # Main execution
 
 
@@ -664,11 +613,10 @@ def main():
     tabs = qt.QTabWidget(central_widget)
     win.setCentralWidget(tabs)
     log_window = qt.QWidget()
-    log_widget = qt.QPlainTextEdit()
+    log_widget = LogWidget()
     qt.QVBoxLayout(log_window)
     log_window.layout().addWidget(log_widget)
     log_window.setAttribute(qt.Qt.WA_QuitOnClose, False)
-    log_widget.setReadOnly(True)
     log_window.setWindowTitle("Log messages")
     exitAction = qt.QAction("&Exit", win)
     exitAction.setShortcut("Ctrl+Q")
@@ -700,9 +648,7 @@ def main():
     win.resize(settings.value("size", qt.QSize(w, h)))
     win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
 
-    handler = QtLogHandler(log_widget)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
-    ROOT_LOGGER.addHandler(handler)
+    log_widget.connect_logger(ROOT_LOGGER)
     ROOT_LOGGER.level = logging.INFO
 
     def handle_exception(exc_type, exc_value, exc_traceback):
@@ -733,6 +679,7 @@ def main():
 
     thread = gevent.spawn(background_task, flint, stop)
 
+    # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
     single_shot.timeout.connect(win.show)

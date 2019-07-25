@@ -173,9 +173,9 @@ def test_soft_sampling_counter_mode(beacon):
 
     # USING DEFAULT MODE
     c = SoftCounter(diode, "read")
-    assert c.mode.name == "SIMPLE_AVERAGE"
+    assert c.mode.name == "MEAN"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "SIMPLE_AVERAGE"
+    assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
 
     # UPDATING THE MODE
     c.mode = "INTEGRATE"
@@ -187,3 +187,23 @@ def test_soft_sampling_counter_mode(beacon):
     assert c.mode.name == "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
     assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
+
+
+def test_SampCnt_soft_statistics(beacon):
+    diode = beacon.get("diode")
+
+    c = SoftCounter(diode, "read")
+
+    loopscan(3, .1, c)
+    statfields = (
+        "mean",
+        "N",
+        "std",
+        "var",
+        "min",
+        "max",
+        "p2v",
+        "count_time",
+        "timestamp",
+    )
+    assert c.statistics._fields == statfields

@@ -75,6 +75,13 @@ class Timed_Diode:
             self.more_than_once = True
             return 1
 
+    def read_last(self):
+        if self.more_than_once:
+            return 2
+        else:
+            self.more_than_once = True
+            return 1
+
     @property
     def position(self):
         return self.val
@@ -155,9 +162,9 @@ def test_sampling_counter_mode(beacon):
     test_diode = Diode(diode, f)
 
     # USING DEFAULT MODE
-    assert test_diode.mode.name == "SIMPLE_AVERAGE"
+    assert test_diode.mode.name == "MEAN"
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "SIMPLE_AVERAGE"
+    assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) / len(values))
 
     # UPDATING THE MODE
@@ -221,7 +228,7 @@ def test_SampCnt_mode_SAMPLES_from_conf(beacon):
     )
 
 
-def test_SampCnt_mode_STATISTICS(session, scan_tmpdir):
+def test_SampCnt_mode_STATS(session, scan_tmpdir):
     env_dict = session.env_dict
 
     # put scan file in a tmp directory
@@ -230,17 +237,15 @@ def test_SampCnt_mode_STATISTICS(session, scan_tmpdir):
     o = Timed_Diode()
 
     ax = SoftAxis("test-sample-pos", o)
-    c_slow = SoftCounter(
-        o, "read_slow", name="test-sample", mode=SamplingMode.STATISTICS
-    )
+    c_slow = SoftCounter(o, "read_slow", name="test-sample", mode=SamplingMode.STATS)
     s_slow = loopscan(1, .1, c_slow)
 
     data_slow = s_slow.get_data()
     assert all(data_slow["test-sample"] == numpy.array([17]))
-    assert all(data_slow["test-sample_n"] == numpy.array([1]))
+    assert all(data_slow["test-sample_N"] == numpy.array([1]))
     assert all(numpy.isnan(data_slow["test-sample_std"]))
 
-    c_fast = SoftCounter(o, "read_fast", name="test-stat", mode=SamplingMode.STATISTICS)
+    c_fast = SoftCounter(o, "read_fast", name="test-stat", mode=SamplingMode.STATS)
 
     s_fast = ascan(ax, 1, 9, 9, .1, c_fast)
 
@@ -252,19 +257,37 @@ def test_SampCnt_mode_STATISTICS(session, scan_tmpdir):
     assert all(
         data_fast["test-stat_std"] == numpy.array([0., 0., 0., 0., 0., 0., 0., 0., 0.])
     )
+    assert all(
+        data_fast["test-stat_var"] == numpy.array([0., 0., 0., 0., 0., 0., 0., 0., 0.])
+    )
+    assert all(
+        data_fast["test-stat_p2v"] == numpy.array([0., 0., 0., 0., 0., 0., 0., 0., 0.])
+    )
+    assert all(
+        data_fast["test-stat_min"] == numpy.array([1., 2., 3., 4., 5., 6., 7., 8., 9.])
+    )
+    assert all(
+        data_fast["test-stat_max"] == numpy.array([1., 2., 3., 4., 5., 6., 7., 8., 9.])
+    )
 
 
-def test_SampCnt_STATISTICS_algorithm():
-    statistics = numpy.zeros(3)
+def test_SampCnt_STATS_algorithm():
+    statistics = numpy.array([0, 0, 0, numpy.nan, numpy.nan])
     dat = numpy.random.normal(10, 1, 100)
     for k in dat:
-        statistics = SamplingCounterAcquisitionDevice.welford_update(statistics, k)
+        statistics = SamplingCounterAcquisitionDevice.rolling_stats_update(
+            statistics, k
+        )
 
-    mean, count, std = SamplingCounterAcquisitionDevice.welford_finalize(statistics)
+    stats = SamplingCounterAcquisitionDevice.rolling_stats_finalize(statistics)
 
-    assert pytest.approx(mean, numpy.mean(dat))
-    assert count == len(dat)
-    assert pytest.approx(std, numpy.std(dat))
+    assert pytest.approx(stats.mean, numpy.mean(dat))
+    assert stats.N == len(dat)
+    assert pytest.approx(stats.std, numpy.std(dat))
+    assert pytest.approx(stats.var, numpy.var(dat))
+    assert stats.min == numpy.min(dat)
+    assert stats.max == numpy.max(dat)
+    assert stats.p2v == numpy.max(dat) - numpy.min(dat)
 
 
 def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
@@ -301,7 +324,7 @@ def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
     assert all((redis_dat.flatten() == samples_h5.flatten())[mask])
 
 
-def test_SampCnt_mode_SINGLE_COUNT(session, scan_tmpdir):
+def test_SampCnt_mode_SINGLE(session, scan_tmpdir):
 
     env_dict = session.env_dict
     # put scan file in a tmp directory
@@ -309,43 +332,54 @@ def test_SampCnt_mode_SINGLE_COUNT(session, scan_tmpdir):
 
     diode2 = env_dict["diode2"]
     diode8 = env_dict["diode8"]
-    assert diode8.mode == SamplingMode.SINGLE_COUNT
+    assert diode8.mode == SamplingMode.SINGLE
 
-    with pytest.raises(RuntimeError):
-        ct(.1, diode2, diode8)
-
-    o = Timed_Diode()
-    ax = SoftAxis("test-sample-pos", o)
-    c = SoftCounter(o, "read_once", name="test", mode=SamplingMode.SINGLE_COUNT)
-    s = ascan(ax, 1, 9, 9, .1, c)
-
-    assert all(s.get_data()["test"] == numpy.ones(9))
-
-
-def test_SampCnt_mode_FIRST_READ(session, scan_tmpdir):
-
-    env_dict = session.env_dict
-    # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
-
-    diode2 = env_dict["diode2"]
-    diode10 = env_dict["diode10"]
-    assert diode10.mode == SamplingMode.FIRST_READ
-
-    loops = loopscan(10, .1, diode2, diode10)
+    loops = loopscan(10, .1, diode2, diode8)
     diode2_dat = loops.get_data()["diode2"]
-    diode10_dat = loops.get_data()["diode10"]
+    diode8_dat = loops.get_data()["diode8"]
 
     # check that there is no averaging for diode10
-    assert all(diode10_dat.astype(numpy.int) == diode10_dat)
+    assert all(diode8_dat.astype(numpy.int) == diode8_dat)
     assert not all(diode2_dat.astype(numpy.int) == diode2_dat)
 
     o = Timed_Diode()
     ax = SoftAxis("test-sample-pos", o)
-    c = SoftCounter(o, "read_once", name="test", mode=SamplingMode.FIRST_READ)
+    c = SoftCounter(o, "read_once", name="test", mode=SamplingMode.SINGLE)
 
-    with pytest.raises(RuntimeError):
-        s = ascan(ax, 1, 9, 9, .1, c)
+    s = ascan(ax, 1, 9, 9, .1, c)
+
+
+def test_SampCnt_mode_LAST(session):
+
+    o = Timed_Diode()
+    ax = SoftAxis("test-sample-pos", o)
+    c = SoftCounter(o, "read_last", name="test", mode=SamplingMode.LAST)
+
+    s = ascan(ax, 1, 9, 9, .1, c)
+
+    assert all(s.get_data()["test"] == numpy.array([2, 2, 2, 2, 2, 2, 2, 2, 2]))
+
+
+def test_SampCnt_statistics(beacon):
+    diode = beacon.get("diode")
+    diode2 = beacon.get("diode2")
+
+    ct(.1, diode, diode2)
+    statfields = (
+        "mean",
+        "N",
+        "std",
+        "var",
+        "min",
+        "max",
+        "p2v",
+        "count_time",
+        "timestamp",
+    )
+    assert diode2.statistics._fields == statfields
+    assert diode.statistics._fields == statfields
+    assert diode2.statistics.N > 0
+    assert diode2.statistics.std > 0
 
 
 def test_integ_counter(beacon):

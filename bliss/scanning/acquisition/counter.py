@@ -105,23 +105,23 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     # mode dependent helpers that are evaluated once per point
     mode_lambdas = {
-        SamplingMode.SIMPLE_AVERAGE: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+        SamplingMode.MEAN: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [acc_value / nb_read]
         ),
-        SamplingMode.INTEGRATE: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+        SamplingMode.INTEGRATE: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [(acc_value / nb_read)]
         )
         * count_time,
-        SamplingMode.STATISTICS: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
-            statistics[:7]
+        SamplingMode.STATS: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
+            tuple(statistics)[:7]
         ),
-        SamplingMode.SINGLE_COUNT: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
-            [acc_value]
+        SamplingMode.SINGLE: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
+            [samples]
         ),
-        SamplingMode.SAMPLES: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+        SamplingMode.SAMPLES: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [acc_value / nb_read, samples]
         ),
-        SamplingMode.FIRST_READ: lambda acc_value, statistics, samples, acc_read_time, nb_read, count_time: numpy.array(
+        SamplingMode.LAST: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [samples]
         ),
     }
@@ -163,9 +163,23 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event = event.Event()
         self._ready_event.set()
 
+        # self.mode_helpers will be populated with the `mode_lambdas`
+        # according to the counters involved in the aquistion. One
+        # entry per counter, order matters!
         self.mode_helpers = list()
-        self._counters = list()  ### TO be removed with Matias merge request
-        self.SINGLE_COUNT = False
+
+        ### TODO: To be removed with Matias merge request
+        ### to be harmonized with Matias code... here we use a dict
+        ### while Mathis uses a list()
+        # dict that contains counters handled by this acq_device as keys
+        # and list of assiciated channels as value
+        self._counters = dict()
+
+        # Will be set to True when all counters associated to the
+        # acq device are in SamplingMode.SINGLE. In this case
+        # aquisition will not run in sampling loop but only
+        # read one single value
+        self._SINGLE_COUNT = False
 
         for cnt in counters:
             self.add_counter(cnt)
@@ -175,26 +189,50 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             return
         super().add_counter(counter)
 
+        # initialize the entry in self._counters with the **main** channel that
+        # is created by the base class
+        self._counters[counter] = [self.channels[-1]]  # mean value
+
         self.mode_helpers.append(
             SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
         )
-        self._counters.append(counter)
 
-        if counter.mode == SamplingMode.STATISTICS:
+        # helper to create AcquisitionChannels
+        AC = lambda name_suffix, unit: AcquisitionChannel(
+            counter,
+            counter.name + "_" + name_suffix,
+            counter.dtype,
+            counter.shape,
+            unit=unit,
+        )
+
+        if counter.mode == SamplingMode.STATS:
+            # N
+            self.channels.append(AC("N", "#"))
+            self._counters[counter].append(self.channels[-1])
+
+            # std
+            self.channels.append(AC("std", counter.unit))
+            self._counters[counter].append(self.channels[-1])
+
+            # var
             self.channels.append(
-                AcquisitionChannel(
-                    counter, counter.name + "_n", counter.dtype, counter.shape, unit="#"
-                )
+                AC("var", counter.unit + "^2" if counter.unit is not None else None)
             )
-            self.channels.append(
-                AcquisitionChannel(
-                    counter,
-                    counter.name + "_std",
-                    counter.dtype,
-                    counter.shape,
-                    unit=counter.unit,
-                )
-            )
+            self._counters[counter].append(self.channels[-1])
+
+            # min
+            self.channels.append(AC("min", counter.unit))
+            self._counters[counter].append(self.channels[-1])
+
+            # max
+            self.channels.append(AC("max", counter.unit))
+            self._counters[counter].append(self.channels[-1])
+
+            # p2v
+            self.channels.append(AC("p2v", counter.unit))
+            self._counters[counter].append(self.channels[-1])
+
         if counter.mode == SamplingMode.SAMPLES:
             self.channels.append(
                 AcquisitionChannel(
@@ -205,21 +243,16 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     unit=counter.unit,
                 )
             )
+            self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
         self.device.prepare(*self.grouped_read_counters)
 
-        # check modes ... single count mode not compatible with other modes
-        sing_cnt = (
-            numpy.array([c.mode for c in self._counters]) == SamplingMode.SINGLE_COUNT
-        )
-        if any(sing_cnt) and not all(sing_cnt):
-            raise RuntimeError(
-                "SINGLE_COUNT mode can not be combined with any other mode. \n Concerned devices: "
-                + f"\n {str([c.name + ' : ' + c.acq_device.mode.name for c in self.channels])}"
-            )
-        elif all(sing_cnt):
-            self.SINGLE_COUNT = True
+        # check modes to see if sampling loop is needed or not
+        if all(
+            numpy.array([c.mode for c in self._counters.keys()]) == SamplingMode.SINGLE
+        ):
+            self._SINGLE_COUNT = True
 
     def start(self):
         self._nb_acq_points = 0
@@ -276,9 +309,13 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 [[0, 0, 0, numpy.nan, numpy.nan]] * len(self._counters)
             )
 
+            # empty structur to save samples
+            # in SamplingMode.SAMPLES: list of indidual samples
+            # in SamplingMode.SINGLE: first sample
+            # in SamplingMode.LAST: last sample
             samples = [[]] * len(self._counters)
 
-            if not self.SINGLE_COUNT:
+            if not self._SINGLE_COUNT:
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
@@ -294,13 +331,17 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     nb_read += 1
                     acc_read_time += end_read - start_read
 
-                    for i, c in enumerate(self._counters):
+                    for i, c in enumerate(self._counters.keys()):
                         statistics[i] = self.rolling_stats_update(
                             statistics[i], read_value[i]
                         )
                         if c.mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
-                        elif c.mode == SamplingMode.FIRST_READ and samples[i] == []:
+
+                        elif c.mode == SamplingMode.SINGLE and samples[i] == []:
+                            samples[i] = read_value[i]
+
+                        elif c.mode == SamplingMode.LAST:
                             samples[i] = read_value[i]
 
                     current_time = time.time()
@@ -314,6 +355,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                     dtype=numpy.double,
                     ndmin=1,
                 )
+                samples = acc_value
+
                 acc_read_time = 0
                 nb_read = 1
                 current_time = time.time()
@@ -322,7 +365,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
             # Deal with statistics
             stats = list()
-            for i, c in enumerate(self._counters):
+            for i, c in enumerate(self._counters.keys()):
                 st = self.rolling_stats_finalize(
                     statistics[i], self.count_time, current_time
                 )
@@ -331,20 +374,14 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel
             data = self.apply_vectorized(
-                self.mode_helpers,
-                acc_value,
-                stats,
-                samples,
-                acc_read_time,
-                nb_read,
-                self.count_time,
+                self.mode_helpers, acc_value, stats, samples, nb_read, self.count_time
             )
 
-            for i, c in enumerate(self.channels):
-                if c.acq_device.mode == SamplingMode.SAMPLES and "_samples" in c.name:
-                    # TODO: removme _samples from condition to make it 'nicer'
-                    data[i] = numpy.array(data[i])
-                    c.shape = data[i].shape
+            for counter, channel_list in self._counters.items():
+                if counter.mode == SamplingMode.SAMPLES:
+                    samp_chan_index = self.channels.index(channel_list[1])
+                    data[samp_chan_index] = numpy.array(data[samp_chan_index])
+                    channel_list[1].shape = data[samp_chan_index].shape
 
             self._emit_new_data(data)
 
@@ -385,9 +422,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
     # retrieve the mean, variance and sample variance (M2/(count - 1)) from an aggregate
     @staticmethod
-    def rolling_stats_finalize(
-        existingAggregate, count_time=numpy.nan, timest=numpy.nan
-    ):
+    def rolling_stats_finalize(existingAggregate, count_time=None, timest=None):
         (count, mean, M2, Min, Max) = existingAggregate
         (mean, variance) = (mean, M2 / count)
         stats = namedtuple(
@@ -407,6 +442,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 timest,
             )
         else:
+            timest = str(datetime.fromtimestamp(timest)) if timest != None else None
             return stats(
                 mean,
                 numpy.int(count),
@@ -416,7 +452,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 Max,
                 Max - Min,
                 count_time,
-                str(datetime.fromtimestamp(timest)),
+                timest,
             )
 
 

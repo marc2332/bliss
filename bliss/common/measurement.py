@@ -260,19 +260,21 @@ class Counter(BaseCounter):
 
 @enum.unique
 class SamplingMode(enum.IntEnum):
-    """SamplingCounter Mode Class 
-    two mode are available: *SIMPLE_AVERAGE* (the default)
-    which sum all the sampling values and divide by the number of read value.
-    Further there is *INTEGRATION* which sum all integration
-    and then normalize it with the *count_time*.
+    """SamplingCounter modes:
+    * MEAN: emit the mathematical average
+    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
+    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
+    * SINGLE: emit the first value (if possible: call read only once)
+    * LAST: emit the last value 
+    * INTEGRATE: emit MEAN multiplied by counting time
     """
 
-    SIMPLE_AVERAGE = 0
-    INTEGRATE = 1
-    STATISTICS = 2
-    SINGLE_COUNT = 3
-    SAMPLES = 4
-    FIRST_READ = 5
+    MEAN = enum.auto()
+    STATS = enum.auto()
+    SAMPLES = enum.auto()
+    SINGLE = enum.auto()
+    LAST = enum.auto()
+    INTEGRATE = enum.auto()
 
 
 class SamplingCounter(Counter):
@@ -306,7 +308,7 @@ class SamplingCounter(Counter):
         controller,
         grouped_read_handler=None,
         conversion_function=None,
-        mode=SamplingMode.SIMPLE_AVERAGE,
+        mode=SamplingMode.MEAN,
         unit=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
@@ -419,7 +421,7 @@ class SoftCounter(SamplingCounter):
         name=None,
         controller=None,
         apply=None,
-        mode=SamplingMode.SIMPLE_AVERAGE,
+        mode=SamplingMode.MEAN,
         unit=None,
     ):
         if obj is None and inspect.ismethod(value):

@@ -39,12 +39,7 @@
   name: diode7
   plugin: bliss
   class: simulation_diode
-  mode : STATISTICS
--
-  name: diode8
-  plugin: bliss
-  class: simulation_diode
-  mode : SINGLE_COUNT
+  mode : STATS
   
 -
   name: diode9
@@ -53,7 +48,7 @@
   mode : SAMPLES
   
 -
-  name: diode10
+  name: diode8
   plugin: bliss
   class: simulation_diode
-  mode : FIRST_READ
+  mode : SINGLE

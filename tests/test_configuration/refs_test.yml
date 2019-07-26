@@ -1,11 +1,21 @@
-plugin: default
-name: refs_test
-m0: $m0
-slits:
-  - axis: $s1hg
-    position: 0
-  - axis: $s1vo
-    position: 1
-scan:
-  axis: $m0
+- name: refs_test
+  plugin: default
+  m0: $m0
+  slits:
+    - axis: $s1hg
+      position: 0
+    - axis: $s1vo
+      position: 1
+  scan:
+    axis: $m0
+- name: refs_test_cpy
+  m0: $m0
+  slits:
+    - axis: $s1hg
+      position: 0
+    - axis: $s1vo
+      position: 1
+  scan:
+    axis: $m0
+  
 

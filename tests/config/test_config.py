@@ -67,8 +67,21 @@ def test_empty_yml(beacon, beacon_directory):
         os.unlink(new_file)
 
 
-def test_references(beacon):
-    refs_cfg = beacon.get("refs_test")
+@pytest.mark.parametrize(
+    "object_name, get_func_name, copy, ref_func",
+    [
+        ["refs_test", "get", False, None],
+        ["refs_test_cpy", "get_config", True, replace_reference_by_object],
+    ],
+)
+def test_references(beacon, object_name, get_func_name, copy, ref_func):
+    get_func = getattr(beacon, get_func_name)
+    refs_cfg = get_func(object_name)
+    if copy:
+        refs_cfg = refs_cfg.deep_copy()
+    if ref_func:
+        ref_func(beacon, refs_cfg)
+
     m0 = beacon.get("m0")
     s1hg = beacon.get("s1hg")
     s1vo = beacon.get("s1vo")

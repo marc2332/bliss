@@ -2,41 +2,41 @@ import pytest
 from bliss.common import scans
 from bliss import global_map
 
-alias_dump = """Alias    Original name
--------  ---------------------
+alias_dump = """Alias    Original fullname
+-------  ----------------------------------
 mot0     m0
 robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
-myroi    lima_simulator:r1_sum
-myroi3   lima_simulator:r3_sum"""
+myroi    lima_simulator:roi_counters:r1_sum
+myroi3   lima_simulator:roi_counters:r3_sum"""
 
-alias_dump2 = """Alias    Original name
--------  ---------------------
+alias_dump2 = """Alias    Original fullname
+-------  ----------------------------------
 mot0     m0
 robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
-myroi    lima_simulator:r1_sum
-myroi3   lima_simulator:r3_sum
+myroi    lima_simulator:roi_counters:r1_sum
+myroi3   lima_simulator:roi_counters:r3_sum
 m22      m1"""
 
-alias_dump3 = """Alias    Original name
--------  ---------------------
+alias_dump3 = """Alias    Original fullname
+-------  ----------------------------------
 mot0     m0
 robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
-myroi    lima_simulator:r1_sum
-myroi3   lima_simulator:r3_sum
+myroi    lima_simulator:roi_counters:r1_sum
+myroi3   lima_simulator:roi_counters:r3_sum
 m22      m1
-myr2sum  lima_simulator:r2_sum"""
+myr2sum  lima_simulator:roi_counters:r2_sum"""
 
 
 def compare_line_by_line(string1, string2):
@@ -107,9 +107,13 @@ def test_scan_info_display_names_with_alias(alias_session):
     robyy = env_dict["ALIASES"].get("robyy")
     diode = session.config.get("diode")
     s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
+    acq_chan = s.acq_chain.nodes_list[0].channels[0]
+    assert acq_chan.name == "robyy"
     assert (
-        s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"]["axis:roby"]
-        == "robyy"
+        s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"][
+            acq_chan.fullname
+        ]
+        == acq_chan.name
     )
 
 
@@ -118,7 +122,7 @@ def test_alias_included_session(alias_session):
 
     assert "mot0" in global_map.aliases.names_iter()
     m0 = session.config.get("m0")
-    assert env_dict["mot0"] is m0
+    assert env_dict["mot0"] == m0
 
 
 def test_alias_scan_title(alias_session):

@@ -58,39 +58,29 @@ class AcquisitionChannel:
 
     @property
     def name(self):
-        return self.__name
+        """Return the channel fullname, or the alias"""
+        _, _, short_chan_name = self.__name.rpartition(":")
+        alias = global_map.aliases.get(short_chan_name)
+        if alias:
+            return alias.name
+        else:
+            return self.__name
+
+    @property
+    def short_name(self):
+        """Return the channel short name (alias or last part of fullname)
+        """
+        _, _, short_chan_name = self.name.rpartition(":")
+        return short_chan_name
 
     @property
     def fullname(self):
-        acq_device_fullname = self.acq_device.fullname
-        if acq_device_fullname.endswith(f":{self.name}"):
-            # channel name has the same name as acq device,
-            # we consider it is the 'main' channel and we skip
-            # the last part to avoid repeats
-            fn = acq_device_fullname
+        chan_prefix, _, short_chan_name = self.__name.rpartition(":")
+        alias = global_map.aliases.get(short_chan_name)
+        if alias:
+            return f"{chan_prefix}:{alias.original_name}"
         else:
-            fn = f"{acq_device_fullname}:{self.name}"
-        return fn.replace(".", ":")
-
-    @property
-    def alias(self):
-        aliases = global_map.aliases
-        acq_device_fullname = self.acq_device.fullname
-        if acq_device_fullname == "axis":
-            # special case for motor channel
-            alias = aliases.get_alias(self.name)
-            return alias
-        else:
-            alias = aliases.get_alias(acq_device_fullname)
-        if acq_device_fullname.endswith(f":{self.name}"):
-            return alias
-        else:
-            if alias:
-                return f"{alias}:{self.name}"
-
-    @property
-    def acq_device(self):
-        return self.__acq_device
+            return self.__name
 
     @property
     def description(self):
@@ -140,11 +130,7 @@ class AcquisitionChannel:
         self.__description["dtype"] = self.dtype
         self.__description["shape"] = self.shape
         self.__description["unit"] = self.unit
-        data_dct = {
-            "name": self.fullname,
-            "description": self.__description,
-            "data": data,
-        }
+        data_dct = {"name": self.name, "description": self.__description, "data": data}
         dispatcher.send("new_data", self, data_dct)
 
     def _check_and_reshape(self, data):

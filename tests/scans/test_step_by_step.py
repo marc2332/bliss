@@ -176,7 +176,7 @@ def test_scan_callbacks(session):
 
     def on_scan_data(scan_info, values):
         # values is indexed by *channel* full name
-        res["values"].append(values[f"{simul_counter.name}:sim_ct_gauss"])
+        res["values"].append(values[simul_counter.fullname])
 
     def on_scan_end(scan_info):
         res["end"] = True
@@ -429,11 +429,11 @@ def test_motor_group(beacon):
     assert axis_master.name == "axis"
     items = dict((child.name, child) for child in axis_master.children())
 
-    assert items["roby"].parent.db_name == scan.node.db_name + ":axis"
-    assert items["robz"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["axis:roby"].parent.db_name == scan.node.db_name + ":axis"
+    assert items["axis:robz"].parent.db_name == scan.node.db_name + ":axis"
     assert items["timer"].parent.db_name == scan.node.db_name + ":axis"
     timer_channels = dict((chan.name, chan) for chan in items["timer"].children())
-    assert "elapsed_time" in timer_channels
+    assert "timer:elapsed_time" in timer_channels
     assert "simulation_diode_controller" in timer_channels
     assert (
         "diode"

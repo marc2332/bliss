@@ -127,6 +127,14 @@ class SingleRoiCounters:
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
+    def __init__(self, controller, fullname):
+        super().__init__(controller)
+        self.__fullname = fullname
+
+    @property
+    def fullname(self):
+        return self.__fullname
+
     def prepare(self, *counters):
         self.controller.upload_rois()
 
@@ -179,13 +187,12 @@ class RoiCounters:
         pass
     """
 
-    def __init__(self, name, proxy, acquisition_proxy):
+    def __init__(self, proxy, acquisition_proxy):
         self._proxy = proxy
         # 'acquisition proxy' is the BLISS lima controller
         self._acquisition_proxy = acquisition_proxy
-        self._grouped_read_handler = RoiCounterGroupReadHandler(self)
         self.name = "roi_counters"
-        full_name = "%s:%s" % (name, self.name)
+        full_name = f"{acquisition_proxy.name}:{self.name}"
         self._current_config = settings.SimpleSetting(
             full_name, default_value="default"
         )
@@ -193,6 +200,7 @@ class RoiCounters:
         self._roi_ids = {}
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
+        self._grouped_read_handler = RoiCounterGroupReadHandler(self, full_name)
 
     def _set_roi(self, name, roi_values):
         if isinstance(roi_values, Roi):

@@ -108,19 +108,16 @@ def get_data_from_nodes(pipeline, *nodes_and_start_index):
     scan_image_get_view = dict()
     for node, start_index in nodes_and_start_index:
         if node.type == "channel":
-            channel_name = node.name
-            i = 2
-            while channel_name in scan_channel_get_data_func:
-                # name conflict: channel with same name already added
-                channel_name = ":".join(node.db_name.split(":")[-i:])
-                i += 1
-
             chan = node
+            channel_name = chan.short_name
+            if channel_name in scan_channel_get_data_func:
+                channel_name = chan.fullname
+
             try:
                 saved_db_connection = chan.db_connection
                 chan.db_connection = pipeline
                 # append channel name and get all data from channel;
-                # as it is in a Redis pipeline, get returns the
+                # as it is in a Redis pipeline, .get() returns the
                 # conversion function only - data will be received
                 # after .execute()
                 scan_channel_get_data_func[channel_name] = chan.get(start_index, -1)

@@ -62,11 +62,15 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
         f"{a2scan}/measurement": {"NX_class": "NXcollection"},
         f"{a2scan}/measurement/robzz": {"fullname": "axis:robz"},
         f"{a2scan}/measurement/dtime": {"fullname": "simu1:deadtime_det0"},
-        f"{a2scan}/measurement/lima_simulator:r2_sum": {
-            "fullname": "lima_simulator:r2_sum"
+        f"{a2scan}/measurement/lima_simulator:roi_counters:r2_sum": {
+            "fullname": "lima_simulator:roi_counters:r2_sum"
         },
-        f"{a2scan}/measurement/myroi": {"fullname": "lima_simulator:r1_sum"},
-        f"{a2scan}/measurement/myroi3": {"fullname": "lima_simulator:r3_sum"},
+        f"{a2scan}/measurement/myroi": {
+            "fullname": "lima_simulator:roi_counters:r1_sum"
+        },
+        f"{a2scan}/measurement/myroi3": {
+            "fullname": "lima_simulator:roi_counters:r3_sum"
+        },
         f"{a2scan}/measurement/robyy": {"fullname": "axis:roby"},
         f"{a2scan}/measurement/simu1:spectrum_det0": {
             "fullname": "simu1:spectrum_det0"

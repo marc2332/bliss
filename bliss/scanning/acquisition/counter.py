@@ -157,7 +157,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         a group_read_handler
         count_time -- the master integration time.
         Other keys are:
-          * npoints -- number of point for this acquisition (0: endless acquisition)
+          * npoints -- number of points for this acquisition (0: endless acquisition)
         """
 
         if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):

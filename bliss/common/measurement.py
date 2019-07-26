@@ -55,12 +55,16 @@ class GroupedReadMixin(object):
         self._controller_ref = weakref.ref(controller)
 
     @property
+    def controller(self):
+        return self._controller_ref()
+
+    @property
     def name(self):
         return self.controller.name
 
     @property
-    def controller(self):
-        return self._controller_ref()
+    def fullname(self):
+        return self.controller.name
 
     @property
     def id(self):
@@ -122,14 +126,12 @@ class BaseCounter:
         """A unique name within the session scope.
 
         The standard implementation defines it as:
-        `<master_controller_name>.<controller_name>.<counter_name>`
+        `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
         args = []
-        # Master controller
-        if self.master_controller is not None:
+        if self.master_controller:
             args.append(self.master_controller.name)
-        # Controller
-        if self.controller is not None:
+        if self.controller:
             args.append(self.controller.name)
         args.append(self.name)
         return ":".join(args)

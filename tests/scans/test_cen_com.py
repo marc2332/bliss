@@ -13,6 +13,7 @@ from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
+from bliss.common.standard import plotselect
 
 
 def test_pkcom_ascan_gauss(session):
@@ -73,8 +74,7 @@ def test_pkcom_timescan_gauss(session):
 
 
 def test_plotselect1(session):
-    from bliss.common.standard import plotselect
-
+    mg = session.env_dict["ACTIVE_MG"]  # counts diode2 and diode3
     roby = getattr(setup_globals, "roby")
 
     simul_counter1 = getattr(setup_globals, "diode2")
@@ -83,31 +83,26 @@ def test_plotselect1(session):
 
     # Select counter via library function
     scans.plotselect(simul_counter1)
-    s = scans.ascan(roby, 0, .1, 5, 0, save=False)
+    s = scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
 
     # _get_selected_counter_name() is valid only after a scan.
-    assert simul_counter1.name == scans._get_selected_counter_name()
+    assert simul_counter1.fullname == scans._get_selected_counter_name()
 
     # Select counter via user function
     plotselect(simul_counter2)
-    assert simul_counter2.name == scans._get_selected_counter_name()
+    assert simul_counter2.fullname == scans._get_selected_counter_name()
 
-
-#    # DOES not work because diode4 has no controller :((((
-# fixed soon ?
-#    plotselect(simul_counter4)
-#    assert simul_counter4.name == scans._get_selected_counter_name()
+    plotselect(simul_counter4)
+    assert simul_counter4.fullname == scans._get_selected_counter_name()
 
 
 def test_plotselect_and_global_cen(session):
-
     roby = getattr(setup_globals, "roby")
     simul_counter = getattr(setup_globals, "sim_ct_gauss")
 
     scans.plotselect(simul_counter)
     s = scans.ascan(roby, 0, .1, 5, 0, simul_counter, save=False)
-
-    assert simul_counter.name == scans._get_selected_counter_name()
+    assert simul_counter.fullname == scans._get_selected_counter_name()
     cen_pos = scans.cen()
     assert pytest.approx(0.05, abs=1e-3) == cen_pos[0]
 

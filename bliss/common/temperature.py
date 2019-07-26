@@ -34,19 +34,22 @@ class TempControllerCounter(SamplingCounter):
         Input and Output type objects
     """
 
-    def __init__(self, name, parent):
+    def __init__(self, name, controller):
         SamplingCounter.__init__(
-            self, name, parent, unit=parent.config.get("unit", None)
+            self, name, controller, unit=controller.config.get("unit", None)
         )
-        self.parent = parent
 
     def read(self):
-        data = self.parent.read()
-        return data
+        return self.controller.read()
+
+    @property
+    def fullname(self):
+        return self.controller.name
 
 
 @with_custom_members
 class Input:
+    # What about making this class a SamplingCounter ?
     """ Implements the access to temperature sensors
     """
 

@@ -1309,9 +1309,7 @@ def _get_selected_counter_name(counter=None):
         raise RuntimeError("Scans list is empty!")
     scan_counter_names = set(get_counter_names(SCANS[-1]))
     plot_select = HashSetting("%s:plot_select" % current_session.name)
-    selected_flint_counter_names = set(
-        [full_name.split(":")[-1] for full_name in plot_select.keys()]
-    )
+    selected_flint_counter_names = set(plot_select.keys())
     alignment_counts = scan_counter_names.intersection(selected_flint_counter_names)
     if not alignment_counts:
         raise RuntimeError(
@@ -1369,11 +1367,6 @@ def plotselect(*counters):
     counter_names = dict()
     for cnt in counters:
         fullname = cnt.fullname  # should be like: <controller.counter>
-        fullname = fullname.replace(".", ":", 1)
-        if not fullname.find(":") > -1:
-            # name of the counter is used in place of controller name
-            # for counters without controller (should not happend (too often))
-            fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
 

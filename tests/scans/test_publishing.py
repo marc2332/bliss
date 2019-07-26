@@ -183,9 +183,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     time.sleep(0.1)
     iteration_greenlet.kill()
 
-    assert set(("roby", "diode")) == set(channels_data.keys())
-    assert len(channels_data["roby"]) == npts
-    assert len(channels_data["diode"]) == npts
+    assert set(("axis:roby", diode.fullname)) == set(channels_data.keys())
+    assert len(channels_data["axis:roby"]) == npts
+    assert len(channels_data[diode.fullname]) == npts
 
     x = DataNodeIterator(get_node(s.node.db_name))
     for n in x.walk_from_last(filter="channel", wait=False):

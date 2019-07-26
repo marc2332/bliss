@@ -20,7 +20,6 @@ from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from .channel import AcquisitionChannelList, AcquisitionChannel
 from .channel import duplicate_channel, attach_channels
-from bliss.common.measurement import BaseCounter
 from bliss.common.motor_group import is_motor_group
 from bliss.common.axis import Axis
 
@@ -258,16 +257,6 @@ class AcquisitionMaster(object):
         return self.device.name
 
     @property
-    def fullname(self):
-        if self.device:
-            if isinstance(self.device, BaseCounter):
-                return self.device.fullname
-            elif is_motor_group(self.device) or isinstance(self.device, Axis):
-                return "axis"
-            else:
-                return self.device.name
-        return self.name
-
     def name(self):
         return self.__name if self.__name is not None else self._device_name
 
@@ -540,16 +529,6 @@ class AcquisitionDevice:
         return self.device.name
 
     @property
-    def fullname(self):
-        if self.device:
-            if isinstance(self.device, BaseCounter):
-                return self.device.fullname
-            elif is_motor_group(self.device):
-                return "axis"
-            else:
-                return self.device.name
-        return self.name
-
     def name(self):
         return self.__name if self.__name is not None else self._device_name
 

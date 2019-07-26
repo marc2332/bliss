@@ -59,10 +59,15 @@ class ChannelDataNode(DataNode):
                 info["shape"] = shape
             if dtype is not None:
                 info["dtype"] = dtype
-            info["fullname"] = fullname or "None"
+            info["fullname"] = fullname
             info["unit"] = unit
 
         DataNode.__init__(self, "channel", name, info=info, **keys)
+
+        # fix the channel name
+        if fullname and fullname.endswith(f":{name}"):
+            # no alias, name must be fullname
+            self._struct.name = fullname
 
         self._queue = None
 
@@ -114,6 +119,11 @@ class ChannelDataNode(DataNode):
     @property
     def fullname(self):
         return self.info.get("fullname")
+
+    @property
+    def short_name(self):
+        _, _, short_name = self.name.rpartition(":")
+        return short_name
 
     @property
     def unit(self):

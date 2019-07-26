@@ -28,7 +28,7 @@ def test_alias_data_channel(alias_session):
 {a2scan}:axis:robzz robzz
 {a2scan}:axis:timer:elapsed_time elapsed_time
 {a2scan}:axis:timer:epoch epoch
-{a2scan}:axis:timer:lima_simulator:roi_counters:myroi myroi
+{a2scan}:axis:timer:lima_simulator:roi_counters:r1_sum r1_sum
 {a2scan}:axis:timer:lima_simulator:roi_counters:r2_sum r2_sum
 {a2scan}:axis:timer:lima_simulator:roi_counters:myroi3 myroi3
 {a2scan}:axis:timer:simu1:dtime dtime
@@ -40,4 +40,4 @@ def test_alias_data_channel(alias_session):
 
     d = list()
     for n in s.node.iterator.walk(filter="channel", wait=False):
-        assert " ".join([n.db_name, n.name]) in dump1
+        assert " ".join([n.db_name, n.short_name]) in dump1

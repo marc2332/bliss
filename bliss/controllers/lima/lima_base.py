@@ -214,7 +214,7 @@ class Lima(object):
     def roi_counters(self):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
-            self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
+            self.__roi_counters = RoiCounters(roi_counters_proxy, self)
         return self.__roi_counters
 
     @autocomplete_property

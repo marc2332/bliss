@@ -402,9 +402,6 @@ class ScanDisplay(ParametersWardrobe):
             cnts = []
             for cnt in counters_selection:
                 fullname = cnt.fullname
-                fullname = fullname.replace(".", ":", 1)
-                if not fullname.find(":") > -1:
-                    fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
                 cnts.append(fullname)
 
             self._counters = cnts
@@ -418,16 +415,21 @@ def _get_channels_dict(acq_object, channels_dict):
     display_names = channels_dict.setdefault("display_names", {})
 
     for acq_chan in acq_object.channels:
-        name = acq_chan.fullname
+        fullname = acq_chan.fullname
+        if fullname in display_names:
+            continue
+        chan_name = acq_chan.short_name
+        if chan_name in display_names.values():
+            chan_name = fullname
+        display_names[fullname] = chan_name
+        scalars_units[fullname] = acq_chan.unit
         shape = acq_chan.shape
-        display_names[name] = acq_chan.alias or acq_chan.name
-        scalars_units[name] = acq_chan.unit
-        if len(shape) == 0 and not name in scalars:
-            scalars.append(name)
-        elif len(shape) == 1 and not name in spectra:
-            spectra.append(name)
-        elif len(shape) == 2 and not name in images:
-            images.append(name)
+        if len(shape) == 0 and not fullname in scalars:
+            scalars.append(fullname)
+        elif len(shape) == 1 and not fullname in spectra:
+            spectra.append(fullname)
+        elif len(shape) == 2 and not fullname in images:
+            images.append(fullname)
 
     return channels_dict
 
@@ -665,8 +667,7 @@ class Scan:
         flatten = lambda l: [item for sublist in l for item in sublist]
 
         return {
-            c.fullname: c
-            for c in flatten([n.channels for n in self.acq_chain.nodes_list])
+            c.name: c for c in flatten([n.channels for n in self.acq_chain.nodes_list])
         }
 
     def add_preset(self, preset):
@@ -827,8 +828,9 @@ class Scan:
 
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:
+            chan_name = channel.short_name
             self.nodes[channel] = _get_or_create_node(
-                channel.alias or channel.name,
+                chan_name,
                 channel.data_node_type,
                 parent_node,
                 shape=channel.shape,

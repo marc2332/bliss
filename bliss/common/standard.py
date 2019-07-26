@@ -612,15 +612,13 @@ def cntdict():
     shape = ["0D", "1D", "2D"]
 
     for cnt in global_map.get_counters_iter():
-        tmp = cnt.fullname.split(".")
-        tmp_controller_name = ".".join(tmp[:-1])
+        prefix, _, short_name = cnt.fullname.rpartition(":")
         counters_dict[cnt.fullname] = (
             shape[len(cnt.shape)],
-            cnt.controller.name if cnt.controller else tmp_controller_name,
-            cnt.name,
+            cnt.controller.name if cnt.controller else prefix,
+            short_name,
             global_map.aliases.get_alias(cnt),
         )
-
     return counters_dict
 
 

@@ -327,12 +327,13 @@ class Node(dict):
             if isinstance(value, Node):
                 child_node = value.deep_copy()
                 node[key] = child_node
+                child_node._parent = node
             elif isinstance(value, dict):
                 child_node = Node()
                 child_node.update(value)
                 node[key] = child_node.deep_copy()
             elif isinstance(value, list):
-                new_list = Node._copy_list(value)
+                new_list = Node._copy_list(value, node)
                 node[key] = new_list
             else:
                 node[key] = value
@@ -350,25 +351,29 @@ class Node(dict):
                 child_dict = value.to_dict()
                 newdict[key] = child_dict
             elif isinstance(value, list):
-                new_list = Node._copy_list(value, dict_mode=True)
+                new_list = Node._copy_list(value, self, dict_mode=True)
                 newdict[key] = new_list
             else:
                 newdict[key] = value
         return newdict
 
     @staticmethod
-    def _copy_list(l, dict_mode=False):
+    def _copy_list(l, parent, dict_mode=False):
         new_list = list()
         for v in l:
             if isinstance(v, Node):
-                new_node = v.deep_copy() if not dict_mode else v.to_dict()
+                if dict_mode:
+                    new_node = v.to_dict()
+                else:
+                    new_node = v.deep_copy()
+                    new_node._parent = parent
                 new_list.append(new_node)
             elif isinstance(v, dict):
                 tmp_node = Node()
                 tmp_node.update(v)
                 new_list.append(tmp_node.deep_copy().to_dict())
             elif isinstance(v, list):
-                child_list = Node._copy_list(v, dict_mode=dict_mode)
+                child_list = Node._copy_list(v, parent, dict_mode=dict_mode)
                 new_list.append(child_list)
             else:
                 new_list.append(v)

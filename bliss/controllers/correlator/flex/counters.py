@@ -57,7 +57,7 @@ class Data(BaseCounter):
         return (self._spectrum_size,)
 
     def create_acquisition_device(self, scan_pars, **settings):
-        return AcqDevice(self.controller, **scan_pars)
+        return FlexAcquisitionDevice(self.controller, **scan_pars)
 
 
 class Intensity(BaseCounter):
@@ -82,10 +82,10 @@ class Intensity(BaseCounter):
         return ()
 
     def create_acquisition_device(self, scan_pars, **settings):
-        return AcqDevice(self.controller, **scan_pars)
+        return FlexAcquisitionDevice(self.controller, **scan_pars)
 
 
-class AcqDevice(AcquisitionDevice):
+class FlexAcquisitionDevice(AcquisitionDevice):
     MODE = MODE
 
     def __init__(self, flex, count_time=1, mode=None, counters=(), **kwargs):

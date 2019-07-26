@@ -20,7 +20,6 @@ def SoftAxis(
     high_limit=float("+inf"),
 ):
 
-    config = session.config
     if callable(position):
         position = position.__name__
     if callable(move):

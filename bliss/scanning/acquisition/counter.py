@@ -369,7 +369,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 st = self.rolling_stats_finalize(
                     statistics[i], self.count_time, current_time
                 )
-                c.statistics = st
+                c._statistics = st
                 stats.append(st)
 
             # apply the necessary operation per channel to convert the read data depending on the mode of each channel

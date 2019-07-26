@@ -16,6 +16,7 @@ import enum
 
 from bliss.common.alias import AliasMixin
 from bliss.common import session
+from bliss.common.utils import autocomplete_property
 
 
 def add_conversion_function(obj, method_name, function):
@@ -119,7 +120,7 @@ class BaseCounter(AliasMixin, object):
 
     # Properties
 
-    @property
+    @autocomplete_property
     def controller(self):
         """A controller or None."""
         return None
@@ -211,7 +212,7 @@ class Counter(BaseCounter):
 
     # Standard interface
 
-    @property
+    @autocomplete_property
     def controller(self):
         return self._controller
 
@@ -330,6 +331,22 @@ class SamplingCounter(Counter):
             name, grouped_read_handler, conversion_function, controller, unit=unit
         )
 
+        stats = namedtuple(
+            "SamplingCounterStatistics",
+            "mean N std var min max p2v count_time timestamp",
+        )
+        self._statistics = stats(
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            None,
+            None,
+        )
+
     def read(self):
         try:
             grouped_read_handler = Counter.GROUPED_READ_HANDLERS[self]
@@ -359,6 +376,10 @@ class SamplingCounter(Counter):
                 "Invalid mode '%s', the mode must be in %s"
                 % (value, list(SamplingMode.__members__.keys()))
             )
+
+    @autocomplete_property
+    def statistics(self):
+        return self._statistics
 
 
 class SoftCounter(SamplingCounter):
@@ -493,7 +514,7 @@ class IntegratingCounter(Counter):
 
         return IntegratingCounterAcquisitionDevice
 
-    @property
+    @autocomplete_property
     def master_controller(self):
         return self._master_controller_ref()
 
@@ -602,11 +623,11 @@ class CalcCounter(BaseCounter):
     def shape(self):
         return ()
 
-    @property
+    @autocomplete_property
     def controller(self):
         return self
 
-    @property
+    @autocomplete_property
     def counters(self):
         cnts = [self]
         for c in self.__dependent_counters:

@@ -265,7 +265,7 @@ The values availabe in `SamplingCounterStatistics` are
  - `max`: Maxium value $x_{max}$
  - `p2v`: Peak to valley $x_{max}-x_{min}$
 
-To awoid temporailty storeing the individual sample values the statistics are calculated in a rolling fashion using [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm).
+To awoid temporailty storeing the individual sample values the statistics are calculated in a rolling fashion using [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm). Internally the sum of squares of differences from the current mean $M_{2,n} = \sum_{i=1}^n (x_i - \bar x_n)^2$, is calculated in itteratively via $M_{2,n} = M_{2,n-1} + (x_n - \bar x_{n-1})(x_n - \bar x_n)$. Based on $M_{2,n}$ the variance is derived as $\sigma^2_n = \frac{M_{2,n}}{n}$.
 
 ### Sampling counter modes
 
@@ -320,7 +320,7 @@ compaired to `SamplingMode.MEAN` it takes also into account the nominal counting
 publishes all the values as that are calculated for the sampling counter statistics (see above) into the hdf5 file and the redis database.
 
 #### SamplingMode.INTEGRATE_STATS
-equivalent to `SamplingMode.STATS` but for counters that should behave as described in `SamplingMode.INTEGRATE`
+equivalent to `SamplingMode.STATS` but for counters that should behave as described in `SamplingMode.INTEGRATE` yieding statistics in additional channels.
 
 #### SamplingMode.SINGLE
 
@@ -336,11 +336,26 @@ A counter in this mode is publishing the last sample without taking into account
 
 #### SamplingMode.SAMPLES
 
-Is differnt from other modes in a sense that in addition to `SamplingMode.MEAN` it generates an additional 1d dataset containing the individual samples per count and also publishes it. It can e.g. be used to do some more complex statistical analysis of the measured values or as basis for any `CalcCounter` that can be used to extract derived quantities from the original dataset
+Is differnt from other modes in a sense that in addition to `SamplingMode.MEAN` it generates an additional 1d dataset containing the individual samples per count and also publishes it. It can e.g. be used to do some more complex statistical analysis of the measured values or as basis for any `CalcCounter` that can be used to extract derived quantities from the original dataset. Here is an example to have a CalcCounter that returns the median:
+ 
+```
+TEST_SESSION [1]: from bliss.common.measurement import CalcCounter
+             ...: from bliss.scanning.acquisition.calc import CalcHook
+             ...: import numpy
+             ...: class Median(CalcHook):
+             ...:     def compute(self,sender,data_dict):
+             ...:         if "_samples" in sender.name:
+             ...:             return{"median":numpy.median(data_dict[sender.name])}
+             ...: medi = CalcCounter('median',Median(),diode9)
+             ...: diode9.mode = "SAMPLES"
 
-TODO: EXAMPLE MEDIAN 
-
-
+TEST_SESSION [2]: ct(.1,medi)
+         Out [2]: Scan(number=224, name=ct, path=<no saving>)
+	
+                  dt[s] =          0.0 (         0.0/s)
+                  diode9 = 19.333333333333332 ( 193.33333333333331/s)
+                  median =         -7.0 (       -70.0/s)
+```
 
 ## Integrating counter
 

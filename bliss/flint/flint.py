@@ -113,7 +113,8 @@ class Flint:
 
     _id_generator = itertools.count()
 
-    def __init__(self, parent_tab):
+    def __init__(self, mainwin, parent_tab):
+        self.mainwin = mainwin
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
         self.plot_dict = {self.main_index: parent_tab}
@@ -615,15 +616,14 @@ class Flint:
 # Main execution
 
 
-def main():
-    # set_gevent_dispatcher()
-
-    qapp = qt.QApplication(sys.argv)
-    qapp.setApplicationName("flint")
-    qapp.setOrganizationName("ESRF")
-    qapp.setOrganizationDomain("esrf.eu")
-
+def create_flint(settings):
+    """"
+    Create Flint class and main windows without interaction with the
+    environment.
+    """
     win = qt.QMainWindow()
+    win.setAttribute(qt.Qt.WA_QuitOnClose, True)
+
     central_widget = qt.QWidget(win)
     tabs = qt.QTabWidget(central_widget)
     win.setCentralWidget(tabs)
@@ -636,7 +636,7 @@ def main():
     exitAction = qt.QAction("&Exit", win)
     exitAction.setShortcut("Ctrl+Q")
     exitAction.setStatusTip("Exit flint")
-    exitAction.triggered.connect(qapp.quit)
+    exitAction.triggered.connect(win.close)
     showLogAction = qt.QAction("Show &log", win)
     showLogAction.setShortcut("Ctrl+L")
     showLogAction.setStatusTip("Show log window")
@@ -647,14 +647,9 @@ def main():
     windowMenu = menubar.addMenu("&Windows")
     windowMenu.addAction(showLogAction)
 
-    settings = qt.QSettings()
+    log_widget.connect_logger(ROOT_LOGGER)
 
-    def save_window_settings():
-        settings.setValue("size", win.size())
-        settings.setValue("pos", win.pos())
-        settings.sync()
-
-    qapp.aboutToQuit.connect(save_window_settings)
+    flint = Flint(win, tabs)
 
     # resize window to 70% of available screen space, if no settings
     pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
@@ -663,7 +658,27 @@ def main():
     win.resize(settings.value("size", qt.QSize(w, h)))
     win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
 
-    log_widget.connect_logger(ROOT_LOGGER)
+    return flint
+
+
+def main():
+    # set_gevent_dispatcher()
+
+    qapp = qt.QApplication(sys.argv)
+    qapp.setApplicationName("flint")
+    qapp.setOrganizationName("ESRF")
+    qapp.setOrganizationDomain("esrf.eu")
+
+    settings = qt.QSettings()
+    flint = create_flint(settings)
+
+    def save_window_settings():
+        settings.setValue("size", flint.mainwin.size())
+        settings.setValue("pos", flint.mainwin.pos())
+        settings.sync()
+
+    qapp.aboutToQuit.connect(save_window_settings)
+
     ROOT_LOGGER.level = logging.INFO
 
     def handle_exception(exc_type, exc_value, exc_traceback):
@@ -690,14 +705,12 @@ def main():
     timer2.timeout.connect(lambda: gevent.sleep(0.01))
 
     stop = gevent.event.AsyncResult()
-    flint = Flint(tabs)
-
     thread = gevent.spawn(background_task, flint, stop)
 
     # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
-    single_shot.timeout.connect(win.show)
+    single_shot.timeout.connect(flint.mainwin.show)
     single_shot.start(0)
 
     try:

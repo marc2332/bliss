@@ -94,7 +94,6 @@ class FlexAcquisitionDevice(AcquisitionDevice):
         AcquisitionDevice.__init__(
             self,
             flex,
-            flex.name,
             npoints=kwargs.get("npoints", 1),
             prepare_once=prepare_once,
             start_once=start_once,

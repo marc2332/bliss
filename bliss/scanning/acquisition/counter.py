@@ -53,8 +53,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
     ):
         AcquisitionDevice.__init__(
             self,
-            counter,
-            counter.name,
+            counter,  # in fact this must be a 'reader': either a counter or a 'group read handler'; this object must have a .fullname
             npoints=npoints,
             trigger_type=AcquisitionDevice.SOFTWARE,
             prepare_once=prepare_once,

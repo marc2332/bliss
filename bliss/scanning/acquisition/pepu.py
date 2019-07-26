@@ -136,7 +136,6 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
         super(PepuAcquisitionDevice, self).__init__(
             pepu,
-            pepu.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,

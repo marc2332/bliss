@@ -148,11 +148,7 @@ class SpeedgoatAcquisitionDevice(AcquisitionDevice):
         Acquisition device for the speedgoat counters.
         """
         AcquisitionDevice.__init__(
-            self,
-            speedgoat,
-            speedgoat.name,
-            npoints=npoints,
-            trigger_type=AcquisitionMaster.HARDWARE,
+            self, speedgoat, npoints=npoints, trigger_type=AcquisitionMaster.HARDWARE
         )
 
         self.channels.extend(

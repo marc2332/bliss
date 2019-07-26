@@ -88,7 +88,6 @@ class McaAcquisitionDevice(AcquisitionDevice):
         # Parent call
         super(McaAcquisitionDevice, self).__init__(
             mca,
-            mca.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,

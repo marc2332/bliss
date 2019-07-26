@@ -12,7 +12,7 @@ import time
 
 class TestAcquisitionDevice(AcquisitionDevice):
     def __init__(self, device, sleep_time=1, **keys):
-        AcquisitionDevice.__init__(self, device, device, **keys)
+        AcquisitionDevice.__init__(self, device, **keys)
         self.sleep_time = sleep_time
 
     def __str__(self):
@@ -39,7 +39,7 @@ class TestAcquisitionDevice(AcquisitionDevice):
 
 class TestAcquisitionMaster(AcquisitionMaster):
     def __init__(self, device):
-        AcquisitionMaster.__init__(self, device, device.name)
+        AcquisitionMaster.__init__(self, device)
 
     def __str__(self):
         return "(master) " + self.device

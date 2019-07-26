@@ -64,9 +64,7 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         backnforth=False,
         **keys
     ):
-        AcquisitionMaster.__init__(
-            self, axis, "axis", trigger_type=trigger_type, **keys
-        )
+        AcquisitionMaster.__init__(self, axis, trigger_type=trigger_type, **keys)
         UndershootMixin.__init__(
             self, undershoot, undershoot_start_margin, undershoot_end_margin
         )
@@ -254,7 +252,7 @@ class JogMotorMaster(AcquisitionMaster):
         Stop the movement if return value != True
         if end_jog_func is None should be stopped externally.
         """
-        AcquisitionMaster.__init__(self, axis, axis.name)
+        AcquisitionMaster.__init__(self, axis)
         self.movable = axis
         self.start_pos = start
         self.undershoot = undershoot
@@ -345,9 +343,7 @@ class _StepTriggerMaster(AcquisitionMaster):
 
         mot_group = Group(*self._axes)
 
-        AcquisitionMaster.__init__(
-            self, mot_group, "axis", trigger_type=trigger_type, **keys
-        )
+        AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
 
         self.channels.extend(
             (
@@ -483,9 +479,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
         mot_group = Group(*self._axes)
 
-        AcquisitionMaster.__init__(
-            self, mot_group, "axis", trigger_type=trigger_type, **keys
-        )
+        AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
 
         self.channels.extend(
             (
@@ -538,11 +532,10 @@ class CalcAxisTrajectoryMaster(AcquisitionMaster):
         nb_points,
         time_per_point,
         trigger_type=AcquisitionMaster.HARDWARE,
-        type="axis",
         **keys
     ):
         AcquisitionMaster.__init__(
-            self, axis, axis.name, type, trigger_type=trigger_type, **keys
+            self, axis, npoints=nb_points, trigger_type=trigger_type, **keys
         )
         self.movable = axis
         self.trajectory = axis.scan_on_trajectory(start, end, nb_points, time_per_point)
@@ -608,7 +601,7 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
 
         name = "mesh_" + axis1.name + "_" + axis2.name
         AcquisitionMaster.__init__(
-            self, None, name, trigger_type=trigger_type, **kwargs
+            self, None, name=name, trigger_type=trigger_type, **kwargs
         )
         UndershootMixin.__init__(
             self, undershoot, undershoot_start_margin, undershoot_stop_margin
@@ -751,7 +744,7 @@ class SweepMotorMaster(AcquisitionMaster):
         **keys
     ):
         AcquisitionMaster.__init__(
-            self, axis, axis.name, trigger_type=trigger_type, **keys
+            self, axis, npoints=npoints, trigger_type=trigger_type, **keys
         )
 
         self.movable = axis

@@ -214,7 +214,7 @@ class AcquisitionMaster(object):
     def __init__(
         self,
         device,
-        name,
+        name=None,
         npoints=None,
         trigger_type=SOFTWARE,
         prepare_once=False,
@@ -252,8 +252,10 @@ class AcquisitionMaster(object):
         return self.__device
 
     @property
-    def name(self):
-        return self.__name
+    def _device_name(self):
+        if is_motor_group(self.device) or isinstance(self.device, Axis):
+            return "axis"
+        return self.device.name
 
     @property
     def fullname(self):
@@ -265,6 +267,9 @@ class AcquisitionMaster(object):
             else:
                 return self.device.name
         return self.name
+
+    def name(self):
+        return self.__name if self.__name is not None else self._device_name
 
     @property
     def slaves(self):
@@ -488,7 +493,7 @@ class AcquisitionDevice:
     def __init__(
         self,
         device,
-        name,
+        name=None,
         npoints=0,
         trigger_type=SOFTWARE,
         prepare_once=False,
@@ -529,8 +534,10 @@ class AcquisitionDevice:
         return self.__device
 
     @property
-    def name(self):
-        return self.__name
+    def _device_name(self):
+        if is_motor_group(self.device) or isinstance(self.device, Axis):
+            return "axis"
+        return self.device.name
 
     @property
     def fullname(self):
@@ -542,6 +549,9 @@ class AcquisitionDevice:
             else:
                 return self.device.name
         return self.name
+
+    def name(self):
+        return self.__name if self.__name is not None else self._device_name
 
     @property
     def channels(self):

@@ -262,9 +262,7 @@ class MythenAcquistionDevice(AcquisitionDevice):
             key: value for key, value in kwargs.items() if key in valid_names
         }
 
-        super(MythenAcquistionDevice, self).__init__(
-            counter.controller, counter.controller.name, **valid_kwargs
-        )
+        super(MythenAcquistionDevice, self).__init__(counter.controller, **valid_kwargs)
         self.channels.append(
             AcquisitionChannel(self, counter.name, counter.dtype, counter.shape)
         )

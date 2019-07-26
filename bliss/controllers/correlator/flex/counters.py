@@ -108,13 +108,14 @@ class FlexAcquisitionDevice(AcquisitionDevice):
     def add_counter(self, counter):
         self.counters.append(counter)
         self.channels.append(
-            AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(
+                f"{self.name}:{counter.name}", counter.dtype, counter.shape
+            )
         )
 
     def add_counters(self, counters):
-        self.counters.extend(counters)
-        channels = [AcquisitionChannel(c, c.name, c.dtype, c.shape) for c in counters]
-        self.channels.extend(channels)
+        for c in counters:
+            self.add_counter(c)
 
     def prepare(self):
         if self._mode is not None:

@@ -34,7 +34,6 @@ class AcquisitionChannelList(list):
 class AcquisitionChannel:
     def __init__(
         self,
-        acq_device,
         name,
         dtype,
         shape,
@@ -44,7 +43,6 @@ class AcquisitionChannel:
         data_node_type="channel",
     ):
         self.__name = name
-        self.__acq_device = acq_device
         self.__dtype = dtype
         self.__shape = shape
         self.__unit = unit
@@ -172,7 +170,6 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     name = source.name if name is None else name
     dtype = source.dtype if dtype is None else dtype
     dest = AcquisitionChannel(
-        source,
         name,
         dtype,
         source.shape,
@@ -205,7 +202,7 @@ def attach_channels(channels_source, emitter_channel):
     """
     for channel_source in channels_source:
         if hasattr(channel_source, "_final_emit"):
-            raise RuntimeError("Channel %s is already attached to an other channel")
+            raise RuntimeError("Channel %s is already attached to another channel")
         # replaced the final emit data with one which store
         # the current data
         def new_emitter(data):
@@ -215,7 +212,7 @@ def attach_channels(channels_source, emitter_channel):
         channel_source.emit = new_emitter
         channel_source._current_data = None
 
-    emiter_method = emitter_channel.emit
+    emitter_method = emitter_channel.emit
 
     def dual_emiter(data):
         for channel_source in channels_source:
@@ -229,6 +226,6 @@ def attach_channels(channels_source, emitter_channel):
                     l = list(source_data)
                 source_data = numpy.array(l * len(data), dtype=channel_source.dtype)
             channel_source._final_emit(source_data)
-        emiter_method(data)
+        emitter_method(data)
 
     emitter_channel.emit = dual_emiter

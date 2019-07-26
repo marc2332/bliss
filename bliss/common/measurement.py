@@ -589,7 +589,7 @@ class CalcCounter(BaseCounter):
     @property
     def acquisition_channels(self):
 
-        return [AcquisitionChannel(self.controller, self.name, self.dtype, self.shape)]
+        return [AcquisitionChannel(self.name, self.dtype, self.shape)]
 
     def create_acquisition_device(self, scan_pars, device_dict=None, **settings):
         acq_devices = set()

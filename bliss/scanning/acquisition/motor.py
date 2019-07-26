@@ -62,7 +62,7 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         undershoot_end_margin=0,
         trigger_type=AcquisitionMaster.SOFTWARE,
         backnforth=False,
-        **keys
+        **keys,
     ):
         AcquisitionMaster.__init__(self, axis, trigger_type=trigger_type, **keys)
         UndershootMixin.__init__(
@@ -152,7 +152,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             self, axis, start, end, trigger_type=AcquisitionMaster.SOFTWARE, **kwargs
         )
         self.channels.append(
-            AcquisitionChannel(self, axis.name, numpy.double, (), unit=axis.unit)
+            AcquisitionChannel(f"axis:{axis.name}", numpy.double, (), unit=axis.unit)
         )
         self.__nb_points = npoints
         if isinstance(start, list):
@@ -347,7 +347,9 @@ class _StepTriggerMaster(AcquisitionMaster):
 
         self.channels.extend(
             (
-                AcquisitionChannel(self, axis.name, numpy.double, (), unit=axis.unit)
+                AcquisitionChannel(
+                    f"axis:{axis.name}", numpy.double, (), unit=axis.unit
+                )
                 for axis in self._axes
             )
         )
@@ -363,7 +365,7 @@ class _StepTriggerMaster(AcquisitionMaster):
                     self.channels.extend(
                         (
                             AcquisitionChannel(
-                                self, axis.name, numpy.double, (), unit=axis.unit
+                                f"axis:{axis.name}", numpy.double, (), unit=axis.unit
                             )
                             for axis in ctrl.reals
                         )
@@ -483,7 +485,9 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
         self.channels.extend(
             (
-                AcquisitionChannel(self, axis.name, numpy.double, (), unit=axis.unit)
+                AcquisitionChannel(
+                    f"axis:{axis.name}", numpy.double, (), unit=axis.unit
+                )
                 for axis in self._axes
             )
         )
@@ -532,7 +536,7 @@ class CalcAxisTrajectoryMaster(AcquisitionMaster):
         nb_points,
         time_per_point,
         trigger_type=AcquisitionMaster.HARDWARE,
-        **keys
+        **keys,
     ):
         AcquisitionMaster.__init__(
             self, axis, npoints=nb_points, trigger_type=trigger_type, **keys
@@ -596,7 +600,7 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
         undershoot_start_margin=0,
         undershoot_stop_margin=0,
         trigger_type=AcquisitionMaster.SOFTWARE,
-        **kwargs
+        **kwargs,
     ):
 
         name = "mesh_" + axis1.name + "_" + axis2.name
@@ -741,7 +745,7 @@ class SweepMotorMaster(AcquisitionMaster):
         undershoot_start_margin=0,
         undershoot_end_margin=0,
         trigger_type=AcquisitionMaster.SOFTWARE,
-        **keys
+        **keys,
     ):
         AcquisitionMaster.__init__(
             self, axis, npoints=npoints, trigger_type=trigger_type, **keys

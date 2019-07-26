@@ -133,7 +133,7 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
         )
 
         # add a new channel (data) to the acq dev.
-        self.channels.append(AcquisitionChannel(counter, counter.name, np.float, ()))
+        self.channels.append(AcquisitionChannel(counter.name, np.float, ()))
 
     def is_count_scan(self):
         """

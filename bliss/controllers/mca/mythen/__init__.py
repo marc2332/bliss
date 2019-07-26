@@ -264,7 +264,11 @@ class MythenAcquistionDevice(AcquisitionDevice):
 
         super(MythenAcquistionDevice, self).__init__(counter.controller, **valid_kwargs)
         self.channels.append(
-            AcquisitionChannel(self, counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(
+                f"{counter.controller.name}:{counter.name}",
+                counter.dtype,
+                counter.shape,
+            )
         )
 
         self._software_acquisition = None
@@ -316,7 +320,7 @@ class MythenAcquistionDevice(AcquisitionDevice):
             self._software_acquisition = None
             self.device.stop()
         spectrum = self.device.readout()
-        self.channels.update({self.counter.name: spectrum})
+        self.channels[0].emit(spectrum)
 
     def reading(self):
         if self.trigger_type == AcquisitionDevice.SOFTWARE:
@@ -327,7 +331,7 @@ class MythenAcquistionDevice(AcquisitionDevice):
                 break
 
             spectrum = self.device.readout()
-            self.channels.update({self.counter.name: spectrum})
+            self.channels[0].emit(spectrum)
 
     def stop(self):
         if self.trigger_type == AcquisitionDevice.SOFTWARE:

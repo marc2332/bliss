@@ -46,8 +46,8 @@ class DummyDevice(AcquisitionDevice):
     def __init__(self, *args, **kwargs):
         self.sleep_time = kwargs.pop("sleep_time", 0)
         AcquisitionDevice.__init__(self, *args, **kwargs)
-        self.channels.append(AcquisitionChannel(self, "pi", float, ()))
-        self.channels.append(AcquisitionChannel(self, "nb", float, ()))
+        self.channels.append(AcquisitionChannel(f"{self.name}:pi", float, ()))
+        self.channels.append(AcquisitionChannel(f"{self.name}:nb", float, ()))
         self.nb_trigger = 0
         self.prepared_flag = False
         self.started_flag = False
@@ -59,10 +59,9 @@ class DummyDevice(AcquisitionDevice):
     def start(self):
         gevent.sleep(self.sleep_time)
         self.started_flag = True
-        # self.channels.update({"pi": 3.14, "nb":0})
 
     def trigger(self):
-        self.channels.update({"pi": 3.14, "nb": self.nb_trigger})
+        self.channels.update_from_iterable((3.14, self.nb_trigger))
         self.nb_trigger += 1
 
     def stop(self):

@@ -40,7 +40,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         prepare_once=False,
         start_once=False,
         wait_frame_id=None,
-        **keys
+        **keys,
     ):
         """
         Acquisition device for lima camera.
@@ -145,8 +145,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if counter.name != "image":
             raise ValueError("Lima master only supports the 'image' counter")
         self._image_channel = AcquisitionChannel(
-            counter,
-            counter.name,
+            f"{self.name}:{counter.name}",
             counter.dtype,
             counter.shape,
             reference=True,

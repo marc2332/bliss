@@ -24,9 +24,9 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
             motor_mockup, name, prepare_once=True, start_once=True
         )
         self.motor_mockup = motor_mockup
-        self.channels.append(AcquisitionChannel(self, name + "_start_pos", float, ()))
-        self.channels.append(AcquisitionChannel(self, name + "_end_pos", float, ()))
-        self.channels.append(AcquisitionChannel(self, name + "_time", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_start_pos", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_end_pos", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_time", float, ()))
         self._start_time = None
 
     def prepare(self):

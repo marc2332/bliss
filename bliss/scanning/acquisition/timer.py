@@ -20,10 +20,10 @@ class SoftwareTimerMaster(AcquisitionMaster):
         self.sleep_time = sleep_time
 
         self.channels.append(
-            AcquisitionChannel(self, "elapsed_time", numpy.double, (), unit="s")
+            AcquisitionChannel(f"{self.name}:elapsed_time", numpy.double, (), unit="s")
         )
         self.channels.append(
-            AcquisitionChannel(self, "epoch", numpy.float, (), unit="s")
+            AcquisitionChannel(f"{self.name}:epoch", numpy.float, (), unit="s")
         )
 
         self._nb_point = 0

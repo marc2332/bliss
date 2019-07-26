@@ -25,8 +25,8 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
     def __init__(self, name, motor_mockup):
         super(DebugMotorMockupAcquisitionDevice, self).__init__(motor_mockup, name)
         self.motor_mockup = motor_mockup
-        self.channels.append(AcquisitionChannel(self, name + "_pos", float, ()))
-        self.channels.append(AcquisitionChannel(self, name + "_time", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_time", float, ()))
 
     def set_time_ref(self, state):
         if "MOVING" in state:

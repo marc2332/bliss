@@ -119,6 +119,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def add_counter(self, counter):
         self.counters.append(counter)
         counter.register_device(self)
+        self.channels.append(
+            AcquisitionChannel(
+                f"{self.name}:{counter.name}", counter.dtype, counter.shape
+            )
+        )
 
     def add_counters(self, counters):
         for counter in counters:
@@ -218,7 +223,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
                         name, points = publishing_dict.popitem()
 
                         # Actual publishing
-                        self.channels.update({name: points})
+                        self.channels.update({f"{self.name}:{name}": points})
 
         # Make sure the reading task has completed
         finally:
@@ -330,10 +335,6 @@ class BaseMcaCounter(BaseCounter):
         assert self.controller is self.acquisition_device.mca
         if self.detector_channel is not None:
             assert self.detector_channel in self.controller.elements
-        # Acquisition channel
-        self.acquisition_device.channels.append(
-            AcquisitionChannel(self, self.name, self.dtype, self.shape)
-        )
 
     def extract_point(self, spectrums, stats):
         raise NotImplementedError

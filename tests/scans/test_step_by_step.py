@@ -246,7 +246,7 @@ def test_calc_counters(session):
         "bla",
         (cnt_acq_device,),
         lambda y, x: {"pow": x["sim_ct_gauss"] ** 2},
-        (chain.AcquisitionChannel(cnt_acq_device, "pow", numpy.float, ()),),
+        (chain.AcquisitionChannel("pow", numpy.float, ()),),
     )
     c.add(t, calc_cnt)
     top_master = motor.LinearStepTriggerMaster(2, robz2, 0, 1)
@@ -293,7 +293,7 @@ def test_calc_counter_callback(session):
         "bla",
         (cnt_acq_device,),
         cbk,
-        (chain.AcquisitionChannel(cnt_acq_device, "pow", numpy.float, ()),),
+        (chain.AcquisitionChannel("pow", numpy.float, ()),),
     )
     c.add(t, calc_cnt)
     top_master = motor.LinearStepTriggerMaster(10, m1, 0, 1)
@@ -456,6 +456,8 @@ def test_calc_counters_std_scan(session):
     assert variables["nb_points"] == 10
     data = s.get_data()
     src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}
+    # use of the magic '==' operator of numpy arrays, make a one-by-one
+    # comparison and returns the result in a list
     assert all(data[calc_name] == pow2(None, src_data)[calc_name])
 
 
@@ -477,7 +479,6 @@ def test_calc_counters_with_two(session):
                 nb_point_to_emit = min(nb_point_to_emit, len(data))
             if not nb_point_to_emit:
                 return
-
             mean_data = (
                 self.data["diode"][:nb_point_to_emit]
                 + self.data["diode2"][:nb_point_to_emit]

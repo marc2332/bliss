@@ -79,7 +79,10 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def _do_add_counter(self, counter):
         self.channels.append(
             AcquisitionChannel(
-                counter, counter.name, counter.dtype, counter.shape, unit=counter.unit
+                f"{self.device.fullname}:{counter.name}",
+                counter.dtype,
+                counter.shape,
+                unit=counter.unit,
             )
         )
         self._counters.append(counter)

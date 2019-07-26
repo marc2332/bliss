@@ -153,7 +153,6 @@ import platform
 from bliss.comm import rpc
 from bliss.common import session as session_module
 from bliss.common import subprocess
-from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
 __all__ = [

@@ -149,12 +149,17 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         # remove trigger type kw arg, since in this case it is always software
         kwargs.pop("trigger_type", None)
         MotorMaster.__init__(
-            self, axis, start, end, trigger_type=AcquisitionMaster.SOFTWARE, **kwargs
+            self,
+            axis,
+            start,
+            end,
+            npoints=npoints,
+            trigger_type=AcquisitionMaster.SOFTWARE,
+            **kwargs,
         )
         self.channels.append(
             AcquisitionChannel(f"axis:{axis.name}", numpy.double, (), unit=axis.unit)
         )
-        self.__nb_points = npoints
         if isinstance(start, list):
             # in case nb points for last iter is different from first iter
             self.__last_npoints = (end - start[-1]) * npoints / (start[1] - start[0])
@@ -169,17 +174,13 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         for i in MotorMaster.__iter__(self):
             if i.end_pos != last_end_pos:
                 self._positions = numpy.linspace(
-                    i.start_pos, i.end_pos, self.__nb_points + 1
+                    i.start_pos, i.end_pos, self.npoints + 1
                 )[:-1]
             else:
                 self._positions = numpy.linspace(
                     i.start_pos, i.end_pos, self.__last_npoints + 1
                 )[:-1]
             yield self
-
-    @property
-    def npoints(self):
-        return self.__nb_points
 
     def start(self):
         self.started.clear()
@@ -753,8 +754,6 @@ class SweepMotorMaster(AcquisitionMaster):
 
         self.movable = axis
 
-        self._nb_points = npoints
-
         self.start_pos = start
         self.end_pos = end
         self.time = time
@@ -767,7 +766,7 @@ class SweepMotorMaster(AcquisitionMaster):
 
         if isinstance(self.start_pos, list):
             self.sweep_move = (
-                float(self.start_pos[1] - self.start_pos[0]) / self._nb_points
+                float(self.start_pos[1] - self.start_pos[0]) / self.npoints
             )
             self.sweep_speed = (
                 abs(self.sweep_move) / float(self.time)
@@ -775,7 +774,7 @@ class SweepMotorMaster(AcquisitionMaster):
                 else self.initial_speed
             )
         else:
-            self.sweep_move = float(self.end_pos - self.start_pos) / self._nb_points
+            self.sweep_move = float(self.end_pos - self.start_pos) / self.npoints
             self.sweep_speed = (
                 abs(self.sweep_move) / float(self.time)
                 if self.time > 0
@@ -797,7 +796,7 @@ class SweepMotorMaster(AcquisitionMaster):
             # in case nb points for last iter is different from first iter
             last_npoints = (
                 (self.end_pos - self.start_pos[-1])
-                * self._nb_points
+                * self.npoints
                 / (self.start_pos[1] - self.start_pos[0])
             )
             niter = len(self.start_pos)
@@ -806,7 +805,7 @@ class SweepMotorMaster(AcquisitionMaster):
             while self._iter_index < niter:
                 if self._iter_index < niter - 1:
                     self.end_pos = next(iter_pos)
-                    npoints = self._nb_points
+                    npoints = self.npoints
                 else:
                     self.end_pos = last_end_pos
                     npoints = last_npoints
@@ -819,7 +818,7 @@ class SweepMotorMaster(AcquisitionMaster):
                 self._iter_index += 1
         else:
             self.sweep_pos = numpy.linspace(
-                self.start_pos, self.end_pos, self._nb_points + 1
+                self.start_pos, self.end_pos, self.npoints + 1
             )[:-1]
             self.first_sweep = self.sweep_pos[0]
             while True:
@@ -842,10 +841,6 @@ class SweepMotorMaster(AcquisitionMaster):
             + sign * self._undershoot_end_margin
         )
         return pos
-
-    @property
-    def npoints(self):
-        return self._nb_points
 
     def prepare(self):
         if self.sweep_speed > self.initial_speed:

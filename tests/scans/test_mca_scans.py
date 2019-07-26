@@ -29,10 +29,10 @@ def assert_data_consistency(scan_data, realtime):
 # and the 'Aborted due to bad triggering' exception is raised ;
 # however, the reading task of the Mca acq device cannot stop because
 # it is stuck in waiting for TRIGGERED state
-def test_mca_continuous_soft_scan(beacon):
-    m0 = beacon.get("roby")
+def test_mca_continuous_soft_scan(session):
+    m0 = session.config.get("roby")
     # Get mca
-    simu = beacon.get("simu1")
+    simu = session.config.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
     mca_device.add_counters(simu.counters)
@@ -46,10 +46,10 @@ def test_mca_continuous_soft_scan(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_continuous_gate_scan(beacon):
-    m0 = beacon.get("roby")
+def test_mca_continuous_gate_scan(session):
+    m0 = session.config.get("roby")
     # Get mca
-    simu = beacon.get("simu1")
+    simu = session.config.get("simu1")
     mca_device = McaAcquisitionDevice(
         simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.GATE
     )
@@ -65,10 +65,10 @@ def test_mca_continuous_gate_scan(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.5)
 
 
-def test_mca_continuous_sync_scan(beacon):
-    m0 = beacon.get("roby")
+def test_mca_continuous_sync_scan(session):
+    m0 = session.config.get("roby")
     # Get mca
-    simu = beacon.get("simu1")
+    simu = session.config.get("simu1")
     mca_device = McaAcquisitionDevice(
         simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.SYNC
     )
@@ -84,10 +84,10 @@ def test_mca_continuous_sync_scan(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.4)
 
 
-def test_mca_step_soft_scan(beacon):
-    m0 = beacon.get("roby")
+def test_mca_step_soft_scan(session):
+    m0 = session.config.get("roby")
     # Get mca
-    simu = beacon.get("simu1")
+    simu = session.config.get("simu1")
     mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
     # Add counters
     mca_device.add_counters(simu.counters)
@@ -101,10 +101,10 @@ def test_mca_step_soft_scan(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_default_chain_with_counters(beacon):
+def test_mca_default_chain_with_counters(session):
     # Get controllers
-    m0 = beacon.get("m0")
-    mca = beacon.get("simu1")
+    m0 = session.config.get("m0")
+    mca = session.config.get("simu1")
     # Counters
     # Run scan
     scan = scans.ascan(m0, 0, 10, 3, 0.1, *mca.counters, return_scan=True, save=False)
@@ -112,10 +112,10 @@ def test_mca_default_chain_with_counters(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_default_chain_with_counter_namespace(beacon):
+def test_mca_default_chain_with_counter_namespace(session):
     # Get controllers
-    m0 = beacon.get("m0")
-    mca = beacon.get("simu1")
+    m0 = session.config.get("m0")
+    mca = session.config.get("simu1")
     # Counters
     # Run scan
     scan = scans.ascan(m0, 0, 10, 3, 0.1, mca.counters, return_scan=True, save=False)
@@ -123,10 +123,10 @@ def test_mca_default_chain_with_counter_namespace(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
+def test_mca_default_chain_with_counter_namespace_from_controller(session):
     # Get controllers
-    m0 = beacon.get("m0")
-    mca = beacon.get("simu1")
+    m0 = session.config.get("m0")
+    mca = session.config.get("simu1")
     # Counters
     # Run scan
     scan = scans.ascan(m0, 0, 10, 3, 0.1, mca, return_scan=True, save=False)
@@ -134,10 +134,10 @@ def test_mca_default_chain_with_counter_namespace_from_controller(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_default_chain_with_counter_groups(beacon):
+def test_mca_default_chain_with_counter_groups(session):
     # Get controllers
-    m0 = beacon.get("m0")
-    mca = beacon.get("simu1")
+    m0 = session.config.get("m0")
+    mca = session.config.get("simu1")
     # Run scan
     scan = scans.ascan(
         m0,
@@ -156,11 +156,11 @@ def test_mca_default_chain_with_counter_groups(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_default_chain_with_measurement_group(beacon):
+def test_mca_default_chain_with_measurement_group(session):
     # Get controllers
-    m0 = beacon.get("m0")
+    m0 = session.config.get("m0")
     # Add simu1 to globals
-    setup_globals.simu1 = beacon.get("simu1")
+    setup_globals.simu1 = session.config.get("simu1")
 
     # Measurement group
     mg1 = MeasurementGroup("mygroup1", {"counters": ["simu1"]})
@@ -187,8 +187,8 @@ def test_mca_default_chain_with_measurement_group(beacon):
     assert_data_consistency(scan.get_data(), realtime=0.1)
 
 
-def test_mca_scans_with_rois(beacon):
-    simu = beacon.get("simu1")
+def test_mca_scans_with_rois(session):
+    simu = session.config.get("simu1")
     simu.rois.clear()
     # ROI between indexes 400 and 700
     simu.rois.add_roi("my_roi", 500, 100, 200)
@@ -203,8 +203,8 @@ def test_mca_scans_with_rois(beacon):
     assert data["my_roi_det0"][0] == sum(data["spectrum_det0"][0][400:700])
 
 
-def test_mca_scans_with_roi_sums(beacon):
-    simu = beacon.get("simu1")
+def test_mca_scans_with_roi_sums(session):
+    simu = session.config.get("simu1")
     simu.rois.clear()
     # ROI between indexes 400 and 700
     simu.rois.add_roi("my_roi", 500, 100, 200)

@@ -132,8 +132,8 @@ def test_directories_mapping(beacon, lima_simulator):
     assert pytest.raises(ValueError, "simulator.select_directories_mapping('invalid')")
 
 
-def test_lima_mapping_and_saving(beacon, lima_simulator, session):
-    simulator = beacon.get("lima_simulator")
+def test_lima_mapping_and_saving(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 
@@ -160,8 +160,8 @@ def test_lima_mapping_and_saving(beacon, lima_simulator, session):
     assert mapped_directory.startswith(saving_directory)
 
 
-def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir, session):
-    simulator = beacon.get("lima_simulator")
+def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
+    simulator = session.config.get("lima_simulator")
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 
@@ -195,10 +195,8 @@ def test_images_dir_prefix_saving(beacon, lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_prefix_saving_absolute(
-    beacon, lima_simulator, scan_tmpdir, session
-):
-    simulator = beacon.get("lima_simulator")
+def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session):
+    simulator = session.config.get("lima_simulator")
     scan_saving = setup_globals.SCAN_SAVING
     scan_saving_dump = scan_saving.to_dict()
 
@@ -233,9 +231,9 @@ def test_images_dir_prefix_saving_absolute(
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
+def test_lima_scan_internal_trigger_with_roi(session, lima_simulator):
     # test for issue #485
-    simulator = beacon.get("lima_simulator")
+    simulator = session.config.get("lima_simulator")
 
     simulator.roi_counters.set("test", (0, 0, 100, 100))
 
@@ -262,9 +260,9 @@ def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
     assert len(scan.get_data()["test_avg"]) == 3
 
 
-def test_lima_scan_internal_trigger_with_diode(beacon, lima_simulator, monkeypatch):
-    diode = beacon.get("diode")
-    simulator = beacon.get("lima_simulator")
+def test_lima_scan_internal_trigger_with_diode(session, lima_simulator, monkeypatch):
+    diode = session.config.get("diode")
+    simulator = session.config.get("lima_simulator")
 
     monkeypatch.setattr(type(simulator.camera), "synchro_mode", "IMAGE")
 

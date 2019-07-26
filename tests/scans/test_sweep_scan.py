@@ -50,8 +50,8 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
         )
 
 
-def test_sweep_motor_master(beacon):
-    roby = beacon.get("roby")
+def test_sweep_motor_master(session):
+    roby = session.config.get("roby")
     roby.velocity = 2000
     roby.acceleration = 10000
     master = SweepMotorMaster(roby, 0, 10, 0.025, 5)

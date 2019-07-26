@@ -21,13 +21,13 @@ def test_timescan(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
-def test_ct(beacon):
+def test_ct(session):
     # test with integrating counter defined in yaml config
-    integ_diode = beacon.get("integ_diode")
+    integ_diode = session.config.get("integ_diode")
     assert scans.ct(0.1, integ_diode)
 
 
-def test_long_trigger_timescan(beacon, diode_acq_device_factory):
+def test_long_trigger_timescan(session, diode_acq_device_factory):
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(
         count_time=0.1, npoints=3, trigger_delay=1

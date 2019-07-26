@@ -170,9 +170,9 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
     )
 
 
-def test_calc_motor_publishing(beacon, calc_mot2):
-    diode = beacon.get("diode")
-    m0 = beacon.get("m0")
+def test_calc_motor_publishing(session, calc_mot2):
+    diode = session.config.get("diode")
+    m0 = session.config.get("m0")
 
     s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, .1, diode)
     pub_motors = s.scan_info["acquisition_chain"]["axis"]["master"]["scalars"]

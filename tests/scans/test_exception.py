@@ -6,7 +6,7 @@ from bliss.common.measurement import SamplingCounter
 import pytest
 
 
-def test_exception_in_reading(beacon):
+def test_exception_in_reading(session):
     event = gevent.event.Event()
 
     class Cnt(SamplingCounter):
@@ -37,14 +37,14 @@ def test_exception_in_reading(beacon):
         assert False
 
 
-def test_exception_in_first_reading(beacon, bad_diode):
+def test_exception_in_first_reading(session, bad_diode):
     with pytest.raises(RuntimeError):
         with gevent.Timeout(1):
             scans.timescan(0, bad_diode, npoints=10, save=False)
 
 
-def test_restarted_scan(beacon):
-    diode = beacon.get("diode")
+def test_restarted_scan(session):
+    diode = session.config.get("diode")
     s = scans.loopscan(1, 0, diode, save=False, run=False)
     s.run()
     with pytest.raises(RuntimeError):

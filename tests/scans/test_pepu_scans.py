@@ -66,8 +66,8 @@ def pepu():
         stream.stop.assert_called_once_with()
 
 
-def test_pepu_soft_scan(beacon, pepu):
-    m0 = beacon.get("roby")
+def test_pepu_soft_scan(session, pepu):
+    m0 = session.config.get("roby")
     # Get pepu
     device = PepuAcquisitionDevice(pepu, 10)
     # Add counters
@@ -84,8 +84,8 @@ def test_pepu_soft_scan(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_continuous_soft_scan(beacon, pepu):
-    m0 = beacon.get("roby")
+def test_pepu_continuous_soft_scan(session, pepu):
+    m0 = session.config.get("roby")
     # Get pepu
     device = PepuAcquisitionDevice(pepu, 10)
     # Add counters
@@ -102,9 +102,9 @@ def test_pepu_continuous_soft_scan(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_default_chain_with_counters(beacon, pepu):
+def test_pepu_default_chain_with_counters(session, pepu):
     # Get controllers
-    m0 = beacon.get("m0")
+    m0 = session.config.get("m0")
     # Run scan
     scan = scans.ascan(
         m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False
@@ -114,9 +114,9 @@ def test_pepu_default_chain_with_counters(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
+def test_pepu_default_chain_with_counter_namespace(session, pepu):
     # Get controllers
-    m0 = beacon.get("m0")
+    m0 = session.config.get("m0")
     # Run scan
     scan = scans.ascan(m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
     # Checks
@@ -124,9 +124,9 @@ def test_pepu_default_chain_with_counter_namespace(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_default_chain_with_measurement_group(beacon, pepu):
+def test_pepu_default_chain_with_measurement_group(session, pepu):
     # Get controllers
-    m0 = beacon.get("m0")
+    m0 = session.config.get("m0")
     # Add pepu1 to globals
     setup_globals.pepu1 = pepu
     # Measurement group
@@ -138,8 +138,8 @@ def test_pepu_default_chain_with_measurement_group(beacon, pepu):
     pepu.assert_data(data, 10)
 
 
-def test_pepu_continuous_scan(beacon, pepu):
-    m0 = beacon.get("roby")
+def test_pepu_continuous_scan(session, pepu):
+    m0 = session.config.get("roby")
     # Get pepu
     device = PepuAcquisitionDevice(pepu, 10, trigger=Signal.DI1)
     # Add counters

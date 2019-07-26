@@ -148,9 +148,9 @@ def test_all_anscan(session):
     scans.a3scan(roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False)
 
 
-def test_scan_watch_data_no_print(beacon, capsys):
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
+def test_scan_watch_data_no_print(session, capsys):
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
     scans.ascan(roby, 0, 10, 10, 0.01, diode)
     captured = capsys.readouterr()
 
@@ -190,9 +190,9 @@ def test_scan_callbacks(session):
     assert numpy.array_equal(numpy.array(res["values"]), simul_counter.data)
 
 
-def test_scan_watch_data_set_callback_to_test_saferef(beacon, capsys):
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
+def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
 
     def on_scan_new(*args):
         print("scan_new")
@@ -211,7 +211,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(beacon, capsys):
     assert captured.out == "scan_new\n" + "scan_data\n" * 10 + "scan_end\n"
 
 
-def test_scan_watch_data_no_print_on_saferef(beacon, capsys):
+def test_scan_watch_data_no_print_on_saferef(session, capsys):
     """
     In the previous function
     'test_scan_watch_data_set_callback_to_test_saferef', we set a
@@ -219,8 +219,8 @@ def test_scan_watch_data_no_print_on_saferef(beacon, capsys):
     Thanks to the underlying usage of a weakref, the print should not
     append once we get out of the context of the previous function.
     """
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
     scans.ascan(roby, 0, 10, 10, 0.01, diode)
     captured = capsys.readouterr()
 
@@ -418,10 +418,10 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
         scan_saving.base_path = saved_base_path
 
 
-def test_motor_group(beacon):
-    diode = beacon.get("diode")
-    roby = beacon.get("roby")
-    robz = beacon.get("robz")
+def test_motor_group(session):
+    diode = session.config.get("diode")
+    roby = session.config.get("roby")
+    robz = session.config.get("robz")
     scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
 
     children = list(scan.node.children())

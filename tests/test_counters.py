@@ -198,9 +198,9 @@ def test_sampling_counter_mode(session):
     )
 
 
-def test_SampCnt_mode_SAMPLES_from_conf(beacon):
-    diode2 = beacon.get("diode2")
-    diode9 = beacon.get("diode9")
+def test_SampCnt_mode_SAMPLES_from_conf(session):
+    diode2 = session.config.get("diode2")
+    diode9 = session.config.get("diode9")
     assert diode9.mode.name == "SAMPLES"
 
     s = loopscan(10, .05, diode2, diode9)
@@ -351,9 +351,9 @@ def test_SampCnt_mode_LAST(session):
     assert all(s.get_data()["test"] == numpy.array([2, 2, 2, 2, 2, 2, 2, 2, 2]))
 
 
-def test_SampCnt_statistics(beacon):
-    diode = beacon.get("diode")
-    diode2 = beacon.get("diode2")
+def test_SampCnt_statistics(session):
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
 
     ct(.1, diode, diode2)
     statfields = (
@@ -373,9 +373,9 @@ def test_SampCnt_statistics(beacon):
     assert diode2.statistics.std > 0
 
 
-def test_SampCnt_mode_INTEGRATE_STATS(beacon):
+def test_SampCnt_mode_INTEGRATE_STATS(session):
 
-    diode = beacon.get("diode")
+    diode = session.config.get("diode")
     diode.mode = SamplingMode.INTEGRATE_STATS
 
     ct(.1, diode)

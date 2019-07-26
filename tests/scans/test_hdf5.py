@@ -31,9 +31,7 @@ def h5dict(scan_file):
         }
 
 
-def test_hdf5_metadata(beacon, session):
-    env_dict, session = session
-
+def test_hdf5_metadata(session):
     all_motors = dict(
         [
             (name, pos)
@@ -42,8 +40,8 @@ def test_hdf5_metadata(beacon, session):
         ]
     )
 
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
 
     s = scans.ascan(roby, 0, 10, 10, 0.01, diode, save=True, return_scan=True)
     assert s is scans.SCANS[-1]
@@ -63,11 +61,10 @@ def test_hdf5_metadata(beacon, session):
         assert len(all_motors) == 0
 
 
-def test_hdf5_file_items(beacon, session):
-
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
-    simu1 = beacon.get("simu1")
+def test_hdf5_file_items(session):
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    simu1 = session.config.get("simu1")
 
     s = scans.ascan(
         roby,
@@ -99,9 +96,9 @@ def test_hdf5_file_items(beacon, session):
         assert val.items() <= scan_dict[key].items()
 
 
-def test_hdf5_values(beacon, session):
-    roby = beacon.get("roby")
-    diode = beacon.get("diode")
+def test_hdf5_values(session):
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
     s = scans.ascan(roby, 0, 10, 3, 0.01, diode, save=True, return_scan=True)
     scan_file = s.writer.filename
     data = s.get_data()["diode"]
@@ -110,12 +107,12 @@ def test_hdf5_values(beacon, session):
     assert list(dataset) == list(data)
 
 
-def test_subscan_in_hdf5(beacon, lima_simulator, dummy_acq_master, dummy_acq_device):
+def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     dummy1 = dummy_acq_device.get(None, "dummy1", npoints=1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
     dummy2 = dummy_acq_device.get(None, "dummy2", npoints=1)
     chain.add(lima_master, dummy2)
@@ -301,11 +298,11 @@ def test_scan_saving_without_axis_in_session(beacon, session, scan_tmpdir):
     assert s.scan_info["instrument"]["positioners"] == {}
 
 
-def test_NXclass_of_scan_meta(beacon, lima_simulator, session, scan_tmpdir):
+def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
 
     # put scan file in a tmp directory
     setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = session.config.get("lima_simulator")
 
     s = scans.loopscan(3, .1, lima_sim)
     with h5py.File(s.writer.filename, "r") as f:

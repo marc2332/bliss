@@ -13,7 +13,7 @@ from treelib import Node, Tree
 
 
 def test_dummy_scan_without_external_channel(
-    beacon, dummy_acq_master, dummy_acq_device
+    session, dummy_acq_master, dummy_acq_device
 ):
     # Get controllers
     chain = AcquisitionChain()
@@ -27,7 +27,7 @@ def test_dummy_scan_without_external_channel(
     assert scan.get_data()["pi"] == [3.14]
 
 
-def test_dummy_scan_with_external_channel(beacon, dummy_acq_master, dummy_acq_device):
+def test_dummy_scan_with_external_channel(session, dummy_acq_master, dummy_acq_device):
     # Get controllers
     chain = AcquisitionChain()
     master = dummy_acq_master.get(None, "master", npoints=1)
@@ -46,10 +46,10 @@ def test_dummy_scan_with_external_channel(beacon, dummy_acq_master, dummy_acq_de
     assert scan.get_data()["to_int"] == [6]
 
 
-def test_stopiter_with_top_master(beacon, lima_simulator, dummy_acq_device):
+def test_stopiter_with_top_master(session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     master = timer.SoftwareTimerMaster(0.1, npoints=2)
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
     chain.add(master, lima_master)
 
@@ -61,9 +61,9 @@ def test_stopiter_with_top_master(beacon, lima_simulator, dummy_acq_device):
     assert device.nb_trigger == 2
 
 
-def test_attach_channel(beacon):
-    m0 = beacon.get("m0")
-    m1 = beacon.get("m1")
+def test_attach_channel(session):
+    m0 = session.config.get("m0")
+    m1 = session.config.get("m1")
     chain = AcquisitionChain()
     top_master = LinearStepTriggerMaster(2, m0, 0, 0.1)
     second_master = MotorMaster(m1, 0, 1e-6, 0.01)
@@ -89,7 +89,9 @@ def test_attach_channel(beacon):
     assert len(data["m0"]) == len(data["m1"])
 
 
-def test_add_multiple_top_masters_same_name(beacon, dummy_acq_master, dummy_acq_device):
+def test_add_multiple_top_masters_same_name(
+    session, dummy_acq_master, dummy_acq_device
+):
     chain = AcquisitionChain()
     master1 = dummy_acq_master.get(None, "master")
     master2 = dummy_acq_master.get(None, "master")
@@ -104,13 +106,13 @@ def test_add_multiple_top_masters_same_name(beacon, dummy_acq_master, dummy_acq_
     assert chain.add(master4, dummy_device) is None
 
 
-def test_multiple_top_masters(beacon, lima_simulator, dummy_acq_device):
+def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    diode_sim = beacon.get("diode")
+    diode_sim = session.config.get("diode")
     diode_device = SamplingCounterAcquisitionDevice(diode_sim, 0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
     # note: dummy device has 2 channels: pi and nb
     dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
@@ -145,7 +147,7 @@ def test_multiple_top_masters(beacon, lima_simulator, dummy_acq_device):
     assert str(scan.acq_chain._tree) == str(tree)
 
 
-def test_master_synchro(beacon, dummy_acq_master, dummy_acq_device):
+def test_master_synchro(session, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain(parallel_prepare=True)
     master = dummy_acq_master.get(None, "master", npoints=1)
     device1 = dummy_acq_device.get(None, "device1", npoints=1, sleep_time=0.1)
@@ -158,8 +160,8 @@ def test_master_synchro(beacon, dummy_acq_master, dummy_acq_device):
     assert master.child_prepared == 2
 
 
-def test_lima_reintrant_iterator(beacon, lima_simulator):
-    simulator = beacon.get("lima_simulator")
+def test_lima_reintrant_iterator(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
 
     class TriggerMaster(AcquisitionMaster):
         def __init__(self):

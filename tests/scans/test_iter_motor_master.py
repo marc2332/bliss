@@ -53,8 +53,8 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
         )
 
 
-def test_iter_sweep_motor_master(beacon):
-    roby = beacon.get("roby")
+def test_iter_sweep_motor_master(session):
+    roby = session.config.get("roby")
     roby.velocity = 2000
     roby.acceleration = 10000
     chain = AcquisitionChain()
@@ -74,8 +74,8 @@ def test_iter_sweep_motor_master(beacon):
     assert list(master.sweep_pos) == list([40, 41, 42, 43, 44, 45, 46, 47, 48, 49])
 
 
-def test_iter_cont_motor_master(beacon):
-    roby = beacon.get("roby")
+def test_iter_cont_motor_master(session):
+    roby = session.config.get("roby")
     roby.velocity = 2000
     roby.acceleration = 10000
     chain = AcquisitionChain()

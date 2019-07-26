@@ -86,7 +86,7 @@ def test_iteration_preset(session):
     assert preset.stop_called == 10
 
 
-def test_scan_preset(beacon):
+def test_scan_preset(session):
     class Preset(ScanPreset):
         def __init__(self):
             self.prepare_counter = 0
@@ -103,7 +103,7 @@ def test_scan_preset(beacon):
             self.stop_counter += 1
 
     preset = Preset()
-    diode = beacon.get("diode")
+    diode = session.config.get("diode")
     s = scans.loopscan(2, 0, diode, run=False)
     s.add_preset(preset)
     s.run()

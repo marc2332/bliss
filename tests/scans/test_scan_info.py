@@ -89,8 +89,7 @@ def test_scan_meta_order_function(scan_meta):
     assert scan_meta_dict["sample"] == first_info
 
 
-def test_scan_meta_master_and_device(scan_meta, clean_gevent):
-    clean_gevent["end-check"] = False
+def test_scan_meta_master_and_device(session, scan_meta):
     scan_meta.clear()
     master_dict = {"super master": 10}
 

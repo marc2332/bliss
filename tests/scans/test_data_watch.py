@@ -29,7 +29,7 @@ def scan_saving():
     ss.template = prev_template
 
 
-def test_scan_saving(beacon, scan_saving):
+def test_scan_saving(session, scan_saving):
     scan_saving.base_path = "/tmp"
     scan_saving.template = "{session}/toto"
     parent_node = scan_saving.get()["parent"]

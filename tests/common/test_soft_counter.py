@@ -189,8 +189,8 @@ def test_soft_sampling_counter_mode(session):
     assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
 
 
-def test_SampCnt_soft_statistics(beacon):
-    diode = beacon.get("diode")
+def test_SampCnt_soft_statistics(session):
+    diode = session.config.get("diode")
 
     c = SoftCounter(diode, "read")
 

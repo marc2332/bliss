@@ -37,15 +37,13 @@ def lima_data_view_test_assets(lima_files, filesystem_files):
         assert f in filesystem_files
 
 
-def test_LimaDataView_edf_1_frame_per_edf(beacon, lima_simulator):
-
-    simulator = beacon.get("lima_simulator")
+def test_LimaDataView_edf_1_frame_per_edf(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
 
-def test_LimaDataView_edf_2_frames_per_edf(beacon, lima_simulator):
-
-    simulator = beacon.get("lima_simulator")
+def test_LimaDataView_edf_2_frames_per_edf(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
     sim_params = scan.acq_chain.nodes_list[1].parameters
     sim_params["saving_frame_per_file"] = 2
@@ -54,9 +52,8 @@ def test_LimaDataView_edf_2_frames_per_edf(beacon, lima_simulator):
     lima_data_view_test_assets(lima_files, filesystem_files)
 
 
-def test_LimaDataView_edf_1_frame_per_hdf5(beacon, lima_simulator):
-
-    simulator = beacon.get("lima_simulator")
+def test_LimaDataView_edf_1_frame_per_hdf5(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
     sim_params = scan.acq_chain.nodes_list[1].parameters
@@ -66,9 +63,8 @@ def test_LimaDataView_edf_1_frame_per_hdf5(beacon, lima_simulator):
     lima_data_view_test_assets(*lima_data_view_test_helper(scan))
 
 
-def test_LimaDataView_edf_2_frames_per_hdf5(beacon, lima_simulator):
-
-    simulator = beacon.get("lima_simulator")
+def test_LimaDataView_edf_2_frames_per_hdf5(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
     sim_params = scan.acq_chain.nodes_list[1].parameters

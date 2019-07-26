@@ -105,7 +105,7 @@ def test_external_hdf5_writer(alias_session, scan_tmpdir, dummy_acq_device):
         assert scan_task.ready()
 
     ## scan with counter that exports individual samples (SamplingMode.Samples)
-    scan5_a = scans.loopscan(5, 0.1, beacon.get("diode9"), save=True)
+    scan5_a = scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
 
     ## artifical scan that forces different length of datasets in SamplingMode.Samples
     from bliss.common.measurement import SoftCounter, SamplingMode

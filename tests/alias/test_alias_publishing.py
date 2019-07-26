@@ -3,8 +3,7 @@ from bliss.common import scans
 
 
 def test_alias_data_channel(alias_session):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     s = scans.a2scan(
         env_dict["robyy"],

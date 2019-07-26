@@ -48,20 +48,20 @@ def compare_line_by_line(string1, string2):
 
 
 def test_alias_env_dict(alias_session):
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
     assert env_dict["ALIASES"] is not None
     compare_line_by_line(env_dict["ALIASES"].list_aliases(), alias_dump)
 
 
 def test_alias_add_dynamically(alias_session, lima_simulator):
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
     lima_simulator = env_dict["lima_simulator"]
 
-    m0 = session.config.get("m0")
+    m0 = alias_session.config.get("m0")
     with pytest.raises(RuntimeError):
         global_map.aliases.add("m22", m0)
 
-    m1 = session.config.get("m1")
+    m1 = alias_session.config.get("m1")
     global_map.aliases.add("m22", m1)
     assert "m22" in env_dict
     assert m1 == env_dict["m22"]
@@ -75,16 +75,16 @@ def test_alias_add_dynamically(alias_session, lima_simulator):
 
 
 def test_alias_duplication(alias_session):
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     with pytest.raises(RuntimeError):
         global_map.aliases.add("blabla", env_dict["robyy"])
 
-    simu1 = session.config.get("simu1")
+    simu1 = alias_session.config.get("simu1")
     with pytest.raises(RuntimeError):
         global_map.aliases.add("dtime", simu1.counters.deadtime_det0)
 
-    m0 = session.config.get("m0")
+    m0 = alias_session.config.get("m0")
     with pytest.raises(RuntimeError):
         global_map.aliases.add("m1", m0)
 
@@ -93,7 +93,7 @@ def test_alias_duplication(alias_session):
 
 
 def test_alias_get(alias_session):
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     r = env_dict["ALIASES"].get("robyy")
     assert r is env_dict["robyy"]
@@ -102,10 +102,9 @@ def test_alias_get(alias_session):
 
 
 def test_scan_info_display_names_with_alias(alias_session):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
     robyy = env_dict["ALIASES"].get("robyy")
-    diode = session.config.get("diode")
+    diode = alias_session.config.get("diode")
     s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
     acq_chan = s.acq_chain.nodes_list[0].channels[0]
     assert acq_chan.name == "robyy"
@@ -118,20 +117,19 @@ def test_scan_info_display_names_with_alias(alias_session):
 
 
 def test_alias_included_session(alias_session):
-    env_dict, session = alias_session
-
+    env_dict = alias_session.env_dict
     assert "mot0" in global_map.aliases.names_iter()
-    m0 = session.config.get("m0")
+    m0 = alias_session.config.get("m0")
     assert env_dict["mot0"] == m0
 
 
 def test_alias_scan_title(alias_session):
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     robyy = env_dict["robyy"]
     m1 = env_dict["m1"]
     mot0 = env_dict["mot0"]
-    diode = session.config.get("diode")
+    diode = alias_session.config.get("diode")
 
     s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
     assert "ascan" in s.scan_info["type"]

@@ -141,8 +141,7 @@ def test_subscan_in_hdf5(beacon, lima_simulator, dummy_acq_master, dummy_acq_dev
 
 
 def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -150,7 +149,6 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
 
     f = h5py.File(s.writer.filename)
-
     refs = numpy.array(f["1_ascan/measurement/lima_simulator:image"])
 
     assert numpy.array_equal(
@@ -185,8 +183,7 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
 
 
 def test_lima_instrument_entry(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -238,11 +235,10 @@ def test_scan_saving_parameters(session, lima_simulator, scan_tmpdir):
 
 
 def test_positioners_in_scan_info(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
     lima_simulator = env_dict["lima_simulator"]
     robyy = env_dict["robyy"]
-    diode = session.config.get("diode")
+    diode = alias_session.config.get("diode")
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -265,11 +261,10 @@ def test_positioners_in_scan_info(alias_session, scan_tmpdir):
 
 
 def test_scan_info_cleaning(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
     lima_simulator = env_dict["lima_simulator"]
     robyy = env_dict["robyy"]
-    diode = session.config.get("diode")
+    diode = alias_session.config.get("diode")
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)

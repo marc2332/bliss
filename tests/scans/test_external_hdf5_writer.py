@@ -57,9 +57,8 @@ def deep_compare(d, u):
                 stack.append((d[k], v))
 
 
-def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_device):
-
-    env_dict, session = alias_session
+def test_external_hdf5_writer(alias_session, scan_tmpdir, dummy_acq_device):
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -77,10 +76,9 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
     ## a scan with multiple top masters
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    diode_sim = beacon.get("diode")
+    diode_sim = alias_session.config.get("diode")
     diode_device = SamplingCounterAcquisitionDevice(diode_sim, 0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
-    #    lima_sim = beacon.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
     # note: dummy device has 2 channels: pi and nb
     dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
@@ -93,7 +91,7 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
     s2.run()
 
     ### test scan with undefined number of points
-    diode2 = beacon.get("diode2")
+    diode2 = alias_session.config.get("diode2")
     s3 = scans.timescan(.05, diode2, run=False)
     gevent.sleep(
         .2

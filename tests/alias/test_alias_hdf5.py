@@ -26,8 +26,7 @@ def h5dict(scan_file):
 
 
 def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -85,13 +84,12 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
 
 
 def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
-
-    env_dict, session = alias_session
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
-    diode = session.config.get("diode")
+    diode = alias_session.config.get("diode")
     global_map.aliases.add("myDiode", diode)
 
     robyy = env_dict["robyy"]

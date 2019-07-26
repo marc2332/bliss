@@ -296,6 +296,6 @@ def alias_session(beacon, lima_simulator):
     env_dict["ALIASES"].add("myroi", ls.counters.r1_sum)
     env_dict["ALIASES"].add("myroi3", ls.counters.r3_sum)
 
-    yield env_dict, session
+    yield session
 
     session.close()

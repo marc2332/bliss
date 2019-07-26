@@ -382,6 +382,53 @@ def test_SampCnt_statistics(beacon):
     assert diode2.statistics.std > 0
 
 
+def test_SampCnt_mode_INTEGRATE_STATS(beacon):
+
+    diode = beacon.get("diode")
+    diode.mode = SamplingMode.INTEGRATE_STATS
+
+    ct(.1, diode)
+    statfields = (
+        "mean",
+        "N",
+        "std",
+        "var",
+        "min",
+        "max",
+        "p2v",
+        "count_time",
+        "timestamp",
+    )
+    assert diode.statistics._fields == statfields
+    assert diode.statistics._fields == statfields
+    assert diode.statistics.N > 0
+    assert diode.statistics.std > 0
+
+    statistics = numpy.array([0, 0, 0, numpy.nan, numpy.nan])
+    dat = numpy.random.normal(10, 1, 100)
+    for k in dat:
+        statistics = SamplingCounterAcquisitionDevice.rolling_stats_update(
+            statistics, k
+        )
+
+    stats = SamplingCounterAcquisitionDevice.rolling_stats_finalize(statistics)
+
+    count_time = .1
+    integ_stats = SamplingCounterAcquisitionDevice.STATS_to_INTEGRATE_STATS(
+        stats, count_time
+    )
+
+    new_dat = dat * count_time
+
+    assert pytest.approx(integ_stats.mean, numpy.mean(new_dat))
+    assert integ_stats.N == len(dat)
+    assert pytest.approx(integ_stats.std, numpy.std(new_dat))
+    assert pytest.approx(integ_stats.var, numpy.var(new_dat))
+    assert integ_stats.min == numpy.min(new_dat)
+    assert integ_stats.max == numpy.max(new_dat)
+    assert pytest.approx(integ_stats.p2v, numpy.max(new_dat) - numpy.min(new_dat))
+
+
 def test_integ_counter(beacon):
     acq_controller = AcquisitionController()
 

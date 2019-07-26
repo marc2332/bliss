@@ -237,34 +237,63 @@ Example from `emh.py`:
     
             return vlist
 
+### Sampling counter statistics
+Sampling counters read as many samples as possible from the connected hardware in the specified counting time and 
+return e.g. an average value (default mode, see below for details). Additionally some basic statistics of the sampling process are calculated on the fly which are accessible after the count through the `.statistics` property.  
+
+```
+    TEST_SESSION [1]: diode.mode     
+             Out [1]: <SamplingMode.MEAN: 1>
+
+    TEST_SESSION [2]: ct(1,diode)    
+    
+      diode = 8.03225806451613 ( 8.03225806451613/s)
+        
+    TEST_SESSION [3]: diode.statistics      
+             Out [3]: SamplingCounterStatistics( mean=8.032, N=93,
+                                                 std=55.96, var=3132.16, 
+                                                 min=-98.0, max=100.0, 
+                                                 p2v=198.0, count_time=1, 
+                                                 timestamp='2019-07-26 10:13:25')
+```
+The values availabe in `SamplingCounterStatistics` are
+
+ - `mean`: Mean value  $\bar x = \frac {\sum_{j=1}^n x_j}{n}$
+ - `var`: Variance  $\sigma^2 = \displaystyle\frac {\sum_{i=1}^n (x_i - \bar x)^2}{n}$
+ - `std`: Standard deviation $\sigma = \sqrt{\sigma^2}$
+ - `min`: Minimum value $x_{min}$
+ - `max`: Maxium value $x_{max}$
+ - `p2v`: Peak to valley $x_{max}-x_{min}$
+
+To awoid temporailty storeing the individual sample values the statistics are calculated in a rolling fashion using [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm).
+
 ### Sampling counter modes
 
-As sampling counters represent experimental values that can be read instantaneously the _mode_ is used to specify the behaviour of a sampling counter during the integration time. E.g.
-
-    TEST_SESSION [1]: ct(1,diode)
-
-will read the `diode` as often as possible during 1s and return the averaged value afterwards.
+The sampling counter modes are used to specify which value(s) should be published (to hdf5 file and database) at the end of the counting process.
 
 The available modes can be found in `bliss.common.measurement.SamplingMode`:
 
+```
     TEST_SESSION [1]: from bliss.common.measurement import SamplingMode
-    TEST_SESSION [2]: list(SamplingMode))
-             Out [3]: [<SamplingMode.SIMPLE_AVERAGE: 0>,
-                       <SamplingMode.INTEGRATE: 1>,
-                       <SamplingMode.STATISTICS: 2>,
-                       <SamplingMode.SINGLE_COUNT: 3>,
-                       <SamplingMode.SAMPLES: 4>,
-                       <SamplingMode.FIRST_READ: 5>]
+    TEST_SESSION [2]: list(SamplingMode)
+             Out [3]: [<SamplingMode.MEAN: 1>,
+                       <SamplingMode.STATS: 2>,
+                       <SamplingMode.SAMPLES: 3>,
+                       <SamplingMode.SINGLE: 4>,
+                       <SamplingMode.LAST: 5>,
+                       <SamplingMode.INTEGRATE: 6>]
+                       <SamplingMode.INTEGRATE_STATS: 7>]
+```
 
-#### SamplingMode.SIMPLE_AVERAGE
-The default mode is `SIMPLE_AVERAGE` which returns a average value of all values read during the integration time.
+#### SamplingMode.MEAN
+The default mode is `MEAN` which returns the mean (average) value of all samples that have been read during the counting time.
 
-![SIMPLE_AVERAGE_timeline](img/sampling_timeline_simple_avg.svg)
+![MEAN_timeline](img/sampling_timeline_MEAN.svg)
 
 <!-- svg rendered with https://www.planttext.com
 @startuml
 
-title SamplingMode.SIMPLE_AVERAGE
+title SamplingMode.MEAN
 start
 
 :sum=0;
@@ -280,148 +309,36 @@ stop
 
 @enduml
  -->
-![SIMPLE_AVERAGE](img/sampling_counter_simple_average.svg)
+![MEAN_AVERAGE](img/sampling_uml_MEAN.svg)
 
 #### SamplingMode.INTEGRATE
-compaired to `SamplingMode.SIMPLE_AVERAGE` it takes also into account the nominal counting time and mulitplies by it.
+compaired to `SamplingMode.MEAN` it takes also into account the nominal counting time. This way a counter in the mode `SamplingMode.INTEGRATE` returns the equivalent of the sum all samples normalized by the counting time. A usecase for this mode is e.g. the reading of an diode that should yied a value that is approximative  proportional to the number of photons that hit the diode during the counting time.
 
-![INTEGRATE_timeline](img/sampling_timeline_integrate.svg)
+![INTEGRATE_timeline](img/sampling_timeline_INTEGRATE.svg)
 
-<!-- svg rendered with https://www.planttext.com
-@startuml
+#### SamplingMode.STATS
+publishes all the values as that are calculated for the sampling counter statistics (see above) into the hdf5 file and the redis database.
 
-title SamplingMode.INTEGRATE
-start
+#### SamplingMode.INTEGRATE_STATS
+equivalent to `SamplingMode.STATS` but for counters that should behave as described in `SamplingMode.INTEGRATE`
 
-:sum=0;
-repeat
-  :read data from device;
-  :add read value to sum;
-repeat while (counting time over?)
+#### SamplingMode.SINGLE
 
-:return sum * counting time / number of read cycles;
+A counter in this mode is publishing the first sample without taking into account any further samples read from the device. If possible (i.e. there is no counter in any other mode on the same `AquisitionDevice`) only one sample will be read.
 
-stop
+![SINGLE_timeline](img/sampling_timeline_SINGLE.svg)
 
+#### SamplingMode.LAST
 
-@enduml
+A counter in this mode is publishing the last sample without taking into account any other sample read from the device. 
 
--->
-
-![INTEGRATE](img/sampling_counter_integrate.svg)
-
-#### SamplingMode.STATISTICS
-publishes `mean`, number values read and `std` in three channels that appear as 3 seperate entries in hdf5 and redis.
-
-![STATISTICS_timeline](img/sampling_timeline_statistics.svg)
-
-<!-- svg rendered with https://www.planttext.com
-@startuml
-
-title SamplingMode.STATISTICS
-start
-
-repeat
-  :read data from device;
-  :calculate whatis 
-  needed for statistics;
-repeat while (counting time over?)
-
-:yields 3 channels:
-mean of read values, 
-number of read cycles,
-standard deviation of read values;
-
-stop
-
-
-@enduml
-
- -->
-![STATISTICS](img/sampling_counter_statistics.svg)
-
-#### SamplingMode.SINGLE_COUNT
-
-Counters in this mode will only be read once (only one call of `read()`). Counters in this mode can not be combined with conters in other modes in the same `AquistionDevice`.
-
-![SINGLE_COUNT_timeline](img/sampling_timeline_single_count.svg)
-
-<!-- svg rendered with https://www.planttext.com
-@startuml
-
-title SamplingMode.SINGLE_COUNT
-start
-
-:read data from device;
-
-:return read value;
-
-stop
-
-
-@enduml
--->
-
-![SINGLE_COUNT](img/sampling_counter_single_count.svg)
+![LAST_timeline](img/sampling_timeline_LAST.svg)
 
 #### SamplingMode.SAMPLES
 
-this mode is more complex than the other modes in a sense that it generates an additional 1d dataset per point and also publishes it.
+Is differnt from other modes in a sense that in addition to `SamplingMode.MEAN` it generates an additional 1d dataset containing the individual samples per count and also publishes it. It can e.g. be used to do some more complex statistical analysis of the measured values or as basis for any `CalcCounter` that can be used to extract derived quantities from the original dataset
 
-![SAMPLES_timeline](img/sampling_timeline_samples.svg)
-
-<!-- svg rendered with https://www.planttext.com
-@startuml
-
-title SamplingMode.SAMPLES
-start
-
-repeat
-  :read data from device;
-  :append read values to a list;
-repeat while (counting time over?)
-
-:return like SIMPLE_AVERAGE
-and
-publish all samples read as 1d data;
-
-stop
-
-
-@enduml
-
- -->
-![SAMPLES](img/sampling_counter_samples.svg)
-
-#### SamplingMode.FIRST_READ
-The final result is simmilar to what is achivied with `SamplingMode.SINGLE_COUNT`, however here the sampling loop is used so counters in this mode can be comined with conters in other modes using the same AquisitionDevice.
-No averaging will take place but the first read value will be propagated.
-
-![FIRST_READ_timeline](img/sampling_timeline_first_read.svg)
-
-<!-- svg rendered with https://www.planttext.com
-@startuml
-
-title SamplingMode.FIRST_READ
-start
-
-repeat
-  :read data from device;
-  if (first loop itteration loop) then (yes)
-    :keep read value for laster;
-  else (no)
-    :do nothing;
-  endif
-
-  
-repeat while (counting time over?)
-
-:return read value of first itteration;
-
-stop
-
- -->
-![FIRST_READ](img/sampling_counter_first_read.svg)
+TODO: EXAMPLE MEDIAN 
 
 
 

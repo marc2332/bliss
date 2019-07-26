@@ -276,6 +276,7 @@ class SamplingMode(enum.IntEnum):
     SINGLE = enum.auto()
     LAST = enum.auto()
     INTEGRATE = enum.auto()
+    INTEGRATE_STATS = enum.auto()
 
 
 class SamplingCounter(Counter):

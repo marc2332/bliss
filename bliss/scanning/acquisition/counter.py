@@ -115,6 +115,9 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         SamplingMode.STATS: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             tuple(statistics)[:7]
         ),
+        SamplingMode.INTEGRATE_STATS: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
+            tuple(statistics)[:7]
+        ),
         SamplingMode.SINGLE: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [samples]
         ),
@@ -125,6 +128,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             [samples]
         ),
     }
+
+    stats_nt = namedtuple(
+        "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
+    )
 
     def __init__(
         self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
@@ -167,12 +174,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         # according to the counters involved in the aquistion. One
         # entry per counter, order matters!
         self.mode_helpers = list()
-
-        ### TODO: To be removed with Matias merge request
-        ### to be harmonized with Matias code... here we use a dict
-        ### while Mathis uses a list()
-        # dict that contains counters handled by this acq_device as keys
-        # and list of assiciated channels as value
         self._counters = dict()
 
         # Will be set to True when all counters associated to the
@@ -369,6 +370,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 st = self.rolling_stats_finalize(
                     statistics[i], self.count_time, current_time
                 )
+                if c.mode == SamplingMode.INTEGRATE_STATS:
+                    # apply error propagation laws to correct stats
+                    # with time normalize values
+                    st = self.STATS_to_INTEGRATE_STATS(st, self.count_time)
                 c._statistics = st
                 stats.append(st)
 
@@ -425,12 +430,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def rolling_stats_finalize(existingAggregate, count_time=None, timest=None):
         (count, mean, M2, Min, Max) = existingAggregate
         (mean, variance) = (mean, M2 / count)
-        stats = namedtuple(
-            "SamplingCounterStatistics",
-            "mean N std var min max p2v count_time timestamp",
-        )
         if count < 2:
-            return stats(
+            return SamplingCounterAcquisitionDevice.stats_nt(
                 mean,
                 count,
                 numpy.nan,
@@ -443,7 +444,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             )
         else:
             timest = str(datetime.fromtimestamp(timest)) if timest != None else None
-            return stats(
+            return SamplingCounterAcquisitionDevice.stats_nt(
                 mean,
                 numpy.int(count),
                 numpy.sqrt(variance),
@@ -454,6 +455,23 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 count_time,
                 timest,
             )
+
+    @staticmethod
+    def STATS_to_INTEGRATE_STATS(st, count_time):
+        # apply error propagation laws to correct stats
+        # with time normalize values
+        st = numpy.array(st, dtype=numpy.object)
+        # "mean N std var min max p2v count_time timestamp",
+        st[:7] = st[:7] * [
+            count_time,
+            1,
+            count_time,
+            count_time * count_time,
+            count_time,
+            count_time,
+            count_time,
+        ]
+        return SamplingCounterAcquisitionDevice.stats_nt(*st)
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):

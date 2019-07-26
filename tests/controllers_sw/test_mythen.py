@@ -54,7 +54,7 @@ def run_command(monkeypatch):
     yield run_command
 
 
-def test_myten_basic(run_command):
+def test_mythen_basic(beacon, run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     assert m.name == "test"
     assert m.hostname == "mymythen"
@@ -87,25 +87,25 @@ Mythen on mymythen:
     m._interface._sock.close.assert_called_once_with()
 
 
-def test_myten_configuration(run_command):
+def test_mythen_configuration(beacon, run_command):
     Mythen("test", {"hostname": "mymythen", "energy": 8.88, "threshold": 4.44})
     assert run_command.commands == []
     assert run_command.setters == {"energy": "8.88", "kthresh": "4.44"}
 
 
-def test_myten_reset_configuration(run_command):
+def test_mythen_reset_configuration(beacon, run_command):
     Mythen("test", {"hostname": "mymythen", "apply_defaults": True, "gate_mode": True})
     assert run_command.commands == ["reset"]
     assert run_command.setters == {"gateen": "1"}
 
 
-def test_mythen_readonly_getters(run_command):
+def test_mythen_readonly_getters(beacon, run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     assert "get_version" in dir(m)
     assert m.get_version() == (3, 0, 0)
 
 
-def test_mythen_commands(run_command):
+def test_mythen_commands(beacon, run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     m.reset()
     m.start()
@@ -114,7 +114,7 @@ def test_mythen_commands(run_command):
     assert run_command.commands == ["reset", "start", "readout", "stop"]
 
 
-def test_mythen_run(run_command):
+def test_mythen_run(beacon, run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     data = list(m.run(10, 0.1))
     assert len(data) == 10
@@ -124,7 +124,7 @@ def test_mythen_run(run_command):
     assert run_command.setters == {"frames": "10", "time": "1000000"}
 
 
-def test_myten_counter(run_command):
+def test_mythen_counter(beacon, run_command):
     m = Mythen("test", {"hostname": "mymythen"})
     counter = m.counters.spectrum
     assert counter.name == "spectrum"
@@ -139,8 +139,8 @@ def test_mythen_from_config(run_command, beacon):
     assert run_command.commands == ["reset"]
 
 
-def test_mythen_ct_scan(run_command, beacon):
-    mythen = beacon.get("mythen1")
+def test_mythen_ct_scan(run_command, session):
+    mythen = session.config.get("mythen1")
     scan = scans.ct(0.1, mythen, return_scan=True, save=False)
     data = scan.get_data()["spectrum"]
     assert data.shape == (1, 1280)

@@ -9,7 +9,6 @@ import pytest
 import os
 import time
 import numpy
-from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
@@ -17,8 +16,8 @@ from bliss.common import event, measurement, scans
 
 
 def test_ascan(session):
-    robz2 = getattr(setup_globals, "robz2")
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
     s = scans.ascan(robz2, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.1
     scan_data = s.get_data()
@@ -26,8 +25,8 @@ def test_ascan(session):
 
 
 def test_ascan_gauss2(session):
-    robz2 = getattr(setup_globals, "robz2")
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
     s = scans.ascan(robz2, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.1
     scan_data = s.get_data()
@@ -35,8 +34,8 @@ def test_ascan_gauss2(session):
 
 
 def test_dscan(session):
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
-    robz2 = getattr(setup_globals, "robz2")
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    robz2 = session.env_dict["robz2"]
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
     s = scans.dscan(robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False)
@@ -51,8 +50,8 @@ def test_dscan(session):
 
 
 def test_dscan_move_done(session):
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
-    robz2 = getattr(setup_globals, "robz2")
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    robz2 = session.env_dict["robz2"]
 
     # Callback
     positions = []
@@ -82,8 +81,8 @@ def test_dscan_move_done(session):
 
 
 def test_pointscan(session):
-    robz2 = getattr(setup_globals, "robz2")
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
     points = [0.0, 0.1, 0.3, 0.7]
     s = scans.pointscan(robz2, points, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == 0.7
@@ -93,9 +92,9 @@ def test_pointscan(session):
 
 
 def test_lookupscan(session):
-    roby = getattr(setup_globals, "roby")
-    robz = getattr(setup_globals, "robz")
-    diode = getattr(setup_globals, "diode")
+    roby = session.env_dict["roby"]
+    robz = session.env_dict["robz"]
+    diode = session.env_dict["diode"]
     s = scans.lookupscan(0.1, roby, (0, 0.1), robz, (0.1, 0.2), diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
@@ -103,9 +102,9 @@ def test_lookupscan(session):
 
 
 def test_anscan(session):
-    roby = getattr(setup_globals, "roby")
-    robz = getattr(setup_globals, "robz")
-    diode = getattr(setup_globals, "diode")
+    roby = session.env_dict["roby"]
+    robz = session.env_dict["robz"]
+    diode = session.env_dict["diode"]
     s = scans.anscan(0.1, 2, roby, 0, 0.1, robz, 0.1, 0.2, diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
@@ -113,12 +112,12 @@ def test_anscan(session):
 
 
 def test_all_anscan(session):
-    roby = getattr(setup_globals, "roby")
-    robz = getattr(setup_globals, "robz")
-    robz2 = getattr(setup_globals, "robz2")
-    m0 = getattr(setup_globals, "m0")
-    m1 = getattr(setup_globals, "m1")
-    diode = getattr(setup_globals, "diode")
+    roby = session.env_dict["roby"]
+    robz = session.env_dict["robz"]
+    robz2 = session.env_dict["robz2"]
+    m0 = session.env_dict["m0"]
+    m1 = session.env_dict["m1"]
+    diode = session.env_dict["diode"]
     # just call them to check syntax
     # real test is done else where
     scans.a5scan(
@@ -183,7 +182,7 @@ def test_scan_callbacks(session):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    simul_counter = session.env_dict["sim_ct_gauss"]
     s = scans.timescan(0.1, simul_counter, npoints=2, return_scan=True, save=False)
     assert res["new"]
     assert res["end"]
@@ -228,9 +227,9 @@ def test_scan_watch_data_no_print_on_saferef(session, capsys):
 
 
 def test_calc_counters(session):
-    robz2 = getattr(setup_globals, "robz2")
+    robz2 = session.env_dict["robz2"]
     c = chain.AcquisitionChain()
-    cnt = getattr(setup_globals, "sim_ct_gauss")
+    cnt = session.env_dict["sim_ct_gauss"]
 
     # To force (lazy) initialization of sim_ct_1 ...
     s = scans.ascan(robz2, 0, 0.1, 2, 0, cnt, return_scan=True, save=False)
@@ -259,9 +258,9 @@ def test_calc_counters(session):
 
 
 def test_calc_counter_callback(session):
-    m1 = getattr(setup_globals, "m1")
+    m1 = session.env_dict["m1"]
     c = chain.AcquisitionChain()
-    cnt = getattr(setup_globals, "sim_ct_gauss")
+    cnt = session.env_dict["sim_ct_gauss"]
 
     # To force (lazy) initialization of sim_ct_1 ...
     s = scans.ascan(m1, 0, 0.1, 10, 0, cnt, return_scan=True, save=False)
@@ -307,9 +306,9 @@ def test_calc_counter_callback(session):
 
 
 def test_amesh(session):
-    robz2 = getattr(setup_globals, "robz2")
-    robz = getattr(setup_globals, "robz")
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    robz = session.env_dict["robz"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
     s = scans.amesh(
         robz2,
         0,
@@ -338,9 +337,9 @@ def test_amesh(session):
 
 
 def test_dmesh(session):
-    robz2 = getattr(setup_globals, "robz2")
-    robz = getattr(setup_globals, "robz")
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    robz = session.env_dict["robz"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
     start_robz2 = robz2.position
     start_robz = robz.position
     s = scans.dmesh(
@@ -372,8 +371,8 @@ def test_dmesh(session):
 def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
 
     lima_sim = beacon.get("lima_simulator")
-    robz2 = getattr(setup_globals, "robz2")
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    robz2 = session.env_dict["robz2"]
+    scan_saving = session.env_dict["SCAN_SAVING"]
     saved_base_path = scan_saving.base_path
     try:
         scan_saving.base_path = str(scan_tmpdir)
@@ -442,8 +441,8 @@ def test_motor_group(session):
 
 
 def test_calc_counters_std_scan(session):
-    robz2 = getattr(setup_globals, "robz2")
-    cnt = getattr(setup_globals, "sim_ct_gauss")
+    robz2 = session.env_dict["robz2"]
+    cnt = session.env_dict["sim_ct_gauss"]
     calc_name = f"pow2_{cnt.name}"
     variables = {"nb_points": 0}
 
@@ -452,7 +451,7 @@ def test_calc_counters_std_scan(session):
         return {calc_name: data_dict["sim_ct_gauss"] ** 2}
 
     calc_counter = measurement.CalcCounter(calc_name, pow2, cnt)
-    s = scans.ascan(robz2, 0, .1, 10, 0, calc_counter)
+    s = scans.ascan(robz2, 0, .1, 10, 0, calc_counter, save=False)
     assert variables["nb_points"] == 10
     data = s.get_data()
     src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}
@@ -488,11 +487,11 @@ def test_calc_counters_with_two(session):
             }
             return {calc_name: mean_data}
 
-    robz2 = getattr(setup_globals, "robz2")
-    diode = getattr(setup_globals, "diode")
-    diode2 = getattr(setup_globals, "diode2")
+    robz2 = session.env_dict["robz2"]
+    diode = session.env_dict["diode"]
+    diode2 = session.env_dict["diode2"]
     mean_func = Mean()
     mean_counter = measurement.CalcCounter(calc_name, mean_func, diode, diode2)
-    s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter)
+    s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter, save=False)
     data = s.get_data()
     assert all(data[calc_name] == (data["diode"] + data["diode2"]) / 2.)

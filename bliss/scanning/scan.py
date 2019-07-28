@@ -1119,9 +1119,11 @@ class Scan:
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"
         filename = self.writer.filename
-        # last scan number is store in the parent of the scan
+        # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
-        last_scan_number = parent_node._data.last_scan_number
+        last_scan_number = parent_node.connection.hget(
+            parent_node.db_name, LAST_SCAN_NUMBER
+        )
         if last_scan_number is None and "{scan_number}" not in filename:
             max_scan_number = 0
             for scan_entry in self.writer.get_scan_entries():
@@ -1131,8 +1133,8 @@ class Scan:
                     )
                 except Exception:
                     continue
-            with pipeline(parent_node._data) as p:
-                name = parent_node._data._proxy.name
+            name = parent_node.db_name
+            with pipeline(parent_node._struct) as p:
                 p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
                 p.hincrby(name, LAST_SCAN_NUMBER, 1)
                 _, scan_number = p.execute()

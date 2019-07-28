@@ -412,8 +412,8 @@ class DataNode(object):
         if connection is None:
             connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
-        self._data = Struct(db_name, connection=connection)
         info_hash_name = "%s_info" % db_name
+        self._struct = Struct(db_name, connection=connection)
         self._info = HashObjSetting(info_hash_name, connection=connection)
         if info_dict:
             info_dict["node_name"] = db_name
@@ -423,16 +423,18 @@ class DataNode(object):
 
         if create:
             self.__new_node = True
-            self._data.name = name
-            self._data.db_name = db_name
-            self._data.node_type = node_type
+            self.__db_name = db_name
+            self._struct.name = name
+            self._struct.db_name = db_name
+            self._struct.node_type = node_type
             if parent:
-                self._data.parent = parent.db_name
+                self._struct.parent = parent.db_name
                 parent.add_children(self)
-            self._ttl_setter = weakref.finalize(self, set_ttl, self.db_name)
+            self._ttl_setter = weakref.finalize(self, set_ttl, db_name)
         else:
             self.__new_node = False
             self._ttl_setter = None
+            self.__db_name = self._struct._proxy.name
 
         # node type cache
         self.node_type = node_type
@@ -440,28 +442,28 @@ class DataNode(object):
     @property
     @protect_from_kill
     def db_name(self):
-        return self._data._proxy.name
+        return self.__db_name
 
     @property
     def connection(self):
-        return self._data._cnx()
+        return self._struct._cnx()
 
     @property
     @protect_from_kill
     def name(self):
-        return self._data.name
+        return self._struct.name
 
     @property
     @protect_from_kill
     def fullname(self):
-        return self._data.fullname
+        return self._struct.fullname
 
     @property
     @protect_from_kill
     def type(self):
         if self.node_type is not None:
             return self.node_type
-        return self._data.node_type
+        return self._struct.node_type
 
     @property
     def iterator(self):
@@ -470,11 +472,11 @@ class DataNode(object):
     @property
     @protect_from_kill
     def parent(self):
-        parent_name = self._data.parent
+        parent_name = self._struct.parent
         if parent_name:
             parent = get_node(parent_name)
             if parent is None:  # clean
-                del self._data.parent
+                del self._struct.parent
             return parent
 
     @property

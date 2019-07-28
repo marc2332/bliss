@@ -56,12 +56,12 @@ class Scan(DataNodeContainer):
         DataNodeContainer.__init__(self, "scan", name, create=create, **keys)
         self._info._write_type_conversion = pickle_dump
         if self.new_node:
-            with settings.pipeline(self._data, self._info) as p:
+            with settings.pipeline(self._struct, self._info) as p:
                 self._info["start_time"]
                 self._info["start_time_str"]
                 self._info["start_timestamp"]
 
-                self._data.start_time, self._data.start_time_str, self._data.start_timestamp = (
+                self._struct.start_time, self._struct.start_time_str, self._struct.start_timestamp = (
                     self._info._read_type_conversion(x) for x in p.execute()
                 )
 
@@ -69,12 +69,12 @@ class Scan(DataNodeContainer):
         if self.new_node:
             db_name = self.db_name
             # to avoid to have multiple modification events
-            with settings.pipeline(self._data, self._info) as p:
+            with settings.pipeline(self._struct, self._info) as p:
                 end_timestamp = time.time()
                 end_time = datetime.datetime.fromtimestamp(end_timestamp)
-                self._data.end_time = end_time
-                self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-                self._data.end_timestamp = end_timestamp
+                self._struct.end_time = end_time
+                self._struct.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
+                self._struct.end_timestamp = end_timestamp
                 self._info["end_time"] = end_time
                 self._info["end_time_str"] = end_time.strftime("%a %b %d %H:%M:%S %Y")
                 self._info["end_timestamp"] = end_timestamp

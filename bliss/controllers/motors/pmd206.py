@@ -11,8 +11,8 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 """
 - Bliss controller for PiezoMotor PMD206 piezo motor controller.
@@ -113,7 +113,7 @@ class PMD206(Controller):
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=9760)
 
-        session.get_current().map.register(self, children_list=[self.sock])
+        global_map.register(self, children_list=[self.sock])
 
         log_debug(self, "socket open : %r" % self.sock)
 

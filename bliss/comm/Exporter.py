@@ -8,7 +8,7 @@
 from warnings import warn
 from .embl import ExporterClient
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 
 import gevent
 from gevent.queue import Queue
@@ -59,7 +59,7 @@ class Exporter(ExporterClient.ExporterClient):
         self.events_queue = Queue()
         self.events_processing_task = None
 
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["comms"], tag=f"exporter: {address}:{port}"
         )
 

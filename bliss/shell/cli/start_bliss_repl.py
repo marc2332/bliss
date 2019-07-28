@@ -8,7 +8,7 @@
 
 import sys
 from bliss.shell.cli.repl import embed
-from bliss.common.logtools import logging_startup
+from bliss import logging_startup
 import logging
 
 

@@ -28,13 +28,13 @@ from bliss.data.channel import ChannelDataNode
 def lima_session(beacon, scan_tmpdir, lima_simulator):
     session = beacon.get("lima_test_session")
     session.setup()
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
     yield session
     session.close()
 
 
 def test_parent_node(session, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "{date}/test"
     redis_base_path = str(scan_tmpdir).replace("/", ":")
@@ -47,7 +47,7 @@ def test_parent_node(session, scan_tmpdir):
 
 
 def test_scan_node(session, redis_data_conn, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -99,7 +99,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
 
 def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -158,7 +158,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
             if n.type == "channel":
                 channels[n.name] = n.get(0, -1)
 
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -334,7 +334,7 @@ def test_children_timing(beacon, session, scan_tmpdir):
 
 
 def test_scan_end_timing(
-    beacon, scan_meta, dummy_acq_master, dummy_acq_device
+    session, scan_meta, dummy_acq_master, dummy_acq_device
 ):  # , clean_gevent):
     scan_meta.clear()
 

@@ -28,7 +28,6 @@ import inspect
 import logging
 import weakref
 import functools
-from bliss.common.alias import AliasMixin
 
 
 from .emulator import BaseDevice
@@ -213,7 +212,7 @@ class LimitPos(enum.Enum):
     Active = 1 << 18
 
 
-class Axis(AliasMixin, object):
+class Axis:
     """IcePAP emulated axis"""
 
     def __init__(self, icepap, address=None, **opts):

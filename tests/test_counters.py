@@ -128,7 +128,7 @@ class IntegCounter(IntegratingCounter):
         return numpy.random.random(1)
 
 
-def test_diode():
+def test_diode(beacon):
     def multiply_by_two(x):
         test_diode.raw_value = x
         return 2 * x
@@ -141,7 +141,7 @@ def test_diode():
     assert test_diode.raw_value * 2 == diode_value
 
 
-def test_sampling_counter_mode(beacon):
+def test_sampling_counter_mode(session):
     values = []
 
     def f(x):
@@ -184,8 +184,8 @@ def test_sampling_counter_mode(beacon):
         samp_cnt = SamplingCounter(test_diode, "test_diode", None, mode=17)
 
     ## two counters with different modes on the same acq_device
-    diode2 = beacon.get("diode2")
-    diode3 = beacon.get("diode3")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
     diode3.mode = "INTEGRATE"
 
     s = loopscan(30, .05, diode2, diode3)
@@ -447,7 +447,7 @@ def test_bad_counters(session, beacon):
         simu_mca._bad_counters = False
 
 
-def test_single_integ_counter(beacon):
+def test_single_integ_counter(session):
     timer = SoftwareTimerMaster(0, npoints=1)
     acq_controller = AcquisitionController()
     acq_controller.name = "bla"
@@ -461,7 +461,7 @@ def test_single_integ_counter(beacon):
     s.run()
 
 
-def test_integ_start_once_true(beacon):
+def test_integ_start_once_true(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -479,8 +479,8 @@ def test_integ_start_once_true(beacon):
         assert len(v) == 1
 
 
-def test_sampling_start_once_true(beacon):
-    diode = beacon.get("diode")
+def test_sampling_start_once_true(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, start_once=True
     )
@@ -494,7 +494,7 @@ def test_sampling_start_once_true(beacon):
         assert len(v) == 2
 
 
-def test_integ_start_once_false(beacon):
+def test_integ_start_once_false(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -512,8 +512,8 @@ def test_integ_start_once_false(beacon):
         assert len(v) == 1
 
 
-def test_sampling_start_once_false(beacon):
-    diode = beacon.get("diode")
+def test_sampling_start_once_false(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, start_once=False
     )
@@ -527,7 +527,7 @@ def test_sampling_start_once_false(beacon):
         assert len(v) == 2
 
 
-def test_integ_prepare_once_true(beacon):
+def test_integ_prepare_once_true(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -544,8 +544,8 @@ def test_integ_prepare_once_true(beacon):
         assert len(v) == 1
 
 
-def test_sampling_prepare_once_true(beacon):
-    diode = beacon.get("diode")
+def test_sampling_prepare_once_true(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, prepare_once=True
     )
@@ -559,7 +559,7 @@ def test_sampling_prepare_once_true(beacon):
         assert len(v) == 2
 
 
-def test_integ_prepare_once_false(beacon):
+def test_integ_prepare_once_false(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -576,8 +576,8 @@ def test_integ_prepare_once_false(beacon):
         assert len(v) == 1
 
 
-def test_sampling_prepare_once_false(beacon):
-    diode = beacon.get("diode")
+def test_sampling_prepare_once_false(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=1, prepare_once=False
     )
@@ -591,10 +591,10 @@ def test_sampling_prepare_once_false(beacon):
         assert len(v) == 1
 
 
-def test_prepare_once_prepare_many(beacon):
-    diode = beacon.get("diode")
-    diode2 = beacon.get("diode2")
-    diode3 = beacon.get("diode3")
+def test_prepare_once_prepare_many(session):
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
 
     s = loopscan(10, .1, diode2, run=False)
     d = SamplingCounterAcquisitionDevice(diode, .1, npoints=10)

@@ -71,12 +71,12 @@ import functools
 
 from tabulate import tabulate
 from gevent import Timeout
-from bliss.common import session
 from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
 from bliss.common import event
 from bliss.common.logtools import *
+from bliss import global_map
 
 
 class MultiplePositions:
@@ -106,7 +106,7 @@ class MultiplePositions:
         for position in self._positions_list:
             self.add_label_move_method(position["label"])
 
-        session.get_current().map.register(self, tag=name)
+        global_map.register(self, tag=name)
 
     def add_label_move_method(self, pos_label):
         """Add a method named after the position label to move to the

@@ -21,27 +21,28 @@ from datetime import datetime
 def _get_group_reader(counters_or_groupreadhandler):
     try:
         list_iter = iter(counters_or_groupreadhandler)
-    except TypeError:
-        if isinstance(counters_or_groupreadhandler, GroupedReadMixin):
-            return counters_or_groupreadhandler, []
-
-        return (
-            Counter.GROUPED_READ_HANDLERS.get(
-                counters_or_groupreadhandler, counters_or_groupreadhandler
-            ),
-            [counters_or_groupreadhandler],
-        )
-    else:
         first_counter = next(list_iter)
         reader = Counter.GROUPED_READ_HANDLERS.get(first_counter)
         for cnt in list_iter:
             cnt_reader = Counter.GROUPED_READ_HANDLERS.get(cnt)
             if cnt_reader != reader:
                 raise RuntimeError(
-                    "Counters %s doesn't belong to the same group"
+                    "Counters %s do not belong to the same group"
                     % counters_or_groupreadhandler
                 )
         return reader, counters_or_groupreadhandler
+    except TypeError:
+        if isinstance(counters_or_groupreadhandler, GroupedReadMixin):
+            return counters_or_groupreadhandler, []
+
+        res = (
+            Counter.GROUPED_READ_HANDLERS.get(
+                counters_or_groupreadhandler, counters_or_groupreadhandler
+            ),
+            [counters_or_groupreadhandler],
+        )
+
+        return res
 
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):

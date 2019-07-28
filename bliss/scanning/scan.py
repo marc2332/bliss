@@ -21,6 +21,7 @@ import uuid
 from functools import wraps
 
 from bliss import setup_globals
+from bliss import current_session
 from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
@@ -38,7 +39,6 @@ from bliss.data.node import (
     is_zerod,
 )
 from bliss.data.scan import get_data
-from bliss.common.session import get_current as _current_session
 from bliss.common import motor_group
 from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain
 from .writer.null import Writer as NullWriter
@@ -229,8 +229,7 @@ class ScanSaving(ParametersWardrobe):
     @property
     def session(self):
         """ This give the name of the current session or 'default' if no current session is defined """
-        session = _current_session()
-        return session.name if session is not None else "default"
+        return current_session.name
 
     @property
     def date(self):
@@ -355,18 +354,15 @@ class ScanSaving(ParametersWardrobe):
 class ScanDisplay(ParametersWardrobe):
     SLOTS = []
 
-    def __init__(self, session=None):
+    def __init__(self, session_name=None):
         """
         This class represents the display parameters for scans for a session.
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
 
-        if session is None:
-            cs = _current_session()
-            session_name = cs.name if cs is not None else "default"
-        else:
-            session_name = session
+        if session_name is None:
+            session_name = current_session.name
 
         super().__init__(
             "%s:scan_display_params" % session_name,
@@ -424,7 +420,7 @@ def _get_channels_dict(acq_object, channels_dict):
     for acq_chan in acq_object.channels:
         name = acq_chan.fullname
         shape = acq_chan.shape
-        display_names[name] = acq_chan.alias_or_name
+        display_names[name] = acq_chan.alias or acq_chan.name
         scalars_units[name] = acq_chan.unit
         if len(shape) == 0 and not name in scalars:
             scalars.append(name)
@@ -531,8 +527,7 @@ class Scan:
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
-            session_obj = _current_session()
-            scan_saving = session_obj.env_dict["SCAN_SAVING"]
+            scan_saving = current_session.env_dict["SCAN_SAVING"]
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving
@@ -833,12 +828,11 @@ class Scan:
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:
             self.nodes[channel] = _get_or_create_node(
-                channel.name,
+                channel.alias or channel.name,
                 channel.data_node_type,
                 parent_node,
                 shape=channel.shape,
                 dtype=channel.dtype,
-                alias=channel.alias,
                 unit=channel.unit,
                 fullname=channel.fullname,
             )

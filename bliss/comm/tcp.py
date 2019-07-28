@@ -24,8 +24,8 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import error_cleanup, capture_exceptions
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 
 class SocketTimeout(CommunicationTimeout):
@@ -92,7 +92,7 @@ class BaseSocket:
         self._event = event.Event()
         self._raw_read_task = None
         self._lock = lock.RLock()
-        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
+        global_map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()
@@ -460,7 +460,7 @@ class Command:
         self._raw_read_task = None
         self._transaction_list = []
         self._lock = lock.RLock()
-        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
+        global_map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
         self.close()

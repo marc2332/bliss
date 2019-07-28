@@ -29,7 +29,7 @@ from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
-
+from bliss import global_map
 
 if sys.platform not in ["win32", "cygwin"]:
     from blessings import Terminal
@@ -151,7 +151,7 @@ class ScanPrinter:
                                 sender=motor,
                             )
                         unit = motor.config.get("unit", default=None)
-                        motor_label = motor.alias_or_name
+                        motor_label = global_map.alias_or_name(motor)
                         if unit:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)

@@ -8,8 +8,8 @@
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 from . import pi_gcs
 from bliss.comm.util import TCP
@@ -41,7 +41,7 @@ class PI_E727(Controller):
         self.host = self.config.get("host")
         self.trace("opening socket")
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
-        session.get_current().map.register(self, children_list=[self.sock])
+        global_map.register(self, children_list=[self.sock])
 
         # just in case
         self.sock.flush()

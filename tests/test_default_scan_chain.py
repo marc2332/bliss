@@ -92,7 +92,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     )
 
 
-def test_default_chain_with_roi_counter(beacon, lima_simulator):
+def test_default_chain_with_roi_counter(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -103,14 +103,15 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
           |
           |-roi1
     """
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = default_session.config.get("lima_simulator")
     lima_sim.roi_counters["roi1"] = 0, 0, 10, 10
-    assert lima_sim.counters.roi1
+    assert lima_sim.counter_groups.roi1
+    assert "roi1_sum" in lima_sim.counter_groups.roi_counters._fields
 
     try:
         scan_pars = {"npoints": 10, "count_time": 0.1}
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.counter_groups.roi1])
         timer = chain.timer
 
         assert timer.count_time == 0.1
@@ -129,9 +130,9 @@ def test_default_chain_with_roi_counter(beacon, lima_simulator):
         lima_sim.roi_counters.clear()
 
 
-def test_default_chain_ascan_with_roi_counter(beacon, lima_simulator):
-    roby = beacon.get("roby")
-    lima_sim = beacon.get("lima_simulator")
+def test_default_chain_ascan_with_roi_counter(default_session, lima_simulator):
+    roby = default_session.config.get("roby")
+    lima_sim = default_session.config.get("lima_simulator")
     lima_sim.roi_counters["roi1"] = 0, 0, 10, 10
     npoints = 2
     scan_pars = {"npoints": npoints, "count_time": 0.1}
@@ -142,10 +143,10 @@ def test_default_chain_ascan_with_roi_counter(beacon, lima_simulator):
     with gevent.Timeout(2):
         s.run()
     data = s.get_data()
-    assert len(data["roi1:sum"]) == npoints
+    assert len(data["roi1_sum"]) == npoints
 
 
-def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
+def test_default_chain_with_roicounter_and_diode(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -158,16 +159,17 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
         |
         |-diode
     """
-    diode = beacon.get("diode")
+    diode = default_session.config.get("diode")
     assert diode
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = default_session.config.get("lima_simulator")
     lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
-    assert lima_sim.counters.roi1
+    assert lima_sim.roi_counters.has_key("roi1")
+    assert lima_sim.counters.roi1_sum
 
     try:
         scan_pars = {"npoints": 10, "count_time": 0.1}
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1, diode])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.counter_groups.roi1, diode])
         timer = chain.timer
 
         assert timer.count_time == 0.1
@@ -188,7 +190,7 @@ def test_default_chain_with_roicounter_and_diode(beacon, lima_simulator):
         lima_sim.roi_counters.clear()
 
 
-def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
+def test_default_chain_with_roicounter_and_image(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -199,14 +201,15 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
           |
           |-roi1
     """
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = default_session.config.get("lima_simulator")
     lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
-    assert lima_sim.counters.roi1
+    assert lima_sim.roi_counters.has_key("roi1")
+    assert lima_sim.counters.roi1_sum
 
     try:
         scan_pars = {"npoints": 10, "count_time": 0.1, "save": True}
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1, lima_sim])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.counter_groups.roi1, lima_sim])
         timer = chain.timer
 
         nodes = chain.nodes_list
@@ -222,7 +225,7 @@ def test_default_chain_with_roicounter_and_image(beacon, lima_simulator):
         lima_sim.roi_counters.clear()
 
 
-def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
+def test_default_chain_with_lima_defaults_parameters(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -235,11 +238,12 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
           |
           |-diode
     """
-    diode = beacon.get("diode2")
+    diode = default_session.config.get("diode2")
     assert diode
-    lima_sim = beacon.get("lima_simulator")
+    lima_sim = default_session.config.get("lima_simulator")
     lima_sim.roi_counters["roi1"] = (0, 0, 10, 10)
-    assert lima_sim.counters.roi1
+    assert lima_sim.roi_counters.has_key("roi1")
+    assert lima_sim.counters.roi1_sum
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 
@@ -254,7 +258,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
             ]
         )
 
-        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.roi_counters.roi1.avg, diode])
+        chain = DEFAULT_CHAIN.get(scan_pars, [lima_sim.counters.roi1_avg, diode])
         timer = chain.timer
 
         nodes = chain.nodes_list
@@ -274,7 +278,7 @@ def test_default_chain_with_lima_defaults_parameters(beacon, lima_simulator):
         DEFAULT_CHAIN.set_settings([])
 
 
-def test_default_chain_with_recursive_master(beacon, lima_simulator):
+def test_default_chain_with_recursive_master(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -287,8 +291,8 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
               |
               |-diode
     """
-    lima_sim = beacon.get("lima_simulator")
-    diode = beacon.get("diode2")
+    lima_sim = default_session.config.get("lima_simulator")
+    diode = default_session.config.get("diode2")
     assert diode
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
@@ -332,7 +336,7 @@ def test_default_chain_with_recursive_master(beacon, lima_simulator):
         DEFAULT_CHAIN.set_settings([])
 
 
-def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
+def test_default_chain_with_mca_defaults_parameters(default_session, lima_simulator):
     """Want to build the following acquisition chain:
 
     root
@@ -343,8 +347,8 @@ def test_default_chain_with_mca_defaults_parameters(beacon, lima_simulator):
           |
           |-mca
     """
-    lima_sim = beacon.get("lima_simulator")
-    mca = beacon.get("simu1")
+    lima_sim = default_session.config.get("lima_simulator")
+    mca = default_session.config.get("simu1")
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 

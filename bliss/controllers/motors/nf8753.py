@@ -9,7 +9,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.common import event
-from bliss.common import session
+from bliss import global_map
 import gevent.lock
 
 DELAY = 0.02  # delay between 2 commands
@@ -35,7 +35,7 @@ class NF8753(Controller):
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=23)
 
-        session.get_current().map.register(self, children_list=[self.sock])
+        global_map.register(self, children_list=[self.sock])
 
         if "=2" in self._write_read(None, "DRT", raw=True):
             raise RuntimeError(

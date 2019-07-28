@@ -6,10 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.event import dispatcher
-from bliss.common.measurement import BaseCounter
-from bliss.common.alias import AliasMixin
-
-
+from bliss import global_map
 import numpy
 
 
@@ -34,7 +31,7 @@ class AcquisitionChannelList(list):
             channel.emit(array[:, i])
 
 
-class AcquisitionChannel(AliasMixin, object):
+class AcquisitionChannel:
     def __init__(
         self,
         acq_device,
@@ -46,7 +43,7 @@ class AcquisitionChannel(AliasMixin, object):
         unit=None,
         data_node_type="channel",
     ):
-        self.__name = name.replace(".", ":")
+        self.__name = name
         self.__acq_device = acq_device
         self.__dtype = dtype
         self.__shape = shape
@@ -65,14 +62,31 @@ class AcquisitionChannel(AliasMixin, object):
 
     @property
     def fullname(self):
-        if isinstance(self.__acq_device, BaseCounter):
-            fullctrlname = self.__acq_device.fullcontrollername
-            if fullctrlname:
-                return fullctrlname.replace(".", ":") + ":" + self.name
-            else:
-                return self.__acq_device.name + ":" + self.name
+        acq_device_fullname = self.acq_device.fullname
+        if acq_device_fullname.endswith(f":{self.name}"):
+            # channel name has the same name as acq device,
+            # we consider it is the 'main' channel and we skip
+            # the last part to avoid repeats
+            fn = acq_device_fullname
         else:
-            return self.__acq_device.name + ":" + self.name
+            fn = f"{acq_device_fullname}:{self.name}"
+        return fn.replace(".", ":")
+
+    @property
+    def alias(self):
+        aliases = global_map.aliases
+        acq_device_fullname = self.acq_device.fullname
+        if acq_device_fullname == "axis":
+            # special case for motor channel
+            alias = aliases.get_alias(self.name)
+            return alias
+        else:
+            alias = aliases.get_alias(acq_device_fullname)
+        if acq_device_fullname.endswith(f":{self.name}"):
+            return alias
+        else:
+            if alias:
+                return f"{alias}:{self.name}"
 
     @property
     def acq_device(self):

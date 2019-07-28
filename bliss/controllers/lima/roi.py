@@ -350,9 +350,6 @@ class RoiCounters:
             for counter in counters
         ]
 
-    def __getattr__(self, name):
-        return self.get_single_roi_counters(name)
-
     # Representation
 
     def __info__(self):

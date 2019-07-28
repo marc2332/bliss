@@ -42,7 +42,7 @@ bliss/tests/test_configuration/tango_attribute_counter.yml
 import weakref
 from bliss.common.measurement import SamplingCounter
 from bliss.common.tango import DeviceProxy
-from bliss.common import session
+from bliss import global_map
 from bliss.common.logtools import *
 
 _CtrGroupReadDict = weakref.WeakValueDictionary()
@@ -97,7 +97,7 @@ class _CtrGroupRead(object):
 
         self._counter_names = list()
         self._attributes_config = None
-        session.get_current().map.register(self, tag=self.name)
+        global_map.register(self, tag=self.name)
 
     @property
     def name(self):

@@ -57,8 +57,8 @@ import gevent
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motor import Controller
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 # Notes:
 # * After power up it reports position 0 (ie, it doesn't store its
@@ -452,7 +452,7 @@ class SmarAct(Controller):
 
     def initialize(self):
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
-        session.get_current().map.register(self, children_list=[self.comm])
+        global_map.register(self, children_list=[self.comm])
 
     def initialize_hardware(self):
         # set communication mode to synchronous

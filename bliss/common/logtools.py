@@ -7,7 +7,7 @@
 
 import logging
 import contextlib
-from logging import Logger, StreamHandler, NullHandler, Formatter
+from logging import Logger, NullHandler, Formatter
 import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
@@ -15,7 +15,7 @@ from functools import wraps
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
-from bliss.common import session
+from bliss import global_map
 
 
 __all__ = [
@@ -29,8 +29,6 @@ __all__ = [
     "set_log_format",
     "hexify",
     "asciify",
-    "debugon",
-    "debugoff",
     "get_logger",
 ]
 
@@ -79,27 +77,6 @@ def _hex_format(ch):
     return "\\x%02x" % ord(ch)
 
 
-def logging_startup(
-    log_level=logging.WARNING, fmt="%(levelname)s %(asctime)-15s %(name)s: %(message)s"
-):
-    """
-    Provides basicConfig functionality to bliss activating at proper level the root loggers.
-    """
-    # save log messages format
-    session.get_current().log.set_log_format(fmt)
-    session.get_current().log._LOG_DEFAULT_LEVEL = (
-        log_level
-    )  # to restore level of non-BlissLoggers
-
-    # setting startup level for session and bliss logger
-    logging.getLogger("session").setLevel(log_level)
-    logging.getLogger("bliss").setLevel(log_level)
-
-    # install an additional handler, only for debug messages
-    # (debugon / debugoff)
-    session.get_current().log.set_debug_handler(StreamHandler())
-
-
 def get_logger(instance):
     """
     Provides a way to retrieve the logger for a give instance.
@@ -110,12 +87,11 @@ def get_logger(instance):
     Returns:
         BlissLogger instance for the specific instance
     """
-    m = session.get_current().map
     id_ = map_id(instance)
-    if id_ in m.G:
-        return m.G.node[id_]["_logger"]
-    m.register(instance)
-    return m[instance]["_logger"]
+    if id_ in global_map.G:
+        return global_map.G.node[id_]["_logger"]
+    global_map.register(instance)
+    return global_map[instance]["_logger"]
 
 
 LOG_DOCSTRING = """
@@ -521,15 +497,3 @@ def map_update_loggers(G):
                 new_logger_name = create_logger_name(G, node)  # get proper name
                 with bliss_logger():
                     node_dict["_logger"] = logging.getLogger(new_logger_name)
-
-
-@wraps(Log.debugon)
-def debugon(glob_logger_pattern_or_obj):
-
-    return session.get_current().log.debugon(glob_logger_pattern_or_obj)
-
-
-@wraps(Log.debugoff)
-def debugoff(glob_logger_pattern_or_obj):
-
-    return session.get_current().log.debugoff(glob_logger_pattern_or_obj)

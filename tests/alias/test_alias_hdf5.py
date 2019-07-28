@@ -11,7 +11,7 @@ from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.scanning.scan import Scan, ScanSaving
 from bliss.scanning.chain import AcquisitionChain
-
+from bliss import global_map
 
 import h5py
 
@@ -43,8 +43,8 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
         0.001,
         env_dict["simu1"].counters.spectrum_det0,
         env_dict["dtime"],
-        env_dict["lima_simulator"].roi_counters.r1.sum,
-        env_dict["lima_simulator"].roi_counters.r2.sum,
+        env_dict["myroi"],
+        env_dict["lima_simulator"].counters.r2_sum,
         env_dict["myroi3"],
         save=True,
         return_scan=True,
@@ -60,46 +60,18 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
         f"{a2scan}/instrument/positioners_dial/robyy": {},
         f"{a2scan}/instrument/positioners_dial/robzz": {},
         f"{a2scan}/measurement": {"NX_class": "NXcollection"},
-        f"{a2scan}/measurement/axis:robzz": {
-            "alias": "robzz",
-            "fullname": "axis:robz",
-            "has_alias": True,
+        f"{a2scan}/measurement/robzz": {"fullname": "axis:robz"},
+        f"{a2scan}/measurement/dtime": {"fullname": "simu1:deadtime_det0"},
+        f"{a2scan}/measurement/lima_simulator:r2_sum": {
+            "fullname": "lima_simulator:r2_sum"
         },
-        f"{a2scan}/measurement/dtime": {
-            "alias": "dtime",
-            "fullname": "simu1:deadtime_det0",
-            "has_alias": True,
-        },
-        f"{a2scan}/measurement/lima_simulator:roi_counters:r2:sum": {
-            "alias": "None",
-            "fullname": "lima_simulator:roi_counters:r2:sum",
-            "has_alias": False,
-        },
-        f"{a2scan}/measurement/myroi": {
-            "alias": "myroi",
-            "fullname": "lima_simulator:roi_counters:r1:sum",
-            "has_alias": True,
-        },
-        f"{a2scan}/measurement/myroi3": {
-            "alias": "myroi3",
-            "fullname": "lima_simulator:roi_counters:r3:sum",
-            "has_alias": True,
-        },
-        f"{a2scan}/measurement/robyy": {
-            "alias": "robyy",
-            "fullname": "axis:roby",
-            "has_alias": True,
-        },
+        f"{a2scan}/measurement/myroi": {"fullname": "lima_simulator:r1_sum"},
+        f"{a2scan}/measurement/myroi3": {"fullname": "lima_simulator:r3_sum"},
+        f"{a2scan}/measurement/robyy": {"fullname": "axis:roby"},
         f"{a2scan}/measurement/simu1:spectrum_det0": {
-            "alias": "None",
-            "fullname": "simu1:spectrum_det0",
-            "has_alias": False,
+            "fullname": "simu1:spectrum_det0"
         },
-        f"{a2scan}/measurement/timer:elapsed_time": {
-            "alias": "None",
-            "fullname": "timer:elapsed_time",
-            "has_alias": False,
-        },
+        f"{a2scan}/measurement/timer:elapsed_time": {"fullname": "timer:elapsed_time"},
     }
 
     scan_dict = h5dict(s.writer.filename)
@@ -116,7 +88,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
     diode = session.config.get("diode")
-    diode.set_alias("myDiode")
+    global_map.aliases.add("myDiode", diode)
 
     robyy = env_dict["robyy"]
     counter = env_dict["myDiode"]
@@ -142,15 +114,9 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
         f"{scan_name}/instrument/positioners_dial/robzz": {},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/myDiode": {
-            "alias": "myDiode",
-            "fullname": "simulation_diode_controller:diode",
-            "has_alias": True,
+            "fullname": "simulation_diode_controller:diode"
         },
-        f"{scan_name}/measurement/robyy": {
-            "alias": "robyy",
-            "fullname": "axis:roby",
-            "has_alias": True,
-        },
+        f"{scan_name}/measurement/robyy": {"fullname": "axis:roby"},
     }
     for key, val in expected_dict.items():
         assert key in scan_dict

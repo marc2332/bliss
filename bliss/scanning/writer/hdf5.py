@@ -60,9 +60,10 @@ class Writer(FileWriter):
                 maxshape = tuple([None] + [None] * len(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
-                if not channel.reference and channel.alias_or_fullname not in parent:
+                chan_name = channel.alias or channel.fullname
+                if not channel.reference and chan_name not in parent:
                     dataset = parent.create_dataset(
-                        channel.alias_or_fullname,
+                        chan_name,
                         shape=shape,
                         dtype=channel.dtype,
                         # compression="gzip",  to be checked if working with dynamic maxshape issue #880
@@ -70,8 +71,6 @@ class Writer(FileWriter):
                         fillvalue=numpy.nan,
                     )
                     dataset.attrs.modify("fullname", channel.fullname)
-                    dataset.attrs.modify("alias", channel.alias or "None")
-                    dataset.attrs.modify("has_alias", channel.has_alias)
 
                     self.last_point_index[channel] = 0
         elif signal == "new_data":
@@ -81,7 +80,7 @@ class Writer(FileWriter):
 
             data = event_dict.get("data")
 
-            dataset = parent[channel.alias_or_fullname]
+            dataset = parent[channel.alias or channel.fullname]
 
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
@@ -116,24 +115,22 @@ class Writer(FileWriter):
             if channel.reference:
                 try:
                     data = channel.acq_device.to_ref_array(channel, self.root_path)
+                except Exception:
+                    continue
 
-                    shape = numpy.shape(data)
-                    dtype = data.dtype
+                chan_name = channel.alias or channel.fullname
+                shape = numpy.shape(data)
+                dtype = data.dtype
 
-                    dataset = self.file.create_dataset(
-                        f"{scan_name}/measurement/{channel.alias_or_fullname}",
-                        shape=shape,
-                        dtype=dtype,
-                        compression="gzip",
-                    )
-                    dataset.attrs.modify("fullname", channel.fullname)
-                    dataset.attrs.modify("alias", channel.alias or "None")
-                    dataset.attrs.modify("has_alias", channel.has_alias)
+                dataset = self.file.create_dataset(
+                    f"{scan_name}/measurement/{chan_name}",
+                    shape=shape,
+                    dtype=dtype,
+                    compression="gzip",
+                )
+                dataset.attrs.modify("fullname", channel.fullname)
 
-                    dataset[:] = data
-
-                except Exception as e:
-                    pass
+                dataset[:] = data
 
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {

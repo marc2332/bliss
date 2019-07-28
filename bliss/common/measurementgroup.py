@@ -5,9 +5,10 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import itertools
+
 from bliss import setup_globals
 from bliss.config import settings
-from .session import get_current as _current_session
+from bliss import current_session
 
 
 class _active_mg_proxy(object):
@@ -80,8 +81,7 @@ def get_active_name():
     * return None (NoneType) if not found.
     * !! this is only the name, the MG object may not exist.
     """
-    session = _current_session()
-    session_name = session.name if session is not None else "unnamed"
+    session_name = current_session.name
     active_mg_name = settings.SimpleSetting("%s:active_measurementgroup" % session_name)
     return active_mg_name.get()
 
@@ -92,8 +92,7 @@ def set_active_name(name):
     if name not in all_mg_names:
         raise ValueError
 
-    session = _current_session()
-    session_name = session.name if session is not None else "unnamed"
+    session_name = current_session.name
     active_mg_name = settings.SimpleSetting("%s:active_measurementgroup" % session_name)
     active_mg_name.set(name)
 

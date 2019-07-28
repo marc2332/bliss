@@ -13,10 +13,11 @@ import types
 import itertools
 import functools
 import numpy
-from bliss.common.event import saferef
 import sys
 import copy
 import collections.abc
+
+from bliss.common.event import saferef
 
 
 class ErrorWithTraceback:
@@ -416,48 +417,6 @@ class periodic_exec(object):
                 gevent.sleep(self.period)
 
 
-def get_objects_iter(*names_or_objs):
-    from bliss import setup_globals
-
-    for i in names_or_objs:
-        if isinstance(i, str):
-            i = getattr(setup_globals, i)
-        yield i
-
-
-def get_objects_type_iter(typ):
-    from bliss import setup_globals
-
-    for name in dir(setup_globals):
-        elem = getattr(setup_globals, name)
-        if isinstance(elem, typ):
-            yield elem
-
-
-def get_axes_iter():
-    from bliss.common import session
-
-    m = session.get_current().map
-    for mot in m.instance_iter("axes"):
-        yield mot
-
-
-def get_axes_names_iter():
-    for axis in get_axes_iter():
-        yield axis.alias_or_name
-
-
-def get_counters_iter():
-    from bliss.common import session
-
-    for cnt in session.get_current().map.instance_iter("counters"):
-        try:
-            for cnt in cnt.counters:
-                yield cnt
-        except AttributeError:
-            yield cnt
-
-
 def safe_get(obj, member, on_error=None, **kwargs):
     try:
         if isinstance(getattr(type(obj), member), property):
@@ -469,23 +428,6 @@ def safe_get(obj, member, on_error=None, **kwargs):
             if isinstance(on_error, ErrorWithTraceback):
                 on_error.exc_info = sys.exc_info()
             return on_error
-
-
-def get_axes_positions_iter(on_error=None):
-    def request(axis):
-        return (
-            axis.alias_or_name,
-            safe_get(axis, "position", on_error),
-            safe_get(axis, "dial", on_error),
-            axis.config.get("unit", default=None),
-        )
-
-    tasks = list()
-    for axis in get_axes_iter():
-        tasks.append(gevent.spawn(request, axis))
-
-    for task in tasks:
-        yield task.get()
 
 
 def common_prefix(paths, sep=os.path.sep):

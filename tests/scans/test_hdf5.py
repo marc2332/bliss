@@ -7,9 +7,9 @@
 
 import pytest
 from bliss import setup_globals
+from bliss import global_map
 from bliss.common import scans
 from bliss.common.axis import Axis
-from bliss.common.utils import get_axes_positions_iter
 from bliss.scanning.scan import Scan, ScanSaving
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition import timer
@@ -32,11 +32,12 @@ def h5dict(scan_file):
 
 
 def test_hdf5_metadata(beacon, session):
+    env_dict, session = session
 
     all_motors = dict(
         [
             (name, pos)
-            for name, pos, _, _ in get_axes_positions_iter(on_error="ERR")
+            for name, pos, _, _ in global_map.get_axes_positions_iter(on_error="ERR")
             if pos != "ERR"
         ]
     )
@@ -286,16 +287,13 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
     assert "lima_simulator" not in s3.scan_info["instrument"]
 
 
-def test_scan_saving_without_axis_in_session(beacon, scan_tmpdir):
-    # to me this is really strage, but `session.get_current()` seems to initialize a session
-    # the goal is to have the 'default' session in library mode
+def test_scan_saving_without_axis_in_session(beacon, session, scan_tmpdir):
+    env_dict, session = session
+    for mot in session.get_axes_iter():
+        del env_dict[mot.name]
 
-    from bliss.common import session
-    from bliss import setup_globals
-
-    session = session.get_current()
     # put scan file in a tmp directory
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
     diode = session.config.get("diode")
 

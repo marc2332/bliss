@@ -19,8 +19,8 @@ from .exceptions import CommunicationError, CommunicationTimeout
 from ..common.greenlet_utils import KillMask, protect_from_kill
 from . import serial
 
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 
 class ModbusError(CommunicationError):
@@ -95,7 +95,7 @@ class Modbus_RTU:
         self._serial = serial.Serial(*args, **kwargs)
         self.node = node
         self._lock = lock.RLock()
-        session.get_current().map.register(self, children_list=[self._serial])
+        global_map.register(self, children_list=[self._serial])
 
     def __del__(self):
         self._serial.close()

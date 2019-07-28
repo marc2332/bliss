@@ -57,11 +57,11 @@ def _get_counters_from_object(arg, recursive=True):
             raise ValueError("Measurement groups cannot point to other groups")
         return _get_counters_from_measurement_group(arg)
     try:
-        return arg.counter_groups.default
+        return list(arg.counter_groups.default)
     except AttributeError:
         pass
     try:
-        return arg.counters
+        return list(arg.counters)
     except AttributeError:
         pass
     try:
@@ -95,7 +95,7 @@ def get_all_counters(counter_args):
             "Hint: disable inactive counters.".format(", ".join(missing))
         )
 
-    return all_counters
+    return filter(lambda cnt: isinstance(cnt, BaseCounter), all_counters)
 
 
 def master_to_devices_mapping(
@@ -277,16 +277,9 @@ class DefaultAcquisitionChain(object):
             if "master" in settings
         }
 
-        # Issue warning for non BaseCounter instance (for the moment)
-        def get_name(counter):
-            if not isinstance(counter, BaseCounter):
-                warnings.warn("{!r} is not a counter".format(counter))
-                return counter.name
-            return counter.fullname
-
         # Remove duplicates
         counter_dct = {
-            get_name(counter): counter for counter in get_all_counters(counter_args)
+            counter.fullname: counter for counter in get_all_counters(counter_args)
         }
 
         # Sort counters

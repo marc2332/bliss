@@ -12,362 +12,342 @@ The alias serves the following purposes:
 - Handle potential duplication of motor names in a beamline-wide configuration 
 - Shorten key names e.g. in the hdf5 files while conserving uniqueness of the keys 
 """
+import itertools
+import functools
 import weakref
+import gevent
 from tabulate import tabulate
+from bliss.common.proxy import Proxy
+from bliss.common.mapping import Map
+from bliss.common.utils import safe_get
 
-from bliss import setup_globals
-from bliss.common import session
-from bliss.common.utils import get_counters_iter
 
+class CounterWrapper:
+    def __init__(self, fullname, counter_controller):
+        self.__fullname = fullname
+        self.__counter_controller = counter_controller
 
-class AliasMixin(object):
-    """Class that can be inherited to have alias related properties"""
-
-    def set_alias(
-        self, alias, export_to_globals=True, remove_original=False, hide_controller=True
-    ):
-        if self.has_alias:
-            raise RuntimeError(
-                f"Alias This object (Alias: '{self.alias}', Name '{self.name}' has already an alias!"
-            )
-
-        """Assign an alias for this object"""
-        alias_config = {
-            "original_name": self.name,
-            "alias_name": alias,
-            "export_to_globals": export_to_globals,
-            "remove_original": remove_original,
-            "hide_controller": hide_controller,
-        }
-
-        if not hasattr(setup_globals, "ALIASES"):
-            setattr(
-                setup_globals, "ALIASES", Aliases(self, session.get_current().env_dict)
-            )
-
-        setup_globals.ALIASES.create_alias(
-            **alias_config,
-            disable_link_search=True,
-            disable_setup_globals_lookup=True,
-            object_ref=self,
+    def __call__(self):
+        """Return a counter object from a fullname like:
+        * 'lima_simulator:r1_sum'
+        * 'lima_simulator:bpm:x'
+        * 'simu1:deadtime_det0'
+        """
+        counters = self.__counter_controller.counters
+        for cnt in counters:
+            if cnt.fullname == self.__fullname:
+                return cnt
+        raise RuntimeError(
+            f"Alias: cannot find counter corresponding to {self.__fullname}"
         )
 
-    def remove_alias(self):
-        """Remove alias for this object"""
-        raise NotImplementedError
 
-    @property
-    def alias(self):
-        """Returns the alias name (str) or None
-        if no alias has been assigned to this object"""
-        a = self.alias_object
-        if a is not None:
-            return a.name
-        else:
-            return None
-
-    @property
-    def alias_object(self):
-        """Returns the Alias Object that handles the alias for this class.
-        Returns None if no alias has been assigned"""
-        if hasattr(setup_globals, "ALIASES"):
-            a = setup_globals.ALIASES.aliases.get(self.name.replace(":", "."), None)
-            if a is None and hasattr(self, "fullname"):
-                return setup_globals.ALIASES.aliases.get(
-                    self.fullname.replace(":", "."), None
-                )
-            else:
-                return a
-        else:
-            return None
-
-    @property
-    def has_alias(self):
-        """Check an alias has been assigned to this object"""
-        return self.alias_object != None
-
-    @property
-    def alias_or_name(self):
-        """Returns alias if assigned, otherwise it returns the name of the object"""
-        if self.has_alias:
-            return self.alias_object.name
-        else:
-            return self.name
-
-    @property
-    def alias_or_fullname(self):
-        """Returns alias if assigned, otherwise it returns the fullname of the object
-        as fallback it returns the name of the object if .fullname property does not exist.
-        In case the hide_controller flag has been unset during creation of the alias the 
-        controller name will be added in front of the alias (only relevant for channels)"""
-        if self.has_alias:
-            if self.alias_object._hide_controller:
-                return self.alias
-            else:
-                if hasattr(self, "acq_device"):
-                    return self.acq_device.name + ":" + self.alias
-                else:
-                    return self.alias
-        elif hasattr(self, "fullname"):
-            return self.fullname
-        else:
-            return self.name
-
-
-class Alias(object):
-    """One Alias object is created for each alias that assigned. In order work correctly 
-    the Alias must be created through the Aliases class."""
-
-    _object_ref = None
-
-    def __init__(
-        self,
-        alias_name,
-        original_name,
-        hide_controller=True,
-        disable_link_search=False,
-        disable_setup_globals_lookup=False,
-    ):
-        """Constructor or Alias. 
-        If there is a python object in setup_globlas or the env_dict of the repl that has a
-        'name' or 'fullname' property corresponding to the 'original_name' it will be linked 
-        to this alias if not specified differently.
-        
-        Parameters:
-        alias_name: Name that will be assigned to this alias (String)
-        original_name: Name of the object that should be aliased (String)
-        
-        Keyword Arguments:
-        hide_controller: Should the controller name be hidden when called via '.alias_or_fullname'. 
-                         Mainly interesting for channels and axes (Boolean, default:True)
-        disable_link_search: Don't search for corresponding python object in counter list of the session (Boolean, default:False)
-        disable_setup_globals_lookup: Don't search for corresponding python object in setup_globals (Boolean, default:False)
-        """
-        self._name = alias_name
-        self._original_name = original_name
-        self._hide_controller = hide_controller
-
-        # check if the name of the alias is allowed to take etc.
-        if alias_name == None:
+class CounterAlias(Proxy):
+    def __init__(self, alias_name, cnt):
+        if isinstance(cnt, Proxy):
             raise RuntimeError(
-                f"Alias for '{original_name}' can not be set! no alias supplied."
+                f"Object {cnt.fullname} already has an alias: {cnt.name}"
             )
-
-        elif hasattr(setup_globals, alias_name):
-            raise RuntimeError(
-                f"Alias '{alias_name}' for '{original_name}' can not be set! An object with its name already exists in setup_globals"
+        # we do not want to go through the heavy process of
+        # obtaining the counter object behind the proxy if
+        # we just want to access its name or its class
+        object.__setattr__(self, "__cnt_fullname__", cnt.fullname)
+        object.__setattr__(self, "__cnt_name__", cnt.name)
+        object.__setattr__(self, "__cnt_hash__", hash(cnt))
+        try:
+            object.__setattr__(
+                self, "__cnt_conversion_function__", cnt.conversion_function
             )
-        elif alias_name in setup_globals.ALIASES.aliases:
-            raise RuntimeError(
-                f"Alias '{alias_name}' for '{original_name}' can not be set! There is alreadey an Object or Alias with this name"
-            )
-        elif alias_name in session.get_current().config.names_list:
-            raise RuntimeError(
-                f"Alias '{alias_name}' for '{original_name}' can not be set! {alias_name} already used as name-key in config"
-            )
+        except AttributeError:
+            object.__setattr__(self, "__cnt_conversion_function__", None)
+        object.__setattr__(self, "__alias_name__", alias_name)
+        object.__setattr__(self, "__cnt_class__", cnt.__class__)
 
-        if not disable_setup_globals_lookup:
-            # check if oject exists in setup globals
-            if hasattr(setup_globals, original_name):
-                self._link_to(getattr(setup_globals, original_name))
-
-        # check if there is a counter around that can be linked to this alias
-        if not disable_link_search:
-            for cnt in get_counters_iter():
-                key = cnt.fullname
-                if key == original_name:
-                    self._link_to(cnt)
-                    break
-                elif cnt.name == original_name:
-                    self._link_to(cnt)
-                    break
-
-        print(f"Alias '{alias_name}' added for '{original_name}'")
-
-    def _turn_into_weakref(self):
-        """Turn reference to python object corresponding to this alias into weak reference. 
-        In case the original object is deleted, the alias will also be removed from setup_globals.ALIASES"""
-        if (
-            not isinstance(self._object_ref, weakref.ReferenceType)
-            and self._object_ref is not None
-        ):
-            self._object_ref = weakref.ref(
-                self._object_ref, self._remove_alias_on_orig_del
-            )
-
-    def _turn_into_hardref(self):
-        """Turn reference to python object corresponding to this alias into direct (hard) reference. 
-        The original object will not be destroyed as long as it is kept in setup_globals.ALIASES"""
-        if (
-            isinstance(self._object_ref, weakref.ReferenceType)
-            and self._object_ref is not None
-        ):
-            self._object_ref = self._object_ref()
-
-    def _remove_alias_on_orig_del(self, reference):
-        """callback function for weakref"""
-        print(f"DELETE {self.name}")
-        setup_globals.ALIASES._remove_alias(self)
-
-    def _link_to(self, obj):
-        """link a python object to this alias via its reference"""
-        self._object_ref = obj
+        # the CounterAlias holds a reference to the counter controller
+        super().__init__(CounterWrapper(cnt.fullname, cnt.controller))
 
     @property
-    def original_name(self):
-        """ (old) name that is aliased through this alias. This is NOT the (new) name assigned to through alias"""
-        return self._original_name
+    def __class__(self):
+        return self.__cnt_class__
 
     @property
     def object_ref(self):
-        """Returns the python object referenced in this alias."""
-        if isinstance(self._object_ref, weakref.ReferenceType):
-            return self._object_ref()
-        else:
-            return self._object_ref
-
-    @property
-    def has_object_ref(self):
-        """Returns 'True' if there is a python object linked to this alias"""
-        return self._object_ref is not None
+        return self.__wrapped__
 
     @property
     def name(self):
-        """Returns the name of this alias"""
-        return self._name
+        return self.__alias_name__
 
-    def export_alias(self):
-        """Exports the alias to the repl env_dict and setup_globals. Only works if 
-        there is a python object assigned to this alias, otherwise it raises a RuntimeError """
-        raise NotImplementedError
+    @property
+    def fullname(self):
+        return self.__cnt_fullname__
 
-    def __repr__(self):
-        return f"Alias Object: {self._name} --> {self._original_name}"
+    @property
+    def original_name(self):
+        return self.__cnt_name__
+
+    @property
+    def conversion_function(self):
+        return self.__cnt_conversion_function__
+
+    # this is to speed up comparisons (there are a lot !),
+    # to not go through the .counters everytime
+    def __eq__(self, other):
+        try:
+            return self.fullname == other.fullname
+        except AttributeError:
+            return False
+
+    def __hash__(self):
+        return self.__cnt_hash__
+
+    def create_acquisition_device(self, *args, **kwargs):
+        return self.__wrapped__.create_acquisition_device.__func__(
+            self, *args, **kwargs
+        )
 
 
-class Aliases(object):
-    """Class that is created once on session level, exported to setup_globals.ALIASES and manages 
-    a dict of all aliases existing in the session"""
+class ObjectAlias(Proxy):
+    def __init__(self, alias_name, obj):
+        if isinstance(obj, Proxy):
+            raise RuntimeError(
+                f"Object {obj.original_name} already has an alias: {obj.name}"
+            )
+        object.__setattr__(self, "__alias_name__", alias_name)
+        object.__setattr__(self, "__obj_name__", obj.name)
+        super().__init__(lambda: obj, init_once=True)
 
-    _aliases = None  # dict original_object_name:Alias_object
+    @property
+    def name(self):
+        return self.__alias_name__
 
-    def __init__(self, session, env_dict):
-        """-populate aliases dict and export it to env_dict"""
-        self._aliases = dict()
-        self._env_dict = env_dict
+    @property
+    def original_name(self):
+        return self.__obj_name__
 
-    def get(self, alias):
-        """Returns the original python object link an alias. 
+    @property
+    def object_ref(self):
+        return self.__wrapped__
+
+
+def get_counter_alias(alias_name, obj):
+    try:
+        # let's see if the object controller has '.counters' property
+        obj.controller.counters
+    except AttributeError:
+        # no: the counter can be considered as a stand-alone object
+        obj = ObjectAlias(alias_name, obj)
+    else:
+        # yes: the counter is probably generated on the fly
+        obj = CounterAlias(alias_name, obj)
+    return obj
+
+
+class Aliases:
+    """Helper class to manage aliases list: display, add
+    """
+
+    def __init__(self, objects_map, current_session):
+        self.__map = objects_map
+        self.__aliases_dict = weakref.WeakValueDictionary()
+        self.__session = current_session
+
+    def __create_alias(self, alias_name, obj_or_name, verbose=False):
+        """Create an alias from an original object name or instance
         Parameters:
-        - alias: Name (str) of the alias for which the original python object should be returned.
-        
-        Raises 'RuntimeError' if no Alias with the provided alias name exists 
-        and 'ValueError' if there is no python object linked the specified alias"""
-        a = None
-        for key, item in self._aliases.items():
-            if item.name == alias:
-                a = item
-
-        if a == None:
-            raise RuntimeError(f'No Alias called "{alias}" found!')
-        if a.has_object_ref:
-            return a.object_ref
-        else:
-            raise ValueError(f'No Python object linked to alias "{alias}" !')
-
-    def add_alias(self, alias_obj):
-        """Add an alias object to the setup_globals.ALIASES"""
-        raise NotImplementedError
-
-    def replace_alias(self, new_alias_obj):
-        """Removes an existing alias from setup_globals.ALIASES identified by its name and adds a new one"""
-        raise NotImplementedError
-
-    def create_alias(
-        self,
-        alias_name,
-        original_name,
-        disable_link_search=False,
-        disable_setup_globals_lookup=False,
-        export_to_globals=True,
-        remove_original=False,
-        hide_controller=True,
-        object_ref=None,
-    ):
-        """Create an alias and add it to setup_globals.ALIASES
-        Parameters:
-        - alias_name: (new) name that will be assigned to the alias
-        - original_name: (old) name that will be masked by the alias_name
-        
+            - alias_name: (new) name that will be assigned to the alias
+            - obj_or_name: (old) name or object that will be masked by the alias_name
         Keyword Arguments:
-        - export_to_globals: Alias will be exported to env_dict of repl and setup_globals (Boolean, default:True) 
-        - remove_original: Orignal name will be removed from env_dict of repl and setup_globals (Boolean, default:False)
-        - hide_controller: Should the controller name be hidden when called via '.alias_or_fullname'. 
-                           Mainly interesting for channels and axes (Boolean, default:True)
-        - disable_link_search: Don't search for corresponding python object in counter list of the session (Boolean, default:False)
-        - disable_setup_globals_lookup: Don't search for corresponding python object in setup_globals (Boolean, default:False)
-        - object_ref: python object that should be linked to this alias
+            - verbose: flag to print user information message
         """
+        original_object = None
 
-        alias = Alias(
-            alias_name,
-            original_name,
-            hide_controller,
-            disable_link_search,
-            disable_setup_globals_lookup,
-        )
-        self._aliases.update({original_name: alias})
+        if isinstance(obj_or_name, str):
+            fullname = obj_or_name  # can be a motor name or a counter fullname
 
-        if object_ref is not None:
-            alias._link_to(object_ref)
-
-        if alias.has_object_ref and export_to_globals:
-            setattr(setup_globals, alias.name, alias.object_ref)
-            self._env_dict.update({alias.name: alias.object_ref})
-            if remove_original:
-                alias._turn_into_hardref()
-                if hasattr(setup_globals, original_name):
-                    delattr(setup_globals, original_name)
-                if original_name in self._env_dict:
-                    self._env_dict.pop(original_name)
-
-    def _remove_alias(self, alias):
-        """removes alias from setup_globals.ALIASES"""
-        print(f"Alias {alias.name} will be removed from global list")
-        if alias.original_name in self._aliases:
-            del self._aliases[alias.original_name]
-            print(f"Alias {alias.name} removed from global list")
+            # check if object exists
+            for obj in itertools.chain(
+                self.__map.get_axes_iter(), self.__map.get_counters_iter()
+            ):
+                if obj.name == fullname:
+                    original_object = obj
+                    obj = ObjectAlias(alias_name, obj)
+                    break
+                else:
+                    # must be a 'complicated' counter
+                    try:
+                        if obj.fullname == fullname:
+                            original_object = obj
+                            obj = get_counter_alias(alias_name, obj)
+                            break
+                    except AttributeError:
+                        continue
+            else:
+                raise RuntimeError(
+                    f"Cannot make alias '{alias_name}' for '{obj_or_name}': object does not exist, or has an invalid type"
+                )
         else:
-            raise RuntimeError(f"Alias for '{alias.original_name}' not in global list")
+            obj = obj_or_name
+            original_object = obj
 
-    def _list_aliases(self):
-        table_info = []
-        for original_name, alias in self._aliases.items():
-            table_info.append([alias.name, original_name, alias.has_object_ref])
-        return str(
-            tabulate(table_info, headers=["Alias", "Original name", "Linked to py obj"])
-        )
+            if obj in self.__map.get_axes_iter():
+                obj = ObjectAlias(alias_name, obj)
+            else:
+                # cannot use directly 'obj in self.__map.get_counters_iter()'
+                # because counters are generated on-the-fly for the moment,
+                # thus objects change each time
+                try:
+                    fn = obj.fullname
+                except AttributeError:
+                    raise TypeError(
+                        f"Cannot make an alias of object of type {type(obj)}"
+                    )
+                else:
+                    for cnt in self.__map.get_counters_iter():
+                        if cnt.fullname == fn:
+                            obj = get_counter_alias(alias_name, obj)
+                            break
+                    else:
+                        raise TypeError(
+                            f"Cannot make an alias of object of type {type(obj)}"
+                        )
+
+        # create alias object
+        self.__aliases_dict[alias_name] = obj
+
+        # assign object to alias name in env dict
+        self.__session.env_dict[alias_name] = obj
+        # delete old object from env dict
+        try:
+            if self.__session.env_dict.get(original_object.name) is original_object:
+                del self.__session.env_dict[original_object.name]
+        except KeyError:
+            pass
+
+        return obj
+
+    def add(self, alias_name, obj_or_name, verbose=True):
+        if alias_name in self.__aliases_dict:
+            raise RuntimeError("Alias already exists")
+        if self.get_alias(obj_or_name):
+            raise RuntimeError("Object already has an alias")
+
+        return self.__create_alias(alias_name, obj_or_name, verbose)
+
+    def remove(self, alias_name):
+        alias = self.__aliases_dict.pop(alias_name, None)
+        if alias:
+            del self.__session.env_dict[alias_name]
+
+    def get(self, alias_name):
+        return self.__aliases_dict.get(alias_name)
+
+    def set(self, alias_name, obj_or_name, verbose=True):
+        alias = self.get(alias_name)
+        if alias:
+            try:
+                self.remove(alias_name)
+                return self.add(alias_name, obj_or_name, verbose)
+            except Exception:
+                self.__aliases_dict[alias_name] = alias
+                self.__session.env_dict[alias_name] = alias
+                raise
+
+    def get_alias(self, obj_or_name):
+        if isinstance(obj_or_name, str):
+            # name
+            for alias in self:
+                if alias.original_name == obj_or_name:
+                    return alias.name
+                else:
+                    try:
+                        if alias.fullname == obj_or_name:
+                            return alias.name
+                    except AttributeError:
+                        continue
+            return None
+        else:
+            # obj
+            obj = obj_or_name
+            for alias in self:
+                if alias == obj:
+                    return alias.name
+
+    def __iter__(self):
+        for alias in self.__aliases_dict.values():
+            yield alias
+
+    def names_iter(self):
+        return self.__aliases_dict.keys()
 
     def list_aliases(self):
-        """Display the list of  list all aliases"""
-        print("")
-        print(self._list_aliases())
-        print("")
+        """Display the list of all aliases"""
+        table_info = []
+        for alias in self:
+            try:
+                alias_original_fullname = alias.fullname
+            except AttributeError:
+                alias_original_fullname = alias.original_name
+            table_info.append([alias.name, alias_original_fullname])
+        return str(tabulate(table_info, headers=["Alias", "Original fullname"]))
+
+    def __info__(self):
+        return self.list_aliases()
+
+
+class MapWithAliases(Map):
+    def __init__(self, current_session, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.__current_session = current_session
+        self.__aliases = Aliases(self, current_session)
+
+    def clear(self):
+        super().clear()
+        self.__aliases = Aliases(self, self.__current_session)
+
+    def get_axes_iter(self):
+        for mot in self.instance_iter("axes"):
+            yield mot
+
+    def get_counters_iter(self):
+        for cnt in self.instance_iter("counters"):
+            try:
+                for cnt in cnt.counters:
+                    yield cnt
+            except AttributeError:
+                yield cnt
 
     @property
     def aliases(self):
-        """returns a dict of alias objects"""
-        return self._aliases
+        return self.__aliases
 
-    def __info__(self):
-        return self._list_aliases()
+    def alias_or_name(self, obj):
+        return self.aliases.get_alias(obj) or obj.name
 
-    def close(self):
-        for obj_name, obj in self._aliases.items():
-            if hasattr(setup_globals, obj.name):
-                delattr(setup_globals, obj.name)
-            if not hasattr(setup_globals, obj_name) and obj.has_object_ref:
-                try:
-                    obj.object_ref.__close__()
-                except Exception:
-                    pass
+    def get_axes_names_iter(self):
+        for axis in self.get_axes_iter():
+            yield self.alias_or_name(axis)
+
+    def get_axes_positions_iter(self, on_error=None):
+        def request(axis):
+            return (
+                self.alias_or_name(axis),
+                safe_get(axis, "position", on_error),
+                safe_get(axis, "dial", on_error),
+                axis.config.get("unit", default=None),
+            )
+
+        tasks = list()
+        for axis in self.get_axes_iter():
+            tasks.append(gevent.spawn(request, axis))
+
+        for task in tasks:
+            yield task.get()
+
+    def get_axis_objects_iter(self, *names_or_objs):
+        axes_dict = dict((a.name, a) for a in self.get_axes_iter())
+        for i in names_or_objs:
+            if isinstance(i, str):
+                i = axes_dict[i]
+            yield i

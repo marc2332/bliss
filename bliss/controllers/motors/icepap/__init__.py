@@ -16,7 +16,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 from bliss.comm.tcp import Command
 import struct
 import numpy
@@ -79,7 +79,7 @@ class Icepap(Controller):
         Controller.__init__(self, *args, **kwargs)
         hostname = self.config.get("host")
         self._cnx = Command(hostname, 5000, eol="\n")
-        session.get_current().map.register(self, children_list=[self._cnx])
+        global_map.register(self, children_list=[self._cnx])
         self._last_axis_power_time = dict()
 
     def initialize(self):

@@ -211,6 +211,8 @@ class DataNodeIterator(object):
                 continue
             if filter is None or child_node.type in filter:
                 yield child_node
+            if child_name == db_name:
+                continue
             # walk to the tree leaf
             for n in self.__internal_walk(
                 child_name, data_nodes, data_node_2_children, filter, pipeline
@@ -394,7 +396,7 @@ def set_ttl(db_name):
         node.set_ttl()
 
 
-class DataNode(object):
+class DataNode:
     default_time_to_live = 24 * 3600  # 1 day
 
     @staticmethod

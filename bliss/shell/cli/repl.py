@@ -79,8 +79,6 @@ if not is_windows():
 if sys.platform in ["win32", "cygwin"]:
     import win32api
 
-from bliss.common import session
-
 
 # =================== ERROR REPORTING ============================
 class ErrorReport:

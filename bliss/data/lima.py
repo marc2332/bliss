@@ -306,13 +306,6 @@ class LimaImageChannelDataNode(DataNode):
     def fullname(self):
         return self.info.get("fullname")
 
-    @property
-    def db_name(self):
-        fullname = self.fullname or self.name
-        d = {x: None for x in self.parent.db_name.split(":")}
-        d.update({x: None for x in fullname.split(":")})
-        return ":".join(d.keys())
-
     def __close__(self):
         if self._storage_task is None:
             return

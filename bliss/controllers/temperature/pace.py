@@ -27,7 +27,7 @@ from bliss.common.temperature import Output
 from bliss.common.utils import object_attribute_type_get
 from bliss.common.utils import object_attribute_type_set
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 
 # communication
 from bliss.comm.tcp import Tcp
@@ -41,7 +41,7 @@ class Pace:
 
         self._sock = Tcp(url, timeout=timeout)
 
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["comms"], children_list=[self._sock], tag="Pace:{url}"
         )
 
@@ -262,7 +262,7 @@ class pace(Controller):
 
         super().__init__(config, *args)
 
-        session.get_current().map.register(self, children_list=[self._pace])
+        global_map.register(self, children_list=[self._pace])
 
     def initialize(self):
         self._pace.init()

@@ -22,8 +22,8 @@ axes:
 import gevent
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
-from bliss.common import session
 from bliss.comm.Exporter import Exporter
+from bliss import global_map
 
 
 class MD2(Controller):
@@ -34,7 +34,7 @@ class MD2(Controller):
 
         host, port = self.config.get("exporter_address").split(":")
         self._exporter = Exporter(host, int(port))
-        session.get_current().map.register(self, children_list=[self._exporter])
+        global_map.register(self, children_list=[self._exporter])
         self.pos_attr_suffix = "Position"
         self.state_cmd = "getMotorState"
 

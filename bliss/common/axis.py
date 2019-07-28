@@ -38,7 +38,6 @@ from bliss.common.utils import Null, with_custom_members
 from bliss.common.encoder import Encoder
 from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
-from bliss.common.alias import AliasMixin
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.common.logtools import *
 import gevent
@@ -543,7 +542,7 @@ def lazy_init(func):
 
 
 @with_custom_members
-class Axis(AliasMixin):
+class Axis:
     """
     Bliss motor axis
 

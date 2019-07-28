@@ -14,7 +14,7 @@ import gevent.event
 
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.controllers.mca import TriggerMode, PresetMode, Stats
-from bliss.common.measurement import BaseCounter, counter_namespace, namespace
+from bliss.common.measurement import BaseCounter, counter_namespace
 
 
 class StateMachine(object):
@@ -474,4 +474,4 @@ def mca_counter_groups(mca):
         )
 
     # Instantiate group namespace
-    return namespace(dct)
+    return counter_namespace(dct)

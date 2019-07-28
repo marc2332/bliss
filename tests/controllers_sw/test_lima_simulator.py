@@ -251,13 +251,15 @@ def test_lima_scan_internal_trigger_with_roi(beacon, lima_simulator):
     )
 
     with gevent.Timeout(3, RuntimeError("Timeout waiting for end of scan")):
-        scan = loopscan(3, 0.1, simulator, simulator.roi_counters, save=False)
+        scan = loopscan(
+            3, 0.1, simulator, simulator.counter_groups.roi_counters, save=False
+        )
 
     assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER"
 
-    assert len(scan.get_data()["test:min"]) == 3
-    assert len(scan.get_data()["test:max"]) == 3
-    assert len(scan.get_data()["test:avg"]) == 3
+    assert len(scan.get_data()["test_min"]) == 3
+    assert len(scan.get_data()["test_max"]) == 3
+    assert len(scan.get_data()["test_avg"]) == 3
 
 
 def test_lima_scan_internal_trigger_with_diode(beacon, lima_simulator, monkeypatch):

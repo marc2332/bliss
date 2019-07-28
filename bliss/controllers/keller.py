@@ -72,8 +72,8 @@ import gevent.lock
 
 from bliss.comm.util import get_comm
 from bliss.common.measurement import SamplingCounter
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 BROADCAST_ADDR = 0
 TRANSPARENT_ADDR = 250
@@ -421,7 +421,7 @@ class PressureTransmitter:
         self.comm = get_comm(config, baudrate=9600)
         self.echo = config.get("echo", 1)
         self.expected_serial_nb = config.get("serial_nb", None)
-        session.get_current().map.register(self, children_list=[self.comm])
+        global_map.register(self, children_list=[self.comm])
 
         # Create counters
         for counter_config in self.config.get("counters", []):

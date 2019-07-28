@@ -50,7 +50,7 @@ import gevent
 from functools import wraps
 import types
 
-from bliss.common import session
+from bliss import global_map, current_session
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration, Axis
@@ -1331,7 +1331,6 @@ def _get_selected_counter_name(counter=None):
     if not SCANS:
         raise RuntimeError("Scans list is empty!")
     scan_counter_names = set(get_counter_names(SCANS[-1]))
-    current_session = session.get_current()
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     selected_flint_counter_names = set(
         [full_name.split(":")[-1] for full_name in plot_select.keys()]
@@ -1368,7 +1367,7 @@ def last_scan_motor(axis=None):
         raise RuntimeError("No scan available. Hint: do at least one ;)")
     scan = SCANS[-1]
     axis_name = scan._get_data_axis_name(axis=axis)
-    return session.get_current().env_dict[axis_name]
+    return current_session.env_dict[axis_name]
 
 
 def last_scan_motors():
@@ -1379,8 +1378,7 @@ def last_scan_motors():
         raise RuntimeError("No scan available. Hint: do at least one ;)")
     scan = SCANS[-1]
     axes_name = scan._get_data_axes_name()
-    current_session_dict = session.get_current().env_dict
-    return [current_session_dict[axis_name] for axis_name in axes_name]
+    return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
 
 def plotselect(*counters):
@@ -1390,7 +1388,6 @@ def plotselect(*counters):
     * flint display (bliss/flint/plot1d.py)
     Saved as a HashSetting with '<session_name>:plot_select' key.
     """
-    current_session = session.get_current()
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     counter_names = dict()
     for cnt in counters:
@@ -1409,7 +1406,6 @@ def get_plotted_counters():
     Returns names of plotted counters as a list (get list from a HashSetting
     with '<session_name>:plot_select' key).
     """
-    current_session = session.get_current()
     plot_select = HashSetting("%s:plot_select" % current_session.name)
 
     plotted_cnt_list = list()

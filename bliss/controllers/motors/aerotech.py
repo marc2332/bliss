@@ -11,7 +11,7 @@ from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
-from bliss.common import session
+from bliss import global_map
 
 import string
 import time
@@ -607,7 +607,7 @@ class Aerotech(Controller):
         opt = {"port": 8000, "eol": "\n"}
         self._comm = get_comm(config, ctype=TCP, **opt)
 
-        session.get_current().map.register(self, children_list=[self._comm])
+        global_map.register(self, children_list=[self._comm])
 
     def initialize(self):
         self._aero_axis = {}

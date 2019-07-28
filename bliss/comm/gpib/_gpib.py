@@ -31,8 +31,8 @@ from ...common.greenlet_utils import KillMask, protect_from_kill
 from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 __TMO_TUPLE = (
     0.0,
@@ -136,8 +136,8 @@ class Prologix:
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 1234
         self._sock = Socket(hostname, port, timeout=keys.get("timeout"))
-        session.get_current().map.register(self, children_list=["comms", self._sock])
         log_debug(self, f"Prologix::__init__() host = {hostname} port = {port}")
+        global_map.register(self, children_list=["comms", self._sock])
         self._gpib_kwargs = keys
 
     def init(self):
@@ -237,7 +237,7 @@ class TangoDeviceServer:
         self._pad = keys["pad"]
         self._sad = keys.get("sad", 0)
         self._pad_sad = self._pad + (self._sad << 8)
-        session.get_current().map.register(self)
+        global_map.register(self)
 
     def init(self):
         log_debug(self, "TangoDeviceServer::init()")
@@ -283,7 +283,7 @@ class LocalGpib:
             raise LocalGpibError("LocalGpib: url is not valid (%s)" % url)
 
         self._gpib_kwargs = keys
-        session.get_current().map.register(self, tag=str(self))
+        global_map.register(self, tag=str(self))
 
     def __str__(self):
         return "{0}(board={1})".format(type(self).__name__, self.board_index)
@@ -373,7 +373,7 @@ class Gpib:
         self._raw_handler = None
 
         self._data = b""
-        session.get_current().map.register(self, tag=str(self))
+        global_map.register(self, tag=str(self))
 
     def __str__(self):
         opts = self._gpib_kwargs

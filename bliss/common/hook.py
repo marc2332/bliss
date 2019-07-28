@@ -9,8 +9,8 @@
 how to use motion hooks in your system"""
 
 import weakref
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 __all__ = ["MotionHook"]
 
@@ -31,7 +31,7 @@ class MotionHook:
             axis (Axis): new axis to be added to the hook
         """
         self.__axes[axis.name] = axis
-        session.get_current().map.register(self, children_list=list(self.axes.values()))
+        global_map.register(self, children_list=list(self.axes.values()))
 
     @property
     def axes(self):

@@ -8,12 +8,12 @@
 import pytest
 import time
 import re
+from bliss import current_session
 from bliss.shell.cli import repl
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement
-from bliss.common.session import get_current
 from treelib import Tree
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
@@ -23,11 +23,11 @@ def test_session_does_not_load_session(session):
     assert getattr(setup_globals, "test_session")
     assert getattr(setup_globals, "test_mg")
     assert pytest.raises(AttributeError, getattr, setup_globals, "freddy")
-    assert get_current() == session
+    assert session == current_session
 
 
-def test_session_does_not_contain_default_plugin_objs(session, beacon):
-    assert beacon.get("refs_test")
+def test_session_does_not_contain_default_plugin_objs(session):
+    assert session.config.get("refs_test")
     assert pytest.raises(AttributeError, getattr, setup_globals, "refs_test")
 
 
@@ -63,9 +63,7 @@ def test_include_sessions(beacon, capsys):
 
     assert getattr(setup_globals, "m2")
     assert getattr(setup_globals, "m0")
-
-    assert get_current().name == setup_globals.SESSION_NAME
-    assert get_current() == session
+    assert current_session.name == setup_globals.SESSION_NAME
 
     session.close()
 

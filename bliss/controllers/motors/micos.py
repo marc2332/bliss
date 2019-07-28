@@ -143,7 +143,7 @@ import sys
 import gevent
 
 from bliss.common import event
-from bliss.common import session
+from bliss import global_map
 from bliss.common.utils import Null
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, SERIAL
@@ -272,7 +272,7 @@ class micos(Controller):
                 self._status = "Cannot find serial configuration"
                 log_error(self, "initialize(): %s" % (self._status))
 
-        session.get_current().map.register(self, children_list=[self.serial])
+        global_map.register(self, children_list=[self.serial])
 
         self._micos_state = AxisState()
         self._micos_state.create_state("INCLOSEDLOOPWINDOW", "In Closed-loop Window")

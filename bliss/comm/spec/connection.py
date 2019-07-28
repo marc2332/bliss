@@ -19,8 +19,8 @@ import socket
 import weakref
 from functools import wraps
 from bliss.common import event
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 from .error import SpecClientNotConnectedError
 from .channel import SpecChannel
 from .message import *
@@ -187,7 +187,7 @@ class SpecConnection:
             self.port = None
             self.scanport = True
 
-        session.get_current().map.register(self, parents_list=["comms"], tag=str(self))
+        global_map.register(self, parents_list=["comms"], tag=str(self))
 
     def __str__(self):
         return "<connection to Spec, host=%s, port=%s>" % (

@@ -14,9 +14,10 @@ import weakref
 from collections import namedtuple
 import enum
 
-from bliss.common.alias import AliasMixin
-from bliss.common import session
 from bliss.common.utils import autocomplete_property
+from bliss.scanning.acquisition.calc import CalcAcquisitionDevice
+from bliss.scanning.channel import AcquisitionChannel
+from bliss import global_map
 
 
 def add_conversion_function(obj, method_name, function):
@@ -38,52 +39,12 @@ def add_conversion_function(obj, method_name, function):
 # Counter namespaces
 
 
-def flat_namespace(dct):
-    """A namespace allowing names with dots."""
-    mapping = dict(dct)
-
-    class getter(object):
-        def __init__(self, parent, prefix):
-            self.parent = parent
-            self.prefix = prefix
-
-        def __getattr__(self, key):
-            return getattr(self.parent, self.prefix + key)
-
-    class namespace(tuple):
-
-        __slots__ = ()
-        _fields = sorted(mapping)
-        __dict__ = property(lambda _: mapping)
-
-        def __getattr__(self, arg):
-            if arg in mapping:
-                return mapping[arg]
-            if arg.startswith("__"):
-                raise AttributeError(arg)
-            for field in self._fields:
-                if field.startswith(arg + "."):
-                    return getter(self, arg + ".")
-            raise AttributeError(arg)
-
-        def __setattr__(self, arg, value):
-            raise AttributeError("can't set attribute")
-
-        def __info__(self):
-            reprs = ("{}={!r}".format(field, mapping[field]) for field in self._fields)
-            return "{}({})".format("namespace", ", ".join(reprs))
-
-    return namespace(mapping[field] for field in namespace._fields)
-
-
-def namespace(dct):
-    if any("." in key for key in dct):
-        return flat_namespace(dct)
-    return namedtuple("namespace", sorted(dct))(**dct)
-
-
 def counter_namespace(counters):
-    return namespace({counter.name: counter for counter in counters})
+    if isinstance(counters, dict):
+        dct = counters
+    else:
+        dct = {counter.name: counter for counter in counters}
+    return namedtuple("namespace", sorted(dct))(**dct)
 
 
 # Base counter class
@@ -115,7 +76,7 @@ class GroupedReadMixin(object):
         pass
 
 
-class BaseCounter(AliasMixin, object):
+class BaseCounter:
     """Define a standard counter interface."""
 
     # Properties
@@ -158,20 +119,7 @@ class BaseCounter(AliasMixin, object):
         """A unique name within the session scope.
 
         The standard implementation defines it as:
-        `<master_controller_name>.<controller_name>.<counter_name>`.
-        """
-        fullctrlname = self.fullcontrollername
-        if fullctrlname:
-            return fullctrlname + "." + self.name
-        else:
-            return self.name
-
-    @property
-    def fullcontrollername(self):
-        """Name of the controllers attached to this counter if there are any.
-
-        The standard implementation defines it as:
-        `<master_controller_name>.<controller_name>
+        `<master_controller_name>.<controller_name>.<counter_name>`
         """
         args = []
         # Master controller
@@ -180,11 +128,8 @@ class BaseCounter(AliasMixin, object):
         # Controller
         if self.controller is not None:
             args.append(self.controller.name)
-        # Name
-        if len(args) > 0:
-            return ".".join(args)
-        else:
-            return None
+        args.append(self.name)
+        return ":".join(args)
 
 
 class Counter(BaseCounter):
@@ -205,10 +150,8 @@ class Counter(BaseCounter):
         self._unit = unit
         if grouped_read_handler:
             Counter.GROUPED_READ_HANDLERS[self] = grouped_read_handler
-        parents_list = (
-            ["counters", controller] if controller is not None else ["counters"]
-        )
-        session.get_current().map.register(self, parents_list, tag=self.name)
+        parents_list = ["counters"] + [controller] if controller is not None else []
+        global_map.register(self, parents_list, tag=self.name)
 
     # Standard interface
 
@@ -606,7 +549,7 @@ class CalcCounter(BaseCounter):
         self.__name = name
         self.__dependent_counters = dependent_counters
         self.__calc_function = calc_function
-        session.get_current().map.register(self, ["counters"], tag=name)
+        global_map.register(self, ["counters"], tag=name)
 
     @property
     def name(self):
@@ -640,15 +583,10 @@ class CalcCounter(BaseCounter):
 
     @property
     def acquisition_channels(self):
-        # Avoid circular import
-        from bliss.scanning.channel import AcquisitionChannel
 
         return [AcquisitionChannel(self.controller, self.name, self.dtype, self.shape)]
 
     def create_acquisition_device(self, scan_pars, device_dict=None, **settings):
-        # Avoid circular import
-        from bliss.scanning.acquisition.calc import CalcAcquisitionDevice
-
         acq_devices = set()
         counters = self.counters
         counters.pop(0)  # remove self

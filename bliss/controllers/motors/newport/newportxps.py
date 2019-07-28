@@ -10,7 +10,7 @@ import time
 import gevent
 
 from bliss.common import event
-from bliss.common import session
+from bliss import global_map
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 from bliss.controllers.motor import Controller
@@ -63,7 +63,7 @@ class NewportXPS(Controller):
         self.__nbAxes = self.config.get("nbAxes", int)
         comm_cfg = self.config.config_dict
         self.__xps = XPS(comm_cfg)
-        session.get_current().map.register(self, children_list=[self.__xps._sock])
+        global_map.register(self, children_list=[self.__xps._sock])
 
     def finalize(self):
         log_debug(self, "finalize() called")

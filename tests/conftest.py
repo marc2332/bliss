@@ -15,13 +15,13 @@ import redis
 import pytest
 import gevent
 
+from bliss import global_map
 from bliss.common import subprocess
-from bliss.common import session as session_module
-from bliss import setup_globals
+from bliss.common.session import DefaultSession
 from bliss.config import static
 from bliss.config.conductor import client
-from bliss.config.channels import clear_cache, Bus
 from bliss.config.conductor.client import get_default_connection
+from bliss.controllers.lima.roi import Roi
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -102,13 +102,9 @@ def clean_gevent():
 
 @pytest.fixture
 def clean_session():
-    session_module.CURRENT_SESSION = None
+    # assert main._GLOBAL_DICT['session'] is None
     yield
-    current_session = session_module.get_current()
-    if current_session is not None:
-        current_session.close()
-    assert session_module.CURRENT_SESSION is None
-    setup_globals.__dict__.clear()
+    global_map.clear()
 
 
 @pytest.fixture(scope="session")
@@ -267,6 +263,14 @@ def session(beacon):
     session.close()
 
 
+@pytest.fixture
+def default_session(beacon):
+    default_session = DefaultSession()
+    default_session.setup()
+    yield default_session
+    default_session.close()
+
+
 def pytest_addoption(parser):
     parser.addoption("--pepu", help="pepu host name")
     parser.addoption("--ct2", help="ct2 address")
@@ -276,17 +280,12 @@ def pytest_addoption(parser):
 
 @pytest.fixture
 def alias_session(beacon, lima_simulator):
-    from bliss.common.tango import DeviceProxy
-    from bliss.controllers.lima.roi import Roi
-
     session = beacon.get("test_alias")
     env_dict = dict()
     session.setup(env_dict)
 
     ls = env_dict["lima_simulator"]
     rois = ls.roi_counters
-    dev_name = lima_simulator[0].lower()
-    roi_dev = DeviceProxy(dev_name.replace("limaccds", "roicounter"))
     r1 = Roi(0, 0, 100, 200)
     rois["r1"] = r1
     r2 = Roi(100, 100, 100, 200)
@@ -294,7 +293,9 @@ def alias_session(beacon, lima_simulator):
     r3 = Roi(200, 200, 200, 200)
     rois["r3"] = r3
 
-    env_dict["ALIASES"].create_alias("myroi3", "lima_simulator.roi_counters.r3.sum")
+    env_dict["ALIASES"].add("myroi", ls.counters.r1_sum)
+    env_dict["ALIASES"].add("myroi3", ls.counters.r3_sum)
 
     yield env_dict, session
+
     session.close()

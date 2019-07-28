@@ -102,7 +102,7 @@ simu1.realtime_det1               0D       simu1           realtime_det1
 in order to assign an alias **rt1** to **simu1.realtime_det1** one can use
 
 ```python
-ALIASES.create_alias('rt1','simu1.realtime_det1')
+ALIASES.set('rt1','simu1.realtime_det1')
 ```
 
 from now on the counter is accessible as 'rt1' from the command line.

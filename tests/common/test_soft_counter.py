@@ -74,15 +74,15 @@ def test_soft_counter_name(beacon):
 
     counter = SoftCounter(null_no_name)  # counter controller is None
     assert counter.name == "value"
-    assert counter.fullname == "NullObject.value"
+    assert counter.fullname == "NullObject:value"
 
     counter = SoftCounter(null_no_name, name="current")
     assert counter.name == "current"
-    assert counter.fullname == "NullObject.current"
+    assert counter.fullname == "NullObject:current"
 
     counter = SoftCounter(null_no_name, name="current", controller=ctrl)
     assert counter.name == "current"
-    assert counter.fullname == "ctrl1.current"
+    assert counter.fullname == "ctrl1:current"
 
     null_name = NullObject()
     null_name.name = "n1"
@@ -90,45 +90,45 @@ def test_soft_counter_name(beacon):
 
     counter = SoftCounter(null_name)
     assert counter.name == "value"
-    assert counter.fullname == "n1.value"
+    assert counter.fullname == "n1:value"
 
     counter = SoftCounter(null_name, name="temp")
     assert counter.name == "temp"
-    assert counter.fullname == "n1.temp"
+    assert counter.fullname == "n1:temp"
 
     o1 = Object()
     o1.name = "o1"
 
     counter = SoftCounter(o1)
     assert counter.name == "value"
-    assert counter.fullname == "o1.value"
+    assert counter.fullname == "o1:value"
 
     counter = SoftCounter(o1, name="humidity")
     assert counter.name == "humidity"
-    assert counter.fullname == "o1.humidity"
+    assert counter.fullname == "o1:humidity"
 
     counter = SoftCounter(o1, value="voltage")
     assert counter.name == "voltage"
-    assert counter.fullname == "o1.voltage"
+    assert counter.fullname == "o1:voltage"
 
     counter = SoftCounter(o1, value="voltage", name="position")
     assert counter.name == "position"
-    assert counter.fullname == "o1.position"
+    assert counter.fullname == "o1:position"
 
     counter = SoftCounter(o1, value="get_pressure")
     assert counter.name == "get_pressure"
-    assert counter.fullname == "o1.get_pressure"
+    assert counter.fullname == "o1:get_pressure"
 
     counter = SoftCounter(o1, value="get_pressure", name="pressure")
     assert counter.name == "pressure"
-    assert counter.fullname == "o1.pressure"
+    assert counter.fullname == "o1:pressure"
 
     counter = SoftCounter(o1, value="get_pressure", name="pressure", controller=ctrl)
     assert counter.name == "pressure"
-    assert counter.fullname == "ctrl1.pressure"
+    assert counter.fullname == "ctrl1:pressure"
 
 
-def test_soft_counter_scan(beacon):
+def test_soft_counter_scan(session):
 
     null_name = NullObject()
     null_name.name = "n1"
@@ -167,9 +167,9 @@ def test_soft_counter_scan(beacon):
     return data
 
 
-def test_soft_sampling_counter_mode(beacon):
+def test_soft_sampling_counter_mode(session):
 
-    diode = beacon.get("diode")
+    diode = session.config.get("diode")
 
     # USING DEFAULT MODE
     c = SoftCounter(diode, "read")

@@ -9,7 +9,7 @@ import pytest
 
 from bliss.common.mapping import Map
 from bliss.common.logtools import create_logger_name
-from bliss.common import session as session_module
+from bliss import global_map
 import networkx as nx
 import logging
 import sys
@@ -270,11 +270,10 @@ def test_deleted_instance(beamline):
     assert id_tn not in beamline.G
 
 
-def test_session_map(beacon, s1hg, roby):
-    session = session_module.get_current()
-    m = session.map
-    sr = session.config.get("sample_regulation")
-    heater = session.config.get("heater")
+def test_global_map(beacon, s1hg, roby):
+    m = global_map
+    sr = beacon.get("sample_regulation")
+    heater = beacon.get("heater")
     # m.draw_pygraphviz()
 
     assert len(m) == 33

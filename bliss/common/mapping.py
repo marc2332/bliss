@@ -50,6 +50,11 @@ class Map:
         self.register("counters", parents_list=["session"])
         self.register("axes", parents_list=["session"])
 
+    def clear(self):
+        for node_id in list(self):
+            if not node_id in ("session", "controllers", "comms", "counters", "axes"):
+                self.delete(node_id)
+
     def _create_node(self, instance):
         logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
         if isinstance(instance, weakref.ProxyTypes):

@@ -17,21 +17,22 @@ def test_alias_data_channel(alias_session):
         0.001,
         env_dict["simu1"].counters.spectrum_det0,
         env_dict["dtime"],
-        env_dict["lima_simulator"].roi_counters.r1.sum,
-        env_dict["lima_simulator"].roi_counters.r2.sum,
+        env_dict["lima_simulator"].counters.r1_sum,
+        env_dict["lima_simulator"].counters.r2_sum,
         env_dict["myroi3"],
         save=True,
         return_scan=True,
     )
 
-    dump1 = """{a2scan}:axis:roby robyy
-{a2scan}:axis:robz robzz
-{a2scan}:axis:timer:elapsed_time None
-{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum myroi
-{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum None
-{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum myroi3
-{a2scan}:axis:timer:simu1:deadtime_det0 dtime
-{a2scan}:axis:timer:simu1:spectrum_det0 None""".format(
+    dump1 = """{a2scan}:axis:robyy robyy
+{a2scan}:axis:robzz robzz
+{a2scan}:axis:timer:elapsed_time elapsed_time
+{a2scan}:axis:timer:epoch epoch
+{a2scan}:axis:timer:lima_simulator:roi_counters:myroi myroi
+{a2scan}:axis:timer:lima_simulator:roi_counters:r2_sum r2_sum
+{a2scan}:axis:timer:lima_simulator:roi_counters:myroi3 myroi3
+{a2scan}:axis:timer:simu1:dtime dtime
+{a2scan}:axis:timer:simu1:spectrum_det0 spectrum_det0""".format(
         a2scan=s.node.db_name
     ).split(
         "\n"
@@ -39,27 +40,4 @@ def test_alias_data_channel(alias_session):
 
     d = list()
     for n in s.node.iterator.walk(filter="channel", wait=False):
-        d.append(" ".join([n.db_name, n.alias]))
-
-    for l in dump1:
-        assert l in d
-
-    dump2 = """{a2scan}:axis:roby True
-{a2scan}:axis:robz True
-{a2scan}:axis:timer:elapsed_time False
-{a2scan}:axis:timer:lima_simulator:roi_counters:r1:sum True
-{a2scan}:axis:timer:lima_simulator:roi_counters:r2:sum False
-{a2scan}:axis:timer:lima_simulator:roi_counters:r3:sum True
-{a2scan}:axis:timer:simu1:deadtime_det0 True
-{a2scan}:axis:timer:simu1:spectrum_det0 False""".format(
-        a2scan=s.node.db_name
-    ).split(
-        "\n"
-    )
-
-    d = list()
-    for n in s.node.iterator.walk(filter="channel", wait=False):
-        d.append(" ".join([n.db_name, str(n.has_alias)]))
-
-    for l in dump2:
-        assert l in d
+        assert " ".join([n.db_name, n.name]) in dump1

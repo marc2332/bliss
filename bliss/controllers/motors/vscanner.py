@@ -12,7 +12,7 @@ from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm
 from bliss.common.axis import AxisState
 from bliss.common import event
-from bliss.common import session
+from bliss import global_map
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.logtools import *
@@ -41,7 +41,7 @@ class VSCANNER(Controller):
 
         self.serial = get_comm(self.config.config_dict, SERIAL, timeout=1)
 
-        session.get_current().map.register(self, children_list=[self.serial])
+        global_map.register(self, children_list=[self.serial])
 
         self._status = "SERIAL communication configuration found"
 

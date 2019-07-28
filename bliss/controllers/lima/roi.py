@@ -71,16 +71,18 @@ class RoiStatCounter(IntegratingCounter):
     def __init__(self, roi_name, stat, **kwargs):
         self.roi_name = roi_name
         self.stat = stat
-        name = self.roi_name + "." + stat.name.lower()
-        controller = kwargs.pop("controller")
+        name = f"{self.roi_name}_{stat.name.lower()}"
+        self.parent_roi_counters = kwargs.pop("controller")
         master_controller = kwargs.pop("master_controller")
-        IntegratingCounter.__init__(self, name, controller, master_controller, **kwargs)
+        IntegratingCounter.__init__(
+            self, name, self.parent_roi_counters, master_controller, **kwargs
+        )
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
-        roi_id = self.controller._roi_ids[self.roi_name]
+        roi_id = self.parent_roi_counters._roi_ids[self.roi_name]
         return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod

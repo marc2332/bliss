@@ -188,7 +188,7 @@ class Lima(object):
     def proxy(self):
         return self._proxy
 
-    @property
+    @autocomplete_property
     def image(self):
         if self._image is None:
             self._image = LimaProperties(
@@ -201,7 +201,7 @@ class Lima(object):
             )
         return self._image
 
-    @property
+    @autocomplete_property
     def acquisition(self):
         if self._acquisition is None:
             self._acquisition = LimaProperties(
@@ -216,7 +216,7 @@ class Lima(object):
             self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
         return self.__roi_counters
 
-    @property
+    @autocomplete_property
     def camera(self):
         if self._camera is None:
             camera_type = self._proxy.lima_type

@@ -21,7 +21,11 @@ from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
 from unittest import mock
 
-
+from bliss.controllers.simulation_diode import (
+    SimulationDiodeSamplingCounter,
+    SimulationDiodeIntegratingCounter,
+    SimulationDiodeController,
+)
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
 from bliss.scanning.scan import Scan
 from bliss.scanning.acquisition.counter import (
@@ -124,42 +128,29 @@ class IntegCounter(IntegratingCounter):
         return numpy.random.random(1)
 
 
-def test_diode(beacon):
-    diode = beacon.get("diode")
-
+def test_diode():
     def multiply_by_two(x):
+        test_diode.raw_value = x
         return 2 * x
 
-    test_diode = Diode(diode, multiply_by_two)
+    test_diode = SimulationDiodeSamplingCounter(
+        "test_diode", SimulationDiodeController(), conversion_function=multiply_by_two
+    )
 
     diode_value = test_diode.read()
-
-    assert test_diode.last_read_value * 2 == diode_value
-
-
-def test_diode_with_controller(beacon):
-    diode = beacon.get("diode")
-
-    def multiply_by_two(x):
-        diode.raw_value = x
-        return 2 * x
-
-    test_diode = Diode(diode, multiply_by_two)
-
-    diode_value = test_diode.read()
-
-    assert diode.raw_value * 2 == diode_value
+    assert test_diode.raw_value * 2 == diode_value
 
 
 def test_sampling_counter_mode(beacon):
-    diode = beacon.get("diode")
     values = []
 
     def f(x):
         values.append(x)
         return x
 
-    test_diode = Diode(diode, f)
+    test_diode = SimulationDiodeSamplingCounter(
+        "test_diode", SimulationDiodeController(), conversion_function=f
+    )
 
     # USING DEFAULT MODE
     assert test_diode.mode.name == "MEAN"
@@ -171,26 +162,26 @@ def test_sampling_counter_mode(beacon):
     values = []
     test_diode.mode = SamplingMode.INTEGRATE
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     values = []
     test_diode.mode = "INTEGRATE"
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     ## init as SamplingMode
-    samp_cnt = SamplingCounter(diode, "test_diode", None, mode=SamplingMode.INTEGRATE)
+    samp_cnt = SamplingCounter(
+        test_diode, "test_diode", None, mode=SamplingMode.INTEGRATE
+    )
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as String
-    samp_cnt = SamplingCounter(diode, "test_diode", None, mode="INTEGRATE")
+    samp_cnt = SamplingCounter(test_diode, "test_diode", None, mode="INTEGRATE")
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as something else
     with pytest.raises(KeyError):
-        samp_cnt = SamplingCounter(diode, "test_diode", None, mode=17)
+        samp_cnt = SamplingCounter(test_diode, "test_diode", None, mode=17)
 
     ## two counters with different modes on the same acq_device
     diode2 = beacon.get("diode2")
@@ -436,7 +427,9 @@ def test_integ_counter(beacon):
         acq_controller.raw_value = x
         return 2 * x
 
-    counter = IntegCounter(acq_controller, multiply_by_two)
+    counter = SimulationDiodeIntegratingCounter(
+        "test_diode", acq_controller, lambda: None, conversion_function=multiply_by_two
+    )
 
     assert list(counter.get_values(0)) == list(2 * acq_controller.raw_value)
 
@@ -458,7 +451,9 @@ def test_single_integ_counter(beacon):
     timer = SoftwareTimerMaster(0, npoints=1)
     acq_controller = AcquisitionController()
     acq_controller.name = "bla"
-    counter = IntegCounter(acq_controller, None)
+    counter = SimulationDiodeIntegratingCounter(
+        "test_diode", acq_controller, lambda: None
+    )
     acq_device = IntegratingCounterAcquisitionDevice(counter, 0, npoints=1)
     chain = AcquisitionChain()
     chain.add(timer, acq_device)

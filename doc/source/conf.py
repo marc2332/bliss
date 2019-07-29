@@ -136,7 +136,7 @@ html_theme_options = {"page_width": "90%"}
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/logo.png"
+html_logo = "../theme/bliss_logo_small.svg"
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -231,7 +231,7 @@ latex_documents = [(master_doc, "bliss.tex", "Bliss Documentation", author, "man
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
-latex_logo = "_static/logo.png"
+latex_logo = "../theme/bliss_logo_small.svg"
 
 # For "manual" documents, if this is true, then toplevel headings are parts,
 # not chapters.

@@ -1262,6 +1262,7 @@ class ParametersWardrobe(metaclass=ParametersType):
                 "show_table",
                 "creation_date",
                 "last_accessed",
+                "purge",
             ]
             + list(self._property_attributes)
         )
@@ -1666,6 +1667,15 @@ class ParametersWardrobe(metaclass=ParametersType):
         else:
             raise NameError(f"Can't remove {param}")
 
+    def purge(self):
+        """
+        Removes completely any reference to the ParametersWardrobe from redis
+        """
+        for instance in self.instances:
+            pr = BaseHashSetting(self._hash(instance))
+            pr.clear()
+            self._instances.remove(instance)  # removing from Queue
+
     def switch(self, name, copy=None):
         """
         Switches to a new instance of parameters.
@@ -1740,7 +1750,10 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             Name of the current selected instance
         """
-        return self.instances[0]
+        try:
+            return self.instances[0]
+        except IndexError:
+            raise IOError("Trying to operate on a purged ParameterWardrobe")
 
     @property
     def last_accessed(self):

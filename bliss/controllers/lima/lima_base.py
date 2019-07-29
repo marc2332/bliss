@@ -38,6 +38,19 @@ class CameraBase(object):
         return "TRIGGER"
 
 
+class ChangeTangoTimeout(object):
+    def __init__(self, device, timeout):
+        self.__timeout = timeout
+        self.__device = device
+
+    def __enter__(self):
+        self.__back_timeout = self.__device.get_timeout_millis()
+        self.__device.set_timeout_millis(1000 * self.__timeout)
+
+    def __exit__(self, type_, value, traceback):
+        self.__device.set_timeout_millis(self.__back_timeout)
+
+
 class Lima(object):
     """
     Lima controller.
@@ -122,6 +135,7 @@ class Lima(object):
         self.name = name
         self.__tg_url = config_tree.get("tango_url")
         self.__tg_timeout = config_tree.get("tango_timeout", 3)
+        self.__prepare_timeout = config_tree.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
         self.__bg_sub = None
@@ -265,7 +279,11 @@ class Lima(object):
         return [v.name for v in self.acquisition.trigger_mode_enum]
 
     def prepareAcq(self):
-        self._proxy.prepareAcq()
+        if self.__prepare_timeout is not None:
+            with ChangeTangoTimeout(self._proxy, self.__prepare_timeout):
+                self._proxy.prepareAcq()
+        else:
+            self._proxy.prepareAcq()
 
     def startAcq(self):
         self._proxy.startAcq()

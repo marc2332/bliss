@@ -185,7 +185,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         self.wait_slaves_prepare()
         self.device.video_active = True
-        self.device.prepareAcq()
+        self._lima_controller.prepareAcq()
 
         signed, depth, w, h = self.device.image_sizes
         if self._image_channel:
@@ -206,7 +206,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.trigger()
 
     def stop(self):
-        self.device.stopAcq()
+        self._lima_controller.stopAcq()
 
     def trigger_ready(self):
         return True
@@ -237,7 +237,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return
 
         with self.__lock:
-            self.device.startAcq()
+            self._lima_controller.startAcq()
 
             acq_trigger_mode = self.parameters.get(
                 "acq_trigger_mode", "INTERNAL_TRIGGER"

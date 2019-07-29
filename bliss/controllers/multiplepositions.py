@@ -211,7 +211,7 @@ class MultiplePositions:
         event.send(self, "state", sta)
 
     def _state_as_motor(self, label=None):
-        """ The state as defined by the mototr(s).
+        """ The state as defined by the motor(s).
         Args:
             (str): The label. If not defined, the last known label will be used.
         Returns:
@@ -228,6 +228,11 @@ class MultiplePositions:
             grp = Group(*axis_list)
             return grp.state
         return AxisState("UNKNOWN")
+
+    def __close__(self):
+        for _, axes in self.targets_dict.items():
+            for axis in axes:
+                event.disconnect(axis["axis"], "move_done", self.__move_done)
 
     def move(self, label, wait=True):
         """ Move the motors to the destination, simultaneously or not,
@@ -258,7 +263,10 @@ class MultiplePositions:
 
             self._group = Group(*axis_list)
             event.connect(self._group, "move_done", self.__move_done)
-            self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
+            try:
+                self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
+            finally:
+                event.disconnect(self._group, "move_done", self.__move_done)
         else:
             if not wait:
                 log_warning(

@@ -9,13 +9,13 @@ import pytest
 from bliss.controllers import multiplepositions
 
 
-def test_multiple_positions(beacon):
+def test_multiple_positions(session):
     """ Test MultiplePositions object.
     beamstop has 2 positions: IN and OUT
     """
-    beamstop = beacon.get("beamstop")
-    mot1 = beacon.get("roby")
-    mot2 = beacon.get("robz")
+    beamstop = session.env_dict.get("beamstop")
+    mot1 = session.env_dict.get("roby")
+    mot2 = session.env_dict.get("robz")
 
     # Test moving by label to a position.
     beamstop.move("IN")
@@ -77,13 +77,13 @@ def test_multiple_positions(beacon):
     print(beamstop._state_as_motor())
 
 
-def test_multiple_positions_add_remove_update(beacon):
+def test_multiple_positions_add_remove_update(session):
     """ Test MultiplePositions object.
     beamstop has 2 positions: IN and OUT
     """
-    beamstop = beacon.get("beamstop")
-    mot1 = beacon.get("roby")
-    mot2 = beacon.get("robz")
+    beamstop = session.env_dict.get("beamstop")
+    mot1 = session.env_dict.get("roby")
+    mot2 = session.env_dict.get("robz")
 
     assert len(beamstop.targets_dict) == 2
 

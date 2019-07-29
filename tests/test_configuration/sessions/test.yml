@@ -9,6 +9,7 @@
   name: test_session
   setup-file: ./test_setup.py
   config-objects:
+    - beamstop
     - MG1
     - MG2
     - bad

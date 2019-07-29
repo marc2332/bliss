@@ -5,12 +5,15 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-from bliss.config import settings
-import pickle
-from bliss.common.axis import Axis
 import datetime
 import os
+import pickle
+
+import pytest
+
+from bliss.config import settings
+from bliss.common.axis import Axis
+from bliss.config.conductor.client import get_default_connection
 
 
 class DummyObject(object):
@@ -730,3 +733,20 @@ def test_bad_name_for_beacon(session):
             bad.to_beacon(name, "default")
         with pytest.raises(NameError):
             bad.from_beacon(name, "default")
+
+
+def test_purge(beacon):
+    purge_me = settings.ParametersWardrobe("purge_me")
+    purge_me.switch("new_instance")
+    connection = beacon._connection.get_redis_connection(db=0)
+    assert connection.exists("parameters:purge_me")
+    assert connection.exists("parameters:purge_me:default")
+    assert connection.exists("parameters:purge_me:new_instance")
+    purge_me.purge()
+    assert not connection.exists("parameters:purge_me")
+    assert not connection.exists("parameters:purge_me:default")
+    assert not connection.exists("parameters:purge_me:new_instance")
+
+    with pytest.raises(IOError):
+        # try to access Wardrobe after purge will raise an exception
+        purge_me.current_instance

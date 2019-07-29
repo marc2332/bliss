@@ -380,7 +380,7 @@ class ScanDisplay(ParametersWardrobe):
 
     def __dir__(self):
         keys = super().__dir__()
-        return keys + ["session", "auto", "counters"]
+        return keys
 
     def __repr__(self):
         return super().__repr__()

@@ -128,6 +128,9 @@ differences and extensions.
 
 Code formatting is automatically managed by [black](https://black.readthedocs.io/en/stable/).
 
+The project use a specific version of black.
+It is part of the development requirements: `conda install --file requirements-dev.txt`.
+
 There is 3 complementary ways to work with black:
 
 * [Integrate it in your editor](https://black.readthedocs.io/en/stable/editor_integration.html)

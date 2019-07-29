@@ -62,19 +62,12 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         )
 
         self.__count_time = count_time
-        self.__grouped_read_counters_list = list()
+        self.__grouped_read_counters_list = []
+        self._counters = []
         self._nb_acq_points = 0
 
         if not isinstance(counter, GroupedReadMixin):
-            self.channels.append(
-                AcquisitionChannel(
-                    counter,
-                    counter.name,
-                    counter.dtype,
-                    counter.shape,
-                    unit=counter.unit,
-                )
-            )
+            self._do_add_counter(counter)
 
     @property
     def count_time(self):
@@ -84,21 +77,25 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def grouped_read_counters(self):
         return self.__grouped_read_counters_list
 
-    def add_counter(self, counter):
-        if not isinstance(self.device, GroupedReadMixin):
-            # Ignore if the counter is already the provided device
-            if self.device == counter:
-                return
-            raise RuntimeError(
-                "Cannot add counter to single-read counter acquisition device"
-            )  ##### What is this for??????
-
-        self.__grouped_read_counters_list.append(counter)
+    def _do_add_counter(self, counter):
         self.channels.append(
             AcquisitionChannel(
                 counter, counter.name, counter.dtype, counter.shape, unit=counter.unit
             )
         )
+        self._counters.append(counter)
+
+    def add_counter(self, counter):
+        if isinstance(self.device, GroupedReadMixin):
+            self.__grouped_read_counters_list.append(counter)
+        else:
+            if self.device == counter:
+                return
+            else:
+                raise RuntimeError(
+                    "Cannot add counter to single-read counter acquisition device"
+                )
+        self._do_add_counter(counter)
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)

@@ -48,7 +48,7 @@ class _QtLogHandler(logging.Handler):
 
     def handleError(self, record):
         t, v, tb = sys.exc_info()
-        msg = "%s %s %s" % (t, v, ''.join(traceback.format_tb(tb)))
+        msg = "%s %s %s" % (t, v, "".join(traceback.format_tb(tb)))
         widget = self.get_log_widget()
         if widget is None:
             return
@@ -102,6 +102,8 @@ class LogWidget(qt.QPlainTextEdit):
         Connect the widget to a specific logger.
         """
         handler = _QtLogHandler(self)
-        handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
+        )
         logger.addHandler(handler)
         self._handlers[handler] = logger

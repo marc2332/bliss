@@ -18,7 +18,6 @@ def get_real_flint(*args, **kwargs):
 
 
 class TestFlint(TestCaseQt):
-
     def setUp(self):
 
         self.old_get_flint = plot.get_flint

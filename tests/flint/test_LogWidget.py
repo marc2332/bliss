@@ -2,12 +2,14 @@
 
 import logging
 import weakref
+import pytest
 from silx.gui.utils.testutils import TestCaseQt
 from bliss.flint.widgets.LogWidget import LogWidget
 
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.usefixtures("xvfb")
 class TestLogWidget(TestCaseQt):
     def test_logging(self):
         widget = LogWidget()

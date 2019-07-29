@@ -1,11 +1,11 @@
 """Testing LogWidget."""
 
 import logging
+import pytest
 from silx.gui import qt
 from silx.gui.utils.testutils import TestCaseQt
 from bliss.flint import flint
 from bliss.common import plot
-
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,7 @@ def get_real_flint(*args, **kwargs):
     return interface
 
 
+@pytest.mark.usefixtures("xvfb")
 class TestFlint(TestCaseQt):
     def setUp(self):
 

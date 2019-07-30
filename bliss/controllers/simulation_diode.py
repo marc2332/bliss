@@ -38,7 +38,7 @@ class DummySimulationDiodeController:
 class SimulationDiodeController(DummySimulationDiodeController):
     def read_all(self, *counters):
         gevent.sleep(0.01)
-        return [cnt.read(sleep=False) for cnt in counters]
+        return [random.randint(-100, 100) for cnt in counters]
 
 
 class SimulationIntegrationDiodeController(DummySimulationDiodeController):

@@ -96,7 +96,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
     counter = env_dict["myDiode"]
     master = SoftwarePositionTriggerMaster(robyy, 0, 1, 10, time=1)
     end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, 0.01, npoints=10)
+    acq_dev = SamplingCounterAcquisitionDevice(counter, count_time=0.01, npoints=10)
     chain = AcquisitionChain()
     chain.add(master, acq_dev)
 

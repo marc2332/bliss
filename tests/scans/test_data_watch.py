@@ -96,7 +96,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     scan_saving.template = "toto"
     master = SoftwarePositionTriggerMaster(m1, 0, 1, 10, time=1)
     end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, 0.01, npoints=10)
+    acq_dev = SamplingCounterAcquisitionDevice(counter, count_time=0.01, npoints=10)
     chain = AcquisitionChain()
     chain.add(master, acq_dev)
 

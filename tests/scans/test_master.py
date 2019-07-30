@@ -110,7 +110,7 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionDevice(diode_sim, 0.1)
+    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
     lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)

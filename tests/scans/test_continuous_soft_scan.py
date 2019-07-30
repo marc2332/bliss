@@ -114,7 +114,10 @@ def test_multi_top_master(session, diode_acq_device_factory, diode):
     acquisition_device = diode_acq_device_factory.get(
         count_time=count_time, npoints=npoints
     )
-    diode1 = acquisition_device.device
+    # get diode from acq device
+    # 'acq_device.device' is a reader object
+    diode1 = acquisition_device.device.controller
+    #
     diode2 = diode
     chain.add(timer, acquisition_device)
 
@@ -179,9 +182,9 @@ def test_scan_failure(session, diode_acq_device_factory):
     acquisition_device_1 = diode_acq_device_factory.get(
         count_time=0.1, npoints=5, trigger_fail=True
     )
-    diode1 = acquisition_device_1.device
+    diode1 = acquisition_device_1.device.controller
     acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
-    diode2 = acquisition_device_2.device
+    diode2 = acquisition_device_2.device.controller
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
     chain.add(master, acquisition_device_2)

@@ -160,18 +160,18 @@ def test_soft_sampling_counter_mode(session):
     c = SoftCounter(diode, "read")
     assert c.mode.name == "MEAN"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
+    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "MEAN"
 
     # UPDATING THE MODE
     c.mode = "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
+    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "INTEGRATE"
 
     # SPECIFYING THE MODE
     c = SoftCounter(diode, "read", mode=SamplingMode.INTEGRATE)
     assert c.mode.name == "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
+    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "INTEGRATE"
 
 
 def test_SampCnt_soft_statistics(session):

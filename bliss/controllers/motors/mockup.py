@@ -64,12 +64,6 @@ class Mockup(Controller):
 
         self._hw_state.create_state("PARKED", "mot au parking")
 
-        # Access to the config.
-        try:
-            self.host = self.config.get("host")
-        except:
-            log_debug(self, "no 'host' defined in config for %s" % self.name)
-
         # Adds Mockup-specific settings.
         self.axis_settings.add("init_count", int)
         self.axis_settings.add("hw_position", float)

@@ -23,7 +23,6 @@ from gevent.threadpool import ThreadPool
 from bliss.data.scan import watch_session_scans
 
 from bliss import setup_globals
-from bliss.config import static
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
@@ -105,7 +104,6 @@ class ScanPrinter:
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
-        config = static.get_config()
         scan_info = dict(scan_info)
         self.term = Terminal(scan_info.get("stream"))
         nb_points = scan_info.get("npoints")

@@ -57,7 +57,7 @@ class Writer(FileWriter):
         if signal == "start":
             device = sender
             for channel in device.channels:
-                maxshape = tuple([None] + list(channel.shape))
+                maxshape = tuple([None] + [None] * len(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
                 if not channel.reference and channel.alias_or_fullname not in parent:
@@ -65,8 +65,9 @@ class Writer(FileWriter):
                         channel.alias_or_fullname,
                         shape=shape,
                         dtype=channel.dtype,
-                        compression="gzip",
+                        # compression="gzip",  to be checked if working with dynamic maxshape issue #880
                         maxshape=maxshape,
+                        fillvalue=numpy.nan,
                     )
                     dataset.attrs.modify("fullname", channel.fullname)
                     dataset.attrs.modify("alias", channel.alias or "None")
@@ -94,7 +95,14 @@ class Writer(FileWriter):
             if dataset.shape[0] < new_point_index:
                 dataset.resize(new_point_index, axis=0)
 
-            dataset[last_point_index:new_point_index] = data
+            ## needed if # of points per sample is not defined e.g. SamplingMode.SAMPLES
+            if len(dataset.shape) > 1 and dataset.shape[1] < sender.shape[0]:
+                dataset.resize(sender.shape[0], axis=1)
+
+            if len(dataset.shape) <= 1:
+                dataset[last_point_index:new_point_index] = data
+            else:
+                dataset[last_point_index:new_point_index, 0 : data.shape[1]] = data
 
             self.last_point_index[channel] += data_len
 

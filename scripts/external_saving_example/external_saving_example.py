@@ -90,7 +90,7 @@ class HDF5_Writer(object):
                 self.channels.append(node)
                 self.channel_indices[node.fullname] = 0
 
-                maxshape = tuple([None] + list(node.shape))
+                maxshape = tuple([None] + [None] * len(node.shape))
                 npoints = self.scan_info("npoints") or 1
                 shape = tuple([npoints] + list(node.shape))
 
@@ -98,8 +98,9 @@ class HDF5_Writer(object):
                     self.h5_scan_name(node) + "/measurement/" + node.alias_or_fullname,
                     shape=shape,
                     dtype=node.dtype,
-                    compression="gzip",
+                    # compression="gzip", #to be checked if working with dynamic maxshape issue #880
                     maxshape=maxshape,
+                    fillvalue=numpy.nan,
                 )
 
             # creating new data set for lima data
@@ -171,7 +172,22 @@ class HDF5_Writer(object):
             if dataset.shape[0] < new_point_index:
                 dataset.resize(new_point_index, axis=0)
 
-            dataset[self.channel_indices[node.fullname] : new_point_index] = data
+            #  if len(dataset.shape) > 1 :
+            #      import pdb
+            #      pdb.set_trace()
+
+            ## needed if # of points per sample is not defined e.g. SamplingMode.SAMPLES
+            if len(dataset.shape) > 1 and dataset.shape[1] < data.shape[-1]:
+                dataset.resize(data.shape[-1], axis=1)
+
+            if len(dataset.shape) <= 1:
+                dataset[self.channel_indices[node.fullname] : new_point_index] = data
+            else:
+                dataset[
+                    self.channel_indices[node.fullname] : new_point_index,
+                    0 : data.shape[-1],
+                ] = data
+
             self.channel_indices[node.fullname] += data_len
 
     def update_lima_data(self, node):

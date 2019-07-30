@@ -41,8 +41,16 @@ def deep_compare(d, u):
             assert k in d
             if not isinstance(v, collections.abc.Mapping):
                 if isinstance(v, numpy.ndarray) and v.size > 1:
-                    assert d[k].size == v.size
-                    assert all(d[k].flatten() == v.flatten())
+                    assert d[k].shape == v.shape
+                    d[k].dtype == v.dtype
+                    if d[k].dtype != numpy.object:
+                        assert all(
+                            numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
+                        )
+                        mask = numpy.logical_not(numpy.isnan(v.flatten()))
+                        assert all((d[k].flatten() == v.flatten())[mask])
+                    else:
+                        assert all(d[k].flatten() == v.flatten())
                 else:
                     assert d[k] == v
             else:
@@ -98,6 +106,37 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
     except:
         assert scan_task.ready()
 
+    ## scan with counter that exports individual samples (SamplingMode.Samples)
+    scan5_a = scans.loopscan(5, 0.1, beacon.get("diode9"), save=True)
+
+    ## artifical scan that forces different length of datasets in SamplingMode.Samples
+    from bliss.common.measurement import SoftCounter, SamplingMode
+    from bliss.common.soft_axis import SoftAxis
+
+    class A:
+        def __init__(self):
+            self.val = 0
+            self.i = 0
+
+        def read(self):
+            gevent.sleep((self.val % 5 + 1) * 0.002)
+            self.i += 1
+            return self.i
+
+        @property
+        def position(self):
+            return self.val
+
+        @position.setter
+        def position(self, val):
+            self.val = val
+            self.i = 0
+
+    a = A()
+    ax = SoftAxis("test-sample-pos", a)
+    c_samp = SoftCounter(a, "read", name="test-samp", mode=SamplingMode.SAMPLES)
+    scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
+
     gevent.sleep(1)
     g.kill()
 
@@ -131,4 +170,26 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
         "4_timescan"
     ]
     bliss_writer = h5todict(s3.scan_info["filename"])["4_timescan"]
+    # lets allow one point difference due to the kill
+    if (
+        bliss_writer["measurement"]["timer:epoch"].size
+        == external_writer["measurement"]["timer:epoch"].size - 1
+    ):
+        bliss_writer["measurement"]["timer:epoch"] = numpy.append(
+            bliss_writer["measurement"]["timer:epoch"],
+            external_writer["measurement"]["timer:epoch"][-1],
+        )
+    deep_compare(external_writer, bliss_writer)
+
+    ## check scans with dynamic sample size
+    external_writer = h5todict(
+        scan5_a.scan_info["filename"].replace(".", "_external.")
+    )["5_loopscan"]
+    bliss_writer = h5todict(scan5_a.scan_info["filename"])["5_loopscan"]
+    deep_compare(external_writer, bliss_writer)
+
+    external_writer = h5todict(
+        scan5_b.scan_info["filename"].replace(".", "_external.")
+    )["6_ascan"]
+    bliss_writer = h5todict(scan5_b.scan_info["filename"])["6_ascan"]
     deep_compare(external_writer, bliss_writer)

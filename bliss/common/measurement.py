@@ -16,6 +16,7 @@ import enum
 
 from bliss.common.alias import AliasMixin
 from bliss.common import session
+from bliss.common.utils import autocomplete_property
 
 
 def add_conversion_function(obj, method_name, function):
@@ -119,7 +120,7 @@ class BaseCounter(AliasMixin, object):
 
     # Properties
 
-    @property
+    @autocomplete_property
     def controller(self):
         """A controller or None."""
         return None
@@ -211,7 +212,7 @@ class Counter(BaseCounter):
 
     # Standard interface
 
-    @property
+    @autocomplete_property
     def controller(self):
         return self._controller
 
@@ -260,15 +261,22 @@ class Counter(BaseCounter):
 
 @enum.unique
 class SamplingMode(enum.IntEnum):
-    """SamplingCounter Mode Class 
-    two mode are available: *SIMPLE_AVERAGE* (the default)
-    which sum all the sampling values and divide by the number of read value.
-    Further there is *INTEGRATION* which sum all integration
-    and then normalize it with the *count_time*.
+    """SamplingCounter modes:
+    * MEAN: emit the mathematical average
+    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
+    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
+    * SINGLE: emit the first value (if possible: call read only once)
+    * LAST: emit the last value 
+    * INTEGRATE: emit MEAN multiplied by counting time
     """
 
-    SIMPLE_AVERAGE = 0
-    INTEGRATE = 1
+    MEAN = enum.auto()
+    STATS = enum.auto()
+    SAMPLES = enum.auto()
+    SINGLE = enum.auto()
+    LAST = enum.auto()
+    INTEGRATE = enum.auto()
+    INTEGRATE_STATS = enum.auto()
 
 
 class SamplingCounter(Counter):
@@ -302,7 +310,7 @@ class SamplingCounter(Counter):
         controller,
         grouped_read_handler=None,
         conversion_function=None,
-        mode=SamplingMode.SIMPLE_AVERAGE,
+        mode=SamplingMode.MEAN,
         unit=None,
     ):
         if grouped_read_handler is None and hasattr(controller, "read_all"):
@@ -322,6 +330,22 @@ class SamplingCounter(Counter):
 
         super(SamplingCounter, self).__init__(
             name, grouped_read_handler, conversion_function, controller, unit=unit
+        )
+
+        stats = namedtuple(
+            "SamplingCounterStatistics",
+            "mean N std var min max p2v count_time timestamp",
+        )
+        self._statistics = stats(
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            numpy.nan,
+            None,
+            None,
         )
 
     def read(self):
@@ -353,6 +377,10 @@ class SamplingCounter(Counter):
                 "Invalid mode '%s', the mode must be in %s"
                 % (value, list(SamplingMode.__members__.keys()))
             )
+
+    @autocomplete_property
+    def statistics(self):
+        return self._statistics
 
 
 class SoftCounter(SamplingCounter):
@@ -415,7 +443,7 @@ class SoftCounter(SamplingCounter):
         name=None,
         controller=None,
         apply=None,
-        mode=SamplingMode.SIMPLE_AVERAGE,
+        mode=SamplingMode.MEAN,
         unit=None,
     ):
         if obj is None and inspect.ismethod(value):
@@ -487,7 +515,7 @@ class IntegratingCounter(Counter):
 
         return IntegratingCounterAcquisitionDevice
 
-    @property
+    @autocomplete_property
     def master_controller(self):
         return self._master_controller_ref()
 
@@ -596,11 +624,11 @@ class CalcCounter(BaseCounter):
     def shape(self):
         return ()
 
-    @property
+    @autocomplete_property
     def controller(self):
         return self
 
-    @property
+    @autocomplete_property
     def counters(self):
         cnts = [self]
         for c in self.__dependent_counters:

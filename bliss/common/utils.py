@@ -644,19 +644,6 @@ def deep_update(d, u):
                     stack.append((dv, v))
 
 
-apply_vectorized = numpy.vectorize(lambda f, *args: f(*args))
-"""
-apply_vectorized: helper to apply a 'list' of functions provided as numpy array per element on
-a numpy array containing data.  Here is an example:
-
-dat = np.array([1,2,3,4])
-f1 = lambda x: x + 2
-f2 = lambda x: x + 3
-f = np.array([f1,f2,f1,f2])
-new_dat=_apply_vectorized(f,dat)
-"""
-
-
 def dicttoh5(
     treedict,
     h5file,

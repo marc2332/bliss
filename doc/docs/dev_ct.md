@@ -237,6 +237,126 @@ Example from `emh.py`:
     
             return vlist
 
+### Sampling counter statistics
+Sampling counters read as many samples as possible from the connected hardware in the specified counting time and 
+return e.g. an average value (default mode, see below for details). Additionally some basic statistics of the sampling process are calculated on the fly which are accessible after the count through the `.statistics` property.  
+
+```
+    TEST_SESSION [1]: diode.mode     
+             Out [1]: <SamplingMode.MEAN: 1>
+
+    TEST_SESSION [2]: ct(1,diode)    
+    
+      diode = 8.03225806451613 ( 8.03225806451613/s)
+        
+    TEST_SESSION [3]: diode.statistics      
+             Out [3]: SamplingCounterStatistics( mean=8.032, N=93,
+                                                 std=55.96, var=3132.16, 
+                                                 min=-98.0, max=100.0, 
+                                                 p2v=198.0, count_time=1, 
+                                                 timestamp='2019-07-26 10:13:25')
+```
+The values availabe in `SamplingCounterStatistics` are
+
+ - `mean`: Mean value  $\bar x = \frac {\sum_{j=1}^n x_j}{n}$
+ - `var`: Variance  $\sigma^2 = \displaystyle\frac {\sum_{i=1}^n (x_i - \bar x)^2}{n}$
+ - `std`: Standard deviation $\sigma = \sqrt{\sigma^2}$
+ - `min`: Minimum value $x_{min}$
+ - `max`: Maxium value $x_{max}$
+ - `p2v`: Peak to valley $x_{max}-x_{min}$
+
+To awoid temporailty storeing the individual sample values the statistics are calculated in a rolling fashion using [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm). Internally the sum of squares of differences from the current mean $M_{2,n} = \sum_{i=1}^n (x_i - \bar x_n)^2$, is calculated in itteratively via $M_{2,n} = M_{2,n-1} + (x_n - \bar x_{n-1})(x_n - \bar x_n)$. Based on $M_{2,n}$ the variance is derived as $\sigma^2_n = \frac{M_{2,n}}{n}$.
+
+### Sampling counter modes
+
+The sampling counter modes are used to specify which value(s) should be published (to hdf5 file and database) at the end of the counting process.
+
+The available modes can be found in `bliss.common.measurement.SamplingMode`:
+
+```
+    TEST_SESSION [1]: from bliss.common.measurement import SamplingMode
+    TEST_SESSION [2]: list(SamplingMode)
+             Out [3]: [<SamplingMode.MEAN: 1>,
+                       <SamplingMode.STATS: 2>,
+                       <SamplingMode.SAMPLES: 3>,
+                       <SamplingMode.SINGLE: 4>,
+                       <SamplingMode.LAST: 5>,
+                       <SamplingMode.INTEGRATE: 6>]
+                       <SamplingMode.INTEGRATE_STATS: 7>]
+```
+
+#### SamplingMode.MEAN
+The default mode is `MEAN` which returns the mean (average) value of all samples that have been read during the counting time.
+
+![MEAN_timeline](img/sampling_timeline_MEAN.svg)
+
+<!-- svg rendered with https://www.planttext.com
+@startuml
+
+title SamplingMode.MEAN
+start
+
+:sum=0;
+repeat
+  :read data from device;
+  :add read value to sum;
+repeat while (counting time over?)
+
+:return sum / number of read cycles;
+
+stop
+
+
+@enduml
+ -->
+![MEAN_AVERAGE](img/sampling_uml_MEAN.svg)
+
+#### SamplingMode.INTEGRATE
+compaired to `SamplingMode.MEAN` it takes also into account the nominal counting time. This way a counter in the mode `SamplingMode.INTEGRATE` returns the equivalent of the sum all samples normalized by the counting time. A usecase for this mode is e.g. the reading of an diode that should yied a value that is approximative  proportional to the number of photons that hit the diode during the counting time.
+
+![INTEGRATE_timeline](img/sampling_timeline_INTEGRATE.svg)
+
+#### SamplingMode.STATS
+publishes all the values as that are calculated for the sampling counter statistics (see above) into the hdf5 file and the redis database.
+
+#### SamplingMode.INTEGRATE_STATS
+equivalent to `SamplingMode.STATS` but for counters that should behave as described in `SamplingMode.INTEGRATE` yieding statistics in additional channels.
+
+#### SamplingMode.SINGLE
+
+A counter in this mode is publishing the first sample without taking into account any further samples read from the device. If possible (i.e. there is no counter in any other mode on the same `AquisitionDevice`) only one sample will be read.
+
+![SINGLE_timeline](img/sampling_timeline_SINGLE.svg)
+
+#### SamplingMode.LAST
+
+A counter in this mode is publishing the last sample without taking into account any other sample read from the device. 
+
+![LAST_timeline](img/sampling_timeline_LAST.svg)
+
+#### SamplingMode.SAMPLES
+
+Is differnt from other modes in a sense that in addition to `SamplingMode.MEAN` it generates an additional 1d dataset containing the individual samples per count and also publishes it. It can e.g. be used to do some more complex statistical analysis of the measured values or as basis for any `CalcCounter` that can be used to extract derived quantities from the original dataset. Here is an example to have a CalcCounter that returns the median:
+ 
+```
+TEST_SESSION [1]: from bliss.common.measurement import CalcCounter
+             ...: from bliss.scanning.acquisition.calc import CalcHook
+             ...: import numpy
+             ...: class Median(CalcHook):
+             ...:     def compute(self,sender,data_dict):
+             ...:         if "_samples" in sender.name:
+             ...:             return{"median":numpy.median(data_dict[sender.name])}
+             ...: medi = CalcCounter('median',Median(),diode9)
+             ...: diode9.mode = "SAMPLES"
+
+TEST_SESSION [2]: ct(.1,medi)
+         Out [2]: Scan(number=224, name=ct, path=<no saving>)
+	
+                  dt[s] =          0.0 (         0.0/s)
+                  diode9 = 19.333333333333332 ( 193.33333333333331/s)
+                  median =         -7.0 (       -70.0/s)
+```
+
 ## Integrating counter
 
 ### example 1

@@ -25,6 +25,7 @@ roby = test_session.env_dict["roby"]
 diode = test_session.env_dict["diode"]
 diode2 = test_session.env_dict["diode2"]
 diode4 = test_session.env_dict["diode4"]
+diode9 = config.get("diode9")
 sim_ct_gauss = test_session.env_dict["sim_ct_gauss"]
 
 ## additional imports from beacon:
@@ -97,3 +98,38 @@ try:
     scan_task.kill()
 except:
     pass
+
+## scan with counter that exports individual samples (SamplingMode.Samples)
+scan5_a = loopscan(5, 0.1, diode9, save=True)
+print(f"scan nr {scan5_a.scan_number}-> loopscan with counter in SamplingMode.Samples")
+
+## artifical scan that forces different length of datasets in SamplingMode.Samples
+from bliss.common.measurement import SoftCounter, SamplingMode
+from bliss.common.soft_axis import SoftAxis
+
+
+class A:
+    def __init__(self):
+        self.val = 0
+        self.i = 0
+
+    def read(self):
+        gevent.sleep((self.val % 5 + 1) * 0.002)
+        self.i += 1
+        return self.i
+
+    @property
+    def position(self):
+        return self.val
+
+    @position.setter
+    def position(self, val):
+        self.val = val
+        self.i = 0
+
+
+a = A()
+ax = SoftAxis("test-sample-pos", a)
+c_samp = SoftCounter(a, "read", name="test-samp", mode=SamplingMode.SAMPLES)
+scan5_b = ascan(ax, 1, 9, 9, .1, c_samp)
+print(f"scan nr {scan5_b.scan_number}-> ascan with counter in SamplingMode.Samples")

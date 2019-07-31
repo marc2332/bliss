@@ -83,7 +83,7 @@ def logging_startup(
     log_level=logging.WARNING, fmt="%(levelname)s %(asctime)-15s %(name)s: %(message)s"
 ):
     """
-    Provides basicConfig functionality to bliss activating at proper level the root loggers
+    Provides basicConfig functionality to bliss activating at proper level the root loggers.
     """
     # save log messages format
     session.get_current().log.set_log_format(fmt)
@@ -102,9 +102,9 @@ def logging_startup(
 
 def get_logger(instance):
     """
-    Provides a way to retrieve the logger for a give instance
+    Provides a way to retrieve the logger for a give instance.
 
-    Keep in mind that if the instance is not jet registered in the map
+    Keep in mind that if the instance is not yet registered in the map
     this function will add it automatically.
 
     Returns:
@@ -119,7 +119,7 @@ def get_logger(instance):
 
 
 LOG_DOCSTRING = """
-Print a log message associated to a specific instance
+Print a log message associated to a specific instance.
 
 Normally instance is self if we are inside a class, but could
 be any instance that you would like to log.
@@ -139,8 +139,9 @@ def log_debug(instance, msg):
 
 def log_debug_data(instance, msg, data):
     """
-    Convenient function to print log messages and associated data
-    Usually useful to debug low level communication like serial and sockets
+    Convenient function to print log messages and associated data.
+
+    Usually useful to debug low level communication like serial and sockets.
 
     Properly represents:
         bytestrings/strings to hex or ascii
@@ -185,7 +186,7 @@ def log_exception(instance, msg):
 
 def set_log_format(instance, frmt):
     """
-    This command changes the output format of log_debug_data
+    This command changes the output format of log_debug_data.
 
     Args:
         instance: instance of a device

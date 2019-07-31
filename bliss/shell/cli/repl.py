@@ -257,11 +257,6 @@ class BlissRepl(PythonRepl):
         """
         output = self.app.output
 
-        # WORKAROUND: Due to a bug in Jedi, the current directory is removed
-        # from sys.path. See: https://github.com/davidhalter/jedi/issues/1148
-        if "" not in sys.path:
-            sys.path.insert(0, "")
-
         def compile_with_flags(code, mode):
             " Compile code with the right compiler flags. "
             return compile(
@@ -291,17 +286,10 @@ class BlissRepl(PythonRepl):
                 if result is not None:
                     out_prompt = self.get_output_prompt()
 
-                    if hasattr(result, "__info__"):
-                        result_str = result.__info__()
-                    else:
-                        try:
-                            result_str = "%r\n" % (result,)
-                        except UnicodeDecodeError:
-                            # In Python 2: `__repr__` should return a bytestring,
-                            # so to put it in a unicode context could raise an
-                            # exception that the 'ascii' codec can't decode certain
-                            # characters. Decode as utf-8 in that case.
-                            result_str = "%s\n" % repr(result).decode("utf-8")
+                    try:  ########################################################
+                        result_str = result.__info__()  ### Patched here! use    #
+                    except:  ############################## __info__ instead     #
+                        result_str = "%r\n" % (result,)  ## __repr__ in shell    #
 
                     # Align every line to the first one.
                     line_sep = "\n" + " " * fragment_list_width(out_prompt)

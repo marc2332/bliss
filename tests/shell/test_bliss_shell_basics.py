@@ -7,6 +7,7 @@
 
 import pytest
 import sys
+import re
 
 from prompt_toolkit.input.defaults import create_pipe_input
 from bliss.shell.cli.repl import BlissRepl
@@ -234,3 +235,87 @@ def test_shell_comma_after_comma(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("1, \r")
     assert result == "1,"
+
+
+def test_info_dunder(clean_gevent, capfd):
+    clean_gevent["end-check"] = False
+
+    class A(object):
+        def __repr__(self):
+            return "repr"
+
+        def __str__(self):
+            return "str"
+
+        def __info__(self):
+            return "info"
+
+    class B(object):
+        def __repr__(self):
+            return "repr"
+
+    class C(object):
+        pass
+
+    result, cli, br = _feed_cli_with_input("A\r", local_locals={"A": A(), "B": B()})
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "info" in out
+
+    result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "repr" in out
+
+    result, cli, br = _feed_cli_with_input(
+        "C\r", local_locals={"A": A(), "B": B(), "C": C()}
+    )
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "C object at " in out
+
+    ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return]
+    inp = create_pipe_input()
+
+    def mylocals():
+        return {"A": A, "B": B}
+
+    try:
+
+        br = BlissRepl(
+            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
+        )
+        inp.send_text("")
+        br.default_buffer.insert_text("A ")
+        inp.send_text("\r")
+        result = br.app.run()
+        assert result == "A"
+        br._execute(result)
+        captured = capfd.readouterr()
+        out = _repl_out_to_string(captured.out)
+        assert "<locals>.A" in out
+
+        br = BlissRepl(
+            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
+        )
+        inp.send_text("")
+        br.default_buffer.insert_text("B ")
+        inp.send_text("\r")
+        result = br.app.run()
+        assert result == "B"
+        br._execute(result)
+        captured = capfd.readouterr()
+        out = _repl_out_to_string(captured.out)
+
+        assert "<locals>.B" in out
+
+    finally:
+        inp.close()
+
+
+def _repl_out_to_string(out):
+    ansi_escape = re.compile(r"\x1B[@-_][0-?]*[ -/]*[@-~]")
+    return ansi_escape.sub("", out)

@@ -816,3 +816,107 @@ loopscan 5 0.1
 Took 0:00:00.576561 (estimation was for 0:00:00.500000)
   Out [4]: Scan(number=24, name=loopscan, path=<no saving>)
 ```
+
+##Raw Counters
+
+Here is an example when you cannot use the counter type defined in bliss
+core (**sampling counter**,**integrating counter**).
+
+In this example the controller read the realtime *currency conversion*
+and export is special counters, one per *currency conversion*.  Then
+for standard scan each `counter` create two `AcquisitionChannel` one
+**bid** and one **ask**
+
+Configuration:
+
+```yaml
+- plugin: bliss
+  package: currency
+  class: Currency
+  name: curr
+```
+
+python code:
+
+```python
+import requests
+import json
+import weakref
+import numpy
+
+from bliss.common.utils import autocomplete_property
+from bliss.common.measurement import BaseCounter, namespace, counter_namespace
+from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+
+
+class Currency:
+    def __init__(self,name,config):
+        self.__name = name
+        self.default_counters = [Counter(self,name)
+                                 for name in config.get('default_counters',[])]
+    @property
+    def name(self):
+        return self.__name
+
+    @autocomplete_property
+    def counters(self):
+        return counter_namespace(Counter(self,name) for name in self.update().keys())
+
+    @autocomplete_property
+    def counter_groups(self):
+        groups = {}
+        if self.default_counters:
+            groups['default'] = self.default_counters
+        return namespace(groups)
+
+    def update(self):
+        r = requests.request(url="https://financialmodelingprep.com/api/v3/forex",method="GET")
+        data = json.loads(r.content)
+        return {convertion.pop('ticker').replace('/','_') : convertion
+                for convertion in data['forexList']}
+            
+
+class Counter(BaseCounter):
+    def __init__(self,financial,counter_name):
+        self._controller = weakref.ref(financial)
+        self._name = counter_name
+    @autocomplete_property
+    def controller(self):
+        return self._controller()
+    @property
+    def name(self):
+        return self._name
+    
+    def create_acquisition_device(self,scan_pars,**settings):
+        return AcqDevice(self.controller,**scan_pars)
+
+class AcqDevice(AcquisitionDevice):
+    def __init__(self,financial,**scan_pars):
+        AcquisitionDevice.__init__(self,financial,financial.name,
+                                   npoints = scan_pars.get('npoints',1),
+                                   prepare_once=True)
+        self.counters = list()
+        
+    def add_counter(self, counter):
+        channels = [AcquisitionChannel(self, f'{counter.name}:{k}', numpy.float, ())
+                    for k in ['bid','ask']]
+        self.channels.extend(channels)
+        self.counters.append(counter)
+
+    def prepare(self):
+        pass
+
+    def start(self):
+        pass
+
+    def trigger(self):
+        values = self.device.update()
+        values_dict = dict()
+        for counter in self.counters:
+            for k in ['bid','ask']:
+                values_dict[f'{counter.name}:{k}'] = values[counter.name][k]
+        self.channels.update(values_dict)
+
+    def stop(self):
+        pass
+```

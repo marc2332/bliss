@@ -117,8 +117,14 @@ def test_shell_string_parameter(clean_gevent):
 
 def test_shell_function_without_parameter(clean_gevent):
     clean_gevent["end-check"] = False
-    result, cli, _ = _feed_cli_with_input("print \r")
-    assert result == "print()"
+    result, cli, _ = _feed_cli_with_input("print\r")
+    assert result == "print"
+
+    def f():
+        pass
+
+    result, cli, _ = _feed_cli_with_input("f\r", local_locals={"f": f})
+    assert result == "f()"
 
 
 def test_shell_function_with_return_only(clean_gevent):
@@ -132,11 +138,23 @@ def test_shell_callable_with_args(clean_gevent):
     result, cli, _ = _feed_cli_with_input("sum\r")
     assert result == "sum"
 
+    def f(arg):
+        pass
+
+    result, cli, _ = _feed_cli_with_input("f\r", local_locals={"f": f})
+    assert result == "f"
+
 
 def test_shell_callable_with_kwargs_only(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("property\r")
     assert result == "property()"
+
+    def f(arg="bla"):
+        pass
+
+    result, cli, _ = _feed_cli_with_input("f\r", local_locals={"f": f})
+    assert result == "f()"
 
 
 def test_shell_callable_with_args_and_kwargs(clean_gevent):
@@ -144,11 +162,17 @@ def test_shell_callable_with_args_and_kwargs(clean_gevent):
     result, cli, _ = _feed_cli_with_input("compile\r")
     assert result == "compile"
 
+    def f(arg, kwarg="bla"):
+        pass
+
+    result, cli, _ = _feed_cli_with_input("f\r", local_locals={"f": f})
+    assert result == "f"
+
 
 def test_shell_list(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("list\r")
-    assert result == "list()"
+    assert result == "list"
 
     l = list()
     result, cli, _ = _feed_cli_with_input("l\r", local_locals={"l": l})

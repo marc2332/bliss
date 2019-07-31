@@ -151,6 +151,7 @@ import psutil
 import platform
 import subprocess
 from contextlib import contextmanager
+import gevent
 
 from bliss.comm import rpc
 from bliss import current_session
@@ -165,6 +166,11 @@ import logging
 
 
 FLINT_LOGGER = logging.getLogger("flint")
+FLINT_OUTPUT_LOGGER = logging.getLogger("flint.output")
+# Disable the flint output
+FLINT_OUTPUT_LOGGER.disabled = True
+
+
 __all__ = [
     "plot",
     "plot_curve",
@@ -177,7 +183,7 @@ __all__ = [
 
 # Globals
 
-FLINT = {"process": None, "proxy": None}
+FLINT = {"process": None, "proxy": None, "greenlet": None}
 
 # Connection helpers
 
@@ -188,11 +194,14 @@ def get_beacon_config():
 
 
 def check_flint(session_name):
-    """ check if an existing Flint process is running and attached to session_name """
+    """Check if an existing Flint process is running and attached to session_name.
 
+    Returns:
+        The process object from psutil.
+    """
     pid = FLINT.get("process")
     if pid is not None and psutil.pid_exists(pid):
-        return pid
+        return psutil.Process(pid)
 
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
@@ -206,14 +215,58 @@ def check_flint(session_name):
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
             if value.decode() == session_name:
-                return pid
+                return psutil.Process(pid)
         else:
             redis.delete(key)
     return None
 
 
+def attach_std_streams_to_log(process, logger):
+    """
+    Redirect process stdin and stdout to a logger
+
+    Args:
+        process: A process object from subprocess or psutil
+        logger: A logger object from logging module
+
+    Returns:
+        The greenlet processing the log translation
+    """
+
+    def translate_output(process):
+        # This way will not respect the order of the stdout/stderr
+        while True:
+            line = process.stdout.readline()
+            while line:
+                try:
+                    line = line.decode()
+                except:
+                    pass
+                if line:
+                    logger.info("%s", line)
+                    line = process.stdout.readline()
+
+            line = process.stderr.readline()
+            while line:
+                try:
+                    line = line.decode()
+                except:
+                    pass
+                if line:
+                    logger.error("%s", line)
+                    line = process.stderr.readline()
+
+            gevent.sleep(1)
+
+    greenlet = gevent.Greenlet.spawn(translate_output, process)
+    return greenlet
+
+
 def start_flint():
-    """ start the flint application in a subprocess and return process id """
+    """ Start the flint application in a subprocess.
+
+    Returns:
+        The process object"""
     FLINT_LOGGER.warning("Flint starting...")
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
@@ -226,7 +279,14 @@ def start_flint():
     scan_display = ScanDisplay()
     args = [sys.executable, "-m", "bliss.flint"]
     args.extend(scan_display.extra_args)
-    return subprocess.Popen(args, env=env, start_new_session=True).pid
+    process = subprocess.Popen(
+        args,
+        env=env,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return process
 
 
 def attach_flint(pid):
@@ -261,8 +321,7 @@ def get_flint(start_new=False):
     """ get the running flint proxy or create one.
         use 'start_new=True' to force starting a new flint subprocess (which will be the new current one)"""
 
-    old_pid = None
-    pid = None
+    process = None
 
     try:
         session_name = current_session.name
@@ -271,20 +330,21 @@ def get_flint(start_new=False):
 
     # Get redis connection
     if start_new:
-        pid = start_flint()
+        process = start_flint()
     else:
-        # did we run our flint ?
-        pid = check_flint(session_name)
-        if pid is None:
-            pid = start_flint()
+        # Did we run our flint?
+        process = check_flint(session_name)
+        if process is not None:
+            # Was it already connected?
+            if FLINT["process"] == process.pid:
+                return FLINT["proxy"]
         else:
-            old_pid = FLINT.get("process", pid)
+            process = start_flint()
 
-    if pid != old_pid:
-        proxy = attach_flint(pid)
-        return proxy
-    else:
-        return FLINT["proxy"]
+    greenlet = attach_std_streams_to_log(process, FLINT_OUTPUT_LOGGER)
+    FLINT["greenlet"] = greenlet
+    proxy = attach_flint(process.pid)
+    return proxy
 
 
 def reset_flint():
@@ -293,6 +353,7 @@ def reset_flint():
         proxy.close()
     FLINT["proxy"] = None
     FLINT["process"] = None
+    FLINT["greenlet"] = None
 
 
 # Simple Qt interface

@@ -418,3 +418,401 @@ mean = CalcCounter("mean",Mean(),diode,diode2)
 ```
 
 
+#Tutorial
+
+Use-case examples to export new counters in BLISS.
+
+##Sampling counters
+
+###Simple case, a controller with only one counter
+
+In this example the sampling counter and the controller is the same instance.
+and we want to read value from a **tcp server** the emitted random values.
+
+```bash
+cat /dev/urandom | nc -k -l -p 3333
+```
+
+
+Bliss counter configuration may look like:
+
+```yaml
+- plugin: bliss
+  package: simple_random
+  class: RandomCnt
+  name: rand_cnt
+  tcp:
+     url: localhost:3333
+```
+
+And in file **simple_random.py**:
+
+```python
+import struct
+from bliss.comm.util import get_comm
+from bliss.common.measurement import SamplingCounter
+
+class RandomCnt(SamplingCounter):
+    def __init__(self,name,config):
+        super().__init__(name,self)
+        self.comm = get_comm(config)
+
+    def read(self):
+        random_value = self.comm.read(4)
+        self.comm.close()
+        return struct.unpack('I',random_value)[0]
+```
+
+In bliss console:
+
+```
+BLISS [1]: rand_cnt = config.get('rand_cnt')
+BLISS [2]: rand_cnt.read()
+  Out [2]: 2300708583
+BLISS [3]: ct(1,rand_cnt)
+
+Mon Jul 29 19:36:49 2019
+     dt[s] =          0.0 (         0.0/s)
+  rand_cnt = 2136576723.7867134 ( 2136576723.7867134/s)
+  Out [3]: Scan(number=3, name=ct, path=<no saving>)
+```
+
+### Severals counters sharing same controller
+
+In this example we will export individual counters defined in the configuartion.
+The counter controller read all information about the current world population with
+the `.read_all` method.
+
+In this case configuration look like:
+
+```yaml
+- plugin: bliss
+  package: worldometers
+  class: WorldCounter
+  counters:
+      - name: current_world_population
+      - name: day_births
+      - name: day_deaths
+```
+
+The file **worldometers.py**:
+
+```python
+from bs4 import BeautifulSoup
+from urllib.request import urlopen
+from bliss.common.measurement import SamplingCounter
+
+class WorldoMeterCtrl:
+    COUNTER_NAME_2_ID = {
+        'current_world_population': 'cp1',
+        'current_world_population_male': 'cp2',
+        'current_world_population_female': 'cp3',
+        'day_births' : 'cp7',
+        'year_births' : 'cp6',
+        'day_deaths': 'cp9',
+        'year_deaths': 'cp8',
+        }
+    @property
+    def name(self):
+        return 'worldometer'
+    
+    def read_all(self,*counters):
+        url = 'https://countrymeters.info/en/World'
+        html = urlopen(url)
+        soup = BeautifulSoup(html, 'html.parser')
+        return [self._get_field_value(soup, self.COUNTER_NAME_2_ID[cnt.name])
+                for cnt in counters]
+    
+    @staticmethod
+    def _get_field_value(soup,name):
+        return int(soup.find(id=name).getText().replace(',',''))
+
+CONTROLLER = WorldoMeterCtrl()
+    
+class WorldCounter(SamplingCounter):
+    def __init__(self,name,config):
+        super().__init__(name,CONTROLLER)
+```
+
+!!! note
+    `WorldCounter.read` use the `read_all` of the controller
+
+In bliss console:
+
+```
+BLISS [1]: current_world_population = config.get('current_world_population')
+BLISS [2]: day_births = config.get('day_births')
+BLISS [3]: day_births.read()
+  Out [3]: 248807
+BLISS [4]: day_deaths = config.get('day_deaths')
+BLISS [5]: ct(1,current_world_population,day_births,day_deaths)
+
+Tue Jul 30 15:03:20 2019
+
+                     dt[s] =          0.0 (         0.0/s)
+  current_world_population = 7723065258.0 ( 7723065258.0/s)
+                day_births =     247874.0 (    247874.0/s)
+                day_deaths =      98390.0 (     98390.0/s)
+  Out [5]: Scan(number=9, name=ct, path=<no saving>)
+
+BLISS [6]: loopscan(10,.1,current_world_population,day_births,day_deaths,save=False)
+Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
+
+Scan 10 Tue Jul 30 15:04:00 2019 <no saving> default user = seb
+loopscan 10 0.1
+
+           #         dt[s]  current_world_population    day_births    day_deaths
+           0             0               7.72307e+09        248062         98464
+           1      0.723097               7.72307e+09        248066         98466
+           2       1.45873               7.72307e+09        248071         98468
+           3       2.21063               7.72307e+09        248075         98470
+           4       2.94659               7.72307e+09        248075         98470
+           5       3.73903               7.72307e+09        248080         98472
+           6       4.49515               7.72307e+09        248085         98473
+           7       5.21481               7.72307e+09        248089         98475
+           8       5.97999               7.72307e+09        248089         98475
+           9       6.78664               7.72307e+09        248094         98477
+
+Took 0:00:07.647674 (estimation was for 0:00:01)
+  Out [6]: Scan(number=10, name=loopscan, path=<no saving>)
+```
+
+### A controller with severals counters
+
+Here we have a controller which hold all sensor of a linux pc as a bliss SamplingCounter.
+Basically we use the `sensors` linux command.
+
+The configuration:
+
+```yaml
+- plugin: bliss
+  package: linux_sensors
+  class: Sensor
+  name: sensor
+```
+
+The file **linux_sensors.py**
+
+```python
+import re
+from gevent import subprocess
+from bliss.common.measurement import SamplingCounter,counter_namespace
+from bliss.common.utils import autocomplete_property
+
+class Sensor:
+    def __init__(self,name,config):
+        self.name = name
+
+    @autocomplete_property
+    def counters(self):
+        counters = [SamplingCounter(name,self) for name in self._read_sensors()]
+        return counter_namespace(counters)
+    
+    def read_all(self,*counters):
+        sensors_values = self._read_sensors()
+        return [sensors_values[cnt.name] for cnt in counters]
+
+    def _read_sensors(self):
+        p = subprocess.Popen("sensors",stdout=subprocess.PIPE)
+        exp = re.compile(b"^(.+?): *[+-]?(\d+(\.\d*)?|\.\d+)")
+        name2values = dict()
+        name2nb = dict()
+        for line in p.stdout.readlines():
+            g = exp.match(line)
+            if g:
+                name,value = g.group(1),g.group(2)
+                name = name.decode()
+                name = name.replace(' ','_')
+                nb = name2nb.setdefault(name,-1) + 1
+                name2nb[name] = nb
+                if nb :
+                    name2values[f'{name}_{nb}'] = value
+                else:
+                    name2values[name] = value
+        return name2values
+```
+
+!!! note
+    property `.counters` is used by standard scans to get counters of
+    a controller.
+
+In bliss console:
+
+```
+BLISS [1]: ls = config.get('linux_sensor')                                                                                                                                                                   
+BLISS [2]: ct(1,ls)                                                                                                                                                                                          
+
+Wed Jul 31 10:53:46 2019
+
+          dt[s] =          0.0 (         0.0/s)
+            CPU = 42.561797752808985 ( 42.561797752808985/s)
+         Core_0 = 38.04494382022472 ( 38.04494382022472/s)
+         Core_1 = 40.04494382022472 ( 40.04494382022472/s)
+         Core_2 = 38.17977528089887 ( 38.17977528089887/s)
+         Core_3 = 38.95505617977528 ( 38.95505617977528/s)
+      Other_Fan =          0.0 (         0.0/s)
+    Other_Fan_1 = 601.943820224719 ( 601.943820224719/s)
+   Package_id_0 = 43.04494382022472 ( 43.04494382022472/s)
+  Processor_Fan = 1000.0337078651686 ( 1000.0337078651686/s)
+         SODIMM =          0.0 (         0.0/s)
+       SODIMM_1 =         36.0 (        36.0/s)
+       SODIMM_2 =         32.0 (        32.0/s)
+  Out [2]: Scan(number=14, name=ct, path=<no saving>)
+
+BLISS [3]: loopscan(5,0.1,ls,save=False)                                                                                                                                                                     
+Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
+
+Scan 15 Wed Jul 31 10:54:59 2019 <no saving> default user = seb
+loopscan 5 0.1
+
+           #         dt[s]           CPU        Core_0        Core_1        Core_2        Core_3     Other_Fan   Other_Fan_1  Package_id_0  Processor_Fan        SODIMM      SODIMM_1      SODIMM_2
+           0             0            40            36            34            39            38             0       597.286            41        1004.29             0            36            32
+           1      0.102002            41            36            34            39            38             0       588.857            41           1005             0            36            32
+           2      0.202884            41            36            34            39            38             0         591.5            41           1006             0            36            32
+           3      0.304939            41            36            34            39            38             0         593.5            41           1007             0            36            32
+           4      0.406526            41            36            34            39            38             0       595.333            41           1007             0            36            32
+
+Took 0:00:00.576275 (estimation was for 0:00:00.500000)
+  Out [3]: Scan(number=15, name=loopscan, path=<no saving>)
+
+```
+
+#### Refinement
+
+You want to specify in the configuration of this controller which
+`default counters` are used for standard scan.  To do it you have to
+provide a **property** `.counter_groups` which return a group
+**default**
+
+first you need to change your configuration file to:
+
+```yaml
+- plugin: bliss
+  package: linux_sensors
+  class: Sensor
+  name: sensor
+  default_counters: [Core_0,Core_1,Core_2,Core_3]
+```
+
+Manage the **default_counters** in the constructor of you controller
+
+```python
+    def __init__(self,name,config):
+        self.name = name
+        self.default_counters = [SamplingCounter(name,self)
+                                 for name in config.get('default_counters',[])]
+```
+
+and add the **property** `.counter_groups`:
+
+```python
+    @autocomplete_property
+    def counter_groups(self):
+        if self.default_counters:
+            return namespace({'default':self.default_counters})
+        else:
+            return namespace({})
+```
+
+!!! note
+    bliss standard scan look first the **default** group in `.counter_groups` if exist.
+    if not get the counters for `.counters` property. For this controller if
+    the **default_counters** is not in the configuration file or empty, default scan
+    will enable all counters.
+
+Final file :
+
+```python
+import re
+from gevent import subprocess
+from bliss.common.measurement import SamplingCounter,counter_namespace,namespace
+from bliss.common.utils import autocomplete_property
+
+class Sensor:
+    def __init__(self,name,config):
+        self.name = name
+        self.default_counters = [SamplingCounter(name,self)
+                                 for name in config.get('default_counters',[])]
+    @autocomplete_property
+    def counters(self):
+        counters = [SamplingCounter(name,self) for name in self._read_sensors()]
+        return counter_namespace(counters)
+
+    @autocomplete_property
+    def counter_groups(self):
+        if self.default_counters:
+            return namespace({'default':self.default_counters})
+        else:
+            return namespace({})
+        
+    def read_all(self,*counters):
+        sensors_values = self._read_sensors()
+        return [sensors_values[cnt.name] for cnt in counters]
+
+    def _read_sensors(self):
+        p = subprocess.Popen("sensors",stdout=subprocess.PIPE)
+        exp = re.compile(b"^(.+?): *[+-]?(\d+(\.\d*)?|\.\d+)")
+        name2values = dict()
+        name2nb = dict()
+        for line in p.stdout.readlines():
+            g = exp.match(line)
+            if g:
+                name,value = g.group(1),g.group(2)
+                name = name.decode()
+                name = name.replace(' ','_')
+                nb = name2nb.setdefault(name,-1) + 1
+                name2nb[name] = nb
+                if nb :
+                    name2values[f'{name}_{nb}'] = value
+                else:
+                    name2values[name] = value
+        return name2values
+```
+
+In bliss console:
+
+```
+BLISS [1]: ls = config.get('linux_sensor')
+BLISS [2]: ct(1,ls)
+
+Wed Jul 31 14:20:03 2019
+
+   dt[s] =          0.0 (         0.0/s)
+  Core_0 =         36.0 (        36.0/s)
+  Core_1 =         33.0 (        33.0/s)
+  Core_2 =         41.0 (        41.0/s)
+  Core_3 =         33.0 (        33.0/s)
+  Out [2]: Scan(number=22, name=ct, path=<no saving>)
+
+BLISS [3]: loopscan(5,.1,ls,save=False)
+Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
+
+Scan 23 Wed Jul 31 14:20:21 2019 <no saving> default user = seb
+loopscan 5 0.1
+
+           #         dt[s]        Core_0        Core_1        Core_2        Core_3
+           0             0            36            32            40            35
+           1      0.101498            36            32            40            35
+           2      0.203017            36            32            40            35
+           3      0.304585            36            32            40            35
+           4       0.40642            36            32            40            35
+
+Took 0:00:00.541600 (estimation was for 0:00:00.500000)
+  Out [3]: Scan(number=23, name=loopscan, path=<no saving>)
+
+BLISS [4]: loopscan(5,.1,ls.counters,save=False)
+Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
+
+Scan 24 Wed Jul 31 14:20:30 2019 <no saving> default user = seb
+loopscan 5 0.1
+
+           #         dt[s]           CPU        Core_0        Core_1        Core_2        Core_3     Other_Fan   Other_Fan_1  Package_id_0  Processor_Fan        SODIMM      SODIMM_1      SODIMM_2
+           0             0            39            36            33            36            34             0           587            40         998.75             0            35            32
+           1      0.100959            39            36            33            36            34             0        586.75            40        999.625             0            35            32
+           2       0.20197            40            36            33            36            34             0           586            40         1001.5             0            35            32
+           3      0.303091            40            36            33            36            34             0       586.333            40        1003.11             0            35            32
+           4      0.412361            40            36            33            36            34             0        587.75            40        1004.12             0            35            32
+
+Took 0:00:00.576561 (estimation was for 0:00:00.500000)
+  Out [4]: Scan(number=24, name=loopscan, path=<no saving>)
+```

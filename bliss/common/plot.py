@@ -161,6 +161,10 @@ try:
 except ImportError:
     poll_patch = None
 
+import logging
+
+
+FLINT_LOGGER = logging.getLogger("flint")
 __all__ = [
     "plot",
     "plot_curve",
@@ -210,6 +214,7 @@ def check_flint(session_name):
 
 def start_flint():
     """ start the flint application in a subprocess and return process id """
+    FLINT_LOGGER.warning("Flint starting...")
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
     if poll_patch is not None:

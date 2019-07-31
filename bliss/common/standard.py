@@ -110,6 +110,7 @@ def lslog(glob: str = None, debug_only=False) -> None:
     if glob is None:
         loggers = {
             **global_log._find_loggers("bliss*"),
+            **global_log._find_loggers("flint*"),
             **global_log._find_loggers("global*"),
         }
     else:

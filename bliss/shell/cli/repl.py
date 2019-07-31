@@ -291,8 +291,8 @@ class BlissRepl(PythonRepl):
                 if result is not None:
                     out_prompt = self.get_output_prompt()
 
-                    if hasattr(result, "get_info"):
-                        result_str = result.get_info()
+                    if hasattr(result, "__info__"):
+                        result_str = result.__info__()
                     else:
                         try:
                             result_str = "%r\n" % (result,)

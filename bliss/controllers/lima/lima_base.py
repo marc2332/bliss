@@ -293,7 +293,7 @@ class Lima(object):
         device_proxy.set_timeout_millis(1000 * self.__tg_timeout)
         return device_proxy
 
-    def __repr__(self):
+    def __info__(self):
         attr_list = ("user_detector_name", "camera_model", "camera_type", "lima_type")
         try:
             data = {
@@ -306,14 +306,23 @@ class Lima(object):
             )
 
         return (
-            "{0[user_detector_name]} - "
-            "{0[camera_model]} ({0[camera_type]}) - Lima {0[lima_type]}\n\n"
-            "Image:\n{1!r}\n\n"
-            "Acquisition:\n{2!r}\n\n"
-            "ROI Counters:\n{3!r}".format(
-                data, self.image, self.acquisition, self.roi_counters
-            )
+            f"{data['user_detector_name']} - "
+            f"{data['camera_model']} ({data['camera_type']}) - Lima {data['lima_type']}\n\n"
+            f"Image:\n{self.image.__info__()}\n\n"
+            f"Acquisition:\n{self.acquisition.__info__()}\n\n"
+            f"ROI Counters:\n{self.roi_counters.__info__()}"
         )
+
+    def __repr__(self):
+        attr_list = ("user_detector_name", "lima_type")
+        try:
+            data = {
+                attr.name: ("?" if attr.has_failed else attr.value)
+                for attr in self._proxy.read_attributes(attr_list)
+            }
+            return f"<Lima Controller for {data['user_detector_name']} (Lima {data['lima_type']})>"
+        except DevFailed:
+            return super().__repr__()
 
     # Expose counters
 

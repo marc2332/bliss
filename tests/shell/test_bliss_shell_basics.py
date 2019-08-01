@@ -263,6 +263,12 @@ def test_info_dunder(clean_gevent, capfd):
     out = _repl_out_to_string(captured.out)
     assert "info" in out
 
+    result, cli, br = _feed_cli_with_input("[A]\r", local_locals={"A": A(), "B": B()})
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "[repr]" in out
+
     result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
     br._execute(result)
     captured = capfd.readouterr()

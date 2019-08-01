@@ -142,3 +142,66 @@ def test_dicttoh5(clean_gevent):
     diff_dump = _generate_diff(o, p)
 
     _compare_dump(dicttoh5_diff_dump, diff_dump)
+
+
+def test_repl_excecute(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    # diffdump can be generated with pytest --pdb option using
+    # >>> import pprint
+    # >>> pprint.pprint(diff_dump)
+    excecute_dump = [
+        "-     def _execute(self, line):\n",
+        "+     def _another_execute(self, line):\n",
+        "- \n",
+        "-         # WORKAROUND: Due to a bug in Jedi, the current directory is "
+        "removed\n",
+        "-         # from sys.path. See: "
+        "https://github.com/davidhalter/jedi/issues/1148\n",
+        '-         if "" not in sys.path:\n',
+        '-             sys.path.insert(0, "")\n',
+        "-                     try:\n",
+        "+                     try:  "
+        "########################################################\n",
+        "+                         result_str = result.__info__()  ### Patched here! "
+        "use    #\n",
+        "+                     except:  ############################## __info__ "
+        "instead     #\n",
+        '-                         result_str = "%r\\n" % (result,)\n',
+        '+                         result_str = "%r\\n" % (result,)  ## __repr__ in '
+        "shell    #\n",
+        "-                     except UnicodeDecodeError:\n",
+        "-                         # In Python 2: `__repr__` should return a "
+        "bytestring,\n",
+        "-                         # so to put it in a unicode context could raise "
+        "an\n",
+        "-                         # exception that the 'ascii' codec can't decode "
+        "certain\n",
+        "-                         # characters. Decode as utf-8 in that case.\n",
+        '-                         result_str = "%s\\n" % '
+        'repr(result).decode("utf-8")\n',
+    ]
+
+    from ptpython.repl import PythonRepl
+    from bliss.shell.cli.repl import BlissRepl
+    from prompt_toolkit.input.defaults import create_pipe_input
+    from prompt_toolkit.output import DummyOutput
+
+    inp1 = create_pipe_input()
+    inp2 = create_pipe_input()
+
+    brepl = BlissRepl(input=inp1, output=DummyOutput(), session=None)
+    ptrepl = PythonRepl(input=inp2, output=DummyOutput())
+
+    p_source = "class myobj:\n" + inspect.getsource(brepl._another_execute)
+    p = black.format_str(p_source, line_length=88)
+    o_source = "class myobj:\n" + inspect.getsource(ptrepl._execute)
+    o = black.format_str(o_source, line_length=88)
+
+    # strip docstring
+    o = re.sub('"""((.|[\n])*)"""', "", o)
+    p = re.sub('"""((.|[\n])*)"""', "", p)
+
+    diff_dump = _generate_diff(o, p)
+
+    _compare_dump(excecute_dump, diff_dump)

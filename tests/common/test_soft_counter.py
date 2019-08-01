@@ -29,11 +29,6 @@ class Object(object):
         return 23.45
 
 
-class Controller(object):
-    def __init__(self, name):
-        self.name = name
-
-
 def test_soft_counter_read(beacon):
 
     null_no_name = NullObject()
@@ -70,8 +65,6 @@ def test_soft_counter_name(beacon):
     null_no_name = NullObject()
     null_no_name.value = 45.67
 
-    ctrl = Controller("ctrl1")
-
     counter = SoftCounter(null_no_name)  # counter controller is None
     assert counter.name == "value"
     assert counter.fullname == "NullObject:value"
@@ -79,10 +72,6 @@ def test_soft_counter_name(beacon):
     counter = SoftCounter(null_no_name, name="current")
     assert counter.name == "current"
     assert counter.fullname == "NullObject:current"
-
-    counter = SoftCounter(null_no_name, name="current", controller=ctrl)
-    assert counter.name == "current"
-    assert counter.fullname == "ctrl1:current"
 
     null_name = NullObject()
     null_name.name = "n1"
@@ -122,10 +111,6 @@ def test_soft_counter_name(beacon):
     counter = SoftCounter(o1, value="get_pressure", name="pressure")
     assert counter.name == "pressure"
     assert counter.fullname == "o1:pressure"
-
-    counter = SoftCounter(o1, value="get_pressure", name="pressure", controller=ctrl)
-    assert counter.name == "pressure"
-    assert counter.fullname == "ctrl1:pressure"
 
 
 def test_soft_counter_scan(session):

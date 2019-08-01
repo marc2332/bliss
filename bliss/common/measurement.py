@@ -380,16 +380,11 @@ class SoftCounter(SamplingCounter):
         loopscan(10, 0.1, pot_counter, milivol_counter)
     """
 
-    class Controller(object):
-        def __init__(self, name):
-            self.name = name
-
     def __init__(
         self,
         obj=None,
         value="value",
         name=None,
-        controller=None,
         apply=None,
         mode=SamplingMode.MEAN,
         unit=None,
@@ -399,18 +394,26 @@ class SoftCounter(SamplingCounter):
         self.get_value, value_name = self.get_read_func(obj, value)
         name = value_name if name is None else name
         obj_has_name = hasattr(obj, "name") and isinstance(obj.name, str)
-        if controller is None:
-            if obj_has_name:
-                ctrl_name = obj.name
-            elif obj is None:
-                ctrl_name = name
-            else:
-                ctrl_name = type(obj).__name__
-            controller = self.Controller(ctrl_name)
+        if obj_has_name:
+            ctrl_name = obj.name
+        elif obj is None:
+            ctrl_name = name
+        else:
+            ctrl_name = type(obj).__name__
         if apply is None:
             apply = lambda x: x
         self.apply = apply
-        super(SoftCounter, self).__init__(name, controller, mode=mode, unit=unit)
+        self.__name = name
+        self.__fullname = f"{ctrl_name}:{name}"
+        super().__init__(name, None, mode=mode, unit=unit)
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def fullname(self):
+        return self.__fullname
 
     @staticmethod
     def get_read_func(obj, value):
@@ -588,7 +591,6 @@ class CalcCounter(BaseCounter):
 
     @property
     def acquisition_channels(self):
-
         return [AcquisitionChannel(self.name, self.dtype, self.shape)]
 
     def create_acquisition_device(self, scan_pars, device_dict=None, **settings):

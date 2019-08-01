@@ -9,6 +9,7 @@
 
 import jedi
 import re
+import inspect
 
 from prompt_toolkit.validation import ValidationError
 from prompt_toolkit.document import Document
@@ -137,49 +138,53 @@ class TypingHelper(object):
                         pass
 
     def _check_callable(self, repl, event):
+        """callable without any parameter without default value?
+        if yes: add brackets
+        """
         text = repl.default_buffer.text
         curs_pos = repl.default_buffer.cursor_position
 
         # Check for return only
         if len(text) == 0:
             return True
-        if curs_pos == len(text) and text[-1] != ")":
-            ji = jedi.Interpreter(
-                source=text, namespaces=[repl.get_locals(), repl.get_globals()]
-            )
-            try:
-                cs = ji.call_signatures()
-            except:
-                return False
 
-            text_plus_open_bracket = text + "("
-            ji_plus_open_bracket = jedi.Interpreter(
-                source=text_plus_open_bracket,
-                namespaces=[repl.get_locals(), repl.get_globals()],
-            )
-            cs_plus_open_bracket = ji_plus_open_bracket.call_signatures()
+        if text[-1] == ")":
+            return True
 
-            # add brackets
-            if len(cs) < len(cs_plus_open_bracket):
-                new_text = text + "()"
-                new_doc = Document(text=new_text, cursor_position=curs_pos + 2)
+        cnt = 0
+        if text[-1] == "(":
+            cnt = 1
+            text = text[:-1]
 
-                try:
-                    self.validator.validate(new_doc)
+        try:
+            obj = repl.get_locals().get(text, None)
+            if obj is None:
+                obj = repl.get_globals().get(text, None)
+            if obj is None and eval(f"callable({text})"):
+                obj = eval(text)
+        except:
+            return False
 
-                    # check if any parameters that are not keyword-arguments
-                    # are needed, if yes -> don't complete!
-                    try:
-                        if len(cs_plus_open_bracket[-1].params) > 0:
-                            for p in cs_plus_open_bracket[-1].params:
-                                assert p.defined_names() != []
+        if callable(obj):
+            if not self._has_positional_args(obj):
+                repl.default_buffer.insert_text("()"[cnt:])
+            return True
 
-                        repl.default_buffer.insert_text("()")
-                        return True
+        return False
 
-                    except AssertionError:
-                        pass
+    def _has_positional_args(self, callable_obj):
+        """any parameter without default value?"""
+        try:
+            for p in inspect.signature(callable_obj)._parameters.values():
+                if p.kind == inspect._ParameterKind.POSITIONAL_ONLY:
+                    return True
+                elif (
+                    p.kind == inspect._ParameterKind.POSITIONAL_OR_KEYWORD
+                    and p.default is inspect._empty
+                ):
+                    return True
+        except:
+            # we get there if there is no signature e.g. print
+            return True
 
-                except ValidationError:
-                    pass
         return False

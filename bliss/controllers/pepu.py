@@ -708,7 +708,7 @@ class PEPU(object):
             cmd = "DSTREAM {0.name} DEL {0.scope.value}".format(stream.info)
             return self.raw_write_read(cmd)
 
-    def __repr__(self):
+    def __info__(self):
         return "{0}(name={1!r})".format(type(self).__name__, self.name)
 
     # Counter shortcut

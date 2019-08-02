@@ -258,7 +258,7 @@ class StatusPacket(object):
             short *= -1  # returning the negative value
         return short
 
-    def __repr__(self):
+    def __info__(self):
         timestamp = datetime.datetime.fromtimestamp(self.timestamp)
         pretty_print = "Status Packet:"
         pretty_print += "\nReading made at %s" % str(timestamp)

@@ -91,7 +91,7 @@ class Mythen(object):
                 continue
         return conf
 
-    def __repr__(self):
+    def __info__(self):
         lines = ["Mythen on {}:".format(self._hostname)]
         lines += [
             "  {:<25s} = {}".format(key, value)

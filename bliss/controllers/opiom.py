@@ -73,7 +73,7 @@ class Opiom:
 
         self.comm("MODE normal")
 
-    def __repr__(self):
+    def __info__(self):
         return "opiom: %s" % self._cnx
 
     @property

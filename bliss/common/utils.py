@@ -539,7 +539,7 @@ class Statistics(object):
             for key, values in self.elapsed_time.items()
         }
 
-    def __repr__(self):
+    def __info__(self):
         # due to recursion import standard here
         from bliss.common import standard
 

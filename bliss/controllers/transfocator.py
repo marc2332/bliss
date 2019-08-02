@@ -394,7 +394,7 @@ class Transfocator:
             args = [val for pair in zip(idx, value) for val in pair]
         self.set_n(*args)
 
-    def __repr__(self):
+    def __info__(self):
         prefix = "Transfocator " + self.name
         try:
             header, positions = list(zip(*list(self.status_dict().items())))

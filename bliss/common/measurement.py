@@ -69,7 +69,7 @@ def flat_namespace(dct):
         def __setattr__(self, arg, value):
             raise AttributeError("can't set attribute")
 
-        def __repr__(self):
+        def __info__(self):
             reprs = ("{}={!r}".format(field, mapping[field]) for field in self._fields)
             return "{}({})".format("namespace", ", ".join(reprs))
 

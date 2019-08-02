@@ -219,12 +219,14 @@ def test_parameters_wardrobe_switch(session):
     with pytest.raises(KeyError):
         dress.legs
 
-    check = dress.to_dict()
+    check = dress.to_dict(export_properties=True)
     assert check.get("head") == "nothing"
     assert check.get("body") == "shirt"
     assert check.get("_creation_date") is not None
     assert isinstance(check.get("_last_accessed"), str)
     assert len(check) == 6
+    check = dress.to_dict()
+    assert len(check) == 2
 
     # testing instances method
     for suite in ("a", "b", "c"):
@@ -361,7 +363,7 @@ def test_creation_time(session):
 
     # an empty Wardrobe has only creation/access info
     food = settings.ParametersWardrobe("food")
-    assert len(food.to_dict()) == 4
+    assert len(food.to_dict(export_properties=True)) == 4
     creation_time = "2018-07-22-07:00"
 
     food._creation_date = creation_time
@@ -427,6 +429,8 @@ def test_from_and_to_dict_with_inheritance(session):
     mypar.add("second", "I(")
     assert mypar.myproperty == "OK"
     dict_ = mypar.to_dict()
+    assert "myproperty" not in dict_  # check presence of property
+    dict_ = mypar.to_dict(export_properties=True)
     assert "myproperty" in dict_  # check presence of property
 
     assert len(dict_) == 7

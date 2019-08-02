@@ -1267,18 +1267,24 @@ class ParametersWardrobe(metaclass=ParametersType):
             + list(self._property_attributes)
         )
 
-    def to_dict(self):
+    def to_dict(self, export_properties=False):
         """
         Retrieve all parameters inside an instance in a dict form
         If a parameter is not present inside the instance, the
         default will be taken, property (computed) attributes are included.
 
+        Args:
+            export_properties: if set to true exports to dict also property attributes
+                               default is False
+
         Returns:
             dictionary with (parameter,value) pairs
         """
         return {
-            **self._get_instance("default"),
-            **self._get_instance(self.current_instance),
+            **self._get_instance("default", get_properties=export_properties),
+            **self._get_instance(
+                self.current_instance, get_properties=export_properties
+            ),
         }
 
     def from_dict(self, d: dict) -> None:
@@ -1296,7 +1302,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
         if not d:
             raise TypeError("You should provide a dictionary")
-        backup = self.to_dict()
+        backup = self.to_dict(export_properties=True)
 
         redis_default_attrs = set(self._get_redis_single_instance("default").keys())
         found_attrs = set()
@@ -1532,11 +1538,16 @@ class ParametersWardrobe(metaclass=ParametersType):
             params_all[instance] = {**params}
         return params_all
 
-    def _get_instance(self, name) -> dict:
+    def _get_instance(self, name, get_properties=True) -> dict:
         """
         Retrieve all parameters inside an instance
         Taking from default if not present inside the instance
         Property are included
+
+        Args: 
+            get_properties: if False it will remove property attributes
+                            and also creation/modification info
+                            stored in _last_accessed and _creation_date
 
         Returns:
             dictionary with (parameter,value) pairs
@@ -1551,9 +1562,16 @@ class ParametersWardrobe(metaclass=ParametersType):
         self.__update = False  # to not change current instance
         self.switch(name)
 
-        attrs = self._get_redis_single_instance("default").keys()
+        attrs = list(self._get_redis_single_instance("default").keys())
         instance_ = {}
-        for attr in list(attrs) + list(self._property_attributes):
+
+        if get_properties:
+            attrs.extend(list(self._property_attributes))
+        else:
+            attrs.remove("_creation_date")
+            attrs.remove("_last_accessed")
+
+        for attr in attrs:
             instance_[attr] = getattr(self, attr)
 
         self.switch(self.current_instance)  # back to current instance

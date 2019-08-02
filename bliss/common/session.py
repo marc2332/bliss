@@ -458,7 +458,10 @@ class Session:
 
         for item_name, alias_cfg in self._aliases_info().items():
             alias_name = alias_cfg["alias_name"]
-            global_map.aliases.add(alias_name, item_name, verbose=verbose)
+            try:
+                global_map.aliases.add(alias_name, item_name, verbose=verbose)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
 
         self._add_from_config(self.name)
 

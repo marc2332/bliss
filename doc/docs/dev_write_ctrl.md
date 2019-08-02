@@ -17,38 +17,100 @@ would not show any autocompletion suggestions. To enable _deeper_ autocompletion
 
 autocompletion suggestions. 
 
-## __str__ and __repr__ methods
+## The `__info__` methode for Bliss shell
+!!! info
+
+    - Any Bliss controller that is visible to the user in the command line should have an `__info__` function implemented!
+    - As a rule of thumb: the retrun value of a custom `__repr__` implementation should not contain `\n` and should be inspired by the standard implementation of `__repr__` in python.
+
+In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) to enquire information of the internal state of any object / controller in case it is available.
+This is used to have simple way to get (detailed) information that is needed from a __user point of view__ to use the object. This is in contrast to the build-in python function `__repr__`, which should return a short summary of the concerned object __developer point of view__. The Protocol that is put in place in the Bliss shell is the following:
+* if the return value of a statement entered into the Bliss shel is a python object with `__info__` implemented this `__info__` function will be called by the Bliss shell to display the output. As a fallback option (`__info__` not implemented) the standard behavior of the interactive python interpreter involving `__repr__` is used. (For details about `__repr__` see next section.)
+
+Here is an example for the lima controller that is using `__info__`:
+```
+LIMA_TEST_SESSION [3]: lima_simulator          
+              Out [3]: Simulator - Generator (Simulator) - Lima Simulator
+                       
+                       Image:
+                       bin = [1 1]
+                       flip = [False False]
+                       height = 1024
+                       roi = <0,0> <1024 x 1024>
+                       rotation = rotation_enum.NONE
+                       sizes = [   0    4 1024 1024]
+                       type = Bpp32
+                       width = 1024
+                       
+                       Acquisition:
+                       expo_time = 1.0
+                       mode = mode_enum.SINGLE
+                       nb_frames = 1
+                       status = Ready
+                       status_fault_error = No error
+                       trigger_mode = trigger_mode_enum.INTERNAL_TRIGGER
+                       
+                       ROI Counters:
+                       [default]
+                       
+                       Name  ROI (<X, Y> <W x H>)
+                       ----  ------------------
+                         r1  <0, 0> <100 x 200>
+```
+the information given above is usefull from a __user point of view__. As a __developer__ one might want to work in the Bliss shell with live object e.g.
+
+```
+LIMA_TEST_SESSION [4]: my_detectors = {'my_lima':lima_simulator,'my_mca':simu1}                
+LIMA_TEST_SESSION [5]: my_detectors            
+              Out [5]: {'my_lima': <Lima Controller for Simulator (Lima Simulator)>, 
+                        'my_mca': <bliss.controllers.mca.simulation.SimulatedMCA object at 0x7f2f535b5f60>}
+```
+in this case it is desirable that the python objects themselfs are clearly represented, which is exactly the role of `__repr__` (in this example the `lima_simulator` has a custom `__repr__` while in `simu1` there is no `__repr__` implemented so the bulid in python implementation is used). 
+
+The signature of `__info__` should be `def __info__(self):` the return value should be a string.
+
+```
+BLISS [1]: class A(object): 
+      ...:     def __repr__(self): 
+      ...:         return "my repl" 
+      ...:     def __str__(self): 
+      ...:         return "my str" 
+      ...:     def __info__(self): 
+      ...:         return "my info"            
+
+BLISS [2]: a=A()                               
+
+BLISS [3]: a                                   
+  Out [3]: my info
+
+BLISS [4]: [a]                                 
+  Out [4]: [my repl]
+```
+
+Note : if for any reason there is an exception raised inside `__info__` the fallback option will be used and `__repr__` is evaluated in this case.
+
+### Recap `__str__` and `__repr__` methods
 
 If implemented in a Python class, `__repr__` and `__str__` methods are
-used to return information about an object instantiating this class.
+build-in functions Python to return information about an object instantiating this class.
 
 * `__str__` should print a readable message
-* `__repr__` should print a message that is unambigous (e.g. name of an identifier, class name, etc).
+* `__repr__` should print a __short__ message obout the objec that is unambigous (e.g. name of an identifier, class name, etc).
 
 `__str__` is called:
 
-* when the object is passed to the print() function.
-* ???
+* when the object is passed to the print() function (e.g. `print(my_obj)`).
+* wheh the object is used in string operations (e.g. `str(my_obj)` or `'{}'.format(my_obj)` or `f'some text {my_obj}'`)
 
 `__repr__` method is called:
 
-* when user type the name of the object in a python shell (or in the BLISS shell)
+* when user type the name of the object in an interpreter session (a python shell).
+* when displaying containers like lists and dicts (the result of `__repr__` is used to represent the objects they contain)
+* when explicitly asking for it in the print() function. (e.g. `print("%r" % my_object)`)
 
 
 By default when no `__str__` or `__repr__` methods are defined, the
-`__repr__` returns the name of the class (Length) and `__str__` calls
-`__repr__`.
-
-If a class defines `__repr__` but not `__str__`, then `__repr__` is
-also used when an “informal” string representation of instances of
-that class is required.
+`__repr__` returns the name of the class (Length) and `__str__` calls `__repr__`.
 
 
-    BLISS [2]: myaxis
-      Out [2]: Comes from __repr__
-    
-    BLISS [3]: print("%r" % myaxis)
-    Comes from __repr__
-    
-    BLISS [4]: print(myaxis)
-    Comes from __str__
+

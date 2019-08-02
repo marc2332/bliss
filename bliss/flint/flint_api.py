@@ -9,6 +9,7 @@
 from __future__ import annotations
 from typing import Dict
 
+import sys
 import itertools
 import functools
 import collections
@@ -111,6 +112,17 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         method = getattr(plot, method)
         return method(*args, **kwargs)
+
+    def ping(self, msg=None, stderr=False):
+        """Debug function to check writing on stdout/stderr remotely."""
+        if stderr:
+            stream = sys.stderr
+        else:
+            stream = sys.stdout
+        if msg is None:
+            msg = "PONG"
+        stream.write("%s\n" % msg)
+        stream.flush()
 
     # Plot management
 

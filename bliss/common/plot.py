@@ -30,7 +30,7 @@ This interface supports several types of plot:
 - **image plot**:
 
   * plot one or several image on top of each other
-  * the image order can be controled using a depth parameter
+  * the image order can be controlled using a depth parameter
   * the plot is created using ``plot_image``
 
 - **image + histogram plot**:

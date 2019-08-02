@@ -1474,7 +1474,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         data = list()
         data.append(column_repr)  # instance names on first row
-        for row_name in sorted(row_names):
+        for row_name in row_names:
             row_data = []
             row_data.append(row_name)
             for col in column_names:
@@ -1504,7 +1504,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         )
         max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
-        for key, value in sorted(d.items()):
+        for key, value in d.items():
             if key.startswith("_"):
                 continue
             rep_str += str_format % (key, value)
@@ -1543,7 +1543,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         Retrieve all parameters inside an instance
         Taking from default if not present inside the instance
         Property are included
-
+        
         Args: 
             get_properties: if False it will remove property attributes
                             and also creation/modification info

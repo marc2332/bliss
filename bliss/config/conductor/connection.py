@@ -338,8 +338,7 @@ class Connection(object):
     def get_redis_connection(self, db=0):
         cnx = self._redis_connection.get(db)
         if cnx is None:
-            executable = os.path.basename(sys.argv[0]).replace(os.path.sep, "")
-            my_name = "{0}:{1}".format(executable, os.getpid())
+            my_name = f"{socket.gethostname()}:{os.getpid()}"
             cnx = self.create_redis_connection(db=db)
             cnx.client_setname(my_name)
             self._redis_connection[db] = cnx

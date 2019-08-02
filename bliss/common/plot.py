@@ -221,7 +221,25 @@ def check_flint(session_name):
     return None
 
 
-def attach_std_streams_to_log(process, logger):
+def log_stream_to_logger(stream, logger, level):
+    """"Log the outpout of a stream into a logger until the stream is  closed.
+    """
+    try:
+        while not stream.closed:
+            line = stream.readline()
+            try:
+                line = line.decode()
+            except:
+                pass
+            if not line:
+                break
+            logger._log(level, "%s", line)
+    except RuntimeError:
+        # Process was terminated
+        pass
+
+
+def attach_std_streams_to_logger(process, logger):
     """
     Redirect process stdin and stdout to a logger
 
@@ -232,34 +250,9 @@ def attach_std_streams_to_log(process, logger):
     Returns:
         The greenlet processing the log translation
     """
-
-    def translate_output(process):
-        # This way will not respect the order of the stdout/stderr
-        while True:
-            line = process.stdout.readline()
-            while line:
-                try:
-                    line = line.decode()
-                except:
-                    pass
-                if line:
-                    logger.info("%s", line)
-                    line = process.stdout.readline()
-
-            line = process.stderr.readline()
-            while line:
-                try:
-                    line = line.decode()
-                except:
-                    pass
-                if line:
-                    logger.error("%s", line)
-                    line = process.stderr.readline()
-
-            gevent.sleep(1)
-
-    greenlet = gevent.Greenlet.spawn(translate_output, process)
-    return greenlet
+    g1 = gevent.spawn(log_stream_to_logger, process.stdout, logger, logging.INFO)
+    g2 = gevent.spawn(log_stream_to_logger, process.stderr, logger, logging.ERROR)
+    return (g1, g2)
 
 
 def start_flint():
@@ -341,7 +334,7 @@ def get_flint(start_new=False):
         else:
             process = start_flint()
 
-    greenlet = attach_std_streams_to_log(process, FLINT_OUTPUT_LOGGER)
+    greenlet = attach_std_streams_to_logger(process, FLINT_OUTPUT_LOGGER)
     FLINT["greenlet"] = greenlet
     proxy = attach_flint(process.pid)
     return proxy

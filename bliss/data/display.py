@@ -661,11 +661,15 @@ class ScanDataListener:
 
 
 @contextlib.contextmanager
-def _local_pb(scan, repl):
+def _local_pb(scan, repl, task):
     # Shitty cyclic import
     # we have to purge this :-(
     from bliss.shell.cli import progressbar
 
+    def stop():
+        task.kill()
+
+    repl.register_application_stopper(stop)
     try:
         real_motors = list()
 
@@ -700,6 +704,7 @@ def _local_pb(scan, repl):
     except KeyboardInterrupt:
         repl.stop_current_task(block=False, exception=KeyboardInterrupt)
     finally:
+        repl.unregister_application_stopper(stop)
         for motor in real_motors:
             dispatcher.disconnect(
                 on_motor_position_changed, signal="position", sender=motor
@@ -757,7 +762,7 @@ class ScanEventHandler:
         preset = Preset()
         scan.acq_chain.add_preset(preset)
         started_event.set()
-        with _local_pb(scan, self.repl) as pb:
+        with _local_pb(scan, self.repl, task) as pb:
             it = pb(queue, remove_when_done=True, total=npoints or None)
             pb.bar = it
             for i in it:

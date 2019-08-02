@@ -247,6 +247,8 @@ class BlissRepl(PythonRepl):
 
         self.typing_helper = TypingHelper(self)
 
+        self._application_stopper_callback = weakref.WeakSet()
+
     def _another_execute(self, line):
         """
         Evaluate the line and print the result.
@@ -347,6 +349,22 @@ class BlissRepl(PythonRepl):
         current_task = self.current_task
         if current_task is not None:
             current_task.kill(block=block, exception=exception)
+
+    def register_application_stopper(self, func):
+        """
+        As ptpython only allow one Application at at time,
+        callback registered will be called in case the shell re-enter in 
+        the main loop. This should never happens except when something
+        really go wrong.
+        This is just a fallback to keep the repl loop running.
+        """
+        self._application_stopper_callback.add(func)
+
+    def unregister_application_stopper(self, func):
+        try:
+            self._application_stopper_callback.remove(func)
+        except KeyError:
+            pass
 
 
 CONFIGS = weakref.WeakValueDictionary()
@@ -552,6 +570,13 @@ def embed(*args, **kwargs):
                 win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
 
         while True:
+            # stop all Application
+            if cmd_line_i._application_stopper_callback:
+                # Should never happen but...
+                print("Warning some application left running")
+                for stop_callback in list(cmd_line_i._application_stopper_callback):
+                    stop_callback()
+
             try:
                 inp = cmd_line_i.app.run()
                 logger.debug(f"USER INPUT: {inp}")

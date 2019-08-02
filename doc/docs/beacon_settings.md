@@ -355,8 +355,9 @@ To add a new attribute to the Wardrobe
 ####  .switch
 To switch current instance to another one and creating a new one if does not exist.
 
-####  .remove
-Allows deleting instances or attributes
+####  .remove or purge
+`remove` allows deleting of instances or attributes.
+`purge` removes completely a ParametersWardrobe from redis.
 
 ####  .freeze
 Freezes the current instance hardwriting values that are taken from default.

@@ -186,7 +186,7 @@ def test_data_watch_callback(session, diode_acq_device_factory):
             # what is this for ?
             return True
 
-        def on_scan_new(self, scan_info):
+        def on_scan_new(self, *args):
             self.SCAN_NEW = True
 
         def on_scan_data(self, *args):

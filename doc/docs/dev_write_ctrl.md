@@ -21,10 +21,11 @@ autocompletion suggestions.
 !!! info
 
     - Any Bliss controller that is visible to the user in the command line should have an `__info__` function implemented!
+    - The return type of `__info__` must be `str`, otherwhise it fails and `repr` is used as fallback!
     - As a rule of thumb: the retrun value of a custom `__repr__` implementation should not contain `\n` and should be inspired by the standard implementation of `__repr__` in python.
 
 In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) to enquire information of the internal state of any object / controller in case it is available.
-This is used to have simple way to get (detailed) information that is needed from a __user point of view__ to use the object. This is in contrast to the build-in python function `__repr__`, which should return a short summary of the concerned object __developer point of view__. The Protocol that is put in place in the Bliss shell is the following:
+This is used to have simple way to get (detailed) information that is needed from a __user point of view__ to use the object. This is in contrast to the build-in python function `__repr__`, which should return a short summary of the concerned object from the __developer point of view__. The Protocol that is put in place in the Bliss shell is the following:
 * if the return value of a statement entered into the Bliss shel is a python object with `__info__` implemented this `__info__` function will be called by the Bliss shell to display the output. As a fallback option (`__info__` not implemented) the standard behavior of the interactive python interpreter involving `__repr__` is used. (For details about `__repr__` see next section.)
 
 Here is an example for the lima controller that is using `__info__`:
@@ -65,7 +66,7 @@ LIMA_TEST_SESSION [5]: my_detectors
               Out [5]: {'my_lima': <Lima Controller for Simulator (Lima Simulator)>, 
                         'my_mca': <bliss.controllers.mca.simulation.SimulatedMCA object at 0x7f2f535b5f60>}
 ```
-in this case it is desirable that the python objects themselfs are clearly represented, which is exactly the role of `__repr__` (in this example the `lima_simulator` has a custom `__repr__` while in `simu1` there is no `__repr__` implemented so the bulid in python implementation is used). 
+in this case it is desirable that the python objects themselves are clearly represented, which is exactly the role of `__repr__` (in this example the `lima_simulator` has a custom `__repr__` while in `simu1` there is no `__repr__` implemented so the bulid in python implementation is used). 
 
 The signature of `__info__` should be `def __info__(self):` the return value should be a string.
 
@@ -88,6 +89,33 @@ BLISS [4]: [a]
 ```
 
 Note : if for any reason there is an exception raised inside `__info__` the fallback option will be used and `__repr__` is evaluated in this case.
+
+The equivalent of `repr(obj)` or `str(obj)` is also availabe in `bliss.common.standard` as `info(obj)` which can be used also outside the Bliss shell.
+
+```
+Python 3.7.3 (default, Mar 27 2019, 22:11:17) 
+[GCC 7.3.0] :: Anaconda, Inc. on linux
+Type "help", "copyright", "credits" or "license" for more information.
+
+>>> from bliss.common.standard import info
+
+>>> class A(object):
+...     def __repr__(self):
+...          return "my repl"
+...     def __info__(self):
+...          return "my info"
+... 
+>>> info(A())
+'my info'
+
+>>> class B(object):
+...     def __repr__(self):
+...          return "my repl"
+... 
+
+>>> info(B())
+'my repl'
+```
 
 ### Recap `__str__` and `__repr__` methods
 

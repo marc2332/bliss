@@ -589,8 +589,7 @@ class CalcController(Controller):
                     real_axis.controller._check_limits(real_axis, pos)
                 except ValueError as e:
                     message = e.args[0]
-                    new_message = f"Tried to move {axes} to {positions} but "
-                    f"reaches limits of\n{message}"
+                    new_message = f"{', '.join([axis.name for axis in axes])} move to {positions} error:\n{message}"
                     raise ValueError(new_message)
 
     def _do_calc_from_real(self):

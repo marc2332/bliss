@@ -138,13 +138,17 @@ def test_calc_in_calc(roby, calc_mot1, calc_mot2):
     assert roby.position == pytest.approx(0.25)
 
 
-def test_ascan_limits(s1hg, s1f, s1b):
+def test_ascan_limits(session, s1hg, s1f, s1b):
     s1hg.position = 0
     s1hg.dial = 0
     s1f.limits = -1, 1
     s1b.limits = -1, 1
-    assert pytest.raises(ValueError, "s1hg.move(2.1)")
-    assert pytest.raises(ValueError, "ascan(s1hg, -1, 2.1, 10, 0.1, run=False)")
+    with pytest.raises(ValueError) as out_of_range_exc:
+        s1hg.move(2.1)
+    assert "would go beyond high limit" in str(out_of_range_exc.value)
+    with pytest.raises(ValueError) as out_of_range_exc:
+        ascan(s1hg, -1, 2.1, 10, 0.1, run=False)
+    assert "would go beyond high limit" in str(out_of_range_exc.value)
 
 
 def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):

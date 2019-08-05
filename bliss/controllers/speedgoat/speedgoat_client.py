@@ -106,13 +106,7 @@ import numpy as np
 import gevent
 import treelib
 from bliss.comm import rpc
-
-import msgpack_numpy
-
 from bliss.common.measurement import SamplingCounter, counter_namespace
-
-# Patch msgpack
-msgpack_numpy.patch()
 
 ##########################################################################
 ##########                                                      ##########

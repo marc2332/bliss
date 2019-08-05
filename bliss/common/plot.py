@@ -221,9 +221,30 @@ def check_flint(session_name):
     return None
 
 
-def log_stream_to_logger(stream, logger, level):
-    """"Log the outpout of a stream into a logger until the stream is  closed.
+def log_process_output_to_logger(process, stream_name, logger, level):
+    """Log the stream output of a process into a logger until the stream is
+    closed.
+
+    Args:
+        process: A process object from subprocess or from psutil modules.
+        stream_name: One of "stdout" or "stderr".
+        logger: A logger from logging module
+        level: A value of logging
     """
+    if hasattr(process, stream_name):
+        # process come from subprocess, and was pipelined
+        stream = getattr(process, stream_name)
+    else:
+        # process output was not pipelined.
+        # Try to open a linux stream
+        stream_id = 1 if stream_name == "stdout" else 2
+        try:
+            path = f"/proc/{process.pid}/fd/{stream_id}"
+            stream = open(path)
+        except:
+            FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
+            FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
+            return
     try:
         while not stream.closed:
             line = stream.readline()
@@ -248,10 +269,14 @@ def attach_std_streams_to_logger(process, logger):
         logger: A logger object from logging module
 
     Returns:
-        The greenlet processing the log translation
+        A tuple of greenlets processing the log translation.
     """
-    g1 = gevent.spawn(log_stream_to_logger, process.stdout, logger, logging.INFO)
-    g2 = gevent.spawn(log_stream_to_logger, process.stderr, logger, logging.ERROR)
+    g1 = gevent.spawn(
+        log_process_output_to_logger, process, "stdout", logger, logging.INFO
+    )
+    g2 = gevent.spawn(
+        log_process_output_to_logger, process, "stderr", logger, logging.ERROR
+    )
     return (g1, g2)
 
 

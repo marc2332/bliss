@@ -8,7 +8,6 @@
 import argparse
 
 from bliss.comm.rpc import Server
-import msgpack_numpy
 
 from .speedgoat_server import Speedgoat
 
@@ -61,7 +60,6 @@ def parse_args(args=None):
 
 def main(args=None):
     namespace = parse_args(args)
-    msgpack_numpy.patch()
     run(namespace.url, namespace.bind, namespace.port)
 
 

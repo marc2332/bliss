@@ -106,7 +106,7 @@ class Handler(object):
 
     @get_cryo
     def status(self, cryo):
-        return cryo.__repr__()
+        return cryo.__info__()
 
 
 class Oxford800(Base):
@@ -122,7 +122,7 @@ class Oxford800(Base):
         handler = Handler(config.get("cryoname"))
         Base.__init__(self, handler, config, *args)
 
-    def __repr__(self):
+    def __info__(self):
         return self._oxford.status()
 
     def state_output(self, toutput):

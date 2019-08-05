@@ -715,3 +715,21 @@ def edit_roi_counters(detector, acq_time=None):
     roi_counters.clear()
     roi_counters[roi_labels] = rois
     print(("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name)))
+
+
+def info(obj):
+    """
+    In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) 
+    to enquire information of the internal state of any object / controller in case it is 
+    available. this info function is to be seen as equivalent of str(obj) or repr(obj) in
+    this context.
+    
+    if *obj* has `__info__` implemented this `__info__` function will be called. As a fallback 
+    option (`__info__` not implemented) repr(obj) is used. 
+    """
+    try:
+        tmp = obj.__info__()
+        assert type(tmp) is str
+        return tmp
+    except:
+        return repr(obj)

@@ -19,6 +19,16 @@ import logging
 
 from ptpython.repl import PythonRepl
 
+## imports needed to have control over _excecute of ptpython
+import six
+from ptpython.repl import _lex_python_result
+from prompt_toolkit.formatted_text.utils import fragment_list_width
+from prompt_toolkit.formatted_text import merge_formatted_text
+from prompt_toolkit.formatted_text import PygmentsTokens
+from prompt_toolkit.shortcuts import print_formatted_text
+
+###
+
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
@@ -34,6 +44,8 @@ from bliss.data.display import ScanPrinter, ScanEventHandler
 from bliss.scanning.scan import set_scan_watch_callbacks
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
+
+from bliss.common.standard import info
 
 logger = logging.getLogger(__name__)
 
@@ -241,9 +253,78 @@ class BlissRepl(PythonRepl):
 
         self.typing_helper = TypingHelper(self)
 
+    def _another_execute(self, line):
+        """
+        Evaluate the line and print the result.
+        """
+        output = self.app.output
+
+        def compile_with_flags(code, mode):
+            " Compile code with the right compiler flags. "
+            return compile(
+                code,
+                "<stdin>",
+                mode,
+                flags=self.get_compiler_flags(),
+                dont_inherit=True,
+            )
+
+        if line.lstrip().startswith("\x1a"):
+            # When the input starts with Ctrl-Z, quit the REPL.
+            self.app.exit()
+
+        elif line.lstrip().startswith("!"):
+            # Run as shell command
+            os.system(line[1:])
+        else:
+            # Try eval first
+            try:
+                code = compile_with_flags(line, "eval")
+                result = eval(code, self.get_globals(), self.get_locals())
+
+                locals = self.get_locals()
+                locals["_"] = locals["_%i" % self.current_statement_index] = result
+
+                if result is not None:
+                    out_prompt = self.get_output_prompt()
+
+                    result_str = f"{info(result)}\n"  ## patched here!!
+
+                    # Align every line to the first one.
+                    line_sep = "\n" + " " * fragment_list_width(out_prompt)
+                    result_str = line_sep.join(result_str.splitlines()) + "\n"
+
+                    # Write output tokens.
+                    if self.enable_syntax_highlighting:
+                        formatted_output = merge_formatted_text(
+                            [
+                                out_prompt,
+                                PygmentsTokens(list(_lex_python_result(result_str))),
+                            ]
+                        )
+                    else:
+                        formatted_output = FormattedText(
+                            out_prompt + [("", result_str)]
+                        )
+
+                    print_formatted_text(
+                        formatted_output,
+                        style=self._current_style,
+                        style_transformation=self.style_transformation,
+                        include_default_pygments_style=False,
+                    )
+
+            # If not a valid `eval` expression, run using `exec` instead.
+            except SyntaxError:
+                code = compile_with_flags(line, "exec")
+                six.exec_(code, self.get_globals(), self.get_locals())
+
+            output.flush()
+
     def _execute_task(self, *args, **kwargs):
         try:
-            return super(BlissRepl, self)._execute(*args, **kwargs)
+            # return super(BlissRepl, self)._execute(*args, **kwargs)
+            return self._another_execute(*args, **kwargs)
         except:
             return sys.exc_info()
 

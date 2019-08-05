@@ -275,7 +275,7 @@ class Multiplexer:
             print(source.get())
             print("End of Prog.Source.")
 
-    def __repr__(self):
+    def __info__(self):
         rep_str = "Multiplexer Status:\n\n"
         format = "{:<32}{:<32}\n"
         rep_str += format.format("Output name", "Output status")

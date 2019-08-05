@@ -439,7 +439,7 @@ def test_from_and_to_dict_with_inheritance(session):
 
 def test_creation_and_update_appear_on_shell(session, capsys):
     fake = settings.ParametersWardrobe("fake")
-    print(fake)
+    print(fake.__info__())
     captured = capsys.readouterr()
     assert "last_accessed" in captured.out
     assert "creation_date" in captured.out

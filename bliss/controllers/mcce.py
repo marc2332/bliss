@@ -132,7 +132,7 @@ class McceController:
         self.range_cmd = None
         self.mcce_type = None
 
-    def __repr__(self):
+    def __info__(self):
         _ret = "Type: %s (%d)\n" % (MCCE_TYPE[self.mcce_type], self.mcce_type)
         if self.mcce_type in (4, 5):
             _ret += "Gain Scale: 1, 10, 100"

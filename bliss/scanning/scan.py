@@ -207,7 +207,7 @@ class ScanSaving(ParametersWardrobe):
         keys = super().__dir__()
         return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
 
-    def __repr__(self):
+    def __info__(self):
         d = self._get_instance(self.current_instance)
         d["scan_name"] = "scan name"
         d["scan_number"] = "scan number"

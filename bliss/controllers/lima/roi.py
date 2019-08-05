@@ -351,7 +351,7 @@ class RoiCounters(object):
 
     # Representation
 
-    def __repr__(self):
+    def __info__(self):
         name = self.name.rsplit(":", 1)[-1]
         lines = ["[{0}]\n".format(self.config_name)]
         rois = [self[name] for name in sorted(self.keys())]

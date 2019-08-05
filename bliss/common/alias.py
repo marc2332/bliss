@@ -359,7 +359,7 @@ class Aliases(object):
         """returns a dict of alias objects"""
         return self._aliases
 
-    def __repr__(self):
+    def __info__(self):
         return self._list_aliases()
 
     def close(self):

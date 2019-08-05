@@ -245,7 +245,7 @@ class MeasurementGroup(object):
         states_list_new = [sn for sn in states_list_old if sn not in state_names]
         self._all_states.set(states_list_new)
 
-    def __repr__(self):
+    def __info__(self):
         """ function used when printing a measurement group.
         """
         s = "MeasurementGroup: %s (state='%s')\n" % (self.name, self.active_state_name)

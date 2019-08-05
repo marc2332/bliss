@@ -11,6 +11,7 @@ from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.common import measurement
+from bliss.common.standard import info
 
 # 3 measurement groups : test_mg MG1 MG2 are configured
 # in tests/test_configuration/sessions/test.yml
@@ -126,7 +127,7 @@ def test_print(session):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, "ACTIVE_MG")
     repr_string = "MeasurementGroup: test_mg (state='default')\n  - Existing states : 'default'\n\n  Enabled  Disabled\n  -------  -------\n  diode    \n"
-    assert repr(default_mg) == repr_string
+    assert info(default_mg) == repr_string
 
 
 def test_exceptions(session):

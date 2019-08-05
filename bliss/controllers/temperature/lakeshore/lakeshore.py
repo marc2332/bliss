@@ -65,7 +65,7 @@ class LakeshoreInput(Input):
         return Curve(self)
 
     @lazy_init
-    def __repr__(self):
+    def __info__(self):
         return "\n".join(self.controller._show(self.name))
 
     def __str__(self):
@@ -132,7 +132,7 @@ class LakeshoreInput(Input):
 
 class LakeshoreOutput(Output):
     @lazy_init
-    def __repr__(self):
+    def __info__(self):
         return "\n".join(self.controller._show(self.name))
 
     def __str__(self):
@@ -180,7 +180,7 @@ class LakeshoreOutput(Output):
 
 class LakeshoreLoop(Loop):
     @lazy_init
-    def __repr__(self):
+    def __info__(self):
         return "\n".join(self.controller._show(self.name))
 
     def __str__(self):

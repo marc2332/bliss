@@ -316,7 +316,7 @@ class oxford700(Base):
         self._oxford = OxfordCryostream(port)
         Base.__init__(self, self._oxford, config, *args)
 
-    def __repr__(self):
+    def __info__(self):
         return repr(self._oxford._status_packet)
 
     def state_output(self, toutput):

@@ -1486,7 +1486,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         )
         print(tabulate(data, headers="firstrow", stralign="right"))
 
-    def __repr__(self):
+    def __info__(self):
         return self._repr(self._get_instance(self.current_instance))
 
     def _repr(self, d):

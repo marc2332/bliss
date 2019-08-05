@@ -97,10 +97,3 @@ def test_offset_set_position(s1hg):
     assert s1hg._set_position == pytest.approx(1)
     s1hg.move(0.1)
     assert s1hg._set_position == pytest.approx(0.1)
-
-
-def test_ascan_limits(s1hg, beacon):
-    diode = beacon.get("diode")
-    with pytest.raises(ValueError):
-        with gevent.Timeout(1):
-            ascan(s1hg, -10, 40, 100, 1, diode, save=False)

@@ -12,7 +12,7 @@ Bliss controller for  5-motors spectrometer test bench in EH1
 """
 # IMPORTS #
 from bliss.controllers.motor import CalcController
-import math
+import numpy
 
 from bliss.physics import spectroscopy
 
@@ -33,7 +33,7 @@ def sqrt1over(d2m):
     if d2m == 0:
         return 0
     else:
-        return math.sqrt(1 / d2m)
+        return numpy.sqrt(1 / d2m)
 
 
 def d_cubic(a, hkl):
@@ -46,7 +46,7 @@ def d_cubic(a, hkl):
 def theta_b(ene, d):
     """Bragg angle (rad) given energy (keV) and d-spacing (Angstroms)"""
     if not (d == 0):
-        return math.asin(
+        return numpy.asin(
             (spectroscopy.energy_kev_to_wavelength_angstrom(ene)) / (2 * d)
         )
     else:
@@ -57,7 +57,7 @@ def theta_b(ene, d):
 def bragg_kev(theta, d):
     """energy (keV) given Bragg angle (deg) and d-spacing (Angstroms)"""
     return spectroscopy.wavelength_angstrom_to_energy_kev(
-        2 * d * math.sin(math.radians(theta))
+        2 * d * numpy.sin(numpy.radians(theta))
     )
 
 
@@ -90,15 +90,15 @@ def ene2mots(energy, mat=None, hkl=None, r=None, alpha=None, pp=False):
     if alpha is None:
         alpha = CRYST_ALPHA
     rthetab = theta_b(energy, get_dspacing(mat, hkl))
-    ralpha = math.radians(alpha)
-    p0 = r * math.sin(rthetab + ralpha)
-    q0 = r * math.sin(rthetab - ralpha)
+    ralpha = numpy.radians(alpha)
+    p0 = r * numpy.sin(rthetab + ralpha)
+    q0 = r * numpy.sin(rthetab - ralpha)
 
-    atheh1 = math.degrees(rthetab)
+    atheh1 = numpy.degrees(rthetab)
     axeh1 = p0
-    dtheh1 = 2 * math.degrees(rthetab)
-    dxeh1 = p0 + q0 * math.cos(2 * rthetab)
-    dyeh1 = q0 * math.sin(2 * rthetab)
+    dtheh1 = 2 * numpy.degrees(rthetab)
+    dxeh1 = p0 + q0 * numpy.cos(2 * rthetab)
+    dyeh1 = q0 * numpy.sin(2 * rthetab)
 
     _mot_list = [atheh1, axeh1, dtheh1, dxeh1, dyeh1]
 

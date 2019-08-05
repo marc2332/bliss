@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import gevent
 from bliss.common.axis import Axis
 from bliss.common.standard import ascan
 

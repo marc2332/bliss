@@ -333,10 +333,15 @@ class _StepTriggerMaster(AcquisitionMaster):
         self._motor_pos = []
         self._axes = []
         self._monitor_axes = []
+        controller_2_axes_position = {}
         for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
-            self._motor_pos.append(numpy.linspace(start, stop, nb_point))
-            axis.controller._check_limits(axis, self._motor_pos[-1])
+            positions = numpy.linspace(start, stop, nb_point)
+            self._motor_pos.append(positions)
+            axes_position = controller_2_axes_position.setdefault(axis.controller, [])
+            axes_position.append((axis, positions))
+        for controller, axes_position in controller_2_axes_position.items():
+            controller.check_limits(*axes_position)
 
         mot_group = Group(*self._axes)
 

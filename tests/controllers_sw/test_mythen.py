@@ -7,6 +7,7 @@ from mock import Mock
 from bliss.common import scans
 from bliss.controllers.mca.mythen import Mythen
 from bliss.controllers.mca.mythen import lib as mythenlib
+from bliss.common.standard import info
 
 
 @pytest.fixture
@@ -58,7 +59,7 @@ def test_myten_basic(run_command):
     assert m.name == "test"
     assert m.hostname == "mymythen"
     assert (
-        repr(m)
+        info(m)
         == """\
 Mythen on mymythen:
   nmodules                  = 1

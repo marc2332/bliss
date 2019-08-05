@@ -18,6 +18,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.scanning.scan import Scan, ScanSaving, ScanState
 from bliss.data.scan import get_data, watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
+from bliss.common.standard import info
 
 
 @pytest.fixture
@@ -74,7 +75,7 @@ Parameters (default) -
         user_name=scan_saving.user_name,
     )
 
-    assert repr(scan_saving) == scan_saving_repr
+    assert info(scan_saving) == scan_saving_repr
 
     scan_saving.template = "toto/{session}"
     parent_node = scan_saving.get()["parent"]

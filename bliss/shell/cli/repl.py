@@ -45,6 +45,8 @@ from bliss.scanning.scan import set_scan_watch_callbacks
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
+from bliss.common.standard import info
+
 logger = logging.getLogger(__name__)
 
 # don't patch the event loop on windows
@@ -286,10 +288,7 @@ class BlissRepl(PythonRepl):
                 if result is not None:
                     out_prompt = self.get_output_prompt()
 
-                    try:  ########################################################
-                        result_str = result.__info__()  ### Patched here! use    #
-                    except:  ############################## __info__ instead     #
-                        result_str = "%r\n" % (result,)  ## __repr__ in shell    #
+                    result_str = f"{info(result)}\n"  ## patched here!!
 
                     # Align every line to the first one.
                     line_sep = "\n" + " " * fragment_list_width(out_prompt)

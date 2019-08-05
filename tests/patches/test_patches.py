@@ -160,16 +160,9 @@ def test_repl_excecute(clean_gevent):
         "https://github.com/davidhalter/jedi/issues/1148\n",
         '-         if "" not in sys.path:\n',
         '-             sys.path.insert(0, "")\n',
+        '+                     result_str = f"{info(result)}\\n"  ## patched here!!\n',
         "-                     try:\n",
-        "+                     try:  "
-        "########################################################\n",
-        "+                         result_str = result.__info__()  ### Patched here! "
-        "use    #\n",
-        "+                     except:  ############################## __info__ "
-        "instead     #\n",
         '-                         result_str = "%r\\n" % (result,)\n',
-        '+                         result_str = "%r\\n" % (result,)  ## __repr__ in '
-        "shell    #\n",
         "-                     except UnicodeDecodeError:\n",
         "-                         # In Python 2: `__repr__` should return a "
         "bytestring,\n",

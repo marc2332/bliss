@@ -20,7 +20,8 @@ class MsgpackContext(object):
 
     def __init__(self):
         self._encoder = []
-        self._decoder = collections.OrderedDict()
+        self._ext_decoder = collections.OrderedDict()
+        self._object_hook_decoder = []
 
     def register_ext_type(self, encoder, decoder, exttype=-1):
         """"Register an encoder and a decoder with an ExtType.
@@ -36,11 +37,23 @@ class MsgpackContext(object):
 
         """
         if exttype == -1:
-            exttype = len(self._encoder)
-        if exttype in self._decoder:
+            exttype = len(self._ext_decoder)
+        if exttype in self._ext_decoder:
             ValueError("ExtType %d already used" % exttype)
-        self._encoder.append(encoder)
-        self._decoder[exttype] = decoder
+        self._encoder.append((encoder, exttype))
+        self._ext_decoder[exttype] = decoder
+
+    def register_object_hook(self, encoder, decoder):
+        """Register an encoder and a decoder that can convert a python object
+        into data which can be serialized by msgpack.
+
+        Args:
+            encoder: Function encoding a data into a data serializable by msgpack
+            decoder: Function decoding a python structure provided by msgpack
+            into an usable data.
+        """
+        self._encoder.append((encoder, None))
+        self._object_hook_decoder.append(decoder)
 
     def register_numpy(self, exttype=-1):
         """
@@ -57,20 +70,38 @@ class MsgpackContext(object):
         self.register_ext_type(pickle.dumps, pickle.loads, exttype=exttype)
 
     def _default(self, obj):
-        for exttype, encoder in enumerate(self._encoder):
+        for encoder, exttype in self._encoder:
             try:
                 result = encoder(obj)
-                return msgpack.ExtType(exttype, result)
             except TypeError:
                 continue
+            if exttype is not None:
+                return msgpack.ExtType(exttype, result)
+            else:
+                return result
         raise TypeError("Unknown type: %r" % (obj,))
 
     def _ext_hooks(self, code, data):
-        if code in self._decoder:
-            decoder = self._decoder[code]
+        decoder = self._ext_decoder.get(code, None)
+        if decoder is not None:
             obj = decoder(data)
             return obj
         return msgpack.ExtType(code, data)
+
+    def _object_hook(self, data):
+        for decoder in self._object_hook_decoder:
+            try:
+                result = decoder(data)
+            except TypeError:
+                continue
+            if data is not result:
+                # In case the input is not the same as the output
+                # let say the result was found
+                break
+        else:
+            return data
+
+        return result
 
     def packb(self, o, use_bin_type=0):
         """Pack object `o` and return packed bytes."""
@@ -79,5 +110,8 @@ class MsgpackContext(object):
     def Unpacker(self, raw=True, max_buffer_size=0) -> msgpack.Unpacker:
         """Streaming unpacker."""
         return msgpack.Unpacker(
-            raw=raw, max_buffer_size=max_buffer_size, ext_hook=self._ext_hooks
+            raw=raw,
+            max_buffer_size=max_buffer_size,
+            ext_hook=self._ext_hooks,
+            object_hook=self._object_hook,
         )

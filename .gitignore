@@ -3,6 +3,7 @@
 *.pyc
 *.pyo
 *~
+*.py,cover
 *.bck
 build
 *.swp

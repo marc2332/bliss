@@ -59,9 +59,7 @@ class MsgpackContext(object):
         """
         Register msgpack_numpy as a codec.
         """
-        self.register_ext_type(
-            msgpack_numpy.encode, msgpack_numpy.decode, exttype=exttype
-        )
+        self.register_object_hook(msgpack_numpy.encode, msgpack_numpy.decode)
 
     def register_pickle(self, exttype=-1):
         """

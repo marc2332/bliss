@@ -260,26 +260,6 @@ def log_process_output_to_logger(process, stream_name, logger, level):
         pass
 
 
-def attach_std_streams_to_logger(process, logger):
-    """
-    Redirect process stdin and stdout to a logger
-
-    Args:
-        process: A process object from subprocess or psutil
-        logger: A logger object from logging module
-
-    Returns:
-        A tuple of greenlets processing the log translation.
-    """
-    g1 = gevent.spawn(
-        log_process_output_to_logger, process, "stdout", logger, logging.INFO
-    )
-    g2 = gevent.spawn(
-        log_process_output_to_logger, process, "stderr", logger, logging.ERROR
-    )
-    return (g1, g2)
-
-
 def start_flint():
     """ Start the flint application in a subprocess.
 
@@ -307,8 +287,11 @@ def start_flint():
     return process
 
 
-def attach_flint(pid):
-    """ attach to an external flint process, make a RPC proxy and bind Flint to the current session and return the FLINT proxy """
+def _attach_flint(process):
+    """Attach a flint process, make a RPC proxy and bind Flint to the current
+    session and return the FLINT proxy.
+    """
+    pid = process.pid
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
     try:
@@ -332,6 +315,36 @@ def attach_flint(pid):
 
     FLINT.update({"proxy": proxy, "process": pid})
 
+    greenlets = FLINT["greenlet"]
+    if greenlets is not None:
+        for g in greenlets:
+            if g is not None:
+                g.kill()
+
+    g1 = gevent.spawn(
+        log_process_output_to_logger,
+        process,
+        "stdout",
+        FLINT_OUTPUT_LOGGER,
+        logging.INFO,
+    )
+    g2 = gevent.spawn(
+        log_process_output_to_logger,
+        process,
+        "stderr",
+        FLINT_OUTPUT_LOGGER,
+        logging.ERROR,
+    )
+    greenlets = (g1, g2)
+    FLINT["greenlet"] = greenlets
+
+    return proxy
+
+
+def attach_flint(pid):
+    """ attach to an external flint process, make a RPC proxy and bind Flint to the current session and return the FLINT proxy """
+    process = psutil.Process(pid)
+    proxy = _attach_flint(process)
     return proxy
 
 
@@ -359,9 +372,7 @@ def get_flint(start_new=False):
         else:
             process = start_flint()
 
-    greenlet = attach_std_streams_to_logger(process, FLINT_OUTPUT_LOGGER)
-    FLINT["greenlet"] = greenlet
-    proxy = attach_flint(process.pid)
+    proxy = _attach_flint(process)
     return proxy
 
 

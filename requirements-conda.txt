@@ -39,3 +39,4 @@ tango >= 9.3.2
 pytango
 tmux >= 2.7
 treelib
+tblib

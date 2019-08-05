@@ -13,6 +13,37 @@ import collections
 import msgpack
 import msgpack_numpy
 import pickle
+import tblib
+
+
+def encode_tb_exception(exception):
+    """This encoder allow to encode an exception altogether with it's traceback.
+
+    It allow to serialize an exception with it's traceback. Complex objects
+    from the traceback are removed. But it make the result already useful, with
+    file name and line number.
+    """
+    if not isinstance(exception, BaseException):
+        TypeError("Unsupported encoding for non-exception")
+
+    traceback_dict = None
+    if exception.__traceback__:
+        traceback_dict = tblib.Traceback(exception.__traceback__).to_dict()
+    return pickle.dumps((exception, traceback_dict))
+
+
+def decode_tb_exception(serialized):
+    """This decoder allow to decode an exception encoded with `encode_tb_exception``.
+
+    It allow to serialize an exception with it's traceback. Complex objects
+    from the traceback are removed. But it make the result already useful, with
+    file name and line number.
+    """
+    exception, traceback_dict = pickle.loads(serialized)
+    if traceback_dict is not None:
+        traceback = tblib.Traceback.from_dict(traceback_dict)
+        exception = exception.with_traceback(traceback.as_traceback())
+    return exception
 
 
 class MsgpackContext(object):
@@ -66,6 +97,22 @@ class MsgpackContext(object):
         Register pickle as a codec.
         """
         self.register_ext_type(pickle.dumps, pickle.loads, exttype=exttype)
+
+    def register_tb_exception(self, exttype=-1):
+        """
+        Register exception serialization without losing the traceback.
+
+        The serialization it-self is done using pickle.
+
+        Complex objects from the traceback are removed. But it could make the
+        result already useful.
+
+        It have to be used before `register_pickle`, else exception will be
+        serialized by pickle, and then without the traceback.
+        """
+        self.register_ext_type(
+            encode_tb_exception, decode_tb_exception, exttype=exttype
+        )
 
     def _default(self, obj):
         for encoder, exttype in self._encoder:

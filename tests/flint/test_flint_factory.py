@@ -4,8 +4,10 @@ import time
 import os
 import signal
 import pytest
-from contextlib import contextmanager
+import sys
+import subprocess
 
+from contextlib import contextmanager
 from silx.utils import testutils
 from bliss.common import plot
 
@@ -17,9 +19,15 @@ def attached_flint_context():
 
     The process is still created but re-attached, in order to test using psutil.
     """
-    flint = plot.get_flint()
-    pid = flint._pid
-    flint = plot.attach_flint(pid)
+
+    # Create an "external" flint session
+    env = dict(os.environ)
+    env["BEACON_HOST"] = plot.get_beacon_config()
+    args = [sys.executable, "-m", "bliss.flint"]
+    process = subprocess.Popen(args, env=env, start_new_session=True)
+    pid = process.pid
+
+    _flint = plot.attach_flint(pid)
     yield pid
     plot.reset_flint()
     os.kill(pid, signal.SIGTERM)

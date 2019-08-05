@@ -4,8 +4,10 @@
 Calculation controller (`CalcController`) are designed to built
 *virtual* axes over *real* axes.
 
-
 For example: N-legs tables, energy motor, slits, rotated translations.
+
+
+![Screenshot](img/axis_group_calc.svg)
 
 
 ## Minimal set of functions to implement
@@ -19,7 +21,12 @@ For example: N-legs tables, energy motor, slits, rotated translations.
     * Must return a dictionnary of real positions corresponding to
       `<positions_dict>` values of virtual axes.
 
-## example of code
+!!! note
+    Those 2 functions **must** be able to operate on numpy arrays, not only
+    scalar values. Indeed, the limits checking feature before move needs to
+    execute the calculation functions with numpy arrays.
+
+## Code example
 
 Example of code to create a calculational controller to link 2 axes
 with a 3.1415 factor.
@@ -38,9 +45,7 @@ def calc_to_real(self, positions_dict):
     return {"real_mot": real_pos}
 ```
 
-
-
-## example of usage
+## Mockup calc controller
 
 `calc_motor_mockup` can be found in `bliss/controllers/motors/mockup.py`
 
@@ -59,7 +64,7 @@ controller:
 
 ```
 
-example of usage:
+Usage:
 
 ```
 CYRIL [1]: wa()
@@ -80,13 +85,9 @@ Current Positions (user, dial)
    6.28300  2.00000
 ```
 
-!!! note
-    For efficiency considerations, real motors can be moved as *grouped axes*.
-
-![Screenshot](img/axis_group_calc.svg)
 
 ![Screenshot](img/dial_user_ctrl.svg)
 
 !!! note
-    Real axis position will be emitted during a step scan on a calculated axis unless
-    "emit_real_position" is set to False in the controller configuration
+    During step scans, real axes positions for calculated axes will be emitted as an additional acquisition
+    channel of the motor master -- unless "emit_real_position" is set to False in the controller configuration

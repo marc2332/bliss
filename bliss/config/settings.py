@@ -684,9 +684,6 @@ class BaseHashSetting:
         cnx = self._cnx()
         cnx.delete(self._name)
 
-    # def copy(self):
-    #    return self.get()
-
     @write_decorator_dict
     def set(self, values):
         cnx = self._cnx()
@@ -699,11 +696,6 @@ class BaseHashSetting:
         cnx = self._cnx()
         if values:
             cnx.hmset(self._name, values)
-
-    @read_decorator
-    def fromkeys(self, *keys):
-        cnx = self._cnx()
-        return cnx.hmget(self._name, *keys)
 
     def has_key(self, key):
         cnx = self._cnx()
@@ -754,6 +746,148 @@ class BaseHashSetting:
             return True
         except KeyError:
             return False
+
+
+class OrderedHashSetting(BaseHashSetting):
+    """
+    A Setting stored as a key,value pair in Redis
+    The insertion order is mantained
+
+    Args:
+        name: name of the BaseHashSetting (used on Redis)
+        connection: Redis connection object
+            read_type_conversion: conversion of data applyed
+                after reading
+            write_type_conversion: conversion of data applyed
+                before writing
+    """
+
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
+    ):
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
+
+    @property 
+    def _name_order(self):
+        return self._name + ":creation_order"
+
+    def __delitem__(self, key):
+        cnx = self._cnx()
+        cnx.hdel(self._name, key)
+        cnx.zrem(self._name_order, key)
+
+    def _next_score(self):
+        cnx = self._cnx()
+        result = cnx.zrange(self._name_order, -1, -1, withscores=True)
+        if not len(result):
+            return 0
+        value, score = result[0]
+        return int(score) + 1
+
+    def __len__(self):
+        return super().__len__()
+
+    def ttl(self, value=-1):
+        hash_ttl = super().ttl(value)
+        set_ttl = ttl_func(self._cnx(), self._name_order, value)
+        return hash_ttl
+
+    @read_decorator
+    def get(self, key, default=None):
+        v = self.raw_get(key)
+        if v is None:
+            v = DefaultValue(default)
+        return v
+
+    def _raw_get_all(self):
+        cnx = self._cnx()
+        order = iter(k for k in cnx.zrange(self._name_order, 0, -1))
+        return {key: cnx.hget(self._name, key) for key in order}
+
+    @read_decorator
+    def pop(self, key, default=Null()):
+        cnx = self._cnx().pipeline()
+        cnx.hget(self._name, key)
+        cnx.hdel(self._name, key)
+        cnx.zrem(self._name_order, key)
+        (value, worked) = cnx.execute()
+        if not worked:
+            if isinstance(default, Null):
+                raise KeyError(key)
+            else:
+                value = default
+        return value
+
+    def remove(self, *keys):
+        cnx = self._cnx()
+        cnx.hdel(self._name, *keys)
+        cnx.zrem(self._name_order, *keys)
+
+    def clear(self):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+        cnx.delete(self._name_order)
+
+    @write_decorator_dict
+    def set(self, values):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+        cnx.delete(self._name_order)
+        if values is not None:
+            cnx.hmset(self._name, values)
+            for k in values.keys():
+                cnx.zadd(self._name_order, {k: self._next_score()})
+
+    @write_decorator_dict
+    def update(self, values):
+        cnx = self._cnx()
+        if values:
+            cnx.hmset(self._name, values)
+            for k in values.keys():
+                cnx.zadd(self._name_order, {k: self._next_score()}, nx=True)
+
+    def has_key(self, key):
+        cnx = self._cnx()
+        return cnx.zrank(self._name_order, key) is not None
+
+    def keys(self):
+        cnx = self._cnx()
+        return (k.decode() for k in cnx.zrange(self._name_order, 0, -1))
+
+    def values(self):
+        for k in self.keys():
+            yield self[k]
+
+    def items(self):
+        cnx = self._cnx()
+        for k in self.keys():
+            v = self[k]
+            if self._read_type_conversion:
+                v = self._read_type_conversion(v)
+            yield k, v
+
+    def __getitem__(self, key):
+        if key not in self:
+            raise KeyError(key)
+        return self.get(key)
+
+    def __setitem__(self, key, value):
+        cnx = self._cnx()
+        if value is None:
+            cnx.hdel(self._name, key)
+            cnx.zrem(self._name_order, key)
+            return
+        if self._write_type_conversion:
+            value = self._write_type_conversion(value)
+        cnx.hset(self._name, key, value)
+        cnx.zadd(self._name_order, {key: self._next_score()}, nx=True)
+
+    def __contains__(self, key):
+        return self.has_key(key)
 
 
 class HashSetting(BaseHashSetting):
@@ -920,6 +1054,17 @@ def _change_to_obj_marshalling(keys):
 
 
 class HashObjSetting(HashSetting):
+    """
+    Class to manage a setting that is stored as a dictionary on redis
+    where values of the dictionary are pickled
+    """
+
+    def __init__(self, name, **keys):
+        _change_to_obj_marshalling(keys)
+        super().__init__(name, **keys)
+
+
+class OrderedHashObjSetting(OrderedHashSetting):
     """
     Class to manage a setting that is stored as a dictionary on redis
     where values of the dictionary are pickled

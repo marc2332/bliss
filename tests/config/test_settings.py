@@ -113,6 +113,27 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
 
+"""
+def test_hash_settings_from_keys(beacon):
+    fromk = settings.OrderedHashSetting("fromk")
+    fromk.set({"first":"I","second":"II"})
+    assert list(fromk.fromkeys('first','second','third')) == ['I',"II",None]
+    assert list(fromk.fromkeys('third','second','first')) == [None, 'II',"I"]
+
+    generator = fromk.fromkeys('first','second','third')
+    assert next(generator) =="I"
+    assert next(generator) =="II"
+    fromk['third'] = "III"
+    assert next(generator) == None
+"""
+
+"""
+def test_orderedhash_settings_from_keys(beacon):
+    fromkeys = settings.OrderedHashSetting("fromkeys")
+    fromkeys.set({"first":"I","second":"II"})
+    assert list(fromkeys.fromkeys('first','second','third')) == ['I',"II",None]
+    assert list(fromkeys.fromkeys('third','second','first')) == [None, 'II',"I"]
+"""
 
 def test_queue_setting(session):
     myList = ["a", "b", "c", "d"]
@@ -467,7 +488,6 @@ def test_dir_shows_attrs_on_shell(session, capsys):
     ) in "add remove switch instance current_instance to_dict from_dict from_file freeze show_table creation_date last_accessed band music myproperty".split():
         assert name in captured.out
 
-
 """
 def test_delete_wardrobe(session):
     deleting = settings.ParametersWardrobe('deleting')
@@ -478,7 +498,6 @@ def test_delete_wardrobe(session):
     with pytest.raises(AttributeError):
         deleting.erasing
         """
-
 
 def test_non_removable(session):
     fake = settings.ParametersWardrobe("fake", not_removable=("immortal",))

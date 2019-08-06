@@ -123,7 +123,7 @@ def replace_reference_by_object(
     config, item_cfg_node, ref_objects=None, placeholder=None
 ):
     referenced_objects = ref_objects if ref_objects is not None else dict()
-    for name, value in item_cfg_node.items():
+    for name, value in tuple(item_cfg_node.items()):
         if _checkref(
             config, item_cfg_node, referenced_objects, name, value, placeholder
         ):

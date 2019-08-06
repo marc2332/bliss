@@ -119,6 +119,11 @@ class MsgpackContext(object):
             try:
                 result = encoder(obj)
             except TypeError:
+                # Encoder do not support this object kind
+                continue
+            if result is obj:
+                # Nothing was done, assume this encoder do not support this
+                # object kind
                 continue
             if exttype is not None:
                 return msgpack.ExtType(exttype, result)

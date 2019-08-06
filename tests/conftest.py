@@ -171,6 +171,13 @@ def beacon_host_port(ports):
 
 
 @pytest.fixture
+def redis_conn(beacon):
+    cnx = get_default_connection()
+    redis_conn = cnx.get_redis_connection()
+    yield redis_conn
+
+
+@pytest.fixture
 def redis_data_conn(beacon):
     cnx = get_default_connection()
     redis_conn = cnx.get_redis_connection(db=1)

@@ -92,6 +92,7 @@ from bliss.common.msgpack_ext import MsgpackContext
 msgpack = MsgpackContext()
 # Registration order matter
 msgpack.register_numpy()
+msgpack.register_tb_exception()
 msgpack.register_pickle()
 
 
@@ -486,7 +487,13 @@ class _cnx(object):
                     self._socket.sendall(msg)
                     value = w.get()
                     if isinstance(value, Exception):
-                        raise value
+                        # FIXME: checking the traceback is an approximation
+                        # It would be better to know it was a raised exception
+                        # from the server msg
+                        if value.__traceback__ is None:
+                            return value
+                        else:
+                            raise value
                     elif isinstance(value, self.Retry):
                         self.try_connect()
                         continue

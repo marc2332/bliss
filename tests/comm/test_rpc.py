@@ -121,8 +121,8 @@ def test_api():
         client_car.move(21, relative=True)
         assert client_car.position == car.position == 32
 
-        # close client
-        client_car.close()
+    # close client
+    client_car.close()
 
 
 def test_event():

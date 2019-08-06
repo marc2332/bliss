@@ -8,6 +8,7 @@
 import gevent
 import pytest
 from contextlib import contextmanager
+import traceback
 
 from bliss.common import event
 from bliss.comm.rpc import Server, Client
@@ -60,6 +61,16 @@ class Car(object):
         else:
             self.__position = value
         return self.__position
+
+    def buggy_call(self):
+        """"Calling this function will raise an exception"""
+        x = 50
+        x = x + "aaa"
+        return x
+
+    def returns_exception(self):
+        e = RuntimeError("foo")
+        return e
 
     def __int__(self):
         return int(self.horsepower)
@@ -120,6 +131,33 @@ def test_api():
         assert client_car.position == car.position == 11
         client_car.move(21, relative=True)
         assert client_car.position == car.position == 32
+
+    # close client
+    client_car.close()
+
+
+def test_exceptions():
+    url = "inproc://test"
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+
+        client_car.color
+
+        try:
+            client_car.buggy_call()
+        except Exception as e:
+            tb = traceback.format_tb(e.__traceback__)
+            assert "test_rpc" in tb[-1]
+            assert "buggy_call" in tb[-1]
+            assert "x = x + " in tb[-1]
+
+        else:
+            assert False
+
+        e = client_car.returns_exception()
+        assert isinstance(e, RuntimeError)
+        assert e.args[0] == "foo"
 
     # close client
     client_car.close()

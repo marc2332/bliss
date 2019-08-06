@@ -203,7 +203,10 @@ class Map:
         for node_id in node_list:
             node = self.G.node.get(node_id)
             if node is not None:
-                inst_ref = self.G.node.get(node_id)["instance"]
+                try:
+                    inst_ref = self.G.node.get(node_id)["instance"]
+                except KeyError:
+                    continue
                 inst = inst_ref()
                 if inst:
                     yield inst

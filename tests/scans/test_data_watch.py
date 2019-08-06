@@ -50,22 +50,22 @@ def test_scan_saving(beacon, scan_saving):
 Parameters (default) - 
 
   .base_path            = '/tmp'
-  .creation_date        = '{creation_date}'
   .data_filename        = 'data'
-  .date                 = '{date}'
-  .date_format          = '%Y%m%d'
+  .user_name            = '{user_name}'
+  .template             = 'toto'
   .images_path_relative = True
   .images_path_template = 'scan{{scan_number}}'
   .images_prefix        = '{{img_acq_device}}_'
-  .img_acq_device       = '<images_* only> acquisition device name'
-  .last_accessed        = '{last_accessed}'
-  .scan_name            = 'scan name'
-  .scan_number          = 'scan number'
+  .date_format          = '%Y%m%d'
   .scan_number_format   = '%04d'
   .session              = '{session}'
-  .template             = 'toto'
-  .user_name            = '{user_name}'
+  .date                 = '{date}'
+  .scan_name            = 'scan name'
+  .scan_number          = 'scan number'
+  .img_acq_device       = '<images_* only> acquisition device name'
   .writer               = 'hdf5'
+  .creation_date        = '{creation_date}'
+  .last_accessed        = '{last_accessed}'
 """.format(
         creation_date=scan_saving.creation_date,
         date=scan_saving.date,

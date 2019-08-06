@@ -771,7 +771,7 @@ class OrderedHashSetting(BaseHashSetting):
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
 
-    @property 
+    @property
     def _name_order(self):
         return self._name + ":creation_order"
 
@@ -1341,9 +1341,9 @@ class ParametersWardrobe(metaclass=ParametersType):
         if not default_values:
             default_values = {}
         if not property_attributes:
-            property_attributes = set()
+            property_attributes = ()
         if not not_removable:
-            not_removable = set()
+            not_removable = ()
 
         self.__update = True
 
@@ -1351,23 +1351,22 @@ class ParametersWardrobe(metaclass=ParametersType):
         # the first item is the currently used one
         self._instances = QueueSetting("parameters:%s" % name)
         self._wardr_name = name  # name of the ParametersWardrobe
-        self._property_attributes = set(
-            property_attributes
-        )  # set of property_attributes
-        self._not_removable = set(not_removable)
+        self._property_attributes = tuple(property_attributes) + (
+            "creation_date",
+            "last_accessed",
+        )
+        self._not_removable = tuple(not_removable)
 
         # adding attributes for last_accessed and creation_date
-        self._property_attributes.add("last_accessed")
-        self._property_attributes.add("creation_date")
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
-        self._proxy = BaseHashSetting(self._hash("default"), **keys)
-        self._proxy_default = BaseHashSetting(self._hash("default"), **keys)
+        self._proxy = OrderedHashSetting(self._hash("default"), **keys)
+        self._proxy_default = OrderedHashSetting(self._hash("default"), **keys)
 
         # Managing default written to proxy_default
         keys = self._proxy_default.keys()
-        for k in set(default_values.keys()) - set(keys):
+        for k in (k for k in default_values.keys() if k not in keys):
             # add only if default values does not exist
             self.add(k, default_values[k])
 
@@ -1385,12 +1384,11 @@ class ParametersWardrobe(metaclass=ParametersType):
         return "parameters:%s:%s" % (self._wardr_name, name)
 
     def __dir__(self):
-        keys_proxy = {x for x in self._proxy.keys() if not x.startswith("_")}
-        keys_proxy_default = {
+        keys_proxy_default = (
             x for x in self._proxy_default.keys() if not x.startswith("_")
-        }
+        )
         return (
-            list(keys_proxy.union(keys_proxy_default))
+            list(keys_proxy_default)
             + [
                 "add",
                 "remove",
@@ -1820,11 +1818,11 @@ class ParametersWardrobe(metaclass=ParametersType):
             if param in self._not_removable or param in self._property_attributes:
                 raise AttributeError("Can't remove attribute")
             for param_instance in self.instances:
-                pr = BaseHashSetting(self._hash(param_instance))
+                pr = OrderedHashSetting(self._hash(param_instance))
                 pr.remove(param)
         elif param != "default" and param in self.instances:
             # removing an instance of parameters
-            pr = BaseHashSetting(self._hash(param))
+            pr = OrderedHashSetting(self._hash(param))
             pr.clear()
             self._instances.remove(param)  # removing from Queue
         else:
@@ -1835,9 +1833,11 @@ class ParametersWardrobe(metaclass=ParametersType):
         Removes completely any reference to the ParametersWardrobe from redis
         """
         for instance in self.instances:
-            pr = BaseHashSetting(self._hash(instance))
+            pr = OrderedHashSetting(self._hash(instance))
             pr.clear()
             self._instances.remove(instance)  # removing from Queue
+
+        self._instances.clear()
 
     def switch(self, name, copy=None):
         """

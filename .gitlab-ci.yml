@@ -44,7 +44,7 @@ run_tests:source:
   only:
     changes: # skip tests for doc changes
       - "bin/**/*"
-      - "bliss/**/*"
+      - "**/*.{py}"
       - "conda_recipe/**/*"
       - "extensions/**/*"
       - "scripts/**/*"

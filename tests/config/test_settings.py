@@ -8,6 +8,7 @@
 import datetime
 import os
 import pickle
+import gevent
 
 import pytest
 
@@ -82,6 +83,16 @@ def test_basehash_setting(session):
     assert list(my_dict.keys()) == list(shs.keys())
 
 
+def test_basehash_settings_ttl(session):
+    ihavetodie = settings.BaseHashSetting("ihavetodie")
+    ihavetodie["I"] = "alive"
+    assert ihavetodie.ttl(1)
+    assert ihavetodie["I"] == "alive"
+    gevent.sleep(1.5)
+    with pytest.raises(KeyError):
+        ihavetodie["I"]
+
+
 def test_hash_setting(session):
     myDict = {"C1": "riri", "C2": "fifi"}
     shs = settings.HashSetting("myHkey", default_values=myDict)  # note the s :)
@@ -113,6 +124,7 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
 
+
 """
 def test_hash_settings_from_keys(beacon):
     fromk = settings.OrderedHashSetting("fromk")
@@ -127,6 +139,79 @@ def test_hash_settings_from_keys(beacon):
     assert next(generator) == None
 """
 
+
+def test_orderedhash_settings(beacon):
+    data = tuple(
+        (str(n), v) for n, v in enumerate((ch for ch in "abcdefghilmnopqrstuvz"))
+    )
+    ohs = settings.OrderedHashSetting("ordhashset")
+    for k, v in data:
+        ohs[k] = v
+
+    get_all = ohs.get_all()
+
+    assert tuple(ohs.items()) == data == tuple(get_all.items())
+    assert tuple(ohs.keys()) == tuple(k for k, v in data)
+
+
+def test_orderedhash_settings_remove(beacon):
+    removeme = settings.OrderedHashSetting("removeme")
+    removeme["a"] = "a"
+    removeme["b"] = "b"
+    removeme["c"] = (1, 2, 3)
+    assert tuple(removeme.items()) == (("a", "a"), ("b", "b"), ("c", "(1, 2, 3)"))
+    assert tuple(removeme.values()) == ("a", "b", "(1, 2, 3)")
+    removeme.remove("b")
+    assert not removeme.has_key("b")
+    assert tuple(removeme.items()) == (("a", "a"), ("c", "(1, 2, 3)"))
+
+
+def test_orderedhash_settings_update(beacon):
+    updateme = settings.OrderedHashSetting("updateme")
+    updateme.update({1: 1, 2: 2})
+    assert tuple(updateme) == (("1", "1"), ("2", "2"))
+    updateme.update({4: 4, 3: 3})
+    assert tuple(updateme) == (("1", "1"), ("2", "2"), ("4", "4"), ("3", "3"))
+
+
+def test_orderedhash_settings_update(beacon):
+    updateme = settings.OrderedHashSetting("updateme")
+    updateme["a"] = 1
+    updateme["b"] = 2
+    updateme.update({"c": 3})
+
+    assert tuple(updateme.keys()) == tuple(("a", "b", "c"))
+    assert len(updateme) == 3
+    assert tuple(updateme.values()) == tuple((1, 2, 3))
+
+
+def test_orderedhash_settings_set(beacon):
+    setme = settings.OrderedHashSetting("setme")
+    setme.set({"first": "I", "second": "II"})
+
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("first", "I"), ("second", "II"))
+    )
+    setme.set({"firstagain": 1, "secondagain": 2})
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("firstagain", 1), ("secondagain", 2))
+    )
+    setme.set({"1": 11, "2": 22})
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("1", 11), ("2", 22))
+    )
+    assert len(setme) == 2
+    del setme["1"]
+    assert len(setme) == 1
+
+
+def test_orderedhash_settings_has_key(beacon):
+    haskeys = settings.OrderedHashSetting("haskeys")
+    haskeys.set({"first": "I", "second": "II"})
+    for item in "first", "second":
+        assert haskeys.has_key(item)
+
+
 """
 def test_orderedhash_settings_from_keys(beacon):
     fromkeys = settings.OrderedHashSetting("fromkeys")
@@ -134,6 +219,18 @@ def test_orderedhash_settings_from_keys(beacon):
     assert list(fromkeys.fromkeys('first','second','third')) == ['I',"II",None]
     assert list(fromkeys.fromkeys('third','second','first')) == [None, 'II',"I"]
 """
+
+
+def test_orderedhash_settings_ttl(session):
+    ihavetodie = settings.OrderedHashSetting("ihavetodie")
+    ihavetodie["I"] = "alive"
+    assert ihavetodie.ttl(1)
+    assert ihavetodie["I"] == "alive"
+    gevent.sleep(1.5)
+    with pytest.raises(KeyError):
+        ihavetodie["I"]
+    assert len(ihavetodie._cnx().zrange(ihavetodie._name_order, 0, -1)) == 0
+
 
 def test_queue_setting(session):
     myList = ["a", "b", "c", "d"]
@@ -488,6 +585,7 @@ def test_dir_shows_attrs_on_shell(session, capsys):
     ) in "add remove switch instance current_instance to_dict from_dict from_file freeze show_table creation_date last_accessed band music myproperty".split():
         assert name in captured.out
 
+
 """
 def test_delete_wardrobe(session):
     deleting = settings.ParametersWardrobe('deleting')
@@ -498,6 +596,7 @@ def test_delete_wardrobe(session):
     with pytest.raises(AttributeError):
         deleting.erasing
         """
+
 
 def test_non_removable(session):
     fake = settings.ParametersWardrobe("fake", not_removable=("immortal",))

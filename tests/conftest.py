@@ -20,6 +20,7 @@ from bliss.common import subprocess
 from bliss.common.session import DefaultSession
 from bliss.config import static
 from bliss.config.conductor import client
+from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 
@@ -153,12 +154,11 @@ def beacon(ports):
     redis_db = redis.Redis(port=ports.redis_port)
     redis_db.flushall()
     static.CONFIG = None
-    client._default_connection = None
+    client._default_connection = connection.Connection("localhost", ports.beacon_port)
     config = static.get_config()
     yield config
     config.close()
-    client._default_connection = None
-    static.CONFIG = None
+    client._default_connection.close()
 
 
 @pytest.fixture

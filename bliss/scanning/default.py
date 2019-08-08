@@ -9,6 +9,7 @@ import warnings
 import operator
 import functools
 
+from bliss import global_map
 from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
@@ -56,18 +57,26 @@ def _get_counters_from_object(arg, recursive=True):
         if not recursive:
             raise ValueError("Measurement groups cannot point to other groups")
         return _get_counters_from_measurement_group(arg)
+    counters = []
     try:
-        return list(arg.counter_groups.default)
+        counters = list(arg.counter_groups.default)
     except AttributeError:
-        pass
-    try:
-        return list(arg.counters)
-    except AttributeError:
-        pass
-    try:
-        return list(arg)
-    except TypeError:
-        return [arg]
+        try:
+            counters = list(arg.counters)
+        except AttributeError:
+            pass
+    if counters:
+        # replace counters with their aliased counterpart, if any
+        for i, cnt in enumerate(counters):
+            alias = global_map.aliases.get_alias(cnt)
+            if alias:
+                counters[i] = global_map.aliases.get(alias)
+        return counters
+    else:
+        try:
+            return list(arg)
+        except TypeError:
+            return [arg]
 
 
 def get_all_counters(counter_args):
@@ -95,7 +104,11 @@ def get_all_counters(counter_args):
             "Hint: disable inactive counters.".format(", ".join(missing))
         )
 
-    return filter(lambda cnt: isinstance(cnt, BaseCounter), all_counters)
+    for cnt in all_counters:
+        if not isinstance(cnt, BaseCounter):
+            raise TypeError(f"{cnt} is not a BaseCounter object")
+
+    return all_counters
 
 
 def master_to_devices_mapping(
@@ -149,7 +162,7 @@ def master_to_devices_mapping(
             scan_pars.copy(),
             device_dict=device_dict,
             master_dict=master_dict,
-            **settings
+            **settings,
         )
 
         # Parent handling

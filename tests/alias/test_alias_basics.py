@@ -92,6 +92,21 @@ def test_alias_duplication(alias_session):
         global_map.aliases.add("robyy", m0)
 
 
+def test_alias_overwriting_setup_object(alias_session):
+    # related to https://gitlab.esrf.fr/bliss/bliss/merge_requests/1455#note_34532
+    env_dict = alias_session.env_dict
+
+    m2 = env_dict["m2"]
+    roby = alias_session.config.get("roby")
+
+    with pytest.raises(RuntimeError):
+        global_map.aliases.add("roby", m2)
+
+    with pytest.raises(RuntimeError):
+        # 'bad' is an existing object in config (but not loaded in this session)
+        global_map.aliases.add("bad", m2)
+
+
 def test_alias_get(alias_session):
     env_dict = alias_session.env_dict
 

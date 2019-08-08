@@ -227,6 +227,12 @@ class Aliases:
         return obj
 
     def add(self, alias_name, obj_or_name, verbose=True):
+        if alias_name in self.__session.config.names_list:
+            raise RuntimeError(
+                "Invalid alias name: it corresponds to a configuration object"
+            )
+        if alias_name in self.__session.env_dict:
+            raise RuntimeError("Invalid alias name: would overwrite an existing object")
         if alias_name in self.__aliases_dict:
             raise RuntimeError("Alias already exists")
         if self.get_alias(obj_or_name):

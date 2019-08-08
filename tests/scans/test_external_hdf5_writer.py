@@ -57,7 +57,8 @@ def deep_compare(d, u):
                 stack.append((d[k], v))
 
 
-def test_external_hdf5_writer(alias_session, scan_tmpdir, dummy_acq_device):
+@pytest.fixture
+def test_alias_scans_listener(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
@@ -69,6 +70,18 @@ def test_external_hdf5_writer(alias_session, scan_tmpdir, dummy_acq_device):
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
 
     g = gevent.spawn(listen_scans_of_session, "test_alias")
+
+    yield
+
+    g.kill()
+
+
+def test_external_hdf5_writer(
+    test_alias_scans_listener, alias_session, dummy_acq_device
+):
+    env_dict = alias_session.env_dict
+
+    lima_sim = env_dict["lima_simulator"]
 
     ## a simple scan
     s1 = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
@@ -136,7 +149,6 @@ def test_external_hdf5_writer(alias_session, scan_tmpdir, dummy_acq_device):
     scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
 
     gevent.sleep(1)
-    g.kill()
 
     ## check if external file is the same as the one of bliss writer for simple scan
     external_writer = h5todict(s1.scan_info["filename"].replace(".", "_external."))[

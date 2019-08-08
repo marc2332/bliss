@@ -1,4 +1,3 @@
-
 from ..chain import AcquisitionDevice
 from ..channel import AcquisitionChannel
 from bliss.common.event import dispatcher
@@ -10,7 +9,7 @@ import sys
 
 class CalcHook(object):
     def compute(self, sender, data_dict):
-        raise NotImplemented
+        raise NotImplementedError
 
     def prepare(self):
         pass

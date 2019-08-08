@@ -82,7 +82,7 @@ def test_pickle_tb_exception():
     context.register_pickle()
 
     try:
-        raise TypeError("Fooo")
+        raise RuntimeError("fooo")
     except Exception as e:
         value = e
 
@@ -92,7 +92,8 @@ def test_pickle_tb_exception():
     results = list(unpacker)
     assert len(results) == 1
     result = results[0]
-    assert isinstance(result, TypeError)
+    assert isinstance(result, RuntimeError)
+    assert result.args[0] == "fooo"
     assert result.__traceback__ is not None
     tb = traceback.format_tb(result.__traceback__)
     assert "test_pickle_tb_exception" in tb[0]
@@ -118,6 +119,7 @@ def test_pickle_custom_exception():
     assert len(results) == 1
     result = results[0]
     assert isinstance(result, MyException)
+    assert result.args == ("fooo", 10)
     assert result.__traceback__ is not None
     tb = traceback.format_tb(result.__traceback__)
     assert "test_pickle_custom_exception" in tb[0]

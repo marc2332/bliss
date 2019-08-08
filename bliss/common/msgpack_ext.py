@@ -24,7 +24,7 @@ def encode_tb_exception(exception):
     file name and line number.
     """
     if not isinstance(exception, BaseException):
-        TypeError("Unsupported encoding for non-exception")
+        raise TypeError("Unsupported encoding for non-exception")
 
     traceback_dict = None
     if exception.__traceback__:

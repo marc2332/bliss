@@ -13,7 +13,7 @@ import pickle as pickle
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.data.node import DataNodeContainer, _get_or_create_node
@@ -325,3 +325,47 @@ def test_children_timing(beacon, session, scan_tmpdir):
     # print("AFTER RUN", list([n.db_name for n in s.node.children()]))
 
     g.kill()
+
+
+def test_scan_end_timing(
+    beacon, scan_meta, dummy_acq_master, dummy_acq_device
+):  # , clean_gevent):
+    scan_meta.clear()
+
+    # Get controllers
+    chain = AcquisitionChain()
+    master = dummy_acq_master.get(None, "master", npoints=1)
+    device = dummy_acq_device.get(None, "device", npoints=1)
+
+    def a_slow_func():
+        # this sleep is the point of the test...
+        # delay the filling of scan_info
+        gevent.sleep(.2)
+        return {"DummyDevice": "slow"}
+
+    def fill_meta_at_scan_end(scan_meta):
+        scan_meta.instrument.set("bla", a_slow_func())
+
+    device.fill_meta_at_scan_end = fill_meta_at_scan_end
+    chain.add(master, device)
+
+    scan = Scan(chain, "test", save=False, scan_info={"instrument": {"some": "text"}})
+
+    def g(scan_node):
+        parent = scan_node.parent
+        for event_type, node in parent.iterator.walk_on_new_events(filter="scan"):
+            if event_type.name == "END_SCAN":
+                assert node.info.get("instrument") == {
+                    "DummyDevice": "slow",
+                    "some": "text",
+                }
+                return
+
+    gg = gevent.spawn(g, scan.node)
+    gevent.sleep(.1)
+
+    scan.run()
+
+    with gevent.Timeout(1):
+        gg.get()
+        # if this raises "END_SCAN" event was not emitted

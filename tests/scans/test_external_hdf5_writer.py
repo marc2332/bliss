@@ -92,7 +92,7 @@ def test_external_hdf5_writer(
     diode_sim = alias_session.config.get("diode")
     diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
-    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.0005)
     # note: dummy device has 2 channels: pi and nb
     dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
     chain.add(lima_master, dummy_device)

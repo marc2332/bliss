@@ -65,9 +65,12 @@ class ChannelDataNode(DataNode):
         DataNode.__init__(self, "channel", name, info=info, **keys)
 
         # fix the channel name
-        if fullname and fullname.endswith(f":{name}"):
-            # no alias, name must be fullname
-            self._struct.name = fullname
+        if fullname:
+            if fullname.endswith(f":{name}"):
+                # no alias, name must be fullname
+                self._struct.name = fullname
+            elif fullname.startswith("axis:"):
+                self._struct.name = f"axis:{name}"
 
         self._queue = None
 

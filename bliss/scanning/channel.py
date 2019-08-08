@@ -57,10 +57,13 @@ class AcquisitionChannel:
     @property
     def name(self):
         """Return the channel fullname, or the alias"""
-        _, _, short_chan_name = self.__name.rpartition(":")
+        prefix, _, short_chan_name = self.__name.rpartition(":")
         alias = global_map.aliases.get(short_chan_name)
         if alias:
-            return alias.name
+            if prefix == "axis":
+                return f"axis:{alias.name}"
+            else:
+                return alias.name
         else:
             return self.__name
 

@@ -122,9 +122,10 @@ def test_scan_info_display_names_with_alias(alias_session):
     diode = alias_session.config.get("diode")
     s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
     acq_chan = s.acq_chain.nodes_list[0].channels[0]
-    assert acq_chan.name == "robyy"
+    assert acq_chan.name == "axis:robyy"
     assert (
-        s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"][
+        "axis:"
+        + s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"][
             acq_chan.fullname
         ]
         == acq_chan.name

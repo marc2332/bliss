@@ -166,10 +166,6 @@ Property name                                       | R/W? | Type   | Descriptio
 [state](motion_axis.md#axis-state)                  | R    | AxisState     | Returns the state of the axis (*MOVING*, *READY*, *ON_LIMIT*, etc)
 [encoder](motion_axis.md#encoder)                   | R    | Encoder[None] | Returns the encoder object associated to this axis
 
-### name
-
-alias ??
-
 
 ### position
 

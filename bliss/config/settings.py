@@ -684,9 +684,6 @@ class BaseHashSetting:
         cnx = self._cnx()
         cnx.delete(self._name)
 
-    # def copy(self):
-    #    return self.get()
-
     @write_decorator_dict
     def set(self, values):
         cnx = self._cnx()
@@ -699,11 +696,6 @@ class BaseHashSetting:
         cnx = self._cnx()
         if values:
             cnx.hmset(self._name, values)
-
-    @read_decorator
-    def fromkeys(self, *keys):
-        cnx = self._cnx()
-        return cnx.hmget(self._name, *keys)
 
     def has_key(self, key):
         cnx = self._cnx()
@@ -754,6 +746,148 @@ class BaseHashSetting:
             return True
         except KeyError:
             return False
+
+
+class OrderedHashSetting(BaseHashSetting):
+    """
+    A Setting stored as a key,value pair in Redis
+    The insertion order is mantained
+
+    Args:
+        name: name of the BaseHashSetting (used on Redis)
+        connection: Redis connection object
+            read_type_conversion: conversion of data applyed
+                after reading
+            write_type_conversion: conversion of data applyed
+                before writing
+    """
+
+    def __init__(
+        self,
+        name,
+        connection=None,
+        read_type_conversion=auto_coerce_from_redis,
+        write_type_conversion=str,
+    ):
+        super().__init__(name, connection, read_type_conversion, write_type_conversion)
+
+    @property
+    def _name_order(self):
+        return self._name + ":creation_order"
+
+    def __delitem__(self, key):
+        cnx = self._cnx()
+        cnx.hdel(self._name, key)
+        cnx.zrem(self._name_order, key)
+
+    def _next_score(self):
+        cnx = self._cnx()
+        result = cnx.zrange(self._name_order, -1, -1, withscores=True)
+        if not len(result):
+            return 0
+        value, score = result[0]
+        return int(score) + 1
+
+    def __len__(self):
+        return super().__len__()
+
+    def ttl(self, value=-1):
+        hash_ttl = super().ttl(value)
+        set_ttl = ttl_func(self._cnx(), self._name_order, value)
+        return hash_ttl
+
+    @read_decorator
+    def get(self, key, default=None):
+        v = self.raw_get(key)
+        if v is None:
+            v = DefaultValue(default)
+        return v
+
+    def _raw_get_all(self):
+        cnx = self._cnx()
+        order = iter(k for k in cnx.zrange(self._name_order, 0, -1))
+        return {key: cnx.hget(self._name, key) for key in order}
+
+    @read_decorator
+    def pop(self, key, default=Null()):
+        cnx = self._cnx().pipeline()
+        cnx.hget(self._name, key)
+        cnx.hdel(self._name, key)
+        cnx.zrem(self._name_order, key)
+        (value, worked) = cnx.execute()
+        if not worked:
+            if isinstance(default, Null):
+                raise KeyError(key)
+            else:
+                value = default
+        return value
+
+    def remove(self, *keys):
+        cnx = self._cnx()
+        cnx.hdel(self._name, *keys)
+        cnx.zrem(self._name_order, *keys)
+
+    def clear(self):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+        cnx.delete(self._name_order)
+
+    @write_decorator_dict
+    def set(self, values):
+        cnx = self._cnx()
+        cnx.delete(self._name)
+        cnx.delete(self._name_order)
+        if values is not None:
+            cnx.hmset(self._name, values)
+            for k in values.keys():
+                cnx.zadd(self._name_order, {k: self._next_score()})
+
+    @write_decorator_dict
+    def update(self, values):
+        cnx = self._cnx()
+        if values:
+            cnx.hmset(self._name, values)
+            for k in values.keys():
+                cnx.zadd(self._name_order, {k: self._next_score()}, nx=True)
+
+    def has_key(self, key):
+        cnx = self._cnx()
+        return cnx.zrank(self._name_order, key) is not None
+
+    def keys(self):
+        cnx = self._cnx()
+        return (k.decode() for k in cnx.zrange(self._name_order, 0, -1))
+
+    def values(self):
+        for k in self.keys():
+            yield self[k]
+
+    def items(self):
+        cnx = self._cnx()
+        for k in self.keys():
+            v = self[k]
+            if self._read_type_conversion:
+                v = self._read_type_conversion(v)
+            yield k, v
+
+    def __getitem__(self, key):
+        if key not in self:
+            raise KeyError(key)
+        return self.get(key)
+
+    def __setitem__(self, key, value):
+        cnx = self._cnx()
+        if value is None:
+            cnx.hdel(self._name, key)
+            cnx.zrem(self._name_order, key)
+            return
+        if self._write_type_conversion:
+            value = self._write_type_conversion(value)
+        cnx.hset(self._name, key, value)
+        cnx.zadd(self._name_order, {key: self._next_score()}, nx=True)
+
+    def __contains__(self, key):
+        return self.has_key(key)
 
 
 class HashSetting(BaseHashSetting):
@@ -920,6 +1054,17 @@ def _change_to_obj_marshalling(keys):
 
 
 class HashObjSetting(HashSetting):
+    """
+    Class to manage a setting that is stored as a dictionary on redis
+    where values of the dictionary are pickled
+    """
+
+    def __init__(self, name, **keys):
+        _change_to_obj_marshalling(keys)
+        super().__init__(name, **keys)
+
+
+class OrderedHashObjSetting(OrderedHashSetting):
     """
     Class to manage a setting that is stored as a dictionary on redis
     where values of the dictionary are pickled
@@ -1196,9 +1341,9 @@ class ParametersWardrobe(metaclass=ParametersType):
         if not default_values:
             default_values = {}
         if not property_attributes:
-            property_attributes = set()
+            property_attributes = ()
         if not not_removable:
-            not_removable = set()
+            not_removable = ()
 
         self.__update = True
 
@@ -1206,23 +1351,22 @@ class ParametersWardrobe(metaclass=ParametersType):
         # the first item is the currently used one
         self._instances = QueueSetting("parameters:%s" % name)
         self._wardr_name = name  # name of the ParametersWardrobe
-        self._property_attributes = set(
-            property_attributes
-        )  # set of property_attributes
-        self._not_removable = set(not_removable)
+        self._property_attributes = tuple(property_attributes) + (
+            "creation_date",
+            "last_accessed",
+        )
+        self._not_removable = tuple(not_removable)
 
         # adding attributes for last_accessed and creation_date
-        self._property_attributes.add("last_accessed")
-        self._property_attributes.add("creation_date")
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
-        self._proxy = BaseHashSetting(self._hash("default"), **keys)
-        self._proxy_default = BaseHashSetting(self._hash("default"), **keys)
+        self._proxy = OrderedHashSetting(self._hash("default"), **keys)
+        self._proxy_default = OrderedHashSetting(self._hash("default"), **keys)
 
         # Managing default written to proxy_default
         keys = self._proxy_default.keys()
-        for k in set(default_values.keys()) - set(keys):
+        for k in (k for k in default_values.keys() if k not in keys):
             # add only if default values does not exist
             self.add(k, default_values[k])
 
@@ -1240,12 +1384,11 @@ class ParametersWardrobe(metaclass=ParametersType):
         return "parameters:%s:%s" % (self._wardr_name, name)
 
     def __dir__(self):
-        keys_proxy = {x for x in self._proxy.keys() if not x.startswith("_")}
-        keys_proxy_default = {
+        keys_proxy_default = (
             x for x in self._proxy_default.keys() if not x.startswith("_")
-        }
+        )
         return (
-            list(keys_proxy.union(keys_proxy_default))
+            list(keys_proxy_default)
             + [
                 "add",
                 "remove",
@@ -1262,22 +1405,29 @@ class ParametersWardrobe(metaclass=ParametersType):
                 "show_table",
                 "creation_date",
                 "last_accessed",
+                "purge",
             ]
             + list(self._property_attributes)
         )
 
-    def to_dict(self):
+    def to_dict(self, export_properties=False):
         """
         Retrieve all parameters inside an instance in a dict form
         If a parameter is not present inside the instance, the
         default will be taken, property (computed) attributes are included.
 
+        Args:
+            export_properties: if set to true exports to dict also property attributes
+                               default is False
+
         Returns:
             dictionary with (parameter,value) pairs
         """
         return {
-            **self._get_instance("default"),
-            **self._get_instance(self.current_instance),
+            **self._get_instance("default", get_properties=export_properties),
+            **self._get_instance(
+                self.current_instance, get_properties=export_properties
+            ),
         }
 
     def from_dict(self, d: dict) -> None:
@@ -1295,7 +1445,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         logger.debug(f"In {type(self).__name__}({self._wardr_name}).from_dict({d})")
         if not d:
             raise TypeError("You should provide a dictionary")
-        backup = self.to_dict()
+        backup = self.to_dict(export_properties=True)
 
         redis_default_attrs = set(self._get_redis_single_instance("default").keys())
         found_attrs = set()
@@ -1467,7 +1617,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         data = list()
         data.append(column_repr)  # instance names on first row
-        for row_name in sorted(row_names):
+        for row_name in row_names:
             row_data = []
             row_data.append(row_name)
             for col in column_names:
@@ -1497,7 +1647,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         )
         max_len = max((0,) + tuple(len(x) for x in d.keys()))
         str_format = "  .%-" + "%ds" % max_len + " = %r\n"
-        for key, value in sorted(d.items()):
+        for key, value in d.items():
             if key.startswith("_"):
                 continue
             rep_str += str_format % (key, value)
@@ -1531,11 +1681,16 @@ class ParametersWardrobe(metaclass=ParametersType):
             params_all[instance] = {**params}
         return params_all
 
-    def _get_instance(self, name) -> dict:
+    def _get_instance(self, name, get_properties=True) -> dict:
         """
         Retrieve all parameters inside an instance
         Taking from default if not present inside the instance
         Property are included
+        
+        Args: 
+            get_properties: if False it will remove property attributes
+                            and also creation/modification info
+                            stored in _last_accessed and _creation_date
 
         Returns:
             dictionary with (parameter,value) pairs
@@ -1550,9 +1705,16 @@ class ParametersWardrobe(metaclass=ParametersType):
         self.__update = False  # to not change current instance
         self.switch(name)
 
-        attrs = self._get_redis_single_instance("default").keys()
+        attrs = list(self._get_redis_single_instance("default").keys())
         instance_ = {}
-        for attr in list(attrs) + list(self._property_attributes):
+
+        if get_properties:
+            attrs.extend(list(self._property_attributes))
+        else:
+            attrs.remove("_creation_date")
+            attrs.remove("_last_accessed")
+
+        for attr in attrs:
             instance_[attr] = getattr(self, attr)
 
         self.switch(self.current_instance)  # back to current instance
@@ -1656,15 +1818,26 @@ class ParametersWardrobe(metaclass=ParametersType):
             if param in self._not_removable or param in self._property_attributes:
                 raise AttributeError("Can't remove attribute")
             for param_instance in self.instances:
-                pr = BaseHashSetting(self._hash(param_instance))
+                pr = OrderedHashSetting(self._hash(param_instance))
                 pr.remove(param)
         elif param != "default" and param in self.instances:
             # removing an instance of parameters
-            pr = BaseHashSetting(self._hash(param))
+            pr = OrderedHashSetting(self._hash(param))
             pr.clear()
             self._instances.remove(param)  # removing from Queue
         else:
             raise NameError(f"Can't remove {param}")
+
+    def purge(self):
+        """
+        Removes completely any reference to the ParametersWardrobe from redis
+        """
+        for instance in self.instances:
+            pr = OrderedHashSetting(self._hash(instance))
+            pr.clear()
+            self._instances.remove(instance)  # removing from Queue
+
+        self._instances.clear()
 
     def switch(self, name, copy=None):
         """
@@ -1740,7 +1913,10 @@ class ParametersWardrobe(metaclass=ParametersType):
         Returns:
             Name of the current selected instance
         """
-        return self.instances[0]
+        try:
+            return self.instances[0]
+        except IndexError:
+            raise IOError("Trying to operate on a purged ParameterWardrobe")
 
     @property
     def last_accessed(self):

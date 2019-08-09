@@ -5,12 +5,16 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-from bliss.config import settings
-import pickle
-from bliss.common.axis import Axis
 import datetime
 import os
+import pickle
+import gevent
+
+import pytest
+
+from bliss.config import settings
+from bliss.common.axis import Axis
+from bliss.config.conductor.client import get_default_connection
 
 
 class DummyObject(object):
@@ -79,6 +83,16 @@ def test_basehash_setting(session):
     assert list(my_dict.keys()) == list(shs.keys())
 
 
+def test_basehash_settings_ttl(session):
+    ihavetodie = settings.BaseHashSetting("ihavetodie")
+    ihavetodie["I"] = "alive"
+    assert ihavetodie.ttl(1)
+    assert ihavetodie["I"] == "alive"
+    gevent.sleep(1.5)
+    with pytest.raises(KeyError):
+        ihavetodie["I"]
+
+
 def test_hash_setting(session):
     myDict = {"C1": "riri", "C2": "fifi"}
     shs = settings.HashSetting("myHkey", default_values=myDict)  # note the s :)
@@ -109,6 +123,113 @@ def test_hash_setting_default_value_readwrite_conv(beacon):
     assert shs.get("a") is None
     setting_object = shs.get("a", default=test_object)
     assert test_object is setting_object
+
+
+"""
+def test_hash_settings_from_keys(beacon):
+    fromk = settings.OrderedHashSetting("fromk")
+    fromk.set({"first":"I","second":"II"})
+    assert list(fromk.fromkeys('first','second','third')) == ['I',"II",None]
+    assert list(fromk.fromkeys('third','second','first')) == [None, 'II',"I"]
+
+    generator = fromk.fromkeys('first','second','third')
+    assert next(generator) =="I"
+    assert next(generator) =="II"
+    fromk['third'] = "III"
+    assert next(generator) == None
+"""
+
+
+def test_orderedhash_settings(beacon):
+    data = tuple(
+        (str(n), v) for n, v in enumerate((ch for ch in "abcdefghilmnopqrstuvz"))
+    )
+    ohs = settings.OrderedHashSetting("ordhashset")
+    for k, v in data:
+        ohs[k] = v
+
+    get_all = ohs.get_all()
+
+    assert tuple(ohs.items()) == data == tuple(get_all.items())
+    assert tuple(ohs.keys()) == tuple(k for k, v in data)
+
+
+def test_orderedhash_settings_remove(beacon):
+    removeme = settings.OrderedHashSetting("removeme")
+    removeme["a"] = "a"
+    removeme["b"] = "b"
+    removeme["c"] = (1, 2, 3)
+    assert tuple(removeme.items()) == (("a", "a"), ("b", "b"), ("c", "(1, 2, 3)"))
+    assert tuple(removeme.values()) == ("a", "b", "(1, 2, 3)")
+    removeme.remove("b")
+    assert not removeme.has_key("b")
+    assert tuple(removeme.items()) == (("a", "a"), ("c", "(1, 2, 3)"))
+
+
+def test_orderedhash_settings_update(beacon):
+    updateme = settings.OrderedHashSetting("updateme")
+    updateme.update({1: 1, 2: 2})
+    assert tuple(updateme) == (("1", "1"), ("2", "2"))
+    updateme.update({4: 4, 3: 3})
+    assert tuple(updateme) == (("1", "1"), ("2", "2"), ("4", "4"), ("3", "3"))
+
+
+def test_orderedhash_settings_update(beacon):
+    updateme = settings.OrderedHashSetting("updateme")
+    updateme["a"] = 1
+    updateme["b"] = 2
+    updateme.update({"c": 3})
+
+    assert tuple(updateme.keys()) == tuple(("a", "b", "c"))
+    assert len(updateme) == 3
+    assert tuple(updateme.values()) == tuple((1, 2, 3))
+
+
+def test_orderedhash_settings_set(beacon):
+    setme = settings.OrderedHashSetting("setme")
+    setme.set({"first": "I", "second": "II"})
+
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("first", "I"), ("second", "II"))
+    )
+    setme.set({"firstagain": 1, "secondagain": 2})
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("firstagain", 1), ("secondagain", 2))
+    )
+    setme.set({"1": 11, "2": 22})
+    assert tuple((k, v) for k, v in setme.get_all().items()) == tuple(
+        (("1", 11), ("2", 22))
+    )
+    assert len(setme) == 2
+    del setme["1"]
+    assert len(setme) == 1
+
+
+def test_orderedhash_settings_has_key(beacon):
+    haskeys = settings.OrderedHashSetting("haskeys")
+    haskeys.set({"first": "I", "second": "II"})
+    for item in "first", "second":
+        assert haskeys.has_key(item)
+
+
+"""
+def test_orderedhash_settings_from_keys(beacon):
+    fromkeys = settings.OrderedHashSetting("fromkeys")
+    fromkeys.set({"first":"I","second":"II"})
+    assert list(fromkeys.fromkeys('first','second','third')) == ['I',"II",None]
+    assert list(fromkeys.fromkeys('third','second','first')) == [None, 'II',"I"]
+"""
+
+
+def test_orderedhash_settings_ttl(session):
+    ihavetodie = settings.OrderedHashSetting("ihavetodie")
+    ihavetodie["I"] = "alive"
+    assert ihavetodie.ttl(1)
+    assert ihavetodie["I"] == "alive"
+    gevent.sleep(1.5)
+    with pytest.raises(KeyError):
+        ihavetodie["I"]
+    assert len(ihavetodie._cnx().zrange(ihavetodie._name_order, 0, -1)) == 0
 
 
 def test_queue_setting(session):
@@ -216,12 +337,14 @@ def test_parameters_wardrobe_switch(session):
     with pytest.raises(KeyError):
         dress.legs
 
-    check = dress.to_dict()
+    check = dress.to_dict(export_properties=True)
     assert check.get("head") == "nothing"
     assert check.get("body") == "shirt"
     assert check.get("_creation_date") is not None
     assert isinstance(check.get("_last_accessed"), str)
     assert len(check) == 6
+    check = dress.to_dict()
+    assert len(check) == 2
 
     # testing instances method
     for suite in ("a", "b", "c"):
@@ -358,7 +481,7 @@ def test_creation_time(session):
 
     # an empty Wardrobe has only creation/access info
     food = settings.ParametersWardrobe("food")
-    assert len(food.to_dict()) == 4
+    assert len(food.to_dict(export_properties=True)) == 4
     creation_time = "2018-07-22-07:00"
 
     food._creation_date = creation_time
@@ -424,6 +547,8 @@ def test_from_and_to_dict_with_inheritance(session):
     mypar.add("second", "I(")
     assert mypar.myproperty == "OK"
     dict_ = mypar.to_dict()
+    assert "myproperty" not in dict_  # check presence of property
+    dict_ = mypar.to_dict(export_properties=True)
     assert "myproperty" in dict_  # check presence of property
 
     assert len(dict_) == 7
@@ -730,3 +855,20 @@ def test_bad_name_for_beacon(session):
             bad.to_beacon(name, "default")
         with pytest.raises(NameError):
             bad.from_beacon(name, "default")
+
+
+def test_purge(beacon):
+    purge_me = settings.ParametersWardrobe("purge_me")
+    purge_me.switch("new_instance")
+    connection = beacon._connection.get_redis_connection(db=0)
+    assert connection.exists("parameters:purge_me")
+    assert connection.exists("parameters:purge_me:default")
+    assert connection.exists("parameters:purge_me:new_instance")
+    purge_me.purge()
+    assert not connection.exists("parameters:purge_me")
+    assert not connection.exists("parameters:purge_me:default")
+    assert not connection.exists("parameters:purge_me:new_instance")
+
+    with pytest.raises(IOError):
+        # try to access Wardrobe after purge will raise an exception
+        purge_me.current_instance

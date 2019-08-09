@@ -279,7 +279,7 @@ class ScanSaving(ParametersWardrobe):
             images_prefix = self.images_prefix
             data_filename = self.data_filename
             formatter = string.Formatter()
-            cache_dict = self.to_dict()
+            cache_dict = self.to_dict(export_properties=True)
             template_keys = [key[1] for key in formatter.parse(template)]
 
             for key in template_keys:
@@ -380,7 +380,7 @@ class ScanDisplay(ParametersWardrobe):
 
     def __dir__(self):
         keys = super().__dir__()
-        return keys + ["session", "auto", "counters"]
+        return keys
 
     def __repr__(self):
         return super().__repr__()

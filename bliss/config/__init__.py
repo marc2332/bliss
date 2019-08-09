@@ -18,3 +18,19 @@
     settings
     static
 """
+from . import static
+
+
+def get_sessions_list():
+    """Return a list of available sessions found in config"""
+    all_sessions = list()
+    config = static.get_config()
+    for name in config.names_list:
+        c = config.get_config(name)
+        if c.get("class") != "Session":
+            continue
+        if c.get_inherited("plugin") != "session":
+            continue
+        all_sessions.append(name)
+
+    return all_sessions

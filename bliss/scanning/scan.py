@@ -825,7 +825,6 @@ class Scan:
         for node in self.nodes.values():
             node.set_ttl()
         self.node.set_ttl()
-        self.node.end()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == "end":
@@ -961,49 +960,61 @@ class Scan:
                             gevent.killall(stop_task)
                             raise
         finally:
-            self.set_ttl()
+            with capture_exceptions(raise_index=0) as capture:
+                with capture():
+                    # check if there is any master or device that would like
+                    # to provide meta data at the end of the scan
+                    for dev in self.acq_chain.nodes_list:
+                        dev.fill_meta_at_scan_end(self.user_scan_meta)
+                    self.user_scan_meta.instrument.remove("positioners")
+                    deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+                    self._scan_info[
+                        "scan_meta_categories"
+                    ] = self.user_scan_meta.cat_list()
 
-            self.__state = ScanState.DONE
+                    # update scan_info in redis
+                    self.node._info.update(self.scan_info)
 
-            try:
-                if self._data_watch_callback:
-                    self._data_watch_callback.on_scan_end(self.scan_info)
+                self.set_ttl()
 
-            finally:
-                # check if there is any master or device that would like
-                # to provide meta data at the end of the scan
-                for dev in self.acq_chain.nodes_list:
-                    dev.fill_meta_at_scan_end(self.user_scan_meta)
-                self.user_scan_meta.instrument.remove("positioners")
-                deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
-                self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+                self.node.end()
 
-                # update scan_info in redis
-                self.node._info.update(self.scan_info)
+                # Close nodes
+                for node in self.nodes.values():
+                    try:
+                        node.close()
+                    except AttributeError:
+                        pass
 
-                if self.writer:
-                    # write scan_info to file
-                    self.writer.finalize_scan_entry(self)
-                    self.writer.close()
+                # Disconnect events
+                self.disconnect_all()
+
+                self.__state = ScanState.DONE
 
                 # Add scan to the globals
                 SCANS.append(self)
-                # Disconnect events
-                self.disconnect_all()
-                # Kill data watch task
-                if self._data_watch_task is not None:
-                    if (
-                        self._data_watch_task.ready()
-                        and not self._data_watch_task.successful()
-                    ):
-                        self._data_watch_task.get()
-                    self._data_watch_task.kill()
-                # Close nodes
-                for node in self.nodes.values():
-                    if hasattr(node, "close"):
-                        node.close()
 
-                self._execute_preset("stop")
+                if self.writer:
+                    # write scan_info to file
+                    with capture():
+                        self.writer.finalize_scan_entry(self)
+                        self.writer.close()
+
+                with capture():
+                    if self._data_watch_callback:
+                        self._data_watch_callback.on_scan_end(self.scan_info)
+
+                with capture():
+                    # Kill data watch task
+                    if self._data_watch_task is not None:
+                        if (
+                            self._data_watch_task.ready()
+                            and not self._data_watch_task.successful()
+                        ):
+                            self._data_watch_task.get()
+                        self._data_watch_task.kill()
+
+            self._execute_preset("stop")
 
     def _run_next(self, next_iter):
         next_iter.start()

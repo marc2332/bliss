@@ -183,8 +183,8 @@ class SimulatedMCA(BaseMCA):
             for _ in range(events):
                 loc = numpy.random.normal(size // 2, size // 16)
                 e = int(numpy.random.normal(loc, size // 16))
-                if e > size:
-                    e = size
+                if e >= size:
+                    e = size - 1
                 elif e < 0:
                     e = 0
                 data[i][e] += 1

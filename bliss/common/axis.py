@@ -28,18 +28,18 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
     READY (Axis is READY)
 """
 
-from bliss.common.task import task
-from bliss.common.cleanup import cleanup, error_cleanup, capture_exceptions
+from bliss.common.cleanup import capture_exceptions
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
-from bliss.common.utils import Null, with_custom_members
+from bliss.common.utils import with_custom_members
 from bliss.common.encoder import Encoder
-from bliss.common.hook import MotionHook
 from bliss.config.channels import Channel
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.common.logtools import *
+import bliss
+
 import gevent
 import re
 import sys
@@ -446,7 +446,7 @@ class CyclicTrajectory(Trajectory):
 
     @property
     def pvt(self):
-        """Returns the full PVT table. Positions are absolute"""
+        """Return the full PVT table. Positions are absolute"""
         pvt_pattern = self.pvt_pattern
         if self.is_closed:
             # take first point out because it is equal to the last
@@ -686,7 +686,7 @@ class Axis:
         self.settings.set(*args)
 
     def get_setting(self, *args):
-        """Returns the values for the given settings"""
+        """Return the values for the given settings"""
         return self.settings.get(*args)
 
     def has_tag(self, tag):
@@ -696,7 +696,7 @@ class Axis:
         Args:
             tag (str): tag name
 
-        Returns:
+        Return:
             bool: True if the axis has the tag or False otherwise
         """
         for t, axis_list in self.__controller._tagged.items():
@@ -746,9 +746,9 @@ class Axis:
     @lazy_init
     def measured_position(self):
         """
-        Returns the encoder value in user units.
+        Return the encoder value in user units.
 
-        Returns:
+        Return:
             float: encoder value in user units
         """
         return self.dial2user(self.dial_measured_position)
@@ -757,9 +757,9 @@ class Axis:
     @lazy_init
     def dial_measured_position(self):
         """
-        Returns the dial encoder position.
+        Return the dial encoder position.
 
-        Returns:
+        Return:
             float: dial encoder position
         """
         if self.encoder is not None:
@@ -790,9 +790,9 @@ class Axis:
     @lazy_init
     def dial(self):
         """
-        Returns current dial position, or set dial
+        Return current dial position, or set dial
 
-        Returns:
+        Return:
             float: current dial position (dimensionless)
         """
         dial_pos = self.settings.get("dial_position")
@@ -820,9 +820,9 @@ class Axis:
     @lazy_init
     def position(self):
         """
-        Returns current user position, or set new user position
+        Return current user position, or set new user position
 
-        Returns:
+        Return:
             float: current user position (user units)
         """
         pos = self.settings.get("position")
@@ -876,12 +876,12 @@ class Axis:
     @lazy_init
     def state(self):
         """
-        Returns the axis state
+        Return the axis state
 
         Keyword Args:
             read_hw (bool): read from hardware [default: False]
 
-        Returns:
+        Return:
             AxisState: axis state
         """
         if self.is_moving:
@@ -896,17 +896,83 @@ class Axis:
     @lazy_init
     def hw_state(self):
         """
-        Returns the current hardware axis state
+        Return the current hardware axis state
 
-        Returns:
+        Return:
             AxisState: axis state
         """
         return self.__controller.state(self)
 
     @lazy_init
-    def get_info(self):
-        """Returns controller specific information about the axis"""
-        return self.__controller.get_info(self)
+    def info(self):
+        """Return common axis information about the axis.
+        PLUS controller specific information.
+        """
+        _info_string = ""
+        _info_string += f"axis name: {self.name}\n"
+        _info_string += f"     state: {self.state}\n"
+        _info_string += f"     unit: {self.unit}\n"
+        _info_string += f"     offset: {self.offset}\n"
+        _info_string += f"     backlash: {self.backlash}\n"
+        _info_string += f"     sign: {self.sign}\n"
+        _info_string += f"     steps_per_unit: {self.steps_per_unit}\n"
+        _info_string += f"     tolerance: {self.tolerance}\n"
+
+        # To avoid error if no encoder.
+        try:
+            _enc = self.encoder
+            _meas_pos = self.measured_position
+            _dial_meas_pos = self.dial_measured_position
+            _info_string += f"     encoder: {_enc}\n"
+            _info_string += f"     measured_position: {_meas_pos}\n"
+            _info_string += f"     dial_measured_position: {_dial_meas_pos}\n"
+        except RuntimeError:
+            _info_string += f"     encoder: None\n"
+
+        _info_string += f"     motion_hooks: {self.motion_hooks}\n"
+        _info_string += f"     dial: {self.dial}\n"
+        _info_string += f"     position: {self.position}\n"
+        _info_string += f"     _hw_position: {self._hw_position}\n"
+        _info_string += f"     hw_state: {self.hw_state}\n"
+
+        _info_string += f"     limits: {self.limits}  (config: {self.config_limits})\n"
+
+        # To avoid error if no acceleration.
+        try:
+            _acc = self.acceleration
+            _acc_config = self.config_acceleration
+            _acc_time = self.acctime
+            _acc_time_config = self.config_acctime
+            _info_string += f"     acceleration: {_acc} (config: {_acc_config})\n"
+            _info_string += f"     acctime: {_acc_time}  (config: {_acc_time_config})\n"
+        except Exception as e:
+            _info_string += f"     acceleration: None\n"
+
+        if isinstance(self.controller, bliss.controllers.motor.CalcController):
+            _info_string += "CalcController\n"
+        else:
+            _info_string += (
+                f"     velocity: {self.velocity}  (config: {self.config_velocity})\n"
+            )
+
+        try:
+            _info_string += self.__controller.get_info(self)
+        except Exception as e:
+            _info_string += f"{self.controller}\n"
+
+        return _info_string
+
+    def __info__(self):
+        """Standard function called by BLISS Shell typing helper to get info
+        about objects.
+        """
+        try:
+            return self.info()
+        except:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""
@@ -919,20 +985,20 @@ class Axis:
     @lazy_init
     def velocity(self):
         """
-        Returns the current velocity. If *new_velocity* is given it sets
+        Return the current velocity. If *new_velocity* is given it sets
         the new velocity on the controller.
 
         Keyword Args:
             new_velocity (float): new velocity (user units/second) [default: \
             None, meaning return the current velocity]
             from_config (bool): if reading velocity (new_velocity is None), \
-            if True, returns the current static configuration velocity, \
-            otherwise, False returns velocity from the motor axis \
+            if True, return the current static configuration velocity, \
+            otherwise, False return velocity from the motor axis \
             [default: False]
-        Returns:
+        Return:
             float: current velocity (user units/second)
         """
-        # Read -> Returns velocity read from motor axis.
+        # Read -> Return velocity read from motor axis.
         _user_vel = self.settings.get("velocity")
         if _user_vel is None:
             _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
@@ -951,9 +1017,9 @@ class Axis:
     @property
     def config_velocity(self):
         """
-        Returns the config velocity.
+        Return the config velocity.
 
-        Returns:
+        Return:
             float: current velocity (user units/second)
         """
         return self.config.get("velocity", float)
@@ -994,9 +1060,9 @@ class Axis:
     @lazy_init
     def acctime(self):
         """
-        Returns the current acceleration time.
+        Return the current acceleration time.
 
-        Returns:
+        Return:
             float: current acceleration time (second)
         """
         return self.velocity / self.acceleration
@@ -1011,7 +1077,7 @@ class Axis:
     @property
     def config_acctime(self):
         """
-        Returns the config acceleration time.
+        Return the config acceleration time.
         """
         return self.config_velocity / self.config_acceleration
 
@@ -1019,9 +1085,9 @@ class Axis:
     @lazy_init
     def limits(self):
         """
-        Returns or set the current software limits in USER units.
+        Return or set the current software limits in USER units.
 
-        Returns:
+        Return:
             tuple<float, float>: axis software limits (user units)
         """
         return self.low_limit, self.high_limit
@@ -1064,7 +1130,7 @@ class Axis:
     @property
     @lazy_init
     def high_limit(self):
-        # Returns High Limit in USER units.
+        # Return High Limit in USER units.
         limit = self.settings.get("high_limit")
         if limit is not None:
             return self.dial2user(limit)
@@ -1106,7 +1172,7 @@ class Axis:
         Keyword Args:
             offset (float): alternative offset. None (default) means use current offset
 
-        Returns:
+        Return:
             float: position in axis user units
         """
         if position is None:
@@ -1123,7 +1189,7 @@ class Axis:
         Args:
             position (float): position in user units
 
-        Returns:
+        Return:
             float: position in axis dial units
         """
         return (position - self.offset) / self.sign
@@ -1673,7 +1739,7 @@ class AxisState(object):
 
     def states_list(self):
         """
-        Returns a list of available/created states for this axis.
+        Return a list of available/created states for this axis.
         """
         return list(self._state_desc)
 
@@ -1761,9 +1827,9 @@ class AxisState(object):
 
     def current_states(self):
         """
-        Returns a string of current states.
+        Return a string of current states.
 
-        Returns:
+        Return:
             str: *|* separated string of current states or string *UNKNOWN* \
             if there is no current state
         """
@@ -1849,7 +1915,7 @@ class AxisState(object):
                           are shared with the new AxisState. Otherwise, a copy
                           of possible states is created for the new AxisState.
 
-        Returns:
+        Return:
             AxisState: a copy of this AxisState with no current states
         """
         result = AxisState()

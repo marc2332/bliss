@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import re
 import time
 import gevent
 import gevent.event
@@ -36,6 +37,42 @@ def test_state_callback(robz):
 
     assert ready_event.get(timeout=0.1)
     assert robz.state.READY
+
+
+def test_info(robz, capsys):
+    assert robz.controller.name == "test"
+    captured = robz.__info__()
+
+    output = "axis name: robz\n"
+    output += "     state: READY (Axis is READY)\n"
+    output += "     unit: mm\n"
+    output += "     offset: 0.0\n"
+    output += "     backlash: 0\n"
+    output += "     sign: 1\n"
+    output += "     steps_per_unit: 10000.0\n"
+    output += "     tolerance: 0.0001\n"
+    output += "     encoder: None\n"
+    output += "     motion_hooks: []\n"
+    output += "     dial: 0.0\n"
+    output += "     position: 0.0\n"
+    output += "     _hw_position: 0.0\n"
+    output += "     hw_state: READY (Axis is READY)\n"
+    output += (
+        "     limits: (-1000.0, 1000000000.0)  (config: (-1000.0, 1000000000.0))\n"
+    )
+    output += "     acceleration: 300.0 (config: 300.0)\n"
+    output += "     acctime: 0.3333333333333333  (config: 0.3333333333333333)\n"
+    output += "     velocity: 100.0  (config: 100.0)\n"
+    # output += "controller: <bliss.controllers.motors.mockup.Mockup object at 0x7f78ac843d30>\n"
+    output += "Axis: robz\n"
+    output += "Controller:\n"
+    output += "  class: <class 'bliss.controllers.motors.mockup.Mockup'>\n"
+    output += "  name: test\n"
+
+    # remove "controller" line because 0x7f78ac843d30 ref is not deterministic...
+    captured = re.sub("controller:.*\n", "", captured)
+
+    assert captured == output
 
 
 def test_move_done_callback(robz):

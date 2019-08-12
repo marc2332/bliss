@@ -73,6 +73,74 @@ after changes of settings in a session for example.
 see [beacon db](beacon_db.md#configuration-behavior) for usage
 examples of `apply_config()`.
 
+
+## Axis in BLISS shell
+
+The typing helper allowing to print info in BLISS shell will print the following
+info by default for all 'Axis' objects:
+
+example for a VSCANNER:
+```python
+DEMO [1]: sampy
+ Out [1]: axis name: sampy
+               state: READY (Axis is READY)
+               unit: None
+               offset: 0.0
+               backlash: 0.0
+               sign: 1
+               steps_per_unit: 0.1
+               tolerance: 0.01
+               encoder: None
+               motion_hooks: []
+               dial: 2.00001
+               position: 2.00001
+               _hw_position: 2.00001
+               hw_state: READY (Axis is READY)
+               velocity: 10.0  (config: 10.0)
+               acceleration: None   limits: (0.0, 100.0)  (config: (0.0, 100.0))
+          controller: <bliss.controllers.motors.vscanner.VSCANNER object at
+                       0x7fe0bf0c2fd0>
+          ...
+```
+
+More info are then displayed, taken from `get_info()` method of the specific
+controller.
+
+example for a VSCANNER:
+```python
+          ...
+           ###############################
+           Config:
+             url=rfc2217://lid213.esrf.fr:28206
+             class=VSCANNER
+             channel letter:X
+           ###############################
+           ?ERR: b'OK\r'
+           ###############################
+           '?INFO' command:
+           firmware version   : VSCANNER 01.02
+           output voltage     : 0.200001 0.500205
+           unit state         : READY
+           ###############################
+           $
+           Max. number of lines: 3276
+           Internal time step (microsec.): 50
+
+           Current settings:
+              LINE -0.100193 0 1 C
+              SCAN 0 0 1 U
+              VEL 0.001 0
+              LTRIG MASK
+              PTRIG MASK
+              PIXEL 0 0
+              HDELAY 0
+           $
+           ###############################
+```
+
+
+
+
 ## Custom axis classes
 
 `Axis` is the default class that corresponds to controller motors,

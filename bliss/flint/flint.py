@@ -627,8 +627,8 @@ def create_flint(settings):
     central_widget = qt.QWidget(win)
     tabs = qt.QTabWidget(central_widget)
     win.setCentralWidget(tabs)
-    log_window = qt.QWidget()
-    log_widget = LogWidget()
+    log_window = qt.QDialog(win)
+    log_widget = LogWidget(log_window)
     qt.QVBoxLayout(log_window)
     log_window.layout().addWidget(log_widget)
     log_window.setAttribute(qt.Qt.WA_QuitOnClose, False)
@@ -640,7 +640,11 @@ def create_flint(settings):
     showLogAction = qt.QAction("Show &log", win)
     showLogAction.setShortcut("Ctrl+L")
     showLogAction.setStatusTip("Show log window")
-    showLogAction.triggered.connect(log_window.show)
+
+    def showLog():
+        log_window.show()
+
+    showLogAction.triggered.connect(showLog)
     menubar = win.menuBar()
     fileMenu = menubar.addMenu("&File")
     fileMenu.addAction(exitAction)

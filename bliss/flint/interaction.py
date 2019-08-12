@@ -7,7 +7,7 @@
 
 
 from silx.gui import qt, icons
-from silx.gui.plot.actions import PlotAction, mode
+from silx.gui.plot.actions import PlotAction
 from silx.gui.plot import PlotWindow, PlotWidget
 from silx.gui.colors import rgba
 

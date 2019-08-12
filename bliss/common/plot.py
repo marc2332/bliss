@@ -30,7 +30,7 @@ This interface supports several types of plot:
 - **image plot**:
 
   * plot one or several image on top of each other
-  * the image order can be controled using a depth parameter
+  * the image order can be controlled using a depth parameter
   * the plot is created using ``plot_image``
 
 - **image + histogram plot**:
@@ -153,7 +153,6 @@ import platform
 from bliss.comm import rpc
 from bliss.common import session as session_module
 from bliss.common import subprocess
-from bliss.config.channels import Channel
 from bliss.config.conductor.client import get_default_connection
 
 __all__ = [

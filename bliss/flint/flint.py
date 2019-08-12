@@ -5,10 +5,8 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# Imports
 import os
 import sys
-import types
 import logging
 import platform
 import tempfile
@@ -20,7 +18,6 @@ import collections
 import signal
 
 import numpy
-import gevent
 import gevent.event
 
 from bliss.comm import rpc
@@ -30,33 +27,38 @@ from bliss.config.conductor.client import (
     get_redis_connection,
     clean_all_redis_connection,
 )
-from bliss.flint.qgevent import set_gevent_dispatcher
+import bliss.flint.resources
+
+# from bliss.flint.qgevent import set_gevent_dispatcher
 
 from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    from silx.gui import qt
+    from silx.gui.plot import Plot1D
     from silx.gui.plot import Plot2D
     from silx.gui import plot as silx_plot
-    from silx.gui import qt
-    from silx.gui.plot.tools.roi import RegionOfInterestManager
-    from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
     from silx.gui.plot.items.roi import RectangleROI
 
-from .plot1d import Plot1D, LivePlot1D, LiveScatterPlot
-from .interaction import PointsSelector, ShapeSelector
+from .widgets.live_plot_1d import LivePlot1D
+from .widgets.live_scatter_plot import LiveScatterPlot
+from bliss.flint.interaction import PointsSelector, ShapeSelector
+from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.log_widget import LogWidget
 
 # Globals
 
+# FIXME is it really needed to call it outside the main function?
 pyqtRemoveInputHook()
 
 # Logging
 
-LOGGER = logging.getLogger()
+ROOT_LOGGER = logging.getLogger()
 
 
 @contextlib.contextmanager
-def ignore_warnings(logger=LOGGER):
+def ignore_warnings(logger=ROOT_LOGGER):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         level = logger.level
@@ -107,52 +109,13 @@ def background_task(flint, stop):
 # Flint interface
 
 
-class ROISelectionWidget(qt.QMainWindow):
-
-    selectionFinished = qt.Signal(object)
-
-    def __init__(self, plot, parent=None):
-        qt.QMainWindow.__init__(self, parent)
-        # TODO: destroy on close
-        self.plot = plot
-        panel = qt.QWidget()
-        self.setCentralWidget(panel)
-
-        self.roi_manager = RegionOfInterestManager(plot)
-        self.roi_manager.setColor("pink")
-        self.roi_manager.sigRoiAdded.connect(self.on_added)
-        self.table = RegionOfInterestTableWidget()
-        self.table.setRegionOfInterestManager(self.roi_manager)
-
-        self.toolbar = qt.QToolBar()
-        self.addToolBar(self.toolbar)
-        rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
-        self.toolbar.addAction(rectangle_action)
-        self.toolbar.addSeparator()
-        self.toolbar.addAction("Apply", self.on_apply)
-
-        layout = qt.QVBoxLayout(panel)
-        layout.addWidget(self.table)
-
-    def on_apply(self):
-        self.selectionFinished.emit(self.roi_manager.getRois())
-        self.roi_manager.clear()
-
-    def on_added(self, roi):
-        if not roi.getLabel():
-            nb_rois = len(self.roi_manager.getRois())
-            roi.setLabel("roi{}".format(nb_rois))
-
-    def add_roi(self, roi):
-        self.roi_manager.addRoi(roi)
-
-
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
     _id_generator = itertools.count()
 
-    def __init__(self, parent_tab):
+    def __init__(self, mainwin, parent_tab):
+        self.mainwin = mainwin
         self.parent_tab = parent_tab
         self.main_index = next(self._id_generator)
         self.plot_dict = {self.main_index: parent_tab}
@@ -531,6 +494,17 @@ class Flint:
                 if callable(getattr(plot, name))
             ]
 
+    def set_plot_dpi(self, plot_id, dpi):
+        """Allow to custom the DPI of the plot
+
+        FIXME: It have to be moved to user preferences
+        """
+        try:
+            self.plot_dict[plot_id]._backend.fig.set_dpi(dpi)
+        except Exception:
+            # Prevent access to private _backend object
+            pass
+
     # Data management
 
     def update_data(self, plot_id, field, data):
@@ -599,7 +573,7 @@ class Flint:
             done_event.set_result(shapes)
 
     def _create_roi_dock_widget(self, plot, initial_shapes):
-        roi_widget = ROISelectionWidget(plot)
+        roi_widget = RoiSelectionWidget(plot)
         dock = qt.QDockWidget("ROI selection")
         dock.setWidget(roi_widget)
         plot.addTabbedDockWidget(dock)
@@ -639,61 +613,58 @@ class Flint:
             selector.reset()
 
 
-class QtLogHandler(logging.Handler):
-    def __init__(self, log_widget):
-        logging.Handler.__init__(self)
-
-        self.log_widget = log_widget
-
-    def emit(self, record):
-        record = self.format(record)
-        self.log_widget.appendPlainText(record)
-
-
 # Main execution
 
 
-def main():
-    set_gevent_dispatcher()
-
-    qapp = qt.QApplication(sys.argv)
-    qapp.setApplicationName("flint")
-    qapp.setOrganizationName("ESRF")
-    qapp.setOrganizationDomain("esrf.eu")
-
+def create_flint(settings):
+    """"
+    Create Flint class and main windows without interaction with the
+    environment.
+    """
     win = qt.QMainWindow()
+    win.setAttribute(qt.Qt.WA_QuitOnClose, True)
+
     central_widget = qt.QWidget(win)
     tabs = qt.QTabWidget(central_widget)
     win.setCentralWidget(tabs)
-    log_window = qt.QWidget()
-    log_widget = qt.QPlainTextEdit()
+    log_window = qt.QDialog(win)
+    log_widget = LogWidget(log_window)
     qt.QVBoxLayout(log_window)
     log_window.layout().addWidget(log_widget)
     log_window.setAttribute(qt.Qt.WA_QuitOnClose, False)
-    log_widget.setReadOnly(True)
     log_window.setWindowTitle("Log messages")
     exitAction = qt.QAction("&Exit", win)
     exitAction.setShortcut("Ctrl+Q")
     exitAction.setStatusTip("Exit flint")
-    exitAction.triggered.connect(qapp.quit)
+    exitAction.triggered.connect(win.close)
     showLogAction = qt.QAction("Show &log", win)
     showLogAction.setShortcut("Ctrl+L")
     showLogAction.setStatusTip("Show log window")
-    showLogAction.triggered.connect(log_window.show)
+
+    def showLog():
+        log_window.show()
+
+    showLogAction.triggered.connect(showLog)
     menubar = win.menuBar()
     fileMenu = menubar.addMenu("&File")
     fileMenu.addAction(exitAction)
     windowMenu = menubar.addMenu("&Windows")
     windowMenu.addAction(showLogAction)
 
-    settings = qt.QSettings()
+    def about():
+        from .widgets.about import About
 
-    def save_window_settings():
-        settings.setValue("size", win.size())
-        settings.setValue("pos", win.pos())
-        settings.sync()
+        About.about(win, "Flint")
 
-    qapp.aboutToQuit.connect(save_window_settings)
+    action = qt.QAction("&About", win)
+    action.setStatusTip("Show the application's About box")
+    action.triggered.connect(about)
+    windowMenu = menubar.addMenu("&Help")
+    windowMenu.addAction(action)
+
+    log_widget.connect_logger(ROOT_LOGGER)
+
+    flint = Flint(win, tabs)
 
     # resize window to 70% of available screen space, if no settings
     pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
@@ -702,13 +673,33 @@ def main():
     win.resize(settings.value("size", qt.QSize(w, h)))
     win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
 
-    handler = QtLogHandler(log_widget)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s: %(message)s"))
-    LOGGER.addHandler(handler)
-    LOGGER.level = logging.INFO
+    return flint
+
+
+def main():
+    # set_gevent_dispatcher()
+
+    qapp = qt.QApplication(sys.argv)
+    qapp.setApplicationName("flint")
+    qapp.setOrganizationName("ESRF")
+    qapp.setOrganizationDomain("esrf.eu")
+
+    bliss.flint.resources.silx_integration()
+
+    settings = qt.QSettings()
+    flint = create_flint(settings)
+
+    def save_window_settings():
+        settings.setValue("size", flint.mainwin.size())
+        settings.setValue("pos", flint.mainwin.pos())
+        settings.sync()
+
+    qapp.aboutToQuit.connect(save_window_settings)
+
+    ROOT_LOGGER.level = logging.INFO
 
     def handle_exception(exc_type, exc_value, exc_traceback):
-        LOGGER.critical(
+        ROOT_LOGGER.critical(
             "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
         )
 
@@ -726,14 +717,17 @@ def main():
     timer.start(500)
     timer.timeout.connect(lambda: None)
 
-    stop = gevent.event.AsyncResult()
-    flint = Flint(tabs)
+    timer2 = qt.QTimer()
+    timer2.start(10)
+    timer2.timeout.connect(lambda: gevent.sleep(0.01))
 
+    stop = gevent.event.AsyncResult()
     thread = gevent.spawn(background_task, flint, stop)
 
+    # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
-    single_shot.timeout.connect(win.show)
+    single_shot.timeout.connect(flint.mainwin.show)
     single_shot.start(0)
 
     try:

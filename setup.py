@@ -166,7 +166,7 @@ def main():
         "numpy >= 1.13",
         "mendeleev",
         "pint",
-        'silx == 0.10.1; platform_machine == "x86_64"',
+        'silx >= 0.11; platform_machine == "x86_64"',
         "psutil",
         "requests",
         "cffi",
@@ -184,6 +184,29 @@ def main():
     if TESTING:
         setup_requires += ["pytest-runner"]
 
+    package_data = {
+        "bliss.config.redis": ["redis.conf"],
+        "bliss.config.plugins": ["*.html"],
+        "bliss.config.conductor.web": [
+            "*.html",
+            "css/*.*",
+            "css/jstree/*.*",
+            "js/*.*",
+            "res/*.*",
+        ],
+        "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
+        "bliss.config": ["tmux.conf"],
+        "bliss.flint.resources": [
+            "logo/*.png",
+            "logo/*.svg",
+            "icons/*.png",
+            "icons/*.svg",
+            "icons/*.mng",
+            "icons/*.gif",
+            "icons/*/*.png",
+        ],
+    }
+
     setup(
         name=meta["name"],
         author=meta["author"],
@@ -193,19 +216,7 @@ def main():
         url=meta["url"],
         package_dir={"bliss": "bliss"},
         packages=packages,
-        package_data={
-            "bliss.config.redis": ["redis.conf"],
-            "bliss.config.plugins": ["*.html"],
-            "bliss.config.conductor.web": [
-                "*.html",
-                "css/*.*",
-                "css/jstree/*.*",
-                "js/*.*",
-                "res/*.*",
-            ],
-            "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
-            "bliss.config": ["tmux.conf"],
-        },
+        package_data=package_data,
         ext_modules=extensions,
         scripts=["bin/beacon-server-list", "bin/sps_data_watch"],
         entry_points={

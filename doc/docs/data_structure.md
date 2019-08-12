@@ -162,7 +162,51 @@ g2.kill()
 
 ```
 
-Note: In the example above we use `node.get(-1)` to retrieve the last data value produced on this node. For more details see method `get(from_index, to_index=None)` of the [ChannelDataNode](scan_data_node.md#channeldatanode).
+!!! note
+    In the example above we use `node.get(-1)` to retrieve the last data value produced on this node. For more details see method `get(from_index, to_index=None)` of the [ChannelDataNode](scan_data_node.md#channeldatanode).
+
+#### Lima Data View
+
+2D images from Lima servers have a special `lima` node type, which corresponds to a `LimaImageChannelDataNode` class.
+When executing `.get()` on those nodes, the returned value is not directly the raw images, since it can be very
+voluminous, but a "view" on the data instead. It represents **references to data** already produced the image channel
+at the moment the view object is instantiated. 
+
+```py
+>>> g3 = gevent.spawn(g, "lima")
+
+>>> lima_simulator=config.get("lima_simulator")                                                                                                        
+>>> ct(0.1, lima_simulator)                        
+event.NEW_NODE image <bliss.data.lima.LimaImageChannelDataNode.LimaDataView object at 0x7f4d28931be0>                        event.NEW_DATA_IN_CHANNEL image <bliss.data.lima.LimaImageChannelDataNode.LimaDataView object at 0x7f4d28931c18>             
+```
+
+Function `g()` calls `.get(-1)` on the node object, thus returning the last image view. This works the same as with
+other nodes. It is perfectly valid to only get a view with partial data, for example: `.get(0, 10)` will return a
+view object for images from 0 to 10 only.
+
+
+#### Getting raw image data
+
+The `.get_image()` method can be called on `LimaDataView` objects to retrieve raw image data from references stored
+within a Lima data view object.
+
+```py
+>>> ct(0.1, lima_simulator)
+Scan(number=1, name=ct, path=<no saving>)
+
+>>> SCANS[-1].node
+<bliss.data.scan.Scan object at 0x7efda1dd0898>
+
+>>> lima_node = next(SCANS[-1].node.iterator.walk(filter="lima", wait=False)) #there is only one Lima node for this 'ct'
+
+>>> lima_data_view = lima_node.get(-1)
+
+>>> raw_image_data = lima_data_view.get_image(-1)
+```
+
+!!! note
+    `.get_image(-1)` means "get latest image from the view". In the example above, there is only one image so it would be
+equivalent to `.get_image(0)`.
 
 
 ### Scanning & experiment sequences
@@ -186,6 +230,29 @@ Scan(number=11, name=ascan, path=/mnt/c/tmp/sample2/test_session/data.h5)
 'elapsed_time': array([0., 0.15733457, 0.33751416, 0.49564481, 0.6538229 , 0.80611968, 0.94998145, 1.12727523, 1.28556204, 1.4369061 ]),
 'diode':        array([ 70., -57., -61., -43.,  89.,  54.,  23., -89., -87., -98.])
 }
+```
+
+#### Getting image data
+
+Image data is not directly retrieved via the scan object `.get_data()` method, since it can be very voluminous. In case
+of an acquisition with images, the returned dictionary will contain a key with the image channel fullname, that gives
+access to a *data view object*.
+
+The view object is used to get the raw image data from references. Indeed, the image data can be still available from
+the Lima server memory, if it is not the case it may try other data sources -- at the last resort it tries to open
+the file (if image saving is activated).
+The Lima data view object has a `.get_image(image_index)` method that returns the raw image data:
+
+```py
+BLISS [1]: lima_simulator=config.get("lima_simulator")                                                                                                               
+BLISS [2]: ct(0.1, lima_simulator)                                                                                                                                   
+  Out [2]: Scan(number=14, name=ct, path=<no saving>)                                                                                                                
+BLISS [3]: SCANS[-1].get_data()['lima_simulator:image'].get_image(-1)                                                                                                
+  Out [3]: array([[0, 0, 0, ..., 0, 0, 0],                                                                                   
+                  [0, 0, 0, ..., 0, 0, 0],                                                                                                     [0, 0, 0, ..., 0, 0, 0],                                                                                                     ...,                                                                                            
+                  [0, 0, 0, ..., 0, 0, 0],                                                                          
+                  [0, 0, 0, ..., 0, 0, 0],                                                                                 
+                  [0, 0, 0, ..., 0, 0, 0]], dtype=uint32)
 ```
 
 

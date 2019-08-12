@@ -647,6 +647,17 @@ def create_flint(settings):
     windowMenu = menubar.addMenu("&Windows")
     windowMenu.addAction(showLogAction)
 
+    def about():
+        from .widgets.About import About
+
+        About.about(win, "Flint")
+
+    action = qt.QAction("&About", win)
+    action.setStatusTip("Show the application's About box")
+    action.triggered.connect(about)
+    windowMenu = menubar.addMenu("&Help")
+    windowMenu.addAction(action)
+
     log_widget.connect_logger(ROOT_LOGGER)
 
     flint = Flint(win, tabs)

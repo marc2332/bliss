@@ -105,6 +105,7 @@ def get_data(scan):
 
 def get_data_from_nodes(pipeline, *nodes_and_start_index):
     scan_channel_get_data_func = dict()  # { channel_name: function }
+    scan_image_get_view = dict()
     for node, start_index in nodes_and_start_index:
         if node.type == "channel":
             channel_name = node.name
@@ -125,14 +126,17 @@ def get_data_from_nodes(pipeline, *nodes_and_start_index):
                 scan_channel_get_data_func[channel_name] = chan.get(start_index, -1)
             finally:
                 chan.db_connection = saved_db_connection
+        elif node.type == "lima":
+            scan_image_get_view[node.fullname] = node.get(start_index, -1)
 
     result = pipeline.execute()
 
-    data = {}
     for i, (channel_name, get_data_func) in enumerate(
         scan_channel_get_data_func.items()
     ):
         yield channel_name, get_data_func(result[i])
+    for channel_name, view in scan_image_get_view.items():
+        yield channel_name, view
 
 
 _SCAN_EVENT = enum.IntEnum("SCAN_EVENT", "NEW NEW_CHILD NEW_DATA END")

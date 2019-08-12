@@ -285,3 +285,19 @@ def test_lima_scan_internal_trigger_with_diode(beacon, lima_simulator, monkeypat
         s.run()
 
     assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER_MULTI"
+
+
+def test_lima_scan_get_data(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
+    s = loopscan(3, 0.1, simulator)
+
+    data = s.get_data()
+
+    assert simulator.name + ":image" in data
+    view = data[simulator.name + ":image"]
+
+    assert len(view) == 3
+
+    raw_image_data = view.get_image(-1)
+
+    assert raw_image_data.shape == (simulator.image.height, simulator.image.width)

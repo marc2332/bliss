@@ -4,7 +4,7 @@ import logging
 import weakref
 import pytest
 from silx.gui.utils.testutils import TestCaseQt
-from bliss.flint.widgets.LogWidget import LogWidget
+from bliss.flint.widgets.log_widget import LogWidget
 
 logger = logging.getLogger(__name__)
 

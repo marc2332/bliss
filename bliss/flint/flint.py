@@ -41,11 +41,11 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui.plot.items.roi import RectangleROI
 
-from .widgets.LivePlot1D import LivePlot1D
-from .widgets.LiveScatterPlot import LiveScatterPlot
+from .widgets.live_plot_1d import LivePlot1D
+from .widgets.live_scatter_plot import LiveScatterPlot
 from bliss.flint.interaction import PointsSelector, ShapeSelector
-from bliss.flint.widgets.RoiSelectionWidget import RoiSelectionWidget
-from bliss.flint.widgets.LogWidget import LogWidget
+from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.log_widget import LogWidget
 
 # Globals
 
@@ -648,7 +648,7 @@ def create_flint(settings):
     windowMenu.addAction(showLogAction)
 
     def about():
-        from .widgets.About import About
+        from .widgets.about import About
 
         About.about(win, "Flint")
 

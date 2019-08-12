@@ -266,7 +266,7 @@ class LivePlot1D(qt.QWidget):
                 icon.setSymbol(curve.getSymbol())
                 icon.setLineWidth(curve.getLineWidth())
                 icon.setLineStyle(curve.getLineStyle())
-                color = curve.getCurrentColor()
+                color = curve.getCurrentStyle().getColor()
                 if numpy.array(color, copy=False).ndim != 1:
                     # array of colors, use transparent black
                     color = 0., 0., 0., 0.

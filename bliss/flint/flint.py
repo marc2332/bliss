@@ -494,13 +494,12 @@ class Flint:
             ]
 
     def set_plot_dpi(self, plot_id, dpi):
-        """Ällow to custom the DPI of the plot
+        """Allow to custom the DPI of the plot
 
         FIXME: It have to be moved to user preferences
         """
         try:
             self.plot_dict[plot_id]._backend.fig.set_dpi(dpi)
-            print("SET DPI", dpi)
         except Exception:
             # Prevent access to private _backend object
             pass

@@ -196,6 +196,15 @@ def main():
         ],
         "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         "bliss.config": ["tmux.conf"],
+        "bliss.flint.resources": [
+            "logo/*.png",
+            "logo/*.svg",
+            "icons/*.png",
+            "icons/*.svg",
+            "icons/*.mng",
+            "icons/*.gif",
+            "icons/*/*.png",
+        ],
     }
 
     setup(

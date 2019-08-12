@@ -27,6 +27,7 @@ from bliss.config.conductor.client import (
     get_redis_connection,
     clean_all_redis_connection,
 )
+import bliss.flint.resources
 
 # from bliss.flint.qgevent import set_gevent_dispatcher
 
@@ -667,6 +668,8 @@ def main():
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
+
+    bliss.flint.resources.silx_integration()
 
     settings = qt.QSettings()
     flint = create_flint(settings)

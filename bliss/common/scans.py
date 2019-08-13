@@ -48,6 +48,7 @@ import logging
 import numpy
 import gevent
 from functools import wraps
+import types
 
 from bliss.common import session
 from bliss.common.motor_group import Group
@@ -204,6 +205,8 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     if not isinstance(npoints, int):
         raise ValueError("number of point must be an integer number.")
     kwargs["type"] = "dscan"
+    run = kwargs.pop("run", True)
+    kwargs["run"] = False
     kwargs.setdefault("name", "dscan")
     args = kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time
     template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
@@ -213,8 +216,17 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     start += motor.position
     stop += motor.position
 
-    with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
-        scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
+    scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
+
+    def run_with_cleanup(self, __run__=scan.run):
+        with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
+            __run__()
+
+    scan.run = types.MethodType(run_with_cleanup, scan)
+
+    if run:
+        scan.run()
+
     return scan
 
 
@@ -397,6 +409,8 @@ def dmesh(
 
     kwargs.setdefault("type", "dmesh")
     kwargs.setdefault("name", "dmesh")
+    run = kwargs.pop("run", True)
+    kwargs["run"] = False
     if kwargs.get("title") is None:
         args = (
             kwargs["type"],
@@ -418,20 +432,30 @@ def dmesh(
     start2 += motor2.position
     stop2 += motor2.position
 
-    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
-        return amesh(
-            motor1,
-            start1,
-            stop1,
-            npoints1,
-            motor2,
-            start2,
-            stop2,
-            npoints2,
-            count_time,
-            *counter_args,
-            **kwargs,
-        )
+    scan = amesh(
+        motor1,
+        start1,
+        stop1,
+        npoints1,
+        motor2,
+        start2,
+        stop2,
+        npoints2,
+        count_time,
+        *counter_args,
+        **kwargs,
+    )
+
+    def run_with_cleanup(self, __run__=scan.run):
+        with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
+            __run__()
+
+    scan.run = types.MethodType(run_with_cleanup, scan)
+
+    if run:
+        scan.run()
+
+    return scan
 
 
 def a2scan(
@@ -708,6 +732,8 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
         else:
             counter_list.append(val)
 
+    run = kwargs.pop("run", True)
+    kwargs["run"] = False
     kwargs.setdefault("start", starts_list)
     kwargs.setdefault("stop", stops_list)
     scan_type = kwargs.setdefault("type", "d%dscan" % (len(title_list) / 3))
@@ -721,8 +747,16 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
 
     motors_positions += counter_list
 
-    with cleanup(*motors_list, restore_list=(cleanup_axis.POS,), verbose=True):
-        scan = anscan(count_time, npoints, *motors_positions, **kwargs)
+    scan = anscan(count_time, npoints, *motors_positions, **kwargs)
+
+    def run_with_cleanup(self, __run__=scan.run):
+        with cleanup(*motors_list, restore_list=(cleanup_axis.POS,), verbose=True):
+            __run__()
+
+    scan.run = types.MethodType(run_with_cleanup, scan)
+
+    if run:
+        scan.run()
 
     return scan
 
@@ -744,7 +778,7 @@ def a3scan(
 ):
     """
     Absolute 3 motors scan.
-    Identic to a2scan but for 3 motors.
+    Identical to a2scan but for 3 motors.
     """
     args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
     args += counter_args
@@ -1001,6 +1035,8 @@ def d2scan(
     if not isinstance(npoints, int):
         raise ValueError("number of point must be an integer number.")
     kwargs.setdefault("type", "d2scan")
+    run = kwargs.pop("run", True)
+    kwargs["run"] = False
     args = (
         kwargs.get("type"),
         motor1.name,
@@ -1020,19 +1056,27 @@ def d2scan(
     oldpos1 = motor1.position
     oldpos2 = motor2.position
 
-    with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
-        scan = a2scan(
-            motor1,
-            oldpos1 + start1,
-            oldpos1 + stop1,
-            motor2,
-            oldpos2 + start2,
-            oldpos2 + stop2,
-            npoints,
-            count_time,
-            *counter_args,
-            **kwargs,
-        )
+    scan = a2scan(
+        motor1,
+        oldpos1 + start1,
+        oldpos1 + stop1,
+        motor2,
+        oldpos2 + start2,
+        oldpos2 + stop2,
+        npoints,
+        count_time,
+        *counter_args,
+        **kwargs,
+    )
+
+    def run_with_cleanup(self, __run__=scan.run):
+        with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
+            __run__()
+
+    scan.run = types.MethodType(run_with_cleanup, scan)
+
+    if run:
+        scan.run()
 
     return scan
 

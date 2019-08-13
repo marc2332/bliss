@@ -671,23 +671,47 @@ def lscnt():
 def edit_roi_counters(detector, acq_time=None):
     """
     Edit the given detector ROI counters.
-    When called without arguments, it will use the last point of the last
-    scan/ct as a reference. If 'ct' is specified, it will do a 'ct()' with
-    the given count time.
+    When called without arguments, it will use the image from specified detector
+    from the last scan/ct as a reference. If 'acq_time' is specified,
+    it will do a 'ct()' with the given count time to acquire a new image.
 
         BLISS [1]: ct(0.1, pilatus1)
         BLISS [2]: edit_roi_counters(pilatus1)
     """
     roi_counters = detector.roi_counters
-    name = "{} [{}]".format(detector.name, roi_counters.config_name)
+    name = f"{detector.name} [{roi_counters.config_name}]"
 
     if acq_time:
         setup_globals.SCAN_DISPLAY.auto = True
-        scan = ct(acq_time, detector, return_scan=True)
+        scan = ct(acq_time, detector)
     else:
-        scan = setup_globals.SCANS[-1]
+        try:
+            scan = setup_globals.SCANS[-1]
+        except IndexError:
+            print(
+                f"SCANS list is empty -- do an acquisition with {detector.name} before editing roi counters"
+            )
+            return
+        else:
+            for node in scan.nodes:
+                try:
+                    # just make sure there is at least an image from this detector;
+                    # only acq. channels have .fullname, the easiest is to try...except
+                    # for the test
+                    if node.fullname == f"{detector.name}:image":
+                        break
+                except AttributeError:
+                    continue
+            else:
+                print(
+                    f"Last scan did not save an image from {detector.name}: do an acquisition before editing roi counters"
+                )
+                return
 
     plot = scan.get_plot(detector.image, wait=True)
+    if not plot:
+        print("Flint is not available -- cannot edit roi counters")
+        return
 
     selections = []
     for roi_name, roi in roi_counters.items():

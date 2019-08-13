@@ -150,7 +150,7 @@ def main():
         "jinja2 >= 2.7",
         "flask",
         "treelib",
-        "jedi",
+        "jedi == 0.14.1",
         "ptpython >= 2.0",
         "prompt_toolkit >= 2.0",
         "docopt",

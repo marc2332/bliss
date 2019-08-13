@@ -292,6 +292,7 @@ def _attach_flint(process):
     session and return the FLINT proxy.
     """
     pid = process.pid
+    FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
     try:
@@ -309,6 +310,7 @@ def _attach_flint(process):
     url = value.decode().split()[-1]
 
     # Return flint proxy
+    FLINT_LOGGER.debug("Creating flint proxy...")
     proxy = rpc.Client(url)
     proxy.set_session(session_name)
     proxy._pid = pid
@@ -345,6 +347,7 @@ def attach_flint(pid):
     """ attach to an external flint process, make a RPC proxy and bind Flint to the current session and return the FLINT proxy """
     process = psutil.Process(pid)
     proxy = _attach_flint(process)
+    FLINT_LOGGER.debug("Flint proxy initialized")
     return proxy
 
 
@@ -373,6 +376,7 @@ def get_flint(start_new=False):
             process = start_flint()
 
     proxy = _attach_flint(process)
+    FLINT_LOGGER.debug("Flint proxy initialized")
     return proxy
 
 

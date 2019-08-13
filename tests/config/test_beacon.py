@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.conductor import client
+from bliss.config import static
 import socket
 import os
 
@@ -20,3 +21,14 @@ def test_redis_client_name(redis_conn):
             break
     else:
         assert False
+
+
+def test_config_base_path(beacon):
+    saved_cfg = static.CONFIG
+    static.CONFIG = None
+    try:
+        cfg = static.get_config(base_path="./sessions")
+        assert "test_session" in cfg.names_list
+    finally:
+        cfg.close()
+        static.CONFIG = saved_cfg

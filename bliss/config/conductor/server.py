@@ -363,12 +363,15 @@ def _send_config_db_files(client_id, message):
         message_key, sub_path = message.split(b"|")
     except ValueError:  # message is bad, skip it
         return
-    sub_path = sub_path.replace(b"../", b"")  # prevent going up
-    look_path = (
-        sub_path and os.path.join(_options.db_path, sub_path) or _options.db_path
-    )
+    # convert sub_path to unicode
+    sub_path = sub_path.decode()
+    sub_path = sub_path.replace("../", "")  # prevent going up
+    if sub_path:
+        path = os.path.join(_options.db_path, sub_path)
+    else:
+        path = _options.db_path
     try:
-        for root, dirs, files in os.walk(look_path, followlinks=True):
+        for root, dirs, files in os.walk(path, followlinks=True):
             files = sorted(files)
             for filename in files:
                 if filename.startswith("."):

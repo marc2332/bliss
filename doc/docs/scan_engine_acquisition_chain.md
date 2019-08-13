@@ -68,11 +68,11 @@ For each iteration, the *Acquisition chain* calls are:
 
 
 All the calling functions of master and device during a scan can be
-displayed with the `trace()` method.
+displayed using the `bliss.scans` logger.
 
 ```python
 DEMO [1]: s = loopscan(2,1,diode,diode2,run=False)
-DEMO [2]: s.trace()
+DEMO [2]: debugon('bliss.scans')
 DEMO [3]: s.run()
 DEBUG 2019-03-06 17:05:29,288 Scan: Start timer.wait_ready
 DEBUG 2019-03-06 17:05:29,289 Scan: End timer.wait_ready Took 0.000449s

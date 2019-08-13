@@ -1139,13 +1139,6 @@ class Scan:
             scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
         return scan_number
 
-    @staticmethod
-    def trace(on=True):
-        """
-        Activate logging trace during scan
-        """
-        AcquisitionChain.trace(on)
-
     def _execute_preset(self, method_name):
         preset_tasks = [
             gevent.spawn(getattr(preset, method_name), self)

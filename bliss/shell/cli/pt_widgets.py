@@ -55,6 +55,9 @@ from prompt_toolkit.filters.utils import to_filter
 from prompt_toolkit.widgets import Checkbox as Checkbox_Orig
 from prompt_toolkit.widgets import RadioList  # as RadioList_Orig
 
+import subprocess
+import gevent
+
 __all__ = [
     "yes_no_dialog",
     "button_dialog",
@@ -593,7 +596,12 @@ class DlgWidget:
 
             self.wdata.window.style = get_style
 
+            # set inital text
             self.wdata.text = str(self.dlg.defval)
+            # and set cursor to end of line
+            buff = self.wdata.buffer
+            pos = buff.document.get_end_of_line_position()
+            buff._set_cursor_position(buff.cursor_position + pos)
 
             # === BINDINGS ==================================================
             def comp_next(event):
@@ -622,10 +630,16 @@ class DlgWidget:
             def focus_next_wdg(event):
                 if self.check_input(self.get_result()):
                     get_app().layout.focus_next()
+                    # buff = get_app().current_buffer
+                    # pos = buff.document.get_end_of_line_position()
+                    # buff._set_cursor_position(buff.cursor_position + pos)
 
             def focus_previous_wdg(event):
                 if self.check_input(self.get_result()):
                     get_app().layout.focus_previous()
+                    # buff = get_app().current_buffer
+                    # pos = buff.document.get_end_of_line_position()
+                    # buff._set_cursor_position(buff.cursor_position + pos)
 
             kb.add("tab")(focus_next_wdg)
             kb.add("s-tab")(focus_previous_wdg)
@@ -734,6 +748,7 @@ class BlissDialog(Dialog):
         style=_ESRF_STYLE,
         paddings=(1, 1),
         show_help=False,
+        disable_tmux_mouse=True,
     ):
 
         self.user_dlg_list = user_dlg_list
@@ -741,6 +756,7 @@ class BlissDialog(Dialog):
         self.paddings = paddings
         self.show_error = False
         self.show_help = show_help
+        self.disable_tmux_mouse = disable_tmux_mouse
 
         self.flatten_wdlg_list = []
 
@@ -755,13 +771,29 @@ class BlissDialog(Dialog):
             get_app().layout.focus(ok_but.window)
 
         def on_ctrl_c(event):
-            event.app.exit(result=False)
+            # event.app.exit(result=False)
+            self.return_and_close(False)
 
         self.extra_bindings = KeyBindings()
         self.extra_bindings.add("end")(focus_ok)
         self.extra_bindings.add("c-c")(on_ctrl_c)
         self.extra_bindings.add("down", filter=~has_completions)(focus_next)
         self.extra_bindings.add("up", filter=~has_completions)(focus_previous)
+
+        if self.disable_tmux_mouse:
+            try:
+                subprocess.run(["tmux", "set-option", "-g", "mouse", "off"])
+            except:
+                pass
+
+    def return_and_close(self, results=False):
+        if self.disable_tmux_mouse:
+            try:
+                subprocess.run(["tmux", "set-option", "-g", "mouse", "on"])
+            except:
+                pass
+
+        get_app().exit(result=results)
 
     def ok_handler(self):
         results = {}
@@ -771,6 +803,13 @@ class BlissDialog(Dialog):
             if wdlg.check_input(res) is False:
                 return
 
+            # cast returned values for Int and Float InputDialogs
+            if type(wdlg.dlg).__name__ == "UserIntInput":
+                res = int(res)
+            elif type(wdlg.dlg).__name__ == "UserFloatInput":
+                res = float(res)
+
+            # store the results in a dict
             if wdlg.dlg.name is None:
                 results[wdlg.dlg] = res
             else:
@@ -784,10 +823,10 @@ class BlissDialog(Dialog):
             except KeyError:
                 wdlg.dlg.defval = results[wdlg.dlg]
 
-        get_app().exit(result=results)
+        self.return_and_close(results)
 
     def cancel_handler(self):
-        get_app().exit(result=False)
+        self.return_and_close(False)
 
     def set_error(self, msg, wdlg):
         self.error_label.text = msg
@@ -880,6 +919,15 @@ class BlissDialog(Dialog):
         return fbody
 
     def show(self, async_=False):
-        return _run_dialog(
+        gevent.spawn(self.after_launch, 0.1)
+
+        ans = _run_dialog(
             self, self.style, async_=async_, extra_bindings=self.extra_bindings
         )
+
+        return ans
+
+    def after_launch(self, delay=0.1):
+        gevent.sleep(delay)
+        get_app().layout.focus_next()
+        get_app().layout.focus_last()

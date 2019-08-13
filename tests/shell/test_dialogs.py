@@ -36,15 +36,13 @@ def multi_dialog(title="Bliss dialog"):
         [
             [
                 UserMsg(
-                    label="I am a very very long message",
-                    text_align="CENTER",
-                    text_expand=True,
+                    label="I am a long message", text_align="CENTER", text_expand=True
                 )
             ],
             [
                 Container(
                     [
-                        UserIntInput(label=None, name="myint"),
+                        UserIntInput(label=None, name="myint", defval=100),
                         UserFloatInput(label="", name="myfloat"),
                         UserInput(
                             name="myinput",
@@ -52,7 +50,10 @@ def multi_dialog(title="Bliss dialog"):
                             validator=check["frange"],
                             defval=6,
                         ),
-                        UserInput(label="word_1.1.4"),
+                        UserInput(
+                            label="word_1.1.4",
+                            defval="The observable univers has at least one hundred billion galaxies",
+                        ),
                     ],
                     title="Group 1",
                     border=1,
@@ -83,6 +84,7 @@ def multi_dialog(title="Bliss dialog"):
         title=title,
         paddings=(1, 1),
         show_help=True,
+        disable_tmux_mouse=True,
     )
     return dlg.show()
 

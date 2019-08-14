@@ -17,7 +17,7 @@ def get_real_flint(*args, **kwargs):
     return interface
 
 
-@pytest.mark.usefixtures("xvfb")
+@pytest.mark.usefixtures("xvfb", "beacon")
 class TestFlint(TestCaseQt):
     def setUp(self):
 

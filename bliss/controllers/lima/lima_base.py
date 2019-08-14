@@ -77,8 +77,8 @@ class Lima(object):
         else:
             default_trigger_mode = "INTERNAL_TRIGGER"
 
-        acq_trigger_mode = scan_pars.get("acq_trigger_mode", default_trigger_mode)
-        acq_mode = scan_pars.get("acq_mode", "SINGLE")
+        acq_trigger_mode = scan_pars.pop("acq_trigger_mode", default_trigger_mode)
+        acq_mode = scan_pars.pop("acq_mode", "SINGLE")
 
         prepare_once = acq_trigger_mode in (
             "INTERNAL_TRIGGER_MULTI",
@@ -100,11 +100,12 @@ class Lima(object):
             acq_expo_time=acq_expo_time,
             acq_trigger_mode=acq_trigger_mode,
             acq_mode=acq_mode,
-            acc_max_expo_time=scan_pars.get("acc_max_expo_time", 1.),
+            acc_max_expo_time=scan_pars.pop("acc_max_expo_time", 1.),
             save_flag=save_flag,
             wait_frame_id=range(acq_nb_frames),
             prepare_once=prepare_once,
             start_once=start_once,
+            **scan_pars,
         )
 
     def __init__(self, name, config_tree):

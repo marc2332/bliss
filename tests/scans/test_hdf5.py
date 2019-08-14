@@ -202,6 +202,40 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
 
 
+def test_scan_saving_parameters(session, lima_simulator, scan_tmpdir):
+    lima_sim = session.config.get("lima_simulator")
+    DEFAULT_CHAIN = session.env_dict["DEFAULT_CHAIN"]
+
+    try:
+        DEFAULT_CHAIN.set_settings(
+            [
+                {
+                    "device": lima_sim,
+                    "acquisition_settings": {
+                        "saving_format": "HDF5",
+                        "saving_suffix": ".h5",
+                    },
+                }
+            ]
+        )
+
+        # put scan file in a tmp directory
+        session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+
+        scan_saving = session.env_dict["SCAN_SAVING"].get()
+
+        s = scans.loopscan(1, 0.01, lima_sim)
+    finally:
+        DEFAULT_CHAIN.set_settings([])
+
+    f = h5py.File(
+        os.path.join(
+            os.path.dirname(s.writer.filename), "scan0001", "lima_simulator_0000.h5"
+        )
+    )
+    assert f["entry_0000"]
+
+
 def test_positioners_in_scan_info(alias_session, scan_tmpdir):
 
     env_dict, session = alias_session

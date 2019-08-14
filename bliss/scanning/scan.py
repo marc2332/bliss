@@ -24,7 +24,7 @@ from bliss import setup_globals
 from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common.plot import get_flint, CurvePlot, ImagePlot
+from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
@@ -1081,6 +1081,10 @@ class Scan:
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
         """
+        # check that flint is running
+        if not check_flint(_current_session().name):
+            return
+
         for master, channels in self.scan_info["acquisition_chain"].items():
             if scan_item.name == master:
                 # return scalar plot(s) with this master

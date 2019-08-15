@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common import scans
 
@@ -8,11 +14,11 @@ def test_alias_data_channel(alias_session):
     s = scans.a2scan(
         env_dict["robyy"],
         0,
-        5,
+        1,
         env_dict["robzz"],
         0,
-        5,
-        5,
+        1,
+        3,
         0.001,
         env_dict["simu1"].counters.spectrum_det0,
         env_dict["dtime"],
@@ -48,11 +54,11 @@ def test_alias_default_lima_counters(alias_session):
     s = scans.a2scan(
         env_dict["robyy"],
         0,
-        5,
+        1,
         env_dict["robzz"],
         0,
-        5,
-        5,
+        1,
+        3,
         0.001,
         env_dict["lima_simulator"],
         save=True,
@@ -95,11 +101,11 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
     s = scans.a2scan(
         env_dict["robyy"],
         0,
-        5,
+        1,
         env_dict["robzz"],
         0,
-        5,
-        5,
+        1,
+        3,
         0.001,
         env_dict["myroi3"],
         env_dict["lima_simulator"],
@@ -134,21 +140,19 @@ def test_lima_counter_aliased_and_lima_counters(alias_session):
         assert " ".join([n.db_name, n.short_name]) in dump1_str
         i += 1
     assert i == len(dump1_str.split("\n"))
-
     s2 = scans.a2scan(
         env_dict["robyy"],
         0,
-        5,
+        1,
         env_dict["robzz"],
         0,
-        5,
-        5,
+        1,
+        3,
         0.001,
         env_dict["lima_simulator"],
         env_dict["myroi3"],
         save=True,
     )
-
     dump1_str = dump1.format(a2scan=s2.node.db_name)
     d = list()
     i = 0

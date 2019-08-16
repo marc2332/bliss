@@ -577,6 +577,7 @@ class Scan:
         self._scan_info["start_timestamp"] = start_timestamp
         self._scan_info.update(self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+        self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -594,24 +595,6 @@ class Scan:
             node_name, "scan", parent=self.root_node, info=self._scan_info
         )
 
-        if data_watch_callback is not None:
-            data_watch_callback_event = gevent.event.Event()
-            data_watch_callback_done = gevent.event.Event()
-
-            def trig(*args):
-                data_watch_callback_event.set()
-
-            self._data_watch_running = False
-            self._data_watch_task = gevent.spawn(
-                Scan._data_watch,
-                weakref.proxy(self, trig),
-                data_watch_callback_event,
-                data_watch_callback_done,
-            )
-            self._data_watch_callback_event = data_watch_callback_event
-            self._data_watch_callback_done = data_watch_callback_done
-        else:
-            self._data_watch_task = None
         self._preset_list = list()
 
     def __repr__(self):
@@ -877,16 +860,33 @@ class Scan:
                 "Scan state is not idle. Scan objects can only be used once."
             )
 
-        if hasattr(self._data_watch_callback, "on_state"):
-            call_on_prepare = self._data_watch_callback.on_state(ScanState.PREPARING)
-            call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
-        else:
-            call_on_prepare, call_on_stop = False, False
+        call_on_prepare, call_on_stop = False, False
+        set_watch_event = None
 
-        if self._data_watch_callback:
+        if self._data_watch_callback is not None:
+            data_watch_callback_event = gevent.event.Event()
+            data_watch_callback_done = gevent.event.Event()
+
+            def trig(*args):
+                data_watch_callback_event.set()
+
+            self._data_watch_running = False
+            self._data_watch_task = gevent.spawn(
+                Scan._data_watch,
+                weakref.proxy(self, trig),
+                data_watch_callback_event,
+                data_watch_callback_done,
+            )
+            self._data_watch_callback_event = data_watch_callback_event
+            self._data_watch_callback_done = data_watch_callback_done
+
+            if hasattr(self._data_watch_callback, "on_state"):
+                call_on_prepare = self._data_watch_callback.on_state(
+                    ScanState.PREPARING
+                )
+                call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
+
             set_watch_event = self._data_watch_callback_event.set
-        else:
-            set_watch_event = None
 
         self.acq_chain.reset_stats()
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]

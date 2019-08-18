@@ -14,7 +14,7 @@ from bliss.config import settings
 from bliss.common.measurement import IntegratingCounter
 
 
-class Roi(object):
+class Roi:
     def __init__(self, x, y, width, height, name=None):
         self.x = x
         self.y = y
@@ -188,6 +188,7 @@ class RoiCounters:
         )
         settings_name = "%s:%s" % (full_name, self._current_config.get())
         self._roi_ids = {}
+        self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
 
     def _set_roi(self, name, roi_values):
@@ -322,14 +323,20 @@ class RoiCounters:
     # Counter access
 
     def get_single_roi_counters(self, name):
-        if self._save_rois.get(name) is None:
+        roi_data = self._save_rois.get(name)
+        if roi_data is None:
             raise AttributeError("Unknown ROI counter {!r}".format(name))
-        return SingleRoiCounters(
-            name,
-            controller=self,
-            master_controller=self._acquisition_proxy,
-            grouped_read_handler=self._grouped_read_handler,
-        )
+        cached_roi_data, counters = self.__cached_counters.get(name, (None, None))
+        if cached_roi_data != roi_data:
+            counters = SingleRoiCounters(
+                name,
+                controller=self,
+                master_controller=self._acquisition_proxy,
+                grouped_read_handler=self._grouped_read_handler,
+            )
+            self.__cached_counters[name] = (roi_data, counters)
+
+        return counters
 
     def iter_single_roi_counters(self):
         for roi in self.get_rois():

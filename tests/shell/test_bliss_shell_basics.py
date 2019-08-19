@@ -5,14 +5,11 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-import sys
 import re
 
 from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl
+from bliss.shell.cli.repl import BlissRepl, _set_pt_event_loop
 from prompt_toolkit.output import DummyOutput
-from bliss.shell.cli.repl import _set_pt_event_loop
 
 
 def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
@@ -242,39 +239,72 @@ def test_info_dunder(clean_gevent, capfd):
 
     class A(object):
         def __repr__(self):
-            return "repr"
+            return "repr-string"
 
         def __str__(self):
-            return "str"
+            return "str-string"
 
         def __info__(self):
-            return "info"
+            return "info-string"
+
+        def titi(self):
+            return "titi-method"
 
     class B(object):
         def __repr__(self):
-            return "repr"
+            return "repr-string"
 
     class C(object):
         pass
 
+    # '__info__()' method called at object call.
     result, cli, br = _feed_cli_with_input("A\r", local_locals={"A": A(), "B": B()})
     br._execute(result)
     captured = capfd.readouterr()
     out = _repl_out_to_string(captured.out)
-    assert "info" in out
+    assert "info-string" in out
 
     result, cli, br = _feed_cli_with_input("[A]\r", local_locals={"A": A(), "B": B()})
     br._execute(result)
     captured = capfd.readouterr()
     out = _repl_out_to_string(captured.out)
-    assert "[repr]" in out
+    assert "[repr-string]" in out
 
+    # 2 parenthesis added to method if not present
+    result, cli, br = _feed_cli_with_input(
+        "A.titi\r", local_locals={"A": A(), "B": B()}
+    )
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "titi-method" in out
+
+    # Closing parenthesis added if only opening one is present.
+    result, cli, br = _feed_cli_with_input(
+        "A.titi(\r", local_locals={"A": A(), "B": B()}
+    )
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "titi-method" in out
+
+    # Ok if finishing by a closing parenthesis.
+    result, cli, br = _feed_cli_with_input(
+        "A.titi()\r", local_locals={"A": A(), "B": B()}
+    )
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert "titi-method" in out
+
+    # '__repr__()' used if no '__info__()' method is defined.
     result, cli, br = _feed_cli_with_input("B\r", local_locals={"A": A(), "B": B()})
     br._execute(result)
     captured = capfd.readouterr()
     out = _repl_out_to_string(captured.out)
-    assert "repr" in out
+    assert "repr-string" in out
 
+    # Default behaviour for object without specific method.
     result, cli, br = _feed_cli_with_input(
         "C\r", local_locals={"A": A(), "B": B(), "C": C()}
     )
@@ -287,7 +317,7 @@ def test_info_dunder(clean_gevent, capfd):
     inp = create_pipe_input()
 
     def mylocals():
-        return {"A": A, "B": B}
+        return {"A": A, "B": B, "A.titi": A.titi}
 
     try:
 
@@ -298,11 +328,12 @@ def test_info_dunder(clean_gevent, capfd):
         br.default_buffer.insert_text("A ")
         inp.send_text("\r")
         result = br.app.run()
-        assert result == "A"
+        assert result == "A ()"
         br._execute(result)
         captured = capfd.readouterr()
         out = _repl_out_to_string(captured.out)
-        assert "<locals>.A" in out
+        # assert "<locals>.A" in out
+        assert "  Out [1]: info-string\r\n\r\n" == out
 
         br = BlissRepl(
             input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
@@ -311,12 +342,13 @@ def test_info_dunder(clean_gevent, capfd):
         br.default_buffer.insert_text("B ")
         inp.send_text("\r")
         result = br.app.run()
-        assert result == "B"
+        assert result == "B ()"
         br._execute(result)
         captured = capfd.readouterr()
         out = _repl_out_to_string(captured.out)
 
-        assert "<locals>.B" in out
+        # assert "<locals>.B" in out
+        assert "  Out [1]: repr-string\r\n\r\n" == out
 
     finally:
         inp.close()

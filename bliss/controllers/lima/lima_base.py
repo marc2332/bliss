@@ -77,8 +77,8 @@ class Lima(object):
         else:
             default_trigger_mode = "INTERNAL_TRIGGER"
 
-        acq_trigger_mode = scan_pars.get("acq_trigger_mode", default_trigger_mode)
-        acq_mode = scan_pars.get("acq_mode", "SINGLE")
+        acq_trigger_mode = scan_pars.pop("acq_trigger_mode", default_trigger_mode)
+        acq_mode = scan_pars.pop("acq_mode", "SINGLE")
 
         prepare_once = acq_trigger_mode in (
             "INTERNAL_TRIGGER_MULTI",
@@ -100,11 +100,12 @@ class Lima(object):
             acq_expo_time=acq_expo_time,
             acq_trigger_mode=acq_trigger_mode,
             acq_mode=acq_mode,
-            acc_max_expo_time=scan_pars.get("acc_max_expo_time", 1.),
+            acc_max_expo_time=scan_pars.pop("acc_max_expo_time", 1.),
             save_flag=save_flag,
             wait_frame_id=range(acq_nb_frames),
             prepare_once=prepare_once,
             start_once=start_once,
+            **scan_pars,
         )
 
     def __init__(self, name, config_tree):
@@ -187,7 +188,7 @@ class Lima(object):
     def proxy(self):
         return self._proxy
 
-    @property
+    @autocomplete_property
     def image(self):
         if self._image is None:
             self._image = LimaProperties(
@@ -200,7 +201,7 @@ class Lima(object):
             )
         return self._image
 
-    @property
+    @autocomplete_property
     def acquisition(self):
         if self._acquisition is None:
             self._acquisition = LimaProperties(
@@ -215,7 +216,7 @@ class Lima(object):
             self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
         return self.__roi_counters
 
-    @property
+    @autocomplete_property
     def camera(self):
         if self._camera is None:
             camera_type = self._proxy.lima_type

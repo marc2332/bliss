@@ -160,16 +160,19 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def set_image_saving(self, directory, prefix, force_no_saving=False):
         if self._save_flag and not force_no_saving:
-            self.parameters.setdefault("saving_mode", "AUTO_FRAME")
+            self.parameters["saving_mode"] = self.parameters.setdefault(
+                "saving_mode", "AUTO_FRAME"
+            )
+            assert self.parameters["saving_mode"] != "MANUAL"
+            self.parameters["saving_directory"] = self._lima_controller.get_mapped_path(
+                directory
+            )
             self.parameters.setdefault("saving_format", "EDF")
             self.parameters.setdefault("saving_frame_per_file", 1)
-            self.parameters.setdefault(
-                "saving_directory", self._lima_controller.get_mapped_path(directory)
-            )
             self.parameters.setdefault("saving_prefix", prefix)
             self.parameters.setdefault("saving_suffix", ".edf")
         else:
-            self.parameters.setdefault("saving_mode", "MANUAL")
+            self.parameters["saving_mode"] = "MANUAL"
 
     def prepare(self):
         if self.__sequence_index > 0 and self.prepare_once:

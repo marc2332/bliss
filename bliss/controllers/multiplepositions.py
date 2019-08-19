@@ -67,6 +67,8 @@ positions:
     destination: 0.0
     tolerance: 0.2
 """
+import functools
+
 from tabulate import tabulate
 from gevent import Timeout
 from bliss.common import session
@@ -74,7 +76,7 @@ from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
 from bliss.common import event
-from bliss.common.logtools import log_warning
+from bliss.common.logtools import *
 
 
 class MultiplePositions:
@@ -87,6 +89,7 @@ class MultiplePositions:
         self._positions_list = []
         self._config = config
         self._group = None
+        self._name = name
         self._last_label = None
         self._current_label = None
         self._position_channel = Channel(
@@ -98,7 +101,34 @@ class MultiplePositions:
             f"{name}:state", default_value="READY", callback=self.__state_changed
         )
         self._read_config()
+
+        # Add label-named method for all positions.
+        for position in self._positions_list:
+            self.add_label_move_method(position["label"])
+
         session.get_current().map.register(self, tag=name)
+
+    def add_label_move_method(self, pos_label):
+        """Add a method named after the position label to move to the
+        corresponding position.
+        """
+
+        def label_move_func(mp_obj, pos):
+            print(f"Moving '{mp_obj._name}' to position: {pos}")
+            # display of motors values ?
+            mp_obj.move(pos)
+
+        # ACHTUNG: cannot start with a number...
+        if pos_label.isidentifier():
+            setattr(
+                self,
+                pos_label,
+                functools.partial(label_move_func, mp_obj=self, pos=pos_label),
+            )
+        else:
+            log_error(
+                self, f"{self._name}: '{pos_label}' is not a valid python identifier."
+            )
 
     def _read_config(self):
         """ Read the configuration.
@@ -120,7 +150,7 @@ class MultiplePositions:
 
     @property
     def status(self):
-        """ Print the exhaustive status of the object
+        """ Print the exhaustive status of the object.
         """
         # HEADER
         table = [("", "LABEL", "DESCRIPTION", "MOTOR POSITION(S)")]
@@ -152,11 +182,14 @@ class MultiplePositions:
         # MOTORS
         print(motpos_str)
 
+    def __info__(self):
+        return self.status
+
     @property
     def position(self):
-        """ Get the position of the object
+        """ Get the position of the object.
         Returns:
-            (str): The position as defined in the label configuration parameter
+            (str): The position as defined in the label configuration parameter.
         """
         pos = self._get_position()
         if pos == self._current_label:
@@ -170,7 +203,7 @@ class MultiplePositions:
     def state(self):
         """ Get the state of the object.
         Returns:
-            (str): The state as a string
+            (str): The state as a string.
         """
         return self._state_as_motor()._current_states[0]
 
@@ -178,11 +211,11 @@ class MultiplePositions:
         event.send(self, "state", sta)
 
     def _state_as_motor(self, label=None):
-        """ The state as defined by the mototr(s):
+        """ The state as defined by the mototr(s).
         Args:
             (str): The label. If not defined, the last known label will be used.
         Returns:
-            (AxisState): The state as a motor state
+            (AxisState): The state as a motor state.
         """
         axis_list = []
 
@@ -197,13 +230,14 @@ class MultiplePositions:
         return AxisState("UNKNOWN")
 
     def move(self, label, wait=True):
-        """ Move the motors to the destination, simultaneously or not, as defined in
-            the config - move_siimultaneously parameter (default value True).
+        """ Move the motors to the destination, simultaneously or not,
+            as defined in the config - move_simultaneously parameter
+            (default value True).
             Wait the end of the move or not. Warning: only the simultaneosly
             moving motors can set wait=False. Otherwise the motors will move
             one after another in the order of the configuration file.
         Args:
-            label (str): The label of the position to move to
+            label (str): The label of the position to move to.
         Kwargs:
             wait (bool): Wait until the end of the movement of all the motors.
                          default value - True.
@@ -245,11 +279,11 @@ class MultiplePositions:
     def wait(self, timeout=None, label=None):
         """ Wait for the motors to finish their movement.
         Args:
-            timeout(float): Timeout [s]
+            timeout(float): Timeout [s].
             label(str): Destination position label (only in case of
-                                                    non silultaneous move)
+                                                    non silultaneous move).
         Raises:
-            RuntimeError: Timeout while waiting for motors to move.
+            RuntimeError: Timeout while waiting for motors to move
         """
         if not label:
             label = self._current_label
@@ -272,12 +306,23 @@ class MultiplePositions:
             self.__state_changed(self.state)
             self.__position_changed(self.position)
 
+    def stop(self):
+        """ Stop all the moving motors.
+        """
+        if self._group:
+            self._group.stop()
+        else:
+            for axis in self.targets_dict[self._current_label]:
+                axis.get("axis").stop()
+        self.__state_changed(self.state)
+        self.__position_changed(self.position)
+
     def _in_position(self, motor_destination):
         """Check if the destination of a position is within the tolerance.
         Args:
-            motor_destination(dict): The motor dictionary
+            motor_destination(dict): The motor dictionary.
         Returns:
-            (bool): True if on position
+            (bool): True if on position.
         """
 
         tolerance = motor_destination.get("tolerance", 0)
@@ -339,15 +384,15 @@ class MultiplePositions:
 
     def update_position(self, label, motors_destinations_list=None, description=None):
         """ Update existing label to new motor position(s). If only the label
-            specified, the current motor(s) position replaces the previos one.
+            specified, the current motor(s) position replaces the previous one.
         Args:
-            label (str): The unique position label
+            label (str): The unique position label.
         Kwargs:
             motors_destinations_list (list): List of motor(s) or
                                           tuples (motor, position, tolerance).
                                           Important: motor is an Axis object.
                                           tolerance is optional
-            description (str): The description of the position
+            description (str): The description of the position.
         Raises:
             TypeError: motors_destinations_list must be a list
             RuntimeError: Invalid label
@@ -401,12 +446,12 @@ class MultiplePositions:
     def create_position(self, label, motors_destinations_list, description=None):
         """ Create new position.
         Args:
-            label (str): The unique position label
+            label (str): The unique position label.
             motors_destinations_list (list): List of motor(s) or
                                           tuples (motor, position, tolerance).
                                           Important: motor is an Axis object.
-                                                     tolerance is optional
-            description (str): The description of the position
+                                                     tolerance is optional.
+            description (str): The description of the position.
         Raises:
             TypeError: motors_destinations_list must be a list
         """
@@ -446,7 +491,7 @@ class MultiplePositions:
     def remove_position(self, label):
         """ Remove position.
         Args:
-            label (str): The unique position label
+            label (str): The unique position label.
         Raises:
             RuntimeError: Try to remove non existing position
         """

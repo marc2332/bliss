@@ -34,8 +34,9 @@ tests/test_channels.py::test_channel_cb PASSED                         [  0%]
 
 !!! note
 
-    In case of strange error (like `ImportError: bad magic number`), try to remove old `*.pyc` files:
-    
+    In case of strange error (like `ImportError: bad magic number`),
+    try to remove old `*.pyc` files:
+
     `find ./ -name "*.pyc" | xargs rm`
 
 
@@ -72,6 +73,24 @@ Equivalent to `--capture=no`  => do not capture stdout
 
 #### -q: less verbose
 
+
+### Coverage
+Coverage indicates the percentage of lines touched by current tests suite.
+
+Example to get a coverage report:
+
+   py.test tests/controllers_sw/test_multiple_positions.py
+           --cov-report=html
+           --cov bliss.controllers.multiplepositions
+
+Coverage report indicating tested lines is in:
+  ./htmlcov/index.html
+
+!!! note
+    There can be some errors (lines tested but not flaged as tested) in the
+    report.
+
+See also: https://pytest-cov.readthedocs.io/en/latest/reporting.html
 
 ## Hardware tests
 

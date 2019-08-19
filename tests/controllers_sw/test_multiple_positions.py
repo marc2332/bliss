@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from bliss.controllers import multiplepositions
 
 
 def test_multiple_positions(beacon):
@@ -37,6 +38,9 @@ def test_multiple_positions(beacon):
     mot2.move(2.0)
     assert beamstop.position == "OUT"
 
+    # Test status property (via __info__)
+    print(beamstop.__info__())
+
     # Test state is READY after a move.
     assert beamstop.state == "READY"
 
@@ -54,14 +58,26 @@ def test_multiple_positions(beacon):
     mot2.move(0.0)
     assert beamstop.position == "unknown"
 
-    # test timeout
+    # Test timeout.
     beamstop.move("OUT", wait=False)
     with pytest.raises(RuntimeError) as info:
         beamstop.wait(0.05)
     assert str(info.value) == "Timeout while waiting for motors to move"
 
+    # Test stop.
+    beamstop.move("OUT", wait=False)
+    beamstop.stop()
 
-def test_multiple_positions_add_remove(beacon):
+    # Test various motors list properties.
+    print(beamstop.motors)
+    print(beamstop.motor_names)
+    print(beamstop.motor_objs)
+
+    # For coverage
+    print(beamstop._state_as_motor())
+
+
+def test_multiple_positions_add_remove_update(beacon):
     """ Test MultiplePositions object.
     beamstop has 2 positions: IN and OUT
     """
@@ -71,7 +87,8 @@ def test_multiple_positions_add_remove(beacon):
 
     assert len(beamstop.targets_dict) == 2
 
-    # Create a new position
+    # CREATE
+    # Ok to create a new position.
     beamstop.create_position("HALF_IN", [(mot1, 4), (mot2, 5)], "half in half out")
 
     assert len(beamstop.targets_dict) == 3
@@ -82,6 +99,30 @@ def test_multiple_positions_add_remove(beacon):
 
     assert len(beamstop.targets_dict) == 3
 
+    # UPDATE
+    # ok to update existing position.
+    beamstop.update_position("HALF_IN", [(mot1, 4.1), (mot2, 5.1)], "half in half out")
+    beamstop.update_position("HALF_IN", description="moit' moit'")
+
+    # motors_destinations_list must be a list.
+    with pytest.raises(TypeError):
+        beamstop.update_position("HALF_IN", (mot1, 4.1), "half in half out")
+
     # REMOVE
     beamstop.remove_position("HALF_IN")
     assert len(beamstop.targets_dict) == 2
+
+    # Cannot remove non existing position.
+    with pytest.raises(RuntimeError):
+        beamstop.remove_position("Totally_IN")
+
+
+def test_multiple_positions_move_by_label(beacon):
+    """Test label-defined move methods
+    """
+
+    beamstop = beacon.get("beamstop")
+    beamstop.IN()
+    assert beamstop.position == "IN"
+    beamstop.OUT()
+    assert beamstop.position == "OUT"

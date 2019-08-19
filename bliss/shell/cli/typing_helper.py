@@ -27,9 +27,6 @@ class TypingHelper(object):
         self.add_helper_key_binding(blissrepl)
         self.blissrepl = blissrepl
 
-    def is_float_str(self, s):
-        return s.lstrip("-").replace(".", "", 1).isdigit()
-
     def add_helper_key_binding(self, repl):
         @repl.add_key_binding(" ", filter=has_focus(DEFAULT_BUFFER))
         def _(event):
@@ -160,8 +157,10 @@ class TypingHelper(object):
             obj = repl.get_locals().get(text, None)
             if obj is None:
                 obj = repl.get_globals().get(text, None)
-            if obj is None and eval(f"callable({text})"):
-                obj = eval(text)
+            if obj is None and eval(
+                f"callable({text})", repl.get_globals(), repl.get_locals()
+            ):
+                obj = eval(text, repl.get_globals(), repl.get_locals())
         except:
             return False
 

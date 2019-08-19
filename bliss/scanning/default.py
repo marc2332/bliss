@@ -201,9 +201,9 @@ def master_to_devices_mapping(
             )
 
             # Add counter
-            if device_controller:
+            if device_controller is not None:
                 acquisition_device.add_counter(counter)
-            elif master_controller:
+            elif master_controller is not None:
                 acquisition_master.add_counter(counter)
 
             # Special case: counters without controllers

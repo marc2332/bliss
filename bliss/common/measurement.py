@@ -132,9 +132,9 @@ class BaseCounter:
         `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
         args = []
-        if self.master_controller:
+        if self.master_controller is not None:
             args.append(self.master_controller.name)
-        if self.controller:
+        if self.controller is not None:
             args.append(self.controller.name)
         args.append(self.name)
         return ":".join(args)

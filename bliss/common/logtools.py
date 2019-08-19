@@ -479,7 +479,7 @@ def map_update_loggers(G):
         else:
             inst = reference()
 
-        if inst:  # if weakref is still alive
+        if inst is not None:  # if weakref is still alive
             logger = node_dict.get("_logger")
             if logger:
                 existing_logger_name = logger.name

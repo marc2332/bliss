@@ -13,28 +13,24 @@ should be registered to the *session map* before gaining *logging features*.
 ## How to Register an instance
 
 ```python
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 class MyController:
     def __init__(self, *args, **kwargs):
         self.comm = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        session.get_current().map.register(self,
-                                           children_list=[self.comm],
-                                           tag=self.name)
+        global_map.register(self, children_list=[comm], tag=self.name)
         ...
         log_info(self, "HI, I am born")
 ```
 
 The preceding is a barebone example of how to register an instance inside
-session map and send an INFO logging message.
+the global map and send an INFO logging message.
 
 ### Register the device/instance to the map
 
 ```python
-...
-session.get_current().map.register(self, children_list=[self.comm], tag=self.name)
-...
+global_map.register(self, children_list=[comm], tag=self.name)
 ```
 
 This code will add the instance to the device map of the session.
@@ -87,8 +83,7 @@ Here there is a Motor that is child of a controller:
 # 'name' attribute is used as default to represent the object in the map
 # 'tag' can be passed as kwarg to replace the name
 # default is using name attribute of class
-m = session.get_current().map
-m.register(self, parents_list=[self.controller])
+global_map.register(self, parents_list=[self.controller])
 ```
 
 {% dot session_map_basic.svg
@@ -115,8 +110,7 @@ strict digraph  {
 Here we have a controller with a child connection
 ```python
 # self is test_controller
-m = session.get_current().map
-m.register(self, children_list=[self._cnx], tag='test controller')
+global_map.register(self, children_list=[self._cnx], tag='test controller')
 ```
 {% dot session_map_basic.svg
 strict digraph  {
@@ -144,12 +138,10 @@ Here we have a TCP connection that we also want to be child of
 
 ```python
 # during the first passage we register m0 and the controller
-m = session.get_current().map
-m.register(m0, parent_list=[m0.controller])
+global_map.register(m0, parent_list=[m0.controller])
 # during the second passage we register the TCP connection as a child of
 # m0 and of comms
-m = session.get_current().map
-m.register(m0.conn, parent_list=[m0.controller, 'comms'])
+global_map.register(m0.conn, parent_list=[m0.controller, 'comms'])
 ```
 
 {% dot session_map_basic.svg
@@ -185,11 +177,10 @@ will take this into account and remap nodes automatically.
 
 
 ```python
-from bliss.common import session
-m = session.get_current().map
+from bliss import global_map
 
 self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-m.register(self._fd, parents_list=[self, "comms"], tag=f"Socket[{local_host}:{local_port}",
+global_map.register(self._fd, parents_list=[self, "comms"], tag=f"Socket[{local_host}:{local_port}",
 ```
 {% dot devices_mapping.svg
   digraph devices_mapping{
@@ -295,8 +286,8 @@ dinamically the kind of visualization for string and bytestrings.
 
 
 ```python
-DEMO [17]: from bliss.common import session
-DEMO [18]: session.get_current().map.register('fakenode')  # I will register this fake string node
+DEMO [17]: from bliss import global_map
+DEMO [18]: global_map.register('fakenode')  # I will register this fake string node
 DEMO [19]: debugon('*fakenode')
 Setting session.controllers.fakenode to show debug messages
 DEMO [20]: log_debug_data('fakenode', "Received data", b'13$213')
@@ -339,7 +330,7 @@ DEMO [59]: from socket import *
 DEMO [60]: class MyController:
               ...:     def __init__(self, *args, **kwargs):
               ...:         self.comm = socket(AF_INET, SOCK_STREAM)
-              ...:         session.get_current().map.register(self, children_list=[self.comm])
+              ...:         global_map.register(self, children_list=[self.comm])
               ...:         # while you are writing/debugging your controller you keep debug on
               ...:         debugon(self)
               ...:         log_debug(self, "HI, I am born")
@@ -366,7 +357,7 @@ DEMO [84]: class MyConnection:
 ...:         log_debug(self, f"In {type(self)}.__init__")
 ...:         self.address = address
 ...:         self.sock = socket(AF_INET, SOCK_STREAM)
-...:         session.get_current().map.register(self, children_list=[self.sock])
+...:         global_map.register(self, children_list=[self.sock])
 ...:         log_debug(self, f"Myconnection socket created to {address}")
 ...:     def send(self):
 ...:         self.sock.connect((self.address,80))
@@ -380,7 +371,7 @@ Then define a controller that uses MyConnection:
 DEMO [93]: class MyController:
  ...:     def __init__(self, *args, **kwargs):
  ...:         self.comm = MyConnection("www.google.com")
- ...:         session.get_current().map.register(self, children_list=[self.comm])
+ ...:         global_map.register(self, children_list=[self.comm])
  ...:         # while you are writing/debugging your controller you keep debug on
  ...:         debugon(self)
  ...:         log_debug(self, "HI, I am born")

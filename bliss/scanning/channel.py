@@ -6,10 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.event import dispatcher
-from bliss.common.measurement import BaseCounter
-from bliss.common.alias import AliasMixin
-
-
+from bliss import global_map
 import numpy
 
 
@@ -34,10 +31,9 @@ class AcquisitionChannelList(list):
             channel.emit(array[:, i])
 
 
-class AcquisitionChannel(AliasMixin, object):
+class AcquisitionChannel:
     def __init__(
         self,
-        acq_device,
         name,
         dtype,
         shape,
@@ -46,8 +42,7 @@ class AcquisitionChannel(AliasMixin, object):
         unit=None,
         data_node_type="channel",
     ):
-        self.__name = name.replace(".", ":")
-        self.__acq_device = acq_device
+        self.__name = name
         self.__dtype = dtype
         self.__shape = shape
         self.__unit = unit
@@ -61,22 +56,32 @@ class AcquisitionChannel(AliasMixin, object):
 
     @property
     def name(self):
-        return self.__name
+        """Return the channel fullname, or the alias"""
+        prefix, _, short_chan_name = self.__name.rpartition(":")
+        alias = global_map.aliases.get(short_chan_name)
+        if alias:
+            if prefix == "axis":
+                return f"axis:{alias.name}"
+            else:
+                return alias.name
+        else:
+            return self.__name
+
+    @property
+    def short_name(self):
+        """Return the channel short name (alias or last part of fullname)
+        """
+        _, _, short_chan_name = self.name.rpartition(":")
+        return short_chan_name
 
     @property
     def fullname(self):
-        if isinstance(self.__acq_device, BaseCounter):
-            fullctrlname = self.__acq_device.fullcontrollername
-            if fullctrlname:
-                return fullctrlname.replace(".", ":") + ":" + self.name
-            else:
-                return self.__acq_device.name + ":" + self.name
+        chan_prefix, _, short_chan_name = self.__name.rpartition(":")
+        alias = global_map.aliases.get(short_chan_name)
+        if alias:
+            return f"{chan_prefix}:{alias.original_name}"
         else:
-            return self.__acq_device.name + ":" + self.name
-
-    @property
-    def acq_device(self):
-        return self.__acq_device
+            return self.__name
 
     @property
     def description(self):
@@ -126,11 +131,7 @@ class AcquisitionChannel(AliasMixin, object):
         self.__description["dtype"] = self.dtype
         self.__description["shape"] = self.shape
         self.__description["unit"] = self.unit
-        data_dct = {
-            "name": self.fullname,
-            "description": self.__description,
-            "data": data,
-        }
+        data_dct = {"name": self.name, "description": self.__description, "data": data}
         dispatcher.send("new_data", self, data_dct)
 
     def _check_and_reshape(self, data):
@@ -172,7 +173,6 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
     name = source.name if name is None else name
     dtype = source.dtype if dtype is None else dtype
     dest = AcquisitionChannel(
-        source,
         name,
         dtype,
         source.shape,
@@ -205,7 +205,7 @@ def attach_channels(channels_source, emitter_channel):
     """
     for channel_source in channels_source:
         if hasattr(channel_source, "_final_emit"):
-            raise RuntimeError("Channel %s is already attached to an other channel")
+            raise RuntimeError("Channel %s is already attached to another channel")
         # replaced the final emit data with one which store
         # the current data
         def new_emitter(data):
@@ -215,7 +215,7 @@ def attach_channels(channels_source, emitter_channel):
         channel_source.emit = new_emitter
         channel_source._current_data = None
 
-    emiter_method = emitter_channel.emit
+    emitter_method = emitter_channel.emit
 
     def dual_emiter(data):
         for channel_source in channels_source:
@@ -229,6 +229,6 @@ def attach_channels(channels_source, emitter_channel):
                     l = list(source_data)
                 source_data = numpy.array(l * len(data), dtype=channel_source.dtype)
             channel_source._final_emit(source_data)
-        emiter_method(data)
+        emitter_method(data)
 
     emitter_channel.emit = dual_emiter

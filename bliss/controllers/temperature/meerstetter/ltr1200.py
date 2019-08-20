@@ -32,7 +32,7 @@ from bliss.controllers.temp import Controller
 #       [for the moment work only with Output object]
 from bliss.common.temperature import Output
 
-from bliss.common import session
+from bliss import global_map
 from bliss.comm import tcp
 
 import struct
@@ -70,7 +70,7 @@ class Ltr1200:
         # Port is always 50000 for Meerstetter TEC controller
         self._sock = tcp.Socket(self.host, 50000, self.timeout)
 
-        session.get_current().map.register(
+        global_map.register(
             self,
             parents_list=["comms"],
             children_list=[self._sock],
@@ -195,7 +195,7 @@ class ltr1200(Controller):
 
         Controller.__init__(self, config, *args)
 
-        session.get_current().map.register(self, children_list=[self._ltr1200])
+        global_map.register(self, children_list=[self._ltr1200])
 
         log_info(self, "__init__: %s %d" % (host, dev_addr))
 

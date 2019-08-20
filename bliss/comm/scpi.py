@@ -42,8 +42,8 @@ import numpy
 
 from .util import get_interface
 from .exceptions import CommunicationError, CommunicationTimeout
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 
 def decode_IDN(s):
@@ -413,7 +413,7 @@ class SCPI:
 
     def __init__(self, interface=None, commands=COMMANDS, **kwargs):
         self.interface = interface
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["comms"], children_list=[self.interface], tag=str(self)
         )
         self._strict_query = kwargs.get("strict_query", True)
@@ -665,9 +665,7 @@ class BaseSCPIDevice:
         commands = kwargs.pop("commands", {})
         self.interface = interface
         self.language = SCPI(interface=interface, commands=commands)
-        session.get_current().map.register(
-            self, children_list=[self.language], tag=str(self)
-        )
+        global_map.register(self, children_list=[self.language], tag=str(self))
 
     def __str__(self):
         return "{0}({1})".format(type(self).__name__, self.language)

@@ -14,7 +14,7 @@ from bliss.config import settings
 from bliss.common.measurement import IntegratingCounter
 
 
-class Roi(object):
+class Roi:
     def __init__(self, x, y, width, height, name=None):
         self.x = x
         self.y = y
@@ -40,6 +40,8 @@ class Roi(object):
         return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
 
     def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
         return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
 
     @classmethod
@@ -69,16 +71,21 @@ class RoiStatCounter(IntegratingCounter):
     def __init__(self, roi_name, stat, **kwargs):
         self.roi_name = roi_name
         self.stat = stat
-        name = self.roi_name + "." + stat.name.lower()
-        controller = kwargs.pop("controller")
+        name = f"{self.roi_name}_{stat.name.lower()}"
+        self.parent_roi_counters = kwargs.pop("controller")
         master_controller = kwargs.pop("master_controller")
-        IntegratingCounter.__init__(self, name, controller, master_controller, **kwargs)
+        IntegratingCounter.__init__(
+            self, name, self.parent_roi_counters, master_controller, **kwargs
+        )
+
+    def get_metadata(self):
+        return {self.roi_name: self.parent_roi_counters.get(self.roi_name).to_dict()}
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
-        roi_id = self.controller._roi_ids[self.roi_name]
+        roi_id = self.parent_roi_counters._roi_ids[self.roi_name]
         return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod
@@ -86,7 +93,7 @@ class RoiStatCounter(IntegratingCounter):
         return (roi_id << 8) | stat
 
 
-class SingleRoiCounters(object):
+class SingleRoiCounters:
     def __init__(self, name, **keys):
         self.name = name
         self.factory = functools.partial(RoiStatCounter, name, **keys)
@@ -120,6 +127,9 @@ class SingleRoiCounters(object):
 
 
 class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
+    def __init__(self, controller):
+        super().__init__(controller)
+
     def prepare(self, *counters):
         self.controller.upload_rois()
 
@@ -141,7 +151,7 @@ class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
         return list(map(numpy.array, result.values()))
 
 
-class RoiCounters(object):
+class RoiCounters:
     """Lima ROI counters
 
     Example usage:
@@ -172,18 +182,28 @@ class RoiCounters(object):
         pass
     """
 
-    def __init__(self, name, proxy, acquisition_proxy):
+    def __init__(self, proxy, acquisition_proxy):
         self._proxy = proxy
+        # 'acquisition proxy' is the BLISS lima controller
         self._acquisition_proxy = acquisition_proxy
-        self.name = "roi_counters"
-        full_name = "%s:%s" % (name, self.name)
+        self.__name = "roi_counters"
+        self.__fullname = f"{acquisition_proxy.name}:{self.name}"
         self._current_config = settings.SimpleSetting(
-            full_name, default_value="default"
+            self.fullname, default_value="default"
         )
-        settings_name = "%s:%s" % (full_name, self._current_config.get())
-        self._save_rois = settings.HashObjSetting(settings_name)
+        settings_name = "%s:%s" % (self.fullname, self._current_config.get())
         self._roi_ids = {}
+        self.__cached_counters = {}
+        self._save_rois = settings.HashObjSetting(settings_name)
         self._grouped_read_handler = RoiCounterGroupReadHandler(self)
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def fullname(self):
+        return self.__fullname
 
     def _set_roi(self, name, roi_values):
         if isinstance(roi_values, Roi):
@@ -206,15 +226,14 @@ class RoiCounters(object):
         self._roi_ids[roi.name] = roi_id
 
     def _clear_rois_settings(self):
-        self._save_rois.clear()
-        self._roi_ids.clear()
+        self._remove_rois(roi.name for roi in self.iter_single_roi_counters())
 
     def _remove_rois(self, names):
         for name in names:
             del self._save_rois[name]
             if name in self._roi_ids:
                 del self._roi_ids[name]
-        self._proxy.removeRois(names)
+        self._proxy.removeRois(list(names))
 
     def set(self, name, roi_values):
         """alias to: <lima obj>.roi_counters[name] = roi_values"""
@@ -226,6 +245,7 @@ class RoiCounters(object):
 
     def remove(self, name):
         """alias to: del <lima obj>.roi_counters[name]"""
+        # calls _remove_rois
         del self[name]
 
     def get_saved_config_names(self):
@@ -297,7 +317,6 @@ class RoiCounters(object):
 
     def clear(self):
         self._clear_rois_settings()
-        self._proxy.clearAllRois()
 
     def keys(self):
         return self._save_rois.keys()
@@ -315,24 +334,23 @@ class RoiCounters(object):
         for name, roi in rois.items():
             self[name] = roi
 
-    def pop(self, name, *args):
-        if name in self._roi_ids:
-            del self._roi_ids[name]
-        result = self._save_rois.pop(name, *args)
-        self._proxy.removeRois([name])
-        return result
-
     # Counter access
 
     def get_single_roi_counters(self, name):
-        if self._save_rois.get(name) is None:
+        roi_data = self._save_rois.get(name)
+        if roi_data is None:
             raise AttributeError("Unknown ROI counter {!r}".format(name))
-        return SingleRoiCounters(
-            name,
-            controller=self,
-            master_controller=self._acquisition_proxy,
-            grouped_read_handler=self._grouped_read_handler,
-        )
+        cached_roi_data, counters = self.__cached_counters.get(name, (None, None))
+        if cached_roi_data != roi_data:
+            counters = SingleRoiCounters(
+                name,
+                controller=self,
+                master_controller=self._acquisition_proxy,
+                grouped_read_handler=self._grouped_read_handler,
+            )
+            self.__cached_counters[name] = (roi_data, counters)
+
+        return counters
 
     def iter_single_roi_counters(self):
         for roi in self.get_rois():
@@ -345,9 +363,6 @@ class RoiCounters(object):
             for counters in self.iter_single_roi_counters()
             for counter in counters
         ]
-
-    def __getattr__(self, name):
-        return self.get_single_roi_counters(name)
 
     # Representation
 

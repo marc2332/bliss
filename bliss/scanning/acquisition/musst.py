@@ -31,11 +31,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         vars -- all variable you want to set before the musst program starts
         """
         AcquisitionMaster.__init__(
-            self,
-            musst_dev,
-            musst_dev.name,
-            trigger_type=AcquisitionMaster.HARDWARE,
-            **keys
+            self, musst_dev, trigger_type=AcquisitionMaster.HARDWARE, **keys
         )
         self.musst = musst_dev
         self.program = program
@@ -153,9 +149,7 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
 
         store_list -- a list of variable you store in musst memory during the scan
         """
-        AcquisitionDevice.__init__(
-            self, musst, musst.name, trigger_type=AcquisitionMaster.HARDWARE
-        )
+        AcquisitionDevice.__init__(self, musst, trigger_type=AcquisitionMaster.HARDWARE)
         store_list = store_list if store_list is not None else list()
         self.channels.extend(
             (AcquisitionChannel(self, name, numpy.int32, ()) for name in store_list)

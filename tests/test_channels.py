@@ -281,7 +281,7 @@ def test_2processes_set_channel_value_constructor(channel_subprocess):
     assert c.value == "test"
 
 
-def test_channel_event():
+def test_channel_event(beacon):
     e = channels.EventChannel("bla")
     full_event_list = list()
     called_cbk = {"nb": 0}

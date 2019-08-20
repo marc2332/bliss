@@ -23,7 +23,9 @@ def test_scan_info_scalars_units(session):
         == "deg"
     )
     assert (
-        s.scan_info["acquisition_chain"]["timer"]["scalars_units"]["diode:diode"]
+        s.scan_info["acquisition_chain"]["timer"]["scalars_units"][
+            "simulation_diode_controller:diode"
+        ]
         is None
     )
     s2 = scans.ascan(robz, 0, 1, 3, .1, heater, run=False)
@@ -87,8 +89,7 @@ def test_scan_meta_order_function(scan_meta):
     assert scan_meta_dict["sample"] == first_info
 
 
-def test_scan_meta_master_and_device(scan_meta, clean_gevent):
-    clean_gevent["end-check"] = False
+def test_scan_meta_master_and_device(session, scan_meta):
     scan_meta.clear()
     master_dict = {"super master": 10}
 

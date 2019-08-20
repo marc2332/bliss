@@ -20,7 +20,7 @@ from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
@@ -91,7 +91,7 @@ class Controller:
                 if obj_class is None:
                     raise ValueError("Missing **class** for '%s`" % obj_name)
                 object_dict[obj_name] = obj_class(obj_name, self, obj_config)
-        session.get_current().map.register(self, parents_list=["controllers"])
+        global_map.register(self, parents_list=["controllers"])
 
     def _init(self):
         for axis in self.axes.values():

@@ -54,6 +54,7 @@ def test_print_sessions(beacon):
 test_session2
 test_session5
 test_alias
+test_alias2
 flint
 test_session3
 lima_test_session

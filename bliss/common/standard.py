@@ -9,18 +9,16 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
-from functools import wraps
-
-from bliss.common import scans, session
+from bliss import global_map, global_log
+from bliss.common import scans
 from bliss.common.scans import *
 from bliss.common.plot import plot
+from bliss.scanning.scan import SCANS
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.measurement import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import logtools
 from bliss.common.logtools import *
-from bliss.common.utils import get_counters_iter
-from bliss.common import session
 
 import sys
 
@@ -67,15 +65,7 @@ from pygments.formatters import TerminalFormatter
 
 from bliss import setup_globals
 from bliss.common.motor_group import Group
-from bliss.common.utils import (
-    get_objects_iter,
-    get_objects_type_iter,
-    get_axes_iter,
-    get_axes_positions_iter,
-    safe_get,
-    ErrorWithTraceback,
-    counter_dict,
-)
+from bliss.common.utils import safe_get, ErrorWithTraceback
 from bliss.common.measurement import BaseCounter
 
 _ERR = "!ERR"
@@ -109,12 +99,13 @@ def lslog(glob: str = None, debug_only=False) -> None:
         >>> lslog('*Socket*')  # prints loggers that contains 'Socket'
 
     """
-    log = session.get_current().log
-
     if glob is None:
-        loggers = {**log._find_loggers("bliss*"), **log._find_loggers("session*")}
+        loggers = {
+            **global_log._find_loggers("bliss*"),
+            **global_log._find_loggers("session*"),
+        }
     else:
-        loggers = log._find_loggers(glob)
+        loggers = global_log._find_loggers(glob)
     if loggers.items():
         maxlen = max([len(name) for name, _ in loggers.items()])
     else:
@@ -174,7 +165,7 @@ def debugon(glob_logger_pattern_or_obj) -> None:
         Set logger [session.device.controller.roby] to DEBUG level
         Set logger [session.device.controller.robz] to DEBUG level
     """
-    activated = logtools.debugon(glob_logger_pattern_or_obj)
+    activated = global_log.debugon(glob_logger_pattern_or_obj)
     if activated:
         for name in activated:
             print(f"Setting {name} to show debug messages")
@@ -183,8 +174,7 @@ def debugon(glob_logger_pattern_or_obj) -> None:
 
 
 def debugoff(glob_logger_pattern_or_obj):
-
-    deactivated = logtools.debugoff(glob_logger_pattern_or_obj)
+    deactivated = global_log.debugoff(glob_logger_pattern_or_obj)
     if deactivated:
         for name in deactivated:
             print(f"Setting {name} to hide debug messages")
@@ -228,9 +218,9 @@ def sync(*axes):
               all axes present in the session
     """
     if axes:
-        axes = get_objects_iter(*axes)
+        axes = global_map.get_axis_objects_iter(*axes)
     else:
-        axes = get_axes_iter()
+        axes = global_map.get_axes_iter()
     for axis in axes:
         axis.sync_hard()
 
@@ -248,7 +238,12 @@ def wa(**kwargs):
     tables = [(header, pos, dial)]
     errors = []
     try:
-        for axis_name, position, dial_position, axis_unit in get_axes_positions_iter(
+        for (
+            axis_name,
+            position,
+            dial_position,
+            axis_unit,
+        ) in global_map.get_axes_positions_iter(
             on_error=ErrorWithTraceback(error_txt=err)
         ):
             if len(header) == max_cols:
@@ -325,7 +320,8 @@ def wm(*axes, **kwargs):
             low_dial,
         )
     ]
-    for axis in get_objects_iter(*axes):
+
+    for axis in global_map.get_axis_objects_iter(*axes):
         # get limits in USER units.
         low, high = safe_get(axis, "limits", on_error=(err, err))
         offset = safe_get(axis, "offset", on_error=float("nan"))
@@ -360,7 +356,7 @@ def wm(*axes, **kwargs):
                 )
             )
         unit = axis.config.get("unit", default=None)
-        axis_label = axis.alias_or_name
+        axis_label = global_map.alias_or_name(axis)
         if unit:
             axis_label += "[{0}]".format(unit)
         header.append(axis_label)
@@ -397,12 +393,10 @@ def stm(*axes, read_hw=False):
         read_hw (bool): If True, force communication with hardware, otherwise
                         (default) use cached value.
     """
-
-    global __axes
     table = [("Axis", "Status")]
     table += [
         (
-            axis.alias_or_name,
+            global_map.alias_or_name(axis),
             safe_get(
                 axis,
                 "state",
@@ -410,7 +404,7 @@ def stm(*axes, read_hw=False):
                 read_hw=read_hw,
             ),
         )
-        for axis in get_objects_iter(*axes)
+        for axis in global_map.get_axis_objects_iter(*axes)
     ]
     print(_tabulate(table))
 
@@ -430,28 +424,7 @@ def sta(read_hw=False):
         read_hw (bool): If True, force communication with hardware, otherwise
                         (default) use cached value.
     """
-    global __axes
-    table = [("Axis", "Status")]
-    table += [
-        (
-            axis.alias_or_name,
-            safe_get(
-                axis,
-                "state",
-                on_error=ErrorWithTraceback(error_txt=_ERR),
-                read_hw=read_hw,
-            ),
-        )
-        for axis in get_axes_iter()
-    ]
-    print(_tabulate(table))
-
-    errors = []
-    for label, state in table:
-        if str(state) == _ERR:
-            errors.append((label, state))
-
-    _print_errors_with_traceback(errors, device_type="motor")
+    return stm(*list(global_map.get_axes_iter()), read_hw=read_hw)
 
 
 def mv(*args):
@@ -527,7 +500,7 @@ def __umove(*args, **kwargs):
     kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
-        motor_names = [axis.alias_or_name for axis in motor_pos]
+        motor_names = [global_map.alias_or_name(axis) for axis in motor_pos]
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
@@ -551,7 +524,7 @@ def __umove(*args, **kwargs):
 def __move(*args, **kwargs):
     wait, relative = kwargs.get("wait", True), kwargs.get("relative", False)
     motor_pos = dict()
-    for m, p in zip(get_objects_iter(*args[::2]), args[1::2]):
+    for m, p in zip(global_map.get_axis_objects_iter(*args[::2]), args[1::2]):
         motor_pos[m] = p
     group = Group(*motor_pos.keys())
     group.move(motor_pos, wait=wait, relative=relative)
@@ -638,16 +611,14 @@ def cntdict():
     counters_dict = dict()
     shape = ["0D", "1D", "2D"]
 
-    for cnt in get_counters_iter():
-        tmp = cnt.fullname.split(".")
-        tmp_controller_name = ".".join(tmp[:-1])
+    for cnt in global_map.get_counters_iter():
+        prefix, _, short_name = cnt.fullname.rpartition(":")
         counters_dict[cnt.fullname] = (
             shape[len(cnt.shape)],
-            cnt.controller.name if cnt.controller else tmp_controller_name,
-            cnt.name,
-            cnt.alias,
+            cnt.controller.name if cnt.controller else prefix,
+            short_name,
+            global_map.aliases.get_alias(cnt),
         )
-
     return counters_dict
 
 
@@ -686,7 +657,7 @@ def edit_roi_counters(detector, acq_time=None):
         scan = ct(acq_time, detector)
     else:
         try:
-            scan = setup_globals.SCANS[-1]
+            scan = SCANS[-1]
         except IndexError:
             print(
                 f"SCANS list is empty -- do an acquisition with {detector.name} before editing roi counters"

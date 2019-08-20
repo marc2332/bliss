@@ -47,7 +47,7 @@ from bliss.common.utils import (
     object_attribute_get,
     object_method,
 )
-from bliss.common import session
+from bliss import global_map
 from bliss.common.logtools import *
 
 
@@ -99,7 +99,7 @@ class Eurotherm2000Device:
     def __init__(self, modbus_address, serialport):
         """ RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["comms"]
         )  # instantiating once to allow the debug
         log_debug(
@@ -109,7 +109,7 @@ class Eurotherm2000Device:
         self.comm = modbus.Modbus_RTU(
             modbus_address, serialport, baudrate=9600, eol="\r"
         )
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["comms"], children_list=[self.comm]
         )  # twice to attach child
 

@@ -79,8 +79,6 @@ if not is_windows():
 if sys.platform in ["win32", "cygwin"]:
     import win32api
 
-from bliss.common import session
-
 
 # =================== ERROR REPORTING ============================
 class ErrorReport:
@@ -112,14 +110,11 @@ class ErrorReport:
         self._expert_mode = bool(enable)
 
 
-ERROR_REPORT = ErrorReport()
-# ERROR_REPORT.expert_mode = True
-
-
 def install_excepthook():
     """Patch the system exception hook,
     and the print exception for gevent greenlet
     """
+    ERROR_REPORT = ErrorReport()
 
     def repl_excepthook(exc_type, exc_value, tb):
         err_file = sys.stderr
@@ -143,6 +138,7 @@ def install_excepthook():
 
     sys.excepthook = repl_excepthook
     gevent.hub.Hub.print_exception = print_exception
+    return ERROR_REPORT
 
 
 # Patch eventloop of prompt_toolkit to be synchronous
@@ -195,8 +191,6 @@ else:
 
 
 __all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
-
-REPL = None
 
 #############
 # patch ptpython signaturetoolbar
@@ -398,6 +392,7 @@ def cli(
     startup_paths=None,
     eventloop=None,
     use_tmux=False,
+    expert_error_report=False,
     **kwargs,
 ):
     """
@@ -417,7 +412,8 @@ def cli(
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
-    install_excepthook()
+    ERROR_REPORT = install_excepthook()
+    ERROR_REPORT.expert_mode = expert_error_report
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         user_ns, session = initialize(session_name)
@@ -463,9 +459,6 @@ def cli(
         use_tmux=use_tmux,
         **kwargs,
     )
-
-    global REPL
-    REPL = repl
 
     # Run registered configurations
     for idx in sorted(CONFIGS):

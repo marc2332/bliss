@@ -29,7 +29,7 @@ def scan_saving():
     ss.template = prev_template
 
 
-def test_scan_saving(beacon, scan_saving):
+def test_scan_saving(session, scan_saving):
     scan_saving.base_path = "/tmp"
     scan_saving.template = "{session}/toto"
     parent_node = scan_saving.get()["parent"]
@@ -96,7 +96,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     scan_saving.template = "toto"
     master = SoftwarePositionTriggerMaster(m1, 0, 1, 10, time=1)
     end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, 0.01, npoints=10)
+    acq_dev = SamplingCounterAcquisitionDevice(counter, count_time=0.01, npoints=10)
     chain = AcquisitionChain()
     chain.add(master, acq_dev)
 
@@ -146,14 +146,14 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         assert dtype == "0d"
         assert master_name == master.name
         vars["scan_data_m1"] = data["data"]["axis:m1"]
-        vars["scan_data_diode"] = data["data"]["diode:diode"]
+        vars["scan_data_diode"] = data["data"]["simulation_diode_controller:diode"]
 
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {
         master.name: {
-            "display_names": {"diode:diode": "diode"},
-            "scalars_units": {"diode:diode": None},
-            "scalars": ["diode:diode"],
+            "display_names": {"simulation_diode_controller:diode": "diode"},
+            "scalars_units": {"simulation_diode_controller:diode": None},
+            "scalars": ["simulation_diode_controller:diode"],
             "images": [],
             "spectra": [],
             "master": {

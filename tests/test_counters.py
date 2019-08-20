@@ -21,7 +21,11 @@ from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
 from unittest import mock
 
-
+from bliss.controllers.simulation_diode import (
+    SimulationDiodeSamplingCounter,
+    SimulationDiodeIntegratingCounter,
+    SimulationDiodeController,
+)
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
 from bliss.scanning.scan import Scan
 from bliss.scanning.acquisition.counter import (
@@ -125,76 +129,61 @@ class IntegCounter(IntegratingCounter):
 
 
 def test_diode(beacon):
-    diode = beacon.get("diode")
-
     def multiply_by_two(x):
+        test_diode.raw_value = x
         return 2 * x
 
-    test_diode = Diode(diode, multiply_by_two)
+    test_diode = SimulationDiodeSamplingCounter(
+        "test_diode", SimulationDiodeController(), conversion_function=multiply_by_two
+    )
 
     diode_value = test_diode.read()
-
-    assert test_diode.last_read_value * 2 == diode_value
-
-
-def test_diode_with_controller(beacon):
-    diode = beacon.get("diode")
-
-    def multiply_by_two(x):
-        diode.raw_value = x
-        return 2 * x
-
-    test_diode = Diode(diode, multiply_by_two)
-
-    diode_value = test_diode.read()
-
-    assert diode.raw_value * 2 == diode_value
+    assert test_diode.raw_value * 2 == diode_value
 
 
-def test_sampling_counter_mode(beacon):
-    diode = beacon.get("diode")
+def test_sampling_counter_mode(session):
     values = []
 
     def f(x):
         values.append(x)
         return x
 
-    test_diode = Diode(diode, f)
+    test_diode = SimulationDiodeSamplingCounter(
+        "test_diode", SimulationDiodeController(), conversion_function=f
+    )
 
     # USING DEFAULT MODE
     assert test_diode.mode.name == "MEAN"
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
+    # assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) / len(values))
 
     # UPDATING THE MODE
     values = []
     test_diode.mode = SamplingMode.INTEGRATE
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     values = []
     test_diode.mode = "INTEGRATE"
     s = loopscan(1, 0.1, test_diode)
-    assert s.acq_chain.nodes_list[1].device.mode.name == "INTEGRATE"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     ## init as SamplingMode
-    samp_cnt = SamplingCounter(diode, "test_diode", None, mode=SamplingMode.INTEGRATE)
+    samp_cnt = SamplingCounter("test_diode", test_diode, mode=SamplingMode.INTEGRATE)
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as String
-    samp_cnt = SamplingCounter(diode, "test_diode", None, mode="INTEGRATE")
+    samp_cnt = SamplingCounter("test_diode", test_diode, mode="INTEGRATE")
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as something else
     with pytest.raises(KeyError):
-        samp_cnt = SamplingCounter(diode, "test_diode", None, mode=17)
+        samp_cnt = SamplingCounter("test_diode", test_diode, mode=17)
 
     ## two counters with different modes on the same acq_device
-    diode2 = beacon.get("diode2")
-    diode3 = beacon.get("diode3")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
     diode3.mode = "INTEGRATE"
 
     s = loopscan(30, .05, diode2, diode3)
@@ -207,9 +196,9 @@ def test_sampling_counter_mode(beacon):
     )
 
 
-def test_SampCnt_mode_SAMPLES_from_conf(beacon):
-    diode2 = beacon.get("diode2")
-    diode9 = beacon.get("diode9")
+def test_SampCnt_mode_SAMPLES_from_conf(session):
+    diode2 = session.config.get("diode2")
+    diode9 = session.config.get("diode9")
     assert diode9.mode.name == "SAMPLES"
 
     s = loopscan(10, .05, diode2, diode9)
@@ -360,9 +349,9 @@ def test_SampCnt_mode_LAST(session):
     assert all(s.get_data()["test"] == numpy.array([2, 2, 2, 2, 2, 2, 2, 2, 2]))
 
 
-def test_SampCnt_statistics(beacon):
-    diode = beacon.get("diode")
-    diode2 = beacon.get("diode2")
+def test_SampCnt_statistics(session):
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
 
     ct(.1, diode, diode2)
     statfields = (
@@ -382,9 +371,9 @@ def test_SampCnt_statistics(beacon):
     assert diode2.statistics.std > 0
 
 
-def test_SampCnt_mode_INTEGRATE_STATS(beacon):
+def test_SampCnt_mode_INTEGRATE_STATS(session):
 
-    diode = beacon.get("diode")
+    diode = session.config.get("diode")
     diode.mode = SamplingMode.INTEGRATE_STATS
 
     ct(.1, diode)
@@ -436,7 +425,9 @@ def test_integ_counter(beacon):
         acq_controller.raw_value = x
         return 2 * x
 
-    counter = IntegCounter(acq_controller, multiply_by_two)
+    counter = SimulationDiodeIntegratingCounter(
+        "test_diode", acq_controller, lambda: None, conversion_function=multiply_by_two
+    )
 
     assert list(counter.get_values(0)) == list(2 * acq_controller.raw_value)
 
@@ -454,19 +445,21 @@ def test_bad_counters(session, beacon):
         simu_mca._bad_counters = False
 
 
-def test_single_integ_counter(beacon):
+def test_single_integ_counter(session):
     timer = SoftwareTimerMaster(0, npoints=1)
     acq_controller = AcquisitionController()
     acq_controller.name = "bla"
-    counter = IntegCounter(acq_controller, None)
-    acq_device = IntegratingCounterAcquisitionDevice(counter, 0, npoints=1)
+    counter = SimulationDiodeIntegratingCounter(
+        "test_diode", acq_controller, lambda: None
+    )
+    acq_device = IntegratingCounterAcquisitionDevice(counter, count_time=0, npoints=1)
     chain = AcquisitionChain()
     chain.add(timer, acq_device)
     s = Scan(chain, save=False)
     s.run()
 
 
-def test_integ_start_once_true(beacon):
+def test_integ_start_once_true(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -484,8 +477,8 @@ def test_integ_start_once_true(beacon):
         assert len(v) == 1
 
 
-def test_sampling_start_once_true(beacon):
-    diode = beacon.get("diode")
+def test_sampling_start_once_true(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, start_once=True
     )
@@ -499,7 +492,7 @@ def test_sampling_start_once_true(beacon):
         assert len(v) == 2
 
 
-def test_integ_start_once_false(beacon):
+def test_integ_start_once_false(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -517,8 +510,8 @@ def test_integ_start_once_false(beacon):
         assert len(v) == 1
 
 
-def test_sampling_start_once_false(beacon):
-    diode = beacon.get("diode")
+def test_sampling_start_once_false(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, start_once=False
     )
@@ -532,7 +525,7 @@ def test_sampling_start_once_false(beacon):
         assert len(v) == 2
 
 
-def test_integ_prepare_once_true(beacon):
+def test_integ_prepare_once_true(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -549,8 +542,8 @@ def test_integ_prepare_once_true(beacon):
         assert len(v) == 1
 
 
-def test_sampling_prepare_once_true(beacon):
-    diode = beacon.get("diode")
+def test_sampling_prepare_once_true(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=2, prepare_once=True
     )
@@ -564,7 +557,7 @@ def test_sampling_prepare_once_true(beacon):
         assert len(v) == 2
 
 
-def test_integ_prepare_once_false(beacon):
+def test_integ_prepare_once_false(session):
     acq_controller = AcquisitionController()
     acq_controller.name = "acq_controller"
     counter = IntegCounter(acq_controller, lambda x: x * 2)
@@ -581,8 +574,8 @@ def test_integ_prepare_once_false(beacon):
         assert len(v) == 1
 
 
-def test_sampling_prepare_once_false(beacon):
-    diode = beacon.get("diode")
+def test_sampling_prepare_once_false(session):
+    diode = session.config.get("diode")
     acq_device = SamplingCounterAcquisitionDevice(
         diode, count_time=.1, npoints=1, prepare_once=False
     )
@@ -596,13 +589,13 @@ def test_sampling_prepare_once_false(beacon):
         assert len(v) == 1
 
 
-def test_prepare_once_prepare_many(beacon):
-    diode = beacon.get("diode")
-    diode2 = beacon.get("diode2")
-    diode3 = beacon.get("diode3")
+def test_prepare_once_prepare_many(session):
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
 
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionDevice(diode, .1, npoints=10)
+    d = SamplingCounterAcquisitionDevice(diode, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()
@@ -614,7 +607,7 @@ def test_prepare_once_prepare_many(beacon):
     # diode2 and diode3 are usually on the same SamplingCounterAcquisitionDevice
     # lets see if they can be split as well
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionDevice(diode3, .1, npoints=10)
+    d = SamplingCounterAcquisitionDevice(diode3, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()

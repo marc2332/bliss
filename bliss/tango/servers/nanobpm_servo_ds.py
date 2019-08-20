@@ -22,7 +22,7 @@ from tango.server import device_property
 import gevent
 from gevent import event
 
-from bliss.common import session
+from bliss import global_map
 from bliss.common.logtools import *
 
 __all__ = ["NanoBpmServo", "main"]
@@ -88,7 +88,7 @@ class NanoBpmServo(Device):
                 self._xcontrolProxy = tango.DeviceProxy(self.XController)
             if self.YController is not None:
                 self._ycontrolProxy = tango.DeviceProxy(self.YController)
-            session.get_current().map.register(
+            global_map.register(
                 self,
                 children_list=[
                     self._nanoBpmProxy,

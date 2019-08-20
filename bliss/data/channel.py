@@ -52,7 +52,6 @@ class ChannelDataNode(DataNode):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
         unit = keys.pop("unit", None)
-        alias = keys.pop("alias", None)
         fullname = keys.pop("fullname", None)
         info = keys.pop("info", dict())
         if keys.get("create", False):
@@ -60,12 +59,18 @@ class ChannelDataNode(DataNode):
                 info["shape"] = shape
             if dtype is not None:
                 info["dtype"] = dtype
-            info["has_alias"] = alias is not None
-            info["alias"] = alias or "None"
             info["fullname"] = fullname
             info["unit"] = unit
 
         DataNode.__init__(self, "channel", name, info=info, **keys)
+
+        # fix the channel name
+        if fullname:
+            if fullname.endswith(f":{name}"):
+                # no alias, name must be fullname
+                self._struct.name = fullname
+            elif fullname.startswith("axis:"):
+                self._struct.name = f"axis:{name}"
 
         self._queue = None
 
@@ -115,36 +120,19 @@ class ChannelDataNode(DataNode):
         return self.info.get("dtype")
 
     @property
-    def alias(self):
-        return self.info.get("alias")
-
-    @property
     def fullname(self):
         return self.info.get("fullname")
 
     @property
-    def alias_or_name(self):
-        if self.has_alias:
-            return self.alias
-        else:
-            return self.name
-
-    @property
-    def alias_or_fullname(self):
-        if self.has_alias:
-            return self.alias
-        else:
-            return self.fullname
-
-    @property
-    def has_alias(self):
-        return self.info.get("has_alias")
+    def short_name(self):
+        _, _, short_name = self.name.rpartition(":")
+        return short_name
 
     @property
     def unit(self):
         return self.info.get("unit")
 
     def _get_db_names(self):
-        db_names = DataNode._get_db_names(self)
+        db_names = super()._get_db_names()
         db_names.append(self.db_name + "_data")
         return db_names

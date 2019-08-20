@@ -27,7 +27,7 @@ import gevent
 from gevent import lock
 from functools import wraps
 from bliss.controllers.nano_bpm import NanoBpm as nanoBpm
-from bliss.common import session
+from bliss import global_map
 from bliss.common.logtools import *
 
 
@@ -79,7 +79,7 @@ class NanoBpm(Device):
             self.BPP16: "bpp16",
             self.BPP32: "bpp32",
         }
-        session.get_current().map.register(
+        global_map.register(
             self, children_list=[self._nanoBpm], tag=f"nanobpm_ds:{self.Name}"
         )
         self._imageDepth = self.BPP8

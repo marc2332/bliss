@@ -7,32 +7,31 @@
 
 import os
 import sys
-from types import ModuleType
+import gevent
 import functools
+import warnings
 from treelib import Tree
 
-from bliss import setup_globals
+from bliss import setup_globals, global_map
+from types import ModuleType
 from bliss.config import static
-from bliss.common.mapping import Map
-from bliss.common.logtools import Log
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
+from bliss.common.proxy import Proxy
 
-
+_SESSION_IMPORTERS = set()
 CURRENT_SESSION = None
 
 
-def get_current():
-    """
-    return the current session object
-    """
-    global CURRENT_SESSION
-    if CURRENT_SESSION is None:
-        CURRENT_SESSION = DefaultSession()
-        CURRENT_SESSION.setup()
+def set_current_session(session, force=True):
+    if force:
+        global CURRENT_SESSION
+        CURRENT_SESSION = session
+    else:
+        raise RuntimeError("It is not allowed to set another current session.")
+
+
+def get_current_session():
     return CURRENT_SESSION
-
-
-_SESSION_IMPORTERS = set()
 
 
 class _StringImporter(object):
@@ -88,57 +87,20 @@ class _StringImporter(object):
         return get_text_file(filename) if filename else ""
 
 
-def load_script(env_dict, script_module_name, session=None):
-    """
-    load a script name script_module_name and export all public
-    (not starting with _) object and function in env_dict.
-    just print exception but not throwing it.
+class ConfigProxy(Proxy):
+    def __init__(self, target, env_dict):
+        object.__setattr__(self, "_ConfigProxy__env_dict", env_dict)
+        super().__init__(target, init_once=True)
 
-    Args:
-    	env_dict (python dictionnary) where object will be exported
-    	script_module_name the python file you want to load
-    	session from which session name you want to load your script,
-        default (None) is the current.
-    """
-    if session is None:
-        session = get_current()
-    elif isinstance(session, str):
-        session = static.get_config().get(session)
-
-    if session._scripts_module_path:
-        importer = _StringImporter(
-            session._scripts_module_path, session.name, in_load_script=True
-        )
-        try:
-            sys.meta_path.insert(0, importer)
-
-            module_name = "%s.%s.%s" % (
-                _StringImporter.BASE_MODULE_NAMESPACE,
-                session.name,
-                os.path.splitext(script_module_name)[0],
-            )
-            filename = importer._modules.get(module_name)
-            if not filename:
-                raise RuntimeError("Cannot find module %s" % module_name)
-
-            s_code = get_text_file(filename)
-            c_code = compile(s_code, filename, "exec")
-
-            globals_dict = env_dict.copy()
-            try:
-                exec(c_code, globals_dict)
-            except Exception:
-                sys.excepthook(*sys.exc_info())
-        finally:
-            sys.meta_path.remove(importer)
-
-    for k in globals_dict.keys():
-        if k.startswith("_"):
-            continue
-        env_dict[k] = globals_dict[k]
+    def get(self, name):
+        """This is the same as the canonical static config.get,
+        except that it adds the object to the corresponding session env dict"""
+        obj = self.__wrapped__.get(name)
+        self.__env_dict[name] = obj
+        return obj
 
 
-class Session(object):
+class Session:
     """
     Bliss session.
 
@@ -189,7 +151,6 @@ class Session(object):
         self.__synoptic_file = None
         self.__config_objects_names = []
         self.__exclude_objects_names = []
-        self.__objects_names = None
         self.__children_tree = None
         self.__include_sessions = []
         self.__map = None
@@ -229,9 +190,9 @@ class Session(object):
 
         self.__config_objects_names = config_tree.get("config-objects")
         self.__exclude_objects_names = config_tree.get("exclude-objects", list())
-        self.__objects_names = None
         self.__children_tree = None
         self.__include_sessions = config_tree.get("include-sessions")
+        self.__config_aliases = config_tree.get("aliases", [])
 
     @property
     def name(self):
@@ -239,7 +200,7 @@ class Session(object):
 
     @property
     def config(self):
-        return static.get_config()
+        return ConfigProxy(static.get_config, self.env_dict)
 
     @property
     def setup_file(self):
@@ -250,65 +211,86 @@ class Session(object):
         return self.__synoptic_file
 
     @property
-    def map(self):
-        return self.__map
-
-    @property
-    def log(self):
-        return self.__log
-
-    @property
     def _scripts_module_path(self):
         return self.__scripts_module_path
 
+    def _child_session_iter(self):
+        sessions_tree = self.sessions_tree
+        for child_session in reversed(
+            list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]
+        ):
+            yield child_session
+
+    def _aliases_info(self, cache={"aliases": {}, "config_id": None}):
+        aliases = cache["aliases"]
+        config_id = id(self.__config_aliases)
+        if cache["config_id"] != config_id:
+            aliases.clear()
+            cache["config_id"] = config_id
+        if aliases:
+            return aliases
+
+        for child_session in self._child_session_iter():
+            aliases.update(child_session._aliases_info())
+
+        for alias_cfg in self.__config_aliases:
+            cfg = alias_cfg.deep_copy()
+            aliases[cfg.pop("original_name")] = cfg
+
+        return aliases
+
     @property
-    def object_names(self):
-        if self.__objects_names is None:
+    def object_names(self, cache={"objects_names": [], "config_id": None}):
+        objects_names = cache["objects_names"]
+        config_id = id(self.__config_objects_names)
+        if cache["config_id"] != config_id:
+            objects_names.clear()
+            cache["config_id"] = config_id
+        if objects_names:
+            return objects_names
+
+        names_list = list()
+        for child_session in self._child_session_iter():
+            names_list.extend(child_session.object_names)
+
+        if self.__config_objects_names is None:
             names_list = list()
-            sessions_tree = self.sessions_tree
-            for child_session in reversed(
-                list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]
-            ):
-                names_list.extend(child_session.object_names)
-
-            if self.__config_objects_names is None:
-                names_list = list()
-                for name in self.config.names_list:
-                    cfg = self.config.get_config(name)
-                    if cfg.get("class", "").lower() == "session":
-                        continue
-                    if cfg.get_inherited("plugin") == "default":
-                        continue
-                    names_list.append(name)
-            else:
-                names_list.extend(self.__config_objects_names[:])
-                # Check if other session in config-objects
-                for name in names_list:
-                    object_config = self.config.get_config(name)
-                    if object_config is None:
-                        raise RuntimeError(
-                            "Session %s contains object %s which doesn't exist"
-                            % (self.name, name)
-                        )
-
-                    class_name = object_config.get("class", "")
-                    if class_name.lower() == "session":
-                        raise RuntimeError(
-                            "Session %s contains session %s in config-objects"
-                            % (self.name, name)
-                        )
-
-            for name in self.__exclude_objects_names:
-                try:
+            for name in self.config.names_list:
+                cfg = self.config.get_config(name)
+                if cfg.get("class", "").lower() == "session":
+                    continue
+                if cfg.get_inherited("plugin") == "default":
+                    continue
+                names_list.append(name)
+        else:
+            names_list.extend(self.__config_objects_names[:])
+            # Check if other session in config-objects
+            for name in names_list:
+                object_config = self.config.get_config(name)
+                if object_config is None:
+                    warnings.warn(
+                        f"Session {self.name}: object {name} does not exist, ignoring",
+                        RuntimeWarning,
+                    )
                     names_list.remove(name)
-                except (ValueError, AttributeError):
-                    pass
-            seen = set()
-            self.__objects_names = [
-                x for x in names_list if not (x in seen or seen.add(x))
-            ]
 
-        return self.__objects_names
+                class_name = object_config.get("class", "")
+                if class_name.lower() == "session":
+                    warnings.warn(
+                        f"Session {self.name} 'config-objects' list contains session {name}, ignoring (hint: add session in 'include-sessions' list)",
+                        RuntimeWarning,
+                    )
+                    names_list.remove(name)
+
+        for name in self.__exclude_objects_names:
+            try:
+                names_list.remove(name)
+            except (ValueError, AttributeError):
+                pass
+        seen = set()
+        objects_names.clear()
+        objects_names.extend(x for x in names_list if not (x in seen or seen.add(x)))
+        return objects_names
 
     @property
     def sessions_tree(self):
@@ -354,43 +336,85 @@ class Session(object):
     def env_dict(self):
         return self.__env_dict
 
+    def load_script(self, script_module_name, session=None):
+        """
+        load a script name script_module_name and export all public
+        (not starting with _) object and function in env_dict.
+        just print exception but not throwing it.
+
+        Args:
+            env_dict (python dictionnary) where object will be exported
+            script_module_name the python file you want to load
+        """
+        if session is None:
+            session = self
+        elif isinstance(session, str):
+            session = self.config.get(session)
+
+        if session._scripts_module_path:
+            importer = _StringImporter(
+                session._scripts_module_path, session.name, in_load_script=True
+            )
+            try:
+                sys.meta_path.insert(0, importer)
+
+                module_name = "%s.%s.%s" % (
+                    _StringImporter.BASE_MODULE_NAMESPACE,
+                    session.name,
+                    os.path.splitext(script_module_name)[0],
+                )
+                filename = importer._modules.get(module_name)
+                if not filename:
+                    raise RuntimeError("Cannot find module %s" % module_name)
+
+                s_code = get_text_file(filename)
+                c_code = compile(s_code, filename, "exec")
+
+                globals_dict = self.env_dict.copy()
+                try:
+                    exec(c_code, globals_dict)
+                except Exception:
+                    sys.excepthook(*sys.exc_info())
+
+                for k in globals_dict.keys():
+                    if k.startswith("_"):
+                        continue
+                    self.env_dict[k] = globals_dict[k]
+            finally:
+                sys.meta_path.remove(importer)
+
     def setup(self, env_dict=None, verbose=False):
-        if env_dict is not None:
-            # set a new env dict
-            self.__env_dict = env_dict
-        # use existing env dict
-        env_dict = self.env_dict
+        if get_current_session() is None:
+            set_current_session(self, force=True)
+        if env_dict is None:
+            # use existing env dict
+            env_dict = get_current_session().env_dict
+        self.__env_dict = env_dict
 
-        env_dict["config"] = self.config
-
-        global CURRENT_SESSION
-        CURRENT_SESSION = self
-
-        self.__map = Map()
-
-        self.__log = Log(map=self.__map)
-
-        self._load_config(env_dict, verbose)
+        try:
+            self._load_config(verbose)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
 
         if self.__scripts_module_path and self.name not in _SESSION_IMPORTERS:
             sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
             _SESSION_IMPORTERS.add(self.name)
 
+        env_dict["config"] = self.config
+
         if not "load_script" in env_dict:
-            env_dict["load_script"] = functools.partial(load_script, env_dict)
+            env_dict["load_script"] = self.load_script
 
         from bliss.scanning.scan import ScanSaving
 
         env_dict["SCAN_SAVING"] = ScanSaving(self.name)
+        env_dict["ALIASES"] = global_map.aliases
 
         from bliss.common.measurementgroup import ACTIVE_MG
 
         env_dict["ACTIVE_MG"] = ACTIVE_MG
 
-        sessions_tree = self.sessions_tree
-        for child_session in reversed(
-            list(sessions_tree.expand_tree(mode=Tree.WIDTH))[1:]
-        ):
+        for child_session in self._child_session_iter():
             if child_session.name not in _SESSION_IMPORTERS:
                 sys.meta_path.append(
                     _StringImporter(
@@ -401,26 +425,7 @@ class Session(object):
 
             child_session._setup(env_dict)
 
-        for obj_name, obj in env_dict.items():
-            setattr(setup_globals, obj_name, obj)
-
         self._setup(env_dict)
-
-        ###### add alias suppport
-
-        from bliss.common.alias import Aliases
-
-        setattr(setup_globals, "ALIASES", Aliases(self, env_dict))
-        env_dict["ALIASES"] = setup_globals.ALIASES
-
-        if self.name != "default":
-            a = static.get_config().get_config(self.name).to_dict().get("aliases")
-        else:
-            a = None
-
-        if a != None:
-            for alias_config in a:
-                setup_globals.ALIASES.create_alias(**alias_config)
 
     def _setup(self, env_dict):
         if self.setup_file is None:
@@ -438,47 +443,45 @@ class Session(object):
             return True
 
     def close(self):
-        try:
-            for obj_name, obj in self.__env_dict.items():
-                if obj is self or obj is self.config:
-                    continue
-                try:
-                    delattr(setup_globals, obj_name)
-                except Exception:
-                    pass
-                try:
-                    obj.__close__()
-                except Exception:
-                    pass
-            self.__env_dict.clear()
-        finally:
-            global CURRENT_SESSION
-            if CURRENT_SESSION is self:
-                self.config.close()
-                CURRENT_SESSION = None
+        setup_globals.__dict__.clear()
+        for obj_name, obj in self.env_dict.items():
+            if obj is self or obj is self.config:
+                continue
+            try:
+                obj.__close__()
+            except Exception:
+                pass
+        self.env_dict.clear()
+        global CURRENT_SESSION
+        CURRENT_SESSION = None
 
-    def _load_config(self, env_dict, verbose=True):
+    def _load_config(self, verbose=True):
         for item_name in self.object_names:
             if hasattr(setup_globals, item_name):
-                env_dict[item_name] = getattr(setup_globals, item_name)
+                self.env_dict[item_name] = getattr(setup_globals, item_name)
                 continue
 
             if verbose:
                 print(f"Initializing '{item_name}'")
 
-            self._add_from_config(item_name, env_dict)
+            self._add_from_config(item_name)
 
-        self._add_from_config(self.name, env_dict)
+        for item_name, alias_cfg in self._aliases_info().items():
+            alias_name = alias_cfg["alias_name"]
+            try:
+                global_map.aliases.add(alias_name, item_name, verbose=verbose)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
 
-    def _add_from_config(self, item_name, env_dict):
+        self._add_from_config(self.name)
+
+        setup_globals.__dict__.update(self.env_dict)
+
+    def _add_from_config(self, item_name):
         try:
             o = self.config.get(item_name)
         except:
             sys.excepthook(*sys.exc_info())
-        else:
-            env_dict[item_name] = o
-            setattr(setup_globals, item_name, o)
-            del o
 
     def resetup(self, verbose=False):
         self.close()
@@ -494,7 +497,7 @@ class DefaultSession(Session):
     def __init__(self):
         Session.__init__(self, "default", {"config-objects": []})
 
-    def _load_config(self, env_dict, verbose=True):
+    def _load_config(self, verbose=True):
         return
 
     def resetup(self, verbose=False):

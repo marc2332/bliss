@@ -25,8 +25,8 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
     def __init__(self, name, motor_mockup):
         super(DebugMotorMockupAcquisitionDevice, self).__init__(motor_mockup, name)
         self.motor_mockup = motor_mockup
-        self.channels.append(AcquisitionChannel(self, name + "_pos", float, ()))
-        self.channels.append(AcquisitionChannel(self, name + "_time", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_time", float, ()))
 
     def set_time_ref(self, state):
         if "MOVING" in state:
@@ -54,8 +54,8 @@ class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
         )
 
 
-def test_software_position_trigger_master(beacon):
-    robz = beacon.get("robz")
+def test_software_position_trigger_master(session):
+    robz = session.config.get("robz")
     robz.velocity = 10
     chain = AcquisitionChain()
     chain.add(
@@ -77,8 +77,8 @@ def test_software_position_trigger_master(beacon):
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 
-def test_iter_software_position_trigger_master(beacon):
-    robz = beacon.get("robz")
+def test_iter_software_position_trigger_master(session):
+    robz = session.config.get("robz")
     robz.velocity = 100
     chain = AcquisitionChain()
     start_pos = [0, 12, 24]
@@ -100,8 +100,8 @@ def test_iter_software_position_trigger_master(beacon):
     )
 
 
-def test_multi_top_master(beacon, diode_acq_device_factory, diode):
-    mot = beacon.get("m0")
+def test_multi_top_master(session, diode_acq_device_factory, diode):
+    mot = session.config.get("m0")
     start, stop, npoints, count_time = (0, 1, 20, 1)
     chain = AcquisitionChain(parallel_prepare=True)
     master = SoftwarePositionTriggerMaster(mot, start, stop, npoints, time=count_time)
@@ -114,7 +114,10 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     acquisition_device = diode_acq_device_factory.get(
         count_time=count_time, npoints=npoints
     )
-    diode1 = acquisition_device.device
+    # get diode from acq device
+    # 'acq_device.device' is a reader object
+    diode1 = acquisition_device.device.controller
+    #
     diode2 = diode
     chain.add(timer, acquisition_device)
 
@@ -131,8 +134,8 @@ def test_multi_top_master(beacon, diode_acq_device_factory, diode):
     )
 
 
-def test_interrupted_scan(beacon, diode_acq_device_factory):
-    robz = beacon.get("robz")
+def test_interrupted_scan(session, diode_acq_device_factory):
+    robz = session.config.get("robz")
     robz.velocity = 1
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
@@ -157,8 +160,8 @@ def test_interrupted_scan(beacon, diode_acq_device_factory):
     assert acquisition_device_2.stop_flag
 
 
-def test_scan_too_fast(beacon, diode_acq_device_factory):
-    robz = beacon.get("robz")
+def test_scan_too_fast(session, diode_acq_device_factory):
+    robz = session.config.get("robz")
     robz.velocity = 10
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
@@ -172,16 +175,16 @@ def test_scan_too_fast(beacon, diode_acq_device_factory):
         assert "Aborted due to" in str(e_info.value)
 
 
-def test_scan_failure(beacon, diode_acq_device_factory):
-    robz = beacon.get("robz")
+def test_scan_failure(session, diode_acq_device_factory):
+    robz = session.config.get("robz")
     robz.velocity = 2
     chain = AcquisitionChain()
     acquisition_device_1 = diode_acq_device_factory.get(
         count_time=0.1, npoints=5, trigger_fail=True
     )
-    diode1 = acquisition_device_1.device
+    diode1 = acquisition_device_1.device.controller
     acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
-    diode2 = acquisition_device_2.device
+    diode2 = acquisition_device_2.device.controller
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
     chain.add(master, acquisition_device_2)

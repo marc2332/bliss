@@ -21,6 +21,7 @@ import uuid
 from functools import wraps
 
 from bliss import setup_globals
+from bliss import current_session
 from bliss.common.event import connect, send, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
@@ -30,7 +31,7 @@ from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
 from bliss.config.conductor import client
 from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
-from bliss.config.settings import _get_connection, pipeline
+from bliss.config.settings import pipeline
 from bliss.data.node import (
     _get_or_create_node,
     _create_node,
@@ -38,7 +39,6 @@ from bliss.data.node import (
     is_zerod,
 )
 from bliss.data.scan import get_data
-from bliss.common.session import get_current as _current_session
 from bliss.common import motor_group
 from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain
 from .writer.null import Writer as NullWriter
@@ -229,8 +229,7 @@ class ScanSaving(ParametersWardrobe):
     @property
     def session(self):
         """ This give the name of the current session or 'default' if no current session is defined """
-        session = _current_session()
-        return session.name if session is not None else "default"
+        return current_session.name
 
     @property
     def date(self):
@@ -355,18 +354,15 @@ class ScanSaving(ParametersWardrobe):
 class ScanDisplay(ParametersWardrobe):
     SLOTS = []
 
-    def __init__(self, session=None):
+    def __init__(self, session_name=None):
         """
         This class represents the display parameters for scans for a session.
         """
         keys = dict()
         _change_to_obj_marshalling(keys)
 
-        if session is None:
-            cs = _current_session()
-            session_name = cs.name if cs is not None else "default"
-        else:
-            session_name = session
+        if session_name is None:
+            session_name = current_session.name
 
         super().__init__(
             "%s:scan_display_params" % session_name,
@@ -406,9 +402,6 @@ class ScanDisplay(ParametersWardrobe):
             cnts = []
             for cnt in counters_selection:
                 fullname = cnt.fullname
-                fullname = fullname.replace(".", ":", 1)
-                if not fullname.find(":") > -1:
-                    fullname = "{cnt_name}:{cnt_name}".format(cnt_name=fullname)
                 cnts.append(fullname)
 
             self._counters = cnts
@@ -422,16 +415,21 @@ def _get_channels_dict(acq_object, channels_dict):
     display_names = channels_dict.setdefault("display_names", {})
 
     for acq_chan in acq_object.channels:
-        name = acq_chan.fullname
+        fullname = acq_chan.fullname
+        if fullname in display_names:
+            continue
+        chan_name = acq_chan.short_name
+        if chan_name in display_names.values():
+            chan_name = fullname
+        display_names[fullname] = chan_name
+        scalars_units[fullname] = acq_chan.unit
         shape = acq_chan.shape
-        display_names[name] = acq_chan.alias_or_name
-        scalars_units[name] = acq_chan.unit
-        if len(shape) == 0 and not name in scalars:
-            scalars.append(name)
-        elif len(shape) == 1 and not name in spectra:
-            spectra.append(name)
-        elif len(shape) == 2 and not name in images:
-            images.append(name)
+        if len(shape) == 0 and not fullname in scalars:
+            scalars.append(fullname)
+        elif len(shape) == 1 and not fullname in spectra:
+            spectra.append(fullname)
+        elif len(shape) == 2 and not fullname in images:
+            images.append(fullname)
 
     return channels_dict
 
@@ -531,8 +529,7 @@ class Scan:
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
-            session_obj = _current_session()
-            scan_saving = session_obj.env_dict["SCAN_SAVING"]
+            scan_saving = current_session.env_dict["SCAN_SAVING"]
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving
@@ -580,6 +577,7 @@ class Scan:
         self._scan_info["start_timestamp"] = start_timestamp
         self._scan_info.update(self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+        self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
         self._acq_chain = chain
@@ -597,24 +595,6 @@ class Scan:
             node_name, "scan", parent=self.root_node, info=self._scan_info
         )
 
-        if data_watch_callback is not None:
-            data_watch_callback_event = gevent.event.Event()
-            data_watch_callback_done = gevent.event.Event()
-
-            def trig(*args):
-                data_watch_callback_event.set()
-
-            self._data_watch_running = False
-            self._data_watch_task = gevent.spawn(
-                Scan._data_watch,
-                weakref.proxy(self, trig),
-                data_watch_callback_event,
-                data_watch_callback_done,
-            )
-            self._data_watch_callback_event = data_watch_callback_event
-            self._data_watch_callback_done = data_watch_callback_done
-        else:
-            self._data_watch_task = None
         self._preset_list = list()
 
     def __repr__(self):
@@ -670,8 +650,7 @@ class Scan:
         flatten = lambda l: [item for sublist in l for item in sublist]
 
         return {
-            c.fullname: c
-            for c in flatten([n.channels for n in self.acq_chain.nodes_list])
+            c.name: c for c in flatten([n.channels for n in self.acq_chain.nodes_list])
         }
 
     def add_preset(self, preset):
@@ -832,13 +811,13 @@ class Scan:
 
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:
+            chan_name = channel.short_name
             self.nodes[channel] = _get_or_create_node(
-                channel.name,
+                chan_name,
                 channel.data_node_type,
                 parent_node,
                 shape=channel.shape,
                 dtype=channel.dtype,
-                alias=channel.alias,
                 unit=channel.unit,
                 fullname=channel.fullname,
             )
@@ -881,16 +860,33 @@ class Scan:
                 "Scan state is not idle. Scan objects can only be used once."
             )
 
-        if hasattr(self._data_watch_callback, "on_state"):
-            call_on_prepare = self._data_watch_callback.on_state(ScanState.PREPARING)
-            call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
-        else:
-            call_on_prepare, call_on_stop = False, False
+        call_on_prepare, call_on_stop = False, False
+        set_watch_event = None
 
-        if self._data_watch_callback:
+        if self._data_watch_callback is not None:
+            data_watch_callback_event = gevent.event.Event()
+            data_watch_callback_done = gevent.event.Event()
+
+            def trig(*args):
+                data_watch_callback_event.set()
+
+            self._data_watch_running = False
+            self._data_watch_task = gevent.spawn(
+                Scan._data_watch,
+                weakref.proxy(self, trig),
+                data_watch_callback_event,
+                data_watch_callback_done,
+            )
+            self._data_watch_callback_event = data_watch_callback_event
+            self._data_watch_callback_done = data_watch_callback_done
+
+            if hasattr(self._data_watch_callback, "on_state"):
+                call_on_prepare = self._data_watch_callback.on_state(
+                    ScanState.PREPARING
+                )
+                call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
+
             set_watch_event = self._data_watch_callback_event.set
-        else:
-            set_watch_event = None
 
         self.acq_chain.reset_stats()
         current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
@@ -1119,9 +1115,11 @@ class Scan:
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"
         filename = self.writer.filename
-        # last scan number is store in the parent of the scan
+        # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
-        last_scan_number = parent_node._data.last_scan_number
+        last_scan_number = parent_node.connection.hget(
+            parent_node.db_name, LAST_SCAN_NUMBER
+        )
         if last_scan_number is None and "{scan_number}" not in filename:
             max_scan_number = 0
             for scan_entry in self.writer.get_scan_entries():
@@ -1131,24 +1129,15 @@ class Scan:
                     )
                 except Exception:
                     continue
-            with pipeline(parent_node._data) as p:
-                name = parent_node._data._proxy.name
+            name = parent_node.db_name
+            with pipeline(parent_node._struct) as p:
                 p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
                 p.hincrby(name, LAST_SCAN_NUMBER, 1)
                 _, scan_number = p.execute()
         else:
-            cnx = _get_connection(parent_node._data)
-            scan_number = cnx().hincrby(
-                parent_node._data._proxy.name, LAST_SCAN_NUMBER, 1
-            )
+            cnx = parent_node.connection
+            scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
         return scan_number
-
-    @staticmethod
-    def trace(on=True):
-        """
-        Activate logging trace during scan
-        """
-        AcquisitionChain.trace(on)
 
     def _execute_preset(self, method_name):
         preset_tasks = [

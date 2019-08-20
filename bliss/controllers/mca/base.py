@@ -16,7 +16,7 @@ import collections
 import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
-from bliss.common import session
+from bliss import global_map
 
 # Enums
 
@@ -49,9 +49,7 @@ class BaseMCA(object):
 
     def __init__(self, name, config):
         self._name = name
-        session.get_current().map.register(
-            self, parents_list=["counters", "controllers"]
-        )
+        global_map.register(self, parents_list=["counters", "controllers"])
         self._config = config
         self._rois = RoiConfig(self)
         self.initialize_attributes()

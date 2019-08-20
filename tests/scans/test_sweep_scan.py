@@ -24,8 +24,8 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
             motor_mockup, name, prepare_once=True, start_once=True
         )
         self.motor_mockup = motor_mockup
-        self.channels.append(AcquisitionChannel(self, name + "_pos", float, ()))
-        self.channels.append(AcquisitionChannel(self, name + "_time", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
+        self.channels.append(AcquisitionChannel(name + "_time", float, ()))
         self._start_time = None
 
     def prepare(self):
@@ -50,8 +50,8 @@ class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
         )
 
 
-def test_sweep_motor_master(beacon):
-    roby = beacon.get("roby")
+def test_sweep_motor_master(session):
+    roby = session.config.get("roby")
     roby.velocity = 2000
     roby.acceleration = 10000
     master = SweepMotorMaster(roby, 0, 10, 0.025, 5)

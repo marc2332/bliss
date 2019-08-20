@@ -8,97 +8,105 @@
 import numpy
 import time
 import warnings
+import functools
 import gevent
+import collections
 from gevent import event
 from bliss.common.event import dispatcher
 from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import GroupedReadMixin, Counter, SamplingMode
+from bliss.common.measurement import SamplingMode
 from bliss.common.utils import all_equal
 from collections import namedtuple
 from datetime import datetime
 
 
-def _get_group_reader(counters_or_groupreadhandler):
-    try:
-        list_iter = iter(counters_or_groupreadhandler)
-    except TypeError:
-        if isinstance(counters_or_groupreadhandler, GroupedReadMixin):
-            return counters_or_groupreadhandler, []
+def _get_group_reader(counters):
+    readers = set(cnt.read_handler for cnt in counters)
 
-        return (
-            Counter.GROUPED_READ_HANDLERS.get(
-                counters_or_groupreadhandler, counters_or_groupreadhandler
-            ),
-            [counters_or_groupreadhandler],
+    if len(set(readers)) != 1:
+        raise RuntimeError(
+            f"Counters {', '.join(cnt.name for cnt in counters)} do not belong to the same group read handler"
         )
     else:
-        first_counter = next(list_iter)
-        reader = Counter.GROUPED_READ_HANDLERS.get(first_counter)
-        for cnt in list_iter:
-            cnt_reader = Counter.GROUPED_READ_HANDLERS.get(cnt)
-            if cnt_reader != reader:
-                raise RuntimeError(
-                    "Counters %s doesn't belong to the same group"
-                    % counters_or_groupreadhandler
-                )
-        return reader, counters_or_groupreadhandler
+        reader = readers.pop()
+
+    if reader is None:
+        raise RuntimeError(
+            f"Cannot find a reader for counter(s): {', '.join(cnt.name for cnt in counters)}"
+        )
+
+    return reader
 
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(
-        self, counter, count_time, npoints, prepare_once, start_once, **unused_keys
+        self,
+        counters,  # _or_groupreadhandler,
+        count_time,
+        npoints,
+        prepare_once,
+        start_once,
+        **unused_keys,
     ):
+        reader = _get_group_reader(counters)
+
         AcquisitionDevice.__init__(
             self,
-            counter,
-            counter.name,
+            reader,
             npoints=npoints,
             trigger_type=AcquisitionDevice.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
         )
 
+        self._reader = reader
         self.__count_time = count_time
-        self.__grouped_read_counters_list = list()
+        self._counters = collections.defaultdict(list)
         self._nb_acq_points = 0
 
-        if not isinstance(counter, GroupedReadMixin):
-            self.channels.append(
-                AcquisitionChannel(
-                    counter,
-                    counter.name,
-                    counter.dtype,
-                    counter.shape,
-                    unit=counter.unit,
-                )
-            )
+        for cnt in counters:
+            self.add_counter(cnt)
 
     @property
     def count_time(self):
         return self.__count_time
 
-    @property
-    def grouped_read_counters(self):
-        return self.__grouped_read_counters_list
-
-    def add_counter(self, counter):
-        if not isinstance(self.device, GroupedReadMixin):
-            # Ignore if the counter is already the provided device
-            if self.device == counter:
-                return
-            raise RuntimeError(
-                "Cannot add counter to single-read counter acquisition device"
-            )  ##### What is this for??????
-
-        self.__grouped_read_counters_list.append(counter)
+    def _do_add_counter(self, counter):
+        chan_name = f"{self._reader.fullname}:{counter.name}"
         self.channels.append(
             AcquisitionChannel(
-                counter, counter.name, counter.dtype, counter.shape, unit=counter.unit
+                chan_name, counter.dtype, counter.shape, unit=counter.unit
             )
         )
+        self._counters[counter].append(self.channels[-1])
+
+    def add_counter(self, counter):
+        if counter in self._counters:
+            return
+        reader = _get_group_reader([counter])
+        if reader != self._reader:
+            raise RuntimeError(
+                f"Cannot add counter {counter.name}: reader does not correspond to already added counters"
+            )
+        self._do_add_counter(counter)
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
+
+    def fill_meta_at_scan_init(self, scan_meta):
+        tmp_dict = {}
+
+        def new_nx_collection(d, x):
+            return d.setdefault(x, {"NX_class": "NXcollection"})
+
+        for cnt in self._counters:
+            name, _, _ = cnt.fullname.rpartition(":")
+            det_name, _, name = name.partition(":")
+            d = tmp_dict.setdefault(det_name, {"NX_class": "NXdetector"})
+            if name:
+                d = functools.reduce(new_nx_collection, name.split(":"), d)
+            d.update(cnt.get_metadata())
+        scan_meta.instrument.set(self, tmp_dict)
 
 
 class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
@@ -134,7 +142,12 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     )
 
     def __init__(
-        self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
+        # self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
+        self,
+        *counters,
+        count_time=None,
+        npoints=1,
+        **unused_keys,
     ):
         """
         Helper to manage acquisition of a sampling counter.
@@ -143,7 +156,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         a group_read_handler
         count_time -- the master integration time.
         Other keys are:
-          * npoints -- number of point for this acquisition (0: endless acquisition)
+          * npoints -- number of points for this acquisition (0: endless acquisition)
         """
 
         if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):
@@ -155,16 +168,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         start_once = npoints > 0
         npoints = max(1, npoints)
 
-        reader, counters = _get_group_reader(counters_or_groupreadhandler)
-        BaseCounterAcquisitionDevice.__init__(
-            self,
-            reader,
-            count_time,
-            npoints,
-            True,  # prepare_once
-            start_once,  # start_once
-        )
-
         self._event = event.Event()
         self._stop_flag = False
         self._ready_event = event.Event()
@@ -174,7 +177,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         # according to the counters involved in the aquistion. One
         # entry per counter, order matters!
         self.mode_helpers = list()
-        self._counters = dict()
 
         # Will be set to True when all counters associated to the
         # acq device are in SamplingMode.SINGLE. In this case
@@ -182,17 +184,17 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         # read one single value
         self._SINGLE_COUNT = False
 
-        for cnt in counters:
-            self.add_counter(cnt)
+        BaseCounterAcquisitionDevice.__init__(
+            self,
+            counters,
+            count_time,
+            npoints,
+            True,  # prepare_once
+            start_once,  # start_once
+        )
 
-    def add_counter(self, counter):
-        if counter in self._counters:
-            return
-        super().add_counter(counter)
-
-        # initialize the entry in self._counters with the **main** channel that
-        # is created by the base class
-        self._counters[counter] = [self.channels[-1]]  # mean value
+    def _do_add_counter(self, counter):
+        super()._do_add_counter(counter)  # add the 'default' counter (mean)
 
         self.mode_helpers.append(
             SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
@@ -200,8 +202,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
         # helper to create AcquisitionChannels
         AC = lambda name_suffix, unit: AcquisitionChannel(
-            counter,
-            counter.name + "_" + name_suffix,
+            f"{self._reader.fullname}:{counter.name}_{name_suffix}",
             counter.dtype,
             counter.shape,
             unit=unit,
@@ -233,12 +234,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             # p2v
             self.channels.append(AC("p2v", counter.unit))
             self._counters[counter].append(self.channels[-1])
-
-        if counter.mode == SamplingMode.SAMPLES:
+        elif counter.mode == SamplingMode.SAMPLES:
             self.channels.append(
                 AcquisitionChannel(
-                    counter,
-                    counter.name + "_samples",
+                    f"{self._reader.fullname}:{counter.name}_samples",
                     counter.dtype,
                     counter.shape + (1,),
                     unit=counter.unit,
@@ -247,7 +246,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        self.device.prepare(*self.grouped_read_counters)
+        self._reader.prepare(*self._counters)
 
         # check modes to see if sampling loop is needed or not
         if all(
@@ -261,10 +260,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
         self._event.clear()
 
-        self.device.start(*self.grouped_read_counters)
+        self._reader.start(*self._counters)
 
     def stop(self):
-        self.device.stop(*self.grouped_read_counters)
+        self._reader.stop(*self._counters)
 
         self._stop_flag = True
         self._trig_time = None
@@ -321,9 +320,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 while not self._stop_flag:
                     start_read = time.time()
                     read_value = numpy.array(
-                        self.device.read(*self.grouped_read_counters),
-                        dtype=numpy.double,
-                        ndmin=1,
+                        self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
                     )
                     end_read = time.time()
 
@@ -352,9 +349,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
-                    self.device.read(*self.grouped_read_counters),
-                    dtype=numpy.double,
-                    ndmin=1,
+                    self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
                 )
                 samples = acc_value
 
@@ -475,7 +470,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
+    # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
+    def __init__(self, *counters, count_time=None, **unused_keys):
 
         if any(
             [x in ["npoints", "prepare_once", "start_once"] for x in unused_keys.keys()]
@@ -485,12 +481,14 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 "start_once flags will be overwritten by master controller"
             )
 
-        reader, counters = _get_group_reader(counters_or_groupreadhandler)
         BaseCounterAcquisitionDevice.__init__(
-            self, reader, count_time, npoints=None, prepare_once=None, start_once=None
+            self,
+            counters,
+            count_time=count_time,
+            npoints=None,
+            prepare_once=None,
+            start_once=None,
         )
-        for cnt in counters:
-            self.add_counter(cnt)
 
     @AcquisitionDevice.parent.setter
     def parent(self, p):
@@ -502,23 +500,20 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def prepare(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self.device.prepare(*self.grouped_read_counters)
+        self._reader.prepare(*self._counters)
 
     def start(self):
-        self.device.start(*self.grouped_read_counters)
+        self._reader.start(*self._counters)
 
     def stop(self):
-        self.device.stop(*self.grouped_read_counters)
+        self._reader.stop(*self._counters)
         self._stop_flag = True
 
     def trigger(self):
         pass
 
     def _read_data(self, from_index):
-        if self.grouped_read_counters:
-            return self.device.get_values(from_index, *self.grouped_read_counters)
-        else:
-            return [numpy.array(self.device.get_values(from_index), dtype=numpy.double)]
+        return self._reader._get_values(from_index, *self._counters)
 
     def reading(self):
         from_index = 0

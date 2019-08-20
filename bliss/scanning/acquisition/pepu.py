@@ -136,7 +136,6 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
         super(PepuAcquisitionDevice, self).__init__(
             pepu,
-            pepu.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
@@ -154,7 +153,13 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
     def add_counter(self, counter):
         self.counters.append(counter)
-        counter.register_device(self)
+        assert self.pepu == counter.channel.pepu
+        counter.acquisition_device = self
+        self.channels.append(
+            AcquisitionChannel(
+                f"{self.name}:{counter.name}", counter.dtype, counter.shape
+            )
+        )
 
     def add_counters(self, counters):
         for counter in counters:
@@ -236,18 +241,12 @@ class PepuCounter(BaseCounter):
 
     # Extra logic
 
-    def register_device(self, device):
-        assert device.pepu == self.channel.pepu
-        self.acquisition_device = device
-        self.acquisition_device.channels.append(
-            AcquisitionChannel(self, self.name, self.dtype, self.shape)
-        )
-
     def feed_point(self, stream_data):
         self.emit_data_point(stream_data[self.name])
 
     def emit_data_point(self, data_point):
-        self.acquisition_device.channels.update({self.name: data_point})
+        pepu = self.acquisition_device
+        pepu.channels.update({f"{pepu.name}:{self.name}": data_point})
 
 
 def pepu_counters(pepu):

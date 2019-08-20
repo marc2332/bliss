@@ -15,7 +15,7 @@
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm, SERIAL
-from bliss.common import session
+from bliss import global_map
 
 
 class Mechonics(Controller):
@@ -54,7 +54,7 @@ class Mechonics(Controller):
         comm_option = {"baudrate": 19200}
         self.serial = get_comm(self.config.config_dict, **comm_option)
 
-        session.get_current().map.register(self, children_list=[self.serial])
+        global_map.register(self, children_list=[self.serial])
 
         self.channels = dict()
         self.velocities = dict()

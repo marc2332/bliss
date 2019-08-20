@@ -80,7 +80,7 @@ def test_soft_axis_creation(beacon):
     assert o0.nb_move == 2
 
 
-def test_soft_axis_scan(beacon):
+def test_soft_axis_scan(session):
 
     o0 = Object()
     o0.position = 1.2345

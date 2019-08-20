@@ -110,10 +110,10 @@ more details in [acquisition statistics](scan_engine_acquisition_chain.md#statis
 ## Debugging
 
 To debug scans, there is a tracing mechanism.
-Use:
+Use:`
 
-* `trace()` or `trace(True)` to activate it
-* `trace(False)` to de-activate it
+* `debugon("bliss.scans")` to activate it
+* `debugoff("bliss.scans")` to de-activate it
 
 
 ### Scan example
@@ -122,7 +122,7 @@ Use:
 ```python
 DEMO [14]: s = timescan(1, sim_acq_dev.counters.sc1, run=False)
 
-DEMO [15]: s.trace(True)
+DEMO [15]: debugon("bliss.scans")
 
 DEMO [16]: s.run()
 Total 0 points
@@ -199,7 +199,7 @@ KeyboardInterrupt
 ```python
 DEMO [4]: s = ct(1, sim_acq_dev.counters.sc1,run=False)
 
-DEMO [6]: s.trace(True);s.run()
+DEMO [6]: debugon("bliss.scans");s.run()
 
 DEBUG 2018-11-30 13:27:20,823 Scan: Start timer.wait_ready
 DEBUG 2018-11-30 13:27:20,823 Scan: End timer.wait_ready Took 0.000339s

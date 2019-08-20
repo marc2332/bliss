@@ -151,7 +151,7 @@ import psutil
 import platform
 
 from bliss.comm import rpc
-from bliss.common import session as session_module
+from bliss import current_session
 from bliss.common import subprocess
 from bliss.config.conductor.client import get_default_connection
 
@@ -210,8 +210,9 @@ def start_flint():
 def attach_flint(pid):
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
-    session = session_module.get_current()
-    if session is None:
+    try:
+        session_name = current_session.name
+    except AttributeError:
         raise RuntimeError("No current session, cannot attach flint")
 
     # Current URL
@@ -225,7 +226,7 @@ def attach_flint(pid):
 
     # Return flint proxy
     proxy = rpc.Client(url)
-    proxy.set_session(session.name)
+    proxy.set_session(session_name)
     proxy._pid = pid
 
     FLINT.update({"proxy": proxy, "process": pid})
@@ -237,8 +238,9 @@ def get_flint(start_new=False):
     old_pid = None
     pid = None
 
-    session = session_module.get_current()
-    if session is None:
+    try:
+        session_name = current_session.name
+    except AttributeError:
         raise RuntimeError("No current session, cannot get flint")
 
     # Get redis connection
@@ -246,7 +248,7 @@ def get_flint(start_new=False):
         pid = start_flint()
     else:
         # did we run our flint ?
-        pid = check_flint(session.name)
+        pid = check_flint(session_name)
         if pid is None:
             pid = start_flint()
         else:

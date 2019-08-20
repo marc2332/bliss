@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common import session
+from bliss import global_map
 from bliss.comm.util import UDP, get_comm_type, get_comm
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.utils import object_method
@@ -203,7 +203,7 @@ class Elmo(Controller):
             opt = {"baudrate": 115200, "eol": ";"}
 
         self._cnx = get_comm(config, **opt)
-        session.get_current().map.register(self, children_list=[self._cnx])
+        global_map.register(self, children_list=[self._cnx])
 
         self._elmostate = AxisState()
         for state, human in (

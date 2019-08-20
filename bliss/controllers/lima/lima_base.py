@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import importlib
+import types
 import os
 
 from .properties import LimaProperties, LimaProperty
@@ -13,10 +14,10 @@ from .bpm import Bpm
 from .roi import Roi, RoiCounters
 from .image import ImageCounter
 from .bgsub import BgSub
-from bliss.common import session
+from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.common.measurement import namespace, counter_namespace
+from bliss.common.measurement import counter_namespace
 from bliss.config import settings
 
 
@@ -128,7 +129,7 @@ class Lima(object):
         self._image = None
         self._acquisition = None
         self._proxy = self._get_proxy()
-        session.get_current().map.register(self, parents_list=["counters"])
+        global_map.register(self, parents_list=["counters"])
         self._directories_mapping = config_tree.get("directories_mapping", dict())
         self._active_dir_mapping = settings.SimpleSetting(
             "%s:directories_mapping" % name
@@ -213,7 +214,7 @@ class Lima(object):
     def roi_counters(self):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
-            self.__roi_counters = RoiCounters(self.name, roi_counters_proxy, self)
+            self.__roi_counters = RoiCounters(roi_counters_proxy, self)
         return self.__roi_counters
 
     @autocomplete_property
@@ -352,7 +353,7 @@ class Lima(object):
 
         # Specific ROI counters
         for counters in self.roi_counters.iter_single_roi_counters():
-            dct["roi_counters." + counters.name] = counter_namespace(counters)
+            dct[counters.name] = counter_namespace(counters)
 
         # All ROI counters
         dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
@@ -362,4 +363,4 @@ class Lima(object):
         dct["default"] = counter_namespace(default_counters)
 
         # Return namespace
-        return namespace(dct)
+        return counter_namespace(dct)

@@ -39,7 +39,7 @@ from warnings import warn
 
 from bliss.controllers.temperature.oxfordcryo.oxford import Base
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 
 
 class OxfordCryostream:
@@ -87,7 +87,7 @@ class OxfordCryostream:
         """RS232 settings: 9600 baud, 8 bits, no parity, 1 stop bit
         """
         self.serial = Serial(port, baudrate=9600, eol="\r")
-        session.get_current().map.register(
+        global_map.register(
             self,
             parents_list=["comms"],
             children_list=[self.serial],

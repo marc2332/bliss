@@ -57,7 +57,7 @@ class Data(BaseCounter):
         return (self._spectrum_size,)
 
     def create_acquisition_device(self, scan_pars, **settings):
-        return AcqDevice(self.controller, **scan_pars)
+        return FlexAcquisitionDevice(self.controller, **scan_pars)
 
 
 class Intensity(BaseCounter):
@@ -82,10 +82,10 @@ class Intensity(BaseCounter):
         return ()
 
     def create_acquisition_device(self, scan_pars, **settings):
-        return AcqDevice(self.controller, **scan_pars)
+        return FlexAcquisitionDevice(self.controller, **scan_pars)
 
 
-class AcqDevice(AcquisitionDevice):
+class FlexAcquisitionDevice(AcquisitionDevice):
     MODE = MODE
 
     def __init__(self, flex, count_time=1, mode=None, counters=(), **kwargs):
@@ -94,7 +94,6 @@ class AcqDevice(AcquisitionDevice):
         AcquisitionDevice.__init__(
             self,
             flex,
-            flex.name,
             npoints=kwargs.get("npoints", 1),
             prepare_once=prepare_once,
             start_once=start_once,
@@ -109,13 +108,14 @@ class AcqDevice(AcquisitionDevice):
     def add_counter(self, counter):
         self.counters.append(counter)
         self.channels.append(
-            AcquisitionChannel(counter, counter.name, counter.dtype, counter.shape)
+            AcquisitionChannel(
+                f"{self.name}:{counter.name}", counter.dtype, counter.shape
+            )
         )
 
     def add_counters(self, counters):
-        self.counters.extend(counters)
-        channels = [AcquisitionChannel(c, c.name, c.dtype, c.shape) for c in counters]
-        self.channels.extend(channels)
+        for c in counters:
+            self.add_counter(c)
 
     def prepare(self):
         if self._mode is not None:

@@ -40,7 +40,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         prepare_once=False,
         start_once=False,
         wait_frame_id=None,
-        **keys
+        **keys,
     ):
         """
         Acquisition device for lima camera.
@@ -145,8 +145,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         if counter.name != "image":
             raise ValueError("Lima master only supports the 'image' counter")
         self._image_channel = AcquisitionChannel(
-            counter,
-            counter.name,
+            f"{self.name}:{counter.name}",
             counter.dtype,
             counter.shape,
             reference=True,
@@ -326,18 +325,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def fill_meta_at_scan_end(self, scan_meta):
         scan_meta.instrument.set(
-            self, {self.name: {"lima_parameters": self.parameters}}
+            self,
+            {self.name: {"lima_parameters": self.parameters, "NX_class": "NXdetector"}},
         )
-
-    def fill_meta_at_scan_init(self, scan_meta):
-        try:
-            rois = dict(self.channels[0].acq_device.master_controller.roi_counters)
-            roi_counters = dict()
-            for roi_name, roi in rois.items():
-                roi_counters[roi_name] = roi.to_dict()
-            scan_meta.instrument.set(
-                self,
-                {self.name: {"NX_class": "NXdetector", "roi_counters": roi_counters}},
-            )
-        except Exception:
-            pass

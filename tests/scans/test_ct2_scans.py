@@ -32,7 +32,7 @@ def ct2(mocker):
     yield ct2
 
 
-def test_ct2_scan(beacon, ct2):
+def test_ct2_scan(session, ct2):
     s = scans.ct(0.1, ct2)
     data = s.get_data()
     assert data["c1"] == [1.1]

@@ -23,14 +23,12 @@ from gevent.threadpool import ThreadPool
 from bliss.data.scan import watch_session_scans
 
 from bliss import setup_globals
-from bliss.config import static
-from bliss.common.utils import counter_dict
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
-
+from bliss import global_map
 
 if sys.platform not in ["win32", "cygwin"]:
     from blessings import Terminal
@@ -106,7 +104,6 @@ class ScanPrinter:
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
-        config = static.get_config()
         scan_info = dict(scan_info)
         self.term = Terminal(scan_info.get("stream"))
         nb_points = scan_info.get("npoints")
@@ -132,7 +129,6 @@ class ScanPrinter:
             if channel_fullname == "timer:epoch":
                 continue
 
-            # name is in the form 'acq_master:channel_name'  <---not necessarily true anymore (e.g. roi counter have . in name / respective channel has additional : in name)
             if channel_short_name == "elapsed_time":
                 # timescan
                 self.col_labels.insert(1, f"dt[{channel_unit}]")
@@ -152,11 +148,10 @@ class ScanPrinter:
                                 sender=motor,
                             )
                         unit = motor.config.get("unit", default=None)
-                        motor_label = motor.alias_or_name
+                        motor_label = global_map.alias_or_name(motor)
                         if unit:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
-                        self.motor_fullnames.append("axis:" + motor.name)
 
         for channel_fullname in channels["scalars"]:
             channel_short_name = channels["display_names"][channel_fullname]

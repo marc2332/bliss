@@ -17,7 +17,8 @@ __all__ = ["get_user_scan_meta"]
 
 import copy as copy_module
 import enum
-from bliss.common.utils import get_axes_positions_iter
+
+from bliss import global_map
 
 USER_SCAN_META = None
 CATEGORIES = enum.Enum(
@@ -117,7 +118,7 @@ def scan_meta(info=None):
 
 def fill_positioners(scan):
     rd = {"positioners": dict(), "positioners_dial": dict()}
-    for axis_name, axis_pos, axis_dial_pos, unit in get_axes_positions_iter(
+    for axis_name, axis_pos, axis_dial_pos, unit in global_map.get_axes_positions_iter(
         on_error="ERR"
     ):
 

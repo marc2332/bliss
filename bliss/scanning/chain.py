@@ -18,9 +18,10 @@ from treelib import Tree
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common import motor_group
 from .channel import AcquisitionChannelList, AcquisitionChannel
 from .channel import duplicate_channel, attach_channels
+from bliss.common.motor_group import is_motor_group
+from bliss.common.axis import Axis
 
 # Running task for a specific device
 #
@@ -212,7 +213,7 @@ class AcquisitionMaster(object):
     def __init__(
         self,
         device,
-        name,
+        name=None,
         npoints=None,
         trigger_type=SOFTWARE,
         prepare_once=False,
@@ -250,8 +251,14 @@ class AcquisitionMaster(object):
         return self.__device
 
     @property
+    def _device_name(self):
+        if is_motor_group(self.device) or isinstance(self.device, Axis):
+            return "axis"
+        return self.device.name
+
+    @property
     def name(self):
-        return self.__name
+        return self.__name if self.__name is not None else self._device_name
 
     @property
     def slaves(self):
@@ -469,13 +476,13 @@ class AcquisitionMaster(object):
             gevent.killall(tasks)
 
 
-class AcquisitionDevice(object):
+class AcquisitionDevice:
     HARDWARE, SOFTWARE = list(range(2))
 
     def __init__(
         self,
         device,
-        name,
+        name=None,
         npoints=0,
         trigger_type=SOFTWARE,
         prepare_once=False,
@@ -516,8 +523,14 @@ class AcquisitionDevice(object):
         return self.__device
 
     @property
+    def _device_name(self):
+        if is_motor_group(self.device) or isinstance(self.device, Axis):
+            return "axis"
+        return self.device.name
+
+    @property
     def name(self):
-        return self.__name
+        return self.__name if self.__name is not None else self._device_name
 
     @property
     def channels(self):

@@ -56,9 +56,7 @@ class CalcAcquisitionDevice(AcquisitionDevice):
 
     def add_counter(self, counter):
         self.channels.append(
-            AcquisitionChannel(
-                counter.controller, counter.name, counter.dtype, counter.shape
-            )
+            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
         )
 
     def connect(self):
@@ -87,7 +85,7 @@ class CalcAcquisitionDevice(AcquisitionDevice):
             return
         channel = sender
         output_channels_data_dict = self.cbk.compute(
-            sender, {channel.name: channel_data}
+            sender, {channel.short_name: channel_data}
         )
 
         if output_channels_data_dict:

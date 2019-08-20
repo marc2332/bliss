@@ -12,7 +12,6 @@ from bliss.common.utils import deep_update
 
 def test_wa_normal(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = False
     wa()
     captured = capsys.readouterr()
@@ -29,7 +28,6 @@ def test_wa_normal(beacon, capsys):
 
 def test_wa_exception(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = True
     wa()
     captured = capsys.readouterr()
@@ -53,7 +51,6 @@ def test_wa_exception(beacon, capsys):
 
 def test_wm_normal(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = False
     wm("bad")
     captured = capsys.readouterr()
@@ -77,7 +74,6 @@ def test_wm_normal(beacon, capsys):
 
 def test_wm_exception(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = True
     wm("bad")
     captured = capsys.readouterr()
@@ -107,7 +103,6 @@ def test_wm_exception(beacon, capsys):
 
 def test_sta_normal(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = False
     sta()
     captured = capsys.readouterr()
@@ -121,7 +116,6 @@ def test_sta_normal(beacon, capsys):
 
 def test_sta_exception(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = True
     sta()
     captured = capsys.readouterr()
@@ -141,7 +135,6 @@ def test_sta_exception(beacon, capsys):
 
 def test_stm_normal(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = False
     stm("bad")
     captured = capsys.readouterr()
@@ -155,7 +148,6 @@ def test_stm_normal(beacon, capsys):
 
 def test_stm_exception(beacon, capsys):
     bad = beacon.get("bad")
-    setattr(setup_globals, "bad", bad)
     bad.controller.bad_position = True
     stm("bad")
     captured = capsys.readouterr()

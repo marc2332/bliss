@@ -28,13 +28,13 @@ from bliss.data.channel import ChannelDataNode
 def lima_session(beacon, scan_tmpdir, lima_simulator):
     session = beacon.get("lima_test_session")
     session.setup()
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
     yield session
     session.close()
 
 
 def test_parent_node(session, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "{date}/test"
     redis_base_path = str(scan_tmpdir).replace("/", ":")
@@ -47,7 +47,7 @@ def test_parent_node(session, scan_tmpdir):
 
 
 def test_scan_node(session, redis_data_conn, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -57,7 +57,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionDevice(diode, 0.01, npoints=5),
+        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=5),
     )
 
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
@@ -81,22 +81,25 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":axis"
-    scan_children_node = [m0_node_db_name]
-    m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
+    roby_node_db_name = s.node.db_name + ":axis"
+    scan_children_node = [roby_node_db_name]
+    roby_children_node = [
+        roby_node_db_name + ":roby",
+        roby_node_db_name + ":simulation_diode_controller",
+    ]
     assert redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1) == [
         x.encode() for x in scan_children_node
     ]
-    assert redis_data_conn.lrange(m0_node_db_name + "_children_list", 0, -1) == [
-        x.encode() for x in m0_children_node
+    assert redis_data_conn.lrange(roby_node_db_name + "_children_list", 0, -1) == [
+        x.encode() for x in roby_children_node
     ]
 
-    for child_node_name in scan_children_node + m0_children_node:
+    for child_node_name in scan_children_node + roby_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
 def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -106,7 +109,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionDevice(diode, 0.01, npoints=5),
+        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=5),
     )
 
     s = Scan(chain, "test_scan")
@@ -116,11 +119,14 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
-    m0_node_db_name = s.node.db_name + ":axis"
-    scan_children_node = [m0_node_db_name]
-    m0_children_node = [m0_node_db_name + ":roby", m0_node_db_name + ":diode"]
+    roby_node_db_name = s.node.db_name + ":axis"
+    scan_children_node = [roby_node_db_name]
+    roby_children_node = [
+        roby_node_db_name + ":roby",
+        roby_node_db_name + ":simulation_diode_controller:diode",
+    ]
 
-    for child_node_name in scan_children_node + m0_children_node:
+    for child_node_name in scan_children_node + roby_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
@@ -152,7 +158,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
             if n.type == "channel":
                 channels[n.name] = n.get(0, -1)
 
-    scan_saving = getattr(setup_globals, "SCAN_SAVING")
+    scan_saving = session.env_dict["SCAN_SAVING"]
     scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
@@ -162,7 +168,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, npts),
-        SamplingCounterAcquisitionDevice(diode, 0.01, npoints=npts),
+        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=npts),
     )
 
     s = Scan(chain, "test_scan")
@@ -177,9 +183,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     time.sleep(0.1)
     iteration_greenlet.kill()
 
-    assert set(("roby", "diode")) == set(channels_data.keys())
-    assert len(channels_data["roby"]) == npts
-    assert len(channels_data["diode"]) == npts
+    assert set(("axis:roby", diode.fullname)) == set(channels_data.keys())
+    assert len(channels_data["axis:roby"]) == npts
+    assert len(channels_data[diode.fullname]) == npts
 
     x = DataNodeIterator(get_node(s.node.db_name))
     for n in x.walk_from_last(filter="channel", wait=False):
@@ -188,7 +194,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
 
 
 def test_lima_data_channel_node(redis_data_conn, lima_session):
-    lima_sim = getattr(setup_globals, "lima_simulator")
+    lima_sim = lima_session.env_dict["lima_simulator"]
 
     timescan = scans.timescan(0.1, lima_sim, npoints=1)
 
@@ -328,7 +334,7 @@ def test_children_timing(beacon, session, scan_tmpdir):
 
 
 def test_scan_end_timing(
-    beacon, scan_meta, dummy_acq_master, dummy_acq_device
+    session, scan_meta, dummy_acq_master, dummy_acq_device
 ):  # , clean_gevent):
     scan_meta.clear()
 

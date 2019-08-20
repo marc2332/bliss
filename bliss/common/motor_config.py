@@ -10,10 +10,9 @@ from bliss.common.utils import Null
 
 
 def _get_config():
-    from bliss.common import session
+    from bliss.config import static
 
-    cfg = session.get_current().config
-    return cfg
+    return static.get_config()
 
 
 class StaticConfig(object):

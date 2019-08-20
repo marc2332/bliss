@@ -14,15 +14,26 @@ from louie import robustapply
 from louie import saferef
 
 
+def _get_sender(sender):
+    try:
+        sender = sender.__wrapped__
+    except AttributeError:
+        pass
+    return sender
+
+
 def send(sender, signal, *args, **kwargs):
+    sender = _get_sender(sender)
     dispatcher.send(signal, sender, *args, **kwargs)
 
 
 def connect(sender, signal, callback):
+    sender = _get_sender(sender)
     dispatcher.connect(callback, signal, sender)
 
 
 def disconnect(sender, signal, callback):
+    sender = _get_sender(sender)
     try:
         dispatcher.disconnect(callback, signal, sender)
     except Exception:

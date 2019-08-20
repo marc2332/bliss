@@ -9,7 +9,7 @@ import pytest
 
 from bliss.common.mapping import Map
 from bliss.common.logtools import create_logger_name
-from bliss.common import session as session_module
+from bliss import global_map
 import networkx as nx
 import logging
 import sys
@@ -31,11 +31,11 @@ def beamline():
     """
     map = Map()
 
-    map.register("session")
-    map.register("controllers", parents_list=["session"])
-    map.register("comms", parents_list=["session"])
-    map.register("counters", parents_list=["session"])
-    map.register("axes", parents_list=["session"])
+    map.register("global")
+    map.register("controllers", parents_list=["global"])
+    map.register("comms", parents_list=["global"])
+    map.register("counters", parents_list=["global"])
+    map.register("axes", parents_list=["global"])
     return map
 
 
@@ -63,7 +63,7 @@ def complex_beamline(beamline):
 
     a = A()
     beamline.register(a)
-    assert create_logger_name(beamline.G, id(a)) == "session.controllers.A"
+    assert create_logger_name(beamline.G, id(a)) == "global.controllers.A"
 
     return beamline
 
@@ -78,7 +78,7 @@ def test_starting_map_length(beamline):
 
 def test_path_to_non_existing_node(beamline):
     with pytest.raises(nx.exception.NodeNotFound):
-        beamline.shortest_path("session", "non_existing_node")
+        beamline.shortest_path("global", "non_existing_node")
 
 
 def test_path_to_with_non_existing_path(beamline):
@@ -87,9 +87,9 @@ def test_path_to_with_non_existing_path(beamline):
 
 
 def test_find_children(beamline):
-    children = beamline.find_children("session")
+    children = beamline.find_children("global")
     assert isinstance(children, list)
-    assert len(list(beamline.find_children("session"))) == 4
+    assert len(list(beamline.find_children("global"))) == 4
 
 
 def test_find_predecessor(beamline):
@@ -97,14 +97,14 @@ def test_find_predecessor(beamline):
     assert isinstance(predecessors, list)
     _pre = list(predecessors)
     assert len(_pre) == 1
-    assert _pre.pop() == "session"
+    assert _pre.pop() == "global"
 
 
 def test_find_shortest_path(beamline):
     """this should be: beamline -> devices -> MotorControllerForM0 -> motor0"""
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("session", "motor0")
+    path = beamline.shortest_path("global", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
@@ -136,7 +136,7 @@ def test_find_shortest_path_reverse_order(beamline):
     """
     beamline.register("MotorControllerForM0")
     beamline.register("motor0", parents_list=["MotorControllerForM0"])
-    path = beamline.shortest_path("session", "motor0")
+    path = beamline.shortest_path("global", "motor0")
     assert isinstance(path, list)
     assert len(path) == 4
 
@@ -148,10 +148,10 @@ def test_find_shortest_path_parallel(beamline):
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0")
-    path = beamline.shortest_path("session", "motor0")
+    path = beamline.shortest_path("global", "motor0")
     assert isinstance(path, list)
     assert len(path) == 3
-    path = beamline.shortest_path("session", "MotorControllerForM0")
+    path = beamline.shortest_path("global", "MotorControllerForM0")
     assert isinstance(path, list)
     assert len(path) == 3
 
@@ -165,7 +165,7 @@ def test_remap_children(beamline):
     """
     beamline.register("motor0")
     beamline.register("MotorControllerForM0", children_list=["motor0"])
-    path = beamline.shortest_path("session", "motor0")
+    path = beamline.shortest_path("global", "motor0")
     assert len(path) == 4
 
 
@@ -196,7 +196,7 @@ def test_complex_map_remove_children(complex_beamline):
     complex_beamline.delete(id_="controllers")
     _pre = list(complex_beamline.find_predecessors("Contr_1"))
     assert len(_pre) == 1
-    assert _pre.pop() == "session"
+    assert _pre.pop() == "global"
 
 
 def test_format_node_1(beamline):
@@ -210,7 +210,7 @@ def test_format_node_1(beamline):
     assert beamline.format_node(id(tn), format_string="inst.arg1->name") == "arg1"
     assert not hasattr(beamline.G.node[id(tn)], "name")
     assert beamline.format_node(id(tn), format_string="name->inst.arg1") == "arg1"
-    assert beamline.format_node("session", format_string="inst") == "session"
+    assert beamline.format_node("global", format_string="inst") == "global"
 
 
 def test_check_formatting_1(beamline):
@@ -270,11 +270,10 @@ def test_deleted_instance(beamline):
     assert id_tn not in beamline.G
 
 
-def test_session_map(beacon, s1hg, roby):
-    session = session_module.get_current()
-    m = session.map
-    sr = session.config.get("sample_regulation")
-    heater = session.config.get("heater")
+def test_global_map(beacon, s1hg, roby):
+    m = global_map
+    sr = beacon.get("sample_regulation")
+    heater = beacon.get("heater")
     # m.draw_pygraphviz()
 
     assert len(m) == 33
@@ -343,7 +342,7 @@ def test_create_submap_2(complex_beamline):
 def test_create_submap_3(complex_beamline):
     sub_G = nx.DiGraph()
     # submap from the root node should be equal to the map itself
-    complex_beamline.create_submap(sub_G, "session")
+    complex_beamline.create_submap(sub_G, "global")
     assert len(sub_G) == len(complex_beamline.G)
     for node in sub_G.nodes:
         assert node in complex_beamline.G
@@ -353,7 +352,7 @@ def test_create_partial_map_1(complex_beamline):
     sub_G = nx.DiGraph()
     complex_beamline.create_partial_map(sub_G, "Contr_2")
     assert len(sub_G) == 4
-    for node in "session controllers Contr_2 TcpIp".split():
+    for node in "global controllers Contr_2 TcpIp".split():
         assert node in sub_G
 
 
@@ -361,7 +360,7 @@ def test_create_partial_map_2(complex_beamline):
     sub_G = nx.DiGraph()
     complex_beamline.create_partial_map(sub_G, "Axis_2")
     assert len(sub_G) == 7
-    for node in "session controllers Contr_1 Axis_2 m1 m2 m3".split():
+    for node in "global controllers Contr_1 Axis_2 m1 m2 m3".split():
         assert node in sub_G
 
 

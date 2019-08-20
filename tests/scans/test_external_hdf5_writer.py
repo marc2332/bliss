@@ -57,9 +57,9 @@ def deep_compare(d, u):
                 stack.append((d[k], v))
 
 
-def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_device):
-
-    env_dict, session = alias_session
+@pytest.fixture
+def test_alias_scans_listener(alias_session, scan_tmpdir):
+    env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
@@ -71,17 +71,28 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
 
     g = gevent.spawn(listen_scans_of_session, "test_alias")
 
+    yield
+
+    g.kill()
+
+
+def test_external_hdf5_writer(
+    test_alias_scans_listener, alias_session, dummy_acq_device
+):
+    env_dict = alias_session.env_dict
+
+    lima_sim = env_dict["lima_simulator"]
+
     ## a simple scan
     s1 = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
 
     ## a scan with multiple top masters
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    diode_sim = beacon.get("diode")
-    diode_device = SamplingCounterAcquisitionDevice(diode_sim, 0.1)
+    diode_sim = alias_session.config.get("diode")
+    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
-    #    lima_sim = beacon.get("lima_simulator")
-    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.0005)
     # note: dummy device has 2 channels: pi and nb
     dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
     chain.add(lima_master, dummy_device)
@@ -93,7 +104,7 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
     s2.run()
 
     ### test scan with undefined number of points
-    diode2 = beacon.get("diode2")
+    diode2 = alias_session.config.get("diode2")
     s3 = scans.timescan(.05, diode2, run=False)
     gevent.sleep(
         .2
@@ -107,7 +118,7 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
         assert scan_task.ready()
 
     ## scan with counter that exports individual samples (SamplingMode.Samples)
-    scan5_a = scans.loopscan(5, 0.1, beacon.get("diode9"), save=True)
+    scan5_a = scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
 
     ## artifical scan that forces different length of datasets in SamplingMode.Samples
     from bliss.common.measurement import SoftCounter, SamplingMode
@@ -138,7 +149,6 @@ def test_external_hdf5_writer(beacon, alias_session, scan_tmpdir, dummy_acq_devi
     scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
 
     gevent.sleep(1)
-    g.kill()
 
     ## check if external file is the same as the one of bliss writer for simple scan
     external_writer = h5todict(s1.scan_info["filename"].replace(".", "_external."))[

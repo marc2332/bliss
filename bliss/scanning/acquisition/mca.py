@@ -14,7 +14,7 @@ import gevent.event
 
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
 from bliss.controllers.mca import TriggerMode, PresetMode, Stats
-from bliss.common.measurement import BaseCounter, counter_namespace, namespace
+from bliss.common.measurement import BaseCounter, counter_namespace
 
 
 class StateMachine(object):
@@ -88,7 +88,6 @@ class McaAcquisitionDevice(AcquisitionDevice):
         # Parent call
         super(McaAcquisitionDevice, self).__init__(
             mca,
-            mca.name,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
@@ -120,6 +119,11 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def add_counter(self, counter):
         self.counters.append(counter)
         counter.register_device(self)
+        self.channels.append(
+            AcquisitionChannel(
+                f"{self.name}:{counter.name}", counter.dtype, counter.shape
+            )
+        )
 
     def add_counters(self, counters):
         for counter in counters:
@@ -219,7 +223,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
                         name, points = publishing_dict.popitem()
 
                         # Actual publishing
-                        self.channels.update({name: points})
+                        self.channels.update({f"{self.name}:{name}": points})
 
         # Make sure the reading task has completed
         finally:
@@ -331,10 +335,6 @@ class BaseMcaCounter(BaseCounter):
         assert self.controller is self.acquisition_device.mca
         if self.detector_channel is not None:
             assert self.detector_channel in self.controller.elements
-        # Acquisition channel
-        self.acquisition_device.channels.append(
-            AcquisitionChannel(self, self.name, self.dtype, self.shape)
-        )
 
     def extract_point(self, spectrums, stats):
         raise NotImplementedError
@@ -474,4 +474,4 @@ def mca_counter_groups(mca):
         )
 
     # Instantiate group namespace
-    return namespace(dct)
+    return counter_namespace(dct)

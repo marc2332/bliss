@@ -88,14 +88,14 @@ class HDF5_Writer(object):
             if event_type.name == "NEW_NODE" and node.type == "channel":
                 print(self.scan_node.db_name, "create new dataset", node.name)
                 self.channels.append(node)
-                self.channel_indices[node.fullname] = 0
+                self.channel_indices[node.name] = 0
 
                 maxshape = tuple([None] + [None] * len(node.shape))
                 npoints = self.scan_info("npoints") or 1
                 shape = tuple([npoints] + list(node.shape))
 
                 self.file.create_dataset(
-                    self.h5_scan_name(node) + "/measurement/" + node.alias_or_fullname,
+                    self.h5_scan_name(node) + f"/measurement/{node.name}",
                     shape=shape,
                     dtype=node.dtype,
                     # compression="gzip", #to be checked if working with dynamic maxshape issue #880
@@ -126,13 +126,7 @@ class HDF5_Writer(object):
                 self.add_subscan(node)
 
             else:
-                print(
-                    "DEBUG: untreated event: ",
-                    event_type.name,
-                    node.type,
-                    node.name,
-                    node.fullname,
-                )
+                print("DEBUG: untreated event: ", event_type.name, node.type, node.name)
 
     def add_subscan(self, node):
         """ add a new subscan to this scan 
@@ -161,34 +155,28 @@ class HDF5_Writer(object):
 
     def update_data(self, node):
         """Insert data until the last available point into the hdf5 datasets"""
-        data = numpy.array(node.get(self.channel_indices[node.fullname], -1))
+        data = numpy.array(node.get(self.channel_indices[node.name], -1))
         data_len = data.shape[0]
         if data_len > 0:
+            dataset = self.file[self.h5_scan_name(node) + f"/measurement/{node.name}"]
 
-            dataset = self.file[
-                self.h5_scan_name(node) + "/measurement/" + node.alias_or_fullname
-            ]  # caution: alias handling might change in near future!
-            new_point_index = self.channel_indices[node.fullname] + data_len
+            new_point_index = self.channel_indices[node.name] + data_len
             if dataset.shape[0] < new_point_index:
                 dataset.resize(new_point_index, axis=0)
-
-            #  if len(dataset.shape) > 1 :
-            #      import pdb
-            #      pdb.set_trace()
 
             ## needed if # of points per sample is not defined e.g. SamplingMode.SAMPLES
             if len(dataset.shape) > 1 and dataset.shape[1] < data.shape[-1]:
                 dataset.resize(data.shape[-1], axis=1)
 
             if len(dataset.shape) <= 1:
-                dataset[self.channel_indices[node.fullname] : new_point_index] = data
+                dataset[self.channel_indices[node.name] : new_point_index] = data
             else:
                 dataset[
-                    self.channel_indices[node.fullname] : new_point_index,
+                    self.channel_indices[node.name] : new_point_index,
                     0 : data.shape[-1],
                 ] = data
 
-            self.channel_indices[node.fullname] += data_len
+            self.channel_indices[node.name] += data_len
 
     def update_lima_data(self, node):
         """Insert lima refs into the hdf5 datasets"""
@@ -199,7 +187,7 @@ class HDF5_Writer(object):
         dtype = data.dtype
 
         dataset = self.file.create_dataset(
-            self.h5_scan_name(node) + "/measurement/" + node.fullname,
+            self.h5_scan_name(node) + f"/measurement/{node.name}",
             shape=shape,
             dtype=dtype,
             compression="gzip",

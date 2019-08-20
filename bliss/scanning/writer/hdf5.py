@@ -60,9 +60,10 @@ class Writer(FileWriter):
                 maxshape = tuple([None] + [None] * len(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
-                if not channel.reference and channel.alias_or_fullname not in parent:
+                chan_name = channel.name
+                if not channel.reference and chan_name not in parent:
                     dataset = parent.create_dataset(
-                        channel.alias_or_fullname,
+                        chan_name,
                         shape=shape,
                         dtype=channel.dtype,
                         # compression="gzip",  to be checked if working with dynamic maxshape issue #880
@@ -70,8 +71,6 @@ class Writer(FileWriter):
                         fillvalue=numpy.nan,
                     )
                     dataset.attrs.modify("fullname", channel.fullname)
-                    dataset.attrs.modify("alias", channel.alias or "None")
-                    dataset.attrs.modify("has_alias", channel.has_alias)
 
                     self.last_point_index[channel] = 0
         elif signal == "new_data":
@@ -81,7 +80,7 @@ class Writer(FileWriter):
 
             data = event_dict.get("data")
 
-            dataset = parent[channel.alias_or_fullname]
+            dataset = parent[channel.name]
 
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
@@ -108,32 +107,53 @@ class Writer(FileWriter):
 
     def finalize_scan_entry(self, scan):
         scan_name = scan.node.name
-        scan_info = scan._scan_info
+        scan_info = scan.scan_info
 
         ###    fill image references   ###
 
         for fname, channel in scan.get_channels_dict.items():
+            chan_name = channel.name
             if channel.reference:
+                """produce a string version of a lima reference that can be saved in hdf5
+                
+                At the moment there is only Lima references ;
+                something more elaborated will be needed when we will have other
+                references.
+                """
+                lima_data_view = channel.data_node.get(0, -1)
+
                 try:
-                    data = channel.acq_device.to_ref_array(channel, self.root_path)
+                    tmp = lima_data_view._get_filenames(
+                        channel.data_node.info, *range(0, len(lima_data_view))
+                    )
+                except Exception:
+                    tmp = []
+
+                if tmp:
+                    tmp = numpy.array(tmp, ndmin=2)
+                    relpath = [
+                        os.path.relpath(i, start=self.root_path) for i in tmp[:, 0]
+                    ]
+                    basename = [os.path.basename(i) for i in tmp[:, 0]]
+                    entry = tmp[:, 1]
+                    frame = tmp[:, 2]
+                    file_type = tmp[:, 3]
+
+                    data = numpy.array(
+                        (basename, file_type, frame, entry, relpath),
+                        dtype=h5py.special_dtype(vlen=str),
+                    ).T
 
                     shape = numpy.shape(data)
                     dtype = data.dtype
-
                     dataset = self.file.create_dataset(
-                        f"{scan_name}/measurement/{channel.alias_or_fullname}",
+                        f"{scan_name}/measurement/{chan_name}",
                         shape=shape,
                         dtype=dtype,
                         compression="gzip",
                     )
                     dataset.attrs.modify("fullname", channel.fullname)
-                    dataset.attrs.modify("alias", channel.alias or "None")
-                    dataset.attrs.modify("has_alias", channel.has_alias)
-
                     dataset[:] = data
-
-                except Exception as e:
-                    pass
 
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {

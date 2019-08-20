@@ -13,7 +13,7 @@ from bliss.comm.util import get_comm, SERIAL
 from bliss.common.event import dispatcher
 from bliss.common.data_manager import ScanFile
 from bliss.common.logtools import *
-from bliss.common import session
+from bliss import global_map
 
 __all__ = ["LinkamDsc", "LinkamScanFile", "LinkamScan"]
 
@@ -92,7 +92,7 @@ class LinkamDsc:
             else:
                 raise ValueError("Must specify serial")
 
-        session.get_current().map.register(
+        global_map.register(
             self, parents_list=["controllers"], children_list=[self._cnx], tag=self.name
         )
 

@@ -24,9 +24,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
            count_time the sampling time of the data recorder for one point
            trigger_source if None will use the **trigger_type** to define it.
         """
-        AcquisitionDevice.__init__(
-            self, pi_controller, pi_controller.name, npoints=npoints, **keys
-        )
+        AcquisitionDevice.__init__(self, pi_controller, npoints=npoints, **keys)
         self.__motor_data_type = list()
         self.__external_input = 0
         self.__count_time = count_time

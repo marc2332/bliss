@@ -286,6 +286,15 @@ class LimaImageChannelDataNode(DataNode):
             self.info["dtype"] = dtype
             self.info["fullname"] = fullname
 
+        # why not trying to have LimaImageChannelDataNode deriving
+        # from ChannelDataNode instead of DataNode ? This would
+        # leave out the next lines, since it is already part of
+        # ChannelDataNode:
+        # fix the channel name
+        if fullname and fullname.endswith(f":{name}"):
+            # no alias, name must be fullname
+            self._struct.name = fullname
+
         self.data = QueueObjSetting(
             "%s_data" % self.db_name, connection=self.db_connection
         )
@@ -307,11 +316,9 @@ class LimaImageChannelDataNode(DataNode):
         return self.info.get("fullname")
 
     @property
-    def db_name(self):
-        fullname = self.fullname or self.name
-        d = {x: None for x in self.parent.db_name.split(":")}
-        d.update({x: None for x in fullname.split(":")})
-        return ":".join(d.keys())
+    def short_name(self):
+        _, _, short_name = self.name.rpartition(":")
+        return short_name
 
     def __close__(self):
         if self._storage_task is None:

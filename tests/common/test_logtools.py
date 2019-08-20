@@ -10,10 +10,12 @@ import logging
 import re
 
 from bliss.common.logtools import *
-from bliss.common.logtools import logging_startup, Log
+from bliss.common.logtools import Log
+from bliss import logging_startup
 from bliss.common.standard import debugon, debugoff, lslog
 from bliss.common.mapping import Map, map_id
-from bliss.common import session
+from bliss import global_map
+import bliss
 
 
 @pytest.fixture
@@ -49,7 +51,7 @@ class MappedController:
 
     def __init__(self, name="mc", parents_list=None, children_list=None):
         self.name = name
-        session.get_current().map.register(self, parents_list, children_list)
+        global_map.register(self, parents_list, children_list)
 
     def msg_debug(self, msg=""):
         log_debug(self, f"Debug message {msg}")
@@ -71,12 +73,12 @@ class Device:
 
     def __init__(self, name="", parents_list=None, children_list=None):
         self.name = name
-        session.get_current().map.register(self, parents_list, children_list)
+        global_map.register(self, parents_list, children_list)
 
 
 def test_bare_system(params):
     all_loggers = logging.getLogger().manager.loggerDict
-    names = ["session", "session.controllers"]
+    names = ["global", "global.controllers"]
     for name in names:
         assert name in all_loggers.keys()
 
@@ -90,7 +92,7 @@ def test_add_motor_m0(params):
 
     all_loggers = logging.getLogger().manager.loggerDict
     assert (
-        f"session.controllers.{m0.controller.__class__.__name__}.m0"
+        f"global.controllers.{m0.controller.__class__.__name__}.m0"
         in all_loggers.keys()
     )
 
@@ -282,13 +284,17 @@ def test_chain_devices_log(params, caplog):
 
 def test_log_name_sanitize(params):
     beacon, log = params
-    m = session.get_current().map
     d1 = Device(r"Hi_*2^a.o@@-[200]")
-    assert map_id(d1) in m
-    assert m[map_id(d1)]["_logger"].name == "session.controllers.Hi__2_a_o__-[200]"
+    assert map_id(d1) in global_map
+    assert (
+        global_map[map_id(d1)]["_logger"].name == "global.controllers.Hi__2_a_o__-[200]"
+    )
     d2 = Device(r"/`/deviceDEVICE=+{}()")
-    assert map_id(d1) in m
-    assert m[map_id(d2)]["_logger"].name == "session.controllers.___deviceDEVICE=___()"
+    assert map_id(d1) in global_map
+    assert (
+        global_map[map_id(d2)]["_logger"].name
+        == "global.controllers.___deviceDEVICE=___()"
+    )
 
 
 def test_level_switch(params, caplog):

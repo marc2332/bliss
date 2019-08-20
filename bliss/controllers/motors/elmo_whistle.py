@@ -11,8 +11,8 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
-from bliss.common import session
 from bliss.common.logtools import *
+from bliss import global_map
 
 import time
 import sys
@@ -210,7 +210,8 @@ class Elmo_whistle(Controller):
             raise RuntimeError("Serial line is not configured!")
 
         self._cnx = get_comm(config, **opt)
-        session.get_current().map.register(self, children_list=[self._cnx])
+
+        global_map.register(self, children_list=[self._cnx])
 
         self._elmostate = AxisState()
         for state, human in (

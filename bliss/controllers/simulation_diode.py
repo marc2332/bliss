@@ -29,18 +29,22 @@ example of configuration:
 """
 
 
-class simulation_diode_controller(object):
+class DummySimulationDiodeController:
     @property
     def name(self):
         return "simulation_diode_controller"
 
+
+class SimulationDiodeController(DummySimulationDiodeController):
     def read_all(self, *counters):
         gevent.sleep(0.01)
-        return [cnt.read(sleep=False) for cnt in counters]
+        return [random.randint(-100, 100) for cnt in counters]
 
+
+class SimulationIntegrationDiodeController(DummySimulationDiodeController):
     def get_values(self, from_index, *counters):
         gevent.sleep(0.01)
-        return [cnt.get_values(from_index, sleep=False) for cnt in counters]
+        return [10 * [random.randint(-100, 100)] for cnt in counters]
 
 
 class SimulationDiodeSamplingCounter(SamplingCounter):
@@ -71,13 +75,21 @@ class SimulationDiodeIntegratingCounter(IntegratingCounter):
         return 10 * [random.randint(-100, 100)]
 
 
-DEFAULT_CONTROLLER = simulation_diode_controller()
+DEFAULT_CONTROLLER = SimulationDiodeController()
+DEFAULT_INTEGRATING_CONTROLLER = SimulationIntegrationDiodeController()
 
 
-def simulation_diode(name, config, default=DEFAULT_CONTROLLER):
-    controller = None if config.get("independent") else default
-    if config.get("integration"):
-        return SimulationDiodeIntegratingCounter(name, controller, lambda: None)
+def simulation_diode(name, config):
+    if config.get("independent"):
+        # assuming independent sampling counter controller
+        controller = DummySimulationDiodeController()
+    else:
+        if config.get("integration"):
+            return SimulationDiodeIntegratingCounter(
+                name, DEFAULT_INTEGRATING_CONTROLLER, None
+            )
+        else:
+            controller = DEFAULT_CONTROLLER
     if config.get("constant") is not None:
         diode = CstSimulationDiodeSamplingCounter(name, controller)
         diode.set_cst_value(int(config.get("constant")))

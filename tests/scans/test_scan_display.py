@@ -49,7 +49,7 @@ def test_fast_scan_display(session):
                 start_once=True,
             )
             self.event = gevent.event.Event()
-            self.channels.append(AcquisitionChannel(self, "block_data", numpy.int, ()))
+            self.channels.append(AcquisitionChannel("block_data", numpy.int, ()))
             self.pending_trigger = 0
             self.chunk = chunk
 

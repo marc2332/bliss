@@ -10,8 +10,8 @@ Let's go further with some code.
 ## Basic Map
 
 ```python
-BLISS [1]: from bliss.common import session
-BLISS [2]: m = session.get_current().map  # the map
+BLISS [1]: from bliss import global_map 
+BLISS [2]: m = global_map  # the map
 BLISS [3]: len(m)
   Out [3]: 5
 BLISS [4]: list(m)  # list of node ids
@@ -46,8 +46,8 @@ We can also list the names of basic nodes of a session.
 ## More complex map
 
 ```python
-BLISS [3]: from bliss.common import session
-BLISS [4]: m = session.get_current().map  # the map instance
+BLISS [3]: from bliss import global_map
+BLISS [4]: m = global_map  # the map instance
 BLISS [5]: roby = config.get('roby')
 BLISS [6]: len(m)
   Out [6]: 7 
@@ -97,11 +97,11 @@ You can notice some facts:
     *  If it is a string the string itself (e.g. 'my_node')
     *  If it is an instance give it as a reference (e.g. myinst in the case above or self inside a class)
  * If no parent is given the instance will be registered under "controllers"
- * Going through `session.get_current().map.G[node_instance]` you can retrive node informations like *weakref*, *logger* and others.
+ * Going through `session.map.G[node_instance]` you can retrive node informations like *weakref*, *logger* and others.
 
 ```python
-BLISS [1]: from bliss.common import session
-BLISS [2]: m = session.get_current().map
+BLISS [1]: from bliss import global_map
+BLISS [2]: m = global_map
 BLISS [3]: m.register('my_node')
 BLISS [4]: class A():
       ...:     pass
@@ -148,15 +148,15 @@ Through the map we can:
 As simple as:
 
 ```python
-from bliss.common import session
-session.get_current().map.draw_pygraphviz()
+from bliss import global_map
+global_map.draw_pygraphviz()
 ```
 
 or with matplotlib:
 
 ```python
-from bliss.common import session
-session.get_current().map.draw_matplotlib()
+from bliss import global_map
+global_map.draw_matplotlib()
 ```
 
 If you want to visualize only one part you can give a node as an argument
@@ -164,7 +164,7 @@ and you will be given a partial view of the map.
 
 ```python
 roby = config.get('roby')
-m = session.get_current().map
+m = session.map
 
 # draw with matplotlib
 m.draw_matplotlib(roby)
@@ -178,7 +178,7 @@ You can use the same approach to introspect the map passing a specific argument:
 
 ```python
 from bliss.common import session
-m = session.get_current().map
+m = session.map
 # will try to visualize instance attributes 'port' and 'ip')
 m.draw_pygraphviz(format_node="inst.port+inst.ip")
 # will try to visualize instance 'controller' attribute as node text
@@ -197,7 +197,7 @@ friendly way all instances.
 If you need something more machine-friendly the way to go is:
 
 ```python
-m = session.get_current().map
+m = session.map
 m.update_labels(format_string="tag->inst.name->class->id")
 ```
 
@@ -208,7 +208,7 @@ More detailed information about the mini-language can be retrieved with:
 
 ```
 from bliss.common import session
-help(session.get_current().map.format_node)
+help(session.map.format_node)
 ```
 
 ## Access instance references
@@ -216,7 +216,7 @@ help(session.get_current().map.format_node)
 Instances can be accessed through the DiGraph.
 
 ```python
-TEST_SESSION [16]: m = session.get_current().map
+TEST_SESSION [16]: m = session.map
 TEST_SESSION [17]: [node for node in m]
 Out [16]: ['session', 'controllers', 'comms', 'counters', 'axes', 140483187066584, 140483253486984]
 TEST_SESSION [10]: [m[node].get('instance') for node in m]

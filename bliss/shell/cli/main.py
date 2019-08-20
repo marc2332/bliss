@@ -43,7 +43,7 @@ from bliss.config import get_sessions_list
 from bliss.config import static
 from bliss.config.static import Node
 from bliss.config.conductor import client
-from bliss.common.logtools import logging_startup
+from bliss import logging_startup
 
 from .repl import embed
 from . import session_files_templates as sft

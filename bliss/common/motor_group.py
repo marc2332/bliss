@@ -14,6 +14,10 @@ from bliss.common.utils import grouped
 from bliss.common.cleanup import capture_exceptions
 
 
+def is_motor_group(obj):
+    return isinstance(obj, _Group)
+
+
 def Group(*axes_list):
     axes = dict()
     for axis in axes_list:

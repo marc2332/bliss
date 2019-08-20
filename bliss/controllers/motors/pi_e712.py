@@ -15,7 +15,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.utils import grouped
 from bliss.common.utils import add_property
-from bliss.common import session
+from bliss import global_map
 from bliss.common.axis import AxisState, Motion, CyclicTrajectory
 from bliss.config.channels import Cache
 from bliss.common.switch import Switch as BaseSwitch
@@ -74,7 +74,7 @@ class PI_E712(Controller):
         Controller intialization : opens a single socket for all 3 axes.
         """
         self.sock = pi_gcs.get_pi_comm(self.config, TCP)
-        session.get_current().map.register(self, children_list=[self.sock])
+        global_map.register(self, children_list=[self.sock])
         connect(self.sock, "connect", self._clear_error)
 
     def finalize(self):

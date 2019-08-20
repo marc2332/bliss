@@ -8,14 +8,14 @@
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Output
 from bliss.common.utils import object_method_type
-from bliss.common import session
+from bliss import global_map
 
 
 class Base(Controller):
     def __init__(self, handler, config, *args):
         Controller.__init__(self, config, *args)
         self._oxford = handler
-        session.get_current().map.register(self, children_list=[handler])
+        global_map.register(self, children_list=[handler])
 
     def read_output(self, toutput):
         """Read the current temperature

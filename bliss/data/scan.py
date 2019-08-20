@@ -56,12 +56,12 @@ class Scan(DataNodeContainer):
         DataNodeContainer.__init__(self, "scan", name, create=create, **keys)
         self._info._write_type_conversion = pickle_dump
         if self.new_node:
-            with settings.pipeline(self._data, self._info) as p:
+            with settings.pipeline(self._struct, self._info) as p:
                 self._info["start_time"]
                 self._info["start_time_str"]
                 self._info["start_timestamp"]
 
-                self._data.start_time, self._data.start_time_str, self._data.start_timestamp = (
+                self._struct.start_time, self._struct.start_time_str, self._struct.start_timestamp = (
                     self._info._read_type_conversion(x) for x in p.execute()
                 )
 
@@ -69,12 +69,12 @@ class Scan(DataNodeContainer):
         if self.new_node:
             db_name = self.db_name
             # to avoid to have multiple modification events
-            with settings.pipeline(self._data, self._info) as p:
+            with settings.pipeline(self._struct, self._info) as p:
                 end_timestamp = time.time()
                 end_time = datetime.datetime.fromtimestamp(end_timestamp)
-                self._data.end_time = end_time
-                self._data.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-                self._data.end_timestamp = end_timestamp
+                self._struct.end_time = end_time
+                self._struct.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
+                self._struct.end_timestamp = end_timestamp
                 self._info["end_time"] = end_time
                 self._info["end_time_str"] = end_time.strftime("%a %b %d %H:%M:%S %Y")
                 self._info["end_timestamp"] = end_timestamp
@@ -108,19 +108,16 @@ def get_data_from_nodes(pipeline, *nodes_and_start_index):
     scan_image_get_view = dict()
     for node, start_index in nodes_and_start_index:
         if node.type == "channel":
-            channel_name = node.name
-            i = 2
-            while channel_name in scan_channel_get_data_func:
-                # name conflict: channel with same name already added
-                channel_name = ":".join(node.db_name.split(":")[-i:])
-                i += 1
-
             chan = node
+            channel_name = chan.short_name
+            if channel_name in scan_channel_get_data_func:
+                channel_name = chan.fullname
+
             try:
                 saved_db_connection = chan.db_connection
                 chan.db_connection = pipeline
                 # append channel name and get all data from channel;
-                # as it is in a Redis pipeline, get returns the
+                # as it is in a Redis pipeline, .get() returns the
                 # conversion function only - data will be received
                 # after .execute()
                 scan_channel_get_data_func[channel_name] = chan.get(start_index, -1)

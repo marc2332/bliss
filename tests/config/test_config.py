@@ -85,6 +85,26 @@ def test_yml_load_error(beacon, beacon_directory):
         os.unlink(new_file)
 
 
+def test_yml_load_error2(beacon, beacon_directory):
+    new_file = "%s/change_size_error.yml" % beacon_directory
+
+    try:
+        with open(new_file, "w") as f:
+            f.write(
+                """- name: change_size_error
+  a:
+    b:
+      c:
+        d:
+        - e """
+            )
+
+        beacon.reload()
+        change_size_error = beacon.get("change_size_error")
+    finally:
+        os.unlink(new_file)
+
+
 @pytest.mark.parametrize(
     "object_name, get_func_name, copy, ref_func",
     [

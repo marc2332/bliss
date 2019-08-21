@@ -44,6 +44,8 @@ from bliss.common.measurement import SamplingCounter, counter_namespace
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
 
+from simple_pid import PID
+
 
 class DeviceCounter(SamplingCounter):
     """ Implements access to counter object for
@@ -92,6 +94,8 @@ class Input:
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
+    # ----------- BASE METHODS -----------------------------------------
+
     def load_base_config(self):
         """ Load from the config the values for the standard parameters """
 
@@ -127,6 +131,8 @@ class Input:
 
         return counter_namespace([self.counter])
 
+    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+
     def read(self):
         """ returns the input device value (in input unit) """
 
@@ -147,10 +153,17 @@ class ExternalInput(Input):
          - SamplingCounter
     """
 
-    def __init__(self, controller, config):
-        super().__init__(controller, config)
+    def __init__(self, config):
+        super().__init__(None, config)
 
         self.device = config["device"]
+
+        if not isinstance(self.device, Axis, SamplingCounter):
+            raise TypeError(
+                "the associated device must be an 'Axis' or a 'SamplingCounter'"
+            )
+
+    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
     def read(self):
         """ returns the input device value (in input unit) """
@@ -161,8 +174,6 @@ class ExternalInput(Input):
             return self.device.position
         elif isinstance(self.device, SamplingCounter):
             return self.device.read()
-        else:
-            raise NotImplementedError
 
     def state(self):
         """ returns the input device state """
@@ -173,8 +184,6 @@ class ExternalInput(Input):
             return self.device.state
         elif isinstance(self.device, SamplingCounter):
             return "READY"
-        else:
-            raise NotImplementedError
 
 
 @with_custom_members
@@ -194,10 +203,13 @@ class Output:
         self._name = config["name"]
         self._config = config
 
-        self._ramp = OutputRamp(self)
+        self._ramp = SoftRamp(self.read, self._set_value)
+        self._use_soft_ramp = None
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+    # ----------- BASE METHODS -----------------------------------------
 
     def load_base_config(self):
         """ Load from the config the value for the standard parameters """
@@ -253,32 +265,6 @@ class Output:
 
         return self._ramp
 
-    @property
-    def ramprate(self):
-        """ Get ramprate (in output unit per second) """
-
-        log_debug(self, "Output:get_ramprate")
-        return self._ramp.rate
-
-    @ramprate.setter
-    def ramprate(self, value):
-        """ Set ramprate (in output unit per second) """
-
-        log_debug(self, "Output:set_ramprate: %s" % (value))
-        self._ramp.rate = value
-
-    def state(self):
-        """ Return the state of the output device"""
-
-        log_debug(self, "Output:state")
-        return self._controller.state_output(self)
-
-    def read(self):
-        """ Return the current value of the output device (in output unit) """
-
-        log_debug(self, "Output:read")
-        return self._controller.read_output(self)
-
     def set_power(self, power_value):
         """ Set 'power_value' as new target and start ramping to this target (no ramping if ramprate==0).
             The power value is the value returned by the PID algorithm.
@@ -293,14 +279,7 @@ class Output:
             value = max(value, self._limits[0])
             value = min(value, self._limits[1])
 
-        self._ramp.start(value)
-
-    def _set_value(self, value):
-        """ Set the value for the output. Value is expressed in output unit """
-
-        log_debug(self, "Output:_set_value %s" % value)
-
-        self._controller.set_output_value(self, value)
+        self._start_ramping(value)
 
     def get_power2unit(self, power_value):
         """ Convert a power value into a value expressed in output units.
@@ -330,13 +309,42 @@ class Output:
             )
             return power_value
 
-    def get_working_setpoint(self):
-        """
-        Get the current working setpoint (during a ramping process on the Output)
-        """
+    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
-        log_debug(self, "Output:get_working_setpoint")
-        return self._ramp.get_working_setpoint()
+    def state(self):
+        """ Return the state of the output device"""
+
+        log_debug(self, "Output:state")
+        return self._controller.state_output(self)
+
+    def read(self):
+        """ Return the current value of the output device (in output unit) """
+
+        log_debug(self, "Output:read")
+        return self._controller.read_output(self)
+
+    @property
+    def ramprate(self):
+        """ Get ramprate (in output unit per second) """
+
+        log_debug(self, "Output:get_ramprate")
+
+        try:
+            return self._controller.get_output_ramprate(self)
+        except NotImplementedError:
+            return self._ramp.rate
+
+    @ramprate.setter
+    def ramprate(self, value):
+        """ Set ramprate (in output unit per second) """
+
+        log_debug(self, "Output:set_ramprate: %s" % (value))
+
+        self._ramp.rate = value
+        try:
+            self._controller.set_output_ramprate(self, value)
+        except NotImplementedError:
+            pass
 
     def is_ramping(self):
         """
@@ -344,7 +352,51 @@ class Output:
         """
 
         log_debug(self, "Output:is_ramping")
-        return self._ramp.is_ramping()
+
+        if (
+            self._use_soft_ramp is None
+        ):  # case where '_start_ramping' was never called previously.
+            return False
+
+        elif self._use_soft_ramp:
+
+            return self._ramp.is_ramping()
+
+        else:
+            return self._controller.output_is_ramping(self)
+
+    # ---------------- PRIVATE METHODS -----------------------------------------------
+
+    def _set_value(self, value):
+        """ Set the value for the output. Value is expressed in output unit """
+
+        log_debug(self, "Output:_set_value %s" % value)
+
+        self._controller.set_output_value(self, value)
+
+    def _start_ramping(self, value):
+        """ Start the ramping process to target_value """
+
+        log_debug(self, "Output:_start_ramping %s" % value)
+
+        try:
+            self._use_soft_ramp = False
+            self._controller.start_output_ramp(self, value)
+        except NotImplementedError:
+            self._use_soft_ramp = True
+            self._ramp.start(value)
+
+    def _stop_ramping(self):
+        """ Stop the ramping process """
+
+        log_debug(self, "Output:_stop_ramping")
+
+        if self._use_soft_ramp is None:
+            self._controller.stop_output_ramp(self)
+        elif self._use_soft_ramp:
+            self._ramp.stop()
+        else:
+            self._controller.stop_output_ramp(self)
 
     def _add_custom_method(self, method, name, types_info=(None, None)):
         """ Necessary to add custom methods to this class """
@@ -354,7 +406,7 @@ class Output:
 
 
 class ExternalOutput(Output):
-    """ Implements the access to an external output device (i.e. not accessed via the regulation controller itself, like an axis or a counter)
+    """ Implements the access to an external output device (i.e. not accessed via the regulation controller itself, like an axis)
         Managed devices are objects of the type:
          - Axis
 
@@ -364,11 +416,16 @@ class ExternalOutput(Output):
 
     """
 
-    def __init__(self, controller, config):
-        super().__init__(controller, config)
+    def __init__(self, config):
+        super().__init__(None, config)
 
         self.device = config["device"]
         self.mode = config.get("mode", "relative")
+
+        if not isinstance(self.device, Axis):
+            raise TypeError("the associated device must be an 'Axis'")
+
+    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
     def state(self):
         """ Return the state of the output device"""
@@ -377,8 +434,6 @@ class ExternalOutput(Output):
 
         if isinstance(self.device, Axis):
             return self.device.state
-        else:
-            raise NotImplementedError
 
     def read(self):
         """ Return the current value of the output device (in output unit) """
@@ -387,25 +442,67 @@ class ExternalOutput(Output):
 
         if isinstance(self.device, Axis):
             return self.device.position
-        else:
-            raise NotImplementedError
+
+    @property
+    def ramprate(self):
+        """ Get ramprate (in output unit per second) """
+
+        log_debug(self, "ExternalOutput:get_ramprate")
+
+        return self._ramp.rate
+
+    @ramprate.setter
+    def ramprate(self, value):
+        """ Set ramprate (in output unit per second) """
+
+        log_debug(self, "ExternalOutput:set_ramprate: %s" % (value))
+
+        self._ramp.rate = value
+
+    # def get_working_setpoint(self):
+    #     """
+    #     Get the current working setpoint (during a ramping process on the Output)
+    #     """
+
+    #     log_debug(self, "ExternalOutput:get_working_setpoint")
+
+    #     return self._ramp._wrk_setpoint
+
+    def is_ramping(self):
+        """
+        Get the ramping status.
+        """
+
+        log_debug(self, "ExternalOutput:is_ramping")
+
+        return self._ramp.is_ramping()
+
+    # ---------------- PRIVATE METHODS -----------------------------------------------
 
     def _set_value(self, value):
         """ Set the value for the output. Value is expressed in output unit """
 
         log_debug(self, "ExternalOutput:_set_value %s" % value)
 
-        if None not in self._limits:
-            value = max(value, self._limits[0])
-            value = min(value, self._limits[1])
-
         if isinstance(self.device, Axis):
             if self.mode == "relative":
                 self.device.rmove(value)
             elif self.mode == "absolute":
                 self.device.move(value)
-        else:
-            raise NotImplementedError
+
+    def _start_ramping(self, value):
+        """ Start the ramping process to target_value """
+
+        log_debug(self, "ExternalOutput:_start_ramping %s" % value)
+
+        self._ramp.start(value)
+
+    def _stop_ramping(self):
+        """ Stop the ramping process """
+
+        log_debug(self, "ExternalOutput:_stop_ramping")
+
+        self._ramp.stop()
 
 
 @with_custom_members
@@ -413,25 +510,24 @@ class Loop:
     """ Implements the access to the regulation loop 
 
         The regulation is the PID process that:
-        1) reads a value from an input device 
-        2) takes a target value (setpoint) and compare it to the current input value (processed value)
-        3) computes an output value sent to an output device which has an effect on the processed value
+        1) reads a value from an input device.
+        2) takes a target value (setpoint) and compare it to the current input value (processed value).
+        3) computes an output value  and send it to an output device which has an effect on the processed value.
         4) back to step 1) and loop forever so that the processed value reaches the target value and stays stable around that target value.  
 
         The Loop has:
-        -one input: an Input object to read the processed value (ex: temperature sensor)
-        -one output: an Output object which has an effect on the processed value (ex: cooling device)
+        -one input: an Input object to read the processed value (ex: temperature sensor).
+        -one output: an Output object which has an effect on the processed value (ex: cooling device).
 
         The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
         The regulation is handled by the associated controller.
 
-        The controller could be an hardware controller (see regulator.Controller) or a software controller
-        (see regulator.SoftController).
+        The controller is an hardware controller (see regulator.Controller).
 
-        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint)
+        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint).
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
-        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power)
+        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power).
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
     """
@@ -445,7 +541,8 @@ class Loop:
         self._input = config.get("input")
         self._output = config.get("output")
 
-        self._ramp = Ramp(self)
+        self._ramp = SoftRamp(self.input.read, self._set_setpoint)
+        self._use_soft_ramp = None
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -463,37 +560,9 @@ class Loop:
         self._history_size = 100
         self.clear_history_data()
 
-    def clear_history_data(self):
-        self._history_start_time = time.time()
-        self.history_data = {
-            "input": [],
-            "output": [],
-            "setpoint": [],
-            "time": [],
-        }  # , 'input2':[], 'output2':[], 'setpoint2':[]}
-        self._history_counter = 0
+    # ----------- BASE METHODS -----------------------------------------
 
-    def _store_history_data(self, yval, outval, setpoint):
-
-        # xval = time.time() - self._history_start_time
-        xval = self._history_counter
-        self._history_counter += 1
-
-        self.history_data["time"].append(xval)
-        self.history_data["input"].append(yval)
-        self.history_data["output"].append(outval)
-        self.history_data["setpoint"].append(setpoint)
-
-        # self.history_data['input2'].append(self.input.read())
-        # self.history_data['output2'].append(self.output.read())
-        # self.history_data['setpoint2'].append(self.setpoint)
-
-        for data in self.history_data.values():
-            dx = len(data) - self._history_size
-            if dx > 0:
-                for i in range(dx):
-                    data.pop(0)
-
+    ##--- CONFIG METHODS
     def load_base_config(self):
         """ Load from the config the values for the standard parameters """
 
@@ -516,6 +585,7 @@ class Loop:
         # self.dwell = self._config.get("dwell",None)
         # self.step = self._config.get("step",None)
 
+    ##--- MAIN ATTRIBUTES
     @autocomplete_property
     def controller(self):
         """ Return the associated regulation controller """
@@ -552,93 +622,13 @@ class Loop:
     def input(self):
         """ Return the input object """
 
-        if not isinstance(self._input, Input):  # <==== ?????
-            self._input = self._input()
         return self._input
 
     @autocomplete_property
     def output(self):
         """ Return the output object """
 
-        if not isinstance(self._output, Output):  # <==== ?????
-            self._output = self._output()
         return self._output
-
-    @property
-    def kp(self):
-        """
-        Get the P value (for PID)
-        """
-
-        log_debug(self, "Loop:get_kp")
-        return self._controller.get_kp(self)
-
-    @kp.setter
-    def kp(self, value):
-        """
-        Set the P value (for PID)
-        """
-
-        log_debug(self, "Loop:set_kp: %s" % (value))
-        self._controller.set_kp(self, value)
-
-    @property
-    def ki(self):
-        """
-        Get the I value (for PID)
-        """
-
-        log_debug(self, "Loop:get_ki")
-        return self._controller.get_ki(self)
-
-    @ki.setter
-    def ki(self, value):
-        """
-        Set the I value (for PID)
-        """
-
-        log_debug(self, "Loop:set_ki: %s" % (value))
-        self._controller.set_ki(self, value)
-
-    @property
-    def kd(self):
-        """
-        Get the D value (for PID)
-        """
-
-        log_debug(self, "Loop:get_kd")
-        return self._controller.get_kd(self)
-
-    @kd.setter
-    def kd(self, value):
-        """
-        Set the D value (for PID)
-        """
-
-        log_debug(self, "Loop:set_kd: %s" % (value))
-        self._controller.set_kd(self, value)
-
-    @property
-    def setpoint(self):
-        """
-        Get the current setpoint (target value) (in input unit)
-        """
-
-        log_debug(self, "Loop:get_setpoint")
-        return self._controller.get_setpoint(self)
-
-    @setpoint.setter
-    def setpoint(self, value):
-        """
-        Set the new setpoint (target value, in input unit) and start regulation process (if not running already) (w/wo ramp) to reach this setpoint
-        """
-
-        log_debug(self, "Loop:set_setpoint: %s" % (value))
-
-        self._in_deadband = False  # see self.axis_state()
-
-        self._start_regulation()
-        self._ramp.start(value)
 
     @autocomplete_property
     def ramp(self):
@@ -646,20 +636,7 @@ class Loop:
 
         return self._ramp
 
-    @property
-    def ramprate(self):
-        """ Get ramprate (in input unit per second) """
-
-        log_debug(self, "Loop:get_ramprate")
-        return self._ramp.rate
-
-    @ramprate.setter
-    def ramprate(self, value):
-        """ Set ramprate (in input unit per second) """
-
-        log_debug(self, "Loop:set_ramprate: %s" % (value))
-        self._ramp.rate = value
-
+    ##--- DEADBAND METHODS
     @property
     def deadband(self):
         """ Get the deadband value (in input unit). 
@@ -721,125 +698,6 @@ class Loop:
         value = max(min(value, 100), 0)
         self._deadband_idle_factor = value / 100.
 
-    @property
-    def sampling_frequency(self):
-        """
-        Get the sampling frequency (PID) [Hz]
-        """
-
-        log_debug(self, "Loop:get_sampling_frequency")
-        return self._controller.get_sampling_frequency(self)
-
-    @sampling_frequency.setter
-    def sampling_frequency(self, value):
-        """
-        Set the sampling frequency (PID) [Hz]
-        """
-
-        log_debug(self, "Loop:set_sampling_frequency: %s" % (value))
-        self._controller.set_sampling_frequency(self, value)
-
-    @property
-    def pid_range(self):
-        """
-        Get the PID range (PID output value limits).
-
-        Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
-
-        The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
-
-        """
-
-        log_debug(self, "Loop:get_pid_range")
-        return self._controller.get_pid_range(self)
-
-    @pid_range.setter
-    def pid_range(self, value):
-        """
-        Set the PID range (PID output value limits).
-
-        Usually, the PID range must be:
-        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
-        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
-
-        The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
-        """
-
-        log_debug(self, "Loop:set_pid_range: %s" % (value,))
-        self._controller.set_pid_range(self, value)
-
-    @property
-    def history_size(self):
-        """
-        Get the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:get_history_size")
-        return self._history_size
-
-    @history_size.setter
-    def history_size(self, value):
-        """
-        Set the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
-        """
-
-        log_debug(self, "Loop:set_history_size: %s" % (value,))
-        self._history_size = value
-
-    def apply_proportional_on_measurement(self, enable):
-        """
-        To eliminate overshoot in certain types of systems, 
-        the proportional term can be calculated directly on the measurement instead of the error.
-        Available for 'SoftController' only.
-        """
-
-        log_info(self, "Loop:apply_proportional_on_measurement: %s" % (enable,))
-        self._controller.apply_proportional_on_measurement(self, enable)
-
-    def stop(self):
-        """ Stop the regulation and ramping (if any) """
-
-        log_debug(self, "Loop:stop")
-        self._ramp.stop()
-        self._controller.stop_regulation(self)
-
-    def abort(self):
-        """ Stop the regulation and ramping (if any) and set power on output device to zero """
-
-        log_debug(self, "Loop:abort")
-        self._ramp.stop()
-        self._controller.stop_regulation(self)
-        time.sleep(0.5)  # wait for the regulation to be stopped
-        self.output.set_power(0.)
-
-    def _start_regulation(self):
-        """ Start the regulation loop """
-
-        log_debug(self, "Loop:start_regulation")
-        self._controller.start_regulation(self)
-
-    def get_working_setpoint(self):
-        """
-        Get the current working setpoint (during a ramping process)
-        """
-
-        log_debug(self, "Loop:get_working_setpoint")
-        return self._ramp.get_working_setpoint()
-
-    def is_ramping(self):
-        """
-        Get the ramping status.
-        """
-
-        log_debug(self, "Loop:is_ramping")
-        return self._ramp.is_ramping()
-
     def is_in_deadband(self):
 
         current_value = self.input.read()
@@ -864,8 +722,98 @@ class Loop:
         else:
             return True
 
-    # ===== Soft Axis Methods =======================
+    ##--- DATA HISTORY METHODS
+    def clear_history_data(self):
+        self._history_start_time = time.time()
+        self.history_data = {
+            "input": [],
+            "output": [],
+            "setpoint": [],
+            "time": [],
+        }  # , 'input2':[], 'output2':[], 'setpoint2':[]}
+        self._history_counter = 0
 
+    def _store_history_data(self, yval, outval, setpoint):
+
+        # xval = time.time() - self._history_start_time
+        xval = self._history_counter
+        self._history_counter += 1
+
+        self.history_data["time"].append(xval)
+        self.history_data["input"].append(yval)
+        self.history_data["output"].append(outval)
+        self.history_data["setpoint"].append(setpoint)
+
+        # self.history_data['input2'].append(self.input.read())
+        # self.history_data['output2'].append(self.output.read())
+        # self.history_data['setpoint2'].append(self.setpoint)
+
+        for data in self.history_data.values():
+            dx = len(data) - self._history_size
+            if dx > 0:
+                for i in range(dx):
+                    data.pop(0)
+
+    @property
+    def history_size(self):
+        """
+        Get the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
+        """
+
+        log_debug(self, "Loop:get_history_size")
+        return self._history_size
+
+    @history_size.setter
+    def history_size(self, value):
+        """
+        Set the size of the buffer that stores the latest data (input_value, output_value, working_setpoint)
+        """
+
+        log_debug(self, "Loop:set_history_size: %s" % (value,))
+        self._history_size = value
+
+    ##--- CTRL METHODS
+    @property
+    def setpoint(self):
+        """
+        Get the current setpoint (target value) (in input unit)
+        """
+
+        log_debug(self, "Loop:get_setpoint")
+        return self._get_setpoint()
+
+    @setpoint.setter
+    def setpoint(self, value):
+        """
+        Set the new setpoint (target value, in input unit) and start regulation process (if not running already) (w/wo ramp) to reach this setpoint
+        """
+
+        log_debug(self, "Loop:set_setpoint: %s" % (value))
+
+        self._in_deadband = False  # see self.axis_state()
+
+        self._start_regulation()
+        self._start_ramping(value)
+
+    def stop(self):
+        """ Stop the regulation and ramping (if any) """
+
+        log_debug(self, "Loop:stop")
+
+        self._stop_ramping()
+        self._stop_regulation()
+
+    def abort(self):
+        """ Stop the regulation and ramping (if any) and set power on output device to zero """
+
+        log_debug(self, "Loop:abort")
+
+        self._stop_ramping()
+        self._stop_regulation()
+        time.sleep(0.5)  # wait for the regulation to be stopped
+        self.output.set_power(0.)
+
+    ##--- SOFT AXIS METHODS
     def get_axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
@@ -961,31 +909,490 @@ class Loop:
                         # print("IN DEADBAND: WAITING")
                         return AxisState("MOVING")
 
-    # ================================================
+    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+
+    @property
+    def kp(self):
+        """
+        Get the P value (for PID)
+        """
+
+        log_debug(self, "Loop:get_kp")
+        return self._controller.get_kp(self)
+
+    @kp.setter
+    def kp(self, value):
+        """
+        Set the P value (for PID)
+        """
+
+        log_debug(self, "Loop:set_kp: %s" % (value))
+        self._controller.set_kp(self, value)
+
+    @property
+    def ki(self):
+        """
+        Get the I value (for PID)
+        """
+
+        log_debug(self, "Loop:get_ki")
+        return self._controller.get_ki(self)
+
+    @ki.setter
+    def ki(self, value):
+        """
+        Set the I value (for PID)
+        """
+
+        log_debug(self, "Loop:set_ki: %s" % (value))
+        self._controller.set_ki(self, value)
+
+    @property
+    def kd(self):
+        """
+        Get the D value (for PID)
+        """
+
+        log_debug(self, "Loop:get_kd")
+        return self._controller.get_kd(self)
+
+    @kd.setter
+    def kd(self, value):
+        """
+        Set the D value (for PID)
+        """
+
+        log_debug(self, "Loop:set_kd: %s" % (value))
+        self._controller.set_kd(self, value)
+
+    @property
+    def sampling_frequency(self):
+        """
+        Get the sampling frequency (PID) [Hz]
+        """
+
+        log_debug(self, "Loop:get_sampling_frequency")
+        return self._controller.get_sampling_frequency(self)
+
+    @sampling_frequency.setter
+    def sampling_frequency(self, value):
+        """
+        Set the sampling frequency (PID) [Hz]
+        """
+
+        log_debug(self, "Loop:set_sampling_frequency: %s" % (value))
+        self._controller.set_sampling_frequency(self, value)
+
+    @property
+    def pid_range(self):
+        """
+        Get the PID range (PID output value limits).
+
+        Usually, the PID range must be:
+        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+
+        The PID value is the value returned by the PID algorithm.
+        Depending on the hardware or on the controller type (HW Controller or SoftController), 
+        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
+
+        """
+
+        log_debug(self, "Loop:get_pid_range")
+        return self._controller.get_pid_range(self)
+
+    @pid_range.setter
+    def pid_range(self, value):
+        """
+        Set the PID range (PID output value limits).
+
+        Usually, the PID range must be:
+        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+
+        The PID value is the value returned by the PID algorithm.
+        Depending on the hardware or on the controller type (HW Controller or SoftController), 
+        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
+        """
+
+        log_debug(self, "Loop:set_pid_range: %s" % (value,))
+        self._controller.set_pid_range(self, value)
+
+    @property
+    def ramprate(self):
+        """ Get ramprate (in input unit per second) """
+
+        log_debug(self, "Loop:get_ramprate")
+
+        try:
+            return self._controller.get_ramprate(self)
+        except NotImplementedError:
+            return self._ramp.rate
+
+    @ramprate.setter
+    def ramprate(self, value):
+        """ Set ramprate (in input unit per second) """
+
+        log_debug(self, "Loop:set_ramprate: %s" % (value))
+
+        self._ramp.rate = value
+        try:
+            self._controller.set_ramprate(self, value)
+        except NotImplementedError:
+            pass
+
+    def is_ramping(self):
+        """
+        Get the ramping status.
+        """
+
+        log_debug(self, "Loop:is_ramping")
+
+        if (
+            self._use_soft_ramp is None
+        ):  # case where '_start_ramping' was never called previously.
+            return False
+
+        elif self._use_soft_ramp:
+
+            return self._ramp.is_ramping()
+
+        else:
+            return self._controller.is_ramping(self)
+
+    # ---------------- PRIVATE METHODS -----------------------------------------------
+
+    def _get_setpoint(self):
+        """ get the current setpoint """
+
+        log_debug(self, "Loop:_get_setpoint")
+
+        return self._controller.get_setpoint(self)
+
+    def _set_setpoint(self, value):
+        """ set the current setpoint """
+
+        log_debug(self, "Loop:_set_setpoint %s" % value)
+
+        self._controller.set_setpoint(self, value)
+
+    def _start_regulation(self):
+        """ Start the regulation loop """
+
+        log_debug(self, "Loop:_start_regulation")
+
+        self._controller.start_regulation(self)
+
+    def _stop_regulation(self):
+        """ Stop the regulation loop """
+
+        log_debug(self, "Loop:_stop_regulation")
+
+        self._controller.stop_regulation(self)
+
+    def _start_ramping(self, value):
+        """ Start the ramping to setpoint value """
+
+        log_debug(self, "Loop:_start_ramping %s" % value)
+
+        try:
+            self._use_soft_ramp = False
+            self._controller.start_ramp(self, value)
+        except NotImplementedError:
+            self._use_soft_ramp = True
+            self._ramp.start(value)
+
+    def _stop_ramping(self):
+        """ Stop the ramping """
+
+        log_debug(self, "Loop:_stop_ramping")
+
+        if self._use_soft_ramp is None:
+            self._controller.stop_ramp(self)
+        elif self._use_soft_ramp:
+            self._ramp.stop()
+        else:
+            self._controller.stop_ramp(self)
 
 
-class Ramp:
+class SoftLoop(Loop):
+    """ Implements the software regulation loop.
+
+        A SoftLoop should be used when there is no hardware to handle the PID regulation
+        or when we want to override the internal PID regulation of the hardware.
+
+        The regulation is the PID process that:
+        1) reads a value from an input device.
+        2) takes a target value (setpoint) and compare it to the current input value (processed value).
+        3) computes an output value and send it to an output device which has an effect on the processed value.
+        4) back to step 1) and loop forever so that the processed value reaches the target value and stays stable around that target value.  
+
+        The Loop has:
+        -one input: an Input object to read the processed value (ex: temperature sensor).
+        -one output: an Output object which has an effect on the processed value (ex: cooling device).
+
+        The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
+        The regulation is handled by the software and is based on the 'simple_pid' python module.
+
+        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint).
+        will use a ramp to reach that value (HW if available else a soft_ramp).
+
+        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power).
+        will use a ramp to reach that value (HW if available else a soft_ramp).
+
+    """
+
+    def __init__(self, config):
+        super().__init__(None, config)
+
+        self.pid = PID(
+            Kp=1.0,
+            Ki=0.0,
+            Kd=0.0,
+            setpoint=0.0,
+            sample_time=0.01,
+            output_limits=(0.0, 1.0),
+            auto_mode=True,
+            proportional_on_measurement=False,
+        )
+
+        self.task = None
+        self._stop_event = gevent.event.Event()
+
+    def __del__(self):
+        self._stop_event.set()
+
+    @property
+    def kp(self):
+        """
+        Get the P value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:get_kp")
+        return self.pid.Kp
+
+    @kp.setter
+    def kp(self, value):
+        """
+        Set the P value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:set_kp: %s" % (value))
+        self.pid.Kp = value
+
+    @property
+    def ki(self):
+        """
+        Get the I value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:get_ki")
+        return self.pid.Ki
+
+    @ki.setter
+    def ki(self, value):
+        """
+        Set the I value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:set_ki: %s" % (value))
+        self.pid.Ki = value
+
+    @property
+    def kd(self):
+        """
+        Get the D value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:get_kd")
+        return self.pid.Kd
+
+    @kd.setter
+    def kd(self, value):
+        """
+        Set the D value (for PID)
+        """
+
+        log_debug(self, "SoftLoop:set_kd: %s" % (value))
+        self.pid.Kd = value
+
+    @property
+    def sampling_frequency(self):
+        """
+        Get the sampling frequency (PID) [Hz]
+        """
+
+        log_debug(self, "SoftLoop:get_sampling_frequency")
+        return 1. / self.pid.sample_time
+
+    @sampling_frequency.setter
+    def sampling_frequency(self, value):
+        """
+        Set the sampling frequency (PID) [Hz]
+        """
+
+        log_debug(self, "SoftLoop:set_sampling_frequency: %s" % (value))
+        self.pid.sample_time = 1. / value
+
+    @property
+    def pid_range(self):
+        """
+        Get the PID range (PID output value limits).
+
+        Usually, the PID range must be:
+        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+
+        The PID value is the value returned by the PID algorithm.
+        Depending on the hardware or on the controller type (HW Controller or SoftController), 
+        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
+
+        """
+
+        log_debug(self, "SoftLoop:get_pid_range")
+        return self.pid.output_limits
+
+    @pid_range.setter
+    def pid_range(self, value):
+        """
+        Set the PID range (PID output value limits).
+
+        Usually, the PID range must be:
+        - [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less) 
+        - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
+
+        The PID value is the value returned by the PID algorithm.
+        Depending on the hardware or on the controller type (HW Controller or SoftController), 
+        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
+        """
+
+        log_debug(self, "SoftLoop:set_pid_range: %s" % (value,))
+        self.pid.output_limits = value[0:2]
+
+    @property
+    def ramprate(self):
+        """ Get ramprate (in input unit per second) """
+
+        log_debug(self, "SoftLoop:get_ramprate")
+
+        return self._ramp.rate
+
+    @ramprate.setter
+    def ramprate(self, value):
+        """ Set ramprate (in input unit per second) """
+
+        log_debug(self, "SoftLoop:set_ramprate: %s" % (value))
+
+        self._ramp.rate = value
+
+    def is_ramping(self):
+        """
+        Get the ramping status.
+        """
+
+        log_debug(self, "SoftLoop:is_ramping")
+
+        return self._ramp.is_ramping()
+
+    def apply_proportional_on_measurement(self, enable):
+        """
+        To eliminate overshoot in certain types of systems, 
+        the proportional term can be calculated directly on the measurement instead of the error.
+        """
+
+        log_info(self, "SoftLoop:apply_proportional_on_measurement: %s" % (enable,))
+        self.pid.proportional_on_measurement = bool(enable)
+
+    # ---------------- PRIVATE METHODS -----------------------------------------------
+
+    def _get_setpoint(self):
+        """
+        Get the current setpoint (target value) (in input unit)
+        """
+
+        log_debug(self, "SoftLoop:_get_setpoint")
+        return self.pid.setpoint
+
+    def _set_setpoint(self, value):
+        """
+        For internal use only! Users must use the property only: 'Loop.setpoint = xxx'
+        Set the current setpoint (target value) (in input unit)
+        """
+
+        log_debug(self, "SoftLoop:_set_setpoint")
+        self.pid.setpoint = value
+
+    def _start_regulation(self):
+        """ Start the regulation loop """
+
+        log_debug(self, "SoftLoop:_start_regulation")
+
+        if not self.task:
+            self.task = gevent.spawn(self._do_regulation)
+
+    def _stop_regulation(self):
+        """ Stop the regulation loop """
+
+        log_debug(self, "SoftLoop:_stop_regulation")
+
+        self._stop_event.set()
+
+    def _start_ramping(self, value):
+        """ Start the ramping to setpoint value """
+
+        log_debug(self, "SoftLoop:_start_ramping %s" % value)
+
+        self._ramp.start(value)
+
+    def _stop_ramping(self):
+        """ Stop the ramping """
+
+        log_debug(self, "SoftLoop:_stop_ramping")
+
+        self._ramp.stop()
+
+    def _do_regulation(self):
+
+        self._stop_event.clear()
+
+        while not self._stop_event.is_set():
+
+            input_value = self.input.read()
+            power_value = self.pid(input_value)
+
+            if not self.is_in_idleband():
+                self.output.set_power(power_value)
+
+            # store data history
+            outval = self.output.read()  # or self.output.get_working_setpoint() ???
+            self._store_history_data(input_value, outval, self.setpoint)
+
+            gevent.sleep(self.pid.sample_time)
+
+
+class SoftRamp:
     """ Implements the access to the ramping process of a Loop (Hard or Soft) """
 
-    def __init__(self, boss):
+    def __init__(self, get_value_func, set_value_func):
         """ Constructor """
 
-        self._boss = boss  # <= can be a Loop or an Output
+        self._get_value_func = get_value_func
+        self._set_value_func = set_value_func
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        # === SOFT RAMP ATTRIBUTES =====
+        # --- SOFT RAMP ATTRIBUTES -----
+
+        self._rate = 0.0
+        self._poll_time = 0.02
 
         self.target_value = None
         self.new_target_value = None
         self._wrk_setpoint = None
 
-        self._rate = 0.0
         self.task = None
         self._stop_event = gevent.event.Event()
-        self.use_soft_ramp = None
-        self._poll_time = 0.02
 
         self.start_time = None
         self.start_value = None
@@ -995,113 +1402,33 @@ class Ramp:
         self._stop_event.set()
 
     @property
-    def boss(self):
-        """ returns the ramp owner """
-
-        log_debug(self, "Ramp:get_boss")
-        return self._boss
-
-    # ==== SETUP METHODS ===============
-    @property
     def poll_time(self):
         """ Get the polling time (sleep time) used by the ramping task loop """
 
-        log_debug(self, "Ramp:get_poll_time")
+        log_debug(self, "SoftRamp:get_poll_time")
         return self._poll_time
 
     @poll_time.setter
     def poll_time(self, value):
         """ Set the polling time (sleep time) used by the ramping task loop """
 
-        log_debug(self, "Ramp:set_poll_time: %s" % (value))
+        log_debug(self, "SoftRamp:set_poll_time: %s" % (value))
         self._poll_time = value
 
-    # ==== SPECIFIC METHODS (i.e. overwritten in OutputRamp) =======================
     @property
     def rate(self):
         """ Get ramprate (in input unit per second) """
 
-        log_debug(self, "Ramp:get_rate")
-        try:
-            return self._boss._controller.get_ramprate(self._boss)
-        except NotImplementedError:
-            return self._rate
+        log_debug(self, "SoftRamp:get_rate")
+
+        return self._rate
 
     @rate.setter
     def rate(self, value):
         """ Set ramprate (in input unit per second) """
 
-        log_debug(self, "Ramp:set_rate: %s" % (value))
+        log_debug(self, "SoftRamp:set_rate: %s" % (value))
         self._rate = value
-        try:
-            self._boss._controller.set_ramprate(self._boss, value)
-        except NotImplementedError:
-            pass
-
-    def is_ramping(self):
-        """
-        Get the ramping status.
-        """
-
-        log_debug(self, "Ramp:is_ramping")
-
-        if (
-            self.use_soft_ramp is None
-        ):  # case where 'Loop.setpoint = new_sp' => 'Ramp.start(new_sp)' was never called previously.
-
-            return False
-
-        elif self.use_soft_ramp:
-
-            if not self.task:
-                return False
-            else:
-                return True
-
-        else:
-            return self._boss._controller.is_ramping(self._boss)
-
-    def _start_hw_ramp(self, value):
-        # value is in input unit
-        log_debug(self, "Ramp:_start_hw_ramp: %s" % (value))
-        self._boss._controller.start_ramp(self._boss, value)
-
-    def _stop_hw_ramp(self):
-        log_debug(self, "Ramp:_stop_hw_ramp")
-        self._boss._controller.stop_ramp(self._boss)
-
-    def _set_working_setpoint(self, value):
-        """ Set the intermediate setpoint (i.e. working_setpoint) during a ramping process (called by the soft ramp only).
-            Value is in input units.
-        """
-
-        log_debug(self, "Ramp:_set_working_setpoint: %s" % (value))
-        self._wrk_setpoint = value
-        self._boss._controller.set_setpoint(self._boss, value)
-
-    def get_working_setpoint(self):
-        """ Get the current working setpoint (set by the hard or soft ramping process ).
-            Value is in input units.
-        """
-
-        if (
-            self.use_soft_ramp is None
-        ):  # case where 'Loop.setpoint = new_sp' => 'Ramp.start(new_sp)' was never called previously.
-            return self._boss.setpoint
-
-        elif self.use_soft_ramp:
-            return self._wrk_setpoint
-
-        else:
-            return self._boss._controller.get_working_setpoint(self._boss)
-
-    def _get_current_value(self):
-        """ Return the current value of the loop.input (in input unit) """
-
-        log_debug(self, "Ramp:_get_current_value")
-        return self._boss._input.read()
-
-    # === RAMPING CONTROL METHODS ===================
 
     def start(self, value):
         """ Start the ramping process to target_value """
@@ -1109,42 +1436,52 @@ class Ramp:
         # value is in input unit for Loop.ramp
         # value is in output unit for Output.ramp
 
-        log_debug(self, "Ramp:start")
+        log_debug(self, "SoftRamp:start %s" % value)
         self.new_target_value = value
 
-        try:
-            self.use_soft_ramp = False
-            self._start_hw_ramp(value)
-        except NotImplementedError:
-            self.use_soft_ramp = True
-            self._start_soft_ramp()
+        if not self._rate:
+            self._set_working_point(self.new_target_value)
+        elif not self.task:
+            self.task = gevent.spawn(self._do_ramping)
 
     def stop(self):
         """ Stop the ramping process """
 
-        log_debug(self, "Ramp:stop")
+        log_debug(self, "SoftRamp:stop")
 
-        try:
-            self._stop_hw_ramp()
-        except NotImplementedError:
-            if self.task:
-                self._stop_event.set()
-                self.task.join()
+        if self.task:
+            self._stop_event.set()
+            self.task.join()
 
-    def _start_soft_ramp(self):
-        log_debug(self, "Ramp:_start_soft_ramp")
+    def is_ramping(self):
+        """
+        Get the ramping status.
+        """
 
-        if not self._rate:
-            self._set_working_setpoint(self.new_target_value)
-        elif not self.task:
-            self.task = gevent.spawn(self._do_ramping)
+        log_debug(self, "SoftRamp:is_ramping")
+
+        # if not self.task:
+        #    return False
+        # else:
+        #    return True
+
+        return bool(self.task)
+
+    def _set_working_point(self, value):
+        """ Set the intermediate setpoint (i.e. working_setpoint) during a ramping process (called by the soft ramp only).
+            Value is in input units.
+        """
+
+        log_debug(self, "SoftRamp:_set_working_point: %s" % (value))
+        self._wrk_setpoint = value
+        self._set_value_func(value)
 
     def _calc_ramp(self):
         # new_target_value, target_value, start_value in input unit for Loop.ramp and in output unit for Output.ramp
         if self.new_target_value != self.target_value:
 
             self.start_time = time.time()
-            self.start_value = self._get_current_value()
+            self.start_value = self._get_value_func()
 
             if self.new_target_value >= self.start_value:
                 self.direction = 1
@@ -1167,115 +1504,19 @@ class Ramp:
             if (
                 self._rate == 0
             ):  # DEALS WITH THE CASE WHERE THE USER SET THE RAMPRATE TO ZERO WHILE A RUNNING RAMP HAS BEEN STARTED WITH A RAMPRATE!=0
-                self._set_working_setpoint(self.target_value)
+                self._set_working_point(self.target_value)
                 break
             else:
                 value = self.start_value + self.direction * self._rate * dt
 
             if self.direction == 1 and value <= self.target_value:
 
-                self._set_working_setpoint(value)
+                self._set_working_point(value)
 
             elif self.direction == -1 and value >= self.target_value:
 
-                self._set_working_setpoint(value)
+                self._set_working_point(value)
 
             else:
-                self._set_working_setpoint(self.target_value)
+                self._set_working_point(self.target_value)
                 break
-
-
-class OutputRamp(Ramp):
-    """ Implements the access to the ramping process of an Output (Hard or Soft) """
-
-    def __init__(self, boss):
-        """ Constructor """
-
-        super().__init__(boss)
-
-    # ==== SPECIFIC METHODS =============================
-    @property
-    def rate(self):
-        """ Get ramprate (in output unit per second) """
-
-        log_debug(self, "OutputRamp:get_rate")
-        try:
-            return self._boss._controller.get_output_ramprate(self._boss)
-        except NotImplementedError:
-            return self._rate
-
-    @rate.setter
-    def rate(self, value):
-        """ set ramprate (in output unit per second )"""
-
-        log_debug(self, "OutputRamp:set_rate: %s" % (value))
-        self._rate = value
-        try:
-            self._boss._controller.set_output_ramprate(self._boss, value)
-        except NotImplementedError:
-            pass
-
-    def is_ramping(self):
-        """
-        Get the output ramping status.
-        """
-
-        log_debug(self, "OutputRamp:is_ramping")
-
-        if (
-            self.use_soft_ramp is None
-        ):  # case where 'Loop.setpoint = new_sp' => 'Ramp.start(new_sp)' was never called previously.
-
-            return False
-
-        elif self.use_soft_ramp:
-
-            if not self.task:
-                return False
-            else:
-                return True
-
-        else:
-            return self._boss._controller.output_is_ramping(self._boss)
-
-    def _start_hw_ramp(self, value):
-        # value is in output unit
-        log_debug(self, "OutputRamp:_start_hw_ramp: %s" % (value))
-        self._boss._controller.start_output_ramp(self._boss, value)
-
-    def _stop_hw_ramp(self):
-        log_debug(self, "OutputRamp:_stop_hw_ramp")
-        self._boss._controller.stop_output_ramp(self._boss)
-
-    def _set_working_setpoint(self, value):
-        """ Set the intermediate setpoint (i.e. working_setpoint) during a output ramping process (called by the soft ramp only).
-            Value is in output units.
-        """
-
-        log_debug(self, "OutputRamp:_set_working_setpoint: %s" % (value))
-        self._wrk_setpoint = value
-        self._boss._set_value(value)
-
-    def get_working_setpoint(self):
-        """ Get the current working setpoint (set by the hard or soft output ramping process ).
-            Value is in output units.
-        """
-
-        log_debug(self, "OutputRamp:_get_working_setpoint")
-
-        if (
-            self.use_soft_ramp is None
-        ):  # case where 'Output.set_power = new_pwr' => 'Ramp.start(new_pwr)' was never called previously.
-            return self._boss.read()
-
-        elif self.use_soft_ramp:
-            return self._wrk_setpoint
-
-        else:
-            return self._boss._controller.get_output_working_setpoint(self._boss)
-
-    def _get_current_value(self):
-        """ Return the current value of the loop.output (in output unit) """
-
-        log_debug(self, "OutputRamp:_get_current_value")
-        return self._boss.read()

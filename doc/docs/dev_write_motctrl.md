@@ -286,6 +286,7 @@ following methods (further detailed) are mandatory:
         * `move(m1, 3)` is a group move as well as `umvr()` `mvr()`
             * it uses `Group.move()`
         * `m1.move(3)` is a single move (uses `Axis.move()`)
+    * Return nothing
 
 * `stop_all(self, *motions)`
     * Must stop all movements defined in `motions`

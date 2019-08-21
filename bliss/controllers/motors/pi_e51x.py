@@ -112,8 +112,8 @@ class PI_E51X(Controller):
         self, axis, last_read={"t": time.time(), "pos": [None, None, None]}
     ):
         """
-        Returns position's setpoint.
-        Setpoint position is MOV? of VOL? or SVA? depending on closed-loop
+        Return position's setpoint for <axis>.
+        Setpoint position is MOV? of SVA? depending on closed-loop
         mode is ON or OFF.
 
         Args:
@@ -327,24 +327,18 @@ class PI_E51X(Controller):
         return _pos
 
     def _get_target_pos(self, axis):
-        """
-        Returns last target position (MOV?/SVA?/VOL? command) (setpoint value).
+        """Return last targets positions for all 3 axes.
+            - (MOV?/SVA? command) (setpoint value).
             - SVA? : Query the commanded output voltage (voltage setpoint).
-            - VOL? : Query the current output voltage (real voltage).
-            - MOV? : Returns the last valid commanded target position.
+            - MOV? : Return the last valid commanded target position.
         Args:
             - <>
-        Returns:
-            -
-        Raises:
-            ?
+        Return:
+            - list of float
         """
         if self.closed_loop:
-            # _ans = self.send(axis, "MOV? %s" % axis.chan_letter)
             _bs_ans = self.comm.write_readlines(b"MOV?\n", 3)
-
         else:
-            # _ans = self.send(axis, "SVA? %s" % axis.chan_letter)
             _bs_ans = self.comm.write_readlines(b"SVA?\n", 3)
 
         _ans = [bs.decode() for bs in _bs_ans]

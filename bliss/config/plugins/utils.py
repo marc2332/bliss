@@ -61,7 +61,7 @@ def _checkref(config, item_cfg_node, referenced_objects, name, value, placeholde
 
 
 def _parse_dict(config, item_cfg_node, referenced_objects, subdict, placeholder):
-    for name, value in subdict.items():
+    for name, value in tuple(subdict.items()):
         if _checkref(config, subdict, referenced_objects, name, value, placeholder):
             continue
         elif isinstance(value, dict):

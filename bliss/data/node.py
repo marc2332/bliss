@@ -122,13 +122,26 @@ def get_nodes(*db_names, **keys):
 
 
 def get_session_node(session_name):
-    """
-    Always returns a session node even if the session doesn't exist yet.
-    This method is an helper if you want to follow a session with an DataNodeIterator
+    """ Return a session node even if the session doesn't exist yet.
+    This method is an helper if you want to follow a session with an DataNodeIterator.
     """
     if session_name.find(":") > -1:
         raise ValueError(f"Session name can't contains ':' -> ({session_name})")
     return DataNodeContainer(None, session_name)
+
+
+def sessions_list():
+    """ Return all available session node(s).
+    """
+    session_names = []
+    for node_name in scan(
+        "*_children_list", connection=client.get_redis_connection(db=1)
+    ):
+        if node_name.find(":") > -1:  # can't be a session node
+            continue
+        session_name = node_name.replace("_children_list", "")
+        session_names.append(session_name)
+    return get_nodes(*session_names)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):

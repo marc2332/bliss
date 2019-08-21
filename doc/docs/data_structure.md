@@ -134,9 +134,9 @@ point and *n* is the associated
 [DataNodeContainer](scan_data_node.md#datanodecontainer).
 
 !!! note
-    prefer use `get_session_node` when you know that `get_node`
-    will return a session node
-    
+    Better use `get_session_node()` when you know that `get_node()`
+    will return a session node.
+
 With the function `n.iterator.walk(wait=False)` you can iterate over all the
 child nodes of the node *n* ([see
 DataNodeIterator](scan_data_node.md#datanodeiterator)).

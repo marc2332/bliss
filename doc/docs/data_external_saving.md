@@ -21,7 +21,7 @@ listen_to_session_wait_for_scans("test_session")
 Connect to the node 'test_session' in redis:
 
 ```python
-session_node = get_node(session)
+session_node = get_session_node(session)
 ```
 
 Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to nodes of type `node.type == "scan"` ) in order to handle new events on scan nodes: 

@@ -185,7 +185,8 @@ class PI_E753(Controller):
             print(":( error #%d (%s) in send_no_ans(%r)" % (_err_nb, _err_str, command))
 
     """
-    Raw communication commands
+    Raw communication commands.
+    To encode/decode and to be exported in Tango DS.
     """
 
     def raw_write(self, cmd):
@@ -197,14 +198,14 @@ class PI_E753(Controller):
     def raw_write_read(self, cmd):
         """
         - <cmd> must be 'str'
-        - Returns 'str'
+        - Return 'str'
         """
         return self.comm.write_readline(cmd.encode()).decode()
 
     def raw_write_readlines(self, cmd, lines):
         """
-        - Adds '\n' terminator to <cmd> string
-        - Sends <cmd> string to the controller and read back <lines> lines
+        - Add '\n' terminator to <cmd> string
+        - Send <cmd> string to the controller and read back <lines> lines
         - <cmd>: 'str'
         - <lines>: 'int'
         """

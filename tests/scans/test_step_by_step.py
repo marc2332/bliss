@@ -140,11 +140,30 @@ def test_all_anscan(session):
         0.1,
         diode,
         save=False,
+        run=False,
     )
     scans.a4scan(
-        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, m0, 0, 0.1, 2, 0.1, diode, save=False
+        roby,
+        0,
+        0.1,
+        robz,
+        0,
+        0.1,
+        robz2,
+        0,
+        0.1,
+        m0,
+        0,
+        0.1,
+        2,
+        0.1,
+        diode,
+        save=False,
+        run=False,
     )
-    scans.a3scan(roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False)
+    scans.a3scan(
+        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False, run=False
+    )
 
 
 def test_scan_watch_data_no_print(session, capsys):

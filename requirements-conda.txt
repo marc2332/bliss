@@ -30,7 +30,7 @@ python >= 3.7
 pyyaml >= 5.1
 pyzmq
 redis >= 5.0
-redis-py >= 3.2
+redis-py >= 3.3.7
 requests
 silx == 0.11.0
 sqlalchemy

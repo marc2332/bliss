@@ -338,7 +338,7 @@ class _StepTriggerMaster(AcquisitionMaster):
             positions = numpy.linspace(start, stop, nb_point)
             self._motor_pos.append(positions)
             axes_position = controller_2_axes_position.setdefault(axis.controller, [])
-            axes_position.append((axis, positions))
+            axes_position.extend((axis, positions))
         for controller, axes_position in controller_2_axes_position.items():
             controller.check_limits(*axes_position)
 

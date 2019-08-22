@@ -18,7 +18,7 @@ from bliss.common.axis import Axis, NoSettingsAxis, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
-from bliss.common.utils import set_custom_members, object_method
+from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss.common.logtools import *
 from bliss import global_map
 from bliss.config.channels import Cache, Channel
@@ -158,12 +158,19 @@ class Controller:
         """
         check limits for list of axis and positions
         """
-        for axis, position in axis_positions:
+        for axis, position in grouped(axis_positions, 2):
             self._check_limits(axis, position)
 
     def _check_limits(self, axis, user_positions):
-        min_pos = user_positions.min()
-        max_pos = user_positions.max()
+        try:
+            min_pos = min(user_positions)
+        except TypeError:
+            min_pos = user_positions
+        try:
+            max_pos = max(user_positions)
+        except TypeError:
+            max_pos = user_positions
+
         ll, hl = axis.limits
         if min_pos < ll:
             # get motion object, this will raise ValueError exception
@@ -529,12 +536,12 @@ class CalcController(Controller):
             axis.settings.set("_set_position", axis.dial2user(setpos))
 
     def _check_limits(self, axis, positions):
-        self.check_limits((axis, positions))
+        self.check_limits(axis, positions)
 
     def check_limits(self, *axis_positions):
-        axes = [axis for axis, _ in axis_positions]
+        axes = [axis for axis, _ in grouped(axis_positions, 2)]
         positions_len = []
-        for axis, pos in axis_positions:
+        for axis, pos in grouped(axis_positions, 2):
             axes.append(axis)
             try:
                 iter(pos)
@@ -572,7 +579,7 @@ class CalcController(Controller):
                 for tag, pos in axis_to_positions.items()
             }
         axis_to_positions.update(
-            {self._axis_tag(axis): pos for axis, pos in axis_positions}
+            {self._axis_tag(axis): pos for axis, pos in grouped(axis_positions, 2)}
         )
         real_positions = self.calc_to_real(axis_to_positions)
         real_min_max = dict()

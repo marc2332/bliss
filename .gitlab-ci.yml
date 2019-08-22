@@ -2,6 +2,7 @@ before_script:
   # set pip cache to the Docker volume
   - echo ${CI_PROJECT_DIR} 
   - export PIP_CACHE_DIR="/opt/cache/pip"
+  - /opt/conda/bin/conda init && source /root/.bashrc
   - conda config --append channels conda-forge
   - conda config --add channels defaults
   - conda config --add channels http://bcu-ci.esrf.fr/stable 

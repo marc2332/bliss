@@ -470,6 +470,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         self._axes = list()
         nb_points = None
         for _axis, pos_list in grouped(args, 2):
+            _axis.controller.check_limits(_axis, pos_list)
             self._axes.append(_axis)
             if nb_points is None or nb_points == len(pos_list):
                 self._motor_pos.append(pos_list)

@@ -16,7 +16,7 @@ from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.data.node import DataNodeContainer, _get_or_create_node
+from bliss.data.node import DataNodeContainer, _get_or_create_node, sessions_list
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
@@ -96,6 +96,8 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
     for child_node_name in scan_children_node + roby_children_node:
         assert redis_data_conn.ttl(child_node_name) > 0
+
+    assert sessions_list()[0].name == "test_session"
 
 
 def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):

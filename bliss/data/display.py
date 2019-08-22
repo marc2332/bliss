@@ -698,9 +698,33 @@ def _local_pb(scan, repl, task):
                     dispatcher.connect(
                         on_motor_position_changed, signal="position", sender=motor
                     )
+        if scan.scan_info.get("type") == "ct":
 
-        with progressbar.ProgressBar() as pb:
-            yield pb
+            class my_pb(progressbar.ProgressBar):
+                def __call__(self, queue, **keys):
+                    npoints = int(scan.scan_info.get("count_time", 1) // .1) or None
+                    keys["total"] = npoints
+                    self._ct_tick_task = None
+                    if npoints:
+
+                        def tick():
+                            for i in range(npoints):
+                                queue.put("-")
+                                gevent.sleep(.1)
+
+                        self._ct_tick_task = gevent.spawn(tick)
+                    return super().__call__(queue, **keys)
+
+                def __exit__(self, *args, **kwargs):
+                    if self._ct_tick_task is not None:
+                        self._ct_tick_task.kill()
+                    super().__exit__(*args, **kwargs)
+
+            with my_pb() as pb:
+                yield pb
+        else:
+            with progressbar.ProgressBar() as pb:
+                yield pb
     except KeyboardInterrupt:
         repl.stop_current_task(block=False, exception=KeyboardInterrupt)
     finally:

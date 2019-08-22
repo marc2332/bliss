@@ -16,7 +16,7 @@ import time
 import os.path
 import numpy
 
-from bliss.data.node import get_node, _get_or_create_node
+from bliss.data.node import get_session_node
 
 # derived from silx function, this could maybe enter into silx again
 from bliss.common.utils import dicttoh5
@@ -282,7 +282,7 @@ def listen_scans_of_session(session):
     instance is informed to finalize."""
     # event: for external synchronization (see e.g. test)
 
-    session_node = get_node(session)
+    session_node = get_session_node(session)
 
     scan_stack = dict()
 

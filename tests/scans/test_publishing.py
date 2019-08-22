@@ -20,7 +20,7 @@ from bliss.data.node import DataNodeContainer, _get_or_create_node
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
 from bliss.data.scan import Scan as ScanNode
-from bliss.data.node import get_node, DataNodeIterator, DataNode
+from bliss.data.node import get_session_node, get_node, DataNodeIterator, DataNode
 from bliss.data.channel import ChannelDataNode
 
 
@@ -146,7 +146,7 @@ def test_scan_data_0d(session, redis_data_conn):
     assert numpy.array_equal(redis_data, simul_counter.data)
 
     redis_keys = set(redis_scan(session.name + "*", connection=redis_data_conn))
-    session_node = get_node(session.name)
+    session_node = get_session_node(session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
@@ -198,7 +198,6 @@ def test_lima_data_channel_node(redis_data_conn, lima_session):
 
     timescan = scans.timescan(0.1, lima_sim, npoints=1)
 
-    session_node = get_node(lima_session.name)
     image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name
     image_node = _get_or_create_node(image_node_db_name)
     assert image_node.db_name == image_node_db_name
@@ -218,7 +217,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
 
     timescan = scans.timescan(0.1, lima_sim, npoints=3)
 
-    session_node = get_node(lima_session.name)
+    session_node = get_session_node(lima_session.name)
     db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
 
     image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name

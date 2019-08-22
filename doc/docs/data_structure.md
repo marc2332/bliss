@@ -133,6 +133,10 @@ With the function `n = get_node("node_db_name")` *node_db_name* is your entry
 point and *n* is the associated
 [DataNodeContainer](scan_data_node.md#datanodecontainer).
 
+!!! note
+    Better use `get_session_node()` when you know that `get_node()`
+    will return a session node.
+
 With the function `n.iterator.walk(wait=False)` you can iterate over all the
 child nodes of the node *n* ([see
 DataNodeIterator](scan_data_node.md#datanodeiterator)).

@@ -41,7 +41,7 @@ bliss/tests/test_configuration/tango_attribute_counter.yml
 
 import weakref
 from bliss.common.measurement import SamplingCounter
-from bliss.common.tango import DeviceProxy
+import tango
 from bliss import global_map
 from bliss.common.logtools import *
 
@@ -64,7 +64,7 @@ def get_proxy(tango_uri):
         get_proxy.proxies = dict()
         # print (f"get_proxy -- create proxy for {tango_uri}")
     finally:
-        get_proxy.proxies[tango_uri] = DeviceProxy(tango_uri)
+        get_proxy.proxies[tango_uri] = tango.DeviceProxy(tango_uri)
 
     return get_proxy.proxies[tango_uri]
 
@@ -116,7 +116,7 @@ class _CtrGroupRead(object):
         for attr in dev_attrs:
             error = attr.get_err_stack()
             if error:
-                raise PyTango.DevFailed(*error)
+                raise tango.DevFailed(*error)
 
         attr_values = [dev_attr.value for dev_attr in dev_attrs]
         log_debug(self, f"tango -- {self._tango_uri} -- values: {attr_values}")

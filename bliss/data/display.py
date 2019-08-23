@@ -17,6 +17,8 @@ import shutil
 import signal
 import subprocess
 import atexit
+import contextlib
+import gevent
 from functools import wraps
 from gevent.threadpool import ThreadPool
 
@@ -29,6 +31,8 @@ from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
 from bliss import global_map
+from bliss.scanning.chain import ChainPreset, ChainIterationPreset
+
 
 if sys.platform not in ["win32", "cygwin"]:
     from blessings import Terminal
@@ -100,7 +104,7 @@ class ScanPrinter:
         self.real_motors = []
         set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
 
-    def on_scan_new(self, scan_info):
+    def on_scan_new(self, scan, scan_info):
         scan_type = scan_info.get("type")
         if scan_type is None:
             return
@@ -656,16 +660,134 @@ class ScanDataListener:
         )
 
 
+@contextlib.contextmanager
+def _local_pb(scan, repl, task):
+    # Shitty cyclic import
+    # we have to purge this :-(
+    from bliss.shell.cli import progressbar
+
+    def stop():
+        task.kill()
+
+    repl.register_application_stopper(stop)
+    try:
+        real_motors = list()
+
+        def on_motor_position_changed(position, signal=None, sender=None):
+            labels = []
+            for motor in real_motors:
+                position = "{0:.03f}".format(motor.position)
+                unit = motor.config.get("unit", default=None)
+                if unit:
+                    position += "[{0}]".format(unit)
+                labels.append("{0}: {1}".format(motor.name, position))
+            pb.bar.label = ", ".join(labels)
+            pb.invalidate()
+
+        scan_info = scan.scan_info
+        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+        for channel_fullname in channels["master"]["scalars"]:
+            channel_short_name = channels["master"]["display_names"][channel_fullname]
+            try:
+                motor = _find_obj(channel_short_name)
+            except Exception:
+                continue
+            else:
+                if isinstance(motor, Axis):
+                    real_motors.append(motor)
+                    dispatcher.connect(
+                        on_motor_position_changed, signal="position", sender=motor
+                    )
+        if scan.scan_info.get("type") == "ct":
+
+            class my_pb(progressbar.ProgressBar):
+                def __call__(self, queue, **keys):
+                    npoints = int(scan.scan_info.get("count_time", 1) // .1) or None
+                    keys["total"] = npoints
+                    self._ct_tick_task = None
+                    if npoints:
+
+                        def tick():
+                            for i in range(npoints):
+                                queue.put("-")
+                                gevent.sleep(.1)
+
+                        self._ct_tick_task = gevent.spawn(tick)
+                    return super().__call__(queue, **keys)
+
+                def __exit__(self, *args, **kwargs):
+                    if self._ct_tick_task is not None:
+                        self._ct_tick_task.kill()
+                    super().__exit__(*args, **kwargs)
+
+            with my_pb() as pb:
+                yield pb
+        else:
+            with progressbar.ProgressBar() as pb:
+                yield pb
+    except KeyboardInterrupt:
+        repl.stop_current_task(block=False, exception=KeyboardInterrupt)
+    finally:
+        repl.unregister_application_stopper(stop)
+        for motor in real_motors:
+            dispatcher.disconnect(
+                on_motor_position_changed, signal="position", sender=motor
+            )
+
+
 class ScanEventHandler:
     def __init__(self, repl):
 
         self.repl = repl
+        self.progress_task = None
 
-    def on_scan_new(self, scan_info):
-        pass  # subprocess.run(["tmux", "next-window", "-t", self.repl.session_name])
+    def on_scan_new(self, scan, scan_info):
+        if self.progress_task:
+            self.progress_task.kill()
+
+        # display progressbar only in repl greenlet
+        if self.repl.current_task != gevent.getcurrent():
+            return
+
+        started_event = gevent.event.Event()
+        self.progress_task = gevent.spawn(self._progress_bar, scan, started_event)
+        with gevent.Timeout(1.):
+            started_event.wait()
 
     def on_scan_data(self, scan_info, values):
         pass
 
     def on_scan_end(self, scan_info):
         pass
+
+    def _progress_bar(self, scan, started_event):
+
+        try:
+            npoints = scan.scan_info["npoints"]
+        except KeyError:
+            started_event.set()
+            return  # nothing to do
+        queue = gevent.queue.Queue()
+        task = self.progress_task
+
+        class Preset(ChainPreset):
+            class Iter(ChainIterationPreset):
+                def stop(self):
+                    queue.put("+")
+
+            def get_iterator(self, chain):
+                while True:
+                    yield Preset.Iter()
+
+            def stop(self, chain):
+                queue.put(StopIteration)
+                task.join()
+
+        preset = Preset()
+        scan.acq_chain.add_preset(preset)
+        started_event.set()
+        with _local_pb(scan, self.repl, task) as pb:
+            it = pb(queue, remove_when_done=True, total=npoints or None)
+            pb.bar = it
+            for i in it:
+                pass

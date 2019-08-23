@@ -311,6 +311,36 @@ class JogMotorMaster(AcquisitionMaster):
             self.__end_jog_task = None
 
 
+def _init_motor_master_channels(channels, axes):
+    monitor_axes = list()
+    channels.extend(
+        (
+            AcquisitionChannel(f"axis:{axis.name}", numpy.double, (), unit=axis.unit)
+            for axis in axes
+        )
+    )
+
+    def fill_monitor_axes(axes, ctrl_seen):
+        for axis in axes:
+            ctrl = axis.controller
+            if ctrl not in ctrl_seen and isinstance(ctrl, CalcController):
+                if ctrl.config.get("emit_real_position", lambda x: x, True):
+                    monitor_axes.extend(ctrl.reals)
+                    channels.extend(
+                        (
+                            AcquisitionChannel(
+                                f"axis:{axis.name}", numpy.double, (), unit=axis.unit
+                            )
+                            for axis in ctrl.reals
+                        )
+                    )
+                    ctrl_seen.add(ctrl)
+                    fill_monitor_axes(ctrl.reals, ctrl_seen)
+
+    fill_monitor_axes(axes, set())
+    return monitor_axes
+
+
 class _StepTriggerMaster(AcquisitionMaster):
     """
     Generic motor master helper for step by step acquisition.
@@ -331,48 +361,20 @@ class _StepTriggerMaster(AcquisitionMaster):
             )
         self._motor_pos = []
         self._axes = []
-        self._monitor_axes = []
         controller_2_axes_position = {}
         for axis, start, stop, nb_point in grouped(args, 4):
             self._axes.append(axis)
             positions = numpy.linspace(start, stop, nb_point)
             self._motor_pos.append(positions)
             axes_position = controller_2_axes_position.setdefault(axis.controller, [])
-            axes_position.append((axis, positions))
+            axes_position.extend((axis, positions))
         for controller, axes_position in controller_2_axes_position.items():
             controller.check_limits(*axes_position)
 
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
-
-        self.channels.extend(
-            (
-                AcquisitionChannel(
-                    f"axis:{axis.name}", numpy.double, (), unit=axis.unit
-                )
-                for axis in self._axes
-            )
-        )
-        ctrl_seen = set()
-        self._fill_monitor_axes(self._axes, ctrl_seen)
-
-    def _fill_monitor_axes(self, axes, ctrl_seen):
-        for axis in axes:
-            ctrl = axis.controller
-            if ctrl not in ctrl_seen and isinstance(ctrl, CalcController):
-                if ctrl.config.get("emit_real_position", lambda x: x, True):
-                    self._monitor_axes.extend(ctrl.reals)
-                    self.channels.extend(
-                        (
-                            AcquisitionChannel(
-                                f"axis:{axis.name}", numpy.double, (), unit=axis.unit
-                            )
-                            for axis in ctrl.reals
-                        )
-                    )
-                    ctrl_seen.add(ctrl)
-                    self._fill_monitor_axes(ctrl.reals, ctrl_seen)
+        self._monitor_axes = _init_motor_master_channels(self.channels, self._axes)
 
     @property
     def npoints(self):
@@ -470,6 +472,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         self._axes = list()
         nb_points = None
         for _axis, pos_list in grouped(args, 2):
+            _axis.controller.check_limits(_axis, pos_list)
             self._axes.append(_axis)
             if nb_points is None or nb_points == len(pos_list):
                 self._motor_pos.append(pos_list)
@@ -483,15 +486,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
-
-        self.channels.extend(
-            (
-                AcquisitionChannel(
-                    f"axis:{axis.name}", numpy.double, (), unit=axis.unit
-                )
-                for axis in self._axes
-            )
-        )
+        self._monitor_axes = _init_motor_master_channels(self.channels, self._axes)
 
     @property
     def npoints(self):
@@ -514,16 +509,16 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-
+        axes = self._axes + self._monitor_axes
         if self.broadcast_len > 1:
             self.channels.update_from_iterable(
                 [
                     numpy.ones(self.broadcast_len, numpy.float) * axis.position
-                    for axis in self._axes
+                    for axis in axes
                 ]
             )
         else:
-            self.channels.update_from_iterable([axis.position for axis in self._axes])
+            self.channels.update_from_iterable([axis.position for axis in axes])
 
         self.wait_slaves()
 

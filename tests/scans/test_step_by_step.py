@@ -140,11 +140,85 @@ def test_all_anscan(session):
         0.1,
         diode,
         save=False,
+        run=False,
     )
     scans.a4scan(
-        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, m0, 0, 0.1, 2, 0.1, diode, save=False
+        roby,
+        0,
+        0.1,
+        robz,
+        0,
+        0.1,
+        robz2,
+        0,
+        0.1,
+        m0,
+        0,
+        0.1,
+        2,
+        0.1,
+        diode,
+        save=False,
+        run=False,
     )
-    scans.a3scan(roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False)
+    scans.a3scan(
+        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False, run=False
+    )
+
+
+def test_all_dnscan(session):
+    roby = session.env_dict["roby"]
+    robz = session.env_dict["robz"]
+    robz2 = session.env_dict["robz2"]
+    m0 = session.env_dict["m0"]
+    m1 = session.env_dict["m1"]
+    diode = session.env_dict["diode"]
+    # just call them to check syntax
+    # real test is done else where
+    scans.d5scan(
+        roby,
+        0,
+        0.1,
+        robz,
+        0,
+        0.1,
+        robz2,
+        0,
+        0.1,
+        m0,
+        0,
+        0.1,
+        m1,
+        0,
+        0.1,
+        2,
+        0.1,
+        diode,
+        save=False,
+        run=False,
+    )
+    scans.d4scan(
+        roby,
+        0,
+        0.1,
+        robz,
+        0,
+        0.1,
+        robz2,
+        0,
+        0.1,
+        m0,
+        0,
+        0.1,
+        2,
+        0.1,
+        diode,
+        save=False,
+        run=False,
+    )
+    scans.d3scan(
+        roby, 0, 0.1, robz, 0, 0.1, robz2, 0, 0.1, 2, 0.1, diode, save=False, run=False
+    )
 
 
 def test_scan_watch_data_no_print(session, capsys):

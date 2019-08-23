@@ -100,69 +100,9 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
-    save_images = kwargs.pop("save_images", True)
-
-    scan_info = {
-        "type": kwargs.get("type", "ascan"),
-        "save": kwargs.get("save", True),
-        "title": kwargs.get("title"),
-        "sleep_time": kwargs.get("sleep_time"),
-    }
-
-    if scan_info["title"] is None:
-        args = (scan_info["type"], motor.name, start, stop, npoints, count_time)
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
-
-    # estimate scan time
-    step_size = abs(stop - start) / float(npoints)
-    i_motion_t = estimate_duration(motor, start)
-    n_motion_t = estimate_duration(motor, start, start + step_size)
-    total_motion_t = i_motion_t + npoints * n_motion_t
-    total_count_t = npoints * count_time
-    estimation = {
-        "total_motion_time": total_motion_t,
-        "total_count_time": total_count_t,
-        "total_time": total_motion_t + total_count_t,
-    }
-
-    scan_info.update(
-        {
-            "npoints": npoints,
-            "total_acq_time": total_count_t,
-            "start": [start],
-            "stop": [stop],
-            "count_time": count_time,
-            "estimation": estimation,
-        }
-    )
-
-    chain = DEFAULT_CHAIN.get(
-        scan_info,
-        counter_args,
-        top_master=LinearStepTriggerMaster(npoints, motor, start, stop),
-    )
-
-    _log.info(
-        "Scanning %s from %f to %f in %d points", motor.name, start, stop, npoints
-    )
-
-    scan = Scan(
-        chain,
-        scan_info=scan_info,
-        name=kwargs.setdefault("name", "ascan"),
-        save=scan_info["save"],
-        save_images=save_images,
-        data_watch_callback=StepScanDataWatch(),
-    )
-
-    if kwargs.get("run", True):
-        scan.run()
-
-    if kwargs.get("return_scan", True):
-        return scan
+    args = [motor, start, stop]
+    args += counter_args
+    return anscan(count_time, npoints, *args, **kwargs)
 
 
 def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
@@ -199,32 +139,9 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
-    kwargs["type"] = "dscan"
-    run = kwargs.pop("run", True)
-    kwargs["run"] = False
-    kwargs.setdefault("name", "dscan")
-    args = (kwargs.get("type", "dscan"), motor.name, start, stop, npoints, count_time)
-    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-    title = template.format(*args)
-    kwargs.setdefault("title", title)
-
-    start += motor.position
-    stop += motor.position
-
-    scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
-
-    def run_with_cleanup(self, __run__=scan.run):
-        with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
-            __run__()
-
-    scan.run = types.MethodType(run_with_cleanup, scan)
-
-    if run:
-        scan.run()
-
-    return scan
+    args = [motor, start, stop]
+    args += counter_args
+    return dnscan(count_time, npoints, *args, **kwargs)
 
 
 def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
@@ -487,94 +404,9 @@ def a2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
-    save_images = kwargs.pop("save_images", True)
-    scan_info = {
-        "type": kwargs.get("type", "a2scan"),
-        "save": kwargs.get("save", True),
-        "title": kwargs.get("title"),
-        "sleep_time": kwargs.get("sleep_time"),
-    }
-
-    if scan_info["title"] is None:
-        args = (
-            scan_info["type"],
-            motor1.name,
-            start1,
-            stop1,
-            motor2.name,
-            start2,
-            stop2,
-            npoints,
-            count_time,
-        )
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
-
-    # estimate scan time
-    step_size1 = abs(stop1 - start1) / float(npoints)
-    i_motion1_t = estimate_duration(motor1, start1)
-    n_motion1_t = estimate_duration(motor1, start1, start1 + step_size1)
-
-    step_size2 = abs(stop2 - start2) / float(npoints)
-    i_motion2_t = estimate_duration(motor2, start2)
-    n_motion2_t = estimate_duration(motor2, start2, start2 + step_size2)
-
-    i_motion_t = max(i_motion1_t, i_motion2_t)
-    n_motion_t = max(n_motion1_t, n_motion2_t)
-    total_motion_t = i_motion_t + npoints * n_motion_t
-    total_count_t = npoints * count_time
-    estimation = {
-        "total_motion_time": total_motion_t,
-        "total_count_time": total_count_t,
-        "total_time": total_motion_t + total_count_t,
-    }
-
-    scan_info.update(
-        {
-            "npoints": npoints,
-            "total_acq_time": total_count_t,
-            "start": [start1, start2],
-            "stop": [stop1, stop2],
-            "count_time": count_time,
-            "estimation": estimation,
-        }
-    )
-
-    chain = DEFAULT_CHAIN.get(
-        scan_info,
-        counter_args,
-        top_master=LinearStepTriggerMaster(
-            npoints, motor1, start1, stop1, motor2, start2, stop2
-        ),
-    )
-
-    _log.info(
-        "Scanning %s from %f to %f and %s from %f to %f in %d points",
-        motor1.name,
-        start1,
-        stop1,
-        motor2.name,
-        start2,
-        stop2,
-        npoints,
-    )
-
-    scan = Scan(
-        chain,
-        scan_info=scan_info,
-        name=kwargs.setdefault("name", "a2scan"),
-        save=scan_info["save"],
-        save_images=save_images,
-        data_watch_callback=StepScanDataWatch(),
-    )
-
-    if kwargs.get("run", True):
-        scan.run()
-
-    if kwargs.get("return_scan", True):
-        return scan
+    args = [motor1, start1, stop1, motor2, start2, stop2]
+    args += counter_args
+    return anscan(count_time, npoints, *args, **kwargs)
 
 
 def lookupscan(count_time, *motors_positions, **kwargs):
@@ -670,9 +502,13 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     # scan type is forced to be either aNscan or dNscan
     scan_type = kwargs.pop("type", None)
     if scan_type == "dscan":
-        scan_type = f"d{len(title_list)//3}scan"
+        scan_type = (
+            f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"
+        )
     else:
-        scan_type = f"a{len(title_list)//3}scan"
+        scan_type = (
+            f"a{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "ascan"
+        )
     kwargs["type"] = scan_type
 
     scan_name = kwargs.setdefault("name", scan_type)
@@ -1012,50 +848,9 @@ def d2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
-    kwargs.setdefault("type", "d2scan")
-    run = kwargs.pop("run", True)
-    kwargs["run"] = False
-    args = (
-        kwargs.get("type"),
-        motor1.name,
-        start1,
-        stop1,
-        motor2.name,
-        start2,
-        stop2,
-        npoints,
-        count_time,
-    )
-    kwargs.setdefault("name", "d2scan")
-
-    oldpos1 = motor1.position
-    oldpos2 = motor2.position
-
-    scan = a2scan(
-        motor1,
-        oldpos1 + start1,
-        oldpos1 + stop1,
-        motor2,
-        oldpos2 + start2,
-        oldpos2 + stop2,
-        npoints,
-        count_time,
-        *counter_args,
-        **kwargs,
-    )
-
-    def run_with_cleanup(self, __run__=scan.run):
-        with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,)):
-            __run__()
-
-    scan.run = types.MethodType(run_with_cleanup, scan)
-
-    if run:
-        scan.run()
-
-    return scan
+    args = [motor1, start1, stop1, motor2, start2, stop2]
+    args += counter_args
+    return dnscan(count_time, npoints, *args, **kwargs)
 
 
 def timescan(count_time, *counter_args, **kwargs):

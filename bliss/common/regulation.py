@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Classes implemented with the regulation Controller (hardware or software)
+This module implements the classes allowing the control of regulation processes and associated hardware
 
     The regulation is a process that:
     1) reads a value from an input device 
@@ -19,25 +19,143 @@ Classes implemented with the regulation Controller (hardware or software)
     -one output: an Output object which has an effect on the processed value (ex: cooling device)
 
     The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
-    The regulation is handled by the associated controller.
+    The Loop object implements methods to manage the PID algorithm that performs the regulation.
+    A Loop object is associated to one Input and one Output.
 
-    The controller could be an hardware controller (see regulator.Controller) or a software controller
-    (see regulator.SoftController).
+    The Loop object has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint)
+    will use a ramp to reach that value (HW ramp if available else a 'SoftRamp').
 
-    The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint)
-    will use a ramp to reach that value (HW if available else a soft_ramp).
+    The Output object has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output
+    will use a ramp to reach that value (HW ramp if available else a 'SoftRamp').
+    
+    Depending on the hardware capabilities we can distinguish two main cases.
 
-    The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power)
-    will use a ramp to reach that value (HW if available else a soft_ramp).
+    1) Hardware regulation:
+
+        A physical controller exists and the input and output devices are connected to the controller.
+        In that case, a regulation Controller object must be implemented by inheriting from the Controller base class (bliss.controllers.regulator).
+        The inputs and ouputs attached to that controller are defined through the YML configuration file.
+
+            ---------------------------------------------- YML file example ------------------------------------------------------------------------    
+
+            -
+                class: Mockup                  # <== the controller class inheriting from 'bliss.controllers.regulator.Controller'
+                module: mockup
+                host: lid42
+                inputs:
+                    - 
+                        name: thermo_sample
+                        channel: A
+                        unit: deg
+
+                    - 
+                        name: sensor
+                        channel: B
+            
+                outputs: 
+                    -
+                        name: heater
+                        channel: A 
+                        unit: Volt
+                        low_limit:  0.0          # <== minimum device value [unit] 
+                        high_limit: 100.0        # <== maximum device value [unit]
+                        ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+            
+                ctrl_loops:
+                    -
+                        name: sample_regulation
+                        input: $thermo_sample
+                        output: $heater
+                        P: 0.5
+                        I: 0.2
+                        D: 0.0
+                        low_limit: 0.0           # <== low limit of the PID output value. Usaually equal to 0 or -1.
+                        high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+                        frequency: 10.0
+                        deadband: 0.05
+                        deadband_time: 1.5
+                        ramprate: 1.0            # <== ramprate to reach the setpoint value [input_unit/s]
+                        wait_mode: deadband
+             
+            ----------------------------------------------------------------------------------------------------------------------------------------
+
+    2) Software regulation
+
+        Input and Output devices are not always connected to a regulation controller.
+        For example, it may be necessary to regulate a temperature by moving a cryostream on a stage (axis).
+
+        Any 'SamplingCounter' can be interfaced as an input (ExternalInput) and any 'Axis' as an input or output (ExternalOutput).
+        Devices which are not standard Bliss objects can be interfaced by implementing a custom input or output class inheriting from the Input/Output classes.
+
+        To perform the regulation with this kind of inputs/outputs not attached to an hardware regulation controller, users must define a SoftLoop.
+        The SoftLoop object inherits from the Loop class and implements its own PID algorithm (using the 'simple_pid' Python module). 
+
+            ---------------------------------------------- YML file example ------------------------------------------------------------------------
+
+            -   
+                class: MyCustomInput     # <== a custom input defined by the user and inheriting from the Input class
+                package: bliss.controllers.temperature.mockup  # <== the module where the custom class is defined
+                plugin: bliss
+                name: custom_input
+                unit: eV
+                        
+            
+            -   
+                class: MyCustomOutput    # <== a custom output defined by the user and inheriting from the Output class
+                package: bliss.controllers.temperature.mockup  # <== the module where the custom class is defined
+                plugin: bliss
+                name: custom_output
+                unit: eV
+                low_limit: 0.0           # <== minimum device value [unit]
+                high_limit: 100.0        # <== maximum device value [unit]
+                ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+            
+            
+            - 
+                class: Input             # <== value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+                name: diode_input          
+                device: $diode           # <== a SamplingCounter
+                unit: mm
+            
+            
+            -
+                class: Output            # <== value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+                name: robz_output        
+                device: $robz            # <== an axis
+                unit: mm
+                low_limit: 0.0           # <== minimum device value [unit]
+                high_limit: 100.0        # <== minimum device value [unit]
+                ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+                
+            
+            - 
+                class: Loop              # <== value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+                name: soft_regul
+                input: $custom_input
+                output: $robz_output
+                P: 0.5
+                I: 0.2
+                D: 0.0
+                low_limit: 0.0            # <== low limit of the PID output value. Usaually equal to 0 or -1.
+                high_limit: 1.0           # <== high limit of the PID output value. Usaually equal to 1.
+                frequency: 10.0
+                deadband: 0.05
+                deadband_time: 1.5
+                ramprate: 1.0       
+
+                ------------------------------------------------------------------------------------------------------------------------------------
+
+    
+        Note: a SoftLoop can use an Input or Output defined in a regulation controller section.
+        For example the 'soft_regul' loop could define 'thermo_sample' as its input.  
     
 """
 
-import math
 import time
 import gevent
 import gevent.event
 
-from bliss.common.logtools import log_debug, log_info
+from bliss.common.logtools import log_debug
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.measurement import SamplingCounter, counter_namespace
 
@@ -45,6 +163,7 @@ from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
 
 from simple_pid import PID
+from bliss.common.plot import plot, draw_manager
 
 
 class DeviceCounter(SamplingCounter):
@@ -97,50 +216,50 @@ class Input:
     # ----------- BASE METHODS -----------------------------------------
 
     def load_base_config(self):
-        """ Load from the config the values for the standard parameters """
+        """ Load from the config the values of the standard parameters """
 
         pass
 
     @property
     def controller(self):
-        """ Returns the associated regulation controller """
+        """ Return the associated regulation controller """
 
         return self._controller
 
     @property
     def name(self):
-        """ returns the Input name """
+        """ Return the Input name """
 
         return self._name
 
     @property
     def config(self):
-        """ returns the Input config """
+        """ Return the Input config """
 
         return self._config
 
     @property
     def counter(self):
-        """ returns the counter object """
+        """ Return the counter object """
 
         return DeviceCounter(self.name, self)
 
     @property
     def counters(self):
-        """Standard counter namespace."""
+        """ Standard counter namespace """
 
         return counter_namespace([self.counter])
 
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
     def read(self):
-        """ returns the input device value (in input unit) """
+        """ Return the input device value (in input unit) """
 
         log_debug(self, "Input:read")
         return self._controller.read_input(self)
 
     def state(self):
-        """ returns the input device state """
+        """ Return the input device state """
 
         log_debug(self, "Input:state")
         return self._controller.state_input(self)
@@ -163,10 +282,12 @@ class ExternalInput(Input):
                 "the associated device must be an 'Axis' or a 'SamplingCounter'"
             )
 
+        self.load_base_config()
+
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
     def read(self):
-        """ returns the input device value (in input unit) """
+        """ Return the input device value (in input unit) """
 
         log_debug(self, "ExternalInput:read")
 
@@ -176,7 +297,7 @@ class ExternalInput(Input):
             return self.device.read()
 
     def state(self):
-        """ returns the input device state """
+        """ Return the input device state """
 
         log_debug(self, "ExternalInput:state")
 
@@ -191,7 +312,7 @@ class Output:
     """ Implements the access to an output device which is accessed via the regulation controller (like an heater plugged on a channel of the controller)
     
         The Output has a ramp object. 
-        If ramprate != 0 then any new value sent to the output (using Output.set_power)
+        If ramprate != 0 then any new value sent to the output
         will use a ramp to reach that value (hardware ramping if available, else a software ramp).
 
     """
@@ -212,7 +333,7 @@ class Output:
     # ----------- BASE METHODS -----------------------------------------
 
     def load_base_config(self):
-        """ Load from the config the value for the standard parameters """
+        """ Load from the config the value of the standard parameters """
 
         self._limits = (
             self._config.get("low_limit", None),
@@ -246,15 +367,13 @@ class Output:
 
     @property
     def counters(self):
-        """Standard counter namespace """
+        """ Standard counter namespace """
 
         return counter_namespace([self.counter])
 
     @property
     def limits(self):
-        """ Return the limits of the ouput device (in output unit). 
-            The low limit corresponds to 0% power on output.
-            The high limit corresponds to 100% power on output.
+        """ Return the limits of the ouput device (in output unit)
         """
 
         return self._limits
@@ -265,49 +384,26 @@ class Output:
 
         return self._ramp
 
-    def set_power(self, power_value):
-        """ Set 'power_value' as new target and start ramping to this target (no ramping if ramprate==0).
-            The power value is the value returned by the PID algorithm.
-            Depending on the hardware or on the controller type (HW Controller or SoftController), 
-            it may be necessary to convert the power value into output device units (see 'get_power2unit').
+    def set_value(self, value):
+        """ Set 'value' as new target and start ramping to this target (no ramping if ramprate==0).
         """
 
-        log_debug(self, "Output:set_power %s" % power_value)
-        value = self.get_power2unit(power_value)
+        log_debug(self, "Output:set_value %s" % value)
 
-        if None not in self._limits:
+        if self._limits[0] is not None:
             value = max(value, self._limits[0])
+
+        if self._limits[1] is not None:
             value = min(value, self._limits[1])
 
         self._start_ramping(value)
 
-    def get_power2unit(self, power_value):
-        """ Convert a power value into a value expressed in output units.
-            The power value is the value returned by the PID algorithm.
-            Depending on the hardware or on the controller type (HW Controller or SoftController), 
-            it may be necessary to convert the power value into output device units. 
-        """
+    def set_min_value(self):
 
-        if (None in self._limits) or (self._limits[1] == self._limits[0]):
-            return power_value
+        if self.limits[0] is not None:
+            self.set_value(self.limits[0])
         else:
-            value = power_value * (self._limits[1] - self._limits[0]) + self._limits[0]
-            return value
-
-    def get_unit2power(self, value):
-        """ Convert an output value expressed in output units into a power value.
-            The power value is the value returned by the PID algorithm.
-            Depending on the hardware or on the controller type (HW Controller or SoftController), 
-            it may be necessary to convert the power value into output device units. 
-        """
-
-        if (None in self._limits) or (self._limits[1] == self._limits[0]):
-            return value
-        else:
-            power_value = (value - self._limits[0]) / (
-                self._limits[1] - self._limits[0]
-            )
-            return power_value
+            self.set_value(0)
 
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
@@ -363,7 +459,7 @@ class Output:
             return self._ramp.is_ramping()
 
         else:
-            return self._controller.output_is_ramping(self)
+            return self._controller.is_output_ramping(self)
 
     # ---------------- PRIVATE METHODS -----------------------------------------------
 
@@ -411,7 +507,7 @@ class ExternalOutput(Output):
          - Axis
 
         The Output has a ramp object. 
-        If ramprate != 0 then any new value sent to the output (using Output.set_power)
+        If ramprate != 0 then any new value sent to the output
         will use a ramp to reach that value (hardware ramping if available, else a software ramp).
 
     """
@@ -424,6 +520,8 @@ class ExternalOutput(Output):
 
         if not isinstance(self.device, Axis):
             raise TypeError("the associated device must be an 'Axis'")
+
+        self.load_base_config()
 
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
@@ -458,15 +556,6 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:set_ramprate: %s" % (value))
 
         self._ramp.rate = value
-
-    # def get_working_setpoint(self):
-    #     """
-    #     Get the current working setpoint (during a ramping process on the Output)
-    #     """
-
-    #     log_debug(self, "ExternalOutput:get_working_setpoint")
-
-    #     return self._ramp._wrk_setpoint
 
     def is_ramping(self):
         """
@@ -520,14 +609,13 @@ class Loop:
         -one output: an Output object which has an effect on the processed value (ex: cooling device).
 
         The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
-        The regulation is handled by the associated controller.
+        The Loop object implements methods to manage the PID algorithm that performs the regulation.
+        A Loop object is associated to one Input and one Output.
 
-        The controller is an hardware controller (see regulator.Controller).
-
-        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint).
+        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
-        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power).
+        The loop output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
     """
@@ -564,7 +652,7 @@ class Loop:
 
     ##--- CONFIG METHODS
     def load_base_config(self):
-        """ Load from the config the values for the standard parameters """
+        """ Load from the config the values of the standard parameters """
 
         self.kp = self._config.get("P", 1.0)
         self.ki = self._config.get("I", 0.0)
@@ -725,28 +813,20 @@ class Loop:
     ##--- DATA HISTORY METHODS
     def clear_history_data(self):
         self._history_start_time = time.time()
-        self.history_data = {
-            "input": [],
-            "output": [],
-            "setpoint": [],
-            "time": [],
-        }  # , 'input2':[], 'output2':[], 'setpoint2':[]}
+        self.history_data = {"input": [], "output": [], "setpoint": [], "time": []}
+
         self._history_counter = 0
 
-    def _store_history_data(self, yval, outval, setpoint):
+    def _store_history_data(self):
 
-        # xval = time.time() - self._history_start_time
-        xval = self._history_counter
+        xval = time.time() - self._history_start_time
+        # xval = self._history_counter
         self._history_counter += 1
 
         self.history_data["time"].append(xval)
-        self.history_data["input"].append(yval)
-        self.history_data["output"].append(outval)
-        self.history_data["setpoint"].append(setpoint)
-
-        # self.history_data['input2'].append(self.input.read())
-        # self.history_data['output2'].append(self.output.read())
-        # self.history_data['setpoint2'].append(self.setpoint)
+        self.history_data["input"].append(self.input.read())
+        self.history_data["output"].append(self.output.read())
+        self.history_data["setpoint"].append(self.setpoint)
 
         for data in self.history_data.values():
             dx = len(data) - self._history_size
@@ -804,16 +884,16 @@ class Loop:
         self._stop_regulation()
 
     def abort(self):
-        """ Stop the regulation and ramping (if any) and set power on output device to zero """
+        """ Stop the regulation and ramping (if any) and set output device to minimum value """
 
         log_debug(self, "Loop:abort")
 
         self._stop_ramping()
         self._stop_regulation()
         time.sleep(0.5)  # wait for the regulation to be stopped
-        self.output.set_power(0.)
+        self.output.set_min_value()
 
-    ##--- SOFT AXIS METHODS
+    ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
     def get_axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
@@ -884,7 +964,6 @@ class Loop:
             # NOT IN DEADBAND
             if not self.is_in_deadband():
 
-                # print("NOT IN DEADBAND:","_in_deadband = ",self._in_deadband )
                 self._time_enter_deadband = None
                 self._in_deadband = False
                 return AxisState("MOVING")
@@ -893,20 +972,18 @@ class Loop:
             else:
 
                 if not self._in_deadband:
-                    # print( "ENTER DEADBAND" )
 
                     self._in_deadband = True
                     self._time_enter_deadband = time.time()
                     return AxisState("MOVING")
+
                 else:
 
                     dt = time.time() - self._time_enter_deadband
 
                     if dt >= self.deadband_time:
-                        # print("IN DEADBAND: READY")
                         return AxisState("READY")
                     else:
-                        # print("IN DEADBAND: WAITING")
                         return AxisState("MOVING")
 
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
@@ -993,9 +1070,6 @@ class Loop:
         - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
-
         """
 
         log_debug(self, "Loop:get_pid_range")
@@ -1011,8 +1085,6 @@ class Loop:
         - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
         """
 
         log_debug(self, "Loop:set_pid_range: %s" % (value,))
@@ -1114,6 +1186,21 @@ class Loop:
         else:
             self._controller.stop_ramp(self)
 
+    def _get_power2unit(self, value):
+        """ Convert a power value into a value expressed in output units.
+            The power value is the value returned by the PID algorithm.
+        """
+
+        xmin, xmax = self.pid_range
+        ymin, ymax = self.output.limits
+
+        if None in (ymin, ymax) or (ymin == ymax):
+            return value
+        else:
+            a = (ymax - ymin) / (xmax - xmin)
+            b = ymin - a * xmin
+            return value * a + b
+
 
 class SoftLoop(Loop):
     """ Implements the software regulation loop.
@@ -1134,10 +1221,10 @@ class SoftLoop(Loop):
         The regulation is automaticaly started by setting a new setpoint (Loop.setpoint = target_value).
         The regulation is handled by the software and is based on the 'simple_pid' python module.
 
-        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd (using Loop.setpoint).
+        The Loop has a ramp object. If loop.ramprate != 0 then any new setpoint cmd
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
-        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output (using Loop.output.set_power).
+        The Output has a ramp object. If loop.output.ramprate != 0 then any new value sent to the output
         will use a ramp to reach that value (HW if available else a soft_ramp).
 
     """
@@ -1158,6 +1245,10 @@ class SoftLoop(Loop):
 
         self.task = None
         self._stop_event = gevent.event.Event()
+
+        self._pid_output_value = None
+
+        self.load_base_config()
 
     def __del__(self):
         self._stop_event.set()
@@ -1244,9 +1335,6 @@ class SoftLoop(Loop):
         - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
-
         """
 
         log_debug(self, "SoftLoop:get_pid_range")
@@ -1262,8 +1350,6 @@ class SoftLoop(Loop):
         - [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or relative moves with a motor axis).
 
         The PID value is the value returned by the PID algorithm.
-        Depending on the hardware or on the controller type (HW Controller or SoftController), 
-        it may be necessary to convert the PID value into output device units (see 'Output.set_power')
         """
 
         log_debug(self, "SoftLoop:set_pid_range: %s" % (value,))
@@ -1300,7 +1386,7 @@ class SoftLoop(Loop):
         the proportional term can be calculated directly on the measurement instead of the error.
         """
 
-        log_info(self, "SoftLoop:apply_proportional_on_measurement: %s" % (enable,))
+        log_debug(self, "SoftLoop:apply_proportional_on_measurement: %s" % (enable,))
         self.pid.proportional_on_measurement = bool(enable)
 
     # ---------------- PRIVATE METHODS -----------------------------------------------
@@ -1360,21 +1446,27 @@ class SoftLoop(Loop):
             input_value = self.input.read()
             power_value = self.pid(input_value)
 
-            if not self.is_in_idleband():
-                self.output.set_power(power_value)
+            output_value = self._get_power2unit(power_value)
 
-            # store data history
-            outval = self.output.read()  # or self.output.get_working_setpoint() ???
-            self._store_history_data(input_value, outval, self.setpoint)
+            self._pid_output_value = output_value
+
+            if not self.is_in_idleband():
+                self.output.set_value(output_value)
 
             gevent.sleep(self.pid.sample_time)
 
 
 class SoftRamp:
-    """ Implements the access to the ramping process of a Loop (Hard or Soft) """
+    """ Implements the ramping process associate """
 
     def __init__(self, get_value_func, set_value_func):
-        """ Constructor """
+        """ Constructor 
+        
+            - get_value_func: a callable that returns the current value of the variable to be ramped 
+
+            - set_value_func: a callable that sets the current value of the variable to be ramped 
+
+        """
 
         self._get_value_func = get_value_func
         self._set_value_func = set_value_func
@@ -1433,9 +1525,6 @@ class SoftRamp:
     def start(self, value):
         """ Start the ramping process to target_value """
 
-        # value is in input unit for Loop.ramp
-        # value is in output unit for Output.ramp
-
         log_debug(self, "SoftRamp:start %s" % value)
         self.new_target_value = value
 
@@ -1468,8 +1557,7 @@ class SoftRamp:
         return bool(self.task)
 
     def _set_working_point(self, value):
-        """ Set the intermediate setpoint (i.e. working_setpoint) during a ramping process (called by the soft ramp only).
-            Value is in input units.
+        """ Set the intermediate point (during a ramping process).
         """
 
         log_debug(self, "SoftRamp:_set_working_point: %s" % (value))
@@ -1477,7 +1565,8 @@ class SoftRamp:
         self._set_value_func(value)
 
     def _calc_ramp(self):
-        # new_target_value, target_value, start_value in input unit for Loop.ramp and in output unit for Output.ramp
+        """ computes the ramp line (start_value, target_value, direction) """
+
         if self.new_target_value != self.target_value:
 
             self.start_time = time.time()
@@ -1491,6 +1580,7 @@ class SoftRamp:
             self.target_value = self.new_target_value
 
     def _do_ramping(self):
+        """ performs the step by step ramping """
 
         self._stop_event.clear()
 
@@ -1500,13 +1590,13 @@ class SoftRamp:
 
             gevent.sleep(self._poll_time)
 
-            dt = time.time() - self.start_time
             if (
                 self._rate == 0
             ):  # DEALS WITH THE CASE WHERE THE USER SET THE RAMPRATE TO ZERO WHILE A RUNNING RAMP HAS BEEN STARTED WITH A RAMPRATE!=0
                 self._set_working_point(self.target_value)
                 break
             else:
+                dt = time.time() - self.start_time
                 value = self.start_value + self.direction * self._rate * dt
 
             if self.direction == 1 and value <= self.target_value:
@@ -1520,3 +1610,100 @@ class SoftRamp:
             else:
                 self._set_working_point(self.target_value)
                 break
+
+
+class RegPlot:
+    """ A plotting tool for the regulation Loop
+        Plots the regulation Loop parameters over time (input_value, setpoint_value, output_value) 
+        Based on flint/silx modules
+
+        usage:  plt = RegPlot( myloop )
+                plt.start()
+                ...
+                plt.stop()
+    """
+
+    def __init__(self, tloop, dpi=80):
+
+        self.loop = tloop
+
+        self.task = None
+        self._stop_event = gevent.event.Event()
+        self.sleep_time = 0.1
+
+        # Declare a CurvePlot (see bliss.common.plot)
+        self.fig = plot(data=None, name=tloop.name)
+
+        try:
+            self.fig.set_plot_dpi(dpi)
+        except:
+            pass
+
+        self.fig.submit("adjustSize")
+
+    def close(self):
+        self.stop()
+        # close flint tab
+        pass
+
+    def start(self):
+        if not self.task:
+            self.task = gevent.spawn(self.run)
+
+    def stop(self):
+        self._stop_event.set()
+
+    def run(self):
+
+        self._stop_event.clear()
+
+        self.fig.submit("setGraphXLabel", "Time (s)")
+        self.fig.submit(
+            "setGraphYLabel",
+            f"Processed value ({self.loop.input.config.get('unit','')})",
+        )
+        self.fig.submit(
+            "setGraphYLabel",
+            f"Output ({self.loop.output.config['unit']})",
+            axis="right",
+        )
+        self.fig.submit("setGraphGrid", which=True)
+
+        while not self._stop_event.is_set():
+
+            # update data history
+            self.loop._store_history_data()
+
+            with draw_manager(self.fig):
+
+                self.fig.add_data(self.loop.history_data["time"], field="time")
+                self.fig.add_data(self.loop.history_data["input"], field="Input")
+                self.fig.add_data(self.loop.history_data["output"], field="Output")
+                self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
+
+                dbp = [
+                    x + self.loop.deadband for x in self.loop.history_data["setpoint"]
+                ]
+                dbm = [
+                    x - self.loop.deadband for x in self.loop.history_data["setpoint"]
+                ]
+                self.fig.add_data(dbp, field="Deadband_high")
+                self.fig.add_data(dbm, field="Deadband_low")
+
+                # Update curves plot (refreshes the plot widget)
+                # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
+                self.fig.select_data(
+                    "time", "Setpoint", color="blue", linestyle="-", z=2
+                )
+                self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
+                self.fig.select_data(
+                    "time", "Output", color="green", linestyle="-", yaxis="right", z=2
+                )
+                self.fig.select_data(
+                    "time", "Deadband_high", color="blue", linestyle="--", z=2
+                )
+                self.fig.select_data(
+                    "time", "Deadband_low", color="blue", linestyle="--", z=2
+                )
+
+            gevent.sleep(self.sleep_time)

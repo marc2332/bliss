@@ -7,9 +7,14 @@
 
 import sys
 import enum
-import itertools
-import weakref
-from bliss.common.regulation import Input, Output, Loop
+from bliss.common.regulation import (
+    Input,
+    Output,
+    Loop,
+    SoftLoop,
+    ExternalInput,
+    ExternalOutput,
+)
 from bliss.config.plugins.utils import find_class, replace_reference_by_object
 
 
@@ -22,27 +27,52 @@ DEFAULT_CLASS = {TYPE.INPUT: Input, TYPE.OUTPUT: Output, TYPE.LOOP: Loop}
 
 def create_objects_from_config_node(config, node):
 
-    # print("CREATE OBJECT FROM CONFIG", node.get('name'))
     # --- for a better understanding of this function, see bliss.config.static => config.get( obj_name )
+
+    # --- prepare dictionaries for cached object and instanciated objects
+    name2cacheditems = {}
+    name2items = {}
 
     if "inputs" in node or "outputs" in node or "ctrl_loops" in node:
         # --- dealing with a controller
         obj_name = None
 
     else:
-        # --- dealing with a child of a controller (Input, Output, Loop) or something else using regulation plugin
+        # --- dealing with a child of a controller (Input, Output, Loop) or an object defined outside of a controller (like ExternalIn/out or SoftLoop)
         obj_name = node.get("name")
-        node = node.parent  # <= step-up to controller node
+
+        upper_node = node.parent  # <= check parent node and see if it is a controller
+        if (
+            "inputs" in upper_node
+            or "outputs" in upper_node
+            or "ctrl_loops" in upper_node
+        ):  # <= if True it is a contoller
+            node = upper_node
+
+        else:  # <= else it is an object without a controller (like ExternalIn/out or SoftLoop)
+
+            replace_reference_by_object(config, node)
+
+            if node.get("class") in ["SoftLoop", "Loop"]:
+                new_obj = SoftLoop(node)
+
+            elif node.get("class") in ["Input", "ExternalInput"]:
+                new_obj = ExternalInput(node)
+
+            elif node.get("class") in ["Output", "ExternalOutput"]:
+                new_obj = ExternalOutput(node)
+
+            name2items[obj_name] = new_obj
+
+            config.update_items(name2items)
+
+            return name2items
 
     # --- whatever the object kind, first of all we instanciate the controller
     controller_name = node.get("name")  # usually is None
     controller_class = find_class(node, "bliss.controllers.temperature")
     controller = controller_class(node)
     controller.initialize()
-
-    # --- prepare dictionaries for cached object and instanciated objects
-    name2cacheditems = {}
-    name2items = {}
 
     # --- store in cache the sub-objects of the controller for a later instanciation
     # --- for each type of a controller sub-node (i.e. inputs, outputs, loops)
@@ -53,22 +83,7 @@ def create_objects_from_config_node(config, node):
     ):
 
         # --- for each subnode of a given type, store info in cache
-        # name2cacheditems.update( { nd['name'] : (node_type, nd.deep_copy(), controller) for nd in child_nodes }  )
-
         for nd in child_nodes:
-            # name = nd["name"]
-            # if name.startswith(
-            #     "$"
-            # ):  # --- handle custom inputs/outputs which are given with a name as a reference (i.e. $name)
-            #     new_obj = config.get(name)  # --- instanciate custom object now
-            #     name2items[
-            #         name
-            #     ] = new_obj  # --- register in instanciated object dict of the config
-            #     new_obj._controller = controller  # --- define the associated controller
-            #     controller.register_object(
-            #         new_obj
-            #     )  # --- register the custom device in the controller
-            # else:  # --- store in cache devices which are not custom
             name2cacheditems[nd["name"]] = (node_type, nd.deep_copy(), controller)
 
     # --- add the controller to stored items if it has a name
@@ -78,8 +93,7 @@ def create_objects_from_config_node(config, node):
     # update the config cache dict NOW to avoid cyclic instanciation (i.e. config.get => create_object_from_... => replace_reference_by_object => config.get )
     yield name2items, name2cacheditems
 
-    # --- don't forget to instanciate the object for which this function has been called
-    # --- if it isn't a controller
+    # --- don't forget to instanciate the object for which this function has been called (if not a controller)
     if obj_name is not None:
         obj = config.get(obj_name)
         yield {obj_name: obj}
@@ -92,7 +106,6 @@ def create_object_from_cache(config, name, object_info):
 
     # for a better understanding of this function, see bliss.config.static => config.get( obj_name )
 
-    # print(f"===== CREATE FROM CACHE: {name}")
     node_type, node, controller = object_info
     replace_reference_by_object(config, node)
 
@@ -104,5 +117,5 @@ def create_object_from_cache(config, name, object_info):
     except AttributeError:
         object_class = DEFAULT_CLASS[node_type]
 
-    new_object = controller.create_object(node_type.name, object_class, node)
+    new_object = controller.add_object(node_type.name, object_class, node)
     return new_object

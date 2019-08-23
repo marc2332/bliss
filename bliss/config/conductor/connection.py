@@ -197,6 +197,13 @@ class Connection(object):
         if self.uds is None:
             self._uds_query()
 
+        # set the default beacon client name
+        conn_name = f"{socket.gethostname()}:{os.getpid()}"
+        try:
+            self.set_client_name(conn_name)
+        except RuntimeError:
+            pass  # Beacon server is too old
+
     def _discovery(self, host, timeout=3.0):
         # Manage timeout
         if timeout < 0:
@@ -248,7 +255,6 @@ class Connection(object):
 
     def _tcp_connect(self, host, port):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         sock.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
         try:
             sock.connect((host, port))
@@ -273,7 +279,7 @@ class Connection(object):
         self._uds_query_event.wait(timeout)
 
     @check_connect
-    def lock(self, devices_name, **params):
+    def lock(self, *devices_name, **params):
         priority = params.get("priority", 50)
         timeout = params.get("timeout", 10)
         if len(devices_name) == 0:
@@ -297,7 +303,7 @@ class Connection(object):
             locked_objects[device] = nb_lock + 1
 
     @check_connect
-    def unlock(self, devices_name, **params):
+    def unlock(self, *devices_name, **params):
         timeout = params.get("timeout", 1)
         priority = params.get("priority", 50)
         if len(devices_name) == 0:
@@ -452,6 +458,37 @@ class Connection(object):
                     return_module.append((module_name.decode(), full_path.decode()))
         return return_module
 
+    def set_client_name(self, name, timeout=3.0):
+        self._client_name(name, protocol.CLIENT_SET_NAME, timeout)
+
+    def get_client_name(self, timeout=3.0):
+        return self._client_name("", protocol.CLIENT_GET_NAME, timeout)
+
+    def who_locked(self, *names, timeout=3.0):
+        name2client = dict()
+        with gevent.Timeout(timeout, RuntimeError("Can't get who lock client name")):
+            with self.WaitingQueue(self) as wq:
+                raw_names = [b"%s" % wq.message_key()] + [n.encode() for n in names]
+                msg = b"|".join(raw_names)
+                self._socket.sendall(protocol.message(protocol.WHO_LOCKED, msg))
+                for rx_msg in wq.queue():
+                    if isinstance(rx_msg, RuntimeError):
+                        raise rx_msg
+                    name, client_info = rx_msg.split(b"|")
+                    name2client[name.decode()] = client_info.decode()
+        return name2client
+
+    @check_connect
+    def _client_name(self, name, msg_type, timeout):
+        with gevent.Timeout(timeout, RuntimeError("Can't get/set client name")):
+            with self.WaitingQueue(self) as wq:
+                msg = b"%s|%s" % (wq.message_key(), name.encode())
+                self._socket.sendall(protocol.message(msg_type, msg))
+                rx_msg = wq.get()
+                if isinstance(rx_msg, RuntimeError):
+                    raise rx_msg
+                return rx_msg.decode()
+
     def _lock_mgt(self, fd, messageType, message):
         if messageType == protocol.LOCK_OK_REPLY:
             events = self._pending_lock.get(message, [])
@@ -485,7 +522,7 @@ class Connection(object):
     def _get_msg_key(self, message):
         pos = message.find(b"|")
         if pos < 0:
-            return None, None
+            return message, None
         return message[:pos], message[pos + 1 :]
 
     def _raw_read(self):
@@ -510,6 +547,8 @@ class Connection(object):
                             protocol.CONFIG_GET_DB_TREE_OK,
                             protocol.CONFIG_DB_FILE_RX,
                             protocol.CONFIG_GET_PYTHON_MODULE_RX,
+                            protocol.CLIENT_NAME_OK,
+                            protocol.WHO_LOCKED_RX,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -523,6 +562,7 @@ class Connection(object):
                             protocol.CONFIG_REMOVE_FILE_FAILED,
                             protocol.CONFIG_MOVE_PATH_FAILED,
                             protocol.CONFIG_GET_PYTHON_MODULE_FAILED,
+                            protocol.WHO_LOCKED_FAILED,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -534,6 +574,7 @@ class Connection(object):
                             protocol.CONFIG_REMOVE_FILE_OK,
                             protocol.CONFIG_MOVE_PATH_OK,
                             protocol.CONFIG_GET_PYTHON_MODULE_END,
+                            protocol.WHO_LOCKED_END,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)

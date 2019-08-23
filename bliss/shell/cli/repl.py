@@ -416,7 +416,13 @@ def cli(
     ERROR_REPORT.expert_mode = expert_error_report
 
     if session_name and not session_name.startswith("__DEFAULT__"):
-        user_ns, session = initialize(session_name)
+        try:
+            user_ns, session = initialize(session_name)
+        except RuntimeError as e:
+            if use_tmux:
+                print("\n", "*" * 20, "\n", e, "\n", "*" * 20)
+                gevent.sleep(10)  # just to let the eyes to see the message ;)
+            raise
     else:
         user_ns, session = initialize(session_name=None)
 

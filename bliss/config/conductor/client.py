@@ -86,13 +86,13 @@ def synchronized(**params):
 @check_connection
 def lock(*devices, **params):
     devices_name = [d.name for d in devices]
-    params["connection"].lock(devices_name, **params)
+    params["connection"].lock(*devices_name, **params)
 
 
 @check_connection
 def unlock(*devices, **params):
     devices_name = [d.name for d in devices]
-    params["connection"].unlock(devices_name, **params)
+    params["connection"].unlock(*devices_name, **params)
 
 
 @check_connection

@@ -31,7 +31,7 @@ ascan(roby, 0, 9, 10, 0.1, diode)
 * To start the session:
 
 ```shell
-$ bliss -s test_session
+bliss -s test_session
 ```
 
 * Format data saving path for the experiment:
@@ -45,33 +45,33 @@ created. To do that, the [SCAN_SAVING](scan_saving.md#scan_saving) object has to
 be used. The data saving path is customized by adding a new parameter
 '*s_name*' usable in the template of the PATH.
 
-```py
-SCAN_SAVING.add('s_name', '')                # add a new parameter named "s_name"
-SCAN_SAVING.template = '{session}/{s_name}/' # modify the data saving path template
-SCAN_SAVING.s_name = 'sample1'               # set value of the parameter "s_name"
+```python
+SCAN_SAVING.add('s_name', '')                # add a parameter named "s_name".
+SCAN_SAVING.template = '{session}/{s_name}/' # modify data saving path template.
+SCAN_SAVING.s_name = 'sample1'               # set value of parameter "s_name".
 ```
 
 * Perform a first measurement:
 
-```py
+```python
 ascan(roby, 0, 9, 10, 0.1, diode)
 ```
 
 * Perform a second measurement:
 
-```py
+```python
 ascan(roby, 0, 9, 10, 0.1, diode)
 ```
 
 * Change the data saving path for measurements on sample2:
 
-```py
+```python
 SCAN_SAVING.s_name = 'sample2'
 ```
 
 * Perform a measurement:
 
-```py
+```python
 ascan(roby, 0, 9, 10, 0.1, diode)
 ```
 
@@ -92,11 +92,26 @@ In parallel of the in-file data storage describe above, Redis stores the data in
 RAM memory as soon as it is produced. Therefore retrieving data from **Redis
 allows a fast and live access to the data**.
 
+!!! note "Sessions accessing"
+    `bliss.data.node.sessions_list()` gives access to the list of
+    sessions having data published in Redis.
+    It returns a list of `DataNodeContainer` objects.
+
+    ```
+    DEMO [6]: import bliss
+    DEMO [7]: bliss.data.node.sessions_list()
+     Out [7]: [<bliss.data.node.DataNodeContainer object at 0x7f9e83ebab00>,
+               <bliss.data.node.DataNodeContainer object at 0x7f9e83ffb828>]
+
+    DEMO [8]: bliss.data.node.sessions_list()[0].name
+     Out [8]: 'demo'
+    ```
+
 Redis stores the data as a flatten list of (key:value) pairs but hopefully the
 **bliss.data.node** module provides a simple interface to access the data in a
 structured way that reflects the session structure.
 
-```py
+```python
 from bliss.data.node import get_node
 n = get_node("test_session")
 for node in n.iterator.walk(wait=False):
@@ -155,7 +170,7 @@ object to the *Scan* nodes.
 
 You can access any node using its full name (`db_name`):
 
-```py
+```python
 cdn_roby = get_node("test_session:mnt:c:tmp:sample1:1_ascan:axis:roby")
 ```
 
@@ -177,7 +192,7 @@ The method `walk_events(filter=None)` walks through child nodes, just like
 `EVENTS.NEW_DATA_IN_CHANNEL`). It returns the event type and the node then waits
 again for next event.
 
-```py
+```python
 session = get_node("test_session")
 def f(filter=None):
     """wait for any new node in the session"""
@@ -241,7 +256,7 @@ voluminous, but a "**view**" on the data. It represents **references to data**
 already produced by the image channel at the moment the view object is
 instantiated.
 
-```py
+```python
 g3 = gevent.spawn(g, "lima")
 
 lima_simulator=config.get("lima_simulator")
@@ -261,7 +276,7 @@ object for images from 0 to 10 only.
 The `.get_image()` method can be called on `LimaDataView` objects to retrieve
 raw image data from references stored within a Lima data view object.
 
-```py
+```python
 ct(0.1, lima_simulator)
 Scan(number=1, name=ct, path=<no saving>)
 
@@ -291,7 +306,7 @@ in this shell session.
 For example `SCANS[-1]` returns the last scan object and `SCANS[-1].get_data()`
 returns the data of that scan.
 
-```py
+```python
 SCANS
 deque([Scan(number=1, name=ascan, path=/mnt/c/tmp/sample2/test_session/data.h5),
        Scan(number=2, name=ascan, path=/mnt/c/tmp/sample2/test_session/data.h5)],
@@ -303,9 +318,9 @@ Scan(number=11, name=ascan, path=/mnt/c/tmp/sample2/test_session/data.h5)
 SCANS[-1].get_data()
 {
 'roby':         array([0., 1., 2., 3., 4., 5., 6., 7., 8., 9.]),
-'elapsed_time': array([0., 0.15733457, 0.33751416, 0.49564481, 0.6538229,
-                       0.80611968, 0.94998145, 1.12727523, 1.28556204, 1.4369061 ]),
-'diode':        array([ 70., -57., -61., -43.,  89.,  54.,  23., -89., -87., -98.])
+'elapsed_time': array([0., 0.15733, 0.33716, 0.49581, 0.65329,
+                       0.80668, 0.94995, 1.12723, 1.28504, 1.43661 ]),
+'diode':        array([ 70., -57., -61., -43., 89., 54., 23., -89., -87., -98.])
 }
 ```
 
@@ -324,7 +339,7 @@ file (if image saving is activated).
 The Lima data view object has a `.get_image(image_index)` method that returns
 the raw image data:
 
-```py
+```python
 BLISS [1]: lima_simulator=config.get("lima_simulator")
 BLISS [2]: ct(0.1, lima_simulator)
   Out [2]: Scan(number=14, name=ct, path=<no saving>)

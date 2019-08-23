@@ -152,6 +152,7 @@ class ScanPrinter:
                         if unit:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
+                        self.motor_fullnames.append("axis:" + motor.name)
 
         for channel_fullname in channels["scalars"]:
             channel_short_name = channels["display_names"][channel_fullname]

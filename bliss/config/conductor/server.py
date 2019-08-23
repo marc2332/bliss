@@ -40,6 +40,7 @@ _waitstolen = dict()
 _options = None
 _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
+_client_to_name = weakref.WeakKeyDictionary()
 _waiting_lock = weakref.WeakKeyDictionary()
 _log = logging.getLogger("beacon")
 _tlog = _log.getChild("tango")
@@ -509,6 +510,33 @@ def _send_uds_connection(client_id, client_hostname):
         sys.excepthook(*sys.exc_info())
 
 
+def _get_set_client_id(client_id, messageType, message):
+    message_key, message = message.split(b"|")
+    if messageType is protocol.CLIENT_SET_NAME:
+        _client_to_name[client_id] = message
+    msg = b"%s|%s" % (message_key, _client_to_name.get(client_id, b""))
+    client_id.sendall(protocol.message(protocol.CLIENT_NAME_OK, msg))
+
+
+def _send_who_locked(client_id, message):
+    message_key, *names = message.split(b"|")
+    if not names:
+        names = list(_lock_object.keys())
+
+    for name in names:
+        socket_id, compteur, lock_prio = _lock_object.get(name, (None, None, None))
+        if socket_id is None:
+            continue
+        else:
+            msg = b"%s|%s|%s" % (
+                message_key,
+                name,
+                _client_to_name.get(socket_id, b"Unknown"),
+            )
+        client_id.sendall(protocol.message(protocol.WHO_LOCKED_RX, msg))
+    client_id.send(protocol.message(protocol.WHO_LOCKED_END, b"%s|" % message_key))
+
+
 def _send_unknow_message(client_id, message):
     client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE, message))
 
@@ -568,6 +596,13 @@ def _client_rx(client, local_connection):
                         _get_python_module(c_id, message)
                     elif messageType == protocol.UDS_QUERY:
                         _send_uds_connection(c_id, message)
+                    elif messageType in (
+                        protocol.CLIENT_SET_NAME,
+                        protocol.CLIENT_GET_NAME,
+                    ):
+                        _get_set_client_id(c_id, messageType, message)
+                    elif messageType == protocol.WHO_LOCKED:
+                        _send_who_locked(c_id, message)
                     else:
                         _send_unknow_message(c_id, message)
                 except ValueError:
@@ -865,7 +900,6 @@ def main(args=None):
         def do_tcp_processing(sk):
             while True:
                 newSocket, addr = sk.accept()
-                newSocket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 localhost = addr[0] == "127.0.0.1"
                 gevent.spawn(_client_rx, newSocket, localhost)

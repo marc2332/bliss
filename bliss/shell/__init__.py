@@ -24,6 +24,7 @@ else:
             return ""
 
 
+from gevent import socket
 import functools
 from bliss import release
 from bliss.config import static
@@ -90,6 +91,30 @@ def initialize(session_name=None):
     if session_name is None:
         session = DefaultSession()
     else:
+        # we will lock the session name
+        # this will prevent to start serveral bliss shell
+        # with the same session name
+        # lock will only be released at the end of process
+        default_cnx = get_default_connection()
+        try:
+            default_cnx.lock(session_name, timeout=1.)
+        except RuntimeError:
+            try:
+                lock_dict = default_cnx.who_locked(session_name)
+            except RuntimeError:  # Beacon is to old to answer
+                raise RuntimeError(f"{session_name} is already started")
+            else:
+                raise RuntimeError(
+                    f"{session_name} is already running on %s"
+                    % lock_dict.get(session_name)
+                )
+        # set the client name to somethings useful
+        try:
+            default_cnx.set_client_name(
+                f"host:{socket.gethostname()},pid:{os.getpid()} cmd: **bliss -s {session_name}**"
+            )
+        except RuntimeError:  # Beacon is too old
+            pass
         session = config.get(session_name)
         print("%s: Executing setup..." % session.name)
 

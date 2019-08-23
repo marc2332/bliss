@@ -46,6 +46,20 @@ EH1 [1]:
 ```
 
 
+!!! note
+    Two identical sessions cannot be started in a BLISS shell. This is
+    ensured by usage of *Tmux* and by a locking mechanim. Tmux will display the
+    previously started session instead of re-starting a new one. If Tmux is not
+    used, an error message from the locking mechanism should appear at the
+    second start of `demo` session:
+    
+    `demo is already running on host:pcsht,pid:8825 cmd: **bliss -s demo**`
+    
+    The error message gives all info needed to find where is running the previously
+    started session and to deal with it (to kill it or to keep it).
+
+
+
 ## Files organization
 
 The files used to configure a session are located in

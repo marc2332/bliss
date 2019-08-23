@@ -128,6 +128,9 @@ client._default_connection = beacon_connection
 class Test:
     def create_channel(self, value=channels._NotProvided):
         self.chan = channels.Channel('test_chan', value=value)
+        # wait at least until channel has subscribed to redis
+        # (for value query to work fine)
+        self.chan.wait_ready()
         self.chan.register_callback(self.chan_value_updated)
     def set_channel_value(self, value):
         self.chan.value = value

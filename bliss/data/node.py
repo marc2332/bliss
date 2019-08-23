@@ -132,6 +132,8 @@ def get_session_node(session_name):
 
 def sessions_list():
     """ Return all available session node(s).
+    Return only sessions having data published in Redis.
+    Session may or may not be running.
     """
     session_names = []
     for node_name in scan(

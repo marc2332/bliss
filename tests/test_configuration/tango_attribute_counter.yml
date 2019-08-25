@@ -5,3 +5,26 @@
     - name: tac_undu_position
       attr_name: position
       unit: mm
+    - name: tac_undu_acceleration
+      attr_name: acceleration
+      # no unit for test.
+    - name: tac_undu_velocity
+      attr_name: velocity
+      unit: mm
+    - name: wrong_counter
+      attr_name: wrong_attr
+      unit: mm
+    - name: tac_undu_cracoucas
+      attr_name: cracoucas
+      # wrong attr_name.
+
+
+- class: tango_attr_as_counter
+  plugin: bliss
+  counters:
+    - name: no_uri_counter
+      attr_name: no_uri_attr
+
+
+
+

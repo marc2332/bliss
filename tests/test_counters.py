@@ -7,8 +7,9 @@
 
 import pytest
 import gevent
-import numpy
 import h5py
+import numpy
+import tango
 from bliss.common.measurement import (
     SamplingCounter,
     IntegratingCounter,
@@ -622,3 +623,29 @@ def test_tango_attr_counter(beacon, dummy_tango_server):
 
     assert counter.read() == 1.4
     assert counter.unit == "mm"
+
+    with pytest.raises(tango.DevFailed):
+        wrong_counter = beacon.get("wrong_counter")
+
+    # get BLISS counters
+    tac_pos = beacon.get("tac_undu_position")
+    tac_vel = beacon.get("tac_undu_velocity")
+
+    # test "no unit"
+    tac_acc = beacon.get("tac_undu_acceleration")
+
+    with pytest.raises(tango.DevFailed):
+        tac_cracoucas = beacon.get("tac_undu_cracoucas")
+
+    # get UNDULATOR object
+    u23a = beacon.get("u23a")
+
+    assert u23a.position == 1.4
+    assert u23a.position == tac_pos.read()
+
+    assert u23a.velocity == tac_vel.read()
+    assert u23a.acceleration == tac_acc.read()
+
+    # Test missing uri
+    with pytest.raises(KeyError):
+        no_uri_counter = beacon.get("no_uri_counter")

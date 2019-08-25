@@ -79,9 +79,11 @@ Coverage indicates the percentage of lines touched by current tests suite.
 
 Example to get a coverage report:
 
-   py.test tests/controllers_sw/test_multiple_positions.py
-           --cov-report=html
+```bash
+py.test tests/controllers_sw/test_multiple_positions.py   \
+           --cov-report=html                              \
            --cov bliss.controllers.multiplepositions
+```
 
 Coverage report indicating tested lines is in:
   ./htmlcov/index.html

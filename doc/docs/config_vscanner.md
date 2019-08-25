@@ -4,11 +4,15 @@ Vscanner has 2 axes.
 
 More info here: [http://wikiserv.esrf.fr/bliss/index.php/Vscanner](http://wikiserv.esrf.fr/bliss/index.php/Vscanner)
 
+!!! warning
+    For a move of the 2 axes, velocity is the same for both
+    axes and the used one is taken from the first one.
+
 ### Supported features
 
 Encoder | Shutter | Trajectories
 ------- | ------- | ------------
-NO	| NO      | NO  
+NO	| NO      | NO
 
 ## YAML configuration file example
 

@@ -169,10 +169,10 @@ class Mockup(Controller):
     def initialize_loop(self, tloop):
         log_debug(self, "mockup: initialize_loop: %s" % (tloop))
 
-        self._stop_cool_down_events[tloop.name] = gevent.event.Event()
+        # self._stop_cool_down_events[tloop.name] = gevent.event.Event()
 
-        if not self._cool_down_tasks.get(tloop.name):
-            self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
+        # if not self._cool_down_tasks.get(tloop.name):
+        #    self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
 
     def set_kp(self, tloop, kp):
         """
@@ -310,7 +310,14 @@ class Mockup(Controller):
         """
         log_debug(self, "Controller:start_regulation: %s" % (tloop))
 
-        self._stop_pid_events[tloop.name] = gevent.event.Event()
+        if self._stop_cool_down_events.get(tloop.name) is None:
+            self._stop_cool_down_events[tloop.name] = gevent.event.Event()
+
+        if not self._cool_down_tasks.get(tloop.name):
+            self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
+
+        if self._stop_pid_events.get(tloop.name) is None:
+            self._stop_pid_events[tloop.name] = gevent.event.Event()
 
         if not self._pid_tasks.get(tloop.name):
             self._pid_tasks[tloop.name] = gevent.spawn(self._pid_task, tloop)

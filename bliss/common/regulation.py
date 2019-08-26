@@ -163,7 +163,7 @@ from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
 
 from simple_pid import PID
-from bliss.common.plot import plot, draw_manager
+from bliss.common.plot import plot
 
 
 class DeviceCounter(SamplingCounter):
@@ -1634,11 +1634,7 @@ class RegPlot:
         # Declare a CurvePlot (see bliss.common.plot)
         self.fig = plot(data=None, name=tloop.name)
 
-        try:
-            self.fig.set_plot_dpi(dpi)
-        except:
-            pass
-
+        self.fig._flint.set_plot_dpi(self.fig._plot_id, dpi)
         self.fig.submit("adjustSize")
 
     def close(self):
@@ -1674,36 +1670,32 @@ class RegPlot:
             # update data history
             self.loop._store_history_data()
 
-            with draw_manager(self.fig):
+            self.fig.submit("setAutoReplot", False)
 
-                self.fig.add_data(self.loop.history_data["time"], field="time")
-                self.fig.add_data(self.loop.history_data["input"], field="Input")
-                self.fig.add_data(self.loop.history_data["output"], field="Output")
-                self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
+            self.fig.add_data(self.loop.history_data["time"], field="time")
+            self.fig.add_data(self.loop.history_data["input"], field="Input")
+            self.fig.add_data(self.loop.history_data["output"], field="Output")
+            self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
 
-                dbp = [
-                    x + self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
-                dbm = [
-                    x - self.loop.deadband for x in self.loop.history_data["setpoint"]
-                ]
-                self.fig.add_data(dbp, field="Deadband_high")
-                self.fig.add_data(dbm, field="Deadband_low")
+            dbp = [x + self.loop.deadband for x in self.loop.history_data["setpoint"]]
+            dbm = [x - self.loop.deadband for x in self.loop.history_data["setpoint"]]
+            self.fig.add_data(dbp, field="Deadband_high")
+            self.fig.add_data(dbm, field="Deadband_low")
 
-                # Update curves plot (refreshes the plot widget)
-                # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
-                self.fig.select_data(
-                    "time", "Setpoint", color="blue", linestyle="-", z=2
-                )
-                self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
-                self.fig.select_data(
-                    "time", "Output", color="green", linestyle="-", yaxis="right", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_high", color="blue", linestyle="--", z=2
-                )
-                self.fig.select_data(
-                    "time", "Deadband_low", color="blue", linestyle="--", z=2
-                )
+            # Update curves plot (refreshes the plot widget)
+            # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
+            self.fig.select_data("time", "Setpoint", color="blue", linestyle="-", z=2)
+            self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
+            self.fig.select_data(
+                "time", "Output", color="green", linestyle="-", yaxis="right", z=2
+            )
+            self.fig.select_data(
+                "time", "Deadband_high", color="blue", linestyle="--", z=2
+            )
+            self.fig.select_data(
+                "time", "Deadband_low", color="blue", linestyle="--", z=2
+            )
+
+            self.fig.submit("setAutoReplot", True)
 
             gevent.sleep(self.sleep_time)

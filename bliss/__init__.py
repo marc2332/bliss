@@ -31,10 +31,6 @@ from gevent import monkey as _monkey
 
 _monkey.patch_all(thread=False)
 
-from redis import selector as _selector
-
-_selector._DEFAULT_SELECTOR = _selector.SelectSelector
-
 from bliss.common.proxy import Proxy as _Proxy
 
 

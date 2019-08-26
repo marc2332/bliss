@@ -9,18 +9,21 @@ client holding the data disconnects, the channel data is cleared.
 Use cases for channels are:
 
 * to update state between processes
-    - for example, for `Axis` objects, `position` and `state` (`MOVING`, `READY`...) are shared between listeners
+    - for example, for `Axis` objects, `position` and `state` (`MOVING`,
+      `READY`...) are shared between listeners
 * caching for performance, e.g. to avoid reloading
     - to memorize last loaded program in a MUSST or Opiom
     - to memorize MCA parameters
 * to prevent unwanted hardware initialization
-    - if an object is shared between multiple processes, is in use and is already initialized, there is no need (it can even be harmful) to re-initialize it
+    - if an object is shared between multiple processes, is in use and is
+      already initialized, there is no need (it can even be harmful) to
+      re-initialize it
 
 ## `Channel` object usage
 
 Process A:
 
-```py
+```python
 >>> from bliss.config.channels import Channel
 >>> c = Channel("test", default_value=42)
 >>> c.value
@@ -29,7 +32,7 @@ Process A:
 
 Process B:
 
-```py
+```python
 >>> from bliss.config.channels import Channel
 >>> c = Channel("test")
 >>> c.value
@@ -38,17 +41,19 @@ Process B:
 
 It is possible to register a callback to get notified of Channel value change events:
 
-```py
+```python
 # in process A
 >>> def c_value_changed(new_value):
         print(new_value)
 >>> c.register_callback(c_value_changed)
 ```
 
-```py
+```python
 # in process B
 >>> c.value = "something new"
+```
 
+```python
 # in process A, output:
 something new
 ```
@@ -59,7 +64,7 @@ A Cache object is a helper to make a Channel attached to an object from the
 configuration. It guarantees the name of the channel corresponds to the
 object, by pre-pending the name of the object to the corresponding key in Redis.
 
-```py
+```python
 >>> from bliss.config.static import get_config
 >>> config = get_config()
 >>> obj = config.get("my_object")
@@ -86,21 +91,22 @@ The receiver will get the posted event by block.
 ### Usage
 Process A:
 
-```py
+```python
 BLISS [1]: from bliss.config.channels import EventChannel
 BLISS [2]: c = EventChannel('test')
-BLISS [3]: for i in range(10): 
+BLISS [3]: for i in range(10):
       ...:     c.post(f'event {i}')
 ```
 
 Process B:
 
-```py
+```python
 BLISS [1]: from bliss.config.channels import EventChannel
 BLISS [2]: c = EventChannel('test')
 BLISS [3]: def f(events_list):
       ...:     print(events_list)
 BLISS [4]: c.register_callback(f)
-BLISS [5]: ['event 0', 'event 1', 'event 2', 'event 3', 'event 4', 'event 5', 'event 6', 'event 7', 'event 8', 'event 9']
+BLISS [5]: ['event 0', 'event 1', 'event 2', 'event 3', 'event 4',
+            'event 5', 'event 6', 'event 7', 'event 8', 'event 9']
 ```
 

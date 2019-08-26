@@ -75,7 +75,7 @@ from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
 from bliss.common import event
-from bliss.common.logtools import *
+from bliss.common.logtools import log_warning, log_error
 from bliss import global_map
 
 
@@ -183,6 +183,7 @@ class MultiplePositions:
         print(motpos_str)
 
     def __info__(self):
+        """Get detailed information."""
         return self.status
 
     @property
@@ -350,11 +351,9 @@ class MultiplePositions:
         """
         _mot_dict = {}
         for motor in self.targets_dict.values():
-            for idx in range(len(motor)):
+            for idx, _ in enumerate(motor):
                 if motor[idx]["axis"] not in _mot_dict:
-                    _mot_dict.update(
-                        {"%s" % motor[idx]["axis"].name: motor[idx]["axis"]}
-                    )
+                    _mot_dict.update({f'{motor[idx]["axis"].name}': motor[idx]["axis"]})
         return _mot_dict
 
     @property

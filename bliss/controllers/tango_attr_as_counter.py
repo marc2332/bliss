@@ -41,7 +41,7 @@ bliss/tests/test_configuration/tango_attribute_counter.yml
 
 import weakref
 from bliss.common.measurement import SamplingCounter
-import tango
+from bliss.common import tango
 from bliss import global_map
 from bliss.common.logtools import *
 

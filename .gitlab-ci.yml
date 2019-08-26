@@ -60,6 +60,7 @@ package:
   stage: build
   image: continuumio/miniconda3:latest
   script:
+    - apt update && apt install -y g++
     # create package env and install all requirements and conda-build
     - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
     - source activate buildenv

@@ -461,10 +461,19 @@ class Session:
                 self.env_dict[item_name] = getattr(setup_globals, item_name)
                 continue
 
-            if verbose:
-                print(f"Initializing '{item_name}'")
-
-            self._add_from_config(item_name)
+            try:
+                o = self.config.get(item_name)
+            except:
+                if verbose:
+                    print(f"FAILED to initialize '{item_name}'")
+                sys.excepthook(*sys.exc_info())
+            else:
+                if verbose:
+                    item_node = self.config.get_config(item_name)
+                    if item_node.plugin is None:
+                        print(f"Initialized '{item_name}' with **default** plugin")
+                    else:
+                        print(f"Initialized '{item_name}")
 
         for item_name, alias_cfg in self._aliases_info().items():
             alias_name = alias_cfg["alias_name"]
@@ -472,16 +481,12 @@ class Session:
                 global_map.aliases.add(alias_name, item_name, verbose=verbose)
             except Exception:
                 sys.excepthook(*sys.exc_info())
-
-        self._add_from_config(self.name)
-
-        setup_globals.__dict__.update(self.env_dict)
-
-    def _add_from_config(self, item_name):
         try:
-            o = self.config.get(item_name)
+            self.config.get(self.name)
         except:
             sys.excepthook(*sys.exc_info())
+
+        setup_globals.__dict__.update(self.env_dict)
 
     def resetup(self, verbose=False):
         self.close()

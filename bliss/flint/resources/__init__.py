@@ -33,7 +33,7 @@ _RESOURCES_DIR = None
 # Not in use, uncomment when functionnality is needed
 # _RESOURCES_DOC_DIR = None
 
-# cx_Freeze forzen support
+# cx_Freeze frozen support
 # See http://cx-freeze.readthedocs.io/en/latest/faq.html#using-data-files
 if getattr(sys, "frozen", False):
     # Running in a frozen application:

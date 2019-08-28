@@ -217,7 +217,9 @@ class SoftwarePositionTriggerMaster(MotorMaster):
             # Sleep
             trigger = self.get_trigger(position)
             current_time = time.time() - ref
-            gevent.sleep(trigger - current_time)
+            sleep_time = trigger - current_time
+            if sleep_time >= 0:
+                gevent.sleep(sleep_time)
             # Trigger the slaves
             try:
                 self.trigger_slaves()
@@ -230,7 +232,9 @@ class SoftwarePositionTriggerMaster(MotorMaster):
                 self.channels[0].emit(position)
 
     def trigger_ready(self):
-        return MotorMaster.trigger_ready() and (self.task is None or self.task.ready())
+        return MotorMaster.trigger_ready(self) and (
+            self.task is None or not self.started.is_set()
+        )
 
     def wait_ready(self):
         MotorMaster.wait_ready(self)
@@ -397,7 +401,6 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-
         positions = [axis.position for axis in self._axes + self._monitor_axes]
         self.channels.update_from_iterable(positions)
         self.wait_slaves()

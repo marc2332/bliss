@@ -61,7 +61,7 @@ package:
   image: continuumio/miniconda3:latest
   script:
     # create package env and install all requirements and conda-build, (gcc and g++ compiler required for flint)
-    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build gcc_linux-64 gxx_linux-64
+    - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
     - source activate buildenv
     # create links to reach prefixed compilers of conda
     - ln -s /opt/conda/envs/buildenv/bin/x86_64-conda_cos6-linux-gnu-gcc /opt/conda/envs/buildenv/bin/gcc

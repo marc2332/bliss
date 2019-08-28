@@ -31,9 +31,9 @@ with the mandatory fields:
             name: heater
             channel: A 
             unit: Volt
-            low_limit: 0.0          # <== minimum device value [unit]
-            high_limit: 100.0       # <== maximum device value [unit]
-            ramprate: 0.0           # <== ramprate to reach the output value [unit/s].
+            low_limit: 0.0          # <-- minimum device value [unit]
+            high_limit: 100.0       # <-- maximum device value [unit]
+            ramprate: 0.0           # <-- ramprate to reach the output value [unit/s].
 
     ctrl_loops:
         -
@@ -43,12 +43,12 @@ with the mandatory fields:
             P: 0.5
             I: 0.3
             D: 0.0
-            low_limit: 0.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
-            high_limit: 1.0         # <== high limit of the PID output value. Usaually equal to 1.
+            low_limit: 0.0          # <-- low limit of the PID output value. Usaually equal to 0 or -1.
+            high_limit: 1.0         # <-- high limit of the PID output value. Usaually equal to 1.
             frequency: 10.0
             deadband: 0.4
             deadband_time: 1.5
-            ramprate: 4.0           # <== ramprate to reach the setpoint value [input_unit/s]
+            ramprate: 4.0           # <-- ramprate to reach the setpoint value [input_unit/s]
 
 
 """
@@ -122,7 +122,7 @@ class Controller:
         log_info(self, "Controller:get_object: %s" % (name))
         return self._objects.get(name)
 
-    # ====== init methods =========================
+    # ------ init methods ------------------------
 
     def initialize(self):
         """ 
@@ -157,7 +157,7 @@ class Controller:
         """
         pass
 
-    # ====== get methods =========================
+    # ------ get methods ------------------------
 
     def read_input(self, tinput):
         """
@@ -215,21 +215,7 @@ class Controller:
         log_info(self, "Controller:state_output: %s" % (toutput))
         raise NotImplementedError
 
-    # ====== set methods =========================
-
-    def set_output_value(self, toutput, value):
-        """
-        Set the value on the Output device.
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           toutput: Output class type object 
-           value: value for the output device (in output unit)      
-        """
-        log_info(self, "Controller:set_output_value: %s %s" % (toutput, value))
-        raise NotImplementedError
-
-    # ====== raw methods =========================
+    # ------ raw methods ------------------------
 
     def Wraw(self, str):
         """
@@ -266,7 +252,7 @@ class Controller:
         log_info(self, "Controller:WRraw:")
         raise NotImplementedError
 
-    # ====== PID methods =========================
+    # ------ PID methods ------------------------
 
     def set_kp(self, tloop, kp):
         """
@@ -346,47 +332,10 @@ class Controller:
         log_info(self, "Controller:get_kd: %s" % (tloop))
         raise NotImplementedError
 
-    def get_sampling_frequency(self, tloop):
-        """
-        Get the sampling frequency (PID)
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args: 
-           tloop:  Loop class type object
-        """
-        log_info(self, "Controller:get_sampling_frequency: %s" % (tloop))
-        raise NotImplementedError
-
-    def set_sampling_frequency(self, tloop, value):
-        """
-        Set the sampling frequency (PID)
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args: 
-           tloop: Loop class type object
-           value: the sampling frequency [Hz] 
-        """
-        log_info(self, "Controller:set_sampling_frequency: %s %s" % (tloop, value))
-        raise NotImplementedError
-
-    def get_pid_range(self, tloop):
-        """
-        Get the PID range (PID output value limits)
-        """
-        log_info(self, "Controller:get_pid_range: %s %s" % (tloop))
-        raise NotImplementedError
-
-    def set_pid_range(self, tloop, pid_range):
-        """
-        Set the PID range (PID output value limits)
-        """
-        log_info(self, "Controller:set_pid_range: %s %s" % (tloop, pid_range))
-        raise NotImplementedError
-
     def start_regulation(self, tloop):
         """
         Starts the regulation process.
-        Does NOT start the ramp, use 'start_ramp' to do so.
+        It must NOT start the ramp, use 'start_ramp' to do so.
         Raises NotImplementedError if not defined by inheriting class
 
         Args: 
@@ -398,7 +347,7 @@ class Controller:
     def stop_regulation(self, tloop):
         """
         Stops the regulation process.
-        Does NOT stop the ramp, use 'stop_ramp' to do so.
+        It must NOT stop the ramp, use 'stop_ramp' to do so.
         Raises NotImplementedError if not defined by inheriting class
 
         Args: 
@@ -407,12 +356,12 @@ class Controller:
         log_info(self, "Controller:stop_regulation: %s" % (tloop))
         raise NotImplementedError
 
-    # ====== setpoint methods =========================
+    # ------ setpoint methods ------------------------
 
     def set_setpoint(self, tloop, sp, **kwargs):
         """
         Set the current setpoint (target value).
-        Does NOT start the PID process, use 'start_regulation' to do so.
+        It must NOT start the PID process, use 'start_regulation' to do so.
         Raises NotImplementedError if not defined by inheriting class
 
         Args:
@@ -437,13 +386,16 @@ class Controller:
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
         raise NotImplementedError
 
-    # ====== setpoint ramping methods =========================
+    # ------ setpoint ramping methods ------------------------
 
     def start_ramp(self, tloop, sp, **kwargs):
         """
         Start ramping to a setpoint
-        Does NOT start the PID process, use 'start_regulation' to do so.
+        It must NOT start the PID process, use 'start_regulation' to do so.
         Raises NotImplementedError if not defined by inheriting class
+
+        Replace 'Raises NotImplementedError' by 'pass' if the controller has ramping but doesn't have a method to explicitly starts the ramping.
+        Else if this function returns 'NotImplementedError', then the Loop 'tloop' will use a SoftRamp instead.
 
         Args:
            tloop:  Loop class type object
@@ -456,7 +408,7 @@ class Controller:
     def stop_ramp(self, tloop):
         """
         Stop the current ramping to a setpoint
-        Does NOT stop the PID process, use 'stop_regulation' to do so.
+        It must NOT stop the PID process, use 'stop_regulation' to do so.
         Raises NotImplementedError if not defined by inheriting class
 
         Args:
@@ -557,12 +509,80 @@ class Controller:
         log_info(self, "Controller:get_step: %s" % (tloop))
         raise NotImplementedError
 
-    # ====== output ramping methods =========================
+    # ------ others ------------------------------
+
+    def _f(self):
+        pass
+
+    def set_in_safe_mode(self, toutput):
+        """
+        Set the output in a safe mode (like stop heating)
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object 
+        """
+        log_info(self, "Controller:set_in_safe_mode: %s" % (toutput))
+        raise NotImplementedError
+
+    # ------ soft regulation only ??? ------------------------
+
+    def get_sampling_frequency(self, tloop):
+        """
+        Get the sampling frequency (PID)
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop:  Loop class type object
+        """
+        log_info(self, "Controller:get_sampling_frequency: %s" % (tloop))
+        raise NotImplementedError
+
+    def set_sampling_frequency(self, tloop, value):
+        """
+        Set the sampling frequency (PID)
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop: Loop class type object
+           value: the sampling frequency [Hz] 
+        """
+        log_info(self, "Controller:set_sampling_frequency: %s %s" % (tloop, value))
+        raise NotImplementedError
+
+    def get_pid_range(self, tloop):
+        """
+        Get the PID range (PID output value limits)
+        """
+        log_info(self, "Controller:get_pid_range: %s" % (tloop))
+        raise NotImplementedError
+
+    def set_pid_range(self, tloop, pid_range):
+        """
+        Set the PID range (PID output value limits)
+        """
+        log_info(self, "Controller:set_pid_range: %s %s" % (tloop, pid_range))
+        raise NotImplementedError
+
+    def set_output_value(self, toutput, value):
+        """
+        Set the value on the Output device.
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput: Output class type object 
+           value: value for the output device (in output unit)      
+        """
+        log_info(self, "Controller:set_output_value: %s %s" % (toutput, value))
+        raise NotImplementedError
 
     def start_output_ramp(self, toutput, value, **kwargs):
         """
         Start ramping on the output
         Raises NotImplementedError if not defined by inheriting class
+
+        Replace 'Raises NotImplementedError' by 'pass' if the controller has output ramping but doesn't have a method to explicitly starts the output ramping.
+        Else if this function returns 'NotImplementedError', then the output 'toutput' will use a SoftRamp instead.
 
         Args:
            toutput:  Output class type object 
@@ -622,8 +642,3 @@ class Controller:
         """
         log_info(self, "Controller:get_output_ramprate: %s" % (toutput))
         raise NotImplementedError
-
-    # ====== others ===================================
-
-    def _f(self):
-        pass

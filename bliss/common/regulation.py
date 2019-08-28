@@ -39,7 +39,7 @@ This module implements the classes allowing the control of regulation processes 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------    
 
             -
-                class: Mockup                  # <== the controller class inheriting from 'bliss.controllers.regulator.Controller'
+                class: Mockup                  # <-- the controller class inheriting from 'bliss.controllers.regulator.Controller'
                 module: mockup
                 host: lid42
                 inputs:
@@ -57,9 +57,9 @@ This module implements the classes allowing the control of regulation processes 
                         name: heater
                         channel: A 
                         unit: Volt
-                        low_limit:  0.0          # <== minimum device value [unit] 
-                        high_limit: 100.0        # <== maximum device value [unit]
-                        ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+                        low_limit:  0.0          # <-- minimum device value [unit] 
+                        high_limit: 100.0        # <-- maximum device value [unit]
+                        ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
             
                 ctrl_loops:
                     -
@@ -69,12 +69,12 @@ This module implements the classes allowing the control of regulation processes 
                         P: 0.5
                         I: 0.2
                         D: 0.0
-                        low_limit: 0.0           # <== low limit of the PID output value. Usaually equal to 0 or -1.
-                        high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+                        low_limit: 0.0           # <-- low limit of the PID output value. Usaually equal to 0 or -1.
+                        high_limit: 1.0          # <-- high limit of the PID output value. Usaually equal to 1.
                         frequency: 10.0
                         deadband: 0.05
                         deadband_time: 1.5
-                        ramprate: 1.0            # <== ramprate to reach the setpoint value [input_unit/s]
+                        ramprate: 1.0            # <-- ramprate to reach the setpoint value [input_unit/s]
                         wait_mode: deadband
              
             ----------------------------------------------------------------------------------------------------------------------------------------
@@ -93,51 +93,51 @@ This module implements the classes allowing the control of regulation processes 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------
 
             -   
-                class: MyCustomInput     # <== a custom input defined by the user and inheriting from the Input class
-                package: bliss.controllers.temperature.mockup  # <== the module where the custom class is defined
+                class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the Input class
+                package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
                 unit: eV
                         
             
             -   
-                class: MyCustomOutput    # <== a custom output defined by the user and inheriting from the Output class
-                package: bliss.controllers.temperature.mockup  # <== the module where the custom class is defined
+                class: MyCustomOutput    # <-- a custom output defined by the user and inheriting from the Output class
+                package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_output
                 unit: eV
-                low_limit: 0.0           # <== minimum device value [unit]
-                high_limit: 100.0        # <== maximum device value [unit]
-                ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+                low_limit: 0.0           # <-- minimum device value [unit]
+                high_limit: 100.0        # <-- maximum device value [unit]
+                ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
             
             
             - 
-                class: Input             # <== value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+                class: Input             # <-- value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
                 name: diode_input          
-                device: $diode           # <== a SamplingCounter
+                device: $diode           # <-- a SamplingCounter
                 unit: mm
             
             
             -
-                class: Output            # <== value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+                class: Output            # <-- value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
                 name: robz_output        
-                device: $robz            # <== an axis
+                device: $robz            # <-- an axis
                 unit: mm
-                low_limit: 0.0           # <== minimum device value [unit]
-                high_limit: 100.0        # <== minimum device value [unit]
-                ramprate: 0.0            # <== ramprate to reach the output value [unit/s]
+                low_limit: 0.0           # <-- minimum device value [unit]
+                high_limit: 100.0        # <-- minimum device value [unit]
+                ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
                 
             
             - 
-                class: Loop              # <== value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+                class: Loop              # <-- value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
                 name: soft_regul
                 input: $custom_input
                 output: $robz_output
                 P: 0.5
                 I: 0.2
                 D: 0.0
-                low_limit: 0.0            # <== low limit of the PID output value. Usaually equal to 0 or -1.
-                high_limit: 1.0           # <== high limit of the PID output value. Usaually equal to 1.
+                low_limit: 0.0            # <-- low limit of the PID output value. Usaually equal to 0 or -1.
+                high_limit: 1.0           # <-- high limit of the PID output value. Usaually equal to 1.
                 frequency: 10.0
                 deadband: 0.05
                 deadband_time: 1.5
@@ -398,13 +398,6 @@ class Output:
 
         self._start_ramping(value)
 
-    def set_min_value(self):
-
-        if self.limits[0] is not None:
-            self.set_value(self.limits[0])
-        else:
-            self.set_value(0)
-
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
     def state(self):
@@ -460,6 +453,19 @@ class Output:
 
         else:
             return self._controller.is_output_ramping(self)
+
+    def set_in_safe_mode(self):
+        try:
+            return self._controller.set_in_safe_mode(self)
+
+        except NotImplementedError:
+
+            # if self.limits[0] is not None:
+            #     self.set_value(self.limits[0])
+            # else:
+            #     self.set_value(0)
+
+            pass
 
     # ---------------- PRIVATE METHODS -----------------------------------------------
 
@@ -565,6 +571,13 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:is_ramping")
 
         return self._ramp.is_ramping()
+
+    def set_in_safe_mode(self):
+        # if self.limits[0] is not None:
+        #     self.set_value(self.limits[0])
+        # else:
+        #     self.set_value(0)
+        pass
 
     # ---------------- PRIVATE METHODS -----------------------------------------------
 
@@ -891,14 +904,14 @@ class Loop:
         self._stop_ramping()
         self._stop_regulation()
         time.sleep(0.5)  # wait for the regulation to be stopped
-        self.output.set_min_value()
+        self.output.set_in_safe_mode()
 
     ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
     def get_axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
         sa = SoftAxis(
-            self.name,
+            self.input.name,
             self,
             position="axis_position",
             move="axis_move",

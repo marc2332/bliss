@@ -90,6 +90,13 @@ class MyCustomOutput(Output):
 
         self.device.set_value(value)
 
+    def set_in_safe_mode(self):
+        # if self.limits[0] is not None:
+        #     self.set_value(self.limits[0])
+        # else:
+        #     self.set_value(0)
+        pass
+
 
 class Mockup(Controller):
     """ Simulate a regulation controller. 

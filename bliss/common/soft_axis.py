@@ -16,6 +16,7 @@ def SoftAxis(
     position="position",
     move="position",
     stop=None,
+    state=None,
     low_limit=float("-inf"),
     high_limit=float("+inf"),
 ):
@@ -34,6 +35,7 @@ def SoftAxis(
             "position": position,
             "move": move,
             "stop": stop,
+            "state": state,
             "limits": (low_limit, high_limit),
             "name": name,
         },

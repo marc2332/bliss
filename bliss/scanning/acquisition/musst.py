@@ -21,7 +21,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         program_abort_name=None,
         vars=None,
         program_template_replacement=None,
-        **keys
+        **keys,
     ):
         """
         Acquisition master for the musst card.
@@ -152,7 +152,10 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
         AcquisitionDevice.__init__(self, musst, trigger_type=AcquisitionMaster.HARDWARE)
         store_list = store_list if store_list is not None else list()
         self.channels.extend(
-            (AcquisitionChannel(self, name, numpy.int32, ()) for name in store_list)
+            (
+                AcquisitionChannel(f"{self.name}:{name}", numpy.int32, ())
+                for name in store_list
+            )
         )
         self.__stop_flag = False
         if isinstance(musst, MusstAcquisitionMaster):

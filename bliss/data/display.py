@@ -156,6 +156,7 @@ class ScanPrinter:
                         if unit:
                             motor_label += "[{0}]".format(unit)
                         motor_labels.append(motor_label)
+                        self.motor_fullnames.append("axis:" + motor.name)
 
         for channel_fullname in channels["scalars"]:
             channel_short_name = channels["display_names"][channel_fullname]
@@ -217,6 +218,36 @@ class ScanPrinter:
             ]
         print(header)
 
+    def on_scan_data_ct(self, scan_info, values):
+        scan_type = scan_info.get("type")
+        if scan_type == "ct":
+            # ct is actually a timescan(npoints=1).
+            master, channels = next(iter(scan_info["acquisition_chain"].items()))
+            count_time = scan_info["count_time"]
+            col_len = 0
+            cnt_label_values = {}
+            for channel_fullname in channels["scalars"]:
+                label = channels["display_names"][channel_fullname]
+                channel_unit = channels["scalars_units"][channel_fullname]
+                col_len = max(len(label), col_len)
+                value = values[channel_fullname]
+                try:
+                    norm_value = value / count_time
+                except ZeroDivisionError:
+                    norm_value = None
+                cnt_label_values[label] = (value, norm_value)
+
+            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
+                col_len
+            )
+            template_no_norm = "{{label:>{0}}} = {{value: >12}}".format(col_len)
+            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+            print(f"{end_time_str}\n\n")
+            for label, (value, norm_value) in cnt_label_values.items():
+                temp = template if norm_value else template_no_norm
+                print(temp.format(label=label, value=value, norm=norm_value))
+            return True
+
     def on_scan_data(self, scan_info, values):
         scan_type = scan_info.get("type")
         if scan_type is None:
@@ -228,29 +259,13 @@ class ScanPrinter:
         if "timer:elapsed_time" in values:
             elapsed_time_col.append(values.pop("timer:elapsed_time"))
 
-        motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
-        counter_values = [
-            values[counter_fullname] for counter_fullname in self.counter_fullnames
-        ]
+        if not self.on_scan_data_ct(scan_info, values):
+            motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
+            counter_values = [
+                values[counter_fullname] for counter_fullname in self.counter_fullnames
+            ]
 
-        values = elapsed_time_col + motor_values + counter_values
-        if scan_type == "ct":
-            # ct is actually a timescan(npoints=1).
-            norm_values = numpy.array(values) / scan_info["count_time"]
-            col_len = max(map(len, self.col_labels)) + 2
-            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
-                col_len
-            )
-            lines = "\n".join(
-                [
-                    template.format(label=label, value=v, norm=nv)
-                    for label, v, nv in zip(self.col_labels[1:], values, norm_values)
-                ]
-            )
-            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            msg = "{0}\n\n{1}".format(end_time_str, lines)
-            print(msg)
-        else:
+            values = elapsed_time_col + motor_values + counter_values
             values.insert(0, self._point_nb)
             self._point_nb += 1
             line = "  ".join(

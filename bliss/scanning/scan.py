@@ -86,7 +86,51 @@ def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
     )
 
 
-class StepScanDataWatch:
+class DataWatchCallback:
+    def on_state(self, state):
+        """Ask if callback **on_scan_data** will be called during
+        **PREPARING** and **STOPPING** state. The return of this
+        method will activate/deactivate the calling of the callback
+        **on_scan_data** during this stage. By default
+        **on_scan_data** will be only called when new data are
+        emitted.
+
+        state -- either ScanState.PREPARING or ScanState.STOPPING.
+
+        i.e: return state == ScanState.PREPARING will inform that
+        **on_scan_data** will be called during **PREPARING** scan
+        state.
+
+        """
+        return False
+
+    def on_scan_new(self, scan, scan_info):
+        """
+        This callback is called when the scan is about to starts
+        
+        scan -- is the scan object
+        scan_info -- is the dict of information about this scan
+        """
+        pass
+
+    def on_scan_data(self, data_events, nodes, scan_info):
+        """
+        This callback is called when new data is emitted.
+
+        data_events --  a dict with Acq(Device/Master) as key and a set of signal as values
+        nodes -- a dict with Acq(Device/Master) as key and the associated data node as value
+        scan_info -- dictionnary which contains the current scan state
+        """
+        raise NotImplementedError
+
+    def on_scan_end(scan_info):
+        """
+        Called at the end of the scan.
+        """
+        pass
+
+
+class StepScanDataWatch(DataWatchCallback):
     """
     This class is an helper to follow data generation by a step scan like:
     an acquisition chain with motor(s) as the top-master.
@@ -515,15 +559,7 @@ class Scan:
         i.e: parent = Container('eh3')
         scan_info -- should be the scan parameters as a dict
         writer -- is the final file writer (hdf5,cvs,spec file...)
-        data_watch_callback -- a callback which can follow the data status of the scan.
-        this callback is usually used to display the scan status.
-        the callback will get:
-            - data_event : a dict with Acq(Device/Master) as key and a set of signal as values
-            - nodes : a dict with Acq(Device/Master) as key and the associated data node as value
-            - info : dictionnary which contains the current scan state...
-        if the callback is a class and have a method **on_state**, it will be called on each
-        scan transition state. The return of this method will activate/deactivate
-        the calling of the callback during this stage.
+        data_watch_callback -- a callback inherited from DataWatchCallback
         """
         self.__name = name
         self._scan_info = dict(scan_info) if scan_info is not None else dict()

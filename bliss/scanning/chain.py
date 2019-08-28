@@ -469,6 +469,10 @@ class AcquisitionMaster(object):
         """
         This method will wait that all slaves are **ready** to take an other trigger
         """
+        for slave in self.slaves:
+            if isinstance(slave, AcquisitionMaster):
+                slave.wait_slaves_ready()
+
         tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
         try:
             gevent.joinall(tasks, raise_error=True)

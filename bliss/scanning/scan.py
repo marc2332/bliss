@@ -575,7 +575,7 @@ class Scan:
         start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
         self._scan_info["start_time_str"] = start_time_str
         self._scan_info["start_timestamp"] = start_timestamp
-        self._scan_info.update(self.user_scan_meta.to_dict(self))
+        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback

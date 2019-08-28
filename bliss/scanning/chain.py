@@ -469,6 +469,10 @@ class AcquisitionMaster(object):
         """
         This method will wait that all slaves are **ready** to take an other trigger
         """
+        for slave in self.slaves:
+            if isinstance(slave, AcquisitionMaster):
+                slave.wait_slaves_ready()
+
         tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
         try:
             gevent.joinall(tasks, raise_error=True)
@@ -653,19 +657,12 @@ class AcquisitionChainIter(object):
         return self._tree.children("root")[0].identifier.device
 
     def prepare(self, scan, scan_info):
+        preset_tasks = list()
         if self.__sequence_index == 0:
-            preset_tasks = list()
-
-            preset_tasks.extend(
-                [
-                    gevent.spawn(preset.prepare, self.acquisition_chain)
-                    for preset in self._presets_list
-                ]
-            )
-            try:
-                gevent.joinall(preset_tasks, raise_error=True)
-            finally:
-                gevent.killall(preset_tasks)
+            preset_tasks = [
+                gevent.spawn(preset.prepare, self.acquisition_chain)
+                for preset in self._presets_list
+            ]
 
             self._preset_iterators_list = list()
 
@@ -675,7 +672,6 @@ class AcquisitionChainIter(object):
                     self._preset_iterators_list.append(iterator)
 
         self._current_preset_iterators_list = list()
-        preset_iterators_tasks = list()
         for iterator in list(self._preset_iterators_list):
             try:
                 preset = next(iterator)
@@ -687,7 +683,11 @@ class AcquisitionChainIter(object):
                 self._preset_iterators_list.remove(iterator)
             else:
                 self._current_preset_iterators_list.append(preset)
-                preset_iterators_tasks.append(gevent.spawn(preset.prepare))
+                preset_tasks.append(gevent.spawn(preset.prepare))
+        try:
+            gevent.joinall(preset_tasks, raise_error=True)
+        finally:
+            gevent.killall(preset_tasks)
 
         stats_dict = self.__acquisition_chain_ref()._stats_dict
         for tasks in self._execute(
@@ -697,16 +697,8 @@ class AcquisitionChainIter(object):
         ):
             try:
                 gevent.joinall(tasks, raise_error=True)
-            except:
-                gevent.killall(preset_iterators_tasks)
-                raise
             finally:
                 gevent.killall(tasks)
-
-        try:
-            gevent.joinall(preset_iterators_tasks, raise_error=True)
-        finally:
-            gevent.killall(preset_iterators_tasks)
 
     def start(self):
         preset_tasks = list()

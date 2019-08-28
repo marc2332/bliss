@@ -93,6 +93,11 @@ class LivePlot1D(qt.QWidget):
             if x_item.checkState() == qt.Qt.Checked:
                 x_axis = self.axes_list_model.item(x_item.row()).text()
                 break
+        else:
+            try:
+                x_axis = axis_names_list[0]
+            except IndexError:
+                pass
 
         for i, axis_name in enumerate(sorted(axis_names_list)):
             try:
@@ -107,6 +112,11 @@ class LivePlot1D(qt.QWidget):
             x_select = qt.QStandardItem("")
             x_select.setEditable(False)
             x_select.setCheckable(True)
+            if x_axis == axis_name:
+                x_select.setCheckState(qt.Qt.Checked)
+                axis = self.silx_plot.getXAxis()
+                axis.setLabel(axis_name)
+
             items = [item_name, x_select]
 
             for k in range(1, 3):

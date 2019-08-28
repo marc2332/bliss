@@ -73,11 +73,13 @@ class PIAcquisitionDevice(AcquisitionDevice):
                     self.npoints * nb_counters, self.device.get_data_max_len()
                 )
             )
-        self.channels[:] = [AcquisitionChannel(self, "timestamp", numpy.double, ())]
+        self.channels[:] = [
+            AcquisitionChannel(f"{self.name}:timestamp", numpy.double, ())
+        ]
         self.__motor_data_type = list()
         for counter_name, motor, recorder_type in grouped(counters_params, 3):
             self.channels.append(
-                AcquisitionChannel(self, counter_name, numpy.double, ())
+                AcquisitionChannel(f"{self.name}:{counter_name}", numpy.double, ())
             )
             self.__motor_data_type.extend((motor, recorder_type))
 

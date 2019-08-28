@@ -529,11 +529,6 @@ def embed(*args, **kwargs):
         if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
             # Catch scan events to show the scan display window
             seh = ScanEventHandler(cmd_line_i)
-            set_scan_watch_callbacks(
-                scan_new=seh.on_scan_new,
-                scan_data=scan_printer.on_scan_data_ct,
-                # scan_end=seh.on_scan_end,
-            )
 
         if stop_signals:
 

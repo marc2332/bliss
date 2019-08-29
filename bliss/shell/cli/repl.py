@@ -41,7 +41,6 @@ from prompt_toolkit.eventloop.defaults import run_in_executor
 from bliss.shell.cli import style as repl_style
 from bliss.shell import initialize
 from bliss.data.display import ScanPrinter, ScanEventHandler
-from bliss.scanning.scan import set_scan_watch_callbacks
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
@@ -218,12 +217,16 @@ class BlissRepl(PythonRepl):
         self.session_name = kwargs.pop("session_name", "default")
         self.use_tmux = kwargs.pop("use_tmux", False)
 
+        if self.use_tmux and sys.platform not in ["win32", "cygwin"]:
+            # patch ptpython statusbar
+            import bliss.shell.cli.ptpython_statusbar_patch
+
         super(BlissRepl, self).__init__(*args, **kwargs)
 
         self.current_task = None
         if title:
             self.terminal_title = title
-        self.show_status_bar = False
+
         # self.show_bliss_bar = True
         # self.bliss_bar = bliss_bar
         # self.bliss_bar_format = "normal"
@@ -244,6 +247,7 @@ class BlissRepl(PythonRepl):
         self.enable_history_search = True
         self.show_status_bar = True
         self.confirm_exit = True
+        self.enable_mouse_support = False
 
         self.typing_helper = TypingHelper(self)
 

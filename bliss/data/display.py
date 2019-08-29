@@ -750,15 +750,19 @@ def _local_pb(scan, repl, task):
             )
 
 
-class ScanEventHandler:
+class ScanEventHandler(ScanPrinter):
     def __init__(self, repl):
 
         self.repl = repl
         self.progress_task = None
+        self._on_scan_data_values = None
+        super().__init__()
 
     def on_scan_new(self, scan, scan_info):
         if self.progress_task:
             self.progress_task.kill()
+
+        self._on_scan_data_values = None
 
         # display progressbar only in repl greenlet
         if self.repl.current_task != gevent.getcurrent():
@@ -769,8 +773,8 @@ class ScanEventHandler:
         with gevent.Timeout(1.):
             started_event.wait()
 
-    def on_scan_data(self, scan_info, values):
-        pass
+    def on_scan_data(self, *args):
+        self._on_scan_data_values = args
 
     def on_scan_end(self, scan_info):
         pass
@@ -801,8 +805,12 @@ class ScanEventHandler:
         preset = Preset()
         scan.acq_chain.add_preset(preset)
         started_event.set()
-        with _local_pb(scan, self.repl, task) as pb:
-            it = pb(queue, remove_when_done=True, total=npoints or None)
-            pb.bar = it
-            for i in it:
-                pass
+        try:
+            with _local_pb(scan, self.repl, task) as pb:
+                it = pb(queue, remove_when_done=True, total=npoints or None)
+                pb.bar = it
+                for i in it:
+                    pass
+        finally:
+            if self._on_scan_data_values:
+                self.on_scan_data_ct(*self._on_scan_data_values)

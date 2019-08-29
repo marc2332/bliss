@@ -66,11 +66,11 @@ import time
 import enum
 from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug, log_warning
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
-from .lakeshore import LakeshoreInput as Input
-from .lakeshore import LakeshoreOutput as Output
-from .lakeshore import LakeshoreLoop as Loop
+from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreInput as Input
+from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreOutput as Output
+from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreLoop as Loop
 
 _last_call = time.time()
 # limit number of commands per second
@@ -292,6 +292,9 @@ class LakeShore331:
                 ki = kic
             if kd is None:
                 kd = kdc
+
+            print("LakeShore331.pid: %s %s %s" % (kp, ki, kd))
+
             if float(kp) < 0.1 or float(kp) > 1000.:
                 raise ValueError(
                     "Proportional gain %s is out of bounds [0.1,1000]" % kp
@@ -301,6 +304,7 @@ class LakeShore331:
             if float(kd) < 0 or float(kd) > 200:
                 raise ValueError("Derivative rate %s is out of bounds [0,200]" % kd)
             self.send_cmd("PID", kp, ki, kd, channel=channel)
+
         else:
             kp, ki, kd = self.send_cmd("PID?", channel=channel).split(",")
             return float(kp), float(ki), float(kd)
@@ -563,7 +567,7 @@ class lakeshore331(LakeshoreBase):
         OPEN_LOAD = 1
         SHORT = 2
 
-    def __init__(self, config, *args):
+    def __init__(self, config):
         comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
 
         _lakeshore = LakeShore331(comm_interface)
@@ -574,7 +578,7 @@ class lakeshore331(LakeshoreBase):
                 "Error, the Lakeshore model is {0}. It should be 331.".format(model)
             )
 
-        LakeshoreBase.__init__(self, _lakeshore, config, *args)
+        LakeshoreBase.__init__(self, _lakeshore, config)
 
     def _read_state_output(self, channel):
         log_info(self, "_state_output")

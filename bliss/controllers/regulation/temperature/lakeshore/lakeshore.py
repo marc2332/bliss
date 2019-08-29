@@ -5,9 +5,9 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.controllers.temp import Controller
-from bliss.common.temperature import Input, Output, Loop, lazy_init
-from bliss.common.logtools import log_info, log_debug
+from bliss.controllers.regulator import Controller
+from bliss.common.regulation import Input, Output, Loop, lazy_init
+from bliss.common.logtools import log_info
 from bliss.common.utils import autocomplete_property
 from bliss import global_map
 import os
@@ -161,22 +161,6 @@ class LakeshoreOutput(Output):
         channel = self.config.get("channel", int)
         return self.controller._set_heater_range(channel, value)
 
-    @property
-    @lazy_init
-    def ramp_info(self):
-        channel = self.config.get("channel", int)
-        ramp_dict = self.controller._lakeshore.ramp_rate(channel)
-        sp = self.controller._lakeshore.setpoint(channel)  # self.set()
-        ramp_dict["sp"] = sp
-        # Read ramp status (only if ramp is enabled)
-        ramp_dict["ramp_state"] = "NOT RAMPING"
-        if ramp_dict["state"] == "ON" and self.controller._lakeshore.ramp_status(
-            channel
-        ):
-            ramp_dict["ramp_state"] = "RAMPING"
-
-        return ramp_dict
-
 
 class LakeshoreLoop(Loop):
     @lazy_init
@@ -246,51 +230,83 @@ class LakeshoreLoop(Loop):
         C = 3
         D = 4
 
+    @property
+    @lazy_init
+    def ramp_info(self):
+        channel = self.output.config.get("channel", int)
+        ramp_dict = self.controller._lakeshore.ramp_rate(channel)
+        sp = self.controller._lakeshore.setpoint(channel)  # self.set()
+        ramp_dict["sp"] = sp
+        # Read ramp status (only if ramp is enabled)
+        ramp_dict["ramp_state"] = "NOT RAMPING"
+        if ramp_dict["state"] == "ON" and self.controller._lakeshore.ramp_status(
+            channel
+        ):
+            ramp_dict["ramp_state"] = "RAMPING"
+
+        return ramp_dict
+
 
 class LakeshoreBase(Controller):
-    def __init__(self, handler, config, *args):
+    """
+    Regulation controller base class
+
+    The 'Controller' class should be inherited by controller classes that are linked to an hardware 
+    which has internal PID regulation functionnalities and optionally ramping functionnalities (on setpoint or output value) .
+    
+    If controller hardware does not have ramping capabilities, the Loop objects associated to the controller will automatically use a SoftRamp.
+
+    """
+
+    def __init__(self, handler, config):
+
         self._lakeshore = handler
 
-        Controller.__init__(self, config, *args)
-
+        Controller.__init__(self, config)
         global_map.register(handler._comm, parents_list=[self, "comms"])
 
-    @property
-    def model(self):
-        """ Get the model number
-        Returns:
-        model (int): model number
-        """
-        log_info(self, "model")
-        return self._lakeshore._model()
+    # ------ init methods ------------------------
 
-    def initialize(self):
-        """ Initializes the controller.
+    def initialize_controller(self):
+        """ 
+        Initializes the controller.
         """
         self._lakeshore.clear()
 
     def initialize_input(self, tinput):
-        """Initialize the input device
+        """
+        Initializes an Input class type object
+
+        Args:
+           tinput:  Input class type object          
         """
         self._lakeshore._initialize_input(tinput)
 
     def initialize_output(self, toutput):
-        """Initialize the output device
         """
-        self.__ramp_rate = None
-        self.__set_point = None
+        Initializes an Output class type object
+
+        Args:
+           toutput:  Output class type object          
+        """
+        # self.__ramp_rate = None
+        # self.__set_point = None
         self._lakeshore._initialize_output(toutput)
 
     def initialize_loop(self, tloop):
-        """Initialize the loop device
         """
-        self.__kp = None
-        self.__ki = None
-        self.__kd = None
+        Initializes a Loop class type object
+
+        Args:
+           tloop:  Loop class type object          
+        """
+        # self.__kp = None
+        # self.__ki = None
+        # self.__kd = None
         self._lakeshore._initialize_loop(tloop)
 
-    # Input-object related methods
-    # ----------------------------
+    # ------ get methods ------------------------
+
     def read_input(self, tinput):
         """Read the current temperature
            Returns:
@@ -298,6 +314,7 @@ class LakeshoreBase(Controller):
                        or sensor-unit reading (Ohm or Volt)
                        depending on read_type.
         """
+        log_info(self, "Controller:read_input: %s" % (tinput))
         channel = tinput.config.get("channel")
         read_unit = tinput.config.get("unit", "Kelvin")
         if read_unit == "Kelvin":
@@ -317,129 +334,71 @@ class LakeshoreBase(Controller):
             except ValueError:
                 return float("NAN")
 
-    # the method state_input(self, tinput) is not implemented
-    # (is inherited from temp.py)
-
-    # Output-object related methods
-    # -----------------------------
-    @autocomplete_property
-    def HeaterState(self):
-        return self.controller.HeaterState
-
-    def state_output(self, toutput):
-        channel = toutput.config.get("channel")
-        return self._read_state_output(channel)
-
-    def set(self, toutput, sp, **kwargs):
-        """Set the value of the output setpoint
-           Args:
-              sp (float): final temperature [K] or [deg]
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        channel = toutput.config.get("channel")
-        self._lakeshore.setpoint(channel, sp)
-        self.__set_point = sp
-
-    def get_setpoint(self, toutput):
-        """Read the value of the output setpoint
-           Returns:
-              (float): current gas temperature setpoint
-        """
-        channel = toutput.config.get("channel")
-        self.__set_point = self._lakeshore.setpoint(channel)
-        return self.__set_point
-
     def read_output(self, toutput):
+        # cannot read the output value so return the setopoint value instead
         """Read the setpoint temperature
            Returns:
               (float): setpoint temperature
         """
+        log_info(self, "Controller:read_output: %s" % (toutput))
+        # channel = toutput.config.get("channel")
+        # self.__set_point = self._lakeshore.setpoint(channel)
+        # return self.__set_point
+        # raise NotImplementedError
+        # return self._lakeshore.setpoint(channel)
+        return float(toutput.value_percent)
+
+    def state_output(self, toutput):
+        """
+        Return a string representing state of the Output.
+
+        Args:
+           toutput:  Output class type object
+
+        Returns:
+           object state string. 
+        """
+        log_info(self, "Controller:state_output: %s" % (toutput))
         channel = toutput.config.get("channel")
-        self.__set_point = self._lakeshore.setpoint(channel)
-        return self.__set_point
+        return self._read_state_output(channel)
 
-    def set_ramprate(self, toutput, rate):
-        """Set the ramp rate
-           Args:
-              rate (float): The ramp rate [K/min] - no action, cash value only.
+    # ------ raw methods ------------------------
+
+    def Wraw(self, string):
         """
-        channel = toutput.config.get("channel")
-        self._lakeshore.ramp_rate(channel, rate)
-        self.__ramp_rate = rate
+        A string to write to the controller
 
-    def read_ramprate(self, toutput):
-        """Read the ramp rate
-           Returns:
-              (int): ramprate [K/min]
+        Args:
+           string:  the string to write
         """
-        channel = toutput.config.get("channel")
-        self.__ramp_rate = self._lakeshore.ramp_rate(channel)["rate"]
-        return self.__ramp_rate
+        log_info(self, "Controller:Wraw:")
+        self._lakeshore.wraw(string)
 
-    # the methods:
-    # set_dwell(self, toutput, dwell)
-    # read_dwell(self, toutput)
-    # set_step(self, toutput, step)
-    # read_step(self, toutput)
-    # are not implemented
-    # (are inherited from temp.py)
-
-    def start_ramp(self, toutput, sp, **kwargs):
-        """Start ramping to setpoint
-           Args:
-              sp (float): The setpoint temperature [K]
-           Kwargs:
-              rate (int): The ramp rate [K/min]
-           Returns:
-              None
+    def Rraw(self):
         """
-        channel = toutput.config.get("channel")
-        rate = kwargs.get("rate")
-        if rate is None:
-            rate = self._lakeshore.ramp_rate(channel)["rate"]
-        self.__ramp_rate = rate
-        self.__set_point = sp
-        self._lakeshore.ramp(channel, sp, rate)
+        Reading the controller
 
-    def setpoint_stop(self, toutput):
-        """Stop the ramping going to setpoint
+        returns:
+           response from the controller
         """
-        channel = toutput.config.get("channel")
-        # if ramp is active, disable it
-        ramp_stat = self._lakeshore.ramp_status(channel)
-        if ramp_stat == 1:
-            # rate = self.ramp_rate(channel)
-            rate = self.__ramp_rate
-            # setting ramp rate causes ramping off
-            self._lakeshore.ramp_rate(channel, rate)
+        log_info(self, "Controller:Rraw:")
+        ans = self._lakeshore.rraw()
+        return ans
 
-    def setpoint_abort(self, toutput):
-        """Emergency stop the going to setpoint.
-           Switch off the heater.
+    def WRraw(self, string):
         """
-        # set heater range to 0, which means heater power OFF
-        self._lakeshore._heater_range(0)
+        Write then Reading the controller
 
-    # Loop-object related methods
-    # ---------------------------
-    def on(self, tloop):
-        """Start the regulation on loop
-           Args:
-              tloop (int): loop number. 1 to 2.
-           Returns:
-              None
+        Args:
+           string:  the string to write
+        returns:
+           response from the controller
         """
-        self._set_loop_on(tloop)
+        log_info(self, "Controller:WRraw:")
+        ans = self._lakeshore.wrraw(string)
+        return ans
 
-    def off(self, tloop):
-        """Stop the regulation on loop
-           Args:
-              tloop (int): loop number. 1 to 2.
-           Returns:
-              None
-        """
-        self._set_loop_off(tloop)
+    # ------ PID methods ------------------------
 
     def set_kp(self, tloop, kp):
         """ Set the proportional gain
@@ -448,18 +407,24 @@ class LakeshoreBase(Controller):
             Returns:
                None
         """
+        log_info(self, "Controller:set_kp: %s %s" % (tloop, kp))
+
         channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, P=kp)
-        self.__kp = kp
+        # self.__kp = kp
 
-    def read_kp(self, tloop):
+    def get_kp(self, tloop):
         """ Read the proportional gain
             Returns:
                kp (float): gain value - 0.1 to 1000
         """
+        log_info(self, "Controller:get_kp: %s" % (tloop))
+
         channel = tloop.config.get("channel")
-        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
-        return self.__kp
+        # self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
+        # return self.__kp
+        kp, ki, kd = self._lakeshore.pid(channel)
+        return kp
 
     def set_ki(self, tloop, ki):
         """ Set the integral reset
@@ -468,18 +433,22 @@ class LakeshoreBase(Controller):
             Returns:
                None
         """
+        log_info(self, "Controller:set_ki: %s %s" % (tloop, ki))
         channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, I=ki)
-        self.__ki = ki
+        # self.__ki = ki
 
-    def read_ki(self, tloop):
+    def get_ki(self, tloop):
         """ Read the integral reset
             Returns:
                ki (float): value - 0.1 to 1000
         """
+        log_info(self, "Controller:get_ki: %s" % (tloop))
         channel = tloop.config.get("channel")
-        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
-        return self.__ki
+        # self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
+        # return self.__ki
+        kp, ki, kd = self._lakeshore.pid(channel)
+        return ki
 
     def set_kd(self, tloop, kd):
         """ Set the derivative rate
@@ -488,21 +457,182 @@ class LakeshoreBase(Controller):
             Returns:
                None
         """
+        log_info(self, "Controller:set_kd: %s %s" % (tloop, kd))
         channel = tloop.config.get("channel")
         self._lakeshore.pid(channel, D=kd)
-        self.__kd = kd
+        # self.__kd = kd
 
-    def read_kd(self, tloop):
+    def get_kd(self, tloop):
         """ Read the derivative rate
             Returns:
                kd (float): value - 0 - 200
         """
+        log_info(self, "Controller:get_kd: %s" % (tloop))
         channel = tloop.config.get("channel")
-        self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
-        return self.__kd
+        # self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
+        # return self.__kd
+        kp, ki, kd = self._lakeshore.pid(channel)
+        return kd
 
-    def __info__(self):
-        return "\n".join(self._show())
+    def start_regulation(self, tloop):
+        """
+        Starts the regulation process.
+        It must NOT start the ramp, use 'start_ramp' to do so.
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop:  Loop class type object
+        """
+        log_info(self, "Controller:start_regulation: %s" % (tloop))
+
+        self._set_loop_on(tloop)
+
+    def stop_regulation(self, tloop):
+        """
+        Stops the regulation process.
+        It must NOT stop the ramp, use 'stop_ramp' to do so.
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args: 
+           tloop:  Loop class type object
+        """
+        log_info(self, "Controller:stop_regulation: %s" % (tloop))
+
+        self._set_loop_off(tloop)
+
+    # ------ setpoint methods ------------------------
+
+    def set_setpoint(self, tloop, sp, **kwargs):
+        """Set the value of the output setpoint
+           Args:
+              sp (float): final temperature [K] or [deg]
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        log_info(self, "Controller:set_setpoint: %s %s" % (tloop, sp))
+        channel = tloop.output.config.get("channel")
+        self._lakeshore.setpoint(channel, sp)
+        self.last_set_point = sp
+
+    def get_setpoint(self, tloop):
+        """Read the value of the output setpoint
+           Returns:
+              (float): current gas temperature setpoint
+        """
+        log_info(self, "Controller:get_setpoint: %s" % (tloop))
+        channel = tloop.output.config.get("channel")
+        # self.__set_point = self._lakeshore.setpoint(channel)
+        # return self.__set_point
+        return self._lakeshore.setpoint(channel)
+
+    # ------ setpoint ramping methods ------------------------
+
+    def start_ramp(self, tloop, sp, **kwargs):  # TO BE TESTED
+        """Start ramping to setpoint
+           Args:
+              sp (float): The setpoint temperature [K]
+           Kwargs:
+              rate (int): The ramp rate [K/min]
+           Returns:
+              None
+        """
+        log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
+        channel = tloop.output.config.get("channel")
+        rate = kwargs.get("rate")
+        # if rate is None:
+        #    rate = self._lakeshore.ramp_rate(channel)["rate"]
+        # self.__ramp_rate = rate
+        # self.__set_point = sp
+
+        if rate is None:
+            rate = self.get_ramprate(tloop)
+        else:
+            self.set_ramprate(tloop, rate)
+
+        self._lakeshore.ramp(channel, sp, rate)
+
+    def stop_ramp(self, tloop):
+        """Stop the ramping going to setpoint
+        """
+        log_info(self, "Controller:stop_ramp: %s" % (tloop))
+        # if ramp is active, disable it
+        if self.is_ramping(tloop):
+            # setting ramp rate causes ramping off
+            rate = self.get_ramprate(tloop)
+            self.set_ramprate(tloop, rate)
+
+    def is_ramping(self, tloop):
+        """
+        Get the ramping status.
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           tloop:  Loop class type object
+
+        Returns:
+           (bool) True if ramping, else False.
+        """
+        log_info(self, "Controller:is_ramping: %s" % (tloop))
+
+        channel = tloop.output.config.get("channel")
+        ramp_stat = self._lakeshore.ramp_status(channel)
+        if ramp_stat == 1:
+            return True
+        else:
+            return False
+
+    def set_ramprate(self, tloop, rate):
+        """Set the ramp rate
+           Args:
+              rate (float): The ramp rate [K/min] - no action, cash value only.
+        """
+        log_info(self, "Controller:set_ramprate: %s %s" % (tloop, rate))
+        channel = tloop.output.config.get("channel")
+        self._lakeshore.ramp_rate(channel, rate)
+        # self.__ramp_rate = rate
+
+    def get_ramprate(self, tloop):
+        """Read the ramp rate
+           Returns:
+              (int): ramprate [K/min]
+        """
+        log_info(self, "Controller:get_ramprate: %s" % (tloop))
+        channel = tloop.output.config.get("channel")
+        # self.__ramp_rate = self._lakeshore.ramp_rate(channel)["rate"]
+        # return self.__ramp_rate
+        return self._lakeshore.ramp_rate(channel)["rate"]
+
+    # ------ others ------------------------------
+
+    def _f(self):
+        pass
+
+    def set_in_safe_mode(self, toutput):
+        """
+        Set the output in a safe mode (like stop heating)
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           toutput:  Output class type object 
+        """
+        log_info(self, "Controller:set_in_safe_mode: %s" % (toutput))
+
+        toutput.range = 0
+
+    # ----- Controller specific -----------------
+
+    @autocomplete_property
+    def HeaterState(self):
+        return self.controller.HeaterState
+
+    @property
+    def model(self):
+        """ Get the model number
+        Returns:
+        model (int): model number
+        """
+        log_info(self, "Controller:model")
+        return self._lakeshore._model()
 
     def _show(self, name=None):
         """ Display all main parameters and values for the temperature controller
@@ -510,7 +640,7 @@ class LakeshoreBase(Controller):
               device ID, PID, heater range, loop status, sensors configuration, inputs temperature etc.
         """
         repr_list = []
-        log_info(self, "_show")
+        log_info(self, "Controller:_show")
         # Get full identification string
         full_id = self._lakeshore.send_cmd("*IDN?")
         repr_list.append("Lakeshore identification %s" % (full_id))
@@ -546,11 +676,11 @@ class LakeshoreBase(Controller):
             # Get heater power
             htr_power = float(output.value_percent)
             repr_list.append("Heater power = %.1f %%" % htr_power)
-            ramp_dict = output.ramp_info
-            repr_list.append(
-                "Ramp enable is %(state)s with setpoint: %(sp)s and ramp-rate: %(rate).3f K/min.\nRamp state is %(ramp_state)s"
-                % ramp_dict
-            )
+            # ramp_dict = output.ramp_info
+            # repr_list.append(
+            #    "Ramp enable is %(state)s with setpoint: %(sp)s and ramp-rate: %(rate).3f K/min.\nRamp state is %(ramp_state)s"
+            #    % ramp_dict
+            # )
 
         # loops
         loop = self.loops.get(name)
@@ -564,48 +694,19 @@ class LakeshoreBase(Controller):
             repr_list.append("PID parameters")
             repr_list.append(
                 "P: %.1f\tI: %.1f\tD: %.1f"
-                % (float(loop.kp()), float(loop.ki()), float(loop.kd()))
+                % (float(loop.kp), float(loop.ki), float(loop.kd))
+            )
+
+            ramp_dict = loop.ramp_info
+            repr_list.append(
+                "Ramp enable is %(state)s with setpoint: %(sp)s and ramp-rate: %(rate).3f K/min.\nRamp state is %(ramp_state)s"
+                % ramp_dict
             )
 
         return repr_list
 
-    # Raw communication methods, callable from any
-    # type of object (Input/Output/Loop)
-    # --------------------------------------------
-    def Wraw(self, string):
-
-        """
-        A string to write to the controller
-
-        Args:
-           string:  the string to write
-        """
-        self._lakeshore.wraw(string)
-
-    def Rraw(self):
-        """
-        Reading the controller
-
-        returns:
-           response from the controller
-        """
-        ans = self._lakeshore.rraw()
-        return ans
-
-    def WRraw(self, string):
-        """
-        Write then Reading the controller
-
-        Args:
-           string:  the string to write
-        returns:
-           response from the controller
-        """
-        ans = self._lakeshore.wrraw(string)
-        return ans
-
     def _used_curve(self, channel):
-        log_info(self, "_used_curve")
+        log_info(self, "Controller:_used_curve")
         curve_number = self._lakeshore.send_cmd("INCRV?", channel=channel)
         command = "CRVHDR? %s" % curve_number
         curve_header = self._lakeshore.send_cmd(command, channel=channel)
@@ -625,7 +726,7 @@ class LakeshoreBase(Controller):
         }
 
     def _select(self, crvn, channel):
-        log_info(self, f"_select_curve: {crvn}")
+        log_info(self, f"Controller:_select_curve: {crvn}")
         if crvn not in range(1, self.NCURVES + 1):
             raise ValueError(
                 f"Curve number {crvn} is invalid. Should be [1,{self.NCURVES-1}]"
@@ -638,7 +739,7 @@ class LakeshoreBase(Controller):
             Returns:
               a row for all the curves from 1 to the number of available ones
         """
-        log_info(self, "_list_all")
+        log_info(self, "Controller:_list_all")
         print(" #            Name       SN         Format     Limit(K) Temp. coef.")
         for i in range(1, self.NCURVES + 1):
             command = "CRVHDR? %s" % i
@@ -662,7 +763,7 @@ class LakeshoreBase(Controller):
             )
 
     def _write(self, crvn, crvfile):
-        log_info(self, "_curve_write")
+        log_info(self, "Controller:_curve_write")
         user_min_curve, user_max_curve = self.NUSERCURVES
 
         if crvn not in range(user_min_curve, user_max_curve + 1):
@@ -792,7 +893,7 @@ class LakeshoreBase(Controller):
             )
 
     def _delete(self, crvn):
-        log_info(self, f"_delete: {crvn}")
+        log_info(self, f"Controller:_delete: {crvn}")
         user_min_curve, user_max_curve = self.NUSERCURVES
 
         if crvn is None:
@@ -801,7 +902,7 @@ class LakeshoreBase(Controller):
                 % (user_min_curve, user_max_curve)
             )
         else:
-            log_debug(self, "Curve number passed as arg = %d" % crvn)
+            log_info(self, "Curve number passed as arg = %d" % crvn)
 
         if crvn not in range(user_min_curve, user_max_curve + 1):
             raise ValueError(

@@ -64,7 +64,7 @@ yml configuration example:
       output: $ls332o_2
       channel: 2
 """
-import types
+
 import time
 import enum
 from bliss.comm import serial

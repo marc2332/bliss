@@ -6,17 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-import sys
 import time
 from itertools import groupby
 import numpy
 import gevent.event
 
-import bliss
 from bliss.common import axis
 from bliss.common import event
-from bliss.common.event import dispatcher
-from bliss.common.cleanup import error_cleanup
+from bliss.common import cleanup
 from bliss.common.utils import grouped
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.physics.trajectory import find_pvt
@@ -126,15 +123,12 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
         return self._start_move()
 
     def _start_move(self):
-        self.initial_velocity = self.movable.velocity
-        try:
+        with cleanup.cleanup(self.movable, restore_list=(cleanup.axis.VEL,)):
             self.movable.velocity = self.velocity
             end = self._calculate_undershoot(self.end_pos, end=True)
             self.movable.move(end)
             if self.backnforth:
                 self.start_pos, self.end_pos = self.end_pos, self.start_pos
-        finally:
-            self.movable.velocity = self.initial_velocity
 
     def trigger_ready(self):
         return not self.movable.is_moving
@@ -144,6 +138,144 @@ class MotorMaster(AcquisitionMaster, UndershootMixin):
 
     def stop(self):
         self.movable.stop()
+
+
+class TwoMotorMaster(AcquisitionMaster):
+    """
+    Master for two independent motors.
+    Synchronization only by acceleration and speed calculation.
+    """
+
+    def __init__(
+        self,
+        master_axis,
+        master_start,
+        master_end,
+        slave_axis,
+        slave_start,
+        slave_end,
+        time=0,
+        master_undershoot=None,
+        master_undershoot_start_margin=0,
+        master_undershoot_end_margin=0,
+        slave_undershoot=None,
+        slave_undershoot_start_margin=0,
+        slave_undershoot_end_margin=0,
+        trigger_type=AcquisitionMaster.SOFTWARE,
+        **keys,
+    ):
+        AcquisitionMaster.__init__(
+            self, master_axis, slave_axis, trigger_type=trigger_type, **keys
+        )
+
+        self.master_movable = master_axis
+        self.master = {}
+        self.master["start_pos"] = master_start
+        self.master["end_pos"] = master_end
+        self.master["undershoot"] = master_undershoot
+        self.master["undershoot_start_margin"] = master_undershoot_start_margin
+        self.master["undershoot_end_margin"] = master_undershoot_end_margin
+        self.master["velocity"] = master_axis.velocity
+        self.master["acceleration"] = master_axis.acceleration
+
+        self.slave_movable = slave_axis
+        self.slave = {}
+        self.slave["start_pos"] = slave_start
+        self.slave["end_pos"] = slave_end
+        self.slave["undershoot"] = slave_undershoot
+        self.slave["undershoot_start_margin"] = slave_undershoot_start_margin
+        self.slave["undershoot_end_margin"] = slave_undershoot_end_margin
+        self.slave["velocity"] = slave_axis.velocity
+        self.slave["acceleration"] = slave_axis.acceleration
+
+        self.time = time
+
+        #
+        # calculate velocities
+        #
+        if self.time > 0:
+            self.master["velocity"] = abs(master_end - master_start) / float(self.time)
+        else:
+            self.master["velocity"] = self.master_movable.velocity
+            self.time = abs(master_end - master_start) / self.master_movable.velocity
+
+        self.slave["velocity"] = abs(slave_end - slave_start) / float(self.time)
+
+        #
+        # calculate full acceleration times
+        #
+        master_acc_time = self.master["velocity"] / self.master["acceleration"]
+        slave_acc_time = self.slave["velocity"] / self.slave["acceleration"]
+
+        #
+        # Calculate the time correction for the faster motor
+        #
+        if master_acc_time > slave_acc_time:
+            time_diff = master_acc_time - slave_acc_time
+            add_margin = time_diff * self.slave["velocity"]
+            self.slave["undershoot_start_margin"] += add_margin
+        else:
+            time_diff = slave_acc_time - master_acc_time
+            add_margin = time_diff * self.master["velocity"]
+            self.master["undershoot_start_margin"] += add_margin
+
+    def calculate_undershoot(self, mot_dict, end=False):
+        d = 1 if mot_dict["end_pos"] >= mot_dict["start_pos"] else -1
+        d *= -1 if end else 1
+
+        if mot_dict["undershoot"] is None:
+            acctime = float(mot_dict["velocity"]) / mot_dict["acceleration"]
+            undershoot = mot_dict["velocity"] * acctime / 2
+        else:
+            undershoot = mot_dict["undershoot"]
+
+        if end:
+            pos = mot_dict["end_pos"] - (d * undershoot)
+            margin = d * mot_dict["undershoot_end_margin"]
+        else:
+            pos = mot_dict["start_pos"] - (d * undershoot)
+            margin = d * mot_dict["undershoot_start_margin"]
+        return pos - margin
+
+    def prepare(self):
+        master_start = self.calculate_undershoot(self.master)
+        slave_start = self.calculate_undershoot(self.slave)
+
+        self.device.move(
+            {self.master_movable: master_start, self.slave_movable: slave_start}
+        )
+
+    def start(self):
+        if self.parent:
+            return
+        self.trigger()
+
+    def trigger(self):
+        self.trigger_slaves()
+        return self._start_move()
+
+    def _start_move(self):
+        with cleanup.cleanup(
+            self.master_movable, self.slave_movable, restore_list=(cleanup.axis.VEL,)
+        ):
+            self.master_movable.velocity = self.master["velocity"]
+            self.slave_movable.velocity = self.slave["velocity"]
+
+            master_end = self.calculate_undershoot(self.master, end=True)
+            slave_end = self.calculate_undershoot(self.slave, end=True)
+
+            self.device.move(
+                {self.master_movable: master_end, self.slave_movable: slave_end}
+            )
+
+    def trigger_ready(self):
+        return not self.device.is_moving
+
+    def wait_ready(self):
+        self.device.wait_move()
+
+    def stop(self):
+        self.device.stop()
 
 
 class SoftwarePositionTriggerMaster(MotorMaster):
@@ -283,7 +415,7 @@ class JogMotorMaster(AcquisitionMaster):
         self.movable.move(start)
 
     def start(self, polling_time=axis.DEFAULT_POLLING_TIME):
-        with error_cleanup(self.stop):
+        with cleanup.error_cleanup(self.stop):
             self.movable.jog(self.jog_speed)
             self.__end_jog_task = gevent.spawn(self._end_jog_watch, polling_time)
             self.__end_jog_task.join()

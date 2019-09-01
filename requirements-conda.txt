@@ -1,6 +1,7 @@
 # Conda requirements file
 blessings
 colorama
+cython
 docopt
 flask
 louie >= 1.3.111         # packaged by BCU without nose

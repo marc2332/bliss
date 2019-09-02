@@ -495,7 +495,7 @@ class Session:
 
 class DefaultSession(Session):
     def __init__(self):
-        Session.__init__(self, "default", {"config-objects": []})
+        Session.__init__(self, "__DEFAULT__", {"config-objects": []})
 
     def _load_config(self, verbose=True):
         return

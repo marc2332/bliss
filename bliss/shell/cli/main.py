@@ -226,7 +226,7 @@ def main():
 
         if session_name is None:
             session = (
-                f"__DEFAULT__{os.getpid()}"
+                f"__DEFAULT__"  # {os.getpid()}
             )  # see __DEFAULT__ in bliss.shell.cli.repl => def cli()
         else:
             session = session_name

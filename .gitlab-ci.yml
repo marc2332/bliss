@@ -60,9 +60,12 @@ package:
   stage: build
   image: continuumio/miniconda3:latest
   script:
-    # create package env and install all requirements and conda-build
+    # create package env and install all requirements and conda-build, (gcc and g++ compiler required for flint)
     - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
     - source activate buildenv
+    # create links to reach prefixed compilers of conda
+    - ln -s /opt/conda/envs/buildenv/bin/x86_64-conda_cos6-linux-gnu-gcc /opt/conda/envs/buildenv/bin/gcc
+    - ln -s /opt/conda/envs/buildenv/bin/x86_64-conda_cos6-linux-gnu-g++ /opt/conda/envs/buildenv/bin/g++
     # triggering the creation of bliss/release.py file
     - python -c "from setup import generate_release_file;generate_release_file()"
     # creating the meta.yaml file for conda packet generation

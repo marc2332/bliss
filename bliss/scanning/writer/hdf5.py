@@ -106,6 +106,9 @@ class Writer(FileWriter):
             self.last_point_index[channel] += data_len
 
     def finalize_scan_entry(self, scan):
+        if self.file is None:  # nothing to finalize, scan didn't record anything
+            return
+
         scan_name = scan.node.name
         scan_info = scan.scan_info
 

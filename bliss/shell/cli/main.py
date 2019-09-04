@@ -148,15 +148,13 @@ def create_session(session_name):
 def main():
     # Parse arguments wit docopt : it uses this file (main.py) docstring
     # to define parameters to handle.
-    sessions_list = get_sessions_list()
-
     try:
         arguments = docopt(__doc__)
     except DocoptExit:
         print("")
         print("Available BLISS sessions:")
         print("-------------------------")
-        print_sessions_list(sessions_list)
+        print_sessions_list(get_sessions_list())
         print("")
         arguments = docopt(__doc__)
 
@@ -174,18 +172,18 @@ def main():
 
     # Display session names and trees
     if arguments["--show-sessions"]:
-        print_sessions_and_trees(sessions_list)
+        print_sessions_and_trees(get_sessions_list())
         exit(0)
 
     # Display session names only
     if arguments["--show-sessions-only"]:
-        print_sessions_list(sessions_list)
+        print_sessions_list(get_sessions_list())
         exit(0)
 
     # Create session
     if arguments["--create"]:
         session_name = arguments["--create"]
-        if session_name in sessions_list:
+        if session_name in get_sessions_list():
             print(("Session '%s' cannot be created: it already exists." % session_name))
             exit(0)
         else:
@@ -196,7 +194,7 @@ def main():
     # Delete session
     if arguments["--delete"]:
         session_name = arguments["--delete"]
-        if session_name in sessions_list:
+        if session_name in get_sessions_list():
             delete_session(session_name)
             exit(0)
         else:
@@ -211,9 +209,9 @@ def main():
     # Start a specific session
     if arguments["--session"]:
         session_name = arguments["--session"]
-        if session_name not in sessions_list:
+        if session_name not in get_sessions_list():
             print(("'%s' does not seem to be a valid session, exiting." % session_name))
-            print_sessions_list(sessions_list)
+            print_sessions_list(get_sessions_list())
             exit(0)
     else:
         session_name = None

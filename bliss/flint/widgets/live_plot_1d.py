@@ -128,7 +128,9 @@ class LivePlot1D(qt.QWidget):
                 if y_selected_axis == k:
                     item_select.setCheckState(qt.Qt.Checked)
                     legend = "%s -> %s" % (x_axis, axis_name)
-                    self.silx_plot.addCurve([], [], legend=legend, copy=False)
+                    self.silx_plot.addCurve(
+                        [], [], legend=legend, resetzoom=False, copy=False
+                    )
                     curve = self.silx_plot.getCurve(legend)
                     curve.setYAxis("right" if k == 2 else "left")
                     curve.sigItemChanged.connect(self._refresh_legend)
@@ -140,6 +142,8 @@ class LivePlot1D(qt.QWidget):
             self.axes_list_view.setIndexWidget(
                 qindex, LegendSelector.LegendIcon(self.axes_list_view)
             )
+
+        self.silx_plot.resetZoom()
 
         for i in range(5):
             self.axes_list_view.resizeColumnToContents(i)
@@ -188,7 +192,7 @@ class LivePlot1D(qt.QWidget):
                                 y_axis_name = str(self.axes_list_model.item(row).text())
                                 legend = "%s -> %s" % (axis_name, y_axis_name)
                                 key = self.silx_plot.addCurve(
-                                    [], [], legend=legend, copy=False
+                                    [], [], legend=legend, copy=False, resetzoom=False
                                 )
                                 curve = self.silx_plot.getCurve(key)
                                 curve.setYAxis(yaxis)
@@ -213,7 +217,7 @@ class LivePlot1D(qt.QWidget):
                     x_data, y_data = self._get_data(x_axis, y_axis)
                     existed_curve = self.silx_plot.getCurve(legend)
                     key = self.silx_plot.addCurve(
-                        x_data, y_data, legend=legend, copy=False
+                        x_data, y_data, legend=legend, copy=False, resetzoom=False
                     )
                     curve = self.silx_plot.getCurve(key)
                     curve.setVisible(True)
@@ -237,6 +241,7 @@ class LivePlot1D(qt.QWidget):
                     icon.setSymbolColor(color)
                     icon.update()
 
+                self.silx_plot.resetZoom()
                 self._refresh_y_label()
                 self._refresh_legend()
 
@@ -314,9 +319,10 @@ class LivePlot1D(qt.QWidget):
                     if x_data is not None:
                         self._curves[plot] = data_len
                         self.silx_plot.addCurve(
-                            x_data, y_data, legend=legend, copy=False
+                            x_data, y_data, legend=legend, copy=False, resetzoom=False
                         )
                         plot.setVisible(True)
+        self.silx_plot.resetZoom()
 
     def update_all(self):
         self.update_enabled_plots()

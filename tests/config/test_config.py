@@ -205,3 +205,13 @@ def test_bad_icepap_host(beacon):
 
     with pytest.raises(RuntimeError):
         a = bad_mot.position
+
+
+def test_capital_letter_file(beacon):
+    # files starting with capital letter were causing problems,
+    # see merge request !1524
+    # (this was because the files were read before __init__.yml)
+    # This test just makes sure the object from 'A.yml' is properly
+    # returned as expected
+    x = beacon.get("Aunused")
+    assert x

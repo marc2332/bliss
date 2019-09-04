@@ -1,0 +1,7 @@
+controller:
+- class: mockup
+  axes:
+  - name: Aunused
+    steps_per_unit: 10000
+    velocity: 100
+    acceleration: 300

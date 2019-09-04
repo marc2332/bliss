@@ -28,6 +28,7 @@ class LivePlot1D(qt.QWidget):
         self._enabled_plots = dict()
         self._curves = dict()
         self.silx_plot = silx_plot.Plot1D(self)
+        self.silx_plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.x_axis_names = list()
         self.y_axis_names = list()
 

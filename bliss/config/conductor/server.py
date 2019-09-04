@@ -373,7 +373,12 @@ def _send_config_db_files(client_id, message):
         path = _options.db_path
     try:
         for root, dirs, files in os.walk(path, followlinks=True):
-            files = sorted(files)
+            try:
+                files.remove("__init__.yml")
+            except ValueError:  # init not in files list
+                pass
+            else:
+                files.insert(0, "__init__.yml")
             for filename in files:
                 if filename.startswith("."):
                     continue

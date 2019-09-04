@@ -183,7 +183,7 @@ class Mockup(Controller):
 
     def read_position(self, axis, t=None):
         """
-        Returns the position (measured or desired) taken from controller
+        Return the position (measured or desired) taken from controller
         in controller unit (steps).
         """
         gevent.sleep(0.005)  # simulate I/O
@@ -199,7 +199,7 @@ class Mockup(Controller):
 
     def read_encoder(self, encoder):
         """
-        returns encoder position.
+        Return encoder position.
         unit : 'encoder steps'
         """
         if self.__encoders[encoder]["steps"] is not None:
@@ -235,7 +235,7 @@ class Mockup(Controller):
 
     def read_velocity(self, axis):
         """
-        Returns the current velocity taken from controller
+        Return the current velocity taken from controller
         in motor units.
         """
         return axis.settings.get("velocity") * abs(axis.steps_per_unit)
@@ -355,23 +355,34 @@ class Mockup(Controller):
         self._axis_moves[axis]["motion"] = motion
 
     def get_info(self, axis):
-        return "turlututu chapo pointu : %s" % (axis.name)
+        """Return information about Controller and Axis"""
+        info_string = f"Axis: {axis.name}\n"
+        info_string += f"Controller:\n"
+        info_string += f"  class: {self.__class__}\n"
+        info_string += f"  name: {self.name}\n"
+        return info_string
 
     def get_id(self, axis):
         return "MOCKUP AXIS %s" % (axis.name)
 
-    def set_position(self, axis, pos):
+    def set_position(self, axis, new_position):
+        """ Set the position of <axis> in controller to <new_position>.
+        This method is the way to define an offset for <axis>.
+        """
         motion = self._get_axis_motion(axis)
         if motion:
             raise RuntimeError("Cannot set position while moving !")
 
-        self.set_hw_position(axis, pos)
-        self._axis_moves[axis]["target"] = pos
+        self.set_hw_position(axis, new_position)
+        self._axis_moves[axis]["target"] = new_position
         self._axis_moves[axis]["end_t"] = None
 
-        return pos
+        return new_position
 
     def put_discrepancy(self, axis, disc):
+        """Create a discrepancy (for testing purposes) between axis and
+        controller.
+        """
         self.set_position(axis, self.read_position(axis) + disc)
 
     """

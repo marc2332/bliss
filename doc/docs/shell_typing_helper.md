@@ -1,20 +1,22 @@
 # BLISS shell typing helper
 
 To serve the demand of a simplified syntax when entering commands in the bliss
-shell (without additional parenthesis and commas compared to ‘spec’) a ‘typing
-helper’ has been put in place. It is a tightrope walk to respect
+shell (without additional parenthesis and commas compared to ‘spec’) a *typing
+helper* has been put in place. It is a tightrope walk to respect:
 
 * only clean python code syntax
-* enable scientist to type commands in similar way as they are used to e.g. in
+* enable users to type commands in similar way as they are used to e.g. in
   Spec
 
-## Tying in the shell
+
+## Typing in the shell
+
 !!! info
-    Here ⏎ represents pressing the Enter key and ␣ represents pressing the
-    space bar
+    Here, ⏎ represents pressing the Enter key and ␣ represents pressing the
+    space bar.
 
 Lets look at the `wm` command as an example. Lets say we want to see the
-position of two motors m0 and m0.
+position of two motors m0 and m1.
 
 In order for Bliss to be able to interpret the command we need:
 
@@ -42,4 +44,54 @@ $ wa()⏎
 ```
 
 The insertion behaviour of ⏎ is also applied to `;`.
+
+## Objects info
+
+In order to ease the acces of BLISS objects, a shell typing short-cut has been
+implemented: if a name of a BLISS object is typed then `⏎` pressd, the return
+value of `__info__()` method (if implemented) is printed.
+
+This method is intented to return a *string* containing information about the
+object like: name, class, configuration details etc.
+
+This information can be customized for each type of object.
+
+For example, any `Axis` will display it's name, controller and state. But
+additional information can be added case by case.
+
+VSCANNER Example:
+
+```python
+DEMO [1]:  sampy⏎
+ Out [1]:  axis name: sampy
+               state: READY (Axis is READY)
+           controller: <bliss.controllers.motors.vscanner.VSCANNER object at 0x7fe0bf0c2fd0>
+           ###############################
+           Config:
+             url=rfc2217://lid213.esrf.fr:28206
+             class=VSCANNER
+             channel letter:X
+           ###############################
+           ?ERR: b'OK\r'
+           ###############################
+           '?INFO' command:
+           firmware version   : VSCANNER 01.02
+           output voltage     : 0.200001 0.500205
+           unit state         : READY
+           ###############################
+           $
+           Max. number of lines: 3276
+           Internal time step (microsec.): 50
+
+           Current settings:
+              LINE -0.100193 0 1 C
+              SCAN 0 0 1 U
+              VEL 0.001 0
+              LTRIG MASK
+              PTRIG MASK
+              PIXEL 0 0
+              HDELAY 0
+           $
+           ###############################
+```
 

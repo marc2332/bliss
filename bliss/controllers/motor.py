@@ -401,17 +401,18 @@ class Controller:
         raise NotImplementedError
 
     def set_position(self, axis, new_position):
+        """Set the position of <axis> in controller to <new_position>.
+        This method is called by `position` property of <axis>.
+        """
         raise NotImplementedError
 
     def read_encoder(self, encoder):
-        """
-        Returns the encoder value in *encoder steps*.
+        """Return the encoder value in *encoder steps*.
         """
         raise NotImplementedError
 
     def set_encoder(self, encoder, new_value):
-        """
-        Sets encoder value. <new_value> is in encoder steps.
+        """Set encoder value. <new_value> is in encoder steps.
         """
         raise NotImplementedError
 

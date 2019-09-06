@@ -235,7 +235,17 @@ class Flint:
         for master, channels in scan_info["acquisition_chain"].items():
             scalars = channels.get("scalars", [])
             spectra = channels.get("spectra", [])
+            # merge master which are spectra
+            if "spectra" in channels:
+                for c in channels["master"].get("spectra", []):
+                    if c not in spectra:
+                        spectra.append(c)
             images = channels.get("images", [])
+            # merge master which are image
+            if "master" in channels:
+                for c in channels["master"].get("images", []):
+                    if c not in images:
+                        images.append(c)
 
             if scalars:
                 window_title = "1D: " + master + " -> counters"

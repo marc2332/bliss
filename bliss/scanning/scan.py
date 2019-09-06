@@ -1011,7 +1011,7 @@ class Scan:
                             self._data_watch_task.get()
                         self._data_watch_task.kill()
 
-            self._execute_preset("stop")
+                self._execute_preset("stop")
 
     def _run_next(self, next_iter):
         next_iter.start()

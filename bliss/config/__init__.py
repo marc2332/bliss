@@ -18,12 +18,13 @@
     settings
     static
 """
-from . import static
 
 
 def get_sessions_list():
     """Return a list of available sessions found in config"""
     all_sessions = list()
+    from bliss.config import static
+
     config = static.get_config()
     for name in config.names_list:
         c = config.get_config(name)

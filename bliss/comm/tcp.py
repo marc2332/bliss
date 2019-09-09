@@ -350,6 +350,9 @@ class Socket(BaseSocket):
                     log_debug_data(sock, "received", raw_data)
                     sock._data += raw_data
                     sock._event.set()
+                    # Give the hand to other greenlet in case
+                    # of fast stream
+                    gevent.sleep(0)
                 else:
                     break
         except:

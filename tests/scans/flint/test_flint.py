@@ -66,3 +66,15 @@ def test_curve_plot(flint_session):
             "cos": pytest.approx(sin_cos["cos"]),
         }
 
+
+def test_image_display(flint_session, lima_simulator, dummy_acq_device):
+    chain = AcquisitionChain()
+    lima_sim = flint_session.config.get("lima_simulator")
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
+    lima_master.add_counter(lima_sim.counters.image)
+    device = dummy_acq_device.get(None, "dummy", npoints=1)
+    chain.add(lima_master, device)
+    scan = Scan(chain, "test")
+    scan.run()
+    p = scan.get_plot(lima_sim, wait=True)
+    assert isinstance(p, plot.ImagePlot)

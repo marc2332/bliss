@@ -18,6 +18,15 @@ from ..utils import mathutils
 import collections
 
 
+class ScanItem(plot_model.Item):
+    def __init__(self, parent=None, scan: scan_model.Scan = None):
+        super(ScanItem, self).__init__(parent=parent)
+        self.__scan = scan
+
+    def scan(self) -> scan_model.Scan:
+        return self.__scan
+
+
 class CurveMixIn:
     def __init__(self):
         self.__yAxis = "left"

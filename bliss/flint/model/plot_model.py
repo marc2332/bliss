@@ -97,9 +97,9 @@ class Item(qt.QObject):
     def isValid(self):
         return True
 
-    def getStyle(self):
+    def getStyle(self, scan: scan_model.Scan = None) -> Style:
         plot = self.parent()
-        return plot.styleStrategy().getStyleFromItem(self)
+        return plot.styleStrategy().getStyleFromItem(self, scan)
 
 
 _NotComputed = object()

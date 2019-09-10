@@ -615,7 +615,7 @@ _check_reply = re.compile(r"^[#?]|^[0-9]+:\?")
 PARAMETER, POSITION, SLOPE = (0x1000, 0x2000, 0x4000)
 
 
-def _vdata_header(data, axis, vdata_type):
+def _vdata_header(data, axis, vdata_type, addr=None):
     PARDATA_HEADER_FORMAT = "<HBBLLBBHd"
     numpydtype_2_dtype = {
         numpy.dtype(numpy.int8): 0x00,
@@ -642,7 +642,11 @@ def _vdata_header(data, axis, vdata_type):
     header_size = struct.calcsize(PARDATA_HEADER_FORMAT)
     full_size = header_size + len(data.tostring())
     aligned_full_size = (full_size + 3) & ~3  # alignment 32 bits
-    flags = vdata_type | axis.address
+    if addr is None:
+        flags = vdata_type | axis.address
+    else:
+        flags = vdata_type | 255
+
     bin_header = struct.pack(
         PARDATA_HEADER_FORMAT,
         0xCAFE,  # vdata signature
@@ -662,9 +666,9 @@ def _vdata_header(data, axis, vdata_type):
 
 
 @protect_from_kill
-def _command(cnx, cmd, data=None, pre_cmd=None):
+def _command(cnx, cmd, data=None, pre_cmd=None, timeout=None):
     try:
-        return _command_raw(cnx, cmd, data, pre_cmd)
+        return _command_raw(cnx, cmd, data, pre_cmd, timeout=timeout)
     except IOError as ioex:
         if ioex.errno == 113:
             _msg = f"IOError {ioex.errno}:{errno.errorcode[ioex.errno]}"
@@ -684,7 +688,7 @@ def _command(cnx, cmd, data=None, pre_cmd=None):
         raise RuntimeError(_msg)
 
 
-def _command_raw(cnx, cmd, data=None, pre_cmd=None):
+def _command_raw(cnx, cmd, data=None, pre_cmd=None, timeout=None):
     reply_flag = _check_reply.match(cmd)
     cmd = cmd.encode()
     if data is not None:
@@ -711,12 +715,17 @@ def _command_raw(cnx, cmd, data=None, pre_cmd=None):
         transaction = cnx._write(full_cmd)
     with cnx.Transaction(cnx, transaction):
         if reply_flag:
-            msg = cnx._readline(transaction=transaction, clear_transaction=False)
+            msg = cnx._readline(
+                transaction=transaction, clear_transaction=False, timeout=timeout
+            )
             cmd = cmd.strip(b"#").split(b" ")[0]
             msg = msg.replace(cmd + b" ", b"")
             if msg.startswith(b"$"):
                 msg = cnx._readline(
-                    transaction=transaction, clear_transaction=False, eol=b"$\n"
+                    transaction=transaction,
+                    clear_transaction=False,
+                    eol=b"$\n",
+                    timeout=timeout,
                 )
             elif msg.startswith(b"ERROR"):
                 raise RuntimeError(msg.replace(b"ERROR ", b"").decode())

@@ -151,16 +151,16 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
         return scan_model.Data(self, data)
 
 
-MinData = collections.namedtuple(
-    "MinData", ["min_index", "min_location_y", "min_location_x", "max_y_value"]
+MaxData = collections.namedtuple(
+    "MaxData", ["max_index", "max_location_y", "max_location_x", "min_y_value"]
 )
 
 
-class MinCurveItem(plot_model.AbstractComputableItem, CurveStatisticMixIn):
+class MaxCurveItem(plot_model.AbstractComputableItem, CurveStatisticMixIn):
     def isResultValid(self, result):
         return result is not None
 
-    def compute(self, scan: scan_model.Scan) -> Union[None, MinData]:
+    def compute(self, scan: scan_model.Scan) -> Union[None, MaxData]:
         sourceItem = self.source()
 
         xx = sourceItem.xArray(scan)
@@ -168,9 +168,9 @@ class MinCurveItem(plot_model.AbstractComputableItem, CurveStatisticMixIn):
         if xx is None or yy is None:
             return None
 
-        min_index = numpy.argmin(yy)
-        max_y_value = numpy.max(yy)
-        min_location_x, min_location_y = xx[min_index], yy[min_index]
+        max_index = numpy.argmax(yy)
+        min_y_value = numpy.min(yy)
+        max_location_x, max_location_y = xx[max_index], yy[max_index]
 
-        result = MinData(min_index, min_location_y, min_location_x, max_y_value)
+        result = MaxData(max_index, max_location_y, max_location_x, min_y_value)
         return result

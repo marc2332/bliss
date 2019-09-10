@@ -2,6 +2,10 @@
 
 import pytest
 from bliss.common import plot
+from bliss.scanning.scan import Scan
+from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+import gevent
 
 
 def test_empty_plot(flint_session):
@@ -61,3 +65,4 @@ def test_curve_plot(flint_session):
             "sin": pytest.approx(sin_cos["sin"]),
             "cos": pytest.approx(sin_cos["cos"]),
         }
+

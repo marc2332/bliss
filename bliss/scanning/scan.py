@@ -1115,24 +1115,17 @@ class Scan:
             wait (defaults to False): wait for plot to be shown
         """
         # check that flint is running
-        if not check_flint(_current_session().name):
+        if not check_flint(current_session.name):
             return
 
         for master, channels in self.scan_info["acquisition_chain"].items():
-            if scan_item.name == master:
-                # return scalar plot(s) with this master
-                args = (master, "0d", 0)
+            # find plot within this master slave channels
+            args = self._find_plot_type_index(scan_item.name, channels)
+            if args is None:
+                # hopefully scan item is one of this master channels
+                args = self._find_plot_type_index(scan_item.name, channels["master"])
+            if args:
                 break
-            else:
-                # find plot within this master slave channels
-                args = self._find_plot_type_index(scan_item.name, channels)
-                if args is None:
-                    # hopefully scan item is one of this master channels
-                    args = self._find_plot_type_index(
-                        scan_item.name, channels["master"]
-                    )
-                if args:
-                    break
         else:
             raise ValueError("Cannot find plot with '%s`" % scan_item.name)
 
@@ -1141,7 +1134,10 @@ class Scan:
         flint = get_flint()
         if wait:
             flint.wait_data(master, plot_type, index)
-        plot_id = flint.get_live_scan_plot(master, plot_type, index)
+        try:
+            plot_id = flint.get_live_scan_plot(master, plot_type, index)
+        except IndexError:
+            return
         if plot_type == "0d":
             return CurvePlot(existing_id=plot_id)
         elif plot_type == "1d":

@@ -143,6 +143,14 @@ class AbstractComputableItem(Item):
         raise NotImplementedError()
 
 
+class AbstractIncrementalComputableItem(AbstractComputableItem):
+    def incrementalCompute(
+        self, previousResult: object, scan: scan_model.Scan
+    ) -> object:
+        """Compute a data using the previous value as basis"""
+        raise NotImplementedError()
+
+
 class Style:
     def __init__(self, lineStyle=None, lineColor=None, linePalette=None):
         super(Style, self).__init__()

@@ -161,11 +161,12 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
 
 
 MaxData = collections.namedtuple(
-    "MaxData", ["max_index", "max_location_y", "max_location_x", "min_y_value"]
+    "MaxData",
+    ["max_index", "max_location_y", "max_location_x", "min_y_value", "nb_points"],
 )
 
 
-class MaxCurveItem(plot_model.AbstractComputableItem, CurveStatisticMixIn):
+class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
     def isResultValid(self, result):
         return result is not None
 
@@ -181,5 +182,49 @@ class MaxCurveItem(plot_model.AbstractComputableItem, CurveStatisticMixIn):
         min_y_value = numpy.min(yy)
         max_location_x, max_location_y = xx[max_index], yy[max_index]
 
-        result = MaxData(max_index, max_location_y, max_location_x, min_y_value)
+        result = MaxData(
+            max_index, max_location_y, max_location_x, min_y_value, len(xx)
+        )
+        return result
+
+    def incrementalCompute(
+        self, previousResult: MaxData, scan: scan_model.Scan
+    ) -> MaxData:
+        sourceItem = self.source()
+
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            raise ValueError("Non empty data is expected")
+
+        nb = previousResult.nb_points
+        if nb == len(xx):
+            # obviously nothing to compute
+            return previousResult
+
+        xx = xx[nb:]
+        yy = yy[nb:]
+
+        max_index = numpy.argmax(yy)
+        min_y_value = numpy.min(yy)
+        max_location_x, max_location_y = xx[max_index], yy[max_index]
+        max_index = max_index + nb
+
+        if previousResult.min_y_value < min_y_value:
+            min_y_value = previousResult.min_y_value
+
+        if previousResult.max_location_y > max_location_y:
+            # Update and return the previous result
+            return MaxData(
+                previousResult.max_index,
+                previousResult.max_location_y,
+                previousResult.max_location_x,
+                min_y_value,
+                nb + len(xx),
+            )
+
+        # Update and new return the previous result
+        result = MaxData(
+            max_index, max_location_y, max_location_x, min_y_value, nb + len(xx)
+        )
         return result

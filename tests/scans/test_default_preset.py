@@ -80,7 +80,7 @@ def test_iteration_preset(session):
     simul_counter = getattr(setup_globals, "sim_ct_gauss")
     m1 = getattr(setup_globals, "m1")
 
-    scans.ascan(m1, 0, 0.1, 10, 0, simul_counter, save=False)
+    scans.ascan(m1, 0, 0.1, 9, 0, simul_counter, save=False)
     assert preset.prepare_called == 10
     assert preset.start_called == 10
     assert preset.stop_called == 10

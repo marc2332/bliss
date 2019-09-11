@@ -88,7 +88,7 @@ def test_soft_axis_scan(session):
     m0 = SoftAxis("another_motor", o0)
     c0 = SoftCounter(o0, value="position", name="motor_counter")
 
-    scan = ascan(m0, -200, 200, 100, 0.001, c0)
+    scan = ascan(m0, -200, 200, 99, 0.001, c0)
 
     data = scan.get_data()
 

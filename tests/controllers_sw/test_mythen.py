@@ -150,7 +150,7 @@ def test_mythen_ct_scan(run_command, session):
 def test_mythen_default_chain_with_counter_namespace(run_command, session):
     m0 = session.config.get("m0")
     mythen = session.config.get("mythen1")
-    scan = scans.ascan(m0, 0, 10, 3, 0.1, mythen, return_scan=True, save=False)
+    scan = scans.ascan(m0, 0, 10, 2, 0.1, mythen, return_scan=True, save=False)
     data = scan.get_data()["spectrum"]
     assert data.shape == (3, 1280)
     assert np.array_equal(data, [list(range(1280))] * 3)

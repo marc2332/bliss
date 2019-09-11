@@ -106,9 +106,7 @@ def test_pepu_default_chain_with_counters(session, pepu):
     # Get controllers
     m0 = session.config.get("m0")
     # Run scan
-    scan = scans.ascan(
-        m0, 0, 10, 10, 0.01, *pepu.counters, return_scan=True, save=False
-    )
+    scan = scans.ascan(m0, 0, 10, 9, 0.01, *pepu.counters, return_scan=True, save=False)
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)
@@ -118,7 +116,7 @@ def test_pepu_default_chain_with_counter_namespace(session, pepu):
     # Get controllers
     m0 = session.config.get("m0")
     # Run scan
-    scan = scans.ascan(m0, 0, 10, 10, 0.01, pepu.counters, return_scan=True, save=False)
+    scan = scans.ascan(m0, 0, 10, 9, 0.01, pepu.counters, return_scan=True, save=False)
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)
@@ -132,7 +130,7 @@ def test_pepu_default_chain_with_measurement_group(session, pepu):
     # Measurement group
     mg = MeasurementGroup("mygroup", {"counters": ["pepu1"]})
     # Run scan
-    scan = scans.ascan(m0, 0, 10, 10, 0.01, mg, return_scan=True, save=False)
+    scan = scans.ascan(m0, 0, 10, 9, 0.01, mg, return_scan=True, save=False)
     # Checks
     data = scan.get_data()
     pepu.assert_data(data, 10)

@@ -38,7 +38,7 @@ def test_dscan(session):
     robz2 = session.env_dict["robz2"]
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
-    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False)
+    s = scans.dscan(robz2, -0.2, 0.2, 1, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
@@ -64,7 +64,7 @@ def test_dscan_move_done(session):
 
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
-    s = scans.dscan(robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False)
+    s = scans.dscan(robz2, -0.2, 0.2, 1, 0, simul_counter, return_scan=True, save=False)
     assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(
@@ -105,7 +105,7 @@ def test_anscan(session):
     roby = session.env_dict["roby"]
     robz = session.env_dict["robz"]
     diode = session.env_dict["diode"]
-    s = scans.anscan(0.1, 2, roby, 0, 0.1, robz, 0.1, 0.2, diode, save=False)
+    s = scans.anscan(0.1, 1, roby, 0, 0.1, robz, 0.1, 0.2, diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
     assert numpy.array_equal(scan_data["robz"], (0.1, 0.2))
@@ -278,7 +278,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 9, 10, 0.01, diode)
+    scans.ascan(roby, 0, 9, 9, 0.01, diode)
     captured = capsys.readouterr()
 
     assert captured.out == "scan_new\n" + "scan_data\n" * 10 + "scan_end\n"
@@ -387,11 +387,11 @@ def test_amesh(session):
         robz2,
         0,
         10,
-        5,
+        4,
         robz,
         0,
         5,
-        3,
+        2,
         0.01,
         simul_counter,
         return_scan=True,
@@ -420,11 +420,11 @@ def test_dmesh(session):
         robz2,
         -5,
         5,
-        5,
+        4,
         robz,
         -3,
         3,
-        3,
+        2,
         0.01,
         simul_counter,
         return_scan=True,
@@ -525,7 +525,7 @@ def test_calc_counters_std_scan(session):
         return {calc_name: data_dict["sim_ct_gauss"] ** 2}
 
     calc_counter = measurement.CalcCounter(calc_name, pow2, cnt)
-    s = scans.ascan(robz2, 0, .1, 10, 0, calc_counter, save=False)
+    s = scans.ascan(robz2, 0, .1, 9, 0, calc_counter, save=False)
     assert variables["nb_points"] == 10
     data = s.get_data()
     src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}

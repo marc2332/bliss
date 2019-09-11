@@ -99,7 +99,12 @@ class Item(qt.QObject):
 
     def getStyle(self, scan: scan_model.Scan = None) -> Style:
         plot = self.parent()
-        return plot.styleStrategy().getStyleFromItem(self, scan)
+        strategy = plot.styleStrategy()
+        # FIXME: It means the architecture is not nice
+        try:
+            return strategy.getStyleFromItem(self, scan)
+        except:
+            return strategy.getStyleFromItem(self, None)
 
 
 _NotComputed = object()

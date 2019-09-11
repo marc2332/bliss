@@ -33,6 +33,74 @@ Beacon supports the following plugins:
 Configuration plugins are Python files located in `bliss.config.plugins`. The
 name of the plugin Python module must correspond to the plugin name.
 
+### Using `bliss` plugin to create an object
+
+With this plugin, keyword are:
+
+ - `class` basically the class of our object.
+ - `package` (optional) what package should be load where the class will be found.
+    i.e: id15.motors.aero
+ - `module` (optional) define the package name found under **bliss.controllers** if `package`
+   keyword is not specify. i.e: temperature.oxford800 *package* loaded
+   would be **bliss.controllers.temperature.oxford800** 
+
+!!!note
+
+    if `package` and `module` is not defined, the plugin will use the
+    `class` lower the name given and load the module under
+    **bliss.controllers**.
+
+Signature of object constructor using this plugin is:
+
+```python
+class MyObject:
+    def __init__(self,name,configuration):
+        pass
+```
+
+with:
+
+- `name` the given name in the configuration file
+- `configuration` a dictionary like
+
+#### Simple example
+
+```yaml
+name: simple_object
+class: SimpleObject
+package: example.simple_object
+needed_params: "Don't remove"
+other_params: 10
+```
+
+This file has to be located at **example.simple_object**
+```python
+class SimpleObject: # class name specify in yaml
+    def __init__(self,name,configuration):
+        self.name = name
+        assert configuration.get('needed_params') == "Don't remove"
+        # other params is 5 if not specify in yaml file
+        self.other_params = configuration.get('other_params',5)
+```
+
+In case of configuring several object of that kind, yaml may look like:
+
+```yaml
+class: SimpleObject
+package: example.simple_object
+object_list: # could be any keyword
+    - name: simple_object1
+      needed_params: "Don't remove"
+      other_params: 10
+    - name: simple_object2
+      needed_params: "Don't remove"
+      other_params: 23.2
+```
+
+!!!note
+
+    `class`, `package`, `module` need to be at the same level in that case.
+    
 ### Writing a configuration plugin
 
 Each plugin module has to define a `create_objects_from_config_node` function,

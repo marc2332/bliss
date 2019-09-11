@@ -68,7 +68,7 @@ _log = logging.getLogger("bliss.scans")
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
 
-def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
+def ascan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     """
     Absolute scan
 
@@ -84,7 +84,7 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         motor (Axis): motor to scan
         start (float): motor start position
         stop (float): motor end position
-        npoints (int): the number of points
+        intervals (int): the number of intervals
         count_time (float): count time (seconds)
         counter_args (counter-providing objects):
             each argument provides counters to be integrated in the scan.
@@ -102,10 +102,10 @@ def ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     """
     args = [motor, start, stop]
     args += counter_args
-    return anscan(count_time, npoints, *args, **kwargs)
+    return anscan(count_time, intervals, *args, **kwargs)
 
 
-def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
+def dscan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     """
     Relative scan
 
@@ -124,7 +124,7 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
         motor (Axis): motor to scan
         start (float): motor relative start position
         stop (float): motor relative end position
-        npoints (int): the number of points
+        intervals (int): the number of intervals
         count_time (float): count time (seconds)
         counter_args (counter-providing objects):
             each argument provides counters to be integrated in the scan.
@@ -141,10 +141,10 @@ def dscan(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     """
     args = [motor, start, stop]
     args += counter_args
-    return dnscan(count_time, npoints, *args, **kwargs)
+    return dnscan(count_time, intervals, *args, **kwargs)
 
 
-def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
+def lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     if not isinstance(npoints, int):
         raise ValueError("number of point must be an integer number.")
     if len(counter_args) == 0:
@@ -155,7 +155,7 @@ def lineup(motor, start, stop, npoints, count_time, *counter_args, **kwargs):
     kwargs["type"] = "lineup"
     kwargs["name"] = kwargs.get("name", "lineup")
     kwargs["return_scan"] = True
-    scan = dscan(motor, start, stop, npoints, count_time, counter_args[0], **kwargs)
+    scan = dscan(motor, start, stop, intervals, count_time, counter_args[0], **kwargs)
     scan.goto_peak(counter_args[0])
 
 
@@ -163,11 +163,11 @@ def amesh(
     motor1,
     start1,
     stop1,
-    npoints1,
+    intervals1,
     motor2,
     start2,
     stop2,
-    npoints2,
+    intervals2,
     count_time,
     *counter_args,
     **kwargs,
@@ -188,10 +188,10 @@ def amesh(
 
     :param backnforth if True do back and forth on the first motor
     """
-    if not isinstance(npoints1, int):
-        raise ValueError("number of point for motor1 must be an integer number.")
-    if not isinstance(npoints2, int):
-        raise ValueError("number of point for motor2 must be an integer number.")
+    if not isinstance(intervals1, int):
+        raise ValueError("number of intervals for motor1 must be an integer number.")
+    if not isinstance(intervals2, int):
+        raise ValueError("number of intervals for motor2 must be an integer number.")
 
     save_images = kwargs.pop("save_images", True)
 
@@ -209,16 +209,18 @@ def amesh(
             motor1.name,
             start1,
             stop1,
-            npoints1,
+            intervals1,
             motor2.name,
             start2,
             stop2,
-            npoints2,
+            intervals2,
             count_time,
         )
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         scan_info["title"] = template.format(*args)
 
+    npoints1 = intervals1 + 1
+    npoints2 = intervals2 + 1
     # estimate scan time
     step_size1 = abs(stop1 - start1) / float(npoints1)
     i_motion_t1 = estimate_duration(motor1, start1)
@@ -305,21 +307,21 @@ def dmesh(
     motor1,
     start1,
     stop1,
-    npoints1,
+    intervals1,
     motor2,
     start2,
     stop2,
-    npoints2,
+    intervals2,
     count_time,
     *counter_args,
     **kwargs,
 ):
     """Relative amesh
     """
-    if not isinstance(npoints1, int):
-        raise ValueError("number of point for motor1 must be an integer number.")
-    if not isinstance(npoints2, int):
-        raise ValueError("number of point for motor2 must be an integer number.")
+    if not isinstance(intervals1, int):
+        raise ValueError("number of intervals for motor1 must be an integer number.")
+    if not isinstance(intervals2, int):
+        raise ValueError("number of intervals for motor2 must be an integer number.")
 
     kwargs.setdefault("type", "dmesh")
     kwargs.setdefault("name", "dmesh")
@@ -335,11 +337,11 @@ def dmesh(
         motor1,
         start1,
         stop1,
-        npoints1,
+        intervals1,
         motor2,
         start2,
         stop2,
-        npoints2,
+        intervals2,
         count_time,
         *counter_args,
         **kwargs,
@@ -364,7 +366,7 @@ def a2scan(
     motor2,
     start2,
     stop2,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -375,8 +377,7 @@ def a2scan(
     Scans two motors, as specified by *motor1* and *motor2*. The motors start
     at the positions given by *start1* and *start2* and end at the positions
     given by *stop1* and *stop2*. The step size for each motor is given by
-    `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
-    *npoints*-1. Count time is given by *count_time* (seconds).
+    `(*start*-*stop*)/(*intervals)`. Count time is given by *count_time* (seconds).
 
     Use `a2scan(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
@@ -388,7 +389,7 @@ def a2scan(
         motor2 (Axis): motor2 to scan
         start2 (float): motor2 start position
         stop2 (float): motor2 end position
-        npoints (int): the number of points
+        intervals (int): the number of intervals
         count_time (float): count time (seconds)
         counter_args (counter-providing objects):
             each argument provides counters to be integrated in the scan.
@@ -406,7 +407,7 @@ def a2scan(
     """
     args = [motor1, start1, stop1, motor2, start2, stop2]
     args += counter_args
-    return anscan(count_time, npoints, *args, **kwargs)
+    return anscan(count_time, intervals, *args, **kwargs)
 
 
 def lookupscan(count_time, *motors_positions, **kwargs):
@@ -463,10 +464,10 @@ def lookupscan(count_time, *motors_positions, **kwargs):
     return scan
 
 
-def anscan(count_time, npoints, *motors_positions, **kwargs):
+def anscan(count_time, intervals, *motors_positions, **kwargs):
     """
     anscan usage:
-      anscan(ctime, npoints, m1, start_m1_pos, stop_m1_pos, m2, start_m2_pos, stop_m2_pos, counter)
+      anscan(ctime, intervals, m1, start_m1_pos, stop_m1_pos, m2, start_m2_pos, stop_m2_pos, counter)
     10 points scan at 0.1 second integration on motor **m1** from
     *stop_m1_pos* to *stop_m1_pos* and **m2** from *start_m2_pos* to
     *stop_m2_pos* and with one counter.
@@ -477,8 +478,9 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     1 to 2 and **m2** from 3 to 7 and with diode2 as the only counter.
     """
 
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
+    if not isinstance(intervals, int):
+        raise ValueError("number of interval must be an integer number.")
+    npoints = intervals + 1
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
     title_list = list()
@@ -515,7 +517,7 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     if "title" not in kwargs:
         args = [scan_type]
         args += title_list
-        args += [npoints, count_time]
+        args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         kwargs["title"] = template.format(*args)
 
@@ -523,7 +525,7 @@ def anscan(count_time, npoints, *motors_positions, **kwargs):
     return lookupscan(count_time, *motors_positions, **kwargs)
 
 
-def dnscan(count_time, npoints, *motors_positions, **kwargs):
+def dnscan(count_time, intervals, *motors_positions, **kwargs):
     """
     dnscan usage:
       dnscan(0.1, 10, m0, rel_start_m0, rel_end_m0, m1, rel_start_m1, rel_stop_m1, counter)
@@ -531,8 +533,8 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
       dnscan(0.1, 10, m0, -1, 1, m1, -2, 2, diode2)
     """
 
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
+    if not isinstance(intervals, int):
+        raise ValueError("number of interval must be an integer number.")
     counter_list = list()
     tmp_l, motors_positions = list(motors_positions), list()
 
@@ -563,7 +565,7 @@ def dnscan(count_time, npoints, *motors_positions, **kwargs):
 
     motors_positions += counter_list
 
-    scan = anscan(count_time, npoints, *motors_positions, **kwargs)
+    scan = anscan(count_time, intervals, *motors_positions, **kwargs)
 
     def run_with_cleanup(self, __run__=scan.run):
         with cleanup(*motors_list, restore_list=(cleanup_axis.POS,), verbose=True):
@@ -587,7 +589,7 @@ def a3scan(
     motor3,
     start3,
     stop3,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -598,7 +600,7 @@ def a3scan(
     """
     args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
     args += counter_args
-    return anscan(count_time, npoints, *args, **kwargs)
+    return anscan(count_time, intervals, *args, **kwargs)
 
 
 def a4scan(
@@ -614,7 +616,7 @@ def a4scan(
     motor4,
     start4,
     stop4,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -638,7 +640,7 @@ def a4scan(
         stop4,
     ]
     args += counter_args
-    return anscan(count_time, npoints, *args, **kwargs)
+    return anscan(count_time, intervals, *args, **kwargs)
 
 
 def a5scan(
@@ -657,7 +659,7 @@ def a5scan(
     motor5,
     start5,
     stop5,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -684,7 +686,7 @@ def a5scan(
         stop5,
     ]
     args += counter_args
-    return anscan(count_time, npoints, *args, **kwargs)
+    return anscan(count_time, intervals, *args, **kwargs)
 
 
 def d3scan(
@@ -697,7 +699,7 @@ def d3scan(
     motor3,
     start3,
     stop3,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -708,7 +710,7 @@ def d3scan(
     """
     args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
     args += counter_args
-    return dnscan(count_time, npoints, *args, **kwargs)
+    return dnscan(count_time, intervals, *args, **kwargs)
 
 
 def d4scan(
@@ -724,7 +726,7 @@ def d4scan(
     motor4,
     start4,
     stop4,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -748,7 +750,7 @@ def d4scan(
         stop4,
     ]
     args += counter_args
-    return dnscan(count_time, npoints, *args, **kwargs)
+    return dnscan(count_time, intervals, *args, **kwargs)
 
 
 def d5scan(
@@ -767,7 +769,7 @@ def d5scan(
     motor5,
     start5,
     stop5,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -794,7 +796,7 @@ def d5scan(
         stop5,
     ]
     args += counter_args
-    return dnscan(count_time, npoints, *args, **kwargs)
+    return dnscan(count_time, intervals, *args, **kwargs)
 
 
 def d2scan(
@@ -804,7 +806,7 @@ def d2scan(
     motor2,
     start2,
     stop2,
-    npoints,
+    intervals,
     count_time,
     *counter_args,
     **kwargs,
@@ -815,8 +817,8 @@ def d2scan(
     Scans two motors, as specified by *motor1* and *motor2*. Each motor moves
     the same number of points. If a motor is at position *X*
     before the scan begins, the scan will run from `X+start` to `X+end`.
-    The step size of a motor is `(*start*-*stop*)/(*npoints*-1)`. The number
-    of intervals will be *npoints*-1. Count time is given by *count_time*
+    The step size of a motor is `(*start*-*stop*)/(*intervals*)`.
+    Count time is given by *count_time*
     (seconds).
 
     At the end of the scan (even in case of error) the motors will return to
@@ -832,7 +834,7 @@ def d2scan(
         motor2 (Axis): motor2 to scan
         start2 (float): motor2 relative start position
         stop2 (float): motor2 relative end position
-        npoints (int): the number of points
+        intervals (int): the number of intervals
         count_time (float): count time (seconds)
         counter_args (counter-providing objects):
             each argument provides counters to be integrated in the scan.
@@ -850,7 +852,7 @@ def d2scan(
     """
     args = [motor1, start1, stop1, motor2, start2, stop2]
     args += counter_args
-    return dnscan(count_time, npoints, *args, **kwargs)
+    return dnscan(count_time, intervals, *args, **kwargs)
 
 
 def timescan(count_time, *counter_args, **kwargs):

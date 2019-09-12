@@ -277,28 +277,6 @@ ALL_PORTS = [
     ("local_pyserial", PARAMS_3),
 ]
 
-TROUBLE_PARAMS = {"rtscts": True, "xonxoff": True}
-
-TROUBLE_PORTS = [
-    ("ser2net_telnet", {}),
-    (
-        "ser2net_telnet",
-        TROUBLE_PARAMS,
-    ),  # these parameters let the ser2net server or the emulated port struggle
-    ("rfc2217_telnet", {}),
-    (
-        "rfc2217_telnet",
-        TROUBLE_PARAMS,
-    ),  # these parameters let the ser2net server or the emulated port struggle
-    ("local_serial", {}),
-    ("local_serial", TROUBLE_PARAMS),
-    # for debugging of tests
-    ("local_pyserial", {}),
-    ("local_pyserial", TROUBLE_PARAMS),
-]
-# TODO: seems like there is a problem with specifying options via ser2net and rfc2217
-# ... is this real or only due to the emulated port
-
 EOL_PORTS = [
     ("ser2net_telnet", {}),
     ("rfc2217_telnet", {}),
@@ -379,18 +357,25 @@ def test_serial_IAC(get_serial, params, reference_socket):
         reference_socket.send(IAC)
         assert serial_port.raw_read(1) == IAC
 
-        reference_socket.send(IAC + IAC + b"bla")
-        assert serial_port.read(5) == IAC + IAC + b"bla"
+        doubel_iac = IAC + IAC + b"bla"
+        reference_socket.send(doubel_iac)
+        assert serial_port.read(5) == doubel_iac
 
-        reference_socket.send(IAC + IAC + b"bla")
-        assert serial_port.raw_read(5) == IAC + IAC + b"bla"
+        reference_socket.send(doubel_iac)
+        assert serial_port.raw_read(5) == doubel_iac
 
 
 @pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
 def test_raw_write_read(get_serial, params, reference_socket):
+    # waiting for ser2net v4
+    pytest.xfail()
+
     with get_serial(params) as serial_port:
         tmp = list(range(0, 256))
-        all_chars = bytes(tmp) + bytes(tmp[::-1])
+        IAC = bytes([0xFF])
+        all_chars = (
+            bytes(tmp) + bytes(tmp[::-1]) + IAC + b"#" + IAC + IAC + IAC + b"#" + IAC
+        )
 
         serial_port.write(all_chars)
         gevent.sleep(.1)
@@ -402,12 +387,29 @@ def test_raw_write_read(get_serial, params, reference_socket):
         ans2 = serial_port.raw_read(len(all_chars))
         assert ans2 == all_chars
 
-        # this test if failing for our ser2net based ports.
-        # the diff is here:
-        # >>> all_chars[254:258]
-        #    b'\xfe\xff\xff\xfe'
-        # >>> ans2[254:258]
-        #    b'\xfe\xff\xfe\xfd'
+
+@pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
+def test_raw_write_read2(get_serial, params, reference_socket):
+    # waiting for ser2net v4
+    pytest.xfail()
+
+    with get_serial(params) as serial_port:
+        tmp = list(range(0, 256))
+        IAC = bytes([0xFF])
+        all_chars = (
+            bytes(tmp) + bytes(tmp[::-1]) + IAC + b"#" + IAC + IAC + IAC + b"#" + IAC
+        )
+        all_chars2 = IAC + all_chars
+
+        serial_port.write(all_chars2)
+        gevent.sleep(.1)
+        ans1 = reference_socket.recv(len(all_chars2))
+        assert ans1 == all_chars2
+
+        reference_socket.send(all_chars2)
+        gevent.sleep(.1)
+        ans2 = serial_port.raw_read(len(all_chars2))
+        assert ans2 == all_chars2
 
 
 @pytest.mark.parametrize("get_serial,params", ALL_PORTS, indirect=["get_serial"])
@@ -457,15 +459,49 @@ def test_serial_port_settings(get_serial, params, reference_socket, fake_serial)
             assert "crtscts" in parameters
 
         # check dsrdtr
-        # hmm, what is this?
+        # hmm, how to check?
 
         print(options)
         print(parameters)
 
 
-### to be removed only to highlight port config trouble
+### tango tests are by far not complete ... come back to this once we have a real serial tango serial server
+def test_tango_serial(tango_serial):
+    tg_devname, tg_device = tango_serial
+
+    serial_object = serial.Serial(tg_devname)
+    serial_object.write(b"hello")
+    assert serial_object.readline() == b"world"
+
+
+### to be seen with ser2net 4 it this test make any sense
+
+TROUBLE_PARAMS = {"rtscts": True, "xonxoff": True}
+
+TROUBLE_PORTS = [
+    ("ser2net_telnet", {}),
+    (
+        "ser2net_telnet",
+        TROUBLE_PARAMS,
+    ),  # these parameters let the ser2net server or the emulated port struggle
+    ("rfc2217_telnet", {}),
+    (
+        "rfc2217_telnet",
+        TROUBLE_PARAMS,
+    ),  # these parameters let the ser2net server or the emulated port struggle
+    ("local_serial", {}),
+    ("local_serial", TROUBLE_PARAMS),
+    # for debugging of tests
+    ("local_pyserial", {}),
+    ("local_pyserial", TROUBLE_PARAMS),
+]
+# TODO: seems like there is a problem with specifying options via ser2net and rfc2217
+# ... is this real or only due to the emulated port
+
+
 @pytest.mark.parametrize("get_serial,params", TROUBLE_PORTS, indirect=["get_serial"])
 def test_serial_write_ascii_trouble(get_serial, params, reference_socket):
+    pytest.xfail()
     with get_serial(params) as serial_port:
         data = b"hello\nworld\n"
         serial_port.write(data)

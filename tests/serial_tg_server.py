@@ -33,6 +33,7 @@ class Serial(Device):
         # ~ return ("pickle", pickle.dumps(b""))
         # ~ self.buf = self.eol.join(new_buf[1:])
         # ~ return ("pickle", pickle.dumps(new_buf[0]))
+
         return ("pickle", pickle.dumps(b"world" + self.eol))
         # I guess this was supposed to do something more elaborate...
 
@@ -48,6 +49,7 @@ class Serial(Device):
     # ~ self.buf = b""
     # ~ return ("", data)
 
+    # I am not sure if bytearray is the good type here... currently echo not working...
     @command(dtype_in=bytearray)
     def DevSerWriteChar(self, encoded_chars):
         chars = encoded_chars[1]

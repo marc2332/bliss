@@ -466,7 +466,7 @@ class RFC2217(_BaseSerial):
         self._data = b""
 
     def _rfc2217_filter(self, data):
-        if data[-1] == IAC and data[-2] != IAC:
+        if bytes([data[-1]]) == IAC and bytes([data[-2]]) != IAC:
             self._pending_data = data
             return b""
 
@@ -484,7 +484,8 @@ class RFC2217(_BaseSerial):
                 iac_pos = self._data.find(IAC)
 
             if (
-                len(self._data[iac_pos:]) > 2 and self._data[iac_pos + 1] == IAC
+                len(self._data[iac_pos:]) > 2
+                and bytes([self._data[iac_pos + 1]]) == IAC
             ):  # ignore double IAC
                 self._data = self._data[iac_pos + 2 :]
             else:

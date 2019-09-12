@@ -19,6 +19,9 @@ class Workspace(qt.QObject):
         super(Workspace, self).__init__(parent=parent)
         self.__plots = []
 
+    def plots(self):
+        return self.__plots
+
     def addPlot(self, plot):
         self.__plots.append(plot)
         self.plotAdded.emit(plot)
@@ -43,6 +46,9 @@ class FlintState(qt.QObject):
         previous = self.__workspace
         self.__workspace = workspace
         self.workspaceChanged.emit(previous, workspace)
+
+    def workspace(self) -> Workspace:
+        return self.__workspace
 
     def setCurrentScan(self, scan: scan_model.Scan):
         previous = self.__currentScan

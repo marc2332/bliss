@@ -152,7 +152,7 @@ def test_logging(caplog):
 
         client_car.move(11)
 
-    assert "rpc client (inproc://test): call code=call args=['move', 11]" in caplog.text
+    assert "rpc client (inproc://test): 'call' args=['move', 11]" in caplog.text
 
     # close client
     client_car.close()

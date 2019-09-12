@@ -18,9 +18,24 @@ from ..utils import mathutils
 import collections
 
 
+class CurvePlot(plot_model.Plot):
+    def __init__(self, parent=None, scan: scan_model.Scan = None):
+        super(CurvePlot, self).__init__(parent=parent)
+        self.__scan = scan
+        self.__scansStored = False
+
+    def setScansStored(self, enableStoring: bool):
+        self.__scansStored = enableStoring
+        self.configurationChanged.emit()
+
+    def isScansStored(self) -> bool:
+        return self.__scansStored
+
+
 class ScanItem(plot_model.Item):
     def __init__(self, parent=None, scan: scan_model.Scan = None):
         super(ScanItem, self).__init__(parent=parent)
+        assert(scan is not None)
         self.__scan = scan
 
     def scan(self) -> scan_model.Scan:

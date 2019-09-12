@@ -21,6 +21,7 @@ class Plot(qt.QObject):
     itemRemoved = qt.Signal(object)
     structureChanged = qt.Signal()
     styleChanged = qt.Signal()
+    configurationChanged = qt.Signal()
 
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)

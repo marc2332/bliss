@@ -13,6 +13,10 @@ import traceback
 from bliss.common import event
 from bliss.comm.rpc import Server, Client
 
+from bliss.common.logtools import get_logger
+
+from bliss.common.standard import debugon
+
 
 def null():
     return "null"
@@ -63,7 +67,7 @@ class Car(object):
         return self.__position
 
     def buggy_call(self):
-        """"Calling this function will raise an exception"""
+        """Calling this function will raise an exception"""
         x = 50
         x = x + "aaa"
         return x
@@ -131,6 +135,24 @@ def test_api():
         assert client_car.position == car.position == 11
         client_car.move(21, relative=True)
         assert client_car.position == car.position == 32
+
+    # close client
+    client_car.close()
+
+
+def test_logging(caplog):
+    url = "inproc://test"
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        debugon(client_car)
+
+        logger = get_logger(client_car)
+        assert logger
+
+        client_car.move(11)
+
+    assert "rpc client (inproc://test): call code=call args=['move', 11]" in caplog.text
 
     # close client
     client_car.close()

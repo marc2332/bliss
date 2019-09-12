@@ -86,6 +86,8 @@ from gevent import socket
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
 
+from bliss.common.logtools import *
+from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext
 
@@ -413,6 +415,9 @@ class _cnx(object):
             self._event.clear()
 
     def __init__(self, address):
+
+        global_map.register(self, parents_list=["comms"], tag=f"rpc client:{address}")
+
         if address.startswith("tcp"):
             exp = re.compile("tcp://(.+?):([0-9]+)")
             m = exp.match(address)
@@ -424,6 +429,7 @@ class _cnx(object):
             self.host = None
             self.port = m.group(2)
 
+        self._address = address
         self._socket = None
         self._queues = dict()
         self._reading_task = None
@@ -478,6 +484,11 @@ class _cnx(object):
 
     def _call__(self, code, args, kwargs):
         timeout = kwargs.get("timeout", self._timeout)
+
+        log_debug(
+            self.proxy, f"rpc client ({self._address}): call code={code} args={args}"
+        )
+
         with gevent.Timeout(timeout):
             self.try_connect()
             uniq_id = id(next(self._counter))

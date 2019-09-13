@@ -189,6 +189,150 @@ class StepScanDataWatch(DataWatchCallback):
             cb(scan_info)
 
 
+class WatchdogCallback:
+    """
+    This class is a watchdog for scan class.  It's role is to follow
+    if detectors involved in the scan have the right behavior. If not
+    the callback may raise an exception.
+    All exception will bubble-up except StopIteration which will just stop
+    the scan.
+    """
+
+    def __init__(self, watchdog_timeout=1.):
+        """
+        watchdog_timeout -- is the maximum calling frequency of **on_timeout**
+        method.
+        """
+        self.__watchdog_timeout = watchdog_timeout
+
+    @property
+    def timeout(self):
+        return self.__watchdog_timeout
+
+    def on_timeout(self):
+        """
+        This method is called when **watchdog_timeout** elapsed it means
+        that no data event is received for the time specified by
+        **watchdog_timeout**
+        """
+        pass
+
+    def on_scan_new(self, scan, scan_info):
+        """
+        Called when scan is starting
+        """
+        pass
+
+    def on_scan_data(self, data_events, nodes, scan_info):
+        """
+        Called when new data are emitted by the scan.  This method should
+        raise en exception to stop the scan.  All exception will
+        bubble-up exception the **StopIteration**.  This one will just
+        stop the scan.
+        """
+        pass
+
+    def on_scan_end(self, scan_info):
+        """
+        Called at the end of the scan
+        """
+        pass
+
+
+class _WatchDogTask(gevent.Greenlet):
+    def __init__(self, scan, callback):
+        super().__init__()
+        self._scan = weakref.proxy(scan, self.stop)
+        self._events = gevent.queue.Queue()
+        self._data_events = dict()
+        self._callback = callback
+        self.__watchdog_timer = None
+        self._lock = gevent.lock.Semaphore()
+
+    def trigger_data_event(self, sender, signal):
+        self._reset_watchdog()
+        event_set = self._data_events.setdefault(sender, set())
+        event_set.add(signal)
+        if not len(self._events):
+            self._events.put("Data Event")
+
+    def on_scan_new(self, scan, scan_info):
+        self._callback.on_scan_new(scan, scan_info)
+        self._reset_watchdog()
+
+    def on_scan_end(self, scan_info):
+        self.stop()
+        self._callback.on_scan_end(scan_info)
+
+    def stop(self):
+        self.clear_queue()
+        self._events.put(StopIteration)
+
+    def kill(self):
+        super().kill()
+        if self.__watchdog_timer is not None:
+            self.__watchdog_timer.kill()
+
+    def clear_queue(self):
+        while True:
+            try:
+                self._events.get_nowait()
+            except gevent.queue.Empty:
+                break
+
+    def _run(self):
+        try:
+            for ev in self._events:
+                if isinstance(ev, BaseException):
+                    raise ev
+                try:
+                    if self._data_events:
+                        data_event = self._data_events
+                        self._data_events = dict()
+                        # disable the watchdog before calling the callback
+                        if self.__watchdog_timer is not None:
+                            self.__watchdog_timer.kill()
+                        with KillMask():
+                            with self._lock:
+                                self._callback.on_scan_data(
+                                    data_event, self._scan.nodes, self._scan.scan_info
+                                )
+                        # reset watchdog if it wasn't restarted in between
+                        if self.__watchdog_timer:
+                            self._reset_watchdog()
+                        gevent.idle()
+
+                except StopIteration:
+                    break
+        finally:
+            if self.__watchdog_timer is not None:
+                self.__watchdog_timer.kill()
+
+    def _reset_watchdog(self):
+        if self.__watchdog_timer:
+            self.__watchdog_timer.kill()
+
+        if self.ready():
+            return
+
+        def loop(timeout):
+            while True:
+                gevent.sleep(timeout)
+                try:
+                    with KillMask():
+                        with self._lock:
+                            self._callback.on_timeout()
+                except StopIteration:
+                    self.stop()
+                    break
+                except BaseException as e:
+                    self.clear_queue()
+                    self._events.put(e)
+                    break
+
+        self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
+
+
 class ScanSaving(ParametersWardrobe):
     SLOTS = []
     WRITER_MODULE_PATH = "bliss.scanning.writer"
@@ -548,6 +692,7 @@ class Scan:
         save_images=True,
         scan_saving=None,
         data_watch_callback=None,
+        watchdog_callback=None,
     ):
         """
         This class publish data and trig the writer if any.
@@ -616,6 +761,7 @@ class Scan:
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
+        self.set_watchdog_callback(watchdog_callback)
         self._acq_chain = chain
         self._scan_info["acquisition_chain"] = _get_masters_and_channels(
             self._acq_chain
@@ -696,6 +842,15 @@ class Scan:
         if not isinstance(preset, ScanPreset):
             raise ValueError("Expected ScanPreset instance")
         self._preset_list.append(preset)
+
+    def set_watchdog_callback(self, callback):
+        """
+        Set a watchdog callback for this scan
+        """
+        if callback:
+            self._watchdog_task = _WatchDogTask(self, callback)
+        else:
+            self._watchdog_task = None
 
     def _get_data_axis_name(self, axis=None):
         axes_name = self._get_data_axes_name()
@@ -829,6 +984,8 @@ class Scan:
                 )
             else:
                 self._data_watch_callback_event.set()
+        if self._watchdog_task is not None:
+            self._watchdog_task.trigger_data_event(sender, signal)
 
     def _channel_event(self, event_dict, signal=None, sender=None):
         with KillMask():
@@ -929,6 +1086,9 @@ class Scan:
         try:
             if self._data_watch_callback:
                 self._data_watch_callback.on_scan_new(self, self.scan_info)
+            if self._watchdog_task is not None:
+                self._watchdog_task.start()
+                self._watchdog_task.on_scan_new(self, self.scan_info)
 
             current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
@@ -958,11 +1118,14 @@ class Scan:
                             # The master defined as 'stopper' ends the loop
                             # (by default any top master will stop the loop),
                             # the loop is also stopped in case of exception.
-                            gevent.joinall(
-                                [t for t, _ in run_next_tasks],
-                                raise_error=True,
-                                count=1,
-                            )
+                            wait_tasks = [t for t, _ in run_next_tasks]
+                            if self._watchdog_task is not None:
+                                wait_tasks += [self._watchdog_task]
+                            gevent.joinall(wait_tasks, raise_error=True, count=1)
+                            if self._watchdog_task is not None:
+                                # stop the scan if watchdog_task end normally
+                                # it received a StopIteration
+                                run_scan = not self._watchdog_task.ready()
 
                             for i, (task, iterator) in enumerate(list(run_next_tasks)):
                                 if task.ready():
@@ -1036,7 +1199,10 @@ class Scan:
                 with capture():
                     if self._data_watch_callback:
                         self._data_watch_callback.on_scan_end(self.scan_info)
-
+                with capture():
+                    if self._watchdog_task is not None:
+                        self._watchdog_task.kill()
+                        self._watchdog_task.on_scan_end(self.scan_info)
                 with capture():
                     # Kill data watch task
                     if self._data_watch_task is not None:
@@ -1047,7 +1213,7 @@ class Scan:
                             self._data_watch_task.get()
                         self._data_watch_task.kill()
 
-            self._execute_preset("stop")
+                self._execute_preset("stop")
 
     def _run_next(self, next_iter):
         next_iter.start()

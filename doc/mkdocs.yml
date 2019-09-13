@@ -102,6 +102,7 @@ nav:
                     - Acquisition chain: scan_engine_acquisition_chain.md
                     - Acquisition Master/Device: scan_engine_acquisition_master_and_devices.md
                     - Preset: scan_engine_preset.md
+                    - Watchdog: scan_engine_watchdog.md
                     - Data node: scan_data_node.md
                 - Continuous scans: scan_continuous.md
         - Instruments:

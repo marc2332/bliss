@@ -88,7 +88,7 @@ class Controller:
         self._objects[new_obj.name] = new_obj
 
         # --- For custom attributes and commands.
-        # set_custom_members(self, new_obj, self.init_obj )       # really needed ???????
+        set_custom_members(self, new_obj, self.init_obj)  # really needed ???????
 
         return new_obj
 
@@ -97,50 +97,61 @@ class Controller:
 
         with self.__lock:
 
-            if self.__hw_controller_initialized:
-                return
-            else:
+            # ========= INIT HW, DEVICE AND CHILD DEVICE IF ANY =======================
+
+            if not self.__hw_controller_initialized:
+                self.initialize_controller()
                 self.__hw_controller_initialized = True
 
-                self.initialize_controller()
-                print("============= controller_hw INITIALIZED")
+            if self.__initialized_obj.get(obj):
+                return
 
-                for obj in self._objects.values():
+            if isinstance(obj, Loop):
 
-                    # --- initialize the object
-                    obj.load_base_config()
-                    if isinstance(obj, Input):
-                        self.initialize_input(obj)
-                    elif isinstance(obj, Output):
-                        self.initialize_output(obj)
-                    elif isinstance(obj, Loop):
-                        self.initialize_loop(obj)
+                self.__initialized_obj[obj] = True
 
-                    print(f"============= {obj.name} INITIALIZED")
+                if not self.__initialized_obj.get(obj.input):
+                    self.__initialized_obj[obj.input] = True
+                    obj.input.load_base_config()
+                    self.initialize_input(obj.input)
 
-            # if self.__initialized_obj.get(obj):
+                if not self.__initialized_obj.get(obj.output):
+                    self.__initialized_obj[obj.output] = True
+                    obj.output.load_base_config()
+                    self.initialize_output(obj.output)
+
+                obj.load_base_config()
+                self.initialize_loop(obj)
+
+            else:
+                self.__initialized_obj[obj] = True
+                obj.load_base_config()
+                if isinstance(obj, Input):
+                    self.initialize_input(obj)
+                elif isinstance(obj, Output):
+                    self.initialize_output(obj)
+
+            # =========  INIT ALL DEVICES ATTACHED TO THE CONTROLLER ==================
+            # if self.__hw_controller_initialized:
             #     return
-
             # else:
-            #     self.__initialized_obj[obj] = True
-
-            # print("controller:init_obj",obj)
-
-            # if not self.__hw_controller_initialized:
-            #     self.initialize_controller()
             #     self.__hw_controller_initialized = True
-            #     print("controller:init_controller_hw")
 
-            # # --- initialize the object
-            # obj.load_base_config()
-            # if isinstance(obj, Input):
-            #     self.initialize_input(obj)
-            # elif isinstance(obj, Output):
-            #     self.initialize_output(obj)
-            # elif isinstance(obj, Loop):
-            #     self.initialize_loop(obj)
+            #     self.initialize_controller()
+            #     print("============= controller_hw INITIALIZED")
 
-            # print("controller:obj_INITIALIZED",obj)
+            #     for obj in self._objects.values():
+
+            #         # --- initialize the object
+            #         obj.load_base_config()
+            #         if isinstance(obj, Input):
+            #             self.initialize_input(obj)
+            #         elif isinstance(obj, Output):
+            #             self.initialize_output(obj)
+            #         elif isinstance(obj, Loop):
+            #             self.initialize_loop(obj)
+
+            #         print(f"============= {obj.name} INITIALIZED")
 
     @property
     def name(self):

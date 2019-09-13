@@ -1,14 +1,18 @@
-name: lima_simulator
-plugin: bliss
-class: Lima
-tango_url: id00/limaccds/simulator1
-directories_mapping:
-        identity:
-                - path: /tmp/scans
-                  replace-with: /tmp/scans
-        fancy:
-                - path: /tmp/scans
-                  replace-with: /tmp/fancy
-                - path: /tmp/scans/test
-                  replace-with: Z:\
+- name: lima_simulator
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/simulator1
+  directories_mapping:
+          identity:
+                  - path: /tmp/scans
+                    replace-with: /tmp/scans
+          fancy:
+                  - path: /tmp/scans
+                    replace-with: /tmp/fancy
+                  - path: /tmp/scans/test
+                    replace-with: Z:\
 
+- name: lima_simulator2
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/simulator2

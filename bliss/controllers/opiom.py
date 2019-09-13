@@ -172,7 +172,8 @@ class Opiom:
                     "opiom %s: cannot find program %s" % (str(self), prog_name)
                 )
 
-            if file_pldid and file_pldid != pldid:
+            s_pldid = str(pldid).encode()
+            if file_pldid and file_pldid != s_pldid:
                 print("Uploading opiom program, please wait")
                 srcsz = int(self.comm("?SRCSZ").split()[0])
                 offsets, opmfile = self._getoffset(prog_name)

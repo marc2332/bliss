@@ -38,6 +38,8 @@ __all__ = (
         "sync",
         "lslog",
         "lsdebug",
+        "debugon",
+        "debugoff",
         "info",
     ]
     + scans.__all__

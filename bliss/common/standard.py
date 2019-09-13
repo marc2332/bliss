@@ -109,7 +109,7 @@ def lslog(glob: str = None, debug_only=False) -> None:
     if glob is None:
         loggers = {
             **global_log._find_loggers("bliss*"),
-            **global_log._find_loggers("session*"),
+            **global_log._find_loggers("global*"),
         }
     else:
         loggers = global_log._find_loggers(glob)

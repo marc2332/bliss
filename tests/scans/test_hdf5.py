@@ -143,7 +143,7 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     # put scan file in a tmp directory
     env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
 
-    s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
+    s = scans.ascan(env_dict["robyy"], 0, 1, 2, .1, env_dict["lima_simulator"])
 
     f = h5py.File(s.writer.filename)
     refs = numpy.array(f["1_ascan/measurement/lima_simulator:image"])

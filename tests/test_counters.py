@@ -237,7 +237,7 @@ def test_SampCnt_mode_STATS(session, scan_tmpdir):
 
     c_fast = SoftCounter(o, "read_fast", name="test-stat", mode=SamplingMode.STATS)
 
-    s_fast = ascan(ax, 1, 9, 9, .1, c_fast)
+    s_fast = ascan(ax, 1, 9, 8, .1, c_fast)
 
     data_fast = s_fast.get_data()
 
@@ -289,7 +289,7 @@ def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
     o = Timed_Diode()
     ax = SoftAxis("test-sample-pos", o)
     c_samp = SoftCounter(o, "read", name="test-samp", mode=SamplingMode.SAMPLES)
-    s = ascan(ax, 1, 9, 9, .1, c_samp)
+    s = ascan(ax, 1, 9, 8, .1, c_samp)
 
     assert (
         "Timed_Diode:test-samp" in s.scan_info["acquisition_chain"]["axis"]["scalars"]
@@ -345,7 +345,7 @@ def test_SampCnt_mode_LAST(session):
     ax = SoftAxis("test-sample-pos", o)
     c = SoftCounter(o, "read_last", name="test", mode=SamplingMode.LAST)
 
-    s = ascan(ax, 1, 9, 9, .1, c)
+    s = ascan(ax, 1, 9, 8, .1, c)
 
     assert all(s.get_data()["test"] == numpy.array([2, 2, 2, 2, 2, 2, 2, 2, 2]))
 

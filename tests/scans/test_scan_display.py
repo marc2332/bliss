@@ -208,9 +208,9 @@ def test_standard_scan_display(session):
 
             # ============= START THE A2SCAN ===================================
             lines = []
-            # print('Start a2scan(robz, 0, 9, roby, 10, 19, 10, 0.01, diode4, diode5) ...', end='', flush=True)
+            # print('Start a2scan(robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
             s = scans.a2scan(
-                robz, 0, 9, roby, 10, 19, 10, 0.01, diode4, diode5, save=False
+                robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5, save=False
             )
             # EXPECTED OUTPUT
             if 1:
@@ -267,9 +267,9 @@ def test_standard_scan_display(session):
 
             # ============= START THE A2SCAN (reversed axis) ===================
             lines = []
-            # print('Start a2scan(roby, 0, 9, robz, 10, 19, 10, 0.01, diode4, diode5) ...', end='', flush=True)
+            # print('Start a2scan(roby, 0, 9, robz, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
             s = scans.a2scan(
-                roby, 0, 9, robz, 10, 19, 10, 0.01, diode4, diode5, save=False
+                roby, 0, 9, robz, 10, 19, 9, 0.01, diode4, diode5, save=False
             )
             # EXPECTED OUTPUT
             if 1:
@@ -327,9 +327,9 @@ def test_standard_scan_display(session):
             # ============= START THE A2SCAN (filtered counters) ================
             sd.counters = (diode4,)  # show only diode4
             lines = []
-            # print('Start a2scan(robz, 0, 9, roby, 10, 19, 10, 0.01, diode4, diode5) ...', end='', flush=True)
+            # print('Start a2scan(robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
             s = scans.a2scan(
-                robz, 0, 9, roby, 10, 19, 10, 0.01, diode4, diode5, save=False
+                robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5, save=False
             )
             # EXPECTED OUTPUT
             if 1:
@@ -387,8 +387,8 @@ def test_standard_scan_display(session):
             # ============= START THE ASCAN ===================================
             sd.counters = ()  # reset filtering, i.e show all
             lines = []
-            # print('Start ascan(roby, 0, 9, 10, 0.1, diode4, diode5) ...', end='', flush=True)
-            s = scans.ascan(roby, 0, 9, 10, 0.1, diode4, diode5, save=False)
+            # print('Start ascan(roby, 0, 9, 9, 0.1, diode4, diode5) ...', end='', flush=True)
+            s = scans.ascan(roby, 0, 9, 9, 0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
                 # line 0
@@ -530,9 +530,9 @@ def test_standard_scan_display(session):
 
             # ============= START THE AMESH ======================================
             lines = []
-            # print('Start amesh(roby,0,2,3,robz,10,12,3,0.01,diode4,diode5) ...', end='', flush=True)
+            # print('Start amesh(roby,0,2,2,robz,10,12,2,0.01,diode4,diode5) ...', end='', flush=True)
             s = scans.amesh(
-                roby, 0, 2, 3, robz, 10, 12, 3, 0.01, diode4, diode5, save=False
+                roby, 0, 2, 2, robz, 10, 12, 2, 0.01, diode4, diode5, save=False
             )
             # EXPECTED OUTPUT
             if 1:

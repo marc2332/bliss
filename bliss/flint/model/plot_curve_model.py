@@ -76,6 +76,7 @@ class CurveStatisticMixIn:
     """This item use the scan data to process result before displaying it."""
 
     def yAxis(self) -> str:
+        """Returns the name of the y-axis in which the statistic have to be displayed"""
         source = self.source()
         return source.yAxis()
 

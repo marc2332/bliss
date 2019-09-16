@@ -75,7 +75,7 @@ class ChannelRef(qt.QObject):
     def name(self) -> str:
         return self.__channelName
 
-    def data(self, scan: scan_model.Scan) -> Union[None, numpy.ndarray]:
+    def data(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
         channel = scan.getChannelByName(self.__channelName)
         if channel is None:
             return None

@@ -20,12 +20,11 @@ import sys
 
 __author__ = "cyril.guilloud@esrf.fr"
 __date__ = "2014-2019"
-__version__ = "0.9.0"
+__version__ = "0.9.6"
 
 
 def duration_split(duration):
-    """
-    Returns a tuple of int : (days, hours, minutes, seconds,
+    """Return a tuple of 'int' : (days, hours, minutes, seconds,
     miliseconds, microseconds) coresponding to <duration> float
     expressed in seconds.
     """
@@ -59,9 +58,10 @@ def duration_split(duration):
 
 
 def duration_format(duration):
-    """
-    Returns a string pretty formated of <duration> in us ms s hours
-    <duration> value expressed in seconds.
+    """Return a formated string corresponding to <duration> duration.
+
+    * formated string is in 'us' 'ms' 's' 'hours'
+    * <duration> float value to be given in seconds.
     """
 
     (nb_days, nb_hours, nb_minutes, nb_seconds, nb_ms, nb_us) = duration_split(duration)
@@ -70,7 +70,7 @@ def duration_format(duration):
 
     # micro seconds
     if nb_us != 0:
-            _duration_str = "%d𝜇s" % nb_us + _duration_str
+        _duration_str = "%dμs" % nb_us + _duration_str
 
     # mili seconds
     if nb_ms > 0:
@@ -118,13 +118,12 @@ def duration_format(duration):
 
 
 def test_display(duration):
-    print("%15f -> \"%s\"" % (duration, duration_format(duration)))
+    print('%15f -> "%s"' % (duration, duration_format(duration)))
 
 
 def main(args):
-    """
-    main function provided for demonstration and testing purpose.
-    """
+    """Main function provided for demonstration and testing purpose."""
+
     print("")
     print("--------------------{ timedisplay }----------------------------------")
 
@@ -135,12 +134,14 @@ def main(args):
     test_display(123456)
     test_display(1234567)
     print("")
-#        0.000123 -> "123𝜇s"
-#        0.123000 -> "123ms"
-#      123.000000 -> "2mn 3s"
-#      123.456789 -> "2mn 3s 456ms 789𝜇s"
-#   123456.000000 -> "1day 10h 17mn 36s"
-#  1234567.000000 -> "14days 6h 56mn 7s"
+
+
+#       0.000123 -> "123μs"
+#       0.123000 -> "123ms"
+#     123.000000 -> "2mn 3s"
+#     123.456789 -> "2mn 3s 456ms 789μs"
+#  123456.000000 -> "1day 10h 17mn 36s"
+# 1234567.000000 -> "14days 6h 56mn 7s"
 
 if __name__ == "__main__":
     main(sys.argv)

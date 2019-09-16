@@ -51,6 +51,8 @@ class FlintState(qt.QObject):
         return self.__workspace
 
     def setCurrentScan(self, scan: scan_model.Scan):
+        if not scan.isSealed():
+            raise scan_model.SealedError("Must be sealed, explicitly")
         previous = self.__currentScan
         self.__currentScan = scan
         self.currentScanChanged.emit(previous, scan)

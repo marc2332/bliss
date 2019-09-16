@@ -19,9 +19,8 @@ import collections
 
 
 class CurvePlot(plot_model.Plot):
-    def __init__(self, parent=None, scan: scan_model.Scan = None):
+    def __init__(self, parent=None):
         super(CurvePlot, self).__init__(parent=parent)
-        self.__scan = scan
         self.__scansStored = False
 
     def setScansStored(self, enableStoring: bool):

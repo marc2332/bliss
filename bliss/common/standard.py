@@ -11,7 +11,8 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 import contextlib
 import time
-import datetime
+import timedisplay
+
 from bliss import global_map, global_log
 from bliss.common import scans
 from bliss.common.scans import *
@@ -745,18 +746,6 @@ def bench():
     """
     start_time = time.time()
     yield
-    display_time = datetime.timedelta(seconds=time.time() - start_time)
-    if display_time < datetime.timedelta(minutes=1):
-        # display manually short time
-        str_time = []
-        if display_time.seconds > 0:
-            str_time.append(f"{display_time.seconds}s")
-        milliseconds = int(display_time.microseconds * 1e-3)
-        microseconds = display_time.microseconds - milliseconds * 1e3
-        if milliseconds > 0:
-            str_time.append(f"{milliseconds}ms")
-        if microseconds > 0:
-            str_time.append(f"{microseconds}µs")
-        print("Execution time:", " ".join(str_time))
-    else:
-        print(f"Execution time: {display_time}")
+    duration = time.time() - start_time
+
+    print(f"Execution time: {timedisplay.duration_format(duration)}")

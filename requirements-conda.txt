@@ -37,6 +37,7 @@ sqlalchemy
 tabulate
 tango >= 9.3.2
 pytango
+tblib
+timedisplay
 tmux >= 2.7
 treelib
-tblib

@@ -22,7 +22,7 @@ is possible to configure those directly in a session YAML file:
 ```
 
 !!! note
-    MeasurementGroup objects mumst be added in the list of objects to load in the
+    MeasurementGroup objects must be added in the list of objects to load in the
     session (`config-objects` list)
 
 `counters` must be a list of names, corresponding to `Counter` objects.
@@ -41,8 +41,8 @@ Once a measurement group is created, it can be used in a BLISS session:
                 simct2
                 simct3
 
-One or many measurement group(s) can be passed as argument to a `scan`
-or `ct` procedure to indicate which counters to use:
+One or many measurement groups can be passed as argument to a `scan`
+or `ct` procedure to indicate, which counters to use:
 
     CYRIL [20]: print(MG1.available, MG2.available)         #  4 counters defined
     ['simct2', 'simct3'] ['simct4', 'simct5']
@@ -71,10 +71,9 @@ To get the list of all available measurement groups:
 
 ### Active measurement group
 
-There is always only one active measurement group at the same time.
+There is only ever one active measurement group at a time.
 
-`ACTIVE_MG` is a global to know the measurement group which is
-`active` at current time.
+`ACTIVE_MG` is the global variable indicating the one 'active' measurement group.
 
     CYRIL [31]: ACTIVE_MG
       Out [31]: MeasurementGroup:  align_counters (default)
@@ -84,7 +83,7 @@ There is always only one active measurement group at the same time.
                 simct2   simct1
                          simct3
 
-This active measurement group is the one used by default by a `scan` or a `ct`:
+This active measurement group is the default used by a `scan` or a `ct`:
 
     CYRIL [32]: ct(0.1)
 
@@ -188,7 +187,7 @@ This will make MG2 to look like:
 
 A measurement group can have many `states` to denote different
 usages. For example, it is possible to disable some counters during an
-alignment and, in case of problem, to switch to the state where
+alignment and, in case of problem, switch to the state, where
 diagnostic counters are enabled.
 
 At creation, a measurement group is in the `default` state:

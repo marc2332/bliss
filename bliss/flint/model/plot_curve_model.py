@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Union
 from typing import Tuple
 
-from silx.gui import qt
 import numpy
 
 from . import scan_model

@@ -495,8 +495,8 @@ Took 0:00:02.008699 (estimation was for 0:00:04.384344)
 
 ```
 
-In this example before each of a point *preparation*, the syringe will
-pump one unity of a volume.  And raise an error when there syringe is
+In this example before each point *preparation*  the syringe will
+pump one unit of a volume and raise an error when the syringe is
 empty.
 
 !!! note
@@ -504,5 +504,5 @@ empty.
 
 ### More complex scans
 
-For more complex scans, you may be need to use a lower level api see
-[Scan engine](scan_engine.md)
+For more complex scans, you may need to use a lower level api see
+[Scan engine](scan_engine.md).

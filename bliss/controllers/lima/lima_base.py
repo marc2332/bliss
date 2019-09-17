@@ -279,7 +279,7 @@ class Lima(object):
         else:
             main_proxy = self.proxy
             device_name = main_proxy.command_inout(
-                "getPluginDeviceNameFromType", type_name
+                "getPluginDeviceNameFromType", type_name.lower()
             )
             if not device_name:
                 raise RuntimeError(

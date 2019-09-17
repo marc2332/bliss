@@ -28,6 +28,18 @@ class Plot(qt.QObject):
         self.__items = []
         self.__styleStrategy = None
 
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.__items, )
+
+    def __setstate__(self, state):
+        self.__items = state[0]
+        self.__styleStrategy = state[1]
+        if self.__styleStrategy is not None:
+            self.__styleStrategy.setPlot(self)
+
     def addItem(self, item: Item):
         self.__items.append(item)
         self.itemAdded.emit(item)
@@ -68,6 +80,15 @@ class ChannelRef(qt.QObject):
         super(ChannelRef, self).__init__(parent=parent)
         self.__channelName = channelName
 
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.__channelName, )
+
+    def __setstate__(self, state):
+        self.__channelName = state[0]
+
     def _fireCurrentScanDataUpdated(self):
         """"""
         self.currentScanDataUpdated.emit()
@@ -95,6 +116,15 @@ class Item(qt.QObject):
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
 
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        return (self.parent(),)
+
+    def __setstate__(self, state):
+        self.setParent(state[0])
+
     def isValid(self):
         return True
 
@@ -119,6 +149,17 @@ class AbstractComputableItem(Item):
 
     def __init__(self, parent=None):
         Item.__init__(self, parent=parent)
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        state = super(AbstractComputableItem, self).__getstate__()
+        return (state, self.__source)
+
+    def __setstate__(self, state):
+        super(AbstractComputableItem, self).__setstate__(state[0])
+        self.__source = state[1]
 
     def setSource(self, source: Item):
         self.__source = source
@@ -168,6 +209,9 @@ class Style:
 class StyleStrategy:
     def __init__(self):
         self.__cached = {}
+
+    def __reduce__(self):
+        return (self.__class__, ())
 
     def setPlot(self, plot: Plot):
         self.__plot = plot

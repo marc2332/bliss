@@ -30,6 +30,14 @@ class CurvePlot(plot_model.Plot):
     def isScansStored(self) -> bool:
         return self.__scansStored
 
+    def __getstate__(self):
+        state = super(CurvePlot, self).__getstate__()
+        return (state, self.__scansStored, )
+
+    def __setstate__(self, state):
+        super(CurvePlot, self).__setstate__(state[0])
+        self.__scansStored = state[1]
+
 
 class ScanItem(plot_model.Item):
     def __init__(self, parent=None, scan: scan_model.Scan = None):
@@ -87,6 +95,19 @@ class CurveItem(plot_model.Item, CurveMixIn):
         self.__y = None
         self.__yAxis = "left"
 
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        state = super(CurveItem, self).__getstate__()
+        return (state, self.__x, self.__y, self.__yAxis)
+
+    def __setstate__(self, state):
+        super(CurveItem, self).__setstate__(state[0])
+        self.__x = state[1]
+        self.__y = state[2]
+        self.__yAxis = state[3]
+
     def isValid(self):
         return self.__x is not None and self.__y is not None
 
@@ -132,6 +153,17 @@ class CurveItem(plot_model.Item, CurveMixIn):
 
 class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
     """This item use the scan data to process result before displaying it."""
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        state = super(DerivativeItem, self).__getstate__()
+        return (state, self.yAxis())
+
+    def __setstate__(self, state):
+        super(DerivativeItem, self).__setstate__(state[0])
+        self.setYAxis(state[1])
 
     def isResultValid(self, result):
         return result is not None

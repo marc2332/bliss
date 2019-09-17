@@ -176,7 +176,7 @@ Example for mercury:
 ```yaml
 - name: mercury
   module: mca
-  class: MERCURY
+  class: Mercury
   url: tcp://wfamexia:8000
   configuration_directory: C:\\blissadm\\mercury\\config\\BM16
   default_configuration: Vortex3_Mercury4ch_05us_Hg.ini
@@ -186,7 +186,7 @@ Example for FalconX:
 ```yaml
 - name: fxid21
   module: mca
-  class: FALCONX
+  class: FalconX
   url: tcp://wid214:8000
   configuration_directory: C:\\blissadm\\falconx\\config\\ID21
   default_configuration: falconxn.ini

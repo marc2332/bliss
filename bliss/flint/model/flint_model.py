@@ -5,21 +5,28 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import List
+
 from silx.gui import qt
 
 from . import scan_model
+from . import plot_model
 
 
 class Workspace(qt.QObject):
 
     plotAdded = qt.Signal(object)
     plotRemoved = qt.Signal(object)
+    widgetAdded = qt.Signal(object)
+    widgetRemoved = qt.Signal(object)
 
     def __init__(self, parent=None):
         super(Workspace, self).__init__(parent=parent)
         self.__plots = []
+        self.__widgets = []
 
-    def plots(self):
+    def plots(self) -> List[plot_model.Plot]:
         return self.__plots
 
     def addPlot(self, plot):
@@ -29,6 +36,25 @@ class Workspace(qt.QObject):
     def removePlot(self, plot):
         self.__plots.remove(plot)
         self.plotRemoved.emit(plot)
+
+    def widgets(self) -> List[qt.QWidget]:
+        return self.__widgets
+
+    def addWidget(self, widget):
+        self.__widgets.append(widget)
+        self.widgetAdded.emit(widget)
+
+    def removeWidget(self, widget):
+        self.__widgets.remove(widget)
+        self.widgetRemoved.emit(widget)
+
+    def popWidgets(self) -> List[qt.QWidget]:
+        widgets = self.__widgets
+        self.__widgets = []
+        return widgets
+
+    def clearWidgets(self):
+        self.__widgets = []
 
 
 class FlintState(qt.QObject):
@@ -41,6 +67,13 @@ class FlintState(qt.QObject):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace = Workspace(self)
         self.__currentScan = None
+        self.__window = None
+
+    def setWindow(self, window: qt.QMainWindow):
+        self.__window = window
+
+    def window(self) -> qt.QMainWindow:
+        return self.__window
 
     def setWorkspace(self, workspace: Workspace):
         previous = self.__workspace

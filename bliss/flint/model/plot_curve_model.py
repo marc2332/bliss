@@ -38,7 +38,7 @@ class CurvePlot(plot_model.Plot):
         self.__scansStored = state[1]
 
 
-class ScanItem(plot_model.Item):
+class ScanItem(plot_model.Item, plot_model.NotStored):
     def __init__(self, parent=None, scan: scan_model.Scan = None):
         super(ScanItem, self).__init__(parent=parent)
         assert(scan is not None)

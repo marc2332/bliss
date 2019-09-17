@@ -32,7 +32,9 @@ class Plot(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.__items, )
+        # Well, NotStored is really specific to the long term storage
+        items = [i for i in self.__items if not isinstance(i, NotStored)]
+        return (items, self.__styleStrategy)
 
     def __setstate__(self, state):
         self.__items = state[0]
@@ -71,6 +73,9 @@ class Plot(qt.QObject):
         self.__styleStrategy.setPlot(self)
         self.styleChanged.emit()
 
+
+class NotStored:
+    """Flag object which not have to be stored"""
 
 class ChannelRef(qt.QObject):
 

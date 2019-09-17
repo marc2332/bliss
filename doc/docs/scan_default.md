@@ -288,28 +288,29 @@ ct         |   1       |  []
 
 ## Default chain
 
-All standard scan (step scans) are build the same way using the
-`DefaultAcquisitionChain` object accessible with the global
-`DEFAULT_CHAIN` if you are in a session. It's the entry point to
-parameterize detector in a step scan procedure. For any detector, it's
-easy to set **acquisition parameters** and **saving parameters** for step
-scan or to change it's master.
+All standard scans (step scans) are build the same way using the
+`DefaultAcquisitionChain` object accessible via the global variable
+`DEFAULT_CHAIN`, if you are in a session. It's the entry point to
+parameterise detectors in a step scan procedure. It is
+easy to set **acquisition parameters** and **saving parameters** for any
+detector, be it for step scans or to change it's master.
 
 !!! note
     **Acquisition parameters** are all the parameters that define the
-    number of trigger and points, trigger type, exposure time...
-    Other detector parameters should be not part of the `DefaultAcquisitionChain`
+    number of triggers and points, trigger type, exposure time and so on.
+    Other detector parameters should not be part of the `DefaultAcquisitionChain`
     configuration.<br>
-    i.e: *Image configuration* of a Lima device like binning, flip, rotation...
-    should be exclude from this configuration. And set before any scan.
+    For example *Image configuration* of a Lima device like binning, flip, 
+    rotation and so on, should be excluded from this configuration and 
+    set before any scan.
 
-    **Saving parameters** are parameters on some device (like: Lima)
+    **Saving parameters** are parameters on some devices (like: Lima)
     that configure the saving.<br>
-    i.e: On Lima device *saving_mode*, *saving_format*... may be part of the
-    `DEFAULT_CHAIN` configuration.
+    This means that for instance on Lima devices *saving_mode*, *saving_format* 
+    and so on, may be part of the `DEFAULT_CHAIN` configuration.
 
-i.e: Two basler camera with an hardware trigger provide by you counter
-card.  Most of the time the configuration come from `Beacon` and the
+Example: Two basler cameras with a hardware trigger provided by your counter
+card.  Most of the time the configuration comes from `Beacon` and the
 `yaml` file may look like this:
 
 ```yaml
@@ -328,10 +329,10 @@ card.  Most of the time the configuration come from `Beacon` and the
     master: $p201_0
 ```
 
-In this example you notice that both camera will be triggered externally
-(**EXTERNAL_TRIGGER_MULTI**) and their saving format will be
-*HDF5*. Their master will be the *p201* counter card.  To activate
-this setting for all steps scan of you *session* do as follow in the
+In this example you notice that both cameras are triggered externally
+(**EXTERNAL_TRIGGER_MULTI**) and their saving format *HDF5*. Their master
+will be the *p201* counter card.  To activate
+this setting for all steps scan of your *session* do as follows in the
 [session setup file](config_sessions.md#setup-file-example) :
 
 ```python
@@ -348,17 +349,14 @@ like this:
 
 ## To go further...
 
-To adapt the behavior of scans and devices to the needs of the
-measurement, there is some main way to operate.
-
 ### Steps scans
 
-Most of unusual step scans can be defined with the existing standard scan.
+Most unusual step scans can be defined using one of the existing standard scans.
 
 #### n-regions scan example
 
 In this example you want to define a scan with several
-region.  Region as to be defined as a list of tuple like:
+regions. The regions have to be defined as a list of tuples like:
 [(start1,stop1,npoints1),(start2,stop2,npoints2),...]
 
 ```python
@@ -374,9 +372,9 @@ def n_region_scan(motor, regions, count_time, *counter_args, **kwargs):
     return pointscan(motor,positions,count_time,*counter_args,**kwargs)
 ```
 
-Run it
+Execute :
 
-```
+```python
 TEST_SESSION [1]: s = n_region_scan(roby,[(0,2,3),(10,15,11)],0.1,diode,save=False)
 Total 14 points
 
@@ -402,7 +400,7 @@ Scan 9 Tue Apr 02 14:58:33 2019 <no saving> test_session user = seb
 Took 0:00:03.366149
 ```
 
-#### ascan like which take step size instead of number of point
+#### ascans, which take step size rather than the number of points
 
 ```python
 import numpy
@@ -412,12 +410,13 @@ def step_scan(motor, start, stop, step_size, count_time, *counter_args, **kwargs
     return ascan(motor,start,stop,npoints,count_time,*counter_args,**kwargs)
 ```
 
-Run it
+Execute :
+
 ```
 TEST_SESSION [42]: s = step_scan(roby, 0, 1, 0.2, 0.1, diode)
 Total 5 points, 0:00:01.615242 (motion: 0:00:01.115242, count: 0:00:00.500000)
 
-Scan 17 Tue Apr 02 16:04:31 2019 /tmp/scans/test_session/data.h5 test_session user = seb
+Scan 17 Tue Apr 02 16:04:31 2019 /tmp/..../data.h5 test_session user = seb
 ascan roby 0 1 5 0.1
 
            #         dt[s]          roby         diode
@@ -430,10 +429,10 @@ ascan roby 0 1 5 0.1
 Took 0:00:01.229621 (estimation was for 0:00:01.615242)
 ```
 
-#### Using preset to customize
+#### Using presets to customize
 
 In this example, the scan will pump a certain amount of liquid using a
-syringe before each point.  To do this we will use
+syringe before each point. To do this we will use
 [ChainPreset](scan_engine_preset.md#chainpreset).
 
 ```python
@@ -468,12 +467,13 @@ def syringe_ascan(syringe,liquid_amount,
     return s
 ```
 
-Run it
+Execute :
+
 ```
 TEST_SESSION [16]: syringe_ascan(my_syringe, 1, roby, 0, 1, 15, 0.1, diode)
 Total 15 points, 0:00:04.384344 (motion: 0:00:02.884344, count: 0:00:01.500000)
 
-Scan 22 Tue Apr 02 16:37:24 2019 /tmp/scans/test_session/data.h5 test_session user = seb
+Scan 22 Tue Apr 02 16:37:24 2019 /tmp/..../data.h5 test_session user = seb
 ascan roby 0 1 15 0.1
 
            #         dt[s]          roby         diode
@@ -487,11 +487,10 @@ ascan roby 0 1 15 0.1
            7       1.33038           0.5      -21.3333
            8       1.51747        0.5714       51.3333
            9        1.7079        0.6429       9.77778
-!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
-!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
+!!! === RuntimeError: No more liquid to pump === !!!
 
 Took 0:00:02.008699 (estimation was for 0:00:04.384344)
-!!! === RuntimeError: No more liquid to pump === !!! ( for more details type cmd 'last_error' )
+!!! === RuntimeError: No more liquid to pump === !!!
 
 ```
 

@@ -9,6 +9,10 @@
 Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 :func:`~bliss.common.standard.mv`, etc)
 """
+import contextlib
+import time
+import timedisplay
+
 from bliss import global_map, global_log
 from bliss.common import scans
 from bliss.common.scans import *
@@ -41,6 +45,7 @@ __all__ = (
         "debugon",
         "debugoff",
         "info",
+        "bench",
     ]
     + scans.__all__
     + logtools.__all__
@@ -731,3 +736,18 @@ def info(obj):
         return tmp
     except:
         return repr(obj)
+
+
+@contextlib.contextmanager
+def bench():
+    """
+    Basic timing of procedure, this has to be use like this:
+    with bench():
+         wa()
+         ascan(roby,0,1,10,0.1,diode)
+    """
+    start_time = time.time()
+    yield
+    duration = time.time() - start_time
+
+    print(f"Execution time: {timedisplay.duration_format(duration)}")

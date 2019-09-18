@@ -149,7 +149,7 @@ spec_m3  READY (Axis is READY)
 ```python
 CC4 [17]: prdef(umv)
 'umv' is defined in:
-/users/blissadm/conda/miniconda/envs/bliss/lib/python2.7/site-packages/bliss/common/standard.py:217
+/users/blissadm/..../site-packages/bliss/common/standard.py:217
 
 def umv(*args):
     """
@@ -161,3 +161,15 @@ def umv(*args):
     __umove(*args)
 ```
 
+
+### bench
+
+`bench()` function is a context manager to help benchmarking functions.
+
+usage:
+
+```python
+DEMO [14]: with bench():
+       ...:     time.sleep(1.987654)
+Execution time: 1s 987ms 970μs
+```

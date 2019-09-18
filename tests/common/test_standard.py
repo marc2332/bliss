@@ -1,7 +1,8 @@
 
 import pytest
+import gevent
 
-from bliss.common.standard import lscnt
+from bliss.common.standard import lscnt, bench
 
 EXPECTED = """
 Fullname             Shape    Controller    Name           Alias
@@ -59,3 +60,11 @@ def test_lscnt(beacon, setup_globals, capsys):
     assert lscnt() is None
     captured = capsys.readouterr()
     assert captured.out == EXPECTED
+
+
+def test_bench(beacon, setup_globals, capsys):
+    with bench():
+        gevent.sleep(1)
+
+    captured = capsys.readouterr()
+    assert "Execution time: 1s" in captured.out

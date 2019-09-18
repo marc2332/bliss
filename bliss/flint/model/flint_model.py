@@ -49,12 +49,17 @@ class Workspace(qt.QObject):
         self.widgetRemoved.emit(widget)
 
     def popWidgets(self) -> List[qt.QWidget]:
-        widgets = self.__widgets
+        widgets = list(self.__widgets)
         self.__widgets = []
+        for widget in widgets:
+            self.widgetRemoved.emit(widget)
         return widgets
 
     def clearWidgets(self):
+        widgets = list(self.__widgets)
         self.__widgets = []
+        for widget in widgets:
+            self.widgetRemoved.emit(widget)
 
 
 class FlintState(qt.QObject):
@@ -65,15 +70,23 @@ class FlintState(qt.QObject):
 
     def __init__(self, parent=None):
         super(FlintState, self).__init__(parent=parent)
-        self.__workspace = Workspace(self)
+        self.__workspace = None
         self.__currentScan = None
         self.__window = None
+        self.__propertyWidget = None
 
     def setWindow(self, window: qt.QMainWindow):
         self.__window = window
 
     def window(self) -> qt.QMainWindow:
         return self.__window
+
+    def setPropertyWidget(self, propertyWidget: qt.QWidget):
+        propertyWidget.setObjectName("property-widget")
+        self.__propertyWidget = propertyWidget
+
+    def propertyWidget(self) -> qt.QWidget:
+        return self.__propertyWidget
 
     def setWorkspace(self, workspace: Workspace):
         previous = self.__workspace

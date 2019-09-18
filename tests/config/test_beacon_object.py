@@ -274,3 +274,18 @@ def test_event(beacon):
     ctrl.mode = "Hello"
     wait()
     assert current_values == {"speed": 100, "velocity": .3, "mode": "Hello"}
+
+
+class Ctrl10(BeaconObject):
+    waittime = BeaconObject.property_setting("waittime", default=0.)
+    none_init = BeaconObject.property_setting("none_init")
+
+
+def test_property_settings(beacon):
+    cfg = beacon.get("controller_setting2")
+    ctrl = Ctrl10(cfg)
+    assert ctrl.waittime == 0.
+    ctrl.waittime = 12.2
+    assert ctrl.waittime == 12.2
+
+    assert ctrl.none_init is None

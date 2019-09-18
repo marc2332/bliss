@@ -333,6 +333,16 @@ class BeaconObject:
         return property
 
     @staticmethod
+    def property_setting(name, default=None):
+        def get(self):
+            return self.settings.get(name, default)
+
+        def set(self, value):
+            self.settings[name] = value
+
+        return property(get, set)
+
+    @staticmethod
     def lazy_init(func):
         @wraps(func)
         def f(self, *args, **kwargs):

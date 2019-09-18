@@ -485,9 +485,7 @@ class _cnx(object):
     def _call__(self, code, args, kwargs):
         timeout = kwargs.get("timeout", self._timeout)
 
-        log_debug(
-            self.proxy, f"rpc client ({self._address}): call code={code} args={args}"
-        )
+        log_debug(self.proxy, f"rpc client ({self._address}): '{code}' args={args}")
 
         with gevent.Timeout(timeout):
             self.try_connect()

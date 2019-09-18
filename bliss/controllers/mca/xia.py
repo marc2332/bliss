@@ -13,6 +13,8 @@ from numbers import Number
 from bliss.comm import rpc
 from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
+from bliss.common.logtools import *
+from bliss import global_map
 
 # Mercury controller
 
@@ -36,6 +38,10 @@ class BaseXIA(BaseMCA):
     - set_block_size (for SYNC and GATE trigger modes)
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        global_map.register(self, parents_list=["mca"], tag=f"XiaMca:{self.name}")
+
     # Life cycle
 
     def initialize_attributes(self):
@@ -47,6 +53,7 @@ class BaseXIA(BaseMCA):
 
     def initialize_hardware(self):
         self._proxy = rpc.Client(self._url)
+        global_map.register(self._proxy, parents_list=[self], tag="comm")
         self.load_configuration(self._default_config)
 
     def finalize(self):

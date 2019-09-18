@@ -1,16 +1,16 @@
 # Counters
 
-Counters are BLISS objects intented to be read during a count or step
+Counters are BLISS objects intended to be read during a count or step
 by step scan as well as during a continuous scan.
 
-Such objects have then to follow a minimal API to be usable is
+Such objects have then to follow a minimal API to be usable in
 standard scans.
 
 
 ## Sampling or Integrating counter ?
 
-A *sampling counter* is used to deal with devices to be read "on the
-fly" with jsut a read command:
+A *sampling counter* obtains readout values "*on the
+fly*" with just a read command:
 
 * `read()`
 
@@ -20,7 +20,7 @@ BLISS examples:
 * Wago
 * Keller gauges
 
-An *integrating counter* is used with devices that need to be processed
+An *integrating counter* processes readout values
 according to a defined sequence, typically:
 
 * `prepare()`
@@ -130,8 +130,8 @@ counters with some example of usage.
 
 
 ## Group read
-Both IC and SC provide mechanism to perform *group read* in order to
-read many counters at once if they belong to a common controller able
+Both IC and SC provide mechanism to perform *group read*s in order to
+read many counters at once, if they belong to a common controller, able
 to read all channels at once.
 
 
@@ -180,17 +180,17 @@ YML configuration:
 
 !!! note
     In this example, keyword `counter_name` is used instead of
-    `name` to avoid to load automaticaly the counters objects in
+    `name` to avoid to load automatically the counters objects in
     BLISS sessions.
 
 
-In this example, BLISS controller has:
+This example BLISS controller has:
 
-* to deal with connection (TCP)
-* to manage channels (returned by `counters()` property).
-* to allow a groupped reading of all channels
+* to deal with the connection (TCP)
+* to manage channels (returned by `counters()` property)
+* to allow a grouped reading of all channels.
 
-NB: controller file name must be in lower case.
+NB: the controller file name must be in lower case.
 
 Example from `emh.py`:
 
@@ -200,7 +200,7 @@ Example from `emh.py`:
             SamplingCounter.__init__(self, name, controller)
             #                                    ref to the controller
             # the reading of many counters depending on the same
-            # controller will be performed using  controller.read_all() function
+            # controller will be performed using controller.read_all() function
     
             self.channel = channel
             self.unit = unit
@@ -238,8 +238,11 @@ Example from `emh.py`:
             return vlist
 
 ### Sampling counter statistics
-Sampling counters read as many samples as possible from the connected hardware in the specified counting time and 
-return e.g. an average value (default mode, see below for details). Additionally some basic statistics of the sampling process are calculated on the fly which are accessible after the count through the `.statistics` property.  
+Sampling counters read as many samples as possible from the connected hardware
+in the specified counting time and return, amongst others, an average value
+(default mode, see below for details). Additionally, some basic statistics of 
+the sampling process are calculated on the fly, which are accessible after the 
+count through the `.statistics` property.  
 
 ```
     TEST_SESSION [1]: diode.mode     
@@ -265,11 +268,18 @@ The values availabe in `SamplingCounterStatistics` are
  - `max`: Maxium value $x_{max}$
  - `p2v`: Peak to valley $x_{max}-x_{min}$
 
-To awoid temporailty storeing the individual sample values the statistics are calculated in a rolling fashion using [Welford's online algorithm](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm). Internally the sum of squares of differences from the current mean $M_{2,n} = \sum_{i=1}^n (x_i - \bar x_n)^2$, is calculated in itteratively via $M_{2,n} = M_{2,n-1} + (x_n - \bar x_{n-1})(x_n - \bar x_n)$. Based on $M_{2,n}$ the variance is derived as $\sigma^2_n = \frac{M_{2,n}}{n}$.
+To avoid storing individual sample values temporarily, the statistics are calculated
+in a rolling fashion using [Welford's online algorithm]
+(https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm). 
+Internally, the sum of squares of differences from the current mean 
+$M_{2,n} = \sum_{i=1}^n (x_i - \bar x_n)^2$, is calculated iteratively 
+via $M_{2,n} = M_{2,n-1} + (x_n - \bar x_{n-1})(x_n - \bar x_n)$.
+Based on $M_{2,n}$ the variance is derived as $\sigma^2_n = \frac{M_{2,n}}{n}$.
 
 ### Sampling counter modes
 
-The sampling counter modes are used to specify which value(s) should be published (to hdf5 file and database) at the end of the counting process.
+At the end of the counting process, the sampling counter modes are used to specify 
+which value(s) should be published (to hdf5 file and database).
 
 The available modes can be found in `bliss.common.measurement.SamplingMode`:
 
@@ -286,7 +296,8 @@ The available modes can be found in `bliss.common.measurement.SamplingMode`:
 ```
 
 #### SamplingMode.MEAN
-The default mode is `MEAN` which returns the mean (average) value of all samples that have been read during the counting time.
+The default mode is `MEAN` which returns the mean (average) value of all 
+samples, which have been read during the counting time.
 
 ![MEAN_timeline](img/sampling_timeline_MEAN.svg)
 
@@ -312,31 +323,45 @@ stop
 ![MEAN_AVERAGE](img/sampling_uml_MEAN.svg)
 
 #### SamplingMode.INTEGRATE
-compaired to `SamplingMode.MEAN` it takes also into account the nominal counting time. This way a counter in the mode `SamplingMode.INTEGRATE` returns the equivalent of the sum all samples normalized by the counting time. A usecase for this mode is e.g. the reading of an diode that should yied a value that is approximative  proportional to the number of photons that hit the diode during the counting time.
+in addition to `SamplingMode.MEAN` the nominal counting time is taken into
+account. This way a counter in the mode `SamplingMode.INTEGRATE` returns the
+equivalent of the sum of all samples normalized by the counting time. 
+A use case for this mode is for example the reading of a diode, that should yield
+a value approximately proportional to the number of photons that hit the diode
+during the counting time.
 
 ![INTEGRATE_timeline](img/sampling_timeline_INTEGRATE.svg)
 
 #### SamplingMode.STATS
-publishes all the values as that are calculated for the sampling counter statistics (see above) into the hdf5 file and the redis database.
+publishes all the values as calculated for the sampling counter statistics 
+(see above) into the hdf5 file and the redis database.
 
 #### SamplingMode.INTEGRATE_STATS
-equivalent to `SamplingMode.STATS` but for counters that should behave as described in `SamplingMode.INTEGRATE` yieding statistics in additional channels.
+equivalent to `SamplingMode.STATS`, but for counters that should behave as 
+described in `SamplingMode.INTEGRATE` yielding statistics in additional channels.
 
 #### SamplingMode.SINGLE
 
-A counter in this mode is publishing the first sample without taking into account any further samples read from the device. If possible (i.e. there is no counter in any other mode on the same `AquisitionDevice`) only one sample will be read.
+A counter in this mode publishes only the first sample read from the device,
+discarding any further samples. If possible (i.e. there is no counter in any 
+other mode on the same `AquisitionDevice`) only one sample will be read.
 
 ![SINGLE_timeline](img/sampling_timeline_SINGLE.svg)
 
 #### SamplingMode.LAST
 
-A counter in this mode is publishing the last sample without taking into account any other sample read from the device. 
+A counter in this mode publishes only the last sample discarding any further samples.
 
 ![LAST_timeline](img/sampling_timeline_LAST.svg)
 
 #### SamplingMode.SAMPLES
 
-Is differnt from other modes in a sense that in addition to `SamplingMode.MEAN` it generates an additional 1d dataset containing the individual samples per count and also publishes it. It can e.g. be used to do some more complex statistical analysis of the measured values or as basis for any `CalcCounter` that can be used to extract derived quantities from the original dataset. Here is an example to have a CalcCounter that returns the median:
+Is different from other modes in the sense, that in addition to `SamplingMode.MEAN`,
+it generates an additional 1d dataset containing the individual samples in a
+counting period and also publishes it. It can e.g. be used to do some more 
+complex statistical analysis of the measured values or, as basis for
+any `CalcCounter`, that can be used to extract derived quantities from the
+original dataset. Following is an example for a CalcCounter, that returns the median:
  
 ```
 TEST_SESSION [1]: from bliss.common.measurement import CalcCounter

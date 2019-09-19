@@ -53,42 +53,54 @@ import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
-from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
+from bliss.common.tango import DevState, DeviceProxy
+
+from bliss import global_map
+from bliss.common.logtools import *
 
 from bliss.shell.cli.user_dialog import (
     UserMsg,
     UserYesNo,
     UserChoice,
-    UserInput,
+    UserFloatInput,
     Container,
 )
-from bliss.shell.cli.user_dialog import UserFloatInput
+
 from bliss.shell.cli.pt_widgets import display, BlissDialog
 
 __author__ = "Jens Meyer / Gilles Berruyer - ESRF ISDD SOFTGROUP BLISS - June 2019"
 
 
 class esrf_hexapode(Controller):
+    """ Class to implement BLISS motor controller of esrf hexapode controlled
+    via tango device server
+    """
+
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-        try:
-            self.tango_name = self.config.get("tango_name")
-        except:
-            print(
-                "ESRF_hexapode: no 'tango_name' defined in config for %s"
-                % self.config.get("name")
+        global_map.register(self)
+
+        self.device = None
+        self.roles = {}
+        self.last_read = None
+        self.hexa_pos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self.tango_name = self.config.get("tango_name")
+
+        if not self.tango_name:
+            _err_msg = (
+                f"'tango_name' not defined in config for {self.config.get('name')}"
             )
+            log_error(self, _err_msg)
+            raise RuntimeError(_err_msg)
 
     """
     BLISS MOTOR CONTROLLER
     """
 
-    """
-    Controller initialization actions.
-    """
-
     def initialize(self):
+        """Controller initialization actions. """
+
         # Get a proxy on Hexapode Tango DS.
         self.device = DeviceProxy(self.tango_name)
 
@@ -104,11 +116,8 @@ class esrf_hexapode(Controller):
 
         self.hexa_pos = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
-    """
-    Axes initialization actions.
-    """
-
     def initialize_axis(self, axis):
+        """ Axes initialization actions """
         role = axis.config.get("role")
         if role not in self.roles:
             raise ValueError(f"ESRF_hexapode: Invalid role {role} for axis {axis.name}")
@@ -177,10 +186,11 @@ class esrf_hexapode(Controller):
 
         if _state == DevState.ON:
             return AxisState("READY")
-        elif _state == DevState.MOVING:
+
+        if _state == DevState.MOVING:
             return AxisState("MOVING")
-        else:
-            return AxisState("READY")
+
+        return AxisState("READY")
 
     """
     Must send a command to the controller to abort the motion of given axis.
@@ -191,16 +201,6 @@ class esrf_hexapode(Controller):
 
     def stop_all(self, *motion_list):
         self.device.Stop()
-
-    def get_info(self, axis):
-        info_str = ""
-        info_str = "DEVICE SERVER : %s \n" % self.tango_name
-        info_str += self.ds.state() + "\n"
-        info_str += 'status="%s"\n' % str(self.device.status()).strip()
-        info_str += "state=%s\n" % self.device.state()
-        info_str += "mode=%s\n" % str(self.device.mode)
-
-        return info_str
 
     """
     Velocity
@@ -260,10 +260,34 @@ class esrf_hexapode(Controller):
 
         return hexa_state
 
-    def hexa_show(self, menu=None):
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper."""
+        try:
+            return self.info(menu=False)
+        except Exception:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
 
-        line_str = ""
-        if menu is None:
+    #    def get_info(self, axis):
+    #        info_str = ""
+    #        info_str = "DEVICE SERVER : %s \n" % self.tango_name
+    #        info_str += self.device.state() + "\n"
+    #        info_str += 'status="%s"\n' % str(self.device.status()).strip()
+    #        info_str += "state=%s\n" % self.device.state()
+    #        info_str += "mode=%s\n" % str(self.device.mode)
+    #
+    #        return info_str
+
+    def info(self, menu=False):
+        """Return a string information about hexapod positions
+        This method can be used by both menu() and info() methods.
+        """
+
+        if menu:
+            line_str = ""
+        else:
             line_str = "    "
 
         # Description
@@ -315,17 +339,28 @@ class esrf_hexapode(Controller):
             % (math.radians(hexa_pos[3]) * 1000.0, hexa_length[5], hexa_state[5])
         )
 
-        if menu is None:
+        msg_desc += "\n\n"
+        msg_desc += msg_pos
+
+        return msg_desc
+
+    def hexa_show(self, menu=False):
+        """Shell user level method to get info about current hexapode."""
+        info_str = self.info(menu)
+
+        if menu:
+            msg_widget = UserMsg(f"{info_str}\n")
+            msg_title = f"{self.name}: {self.device}"
+            display(msg_widget, title=msg_title)
+        else:
             print("")
             print(f"    Name        : {self.name}")
             print(f"    Device      : {self.device}")
-            print(f"{msg_desc}\n\n{msg_pos}\n")
-        else:
-            msg_widget = UserMsg(f"{msg_desc}\n\n{msg_pos}\n")
-            msg_title = f"{self.name}: {self.device}"
-            display(msg_widget, title=msg_title)
+            print(f"{info_str}\n")
 
     def hexa_set_ref_pos(self):
+        """User level interactive method to ???
+        This method uses `user_dialog` functions."""
 
         hexa_curr_pos = self.device.read_attribute("Position").value
         old_ref_pos = self.device.read_attribute("RefPosition").value
@@ -426,6 +461,8 @@ class esrf_hexapode(Controller):
                 print("Changing Hexapode Tango DS Properties !!!")
 
     def hexa_move_legs(self):
+        """User level interactive method to ???
+        This method uses `user_dialog` functions."""
 
         curr_leg_length = self.device.read_attribute("LegLength").value
 
@@ -520,6 +557,8 @@ class esrf_hexapode(Controller):
                 print("\n")
 
     def hexa_move(self):
+        """User level interactive method to ???
+        This method uses `user_dialog` functions."""
 
         curr_pos = self.device.read_attribute("Position").value
 
@@ -581,7 +620,7 @@ class esrf_hexapode(Controller):
                 math.degrees(float(rep[dlg_new_rx]) / 1000.0),
             ]
 
-            with hexa_cleanup(self, "hexa_move"):
+            with hexapode_cleanup(self, "hexa_move"):
 
                 self.device.Move(new_pos)
 
@@ -635,6 +674,9 @@ class esrf_hexapode(Controller):
         self.device.write_attribute("Mode", new_mode)
 
     def hexa_set_legs(self):
+        """User level interactive method to ???
+        This method uses `user_dialog` functions."""
+
         curr_leg_length = self.device.read_attribute("LegLength").value
 
         dlg_curr_l1 = UserMsg(label=f"Leg 1 (mm) : %8.4f" % (curr_leg_length[0]))
@@ -757,6 +799,8 @@ class esrf_hexapode(Controller):
             print(f"\n\n {self.name} Hard Reset Done\n")
 
     def hexa_calc(self):
+        """User level interactive method to ???
+        This method uses `user_dialog` functions."""
 
         curr_pos = self.device.read_attribute("Position").value
 
@@ -835,7 +879,14 @@ class esrf_hexapode(Controller):
     """
 
     def menu(self):
-
+        """Access to the BlissDialog-based menu from shell.
+        Menu allows to:
+        * show info
+        * stop hexapode
+        * make a soft reset (ie:???)
+        * make a full reset (ie:???)
+        * calculate and check positions.
+        """
         choices = [
             (1, "Show Hexapode"),
             (2, "STOP"),
@@ -854,7 +905,7 @@ class esrf_hexapode(Controller):
                 [[menu_choice]], title="Hexapode Menu", cancel_text="Quit"
             ).show()
 
-            if rep == False:
+            if not rep:
                 fin = True
             else:
                 if rep[menu_choice] == 1:
@@ -876,7 +927,9 @@ class esrf_hexapode(Controller):
                     display(menu_not_implemented)
 
 
-class hexapode_cleanup(object):
+class hexapode_cleanup:
+    """ """
+
     def __init__(self, hexapode, cmd_name):
         self.hexapode = hexapode
         self.cmd_name = cmd_name
@@ -891,19 +944,3 @@ class hexapode_cleanup(object):
             self.hexapode.device.Stop()
 
         return False
-
-
-"""
-BN23 Hexapode:
-
-    Mirror: Position Registered by Noel Levet
-    
-            GILLES [1]: wa()
-            Current Positions (user, dial)
-
-              hexrx     hexry    hexrz     hextx    hexty    hextz
-            -------  --------  -------  --------  -------  -------
-            0.01498  -0.15651  0.02510  -0.68499  1.50002  3.17801
-            0.01498  -0.15651  0.02510  -0.68499  1.50002  3.17801
-
-"""

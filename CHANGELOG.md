@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- New controllers support added:
+  - esrf_hexapode controller
+
+- Bliss Shell
+  - **info(obj)** function will standardize the representation of an object inside Bliss shell,
+    it uses underline `__info__` method if it exists and eventually falling back to `repr`
+
 ## [0.2.0] - 2019-08-23
 ### Added
 - Bliss Shell Interface
@@ -19,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Introduced global variable ERROR_REPORT.expert_mode to allow full traceback for expert users
   - added `history` tooltip for viewing last commands (globals)
   - add shell autocomplexion for dynamic attributes
-  - **info(obj)** function will standardize the representation of an object inside Bliss shell,
-    it uses underline `__info__` method if it exists and eventually falling back to `repr`
 - New controllers support added:
   - Aerotech Soloist
   - Elmo whistle

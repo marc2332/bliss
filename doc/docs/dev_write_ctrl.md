@@ -150,13 +150,17 @@ BLISS [4]: [a]
     Example:
     ```python
     def __info__(self):
-        """Standard function called by BLISS Shell typing helper to get info
-        about objects.
-        """
-        try:
-            return = self.info()
-        except:
-            log_error(self, "An error happend during execution of __info__(), use .info() to get it.")
+    """Standard method called by BLISS Shell info helper."""
+    try:
+        info_string = self.info(menu=False)
+    except Exception:
+        log_error(
+            self,
+            "An error happend during execution of __info__(), use .info() to get it.",
+        )
+
+    return info_string
+
     ```
 
 The equivalent of `repr(obj)` or `str(obj)` is also availabe in

@@ -956,19 +956,17 @@ class Axis:
             )
 
         try:
-            _info_string += self.__controller.get_info(self)
+            _info_string += self.__controller.__info__(self)
         except Exception as e:
             _info_string += f"{self.controller}\n"
 
         return _info_string
 
     def __info__(self):
-        """Standard function called by BLISS Shell typing helper to get info
-        about objects.
-        """
+        """Standard method called by BLISS Shell info helper."""
         try:
             return self.info()
-        except:
+        except Exception:
             log_error(
                 self,
                 "An error happend during execution of __info__(), use .info() to get it.",

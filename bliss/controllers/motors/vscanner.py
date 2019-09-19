@@ -411,8 +411,8 @@ class VSCANNER(Controller):
 
         return _txt
 
-    #    def __info__(self):
-    #        return self.get_info()
+    def __info__(self):
+        return self.get_info()
 
     def send(self, axis, cmd):
         """

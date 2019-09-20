@@ -114,10 +114,20 @@ class Device(qt.QObject, _Sealable):
         # FIXME better to export iterator or read only list
         return iter(self.__channels)
 
-    def setMaster(self, master: Union[None,Channel]):
+    def setMaster(self, master: Union[None,Device]):
         if self.isSealed():
             raise SealedError()
         self.__master = master
+
+    def master(self) -> Device:
+        return self.__master
+
+    def isMaster(self) -> bool:
+        """"
+        True if the device is a master device.
+        """
+        # FIXME: This have to be improved1
+        return self.__master is None
 
 
 class Channel(qt.QObject, _Sealable):

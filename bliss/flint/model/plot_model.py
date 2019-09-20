@@ -7,11 +7,17 @@
 
 from __future__ import annotations
 from typing import Union
+from typing import List
+
+import numpy
+import enum
 
 from silx.gui import qt
-from typing import List
-import numpy
 from . import scan_model
+
+
+class ChangeEventType(enum.Enum):
+    YAXIS = enum.auto()
 
 
 class Plot(qt.QObject):
@@ -119,7 +125,7 @@ class ChannelRef(qt.QObject):
 
 class Item(qt.QObject):
 
-    valueChanged = qt.Signal()
+    valueChanged = qt.Signal(ChangeEventType)
 
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
@@ -157,6 +163,7 @@ class AbstractComputableItem(Item):
 
     def __init__(self, parent=None):
         Item.__init__(self, parent=parent)
+        self.__source = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())

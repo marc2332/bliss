@@ -58,7 +58,7 @@ class CurveMixIn:
     def setYAxis(self, yAxis: str):
         self.__yAxis = yAxis
         self.parent().invalidateStructure()
-        self.valueChanged.emit()
+        self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
 
     def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
         raise NotImplementedError()
@@ -131,7 +131,7 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def setYAxis(self, yAxis: str):
         self.__yAxis = yAxis
         self.parent().invalidateStructure()
-        self.valueChanged.emit()
+        self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
 
     def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
         channel = self.xChannel()
@@ -217,6 +217,19 @@ MaxData = collections.namedtuple(
 class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
     def isResultValid(self, result):
         return result is not None
+
+    def setSource(self, source: plot_model.Item):
+        previousSource = self.source()
+        if previousSource is not None:
+            previousSource.valueChanged.disconnect(self.__sourceChanged)
+        plot_model.AbstractIncrementalComputableItem.setSource(self, source)
+        if source is not None:
+            source.valueChanged.connect(self.__sourceChanged)
+            self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
+
+    def __sourceChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.YAXIS:
+            self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
 
     def compute(self, scan: scan_model.Scan) -> Union[None, MaxData]:
         sourceItem = self.source()

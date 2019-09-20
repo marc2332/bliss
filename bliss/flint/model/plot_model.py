@@ -118,6 +118,9 @@ class ChannelRef(qt.QObject):
 
 
 class Item(qt.QObject):
+
+    valueChanged = qt.Signal()
+
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
 

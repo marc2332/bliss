@@ -930,8 +930,11 @@ class Scan:
         counter_name = counter.name if not isinstance(counter, str) else counter
         data = self.get_data()
         x_data = data[axis_name]
-        y_data = data[counter_name]
-
+        try:
+            y_data = data[counter_name]
+        except KeyError:
+            # try with the counter short name
+            y_data = data[counter_name.split(":")[-1]]
         return x_data, y_data, axis_name
 
     def fwhm(self, counter, axis=None):

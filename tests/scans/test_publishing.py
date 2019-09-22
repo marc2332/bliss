@@ -13,9 +13,9 @@ import pickle as pickle
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
 from bliss.data.nodes.scan import Scan as ScanNode
@@ -66,7 +66,9 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=5),
+        SamplingCounterAcquisitionSlave(
+            diode.controller, diode, count_time=0.01, npoints=5
+        ),
     )
 
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
@@ -123,7 +125,9 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=5),
+        SamplingCounterAcquisitionSlave(
+            diode.controller, diode, count_time=0.01, npoints=5
+        ),
     )
 
     s = Scan(chain, "test_scan")
@@ -146,16 +150,14 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
 
 
 def test_scan_data_0d(session, redis_data_conn):
-
-    counter_name = "sim_ct_gauss"
-    simul_counter = getattr(setup_globals, counter_name)
+    simul_counter = session.env_dict.get("sim_ct_gauss")
     s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
 
     assert s == scans.SCANS[-1]
 
     # redis key is build from node name and counter name with _data suffix
     # ":timer:<counter_name>:<counter_name>_data"
-    redis_key = s.node.db_name + f":timer:{counter_name}:{counter_name}_data"
+    redis_key = s.node.db_name + f":timer:{simul_counter.fullname}_data"
     redis_data = list(map(float, redis_data_conn.lrange(redis_key, 0, -1)))
 
     assert numpy.array_equal(redis_data, simul_counter.data)
@@ -183,7 +185,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, npts),
-        SamplingCounterAcquisitionDevice(diode, count_time=0.01, npoints=npts),
+        SamplingCounterAcquisitionSlave(
+            diode.controller, diode, count_time=0.01, npoints=npts
+        ),
     )
 
     s = Scan(chain, "test_scan")
@@ -360,8 +364,8 @@ def test_scan_end_timing(
 
     # Get controllers
     chain = AcquisitionChain()
-    master = dummy_acq_master.get(None, "master", npoints=1)
-    device = dummy_acq_device.get(None, "device", npoints=1)
+    master = dummy_acq_master.get(None, name="master", npoints=1)
+    device = dummy_acq_device.get(None, name="device", npoints=1)
 
     def a_slow_func():
         # this sleep is the point of the test...
@@ -401,7 +405,7 @@ def test_scan_end_timing(
 
 
 def test_data_shape_of_get(default_session):
-    class myAcqDev(AcquisitionDevice):
+    class myAcqDev(AcquisitionSlave):
         def __init__(self):
             class dev:
                 def __init__(self):

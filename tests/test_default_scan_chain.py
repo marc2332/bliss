@@ -7,12 +7,15 @@
 
 import gevent
 from bliss.common.scans import DEFAULT_CHAIN
+
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
-from bliss.scanning.acquisition.mca import McaAcquisitionDevice
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionDevice
+from bliss.scanning.acquisition.mca import McaAcquisitionSlave
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
+from bliss.scanning.chain import ChainNode, AcquisitionObject
+from bliss.controllers.counter import CounterController
 from bliss.controllers.simulation_diode import DEFAULT_CONTROLLER as diode_controller
 
 
@@ -38,7 +41,7 @@ def test_default_chain_with_sampling_counter(beacon):
     nodes = chain.nodes_list
     assert len(nodes) == 2
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
+    assert isinstance(nodes[1], SamplingCounterAcquisitionSlave)
 
     assert nodes[1].count_time == timer.count_time
 
@@ -75,8 +78,8 @@ def test_default_chain_with_three_sampling_counters(beacon):
     nodes = chain.nodes_list
     assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)
-    assert isinstance(nodes[1], SamplingCounterAcquisitionDevice)
-    assert isinstance(nodes[2], SamplingCounterAcquisitionDevice)
+    assert isinstance(nodes[1], SamplingCounterAcquisitionSlave)
+    assert isinstance(nodes[2], SamplingCounterAcquisitionSlave)
 
     assert nodes[1].count_time == timer.count_time == nodes[2].count_time
 
@@ -120,7 +123,7 @@ def test_default_chain_with_roi_counter(default_session, lima_simulator):
         assert len(nodes) == 3
         assert isinstance(nodes[0], timer.__class__)
         assert isinstance(nodes[1], LimaAcquisitionMaster)
-        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionSlave)
 
         assert len(nodes[2].channels) == 5
         assert nodes[2].count_time == timer.count_time
@@ -178,8 +181,8 @@ def test_default_chain_with_roicounter_and_diode(default_session, lima_simulator
         assert len(nodes) == 4
         assert isinstance(nodes[0], timer.__class__)
         assert isinstance(nodes[1], LimaAcquisitionMaster)
-        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
-        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionSlave)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionSlave)
 
         assert nodes[2].parent == nodes[1]
         assert nodes[3].parent == timer
@@ -216,7 +219,7 @@ def test_default_chain_with_roicounter_and_image(default_session, lima_simulator
         assert len(nodes) == 3
         assert isinstance(nodes[0], timer.__class__)
         assert isinstance(nodes[1], LimaAcquisitionMaster)
-        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionSlave)
         assert nodes[1].parent == timer
         assert nodes[2].parent == nodes[1]
 
@@ -265,8 +268,8 @@ def test_default_chain_with_lima_defaults_parameters(default_session, lima_simul
         assert len(nodes) == 4
         assert isinstance(nodes[0], timer.__class__)
         assert isinstance(nodes[1], LimaAcquisitionMaster)
-        assert isinstance(nodes[2], IntegratingCounterAcquisitionDevice)
-        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+        assert isinstance(nodes[2], IntegratingCounterAcquisitionSlave)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionSlave)
 
         assert nodes[2].parent == nodes[1]
         assert nodes[3].parent == nodes[1]
@@ -297,12 +300,13 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 
-    class FakeMaster:
-        def __init__(self, name):
-            self.name = name
+    class FakeChainNode(ChainNode):
+        def get_acquisition_object(self, acq_params, ctrl_params=None):
+            return AcquisitionObject(self.controller, [], ctrl_params=ctrl_params)
 
-        def create_master_device(self, scan_pars, **settings):
-            return FakeMaster(self.name)
+    class FakeMaster(CounterController):
+        def __init__(self, name):
+            super().__init__(name, chain_node_class=FakeChainNode)
 
     fake_master = FakeMaster("fake")
 
@@ -324,9 +328,9 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
         nodes = chain.nodes_list
         assert len(nodes) == 4
         assert isinstance(nodes[0], timer.__class__)
-        assert isinstance(nodes[1], FakeMaster)
+        assert isinstance(nodes[1].device, FakeMaster)
         assert isinstance(nodes[2], LimaAcquisitionMaster)
-        assert isinstance(nodes[3], SamplingCounterAcquisitionDevice)
+        assert isinstance(nodes[3], SamplingCounterAcquisitionSlave)
 
         assert nodes[1].parent == timer
         assert nodes[2].parent == nodes[1]
@@ -370,11 +374,11 @@ def test_default_chain_with_mca_defaults_parameters(default_session, lima_simula
         assert len(nodes) == 3
         assert isinstance(nodes[0], timer.__class__)
         assert isinstance(nodes[1], LimaAcquisitionMaster)
-        assert isinstance(nodes[2], McaAcquisitionDevice)
+        assert isinstance(nodes[2], McaAcquisitionSlave)
 
         assert nodes[2].parent == nodes[1]
         assert nodes[1].parent == timer
 
-        assert nodes[2].trigger_mode == McaAcquisitionDevice.GATE
+        assert nodes[2].trigger_mode == McaAcquisitionSlave.GATE
     finally:
         DEFAULT_CHAIN.set_settings([])

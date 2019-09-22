@@ -11,8 +11,10 @@ import time
 import numpy
 from bliss.common import scans
 from bliss.scanning import scan, chain
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer, calc, motor, counter
-from bliss.common import event, measurement, scans
+from bliss.common import event, scans
+from bliss.controllers.counter import CalcCounterController
 
 
 def test_ascan(session):
@@ -345,11 +347,11 @@ def test_calc_counters(session):
     c.add(t, cnt_acq_device)
 
     # Creates a calc counter which returns the square of the original counter
-    calc_cnt = calc.CalcAcquisitionDevice(
+    calc_cnt = calc.CalcAcquisitionSlave(
         "bla",
         (cnt_acq_device,),
         lambda y, x: {"pow": x["sim_ct_gauss"] ** 2},
-        (chain.AcquisitionChannel("pow", numpy.float, ()),),
+        (AcquisitionChannel("pow", numpy.float, ()),),
     )
     c.add(t, calc_cnt)
     top_master = motor.LinearStepTriggerMaster(2, robz2, 0, 1)
@@ -392,11 +394,8 @@ def test_calc_counter_callback(session):
             self.stop_called += 1
 
     cbk = CBK()
-    calc_cnt = calc.CalcAcquisitionDevice(
-        "bla",
-        (cnt_acq_device,),
-        cbk,
-        (chain.AcquisitionChannel("pow", numpy.float, ()),),
+    calc_cnt = calc.CalcAcquisitionSlave(
+        "bla", (cnt_acq_device,), cbk, (AcquisitionChannel("pow", numpy.float, ()),)
     )
     c.add(t, calc_cnt)
     top_master = motor.LinearStepTriggerMaster(10, m1, 0, 1)
@@ -554,8 +553,8 @@ def test_calc_counters_std_scan(session):
         variables["nb_points"] += 1
         return {calc_name: data_dict["sim_ct_gauss"] ** 2}
 
-    calc_counter = measurement.CalcCounter(calc_name, pow2, cnt)
-    s = scans.ascan(robz2, 0, .1, 9, 0, calc_counter, save=False)
+    calc_counter_controller = CalcCounterController(calc_name, pow2, cnt)
+    s = scans.ascan(robz2, 0, .1, 9, 0, calc_counter_controller, save=False)
     assert variables["nb_points"] == 10
     data = s.get_data()
     src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}
@@ -595,7 +594,7 @@ def test_calc_counters_with_two(session):
     diode = session.env_dict["diode"]
     diode2 = session.env_dict["diode2"]
     mean_func = Mean()
-    mean_counter = measurement.CalcCounter(calc_name, mean_func, diode, diode2)
-    s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter, save=False)
+    mean_counter_controller = CalcCounterController(calc_name, mean_func, diode, diode2)
+    s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter_controller, save=False)
     data = s.get_data()
     assert all(data[calc_name] == (data["diode"] + data["diode2"]) / 2.)

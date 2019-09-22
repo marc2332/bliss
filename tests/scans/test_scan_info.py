@@ -8,7 +8,7 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.scan import Scan
 
 
@@ -112,7 +112,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         }
     }
 
-    class DummyDevice(AcquisitionDevice):
+    class DummyDevice(AcquisitionSlave):
         name = device_name
 
         def __init__(self):

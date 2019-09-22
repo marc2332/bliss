@@ -9,7 +9,7 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
 
 from bliss.scanning.acquisition.motor import MotorMaster
-from bliss.scanning.acquisition.mca import McaAcquisitionDevice
+from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 
@@ -32,9 +32,10 @@ def test_mca_continuous_soft_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
-    # Add counters
-    mca_device.add_counters(simu.counters)
+    mca_device = McaAcquisitionSlave(
+        simu, counters=simu.counters, npoints=3, preset_time=0.1
+    )
+
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 3, time=2.0), mca_device)
@@ -49,11 +50,13 @@ def test_mca_continuous_gate_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionDevice(
-        simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.GATE
+    mca_device = McaAcquisitionSlave(
+        simu,
+        counters=simu.counters,
+        block_size=2,
+        npoints=5,
+        trigger_mode=McaAcquisitionSlave.GATE,
     )
-    # Add counters
-    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
@@ -68,11 +71,13 @@ def test_mca_continuous_sync_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionDevice(
-        simu, block_size=2, npoints=5, trigger_mode=McaAcquisitionDevice.SYNC
+    mca_device = McaAcquisitionSlave(
+        simu,
+        counters=simu.counters,
+        block_size=2,
+        npoints=5,
+        trigger_mode=McaAcquisitionSlave.SYNC,
     )
-    # Add counters
-    mca_device.add_counters(simu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), mca_device)
@@ -87,9 +92,9 @@ def test_mca_step_soft_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionDevice(simu, npoints=3, preset_time=0.1)
-    # Add counters
-    mca_device.add_counters(simu.counters)
+    mca_device = McaAcquisitionSlave(
+        simu, counters=simu.counters, npoints=3, preset_time=0.1
+    )
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)

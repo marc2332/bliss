@@ -13,7 +13,7 @@ from bliss.shell.cli import repl
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.common import measurement
+from bliss.common import counter
 from treelib import Tree
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput

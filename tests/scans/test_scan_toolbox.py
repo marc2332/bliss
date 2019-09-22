@@ -9,14 +9,13 @@
 import numpy
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.roi import Roi
-from bliss.scanning.scan import ScanDisplay
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.common.scans import ascan
-from bliss.common.measurement import CalcCounterController
+from bliss.controllers.counter import CalcCounterController
 from bliss.scanning.acquisition.calc import CalcHook
 
 

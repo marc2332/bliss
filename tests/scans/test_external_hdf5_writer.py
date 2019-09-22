@@ -14,10 +14,11 @@ import h5py
 
 from bliss.common import scans
 from silx.io.dictdump import h5todict
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition import timer
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.scan import Scan
 
 from scripts.external_saving_example.external_saving_example import (
@@ -96,11 +97,13 @@ def test_external_hdf5_writer(
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = alias_session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=0.1)
+    diode_device = SamplingCounterAcquisitionSlave(
+        diode_sim.controller, diode_sim, count_time=0.1
+    )
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.0005)
     # note: dummy device has 2 channels: pi and nb
-    dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
+    dummy_device = dummy_acq_device.get(None, name="dummy_device", npoints=1)
     chain.add(lima_master, dummy_device)
     chain.add(master2, lima_master)
     chain.add(master1, diode_device)
@@ -132,7 +135,7 @@ def test_external_hdf5_writer(
     scan5_a = scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
 
     ## artifical scan that forces different length of datasets in SamplingMode.Samples
-    from bliss.common.measurement import SoftCounter, SamplingMode
+    from bliss.common.counter import SoftCounter, SamplingMode
     from bliss.common.soft_axis import SoftAxis
 
     class A:

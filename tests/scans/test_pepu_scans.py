@@ -14,9 +14,15 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
 
 from bliss.controllers.pepu import PEPU as PepuClass
-from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC, Signal
+from bliss.controllers.pepu import (
+    ChannelIN,
+    ChannelOUT,
+    ChannelCALC,
+    Signal,
+    PepuChainNode,
+)
 
-from bliss.scanning.acquisition.pepu import PepuAcquisitionDevice
+from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.acquisition.motor import MotorMaster
@@ -56,7 +62,15 @@ def pepu():
         pepu.calc_channels = OrderedDict(
             [(i, ChannelCALC(pepu, i)) for i in PepuClass.CALC_CHANNELS]
         )
-        pepu.counters = PepuClass.counters.__get__(pepu)
+
+        pepu.counters = PepuClass.counters.__get__(pepu, type(pepu))
+        pepu.create_chain_node = PepuClass.create_chain_node.__get__(pepu, type(pepu))
+        pepu._chain_node_class = PepuChainNode
+        pepu.master_controller = None
+
+        # Add pepu1 to globals
+        global_map.register(pepu, parents_list=["controllers"])
+
         stream = pepu.create_stream.return_value
         stream.idata.side_effect = idata
         pepu.software_trigger.side_effect = lambda: trigger.put(None)
@@ -69,9 +83,7 @@ def pepu():
 def test_pepu_soft_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionDevice(pepu, 10)
-    # Add counters
-    device.add_counters(pepu.counters)
+    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(10, m0, 0, 1), device)
@@ -87,9 +99,7 @@ def test_pepu_soft_scan(session, pepu):
 def test_pepu_continuous_soft_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionDevice(pepu, 10)
-    # Add counters
-    device.add_counters(pepu.counters)
+    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters)
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 10, time=1.0), device)
@@ -125,8 +135,7 @@ def test_pepu_default_chain_with_counter_namespace(session, pepu):
 def test_pepu_default_chain_with_measurement_group(session, pepu):
     # Get controllers
     m0 = session.config.get("m0")
-    # Add pepu1 to globals
-    global_map.register(pepu, ["counters"])
+
     # Measurement group
     mg = MeasurementGroup("mygroup", {"counters": ["pepu1"]})
     # Run scan
@@ -139,9 +148,7 @@ def test_pepu_default_chain_with_measurement_group(session, pepu):
 def test_pepu_continuous_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionDevice(pepu, 10, trigger=Signal.DI1)
-    # Add counters
-    device.add_counters(pepu.counters)
+    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters, trigger=Signal.DI1)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), device)

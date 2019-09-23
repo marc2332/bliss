@@ -238,11 +238,12 @@ Example from `emh.py`:
             return vlist
 
 ### Sampling counter statistics
+
 Sampling counters read as many samples as possible from the connected hardware
 in the specified counting time and return, amongst others, an average value
 (default mode, see below for details). Additionally, some basic statistics of 
 the sampling process are calculated on the fly, which are accessible after the 
-count through the `.statistics` property.  
+count through the `.statistics` property.
 
 ```
     TEST_SESSION [1]: diode.mode     
@@ -259,7 +260,7 @@ count through the `.statistics` property.
                                                  p2v=198.0, count_time=1, 
                                                  timestamp='2019-07-26 10:13:25')
 ```
-The values availabe in `SamplingCounterStatistics` are
+The values available in `SamplingCounterStatistics` are
 
  - `mean`: Mean value  $\bar x = \frac {\sum_{j=1}^n x_j}{n}$
  - `var`: Variance  $\sigma^2 = \displaystyle\frac {\sum_{i=1}^n (x_i - \bar x)^2}{n}$
@@ -296,6 +297,7 @@ The available modes can be found in `bliss.common.measurement.SamplingMode`:
 ```
 
 #### SamplingMode.MEAN
+
 The default mode is `MEAN` which returns the mean (average) value of all 
 samples, which have been read during the counting time.
 
@@ -323,6 +325,7 @@ stop
 ![MEAN_AVERAGE](img/sampling_uml_MEAN.svg)
 
 #### SamplingMode.INTEGRATE
+
 in addition to `SamplingMode.MEAN` the nominal counting time is taken into
 account. This way a counter in the mode `SamplingMode.INTEGRATE` returns the
 equivalent of the sum of all samples normalized by the counting time. 
@@ -330,13 +333,17 @@ A use case for this mode is for example the reading of a diode, that should yiel
 a value approximately proportional to the number of photons that hit the diode
 during the counting time.
 
+
 ![INTEGRATE_timeline](img/sampling_timeline_INTEGRATE.svg)
 
 #### SamplingMode.STATS
+
 publishes all the values as calculated for the sampling counter statistics 
 (see above) into the hdf5 file and the redis database.
 
+
 #### SamplingMode.INTEGRATE_STATS
+
 equivalent to `SamplingMode.STATS`, but for counters that should behave as 
 described in `SamplingMode.INTEGRATE` yielding statistics in additional channels.
 
@@ -345,6 +352,7 @@ described in `SamplingMode.INTEGRATE` yielding statistics in additional channels
 A counter in this mode publishes only the first sample read from the device,
 discarding any further samples. If possible (i.e. there is no counter in any 
 other mode on the same `AquisitionDevice`) only one sample will be read.
+
 
 ![SINGLE_timeline](img/sampling_timeline_SINGLE.svg)
 
@@ -362,6 +370,7 @@ counting period and also publishes it. It can e.g. be used to do some more
 complex statistical analysis of the measured values or, as basis for
 any `CalcCounter`, that can be used to extract derived quantities from the
 original dataset. Following is an example for a CalcCounter, that returns the median:
+
  
 ```
 TEST_SESSION [1]: from bliss.common.measurement import CalcCounter
@@ -370,7 +379,7 @@ TEST_SESSION [1]: from bliss.common.measurement import CalcCounter
              ...: class Median(CalcHook):
              ...:     def compute(self,sender,data_dict):
              ...:         if "_samples" in sender.name:
-             ...:             return{"median":numpy.median(data_dict[sender.name])}
+             ...:             return {"median":numpy.median(data_dict[sender.name])}
              ...: medi = CalcCounter('median',Median(),diode9)
              ...: diode9.mode = "SAMPLES"
 
@@ -387,8 +396,6 @@ TEST_SESSION [2]: ct(.1,medi)
 ### example 1
 
 A controller exporting N counters.
-
-
 
 
 

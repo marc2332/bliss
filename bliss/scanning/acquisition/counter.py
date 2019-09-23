@@ -174,13 +174,13 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
 
         # self.mode_helpers will be populated with the `mode_lambdas`
-        # according to the counters involved in the aquistion. One
+        # according to the counters involved in the acquistion. One
         # entry per counter, order matters!
         self.mode_helpers = list()
 
         # Will be set to True when all counters associated to the
         # acq device are in SamplingMode.SINGLE. In this case
-        # aquisition will not run in sampling loop but only
+        # acquisition will not run in sampling loop but only
         # read one single value
         self._SINGLE_COUNT = False
 

@@ -11,8 +11,12 @@ from bliss.data.display import ScanDataListener
 
 
 def main(session_name, exit_read_fd=None):
-    sdl = ScanDataListener(session_name, exit_read_fd)
-    sdl.start()
+    while True:
+        try:
+            sdl = ScanDataListener(session_name, exit_read_fd)
+            sdl.start()
+        except Exception as e:
+            print(e)
 
 
 if __name__ == "__main__":

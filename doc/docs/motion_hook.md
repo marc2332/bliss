@@ -16,10 +16,17 @@ what you need.
 Both methods receive a motion argument. It is a list of
 `bliss.common.axis.Motion` objects representing the current motion.
 
-You are free to implement whatever you need in `pre_move` and `post_move`.
-However, care has to be taken not to trigger a movement of a motor which
-is being moved. Doing so will most likely result in an infinite
-recursion error.
+Motion hook objects also have an `init()` method that can be overwritten:
+it is called once, when the motion hook is activated for the first time.
+Its goal is to allow some initialization before `pre_move` and `post_move`
+are called.
+For example, it is allowed to iterate through the `.axes` dictionary, and
+to 
+
+!!! warning
+    Care has to be taken not to trigger a movement of a motor which
+    is being moved in one of the `init()`, `pre_move()` or `post_move()`
+    method. Doing so will most likely result in an infinite recursion error.
 
 You can use `pre_move()` to prevent a motion from occuring if a certain
 condition is not satisfied. In this case `pre_move()` should raise an
@@ -56,18 +63,18 @@ class AirpadHook(MotionHook):
         self.name = name
         self.plc = config['plc']
         self.channel = config['channel']
-        super(AirpadHook, self).__init__()
+        super().__init__()
 
     def pre_move(self, motion_list):
         self.plc.set(self.channel, 1)
         gevent.sleep(1)
 
     def post_move(self, motion_list):
-    self.plc.set(self.channel, 0)
-    gevent.sleep(2)
+        self.plc.set(self.channel, 0)
+        gevent.sleep(2)
 ```
 
-And its *YAML* configuration:
+Here is the corresponding *YAML* configuration:
 
 ```yaml
 # motors.yml
@@ -145,19 +152,19 @@ class DetectorSafetyHook(MotionHook):
         self.axes_roles = {}
         super(DetectorSafetyHook, self).__init__()
 
-    def add_axis(self, axis):
-        # overload super add_axis to be able to store which axis has which
+    def init(self):
+        # store which axis has which
         # roles in the system
-        tags = axis.config.get('tags')
-        if 'd1y' in tags:
-            self.axes_roles[axis] = 'd1y'
-        elif 'd2x' in tags:
-            self.axes_roles[axis] = 'd2x'
-        elif 'd2y' in tags:
-            self.axes_roles[axis] = 'd2y'
-        else:
-            raise KeyError('detector motor needs a safety role')
-        super(DetectorSafetyHook, self).add_axis(axis)
+        for axis in self.axes.values():
+            tags = axis.config.get('tags')
+            if 'd1y' in tags:
+                self.axes_roles[axis] = 'd1y'
+            elif 'd2x' in tags:
+                self.axes_roles[axis] = 'd2x'
+            elif 'd2y' in tags:
+                self.axes_roles[axis] = 'd2y'
+            else:
+                raise KeyError('detector motor needs a safety role')
 
     def pre_move(self, motion_list):
         # determine desired positions of all detector motors:
@@ -186,7 +193,7 @@ class DetectorSafetyHook(MotionHook):
                                    'in detector collision')
 ```
 
-And its *YAML* configuration:
+Find below the corresponding *YAML* configuration:
 
 ```yaml
  hooks:

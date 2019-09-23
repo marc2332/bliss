@@ -13,7 +13,9 @@ import gevent
 import h5py
 import datetime
 import time
-import os.path
+
+# import os.path
+import os
 import numpy
 
 from bliss.data.node import get_session_node
@@ -28,9 +30,10 @@ class HDF5_Writer(object):
     the hdf5 access for one particular scan
     """
 
-    def __init__(self, scan_node):
+    def __init__(self, scan_node, exit_read_fd):
         self.scan_node = scan_node
         self.scan_name = scan_node.name
+        self.exit_read_fd = exit_read_fd
 
         # deal with subscans
         self.subscans = dict()
@@ -81,7 +84,12 @@ class HDF5_Writer(object):
         """This function will be used to treat events emitted by the scan."""
         # ~ print("writer run", self.scan_node.db_name)
 
-        for event_type, node in self.scan_node.iterator.walk_events():
+        scan_iterator = self.scan_node.iterator
+
+        # set wakeup_fd for iterator to be able to receive notification of scan_end
+        scan_iterator.wakeup_fd = self.exit_read_fd
+
+        for event_type, node in scan_iterator.walk_events():
             # ~ print(self.scan_db_name, event_type, node.type)
 
             # creating new dataset for channel
@@ -125,6 +133,14 @@ class HDF5_Writer(object):
                 # and the fact that the hdf5 three does not reflect the redis tree in this case
                 self.add_subscan(node)
 
+            elif event_type.name == "EXTERNAL_EVENT":
+                print(
+                    "EXTERNAL_EVENT",
+                    self.scan_node.db_name,
+                    "END_SCAN as been received by listen_scans_of_session",
+                )
+                break
+
             else:
                 print("DEBUG: untreated event: ", event_type.name, node.type, node.name)
 
@@ -155,7 +171,8 @@ class HDF5_Writer(object):
 
     def update_data(self, node):
         """Insert data until the last available point into the hdf5 datasets"""
-        data = numpy.array(node.get(self.channel_indices[node.name], -1))
+        start_index = self.channel_indices[node.name]
+        data = numpy.array(node.get(start_index, -1))
         data_len = data.shape[0]
         if data_len > 0:
             dataset = self.file[self.h5_scan_name(node) + f"/measurement/{node.name}"]
@@ -229,7 +246,7 @@ class HDF5_Writer(object):
         channels to make sure that all data is written """
         print("writer finalize", self.scan_node.db_name)
 
-        self._greenlet.kill()
+        self._greenlet.join()
 
         # make sure that all data was written until the last point
         # in case we missed anything
@@ -274,17 +291,15 @@ class HDF5_Writer(object):
             ]
 
         self.file.close()
+        os.close(self.exit_read_fd)
 
 
-def listen_scans_of_session(session):
+def listen_scans_of_session(session, scan_stack=dict()):
     """listen to one session and create a HDF5_Writer instance every time
     a new scan is started. Once a END_SCAN event is received the writer 
     instance is informed to finalize."""
-    # event: for external synchronization (see e.g. test)
 
     session_node = get_session_node(session)
-
-    scan_stack = dict()
 
     def g():
 
@@ -292,12 +307,20 @@ def listen_scans_of_session(session):
         print("Listening to", session)
         for event_type, node in session_node.iterator.walk_on_new_events(filter="scan"):
             if event_type.name == "NEW_NODE":
-                scan_stack[node.db_name] = HDF5_Writer(node)
+                exit_read, exit_write = os.pipe()
+                # we use this pipe to be able to catch the NEW_NODE of scan and
+                # END_SCAN in the same place but avoid to have to call a kill in
+                # the child writer process
+
+                scan_stack[node.db_name] = (HDF5_Writer(node, exit_read), exit_write)
 
             elif event_type.name == "END_SCAN":
-                s = scan_stack.pop(node.db_name, None)
+                s, exit_write = scan_stack.get(node.db_name, (None, None))
                 if s is not None:
+                    os.write(exit_write, b"END_SCAN received")
                     s.finalize()
+                    os.close(exit_write)
+                    scan_stack.pop(node.db_name)
 
     # gevent.spawn(g) could be used to instead of g() to run in non-blocking fashion
     try:

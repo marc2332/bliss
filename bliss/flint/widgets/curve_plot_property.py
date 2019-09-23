@@ -5,11 +5,15 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import Union
+
 from silx.gui import qt
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
+from bliss.flint.model import scan_model
 
 
 PlotItemData = qt.Qt.UserRole + 100
@@ -205,7 +209,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setItemDelegateForColumn(1, self.__axesDelegate)
 
         sourceTree = {}
-        masterTree = {}
+        scanTree = {}
+        channelItems = {}
+
+        scan = self.__scan
 
         if self.__scan is not None:
             for device in self.__scan.devices():
@@ -213,18 +220,19 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     item = qt.QStandardItem("Master %s" % device.name())
                 else:
                     item = qt.QStandardItem("Device %s" % device.name())
-                masterTree[device] = item
+                scanTree[device] = item
                 for channel in device.channels():
                     channelItem = qt.QStandardItem("Channel %s" % channel.name())
                     emptyItem = qt.QStandardItem("")
                     item.appendRow([channelItem, emptyItem])
+                    channelItems[channel.name()] = channelItem
 
                 master = device.master()
                 if master is None:
                     # Root device
                     parent = model
                 else:
-                    itemMaster = masterTree.get(master, None)
+                    itemMaster = scanTree.get(master, None)
                     if itemMaster is None:
                         parent = model
                         print("Device list is not well ordered")
@@ -234,8 +242,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 emptyItem = qt.QStandardItem("")
                 parent.appendRow([item, emptyItem])
 
-        itemWithoutLocation = qt.QStandardItem("Not part of the scan")
+        itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         model.appendRow(itemWithoutLocation)
+
+        xChannelPerMasters = self.__getXChannelPerMasters(scan, self.__plotModel)
 
         for plotItem in self.__plotModel.items():
             itemClass = plotItem.__class__
@@ -254,7 +264,21 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     else:
                         parent = itemSource
             else:
-                parent = itemWithoutLocation
+                if scan is None:
+                    parent = itemWithoutLocation
+                else:
+                    if isinstance(plotItem, plot_curve_model.CurveItem):
+                        topMaster = self.__fromSameTopMaster(scan, plotItem)
+                        xChannelName = plotItem.xChannel().name()
+                        if (
+                            topMaster is not None
+                            and xChannelPerMasters[topMaster] == xChannelName
+                        ):
+                            # The x-channel is what it is expected then we can link the y-channel
+                            yChannelName = plotItem.yChannel().name()
+                            parent = channelItems[yChannelName]
+                        else:
+                            parent = itemWithoutLocation
 
             axesItem = qt.QStandardItem("")
             if isinstance(
@@ -266,3 +290,55 @@ class CurvePlotPropertyWidget(qt.QWidget):
             self.__tree.openPersistentEditor(axesItem.index())
 
         self.__tree.expandAll()
+
+    def __fromSameTopMaster(
+        self, scan: scan_model.Scan, plotItem: plot_curve_model.CurveItem
+    ) -> Union[None, scan_model.Device]:
+        x = plotItem.xChannel().name()
+        y = plotItem.yChannel().name()
+        channelX = scan.getChannelByName(x)
+        if channelX is None:
+            return None
+        channelY = scan.getChannelByName(y)
+        if channelY is None:
+            return None
+        topMasterX = channelX.device().topMaster()
+        topMasterY = channelY.device().topMaster()
+        if topMasterX is not topMasterY:
+            return None
+        return topMasterX
+
+    def __getXChannelPerMasters(
+        self, scan: scan_model.Scan, plotModel: plot_curve_model.CurvePlot
+    ):
+        if scan is None:
+            return {}
+        if plotModel is None:
+            return {}
+
+        # Count the amount of same x-channel per top masters
+        xChannelsPerMaster = {}
+        for plotItem in self.__plotModel.items():
+            if not isinstance(plotItem, plot_curve_model.CurveItem):
+                continue
+            # Here is only top level curve items
+            xChannel = plotItem.xChannel()
+            xChannelName = xChannel.name()
+            channel = scan.getChannelByName(xChannelName)
+            if channel is not None:
+                topMaster = channel.device().topMaster()
+                if topMaster not in xChannelsPerMaster:
+                    counts = {}
+                    xChannelsPerMaster[topMaster] = counts
+                else:
+                    counts = xChannelsPerMaster[topMaster]
+
+                counts[xChannelName] = counts.get(xChannelName, 0) + 1
+
+        # Returns the most used channels
+        xChannelPerMaster = {}
+        for master, counts in xChannelsPerMaster.items():
+            channels = sorted(counts.keys(), key=lambda x: counts[x])
+            most_often_used_channel = channels[0]
+            xChannelPerMaster[master] = most_often_used_channel
+        return xChannelPerMaster

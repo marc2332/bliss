@@ -1196,6 +1196,7 @@ class Axis:
 
     def __execute_pre_move_hook(self, motion):
         for hook in self.motion_hooks:
+            hook._init()
             hook.pre_move([motion])
 
         self._check_ready()

@@ -292,6 +292,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         model.setHorizontalHeaderLabels(["Name", "Axes", "Style", ""])
         self.__tree.setItemDelegateForColumn(1, self.__axesDelegate)
+        header = self.__tree.header()
+        header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
 
         sourceTree = {}
         scanTree = {}

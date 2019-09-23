@@ -126,7 +126,13 @@ class BeaconObject:
             self.only_in_config = only_in_config
             self.priority = priority
 
-    def __init__(self, config):
+    def __init__(self, config, share_hardware=True):
+        """
+        config -- a configuration node
+        share_hardware -- mean that several instances of bliss share the same hardware
+        and need to initialize it with the configuration if no other peer has done it.
+        if share_hardware is False initialization of parameters will be done ones per peer.
+        """
         self._config = config
         try:
             name = config["name"]
@@ -140,7 +146,23 @@ class BeaconObject:
             if not hasattr(self, "name"):
                 self.name = name
 
-        self.__initialized = Cache(self, "initialized", default_value=False)
+        if share_hardware:
+            self.__initialized = Cache(self, "initialized", default_value=False)
+        else:
+
+            class Local:
+                def __init__(self):
+                    self.__value = False
+
+                @property
+                def value(self):
+                    return self.__value
+
+                @value.setter
+                def value(self, value):
+                    self.__value = value
+
+            self.__initialized = Local()
         self._in_initialize_with_setting = False
         self._event_channel = EventChannel(f"__EVENT__:{self.name}")
         self._event_channel.register_callback(self.__event_handler)
@@ -219,6 +241,14 @@ class BeaconObject:
         with pipeline(self._settings, self._disabled_settings):
             del self._disabled_settings[name]
             del self._settings[name]
+
+    def initialize(self):
+        """
+        Do the initialization of the object.
+
+        For now it is just calling _initialize_with_setting
+        """
+        self._initialize_with_setting()
 
     def _initialize_with_setting(self):
         if self._in_initialize_with_setting:

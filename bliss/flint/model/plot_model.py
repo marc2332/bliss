@@ -18,6 +18,7 @@ from . import scan_model
 
 class ChangeEventType(enum.Enum):
     YAXIS = enum.auto()
+    CUSTOM_STYLE = enum.auto()
 
 
 class Plot(qt.QObject):
@@ -83,6 +84,7 @@ class Plot(qt.QObject):
 class NotStored:
     """Flag object which not have to be stored"""
 
+
 class ChannelRef(qt.QObject):
 
     currentScanDataUpdated = qt.Signal()
@@ -95,7 +97,7 @@ class ChannelRef(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.__channelName, )
+        return (self.__channelName,)
 
     def __setstate__(self, state):
         self.__channelName = state[0]

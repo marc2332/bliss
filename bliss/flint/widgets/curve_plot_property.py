@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 from typing import Union
+from typing import List
 
 from silx.gui import qt
 from silx.gui.plot import LegendSelector
@@ -217,6 +218,39 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
         self.update()
 
 
+class _DataItem(qt.QStandardItem):
+    def __init__(self, text: str=""):
+        qt.QStandardItem.__init__(self, text)
+        self.__axes = qt.QStandardItem("")
+        self.__style = qt.QStandardItem("")
+        self.__plotItem = None
+
+    def setChannel(self, channel: scan_model.Channel):
+        text = "Channel %s" % channel.name()
+        self.setText(text)
+
+    def axesItem(self) -> qt.QStandardItem:
+        return self.__axes
+
+    def styleItem(self) -> qt.QStandardItem:
+        return self.__style
+
+    def items(self) -> List[qt.QStandardItem]:
+        return [self, self.__axes, self.__style]
+
+    def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
+        self.__plotItem = plotItem
+        self.__axes.setData(plotItem, role=PlotItemData)
+        self.__style.setData(plotItem, role=PlotItemData)
+
+        # FIXME: It have to be converted into delegate
+        tree.openPersistentEditor(self.__axes.index())
+        widget = StylePropertyWidget(tree)
+        widget.setPlotItem(self.__plotItem)
+        widget.setFlintModel(flintModel)
+        tree.setIndexWidget(self.__style.index(), widget)
+
+
 class CurvePlotPropertyWidget(qt.QWidget):
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
@@ -311,10 +345,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     item = qt.QStandardItem("Device %s" % device.name())
                 scanTree[device] = item
                 for channel in device.channels():
-                    channelItem = qt.QStandardItem("Channel %s" % channel.name())
-                    axesItem = qt.QStandardItem("")
-                    styleItem = qt.QStandardItem("")
-                    item.appendRow([channelItem, axesItem, styleItem])
+                    channelItem = _DataItem()
+                    channelItem.setChannel(channel)
+                    item.appendRow(channelItem.items())
                     channelItems[channel.name()] = channelItem
 
                 master = device.master()
@@ -334,14 +367,14 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 parent.appendRow([item, axesItem, styleItem])
 
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
+        itemWithoutMaster = qt.QStandardItem("Not linked to a master")
         model.appendRow(itemWithoutLocation)
+        model.appendRow(itemWithoutMaster)
 
         xChannelPerMasters = self.__getXChannelPerMasters(scan, self.__plotModel)
 
         for plotItem in self.__plotModel.items():
-            itemClass = plotItem.__class__
-            item = qt.QStandardItem("%s" % itemClass.__name__)
-            sourceTree[plotItem] = item
+            parentChannel = None
 
             if isinstance(plotItem, plot_model.AbstractComputableItem):
                 source = plotItem.source()
@@ -350,7 +383,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 else:
                     itemSource = sourceTree.get(source, None)
                     if itemSource is None:
-                        parent = model
+                        parent = itemWithoutMaster
                         print("Item list is not well ordered")
                     else:
                         parent = itemSource
@@ -367,27 +400,20 @@ class CurvePlotPropertyWidget(qt.QWidget):
                         ):
                             # The x-channel is what it is expected then we can link the y-channel
                             yChannelName = plotItem.yChannel().name()
-                            parent = channelItems[yChannelName]
+                            parentChannel = channelItems[yChannelName]
                         else:
                             parent = itemWithoutLocation
 
-            axesItem = qt.QStandardItem("")
-            styleItem = qt.QStandardItem("")
-            createStyleWidget = False
-            if isinstance(
-                plotItem,
-                (plot_curve_model.CurveMixIn, plot_curve_model.CurveStatisticMixIn),
-            ):
-                axesItem.setData(plotItem, role=PlotItemData)
-                styleItem.setData(plotItem, role=PlotItemData)
-                createStyleWidget = True
-            parent.appendRow([item, axesItem, styleItem])
-            self.__tree.openPersistentEditor(axesItem.index())
-            if createStyleWidget:
-                widget = StylePropertyWidget(self.__tree)
-                widget.setPlotItem(plotItem)
-                widget.setFlintModel(self.__flintModel)
-                self.__tree.setIndexWidget(styleItem.index(), widget)
+            if parentChannel is not None:
+                parentChannel.setPlotItem(plotItem, self.__tree, self.__flintModel)
+                sourceTree[plotItem] = parentChannel
+            else:
+                itemClass = plotItem.__class__
+                text = "%s" % itemClass.__name__
+                item = _DataItem(text)
+                parent.appendRow(item.items())
+                item.setPlotItem(plotItem, self.__tree, self.__flintModel)
+                sourceTree[plotItem] = item
 
         self.__tree.expandAll()
 

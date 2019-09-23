@@ -19,90 +19,91 @@ from bliss.flint.model import scan_model
 PlotItemData = qt.Qt.UserRole + 100
 
 
+class AxesEditor(qt.QWidget):
+    def __init__(self, parent=None):
+        qt.QWidget.__init__(self, parent=parent)
+        self.setContentsMargins(0, 0, 0, 0)
+        self.__plotItem = None
+        layout = qt.QHBoxLayout(self)
+
+        xCheck = qt.QCheckBox(self)
+        xCheck.setObjectName("x")
+        xCheck.setVisible(False)
+        y1Check = qt.QCheckBox(self)
+        y1Check.toggled.connect(self.__y1CheckChanged)
+        y1Check.setObjectName("y1")
+        y1Check.setVisible(False)
+        y2Check = qt.QCheckBox(self)
+        y2Check.setObjectName("y2")
+        y2Check.toggled.connect(self.__y2CheckChanged)
+        y2Check.setVisible(False)
+
+        layout.addWidget(xCheck)
+        layout.addWidget(y1Check)
+        layout.addWidget(y2Check)
+
+    def setPlotItem(self, plotItem):
+        if self.__plotItem is not None:
+            self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
+        self.__plotItem = plotItem
+        if self.__plotItem is not None:
+            self.__plotItem.valueChanged.connect(self.__plotItemChanged)
+            self.__plotItemYAxisChanged()
+
+        isReadOnly = hasattr(self.__plotItem, "setYAxis")
+        isVisible = self.__plotItem is not None
+
+        w = self.findChildren(qt.QCheckBox, "x")[0]
+        w.setVisible(isVisible)
+        w.setEnabled(isReadOnly)
+        w = self.findChildren(qt.QCheckBox, "y1")[0]
+        w.setVisible(isVisible)
+        w.setEnabled(isReadOnly)
+        w = self.findChildren(qt.QCheckBox, "y2")[0]
+        w.setVisible(isVisible)
+        w.setEnabled(isReadOnly)
+
+    def __y1CheckChanged(self):
+        if self.__plotItem is None:
+            return
+        yAxis = self.findChildren(qt.QCheckBox, "y1")[0]
+        isChecked = yAxis.isChecked()
+        axis = "left" if isChecked else "right"
+        self.__plotItem.setYAxis(axis)
+
+    def __y2CheckChanged(self):
+        if self.__plotItem is None:
+            return
+        yAxis = self.findChildren(qt.QCheckBox, "y2")[0]
+        isChecked = yAxis.isChecked()
+        axis = "left" if not isChecked else "right"
+        self.__plotItem.setYAxis(axis)
+
+    def __plotItemChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.YAXIS:
+            self.__plotItemYAxisChanged()
+
+    def __plotItemYAxisChanged(self):
+        try:
+            axis = self.__plotItem.yAxis()
+        except:
+            # FIXME: Add debug in case
+            axis = None
+
+        y1Axis = self.findChildren(qt.QCheckBox, "y1")[0]
+        old = y1Axis.blockSignals(True)
+        y1Axis.setChecked(axis == "left")
+        y1Axis.blockSignals(old)
+
+        y2Axis = self.findChildren(qt.QCheckBox, "y2")[0]
+        old = y2Axis.blockSignals(True)
+        y2Axis.setChecked(axis == "right")
+        y2Axis.blockSignals(old)
+
+
 class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
     def __init__(self, parent):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
-
-    class Editor(qt.QWidget):
-        def __init__(self, parent=None):
-            qt.QWidget.__init__(self, parent=parent)
-            self.setContentsMargins(0, 0, 0, 0)
-            self.__plotItem = None
-            layout = qt.QHBoxLayout(self)
-
-            xCheck = qt.QCheckBox(self)
-            xCheck.setObjectName("x")
-            xCheck.setVisible(False)
-            y1Check = qt.QCheckBox(self)
-            y1Check.toggled.connect(self.__y1CheckChanged)
-            y1Check.setObjectName("y1")
-            y1Check.setVisible(False)
-            y2Check = qt.QCheckBox(self)
-            y2Check.setObjectName("y2")
-            y2Check.toggled.connect(self.__y2CheckChanged)
-            y2Check.setVisible(False)
-
-            layout.addWidget(xCheck)
-            layout.addWidget(y1Check)
-            layout.addWidget(y2Check)
-
-        def setPlotItem(self, plotItem):
-            if self.__plotItem is not None:
-                self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
-            self.__plotItem = plotItem
-            if self.__plotItem is not None:
-                self.__plotItem.valueChanged.connect(self.__plotItemChanged)
-                self.__plotItemYAxisChanged()
-
-            isReadOnly = hasattr(self.__plotItem, "setYAxis")
-            isVisible = self.__plotItem is not None
-
-            w = self.findChildren(qt.QCheckBox, "x")[0]
-            w.setVisible(isVisible)
-            w.setEnabled(isReadOnly)
-            w = self.findChildren(qt.QCheckBox, "y1")[0]
-            w.setVisible(isVisible)
-            w.setEnabled(isReadOnly)
-            w = self.findChildren(qt.QCheckBox, "y2")[0]
-            w.setVisible(isVisible)
-            w.setEnabled(isReadOnly)
-
-        def __y1CheckChanged(self):
-            if self.__plotItem is None:
-                return
-            yAxis = self.findChildren(qt.QCheckBox, "y1")[0]
-            isChecked = yAxis.isChecked()
-            axis = "left" if isChecked else "right"
-            self.__plotItem.setYAxis(axis)
-
-        def __y2CheckChanged(self):
-            if self.__plotItem is None:
-                return
-            yAxis = self.findChildren(qt.QCheckBox, "y2")[0]
-            isChecked = yAxis.isChecked()
-            axis = "left" if not isChecked else "right"
-            self.__plotItem.setYAxis(axis)
-
-        def __plotItemChanged(self, eventType):
-            if eventType == plot_model.ChangeEventType.YAXIS:
-                self.__plotItemYAxisChanged()
-
-        def __plotItemYAxisChanged(self):
-            try:
-                axis = self.__plotItem.yAxis()
-            except:
-                # FIXME: Add debug in case
-                axis = None
-
-            y1Axis = self.findChildren(qt.QCheckBox, "y1")[0]
-            old = y1Axis.blockSignals(True)
-            y1Axis.setChecked(axis == "left")
-            y1Axis.blockSignals(old)
-
-            y2Axis = self.findChildren(qt.QCheckBox, "y2")[0]
-            old = y2Axis.blockSignals(True)
-            y2Axis.setChecked(axis == "right")
-            y2Axis.blockSignals(old)
 
     def createEditor(self, parent, option, index):
         if not index.isValid():
@@ -110,7 +111,7 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
                 parent, option, index
             )
 
-        editor = self.Editor(parent=parent)
+        editor = AxesEditor(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setPlotItem(plotItem)
 

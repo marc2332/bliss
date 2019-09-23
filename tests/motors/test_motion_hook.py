@@ -9,9 +9,59 @@ import time
 
 import pytest
 
-from bliss.common.axis import Motion
+from bliss.common.axis import Motion, Axis
 from bliss.common.standard import Group
+from bliss.controllers.motors.mockup import Mockup
 from bliss.controllers.motors.mockup import MockupHook
+from bliss.common.hook import MotionHook
+from bliss.config.plugins.utils import Reference
+
+
+def test_motion_hook_init(beacon):
+    class MyMotionHook(MotionHook):
+        def init(self):
+            self.init_called += 1
+            for axis_name, axis in self.axes.items():
+                assert axis.config.get("name") == axis.name
+                assert axis.acceleration
+                assert axis.velocity
+                assert axis.position == 1
+
+    beacon._name2instance["test_hook"] = MyMotionHook()
+    mockup_controller = Mockup(
+        "",
+        {},
+        [
+            (
+                "test_mh",
+                Axis,
+                {
+                    "name": "test_mh",
+                    "velocity": 100,
+                    "acceleration": 10,
+                    "steps_per_unit": 500,
+                    "motion_hooks": [Reference("test_hook")],
+                },
+            )
+        ],
+        [],
+        [],
+        [],
+    )
+    mockup_controller._init()
+
+    test_mh = None
+
+    try:
+        test_mh = mockup_controller.get_axis("test_mh")
+        test_mh.position = 1
+        test_mh.motion_hooks[0].init_called = 0
+        test_mh.move(1.1)
+        test_mh.move(1.2)
+        assert test_mh.motion_hooks[0].init_called == 1
+    finally:
+        if test_mh:
+            test_mh.__close__()
 
 
 def test_config(hooked_m0, hooked_m1):

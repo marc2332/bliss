@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Union
 
 from silx.gui import qt
+from silx.gui.plot import LegendSelector
+from silx.gui import colors
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -149,6 +151,72 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
+class StylePropertyWidget(LegendSelector.LegendIcon):
+    def __init__(self, parent):
+        LegendSelector.LegendIcon.__init__(self, parent=parent)
+        self.__plotItem = None
+        self.__flintModel = None
+        self.__scan = None
+
+    def setPlotItem(self, plotItem: plot_model.Item):
+        if self.__plotItem is not None:
+            self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
+        self.__plotItem = plotItem
+        if self.__plotItem is not None:
+            self.__plotItem.valueChanged.connect(self.__plotItemChanged)
+            self.__plotItemStyleChanged()
+
+    def setFlintModel(self, flintModel: flint_model.FlintState = None):
+        if self.__flintModel is not None:
+            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
+            self.__setScan(None)
+        self.__flintModel = flintModel
+        if self.__flintModel is not None:
+            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
+            self.__setScan(self.__flintModel.currentScan())
+
+    def __currentScanChanged(self):
+        self.__setScan(self.__flintModel.currentScan())
+
+    def __setScan(self, scan: scan_model.Scan):
+        self.__scan = scan
+        self.__update()
+
+    def __plotItemChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
+            self.__plotItemStyleChanged()
+
+    def __plotItemStyleChanged(self):
+        self.__update()
+
+    def getQColor(self, color):
+        # FIXME: It would be good to implement it in silx
+        color = colors.rgba(color)
+        return qt.QColor.fromRgbF(*color)
+
+    def __update(self):
+        plotItem = self.__plotItem
+        if plotItem is None:
+            self.setLineColor("red")
+            self.setLineStyle(":")
+            self.setLineWidth(1.5)
+        else:
+            scan = self.__scan
+            try:
+                style = plotItem.getStyle(scan)
+                color = self.getQColor(style.lineColor)
+                self.setLineColor(color)
+                self.setLineStyle(style.lineStyle)
+                self.setLineWidth(1.5)
+            except Exception as e:
+                # FIXME: Log it better
+                print(e)
+                self.setLineColor("grey")
+                self.setLineStyle(":")
+                self.setLineWidth(1.5)
+        self.update()
+
+
 class CurvePlotPropertyWidget(qt.QWidget):
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
@@ -222,7 +290,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             model.appendRow(foo)
             return
 
-        model.setHorizontalHeaderLabels(["Name", "Axes"])
+        model.setHorizontalHeaderLabels(["Name", "Axes", "Style", ""])
         self.__tree.setItemDelegateForColumn(1, self.__axesDelegate)
 
         sourceTree = {}
@@ -240,8 +308,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 scanTree[device] = item
                 for channel in device.channels():
                     channelItem = qt.QStandardItem("Channel %s" % channel.name())
-                    emptyItem = qt.QStandardItem("")
-                    item.appendRow([channelItem, emptyItem])
+                    axesItem = qt.QStandardItem("")
+                    styleItem = qt.QStandardItem("")
+                    item.appendRow([channelItem, axesItem, styleItem])
                     channelItems[channel.name()] = channelItem
 
                 master = device.master()
@@ -256,8 +325,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     else:
                         parent = itemMaster
 
-                emptyItem = qt.QStandardItem("")
-                parent.appendRow([item, emptyItem])
+                axesItem = qt.QStandardItem("")
+                styleItem = qt.QStandardItem("")
+                parent.appendRow([item, axesItem, styleItem])
 
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         model.appendRow(itemWithoutLocation)
@@ -298,13 +368,22 @@ class CurvePlotPropertyWidget(qt.QWidget):
                             parent = itemWithoutLocation
 
             axesItem = qt.QStandardItem("")
+            styleItem = qt.QStandardItem("")
+            createStyleWidget = False
             if isinstance(
                 plotItem,
                 (plot_curve_model.CurveMixIn, plot_curve_model.CurveStatisticMixIn),
             ):
                 axesItem.setData(plotItem, role=PlotItemData)
-            parent.appendRow([item, axesItem])
+                styleItem.setData(plotItem, role=PlotItemData)
+                createStyleWidget = True
+            parent.appendRow([item, axesItem, styleItem])
             self.__tree.openPersistentEditor(axesItem.index())
+            if createStyleWidget:
+                widget = StylePropertyWidget(self.__tree)
+                widget.setPlotItem(plotItem)
+                widget.setFlintModel(self.__flintModel)
+                self.__tree.setIndexWidget(styleItem.index(), widget)
 
         self.__tree.expandAll()
 

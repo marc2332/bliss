@@ -211,6 +211,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__updateTree()
 
     def __updateTree(self):
+        # FIXME: expanded/collapsed items have to be restored
+
         model = self.__tree.model()
         model.clear()
 

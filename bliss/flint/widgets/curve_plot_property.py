@@ -133,6 +133,20 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
         # Already up to date
         pass
 
+    def updateEditorGeometry(self, editor: qt.QWidget, option, index):
+        """
+        Update the geometry of the editor according to the changes of the view.
+        """
+        # Set widget to the mid-left
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(0, half.height())
+        halfDest = qt.QPoint(
+            option.rect.left(), option.rect.top() + option.rect.height() // 2
+        )
+        pos = halfDest - halfPoint
+        editor.move(pos)
+
 
 class CurvePlotPropertyWidget(qt.QWidget):
     def __init__(self, parent=None):

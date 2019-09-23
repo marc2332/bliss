@@ -23,9 +23,9 @@ class MotionHook:
     def __init__(self):
         self.__axes = weakref.WeakValueDictionary()
 
-    def add_axis(self, axis):
-        """Add a new axis to the hook. Called by bliss when an axis is created
-        which is linked to this hook
+    def _add_axis(self, axis):
+        """Internal method to add a new axis to the hook. 
+        Called by bliss when an axis is created, which is linked to this hook
 
         Args:
             axis (Axis): new axis to be added to the hook

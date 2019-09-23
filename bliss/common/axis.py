@@ -561,7 +561,7 @@ class Axis:
         self.__motion_hooks = []
         for hook in config.get("motion_hooks", []):
             hook = hook()
-            hook.add_axis(self)
+            hook._add_axis(self)
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
         self.__config = StaticConfig(config)

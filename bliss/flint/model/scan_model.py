@@ -60,7 +60,7 @@ class Scan(qt.QObject, _Sealable):
         self.__cacheData = {}
         self.scanDataUpdated.emit()
 
-    def __cacheChannels(self, device:Device):
+    def __cacheChannels(self, device: Device):
         for channel in device.channels():
             name = channel.name()
             self.__channels[name] = channel
@@ -83,11 +83,12 @@ class Scan(qt.QObject, _Sealable):
 
 
 class Device(qt.QObject, _Sealable):
-    def __init__(self, parent:Scan):
+    def __init__(self, parent: Scan):
         super(Device, self).__init__(parent=parent)
         self.__name = None
         self.__channels = []
         self.__master = None
+        self.__topMaster = None
         parent.addDevice(self)
 
     def seal(self):
@@ -95,7 +96,7 @@ class Device(qt.QObject, _Sealable):
             channel.seal()
         super(Device, self).seal()
 
-    def setName(self, name:str):
+    def setName(self, name: str):
         if self.isSealed():
             raise SealedError()
         self.__name = name
@@ -103,7 +104,7 @@ class Device(qt.QObject, _Sealable):
     def name(self) -> str:
         return self.__name
 
-    def addChannel(self, channel:Channel):
+    def addChannel(self, channel: Channel):
         if self.isSealed():
             raise SealedError()
         if channel in self.__channels:
@@ -134,7 +135,7 @@ class Channel(qt.QObject, _Sealable):
 
     dataUpdated = qt.Signal(object)
 
-    def __init__(self, parent:Device):
+    def __init__(self, parent: Device):
         super(Channel, self).__init__(parent=parent)
         self.__data = None
         self.__name = None
@@ -143,7 +144,7 @@ class Channel(qt.QObject, _Sealable):
     def name(self) -> str:
         return self.__name
 
-    def setName(self, name:str):
+    def setName(self, name: str):
         if self.isSealed():
             raise SealedError()
         self.__name = name

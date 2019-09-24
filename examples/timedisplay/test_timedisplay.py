@@ -11,13 +11,12 @@ __date__ = "2014-2019"
 __version__ = "0.9.6"
 
 import timedisplay
-print ("")
-print ("this code:")
-print ("  import timedisplay")
-print ("  print(timedisplay.duration_format(123.456789))")
-print ("")
 
-print ("will print: \"" + timedisplay.duration_format(123.456789) + "\"")
-print ("")
+print("")
+print("this code:")
+print("  import timedisplay")
+print("  print(timedisplay.duration_format(123.456789))")
+print("")
 
-
+print('will print: "' + timedisplay.duration_format(123.456789) + '"')
+print("")

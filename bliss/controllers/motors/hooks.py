@@ -81,7 +81,7 @@ class WagoHook(MotionHook):
         self.channel = config["channel"]
         super(WagoHook, self).__init__()
 
-    def add_axis(self, axis):
+    def _add_axis(self, axis):
         if len(self.axes):
             axis_name = list(self.axes.keys())[0]
             raise ValueError(
@@ -90,7 +90,7 @@ class WagoHook(MotionHook):
                     self.name, axis.name, axis_name
                 )
             )
-        super(WagoHook, self).add_axis(axis)
+        super(WagoHook, self)._add_axis(axis)
 
     def set(self, phase):
         value = self.config[phase]["value"]
@@ -175,7 +175,7 @@ class WagoAirHook(WagoHook):
         direction = self.config.get("direction", 0)
         channel_in = self.config.get("channel_in", None)
 
-        # A WagoHook is only attached to one axis, see WagoHook::add_axis()
+        # A WagoHook is only attached to one axis, see WagoHook::_add_axis()
         motion = motion_list[0]
         axis_name = motion.axis.name
         # check if direction is valid

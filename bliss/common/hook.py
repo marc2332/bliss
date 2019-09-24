@@ -9,6 +9,7 @@
 how to use motion hooks in your system"""
 
 import weakref
+import functools
 from bliss.common.logtools import *
 from bliss import global_map
 
@@ -23,9 +24,9 @@ class MotionHook:
     def __init__(self):
         self.__axes = weakref.WeakValueDictionary()
 
-    def add_axis(self, axis):
-        """Add a new axis to the hook. Called by bliss when an axis is created
-        which is linked to this hook
+    def _add_axis(self, axis):
+        """Internal method to add a new axis to the hook. 
+        Called by bliss when an axis is created, which is linked to this hook
 
         Args:
             axis (Axis): new axis to be added to the hook
@@ -37,6 +38,17 @@ class MotionHook:
     def axes(self):
         """A dict<name, axis> with all axes that are controlled by this hook"""
         return self.__axes
+
+    @functools.lru_cache(maxsize=1)
+    def _init(self):
+        return self.init()
+
+    def init(self):
+        """
+        Called the first time the motion hook is activated. Overwrite in your
+        sub-class.
+        Default implementation does nothing.
+        """
 
     def pre_move(self, motion_list):
         """

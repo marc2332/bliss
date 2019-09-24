@@ -8,6 +8,7 @@
 from bliss.comm.util import TCP, get_comm
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
+from bliss.common.encoder import Encoder
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
@@ -614,6 +615,8 @@ class Aerotech(Controller):
         self._aero_speed = {}
         self._aero_acc = {}
         self._aero_enc = {}
+        self._internal_divider = {}
+        self._output_divider = {}
         self._is_moving = {}
         self._aero_state = AxisState()
         self._aero_state.create_state("EXTDISABLE", "External disable signal")
@@ -643,6 +646,8 @@ class Aerotech(Controller):
 
     def initialize_hardware_axis(self, axis):
         self.set_on(axis)
+        self.get_encoder_output_divider(axis)
+        self.get_encoder_internal_divider(axis)
 
     def close(self):
         if self._comm:
@@ -687,6 +692,12 @@ class Aerotech(Controller):
         if aero_axis is None:
             raise ValueError("Aerotech axis [%s] not initialised" % axis.name)
         return aero_axis
+
+    def _axis_from_aeroname(self, aeroname):
+        for (axis_name, aero_type) in self._aero_axis.items():
+            if aero_type == aeroname:
+                return self.axes[axis_name]
+        raise ValueError("No aerotech axis configured for [%s]" % aeroname)
 
     def clear_error(self, axis):
         self.raw_write("FAULTACK %s" % self._aero_name(axis))
@@ -883,11 +894,13 @@ class Aerotech(Controller):
                     "Missing aero_name key in %s encoder config" % encoder.name
                 )
             self._aero_enc[encoder.name] = aero_name
-            enc_divider = encoder.config.get("divider", int, None)
-            if enc_divider is not None:
-                param = AerotechParameter["Encoderdivider"]
-                cmd = "SETPARM %s, %d, %d" % (aero_name, param.value, enc_divider)
-                self.raw_write(cmd)
+            enc_axis = self._axis_from_aeroname(aero_name)
+            output_divider = encoder.config.get("output_divider", int, None)
+            if output_divider is not None:
+                self.set_encoder_output_divider(enc_axis, output_divider)
+            internal_divider = encoder.config.get("internal_divider", int, None)
+            if internal_divider is not None:
+                self.set_encoder_internal_divider(enc_axis, internal_divider)
 
     def _aero_encoder_axis(self, encoder):
         aero_enc = self._aero_enc.get(encoder.name, None)
@@ -899,17 +912,46 @@ class Aerotech(Controller):
         reply = self.raw_write_read("PFBK(%s)" % self._aero_encoder_axis(encoder))
         return float(reply)
 
+    def get_encoder_steps_per_unit(self, encoder):
+        aero_name = self._aero_encoder_axis(encoder)
+        axis = self._axis_from_aeroname(aero_name)
+        return self.get_encoder_output_resolution(axis)
+
     @object_method(types_info=("None", "int"))
-    def get_encoder_divider(self, axis):
-        value = self.get_param(axis, "EncoderDivider")
-        return int(value)
+    def get_encoder_internal_divider(self, axis):
+        value = int(self.get_param(axis, "EmulatedQuadratureDivider"))
+        self._internal_divider[axis.name] = value
+        return value
 
     @object_method(types_info=("int", "None"))
-    def set_encoder_divider(self, axis, divider):
+    def set_encoder_internal_divider(self, axis, divider):
         value = int(divider)
-        if value <= 0:
-            raise ValueError("Aerotech Encoder Divider musst be >= 1")
+        if value <= 1:
+            raise ValueError("Aerotech Encoder Divider musst be > 1")
+        self.set_param(axis, "EmulatedQuadratureDivider", divider)
+        setdiv = self.get_encoder_internal_divider(axis)
+
+    @object_method(types_info=("None", "int"))
+    def get_encoder_output_divider(self, axis):
+        value = int(self.get_param(axis, "EncoderDivider"))
+        self._output_divider[axis.name] = value
+        return value
+
+    @object_method(types_info=("int", "None"))
+    def set_encoder_output_divider(self, axis, divider):
+        value = int(divider)
+        if value < 0:
+            raise ValueError("Aerotech Encoder Divider musst be > 0")
         self.set_param(axis, "EncoderDivider", divider)
+        setdiv = self.get_encoder_output_divider(axis)
+
+    @object_method(types_info=("None", "int"))
+    def get_encoder_output_resolution(self, axis):
+        return (
+            axis.steps_per_unit
+            / self._internal_divider[axis.name]
+            / self._output_divider[axis.name]
+        )
 
     def start_output_pulse(self, axis, start_pos, stop_pos, npoints):
         name = self._aero_name(axis)
@@ -988,3 +1030,12 @@ class Aerotech(Controller):
                 partxt += "%30s [%d] = %s\n" % (par.name, par.value, value)
 
         return partxt
+
+
+class AerotechEncoder(Encoder):
+    @property
+    def steps_per_unit(self):
+        return self.controller.get_encoder_steps_per_unit(self)
+
+    def read(self):
+        return self.controller.read_encoder(self)

@@ -1,26 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# timedisplay.py
+# This file is part of the bliss project
 #
-# Functions to display time durations in a human readable manner.
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# also to check :
-"""
- from datetime import timedelta
- str(timedelta(seconds=1234.894324432421))
- '0:20:34.894324'
-"""
 
-# NB : ISO 8601 duration : https://en.wikipedia.org/wiki/ISO_8601#Durations
-#                          https://fr.wikipedia.org/wiki/ISO_8601#Dur.C3.A9e
+"""
+Functions to display time durations in a human readable manner.
+
+NB : ISO 8601 duration : https://en.wikipedia.org/wiki/ISO_8601#Durations
+                         https://fr.wikipedia.org/wiki/ISO_8601#Dur.C3.A9e
+"""
 
 
 import sys
-
-__author__ = "cyril.guilloud@esrf.fr"
-__date__ = "2014-2019"
-__version__ = "0.9.6"
 
 
 def duration_split(duration):

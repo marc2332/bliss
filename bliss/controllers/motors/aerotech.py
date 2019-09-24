@@ -858,7 +858,7 @@ class Aerotech(Controller):
 
     def home_search(self, axis, switch):
         # set home direction using HomeSetup Parameter
-        home_dir = (switch > 0) and 1 or 0
+        home_dir = (switch > 0) and 0 or 1
         self.set_param(axis, "HomeSetup", home_dir)
 
         # start homing and wait for reply

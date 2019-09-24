@@ -6,10 +6,12 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from .properties import LimaProperty
+from .lima_base import CameraBase
 
 
-class Camera(object):
+class Camera(CameraBase):
     def __init__(self, lima_device, name, proxy):
+        CameraBase.__init__(self, name, lima_device, proxy)
         self.name = name
         self._proxy = proxy
 

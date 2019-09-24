@@ -23,16 +23,14 @@ from bliss.flint.model import scan_model
 PlotItemData = qt.Qt.UserRole + 100
 
 
-class AxesEditor(qt.QWidget):
+class YAxesEditor(qt.QWidget):
     def __init__(self, parent=None):
         qt.QWidget.__init__(self, parent=parent)
-        self.setContentsMargins(0, 0, 0, 0)
+        self.setContentsMargins(1, 1, 1, 1)
         self.__plotItem = None
         layout = qt.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
 
-        xCheck = qt.QCheckBox(self)
-        xCheck.setObjectName("x")
-        xCheck.setVisible(False)
         y1Check = qt.QCheckBox(self)
         y1Check.toggled.connect(self.__y1CheckChanged)
         y1Check.setObjectName("y1")
@@ -42,7 +40,6 @@ class AxesEditor(qt.QWidget):
         y2Check.toggled.connect(self.__y2CheckChanged)
         y2Check.setVisible(False)
 
-        layout.addWidget(xCheck)
         layout.addWidget(y1Check)
         layout.addWidget(y2Check)
 
@@ -57,9 +54,6 @@ class AxesEditor(qt.QWidget):
         isReadOnly = hasattr(self.__plotItem, "setYAxis")
         isVisible = self.__plotItem is not None
 
-        w = self.findChildren(qt.QCheckBox, "x")[0]
-        w.setVisible(isVisible)
-        w.setEnabled(isReadOnly)
         w = self.findChildren(qt.QCheckBox, "y1")[0]
         w.setVisible(isVisible)
         w.setEnabled(isReadOnly)
@@ -105,17 +99,17 @@ class AxesEditor(qt.QWidget):
         y2Axis.blockSignals(old)
 
 
-class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
+class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
     def __init__(self, parent):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
 
     def createEditor(self, parent, option, index):
         if not index.isValid():
-            return super(AxesPropertyItemDelegate, self).createEditor(
+            return super(YAxesPropertyItemDelegate, self).createEditor(
                 parent, option, index
             )
 
-        editor = AxesEditor(parent=parent)
+        editor = YAxesEditor(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setPlotItem(plotItem)
 
@@ -138,19 +132,40 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
         # Already up to date
         pass
 
-    def updateEditorGeometry(self, editor: qt.QWidget, option, index):
-        """
-        Update the geometry of the editor according to the changes of the view.
-        """
-        # Set widget to the mid-left
-        size = editor.sizeHint()
-        half = size / 2
-        halfPoint = qt.QPoint(0, half.height())
-        halfDest = qt.QPoint(
-            option.rect.left(), option.rect.top() + option.rect.height() // 2
-        )
-        pos = halfDest - halfPoint
-        editor.move(pos)
+
+class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
+    def __init__(self, parent):
+        qt.QStyledItemDelegate.__init__(self, parent=parent)
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(RemovePropertyItemDelegate, self).createEditor(
+                parent, option, index
+            )
+
+        editor = qt.QToolButton(parent=parent)
+        editor.setText("X")
+        plotItem = self.getPlotItem(index)
+        editor.setVisible(plotItem is not None)
+        editor.setAutoRaise(True)
+
+        editor.setMinimumSize(editor.sizeHint())
+        editor.setMaximumSize(editor.sizeHint())
+        editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+        return editor
+
+    def getPlotItem(self, index) -> Union[None, plot_model.Item]:
+        plotItem = index.data(PlotItemData)
+        if not isinstance(plotItem, plot_model.Item):
+            return None
+        return plotItem
+
+    def setEditorData(self, editor, index):
+        plotItem = self.getPlotItem(index)
+        editor.setVisible(plotItem is not None)
+
+    def setModelData(self, editor, model, index):
+        pass
 
 
 class StylePropertyWidget(LegendSelector.LegendIcon):
@@ -222,8 +237,14 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
 class _DataItem(qt.QStandardItem):
     def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
-        self.__axes = qt.QStandardItem("")
+        self.__xaxis = qt.QStandardItem("")
+        self.__xaxis.setCheckable(True)
+        self.__yaxes = qt.QStandardItem("")
+        self.__displayed = qt.QStandardItem("")
+        self.__displayed.setCheckable(True)
         self.__style = qt.QStandardItem("")
+        self.__remove = qt.QStandardItem("")
+
         self.__plotItem: Union[None, plot_model.Plot] = None
 
     def setChannel(self, channel: scan_model.Channel):
@@ -231,21 +252,30 @@ class _DataItem(qt.QStandardItem):
         self.setText(text)
 
     def axesItem(self) -> qt.QStandardItem:
-        return self.__axes
+        return self.__yaxes
 
     def styleItem(self) -> qt.QStandardItem:
         return self.__style
 
     def items(self) -> List[qt.QStandardItem]:
-        return [self, self.__axes, self.__style]
+        return [
+            self,
+            self.__xaxis,
+            self.__yaxes,
+            self.__displayed,
+            self.__style,
+            self.__remove,
+        ]
 
     def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
         self.__plotItem = plotItem
-        self.__axes.setData(plotItem, role=PlotItemData)
+        self.__yaxes.setData(plotItem, role=PlotItemData)
         self.__style.setData(plotItem, role=PlotItemData)
+        self.__remove.setData(plotItem, role=PlotItemData)
 
         # FIXME: It have to be converted into delegate
-        tree.openPersistentEditor(self.__axes.index())
+        tree.openPersistentEditor(self.__yaxes.index())
+        tree.openPersistentEditor(self.__remove.index())
         widget = StylePropertyWidget(tree)
         widget.setPlotItem(self.__plotItem)
         widget.setFlintModel(flintModel)
@@ -253,6 +283,14 @@ class _DataItem(qt.QStandardItem):
 
 
 class CurvePlotPropertyWidget(qt.QWidget):
+
+    NameColumn = 0
+    XAxisColumn = 1
+    YAxesColumn = 2
+    VisibleColumn = 3
+    StyleColumn = 4
+    RemoveColumn = 5
+
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
         self.__scan = None
@@ -262,7 +300,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
-        self.__axesDelegate = AxesPropertyItemDelegate(self)
+        self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
+        self.__removeDelegate = RemovePropertyItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
 
@@ -325,12 +364,18 @@ class CurvePlotPropertyWidget(qt.QWidget):
             model.appendRow(foo)
             return
 
-        model.setHorizontalHeaderLabels(["Name", "Axes", "Style", ""])
-        self.__tree.setItemDelegateForColumn(1, self.__axesDelegate)
+        model.setHorizontalHeaderLabels(
+            ["Name", "X", "Y1/Y2", "Displayed", "Style", "Remove", ""]
+        )
+        self.__tree.setItemDelegateForColumn(self.YAxesColumn, self.__yAxesDelegate)
+        self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
         header = self.__tree.header()
-        header.setSectionResizeMode(0, qt.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.XAxisColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.YAxesColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
 
         sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scanTree = {}

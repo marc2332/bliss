@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import gevent
 from bliss.controllers import multiplepositions
+from bliss.common import event
 
 
 def test_multiple_positions(session):
@@ -126,3 +128,28 @@ def test_multiple_positions_move_by_label(beacon):
     assert beamstop.position == "IN"
     beamstop.OUT()
     assert beamstop.position == "OUT"
+
+
+def test_multiple_positions_move_events(session):
+    """ Test MultiplePositions object.
+    test for movement events
+    """
+    beamstop = session.env_dict.get("beamstop")
+    beamstop.move("IN")
+
+    ready_event_received = gevent.event.Event()
+
+    def callback(val, *args, **kwargs):
+        if val == "READY":
+            ready_event_received.set()
+
+    event.connect(beamstop, "state", callback)
+    try:
+        beamstop.move("OUT", wait=False)
+
+        with gevent.Timeout(3):
+            ready_event_received.wait()
+
+        assert ready_event_received.is_set()
+    finally:
+        event.disconnect(beamstop, "state", callback)

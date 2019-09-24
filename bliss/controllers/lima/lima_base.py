@@ -107,6 +107,7 @@ class Lima(object):
         if data_synchronisation:
             prepare_once = start_once = False
         acq_nb_frames = npoints if prepare_once else 1
+        stat_history = npoints
         # Instanciate master
         return LimaAcquisitionMaster(
             self,
@@ -119,6 +120,7 @@ class Lima(object):
             wait_frame_id=range(acq_nb_frames),
             prepare_once=prepare_once,
             start_once=start_once,
+            saving_statistics_history=stat_history,
             **scan_pars,
         )
 

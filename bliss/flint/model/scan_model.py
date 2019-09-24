@@ -8,6 +8,9 @@
 from __future__ import annotations
 from typing import Union
 from typing import List
+from typing import Iterator
+from typing import Dict
+from typing import Any
 
 from silx.gui import qt
 import numpy
@@ -37,10 +40,11 @@ class Scan(qt.QObject, _Sealable):
     scanDataUpdated = qt.Signal()
 
     def __init__(self, parent=None):
-        super(Scan, self).__init__(parent=parent)
-        self.__devices = []
-        self.__channels = {}
-        self.__cacheData = {}
+        qt.QObject.__init__(self, parent=parent)
+        _Sealable.__init__(self)
+        self.__devices: List[Device] = []
+        self.__channels: Dict[str, Channel] = {}
+        self.__cacheData: Dict[Any, Any] = {}
 
     def seal(self):
         self.__channels = {}
@@ -65,30 +69,31 @@ class Scan(qt.QObject, _Sealable):
             name = channel.name()
             self.__channels[name] = channel
 
-    def devices(self) -> List[Device]:
+    def devices(self) -> Iterator[Device]:
         # FIXME better to export iterator or read only list
         return iter(self.__devices)
 
     def getChannelByName(self, name) -> Union[None, Channel]:
         return self.__channels.get(name, None)
 
-    def hasCachedResult(self, obj: object) -> bool:
+    def hasCachedResult(self, obj: Any) -> bool:
         return obj in self.__cacheData
 
-    def getCachedResult(self, obj: object):
+    def getCachedResult(self, obj: Any):
         return self.__cacheData[obj]
 
-    def setCachedResult(self, obj: object, result):
+    def setCachedResult(self, obj: Any, result: Any):
         self.__cacheData[obj] = result
 
 
 class Device(qt.QObject, _Sealable):
     def __init__(self, parent: Scan):
-        super(Device, self).__init__(parent=parent)
-        self.__name = None
-        self.__channels = []
-        self.__master = None
-        self.__topMaster = None
+        qt.QObject.__init__(self, parent=parent)
+        _Sealable.__init__(self)
+        self.__name: str = ""
+        self.__channels: List[Channel] = []
+        self.__master: Union[None, Device] = None
+        self.__topMaster: Union[None, Device] = None
         parent.addDevice(self)
 
     def seal(self):
@@ -111,7 +116,7 @@ class Device(qt.QObject, _Sealable):
             raise ValueError("Already in the channel list")
         self.__channels.append(channel)
 
-    def channels(self) -> List[Channel]:
+    def channels(self) -> Iterator[Channel]:
         # FIXME better to export iterator or read only list
         return iter(self.__channels)
 
@@ -121,7 +126,7 @@ class Device(qt.QObject, _Sealable):
         self.__master = master
         self.__topMaster = None
 
-    def master(self) -> Device:
+    def master(self) -> Union[None, Device]:
         return self.__master
 
     def topMaster(self) -> Union[Device]:
@@ -148,9 +153,10 @@ class Channel(qt.QObject, _Sealable):
     dataUpdated = qt.Signal(object)
 
     def __init__(self, parent: Device):
-        super(Channel, self).__init__(parent=parent)
-        self.__data = None
-        self.__name = None
+        qt.QObject.__init__(self, parent=parent)
+        _Sealable.__init__(self)
+        self.__data: Union[None, Data] = None
+        self.__name: str = ""
         parent.addChannel(self)
 
     def device(self) -> Device:
@@ -167,7 +173,7 @@ class Channel(qt.QObject, _Sealable):
     def hasData(self) -> bool:
         return self.__data is not None
 
-    def data(self) -> Data:
+    def data(self) -> Union[None, Data]:
         return self.__data
 
     def setData(self, data: Data):

@@ -8,6 +8,7 @@
 from __future__ import annotations
 from typing import Union
 from typing import List
+from typing import Any
 
 import numpy
 import enum
@@ -32,8 +33,8 @@ class Plot(qt.QObject):
 
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
-        self.__items = []
-        self.__styleStrategy = None
+        self.__items: List[Item] = []
+        self.__styleStrategy: StyleStrategy = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -165,7 +166,7 @@ class AbstractComputableItem(Item):
 
     def __init__(self, parent=None):
         Item.__init__(self, parent=parent)
-        self.__source = None
+        self.__source: Item = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -200,17 +201,15 @@ class AbstractComputableItem(Item):
             return None
         return result
 
-    def compute(self, scan: scan_model.Scan) -> object:
+    def compute(self, scan: scan_model.Scan) -> Any:
         raise NotImplementedError()
 
-    def isResultValid(self, result: object) -> bool:
+    def isResultValid(self, result: Any) -> bool:
         raise NotImplementedError()
 
 
 class AbstractIncrementalComputableItem(AbstractComputableItem):
-    def incrementalCompute(
-        self, previousResult: object, scan: scan_model.Scan
-    ) -> object:
+    def incrementalCompute(self, previousResult: Any, scan: scan_model.Scan) -> Any:
         """Compute a data using the previous value as basis"""
         raise NotImplementedError()
 
@@ -225,7 +224,7 @@ class Style:
 
 class StyleStrategy:
     def __init__(self):
-        self.__cached = {}
+        self.__plot: Plot = None
 
     def __reduce__(self):
         return (self.__class__, ())

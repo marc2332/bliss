@@ -8,6 +8,7 @@
 from __future__ import annotations
 from typing import Union
 from typing import List
+from typing import Dict
 
 from silx.gui import qt
 from silx.gui.plot import LegendSelector
@@ -123,7 +124,7 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
         return editor
 
-    def getPlotItem(self, index) -> plot_model.Item:
+    def getPlotItem(self, index) -> Union[None, plot_model.Item]:
         plotItem = index.data(PlotItemData)
         if not isinstance(plotItem, plot_model.Item):
             return None
@@ -155,9 +156,9 @@ class AxesPropertyItemDelegate(qt.QStyledItemDelegate):
 class StylePropertyWidget(LegendSelector.LegendIcon):
     def __init__(self, parent):
         LegendSelector.LegendIcon.__init__(self, parent=parent)
-        self.__plotItem = None
-        self.__flintModel = None
-        self.__scan = None
+        self.__plotItem: Union[None, plot_model.Plot] = None
+        self.__flintModel: Union[None, flint_model.FlintState] = None
+        self.__scan: Union[None, scan_model.Scan] = None
 
     def setPlotItem(self, plotItem: plot_model.Item):
         if self.__plotItem is not None:
@@ -179,7 +180,7 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
     def __currentScanChanged(self):
         self.__setScan(self.__flintModel.currentScan())
 
-    def __setScan(self, scan: scan_model.Scan):
+    def __setScan(self, scan: Union[None, scan_model.Scan]):
         self.__scan = scan
         self.__update()
 
@@ -219,11 +220,11 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
 
 
 class _DataItem(qt.QStandardItem):
-    def __init__(self, text: str=""):
+    def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
         self.__axes = qt.QStandardItem("")
         self.__style = qt.QStandardItem("")
-        self.__plotItem = None
+        self.__plotItem: Union[None, plot_model.Plot] = None
 
     def setChannel(self, channel: scan_model.Channel):
         text = "Channel %s" % channel.name()
@@ -255,8 +256,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
         self.__scan = None
-        self.__flintModel = None
-        self.__plotModel = None
+        self.__flintModel: Union[None, flint_model.FlintState] = None
+        self.__plotModel: Union[None, plot_model.Plot] = None
         self.__tree = qt.QTreeView(self)
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
@@ -306,7 +307,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __structureChanged(self):
         pass
 
-    def plotModel(self) -> plot_model.Plot:
+    def plotModel(self) -> Union[None, plot_model.Plot]:
         return self.__plotModel
 
     def __setScan(self, scan):
@@ -331,7 +332,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
 
-        sourceTree = {}
+        sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scanTree = {}
         channelItems = {}
 
@@ -392,6 +393,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     parent = itemWithoutLocation
                 else:
                     if isinstance(plotItem, plot_curve_model.CurveItem):
+                        if not plotItem.isValid():
+                            continue
                         topMaster = self.__fromSameTopMaster(scan, plotItem)
                         xChannelName = plotItem.xChannel().name()
                         if (
@@ -420,6 +423,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __fromSameTopMaster(
         self, scan: scan_model.Scan, plotItem: plot_curve_model.CurveItem
     ) -> Union[None, scan_model.Device]:
+        if not plotItem.isValid():
+            return None
         x = plotItem.xChannel().name()
         y = plotItem.yChannel().name()
         channelX = scan.getChannelByName(x)
@@ -443,18 +448,20 @@ class CurvePlotPropertyWidget(qt.QWidget):
             return {}
 
         # Count the amount of same x-channel per top masters
-        xChannelsPerMaster = {}
-        for plotItem in self.__plotModel.items():
+        xChannelsPerMaster: Dict[scan_model.Device, Dict[str, int]] = {}
+        for plotItem in plotModel.items():
             if not isinstance(plotItem, plot_curve_model.CurveItem):
                 continue
             # Here is only top level curve items
             xChannel = plotItem.xChannel()
+            if xChannel is None:
+                continue
             xChannelName = xChannel.name()
             channel = scan.getChannelByName(xChannelName)
             if channel is not None:
                 topMaster = channel.device().topMaster()
                 if topMaster not in xChannelsPerMaster:
-                    counts = {}
+                    counts: Dict[str, int] = {}
                     xChannelsPerMaster[topMaster] = counts
                 else:
                     counts = xChannelsPerMaster[topMaster]

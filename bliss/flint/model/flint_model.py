@@ -23,8 +23,8 @@ class Workspace(qt.QObject):
 
     def __init__(self, parent=None):
         super(Workspace, self).__init__(parent=parent)
-        self.__plots = []
-        self.__widgets = []
+        self.__plots: List[plot_model.Plot] = []
+        self.__widgets: List[qt.QWidget] = []
 
     def plots(self) -> List[plot_model.Plot]:
         return self.__plots
@@ -70,8 +70,8 @@ class FlintState(qt.QObject):
 
     def __init__(self, parent=None):
         super(FlintState, self).__init__(parent=parent)
-        self.__workspace = None
-        self.__currentScan = None
+        self.__workspace: Workspace = None
+        self.__currentScan: scan_model.Scan = None
         self.__window = None
         self.__propertyWidget = None
 
@@ -90,7 +90,7 @@ class FlintState(qt.QObject):
 
     def setWorkspace(self, workspace: Workspace):
         previous = self.__workspace
-        self.__workspace = workspace
+        self.__workspace: Workspace = workspace
         self.workspaceChanged.emit(previous, workspace)
 
     def workspace(self) -> Workspace:

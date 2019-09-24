@@ -5,11 +5,17 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import Tuple
+from typing import Union
+from typing import Dict
+from typing import List
+
+import numpy
+
 from silx.gui import qt
 from silx.gui.plot import PlotWidget
 import silx._version
-
-import numpy
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -25,11 +31,11 @@ class CurvePlotWidget(qt.QDockWidget):
 
     def __init__(self, parent=None):
         super(CurvePlotWidget, self).__init__(parent=parent)
-        self.__scan = None
-        self.__flintModel = None
-        self.__plotModel = None
+        self.__scan: Union[None, scan_model.Scan] = None
+        self.__flintModel: Union[None, flint_model.FlintState] = None
+        self.__plotModel: plot_model.Plot = None
 
-        self.__items = {}
+        self.__items: Dict[scan_model.Scan, List[Tuple[str, str]]] = {}
 
         self.__plot = PlotWidget(parent=self, backend="mpl")
         self.__plot.setActiveCurveStyle(linewidth=2)
@@ -58,7 +64,7 @@ class CurvePlotWidget(qt.QDockWidget):
         propertyWidget.setFlintModel(self.__flintModel)
         return propertyWidget
 
-    def setFlintModel(self, flintModel: flint_model.FlintState = None):
+    def setFlintModel(self, flintModel: Union[flint_model.FlintState, None]):
         if self.__flintModel is not None:
             self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
             self.__setScan(None)
@@ -100,7 +106,7 @@ class CurvePlotWidget(qt.QDockWidget):
             self.__scan.scanDataUpdated.connect(self.__scanDataUpdated)
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
-            self.__redrawScan(scan)
+            self.__redrawScan(self.__scan)
 
     def __cleanScanIfNeeded(self, scan):
         plotModel = self.__plotModel
@@ -161,7 +167,7 @@ class CurvePlotWidget(qt.QDockWidget):
     def __redrawScan(self, scan: scan_model.Scan):
         assert scan is not None
         plot = self.__plot
-        plotItems = []
+        plotItems: List[Tuple[str, str]] = []
 
         self.__cleanScan(scan)
         plotModel = self.__plotModel
@@ -259,6 +265,7 @@ class CurvePlotWidget(qt.QDockWidget):
                             plotItems.append((key, "marker"))
                     else:
                         try:
+                            # FIXME: Not only for curves, but also for markers...
                             plot.removeCurve(legend=legend)
                         except:
                             pass

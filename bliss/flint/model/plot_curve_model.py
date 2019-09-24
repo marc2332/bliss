@@ -31,7 +31,7 @@ class CurvePlot(plot_model.Plot):
 
     def __getstate__(self):
         state = super(CurvePlot, self).__getstate__()
-        return (state, self.__scansStored, )
+        return (state, self.__scansStored)
 
     def __setstate__(self, state):
         super(CurvePlot, self).__setstate__(state[0])
@@ -41,7 +41,7 @@ class CurvePlot(plot_model.Plot):
 class ScanItem(plot_model.Item, plot_model.NotStored):
     def __init__(self, parent=None, scan: scan_model.Scan = None):
         super(ScanItem, self).__init__(parent=parent)
-        assert(scan is not None)
+        assert scan is not None
         self.__scan = scan
 
     def scan(self) -> scan_model.Scan:
@@ -91,9 +91,9 @@ class CurveStatisticMixIn:
 class CurveItem(plot_model.Item, CurveMixIn):
     def __init__(self, parent: plot_model.Plot = None):
         super(CurveItem, self).__init__(parent=parent)
-        self.__x = None
-        self.__y = None
-        self.__yAxis = "left"
+        self.__x: Union[None, plot_model.ChannelRef] = None
+        self.__y: Union[None, plot_model.ChannelRef] = None
+        self.__yAxis: str = "left"
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -111,14 +111,14 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def isValid(self):
         return self.__x is not None and self.__y is not None
 
-    def xChannel(self) -> plot_model.ChannelRef:
+    def xChannel(self) -> Union[None, plot_model.ChannelRef]:
         return self.__x
 
     def setXChannel(self, channel: plot_model.ChannelRef):
         self.__x = channel
         self.parent().invalidateStructure()
 
-    def yChannel(self) -> plot_model.ChannelRef:
+    def yChannel(self) -> Union[None, plot_model.ChannelRef]:
         return self.__y
 
     def setYChannel(self, channel: plot_model.ChannelRef):

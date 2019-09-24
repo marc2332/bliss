@@ -17,7 +17,7 @@ from . import _math_pymca
 
 def derivate(
     xx: numpy.ndarray, yy: numpy.ndarray
-) -> Tuple(numpy.ndarray, numpy.ndarray):
+) -> Tuple[numpy.ndarray, numpy.ndarray]:
     """
     Compute derivative function from the curve `xx`, `yy`
     """

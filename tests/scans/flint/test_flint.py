@@ -2,6 +2,10 @@
 
 import pytest
 from bliss.common import plot
+from bliss.scanning.scan import Scan
+from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+import gevent
 
 
 def test_empty_plot(flint_session):
@@ -61,3 +65,16 @@ def test_curve_plot(flint_session):
             "sin": pytest.approx(sin_cos["sin"]),
             "cos": pytest.approx(sin_cos["cos"]),
         }
+
+
+def test_image_display(flint_session, lima_simulator, dummy_acq_device):
+    chain = AcquisitionChain()
+    lima_sim = flint_session.config.get("lima_simulator")
+    lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
+    lima_master.add_counter(lima_sim.counters.image)
+    device = dummy_acq_device.get(None, "dummy", npoints=1)
+    chain.add(lima_master, device)
+    scan = Scan(chain, "test")
+    scan.run()
+    p = scan.get_plot(lima_sim, wait=True)
+    assert isinstance(p, plot.ImagePlot)

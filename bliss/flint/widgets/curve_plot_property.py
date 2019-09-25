@@ -136,6 +136,24 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         pass
 
 
+class _RemovePlotItemButton(qt.QToolButton):
+    def __init__(self, parent: qt.QWidget = None):
+        super(_RemovePlotItemButton, self).__init__(parent=parent)
+        self.__plotItem: Optional[plot_model.Item] = None
+        self.clicked.connect(self.__requestRemoveItem)
+        self.setText("X")
+        self.setAutoRaise(True)
+
+    def __requestRemoveItem(self):
+        plotItem = self.__plotItem
+        plot = plotItem.plot()
+        if plot is not None:
+            plot.removeItem(plotItem)
+
+    def setPlotItem(self, plotItem: plot_model.Item):
+        self.__plotItem = plotItem
+
+
 class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
     def __init__(self, parent):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
@@ -145,16 +163,9 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
             return super(RemovePropertyItemDelegate, self).createEditor(
                 parent, option, index
             )
-
-        editor = qt.QToolButton(parent=parent)
-        editor.setText("X")
+        editor = _RemovePlotItemButton(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setVisible(plotItem is not None)
-        editor.setAutoRaise(True)
-
-        editor.setMinimumSize(editor.sizeHint())
-        editor.setMaximumSize(editor.sizeHint())
-        editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
         return editor
 
     def getPlotItem(self, index) -> Union[None, plot_model.Item]:
@@ -166,6 +177,7 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
     def setEditorData(self, editor, index):
         plotItem = self.getPlotItem(index)
         editor.setVisible(plotItem is not None)
+        editor.setPlotItem(plotItem)
 
     def setModelData(self, editor, model, index):
         pass
@@ -368,7 +380,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__setScan(self.__flintModel.currentScan())
 
     def __structureChanged(self):
-        pass
+        self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
         return self.__plotModel

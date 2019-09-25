@@ -58,9 +58,19 @@ class Plot(qt.QObject):
         self.itemAdded.emit(item)
         self.invalidateStructure()
 
+    def __itemTree(self, item: Item) -> List[Item]:
+        items = [item]
+        for i in self.__items:
+            if i.isChildOf(item):
+                items.append(i)
+        return items
+
     def removeItem(self, item: Item):
-        self.__items.remove(item)
-        self.itemRemoved.emit(item)
+        items = self.__itemTree(item)
+        for i in items:
+            self.__items.remove(i)
+        for i in items:
+            self.itemRemoved.emit(i)
         self.invalidateStructure()
 
     def items(self) -> List[Item]:
@@ -150,6 +160,9 @@ class Item(qt.QObject):
     def isValid(self):
         return True
 
+    def isChildOf(self, parent: Item) -> bool:
+        return False
+
     def plot(self) -> Optional[Plot]:
         parent = self.parent()
         while parent is not None:
@@ -206,6 +219,14 @@ class AbstractComputableItem(Item):
     def __setstate__(self, state):
         super(AbstractComputableItem, self).__setstate__(state[0])
         self.__source = state[1]
+
+    def isChildOf(self, parent: Item) -> bool:
+        source = self.source()
+        if source is parent:
+            return True
+        if source.isChildOf(parent):
+            return True
+        return False
 
     def setSource(self, source: Item):
         self.__source = source

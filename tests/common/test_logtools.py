@@ -322,3 +322,10 @@ def test_level_switch(params, caplog):
     get_logger(m0).debugoff()
     assert get_logger(m0).level == logging.INFO
     assert get_logger(m0).getEffectiveLevel() == logging.INFO
+
+
+def test_lslog(session, capsys):
+    session.env_dict["lslog"]()
+    captured = capsys.readouterr()
+    assert "global.controllers" in captured.out
+    assert "bliss." in captured.out

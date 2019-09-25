@@ -11,7 +11,7 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 import contextlib
 import time
-import timedisplay
+from bliss.common import timedisplay
 
 from bliss import global_map, global_log
 from bliss.common import scans

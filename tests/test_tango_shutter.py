@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from bliss.controllers.tango_shutter import TangoShutterState
 
 
 def test_tango_shutter(beacon, dummy_tango_server):
@@ -15,16 +16,12 @@ def test_tango_shutter(beacon, dummy_tango_server):
     assert sh.name == "safshut"
     assert sh.config["name"] == "safshut"
 
-    sh.open()
-    assert sh.state == 0
-    assert sh.state_string[1] == sh.STATE2STR[0][1]
+    sh.open(timeout=3)
+    assert sh.state == TangoShutterState.OPEN
+    assert sh.state_string[0] == TangoShutterState.OPEN.value
 
-    sh.close()
-    assert sh.state == 1
-    assert sh.state_string[1] == sh.STATE2STR[1][1]
-
-    sh.open()
-    assert sh.state == 0
-    assert sh.state_string[1] == sh.STATE2STR[0][1]
+    sh.close(timeout=3)
+    assert sh.state == TangoShutterState.CLOSED
+    assert sh.state_string[0] == TangoShutterState.CLOSED.value
 
     assert isinstance(sh.state_string, tuple)

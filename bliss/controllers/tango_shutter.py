@@ -5,54 +5,69 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from gevent import Timeout, sleep
-
-from bliss.common.tango import DeviceProxy, DevFailed
-
-from bliss.common.shutter import BaseShutter
-
 """
-Tango shutter is used to control both front end and safetry shutter.
-Some commands/attributes (like atomatic/manual) are only implemented in the
+Tango shutter is used to control frontend or safety shutter or a valve.
+Some commands/attributes (like automatic/manual) are only implemented in the
 front end device server, set by the _frontend variable.
 
 example yml file:
-
 -
-  #front end shutter
-  class: tango_shutter
+  # front end shutter
+  class: TangoShutter
   name: frontend
-  uri: //orion:10000/fe/id/30
+  uri: //orion:10000/fe/master/id30
 
 -
-  #safety shutter
-  class:tango_shutter
+  # safety shutter
+  class: TangoShutter
   name: safshut
   uri: id30/bsh/1
 """
 
+from enum import Enum
+from gevent import Timeout, sleep
+from bliss.common.shutter import BaseShutter, BaseShutterState
+from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.logtools import log_warning
 
-class tango_shutter(BaseShutter):
+
+TangoShutterState = Enum(
+    "TangoShutterState",
+    dict(
+        {
+            "MOVING": "Moving",
+            "DISABLE": "Hutch not searched",
+            "STANDBY": "Wait for permission",
+            "RUNNING": "Automatic opening",
+        },
+        **{item.name: item.value for item in BaseShutterState},
+    ),
+)
+
+
+class TangoShutter(BaseShutter):
+    """ Handle Tango frontend or safety shutter or a valve"""
+
     def __init__(self, name, config):
         tango_uri = config.get("uri")
         self.__name = name
         self.__config = config
         self.__control = DeviceProxy(tango_uri)
+        self._frontend = None
+        self._mode = None
         self._init_type()
-        self._mode = False
 
     def _init_type(self):
-        try:
-            self._frontend = "FrontEnd" in self.__control.info().dev_class
-        except:
-            self._frontend = None
+        self._frontend = "FrontEnd" in self.__control.info().dev_class
 
     @property
     def frontend(self):
+        """ Check if the device is a front end type
+        Returns:
+            (bool): True if it is a front end, False otherwise
+        """
         if self._frontend is None:
             self._init_type()
-            if self._frontend is None:
-                raise RuntimeError("Tango server is not running %s" % self.name)
         return self._frontend
 
     @property
@@ -66,122 +81,138 @@ class tango_shutter(BaseShutter):
         return self.__config
 
     @property
-    def state(self):
-        try:
-            s = self._tango_state
-            if s == "OPEN":
-                return self.OPEN
-            elif s == "CLOSE":
-                return self.CLOSED
-            else:
-                return self.OTHER
-        except DevFailed:
-            raise RuntimeError(
-                "Shutter {}: Communication error with {}".format(
-                    self.__name, self.__control.dev_name()
-                )
-            )
-            return self.UNKNOWN
-
-    @property
     def _tango_state(self):
-        return str(self.__control.state())
-
-    @property
-    def state_string(self):
-        s = self.state
-        if s in [self.OPEN, self.CLOSED, self.UNKNOWN]:
-            return self.STATE2STR.get(s, self.STATE2STR[self.UNKNOWN])
-        else:
-            return (self._tango_state, self._tango_status)
+        """ Read the tango state. Available PyTango states: 'ALARM', 'CLOSE',
+            'DISABLE', 'EXTRACT', 'FAULT', 'INIT', 'INSERT', 'MOVING', 'OFF',
+            'ON', 'OPEN', 'RUNNING', 'STANDBY', 'UNKNOWN'.
+        Returns:
+            (str): The state from the device server.
+        """
+        return self.__control.state().name
 
     @property
     def _tango_status(self):
-        return str(self.__control.status())
+        """ Read the status.
+        Returns:
+            (str): Complete state from the device server.
+        """
+        return self.__control.status()
 
-    def open(self):
-        state = self._tango_state
-        if state == "STANDBY":
-            raise RuntimeError("Cannot open shutter in STANDBY state")
-        if state == "OPEN":
-            # user log message: shutter already open
-            return
-        if state == "CLOSE":
+    @property
+    def state(self):
+        """ Read the state.
+        Returns:
+            (enum): state as enum
+        Raises:
+            RuntimeError: If DevFailed from the device server
+        """
+        try:
+            state = self._tango_state
+            if "CLOSE" in state:
+                return TangoShutterState.CLOSED
+            return TangoShutterState.__members__[state]
+        except DevFailed:
+            raise RuntimeError(f"Communication error with {self.__control.dev_name()}")
+
+    @property
+    def state_string(self):
+        """Return state as combined string
+        Returns
+            (tuple): state as string, tango status
+        """
+        return self.state.value, self._tango_status
+
+    def open(self, timeout=60):
+        """Open
+        Args:
+            (float): Timeout [s] to wait until execution finished
+        Raises:
+            RuntimeError: Cannot execute if device in wrong state
+        """
+        state = self.state
+        if state.name in ("OPEN", "RUNNING"):
+            log_warning(self, "Already open, command ignored")
+        if state == TangoShutterState.CLOSED:
             try:
                 self.__control.open()
-                self._wait("OPEN", 5)
-            except:
-                raise RuntimeError("Cannot open shutter")
+                self._wait(TangoShutterState.OPEN, timeout)
+            except RuntimeError as err:
+                print(err)
+                raise
         else:
-            raise RuntimeError("Trouble opening shutter: " + self.state_string)
-        return
+            raise RuntimeError(f"Cannot open: {state.value}")
 
-    def close(self):
-        state = self._tango_state
-        if state == "OPEN" or state == "RUNNING":
+    def close(self, timeout=60):
+        """Close
+        Args:
+            (float): Timeout [s] to wait until execution finished
+        Raises:
+            RuntimeError: Cannot execute if device in wrong state
+        """
+        state = self.state
+        if state == TangoShutterState.CLOSED:
+            log_warning(self, "Already closed, command ignored")
+        elif state.name in ("OPEN", "RUNNING"):
             try:
                 self.__control.close()
-                self._wait("CLOSE", 5)
-            except:
-                raise RuntimeError("Cannot close shutter")
+                self._wait(TangoShutterState.CLOSED, timeout)
+            except RuntimeError as err:
+                print(err)
+                raise
         else:
-            raise RuntimeError("Trouble closing shutter: " + str(self.state_string))
+            raise RuntimeError(f"Cannot close: {state.value}")
 
-    def set_automatic(self):
+    @property
+    def mode(self):
+        """ Get the opening mode.
+        Raises:
+            NotImplementedError: Not a Frontend shutter
+        """
         if not self.frontend:
-            raise NotImplementedError("Not a Front End shutter")
+            raise NotImplementedError("Not a Frontend shutter")
 
-        # try to set to automatic if manual mode only.
-        if self._mode == "MANUAL":
-            s = self._tango_state
-            if s == "CLOSE" or s == "OPEN":
-                try:
-                    self.__control.automatic()
-                    self._wait_mode(mode="AUTOMATIC")
-                except:
-                    raise RuntimeError("Cannot set automatic mode closing")
-            else:
-                ## TODO some user log message
-                pass
-
-    def set_manual(self):
-        if not self.frontend:
-            raise NotImplementedError("Not a Front End shutter")
-
-        # try to set to manual if automatic mode only.
-        if self._mode == "AUTOMATIC":
-            s = self._tango_state
-            if s == "CLOSE" or s == "RUNNING":
-                try:
-                    self.__control.manual()
-                    self._wait_mode(mode="MANUAL")
-                except:
-                    raise RuntimeError("Cannot set manual mode closing")
-            else:
-                pass
-                # TODO some user log message
-
-    def get_closing_mode(self):
-        if not self.frontend:
-            raise NotImplementedError("Not a Front End shutter")
         try:
             _mode = self.__control.automatic_mode
-        except Exception:
+        except AttributeError:
             _mode = None
-        self._mode = "AUTOMATIC" if _mode else "MANUAL" if _mode == False else "UNKNOWN"
+        self._mode = "AUTOMATIC" if _mode else "MANUAL" if _mode is False else "UNKNOWN"
         return self._mode
 
+    @mode.setter
+    def mode(self, mode):
+        """Set the frontend opening mode
+        Args:
+            mode (str): MANUAL or AUTOMATIC
+        Raises: NotImplementedError: Not a Fronend shutter.
+        """
+        if not self.frontend:
+            raise NotImplementedError("Not a Frontend shutter")
+
+        try:
+            if mode == "MANUAL":
+                self.__control.manual()
+            elif mode == "AUTOMATIC":
+                self.__control.automatic()
+            self._wait_mode(mode=mode)
+        except DevFailed:
+            raise RuntimeError(f"Cannot set {mode} opening")
+
     def _wait(self, state, timeout=3):
-        with Timeout(timeout):
-            while self._tango_state != state:
+        """Wait execution to finish
+        Args:
+            (enum): state
+            (float): timeout [s].
+        Raises:
+            RuntimeError: Execution timeout.
+        """
+        with Timeout(timeout, RuntimeError("Execution timeout")):
+            while self.state != state:
                 sleep(1)
-            # TODO: user log message with new state
 
     def _wait_mode(self, mode, timeout=3):
-        with Timeout(timeout):
-            while self.get_closing_mode() != mode:
+        with Timeout(timeout, RuntimeError(f"Cannot set {mode} opening")):
+            while self.mode != mode:
                 sleep(1)
-            # TODO: user log message with new mode
 
     def __enter__(self):
         self.open()

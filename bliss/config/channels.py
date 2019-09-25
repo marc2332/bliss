@@ -191,6 +191,13 @@ class Bus(AdvancedInstantiationInterface):
 
     def _send(self):
         while True:
+            try:
+                self._raw_send()
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+
+    def _raw_send(self):
+        while True:
             # Synchronize
             self._send_event.wait()
             self._send_event.clear()

@@ -19,7 +19,7 @@ def test_pseudo_axes_position(s1f, s1b, s1u, s1d, s1vg, s1vo, s1hg, s1ho):
     assert s1vg.position == 1
     assert s1hg.position == 1
     assert s1vo.position == -0.5
-    assert s1ho.position == 0.5
+    assert s1ho.position == -0.5
 
 
 def test_pseudo_axes_move(s1b, s1f, s1hg, s1ho):
@@ -31,8 +31,8 @@ def test_pseudo_axes_move(s1b, s1f, s1hg, s1ho):
     assert s1f.state.READY
     assert s1hg.position == pytest.approx(hgap)
     assert s1ho.position == pytest.approx(2)
-    assert s1b.position == pytest.approx(2 + (hgap / 2.0))
-    assert s1f.position == pytest.approx((hgap / 2.0) - 2)
+    assert s1b.position == pytest.approx((hgap / 2.0) - 2)
+    assert s1f.position == pytest.approx((hgap / 2.0) + 2)
 
 
 def test_pseudo_axis_scan(s1ho, s1b, s1f, s1hg):

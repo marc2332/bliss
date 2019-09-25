@@ -32,8 +32,10 @@ def test_pkcom_ascan_gauss(session):
     assert pytest.approx(p, 5)
     assert pytest.approx(fwhm, 2.3548)  # std dev is 1
     assert pytest.approx(c, 5)
-    assert pytest.raises(ValueError, "s.peak(simul_counter, m1)")
-    assert pytest.raises(KeyError, "s.peak(diode)")
+    with pytest.raises(ValueError):
+        s.peak(simul_counter, m1)
+    with pytest.raises(KeyError):
+        s.peak(diode)
 
     s.goto_peak(simul_counter)
     assert pytest.approx(roby.position, p)
@@ -56,7 +58,8 @@ def test_pkcom_a2scan_gauss(session):
         roby, 0, 10, robz, 0, 5, 10, 0, simul_counter, save=False, return_scan=True
     )
 
-    assert pytest.raises(ValueError, "s.peak(simul_counter)")
+    with pytest.raises(ValueError):
+        s.peak(simul_counter)
 
     p = s.peak(simul_counter, roby)
     assert pytest.approx(p, 5)

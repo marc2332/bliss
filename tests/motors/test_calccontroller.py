@@ -158,7 +158,7 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
 
     assert (
         "RuntimeError: Virtual axis 's1hg` cannot be present in group with any of its corresponding real axes: ['s1f']"
-        in str(exc)
+        in str(exc.value)
     )
 
     with pytest.raises(RuntimeError) as exc:
@@ -166,7 +166,7 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
 
     assert (
         "RuntimeError: Virtual axis 'calc_mot1` cannot be present in group with any of its corresponding real axes: ['roby']"
-        in str(exc)
+        in str(exc.value)
     )
 
 

@@ -269,9 +269,9 @@ def test_channels_cache(beacon):
     assert len(channels.DEVICE_CACHE) == 0
 
     # A device needs a name
-    with pytest.raises(TypeError) as info:
+    with pytest.raises(TypeError) as exc:
         channels.Cache(1, "attr")
-    assert "the device 1 has no name" in str(info)
+    assert "the device 1 has no name" in str(exc.value)
 
 
 def test_2processes_set_channel_value_constructor(channel_subprocess):

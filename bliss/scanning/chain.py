@@ -848,7 +848,7 @@ class AcquisitionChain(object):
         next(nodes_gen)  # first node is 'root'
         return list(nodes_gen)
 
-    def add(self, master, slave):
+    def add(self, master, slave=None):
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
         if slave_node is not None and isinstance(slave, AcquisitionDevice):
@@ -873,13 +873,14 @@ class AcquisitionChain(object):
             master_node = self._tree.create_node(
                 tag=master.name, identifier=master, parent="root"
             )
-        if slave_node is None:
-            slave_node = self._tree.create_node(
-                tag=slave.name, identifier=slave, parent=master
-            )
-        else:
-            self._tree.move_node(slave, master)
-        slave.parent = master
+        if slave is not None:
+            if slave_node is None:
+                slave_node = self._tree.create_node(
+                    tag=slave.name, identifier=slave, parent=master
+                )
+            else:
+                self._tree.move_node(slave, master)
+            slave.parent = master
 
     def add_preset(self, preset, master=None):
         """

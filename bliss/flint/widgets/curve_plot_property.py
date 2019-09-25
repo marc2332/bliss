@@ -9,6 +9,8 @@ from __future__ import annotations
 from typing import Union
 from typing import List
 from typing import Dict
+from typing import Callable
+from typing import Optional
 
 from silx.gui import qt
 from silx.gui.plot import LegendSelector
@@ -18,6 +20,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
+import functools
 
 
 PlotItemData = qt.Qt.UserRole + 100
@@ -234,14 +237,26 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
         self.update()
 
 
+class _HookedStandardItem(qt.QStandardItem):
+    def __init__(self, text: str):
+        qt.QStandardItem.__init__(self, text)
+        self.modelUpdated: Optional[Callable[[qt.QStandardItem], None]] = None
+
+    def setData(self, value, role=qt.Qt.UserRole + 1):
+        qt.QStandardItem.setData(self, value, role)
+        if self.modelUpdated is not None:
+            self.modelUpdated(self)
+
+
 class _DataItem(qt.QStandardItem):
     def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
         self.__xaxis = qt.QStandardItem("")
         self.__xaxis.setCheckable(True)
         self.__yaxes = qt.QStandardItem("")
-        self.__displayed = qt.QStandardItem("")
+        self.__displayed = _HookedStandardItem("")
         self.__displayed.setCheckable(True)
+        self.__displayed.modelUpdated = self.__visibilityViewChanged
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
@@ -267,11 +282,20 @@ class _DataItem(qt.QStandardItem):
             self.__remove,
         ]
 
+    def __visibilityViewChanged(self, item: qt.QStandardItem):
+        if self.__plotItem is not None:
+            state = item.checkState()
+            self.__plotItem.setVisible(state == qt.Qt.Checked)
+
     def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
         self.__plotItem = plotItem
         self.__yaxes.setData(plotItem, role=PlotItemData)
         self.__style.setData(plotItem, role=PlotItemData)
         self.__remove.setData(plotItem, role=PlotItemData)
+
+        isVisible = plotItem.isVisible()
+        state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
+        self.__displayed.setData(state, role=qt.Qt.CheckStateRole)
 
         # FIXME: It have to be converted into delegate
         tree.openPersistentEditor(self.__yaxes.index())

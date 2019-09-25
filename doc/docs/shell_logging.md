@@ -1,4 +1,4 @@
-# BLISS shell logging
+# BLISS shell logging usage
 
 ## Presentation
 
@@ -25,7 +25,7 @@ session               WARNING
 session.controllers   WARNING
 ```
 
-The relevant informations are:
+The relevant information is:
 
 * **module/instance** logger name that represents :
     * the module (for module loggers starting with **bliss**)
@@ -37,7 +37,7 @@ The relevant informations are:
     * `INFO`
     * `DEBUG`
 
-more info about [Python logging module](https://docs.python.org/3/library/logging.html).
+More info about [Python logging module](https://docs.python.org/3/library/logging.html).
 
 
 
@@ -56,17 +56,22 @@ bliss.scans          WARNING
 bliss.shell          WARNING
 bliss.standard       WARNING
 ```
-Inside modules logger object are instantiated with the well known:
+Inside modules, logger object are instantiated with the well known:
 ```python
 import logging
 logger = logging.getLogger(__name__)
 ```
-Thiss will create a logger with a name that will be a dot separated folder/file name hierarchy.
+
+This will create a logger with a name that will be a dot separated folder/file
+name hierarchy.
 
 
 ### Instance logging
 
-Instance-level logging allows to discriminate beetween different instances of the same class. With instance logging every device or instance has his own logger with a name that represents the conceptual hierarchy of the hardware/software stack.
+Instance-level logging allows to discriminate beetween different instances of
+the same class. With instance logging every device or instance has his own
+logger with a name that represents the conceptual hierarchy of the
+hardware/software stack.
 
 ```
 session                                           WARNING
@@ -91,16 +96,16 @@ Activate logging can be done with global function **debugon** passing
 an object or a string with a glob pattern.
 
 ```
-TEST_SESSION [2]: debugon('*s1d')
+DEMO [2]: debugon('*s1d')
 Setting session.controllers.Mockup.s1d to show debug messages
-TEST_SESSION [3]: debugon(m0)
+DEMO [3]: debugon(m0)
 Setting session.controllers.Mockup.m0 to show debug messages
 ```
 
 The function **lsdebug** shows activate loggers:
 
 ```
-TEST_SESSION [4]: lsdebug()
+DEMO [4]: lsdebug()
 
 logger name                                                 level
 =========================================================== ========
@@ -112,10 +117,10 @@ Activating debug for one specific device may not give the desired
 informations as a device could be managed by a controller and normally
 controllers handles the communication.
 
-Sometimes what you will probably need is to activate debug at the controller level.
+Sometimes debug activatation at the controller level is needed.
 
 ```
-TEST_SESSION [14]: debugon(m0.controller)
+DEMO [14]: debugon(m0.controller)
 Setting session.controllers.Mockup to show debug messages
 Setting session.controllers.Mockup.hooked_m0 to show debug messages
 Setting session.controllers.Mockup.m2 to show debug messages
@@ -132,7 +137,7 @@ Setting session.controllers.Mockup.s1u to show debug messages
 ```
 or
 ```
-TEST_SESSION [17]: debugon("*.Mockup.*")
+DEMO [17]: debugon("*.Mockup.*")
 Setting session.controllers.Mockup.hooked_m0 to show debug messages
 Setting session.controllers.Mockup.m2 to show debug messages
 Setting session.controllers.Mockup.m0 to show debug messages
@@ -165,7 +170,7 @@ are `*` and `?` matching respectively *any number of characters* and
 documentation).
 
 Example of calling `lslog()` without argument:
-```
+```python
 DEMO [2]: lslog()
 
 logger name           level
@@ -183,8 +188,8 @@ session.controllers   WARNING
 Example of calling `lslog()` with a glob argument:
 
 
-```
-TEST_SESSION [10]: lslog('*Mock*')
+```python
+DEMO [10]: lslog('*Mock*')
 
 logger name                                  level
 ============================================ ========
@@ -212,7 +217,7 @@ session.controllers.Mockup.s1u               WARNING
 `lsdebug()` shows loggers currently in debug mode:
 
 ```python
-TEST_SESSION [9]: lsdebug('*Mock*')
+DEMO [9]: lsdebug('*Mock*')
 
 logger name                                  level
 ============================================ ========
@@ -226,9 +231,9 @@ session.controllers.Mockup.m0                DEBUG
 Activates debug for a specific logger name using the object/alias or a glob pattern.
 
 ```python
-TEST_SESSION [11]: debugon(roby)
+DEMO [11]: debugon(roby)
 Setting session.controllers.calc_motor_mockup.roby to show debug messages
-TEST_SESSION [12]: debugoff('*m0')
+DEMO [12]: debugoff('*m0')
 Setting session.controllers.Mockup.hooked_m0 to hide debug messages
 Setting session.controllers.Mockup.hooked_error_m0 to hide debug messages
 Setting session.controllers.Mockup.m0 to hide debug messages
@@ -240,10 +245,10 @@ Setting session.controllers.Mockup.m0 to hide debug messages
 
 Like `debugon()` but sets the logging level to global defined one.
 
-```
-TEST_SESSION [13]: debugoff(roby)
+```python
+DEMO [13]: debugoff(roby)
 Setting session.controllers.calc_motor_mockup.roby to hide debug messages
-TEST_SESSION [14]: debugoff('*m0')
+DEMO [14]: debugoff('*m0')
 Setting session.controllers.Mockup.hooked_m0 to hide debug messages
 Setting session.controllers.Mockup.hooked_error_m0 to hide debug messages
 Setting session.controllers.Mockup.m0 to hide debug messages
@@ -254,9 +259,9 @@ Setting session.controllers.Mockup.m0 to hide debug messages
 It is only a matter of activating the proper logger: **bliss.shell.cli.repl**
 
 ```python
-TEST_SESSION [7]: debugon('bliss.shell.cli.repl')
+DEMO [7]: debugon('bliss.shell.cli.repl')
 Setting bliss.shell.cli.repl to show debug messages
-TEST_SESSION [8]: 1+2
+DEMO [8]: 1+2
 DEBUG 2019-07-04 16:49:45,117 bliss.shell.cli.repl: USER INPUT: 1+2
          Out [8]: 3
 ```
@@ -265,19 +270,27 @@ DEBUG 2019-07-04 16:49:45,117 bliss.shell.cli.repl: USER INPUT: 1+2
 
 There are a lot of ways to accomplish this.
 The easiest is to add a logging Handler to the root Logger.
-This is accomplished using a normal python logging Handler taken from the standard library.
+This is accomplished using a normal python logging Handler taken from the
+standard library.
 
-Logging could be initialized on bliss shell, but probably the best place to do this is in session configuration script.
+Logging could be initialized on bliss shell, but probably the best place to do
+this is in session configuration script.
 
 ```python
-# Just near the end of your session_setup.py
+# Just near the end of session_setup.py file.
 
 from logging import getLogger, FileHandler, Formatter, DEBUG
 
 rootlogger = getLogger()  # getting root logger
-filehandler = FileHandler('mylogfile.log')  # creating a file handler
-formatter = Formatter("%(asctime)s-%(name)s-%(lineno)d-%(msg)s-%(exc_info)s")  # creating a formatter for file messages
+
+# creating a file handler
+filehandler = FileHandler('mylogfile.log')
+
+# creating a formatter for file messages
+formatter = Formatter("%(asctime)s-%(name)s-%(lineno)d-%(msg)s-%(exc_info)s")
+
 filehandler.setFormatter(formatter)  # filehandler will use the formatter
+
 rootlogger.addHandler(filehandler)  # adding the handler to the root logger
 
 # Just after you can set debug level for some instances
@@ -286,11 +299,16 @@ debugon(roby)
 debugon(m0.controller)
 ```
 
-Another useful Handler is RotatingFileHandler:
-```
+Another useful Handler is `RotatingFileHandler`:
+```python
 from logging.handlers import RotatingFileHandler
+
 # rotation of 10 log files with maximum size of 1Mb
-rotatinghandler = RotatingFileHandler(‘mybliss.log’, maxBytes=1024**2, backupCount=10)
-rootlogger.addHandler(rotatinghandler)  # adding the handler to the root logger
+rotatinghandler = RotatingFileHandler(‘mybliss.log’,
+                                      maxBytes=1024**2,
+                                      backupCount=10)
+
+# adding the handler to the root logger
+rootlogger.addHandler(rotatinghandler)
 ```
 

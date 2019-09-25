@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   id="svg2"
+   height="32"
+   width="32"
+   version="1.1"
+   sodipodi:docname="item-mca.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs11" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1699"
+     inkscape:window-height="1042"
+     id="namedview9"
+     showgrid="false"
+     inkscape:zoom="13.906433"
+     inkscape:cx="15.222834"
+     inkscape:cy="16.960005"
+     inkscape:window-x="191"
+     inkscape:window-y="134"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg2" />
+  <metadata
+     id="metadata4">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <rect
+     id="rect3234"
+     style="color:#000000;fill:none;stroke:#000000;stroke-width:2.61072063;stroke-linecap:round"
+     height="21.869514"
+     width="24.538061"
+     y="5.3980751"
+     x="3.7708101" />
+  <text
+     xml:space="preserve"
+     style="font-style:normal;font-weight:normal;font-size:8.10295391px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.20257387"
+     x="5.5013733"
+     y="18.949587"
+     id="text817"><tspan
+       sodipodi:role="line"
+       id="tspan815"
+       x="5.5013733"
+       y="18.949587"
+       style="font-weight:bold;stroke-width:0.20257387">MCA</tspan></text>
+</svg>

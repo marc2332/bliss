@@ -15,6 +15,7 @@ from typing import Optional
 from silx.gui import qt
 from silx.gui.plot import LegendSelector
 from silx.gui import colors
+from silx.gui import icons
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -135,13 +136,22 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         # Already up to date
         pass
 
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
 
 class _RemovePlotItemButton(qt.QToolButton):
     def __init__(self, parent: qt.QWidget = None):
         super(_RemovePlotItemButton, self).__init__(parent=parent)
         self.__plotItem: Optional[plot_model.Item] = None
         self.clicked.connect(self.__requestRemoveItem)
-        self.setText("X")
+        icon = icons.getQIcon("flint:icons/remove-item")
+        self.setIcon(icon)
         self.setAutoRaise(True)
 
     def __requestRemoveItem(self):
@@ -272,6 +282,8 @@ class _DataItem(qt.QStandardItem):
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
+        icon = icons.getQIcon("flint:icons/item-channel")
+        self.setIcon(icon)
         self.__plotItem: Union[None, plot_model.Plot] = None
 
     def setChannel(self, channel: scan_model.Channel):
@@ -308,6 +320,16 @@ class _DataItem(qt.QStandardItem):
         isVisible = plotItem.isVisible()
         state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
         self.__displayed.setData(state, role=qt.Qt.CheckStateRole)
+
+        if isinstance(plotItem, plot_curve_model.CurveItem):
+            icon = icons.getQIcon("flint:icons/item-channel")
+            self.setIcon(icon)
+        elif isinstance(plotItem, plot_curve_model.CurveMixIn):
+            icon = icons.getQIcon("flint:icons/item-func")
+            self.setIcon(icon)
+        elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
+            icon = icons.getQIcon("flint:icons/item-stats")
+            self.setIcon(icon)
 
         # FIXME: It have to be converted into delegate
         tree.openPersistentEditor(self.__yaxes.index())
@@ -423,8 +445,12 @@ class CurvePlotPropertyWidget(qt.QWidget):
             for device in self.__scan.devices():
                 if device.isMaster():
                     item = qt.QStandardItem("Master %s" % device.name())
+                    icon = icons.getQIcon("flint:icons/item-timer")
+                    item.setIcon(icon)
                 else:
                     item = qt.QStandardItem("Device %s" % device.name())
+                    icon = icons.getQIcon("flint:icons/item-device")
+                    item.setIcon(icon)
                 scanTree[device] = item
                 for channel in device.channels():
                     channelItem = _DataItem()

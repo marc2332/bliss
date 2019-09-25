@@ -232,6 +232,34 @@ def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session)
         scan_saving.from_dict(scan_saving_dump)
 
 
+def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
+    # issue 1010
+    simulator = session.config.get("lima_simulator")
+    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving_dump = scan_saving.to_dict()
+
+    scan_saving.base_path = str(scan_tmpdir)
+    scan_saving.template = "test"
+    scan_saving.images_path_relative = False
+    scan_saving.images_path_template = "{base_path}/test/{scan_name}_{scan_number}/tata"
+    scan_saving.images_prefix = "{img_acq_device}"
+    scan_saving.scan_number_format = "%1d"
+    scan_saving.writer = "null"
+
+    try:
+        scan_config = scan_saving.get()
+
+        setup_globals.timescan(0.1, simulator, npoints=1)
+
+        assert os.path.exists(
+            os.path.join(
+                scan_config["root_path"], "timescan_1/tata/lima_simulator0000.edf"
+            )
+        )
+    finally:
+        scan_saving.from_dict(scan_saving_dump)
+
+
 def test_lima_scan_internal_trigger_with_roi(session, lima_simulator):
     # test for issue #485
     simulator = session.config.get("lima_simulator")

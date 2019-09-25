@@ -266,8 +266,9 @@ class MultiplePositions:
             event.connect(self._group, "move_done", self.__move_done)
             try:
                 self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
-            finally:
+            except Exception:
                 event.disconnect(self._group, "move_done", self.__move_done)
+                raise
         else:
             if not wait:
                 log_warning(
@@ -279,6 +280,7 @@ class MultiplePositions:
 
     def __move_done(self, move_done):
         if move_done:
+            event.disconnect(self._group, "move_done", self.__move_done)
             self._position_channel.value = self.position
             self._state_channel.value = "READY"
         else:

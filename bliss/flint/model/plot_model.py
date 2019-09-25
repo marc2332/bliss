@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Union
 from typing import List
 from typing import Any
+from typing import Optional
 
 import numpy
 import enum
@@ -19,6 +20,7 @@ from . import scan_model
 
 class ChangeEventType(enum.Enum):
     YAXIS = enum.auto()
+    VISIBILITY = enum.auto()
     CUSTOM_STYLE = enum.auto()
 
 
@@ -30,6 +32,7 @@ class Plot(qt.QObject):
     structureChanged = qt.Signal()
     styleChanged = qt.Signal()
     configurationChanged = qt.Signal()
+    itemValueChanged = qt.Signal(object, object)
 
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
@@ -132,18 +135,43 @@ class Item(qt.QObject):
 
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
+        self.__isVisible: bool = True
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.parent(),)
+        return (self.parent(), self.__isVisible)
 
     def __setstate__(self, state):
         self.setParent(state[0])
+        self.setVisible(state[1])
 
     def isValid(self):
         return True
+
+    def plot(self) -> Optional[Plot]:
+        parent = self.parent()
+        while parent is not None:
+            if isinstance(parent, Plot):
+                return parent
+            parent = parent.parent()
+        return None
+
+    def _emitValueChanged(self, eventType: ChangeEventType):
+        plot = self.plot()
+        if plot is not None:
+            plot.itemValueChanged.emit(self, eventType)
+        self.valueChanged.emit(eventType)
+
+    def setVisible(self, isVisible: bool):
+        if self.__isVisible == isVisible:
+            return
+        self.__isVisible = isVisible
+        self._emitValueChanged(ChangeEventType.VISIBILITY)
+
+    def isVisible(self) -> bool:
+        return self.__isVisible
 
     def getStyle(self, scan: scan_model.Scan = None) -> Style:
         plot = self.parent()

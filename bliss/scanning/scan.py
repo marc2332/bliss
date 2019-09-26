@@ -13,8 +13,9 @@ import weakref
 import sys
 import time
 import datetime
-import uuid
+import tabulate
 import collections
+import uuid
 from functools import wraps
 
 from bliss import setup_globals, current_session, is_bliss_shell
@@ -25,12 +26,11 @@ from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
-from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
+from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.common import motor_group
-from .chain import AcquisitionSlave, AcquisitionMaster, AcquisitionChain, StopChain
+from .chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -330,15 +330,21 @@ class ScanSaving(ParametersWardrobe):
         """
         This class hold the saving structure for a session.
 
-        This class generate the *root path* of scans and the *parent* node use to publish data.
+        This class generate the *root path* of scans and the *parent* node use
+        to publish data.
 
-        The *root path* is generate using *base path* argument as the first part and
-        use the *template* argument as the final part.
-        The *template* argument is basically a (python) string format use to generate the final part of the
-        root_path.
+        The *root path* is generate using *base path* argument as the first part
+        and use the *template* argument as the final part.
+
+        The *template* argument is basically a (python) string format use to
+        generate the final part of the root_path.
+
         i.e: a template like "{session}/{date}" will use the session and the date attribute
         of this class.
-        attribute use in this template can also be a function with one argument (scan_data) which return a string.
+
+        Attribute used in this template can also be a function with one argument
+        (scan_data) which return a string.
+
         i.e: date argument can point to this method
              def get_date(scan_data): datetime.datetime.now().strftime("%Y/%m/%d")
              scan_data.add('date',get_date)
@@ -384,7 +390,37 @@ class ScanSaving(ParametersWardrobe):
         d["scan_name"] = "scan name"
         d["scan_number"] = "scan number"
         d["img_acq_device"] = "<images_* only> acquisition device name"
-        return super()._repr(d)
+
+        info_str = super()._repr(d)
+        info_str += self.get_data_info()
+
+        return info_str
+
+    def get_data_info(self):
+
+        data_config = self.get()
+        info_table = list()
+        #        import pprint
+        #       pprint.pprint(data_config['writer'].data_filename)
+        #        pprint.pprint(data_config['writer'].file)
+        #        pprint.pprint()
+
+        data_file = data_config["writer"].filename
+        #        data_file = data_config["data_path"]
+        if os.path.exists(data_file):
+            exists = "exists"
+        else:
+            exists = "does not exist"
+        info_table.append((exists, "filename", data_file))
+
+        data_dir = data_config["root_path"]
+        if os.path.exists(data_dir):
+            exists = "exists"
+        else:
+            exists = "does not exist"
+        info_table.append((exists, "root_path", data_dir))
+
+        return tabulate.tabulate(tuple(info_table))
 
     @property
     def scan_name(self):

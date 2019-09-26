@@ -9,25 +9,36 @@
 
 Access it with `.scan_saving` property of Session object.
 
-From Bliss Shell you have also access to a global variable `SCAN_SAVING` that refers to `current_session.scan_saving`.
+From Bliss Shell you have also access to a global variable `SCAN_SAVING` that
+refers to `current_session.scan_saving`.
 
 example:
 
 ```
-BLISS [1]: SCAN_SAVING
-Parameters (default)
-  .base_path            = '/tmp/scans'
-  .date                 = '20181121'
-  .date_format          = '%Y%m%d'
-  .device               = '<images_* only> acquisition device name'
-  .images_path_relative = True
-  .images_path_template = '{scan}'
-  .images_prefix        = '{device}_'
-  .scan                 = '<images_* only> scan node name'
-  .session              = 'default'
-  .template             = '{session}/'
-  .user_name            = 'obi-wan'
-  .writer               = 'hdf5'
+DEMO  [1]: SCAN_SAVING
+  Out [1]: Parameters (default) -
+
+             .base_path            = '/tmp/toto/'
+             .data_filename        = 'data'
+             .user_name            = 'guilloud'
+             .template             = '{session}/'
+             .images_path_relative = True
+             .images_path_template = 'scan{scan_number}'
+             .images_prefix        = '{img_acq_device}_'
+             .date_format          = '%Y%m%d'
+             .scan_number_format   = '%04d'
+             .session              = 'cyril'
+             .date                 = '20190926'
+             .scan_name            = 'scan name'
+             .scan_number          = 'scan number'
+             .img_acq_device       = '<images_* only> acquisition device name'
+             .writer               = 'hdf5'
+             .creation_date        = '2019-08-23-10:08'
+             .last_accessed        = '2019-09-26-16:09'
+           --------------  ---------  -----------------------
+           does not exist  filename   /tmp/toto/cyril/data.h5
+           exists          root_path  /tmp/toto/cyril/
+           --------------  ---------  -----------------------
 ```
 
 `base_path` corresponds to the top-level directory where scans are
@@ -76,51 +87,101 @@ In this example `SCAN_SAVING` we will add two extra parameters
 (**sample** and **experiment**) and use them to generate the final path.
 
 ```python
-TEST_SESSION [1]: # Set the base path to /data/visitor
-TEST_SESSION [2]: SCAN_SAVING.base_path = '/data/visitor'
-TEST_SESSION [3]: #Adding the two new parameters
-TEST_SESSION [4]: SCAN_SAVING.add('sample','lysozyme')
-TEST_SESSION [5]: SCAN_SAVING.add('experiment','mx1921')
-TEST_SESSION [6]: # Use them in the template
-TEST_SESSION [7]: SCAN_SAVING.template = '{experiment}/{sample}'
-TEST_SESSION [8]: SCAN_SAVING
-         Out [8]: Parameters (default) - 
+DEMO [1]: # Set the base path to /data/visitor:
+DEMO [2]: SCAN_SAVING.base_path = '/data/visitor'
 
-                     .base_path            = '/data/visitor'
-                     .data_filename        = 'data'
-                     .date                 = '20190403'
-                     .date_format          = '%Y%m%d'
-                     .experiment           = 'mx1921'
-                     .images_path_relative = True
-                     .images_path_template = 'scan{scan_number}'
-                     .images_prefix        = '{img_acq_device}_'
-                     .img_acq_device       = '<images_* only> acquisition device name'
-                     .sample               = 'lysozyme'
-                     .scan_name            = 'scan name'
-                     .scan_number          = 'scan number'
-                     .scan_number_format   = '%04d'
-                     .session              = 'test_session'
-                     .template             = '{experiment}/{sample}'
-                     .user_name            = 'seb'
-                     .writer               = 'hdf5'
-TEST_SESSION [9]: SCAN_SAVING.get_path()
-         Out [9]: '/data/visitor/mx1921/lysozyme'
+DEMO [3]: # Add the two new parameters:
+DEMO [4]: SCAN_SAVING.add('sample','lysozyme')
+DEMO [5]: SCAN_SAVING.add('experiment','mx1921')
+
+DEMO [6]: # Use them in the template:
+DEMO [7]: SCAN_SAVING.template = '{experiment}/{sample}'
+
+DEMO [8]: # result:
+DEMO [8]: SCAN_SAVING
+ Out [8]: Parameters (default) -
+
+             .base_path            = '/data/visitor''
+             .data_filename        = 'data'
+             .user_name            = 'guilloud'
+             .template             = '{experiment}/{sample}'
+             .images_path_relative = True
+             .images_path_template = 'scan{scan_number}'
+             .images_prefix        = '{img_acq_device}_'
+             .date_format          = '%Y%m%d'
+             .scan_number_format   = '%04d'
+             .experiment           = 'mx1921'
+             .session              = 'cyril'
+             .date                 = '20190926'
+             .scan_name            = 'scan name'
+             .scan_number          = 'scan number'
+             .img_acq_device       = '<images_* only> acquisition device name'
+             .sample               = 'lysozyme'
+             .writer               = 'hdf5'
+             .creation_date        = '2019-08-23-10:08'
+             .last_accessed        = '2019-09-26-16:09'
+            --------------  ---------  -------------------------------------
+            does not exist  filename   /data/visitor/mx1921/lysozyme/data.h5
+            exists          root_path  /data/visitor/mx1921/lysozyme
+            --------------  ---------  -------------------------------------
+DEMO [9]: SCAN_SAVING.get_path()
+ Out [9]: '/data/visitor/mx1921/lysozyme'
 ```
 
-In a case the experiment can be get automatically, **experiment** can be set as a function:
+In a case the experiment can be get automatically, **experiment** can be set as
+a function:
 
 ```python
-TEST_SESSION [10]: def get_experiment(scan_saving): 
-              ...:     if scan_saving.user_name == 'seb': 
-              ...:        return 'mx1921' 
-              ...:     else: 
+DEMO [10]: def get_experiment(scan_saving):
+              ...:     if scan_saving.user_name == 'seb':
+              ...:        return 'mx1921'
+              ...:     else:
               ...:        return 'unknown'
-	      
-TEST_SESSION [11]: SCAN_SAVING.add('experiment',get_experiment)
-TEST_SESSION [12]: SCAN_SAVING.get_path()
-         Out [12]: '/data/visitor/mx1921/lysozyme'
-	 
-TEST_SESSION [13]: SCAN_SAVING.user_name='toto'
-TEST_SESSION [14]: SCAN_SAVING.get_path()
-         Out [14]: '/data/visitor/unknown/lysozyme'
+
+DEMO [11]: SCAN_SAVING.add('experiment',get_experiment)
+DEMO [12]: SCAN_SAVING.get_path()
+ Out [12]: '/data/visitor/mx1921/lysozyme'
+
+DEMO [13]: SCAN_SAVING.user_name='toto'
+DEMO [14]: SCAN_SAVING.get_path()
+ Out [14]: '/data/visitor/unknown/lysozyme'
+```
+
+
+### Programers note
+
+SCAN_SAVING is a `ParametersWardrobe`.
+
+
+from `bliss/common/session.py`:
+```python
+class Session:
+    [...]
+    def setup(self, env_dict=None, verbose=False):
+        [...]
+        env_dict["SCAN_SAVING"] = ScanSaving(self.name)
+```
+
+
+from `bliss/scanning/scan.py`:
+```python
+
+class ScanSaving(ParametersWardrobe):
+    SLOTS = []
+    WRITER_MODULE_PATH = "bliss.scanning.writer"
+    [...]
+
+    def __init__(self, name=None):
+        [...]
+        _default_values = {
+            "base_path": "/tmp/scans",
+            "data_filename": "data",
+            [...]
+
+    def get(self):
+        try:
+            # calculate all parameters
+        except KeyError as keyname:
+            raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
+
 ```

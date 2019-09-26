@@ -67,7 +67,10 @@ Parameters (default) -
   .writer               = 'hdf5'
   .creation_date        = '{creation_date}'
   .last_accessed        = '{last_accessed}'
-""".format(
+--------------  ---------  -----------------
+does not exist  filename   /tmp/toto/data.h5
+does not exist  root_path  /tmp/toto
+--------------  ---------  -----------------""".format(
         creation_date=scan_saving.creation_date,
         date=scan_saving.date,
         last_accessed=scan_saving.last_accessed,

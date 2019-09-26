@@ -594,6 +594,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
         for plotItem in self.__plotModel.items():
             parentChannel = None
 
+            if isinstance(plotItem, plot_curve_model.ScanItem):
+                continue
+
             if isinstance(plotItem, plot_model.AbstractComputableItem):
                 source = plotItem.source()
                 if source is None:

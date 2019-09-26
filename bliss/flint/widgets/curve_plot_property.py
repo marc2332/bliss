@@ -35,17 +35,28 @@ class YAxesEditor(qt.QWidget):
         layout = qt.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        y1Check = qt.QCheckBox(self)
-        y1Check.toggled.connect(self.__y1CheckChanged)
+        self.__group = qt.QButtonGroup(self)
+
+        y1Check = qt.QRadioButton(self)
         y1Check.setObjectName("y1")
         y1Check.setVisible(False)
-        y2Check = qt.QCheckBox(self)
+        y2Check = qt.QRadioButton(self)
         y2Check.setObjectName("y2")
-        y2Check.toggled.connect(self.__y2CheckChanged)
         y2Check.setVisible(False)
+
+        self.__group.addButton(y1Check)
+        self.__group.addButton(y2Check)
+        self.__group.setExclusive(True)
+        self.__group.buttonClicked[qt.QAbstractButton].connect(self.__checkedChanged)
 
         layout.addWidget(y1Check)
         layout.addWidget(y2Check)
+
+    def __getY1Axis(self):
+        return self.findChildren(qt.QRadioButton, "y1")[0]
+
+    def __getY2Axis(self):
+        return self.findChildren(qt.QRadioButton, "y2")[0]
 
     def setPlotItem(self, plotItem):
         if self.__plotItem is not None:
@@ -55,30 +66,52 @@ class YAxesEditor(qt.QWidget):
             self.__plotItem.valueChanged.connect(self.__plotItemChanged)
             self.__plotItemYAxisChanged()
 
-        isReadOnly = hasattr(self.__plotItem, "setYAxis")
+        isReadOnly = not hasattr(self.__plotItem, "setYAxis")
         isVisible = self.__plotItem is not None
 
-        w = self.findChildren(qt.QCheckBox, "y1")[0]
+        w = self.__getY1Axis()
         w.setVisible(isVisible)
-        w.setEnabled(isReadOnly)
-        w = self.findChildren(qt.QCheckBox, "y2")[0]
+        w.setEnabled(not isReadOnly)
+
+        w = self.__getY2Axis()
         w.setVisible(isVisible)
-        w.setEnabled(isReadOnly)
+        w.setEnabled(not isReadOnly)
 
-    def __y1CheckChanged(self):
-        if self.__plotItem is None:
-            return
-        yAxis = self.findChildren(qt.QCheckBox, "y1")[0]
-        isChecked = yAxis.isChecked()
-        axis = "left" if isChecked else "right"
-        self.__plotItem.setYAxis(axis)
+        self.__updateToolTips()
 
-    def __y2CheckChanged(self):
-        if self.__plotItem is None:
-            return
-        yAxis = self.findChildren(qt.QCheckBox, "y2")[0]
-        isChecked = yAxis.isChecked()
-        axis = "left" if not isChecked else "right"
+    def __updateToolTips(self):
+        isVisible = self.__plotItem is not None
+        isReadOnly = not hasattr(self.__plotItem, "setYAxis")
+
+        w = self.__getY1Axis()
+        if not isVisible:
+            w.setToolTip("")
+        elif w.isChecked():
+            w.setToolTip("Displayed within the Y1 axis")
+        elif isReadOnly:
+            w.setToolTip("")
+        else:
+            w.setToolTip("To display within the Y1 axis")
+
+        w = self.__getY2Axis()
+        if not isVisible:
+            w.setToolTip("")
+        elif w.isChecked():
+            w.setToolTip("Displayed within the Y2 axis")
+        elif isReadOnly:
+            w.setToolTip("")
+        else:
+            w.setToolTip("To display within the Y2 axis")
+
+    def __checkedChanged(self, button: qt.QRadioButton):
+        yAxis1 = self.__getY1Axis()
+        yAxis2 = self.__getY2Axis()
+        if button is yAxis1:
+            axis = "left"
+        elif button is yAxis2:
+            axis = "right"
+        else:
+            assert False
         self.__plotItem.setYAxis(axis)
 
     def __plotItemChanged(self, eventType):
@@ -92,15 +125,17 @@ class YAxesEditor(qt.QWidget):
             # FIXME: Add debug in case
             axis = None
 
-        y1Axis = self.findChildren(qt.QCheckBox, "y1")[0]
+        y1Axis = self.__getY1Axis()
         old = y1Axis.blockSignals(True)
         y1Axis.setChecked(axis == "left")
         y1Axis.blockSignals(old)
 
-        y2Axis = self.findChildren(qt.QCheckBox, "y2")[0]
+        y2Axis = self.__getY2Axis()
         old = y2Axis.blockSignals(True)
         y2Axis.setChecked(axis == "right")
         y2Axis.blockSignals(old)
+
+        self.__updateToolTips()
 
 
 class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):

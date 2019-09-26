@@ -35,8 +35,10 @@ def test_dummy_scan_with_external_channel(session, dummy_acq_master, dummy_acq_d
     chain.add(master, device)
     # Add external channel
     chan = device.channels[0]
-    master.add_external_channel(device, chan.name, "to", lambda x: 2 * x)
-    master.add_external_channel(device, chan.name, "to_int", lambda x: 2 * x, dtype=int)
+    master.add_external_channel(device, chan.short_name, "to", lambda x: 2 * x)
+    master.add_external_channel(
+        device, chan.short_name, "to_int", lambda x: 2 * x, dtype=int
+    )
     # Run scan
     scan = Scan(chain, "test", save=False)
     scan.run()

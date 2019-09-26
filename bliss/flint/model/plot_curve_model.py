@@ -129,6 +129,8 @@ class CurveItem(plot_model.Item, CurveMixIn):
         return self.__yAxis
 
     def setYAxis(self, yAxis: str):
+        if self.__yAxis == yAxis:
+            return
         self.__yAxis = yAxis
         self.parent().invalidateStructure()
         self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)

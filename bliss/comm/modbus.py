@@ -605,3 +605,26 @@ class ModbusTcp:
                     trans.put(socket.error(errno.EPIPE, "Broken pipe"))
             except ReferenceError:
                 pass
+
+
+class ModbusTCP(ModbusTcp):
+    def __init__(self, **kwargs):
+        """Inizialize comunication through get_comm"""
+
+        unit = kwargs.get("unit", 0xFF)
+        host = kwargs["url"].split(":")[0]
+        timeout = kwargs.get("timeout", 3.0)
+
+        try:
+            port = kwargs["url"].split(":")[1]
+        except IndexError:
+            port = 502
+        super().__init__(host, unit=unit, port=int(port), timeout=timeout)
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def port(self):
+        return self._port

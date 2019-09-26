@@ -132,8 +132,7 @@ class CurveItem(plot_model.Item, CurveMixIn):
         if self.__yAxis == yAxis:
             return
         self.__yAxis = yAxis
-        self.parent().invalidateStructure()
-        self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
+        self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
     def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
         channel = self.xChannel()

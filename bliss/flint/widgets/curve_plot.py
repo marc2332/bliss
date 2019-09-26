@@ -97,6 +97,8 @@ class CurvePlotWidget(qt.QDockWidget):
     ):
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+        elif eventType == plot_model.ChangeEventType.YAXIS:
+            self.__updateItem(item)
 
     def __currentScanChanged(
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan

@@ -10,3 +10,4 @@ lima-camera-simulator-tango
 lima-tango-server == 1.8.1
 scipy
 black == 18.6b4
+umodbus == 1.0.2.1

@@ -242,6 +242,7 @@ def main():
                 "LinkamDsc = bliss.tango.servers.linkamdsc_ds:main",
                 "NanoBpm = bliss.tango.servers.nanobpm_ds:main",
                 "NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main",
+                "Wago = bliss.tango.servers.wago_ds:main",
             ]
         },
         install_requires=install_requires,

@@ -279,6 +279,10 @@ def pytest_addoption(parser):
     parser.addoption("--ct2", help="ct2 address")
     parser.addoption("--axis-name", help="axis name")
     parser.addoption("--mythen", action="store", help="mythen host name")
+    parser.addoption(
+        "--wago",
+        help="connection information: tango_cpp_host:port,domani,wago_dns\nExample: --wago bibhelm:20000,ID31,wcid31c",
+    )
 
 
 @pytest.fixture

@@ -112,7 +112,8 @@ class YAxesEditor(qt.QWidget):
             axis = "right"
         else:
             assert False
-        self.__plotItem.setYAxis(axis)
+        if self.__plotItem is not None:
+            self.__plotItem.setYAxis(axis)
 
     def __plotItemChanged(self, eventType):
         if eventType == plot_model.ChangeEventType.YAXIS:
@@ -170,6 +171,68 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         # Already up to date
         pass
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
+class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
+
+    VisibilityRole = qt.Qt.UserRole + 1
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(VisibilityPropertyItemDelegate, self).createEditor(
+                parent, option, index
+            )
+
+        editor = qt.QCheckBox(parent=parent)
+        editor.toggled.connect(self.__commitData)
+        state = index.data(self.VisibilityRole)
+        editor.setChecked(state == qt.Qt.Checked)
+
+        # FIXME remove the hardcoded size, rework the icon and use size.height as a constraint
+        size = editor.sizeHint() + qt.QSize(5, 5)
+        iconChecked = icons.getQFile("flint:icons/visible")
+        iconUnchecked = icons.getQFile("flint:icons/visible-disabled")
+
+        style = f"""
+QCheckBox::indicator {{
+    width: {size.width()}px;
+    height: {size.height()}px;
+}}
+QCheckBox::indicator:checked {{
+    image: url({iconChecked.fileName()});
+}}
+QCheckBox::indicator:unchecked {{
+    image: url({iconUnchecked.fileName()});
+}}
+"""
+        editor.setStyleSheet(style)
+
+        state = index.data(self.VisibilityRole)
+        self.__updateEditorStyle(editor, state)
+        return editor
+
+    def __commitData(self):
+        editor = self.sender()
+        self.commitData.emit(editor)
+
+    def __updateEditorStyle(self, editor: qt.QCheckBox, state: qt.Qt.CheckState):
+        editor.setVisible(state is not None)
+
+    def setEditorData(self, editor, index):
+        state = index.data(self.VisibilityRole)
+        self.__updateEditorStyle(editor, state)
+
+    def setModelData(self, editor, model, index):
+        state = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
+        model.setData(index, state, role=self.VisibilityRole)
 
     def updateEditorGeometry(self, editor, option, index):
         # Center the widget to the cell
@@ -312,8 +375,6 @@ class _DataItem(qt.QStandardItem):
         self.__xaxis.setCheckable(True)
         self.__yaxes = qt.QStandardItem("")
         self.__displayed = _HookedStandardItem("")
-        self.__displayed.setCheckable(True)
-        self.__displayed.modelUpdated = self.__visibilityViewChanged
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
@@ -343,7 +404,7 @@ class _DataItem(qt.QStandardItem):
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
-            state = item.checkState()
+            state = item.data(VisibilityPropertyItemDelegate.VisibilityRole)
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
@@ -352,9 +413,18 @@ class _DataItem(qt.QStandardItem):
         self.__style.setData(plotItem, role=PlotItemData)
         self.__remove.setData(plotItem, role=PlotItemData)
 
-        isVisible = plotItem.isVisible()
-        state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
-        self.__displayed.setData(state, role=qt.Qt.CheckStateRole)
+        if plotItem is not None:
+            isVisible = plotItem.isVisible()
+            state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
+            self.__displayed.setData(
+                state, role=VisibilityPropertyItemDelegate.VisibilityRole
+            )
+            self.__displayed.modelUpdated = self.__visibilityViewChanged
+        else:
+            self.__displayed.setData(
+                None, role=VisibilityPropertyItemDelegate.VisibilityRole
+            )
+            self.__displayed.modelUpdated = None
 
         if isinstance(plotItem, plot_curve_model.CurveItem):
             icon = icons.getQIcon("flint:icons/item-channel")
@@ -368,6 +438,7 @@ class _DataItem(qt.QStandardItem):
 
         # FIXME: It have to be converted into delegate
         tree.openPersistentEditor(self.__yaxes.index())
+        tree.openPersistentEditor(self.__displayed.index())
         tree.openPersistentEditor(self.__remove.index())
         widget = StylePropertyWidget(tree)
         widget.setPlotItem(self.__plotItem)
@@ -394,6 +465,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setUniformRowHeights(True)
 
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
+        self.__visibilityDelegate = VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = RemovePropertyItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
@@ -461,6 +533,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
             ["Name", "X", "Y1/Y2", "Displayed", "Style", "Remove", ""]
         )
         self.__tree.setItemDelegateForColumn(self.YAxesColumn, self.__yAxesDelegate)
+        self.__tree.setItemDelegateForColumn(
+            self.VisibleColumn, self.__visibilityDelegate
+        )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
         header = self.__tree.header()
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)

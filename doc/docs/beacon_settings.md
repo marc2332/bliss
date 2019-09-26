@@ -274,7 +274,7 @@ BLISS [33]: dress
 
 Now we have two *instances* of dress and  we are currently using `Night dress`.
 
-Whe can change values and visualize them. If no value is assigned to the instance
+We can change values and visualize them. If no value is assigned to the instance
 default is taken.
 
 Let's add *another instance* and use a method to visualize all instances in a 

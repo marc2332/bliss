@@ -1,6 +1,6 @@
 # Installing BLISS
 
-## Installation at ESRF
+## Installation at ESRF beamlines
 
 At ESRF, it is recommended to follow Beamline Control Unit guidelines for
 software installation. In the case of BLISS, a special [deployment
@@ -62,7 +62,7 @@ For more details, see: https://bliss.gitlab-pages.esrf.fr/ansible/local_code.htm
 
 
 
-## Installation outside ESRF
+## Installation outside ESRF beamlines
 
 ### Using a Conda environment
 
@@ -159,7 +159,7 @@ pip install .
 
 # Use Bliss without Hardware
 
-BLISS is distributed with a set of _test_ sessions_ which can be used to work without accessing real beamline hardware. In order to use the provided
+BLISS is distributed with a set of _test\_sessions_ which can be used to work without accessing real beamline hardware. In order to use the provided
 _simulated_ beamline the following steps have to be taken:
 
 1) Install BLISS in a [conda environment](index.md#installation-outside-esrf) or activate

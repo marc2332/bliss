@@ -6,7 +6,7 @@ By varying the number of lenses in the beam, the energy focused and the focal le
 ## Underlining Control ##
 
 Transfocators are controlled through a Wago PLC's output module that activates pneumatic actuators.
-The state is readed through Wago PLC's input module: every lens and pinhole has two limit switches that read IN or OUT state.
+The state is read through Wago PLC's input module: every lens and pinhole has two limit switches that read IN or OUT state.
 
 ## Configuration ##
 

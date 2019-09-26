@@ -26,7 +26,7 @@ On user point of view, BLISS presents different aspects:
 
 ## BLISS shell
 
-BLISS comes with a command line interface based on [ptpython](8).
+BLISS comes with a command line interface based on [ptpython][8].
 
 BLISS uses the concept of *session* to allow user to define a set of procedures
 and devices to use in a particular circumstance (like alignment, specific hutch
@@ -66,7 +66,7 @@ then the setup file is executed. Finally the prompt returns to user.
 ```
 % bliss -h
 Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-             [--no-tmux]
+             [--no-tmux] [--tmux-debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -83,6 +83,8 @@ Options:
   -d, --delete=<session_name>   Delete the given session
   -h, --help                    Show help screen and exit
   --no-tmux                     Deactivate Tmux usage
+  --tmux-debug                  Allow debugging keeping tmux alive after
+                                Bliss shell exits
   --show-sessions               Display sessions and tree of sub-sessions
   --show-sessions-only          Display available sessions names only
 ```
@@ -464,7 +466,7 @@ TEST_SESSION [8]: data['diode']
 ## Online data display
 
 Online data display relies on **Flint**, a graphical application
-shipped with BLISS and built on top of [silx](9).
+shipped with BLISS and built on top of [silx][9].
 
 **Flint** can be started automatically when a new scan begins, by
 configuring `SCAN_DISPLAY`:
@@ -650,5 +652,5 @@ Then, result is returned by the `.select_shape` method:
 [Read more about interactions with plots](flint_interaction.md)
 
 
-[8]: https://github.com/jonathanslenders/ptpython
+[8]: https://github.com/prompt-toolkit/ptpython
 [9]: http://silx.org

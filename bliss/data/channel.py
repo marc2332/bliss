@@ -20,21 +20,31 @@ def data_to_bytes(data):
         return str(data).encode()
 
 
+def rectify_data(raw_data, dtype=None):
+    """
+    raw_data: list of numpy arrays (or numpy array of type object with min. shape (1,1))
+    
+    returns a numpy array of dtype containing all data if raw_data
+    in a rectangular structure filled with numpy.nan where nessessary
+    """
+    if dtype is None:
+        dtype = [0].dtype
+    shape = (len(raw_data), numpy.max([len(x) for x in raw_data]))
+    new_data = numpy.full(shape, numpy.nan, dtype=dtype)
+    for i, d in enumerate(raw_data):
+        new_data[i][0 : len(d)] = d
+    return new_data
+
+
 def data_from_pipeline(data, shape=None, dtype=None):
-    if len(shape) == 0:
+    if shape is not None and len(shape) == 0:
         return numpy.array(data, dtype=dtype)
     else:
-        a = numpy.array([pickle.loads(x) for x in data])
+        raw_data = numpy.array([pickle.loads(x) for x in data])
         try:
-            a = a.astype(dtype)
-            # a.shape = (-1,) + shape
-            return a
+            return raw_data.astype(dtype)
         except ValueError:
-            shape = (len(a), numpy.max([len(x) for x in a]))
-            arr = numpy.full(shape, numpy.nan, dtype=dtype)
-            for i, d in enumerate(a):
-                arr[i][0 : len(d)] = d
-            return arr
+            return rectify_data(raw_data, dtype=dtype)
 
 
 def data_from_bytes(data, shape=None, dtype=None):
@@ -103,12 +113,35 @@ class ChannelDataNode(DataNode):
             self._queue.extend(data)
 
     def get(self, from_index, to_index=None):
+        """
+        returns a data slice of the node.
+        
+        if to_index is not provided: 
+        returns a numpy array containing the data
+        
+        if to_index is provided:
+        returns a list of numpy arrays
+        """
         self._create_queue()
 
         if to_index is None:
             return self._queue.get(from_index, from_index, cnx=self.db_connection)
         else:
             return self._queue.get(from_index, to_index, cnx=self.db_connection)
+
+    def get_as_array(self, from_index, to_index=None):
+        """
+        returns a data slice of the node as numpy array.
+        if nessessary numpy.nan is inserted shape data as 
+        `rectangular` arrray.
+        """
+        raw_data = self.get(from_index, to_index)
+        if type(raw_data) == numpy.ndarray:
+            return raw_data
+        try:
+            return numpy.array(raw_data).astype(self.dtype)
+        except ValueError:
+            return rectify_data(raw_data, dtype=self.dtype)
 
     def __len__(self):
         self._create_queue()

@@ -387,7 +387,7 @@ def test_data_shape_of_get(default_session):
                 def __init__(self):
                     self.name = "test_def"
 
-            super().__init__(dev(), npoints=5)
+            super().__init__(dev(), npoints=7)
             self.channels.append(AcquisitionChannel("test:test", numpy.float64, (1,)))
             self.dat = self.get_data()
 
@@ -400,10 +400,12 @@ def test_data_shape_of_get(default_session):
             yield numpy.arange(20)
             yield numpy.arange(1)
             yield numpy.arange(15)
+            yield numpy.arange(15)
+            yield numpy.arange(2)
 
         def start(self):
-            # self._emit_new_data(np.array([1,2,3]))
             dat = next(self.dat)
+            # should it be possible at all to reduce the shape of a channel?
             self.channels[0].shape = dat.shape
             self.channels.update_from_iterable([dat])
 
@@ -414,7 +416,7 @@ def test_data_shape_of_get(default_session):
             pass
 
     chain = AcquisitionChain()
-    master = SoftwareTimerMaster(0.1, npoints=5, name="timer1")
+    master = SoftwareTimerMaster(0.1, npoints=7, name="timer1")
     md = myAcqDev()
     chain.add(master, md)
     s = Scan(chain, name="toto")
@@ -427,5 +429,4 @@ def test_data_shape_of_get(default_session):
 
     assert numpy.array(mynode.get(0, 1)).dtype == numpy.float64
 
-    # do we want this to work?
-    assert numpy.array(mynode.get(0, 2)).dtype == numpy.float64
+    assert numpy.array(mynode.get_as_array(0, 2)).dtype == numpy.float64

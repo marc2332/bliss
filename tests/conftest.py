@@ -11,9 +11,11 @@ import socket
 import shutil
 from collections import namedtuple
 import atexit
-import redis
-import pytest
 import gevent
+import struct
+
+import pytest
+import redis
 
 from bliss import global_map
 from bliss.common import subprocess
@@ -23,6 +25,7 @@ from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
+from bliss.controllers.wago.wago import ModulesConfig
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -299,3 +302,33 @@ def alias_session(beacon, lima_simulator):
     yield session
 
     session.close()
+
+
+@pytest.fixture
+def wago_mockup(default_session):
+    from tests.emulators.wago import Wago
+
+    class _WagoMockup:
+        def __init__(self):
+            self.host = "127.0.0.1"
+            self.port = get_open_ports(1)[0]
+            """creates a wago simulator threaded instance with a given mapping"""
+
+            # patching port into config
+            default_session.config.get_config("wago_simulator")["modbustcp"][
+                "url"
+            ] = f"{self.host}:{self.port}"
+            # getting mapping
+            config = default_session.config.get_config("wago_simulator")
+
+            # creating a ModulesConfig to retrieve mapping
+            modules = ModulesConfig.from_config_tree(config).modules
+
+            self.t = gevent.spawn(Wago, (self.host, self.port), modules=modules)
+
+        def close(self):
+            self.t.kill()
+
+    wago = _WagoMockup()
+    yield wago
+    wago.close()

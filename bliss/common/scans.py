@@ -155,6 +155,7 @@ def lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     kwargs["return_scan"] = True
     scan = dscan(motor, start, stop, intervals, count_time, counter_args[0], **kwargs)
     scan.goto_peak(counter_args[0])
+    return scan
 
 
 def amesh(

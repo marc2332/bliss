@@ -96,6 +96,9 @@ class Device(qt.QObject, _Sealable):
         self.__topMaster: Union[None, Device] = None
         parent.addDevice(self)
 
+    def scan(self) -> Scan:
+        return self.parent()
+
     def seal(self):
         for channel in self.__channels:
             channel.seal()

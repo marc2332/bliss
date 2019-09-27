@@ -40,6 +40,14 @@ controller:
     low_limit: -.inf
     high_limit: .inf
     default_cust_attr: 6.28
+  - name: mono
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
   - name: m2
     steps_per_unit: 1000
     velocity: 50
@@ -170,6 +178,17 @@ controller:
       steps_per_unit: 10
       acceleration: 100
       velocity: 1e9
+- class: EnergyWavelength
+  axes:
+    - name: $mono
+      tags: real monoang
+    - name: energy
+      tags: energy
+      dspace: 3.13542  #Si 111
+      low_limit: 6.0
+      high_limit: 16.
+    - name: wavelength
+      tags: wavelength
 hooks:
 - name: hook0
   plugin: bliss

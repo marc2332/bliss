@@ -246,7 +246,7 @@ class CurvePlotWidget(qt.QDockWidget):
                 x = item.xChannel()
                 y = item.yChannel()
                 # FIXME: remove legend, use item mapping
-                legend = y.name() + "/" + x.name() + "/" + str(scan)
+                legend = y.name() + "/" + y.name() + "/" + str(scan)
             else:
                 legend = str(item) + "/" + str(scan)
             xx = item.xArray(scan)

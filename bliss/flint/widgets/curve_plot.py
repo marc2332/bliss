@@ -39,6 +39,7 @@ class CurvePlotWidget(qt.QDockWidget):
             plot_model.Item, Dict[scan_model.Scan, List[Tuple[str, str]]]
         ] = {}
 
+        self.__plotWasUpdated: bool = False
         self.__plot = PlotWidget(parent=self, backend="mpl")
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
@@ -79,10 +80,12 @@ class CurvePlotWidget(qt.QDockWidget):
         if self.__plotModel is not None:
             self.__plotModel.structureChanged.disconnect(self.__structureChanged)
             self.__plotModel.itemValueChanged.disconnect(self.__itemValueChanged)
+            self.__plotModel.transactionFinished.disconnect(self.__transactionFinished)
         self.__plotModel = plotModel
         if self.__plotModel is not None:
             self.__plotModel.structureChanged.connect(self.__structureChanged)
             self.__plotModel.itemValueChanged.connect(self.__itemValueChanged)
+            self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAllScans()
 
@@ -92,12 +95,21 @@ class CurvePlotWidget(qt.QDockWidget):
     def __structureChanged(self):
         self.__redrawAllScans()
 
+    def __transactionFinished(self):
+        if self.__plotWasUpdated:
+            self.__plotWasUpdated = False
+            self.__plot.resetZoom()
+
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
     ):
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.YAXIS:
+            self.__updateItem(item)
+        elif eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self.__updateItem(item)
+        elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
             self.__updateItem(item)
 
     def __currentScanChanged(
@@ -223,6 +235,8 @@ class CurvePlotWidget(qt.QDockWidget):
         plot = self.__plot
         plotItems: List[Tuple[str, str]] = []
 
+        resetZoom = not self.__plotModel.isInTransaction()
+
         if not item.isVisible():
             self.__cleanScanItem(item, scan)
             return
@@ -249,6 +263,7 @@ class CurvePlotWidget(qt.QDockWidget):
                 linestyle=style.lineStyle,
                 color=style.lineColor,
                 yaxis=item.yAxis(),
+                resetzoom=False,
             )
             plotItems.append((key, "curve"))
 
@@ -269,6 +284,7 @@ class CurvePlotWidget(qt.QDockWidget):
                         linestyle=style.lineStyle,
                         color=style.lineColor,
                         yaxis=item.yAxis(),
+                        resetzoom=False,
                     )
                     plotItems.append((key, "curve"))
                     if silx._version.version_info >= (0, 12):
@@ -322,3 +338,8 @@ class CurvePlotWidget(qt.QDockWidget):
         if scan not in self.__items:
             self.__items[scan] = {}
         self.__items[scan][item] = plotItems
+
+        if resetZoom:
+            self.__plot.resetZoom()
+        else:
+            self.__plotWasUpdated = True

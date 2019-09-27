@@ -241,6 +241,7 @@ class LocalSerial(_BaseSerial):
     def __init__(self, cnt, **keys):
         _BaseSerial.__init__(self, cnt, keys.get("port"))
         try:
+            # Use python serial module to communicate.
             self.__serial = serial.Serial(**keys)
         except:
             self.__serial = None
@@ -322,6 +323,8 @@ class RFC2217(_BaseSerial):
             raise RFC2217Error("port is not a valid url (%s)" % port)
 
         local_host, local_port = match.group(2), match.group(3)
+
+        # use socket to communicate
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((local_host, int(local_port)))
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -668,8 +671,8 @@ class TangoSerial(_BaseSerial):
         device.DevSerSetParameter(args)
         self._device = device
 
-        # the follwoing parameters are not supported by tango serial, can be
-        # used in bliss...
+        # the following parameters are not supported by tango serial,
+        # but can be used in bliss.
 
         if "xonxoff" in kwargs and kwargs["xonxoff"] == True:
             raise RuntimeError("Tango Serial Device Server does  not support xonxoff")

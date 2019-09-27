@@ -10,12 +10,15 @@ from bliss.common.logtools import *
 
 """
 example for single VERTICAL slits:
-   |    UP     |
-   |___________|           |
-                           |           ^
-    ___________      VOFF  -     VGAP  |
-   |           |           |           V
-   |   DOWN    |           |
+
+  Λ
+  |  |  UP blade |         + 𝝠
+  |  |___________|           |         _____
+  +        ☉                 |           Λ
+      ___________      VOFF  -      VGAP |
+  +  |           |           |         __V__
+  |  |   DOWN    |           |
+  V  |   blade   |
 
 -
   controller:
@@ -55,6 +58,31 @@ example for single VERTICAL slits:
               default value : both
 """
 
+"""
+example for single HORIZONTAL slits:
+ HOFFSET = ( FRONT - BACK ) / 2
+ HGAP = BACK + FRONT
+
+              |<--gap--->|       ☉ beam directed to the viewer ⊙
+                   +5
+
+                offset= +1.5
+            (positif to the hall)
+         ----------|------->
+
+         _____           ____
+              |         |
+ +1 <--- back |         |front  ---> +4
+         blade|    ☉    |blade
+              |         |
+         _____|         |____
+
+         -----|-|-|-|-|-|-->
+                ↑  ↑
+                0  1.5
+
+"""
+
 
 class Slits(CalcController):
     def __init__(self, *args, **kwargs):
@@ -72,9 +100,11 @@ class Slits(CalcController):
         slit_type = self.config.get("slit_type", default="both")
 
         if slit_type not in ["vertical"]:
+            # OFFSET = ( FRONT - BACK ) / 2
+            # GAP = BACK + FRONT
             calc_dict.update(
                 {
-                    "hoffset": (positions_dict["back"] - positions_dict["front"]) / 2.0,
+                    "hoffset": (positions_dict["front"] - positions_dict["back"]) / 2.0,
                     "hgap": positions_dict["back"] + positions_dict["front"],
                 }
             )
@@ -101,8 +131,8 @@ class Slits(CalcController):
         if slit_type not in ["vertical"]:
             real_dict.update(
                 {
-                    "back": (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
-                    "front": (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"],
+                    "front": (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
+                    "back": (positions_dict["hgap"] / 2.0) - positions_dict["hoffset"],
                 }
             )
 

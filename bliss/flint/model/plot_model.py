@@ -73,6 +73,7 @@ class Plot(qt.QObject):
             self.transactionFinished.emit()
 
     def addItem(self, item: Item):
+        item._setPlot(self)
         self.__items.append(item)
         self.itemAdded.emit(item)
         self.invalidateStructure()
@@ -87,6 +88,7 @@ class Plot(qt.QObject):
     def removeItem(self, item: Item):
         items = self.__itemTree(item)
         for i in items:
+            item._setPlot(None)
             self.__items.remove(i)
         for i in items:
             self.itemRemoved.emit(i)
@@ -165,6 +167,7 @@ class Item(qt.QObject):
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
         self.__isVisible: bool = True
+        self.__plot: Optional[Plot] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -182,13 +185,11 @@ class Item(qt.QObject):
     def isChildOf(self, parent: Item) -> bool:
         return False
 
+    def _setPlot(self, plot: Optional[Plot]):
+        self.__plot = plot
+
     def plot(self) -> Optional[Plot]:
-        parent = self.parent()
-        while parent is not None:
-            if isinstance(parent, Plot):
-                return parent
-            parent = parent.parent()
-        return None
+        return self.__plot
 
     def _emitValueChanged(self, eventType: ChangeEventType):
         plot = self.plot()

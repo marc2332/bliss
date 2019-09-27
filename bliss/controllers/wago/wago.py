@@ -1543,7 +1543,7 @@ class Wago:
             module_type = module["type"]
             logical_names = module["logical_names"]
             mapping.append("%s,%s" % (module_type, logical_names))
-        self.mapping = "\n".join(mapping)
+        mapping_str = "\n".join(mapping)
 
         self.cnt_dict = {}
         self.cnt_names = []
@@ -1565,10 +1565,28 @@ class Wago:
                 self.cnt_dict[nam] = i
                 add_property(self, nam, WagoCounter(nam, self, i))
 
+        ignore_missing = config_tree.get("ignore_missing", False)
+
         from bliss.comm.util import get_comm
 
         # instantiating comm and controller class
-        comm = get_comm(config_tree)
+        if config_tree.get("simulate"):
+            # getting modules config to obtain modules attached to PLC
+            modules_config = ModulesConfig(mapping_str, ignore_missing=ignore_missing)
+
+            # simulate the controller
+            from tests.conftest import get_open_ports
+            from tests.emulators.wago import WagoMockup
+
+            # gevent.spawn(
+            #    Wago, ("localhost", port), modules=modules_config.modules, randomize_values=True
+            # )
+            self.__mockup = WagoMockup(config_tree)
+            conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
+            comm = get_comm(conf)
+        else:
+            comm = get_comm(config_tree)
+
         self.controller = WagoController(comm)
         global_map.register(
             self,
@@ -1577,8 +1595,7 @@ class Wago:
             tag=f"Wago({self.name})",
         )
 
-        self.ignore_missing = config_tree.get("ignore_missing", False)
-        self.controller.set_mapping(self.mapping, ignore_missing=self.ignore_missing)
+        self.controller.set_mapping(mapping_str, ignore_missing=ignore_missing)
 
         from bliss.controllers.wago.interlocks import beacon_interlock_parsing
 
@@ -1592,8 +1609,19 @@ class Wago:
 
         self.controller.connect()
 
+    def logical_keys(self):
+        """
+        Returns:
+            (tuple): names of logical keys
+        """
+        return tuple(self.controller.logical_keys.keys())
+
     def close(self):
         self.controller.close()
+        try:
+            self.__mockup.close()
+        except AttributeError:
+            pass
 
     def __close__(self):
         self.close()

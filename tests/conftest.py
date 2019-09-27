@@ -310,29 +310,11 @@ def alias_session(beacon, lima_simulator):
 
 @pytest.fixture
 def wago_mockup(default_session):
-    from tests.emulators.wago import Wago
+    # do not use wago_mockup fixture together with default_session
+    # because default_session already launches a wago_simulator and it will cause error on closing
+    from tests.emulators.wago import WagoMockup
 
-    class _WagoMockup:
-        def __init__(self):
-            self.host = "127.0.0.1"
-            self.port = get_open_ports(1)[0]
-            """creates a wago simulator threaded instance with a given mapping"""
-
-            # patching port into config
-            default_session.config.get_config("wago_simulator")["modbustcp"][
-                "url"
-            ] = f"{self.host}:{self.port}"
-            # getting mapping
-            config = default_session.config.get_config("wago_simulator")
-
-            # creating a ModulesConfig to retrieve mapping
-            modules = ModulesConfig.from_config_tree(config).modules
-
-            self.t = gevent.spawn(Wago, (self.host, self.port), modules=modules)
-
-        def close(self):
-            self.t.kill()
-
-    wago = _WagoMockup()
+    config_tree = default_session.config.get_config("wago_simulator")
+    wago = WagoMockup(config_tree)
     yield wago
     wago.close()

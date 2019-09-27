@@ -4,6 +4,7 @@ module: wago.wago
 class: Wago
 modbustcp:
     url: localhost
+simulate: True
 ignore_missing: True
 mapping:
     - type: 750-504

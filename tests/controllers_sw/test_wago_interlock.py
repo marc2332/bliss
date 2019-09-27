@@ -424,16 +424,7 @@ def test_specfile_interlock_parsing():
     pass
 
 
-def test_beacon_interlock_parsing(default_session, wago_mockup):
-
-    """
-    # getting mockup port (as is randomly chosen)
-    host, port = wago_mockup.host, wago_mockup.port
-
-    # patching port into config
-    default_session.config.get_config("wago_simulator")["modbustcp"]["url"] = f"{host}:{port}"
-    """
-
+def test_beacon_interlock_parsing(default_session):
     wago = default_session.config.get("wago_simulator")
 
     wago_conf = default_session.config.get_config("wago_simulator")

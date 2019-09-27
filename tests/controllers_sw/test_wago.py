@@ -278,7 +278,7 @@ def test_wago_modbus_simulator(wago_mockup):
     wago.close()
 
 
-def test_wago_config_get(wago_mockup, default_session):
+def test_wago_config_get(default_session):
 
     """
     # getting mockup port (as is randomly chosen)
@@ -293,7 +293,5 @@ def test_wago_config_get(wago_mockup, default_session):
     ignore_missing = default_session.config.get_config("wago_simulator").get(
         "ignore_missing", False
     )
-    mapping = ModulesConfig(wago.mapping, ignore_missing=ignore_missing)
-
     assert wago.controller.series == 750
     wago.controller.print_plugged_modules()

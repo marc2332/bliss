@@ -3,14 +3,17 @@ from collections import defaultdict
 import logging
 from socketserver import TCPServer
 import threading
+import gevent
 
 from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
 from umodbus.utils import log_to_stream
 
 from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
-from bliss.controllers.wago.wago import MODULES_CONFIG, _WagoController
+from bliss.controllers.wago.wago import MODULES_CONFIG, _WagoController, ModulesConfig
 from bliss.controllers.wago.helpers import remove_comments, splitlines
+
+from tests.conftest import get_open_ports
 
 
 def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=True):
@@ -67,11 +70,11 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         trimmed = extended[:final_size]
         return trimmed
 
+    interlock_phase = 0
+
     TCPServer.allow_reuse_address = True
     TCPServer.timeout = .1
     app = get_server(TCPServer, address, RequestHandler)
-
-    interlock_phase = 0
 
     # 0x2020 x 16H Short description controller
 
@@ -233,10 +236,10 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
     def interlock_handshake_phase_1(
         slave_id, function_code, address, value, starting_address, quantity
     ):
-        print("phase 1")
+        nonlocal interlock_phase
         if value == 0:
             regs_interlock = defaultdict(int)  # empty memory
-            phase = 2
+            interlock_phase = 2
             # next_step
 
     @app.route(
@@ -244,20 +247,23 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         function_codes=[4],  # check if also fc 3 works
         addresses=list(range(0x100, 0x100 + 126)),
         starting_address=0x100,
-        quantity=[2, 126],
+        quantity=list(range(2, 126)),
     )
     def interlock_handshake_read(
         slave_id, function_code, address, starting_address, quantity
     ):
-        if phase == 2:
+        nonlocal interlock_phase
+        return 0  # wrong answer as this is WIP and simulates that no
+        # interlock firmware is loaded
+
+        if interlock_phase == 2:
             # PHASE 2: Handshake protocol: wait for OUTCMD==0
-            print("phase 2")
-            msg = [0xaa01, 0, 0]
+            msg = [0xaa01, 0, 0]  # this is the correct answer
             regs_interlock = defaultdict(int)  # resets memory for next command
-            phase = 3
+            interlock_phase = 3
             return msg[address - 0x100]
 
-        if phase == 4:
+        if interlock_phase == 4:
             #
             #  Evaluate the command
             #
@@ -265,12 +271,12 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
             command_executed = regs_interlock[0x101]
             registers_to_read = 1
             msg = [0xaa01, error_code, command_executed, registers_to_read]
-            phase = 5
+            interlock_phase = 5
             return msg[address - 0x100]
             # elaborate
-        if phase == 5:
+        if interlock_phase == 5:
             msg = [0, 0]  # to do response
-            phase = 0
+            interlock_phase = 0
             return msg[address - 0x104]
 
     @app.route(
@@ -284,20 +290,20 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         slave_id, function_code, address, value, starting_address, quantity
     ):
         # regs_word[address] = value
+        nonlocal interlock_phase
 
-        if phase == 3:
+        if interlock_phase == 3:
             # PHASE 3: Handshake protocol: write the command to process and its parameters
             regs_interlock[address] = value
 
             if address - starting_address == quantity - 1:  # last write
                 # next step
-                phase = 4
+                interlock_phase = 4
             if address == 0x101:
                 assert value == 0xa5a5
 
             return msg[address - 0x100]
         """
-        print("phase 3")
         print(address, starting_address, quantity)
         if address - starting_address == quantity -1:
             # we are at the last register, we suppose that writing is finish
@@ -306,7 +312,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
             error_code = 0
             command_executed = regs_word[0x100]  # just executed command
             reg_to_read = 1
-            # prepare phase 4
+            # prepare interlock_phase 4
             write_mem(0x100, (0xaa01, error_code, command_executed, reg_to_read))
             print(f"command executed {command_executed} reg_to_read {reg_to_read}")
         """
@@ -382,10 +388,26 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         else:
             return regs_io_words[address - 512]
 
-    t = threading.currentThread()
+    return app
 
-    try:
-        while getattr(t, "do_run", True):  # handles until a signal from parent thread
-            app.handle_request()
-    finally:
-        app.server_close()
+
+class WagoMockup:
+    def __init__(self, config_tree):
+        """creates a wago simulator threaded instance based on a config_tree mapping"""
+
+        # creating a ModulesConfig to retrieve mapping
+        modules = ModulesConfig.from_config_tree(config_tree).modules
+
+        self.host = "localhost"
+        self.port = get_open_ports(1)[0]
+        self.app = Wago((self.host, self.port), modules=modules)
+
+        def serve():
+            while getattr(self.app, "do_run", True):
+                self.app.handle_request()
+
+        self.t = gevent.spawn(serve)
+
+    def close(self):
+        self.app.do_run = False
+        self.t.join()

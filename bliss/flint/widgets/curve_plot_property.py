@@ -390,7 +390,7 @@ class _HookedStandardItem(qt.QStandardItem):
 class _DataItem(qt.QStandardItem):
     def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
-        self.__xaxis = qt.QStandardItem("")
+        self.__xaxis = _HookedStandardItem("")
         self.__yaxes = _HookedStandardItem("")
         self.__displayed = _HookedStandardItem("")
         self.__style = qt.QStandardItem("")
@@ -484,6 +484,40 @@ class _DataItem(qt.QStandardItem):
             state = item.data(VisibilityPropertyItemDelegate.VisibilityRole)
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
+    def setSelectedXAxis(self):
+        old = self.__xaxis.modelUpdated
+        self.__xaxis.modelUpdated = None
+        try:
+            self.__xaxis.setCheckState(qt.Qt.Checked)
+        finally:
+            self.__xaxis.modelUpdated = old
+
+    def __xAxisChanged(self, item: qt.QStandardItem):
+        assert self.__channel is not None
+        assert self.__plotModel is not None
+
+        # Reach the top master
+        topMaster = self.__channel.device().topMaster()
+        scan = topMaster.scan()
+
+        # Reach all plot items from this top master
+        curves = []
+        for curve in self.__plotModel.items():
+            if not isinstance(curve, plot_curve_model.CurveItem):
+                continue
+            channelName = curve.xChannel().name()
+            channel = scan.getChannelByName(channelName)
+            assert channel is not None
+            itemMaster = channel.device().topMaster()
+            if itemMaster is topMaster:
+                curves.append(curve)
+
+        with self.__plotModel.transaction():
+            xChannelName = self.__channel.name()
+            for curve in curves:
+                xChannel = plot_model.ChannelRef(curve, xChannelName)
+                curve.setXChannel(xChannel)
+
     def setDevice(self, device: scan_model.Device):
         if device.isMaster():
             text = "Master %s" % device.name()
@@ -503,6 +537,7 @@ class _DataItem(qt.QStandardItem):
         self.setIcon(icon)
 
         self.__xaxis.setCheckable(True)
+        self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
 
         tree.openPersistentEditor(self.__yaxes.index())
@@ -514,7 +549,7 @@ class _DataItem(qt.QStandardItem):
         self.__style.setData(plotItem, role=PlotItemRole)
         self.__remove.setData(plotItem, role=PlotItemRole)
 
-        self.__xaxis.setCheckable(True)
+        self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
 
         if plotItem is not None:
@@ -568,6 +603,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
+        self.__xAxisInvalidated: bool = False
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
         self.__visibilityDelegate = VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = RemovePropertyItemDelegate(self)
@@ -604,9 +640,13 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
             self.__plotModel.structureChanged.disconnect(self.__structureChanged)
+            self.__plotModel.itemValueChanged.disconnect(self.__itemValueChanged)
+            self.__plotModel.transactionFinished.disconnect(self.__transactionFinished)
         self.__plotModel = plotModel
         if self.__plotModel is not None:
             self.__plotModel.structureChanged.connect(self.__structureChanged)
+            self.__plotModel.itemValueChanged.connect(self.__itemValueChanged)
+            self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.__updateTree()
 
     def __currentScanChanged(self):
@@ -614,6 +654,21 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __structureChanged(self):
         self.__updateTree()
+
+    def __itemValueChanged(
+        self, item: plot_model.Item, eventType: plot_model.ChangeEventType
+    ):
+        assert self.__plotModel is not None
+        if eventType == plot_model.ChangeEventType.X_CHANNEL:
+            if self.__plotModel.isInTransaction():
+                self.__xAxisInvalidated = True
+            else:
+                self.__updateTree()
+
+    def __transactionFinished(self):
+        if self.__xAxisInvalidated:
+            self.__xAxisInvalidated = False
+            self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
         return self.__plotModel
@@ -723,6 +778,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                             # The x-channel is what it is expected then we can link the y-channel
                             yChannelName = plotItem.yChannel().name()
                             parentChannel = channelItems[yChannelName]
+
+                            xAxisItem = channelItems[xChannelName]
+                            xAxisItem.setSelectedXAxis()
                         else:
                             parent = itemWithoutLocation
 

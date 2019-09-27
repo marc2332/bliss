@@ -10,6 +10,7 @@ import gevent
 import pprint
 import collections.abc
 import numpy
+import h5py
 
 from bliss.common import scans
 from silx.io.dictdump import h5todict
@@ -37,6 +38,7 @@ def deep_compare(d, u):
     while stack:
         d, u = stack.pop(0)
         assert len(d) == len(u)
+
         for k, v in u.items():
             assert k in d
             if not isinstance(v, collections.abc.Mapping):
@@ -58,7 +60,8 @@ def deep_compare(d, u):
 
 
 @pytest.fixture
-def test_alias_scans_listener(alias_session, scan_tmpdir):
+def alias_session_scans_listener(alias_session, scan_tmpdir):
+
     env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
@@ -69,17 +72,20 @@ def test_alias_scans_listener(alias_session, scan_tmpdir):
     # this scan is only to set up the file path in pytest
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
 
-    g = gevent.spawn(listen_scans_of_session, "test_alias")
+    scan_stack = {}
+    g = gevent.spawn(listen_scans_of_session, "test_alias", scan_stack=scan_stack)
 
-    yield
+    yield scan_stack
 
     g.kill()
 
 
 def test_external_hdf5_writer(
-    test_alias_scans_listener, alias_session, dummy_acq_device
+    alias_session_scans_listener, alias_session, dummy_acq_device
 ):
+
     env_dict = alias_session.env_dict
+    scan_stack = alias_session_scans_listener
 
     lima_sim = env_dict["lima_simulator"]
 
@@ -103,12 +109,12 @@ def test_external_hdf5_writer(
     s2 = Scan(chain, "test", save=True)
     s2.run()
 
-    ### test scan with undefined number of points
     diode2 = alias_session.config.get("diode2")
+    # TEST NOT RELIALE when excuting kill ... has to be fixed
+    ### test scan with undefined number of points
     s3 = scans.timescan(.05, diode2, run=False)
-    gevent.sleep(
-        .2
-    )  ## just to see if there is no event created before the scan runs...
+    gevent.sleep(.2)
+    ## just to see if there is no event created before the scan runs...
     scan_task = gevent.spawn(s3.run)
     gevent.sleep(.33)
 
@@ -116,6 +122,9 @@ def test_external_hdf5_writer(
         scan_task.kill(KeyboardInterrupt)
     except:
         assert scan_task.ready()
+
+    # just until the test above is reliable
+    # ~ s3 = scans.timescan(.05, diode2, npoints=1)
 
     ## scan with counter that exports individual samples (SamplingMode.Samples)
     scan5_a = scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
@@ -148,27 +157,35 @@ def test_external_hdf5_writer(
     c_samp = SoftCounter(a, "read", name="test-samp", mode=SamplingMode.SAMPLES)
     scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
 
-    gevent.sleep(1)
+    ##wait for all scan entries
+    external_writer_file = s1.scan_info["filename"].replace(".", "_external.")
+    bliss_writer_file = s1.scan_info["filename"]
+
+    # check that external writer has at least started to procces all scans
+    for i in range(0, 20):
+        if len(h5py.File(external_writer_file).keys()) < 6:
+            print("##### external writer not done yet")
+            gevent.sleep(1)
+
+    # check that all scans have been finalized
+    for i in range(0, 20):
+        if len(scan_stack) > 0:
+            print("##### waiting for finalization")
+            gevent.sleep(1)
 
     ## check if external file is the same as the one of bliss writer for simple scan
-    external_writer = h5todict(s1.scan_info["filename"].replace(".", "_external."))[
-        "2_ascan"
-    ]
-    bliss_writer = h5todict(s1.scan_info["filename"])["2_ascan"]
+    external_writer = h5todict(external_writer_file)["2_ascan"]
+    bliss_writer = h5todict(bliss_writer_file)["2_ascan"]
     deep_compare(external_writer, bliss_writer)
 
     # ~ ## check if external file is the same as the one of bliss writer for multiple top master
-    external_writer_mult_top_master = h5todict(
-        s2.scan_info["filename"].replace(".", "_external.")
-    )["3_test"]
-    bliss_writer_mult_top_master = h5todict(s2.scan_info["filename"])["3_test"]
+    external_writer_mult_top_master = h5todict(external_writer_file)["3_test"]
+    bliss_writer_mult_top_master = h5todict(bliss_writer_file)["3_test"]
     deep_compare(external_writer_mult_top_master, bliss_writer_mult_top_master)
 
     # ~ ## check if external file is the same as the one of bliss writer for multiple top master (part 2)
-    external_writer_mult_top_master2 = h5todict(
-        s2.scan_info["filename"].replace(".", "_external.")
-    )["3.1_test"]
-    bliss_writer_mult_top_master2 = h5todict(s2.scan_info["filename"])["3.1_test"]
+    external_writer_mult_top_master2 = h5todict(external_writer_file)["3.1_test"]
+    bliss_writer_mult_top_master2 = h5todict(bliss_writer_file)["3.1_test"]
     # bliss writer does not pot the references to scan_meta and instrument into the subscans ... in this test
     # we will just pop them
     external_writer_mult_top_master2.pop("instrument")
@@ -176,10 +193,8 @@ def test_external_hdf5_writer(
     deep_compare(external_writer_mult_top_master2, bliss_writer_mult_top_master2)
 
     ## check if external file is the same as the one of bliss writer for scan with undefined number of points
-    external_writer = h5todict(s3.scan_info["filename"].replace(".", "_external."))[
-        "4_timescan"
-    ]
-    bliss_writer = h5todict(s3.scan_info["filename"])["4_timescan"]
+    external_writer = h5todict(external_writer_file)["4_timescan"]
+    bliss_writer = h5todict(bliss_writer_file)["4_timescan"]
     # lets allow one point difference due to the kill
     if (
         bliss_writer["measurement"]["timer:epoch"].size
@@ -192,14 +207,10 @@ def test_external_hdf5_writer(
     deep_compare(external_writer, bliss_writer)
 
     ## check scans with dynamic sample size
-    external_writer = h5todict(
-        scan5_a.scan_info["filename"].replace(".", "_external.")
-    )["5_loopscan"]
-    bliss_writer = h5todict(scan5_a.scan_info["filename"])["5_loopscan"]
+    external_writer = h5todict(external_writer_file)["5_loopscan"]
+    bliss_writer = h5todict(bliss_writer_file)["5_loopscan"]
     deep_compare(external_writer, bliss_writer)
 
-    external_writer = h5todict(
-        scan5_b.scan_info["filename"].replace(".", "_external.")
-    )["6_ascan"]
-    bliss_writer = h5todict(scan5_b.scan_info["filename"])["6_ascan"]
+    external_writer = h5todict(external_writer_file)["6_ascan"]
+    bliss_writer = h5todict(bliss_writer_file)["6_ascan"]
     deep_compare(external_writer, bliss_writer)

@@ -21,13 +21,15 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
-import functools
 
 
-PlotItemData = qt.Qt.UserRole + 100
+PlotItemRole = qt.Qt.UserRole + 100
 
 
 class YAxesEditor(qt.QWidget):
+
+    valueChanged = qt.Signal()
+
     def __init__(self, parent=None):
         qt.QWidget.__init__(self, parent=parent)
         self.setContentsMargins(1, 1, 1, 1)
@@ -39,10 +41,8 @@ class YAxesEditor(qt.QWidget):
 
         y1Check = qt.QRadioButton(self)
         y1Check.setObjectName("y1")
-        y1Check.setVisible(False)
         y2Check = qt.QRadioButton(self)
         y2Check.setObjectName("y2")
-        y2Check.setVisible(False)
 
         self.__group.addButton(y1Check)
         self.__group.addButton(y2Check)
@@ -58,6 +58,13 @@ class YAxesEditor(qt.QWidget):
     def __getY2Axis(self):
         return self.findChildren(qt.QRadioButton, "y2")[0]
 
+    def yAxis(self) -> str:
+        if self.__getY1Axis().isChecked():
+            return "left"
+        elif self.__getY2Axis().isChecked():
+            return "right"
+        return ""
+
     def setPlotItem(self, plotItem):
         if self.__plotItem is not None:
             self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
@@ -66,42 +73,38 @@ class YAxesEditor(qt.QWidget):
             self.__plotItem.valueChanged.connect(self.__plotItemChanged)
             self.__plotItemYAxisChanged()
 
-        isReadOnly = not hasattr(self.__plotItem, "setYAxis")
-        isVisible = self.__plotItem is not None
+        isReadOnly = self.__isReadOnly()
 
         w = self.__getY1Axis()
-        w.setVisible(isVisible)
         w.setEnabled(not isReadOnly)
 
         w = self.__getY2Axis()
-        w.setVisible(isVisible)
         w.setEnabled(not isReadOnly)
 
         self.__updateToolTips()
 
+    def __isReadOnly(self):
+        # FIXME: It would be good to avoid magic hasattr
+        return self.__plotItem is not None and not hasattr(self.__plotItem, "setYAxis")
+
     def __updateToolTips(self):
-        isVisible = self.__plotItem is not None
-        isReadOnly = not hasattr(self.__plotItem, "setYAxis")
+        isReadOnly = self.__isReadOnly()
 
         w = self.__getY1Axis()
-        if not isVisible:
-            w.setToolTip("")
-        elif w.isChecked():
+        if w.isChecked():
             w.setToolTip("Displayed within the Y1 axis")
         elif isReadOnly:
             w.setToolTip("")
         else:
-            w.setToolTip("To display within the Y1 axis")
+            w.setToolTip("Display it within the Y1 axis")
 
         w = self.__getY2Axis()
-        if not isVisible:
-            w.setToolTip("")
-        elif w.isChecked():
+        if w.isChecked():
             w.setToolTip("Displayed within the Y2 axis")
         elif isReadOnly:
             w.setToolTip("")
         else:
-            w.setToolTip("To display within the Y2 axis")
+            w.setToolTip("Display it within the Y2 axis")
 
     def __checkedChanged(self, button: qt.QRadioButton):
         yAxis1 = self.__getY1Axis()
@@ -114,6 +117,7 @@ class YAxesEditor(qt.QWidget):
             assert False
         if self.__plotItem is not None:
             self.__plotItem.setYAxis(axis)
+        self.valueChanged.emit()
 
     def __plotItemChanged(self, eventType):
         if eventType == plot_model.ChangeEventType.YAXIS:
@@ -140,6 +144,9 @@ class YAxesEditor(qt.QWidget):
 
 
 class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
+
+    YAxesRole = qt.Qt.UserRole + 2
+
     def __init__(self, parent):
         qt.QStyledItemDelegate.__init__(self, parent=parent)
 
@@ -152,14 +159,20 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor = YAxesEditor(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setPlotItem(plotItem)
+        if plotItem is None:
+            editor.valueChanged.connect(self.__editorsChanged)
 
         editor.setMinimumSize(editor.sizeHint())
         editor.setMaximumSize(editor.sizeHint())
         editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
         return editor
 
+    def __editorsChanged(self):
+        editor = self.sender()
+        self.commitData.emit(editor)
+
     def getPlotItem(self, index) -> Union[None, plot_model.Item]:
-        plotItem = index.data(PlotItemData)
+        plotItem = index.data(PlotItemRole)
         if not isinstance(plotItem, plot_model.Item):
             return None
         return plotItem
@@ -169,8 +182,14 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.setPlotItem(plotItem)
 
     def setModelData(self, editor, model, index):
-        # Already up to date
-        pass
+        plotItem = self.getPlotItem(index)
+        if plotItem is None:
+            yAxis = editor.yAxis()
+            model.setData(index, yAxis, role=self.YAxesRole)
+        else:
+            # Already up-to-date
+            # From signals from plot items
+            pass
 
     def updateEditorGeometry(self, editor, option, index):
         # Center the widget to the cell
@@ -277,7 +296,7 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
         return editor
 
     def getPlotItem(self, index) -> Union[None, plot_model.Item]:
-        plotItem = index.data(PlotItemData)
+        plotItem = index.data(PlotItemRole)
         if not isinstance(plotItem, plot_model.Item):
             return None
         return plotItem
@@ -372,19 +391,19 @@ class _DataItem(qt.QStandardItem):
     def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
         self.__xaxis = qt.QStandardItem("")
-        self.__xaxis.setCheckable(True)
-        self.__yaxes = qt.QStandardItem("")
+        self.__yaxes = _HookedStandardItem("")
         self.__displayed = _HookedStandardItem("")
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
-        self.__plotItem: Union[None, plot_model.Plot] = None
+        self.__plotModel: Optional[plot_model.Plot] = None
+        self.__plotItem: Optional[plot_model.Item] = None
+        self.__channel: Optional[scan_model.Channel] = None
 
-    def setChannel(self, channel: scan_model.Channel):
-        text = "Channel %s" % channel.name()
-        self.setText(text)
+    def setPlotModel(self, plotModel: plot_model.Plot):
+        self.__plotModel = plotModel
 
     def axesItem(self) -> qt.QStandardItem:
         return self.__yaxes
@@ -402,16 +421,99 @@ class _DataItem(qt.QStandardItem):
             self.__remove,
         ]
 
+    def __yAxisViewChanged(self, item: qt.QStandardItem):
+        if self.__plotItem is not None:
+            # There is a plot item already
+            return
+        else:
+            assert self.__channel is not None
+            assert self.__plotModel is not None
+            plot = self.__plotModel
+            yAxis = item.data(role=YAxesPropertyItemDelegate.YAxesRole)
+            assert yAxis in ["left", "right"]
+
+            # Reach the master device
+            topMaster = self.__channel.device().topMaster()
+            scan = topMaster.scan()
+
+            # Reach any plot item from this master
+            for item in plot.items():
+                if not isinstance(item, plot_curve_model.CurveItem):
+                    continue
+                channelName = item.xChannel().name()
+                channel = scan.getChannelByName(channelName)
+                assert channel is not None
+                itemMaster = channel.device().topMaster()
+                if itemMaster is topMaster:
+                    break
+            else:
+                item = None
+
+            if item is not None:
+                newItem = plot_curve_model.CurveItem(plot)
+                newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+                newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
+                plot.addItem(newItem)
+            else:
+                # No other x-axis is specified
+                # Reach another channel name from the same top master
+                channelNames = []
+                for device in scan.devices():
+                    if device.topMaster() is not topMaster:
+                        continue
+                    channelNames.extend([c.name() for c in device.channels()])
+                channelNames.remove(self.__channel.name())
+
+                if len(channelNames) > 0:
+                    # Pick the first one
+                    # FIXME: Maybe we could use scan infos to reach the default channel
+                    channelName = channelNames[0]
+                else:
+                    # FIXME: Maybe it's better idea to display it with x-index
+                    channelName = self.__channel.name()
+
+                newItem = plot_curve_model.CurveItem(plot)
+                newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+                newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
+                plot.addItem(newItem)
+
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
             state = item.data(VisibilityPropertyItemDelegate.VisibilityRole)
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
+    def setDevice(self, device: scan_model.Device):
+        if device.isMaster():
+            text = "Master %s" % device.name()
+            icon = icons.getQIcon("flint:icons/item-timer")
+        else:
+            text = "Device %s" % device.name()
+            icon = icons.getQIcon("flint:icons/item-device")
+        self.setText(text)
+        self.setIcon(icon)
+        self.__xaxis.setCheckable(False)
+
+    def setChannel(self, channel: scan_model.Channel, tree: qt.QTreeView):
+        self.__channel = channel
+        text = "Channel %s" % channel.name()
+        self.setText(text)
+        icon = icons.getQIcon("flint:icons/item-channel")
+        self.setIcon(icon)
+
+        self.__xaxis.setCheckable(True)
+        self.__yaxes.modelUpdated = self.__yAxisViewChanged
+
+        tree.openPersistentEditor(self.__yaxes.index())
+
     def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
         self.__plotItem = plotItem
-        self.__yaxes.setData(plotItem, role=PlotItemData)
-        self.__style.setData(plotItem, role=PlotItemData)
-        self.__remove.setData(plotItem, role=PlotItemData)
+
+        self.__yaxes.setData(plotItem, role=PlotItemRole)
+        self.__style.setData(plotItem, role=PlotItemRole)
+        self.__remove.setData(plotItem, role=PlotItemRole)
+
+        self.__xaxis.setCheckable(True)
+        self.__yaxes.modelUpdated = self.__yAxisViewChanged
 
         if plotItem is not None:
             isVisible = plotItem.isVisible()
@@ -553,20 +655,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         if self.__scan is not None:
             for device in self.__scan.devices():
-                if device.isMaster():
-                    item = qt.QStandardItem("Master %s" % device.name())
-                    icon = icons.getQIcon("flint:icons/item-timer")
-                    item.setIcon(icon)
-                else:
-                    item = qt.QStandardItem("Device %s" % device.name())
-                    icon = icons.getQIcon("flint:icons/item-device")
-                    item.setIcon(icon)
+                item = _DataItem()
                 scanTree[device] = item
-                for channel in device.channels():
-                    channelItem = _DataItem()
-                    channelItem.setChannel(channel)
-                    item.appendRow(channelItem.items())
-                    channelItems[channel.name()] = channelItem
 
                 master = device.master()
                 if master is None:
@@ -579,10 +669,17 @@ class CurvePlotPropertyWidget(qt.QWidget):
                         print("Device list is not well ordered")
                     else:
                         parent = itemMaster
+                parent.appendRow(item.items())
+                # It have to be done when model index are initialized
+                item.setDevice(device)
 
-                axesItem = qt.QStandardItem("")
-                styleItem = qt.QStandardItem("")
-                parent.appendRow([item, axesItem, styleItem])
+                for channel in device.channels():
+                    channelItem = _DataItem()
+                    item.appendRow(channelItem.items())
+                    # It have to be done when model index are initialized
+                    channelItem.setChannel(channel, self.__tree)
+                    channelItem.setPlotModel(self.__plotModel)
+                    channelItems[channel.name()] = channelItem
 
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         itemWithoutMaster = qt.QStandardItem("Not linked to a master")
@@ -635,6 +732,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 text = "%s" % itemClass.__name__
                 item = _DataItem(text)
                 parent.appendRow(item.items())
+                # It have to be done when model index are initialized
                 item.setPlotItem(plotItem, self.__tree, self.__flintModel)
                 sourceTree[plotItem] = item
 

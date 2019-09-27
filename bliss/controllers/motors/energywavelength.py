@@ -44,13 +44,13 @@ Example yml:
             tags: wavelength
 """
 
+import numpy
 from bliss.controllers.motor import CalcController
 from bliss.common import event
-import numpy
 
 
 class EnergyWavelength(CalcController):
-    """ Calculation controller for energy and wavelength
+    """ Calculation controller for energy and wavelength.
     """
 
     def __init__(self, *args, **kwargs):
@@ -67,11 +67,20 @@ class EnergyWavelength(CalcController):
             self.axis_settings.add("dspace", float)
 
     def initialize_axis(self, axis):
+        """ Initialize the axis and create dspace settings.
+        Args:
+            axis (Axis): Motor axis.
+        """
         CalcController.initialize_axis(self, axis)
         axis.no_offset = self.no_offset
         if not self.energy_array:
             event.connect(axis, "dspace", self._calc_from_real)
         axis._unit = axis.config.get("unit", str, default="keV")
+
+    def close(self):
+        for pseudo_axis in self.pseudos:
+            event.disconnect(pseudo_axis, "dspace", self._calc_from_real)
+        super().close()
 
     def _load_en_table(self, filename):
         """Load the look-up table.
@@ -79,22 +88,22 @@ class EnergyWavelength(CalcController):
            any of the return array, by multiplying them with -1. For this
            reason we also set two factors (for energy and angle).
         Args:
-           filename (str): full path
-         Returns:
-           e_a (array): Array of the energues (increasing values)
-           m_a (array): Array of the angles (increasing values)
+            filename (str): full path.
+        Returns:
+            e_a (array): Array of the energues (increasing values).
+            m_a (array): Array of the angles (increasing values).
         """
 
         array = []
-        with open(filename) as f:
-            for line in f:
+        with open(filename) as _fd:
+            for line in _fd:
                 array.append(list(map(float, line.split())))
         if not array:
             raise RuntimeError("Energy LUT file format error")
 
         if array[0][0] > 999:
             # energy id in eV, we want it in keV
-            e_a = [c[0] / 1000. for c in array]
+            e_a = [c[0] / 1000.0 for c in array]
         else:
             e_a = [c[0] for c in array]
         m_a = [c[1] for c in array]
@@ -109,15 +118,16 @@ class EnergyWavelength(CalcController):
 
         return e_a, m_a
 
-    def calc_from_real(self, positions_dict):
-        """ Calculate the energy [ev] or [keV] and wavelength [Angstrom]
+    def calc_from_real(self, real_positions):
+        """ Calculate the energy [ev] or [keV] and wavelength [Angstrom].
         Args:
-           positions_dict (dict): dictionary containing the mono angle
+            real_positions (dict): dictionary containing the mono angle.
         Returns:
-           (dict): Dictionary containing energy and wavelength
+            (dict): Dictionary containing energy and wavelength.
         """
+
         energy_axis = self._tagged["energy"][0]
-        angle = self.m_factor * positions_dict["monoang"]
+        angle = self.m_factor * real_positions["monoang"]
         if self.mono_array:
             energy = self.e_factor * numpy.interp(
                 angle, self.mono_array, self.energy_array
@@ -136,15 +146,14 @@ class EnergyWavelength(CalcController):
         return {"energy": energy, "wavelength": lamb}
 
     def calc_to_real(self, positions_dict):
-        """ Calculate the mono angle [deg]
+        """ Calculate the mono angle [deg].
         Args:
-           positions_dict (dict): dictionary containing the energy
+            positions_dict (dict): dictionary containing the energy.
         Returns:
-           (dict): Dictionary containing the monoangle
+            (dict): Dictionary containing the mono angle.
         """
         # check if the input is energy or wavelength
-        energy_position = numpy.arrays(positions_dict["energy"])
-        if all(abs(self._tagged["energy"][0].position - energy_position) < 0.0005):
+        if positions_dict["energy"] < 2:
             # this is wavelength
             egy = self.e_factor * 12.3984 // positions_dict["wavelength"]
         else:
@@ -153,7 +162,7 @@ class EnergyWavelength(CalcController):
         energy_axis = self._tagged["energy"][0]
         try:
             if energy_axis.unit == "eV":
-                egy /= 1000.
+                egy /= 1000.0
         except AttributeError:
             pass
 

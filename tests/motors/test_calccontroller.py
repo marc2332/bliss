@@ -157,7 +157,7 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
         g = Group(s1hg, s1f)
 
     assert (
-        "RuntimeError: Virtual axis 's1hg` cannot be present in group with any of its corresponding real axes: ['s1f']"
+        "Virtual axis 's1hg` cannot be present in group with any of its corresponding real axes: ['s1f']"
         in str(exc.value)
     )
 
@@ -165,7 +165,7 @@ def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):
         g2 = Group(roby, calc_mot2)
 
     assert (
-        "RuntimeError: Virtual axis 'calc_mot1` cannot be present in group with any of its corresponding real axes: ['roby']"
+        "Virtual axis 'calc_mot1` cannot be present in group with any of its corresponding real axes: ['roby']"
         in str(exc.value)
     )
 
@@ -174,10 +174,24 @@ def test_calc_motor_publishing(session, calc_mot2):
     diode = session.config.get("diode")
     m0 = session.config.get("m0")
 
-    s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, .1, diode)
+    s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, 0.1, diode)
     pub_motors = s.scan_info["acquisition_chain"]["axis"]["master"]["scalars"]
 
     assert "axis:calc_mot2" in pub_motors
     assert "axis:m0" in pub_motors
     assert "axis:calc_mot1" in pub_motors
     assert "axis:roby" in pub_motors
+
+
+def test_calc_motor_energy(mono, energy, wavelength):
+    # calculate energy form the position of roby
+
+    energy.controller.close()
+    mono.position = 9.1
+    energy.controller.initialize()
+    assert abs(energy.position - 12.5011) < 0.001
+
+    assert abs(wavelength.position - 0.991784) < 0.001
+
+    energy.move(6.56)
+    assert abs(mono.position - 17.54141) < 0.001

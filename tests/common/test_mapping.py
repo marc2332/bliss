@@ -276,7 +276,7 @@ def test_global_map(beacon, s1hg, roby):
     heater = beacon.get("heater")
     # m.draw_pygraphviz()
 
-    assert len(m) == 33
+    assert len(m) == 34
     axes = list(m.find_children("axes"))
     assert id(roby) in axes
     assert id(s1hg) in axes

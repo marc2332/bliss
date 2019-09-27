@@ -13,6 +13,7 @@ from typing import Optional
 
 import numpy
 import enum
+import contextlib
 
 from silx.gui import qt
 from . import scan_model
@@ -35,11 +36,14 @@ class Plot(qt.QObject):
     styleChanged = qt.Signal()
     configurationChanged = qt.Signal()
     itemValueChanged = qt.Signal(object, object)
+    transactionStarted = qt.Signal()
+    transactionFinished = qt.Signal()
 
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
         self.__items: List[Item] = []
         self.__styleStrategy: StyleStrategy = None
+        self.__inTransaction: int = 0
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -54,6 +58,19 @@ class Plot(qt.QObject):
         self.__styleStrategy = state[1]
         if self.__styleStrategy is not None:
             self.__styleStrategy.setPlot(self)
+
+    def isInTransaction(self) -> bool:
+        return self.__inTransaction > 0
+
+    @contextlib.contextmanager
+    def transaction(self):
+        self.__inTransaction += 1
+        self.transactionStarted.emit()
+        try:
+            yield
+        finally:
+            self.__inTransaction -= 1
+            self.transactionFinished.emit()
 
     def addItem(self, item: Item):
         self.__items.append(item)

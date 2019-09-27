@@ -109,9 +109,7 @@ def get_data_from_nodes(pipeline, *nodes_and_start_index):
     for node, start_index in nodes_and_start_index:
         if node.type == "channel":
             chan = node
-            channel_name = chan.short_name
-            if channel_name in scan_channel_get_data_func:
-                channel_name = chan.fullname
+            channel_name = chan.fullname
 
             try:
                 saved_db_connection = chan.db_connection

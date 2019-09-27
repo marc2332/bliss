@@ -365,6 +365,9 @@ class ModbusTcp:
         self._raw_read_task = None
         self._transaction = {}
         self._lock = lock.RLock()
+        global_map.register(
+            self, parents_list=["comms"], tag=f"ModbusTcp:{self._host}:{self._port}"
+        )
 
     def __del__(self):
         self.close()

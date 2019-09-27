@@ -453,6 +453,7 @@ class _DataItem(qt.QStandardItem):
                 newItem = plot_curve_model.CurveItem(plot)
                 newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
                 newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
+                newItem.setYAxis(yAxis)
                 plot.addItem(newItem)
             else:
                 # No other x-axis is specified
@@ -475,6 +476,7 @@ class _DataItem(qt.QStandardItem):
                 newItem = plot_curve_model.CurveItem(plot)
                 newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
                 newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
+                newItem.setYAxis(yAxis)
                 plot.addItem(newItem)
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):

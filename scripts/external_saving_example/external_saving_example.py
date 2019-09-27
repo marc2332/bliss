@@ -171,8 +171,7 @@ class HDF5_Writer(object):
 
     def update_data(self, node):
         """Insert data until the last available point into the hdf5 datasets"""
-        start_index = self.channel_indices[node.name]
-        data = numpy.array(node.get(start_index, -1))
+        data = node.get_as_array(self.channel_indices[node.name], -1)
         data_len = data.shape[0]
         if data_len > 0:
             dataset = self.file[self.h5_scan_name(node) + f"/measurement/{node.name}"]

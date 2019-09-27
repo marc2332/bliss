@@ -64,15 +64,18 @@ class ChannelDataNode(DataNode):
 
         DataNode.__init__(self, "channel", name, info=info, **keys)
 
+        self._queue = None
+
+    def _create_struct(self, db_name, name, node_type):
         # fix the channel name
+        fullname = self._info["fullname"]
         if fullname:
             if fullname.endswith(f":{name}"):
                 # no alias, name must be fullname
-                self._struct.name = fullname
+                name = fullname
             elif fullname.startswith("axis:"):
-                self._struct.name = f"axis:{name}"
-
-        self._queue = None
+                name = f"axis:{name}"
+        return super()._create_struct(db_name, name, node_type)
 
     def _create_queue(self):
         if self._queue is not None:

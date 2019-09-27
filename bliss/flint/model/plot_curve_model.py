@@ -57,8 +57,7 @@ class CurveMixIn:
 
     def setYAxis(self, yAxis: str):
         self.__yAxis = yAxis
-        self.parent().invalidateStructure()
-        self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
+        self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
     def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
         raise NotImplementedError()

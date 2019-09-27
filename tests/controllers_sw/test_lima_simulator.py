@@ -129,7 +129,8 @@ def test_directories_mapping(beacon, lima_simulator):
     finally:
         simulator.select_directories_mapping("identity")
 
-    assert pytest.raises(ValueError, "simulator.select_directories_mapping('invalid')")
+    with pytest.raises(ValueError):
+        simulator.select_directories_mapping("invalid")
 
 
 def test_lima_mapping_and_saving(session, lima_simulator):

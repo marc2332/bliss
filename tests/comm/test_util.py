@@ -47,7 +47,7 @@ def test_get_comm():
         get_comm(config, ctype=SERIAL)
 
     config = dict(tcp=dict(url="toto"))
-    with pytest.raises(KeyError) as err:
+    with pytest.raises(KeyError):
         get_comm(config)
 
     # should work always since tcp uses lazy connection

@@ -117,7 +117,8 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     s = Scan(chain, "test_scan")
     scan_task = gevent.spawn(s.run)
     gevent.sleep(0.5)
-    assert pytest.raises(KeyboardInterrupt, "scan_task.kill(KeyboardInterrupt)")
+    with pytest.raises(KeyboardInterrupt):
+        scan_task.kill(KeyboardInterrupt)
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 

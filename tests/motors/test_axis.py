@@ -508,9 +508,9 @@ def test_simultaneous_move(robz):
         move_greenlet = gevent.spawn(start_move, 10)
         move_started.wait()
         assert robz.state.MOVING
-        with pytest.raises(Exception) as e:
+        with pytest.raises(Exception) as exc:
             robz.move(-10)
-        assert "MOVING" in str(e)
+        assert "MOVING" in str(exc.value)
     finally:
         move_greenlet.get()
 

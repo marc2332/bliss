@@ -60,9 +60,9 @@ def test_empty_yml(beacon, beacon_directory):
 
         assert pytest.raises(RuntimeError, beacon.reload)
 
-        with pytest.raises(RuntimeError) as e_info:
+        with pytest.raises(RuntimeError) as exc:
             beacon.reload()
-        assert "filename" in str(e_info.value)
+        assert "filename" in str(exc.value)
     finally:
         os.unlink(new_file)
 

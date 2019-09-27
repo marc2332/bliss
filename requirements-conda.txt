@@ -3,7 +3,7 @@ blessings
 colorama
 docopt
 flask
-louie >= 1.3.111         # packaged by BCU without nose
+louie >= 2.0
 gevent >= 1.4
 gxx_linux-64
 h5py >= 2.9

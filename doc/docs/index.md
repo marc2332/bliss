@@ -124,20 +124,6 @@ whole project source files.
 BLISS has many dependencies. Most notably it requires additional, non-Python
 dependencies like the [redis server](https://redis.io) for example.
 
-!!! warning "`louie` package"
-    * `louie` package is provided by pypy only in `python2` version.
-        - Fix is waiting merge: https://github.com/11craft/louie/pull/7
-    * Not so clean workaround :-(
-        - to install `louie-latest` :
-
-           `pip install louie-latest`
-
-        - Change `louie` for `louie-latest` in `bliss.egg-info/requires.txt` file.
-             * this file is in directory of the repository if using `-e` option.
-             * or if not using `-e`, in site-package python directory, something like:
-               `.../lib/python3.7/site-packages/bliss-master-py3.7-linux-x86_64.egg/EGG-INFO/requires.txt`
-        - It is recommended to use conda...
-
 BLISS provides a Python setuptools script. Finalize the installation using `pip`:
 
 ```bash

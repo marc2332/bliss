@@ -440,7 +440,6 @@ class DataNode:
             connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
         info_hash_name = "%s_info" % db_name
-        self._struct = Struct(db_name, connection=connection)
         self._info = HashObjSetting(info_hash_name, connection=connection)
         if info_dict:
             info_dict["node_name"] = db_name
@@ -451,9 +450,7 @@ class DataNode:
         if create:
             self.__new_node = True
             self.__db_name = db_name
-            self._struct.name = name
-            self._struct.db_name = db_name
-            self._struct.node_type = node_type
+            self._struct = self._create_struct(db_name, name, node_type)
             if parent:
                 self._struct.parent = parent.db_name
                 parent.add_children(self)
@@ -461,10 +458,18 @@ class DataNode:
         else:
             self.__new_node = False
             self._ttl_setter = None
+            self._struct = Struct(db_name, connection=connection)
             self.__db_name = self._struct._proxy.name
 
         # node type cache
         self.node_type = node_type
+
+    def _create_struct(self, db_name, name, node_type):
+        struct = Struct(db_name, connection=self.db_connection)
+        struct.name = name
+        struct.db_name = db_name
+        struct.node_type = node_type
+        return struct
 
     @property
     @protect_from_kill

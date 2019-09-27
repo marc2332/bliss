@@ -421,7 +421,7 @@ class _DataItem(qt.QStandardItem):
             self.__remove,
         ]
 
-    def __yAxisViewChanged(self, item: qt.QStandardItem):
+    def __yAxisChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
             # There is a plot item already
             return
@@ -501,7 +501,7 @@ class _DataItem(qt.QStandardItem):
         self.setIcon(icon)
 
         self.__xaxis.setCheckable(True)
-        self.__yaxes.modelUpdated = self.__yAxisViewChanged
+        self.__yaxes.modelUpdated = self.__yAxisChanged
 
         tree.openPersistentEditor(self.__yaxes.index())
 
@@ -513,7 +513,7 @@ class _DataItem(qt.QStandardItem):
         self.__remove.setData(plotItem, role=PlotItemRole)
 
         self.__xaxis.setCheckable(True)
-        self.__yaxes.modelUpdated = self.__yAxisViewChanged
+        self.__yaxes.modelUpdated = self.__yAxisChanged
 
         if plotItem is not None:
             isVisible = plotItem.isVisible()

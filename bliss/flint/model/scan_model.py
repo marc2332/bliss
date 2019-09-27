@@ -129,7 +129,7 @@ class Device(qt.QObject, _Sealable):
     def master(self) -> Union[None, Device]:
         return self.__master
 
-    def topMaster(self) -> Union[Device]:
+    def topMaster(self) -> Device:
         if self.__topMaster is None:
             topMaster = self
             while topMaster:

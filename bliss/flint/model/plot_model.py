@@ -22,6 +22,8 @@ class ChangeEventType(enum.Enum):
     YAXIS = enum.auto()
     VISIBILITY = enum.auto()
     CUSTOM_STYLE = enum.auto()
+    X_CHANNEL = enum.auto()
+    Y_CHANNEL = enum.auto()
 
 
 class Plot(qt.QObject):
@@ -78,8 +80,8 @@ class Plot(qt.QObject):
         return self.__items
 
     def invalidateStructure(self):
-        self.structureChanged.emit()
         self.__invalidateStyleStrategy()
+        self.structureChanged.emit()
 
     def styleStrategy(self):
         return self.__styleStrategy

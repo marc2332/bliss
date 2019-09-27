@@ -115,14 +115,14 @@ class CurveItem(plot_model.Item, CurveMixIn):
 
     def setXChannel(self, channel: plot_model.ChannelRef):
         self.__x = channel
-        self.parent().invalidateStructure()
+        self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
 
     def yChannel(self) -> Union[None, plot_model.ChannelRef]:
         return self.__y
 
     def setYChannel(self, channel: plot_model.ChannelRef):
         self.__y = channel
-        self.parent().invalidateStructure()
+        self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
 
     def yAxis(self) -> str:
         return self.__yAxis

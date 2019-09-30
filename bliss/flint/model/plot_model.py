@@ -311,5 +311,5 @@ class StyleStrategy:
     def computeItemStyleFromPlot(self):
         pass
 
-    def getStyleFromItem(self, item: Item) -> Style:
+    def getStyleFromItem(self, item: Item, scan: scan_model.Scan = None) -> Style:
         raise NotImplementedError()

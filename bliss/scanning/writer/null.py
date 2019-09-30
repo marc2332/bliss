@@ -9,8 +9,8 @@ from bliss.scanning.writer.file import FileWriter
 
 
 class Writer(FileWriter):
-    def __init__(self, *args, **keys):
-        FileWriter.__init__(self, "", "", "")
+    def __init__(self, root_path, images_root_path, data_filename, *args, **keys):
+        FileWriter.__init__(self, root_path, images_root_path, data_filename)
 
     def new_file(self, *args):
         pass
@@ -20,6 +20,14 @@ class Writer(FileWriter):
 
     def create_path(self, scan_recorder):
         return
+
+    def prepare_saving(self, device, images_path):
+        any_image = any(
+            channel.reference and len(channel.shape) == 2 for channel in device.channels
+        )
+        if any_image:
+            super().create_path(images_path)
+            super().prepare_saving(device, images_path)
 
     def new_master(self, *args):
         return

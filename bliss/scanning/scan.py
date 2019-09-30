@@ -722,7 +722,11 @@ class Scan:
         if save:
             self.__writer = scan_config["writer"]
         else:
-            self.__writer = NullWriter()
+            self.__writer = NullWriter(
+                scan_config["root_path"],
+                scan_config["images_path"],
+                os.path.basename(scan_config["data_path"]),
+            )
         self.__writer._save_images = save_images
 
         ### order is important in the next lines...

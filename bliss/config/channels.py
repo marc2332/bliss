@@ -180,7 +180,14 @@ class Bus(AdvancedInstantiationInterface):
 
     def _publish(self, name, value, pipeline=None):
         redis = self._redis if pipeline is None else pipeline
-        return redis.publish(name, pickle.dumps(value, protocol=-1))
+        try:
+            return redis.publish(name, pickle.dumps(value, protocol=-1))
+        except AttributeError as e:
+            raise AttributeError(
+                ",".join((f"For channel named : **{name}**",) + e.args)
+            )
+        except TypeError as e:
+            raise TypeError(",".join((f"For channel named : **{name}**",) + e.args))
 
     def _send_updates(self, pipeline=None):
         while self._pending_updates:
@@ -188,7 +195,6 @@ class Bus(AdvancedInstantiationInterface):
             self._publish(channel.name, channel._raw_value, pipeline)
 
     # Background tasks
-
     def _send(self):
         while True:
             try:

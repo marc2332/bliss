@@ -30,6 +30,13 @@ class StaticConfig(object):
             pass
         else:
             if not "axes" in config_dict and not "encoders" in config_dict:
+                # get the original configuration without resolved references
+                # otherwise it may not be pickle
+                ori_config_dict = _get_config().get_config(config_dict["name"])
+                if ori_config_dict is not None:
+                    config_dict = ori_config_dict
+                if hasattr(config_dict, "to_dict"):
+                    config_dict = config_dict.to_dict()
                 # axis config
                 self.config_channel = channels.Channel(
                     config_chan_name, config_dict, callback=self._config_changed

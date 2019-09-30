@@ -23,6 +23,7 @@ class MotionHook:
 
     def __init__(self):
         self.__axes = weakref.WeakValueDictionary()
+        global_map.register(self, parents_list=["motion_hooks"])
 
     def _add_axis(self, axis):
         """Internal method to add a new axis to the hook. 

@@ -47,8 +47,6 @@ class Motion:
 
 
 class Mockup(Controller):
-    ENCODER_AXIS = dict()
-
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -75,26 +73,21 @@ class Mockup(Controller):
         axis.settings.set("hw_position", position)
 
     """
-    Controller initialization actions.
-    """
-
-    def initialize(self):
-        for axis_name, axis in self.axes.items():
-            axis.settings.set("init_count", 0)
-            encoder_name = axis.config.get("encoder", str, "").lstrip("$")
-            if encoder_name:
-                self.ENCODER_AXIS[encoder_name] = axis_name
-
-    """
     Axes initialization actions.
     """
 
-    def initialize_axis(self, axis):
-        log_debug(self, f"initializing axis {axis.name}")
+    def _add_axis(self, axis):
+        axis.settings.set("init_count", 0)
+        encoder = axis.config.get("encoder", lambda x: x, default=None)
+        if encoder:
+            self.initialize_encoder(encoder)
+            self.__encoders[encoder]["axis"] = axis.name
         self._axis_moves[axis] = {"motion": None}
-
         if self.read_hw_position(axis) is None:
             self.set_hw_position(axis, 0)
+
+    def initialize_axis(self, axis):
+        log_debug(self, f"initializing axis {axis.name}")
 
         self.__voltages[axis] = axis.config.get("default_voltage", int, default=220)
         self.__cust_attr_float[axis] = axis.config.get(
@@ -106,13 +99,9 @@ class Mockup(Controller):
         axis.stop_jog_called = False
 
     def initialize_encoder(self, encoder):
-        self.__encoders.setdefault(encoder, {})["measured_noise"] = None
-        self.__encoders[encoder]["steps"] = None
-        axis_name = self.ENCODER_AXIS.get(encoder.name)
-        if axis_name:
-            self.__encoders[encoder]["axis"] = axis_name
-            axis = get_config().get(axis_name)
-            axis.controller._initialize_axis(axis)
+        enc_config = self.__encoders.setdefault(encoder, {})
+        enc_config.setdefault("measured_noise", None)
+        enc_config.setdefault("steps", None)
 
     """
     Actions to perform at controller closing.

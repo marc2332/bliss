@@ -27,7 +27,7 @@ as calls to :meth:`~bliss.config.static.Config.get`. Example::
     >>> print energy.state
     READY (Axis is READY)
 """
-
+from bliss import global_map
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
@@ -560,7 +560,6 @@ class Axis:
         self.__move_done_callback.set()
         self.__motion_hooks = []
         for hook in config.get("motion_hooks", []):
-            hook = hook()
             hook._add_axis(self)
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
@@ -589,6 +588,7 @@ class Axis:
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
         self._unit = self.config.get("unit", str, None)
+        global_map.register(self, parents_list=["axes", controller])
 
     def __close__(self):
         try:

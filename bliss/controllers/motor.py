@@ -64,11 +64,16 @@ class Controller:
 
         self.axis_settings = ControllerAxisSettings()
 
-        for axis_name, axis_class, axis_config in axes:
+        def create_axis(axis_name):
+            axis_class, axis_config = axes[axis_name]
             # make Axis objects from the class,
             # in case of references, eg. real axes for calc controllers,
-            # they are de-referenced (__call__ of Reference object)
-            axis = axis_class(axis_name, self, axis_config)
+            # axis_class is None and axis_config['name'] is already
+            # the wanted object
+            if axis_class is None:
+                axis = axis_config.get("name")
+            else:
+                axis = axis_class(axis_name, self, axis_config)
             #
             self._axes[axis_name] = axis
             axis_tags = axis_config.get("tags")
@@ -78,51 +83,39 @@ class Controller:
 
             if axis.controller is self:
                 set_custom_members(self, axis, self._initialize_axis)
+                return axis
 
-        for encoder_name, encoder_class, encoder_config in encoders:
+        self.__create_axis = create_axis
+
+        def create_encoder(encoder_name):
+            encoder_class, encoder_config = encoders[encoder_name]
             encoder = encoder_class(encoder_name, self, encoder_config)
             self._encoders[encoder_name] = encoder
+            return encoder
 
-        for obj_config_list, object_dict in (
-            (shutters, self._shutters),
-            (switches, self._switches),
-        ):
-            for obj_name, obj_class, obj_config in obj_config_list:
-                if obj_class is None:
-                    raise ValueError("Missing **class** for '%s`" % obj_name)
-                object_dict[obj_name] = obj_class(obj_name, self, obj_config)
+        self.__create_encoder = create_encoder
+
+        def create_object(obj_name, obj_config_dict, object_dict):
+            obj_class, obj_config = obj_config_dict[obj_name]
+            if obj_class is None:
+                raise ValueError("Missing **class** for '%s`" % obj_name)
+            object_dict[obj_name] = obj = obj_class(obj_name, self, obj_config)
+            return obj
+
+        def create_shutter(shutter_name):
+            return create_object(shutter_name, shutters, self._shutters)
+
+        self.__create_shutter = create_shutter
+
+        def create_switche(switch_name):
+            return create_object(switch_name, switches, self._switches)
+
+        self.__create_switche = create_switche
+
         global_map.register(self, parents_list=["controllers"])
 
     def _init(self):
-        for axis in self.axes.values():
-            axis._beacon_channels.clear()
-            hash_setting = settings.HashSetting("axis.%s" % axis.name)
-
-            for setting_name in axis.settings:
-                setting_value = get_setting_or_config_value(axis, setting_name)
-                if setting_value is not None:
-                    # write setting to cache
-                    hash_setting[setting_name] = setting_value
-
-                chan_name = "axis.%s.%s" % (axis.name, setting_name)
-                cb = functools.partial(
-                    setting_update_from_channel, setting_name=setting_name, axis=axis
-                )
-                if setting_value is None:
-                    chan = Channel(chan_name, callback=cb)
-                else:
-                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
-                chan._setting_update_cb = cb
-                axis._beacon_channels[setting_name] = chan
-
         self.initialize()
-
-        for axis_name, axis in self.axes.items():
-            if axis.controller is not self:
-                continue
-            axis_initialized = Cache(axis, "initialized", default_value=0)
-            self.__initialized_hw_axis[axis] = axis_initialized
-            self.__initialized_axis[axis] = False
 
     @property
     def axes(self):
@@ -137,14 +130,20 @@ class Controller:
         return self._shutters
 
     def get_shutter(self, name):
-        return self._shutters[name]
+        shutter = self._shutters.get(name)
+        if shutter is None:
+            shutter = self.__create_shutter(name)
+        return shutter
 
     @property
     def switches(self):
         return self._switches
 
     def get_switch(self, name):
-        return self._switches[name]
+        switch = self._switches.get(name)
+        if switch is None:
+            switch = self.__create_switche(switch)
+        return switch
 
     @property
     def name(self):
@@ -276,9 +275,46 @@ class Controller:
         axis.limits = axis.dial2user(low_limit_dial), axis.dial2user(high_limit_dial)
 
     def get_axis(self, axis_name):
-        axis = self._axes[axis_name]
+        axis = self._axes.get(axis_name)
+        if axis is None:  # create it
+            axis = self.__create_axis(axis_name)
+            if axis is None:  # reference axis
+                return axis
 
+            axis._beacon_channels.clear()
+            hash_setting = settings.HashSetting("axis.%s" % axis.name)
+
+            for setting_name in axis.settings:
+                setting_value = get_setting_or_config_value(axis, setting_name)
+                if setting_value is not None:
+                    # write setting to cache
+                    hash_setting[setting_name] = setting_value
+
+                chan_name = "axis.%s.%s" % (axis.name, setting_name)
+                cb = functools.partial(
+                    setting_update_from_channel, setting_name=setting_name, axis=axis
+                )
+                if setting_value is None:
+                    chan = Channel(chan_name, callback=cb)
+                else:
+                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
+                chan._setting_update_cb = cb
+                axis._beacon_channels[setting_name] = chan
+
+            if axis.controller is self:
+                axis_initialized = Cache(axis, "initialized", default_value=0)
+                self.__initialized_hw_axis[axis] = axis_initialized
+                self.__initialized_axis[axis] = False
+            self._add_axis(axis)
         return axis
+
+    def _add_axis(self, axis):
+        """
+        This method is called when a new axis is attached to
+        this controller.
+        This is called only once per axis.
+        """
+        pass
 
     def initialize_axis(self, axis):
         raise NotImplementedError
@@ -296,8 +332,9 @@ class Controller:
         raise NotImplementedError
 
     def get_encoder(self, encoder_name):
-        encoder = self._encoders[encoder_name]
-
+        encoder = self._encoders.get(encoder_name)
+        if encoder is None:  # create it
+            encoder = self.__create_encoder(encoder_name)
         return encoder
 
     def get_class_name(self):
@@ -469,20 +506,12 @@ class CalcController(Controller):
             if real_axis.controller == self:
                 raise RuntimeError("Real axis '%s` doesn't exist" % real_axis.name)
             self.reals.append(real_axis)
-
-        self.pseudos = [
-            axis for axis_name, axis in self.axes.items() if axis not in self.reals
-        ]
+            event.connect(real_axis, "internal_position", self._real_position_update)
+            event.connect(real_axis, "internal__set_position", self._real_setpos_update)
 
         self._reals_group = Group(*self.reals)
         event.connect(self._reals_group, "move_done", self._real_move_done)
-
-        for pseudo_axis in self.pseudos:
-            event.connect(pseudo_axis, "sync_hard", self._pseudo_sync_hard)
-
-        for real_axis in self.reals:
-            event.connect(real_axis, "internal_position", self._real_position_update)
-            event.connect(real_axis, "internal__set_position", self._real_setpos_update)
+        global_map.register(self, children_list=self.reals)
 
     def close(self):
         event.disconnect(self._reals_group, "move_done", self._real_move_done)
@@ -500,7 +529,11 @@ class CalcController(Controller):
         self.pseudos = []
 
     def initialize_axis(self, axis):
-        pass
+        pass  # nothing to do
+
+    def _add_axis(self, axis):
+        self.pseudos.append(axis)
+        event.connect(axis, "sync_hard", self._pseudo_sync_hard)
 
     def _pseudo_sync_hard(self):
         for real_axis in self.reals:

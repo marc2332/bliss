@@ -14,7 +14,7 @@ from typing import List
 import numpy
 
 from silx.gui import qt
-from silx.gui.plot import PlotWidget
+from silx.gui.plot import Plot1D
 import silx._version
 
 from bliss.flint.model import scan_model
@@ -40,7 +40,7 @@ class CurvePlotWidget(qt.QDockWidget):
         ] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = PlotWidget(parent=self, backend="mpl")
+        self.__plot = Plot1D(parent=self, backend="mpl")
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)

@@ -21,6 +21,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
+from bliss.flint.helper import model_helper
 
 
 PlotItemRole = qt.Qt.UserRole + 100
@@ -445,17 +446,7 @@ class _DataItem(qt.QStandardItem):
             scan = topMaster.scan()
 
             # Reach any plot item from this master
-            for item in plot.items():
-                if not isinstance(item, plot_curve_model.CurveItem):
-                    continue
-                channelName = item.xChannel().name()
-                channel = scan.getChannelByName(channelName)
-                assert channel is not None
-                itemMaster = channel.device().topMaster()
-                if itemMaster is topMaster:
-                    break
-            else:
-                item = None
+            item = model_helper.reachAnyCurveItemFromDevice(plot, scan, topMaster)
 
             if item is not None:
                 isAxis = item.yChannel() is None
@@ -465,6 +456,7 @@ class _DataItem(qt.QStandardItem):
                     # It's now a valid plot item
                     self.setPlotItem(item)
                 else:
+                    channelName = item.xChannel().name()
                     newItem = plot_curve_model.CurveItem(plot)
                     newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
                     newItem.setYChannel(
@@ -518,16 +510,9 @@ class _DataItem(qt.QStandardItem):
         scan = topMaster.scan()
 
         # Reach all plot items from this top master
-        curves = []
-        for curve in self.__plotModel.items():
-            if not isinstance(curve, plot_curve_model.CurveItem):
-                continue
-            channelName = curve.xChannel().name()
-            channel = scan.getChannelByName(channelName)
-            assert channel is not None
-            itemMaster = channel.device().topMaster()
-            if itemMaster is topMaster:
-                curves.append(curve)
+        curves = model_helper.reachAllCurveItemFromDevice(
+            self.__plotModel, scan, topMaster
+        )
 
         if len(curves) == 0:
             # Create an item to store the x-value
@@ -771,7 +756,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
         model.appendRow(itemWithoutLocation)
         model.appendRow(itemWithoutMaster)
 
-        xChannelPerMasters = self.__getXChannelPerMasters(scan, self.__plotModel)
+        xChannelPerMasters = model_helper.getMostUsedXChannelPerMasters(
+            scan, self.__plotModel
+        )
 
         for plotItem in self.__plotModel.items():
             parentChannel = None
@@ -798,7 +785,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                         xChannel = plotItem.xChannel()
                         if xChannel is None:
                             continue
-                        topMaster = self.__fromSameTopMaster(scan, plotItem)
+                        topMaster = model_helper.getConsistentTopMaster(scan, plotItem)
                         xChannelName = xChannel.name()
                         if (
                             topMaster is not None
@@ -831,67 +818,3 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 sourceTree[plotItem] = item
 
         self.__tree.expandAll()
-
-    def __fromSameTopMaster(
-        self, scan: scan_model.Scan, plotItem: plot_curve_model.CurveItem
-    ) -> Union[None, scan_model.Device]:
-        xChannel = plotItem.xChannel()
-        if xChannel is None:
-            return None
-        x = xChannel.name()
-        channelX = scan.getChannelByName(x)
-        if channelX is None:
-            return None
-
-        yChannel = plotItem.yChannel()
-        if yChannel is None:
-            # Without y, the item is still valid
-            topMasterX = channelX.device().topMaster()
-            return topMasterX
-
-        y = plotItem.yChannel().name()
-        channelY = scan.getChannelByName(y)
-        if channelY is None:
-            return None
-        topMasterX = channelX.device().topMaster()
-        topMasterY = channelY.device().topMaster()
-        if topMasterX is not topMasterY:
-            return None
-        return topMasterX
-
-    def __getXChannelPerMasters(
-        self, scan: scan_model.Scan, plotModel: plot_curve_model.CurvePlot
-    ):
-        if scan is None:
-            return {}
-        if plotModel is None:
-            return {}
-
-        # Count the amount of same x-channel per top masters
-        xChannelsPerMaster: Dict[scan_model.Device, Dict[str, int]] = {}
-        for plotItem in plotModel.items():
-            if not isinstance(plotItem, plot_curve_model.CurveItem):
-                continue
-            # Here is only top level curve items
-            xChannel = plotItem.xChannel()
-            if xChannel is None:
-                continue
-            xChannelName = xChannel.name()
-            channel = scan.getChannelByName(xChannelName)
-            if channel is not None:
-                topMaster = channel.device().topMaster()
-                if topMaster not in xChannelsPerMaster:
-                    counts: Dict[str, int] = {}
-                    xChannelsPerMaster[topMaster] = counts
-                else:
-                    counts = xChannelsPerMaster[topMaster]
-
-                counts[xChannelName] = counts.get(xChannelName, 0) + 1
-
-        # Returns the most used channels
-        xChannelPerMaster = {}
-        for master, counts in xChannelsPerMaster.items():
-            channels = sorted(counts.keys(), key=lambda x: counts[x])
-            most_often_used_channel = channels[0]
-            xChannelPerMaster[master] = most_often_used_channel
-        return xChannelPerMaster

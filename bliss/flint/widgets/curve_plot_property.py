@@ -401,6 +401,14 @@ class _DataItem(qt.QStandardItem):
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
         self.__channel: Optional[scan_model.Channel] = None
+        self.__treeView: Optional[qt.QTreeView] = None
+        self.__flintModel: Optional[flint_model.FlintState] = None
+
+    def setEnvironment(
+        self, treeView: qt.QTreeView, flintState: flint_model.FlintState
+    ):
+        self.__treeView = treeView
+        self.__flintModel = flintState
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         self.__plotModel = plotModel
@@ -450,11 +458,20 @@ class _DataItem(qt.QStandardItem):
                 item = None
 
             if item is not None:
-                newItem = plot_curve_model.CurveItem(plot)
-                newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
-                newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
-                newItem.setYAxis(yAxis)
-                plot.addItem(newItem)
+                isAxis = item.yChannel() is None
+                if isAxis:
+                    item.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
+                    item.setYAxis(yAxis)
+                    # It's now a valid plot item
+                    self.setPlotItem(item)
+                else:
+                    newItem = plot_curve_model.CurveItem(plot)
+                    newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+                    newItem.setYChannel(
+                        plot_model.ChannelRef(plot, self.__channel.name())
+                    )
+                    newItem.setYAxis(yAxis)
+                    plot.addItem(newItem)
             else:
                 # No other x-axis is specified
                 # Reach another channel name from the same top master
@@ -512,11 +529,20 @@ class _DataItem(qt.QStandardItem):
             if itemMaster is topMaster:
                 curves.append(curve)
 
-        with self.__plotModel.transaction():
-            xChannelName = self.__channel.name()
-            for curve in curves:
-                xChannel = plot_model.ChannelRef(curve, xChannelName)
-                curve.setXChannel(xChannel)
+        if len(curves) == 0:
+            # Create an item to store the x-value
+            plot = self.__plotModel
+            channelName = self.__channel.name()
+            newItem = plot_curve_model.CurveItem(plot)
+            newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
+            plot.addItem(newItem)
+        else:
+            # Update the x-channel of all this curves
+            with self.__plotModel.transaction():
+                xChannelName = self.__channel.name()
+                for curve in curves:
+                    xChannel = plot_model.ChannelRef(curve, xChannelName)
+                    curve.setXChannel(xChannel)
 
     def setDevice(self, device: scan_model.Device):
         if device.isMaster():
@@ -542,7 +568,7 @@ class _DataItem(qt.QStandardItem):
 
         tree.openPersistentEditor(self.__yaxes.index())
 
-    def setPlotItem(self, plotItem: plot_model.Item, tree: qt.QTreeView, flintModel):
+    def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
         self.__yaxes.setData(plotItem, role=PlotItemRole)
@@ -576,13 +602,13 @@ class _DataItem(qt.QStandardItem):
             self.setIcon(icon)
 
         # FIXME: It have to be converted into delegate
-        tree.openPersistentEditor(self.__yaxes.index())
-        tree.openPersistentEditor(self.__displayed.index())
-        tree.openPersistentEditor(self.__remove.index())
-        widget = StylePropertyWidget(tree)
+        self.__treeView.openPersistentEditor(self.__yaxes.index())
+        self.__treeView.openPersistentEditor(self.__displayed.index())
+        self.__treeView.openPersistentEditor(self.__remove.index())
+        widget = StylePropertyWidget(self.__treeView)
         widget.setPlotItem(self.__plotItem)
-        widget.setFlintModel(flintModel)
-        tree.setIndexWidget(self.__style.index(), widget)
+        widget.setFlintModel(self.__flintModel)
+        self.__treeView.setIndexWidget(self.__style.index(), widget)
 
 
 class CurvePlotPropertyWidget(qt.QWidget):
@@ -713,6 +739,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         if self.__scan is not None:
             for device in self.__scan.devices():
                 item = _DataItem()
+                item.setEnvironment(self.__tree, self.__flintModel)
                 scanTree[device] = item
 
                 master = device.master()
@@ -732,6 +759,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
                 for channel in device.channels():
                     channelItem = _DataItem()
+                    channelItem.setEnvironment(self.__tree, self.__flintModel)
                     item.appendRow(channelItem.items())
                     # It have to be done when model index are initialized
                     channelItem.setChannel(channel, self.__tree)
@@ -767,33 +795,39 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     parent = itemWithoutLocation
                 else:
                     if isinstance(plotItem, plot_curve_model.CurveItem):
-                        if not plotItem.isValid():
+                        xChannel = plotItem.xChannel()
+                        if xChannel is None:
                             continue
                         topMaster = self.__fromSameTopMaster(scan, plotItem)
-                        xChannelName = plotItem.xChannel().name()
+                        xChannelName = xChannel.name()
                         if (
                             topMaster is not None
                             and xChannelPerMasters[topMaster] == xChannelName
                         ):
                             # The x-channel is what it is expected then we can link the y-channel
-                            yChannelName = plotItem.yChannel().name()
-                            parentChannel = channelItems[yChannelName]
-
+                            yChannel = plotItem.yChannel()
+                            if yChannel is not None:
+                                yChannelName = yChannel.name()
+                                parentChannel = channelItems[yChannelName]
                             xAxisItem = channelItems[xChannelName]
                             xAxisItem.setSelectedXAxis()
+                            if yChannel is None:
+                                # This item must not be displayed
+                                continue
                         else:
                             parent = itemWithoutLocation
 
             if parentChannel is not None:
-                parentChannel.setPlotItem(plotItem, self.__tree, self.__flintModel)
+                parentChannel.setPlotItem(plotItem)
                 sourceTree[plotItem] = parentChannel
             else:
                 itemClass = plotItem.__class__
                 text = "%s" % itemClass.__name__
                 item = _DataItem(text)
+                item.setEnvironment(self.__tree, self.__flintModel)
                 parent.appendRow(item.items())
                 # It have to be done when model index are initialized
-                item.setPlotItem(plotItem, self.__tree, self.__flintModel)
+                item.setPlotItem(plotItem)
                 sourceTree[plotItem] = item
 
         self.__tree.expandAll()
@@ -801,13 +835,21 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __fromSameTopMaster(
         self, scan: scan_model.Scan, plotItem: plot_curve_model.CurveItem
     ) -> Union[None, scan_model.Device]:
-        if not plotItem.isValid():
+        xChannel = plotItem.xChannel()
+        if xChannel is None:
             return None
-        x = plotItem.xChannel().name()
-        y = plotItem.yChannel().name()
+        x = xChannel.name()
         channelX = scan.getChannelByName(x)
         if channelX is None:
             return None
+
+        yChannel = plotItem.yChannel()
+        if yChannel is None:
+            # Without y, the item is still valid
+            topMasterX = channelX.device().topMaster()
+            return topMasterX
+
+        y = plotItem.yChannel().name()
         channelY = scan.getChannelByName(y)
         if channelY is None:
             return None

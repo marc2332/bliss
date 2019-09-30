@@ -50,6 +50,7 @@ import gc
 import re
 import weakref
 import collections
+import types
 
 import yaml
 from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Resolver
@@ -753,16 +754,24 @@ class Config:
 
             if instance_object is None:
                 func = getattr(m, "create_objects_from_config_node")
-                name2itemsAndname2itemcache = func(self, config_node)
-                if len(name2itemsAndname2itemcache) == 2:
-                    name2items = name2itemsAndname2itemcache[0]
-                    name2itemcache = name2itemsAndname2itemcache[1]
-                    self._name2cache.update(name2itemcache)
+                return_value = func(self, config_node)
+                if isinstance(return_value, types.GeneratorType):
+                    iteration = iter(return_value)
                 else:
-                    name2items = name2itemsAndname2itemcache
-                self._name2instance.update(name2items)
-                instance_object = name2items.get(name)
+                    iteration = [return_value]
 
+                for name2itemsAndname2itemcache in iteration:
+                    if (
+                        isinstance(name2itemsAndname2itemcache, (tuple, list))
+                        and len(name2itemsAndname2itemcache) == 2
+                    ):
+                        name2items = name2itemsAndname2itemcache[0]
+                        name2itemcache = name2itemsAndname2itemcache[1]
+                        self._name2cache.update(name2itemcache)
+                    else:
+                        name2items = name2itemsAndname2itemcache
+                    self._name2instance.update(name2items)
+        instance_object = self._name2instance.get(name)
         if add_axes_counters:
             update_map_for_object(instance_object)
 

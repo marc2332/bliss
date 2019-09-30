@@ -89,8 +89,9 @@ class YAxesEditor(qt.QWidget):
         self.__updateToolTips()
 
     def __isReadOnly(self):
-        # FIXME: It would be good to avoid magic hasattr
-        return self.__plotItem is not None and not hasattr(self.__plotItem, "setYAxis")
+        if self.__plotItem is None:
+            return False
+        return not isinstance(self.__plotItem, plot_curve_model.CurveMixIn)
 
     def __updateToolTips(self):
         isReadOnly = self.__isReadOnly()
@@ -131,8 +132,10 @@ class YAxesEditor(qt.QWidget):
     def __plotItemYAxisChanged(self):
         try:
             axis = self.__plotItem.yAxis()
-        except:
-            # FIXME: Add debug in case
+        except Exception:
+            _logger.error(
+                "Error while reaching y-axis from %s", self.__plotItem, exc_info=True
+            )
             axis = None
 
         y1Axis = self.__getY1Axis()
@@ -354,7 +357,7 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
         self.__update()
 
     def getQColor(self, color):
-        # FIXME: It would be good to implement it in silx
+        # FIXME: It would be good to use silx 0.12 colors.asQColor
         color = colors.rgba(color)
         return qt.QColor.fromRgbF(*color)
 

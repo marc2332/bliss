@@ -329,11 +329,7 @@ class CurvePlotWidget(qt.QDockWidget):
                         )
                         plotItems.append((key, "marker"))
                 else:
-                    try:
-                        # FIXME: Not only for curves, but also for markers...
-                        plot.removeCurve(legend=legend)
-                    except:
-                        pass
+                    self.__cleanScanItem(item, scan)
 
         if scan not in self.__items:
             self.__items[scan] = {}

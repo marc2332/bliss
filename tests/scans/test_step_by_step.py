@@ -49,6 +49,24 @@ def test_dscan(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
+def test_lineup(session):
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    robz2 = session.env_dict["robz2"]
+    start_pos = robz2.position
+    s = scans.lineup(
+        robz2, -0.2, 0.2, 2, 0, simul_counter, return_scan=True, save=False
+    )
+    scan_data = s.get_data()
+    assert numpy.allclose(
+        scan_data["robz2"],
+        numpy.linspace(start_pos - 0.2, start_pos + 0.2, 3),
+        atol=5e-4,
+    )
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+    # after lineup motor goes to where the counter has its max value
+    assert robz2.position == 0
+
+
 def test_dscan_move_done(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
     robz2 = session.env_dict["robz2"]

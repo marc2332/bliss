@@ -145,8 +145,6 @@ def dscan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
 
 
 def lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
     if len(counter_args) == 0:
         raise ValueError("lineup: please specify a counter")
     if len(counter_args) > 1:
@@ -157,6 +155,7 @@ def lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     kwargs["return_scan"] = True
     scan = dscan(motor, start, stop, intervals, count_time, counter_args[0], **kwargs)
     scan.goto_peak(counter_args[0])
+    return scan
 
 
 def amesh(
@@ -513,7 +512,7 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
         )
     kwargs["type"] = scan_type
 
-    scan_name = kwargs.setdefault("name", scan_type)
+    kwargs.setdefault("name", scan_type)
     if "title" not in kwargs:
         args = [scan_type]
         args += title_list

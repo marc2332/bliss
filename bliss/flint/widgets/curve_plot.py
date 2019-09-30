@@ -148,10 +148,10 @@ class CurvePlotWidget(qt.QDockWidget):
         self.__plot.clear()
 
     def __scanStarted(self):
-        print("Scan started...")
+        pass
 
     def __scanFinished(self):
-        print("Scan finished...")
+        pass
 
     def __scanDataUpdated(self):
         self.__redrawCurrentScan()

@@ -12,6 +12,8 @@ from typing import Dict
 from typing import Callable
 from typing import Optional
 
+import logging
+
 from silx.gui import qt
 from silx.gui.plot import LegendSelector
 from silx.gui import colors
@@ -23,6 +25,8 @@ from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 
+
+_logger = logging.getLogger(__name__)
 
 PlotItemRole = qt.Qt.UserRole + 100
 
@@ -368,9 +372,8 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
                 self.setLineColor(color)
                 self.setLineStyle(style.lineStyle)
                 self.setLineWidth(1.5)
-            except Exception as e:
-                # FIXME: Log it better
-                print(e)
+            except Exception:
+                _logger.error("Error while reaching style", exc_info=True)
                 self.setLineColor("grey")
                 self.setLineStyle(":")
                 self.setLineWidth(1.5)
@@ -735,7 +738,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     itemMaster = scanTree.get(master, None)
                     if itemMaster is None:
                         parent = model
-                        print("Device list is not well ordered")
+                        _logger.warning("Device list is not well ordered")
                     else:
                         parent = itemMaster
                 parent.appendRow(item.items())
@@ -774,7 +777,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     itemSource = sourceTree.get(source, None)
                     if itemSource is None:
                         parent = itemWithoutMaster
-                        print("Item list is not well ordered")
+                        _logger.warning("Item list is not well ordered")
                     else:
                         parent = itemSource
             else:

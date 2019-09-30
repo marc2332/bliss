@@ -147,7 +147,7 @@ class Device(qt.QObject, _Sealable):
         """"
         True if the device is a master device.
         """
-        # FIXME: This have to be improved1
+        # FIXME: This have to be improved
         return self.__master is None
 
 

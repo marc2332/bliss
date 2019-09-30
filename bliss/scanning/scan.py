@@ -40,7 +40,7 @@ from bliss.data.node import (
 )
 from bliss.data.scan import get_data
 from bliss.common import motor_group
-from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain
+from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -1113,6 +1113,7 @@ class Scan:
 
             with capture_exceptions(raise_index=0) as capture:
                 with capture():
+                    kill_exception = StopChain
                     try:
                         while run_scan:
                             # The master defined as 'stopper' ends the loop
@@ -1138,8 +1139,13 @@ class Scan:
                                         # correspond to a "stopper" top master
                                         run_next_tasks.pop(i)
                                         run_scan = len(run_next_tasks) > 0
+                    except:
+                        kill_exception = gevent.GreenletExit
+                        raise
                     finally:
-                        gevent.killall([t for t, _ in run_next_tasks])
+                        gevent.killall(
+                            [t for t, _ in run_next_tasks], exception=kill_exception
+                        )
 
                 self.__state = ScanState.STOPPING
 

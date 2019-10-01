@@ -17,10 +17,11 @@ from typing import Dict
 import pickle
 from silx.gui import qt
 
-
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
+from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
 
 class ManageMainBehaviours(qt.QObject):
@@ -157,8 +158,13 @@ class ManageMainBehaviours(qt.QObject):
         widgets = self.__flintModel.workspace().popWidgets()
 
         from bliss.flint.widgets.curve_plot import CurvePlotWidget
+        from bliss.flint.widgets.mca_plot import McaPlotWidget
 
-        mapping = {CurvePlotWidget: plot_curve_model.CurvePlot}
+        mapping = {}
+        mapping[CurvePlotWidget] = plot_curve_model.CurvePlot
+        mapping[McaPlotWidget] = plot_item_model.McaPlot
+
+        availablePlots = list(workspace.plots())
 
         for widget in widgets:
             widget.setFlintModel(self.__flintModel)
@@ -168,13 +174,15 @@ class ManageMainBehaviours(qt.QObject):
                 print("No compatible class model")
                 plotModel = None
             else:
-                for plotModel in workspace.plots():
-                    if isinstance(plotModel, compatibleModel):
-                        break
+                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+                if len(plots) > 0:
+                    plotModel = plots[0]
+                    availablePlots.remove(plotModel)
                 else:
                     print("No compatible model")
                     plotModel = compatibleModel()
-                    workspace.addModel(plotModel)
+                    plotModel.setStyleStrategy(DefaultStyleStrategy())
+                    workspace.addPlot(plotModel)
 
             widget.setPlotModel(plotModel)
             workspace.addWidget(widget)

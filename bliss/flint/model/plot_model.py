@@ -25,6 +25,8 @@ class ChangeEventType(enum.Enum):
     CUSTOM_STYLE = enum.auto()
     X_CHANNEL = enum.auto()
     Y_CHANNEL = enum.auto()
+    MCA_CHANNEL = enum.auto()
+    IMAGE_CHANNEL = enum.auto()
 
 
 class Plot(qt.QObject):

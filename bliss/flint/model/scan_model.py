@@ -14,6 +14,7 @@ from typing import Any
 
 from silx.gui import qt
 import numpy
+import enum
 
 
 class SealedError(Exception):
@@ -151,6 +152,12 @@ class Device(qt.QObject, _Sealable):
         return self.__master is None
 
 
+class ChannelType(enum.Enum):
+    COUNTER = 0
+    SPECTRUM = 1
+    IMAGE = 2
+
+
 class Channel(qt.QObject, _Sealable):
 
     dataUpdated = qt.Signal(object)
@@ -160,13 +167,37 @@ class Channel(qt.QObject, _Sealable):
         _Sealable.__init__(self)
         self.__data: Union[None, Data] = None
         self.__name: str = ""
+        self.__type: ChannelType = ChannelType.COUNTER
         parent.addChannel(self)
+
+    def setType(self, channelType: ChannelType):
+        if self.isSealed():
+            raise SealedError()
+        self.__type = channelType
+
+    def type(self) -> ChannelType:
+        return self.__type
 
     def device(self) -> Device:
         return self.parent()
 
     def name(self) -> str:
         return self.__name
+
+    @property
+    def ndim(self) -> int:
+        """
+        Returns the amount of dimensions of the data, before reaching the data.
+
+        Mimics numpy arrays."""
+        if self.__type == ChannelType.COUNTER:
+            # one value per count
+            return 1
+        elif self.__type == ChannelType.SPECTRUM:
+            # one value per MCA channel
+            return 1
+        else:
+            assert False
 
     def setName(self, name: str):
         if self.isSealed():
@@ -179,8 +210,17 @@ class Channel(qt.QObject, _Sealable):
     def data(self) -> Union[None, Data]:
         return self.__data
 
+    def isDataCompatible(self, data: Data):
+        if data is None:
+            return True
+        if self.ndim != data.array().ndim:
+            return False
+        return True
+
     def setData(self, data: Data):
         # The only one attribute which can be updated
+        if not self.isDataCompatible(data):
+            raise ValueError("Data do not fit the channel requirements")
         self.__data = data
         self.dataUpdated.emit(data)
 

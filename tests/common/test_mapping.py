@@ -417,6 +417,21 @@ def test_non_cyclic_ref(beacon):
         cnts.append(cnt)
 
 
+def test_version_node_number(beamline):
+    beamline.register("tagada")
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 0
+    beamline.register("tagada_parent", children_list=["tagada"])
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 1
+
+    beamline.register("super", children_list=["tagada_parent"])
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 2
+    node = beamline.G.nodes["tagada_parent"]
+    assert node["version"] == 1
+
+
 #########################  MANUAL TESTING  ###################################
 
 

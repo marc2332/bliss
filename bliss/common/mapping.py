@@ -59,13 +59,19 @@ class Map:
         logger.debug(f"register: Creating node:{instance} id:{id(instance)}")
         if isinstance(instance, weakref.ProxyTypes):
             instance = instance.__repr__.__self__  # trick to get the hard reference
-        self.G.add_node(
-            map_id(instance),
-            instance=instance
-            if isinstance(instance, str)
-            else weakref.ref(instance, partial(self._trash_node, id_=map_id(instance))),
-        )  # weakreference to the instance with callback on removal
-        return self.G.node[map_id(instance)]
+        try:
+            return False, self.G.node[map_id(instance)]
+        except KeyError:
+            self.G.add_node(
+                map_id(instance),
+                instance=instance
+                if isinstance(instance, str)
+                else weakref.ref(
+                    instance, partial(self._trash_node, id_=map_id(instance))
+                ),
+                version=0,
+            )  # weakreference to the instance with callback on removal
+            return True, self.G.node[map_id(instance)]
 
     def register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
@@ -121,18 +127,33 @@ class Map:
     def _register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
     ):
-        # get always a list of arguments
+        # check is `version` is not part of keyword
+        if "version" in kwargs:
+            raise ValueError("'version` is an internal keyword that can be used")
+
         if parents_list is None:
             parents_list = []
         if children_list is None:
             children_list = []
 
-        if not isinstance(parents_list, list) or not isinstance(children_list, list):
-            raise TypeError("parents_list and children_list should be of type list")
+        if not isinstance(parents_list, (list, tuple, set)) or not isinstance(
+            children_list, (list, tuple, set)
+        ):
+            raise TypeError(
+                "parents_list and children_list should be of type list,tuple or set"
+            )
+
+        parents_dict = {map_id(parent): parent for parent in parents_list}
+        children_dict = {map_id(child): child for child in children_list}
 
         # First create this node
-        node = self._create_node(instance)
-
+        create_flag, node = self._create_node(instance)
+        if (
+            instance not in ("global", "controllers")
+            and create_flag
+            and not parents_dict
+        ):
+            parents_dict.update({"controllers": "controllers"})
         # adding attributes
         if tag or isinstance(instance, str):  # tag creation
             node["tag"] = tag if tag else instance  # if is a string represent as self
@@ -147,40 +168,79 @@ class Map:
 
         for key, value in kwargs.items():
             # populating self defined attributes
-            if self.G.node[map_id(instance)].get(key):
+            if key in node:
                 logger.debug("Overwriting node {key}")
             node[key] = value
 
         # parents
-        for inst in parents_list:
-            if map_id(inst) not in self.G:
-                logger.debug(f"register: Creating parent:{inst} id:{map_id(inst)}")
-                self.register(inst, children_list=[instance])  # register parents
+        instance_id = map_id(instance)
+        unexisting_parent_key = parents_dict.keys() - self.G
+        edge_parent = parents_dict.keys() - unexisting_parent_key
+        for inst_id in unexisting_parent_key:
+            logger.debug(
+                f"register: Creating parent:{parents_dict[inst_id]} id:{inst_id}"
+            )
+            self._register(
+                parents_dict[inst_id], children_list=[instance]
+            )  # register parents
+        if edge_parent:
+            self.G.add_edges_from(
+                ((parent_id, instance_id) for parent_id in edge_parent)
+            )
+        # check if we have an edge with **controllers**
+        controller_edge_removed = False
+        controller_id = map_id("controllers")
+        if not create_flag and (controller_id, instance_id) in self.G.edges:
+            # check if one of the parent is not already a child of **controllers**
+            possible_edge = set(
+                [(controller_id, parent_id) for parent_id in parents_dict.keys()]
+            )
+            controller_children_edge = possible_edge.intersection(self.G.edges)
+            if controller_children_edge:  # we will remove our edge with **controllers**
+                self.G.remove_edge(controller_id, instance_id)
+                controller_edge_removed = True
 
         # children
-        for inst in children_list:
-            if map_id(inst) not in self.G:
-                logger.debug(f"register: Creating child:{inst} id:{map_id(inst)}")
-                self.register(inst, parents_list=[instance])  # register children
+        unexisting_children_key = children_dict.keys() - self.G
+        edge_children = children_dict.keys() - unexisting_children_key
+        for inst_id in unexisting_children_key:
+            logger.debug(
+                f"register: Creating child:{children_dict[inst_id]} id:{inst_id}"
+            )
+            self._register(
+                children_dict[inst_id], parents_list=[instance]
+            )  # register children
+        if edge_children:
+            self.G.add_edges_from(
+                ((instance_id, child_id) for child_id in edge_children)
+            )
+        # remap children removing the parent connection to controllers
+        possible_edge = set([(controller_id, child_id) for child_id in edge_children])
+        controller_children_edge = possible_edge.intersection(self.G.edges)
+        if controller_children_edge:
+            self.G.remove_edges_from(controller_children_edge)
+            for _, child_id in controller_children_edge:
+                child_node = self.G.nodes[child_id]
+                self._increment_version_number(child_node)
 
-        # edges
-        for parent in parents_list:
-            # add parents
-            self.G.add_edge(map_id(parent), map_id(instance))
+        if not create_flag and (
+            unexisting_parent_key
+            or edge_parent
+            or unexisting_children_key  # new parent
+            or edge_children  # new children
+            or controller_children_edge
+            or controller_edge_removed
+        ):
+            # increment node version
+            self._increment_version_number(node)
 
-        for child in children_list:
-            # remap children removing the parent connection to controllers
-            if (map_id("controllers"), map_id(child)) in self.G.edges:
-                self.G.remove_edge(map_id("controllers"), map_id(child))
-            # add child
-            self.G.add_edge(map_id(instance), map_id(child))
-
-        for parent in parents_list:
-            # remap parents removing the parent connection to the device
-            if (map_id("controllers"), map_id(instance)) in self.G.edges:
-                self.G.remove_edge(map_id("controllers"), map_id(instance))
-            # add child
-            self.G.add_edge(map_id(parent), map_id(instance))
+    def _increment_version_number(self, node):
+        node["version"] += 1
+        try:
+            for node_id in self.G[map_id(node["instance"])]:
+                self._increment_version_number(self.G.nodes[node_id])
+        except KeyError:
+            pass
 
     def _trash_node(self, *args, id_=None):
         if id_ is None:
@@ -241,7 +301,6 @@ class Map:
                 else:
                     raise NotImplementedError
 
-            self.add_parent_if_missing()
             for func in self.handlers_list:
                 try:
                     func(self.G)
@@ -374,20 +433,6 @@ class Map:
 
     def add_map_handler(self, func):
         self.handlers_list.append(func)
-
-    def add_parent_if_missing(self):
-        """
-        Remaps nodes with missing parents to 'controllers'
-        """
-        for node in list(self.G):
-            try:
-                preds = list(self.G.predecessors(node))
-            except nx.NetworkXError:
-                continue
-            else:
-                if not preds and node != "global":
-                    self.G.add_edge("controllers", node)
-                    logger.debug(f"Added parent to {node}")
 
     def draw_matplotlib(
         self, ref_node=None, format_node: str = "tag->name->class->id"

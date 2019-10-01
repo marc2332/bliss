@@ -10,7 +10,6 @@ import operator
 import functools
 
 from bliss import global_map
-from bliss import setup_globals
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common import measurementgroup
@@ -20,8 +19,8 @@ from bliss.common.measurement import BaseCounter, SamplingCounter, CalcCounter
 def _get_object_from_name(name):
     """Get the bliss object corresponding to the given name."""
     try:
-        return operator.attrgetter(name)(setup_globals)
-    except AttributeError:
+        return next(x for x in global_map.get_counters_iter() if x.name == name)
+    except StopIteration:
         raise AttributeError(name)
 
 
@@ -100,7 +99,7 @@ def get_all_counters(counter_args):
     # Missing counters
     if missing:
         raise ValueError(
-            "Missing counters, not in setup_globals: {}.\n"
+            "Missing counters, not in global_map: {}.\n"
             "Hint: disable inactive counters.".format(", ".join(missing))
         )
 

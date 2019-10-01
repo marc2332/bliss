@@ -295,3 +295,13 @@ def test_wago_config_get(default_session):
     )
     assert wago.controller.series == 750
     wago.controller.print_plugged_modules()
+
+
+def test_wago_counters(default_session):
+
+    """
+    check you can define a wago key as a counter in config and read it
+    """
+    wago = default_session.config.get("wago_simulator")
+    assert len(wago.counters) == 2
+    assert type(wago.esTr1.read()) == type(0.0)

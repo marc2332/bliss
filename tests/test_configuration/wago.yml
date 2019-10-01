@@ -25,6 +25,7 @@ mapping:
       logical_names: esTr3, esTr4
     - type: 750-517
       logical_names: intlckf1, intlckf2
+counter_names: esTr1, esTr2
 interlocks:
     - relay: intlckf1
       flags: STICKY

@@ -21,7 +21,7 @@ from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
 from bliss.common.logtools import *
-
+from bliss.common.measurement import SamplingCounter
 from bliss.controllers.wago.helpers import splitlines, to_signed
 
 
@@ -1454,7 +1454,7 @@ class _WagoController:
                 )
 
 
-class WagoCounter(bliss.common.measurement.SamplingCounter):
+class WagoCounter(SamplingCounter):
     """ Counter reading and gains reading/setting
     """
 

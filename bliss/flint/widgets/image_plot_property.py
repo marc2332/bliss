@@ -58,8 +58,8 @@ class _DataItem(qt.QStandardItem):
     def __usedChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
             # There is a plot item already
-            # FIXME: Here we could remove the item
-            return
+            assert self.__plotModel is not None
+            self.__plotModel.removeItem(self.__plotItem)
         else:
             assert self.__channel is not None
             assert self.__plotModel is not None
@@ -95,18 +95,20 @@ class _DataItem(qt.QStandardItem):
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
+        self.__used.modelUpdated = None
         self.__used.setCheckable(True)
         self.__used.modelUpdated = self.__usedChanged
 
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
+        self.__used.modelUpdated = None
         self.__used.setData(plotItem, role=delegates.PlotItemRole)
         self.__used.setCheckState(qt.Qt.Checked)
+        self.__used.modelUpdated = self.__usedChanged
+
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
-
-        self.__used.modelUpdated = self.__usedChanged
 
         if plotItem is not None:
             isVisible = plotItem.isVisible()

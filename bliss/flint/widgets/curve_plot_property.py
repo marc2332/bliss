@@ -357,7 +357,7 @@ class _DataItem(qt.QStandardItem):
         self.setIcon(icon)
         self.__xaxis.setCheckable(False)
 
-    def setChannel(self, channel: scan_model.Channel, tree: qt.QTreeView):
+    def setChannel(self, channel: scan_model.Channel):
         self.__channel = channel
         text = "Channel %s" % channel.name()
         self.setText(text)
@@ -368,7 +368,7 @@ class _DataItem(qt.QStandardItem):
         self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
 
-        tree.openPersistentEditor(self.__yaxes.index())
+        self.__treeView.openPersistentEditor(self.__yaxes.index())
 
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
@@ -556,11 +556,13 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 item.setDevice(device)
 
                 for channel in device.channels():
+                    if channel.type() != scan_model.ChannelType.COUNTER:
+                        continue
                     channelItem = _DataItem()
                     channelItem.setEnvironment(self.__tree, self.__flintModel)
                     item.appendRow(channelItem.items())
                     # It have to be done when model index are initialized
-                    channelItem.setChannel(channel, self.__tree)
+                    channelItem.setChannel(channel)
                     channelItem.setPlotModel(self.__plotModel)
                     channelItems[channel.name()] = channelItem
 

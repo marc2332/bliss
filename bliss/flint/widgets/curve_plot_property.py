@@ -15,8 +15,6 @@ from typing import Optional
 import logging
 
 from silx.gui import qt
-from silx.gui.plot import LegendSelector
-from silx.gui import colors
 from silx.gui import icons
 
 from bliss.flint.model import flint_model
@@ -24,12 +22,10 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
-from bliss.flint.widgets.eye_check_box import EyeCheckBox
+from . import delegates
 
 
 _logger = logging.getLogger(__name__)
-
-PlotItemRole = qt.Qt.UserRole + 100
 
 
 class YAxesEditor(qt.QWidget):
@@ -181,7 +177,7 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         self.commitData.emit(editor)
 
     def getPlotItem(self, index) -> Union[None, plot_model.Item]:
-        plotItem = index.data(PlotItemRole)
+        plotItem = index.data(delegates.PlotItemRole)
         if not isinstance(plotItem, plot_model.Item):
             return None
         return plotItem
@@ -209,178 +205,12 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
-
-    VisibilityRole = qt.Qt.UserRole + 1
-
-    def createEditor(self, parent, option, index):
-        if not index.isValid():
-            return super(VisibilityPropertyItemDelegate, self).createEditor(
-                parent, option, index
-            )
-
-        editor = EyeCheckBox(parent=parent)
-        editor.toggled.connect(self.__commitData)
-        state = index.data(self.VisibilityRole)
-        editor.setChecked(state == qt.Qt.Checked)
-        state = index.data(self.VisibilityRole)
-        self.__updateEditorStyle(editor, state)
-        return editor
-
-    def __commitData(self):
-        editor = self.sender()
-        self.commitData.emit(editor)
-
-    def __updateEditorStyle(self, editor: qt.QCheckBox, state: qt.Qt.CheckState):
-        editor.setVisible(state is not None)
-
-    def setEditorData(self, editor, index):
-        state = index.data(self.VisibilityRole)
-        self.__updateEditorStyle(editor, state)
-
-    def setModelData(self, editor, model, index):
-        state = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
-        model.setData(index, state, role=self.VisibilityRole)
-
-    def updateEditorGeometry(self, editor, option, index):
-        # Center the widget to the cell
-        size = editor.sizeHint()
-        half = size / 2
-        halfPoint = qt.QPoint(half.width(), half.height() - 1)
-        pos = option.rect.center() - halfPoint
-        editor.move(pos)
-
-
-class _RemovePlotItemButton(qt.QToolButton):
-    def __init__(self, parent: qt.QWidget = None):
-        super(_RemovePlotItemButton, self).__init__(parent=parent)
-        self.__plotItem: Optional[plot_model.Item] = None
-        self.clicked.connect(self.__requestRemoveItem)
-        icon = icons.getQIcon("flint:icons/remove-item")
-        self.setIcon(icon)
-        self.setAutoRaise(True)
-
-    def __requestRemoveItem(self):
-        plotItem = self.__plotItem
-        plot = plotItem.plot()
-        if plot is not None:
-            plot.removeItem(plotItem)
-
-    def setPlotItem(self, plotItem: plot_model.Item):
-        self.__plotItem = plotItem
-
-
-class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
-    def __init__(self, parent):
-        qt.QStyledItemDelegate.__init__(self, parent=parent)
-
-    def createEditor(self, parent, option, index):
-        if not index.isValid():
-            return super(RemovePropertyItemDelegate, self).createEditor(
-                parent, option, index
-            )
-        editor = _RemovePlotItemButton(parent=parent)
-        plotItem = self.getPlotItem(index)
-        editor.setVisible(plotItem is not None)
-        return editor
-
-    def getPlotItem(self, index) -> Union[None, plot_model.Item]:
-        plotItem = index.data(PlotItemRole)
-        if not isinstance(plotItem, plot_model.Item):
-            return None
-        return plotItem
-
-    def setEditorData(self, editor, index):
-        plotItem = self.getPlotItem(index)
-        editor.setVisible(plotItem is not None)
-        editor.setPlotItem(plotItem)
-
-    def setModelData(self, editor, model, index):
-        pass
-
-
-class StylePropertyWidget(LegendSelector.LegendIcon):
-    def __init__(self, parent):
-        LegendSelector.LegendIcon.__init__(self, parent=parent)
-        self.__plotItem: Union[None, plot_model.Plot] = None
-        self.__flintModel: Union[None, flint_model.FlintState] = None
-        self.__scan: Union[None, scan_model.Scan] = None
-
-    def setPlotItem(self, plotItem: plot_model.Item):
-        if self.__plotItem is not None:
-            self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
-        self.__plotItem = plotItem
-        if self.__plotItem is not None:
-            self.__plotItem.valueChanged.connect(self.__plotItemChanged)
-            self.__plotItemStyleChanged()
-
-    def setFlintModel(self, flintModel: flint_model.FlintState = None):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
-        self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
-
-    def __currentScanChanged(self):
-        self.__setScan(self.__flintModel.currentScan())
-
-    def __setScan(self, scan: Union[None, scan_model.Scan]):
-        self.__scan = scan
-        self.__update()
-
-    def __plotItemChanged(self, eventType):
-        if eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
-            self.__plotItemStyleChanged()
-
-    def __plotItemStyleChanged(self):
-        self.__update()
-
-    def getQColor(self, color):
-        # FIXME: It would be good to use silx 0.12 colors.asQColor
-        color = colors.rgba(color)
-        return qt.QColor.fromRgbF(*color)
-
-    def __update(self):
-        plotItem = self.__plotItem
-        if plotItem is None:
-            self.setLineColor("red")
-            self.setLineStyle(":")
-            self.setLineWidth(1.5)
-        else:
-            scan = self.__scan
-            try:
-                style = plotItem.getStyle(scan)
-                color = self.getQColor(style.lineColor)
-                self.setLineColor(color)
-                self.setLineStyle(style.lineStyle)
-                self.setLineWidth(1.5)
-            except Exception:
-                _logger.error("Error while reaching style", exc_info=True)
-                self.setLineColor("grey")
-                self.setLineStyle(":")
-                self.setLineWidth(1.5)
-        self.update()
-
-
-class _HookedStandardItem(qt.QStandardItem):
-    def __init__(self, text: str):
-        qt.QStandardItem.__init__(self, text)
-        self.modelUpdated: Optional[Callable[[qt.QStandardItem], None]] = None
-
-    def setData(self, value, role=qt.Qt.UserRole + 1):
-        qt.QStandardItem.setData(self, value, role)
-        if self.modelUpdated is not None:
-            self.modelUpdated(self)
-
-
 class _DataItem(qt.QStandardItem):
     def __init__(self, text: str = ""):
         qt.QStandardItem.__init__(self, text)
-        self.__xaxis = _HookedStandardItem("")
-        self.__yaxes = _HookedStandardItem("")
-        self.__displayed = _HookedStandardItem("")
+        self.__xaxis = delegates.HookedStandardItem("")
+        self.__yaxes = delegates.HookedStandardItem("")
+        self.__displayed = delegates.HookedStandardItem("")
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
@@ -477,7 +307,7 @@ class _DataItem(qt.QStandardItem):
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
-            state = item.data(VisibilityPropertyItemDelegate.VisibilityRole)
+            state = item.data(delegates.VisibilityRole)
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setSelectedXAxis(self):
@@ -543,9 +373,9 @@ class _DataItem(qt.QStandardItem):
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
-        self.__yaxes.setData(plotItem, role=PlotItemRole)
-        self.__style.setData(plotItem, role=PlotItemRole)
-        self.__remove.setData(plotItem, role=PlotItemRole)
+        self.__yaxes.setData(plotItem, role=delegates.PlotItemRole)
+        self.__style.setData(plotItem, role=delegates.PlotItemRole)
+        self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
         self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
@@ -553,14 +383,10 @@ class _DataItem(qt.QStandardItem):
         if plotItem is not None:
             isVisible = plotItem.isVisible()
             state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
-            self.__displayed.setData(
-                state, role=VisibilityPropertyItemDelegate.VisibilityRole
-            )
+            self.__displayed.setData(state, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = self.__visibilityViewChanged
         else:
-            self.__displayed.setData(
-                None, role=VisibilityPropertyItemDelegate.VisibilityRole
-            )
+            self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
 
         if isinstance(plotItem, plot_curve_model.CurveItem):
@@ -577,7 +403,7 @@ class _DataItem(qt.QStandardItem):
         self.__treeView.openPersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
-        widget = StylePropertyWidget(self.__treeView)
+        widget = delegates.StylePropertyWidget(self.__treeView)
         widget.setPlotItem(self.__plotItem)
         widget.setFlintModel(self.__flintModel)
         self.__treeView.setIndexWidget(self.__style.index(), widget)
@@ -603,8 +429,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__xAxisInvalidated: bool = False
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
-        self.__visibilityDelegate = VisibilityPropertyItemDelegate(self)
-        self.__removeDelegate = RemovePropertyItemDelegate(self)
+        self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
+        self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
 

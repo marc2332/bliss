@@ -30,6 +30,10 @@ _logger = logging.getLogger("bliss.scans")
 _debug = _logger.debug
 _error = _logger.error
 
+# Normal chain stop, avoid print error message
+class StopChain(gevent.GreenletExit):
+    pass
+
 
 @contextmanager
 def profile(stats_dict, device_name, func_name):
@@ -37,6 +41,8 @@ def profile(stats_dict, device_name, func_name):
         call_start = time.time()
         _debug("Start %s.%s" % (device_name, func_name))
         yield
+    except StopChain:
+        raise
     except:
         _error("Exception caught in %s.%s" % (device_name, func_name))
         raise
@@ -686,6 +692,9 @@ class AcquisitionChainIter(object):
                 preset_tasks.append(gevent.spawn(preset.prepare))
         try:
             gevent.joinall(preset_tasks, raise_error=True)
+        except StopChain:
+            gevent.killall(preset_tasks, exception=StopChain)
+            raise
         finally:
             gevent.killall(preset_tasks)
 
@@ -697,6 +706,9 @@ class AcquisitionChainIter(object):
         ):
             try:
                 gevent.joinall(tasks, raise_error=True)
+            except StopChain:
+                gevent.killall(tasks, exception=StopChain)
+                raise
             finally:
                 gevent.killall(tasks)
 
@@ -713,12 +725,18 @@ class AcquisitionChainIter(object):
         )
         try:
             gevent.joinall(preset_tasks, raise_error=True)
+        except StopChain:
+            gevent.killall(preset_tasks, exception=StopChain)
+            raise
         finally:
             gevent.killall(preset_tasks)
         stats_dict = self.__acquisition_chain_ref()._stats_dict
         for tasks in self._execute("_start", stats_dict=stats_dict):
             try:
                 gevent.joinall(tasks, raise_error=True)
+            except StopChain:
+                gevent.killall(tasks, exception=StopChain)
+                raise
             finally:
                 gevent.killall(tasks)
 

@@ -72,3 +72,11 @@ def bytestring_to_wordarray(bytestring: Union[None, bytes]) -> list:
     if len(bytestring) % 2:
         bytestring += b"\0"
     return struct.unpack(f">{len(bytestring)//2}H", bytestring)
+
+
+def pretty_float(in_: Union[int, float]) -> Union[int, float]:
+    """Converts floats to int if they are equivalent"""
+    if int(in_) == in_:
+        return int(in_)
+    else:
+        return in_

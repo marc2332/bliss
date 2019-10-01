@@ -11,6 +11,7 @@ from collections import namedtuple
 from itertools import zip_longest
 
 from typing import Union
+import yaml
 
 import bliss
 from bliss.common.standard import debugon
@@ -23,6 +24,7 @@ from bliss.controllers.wago.helpers import (
     bytestring_to_wordarray,
     to_unsigned,
     to_signed,
+    pretty_float,
 )
 from bliss.controllers.wago.wago import (
     WagoController,
@@ -455,6 +457,49 @@ def specfile_interlock_parsing(iterable, modules_config: ModulesConfig):
             else:
                 raise Exception(f"Can't interpret '{line}'")
     return interlock_list
+
+
+def specfile_to_yml(iterable):
+    """Converts an iterable derived from a spec file containing interlock informations
+    to a yml equivalent to be used on beacon"""
+
+    yml = {"interlocks": []}
+    for line in remove_comments(splitlines(iterable)):
+        if interlock_parse_relay_line(line) is not None:
+            r = interlock_parse_relay_line(line)
+            r_y = {"relay": r.logical_device}
+
+            flags = flags_to_string(imask(r.flags))
+            if flags:
+                r_y["flags"] = flags
+            if r.logical_device_channel:
+                r_y["logical_channel"] = r.channel
+            if r.name:
+                r_y["name"] = r.name
+            r_y["channels"] = []
+
+            yml["interlocks"].append(r_y)
+
+        elif interlock_parse_channel_line(line) is not None:
+            c = interlock_parse_channel_line(line)
+            c_y = {"logical_name": c.logical_device, "type": c.type}
+
+            flags = flags_to_string(bchmask(c.flags))
+            if flags:
+                c_y["flags"] = flags
+            if c.low_limit is not None:
+                c_y["min"] = pretty_float(c.low_limit)
+            if c.high_limit is not None:
+                c_y["max"] = pretty_float(c.high_limit)
+            if c.dac is not None:
+                c_y["dac"] = c.dac
+            if c.dac_scale is not None:
+                c_y["dac_scale"] = c.dac_scale
+            if c.dac_offset is not None:
+                c_y["dac_offset"] = c.dac_offset
+            yml["interlocks"][-1]["channels"].append(c_y)
+
+    return yaml.dump(yml, default_flow_style=False, sort_keys=False)
 
 
 def _interlock_relay_info(

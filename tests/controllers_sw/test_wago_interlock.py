@@ -1,7 +1,13 @@
 import pytest
 import random
 
-from bliss.controllers.wago.helpers import bytestring_to_wordarray, to_unsigned
+import yaml
+
+from bliss.controllers.wago.helpers import (
+    bytestring_to_wordarray,
+    to_unsigned,
+    pretty_float,
+)
 from bliss.controllers.wago.interlocks import (
     specfile_interlock_parsing,
     remove_comments,
@@ -13,6 +19,7 @@ from bliss.controllers.wago.interlocks import (
     interlock_show,
     register_type_to_int,
     beacon_interlock_parsing,
+    specfile_to_yml,
 )
 from bliss.controllers.wago.wago import ModulesConfig
 
@@ -96,6 +103,14 @@ def test_remove_comments():
 
 def test_remove_comments_1():
     assert list(splitlines(file_1)) == list(splitlines(splitlines(file_1)))
+
+
+def test_pretty_float():
+    assert pretty_float(0.50) == 0.5
+    assert pretty_float(50.50) == 50.5
+    assert pretty_float(-70.0) == -70
+    assert pretty_float(-1270.010) == -1270.01
+    assert pretty_float(0.000) == 0
 
 
 def test_string_to_flags():
@@ -328,21 +343,6 @@ def test_parse_interlock_file_1():
     assert interlock_list[0]["logical_device_channel"] == 0
 
 
-"""
-relay itlke sticky name Temperature DCM DMM
-  1stxtalsi111 TC -200 55  # fake comment
-  1stxtalsi11190 TC -200 55
-  1stxtalsi311 TC -200 55
-  2ndxtalsi111 TC -200 55
-  2ndxtalsi11190 TC -200 55
-  2ndxtalsi311 TC -200 55
-  dmm1stxtal TC 0 55
-  dmm2ndxtal TC 0 55
-  beamstop TC 0 80  
-  beamsgo TC 0 80  
-"""
-
-
 def test_interlock_show(caplog):
     wcid01p1_mapping = """750-517,p1_rel
     750-469,p1_t1,p1_t2
@@ -419,9 +419,54 @@ def test_interlock_show(caplog):
     print(interlock_show("mywago", interlock_list))
 
 
-def test_specfile_interlock_parsing():
-
-    pass
+def test_specfile_to_yml():
+    yml = specfile_to_yml(file_1)
+    expected = """interlocks:
+- relay: itlke
+  flags: STICKY
+  name: Temperature DCM DMM
+  channels:
+  - logical_name: 1stxtalsi111
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: 1stxtalsi11190
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: 1stxtalsi311
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: 2ndxtalsi111
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: 2ndxtalsi11190
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: 2ndxtalsi311
+    type: TC
+    min: -200
+    max: 55
+  - logical_name: dmm1stxtal
+    type: TC
+    min: 0
+    max: 55
+  - logical_name: dmm2ndxtal
+    type: TC
+    min: 0
+    max: 55
+  - logical_name: beamstop
+    type: TC
+    min: 0
+    max: 80
+  - logical_name: beamgo
+    type: IB
+    flags: STICKY INVERTED
+"""
+    assert yml == expected
 
 
 def test_beacon_interlock_parsing(default_session):
@@ -445,3 +490,23 @@ def test_beacon_interlock_parsing(default_session):
     assert interlock_list[0]["channels"][1]["high_limit"] == int(505)
     assert interlock_list[0]["channels"][2]["low_limit"] == int(100)
     assert interlock_list[0]["channels"][2]["high_limit"] == int(500)
+
+
+def test_specfile_beacon_interlock_parsing(default_session):
+    specfile = """
+relay intlckf1 STICKY name Interlock
+  esTf1 TC 10 50
+  esTf2 TC -10 50.5
+  esTr1 TC 10 50
+  esTr2 TC 10 50
+relay intlckf2 STICKY name Interlock 2
+  esTr1 TC -10 50.5
+  esTr2 TC 10 50
+  """
+    wago = default_session.config.get("wago_simulator")
+
+    modules_config = wago.controller.modules_config
+
+    yml = specfile_to_yml(specfile)
+    dict_ = yaml.load(yml)
+    beacon_interlock_parsing(dict_["interlocks"], modules_config)

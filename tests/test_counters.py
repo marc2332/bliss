@@ -187,14 +187,13 @@ def test_sampling_counter_mode(session):
     diode3 = session.config.get("diode3")
     diode3.mode = "INTEGRATE"
 
-    s = loopscan(30, .05, diode2, diode3)
-    assert 1 == numpy.round(
-        (
-            numpy.sum(numpy.abs(s.get_data()["diode3"])) / .05
-        )  # use the fact that INTEGRATE is normalized by time
-        / numpy.sum(numpy.abs(s.get_data()["diode2"])),
-        0,
-    )
+    s = loopscan(100, .001, diode2, diode3)
+
+    d2 = numpy.sum(numpy.abs(s.get_data()["diode3"])) / .001
+    d3 = numpy.sum(numpy.abs(s.get_data()["diode2"]))
+
+    # use the fact that INTEGRATE is normalized by time
+    assert 1. == pytest.approx(d2 / d2, rel=.25)
 
 
 def test_SampCnt_mode_SAMPLES_from_conf(session):

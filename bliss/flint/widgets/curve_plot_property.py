@@ -24,6 +24,7 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
+from bliss.flint.widgets.eye_check_box import EyeCheckBox
 
 
 _logger = logging.getLogger(__name__)
@@ -218,30 +219,10 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
                 parent, option, index
             )
 
-        editor = qt.QCheckBox(parent=parent)
+        editor = EyeCheckBox(parent=parent)
         editor.toggled.connect(self.__commitData)
         state = index.data(self.VisibilityRole)
         editor.setChecked(state == qt.Qt.Checked)
-
-        # FIXME remove the hardcoded size, rework the icon and use size.height as a constraint
-        size = editor.sizeHint() + qt.QSize(5, 5)
-        iconChecked = icons.getQFile("flint:icons/visible")
-        iconUnchecked = icons.getQFile("flint:icons/visible-disabled")
-
-        style = f"""
-QCheckBox::indicator {{
-    width: {size.width()}px;
-    height: {size.height()}px;
-}}
-QCheckBox::indicator:checked {{
-    image: url({iconChecked.fileName()});
-}}
-QCheckBox::indicator:unchecked {{
-    image: url({iconUnchecked.fileName()});
-}}
-"""
-        editor.setStyleSheet(style)
-
         state = index.data(self.VisibilityRole)
         self.__updateEditorStyle(editor, state)
         return editor

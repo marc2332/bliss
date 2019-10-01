@@ -12,7 +12,7 @@ from typing import Optional
 from silx.gui import qt
 
 import numpy
-from scipy import signal
+import scipy.signal
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -57,9 +57,14 @@ class AcquisitionSimulator(qt.QObject):
             raise ValueError("Acquisition scan not started")
         return self.__scan
 
-    def __createScan(self, interval, duration) -> scan_model.Scan:
-        scan = scan_model.Scan(None)
+    def registerData(
+        self, periode: int, channel: scan_model.Channel, data: numpy.ndarray
+    ):
+        if periode not in self.__data:
+            self.__data[periode] = {}
+        self.__data[periode][channel] = data
 
+    def __createCounters(self, scan: scan_model.Scan, interval, duration):
         master_time1 = scan_model.Device(scan)
         master_time1.setName("time")
         master_time1_index = scan_model.Channel(master_time1)
@@ -95,8 +100,6 @@ class AcquisitionSimulator(qt.QObject):
         device4_channel1 = scan_model.Channel(device4)
         device4_channel1.setName("dev4:chan1")
 
-        scan.seal()
-
         # Every 2 ticks
         nbPoints1 = (duration // interval) // 2
         index1 = numpy.linspace(0, duration, nbPoints1)
@@ -104,14 +107,14 @@ class AcquisitionSimulator(qt.QObject):
         nbPoints2 = (duration // interval) // 3
         index2 = numpy.linspace(0, duration, nbPoints2)
 
-        self.__data = {}
-
         def step(position, nbPoints, gaussianStd, height=1):
             gaussianSize = int(gaussianStd) * 10
-            gaussianData = signal.gaussian(gaussianSize, gaussianStd)
+            gaussianData = scipy.signal.gaussian(gaussianSize, gaussianStd)
             stepData = numpy.zeros(len(index1) + gaussianSize)
             stepData[int(position) :] = 1
-            stepData = signal.convolve(stepData, gaussianData, mode="same")[0:nbPoints]
+            stepData = scipy.signal.convolve(stepData, gaussianData, mode="same")[
+                0:nbPoints
+            ]
             stepData *= 1 / stepData[-1]
             return height * stepData
 
@@ -121,23 +124,73 @@ class AcquisitionSimulator(qt.QObject):
             step(pos, nbPoints1, 6, height=height) + numpy.random.random(nbPoints1) * 1
         )
 
-        self.__data[2] = {
-            master_time1_index: index1,
-            device1_channel1: numpy.sin(2 * numpy.pi * index1 / duration)
-            + 0.1 * numpy.random.random(nbPoints1),
-            device1_channel2: numpy.random.random(nbPoints1),
-            device2_channel1: numpy.array(
-                [1.5] * nbPoints1 + 0.2 * numpy.random.random(nbPoints1)
-            ),
-            device4_channel1: stepData,
-        }
-        self.__data[3] = {
-            master_time2_index: index2,
-            device3_channel1: 0.5
-            * numpy.sin(2 * numpy.pi * index2 / duration)
-            * numpy.cos(2 * numpy.pi * index2 / duration)
-            + 0.3 * numpy.random.random(nbPoints2),
-        }
+        self.registerData(2, master_time1_index, index1)
+
+        data = numpy.sin(2 * numpy.pi * index1 / duration) + 0.1 * numpy.random.random(
+            nbPoints1
+        )
+        self.registerData(2, device1_channel1, data)
+        self.registerData(2, device1_channel2, numpy.random.random(nbPoints1))
+        data = numpy.array([1.5] * nbPoints1 + 0.2 * numpy.random.random(nbPoints1))
+        self.registerData(2, device2_channel1, data)
+        self.registerData(2, device4_channel1, stepData)
+        self.registerData(3, master_time2_index, index2)
+        data = 0.5 * numpy.sin(2 * numpy.pi * index2 / duration) * numpy.cos(
+            2 * numpy.pi * index2 / duration
+        ) + 0.3 * numpy.random.random(nbPoints2)
+        self.registerData(3, device3_channel1, data)
+
+    def __createMcas(self, scan: scan_model.Scan, interval, duration):
+        master_time1 = scan_model.Device(scan)
+        master_time1.setName("timeMca")
+        master_time1_index = scan_model.Channel(master_time1)
+        master_time1_index.setName("timeMca:index")
+
+        mca1 = scan_model.Device(scan)
+        mca1.setName("mca1")
+        mca1.setMaster(master_time1)
+        mca2 = scan_model.Device(scan)
+        mca2.setName("mca2")
+        mca2.setMaster(master_time1)
+
+        mca1_channel1 = scan_model.Channel(mca1)
+        mca1_channel1.setName("mca1:chan1")
+        mca1_channel1.setType(scan_model.ChannelType.SPECTRUM)
+        mca1_channel2 = scan_model.Channel(mca1)
+        mca1_channel2.setName("mca1:chan2")
+        mca1_channel2.setType(scan_model.ChannelType.SPECTRUM)
+        mca2_channel1 = scan_model.Channel(mca2)
+        mca2_channel1.setName("mca2:chan1")
+        mca2_channel1.setType(scan_model.ChannelType.SPECTRUM)
+        mca2_channel2 = scan_model.Channel(mca2)
+        mca2_channel2.setName("mca2:chan2")
+        mca2_channel2.setType(scan_model.ChannelType.SPECTRUM)
+
+        periode = 10
+        nbPoints1 = (duration // interval) // periode + 1
+        index1 = numpy.linspace(0, duration, nbPoints1)
+
+        t, _ = numpy.ogrid[: len(index1), : len(index1)]
+        raw_data1 = scipy.signal.gaussian(128, std=13) * t
+        raw_data2 = scipy.signal.gaussian(100, std=12) * t
+
+        self.registerData(periode, master_time1_index, index1)
+        data = numpy.random.poisson(raw_data1)
+        self.registerData(periode, mca1_channel1, data)
+        data = numpy.random.poisson(raw_data1 * 0.9)
+        self.registerData(periode, mca1_channel2, data)
+        data = numpy.random.poisson(raw_data2 * 0.5)
+        self.registerData(periode, mca2_channel1, data)
+        data = numpy.random.poisson(raw_data2 * 0.5)
+        self.registerData(periode, mca2_channel2, data)
+
+    def __createScan(self, interval, duration) -> scan_model.Scan:
+        self.__data = {}
+        scan = scan_model.Scan(None)
+        self.__createCounters(scan, interval, duration)
+        self.__createMcas(scan, interval, duration)
+        scan.seal()
+
         return scan
 
     def updateNewData(self):
@@ -147,7 +200,12 @@ class AcquisitionSimulator(qt.QObject):
                 continue
             pos = self.__tick // modulo
             for channel, array in data.items():
-                newData = scan_model.Data(channel, array[0:pos])
+                if channel.type() == scan_model.ChannelType.COUNTER:
+                    newData = scan_model.Data(channel, array[0:pos])
+                elif channel.type() == scan_model.ChannelType.SPECTRUM:
+                    newData = scan_model.Data(channel, array[pos])
+                else:
+                    assert False
                 channel.setData(newData)
 
         self.__scan._fireScanDataUpdated()

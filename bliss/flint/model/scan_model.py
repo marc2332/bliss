@@ -196,6 +196,8 @@ class Channel(qt.QObject, _Sealable):
         elif self.__type == ChannelType.SPECTRUM:
             # one value per MCA channel
             return 1
+        elif self.__type == ChannelType.IMAGE:
+            return 2
         else:
             assert False
 

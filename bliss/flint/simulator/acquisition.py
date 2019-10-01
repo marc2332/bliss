@@ -184,12 +184,57 @@ class AcquisitionSimulator(qt.QObject):
         data = numpy.random.poisson(raw_data2 * 0.5)
         self.registerData(periode, mca2_channel2, data)
 
+    def __createImages(self, scan: scan_model.Scan, interval, duration):
+        master_time1 = scan_model.Device(scan)
+        master_time1.setName("timeImage")
+        master_time1_index = scan_model.Channel(master_time1)
+        master_time1_index.setName("timeImage:index")
+
+        lima1 = scan_model.Device(scan)
+        lima1.setName("lima1")
+        lima1.setMaster(master_time1)
+        lima2 = scan_model.Device(scan)
+        lima2.setName("lima2")
+        lima2.setMaster(master_time1)
+
+        lima1_channel1 = scan_model.Channel(lima1)
+        lima1_channel1.setName("lima1:image")
+        lima1_channel1.setType(scan_model.ChannelType.IMAGE)
+        lima2_channel1 = scan_model.Channel(lima2)
+        lima2_channel1.setName("lima2:image")
+        lima2_channel1.setType(scan_model.ChannelType.IMAGE)
+
+        periode = 10
+
+        nbPoints1 = (duration // interval) // periode + 1
+        index1 = numpy.linspace(0, duration, nbPoints1)
+        self.registerData(periode, master_time1_index, index1)
+
+        size = 128
+        lut = scipy.signal.gaussian(size, std=13) * 5
+        yy, xx = numpy.ogrid[:size, :size]
+        singleImage = lut[yy] * lut[xx]
+        data = [numpy.random.poisson(singleImage) for _ in range(5)]
+        data = numpy.array(data)
+        self.registerData(periode, lima1_channel1, data)
+
+        size = 256
+        lut = scipy.signal.gaussian(size, std=8) * 10
+        yy, xx = numpy.ogrid[:size, :size]
+        singleImage = lut[yy] * lut[xx]
+        data = [numpy.random.poisson(singleImage) for _ in range(5)]
+        data = numpy.array(data)
+        self.registerData(periode, lima2_channel1, data)
+
     def __createScan(self, interval, duration) -> scan_model.Scan:
         self.__data = {}
+        print("Preparing data...")
         scan = scan_model.Scan(None)
         self.__createCounters(scan, interval, duration)
         self.__createMcas(scan, interval, duration)
+        self.__createImages(scan, interval, duration)
         scan.seal()
+        print("Data prepared")
 
         return scan
 
@@ -201,9 +246,15 @@ class AcquisitionSimulator(qt.QObject):
             pos = self.__tick // modulo
             for channel, array in data.items():
                 if channel.type() == scan_model.ChannelType.COUNTER:
+                    # growing 1d data
                     newData = scan_model.Data(channel, array[0:pos])
                 elif channel.type() == scan_model.ChannelType.SPECTRUM:
+                    # 1d data in an indexed array
                     newData = scan_model.Data(channel, array[pos])
+                elif channel.type() == scan_model.ChannelType.IMAGE:
+                    # image in a looped buffer
+                    p = pos % len(array)
+                    newData = scan_model.Data(channel, array[p])
                 else:
                     assert False
                 channel.setData(newData)

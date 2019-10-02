@@ -87,11 +87,43 @@ def get_logger(instance):
     Returns:
         BlissLogger instance for the specific instance
     """
-    id_ = map_id(instance)
-    if id_ in global_map.G:
-        return global_map.G.node[id_]["_logger"]
-    global_map.register(instance)
-    return global_map[instance]["_logger"]
+    try:
+        node = global_map[instance]
+    except KeyError:
+        global_map.register(instance)
+        node = global_map[instance]
+
+    logger_version = node.get("_logger_version")
+    node_version = node["version"]
+    # check if the node hasn't been re-parent
+    if node_version == logger_version:
+        return node["_logger"]
+    else:  # update the logger
+        logger = node.get("_logger")
+        if logger:
+            existing_logger_name = logger.name
+            logger_name = create_logger_name(
+                global_map.G, map_id(instance)
+            )  # get name from map
+            # the logger exists, update the name if necessary
+            if existing_logger_name != logger_name:
+                manager = logger.manager
+                manager.loggerDict.pop(existing_logger_name, None)
+                logger.name = logger_name
+                manager.loggerDict[logger.name] = logger
+                manager._fixupParents(logger)
+        else:
+            # if the logger does not exist create it
+            # use our own Logger class
+            new_logger_name = create_logger_name(
+                global_map.G, map_id(instance)
+            )  # get proper name
+            with bliss_logger():
+                logger = logging.getLogger(new_logger_name)
+                node["_logger"] = logger
+
+        node["_logger_version"] = node_version
+        return logger
 
 
 LOG_DOCSTRING = """
@@ -338,8 +370,9 @@ class Log:
 
     def __init__(self, map):
         self.map = map
-        self.map.add_map_handler(map_update_loggers)
-        self.map.trigger_update()
+        for node_name in ("global", "controllers"):
+            get_logger(node_name)
+
         self._debug_handler = None
 
     def set_debug_handler(self, handler):
@@ -457,43 +490,3 @@ def create_logger_name(G, node_id):
         pass
 
     return format_node(G, node_id, format_string="tag->name->class->id")
-
-
-def map_update_loggers(G):
-    """
-    Function to be called after map update (add to map handlers)
-
-    Args:
-        G: networkX DiGraph (given by mapping module)
-    """
-    for node in list(G):
-        node_dict = G.node.get(node)
-        if not node_dict:
-            continue
-        reference = node_dict.get("instance")
-        if isinstance(reference, str):
-            if reference in ("axes", "counters", "comms"):
-                continue
-            else:
-                inst = reference
-        else:
-            inst = reference()
-
-        if inst is not None:  # if weakref is still alive
-            logger = node_dict.get("_logger")
-            if logger:
-                existing_logger_name = logger.name
-                logger_name = create_logger_name(G, node)  # get name from map
-                # the logger exists, update the name if necessary
-                if existing_logger_name != logger_name:
-                    manager = logger.manager
-                    manager.loggerDict.pop(existing_logger_name, None)
-                    logger.name = logger_name
-                    manager.loggerDict[logger.name] = logger
-                    manager._fixupParents(logger)
-            else:
-                # if the logger does not exist create it
-                # use our own Logger class
-                new_logger_name = create_logger_name(G, node)  # get proper name
-                with bliss_logger():
-                    node_dict["_logger"] = logging.getLogger(new_logger_name)

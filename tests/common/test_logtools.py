@@ -286,11 +286,13 @@ def test_log_name_sanitize(params):
     beacon, log = params
     d1 = Device(r"Hi_*2^a.o@@-[200]")
     assert map_id(d1) in global_map
+    get_logger(d1)
     assert (
         global_map[map_id(d1)]["_logger"].name == "global.controllers.Hi__2_a_o__-[200]"
     )
     d2 = Device(r"/`/deviceDEVICE=+{}()")
-    assert map_id(d1) in global_map
+    assert map_id(d2) in global_map
+    get_logger(d2)
     assert (
         global_map[map_id(d2)]["_logger"].name
         == "global.controllers.___deviceDEVICE=___()"

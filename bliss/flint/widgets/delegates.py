@@ -209,9 +209,8 @@ class RadioPropertyItemDelegate(qt.QStyledItemDelegate):
         editor = qt.QRadioButton(parent=parent)
         editor.setAutoExclusive(False)
         editor.clicked.connect(self.__editorsChanged)
-        self.setEditorData(editor, index)
-        editor.setMinimumSize(editor.sizeHint())
-        editor.setMaximumSize(editor.sizeHint())
+        editor.setMinimumSize(editor.minimumSizeHint())
+        editor.setMaximumSize(editor.minimumSizeHint())
         editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
         return editor
 

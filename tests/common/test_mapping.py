@@ -276,14 +276,13 @@ def test_global_map(beacon, s1hg, roby):
     heater = beacon.get("heater")
     # m.draw_pygraphviz()
 
-    assert len(m) == 34
     axes = list(m.find_children("axes"))
     assert id(roby) in axes
     assert id(s1hg) in axes
-    assert len(axes) == 2
+    assert len(axes) == 9
     counters = list(m.find_children("counters"))
-    assert id(heater) in counters
-    assert len(counters) == 1
+    assert id(heater.counters[0]) in counters
+    assert len(counters) == 3
     slits_children = m.find_children(id(s1hg.controller))
     for real_axis in s1hg.controller.reals:
         assert id(real_axis) in slits_children
@@ -299,14 +298,13 @@ def test_global_map(beacon, s1hg, roby):
     assert id(outp) in sr_children
     inp_pred = m.find_predecessors(id(inp))
     outp_pred = m.find_predecessors(id(outp))
-    outp_pred.remove("counters")
     assert set(outp_pred) == set(inp_pred)
-    assert "motion_hooks" in m.find_children("controllers")
-    motion_hooks_children = m.find_children("motion_hooks")
-    assert len(motion_hooks_children) == 3
     hooked_m0 = beacon.get("hooked_m0")
     hooked_m0_pred = m.find_predecessors(id(hooked_m0))
     assert "axes" in hooked_m0_pred
+    assert "motion_hooks" in m.find_children("controllers")
+    motion_hooks_children = m.find_children("motion_hooks")
+    assert len(motion_hooks_children) == 1
     hooked_m0_pred.remove("axes")
     assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
         ["controllers", "motion_hooks"]

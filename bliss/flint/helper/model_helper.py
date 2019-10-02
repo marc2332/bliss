@@ -4,7 +4,6 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
 """
 Helper functions to deal with Flint models
 """
@@ -134,3 +133,13 @@ def getMostUsedXChannelPerMasters(
         xChannelPerMaster[master] = most_often_used_channel
 
     return xChannelPerMaster
+
+
+def cloneChannelRef(
+    plot: plot_model.Plot, channel: Optional[plot_model.ChannelRef]
+) -> Optional[plot_model.ChannelRef]:
+    if channel is None:
+        return None
+    name = channel.name()
+    cloned = plot_model.ChannelRef(parent=plot, channelName=name)
+    return cloned

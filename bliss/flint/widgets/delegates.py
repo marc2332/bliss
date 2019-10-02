@@ -30,6 +30,7 @@ _logger = logging.getLogger(__name__)
 
 PlotItemRole = qt.Qt.UserRole + 100
 VisibilityRole = qt.Qt.UserRole + 101
+RadioRole = qt.Qt.UserRole + 102
 
 
 class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
@@ -193,3 +194,54 @@ class HookedStandardItem(qt.QStandardItem):
         qt.QStandardItem.setData(self, value, role)
         if self.modelUpdated is not None:
             self.modelUpdated(self)
+
+
+class RadioPropertyItemDelegate(qt.QStyledItemDelegate):
+    def __init__(self, parent):
+        qt.QStyledItemDelegate.__init__(self, parent=parent)
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(RadioPropertyItemDelegate, self).createEditor(
+                parent, option, index
+            )
+
+        editor = qt.QRadioButton(parent=parent)
+        editor.setAutoExclusive(False)
+        editor.clicked.connect(self.__editorsChanged)
+        self.setEditorData(editor, index)
+        editor.setMinimumSize(editor.sizeHint())
+        editor.setMaximumSize(editor.sizeHint())
+        editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+        return editor
+
+    def __editorsChanged(self):
+        editor = self.sender()
+        self.commitData.emit(editor)
+
+    def setEditorData(self, editor: qt.QWidget, index):
+        data = index.data(role=RadioRole)
+        old = editor.blockSignals(True)
+        if data == qt.Qt.Checked:
+            editor.setVisible(True)
+            editor.setChecked(True)
+        elif data == qt.Qt.Unchecked:
+            editor.setVisible(True)
+            editor.setChecked(False)
+        elif data is None:
+            editor.setVisible(False)
+        else:
+            _logger.warning("Unsupported data %s", data)
+        editor.blockSignals(old)
+
+    def setModelData(self, editor, model, index):
+        data = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
+        model.setData(index, data, role=RadioRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)

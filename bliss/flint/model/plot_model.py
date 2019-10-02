@@ -27,6 +27,7 @@ class ChangeEventType(enum.Enum):
     Y_CHANNEL = enum.auto()
     MCA_CHANNEL = enum.auto()
     IMAGE_CHANNEL = enum.auto()
+    VALUE_CHANNEL = enum.auto()
 
 
 class Plot(qt.QObject):

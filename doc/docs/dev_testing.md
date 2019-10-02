@@ -96,14 +96,16 @@ See also: https://pytest-cov.readthedocs.io/en/latest/reporting.html
 
 ## Hardware tests
 
-Hardware tests are ignored by continuous integration but can be run manualy.
+Tests files located in `bliss/tests/controllers_hw/` directory are *Hardware tests*.
+They are ignored by continuous integration but can be run manualy.
 
 !!! warning
     They are using the beamline database for configuration and not the test
     configuration.
 
 ### Axis
-The is a generic axis test for basic feature: position, velocity, acceleration and stop.
+There is a generic axis test for basic feature: position, velocity, acceleration
+and stop.
 
 Example:
 ```
@@ -113,6 +115,29 @@ This will do a real test on *Beamline* axis named **rot**.
 
 !!! warning
     This test will do real movement on the specified axis.
+
+## `xfail`
+
+`pytest.xfail()` instruction
+
+"A `xfail` means that you expect a test to fail for some reason. A common example
+is a test for a feature not yet implemented, or a bug not yet fixed. When a test
+passes despite being expected to fail (marked with pytest.mark.xfail), it’s an
+xpass and will be reported in the test summary."
+
+see: http://doc.pytest.org/en/latest/skipping.html
+
+```
+@pytest.mark.parametrize("channel_id", [1, 2])
+def test_read_calc_channels(pepu, channel_id):
+    cmd = "?CHVAL CALC%d" % channel_id
+    with pepu.assert_command(cmd, "-1"):
+        channel = pepu.calc_channels[channel_id]
+        value = channel.value
+    pytest.xfail()
+    assert value in (1.5, -1.5)
+```
+
 
 
 ## Configuration in BLISS

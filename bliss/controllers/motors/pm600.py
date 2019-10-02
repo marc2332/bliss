@@ -9,8 +9,9 @@ from warnings import warn
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
-from bliss.comm.util import get_comm, TCP
 from bliss.common.logtools import *
+from bliss.comm.util import get_comm
+from bliss.comm.exceptions import CommunicationError
 from bliss import global_map
 
 MAX_VELOCITY = 400000
@@ -21,6 +22,7 @@ MAX_DECELERATION = 400000
 MIN_DECELERATION = 1
 MAX_CREEP_SPEED = 1000
 MIN_CREEP_SPEED = 1
+
 """
 Bliss controller for McLennan PM600/PM1000 motor controller.
 
@@ -30,7 +32,7 @@ Bliss controller for McLennan PM600/PM1000 motor controller.
 class PM600(Controller):
     def initialize(self):
         try:
-            self.sock = get_comm(self.config.config_dict, TCP)
+            self.sock = get_comm(self.config.config_dict)
         except ValueError:
             host = config.get("host")
             port = int(config.get("port"))
@@ -44,7 +46,11 @@ class PM600(Controller):
         global_map.register(self, children_list=[self.sock])
 
         # read spurious 'd' character when connected
-        self.sock.readline(eol="\r")
+        # on ID26, via Serial, there is no spurious character to be read ...
+        try:
+            self.sock.readline(eol="\r")
+        except CommunicationError:
+            pass
 
     def finalize(self):
         self.sock.close()

@@ -226,6 +226,66 @@ class AcquisitionSimulator(qt.QObject):
         data = numpy.array(data)
         self.registerData(periode, lima2_channel1, data)
 
+    def __createScatters(self, scan: scan_model.Scan, interval, duration):
+
+        master_time1 = scan_model.Device(scan)
+        master_time1.setName("time_scatter")
+
+        device1 = scan_model.Device(scan)
+        device1.setName("motor1")
+        device1.setMaster(master_time1)
+        device1_channel1 = scan_model.Channel(device1)
+        device1_channel1.setName("motor1:position")
+
+        device2 = scan_model.Device(scan)
+        device2.setName("motor2")
+        device2.setMaster(master_time1)
+        device2_channel1 = scan_model.Channel(device2)
+        device2_channel1.setName("motor2:position")
+
+        device3 = scan_model.Device(scan)
+        device3.setName("diode1")
+        device3.setMaster(master_time1)
+        device3_channel1 = scan_model.Channel(device3)
+        device3_channel1.setName("diode1:intensity")
+
+        device4 = scan_model.Device(scan)
+        device4.setName("temprature1")
+        device4.setMaster(master_time1)
+        device4_channel1 = scan_model.Channel(device4)
+        device4_channel1.setName("temperature1:value")
+
+        # Every 2 ticks
+        nbPoints = duration // interval
+        nbX = int(numpy.sqrt(nbPoints))
+        nbY = nbPoints // nbX + 1
+
+        # Motor position
+        yy = numpy.atleast_2d(numpy.ones(nbY)).T
+        xx = numpy.atleast_2d(numpy.ones(nbX))
+
+        positionX = numpy.linspace(10, 50, nbX) * yy
+        positionX = positionX.reshape(nbX * nbY)
+        positionX = positionX + numpy.random.rand(len(positionX)) - 0.5
+
+        positionY = numpy.atleast_2d(numpy.linspace(20, 60, nbY)).T * xx
+        positionY = positionY.reshape(nbX * nbY)
+        positionY = positionY + numpy.random.rand(len(positionY)) - 0.5
+
+        self.registerData(1, device1_channel1, positionX)
+        self.registerData(1, device2_channel1, positionY)
+
+        # Diodes position
+        lut = scipy.signal.gaussian(max(nbX, nbY), std=8) * 10
+        yy, xx = numpy.ogrid[:nbY, :nbX]
+        signal = lut[yy] * lut[xx]
+        diode1 = numpy.random.poisson(signal * 10)
+        diode1 = diode1.reshape(nbX * nbY)
+        self.registerData(1, device3_channel1, diode1)
+
+        temperature1 = 25 + numpy.random.rand(nbX * nbY) * 5
+        self.registerData(1, device4_channel1, temperature1)
+
     def __createScan(self, interval, duration) -> scan_model.Scan:
         self.__data = {}
         print("Preparing data...")
@@ -233,6 +293,7 @@ class AcquisitionSimulator(qt.QObject):
         self.__createCounters(scan, interval, duration)
         self.__createMcas(scan, interval, duration)
         self.__createImages(scan, interval, duration)
+        self.__createScatters(scan, interval, duration)
         scan.seal()
         print("Data prepared")
 

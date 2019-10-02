@@ -50,10 +50,6 @@ class ScatterPlotWidget(qt.QDockWidget):
             self.widgetActivated.emit(self)
         return widget.eventFilter(widget, event)
 
-    def focusInEvent(self, event):
-        self.widgetActivated.emit(self)
-        super(ScatterPlotWidget, self).focusInEvent(event)
-
     def createPropertyWidget(self, parent: qt.QWidget):
         from . import scatter_plot_property
 

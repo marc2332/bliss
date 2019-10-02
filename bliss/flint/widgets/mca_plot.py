@@ -52,10 +52,6 @@ class McaPlotWidget(qt.QDockWidget):
             self.widgetActivated.emit(self)
         return widget.eventFilter(widget, event)
 
-    def focusInEvent(self, event):
-        self.widgetActivated.emit(self)
-        super(McaPlotWidget, self).focusInEvent(event)
-
     def createPropertyWidget(self, parent: qt.QWidget):
         from . import mca_plot_property
 

@@ -313,16 +313,6 @@ def test_global_map(beacon, s1hg, roby):
     )
 
 
-def test_bad_function_on_trigger_update(beamline):
-    def bad_func(graph):
-        raise NotImplementedError
-
-    beamline.add_map_handler(bad_func)
-
-    with pytest.raises(NotImplementedError):
-        beamline.register("new node")
-
-
 def test_create_submap_1(complex_beamline):
     sub_G = nx.DiGraph()
     complex_beamline.create_submap(sub_G, "comms")
@@ -362,59 +352,6 @@ def test_create_partial_map_2(complex_beamline):
     assert len(sub_G) == 7
     for node in "global controllers Contr_1 Axis_2 m1 m2 m3".split():
         assert node in sub_G
-
-
-def test_non_cyclic_ref(beacon):
-    m = Map()
-
-    class Cnt:
-        class Counter:
-            def __init__(self, name, mode):
-                self.name = name
-                self.mode = mode
-
-        def __init__(self):
-            self.in_set_mode = False
-            self.mode = None
-            self.__counter = list()
-
-        def set_mode(self, mode):
-            if self.mode == mode:
-                return
-
-            if self.in_set_mode:
-                return
-            print(f"set_mode {mode} {id(self)}")
-            self.in_set_mode = True
-            while self.__counter:
-                cnt = self.__counter.pop(0)
-                print(f"remove {cnt.name} {id(self)} {sys.getrefcount(cnt)}")
-            for i in range(10):
-                print(f"create counter {i} {id(self)}")
-                c = Cnt.Counter(f"counter {i}", mode)
-                m.register(c)
-                self.__counter.append(c)
-            self.in_set_mode = False
-            self.mode = mode
-
-    def update_mode(G):
-        for node in list(G):
-            ref = G.node[node].get("instance")
-            try:
-                inst = ref()
-            except:
-                continue
-            if isinstance(inst, Cnt):
-                inst.set_mode(current_mode)
-
-    m.add_map_handler(update_mode)
-    cnts = list()
-    for current_mode in ["bla", "truc", "chose", "hello", "mario"]:
-        print(f"create cnt {current_mode}")
-        cnt = Cnt()
-        print(f"register cnt {current_mode}")
-        m.register(cnt)
-        cnts.append(cnt)
 
 
 def test_version_node_number(beamline):

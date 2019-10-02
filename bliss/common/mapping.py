@@ -36,7 +36,6 @@ def map_id(node):
 class Map:
     def __init__(self):
         self.G = nx.DiGraph()
-        self.handlers_list = []
 
         self.G.find_children = self.find_children
         self.G.find_predecessors = self.find_predecessors
@@ -273,11 +272,11 @@ class Map:
 
     def trigger_update(self):
         """
-        Triggers execution of handler functions on the map
+        Triggers pending creation, deletion on the map
         """
         self.__lock = True  # no nested trigger update
 
-        logger.debug(f"trigger_update: executing")
+        logger.debug("trigger_update: executing")
         try:
             while self.__waiting_queue:
                 operation, node_info = self.__waiting_queue.pop()
@@ -301,14 +300,6 @@ class Map:
                 else:
                     raise NotImplementedError
 
-            for func in self.handlers_list:
-                try:
-                    func(self.G)
-                except Exception:
-                    logger.exception(
-                        f"Failed trigger_update on map handlers for {func.__name__}"
-                    )
-                    raise
         finally:
             self.__lock = False  # we can trigger update again
 
@@ -430,9 +421,6 @@ class Map:
 
     def format_node(self, node, format_string):
         return format_node(self.G, node, format_string)
-
-    def add_map_handler(self, func):
-        self.handlers_list.append(func)
 
     def draw_matplotlib(
         self, ref_node=None, format_node: str = "tag->name->class->id"

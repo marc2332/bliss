@@ -461,6 +461,21 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             if scan is None:
                 parent = itemWithoutLocation
             else:
+                # Update value
+                valueChannel = plotItem.valueChannel()
+                if valueChannel is not None:
+                    channelName = valueChannel.name()
+                    parentChannel = channelItems.get(channelName, None)
+                    if parentChannel is None:
+                        parent = itemWithoutLocation
+                    else:
+                        # It's fine
+                        parentChannel.setPlotItem(plotItem)
+                        parent = None
+                else:
+                    # No value, no new item
+                    parent = None
+
                 # Update x-axis selection
                 xChannel = plotItem.xChannel()
                 if xChannel is not None:
@@ -488,21 +503,6 @@ class ScatterPlotPropertyWidget(qt.QWidget):
                         )
                     else:
                         yAxisItem.setSelectedYAxis()
-
-                # Update value
-                valueChannel = plotItem.valueChannel()
-                if valueChannel is not None:
-                    channelName = valueChannel.name()
-                    parentChannel = channelItems.get(channelName, None)
-                    if parentChannel is None:
-                        parent = itemWithoutLocation
-                    else:
-                        # It's fine
-                        parentChannel.setPlotItem(plotItem)
-                        parent = None
-                else:
-                    # No value, no new item
-                    parent = None
 
             if parent is not None:
                 # Recover invalid items in this scan

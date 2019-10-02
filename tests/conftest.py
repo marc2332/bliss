@@ -259,6 +259,32 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
+def wago_tango_server(ports, beacon):
+    from bliss.tango.servers.wago_ds import main
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "1/1/wagodummy"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["Wago", "wago_tg_server"])
+
+    with gevent.Timeout(10, RuntimeError("WagoDS is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
 def session(beacon):
     session = beacon.get("test_session")
     session.setup()

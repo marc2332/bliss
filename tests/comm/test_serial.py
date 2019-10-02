@@ -90,6 +90,11 @@ def _inspect_serial_port_settings(fake_port):
 
 @pytest.fixture(scope="session")
 def fake_serial(find_free_port):
+    """
+    creates an emulated serial port using socat. The data written to the port can be
+    received via a tcp socket for tests. Data written to this socket can be read by the
+    serial port equally.
+    """
     ref_socket_port = find_free_port()
 
     fake_serial_server = subprocess.Popen(
@@ -113,6 +118,10 @@ def fake_serial(find_free_port):
 
 @pytest.fixture
 def reference_socket(fake_serial):
+    """
+    yields the serial ports in tests in this file write to an emulated serial port. 
+    To emulate the device that is communicated with the here returned tcp socket is used.
+    """
     serial_port_fd, ref_socket_port = fake_serial
     soc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     soc.connect(("localhost", ref_socket_port))
@@ -152,6 +161,49 @@ def ser2net_server(find_free_port, fake_serial):
     yield s2n_control_port, s2n_port_telnet, s2n_port_raw, s2n_port_raw_nobreak, serial_port_fd
 
     ser2net.terminate()
+
+
+@pytest.fixture
+def tango_serial(ports, beacon, wait_for_fixture, fake_serial):
+    wait_for = wait_for_fixture
+    serial_port_fd, ref_socket_port = fake_serial
+    device_name = "id00/tango/serial"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    from bliss.common.tango import DeviceProxy, DevFailed, Database
+
+    tango_db = Database()
+    tango_db.put_device_property(device_name, {"Serialline": serial_port_fd})
+
+    serial_ds = ["Serial"]
+    p = subprocess.Popen(serial_ds + ["test_serial"], stdout=subprocess.PIPE)
+
+    with gevent.Timeout(10, RuntimeError("Serial tango server is not running")):
+        wait_for(p.stdout, "Ready to accept request")
+
+    @contextmanager
+    def _tango_serial(params={}):
+        try:
+            serial_port = serial.Serial(device_fqdn, **params)
+            gevent.sleep(.5)
+
+            yield serial_port
+        finally:
+            print("close tango")
+            serial_port.close()
+
+    yield _tango_serial
+
+    p.terminate()
+
+    #### to clean up after tango server ... just open the port once with py-serial....
+    #### from time to time there seem to be characters reamaining in the port
+    #### after the tango serial device server has been shut down
+
+    serial_port = pyserial.Serial(serial_port_fd)
+    gevent.sleep(.5)
+    serial_port.flush()
+    serial_port.close()
 
 
 @pytest.fixture
@@ -240,22 +292,32 @@ def get_serial(request):
 
 PARAMS_1 = {
     "baudrate": 19200,
-    "bytesize": pyserial.SEVENBITS,
+    "bytesize": serial.SEVENBITS,
     "stopbits": serial.STOPBITS_TWO,
 }
 PARAMS_2 = {
     "baudrate": 38400,
-    "bytesize": pyserial.SEVENBITS,
-    "parity": pyserial.PARITY_ODD,
+    "bytesize": serial.SEVENBITS,
+    "parity": serial.PARITY_ODD,
     "xonxoff": True,
 }
 PARAMS_3 = {
     "baudrate": 38400,
-    "bytesize": pyserial.SEVENBITS,
-    "parity": pyserial.PARITY_EVEN,
+    "bytesize": serial.SEVENBITS,
+    "parity": serial.PARITY_EVEN,
     "rtscts": True,
 }
 
+PARAMS_2_tango = {  # no xonxoff in tango
+    "baudrate": 38400,
+    "bytesize": serial.SEVENBITS,
+    "parity": serial.PARITY_ODD,
+}
+PARAMS_3_tango = {  # no rtscts in tango
+    "baudrate": 38400,
+    "bytesize": serial.SEVENBITS,
+    "parity": serial.PARITY_EVEN,
+}
 
 ALL_PORTS = [
     ("ser2net_telnet", {}),
@@ -270,6 +332,10 @@ ALL_PORTS = [
     ("local_serial", PARAMS_1),
     ("local_serial", PARAMS_2),
     ("local_serial", PARAMS_3),
+    ("tango_serial", {}),
+    ("tango_serial", PARAMS_1),
+    ("tango_serial", PARAMS_2_tango),
+    ("tango_serial", PARAMS_3_tango),
     # for debugging of tests
     ("local_pyserial", {}),
     ("local_pyserial", PARAMS_1),
@@ -281,12 +347,21 @@ EOL_PORTS = [
     ("ser2net_telnet", {}),
     ("rfc2217_telnet", {}),
     ("local_serial", {}),
+    ("tango_serial", {}),
     ("ser2net_telnet", {"eol": b"\r\n"}),
     ("rfc2217_telnet", {"eol": b"\r\n"}),
     ("local_serial", {"eol": b"\r\n"}),
+    ("tango_serial", {"eol": b"\r\n"}),
 ]
 
-SIMPLE_PORTS = [("ser2net_telnet", {}), ("rfc2217_telnet", {}), ("local_serial", {})]
+SIMPLE_PORTS = [
+    ("ser2net_telnet", {}),
+    ("rfc2217_telnet", {}),
+    ("local_serial", {}),
+    ("tango_serial", {}),
+]
+
+UNSUPPORTED_PORT_SETTINGS = [("tango_serial", PARAMS_2), ("tango_serial", PARAMS_3)]
 
 
 @pytest.mark.parametrize("get_serial,params", ALL_PORTS, indirect=["get_serial"])
@@ -301,7 +376,7 @@ def test_serial_write_ascii(get_serial, params, reference_socket):
 def test_serial_read_ascii(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         data = b"hello\nworld\n"
-        serial_port.write(b"bla")
+        serial_port.write(b"bla")  # lazy intit
         reference_socket.send(data)
         assert serial_port.read(len(data)) == data
 
@@ -465,13 +540,17 @@ def test_serial_port_settings(get_serial, params, reference_socket, fake_serial)
         print(parameters)
 
 
-### tango tests are by far not complete ... come back to this once we have a real serial tango serial server
-def test_tango_serial(tango_serial):
-    tg_devname, tg_device = tango_serial
-
-    serial_object = serial.Serial(tg_devname)
-    serial_object.write(b"hello")
-    assert serial_object.readline() == b"world"
+@pytest.mark.parametrize(
+    "get_serial,params", UNSUPPORTED_PORT_SETTINGS, indirect=["get_serial"]
+)
+def test_serial_port_unsupported_settings(
+    get_serial, params, reference_socket, fake_serial
+):
+    with get_serial(params) as (serial_port):
+        with pytest.raises(RuntimeError):
+            # do something with the port
+            data = b"hello\nworld\n"
+            serial_port.write(data)
 
 
 ### to be seen with ser2net 4 it this test make any sense

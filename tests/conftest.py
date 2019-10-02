@@ -60,6 +60,14 @@ def wait_for(stream, target):
     return do_wait_for(stream, target)
 
 
+# the following is to share 'wait_for' function to all tests,
+# since it is needed by some other tests (like Tango serial line,
+# as it runs the Tango device server)
+@pytest.fixture
+def wait_for_fixture():
+    return wait_for
+
+
 @pytest.fixture
 def clean_louie():
     import louie.dispatcher as disp
@@ -288,6 +296,7 @@ def wago_tango_server(ports, beacon):
     gevent.sleep(1)
 
     yield device_fqdn, dev_proxy
+
     p.terminate()
 
 
@@ -310,6 +319,7 @@ def tango_serial(ports, beacon):
     dev_proxy = DeviceProxy(device_fqdn)
 
     yield device_fqdn, dev_proxy
+
     p.terminate()
 
 

@@ -55,13 +55,19 @@ def AttributeProxy(*args, **kwargs):
     )
 
 
+def Database(*args, **kwargs):
+    raise RuntimeError(
+        "Tango is not imported. Hint: is tango Python module installed ?"
+    )
+
+
 try:
-    from tango import AttrQuality, EventType, DevState, DevFailed
+    from tango import AttrQuality, EventType, DevState, DevFailed, Database
     from tango.gevent import DeviceProxy, AttributeProxy
 except ImportError:
     # PyTango < 9 imports
     try:
-        from PyTango import AttrQuality, EventType, DevState, DevFailed
+        from PyTango import AttrQuality, EventType, DevState, DevFailed, Database
         from PyTango.gevent import DeviceProxy, AttributeProxy
     except ImportError:
         pass

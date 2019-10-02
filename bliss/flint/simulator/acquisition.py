@@ -48,6 +48,7 @@ class AcquisitionSimulator(qt.QObject):
         self.__flintModel.setCurrentScan(scan)
         scan.scanStarted.emit()
 
+        print("Acquisition started")
         self.__timer = qt.QTimer(self)
         self.__timer.timeout.connect(self.updateNewData)
         self.__timer.start(interval)
@@ -328,3 +329,4 @@ class AcquisitionSimulator(qt.QObject):
             self.__timer.timeout.disconnect(self.updateNewData)
             self.__timer.deleteLater()
             self.__timer = None
+            print("Acquisition finished")

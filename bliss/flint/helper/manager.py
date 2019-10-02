@@ -160,11 +160,13 @@ class ManageMainBehaviours(qt.QObject):
         from bliss.flint.widgets.curve_plot import CurvePlotWidget
         from bliss.flint.widgets.mca_plot import McaPlotWidget
         from bliss.flint.widgets.image_plot import ImagePlotWidget
+        from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
 
         mapping = {}
         mapping[CurvePlotWidget] = plot_curve_model.CurvePlot
         mapping[McaPlotWidget] = plot_item_model.McaPlot
         mapping[ImagePlotWidget] = plot_item_model.ImagePlot
+        mapping[ScatterPlotWidget] = plot_item_model.ScatterPlot
 
         availablePlots = list(workspace.plots())
 

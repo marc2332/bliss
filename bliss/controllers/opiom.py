@@ -8,7 +8,6 @@
 import os
 import struct
 from warnings import warn
-import gevent
 
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
@@ -213,13 +212,11 @@ class Opiom:
             with KillMask():
                 cmd = "#*FRM %d\r" % frame_n
                 self.raw_write(cmd.encode())
-                gevent.sleep(.1)
                 print("                         ", end="\r")
                 print("FRAME {0}".format(frame_n), end="\r")
                 self.raw_bin_write(sendarray[index : index + self.FSIZE])
                 answer = self._cnx.readline("\r\n".encode())
-                # the full answer is actually "OK" but the O is in few cases lost when using TangoSerial
-                if answer[-1:] == b"K":
+                if answer[-2:] == b"OK":
                     continue
                 raise RuntimeError(
                     "Load program: [%s] returned [%s]" % (cmd.strip(), answer)

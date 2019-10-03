@@ -55,8 +55,8 @@ class ScatterPlotWidget(qt.QDockWidget):
         from . import scatter_plot_property
 
         propertyWidget = scatter_plot_property.ScatterPlotPropertyWidget(parent)
-        propertyWidget.setFocusWidget(self)
         propertyWidget.setFlintModel(self.__flintModel)
+        propertyWidget.setFocusWidget(self)
         return propertyWidget
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
@@ -167,12 +167,17 @@ class ScatterPlotWidget(qt.QDockWidget):
         if not isinstance(item, plot_item_model.ScatterItem):
             return
 
+        scan = self.__scan
         plot = self.__plot
         plotItems: List[Tuple[str, str]] = []
 
         resetZoom = not self.__plotModel.isInTransaction()
 
         if not item.isVisible():
+            self.__cleanItem(item)
+            return
+
+        if not item.isValidInScan(scan):
             self.__cleanItem(item)
             return
 
@@ -183,15 +188,15 @@ class ScatterPlotWidget(qt.QDockWidget):
             self.__cleanItem(item)
             return
 
-        value = valueChannel.array(self.__scan)
-        xx = xChannel.array(self.__scan)
-        yy = yChannel.array(self.__scan)
+        value = valueChannel.array(scan)
+        xx = xChannel.array(scan)
+        yy = yChannel.array(scan)
         if value is None or xx is None or yy is None:
             self.__cleanItem(item)
             return
 
         legend = valueChannel.name()
-        style = item.getStyle(self.__scan)
+        style = item.getStyle(scan)
         colormap = colors.Colormap(style.colormapLut)
         key = plot.addScatter(x=xx, y=yy, value=value, legend=legend, colormap=colormap)
         scatter = plot.getScatter(key)

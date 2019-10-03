@@ -196,7 +196,7 @@ class Item(qt.QObject):
 
     def getErrorMessage(self, scan: scan_model.Scan) -> Optional[str]:
         if not scan.hasCacheValidation(self):
-            result = self.getScanValidation(scan)
+            result: Optional[str] = self.getScanValidation(scan)
             scan.setCacheValidation(self, result)
         else:
             result = scan.getCacheValidation(self)

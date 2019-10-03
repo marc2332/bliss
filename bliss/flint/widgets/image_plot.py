@@ -11,7 +11,9 @@ from typing import Tuple
 from typing import Dict
 from typing import List
 
+import numpy
 from silx.gui import qt
+from silx.gui import colors
 from silx.gui.plot import Plot2D
 
 from bliss.flint.model import scan_model
@@ -183,9 +185,25 @@ class ImagePlotWidget(qt.QDockWidget):
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
 
-        # FIXME: Manage colormap style
-        key = plot.addImage(image, legend=legend, resetzoom=False)
-        plotItems.append((key, "image"))
+        if style.symbolSize is None:
+            colormap = colors.Colormap(style.colormapLut)
+            key = plot.addImage(
+                image, legend=legend, resetzoom=False, colormap=colormap
+            )
+            plotItems.append((key, "image"))
+        else:
+            yy = numpy.atleast_2d(numpy.arange(image.shape[0])).T
+            xx = numpy.atleast_2d(numpy.arange(image.shape[1]))
+            xx = xx * numpy.atleast_2d(numpy.ones(image.shape[0])).T + 0.5
+            yy = yy * numpy.atleast_2d(numpy.ones(image.shape[1])) + 0.5
+            colormap = colors.Colormap(style.colormapLut)
+            image, xx, yy = image.reshape(-1), xx.reshape(-1), yy.reshape(-1)
+            key = plot.addScatter(
+                x=xx, y=yy, value=image, legend=legend, colormap=colormap
+            )
+            scatter = plot.getScatter(key)
+            scatter.setSymbolSize(style.symbolSize)
+            plotItems.append((key, "scatter"))
 
         self.__items[item] = plotItems
         if resetZoom:

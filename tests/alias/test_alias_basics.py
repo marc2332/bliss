@@ -1,5 +1,6 @@
 import pytest
 from bliss.common import scans
+from bliss.common.standard import wm
 from bliss import global_map
 
 alias_dump = """Alias    Original fullname
@@ -236,3 +237,13 @@ def test_alias_original_object_removal(alias_session):
     ALIASES.add("x", "lima_simulator:bpm:x")
     lima_simulator = env_dict["lima_simulator"]
     assert env_dict["x"] == lima_simulator.counters.x
+
+
+def test_alias_wm(alias_session, capsys):
+    robyy = alias_session.env_dict["robyy"]
+
+    wm(robyy)
+
+    output = capsys.readouterr()[0]
+    assert "robyy" in output
+    assert "inf" in output

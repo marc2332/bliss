@@ -419,7 +419,7 @@ class periodic_exec(object):
 
 def safe_get(obj, member, on_error=None, **kwargs):
     try:
-        if isinstance(getattr(type(obj), member), property):
+        if isinstance(getattr(obj.__class__, member), property):
             return getattr(obj, member)
         else:
             return getattr(obj, member)(**kwargs)

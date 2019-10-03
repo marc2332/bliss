@@ -18,6 +18,7 @@ from typing import Tuple
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
@@ -43,6 +44,12 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
         (133, 133, 0),
     ]
 
+    _SYMBOL_SIZE = 6.0
+
+    _COLORMAP = "viridis"
+
+    _COLORMAPS = ["red", "green", "blue", "gray"]
+
     def pickColor(self, index):
         palette = self._COLOR_PALETTE
         return palette[index % len(palette)]
@@ -51,17 +58,52 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
         self.__cached = {}
         self.__cacheInvalidated = True
 
-    def computeItemStyleFromPlot(self):
-        self.__cached = {}
-        plot = self.plot()
+    def cacheStyle(self, item, scan, style: plot_model.Style):
+        self.__cached[item, scan] = style
 
-        scans: List[Optional[scan_model.Scan]] = []
+    def computeItemStyleFromScatterPlot(self, plot):
+        scatters = []
         for item in plot.items():
-            if isinstance(item, plot_curve_model.ScanItem):
-                scans.append(item.scan())
-        if scans == []:
-            scans.append(None)
+            if isinstance(item, plot_item_model.ScatterItem):
+                scatters.append(item)
 
+        if len(scatters) == 1:
+            scatter = scatters[0]
+            style = plot_model.Style(
+                symbolStyle="o",
+                symbolSize=self._SYMBOL_SIZE,
+                colormapLut=self._COLORMAP,
+            )
+            self.cacheStyle(scatter, None, style)
+        else:
+            baseSize = self._SYMBOL_SIZE / 3
+            for i, scatter in enumerate(scatters):
+                size = ((len(scatters) - 1 - i) * 2 + 2) * baseSize
+                lut = self._COLORMAPS[i % len(self._COLORMAPS)]
+                style = plot_model.Style(
+                    symbolStyle="o", symbolSize=size, colormapLut=lut
+                )
+                self.cacheStyle(scatter, None, style)
+
+    def computeItemStyleFromImagePlot(self, plot):
+        images = []
+        for item in plot.items():
+            if isinstance(item, plot_item_model.ImageItem):
+                images.append(item)
+
+        if len(images) >= 1:
+            image = images.pop(0)
+            style = plot_model.Style(colormapLut=self._COLORMAP)
+            self.cacheStyle(image, None, style)
+
+        baseSize = self._SYMBOL_SIZE / 3
+        for i, scatter in enumerate(images):
+            size = ((len(images) - 1 - i) * 2 + 1) * baseSize
+            lut = self._COLORMAPS[i % len(self._COLORMAPS)]
+            style = plot_model.Style(symbolStyle="o", symbolSize=size, colormapLut=lut)
+            self.cacheStyle(scatter, None, style)
+
+    def computeItemStyleFromCurvePlot(self, plot, scans):
         i = 0
         for scan in scans:
             for item in plot.items():
@@ -84,7 +126,26 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
                     color = self.pickColor(i)
                     style = plot_model.Style(lineStyle="-", lineColor=color)
                     i += 1
-                self.__cached[item, scan] = style
+                self.cacheStyle(item, scan, style)
+
+    def computeItemStyleFromPlot(self):
+        self.__cached = {}
+        plot = self.plot()
+        if isinstance(plot, plot_item_model.ScatterPlot):
+            self.computeItemStyleFromScatterPlot(plot)
+            return
+        elif isinstance(plot, plot_item_model.ImagePlot):
+            self.computeItemStyleFromImagePlot(plot)
+            return
+
+        scans: List[Optional[scan_model.Scan]] = []
+        for item in plot.items():
+            if isinstance(item, plot_curve_model.ScanItem):
+                scans.append(item.scan())
+        if scans == []:
+            scans.append(None)
+
+        self.computeItemStyleFromCurvePlot(plot, scans)
 
     def getStyleFromItem(
         self, item: plot_model.Item, scan: scan_model.Scan = None

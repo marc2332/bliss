@@ -365,6 +365,9 @@ class ModbusTcp:
         self._raw_read_task = None
         self._transaction = {}
         self._lock = lock.RLock()
+        global_map.register(
+            self, parents_list=["comms"], tag=f"ModbusTcp:{self._host}:{self._port}"
+        )
 
     def __del__(self):
         self.close()
@@ -464,6 +467,23 @@ class ModbusTcp:
         value = 0xFF00 if on_off else 0x0000
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
 
+    @try_connect_modbustcp
+    def write_registers(self, address, struct_format, values, timeout=None):
+        timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
+            self._host,
+            self._port,
+        )
+        self._write(0x10, address, struct_format, values, timeout_errmsg, timeout)
+
+    @try_connect_modbustcp
+    def write_coils(self, address, on_off, timeout=None):
+        # implements function code 16
+        raise NotImplementedError
+
+    @try_connect_modbustcp
+    def read_float(self, address, timeout=None):
+        raise NotImplementedError
+
     def connect(self, host=None, port=None, timeout=None):
         local_host = host or self._host
         local_port = port or self._port
@@ -527,7 +547,18 @@ class ModbusTcp:
             with gevent.Timeout(
                 timeout or self._timeout, ModbusTimeout(timeout_errmsg)
             ):
-                msg = struct.pack(">H" + struct_format, address, value)
+                if (
+                    func_code == 0x10
+                ):  # value should be an iterable for 0x10 (write multiple registers)
+                    msg = struct.pack(
+                        ">HHB" + struct_format,
+                        address,
+                        len(value),
+                        len(value) * 2,
+                        *value,
+                    )
+                else:
+                    msg = struct.pack(">H" + struct_format, address, value)
                 self._raw_write(trans.tid(), func_code, msg)
                 read_values = trans.get()
                 if isinstance(read_values, socket.error):
@@ -577,3 +608,26 @@ class ModbusTcp:
                     trans.put(socket.error(errno.EPIPE, "Broken pipe"))
             except ReferenceError:
                 pass
+
+
+class ModbusTCP(ModbusTcp):
+    def __init__(self, **kwargs):
+        """Inizialize comunication through get_comm"""
+
+        unit = kwargs.get("unit", 0xFF)
+        host = kwargs["url"].split(":")[0]
+        timeout = kwargs.get("timeout", 3.0)
+
+        try:
+            port = kwargs["url"].split(":")[1]
+        except IndexError:
+            port = 502
+        super().__init__(host, unit=unit, port=int(port), timeout=timeout)
+
+    @property
+    def host(self):
+        return self._host
+
+    @property
+    def port(self):
+        return self._port

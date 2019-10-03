@@ -18,9 +18,10 @@ __all__ = [
     "SERIAL",
     "GPIB",
     "UDP",
+    "MODBUSTCP",
 ]
 
-TCP, SERIAL, GPIB, UDP = "tcp", "serial", "gpib", "udp"
+TCP, SERIAL, GPIB, UDP, MODBUSTCP = "tcp", "serial", "gpib", "udp", "modbustcp"
 
 
 def get_interface(*args, **kwargs):
@@ -67,8 +68,11 @@ def get_interface(*args, **kwargs):
             from .gpib import Gpib
             from .serial import Serial
             from .udp import Udp
+            from .modbus import ModbusTCP
 
-            interfaces = dict(serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp)
+            interfaces = dict(
+                serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp, modbustcp=ModbusTCP
+            )
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
                     ikwargs = kwargs[iname]
@@ -116,6 +120,10 @@ def get_comm_type(config):
         if comm_type:
             raise ValueError("More than one communication channel found")
         comm_type = UDP
+    if "modbustcp" in config:
+        if comm_type:
+            raise ValueError("More than one communication channel found")
+        comm_type = MODBUSTCP
     if comm_type is None:
         raise ValueError("get_comm_type(): No communication channel found in config")
     return comm_type
@@ -136,6 +144,8 @@ def get_comm(config, ctype=None, **opts):
       :class:`~bliss.comm.gpib.Gpib` as well as all other gpib parameters.
     * If *serial* is given, it must have *url* keyword. *url* is as in *port*
       :class:`~bliss.comm.serial.Serial` as well as all other gpib parameters.
+    * If *modbustcp* is given, it must have *url* keyword. *url* must be either
+      ```[<host> [, <port>] ]``` or ```"<host>[:<port>]"```. *port* is optional
 
     Args:
        config (dict): a dict like config object which contains communication
@@ -144,7 +154,7 @@ def get_comm(config, ctype=None, **opts):
               None (means any type), TCP, SERIAL or GPIB  [default: None]
        **opts: default values to use if not present in config
     Returns:
-       A Tcp, Gpib or Serial line object
+       A Tcp, Gpib, Serial line or ModbusTCP object
     Raises:
         ValueError: if no communication channel or more than one communication
                     channel is found in config
@@ -190,6 +200,17 @@ def get_comm(config, ctype=None, **opts):
         url = opts.pop("url", None)
         opts.setdefault("port", url)
         from .serial import Serial as klass
+    elif comm_type == MODBUSTCP:
+        opts.update(config["modbustcp"])
+        default_port = opts.pop("port", 502)
+        opts.update(config[comm_type])
+        url = opts["url"]
+        if isinstance(url, str):
+            url = url.rsplit(":", 1)
+        if len(url) == 1:
+            url.append(default_port)
+        opts["url"] = f"{url[0]}:{url[1]}"
+        from .modbus import ModbusTCP as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
         raise ValueError("get_comm(): No communication channel found in config")

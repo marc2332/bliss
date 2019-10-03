@@ -13,7 +13,9 @@ import contextlib
 import time
 from bliss.common import timedisplay
 
-from bliss import global_map, global_log
+from prompt_toolkit import print_formatted_text, HTML
+
+from bliss import global_map, global_log, current_session
 from bliss.common import scans
 from bliss.common.scans import *
 from bliss.common.plot import plot
@@ -44,6 +46,7 @@ __all__ = (
         "lsdebug",
         "debugon",
         "debugoff",
+        "interlock_show",
         "info",
         "bench",
     ]
@@ -728,6 +731,31 @@ def edit_roi_counters(detector, acq_time=None):
     roi_counters.clear()
     roi_counters[roi_labels] = rois
     print(("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name)))
+
+
+def interlock_show(wago_obj=None):
+    """Displays interlocks configuration on given Wago object (if given)
+    or displays configuration of all known Wagos
+    """
+    from bliss.controllers.wago.wago import Wago
+
+    if wago_obj:
+        wago_obj.interlock_show()
+    else:
+        try:
+            wago_instance_list = tuple(
+                global_map[id_]["instance"]()
+                for id_ in global_map.find_children("wago")
+            )
+        except TypeError:
+            print("No Wago found")
+            return
+        names = [wago.name for wago in wago_instance_list]
+        print_formatted_text(
+            HTML(f"Currently configured Wagos: <violet>{' '.join(names)}</violet>\n\n")
+        )
+        for wago in wago_instance_list:
+            wago.interlock_show()
 
 
 def info(obj):

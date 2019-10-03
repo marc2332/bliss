@@ -11,9 +11,11 @@ import socket
 import shutil
 from collections import namedtuple
 import atexit
-import redis
-import pytest
 import gevent
+import struct
+
+import pytest
+import redis
 
 from bliss import global_map
 from bliss.common import subprocess
@@ -23,6 +25,7 @@ from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
+from bliss.controllers.wago.wago import ModulesConfig
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -256,6 +259,32 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
+def wago_tango_server(ports, beacon):
+    from bliss.tango.servers.wago_ds import main
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "1/1/wagodummy"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["Wago", "wago_tg_server"])
+
+    with gevent.Timeout(10, RuntimeError("WagoDS is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
 def session(beacon):
     session = beacon.get("test_session")
     session.setup()
@@ -276,6 +305,10 @@ def pytest_addoption(parser):
     parser.addoption("--ct2", help="ct2 address")
     parser.addoption("--axis-name", help="axis name")
     parser.addoption("--mythen", action="store", help="mythen host name")
+    parser.addoption(
+        "--wago",
+        help="connection information: tango_cpp_host:port,domani,wago_dns\nExample: --wago bibhelm:20000,ID31,wcid31c",
+    )
 
 
 @pytest.fixture
@@ -299,3 +332,15 @@ def alias_session(beacon, lima_simulator):
     yield session
 
     session.close()
+
+
+@pytest.fixture
+def wago_mockup(default_session):
+    # do not use wago_mockup fixture together with default_session
+    # because default_session already launches a wago_simulator and it will cause error on closing
+    from tests.emulators.wago import WagoMockup
+
+    config_tree = default_session.config.get_config("wago_simulator")
+    wago = WagoMockup(config_tree)
+    yield wago
+    wago.close()

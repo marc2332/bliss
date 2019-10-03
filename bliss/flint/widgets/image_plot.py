@@ -185,7 +185,7 @@ class ImagePlotWidget(qt.QDockWidget):
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
 
-        if style.symbolSize is None:
+        if style.symbolStyle is None:
             colormap = colors.Colormap(style.colormapLut)
             key = plot.addImage(
                 image, legend=legend, resetzoom=False, colormap=colormap
@@ -202,6 +202,7 @@ class ImagePlotWidget(qt.QDockWidget):
                 x=xx, y=yy, value=image, legend=legend, colormap=colormap
             )
             scatter = plot.getScatter(key)
+            scatter.setSymbol(style.symbolStyle)
             scatter.setSymbolSize(style.symbolSize)
             plotItems.append((key, "scatter"))
 

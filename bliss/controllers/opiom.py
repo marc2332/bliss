@@ -9,11 +9,14 @@ import os
 import struct
 from warnings import warn
 
+from bliss import global_map
 from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
 from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.config.conductor.client import remote_open
+import logging
+from bliss.common.logtools import *
 
 OPIOM_PRG_ROOT = "/users/blissadm/local/isg/opiom"
 
@@ -53,13 +56,14 @@ class Opiom:
             raise TypeError("opiom: invalid communication type %r" % comm_type)
 
         self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
+        global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
+
         self._cnx.flush()
         self.__program = config_tree.get("program", "default")
         self.__base_path = config_tree.get("opiom_prg_root", OPIOM_PRG_ROOT)
-        self.__debug = False
 
         # Sometimes, have to talk twice to the OPIOM in order to get the proper first answer.
-        for ii in range(2):
+        for _ in range(2):
             try:
                 msg = self.comm("?VER", timeout=50e-3)
             except serial.SerialTimeout:
@@ -74,18 +78,6 @@ class Opiom:
 
     def __info__(self):
         return "opiom: %s" % self._cnx
-
-    @property
-    def debug(self):
-        return self.__debug
-
-    @debug.setter
-    def debug(self, flag):
-        self.__debug = bool(flag)
-
-    def __debugMsg(self, wr, msg):
-        if self.__debug:
-            print("%-5.5s on %s > %s" % (wr, self.name, msg))
 
     def info(self):
         return self.comm("?INFO")
@@ -146,7 +138,7 @@ class Opiom:
                 msg = self._cnx._readline(timeout=timeout)
                 if msg.startswith("$".encode()):
                     msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
-                self.__debugMsg("Read", msg.strip("\n\r".encode()))
+                log_debug(self, "Read %s" % msg.strip("\n\r".encode()))
                 if text:
                     return (msg.strip("\r\n".encode())).decode()
                 else:
@@ -188,8 +180,9 @@ class Opiom:
                 sendarray += opmfile[offsets["jed"] :]
             else:
                 # program already loaded
-                self.__debugMsg(
-                    "No need to reload opiom program: PLDID did not change", pldid
+                log_debug(
+                    self,
+                    "No need to reload opiom program: PLDID did not change %d" % pldid,
                 )
                 return
 
@@ -227,7 +220,7 @@ class Opiom:
             stat_num = self.comm("?PSTAT")
             print("                         ", end="\r")
             print("{0}".format(stat_num), end="\r")
-            self.__debugMsg("Load", stat_num)
+            log_debug(self, "Load %d" % stat_num)
             try:
                 stat, percent = stat_num.split()
             except ValueError:

@@ -78,6 +78,8 @@ class AcquisitionSimulator(qt.QObject):
         device1_channel1.setName("dev1:chan1")
         device1_channel2 = scan_model.Channel(device1)
         device1_channel2.setName("dev1:chan2")
+        device1_channel3 = scan_model.Channel(device1)
+        device1_channel3.setName("dev1:badsize")
 
         device2 = scan_model.Device(scan)
         device2.setName("dev2")
@@ -132,6 +134,7 @@ class AcquisitionSimulator(qt.QObject):
         )
         self.registerData(2, device1_channel1, data)
         self.registerData(2, device1_channel2, numpy.random.random(nbPoints1))
+        self.registerData(2, device1_channel3, numpy.random.random(nbPoints1 // 2))
         data = numpy.array([1.5] * nbPoints1 + 0.2 * numpy.random.random(nbPoints1))
         self.registerData(2, device2_channel1, data)
         self.registerData(2, device4_channel1, stepData)
@@ -309,7 +312,8 @@ class AcquisitionSimulator(qt.QObject):
             for channel, array in data.items():
                 if channel.type() == scan_model.ChannelType.COUNTER:
                     # growing 1d data
-                    newData = scan_model.Data(channel, array[0:pos])
+                    p = min(len(array), pos)
+                    newData = scan_model.Data(channel, array[0:p])
                 elif channel.type() == scan_model.ChannelType.SPECTRUM:
                     # 1d data in an indexed array
                     newData = scan_model.Data(channel, array[pos])

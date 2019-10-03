@@ -6,9 +6,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Fixed
+
+## [0.3.0] - 2019-10-01
+### Added
+- Controllers:
+  - Added EMH Alba electrometer
+  - Added ESRF Hexapode
+  - Musst patch: add capability of using a template replacement when loading Musst software into controller
+  - Lima patch: Sebastien
+- Acquisition Chain:
+  - Allow to add only one master (without the slave) in an acquisition chain
+- Scan:
+  - Watchdog Feature: it is possible to add a callback to a scan
+    using **set_watchdog_callback** method and passing a subclass of 
+    bliss.scanning.scan.WatchdogCallback. This allows to check the behaviour of
+    detectors involved in the scan and eventually raise an exception. 
+    The following callbacks can be defined: on_timeout, on_scan_new, on_scan_data, on_scan_end (#946)
+- Bench context manager: helper to measure execution time of any given code. (#861)
+- timedisplay: visualize time values in human readable form
+
+### Changed
+- Scan:
+  - All common step scans command take now **intervals** instead of **npoints**. (#931)
+
+### Fixed
+- Controllers:
+  - opium always reload the program (#987)
+  - icepap: load trajectory axes by block
+  - Aerotech: added AeroTechEncoder class to properly handle encoder steps
+  - MultiplePosition: resolved move(wait=False) never sends READY event (#1001)
+  - energywavelength: bug fix and test
+- logging: exposed debugon/off on the shell standard commands (#986)
+- lima interface: Force the plugin name to be lower case for compatibility
+- motion hooks: axis objects are not initialized in 'add_axis()' (#1002)
+- return of DataNode.get is convertible into a numpy array (#1007)
+- fix synchronization problem in external writer (#993 #992)
+- fix data listener: protect from any exception
+- make sure that name of node does not change after node creation (#1003)
+- changed calculation of horizontal offset for slits (#1009)
+- louie conda package for windows (#1011)
+- Resolve Lima files when SCAN_SAVING.writer == 'null' (#1010)
 - Flint:
   - Fixes curve widget autoscale when selecting/switching y1/y2
   - Fixes image widget display when the image channel is a master
+
+### Removed
 
 ## [0.2.0] - 2019-08-23
 ### Added

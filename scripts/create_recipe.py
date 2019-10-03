@@ -3,9 +3,13 @@ import subprocess
 import os
 from pprint import pprint
 import re
-import conda.cli.python_api as conda
-from conda.cli import main_info
-from conda_env.cli import main_export
+
+try:
+    import conda.cli.python_api as conda
+    from conda.cli import main_info
+    from conda_env.cli import main_export
+except ModuleNotFoundError:
+    pass
 
 CURDIR = os.path.dirname(os.path.abspath(__file__))
 BLISS_DIR = os.path.dirname(CURDIR)
@@ -39,8 +43,9 @@ def is_tagged(tag=None):
 
 def get_git_tag(tag=None):
     """
-    Gives information about current tag, it manages tags with 3 or 4 numbers
-    ES: 1.2.10 or 1.2.3.3
+    Gives information about current tag, it manages tags with 2, 3 or 4 numbers
+    including tags containing rc in the last one
+    ES: 0.2, 1.3rc0, 1.2.10, 1.2.3.3, 1.2.3rc2
 
     Returns:
         list with version specs if current commit has a tag
@@ -48,12 +53,15 @@ def get_git_tag(tag=None):
 
     Example:
         (0, 23, 1)  on a tagged commit
+        (0, 23, 0rc1)  on a tagged commit
         (0, 0, 101, 12, g34189fd6) on an untagged commit
     """
-    tagged_version_2 = r"^(\d+)\.(\d+)\.(\d+)$"
-    tagged_version_3 = r"^(\d+)\.(\d+)\.(\d+)\.(\d+)$"
-    derived_version_2 = r"^(\d+)\.(\d+)\.(\d+)-(\d+)-([a-z0-9]+)$"
-    derived_version_3 = r"^(\d+)\.(\d+)\.(\d+)\.(\d+)-(\d+)-([a-z0-9]+)$"
+    tagged_version_2 = r"(\d+)\.((?:\d+)(?:(?:rc)?(?:\d))?)$"
+    tagged_version_3 = r"(\d+)\." + tagged_version_2
+    tagged_version_4 = r"(\d+)\." + tagged_version_3
+    derived_version_2 = r"(\d+)\.(\d+)-(\d+)-([a-z0-9]+)$"
+    derived_version_3 = r"(\d+)\." + derived_version_2
+    derived_version_4 = r"(\d+)\." + derived_version_3
     if not tag:
         output = subprocess.run(["git", "describe", "--tag"], capture_output=True)
         if output.returncode:
@@ -64,8 +72,10 @@ def get_git_tag(tag=None):
     for regx in (
         tagged_version_2,
         tagged_version_3,
+        tagged_version_4,
         derived_version_2,
         derived_version_3,
+        derived_version_4,
     ):
         m = re.match(regx, stdout)
         if m:

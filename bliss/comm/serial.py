@@ -672,6 +672,15 @@ class TangoSerial(_BaseSerial):
         device.DevSerSetParameter(args)
         self._device = device
 
+        # the follwoing parameters are not supported by tango serial, can be
+        # used in bliss...
+
+        if "xonxoff" in kwargs and kwargs["xonxoff"] == True:
+            raise RuntimeError("Tango Serial Device Server does  not support xonxoff")
+
+        if "rtscts" in kwargs and kwargs["rtscts"] == True:
+            raise RuntimeError("Tango Serial Device Server does  not support rtscts")
+
     def close(self):
         self._device = None
 
@@ -687,7 +696,7 @@ class TangoSerial(_BaseSerial):
 
         buff = b""
         while True:
-            line = self._device.DevSerReadLine() or b""
+            line = bytes(self._device.DevSerReadChar(self.SL_LINE)) or b""
             line = line if type(line) is bytes else line.encode()
             if line == b"":
                 return b""
@@ -697,9 +706,10 @@ class TangoSerial(_BaseSerial):
 
     def _raw_read(self, maxsize):
         if maxsize:
-            return self._device.DevSerReadNChar(maxsize) or b""
+
+            return bytes(self._device.DevSerReadNBinData(maxsize)) or b""
         else:
-            return self._device.DevSerReadRaw() or b""
+            return bytes(self._device.DevSerReadChar(self.SL_RAW)) or b""
 
     _read = _raw_read
 

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import annotations
-from typing import Union
+from typing import Optional
 from typing import Tuple
 
 import numpy
@@ -59,19 +59,19 @@ class CurveMixIn:
         self.__yAxis = yAxis
         self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
-    def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         raise NotImplementedError()
 
-    def yData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         raise NotImplementedError()
 
-    def xArray(self, scan: scan_model.Scan) -> Union[None, numpy.ndarray]:
+    def xArray(self, scan: scan_model.Scan) -> Optional[numpy.ndarray]:
         data = self.xData(scan)
         if data is None:
             return None
         return data.array()
 
-    def yArray(self, scan: scan_model.Scan) -> Union[None, numpy.ndarray]:
+    def yArray(self, scan: scan_model.Scan) -> Optional[numpy.ndarray]:
         data = self.yData(scan)
         if data is None:
             return None
@@ -90,8 +90,8 @@ class CurveStatisticMixIn:
 class CurveItem(plot_model.Item, CurveMixIn):
     def __init__(self, parent: plot_model.Plot = None):
         super(CurveItem, self).__init__(parent=parent)
-        self.__x: Union[None, plot_model.ChannelRef] = None
-        self.__y: Union[None, plot_model.ChannelRef] = None
+        self.__x: Optional[plot_model.ChannelRef] = None
+        self.__y: Optional[plot_model.ChannelRef] = None
         self.__yAxis: str = "left"
 
     def __reduce__(self):
@@ -110,14 +110,14 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def isValid(self):
         return self.__x is not None and self.__y is not None
 
-    def xChannel(self) -> Union[None, plot_model.ChannelRef]:
+    def xChannel(self) -> Optional[plot_model.ChannelRef]:
         return self.__x
 
     def setXChannel(self, channel: plot_model.ChannelRef):
         self.__x = channel
         self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
 
-    def yChannel(self) -> Union[None, plot_model.ChannelRef]:
+    def yChannel(self) -> Optional[plot_model.ChannelRef]:
         return self.__y
 
     def setYChannel(self, channel: plot_model.ChannelRef):
@@ -133,7 +133,7 @@ class CurveItem(plot_model.Item, CurveMixIn):
         self.__yAxis = yAxis
         self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
-    def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         channel = self.xChannel()
         if channel is None:
             return None
@@ -142,7 +142,7 @@ class CurveItem(plot_model.Item, CurveMixIn):
             return None
         return data
 
-    def yData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         channel = self.yChannel()
         if channel is None:
             return None
@@ -171,7 +171,7 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
 
     def compute(
         self, scan: scan_model.Scan
-    ) -> Union[None, Tuple[numpy.ndarray, numpy.ndarray]]:
+    ) -> Optional[Tuple[numpy.ndarray, numpy.ndarray]]:
         sourceItem = self.source()
 
         x = sourceItem.xData(scan)
@@ -193,14 +193,14 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
 
         return result
 
-    def xData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         result = self.reachResult(scan)
         if not self.isResultValid(result):
             return None
         data = result[0]
         return scan_model.Data(self, data)
 
-    def yData(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         result = self.reachResult(scan)
         if not self.isResultValid(result):
             return None
@@ -231,7 +231,7 @@ class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticM
         if eventType == plot_model.ChangeEventType.YAXIS:
             self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
 
-    def compute(self, scan: scan_model.Scan) -> Union[None, MaxData]:
+    def compute(self, scan: scan_model.Scan) -> Optional[MaxData]:
         sourceItem = self.source()
 
         xx = sourceItem.xArray(scan)

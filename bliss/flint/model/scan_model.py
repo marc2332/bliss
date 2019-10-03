@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import annotations
-from typing import Union
+from typing import Optional
 from typing import List
 from typing import Iterator
 from typing import Dict
@@ -74,7 +74,7 @@ class Scan(qt.QObject, _Sealable):
         # FIXME better to export iterator or read only list
         return iter(self.__devices)
 
-    def getChannelByName(self, name) -> Union[None, Channel]:
+    def getChannelByName(self, name) -> Optional[Channel]:
         return self.__channels.get(name, None)
 
     def hasCachedResult(self, obj: Any) -> bool:
@@ -93,8 +93,8 @@ class Device(qt.QObject, _Sealable):
         _Sealable.__init__(self)
         self.__name: str = ""
         self.__channels: List[Channel] = []
-        self.__master: Union[None, Device] = None
-        self.__topMaster: Union[None, Device] = None
+        self.__master: Optional[Device] = None
+        self.__topMaster: Optional[Device] = None
         parent.addDevice(self)
 
     def scan(self) -> Scan:
@@ -124,13 +124,13 @@ class Device(qt.QObject, _Sealable):
         # FIXME better to export iterator or read only list
         return iter(self.__channels)
 
-    def setMaster(self, master: Union[None, Device]):
+    def setMaster(self, master: Optional[Device]):
         if self.isSealed():
             raise SealedError()
         self.__master = master
         self.__topMaster = None
 
-    def master(self) -> Union[None, Device]:
+    def master(self) -> Optional[Device]:
         return self.__master
 
     def topMaster(self) -> Device:
@@ -165,7 +165,7 @@ class Channel(qt.QObject, _Sealable):
     def __init__(self, parent: Device):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
-        self.__data: Union[None, Data] = None
+        self.__data: Optional[Data] = None
         self.__name: str = ""
         self.__type: ChannelType = ChannelType.COUNTER
         parent.addChannel(self)
@@ -209,7 +209,7 @@ class Channel(qt.QObject, _Sealable):
     def hasData(self) -> bool:
         return self.__data is not None
 
-    def data(self) -> Union[None, Data]:
+    def data(self) -> Optional[Data]:
         return self.__data
 
     def isDataCompatible(self, data: Data):

@@ -20,6 +20,7 @@ from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.logtools import *
+from bliss.common.tango import DeviceProxy
 from bliss import global_map
 
 import serial
@@ -655,15 +656,10 @@ class TangoSerial(_BaseSerial):
         del self._data
         del self._event
         del self._rpipe, self._wpipe
-        # import tango here to prevent import serial from failing in places
-        # were tango is not installed
-        from PyTango import GreenMode
-        from PyTango.client import Object, get_object_proxy
-
-        device = Object(kwargs["port"], green_mode=GreenMode.Gevent)
+        device = DeviceProxy(kwargs["port"])
         timeout = kwargs.get("timeout")
         if timeout:
-            get_object_proxy(device).set_timeout_millis(int(timeout * 1000))
+            device.set_timeout_millis(int(timeout * 1000))
         args = []
         kwargs["eol"] = cnt._eol
         for arg, (key, encode) in self.PAR_MAP.items():

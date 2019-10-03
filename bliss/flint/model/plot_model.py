@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import annotations
-from typing import Union
 from typing import List
 from typing import Any
 from typing import Optional
@@ -147,13 +146,13 @@ class ChannelRef(qt.QObject):
     def name(self) -> str:
         return self.__channelName
 
-    def data(self, scan: scan_model.Scan) -> Union[None, scan_model.Data]:
+    def data(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         channel = scan.getChannelByName(self.__channelName)
         if channel is None:
             return None
         return channel.data()
 
-    def array(self, scan: scan_model.Scan) -> Union[None, numpy.ndarray]:
+    def array(self, scan: scan_model.Scan) -> Optional[numpy.ndarray]:
         channel = scan.getChannelByName(self.__channelName)
         if channel is None:
             return None

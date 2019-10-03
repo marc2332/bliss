@@ -18,6 +18,7 @@ from bliss.common.logtools import *
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import with_custom_members
 from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss import global_map
 
 
 def lazy_init(func):
@@ -60,9 +61,10 @@ class Input:
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config
-
+        self.__counter = TempControllerCounter(self.name, self)
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+        global_map.register(self, parents_list=[controller])
 
     @property
     def controller(self):
@@ -83,7 +85,7 @@ class Input:
     @lazy_init
     def counter(self):
         """ returns the counter object """
-        return TempControllerCounter(self.name, self)
+        return self.__counter
 
     @property
     def counters(self):
@@ -124,12 +126,15 @@ class Output:
         self.__config = config
         self.__ramping = 0
         self.__mode = 0
+        self.__counter = TempControllerCounter(self.name, self)
+
         # if defined as  self.deadband, attribute available from the instance
         # if defined as  self.__deadband, not available.
         #     in that case, use of decorator property offers it (read only) to world
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+        global_map.register(self, parents_list=[controller])
 
     @property
     def controller(self):
@@ -163,7 +168,7 @@ class Output:
     @lazy_init
     def counter(self):
         """ returns the counter object """
-        return TempControllerCounter(self.name, self)
+        return self.__counter
 
     @property
     def counters(self):
@@ -413,6 +418,12 @@ class Loop:
         self.__config = config
         self.__input = config.get("input")
         self.__output = config.get("output")
+        global_map.register(
+            self,
+            parents_list=[controller, "counters"],
+            children_list=[self.__input, self.__output],
+        )
+
         self._Pval = None
         self._Ival = None
         self._Dval = None
@@ -518,3 +529,7 @@ class Loop:
             self.controller.set_kd(self, new_kd)
         else:
             return self.controller.read_kd(self)
+
+    @property
+    def counters(self):
+        return counter_namespace(self.__input.counters + self.__output.counters)

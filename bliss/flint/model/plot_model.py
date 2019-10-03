@@ -292,11 +292,19 @@ class Style:
         lineStyle: str = None,
         lineColor: Tuple[int, int, int] = None,
         linePalette: int = None,
+        symbolStyle: str = None,
+        symbolSize: float = None,
+        symbolColor: Tuple[int, int, int] = None,
+        colormapLut: str = None,
     ):
         super(Style, self).__init__()
         self.__lineStyle = lineStyle
         self.__lineColor = lineColor
         self.__linePalette = linePalette
+        self.__symbolStyle = symbolStyle
+        self.__symbolSize = symbolSize
+        self.__symbolColor = symbolColor
+        self.__colormapLut = colormapLut
 
     @property
     def lineStyle(self):
@@ -309,6 +317,22 @@ class Style:
     @property
     def linePalette(self):
         return self.__linePalette
+
+    @property
+    def symbolStyle(self):
+        return self.__symbolStyle
+
+    @property
+    def symbolSize(self):
+        return self.__symbolSize
+
+    @property
+    def symbolColor(self):
+        return self.__symbolColor
+
+    @property
+    def colormapLut(self):
+        return self.__colormapLut
 
 
 class StyleStrategy:

@@ -46,6 +46,7 @@ class Scan(qt.QObject, _Sealable):
         self.__devices: List[Device] = []
         self.__channels: Dict[str, Channel] = {}
         self.__cacheData: Dict[Any, Any] = {}
+        self.__cacheMessage: Dict[Any, Any] = {}
 
     def seal(self):
         self.__channels = {}
@@ -63,6 +64,7 @@ class Scan(qt.QObject, _Sealable):
 
     def _fireScanDataUpdated(self):
         self.__cacheData = {}
+        self.__cacheMessage = {}
         self.scanDataUpdated.emit()
 
     def __cacheChannels(self, device: Device):
@@ -85,6 +87,15 @@ class Scan(qt.QObject, _Sealable):
 
     def setCachedResult(self, obj: Any, result: Any):
         self.__cacheData[obj] = result
+
+    def hasCacheValidation(self, obj: Any):
+        return obj in self.__cacheMessage
+
+    def setCacheValidation(self, obj: Any, result: Optional[str]):
+        self.__cacheMessage[obj] = result
+
+    def getCacheValidation(self, obj: Any):
+        return self.__cacheMessage[obj]
 
 
 class Device(qt.QObject, _Sealable):

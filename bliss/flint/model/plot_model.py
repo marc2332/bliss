@@ -185,6 +185,23 @@ class Item(qt.QObject):
     def isValid(self):
         return True
 
+    def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
+        """
+        Returns None if everything is fine, else a message to explain the problem.
+        """
+        return None
+
+    def isValidInScan(self, scan: scan_model.Scan) -> bool:
+        return self.getErrorMessage(scan) is None
+
+    def getErrorMessage(self, scan: scan_model.Scan) -> Optional[str]:
+        if not scan.hasCacheValidation(self):
+            result = self.getScanValidation(scan)
+            scan.setCacheValidation(self, result)
+        else:
+            result = scan.getCacheValidation(self)
+        return result
+
     def isChildOf(self, parent: Item) -> bool:
         return False
 

@@ -20,6 +20,7 @@ from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.logtools import *
+from bliss.common.tango import DeviceProxy
 from bliss import global_map
 
 import serial
@@ -466,7 +467,7 @@ class RFC2217(_BaseSerial):
         self._data = b""
 
     def _rfc2217_filter(self, data):
-        if data[-1] == IAC and data[-2] != IAC:
+        if bytes([data[-1]]) == IAC and bytes([data[-2]]) != IAC:
             self._pending_data = data
             return b""
 
@@ -484,7 +485,8 @@ class RFC2217(_BaseSerial):
                 iac_pos = self._data.find(IAC)
 
             if (
-                len(self._data[iac_pos:]) > 2 and self._data[iac_pos + 1] == IAC
+                len(self._data[iac_pos:]) > 2
+                and bytes([self._data[iac_pos + 1]]) == IAC
             ):  # ignore double IAC
                 self._data = self._data[iac_pos + 2 :]
             else:
@@ -654,15 +656,10 @@ class TangoSerial(_BaseSerial):
         del self._data
         del self._event
         del self._rpipe, self._wpipe
-        # import tango here to prevent import serial from failing in places
-        # were tango is not installed
-        from PyTango import GreenMode
-        from PyTango.client import Object, get_object_proxy
-
-        device = Object(kwargs["port"], green_mode=GreenMode.Gevent)
+        device = DeviceProxy(kwargs["port"])
         timeout = kwargs.get("timeout")
         if timeout:
-            get_object_proxy(device).set_timeout_millis(int(timeout * 1000))
+            device.set_timeout_millis(int(timeout * 1000))
         args = []
         kwargs["eol"] = cnt._eol
         for arg, (key, encode) in self.PAR_MAP.items():
@@ -670,6 +667,15 @@ class TangoSerial(_BaseSerial):
             args.append(encode(self, kwargs[key]))
         device.DevSerSetParameter(args)
         self._device = device
+
+        # the follwoing parameters are not supported by tango serial, can be
+        # used in bliss...
+
+        if "xonxoff" in kwargs and kwargs["xonxoff"] == True:
+            raise RuntimeError("Tango Serial Device Server does  not support xonxoff")
+
+        if "rtscts" in kwargs and kwargs["rtscts"] == True:
+            raise RuntimeError("Tango Serial Device Server does  not support rtscts")
 
     def close(self):
         self._device = None
@@ -686,7 +692,7 @@ class TangoSerial(_BaseSerial):
 
         buff = b""
         while True:
-            line = self._device.DevSerReadLine() or b""
+            line = bytes(self._device.DevSerReadChar(self.SL_LINE)) or b""
             line = line if type(line) is bytes else line.encode()
             if line == b"":
                 return b""
@@ -696,9 +702,10 @@ class TangoSerial(_BaseSerial):
 
     def _raw_read(self, maxsize):
         if maxsize:
-            return self._device.DevSerReadNChar(maxsize) or b""
+
+            return bytes(self._device.DevSerReadNBinData(maxsize)) or b""
         else:
-            return self._device.DevSerReadRaw() or b""
+            return bytes(self._device.DevSerReadChar(self.SL_RAW)) or b""
 
     _read = _raw_read
 

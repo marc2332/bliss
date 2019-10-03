@@ -44,17 +44,28 @@ def get_open_ports(n):
             s.close()
 
 
-def wait_for(stream, target, data=b""):
-    target = target.encode()
-    while target not in data:
-        char = stream.read(1)
-        if not char:
-            raise RuntimeError(
-                "Target {!r} not found in the following stream:\n{}".format(
-                    target, data.decode()
+def wait_for(stream, target):
+    def do_wait_for(stream, target, data=b""):
+        target = target.encode()
+        while target not in data:
+            char = stream.read(1)
+            if not char:
+                raise RuntimeError(
+                    "Target {!r} not found in the following stream:\n{}".format(
+                        target, data.decode()
+                    )
                 )
-            )
-        data += char
+            data += char
+
+    return do_wait_for(stream, target)
+
+
+# the following is to share 'wait_for' function to all tests,
+# since it is needed by some other tests (like Tango serial line,
+# as it runs the Tango device server)
+@pytest.fixture
+def wait_for_fixture():
+    return wait_for
 
 
 @pytest.fixture
@@ -141,6 +152,9 @@ def ports(beacon_directory):
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     wait_for(proc.stderr, "database started on port")
+    gevent.sleep(
+        1
+    )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port
@@ -280,7 +294,32 @@ def wago_tango_server(ports, beacon):
                 break
 
     gevent.sleep(1)
+
     yield device_fqdn, dev_proxy
+
+    p.terminate()
+
+
+@pytest.fixture
+def tango_serial(ports, beacon):
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "id00/tango/serial"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    serial_ds = [
+        sys.executable,
+        "-u",
+        os.path.join(os.path.dirname(__file__), "serial_tg_server.py"),
+    ]
+    p = subprocess.Popen(serial_ds + ["serial"], stdout=subprocess.PIPE)
+
+    with gevent.Timeout(10, RuntimeError("Serial tango server is not running")):
+        wait_for(p.stdout, "Ready to accept request")
+
+    dev_proxy = DeviceProxy(device_fqdn)
+
+    yield device_fqdn, dev_proxy
+
     p.terminate()
 
 

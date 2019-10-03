@@ -1,0 +1,8 @@
+device:
+- class: Serial
+  tango_name: id00/tango/serial
+  properties:
+          Serialline: 
+personal_name: test_serial
+server: Serial
+

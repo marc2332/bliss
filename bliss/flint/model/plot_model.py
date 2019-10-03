@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import annotations
+from typing import Tuple
 from typing import List
 from typing import Any
 from typing import Optional
@@ -286,11 +287,28 @@ class AbstractIncrementalComputableItem(AbstractComputableItem):
 
 
 class Style:
-    def __init__(self, lineStyle=None, lineColor=None, linePalette=None):
+    def __init__(
+        self,
+        lineStyle: str = None,
+        lineColor: Tuple[int, int, int] = None,
+        linePalette: int = None,
+    ):
         super(Style, self).__init__()
-        self.lineStyle = lineStyle
-        self.lineColor = lineColor
-        self.linePalette = linePalette
+        self.__lineStyle = lineStyle
+        self.__lineColor = lineColor
+        self.__linePalette = linePalette
+
+    @property
+    def lineStyle(self):
+        return self.__lineStyle
+
+    @property
+    def lineColor(self):
+        return self.__lineColor
+
+    @property
+    def linePalette(self):
+        return self.__linePalette
 
 
 class StyleStrategy:

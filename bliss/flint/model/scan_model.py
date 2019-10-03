@@ -12,9 +12,14 @@ from typing import Iterator
 from typing import Dict
 from typing import Any
 
-from silx.gui import qt
+import logging
 import numpy
 import enum
+
+from silx.gui import qt
+
+
+_logger = logging.getLogger(__name__)
 
 
 class SealedError(Exception):
@@ -70,6 +75,8 @@ class Scan(qt.QObject, _Sealable):
     def __cacheChannels(self, device: Device):
         for channel in device.channels():
             name = channel.name()
+            if name in self.__channels:
+                _logger.error("Channel named %s is registered 2 times", name)
             self.__channels[name] = channel
 
     def devices(self) -> Iterator[Device]:

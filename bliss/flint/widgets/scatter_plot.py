@@ -12,6 +12,7 @@ from typing import List
 from typing import Optional
 
 from silx.gui import qt
+from silx.gui import colors
 from silx.gui.plot import Plot1D
 
 from bliss.flint.model import scan_model
@@ -191,9 +192,11 @@ class ScatterPlotWidget(qt.QDockWidget):
 
         legend = valueChannel.name()
         style = item.getStyle(self.__scan)
-        # FIXME: colormap have to be reached from the style
+        colormap = colors.Colormap(style.colormapLut)
+        key = plot.addScatter(x=xx, y=yy, value=value, legend=legend, colormap=colormap)
+        scatter = plot.getScatter(key)
+        scatter.setSymbolSize(style.symbolSize)
 
-        key = plot.addScatter(x=xx, y=yy, value=value, legend=legend)
         plotItems.append((key, "scatter"))
 
         self.__items[item] = plotItems

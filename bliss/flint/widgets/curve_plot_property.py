@@ -213,6 +213,7 @@ class _DataItem(qt.QStandardItem):
         self.__displayed = delegates.HookedStandardItem("")
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
+        self.__error = qt.QStandardItem("")
 
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
@@ -245,7 +246,26 @@ class _DataItem(qt.QStandardItem):
             self.__displayed,
             self.__style,
             self.__remove,
+            self.__error,
         ]
+
+    def updateError(self):
+        scan = self.__flintModel.currentScan()
+        if scan is None or self.__plotItem is None:
+            # No message to reach
+            self.__error.setText(None)
+            self.__error.setIcon(qt.QIcon())
+            return
+        result = self.__plotItem.getErrorMessage(scan)
+        if result is None:
+            # Ths item is valid
+            self.__error.setText(None)
+            self.__error.setIcon(qt.QIcon())
+            return
+
+        self.__error.setText(result)
+        icon = icons.getQIcon("flint:icons/warning")
+        self.__error.setIcon(icon)
 
     def __yAxisChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
@@ -358,6 +378,7 @@ class _DataItem(qt.QStandardItem):
         self.__xaxis.setCheckable(False)
 
     def setChannel(self, channel: scan_model.Channel):
+        assert self.__treeView is not None
         self.__channel = channel
         text = "Channel %s" % channel.name()
         self.setText(text)
@@ -408,6 +429,8 @@ class _DataItem(qt.QStandardItem):
         widget.setFlintModel(self.__flintModel)
         self.__treeView.setIndexWidget(self.__style.index(), widget)
 
+        self.updateError()
+
 
 class CurvePlotPropertyWidget(qt.QWidget):
 
@@ -420,7 +443,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
-        self.__scan = None
+        self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
         self.__plotModel: Union[None, plot_model.Plot] = None
         self.__tree = qt.QTreeView(self)
@@ -497,9 +520,24 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def plotModel(self) -> Union[None, plot_model.Plot]:
         return self.__plotModel
 
-    def __setScan(self, scan):
+    def __setScan(self, scan: Optional[scan_model.Scan]):
+        if self.__scan is scan:
+            return
+        if self.__scan is not None:
+            self.__scan.scanDataUpdated.disconnect(self.__scanDataUpdated)
         self.__scan = scan
+        if self.__scan is not None:
+            self.__scan.scanDataUpdated.connect(self.__scanDataUpdated)
         self.__updateTree()
+
+    def __scanDataUpdated(self):
+        model = self.__tree.model()
+        flags = qt.Qt.MatchWildcard | qt.Qt.MatchRecursive
+        items = model.findItems("*", flags)
+        # FIXME: This loop could be optimized
+        for item in items:
+            if isinstance(item, _DataItem):
+                item.updateError()
 
     def __updateTree(self):
         # FIXME: expanded/collapsed items have to be restored
@@ -513,7 +551,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             return
 
         model.setHorizontalHeaderLabels(
-            ["Name", "X", "Y1/Y2", "Displayed", "Style", "Remove", ""]
+            ["Name", "X", "Y1/Y2", "Displayed", "Style", "Remove", "Message"]
         )
         self.__tree.setItemDelegateForColumn(self.YAxesColumn, self.__yAxesDelegate)
         self.__tree.setItemDelegateForColumn(

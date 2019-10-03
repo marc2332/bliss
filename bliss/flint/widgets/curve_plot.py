@@ -59,8 +59,8 @@ class CurvePlotWidget(qt.QDockWidget):
         from . import curve_plot_property
 
         propertyWidget = curve_plot_property.CurvePlotPropertyWidget(parent)
-        propertyWidget.setFocusWidget(self)
         propertyWidget.setFlintModel(self.__flintModel)
+        propertyWidget.setFocusWidget(self)
         return propertyWidget
 
     def setFlintModel(self, flintModel: Union[flint_model.FlintState, None]):
@@ -234,6 +234,10 @@ class CurvePlotWidget(qt.QDockWidget):
         resetZoom = not self.__plotModel.isInTransaction()
 
         if not item.isVisible():
+            self.__cleanScanItem(item, scan)
+            return
+
+        if not item.isValidInScan(scan):
             self.__cleanScanItem(item, scan)
             return
 

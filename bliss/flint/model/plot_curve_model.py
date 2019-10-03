@@ -110,6 +110,27 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def isValid(self):
         return self.__x is not None and self.__y is not None
 
+    def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
+        """
+        Returns None if everything is fine, else a message to explain the problem.
+        """
+        xx = self.xArray(scan)
+        yy = self.yArray(scan)
+        if xx is None and yy is None:
+            return "No data available for X and Y data"
+        elif xx is None:
+            return "No data available for X data"
+        elif yy is None:
+            return "No data available for Y data"
+        elif xx.ndim != 1:
+            return "Dimension of X data do not match"
+        elif yy.ndim != 1:
+            return "Dimension of Y data do not match"
+        elif len(xx) != len(yy):
+            return "Size of X and Y data do not match"
+        # It's fine
+        return None
+
     def xChannel(self) -> Optional[plot_model.ChannelRef]:
         return self.__x
 
@@ -187,8 +208,9 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
         try:
             result = mathutils.derivate(x, y)
         except Exception as e:
-            # FIXME: It have to be logged as a result
-            print("Error while creating derivative", e)
+            # FIXME: Maybe it is better to return a special type and then return
+            # Managed outside to store it into the validation cache
+            scan.setCacheValidation(self, "Error while creating derivative.\n" + str(e))
             return None
 
         return result

@@ -15,7 +15,7 @@ To update BLISS on an ESRF installation:
 #### release version (bliss)
 To update the "release" version in `bliss` Conda environement, update the conda package:
 
-    * `conda update bliss`
+    * `conda update --channel http://bcu-ci.esrf.fr/stable bliss`
     * or `conda install bliss=X.Y.Z`
 
 #### development version (bliss_dev)
@@ -88,7 +88,7 @@ conda config --env --append channels tango-controls
 To install Conda BLISS package ("release" version):
 
 ```bash
-conda install bliss
+conda install --channel http://bcu-ci.esrf.fr/stable bliss
 ```
 
 

@@ -210,7 +210,9 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
         except Exception as e:
             # FIXME: Maybe it is better to return a special type and then return
             # Managed outside to store it into the validation cache
-            scan.setCacheValidation(self, "Error while creating derivative.\n" + str(e))
+            scan.setCacheValidation(
+                self, self.version(), "Error while creating derivative.\n" + str(e)
+            )
             return None
 
         return result

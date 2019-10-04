@@ -199,11 +199,11 @@ class Item(qt.QObject):
         return self.getErrorMessage(scan) is None
 
     def getErrorMessage(self, scan: scan_model.Scan) -> Optional[str]:
-        if not scan.hasCacheValidation(self):
+        if not scan.hasCacheValidation(self, self.version()):
             result: Optional[str] = self.getScanValidation(scan)
-            scan.setCacheValidation(self, result)
+            scan.setCacheValidation(self, self.version(), result)
         else:
-            result = scan.getCacheValidation(self)
+            result = scan.getCacheValidation(self, self.version())
         return result
 
     def isChildOf(self, parent: Item) -> bool:

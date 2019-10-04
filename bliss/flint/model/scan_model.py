@@ -95,14 +95,23 @@ class Scan(qt.QObject, _Sealable):
     def setCachedResult(self, obj: Any, result: Any):
         self.__cacheData[obj] = result
 
-    def hasCacheValidation(self, obj: Any):
-        return obj in self.__cacheMessage
+    def hasCacheValidation(self, obj: Any, version: int):
+        result = self.__cacheMessage.get(obj, None)
+        if result is None:
+            return False
+        if result[0] != version:
+            del self.__cacheMessage[obj]
+            return False
+        return True
 
-    def setCacheValidation(self, obj: Any, result: Optional[str]):
-        self.__cacheMessage[obj] = result
+    def setCacheValidation(self, obj: Any, version: int, result: Optional[str]):
+        self.__cacheMessage[obj] = (version, result)
 
-    def getCacheValidation(self, obj: Any):
-        return self.__cacheMessage[obj]
+    def getCacheValidation(self, obj: Any, version: int):
+        result = self.__cacheMessage[obj]
+        if result[0] != version:
+            raise KeyError("Version do not match")
+        return result[1]
 
 
 class Device(qt.QObject, _Sealable):

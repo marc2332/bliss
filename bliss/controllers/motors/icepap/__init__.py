@@ -149,7 +149,7 @@ class Icepap(Controller):
             pre_cmd = None
         _ackcommand(
             self._cnx,
-            "POS %s %d" % (axis.address, int(round(new_pos))),
+            "POS %s %d" % (axis.address, int(numpy.round(new_pos))),
             pre_cmd=pre_cmd,
         )
         return self.read_position(axis, cache=False)
@@ -297,7 +297,7 @@ class Icepap(Controller):
 
         _ackcommand(
             self._cnx,
-            "MOVE %s %d" % (motion.axis.address, round(motion.target_pos)),
+            "MOVE %s %d" % (motion.axis.address, numpy.round(motion.target_pos)),
             pre_cmd=pre_cmd,
         )
 
@@ -305,7 +305,7 @@ class Icepap(Controller):
         if len(motions) > 1:
             cmd = "MOVE GROUP "
             cmd += " ".join(
-                ["%s %d" % (m.axis.address, round(m.target_pos)) for m in motions]
+                ["%s %d" % (m.axis.address, numpy.round(m.target_pos)) for m in motions]
             )
             _ackcommand(self._cnx, cmd)
         elif motions:

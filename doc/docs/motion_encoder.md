@@ -36,6 +36,24 @@ An encoder can be used to define events to trig on special positions.
 See: [Writing a motor controller -
 position-triggers](dev_write_motctrl.md#position-triggers)
 
+## Encoder as a counter
+
+A `SoftCounter` object can be defined to use an encoder as a BLISS counter in a
+scan by putting in the setup of a BLISS session:
+
+```python
+<counter> = SoftCounter(<encoder>, <function used to read>, name=<counter_name>)`
+```
+
+example:
+```python
+hpz_enc = SoftCounter(hpzrotid16_enc, 'read', name='hpz_enc')
+```
+
+!!! note
+    hpz_enc can be used in a measurement group, but do not add `"hpz_enc"`
+    in the `config-objects` list of the BLISS session.
+
 
 ## development
 

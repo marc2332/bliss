@@ -96,7 +96,11 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             style = plot_model.Style(colormapLut=self._COLORMAP)
             self.cacheStyle(image, None, style)
 
-        baseSize = self._SYMBOL_SIZE / 3
+        if len(images) == 1:
+            baseSize = self._SYMBOL_SIZE
+        else:
+            baseSize = self._SYMBOL_SIZE / 2
+
         for i, scatter in enumerate(images):
             size = ((len(images) - 1 - i) * 2 + 1) * baseSize
             lut = self._COLORMAPS[i % len(self._COLORMAPS)]

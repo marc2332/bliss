@@ -147,6 +147,22 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
     assert str(scan.acq_chain._tree) == str(tree)
 
 
+def test_multiple_top_master_terminator_exception(session, dummy_acq_device, caplog):
+    chain = AcquisitionChain()
+    master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
+    diode_sim = session.config.get("diode")
+    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=1)
+    master2 = timer.SoftwareTimerMaster(0.1, npoints=10, name="timer2")
+    dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
+    chain.add(master2, dummy_device)
+    chain.add(master1, diode_device)
+
+    scan = Scan(chain, "test", save=False)
+    scan.run()
+
+    assert not caplog.records
+
+
 def test_master_synchro(session, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain(parallel_prepare=True)
     master = dummy_acq_master.get(None, "master", npoints=1)

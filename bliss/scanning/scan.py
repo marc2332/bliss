@@ -1120,7 +1120,7 @@ class Scan:
                     kill_exception = StopChain
                     try:
                         while run_scan:
-                            # The master defined as 'stopper' ends the loop
+                            # The master defined as 'terminator' ends the loop
                             # (by default any top master will stop the loop),
                             # the loop is also stopped in case of exception.
                             wait_tasks = [t for t, _ in run_next_tasks]

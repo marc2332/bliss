@@ -34,7 +34,7 @@ VisibilityRole = qt.Qt.UserRole + 101
 RadioRole = qt.Qt.UserRole + 102
 
 
-_colormapPixmap = {}
+_colormapPixmap: Dict[str, qt.QPixmap] = {}
 _COLORMAP_PIXMAP_SIZE = 32
 
 

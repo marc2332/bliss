@@ -214,6 +214,7 @@ class _DataItem(qt.QStandardItem):
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
+        self.__xAxisSelected = False
 
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
@@ -331,12 +332,19 @@ class _DataItem(qt.QStandardItem):
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setSelectedXAxis(self):
+        if self.__xAxisSelected:
+            return
+        self.__xAxisSelected = True
+
         old = self.__xaxis.modelUpdated
         self.__xaxis.modelUpdated = None
         try:
-            self.__xaxis.setCheckState(qt.Qt.Checked)
+            self.__xaxis.setData(qt.Qt.Checked, role=delegates.RadioRole)
         finally:
             self.__xaxis.modelUpdated = old
+        # It have to be closed to be refreshed. Sounds like a bug.
+        self.__treeView.closePersistentEditor(self.__xaxis.index())
+        self.__treeView.openPersistentEditor(self.__xaxis.index())
 
     def __xAxisChanged(self, item: qt.QStandardItem):
         assert self.__channel is not None
@@ -375,7 +383,27 @@ class _DataItem(qt.QStandardItem):
             icon = icons.getQIcon("flint:icons/item-device")
         self.setText(text)
         self.setIcon(icon)
-        self.__xaxis.setCheckable(False)
+        self.__updateXAxisStyle(True, None)
+
+    def __rootRow(self) -> int:
+        item = self
+        while item is not None:
+            parent = item.parent()
+            if parent is None:
+                break
+            item = parent
+        return item.row()
+
+    def __updateXAxisStyle(self, setAxisValue: bool, radioValue=None):
+        # FIXME: avoid hard coded style
+        cellColors = [qt.QColor(0xF5, 0xF5, 0xF5), qt.QColor(0xF0, 0xF0, 0xF0)]
+        old = self.__xaxis.modelUpdated
+        self.__xaxis.modelUpdated = None
+        if setAxisValue:
+            self.__xaxis.setData(radioValue, role=delegates.RadioRole)
+        i = self.__rootRow()
+        self.__xaxis.setBackground(cellColors[i % 2])
+        self.__xaxis.modelUpdated = old
 
     def setChannel(self, channel: scan_model.Channel):
         assert self.__treeView is not None
@@ -385,10 +413,11 @@ class _DataItem(qt.QStandardItem):
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
-        self.__xaxis.setCheckable(True)
+        self.__updateXAxisStyle(True, qt.Qt.Unchecked)
         self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
 
+        self.__treeView.openPersistentEditor(self.__xaxis.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
 
     def setPlotItem(self, plotItem):
@@ -398,7 +427,6 @@ class _DataItem(qt.QStandardItem):
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
-        self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
 
         if plotItem is not None:
@@ -413,14 +441,23 @@ class _DataItem(qt.QStandardItem):
         if isinstance(plotItem, plot_curve_model.CurveItem):
             icon = icons.getQIcon("flint:icons/item-channel")
             self.setIcon(icon)
+            self.__xaxis.modelUpdated = self.__xAxisChanged
+            useXAxis = True
         elif isinstance(plotItem, plot_curve_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
             self.setIcon(icon)
+            # self.__updateXAxisStyle(False, None)
+            useXAxis = False
+            self.__updateXAxisStyle(False)
         elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
             icon = icons.getQIcon("flint:icons/item-stats")
             self.setIcon(icon)
+            useXAxis = False
+            self.__updateXAxisStyle(False)
 
         # FIXME: It have to be converted into delegate
+        if useXAxis:
+            self.__treeView.openPersistentEditor(self.__xaxis.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
@@ -451,6 +488,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setUniformRowHeights(True)
 
         self.__xAxisInvalidated: bool = False
+        self.__xAxisDelegate = delegates.RadioPropertyItemDelegate(self)
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
         self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
@@ -553,6 +591,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         model.setHorizontalHeaderLabels(
             ["Name", "X", "Y1/Y2", "Displayed", "Style", "Remove", "Message"]
         )
+        self.__tree.setItemDelegateForColumn(self.XAxisColumn, self.__xAxisDelegate)
         self.__tree.setItemDelegateForColumn(self.YAxesColumn, self.__yAxesDelegate)
         self.__tree.setItemDelegateForColumn(
             self.VisibleColumn, self.__visibilityDelegate

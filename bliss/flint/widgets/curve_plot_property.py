@@ -281,52 +281,12 @@ class _DataItem(qt.QStandardItem):
             yAxis = item.data(role=YAxesPropertyItemDelegate.YAxesRole)
             assert yAxis in ["left", "right"]
 
-            # Reach the master device
-            topMaster = self.__channel.device().topMaster()
-            scan = topMaster.scan()
-
-            # Reach any plot item from this master
-            item = model_helper.reachAnyCurveItemFromDevice(plot, scan, topMaster)
-
-            if item is not None:
-                isAxis = item.yChannel() is None
-                if isAxis:
-                    item.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
-                    item.setYAxis(yAxis)
-                    # It's now a valid plot item
-                    self.setPlotItem(item)
-                else:
-                    channelName = item.xChannel().name()
-                    newItem = plot_curve_model.CurveItem(plot)
-                    newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
-                    newItem.setYChannel(
-                        plot_model.ChannelRef(plot, self.__channel.name())
-                    )
-                    newItem.setYAxis(yAxis)
-                    plot.addItem(newItem)
-            else:
-                # No other x-axis is specified
-                # Reach another channel name from the same top master
-                channelNames = []
-                for device in scan.devices():
-                    if device.topMaster() is not topMaster:
-                        continue
-                    channelNames.extend([c.name() for c in device.channels()])
-                channelNames.remove(self.__channel.name())
-
-                if len(channelNames) > 0:
-                    # Pick the first one
-                    # FIXME: Maybe we could use scan infos to reach the default channel
-                    channelName = channelNames[0]
-                else:
-                    # FIXME: Maybe it's better idea to display it with x-index
-                    channelName = self.__channel.name()
-
-                newItem = plot_curve_model.CurveItem(plot)
-                newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
-                newItem.setYChannel(plot_model.ChannelRef(plot, self.__channel.name()))
-                newItem.setYAxis(yAxis)
-                plot.addItem(newItem)
+            curve, wasUpdated = model_helper.createCurveItem(
+                plot, self.__channel, yAxis
+            )
+            if wasUpdated:
+                # It's now an item with a value
+                self.setPlotItem(curve)
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:

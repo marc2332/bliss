@@ -97,76 +97,19 @@ class _DataItem(qt.QStandardItem):
 
     def __valueAxisChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
-            # There is a plot item already
+            # There is a already plot item
             assert self.__plotModel is not None
             plot = self.__plotModel
-
-            scatters = []
-            for scatter in plot.items():
-                if isinstance(scatter, plot_item_model.ScatterItem):
-                    scatters.append(scatter)
-
-            if len(scatters) == 1:
-                # Only remove the value to remember the axes
-                newItem = plot_item_model.ScatterItem(plot)
-                xChannel = model_helper.cloneChannelRef(
-                    plot, self.__plotItem.xChannel()
-                )
-                yChannel = model_helper.cloneChannelRef(
-                    plot, self.__plotItem.yChannel()
-                )
-                newItem = plot_item_model.ScatterItem(plot)
-                if xChannel is not None:
-                    newItem.setXChannel(xChannel)
-                if yChannel is not None:
-                    newItem.setYChannel(yChannel)
-                with self.__plotModel.transaction():
-                    self.__plotModel.removeItem(self.__plotItem)
-                    self.__plotModel.addItem(newItem)
-            else:
-                self.__plotModel.removeItem(self.__plotItem)
+            model_helper.removeItemAndKeepAxes(plot, self.__plotItem)
         else:
             assert self.__channel is not None
             assert self.__plotModel is not None
             plot = self.__plotModel
 
-            # Reach any plot item from this master
-            baseItem: Optional[plot_item_model.ScatterItem]
-            for baseItem in plot.items():
-                if isinstance(baseItem, plot_item_model.ScatterItem):
-                    break
-            else:
-                baseItem = None
-
-            if baseItem is not None:
-                isAxis = baseItem.valueChannel() is None
-                if isAxis:
-                    baseItem.setValueChannel(
-                        plot_model.ChannelRef(plot, self.__channel.name())
-                    )
-                    # It's now an item with a value
-                    self.setPlotItem(baseItem)
-                else:
-                    # Create a new item using axis from baseItem
-                    xChannel = model_helper.cloneChannelRef(plot, baseItem.xChannel())
-                    yChannel = model_helper.cloneChannelRef(plot, baseItem.yChannel())
-                    newItem = plot_item_model.ScatterItem(plot)
-                    if xChannel is not None:
-                        newItem.setXChannel(xChannel)
-                    if yChannel is not None:
-                        newItem.setYChannel(yChannel)
-                    newItem.setValueChannel(
-                        plot_model.ChannelRef(plot, self.__channel.name())
-                    )
-                    plot.addItem(newItem)
-            else:
-                # No axes are specified
-                # FIXME: Maybe we could use scan infos to reach the default axes
-                newItem = plot_item_model.ScatterItem(plot)
-                newItem.setValueChannel(
-                    plot_model.ChannelRef(plot, self.__channel.name())
-                )
-                plot.addItem(newItem)
+            scatter, wasUpdated = model_helper.createScatterItem(plot, self.__channel)
+            if wasUpdated:
+                # It's now an item with a value
+                self.setPlotItem(scatter)
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:

@@ -24,6 +24,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import scan_model
 from bliss.flint.widgets.eye_check_box import EyeCheckBox
+from bliss.flint.helper import model_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ class _RemovePlotItemButton(qt.QToolButton):
         plotItem = self.__plotItem
         plot = plotItem.plot()
         if plot is not None:
-            plot.removeItem(plotItem)
+            model_helper.removeItemAndKeepAxes(plot, plotItem)
 
     def setPlotItem(self, plotItem: plot_model.Item):
         self.__plotItem = plotItem

@@ -171,6 +171,7 @@ class Item(qt.QObject):
         super(Item, self).__init__(parent=parent)
         self.__isVisible: bool = True
         self.__plot: Optional[Plot] = None
+        self.__version = 0
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -181,6 +182,9 @@ class Item(qt.QObject):
     def __setstate__(self, state):
         self.setParent(state[0])
         self.setVisible(state[1])
+
+    def version(self) -> int:
+        return self.__version
 
     def isValid(self):
         return True
@@ -212,6 +216,7 @@ class Item(qt.QObject):
         return self.__plot
 
     def _emitValueChanged(self, eventType: ChangeEventType):
+        self.__version = (self.__version + 1) % 0x1000000
         plot = self.plot()
         if plot is not None:
             plot.itemValueChanged.emit(self, eventType)

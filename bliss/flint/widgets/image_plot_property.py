@@ -43,6 +43,9 @@ class _DataItem(qt.QStandardItem):
         self.__treeView: Optional[qt.QTreeView] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
 
+    def __hash__(self):
+        return hash(id(self))
+
     def setEnvironment(
         self, treeView: qt.QTreeView, flintState: flint_model.FlintState
     ):
@@ -209,6 +212,81 @@ class ImagePlotPropertyWidget(qt.QWidget):
         self.__scan = scan
         self.__updateTree()
 
+    def __genScanTree(
+        self,
+        model: qt.QStandardItemModel,
+        scan: scan_model.Scan,
+        channelFilter: scan_model.ChannelType,
+    ) -> Dict[str, _DataItem]:
+        assert self.__tree is not None
+        assert self.__flintModel is not None
+        assert self.__plotModel is not None
+        scanTree = {}
+        channelItems: Dict[str, _DataItem] = {}
+
+        devices: List[qt.QStandardItem] = []
+        channelsPerDevices: Dict[qt.QStandardItem, int] = {}
+
+        for device in scan.devices():
+            item = _DataItem()
+            item.setEnvironment(self.__tree, self.__flintModel)
+            scanTree[device] = item
+
+            master = device.master()
+            if master is None:
+                # Root device
+                parent = model
+            else:
+                itemMaster = scanTree.get(master, None)
+                if itemMaster is None:
+                    parent = model
+                    _logger.warning("Device list is not well ordered")
+                else:
+                    parent = itemMaster
+
+            parent.appendRow(item.items())
+            # It have to be done when model index are initialized
+            item.setDevice(device)
+            devices.append(item)
+
+            channels = []
+            for channel in device.channels():
+                if channel.type() != channelFilter:
+                    continue
+                channels.append(channel)
+
+            for channel in channels:
+                channelItem = _DataItem()
+                channelItem.setEnvironment(self.__tree, self.__flintModel)
+                item.appendRow(channelItem.items())
+                # It have to be done when model index are initialized
+                channelItem.setChannel(channel)
+                channelItem.setPlotModel(self.__plotModel)
+                channelItems[channel.name()] = channelItem
+
+            # Update channel use
+            parent = item
+            channelsPerDevices[parent] = 0
+            while parent is not None:
+                if parent in channelsPerDevices:
+                    channelsPerDevices[parent] += len(channels)
+                parent = parent.parent()
+                if parent is None:
+                    break
+
+        # Clean up unused devices
+        for device in reversed(devices):
+            if device not in channelsPerDevices:
+                continue
+            if channelsPerDevices[device] > 0:
+                continue
+            parent = device.parent()
+            if parent is None:
+                parent = model
+            parent.removeRows(device.row(), 1)
+
+        return channelItems
+
     def __updateTree(self):
         # FIXME: expanded/collapsed items have to be restored
 
@@ -234,42 +312,12 @@ class ImagePlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
 
-        scanTree = {}
-        channelItems = {}
-
+        sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scan = self.__scan
-
         if scan is not None:
-            for device in scan.devices():
-                item = _DataItem()
-                item.setEnvironment(self.__tree, self.__flintModel)
-                scanTree[device] = item
-
-                master = device.master()
-                if master is None:
-                    # Root device
-                    parent = model
-                else:
-                    itemMaster = scanTree.get(master, None)
-                    if itemMaster is None:
-                        parent = model
-                        _logger.warning("Device list is not well ordered")
-                    else:
-                        parent = itemMaster
-                parent.appendRow(item.items())
-                # It have to be done when model index are initialized
-                item.setDevice(device)
-
-                for channel in device.channels():
-                    if channel.type() != scan_model.ChannelType.IMAGE:
-                        continue
-                    channelItem = _DataItem()
-                    channelItem.setEnvironment(self.__tree, self.__flintModel)
-                    item.appendRow(channelItem.items())
-                    # It have to be done when model index are initialized
-                    channelItem.setChannel(channel)
-                    channelItem.setPlotModel(self.__plotModel)
-                    channelItems[channel.name()] = channelItem
+            channelItems = self.__genScanTree(model, scan, scan_model.ChannelType.IMAGE)
+        else:
+            channelItems = {}
 
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         model.appendRow(itemWithoutLocation)

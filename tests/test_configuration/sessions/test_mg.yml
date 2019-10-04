@@ -2,5 +2,3 @@ class: MeasurementGroup
 name: test_mg
 counters:
 - diode
-- esTr1
-- wago_simulator:esTr2

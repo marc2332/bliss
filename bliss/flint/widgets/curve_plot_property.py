@@ -396,7 +396,7 @@ class _DataItem(qt.QStandardItem):
 
     def __updateXAxisStyle(self, setAxisValue: bool, radioValue=None):
         # FIXME: avoid hard coded style
-        cellColors = [qt.QColor(0xF5, 0xF5, 0xF5), qt.QColor(0xF0, 0xF0, 0xF0)]
+        cellColors = [qt.QColor(0xE8, 0xE8, 0xE8), qt.QColor(0xF5, 0xF5, 0xF5)]
         old = self.__xaxis.modelUpdated
         self.__xaxis.modelUpdated = None
         if setAxisValue:

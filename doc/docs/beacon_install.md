@@ -25,11 +25,11 @@ daemons started by the system:
 
 It is required to start Beacon server using `--db-path` to specify the path to the configuration files:
 
-    $ beacon-server --db-path=~/local/beamline_configuration
+    beacon-server --db-path=~/local/beamline_configuration
 
 Beacon port number can be set manually (otherwise, by default, Beacon will just choose the first free port it finds):
 
-    $ beacon-server --db-path=~/local/beamline_configuration --port=25000
+    beacon-server --db-path=~/local/beamline_configuration --port=25000
 
 !!! note
     Beacon implements a discovery protocol (in the same spirit as [SSDP](https://en.wikipedia.org/wiki/Simple_Service_Discovery_Protocol)).
@@ -39,13 +39,13 @@ Beacon port number can be set manually (otherwise, by default, Beacon will just 
 
 The web configuration UI can be enabled, by specifying the web application port number using `--webapp-port`:
 
-    $ beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030
+    beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030
 
 BLISS Beacon server is also able to provide a full TANGO database server service that integrates nicely
 with the BLISS configuration. To start this service it is just needed to provide the TANGO port that
 you want the TANGO database server to serve:
 
-    $ beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030 --tango-port=20000
+    beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030 --tango-port=20000
 
 ## Command line options
 

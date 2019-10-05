@@ -34,7 +34,7 @@ or specific experiment).
 
 
 ```
-$ bliss -s eh1
+bliss -s eh1
 ```
 
 ```python
@@ -555,7 +555,7 @@ require anything from the host Python program.
 
 For example a BLISS-friendly IPython console can be started like this:
 
-    $ python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
+    python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
 
 The line above launches Python, makes sure Python standard library is
 patched, without replacing system threads by gevent greenlets (which

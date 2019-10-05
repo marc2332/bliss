@@ -6,11 +6,11 @@ The BLISS project is hosted on the [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bl
 
 To clone bliss:
 ```
-$ git clone https://gitlab.esrf.fr/bliss/bliss.git
+git clone https://gitlab.esrf.fr/bliss/bliss.git
 ```
 The first thing to do after cloning bliss is to set up the pre-commit hook:
 ```
-$ ./pre-commit.sh
+./pre-commit.sh
 pre-commit installed at /home/user/bliss/.git/hooks/pre-commit
 ```
 
@@ -21,7 +21,7 @@ code style in the project. For more information, see the
 Bliss has some dependencies on third-party software. The complete list
 of dependencies can be obtained from the `setup.py` script:
 ```
-$ python setup.py egg_info
+python setup.py egg_info
 ```
 
 (see `bliss.egg_info/requirements.txt`).
@@ -70,7 +70,7 @@ from Alibaba Inc, in their experiments.
 * She clones the Bliss repository and creates a new branch
   called *alibaba\_pressure\_meter*:
 ```
-$ git checkout -b alibaba_pressure_meter
+git checkout -b alibaba_pressure_meter
 ```
 * She is a fan of [TDD](https://en.wikipedia.org/wiki/Test-driven_development), so
   she starts thinking how she would like to control the device and
@@ -139,16 +139,16 @@ There is 3 complementary ways to work with black:
 * Run it using the command line interface:
 
 ```
- $ pip3 install black
+ pip3 install black
  [...]
- $ black .
+ black .
  All done! ✨ 🍰 ✨
  466 files left unchanged.
 ```
 
 * Let the pre-commit hook format your changes. Make sure it is properly set up by running:
 ```
-$ ./pre-commit
+./pre-commit
 ```
 
 !!! note
@@ -157,7 +157,7 @@ $ ./pre-commit
      before re-applying the commit:
 
     ```bash
-    $ git commit demo.py -m "Some message"
+    git commit demo.py -m "Some message"
     black..........................................................Failed
     Files were modified by this hook. Additional output:
     reformatted doc/demo.py
@@ -166,7 +166,7 @@ $ ./pre-commit
     [WARNING] Stashed changes conflicted with hook auto-fixes...
         Rolling back fixes...
     
-    $ git commit demo.py -m "Some message"
+    git commit demo.py -m "Some message"
     black..........................................................Passed
     [branch 89b740f2] Some message
     1 file changed, 1 insertion(+)

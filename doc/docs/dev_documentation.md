@@ -26,14 +26,14 @@ in a conda environment.
 !!! note "At ESRF"
     At ESRF, enter the BLISS development conda environment to install documentation requirements:
     ```bash
-    $ . blissenv -d
+    . blissenv -d
     ```
 
 
 ```bash
-$ cd <bliss.git directory>
-$ conda install --file requirements-doc-conda.txt
-$ pip install -r requirements-doc.txt
+cd <bliss.git directory>
+conda install --file requirements-doc-conda.txt
+pip install -r requirements-doc.txt
 ```
 
 This installs `mkdocs` and all dependencies.
@@ -41,8 +41,8 @@ This installs `mkdocs` and all dependencies.
 In order to serve a local version of the documentation, start
 the mkdocs serve with:
 ```bash
-$ cd <bliss.git directory>/doc/
-$ mkdocs serve
+cd <bliss.git directory>/doc/
+mkdocs serve
 ```
 And visit http://localhost:8000
 
@@ -52,8 +52,8 @@ http://localhost:8000/dev_documentation.html
 Please do the following
 
 ```bash
-$ cd <bliss.git directory>/doc/docs
-$ <your favorite editor> dev_documentation.md
+cd <bliss.git directory>/doc/docs
+<your favorite editor> dev_documentation.md
 ```
 
 Once you save **dev_documentation.md** you can see the new version
@@ -141,22 +141,22 @@ To easily view the result of your writing, using a local rendering:
 !!! note  "At ESRF"
     At ESRF, enter the BLISS development conda environment to install documentation requirements:
     ```bash
-    $ . blissenv -d
+    . blissenv -d
     ```
 
 ```bash
-$ cd <bliss.git directory>
-$ conda install --file requirements-doc-conda.txt
-$ pip install -r requirements-doc.txt
+cd <bliss.git directory>
+conda install --file requirements-doc-conda.txt
+pip install -r requirements-doc.txt
 ```
 
 * launch `mkdocs` in server mode in your conda environment:
 
 ```bash
-$ hostname
+hostname
 myhost
-$ cd <bliss.git directory>/doc/
-$ mkdocs serve -a myhost:8888
+cd <bliss.git directory>/doc/
+mkdocs serve -a myhost:8888
 ```
 
 * and visit [http://myhost:8888](http://myhost:888) to see the documentation

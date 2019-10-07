@@ -128,6 +128,7 @@ class ChannelRef(qt.QObject):
     currentScanDataUpdated = qt.Signal()
 
     def __init__(self, parent=None, channelName=None, scanName=None):
+        # FIXME Check the real need of this scanName
         super(ChannelRef, self).__init__(parent=parent)
         self.__channelName = channelName
 

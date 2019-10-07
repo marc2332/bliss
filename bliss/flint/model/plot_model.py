@@ -131,6 +131,11 @@ class ChannelRef(qt.QObject):
         super(ChannelRef, self).__init__(parent=parent)
         self.__channelName = channelName
 
+    def __eq__(self, other: Any):
+        if not isinstance(other, ChannelRef):
+            return
+        return self.__channelName == other.name()
+
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
 

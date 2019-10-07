@@ -70,23 +70,30 @@ def getConsistentTopMaster(
     top master is returned.
     """
     xChannel = plotItem.xChannel()
-    if xChannel is None:
+    yChannel = plotItem.yChannel()
+    if xChannel is None and yChannel is None:
         return None
+
+    if xChannel is None or yChannel is None:
+        # One or the other is valid
+        channelRef = xChannel if xChannel is not None else yChannel
+        # With one or the other the master channel is valid
+        name = channelRef.name()
+        channel = scan.getChannelByName(name)
+        if channel is None:
+            return None
+        return channel.device().topMaster()
+
     x = xChannel.name()
     channelX = scan.getChannelByName(x)
     if channelX is None:
         return None
 
-    yChannel = plotItem.yChannel()
-    if yChannel is None:
-        # Without y, the item is still valid
-        topMasterX = channelX.device().topMaster()
-        return topMasterX
-
     y = yChannel.name()
     channelY = scan.getChannelByName(y)
     if channelY is None:
         return None
+
     topMasterX = channelX.device().topMaster()
     topMasterY = channelY.device().topMaster()
     if topMasterX is not topMasterY:

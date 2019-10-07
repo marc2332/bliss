@@ -54,7 +54,7 @@ class MachInfo(BeaconObject):
         self.__counters_groups = dict()
         default_counters = config.get("default_counters", list())
         if default_counters:
-            # check if allowed
+            # check if allowed (ie: name is in self.COUNTERS)
             allowed_counters = set(c[0] for c in self.COUNTERS)
             not_allowed = [
                 name for name in default_counters if name not in allowed_counters
@@ -254,9 +254,11 @@ class MachInfo(BeaconObject):
 class WaitForRefillPreset(ChainPreset):
     """
     This preset will pause a scan during the refill
-    and if the **checktime** is greater than the refill time.
+    and if the **checktime** is greater than the time to refill.
     If **checktime** is set to None then we try to find **count_time**
     on the top master of the chain.
+
+    Do not forget to intialize MachInfo object in session's setup.
     """
 
     class PresetIter(ChainIterationPreset):

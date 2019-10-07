@@ -89,6 +89,7 @@ nav:
                       - PEPU: config_pepu.md
                       - TFG: config_tango_tfg.md
                       - Tango attribute as counters: config_taac.md
+                      - Machine info: config_machine.md
                       - Nano-BPM: config_nano_bpm.md
                       - Shutters, Frontend and Valves: config_shutter.md
                       - Wagos:

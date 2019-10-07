@@ -136,7 +136,7 @@ def getMostUsedXChannelPerMasters(
     # Returns the most used channels
     xChannelPerMaster = {}
     for master, counts in xChannelsPerMaster.items():
-        channels = sorted(counts.keys(), key=lambda x: counts[x])
+        channels = sorted(counts.keys(), key=lambda x: counts[x], reverse=True)
         most_often_used_channel = channels[0]
         xChannelPerMaster[master] = most_often_used_channel
 

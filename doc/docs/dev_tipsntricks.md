@@ -60,3 +60,34 @@ with cleanup(motor, restore_list=(cleanup_axis.POS,)):
 
 return scan
 ```
+
+
+## informing the user
+
+`bliss.common.user_status_info` provides a mechanism to send information to the
+user while a sequence is running.
+
+### example
+
+```python
+
+from bliss.common.user_status_info import status_message
+import gevent
+import time
+
+def is_finished():
+    return (time.time() - t0) > 5
+
+def my_seq():
+    gevent.sleep(0.2)
+
+t0 = time.time()
+
+with status_message() as p:
+    while(not is_finished()):
+        my_seq()
+        p("salut")
+
+```
+
+

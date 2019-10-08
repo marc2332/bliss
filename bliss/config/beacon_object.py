@@ -370,7 +370,7 @@ class BeaconObject:
         def set(self, value):
             self.settings[name] = value
 
-        return property(get, set)
+        return BeaconObject._property(get, set)
 
     @staticmethod
     def lazy_init(func):

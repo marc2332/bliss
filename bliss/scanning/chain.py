@@ -412,7 +412,7 @@ class AcquisitionMaster(object):
         """Add a channel from an external source."""
         try:
             source = next(
-                channel for channel in device.channels if channel.name == name
+                channel for channel in device.channels if channel.short_name == name
             )
         except StopIteration:
             raise ValueError(

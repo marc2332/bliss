@@ -152,6 +152,14 @@ class MultiplePositions:
     def status(self):
         """ Print the exhaustive status of the object.
         """
+        pos_str, motpos_str = self.info()
+        print(pos_str)
+        print(motpos_str)
+
+    def info(self):
+        """ Return the exhaustive status of the object.
+        Return a tuple of strings.
+        """
         # HEADER
         table = [("", "LABEL", "DESCRIPTION", "MOTOR POSITION(S)")]
 
@@ -159,7 +167,7 @@ class MultiplePositions:
         motpos_str = ""
         for pos in self._positions_list:
             descr = pos.get("description", "")
-            if pos["label"] in curr_pos:
+            if pos["label"] == curr_pos:
                 mystr = "* "
             else:
                 mystr = ""
@@ -178,13 +186,21 @@ class MultiplePositions:
                     )
             table.append((mystr, pos["label"], descr, motstr))
         # POSITIONS
-        print(tabulate(tuple(table), numalign="right", tablefmt="plain"))
+        pos_str = tabulate(tuple(table), numalign="right", tablefmt="plain")
         # MOTORS
-        print(motpos_str)
+        return (pos_str, motpos_str)
 
     def __info__(self):
-        """Get detailed information."""
-        return self.status
+        """Standard method called by BLISS Shell info helper."""
+        try:
+            info_string = "\n".join(self.info())
+
+        except Exception:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
+        return info_string
 
     @property
     def position(self):

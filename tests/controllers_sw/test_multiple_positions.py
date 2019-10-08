@@ -122,12 +122,32 @@ def test_multiple_positions_add_remove_update(session):
 def test_multiple_positions_move_by_label(beacon):
     """Test label-defined move methods
     """
-
     beamstop = beacon.get("beamstop")
     beamstop.IN()
     assert beamstop.position == "IN"
     beamstop.OUT()
     assert beamstop.position == "OUT"
+
+
+def test_multiple_positions_label(beacon):
+    """Test label-positioning
+    """
+    att = beacon.get("att1")
+    mot = beacon.get("roby")
+
+    mot.move(2.5)
+    assert att.position == "Al200"
+
+    info_str = att.__info__()
+    star_count = info_str.count("*")
+    assert star_count == 1
+
+
+def test_multiple_positions_info(beacon):
+    att = beacon.get("att1")
+
+    info_string = att.__info__()
+    assert isinstance(info_string, str)
 
 
 def test_multiple_positions_move_events(session):

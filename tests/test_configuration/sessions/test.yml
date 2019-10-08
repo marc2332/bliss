@@ -10,6 +10,7 @@
   setup-file: ./test_setup.py
   config-objects:
     - beamstop
+    - att1
     - MG1
     - MG2
     - bad

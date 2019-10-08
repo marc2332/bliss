@@ -1,0 +1,25 @@
+name: att1
+plugin: bliss
+class: MultiplePositions
+simultaneous_move: True
+positions:
+- label: Al
+  description: Attenuator in Al position
+  target:
+  - axis: $roby
+    destination: 0.5
+    tolerance: 0.01
+- label: Al40
+  description: Attenuator in Al40 position
+  target:
+  - axis: $roby
+    destination: 1.5
+    tolerance: 0.01
+- label: Al200
+  description: Attenuator in Al200 position
+  target:
+  - axis: $roby
+    destination: 2.5
+    tolerance: 0.01
+
+

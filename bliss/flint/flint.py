@@ -463,6 +463,9 @@ def main():
     # patch system poll
     need_gevent_loop = True  # not poll_patch.init(1) if poll_patch else True
 
+    logging.basicConfig(level=logging.INFO)
+    ROOT_LOGGER.level = logging.INFO
+
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
@@ -479,8 +482,6 @@ def main():
         settings.sync()
 
     qapp.aboutToQuit.connect(save_window_settings)
-
-    ROOT_LOGGER.level = logging.INFO
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         ROOT_LOGGER.critical(

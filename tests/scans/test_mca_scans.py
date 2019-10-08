@@ -4,7 +4,6 @@ import numpy as np
 import pytest
 
 from bliss.common import scans
-from bliss import setup_globals
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
@@ -160,7 +159,7 @@ def test_mca_default_chain_with_measurement_group(session):
     # Get controllers
     m0 = session.config.get("m0")
     # Add simu1 to globals
-    setup_globals.simu1 = session.config.get("simu1")
+    session.config.get("simu1")
 
     # Measurement group
     mg1 = MeasurementGroup("mygroup1", {"counters": ["simu1"]})

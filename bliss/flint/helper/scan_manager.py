@@ -13,7 +13,6 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
-import sys
 import warnings
 import collections
 import logging
@@ -30,6 +29,8 @@ with warnings.catch_warnings():
 
 from ..widgets.live_plot_1d import LivePlot1D
 from ..widgets.live_scatter_plot import LiveScatterPlot
+from .data_storage import DataStorage
+from bliss.flint.helper import scan_info_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -44,6 +45,8 @@ class ScanManager:
             Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
         ] = dict()
 
+        self.__data_storage = DataStorage()
+
         def new_live_scan_plots():
             return {"0d": [], "1d": [], "2d": []}
 
@@ -53,6 +56,13 @@ class ScanManager:
         self._end_scan_event = gevent.event.Event()
 
     def new_scan(self, scan_info):
+        self.__data_storage.clear()
+
+        # FIXME: Create the scan modelization here
+
+        channels = scan_info_helper.iter_channels(scan_info)
+        for channel in channels:
+            self.__data_storage.create_channel(channel.name, channel.master)
 
         # show tab
         self.flint.parent_tab.setCurrentIndex(0)
@@ -230,12 +240,6 @@ class ScanManager:
         if self._refresh_task is None:
             self._refresh_task = gevent.spawn(self._refresh)
 
-    def end_scan(self, scan_info):
-        self._end_scan_event.set()
-
-    def wait_end_of_scan(self):
-        self._end_scan_event.wait()
-
     def _refresh(self):
         try:
             while self._last_event:
@@ -249,43 +253,75 @@ class ScanManager:
         finally:
             self._refresh_task = None
 
+    def __update_channel_data(self, channel_name, raw_data):
+        group_name = self.__data_storage.get_group(channel_name)
+        oldSize = self.__data_storage.get_avaible_data_size(group_name)
+        self.__data_storage.set_data(channel_name, raw_data)
+        newSize = self.__data_storage.get_avaible_data_size(group_name)
+        if newSize > oldSize:
+            channels = self.__data_storage.get_channels_by_group(group_name)
+            # FIXME: Implements scan model update
+
     def _new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
-            for plot in self.live_scan_plots_dict[master_name]["0d"]:
-                plot._set_data(data["data"])
-                plot.update_all()
-
+            channels_data = data["data"]
+            for channel_name, channel_data in channels_data.items():
+                self.__update_channel_data(channel_name, channel_data)
         elif data_type == "1d":
+            raw_data = data["channel_data_node"].get(-1)
             channel_name = data["channel_name"]
-            spectrum_data = data["channel_data_node"].get(-1)
-            plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
-            self.flint.update_data(plot.plot_id, channel_name, spectrum_data)
-            if spectrum_data.ndim == 1:
-                length, = spectrum_data.shape
-                x = numpy.arange(length)
-                y = spectrum_data
-            else:
-                # assuming ndim == 2
-                x = spectrum_data[0]
-                y = spectrum_data[1]
-            plot.addCurve(x, y, legend=channel_name)
-
+            self.__update_channel_data(channel_name, raw_data)
         elif data_type == "2d":
-            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
-            channel_name = data["channel_name"]
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            image_data = image_view.get_image(-1)
-            self.flint.update_data(plot.plot_id, channel_name, image_data)
+            raw_data = image_view.get_image(-1)
+            channel_name = data["channel_name"]
+            self.__update_channel_data(channel_name, raw_data)
+        else:
+            assert False
+
+        if data_type == "0d":
+            for plot in self.live_scan_plots_dict[master_name]["0d"]:
+                try:
+                    plot._set_data(channels_data)
+                    plot.update_all()
+                except Exception:
+                    # FIXME: Remove it when it is possible (exception should not be hidden)
+                    _logger.debug("Error while feeding the widget", exc_info=True)
+        elif data_type == "1d":
+            plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
+            self.flint.update_data(plot.plot_id, channel_name, raw_data)
+            if raw_data.ndim == 1:
+                length, = raw_data.shape
+                x = numpy.arange(length)
+                y = raw_data
+            else:
+                # assuming ndim == 2
+                x = raw_data[0]
+                y = raw_data[1]
+            plot.addCurve(x, y, legend=channel_name)
+        elif data_type == "2d":
+            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
+            self.flint.update_data(plot.plot_id, channel_name, raw_data)
             plot_image = plot.getImage(channel_name)  # returns last plotted image
             if plot_image is None:
-                plot.addImage(image_data, legend=channel_name, copy=False)
+                plot.addImage(raw_data, legend=channel_name, copy=False)
             else:
-                plot_image.setData(image_data, copy=False)
+                plot_image.setData(raw_data, copy=False)
+
         data_event = (
             self.flint.data_event[master_name]
             .setdefault(data_type, {})
             .setdefault(data.get("channel_index", 0), gevent.event.Event())
         )
         data_event.set()
+
+    def end_scan(self, scan_info):
+        for group_name in self.__data_storage.groups():
+            channels = self.__data_storage.get_channels_by_group(group_name)
+        self.__data_storage.clear()
+        self._end_scan_event.set()
+
+    def wait_end_of_scan(self):
+        self._end_scan_event.wait()

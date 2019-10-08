@@ -7,8 +7,8 @@ import pytest
 import numpy as np
 import gevent.queue
 
+from bliss import global_map
 from bliss.common import scans
-from bliss import setup_globals
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
@@ -126,7 +126,7 @@ def test_pepu_default_chain_with_measurement_group(session, pepu):
     # Get controllers
     m0 = session.config.get("m0")
     # Add pepu1 to globals
-    setup_globals.pepu1 = pepu
+    global_map.register(pepu, ["counters"])
     # Measurement group
     mg = MeasurementGroup("mygroup", {"counters": ["pepu1"]})
     # Run scan

@@ -16,6 +16,7 @@ from typing import Tuple
 import sys
 import warnings
 import collections
+import logging
 
 import numpy
 import gevent.event
@@ -29,6 +30,9 @@ with warnings.catch_warnings():
 
 from ..widgets.live_plot_1d import LivePlot1D
 from ..widgets.live_scatter_plot import LiveScatterPlot
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ScanManager:
@@ -240,8 +244,8 @@ class ScanManager:
                 for (master_name, _), (data_type, data) in local_event.items():
                     try:
                         self._new_scan_data(data_type, master_name, data)
-                    except:
-                        sys.excepthook(*sys.exc_info())
+                    except Exception:
+                        _logger.error("Error while reaching data", exc_info=True)
         finally:
             self._refresh_task = None
 

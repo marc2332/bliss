@@ -74,6 +74,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         del self.parameters["prepare_once"]
         del self.parameters["start_once"]
         del self.parameters["wait_frame_id"]
+        del self.parameters["ctrl_params"]
         self.parameters.update(keys)
         if wait_frame_id is None:
             wait_frame_id = [acq_nb_frames - 1]
@@ -180,10 +181,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.parameters["saving_directory"] = self._lima_controller.get_mapped_path(
                 directory
             )
-            self.parameters.setdefault("saving_format", "EDF")
-            self.parameters.setdefault("saving_frame_per_file", 1)
             self.parameters.setdefault("saving_prefix", prefix)
-            self.parameters.setdefault("saving_suffix", ".edf")
+
         else:
             self.parameters["saving_mode"] = "MANUAL"
 
@@ -193,6 +192,13 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         if self._image_channel:
             self._image_channel.description.update(self.parameters)
+            self._image_channel.description.update(
+                {
+                    "saving_format": self.ctrl_params["saving_format"],
+                    "saving_frame_per_file": self.ctrl_params["saving_frame_per_file"],
+                    "saving_suffix": self.ctrl_params["saving_suffix"],
+                }
+            )
 
         for param_name, param_value in self.parameters.items():
             setattr(self.device.proxy, param_name, param_value)
@@ -343,7 +349,13 @@ class LimaAcquisitionMaster(AcquisitionMaster):
     def fill_meta_at_scan_end(self, scan_meta):
         scan_meta.instrument.set(
             self,
-            {self.name: {"lima_parameters": self.parameters, "NX_class": "NXdetector"}},
+            {
+                self.name: {
+                    "lima_parameters": self.parameters,
+                    "NX_class": "NXdetector",
+                    "ctrl_parameters": self.ctrl_params,
+                }
+            },
         )
 
 
@@ -383,11 +395,6 @@ class LimaChainNode(ChainNode):
 
         stat_history = npoints
 
-        # ---Temporary fix should be moved to controller parameters --------
-        saving_format = acq_params.get("saving_format", "EDF")
-        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
-        saving_suffix = acq_params.get("saving_suffix", ".edf")
-
         # Return required parameters
         params = {}
         params["acq_nb_frames"] = acq_nb_frames
@@ -402,11 +409,6 @@ class LimaChainNode(ChainNode):
         params["prepare_once"] = prepare_once
         params["start_once"] = start_once
         params["stat_history"] = stat_history
-
-        # ---Temporary fix should be moved to controller parameters --------
-        params["saving_format"] = saving_format
-        params["saving_frame_per_file"] = saving_frame_per_file
-        params["saving_suffix"] = saving_suffix
 
         return params
 
@@ -426,9 +428,6 @@ class LimaChainNode(ChainNode):
             "latency_time",
             "save",
             "stat_history",
-            "saving_format",  # ---Temporary fix should be moved to controller parameters
-            "saving_frame_per_file",  # ---Temporary fix should be moved to controller parameters
-            "saving_suffix",  # ---Temporary fix should be moved to controller parameters
         ]
         for key in acq_params.keys():
             if key not in expected_keys:
@@ -460,11 +459,7 @@ class LimaChainNode(ChainNode):
             "save", True
         )  # => key != AcqObj keyword  and location not well defined  !
 
-        # ---Temporary fix should be moved to controller parameters --------
-        saving_format = acq_params.get("saving_format", "EDF")
-        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
-        saving_suffix = acq_params.get("saving_suffix", ".edf")
-
+        # --- Note: LimaAcquisitionMaster has a .add_counter method (duplicates safe)
         return LimaAcquisitionMaster(
             self.controller,
             acq_mode=acq_mode,
@@ -479,8 +474,5 @@ class LimaChainNode(ChainNode):
             start_once=start_once,
             wait_frame_id=wait_frame_id,
             saving_statistics_history=stat_history,
-            saving_format=saving_format,  # => temp fix should be moved to controller parameters
-            saving_frame_per_file=saving_frame_per_file,  # => temp fix should be moved to controller parameters
-            saving_suffix=saving_suffix,  # => temp fix should be moved to controller parameters
             ctrl_params=ctrl_params,
         )

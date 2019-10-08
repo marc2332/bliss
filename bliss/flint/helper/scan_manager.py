@@ -13,7 +13,6 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
-import warnings
 import collections
 import logging
 
@@ -21,11 +20,8 @@ import numpy
 import gevent.event
 
 from silx.gui import qt
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from silx.gui.plot import Plot1D
-    from silx.gui.plot import Plot2D
+from silx.gui.plot import Plot1D
+from silx.gui.plot import Plot2D
 
 from ..widgets.live_plot_1d import LivePlot1D
 from ..widgets.live_scatter_plot import LiveScatterPlot

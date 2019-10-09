@@ -43,10 +43,10 @@ For development, i.e in `bliss_env` Conda environement:
     needed:
     
     ```bash
-    $ conda config --env --add channels esrf-bcu
-    $ conda config --env --append channels conda-forge
-    $ conda config --env --append channels tango-controls
-    $ conda config --env --append channels http://bcu-ci.esrf.fr/stable
+    conda config --env --add channels esrf-bcu
+    conda config --env --append channels conda-forge
+    conda config --env --append channels tango-controls
+    conda config --env --append channels http://bcu-ci.esrf.fr/stable
     ```
 
 
@@ -135,7 +135,7 @@ pip install .
 
     For development, install with:
 
-    `$ pip install -e .`
+    `pip install -e .`
 
     The code will get deployed in Python **site-packages** directory as a symbolic link,
     thus removing the need to re-install each time a modification is made.
@@ -153,19 +153,19 @@ an existing conda env. in which BLISS is installed.
 
 2) Install additional dependencies for the test environment
     
-        $ conda install --file ./requirements-test-conda.txt
+        conda install --file ./requirements-test-conda.txt
         
 3) start a BEACON server using the provided _test_configuration_ (path relative to root of bliss repository)
     
-        $ beacon-server --db_path tests/test_configuration/ --tango_port 20000
+        beacon-server --db_path tests/test_configuration/ --tango_port 20000
 
 4) to simulate a lima camera run also
 
-        $ TANGO_HOST=localhost:20000 LimaCCDs simulator
+        TANGO_HOST=localhost:20000 LimaCCDs simulator
         
 5) start a BLISS test_session 
 
-        $ BEACON_HOST=localhost TANGO_HOST=localhost:20000 bliss -s test_session
+        BEACON_HOST=localhost TANGO_HOST=localhost:20000 bliss -s test_session
 
 and enjoy or have a look at the following doc sections:
 

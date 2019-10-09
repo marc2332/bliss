@@ -10,7 +10,7 @@
 ### Listening to a Bliss session
 When running the script 
 
-    $ python scripts/external_saving_example/external_saving_example.py
+    python scripts/external_saving_example/external_saving_example.py
     
 it is listening to new scans in the Bliss __test_session__ 
 
@@ -93,6 +93,6 @@ In order to have some test cases for more demanding scans when working with the 
 
 The same scans can also be executed using Bliss in a library mode running (_TANGO_HOST_ to be chosen according to the running server...)
 ```bash
-    $ BEACON_HOST=localhost TANGO_HOST=localhost:20000 python scripts/external_saving_example/some_scans_bliss_as_library.py 
+    BEACON_HOST=localhost TANGO_HOST=localhost:20000 python scripts/external_saving_example/some_scans_bliss_as_library.py 
 ```
 

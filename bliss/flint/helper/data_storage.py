@@ -33,6 +33,9 @@ class DataStorage:
             self.__group[group_name] = [channel_name]
         self.__groups[channel_name] = group_name
 
+    def has_channel(self, channel_name) -> bool:
+        return channel_name in self.__groups
+
     def get_data(self, channel_name) -> numpy.ndarray:
         return self.__data[channel_name]
 

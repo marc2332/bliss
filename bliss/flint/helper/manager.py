@@ -15,13 +15,17 @@ from typing import List
 from typing import Dict
 
 import pickle
+import logging
 from silx.gui import qt
 
 from bliss.flint.model import flint_model
+from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
+
+_logger = logging.getLogger(__name__)
 
 
 class ManageMainBehaviours(qt.QObject):
@@ -190,3 +194,80 @@ class ManageMainBehaviours(qt.QObject):
 
             widget.setPlotModel(plotModel)
             workspace.addWidget(widget)
+
+    def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
+        flint = self.__flintModel
+        workspace = flint.workspace()
+
+        # Remove previous plot models
+        for widget in workspace.widgets():
+            widget.setPlotModel(None)
+        for plot in workspace.plots():
+            workspace.removePlot(plot)
+
+        # Set the new scan
+        flint.setCurrentScan(scan)
+
+        # Reuse/create and connect the widgets
+
+        from bliss.flint.widgets.curve_plot import CurvePlotWidget
+        from bliss.flint.widgets.mca_plot import McaPlotWidget
+        from bliss.flint.widgets.image_plot import ImagePlotWidget
+        from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
+
+        mapping = {}
+        mapping[CurvePlotWidget] = plot_curve_model.CurvePlot
+        mapping[McaPlotWidget] = plot_item_model.McaPlot
+        mapping[ImagePlotWidget] = plot_item_model.ImagePlot
+        mapping[ScatterPlotWidget] = plot_item_model.ScatterPlot
+
+        availablePlots = list(plots)
+        widgets = self.__flintModel.workspace().widgets()
+        for widget in widgets:
+            compatibleModel = mapping.get(widget.__class__, None)
+            if compatibleModel is None:
+                _logger.error(
+                    "No compatible plot model for widget %s", widget.__class__
+                )
+                plotModel = None
+            else:
+                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+                if len(plots) > 0:
+                    plotModel = plots[0]
+                    availablePlots.remove(plotModel)
+                else:
+                    plotModel = compatibleModel()
+
+            if plotModel.styleStrategy() is None:
+                plotModel.setStyleStrategy(DefaultStyleStrategy())
+            workspace.addPlot(plotModel)
+            widget.setPlotModel(plotModel)
+
+        # Create widgets for unused plots
+
+        for plotModel in availablePlots:
+            compatibleWidgetClasses = [
+                c for c in mapping if mapping[c] == type(plotModel)
+            ]
+            if len(compatibleWidgetClasses) == 0:
+                _logger.error(
+                    "No compatible widget for plot model %s. Plot not displayed.",
+                    type(plotModel),
+                )
+                workspace.addPlot(plotModel)
+            else:
+                if plotModel.styleStrategy() is None:
+                    plotModel.setStyleStrategy(DefaultStyleStrategy())
+                compatibleWidgetClass = compatibleWidgetClasses[0]
+                window = flint.window()
+                widget: qt.QDockWidget = compatibleWidgetClass(window)
+                widget.setFlintModel(flint)
+                # FIXME: The first title should be managed a little better
+                title = str(compatibleWidgetClass.__name__).replace("PlotWidget", "")
+                widget.setWindowTitle(title)
+                widget.setPlotModel(plotModel)
+                workspace.addPlot(plotModel)
+                workspace.addWidget(widget)
+                window.addDockWidget(qt.Qt.AllDockWidgetAreas, widget)
+                widget.setFloating(True)
+                widget.setVisible(True)

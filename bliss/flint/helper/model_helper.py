@@ -104,7 +104,7 @@ def getConsistentTopMaster(
 def getMostUsedXChannelPerMasters(
     scan: scan_model.Scan, plotModel: plot_curve_model.CurvePlot
 ) -> Dict[scan_model.Device, str]:
-    """"
+    """
     Returns a dictionary mapping top master with the most used x-channels.
     """
     if scan is None:

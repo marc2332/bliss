@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Provides a storage for raw data coming from live scans.
+Provides helper to read scan_info.
 """
 from __future__ import annotations
 from typing import Any

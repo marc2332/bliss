@@ -41,10 +41,14 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui.plot.items.roi import RectangleROI
 
+from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.curve_plot import CurvePlotWidget
+from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.helper import scan_manager
+from bliss.flint.model import flint_model
 
 # Globals
 
@@ -111,6 +115,9 @@ def background_task(flint, stop):
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
+    # FIXME: Everything relative to GUI should be removed in order to only provide
+    # RPC functions
+
     _id_generator = itertools.count()
 
     def __init__(self, mainwin, parent_tab):
@@ -123,6 +130,12 @@ class Flint:
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
         self._session_name = None
+
+        flintModel = self.__create_flint_model()
+        self.__flintModel = flintModel
+
+        workspace = self.__create_default_workspace()
+        flintModel.setWorkspace(workspace)
         self.__scanManager = scan_manager.ScanManager(self)
 
         connection = get_default_connection()
@@ -130,6 +143,46 @@ class Flint:
         self._qt_redis_connection = connection.create_redis_connection(address=address)
         self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.set_title()
+
+    def __create_flint_model(self):
+        window = qt.QMainWindow(self.mainwin)
+        window.setWindowTitle("Flint scans")
+        window.setObjectName("scan-window")
+        window.setDockNestingEnabled(True)
+        window.setVisible(True)
+
+        flintModel = flint_model.FlintState()
+        flintModel.setWindow(window)
+
+        manager = ManageMainBehaviours(flintModel)
+        manager.setFlintModel(flintModel)
+        self.__manager = manager
+
+        propertyWidget = MainPropertyWidget(window)
+        flintModel.setPropertyWidget(propertyWidget)
+        window.addDockWidget(qt.Qt.LeftDockWidgetArea, propertyWidget)
+        return flintModel
+
+    def _manager(self) -> ManageMainBehaviours:
+        return self.__manager
+
+    def __create_default_workspace(self):
+        # FIXME: Here we can feed the workspace with something persistent
+        flintModel = self.get_flint_model()
+        window = flintModel.window()
+
+        workspace = flint_model.Workspace()
+        curvePlotWidget = CurvePlotWidget(parent=window)
+        curvePlotWidget.setFlintModel(flintModel)
+        curvePlotWidget.setObjectName("dock1")
+        curvePlotWidget.setWindowTitle("Plot1")
+
+        workspace.addWidget(curvePlotWidget)
+        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
+        return workspace
+
+    def get_flint_model(self) -> flint_model.FlintState:
+        return self.__flintModel
 
     def create_new_id(self):
         return next(self._id_generator)
@@ -214,6 +267,7 @@ class Flint:
         ev.wait(timeout=3)
 
     def get_live_scan_plot(self, master, plot_type, index):
+        # FIXME: It is broken and should not be used
         return self.live_scan_plots_dict[master][plot_type][index].plot_id
 
     def new_scan_data(self, data_type, master_name, data):

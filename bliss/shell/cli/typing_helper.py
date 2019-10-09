@@ -153,6 +153,10 @@ class TypingHelper(object):
             cnt = 1
             text = text[:-1]
 
+        # Go to end of buffer before to insert parenthesis.
+        if repl.default_buffer._Buffer__cursor_position != len(text):
+            repl.default_buffer._set_cursor_position(len(text))
+
         try:
             obj = repl.get_locals().get(text, None)
             if obj is None:

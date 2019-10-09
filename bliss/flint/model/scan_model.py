@@ -172,7 +172,7 @@ class Device(qt.QObject, _Sealable):
         return self.__topMaster
 
     def isMaster(self) -> bool:
-        """"
+        """
         True if the device is a master device.
         """
         # FIXME: This have to be improved

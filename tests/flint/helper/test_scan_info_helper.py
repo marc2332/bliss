@@ -69,3 +69,9 @@ def test_create_scan_model():
             assert channel.device().master() is None
         else:
             assert channel.device().master().name() == master
+
+
+def test_create_plot_model():
+    # FIXME: Replace it with something stronger
+    plots = scan_info_helper.create_plot_model(SCAN_INFO)
+    assert len(plots) >= 0

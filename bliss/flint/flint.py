@@ -435,9 +435,8 @@ class Flint:
                 y = spectrum_data[1]
             plot.addCurve(x, y, legend=channel_name)
         elif data_type == "2d":
-
-            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_name = data["channel_name"]
+            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)

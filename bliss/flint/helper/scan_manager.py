@@ -27,12 +27,15 @@ from ..widgets.live_plot_1d import LivePlot1D
 from ..widgets.live_scatter_plot import LiveScatterPlot
 from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.model import scan_model
 
 
 _logger = logging.getLogger(__name__)
 
 
 class ScanManager:
+    # FIXME: Everything about GUI have to be removed
+
     def __init__(self, flint):
         self.flint = flint
         self.mdi_windows_dict: Dict[str, qt.QMdiSubWindow] = {}
@@ -50,15 +53,17 @@ class ScanManager:
             str, List[qt.QWidget]
         ] = collections.defaultdict(new_live_scan_plots)
         self._end_scan_event = gevent.event.Event()
+        self.__scan: Optional[scan_model.Scan] = None
 
     def new_scan(self, scan_info):
         self.__data_storage.clear()
 
-        # FIXME: Create the scan modelization here
+        scan = scan_info_helper.create_scan_model(scan_info)
 
         channels = scan_info_helper.iter_channels(scan_info)
         for channel in channels:
-            self.__data_storage.create_channel(channel.name, channel.master)
+            if channel.kind == "scalar":
+                self.__data_storage.create_channel(channel.name, channel.master)
 
         # show tab
         self.flint.parent_tab.setCurrentIndex(0)
@@ -68,6 +73,14 @@ class ScanManager:
             % (scan_info["title"], scan_info["scan_nb"]),
         )
 
+        plots = scan_info_helper.create_plot_model(scan_info)
+        manager = self.flint._manager()
+        manager.updateScanAndPlots(scan, plots)
+        self.__scan = scan
+
+        self.__old_new_scan(scan_info)
+
+    def __old_new_scan(self, scan_info):
         # delete plots data
         for master, plots in self.live_scan_plots_dict.items():
             for plot_type in ("0d", "1d", "2d"):
@@ -234,31 +247,26 @@ class ScanManager:
 
         self._last_event[key] = (data_type, data)
         if self._refresh_task is None:
-            self._refresh_task = gevent.spawn(self._refresh)
+            self._refresh_task = gevent.spawn(self.__refresh)
 
-    def _refresh(self):
+    def __refresh(self):
         try:
             while self._last_event:
                 local_event = self._last_event
                 self._last_event = dict()
                 for (master_name, _), (data_type, data) in local_event.items():
                     try:
-                        self._new_scan_data(data_type, master_name, data)
+                        self.__new_scan_data(data_type, master_name, data)
                     except Exception:
                         _logger.error("Error while reaching data", exc_info=True)
         finally:
             self._refresh_task = None
 
-    def __update_channel_data(self, channel_name, raw_data):
-        group_name = self.__data_storage.get_group(channel_name)
-        oldSize = self.__data_storage.get_avaible_data_size(group_name)
-        self.__data_storage.set_data(channel_name, raw_data)
-        newSize = self.__data_storage.get_avaible_data_size(group_name)
-        if newSize > oldSize:
-            channels = self.__data_storage.get_channels_by_group(group_name)
-            # FIXME: Implements scan model update
+    def __new_scan_data(self, data_type, master_name, data):
+        channels_data = None
+        raw_data = None
+        channel_name = None
 
-    def _new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
             channels_data = data["data"]
             for channel_name, channel_data in channels_data.items():
@@ -277,6 +285,40 @@ class ScanManager:
         else:
             assert False
 
+        self.__old_new_scan_data(
+            data_type, master_name, data, channel_name, raw_data, channels_data
+        )
+
+    def __update_channel_data(self, channel_name, raw_data):
+        assert self.__scan is not None
+        scan = self.__scan
+        if self.__data_storage.has_channel(channel_name):
+            group_name = self.__data_storage.get_group(channel_name)
+            oldSize = self.__data_storage.get_avaible_data_size(group_name)
+            self.__data_storage.set_data(channel_name, raw_data)
+            newSize = self.__data_storage.get_avaible_data_size(group_name)
+            if newSize > oldSize:
+                channels = self.__data_storage.get_channels_by_group(group_name)
+                for channel_name in channels:
+                    channel = scan.getChannelByName(channel_name)
+                    array = self.__data_storage.get_data(channel_name)
+                    # Create a view
+                    array = array[0:newSize]
+                    data = scan_model.Data(channel, array)
+                    channel.setData(data)
+
+                # FIXME: It have to be cleaned up somehow
+                scan._fireScanDataUpdated()
+        else:
+            channel = scan.getChannelByName(channel_name)
+            data = scan_model.Data(channel, raw_data)
+            # FIXME: It have to be cleaned up somehow
+            # It have a strong influence on the update of all the plots (very bad)
+            scan._fireScanDataUpdated()
+
+    def __old_new_scan_data(
+        self, data_type, master_name, data, channel_name, raw_data, channels_data
+    ):
         if data_type == "0d":
             for plot in self.live_scan_plots_dict[master_name]["0d"]:
                 try:
@@ -313,10 +355,26 @@ class ScanManager:
         )
         data_event.set()
 
-    def end_scan(self, scan_info):
+    def end_scan(self, scan_info: Dict):
+        assert self.__scan is not None
+
+        scan = self.__scan
+
+        updated = False
         for group_name in self.__data_storage.groups():
             channels = self.__data_storage.get_channels_by_group(group_name)
+            for channel_name in channels:
+                channel = scan.getChannelByName(channel_name)
+                array = self.__data_storage.get_data(channel_name)
+                data = scan_model.Data(channel, array)
+                channel.setData(data)
+                updated = True
+        if updated:
+            # FIXME: It have to be cleaned up somehow
+            scan._fireScanDataUpdated()
+
         self.__data_storage.clear()
+        self.__scan = None
         self._end_scan_event.set()
 
     def wait_end_of_scan(self):

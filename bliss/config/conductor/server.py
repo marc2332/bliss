@@ -23,10 +23,11 @@ import pkgutil
 import tempfile
 import gevent
 import ipaddress
+import subprocess
 from gevent import select
 from gevent import monkey
 
-from bliss.common import event, subprocess
+from bliss.common import event
 from . import protocol
 from .. import redis as redis_conf
 from functools import reduce

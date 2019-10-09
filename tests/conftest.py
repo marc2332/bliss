@@ -13,12 +13,12 @@ from collections import namedtuple
 import atexit
 import gevent
 import struct
+import subprocess
 
 import pytest
 import redis
 
 from bliss import global_map
-from bliss.common import subprocess
 from bliss.common.session import DefaultSession
 from bliss.config import static
 from bliss.config.conductor import client

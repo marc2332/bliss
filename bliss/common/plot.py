@@ -149,10 +149,10 @@ import sys
 import numpy
 import psutil
 import platform
+import subprocess
 
 from bliss.comm import rpc
 from bliss import current_session
-from bliss.common import subprocess
 from bliss.config.conductor.client import get_default_connection
 
 try:

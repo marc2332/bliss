@@ -7,7 +7,6 @@
 
 from StaubCom import robot
 from bliss.common.utils import grouped
-from bliss.common import subprocess
 from bliss.common.task import task
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.config import static as static_config
@@ -18,6 +17,7 @@ import math
 import time
 import datetime
 import itertools
+import subprocess
 import os
 import shutil
 import sys

@@ -156,7 +156,11 @@ class Map:
         # adding attributes
         if tag or isinstance(instance, str):  # tag creation
             node["tag"] = tag if tag else instance  # if is a string represent as self
-
+        else:
+            try:
+                node["tag"] = instance.name
+            except AttributeError:
+                pass
         for attr in self.node_attributes_list:
             # Adding attributes from the node_attributes_list
             # attributes can be appended also at runtime

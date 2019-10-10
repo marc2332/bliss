@@ -267,7 +267,6 @@ class ManageMainBehaviours(qt.QObject):
                 widget.setPlotModel(plotModel)
                 workspace.addPlot(plotModel)
                 workspace.addWidget(widget)
-                window.addDockWidget(qt.Qt.AllDockWidgetAreas, widget)
                 widget.setFloating(True)
                 widget.setVisible(True)
 

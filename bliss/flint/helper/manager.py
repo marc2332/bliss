@@ -244,7 +244,6 @@ class ManageMainBehaviours(qt.QObject):
             widget.setPlotModel(plotModel)
 
         # Create widgets for unused plots
-
         for plotModel in availablePlots:
             compatibleWidgetClasses = [
                 c for c in mapping if mapping[c] == type(plotModel)
@@ -262,8 +261,8 @@ class ManageMainBehaviours(qt.QObject):
                 window = flint.window()
                 widget: qt.QDockWidget = compatibleWidgetClass(window)
                 widget.setFlintModel(flint)
-                # FIXME: The first title should be managed a little better
-                title = str(compatibleWidgetClass.__name__).replace("PlotWidget", "")
+                prefix = str(compatibleWidgetClass.__name__).replace("PlotWidget", "")
+                title = self.__getUnusedTitle(prefix, workspace)
                 widget.setWindowTitle(title)
                 widget.setPlotModel(plotModel)
                 workspace.addPlot(plotModel)
@@ -271,3 +270,13 @@ class ManageMainBehaviours(qt.QObject):
                 window.addDockWidget(qt.Qt.AllDockWidgetAreas, widget)
                 widget.setFloating(True)
                 widget.setVisible(True)
+
+    def __getUnusedTitle(self, prefix, workspace) -> str:
+        for num in range(1, 100):
+            title = prefix + str(num)
+            for widget in workspace.widgets():
+                if widget.windowTitle() == title:
+                    break
+            else:
+                return title
+        return title

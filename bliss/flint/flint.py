@@ -147,6 +147,9 @@ class Flint:
         self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.set_title()
 
+    def get_scan_manager(self):
+        return self.__scanManager
+
     def __create_flint_model(self):
         window = qt.QMainWindow(self.mainwin)
         window.setWindowTitle("Flint scans")
@@ -534,6 +537,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Enable OpenGL rendering (else matplotlib is used)",
     )
+    parser.add_argument(
+        "--enable-simulator",
+        dest="simulator",
+        action="store_true",
+        default=False,
+        help="Enable scan simulation panel",
+    )
 
 
 def parse_options():
@@ -578,6 +588,17 @@ def main():
         settings.sync()
 
     qapp.aboutToQuit.connect(save_window_settings)
+
+    if options.simulator:
+        from bliss.flint.simulator.acquisition import AcquisitionSimulator
+        from bliss.flint.simulator.simulator_widget import SimulatorWidget
+
+        display = SimulatorWidget(flint.mainwin)
+        simulator = AcquisitionSimulator(display)
+        scanManager = flint.get_scan_manager()
+        simulator.setScanManager(scanManager)
+        display.setSimulator(simulator)
+        display.show()
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         ROOT_LOGGER.critical(

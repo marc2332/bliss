@@ -16,6 +16,22 @@ import scipy.signal
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
+from bliss.flint.helper import scan_manager
+
+
+class ChannelDataNodeMock:
+    def __init__(self, array=None, image=None):
+        self.__array = array
+        self.__image = image
+        self.from_stream = False
+
+    def get(self, id):
+        if self.__image is not None:
+            return self
+        return self.__array
+
+    def get_image(self, id):
+        return self.__image
 
 
 class AcquisitionSimulator(qt.QObject):
@@ -24,16 +40,20 @@ class AcquisitionSimulator(qt.QObject):
         self.__timer: Optional[qt.QTimer] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__scan: Optional[scan_model.Scan] = None
+        self.__scan_manager: Optional[scan_manager.ScanManager] = None
         self.__tick: int = 0
         self.__duration: int = 0
         self.__interval: int = 0
         self.__data: Dict[int, Dict[scan_model.Channel, numpy.ndarray]] = {}
+        self.__scan_info = {}
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
 
-    def start(self, interval: int, duration: int):
-        assert self.__flintModel is not None
+    def setScanManager(self, scanManager: scan_manager.ScanManager):
+        self.__scan_manager = scanManager
+
+    def start(self, interval: int, duration: int, name=None):
         if self.__timer is not None:
             print("Already scanning")
             return
@@ -41,12 +61,17 @@ class AcquisitionSimulator(qt.QObject):
         self.__tick = 0
         self.__duration = duration
         self.__interval = interval
+        self.__scan_info = {"acquisition_chain": {}, "title": "foo", "scan_nb": 0}
 
-        scan = self.__createScan(interval, duration)
+        scan = self.__createScan(interval, duration, name)
         self.__scan = scan
 
-        self.__flintModel.setCurrentScan(scan)
-        scan.scanStarted.emit()
+        if self.__flintModel is not None:
+            self.__flintModel.setCurrentScan(scan)
+            scan.scanStarted.emit()
+
+        if self.__scan_manager is not None:
+            self.__scan_manager.new_scan(self.__scan_info)
 
         print("Acquisition started")
         self.__timer = qt.QTimer(self)
@@ -67,9 +92,9 @@ class AcquisitionSimulator(qt.QObject):
 
     def __createCounters(self, scan: scan_model.Scan, interval, duration):
         master_time1 = scan_model.Device(scan)
-        master_time1.setName("time")
+        master_time1.setName("timer")
         master_time1_index = scan_model.Channel(master_time1)
-        master_time1_index.setName("time:index")
+        master_time1_index.setName("timer:elapsed_time")
 
         device1 = scan_model.Device(scan)
         device1.setName("dev1")
@@ -102,6 +127,39 @@ class AcquisitionSimulator(qt.QObject):
         device4.setName("dev4")
         device4_channel1 = scan_model.Channel(device4)
         device4_channel1.setName("dev4:chan1")
+
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [master_time1_index.name()],
+                "scalars_units": {master_time1_index.name(): "s"},
+                "spectra": [],
+            },
+            "scalars": [
+                device1_channel1.name(),
+                device1_channel2.name(),
+                device1_channel3.name(),
+                device2_channel1.name(),
+            ],
+            "scalars_units": {},
+        }
+        self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
+
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [master_time2_index.name()],
+                "scalars_units": {master_time2_index.name(): "s"},
+                "spectra": [],
+            },
+            "scalars": [device3_channel1.name(), device4_channel1.name()],
+            "scalars_units": {},
+        }
+        self.__scan_info["acquisition_chain"][master_time2.name()] = scan_info
 
         # Every 2 ticks
         nbPoints1 = (duration // interval) // 2
@@ -146,9 +204,9 @@ class AcquisitionSimulator(qt.QObject):
 
     def __createMcas(self, scan: scan_model.Scan, interval, duration):
         master_time1 = scan_model.Device(scan)
-        master_time1.setName("timeMca")
+        master_time1.setName("timer_mca")
         master_time1_index = scan_model.Channel(master_time1)
-        master_time1_index.setName("timeMca:index")
+        master_time1_index.setName("timer_mca:elapsed_time")
 
         mca1 = scan_model.Device(scan)
         mca1.setName("mca1")
@@ -170,6 +228,26 @@ class AcquisitionSimulator(qt.QObject):
         mca2_channel2.setName("mca2:chan2")
         mca2_channel2.setType(scan_model.ChannelType.SPECTRUM)
 
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [master_time1_index.name()],
+                "scalars_units": {master_time1_index.name(): "s"},
+                "spectra": [],
+            },
+            "spectra": [
+                mca1_channel1.name(),
+                mca1_channel2.name(),
+                mca2_channel1.name(),
+                mca2_channel2.name(),
+            ],
+            "scalars": [],
+            "scalars_units": {},
+        }
+        self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
+
         periode = 10
         nbPoints1 = (duration // interval) // periode + 1
         index1 = numpy.linspace(0, duration, nbPoints1)
@@ -190,9 +268,9 @@ class AcquisitionSimulator(qt.QObject):
 
     def __createImages(self, scan: scan_model.Scan, interval, duration):
         master_time1 = scan_model.Device(scan)
-        master_time1.setName("timeImage")
+        master_time1.setName("timer_image")
         master_time1_index = scan_model.Channel(master_time1)
-        master_time1_index.setName("timeImage:index")
+        master_time1_index.setName("timer_image:elapsed_time")
 
         lima1 = scan_model.Device(scan)
         lima1.setName("lima1")
@@ -207,6 +285,21 @@ class AcquisitionSimulator(qt.QObject):
         lima2_channel1 = scan_model.Channel(lima2)
         lima2_channel1.setName("lima2:image")
         lima2_channel1.setType(scan_model.ChannelType.IMAGE)
+
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [master_time1_index.name()],
+                "scalars_units": {master_time1_index.name(): "s"},
+                "spectra": [],
+            },
+            "images": [lima1_channel1.name(), lima2_channel1.name()],
+            "scalars": [],
+            "scalars_units": {},
+        }
+        self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
 
         periode = 10
 
@@ -233,7 +326,7 @@ class AcquisitionSimulator(qt.QObject):
     def __createScatters(self, scan: scan_model.Scan, interval, duration):
 
         master_time1 = scan_model.Device(scan)
-        master_time1.setName("time_scatter")
+        master_time1.setName("timer_scatter")
 
         device1 = scan_model.Device(scan)
         device1.setName("motor1")
@@ -258,6 +351,24 @@ class AcquisitionSimulator(qt.QObject):
         device4.setMaster(master_time1)
         device4_channel1 = scan_model.Channel(device4)
         device4_channel1.setName("temperature1:value")
+
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [device1_channel1.name(), device2_channel1.name()],
+                "scalars_units": {
+                    device2_channel1.name(): "mm",
+                    device3_channel1.name(): "mm",
+                },
+                "spectra": [],
+            },
+            "scalars": [device3_channel1.name(), device4_channel1.name()],
+            "scalars_units": {},
+        }
+        self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
+        self.__scan_info["data_dim"] = 2
 
         # Every 2 ticks
         nbPoints = duration // interval
@@ -290,14 +401,18 @@ class AcquisitionSimulator(qt.QObject):
         temperature1 = 25 + numpy.random.rand(nbX * nbY) * 5
         self.registerData(1, device4_channel1, temperature1)
 
-    def __createScan(self, interval, duration) -> scan_model.Scan:
+    def __createScan(self, interval, duration, name=None) -> scan_model.Scan:
         self.__data = {}
         print("Preparing data...")
         scan = scan_model.Scan(None)
-        self.__createCounters(scan, interval, duration)
-        self.__createMcas(scan, interval, duration)
-        self.__createImages(scan, interval, duration)
-        self.__createScatters(scan, interval, duration)
+        if name is None or name == "counter":
+            self.__createCounters(scan, interval, duration)
+        if name is None or name == "mca":
+            self.__createMcas(scan, interval, duration)
+        if name is None or name == "image":
+            self.__createImages(scan, interval, duration)
+        if name is None or name == "scatter":
+            self.__createScatters(scan, interval, duration)
         scan.seal()
         print("Data prepared")
 
@@ -305,6 +420,7 @@ class AcquisitionSimulator(qt.QObject):
 
     def updateNewData(self):
         self.__tick += 1
+        channel_scan_data = {}
         for modulo, data in self.__data.items():
             if (self.__tick % modulo) != 0:
                 continue
@@ -313,24 +429,57 @@ class AcquisitionSimulator(qt.QObject):
                 if channel.type() == scan_model.ChannelType.COUNTER:
                     # growing 1d data
                     p = min(len(array), pos)
-                    newData = scan_model.Data(channel, array[0:p])
+                    array = array[0:p]
+                    newData = scan_model.Data(channel, array)
+                    channel_scan_data[channel.name()] = array
                 elif channel.type() == scan_model.ChannelType.SPECTRUM:
                     # 1d data in an indexed array
-                    newData = scan_model.Data(channel, array[pos])
+                    array = array[pos]
+                    newData = scan_model.Data(channel, array)
+                    if self.__scan_manager is not None:
+                        scan_data = {
+                            "channel_name": channel.name(),
+                            "channel_data_node": ChannelDataNodeMock(array=array),
+                            "channel_index": 0,
+                        }
+                        self.__scan_manager.new_scan_data(
+                            "1d", channel.master().name(), scan_data
+                        )
                 elif channel.type() == scan_model.ChannelType.IMAGE:
                     # image in a looped buffer
                     p = pos % len(array)
-                    newData = scan_model.Data(channel, array[p])
+                    array = array[p]
+                    newData = scan_model.Data(channel, array)
+                    if self.__scan_manager is not None:
+                        scan_data = {
+                            "channel_name": channel.name(),
+                            "channel_data_node": ChannelDataNodeMock(image=array),
+                            "channel_index": 0,
+                        }
+                        self.__scan_manager.new_scan_data(
+                            "2d", channel.master().name(), scan_data
+                        )
                 else:
                     assert False
                 channel.setData(newData)
 
-        self.__scan._fireScanDataUpdated()
+        if self.__scan_manager is not None:
+            if len(channel_scan_data) > 0:
+                scan_data = {"data": channel_scan_data}
+                self.__scan_manager.new_scan_data("0d", "foo", scan_data)
+
+        if self.__flintModel is not None:
+            self.__scan._fireScanDataUpdated()
 
         if self.__tick * self.__interval >= self.__duration:
-            self.__scan.scanFinished.emit()
             self.__timer.stop()
-            self.__timer.timeout.disconnect(self.updateNewData)
-            self.__timer.deleteLater()
-            self.__timer = None
-            print("Acquisition finished")
+            qt.QTimer.singleShot(10, self.__endOfScan)
+
+    def __endOfScan(self):
+        self.__scan.scanFinished.emit()
+        self.__timer.timeout.disconnect(self.updateNewData)
+        self.__timer.deleteLater()
+        self.__timer = None
+        if self.__scan_manager is not None:
+            self.__scan_manager.end_scan(scan_info={})
+        print("Acquisition finished")

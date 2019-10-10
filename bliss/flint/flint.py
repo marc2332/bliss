@@ -18,6 +18,7 @@ import collections
 import signal
 
 import gevent.event
+from argparse import ArgumentParser
 
 from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
@@ -41,6 +42,7 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui.plot.items.roi import RectangleROI
 
+import bliss.release
 from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
@@ -513,12 +515,40 @@ def create_flint(settings):
     return flint
 
 
+def configure_parser_arguments(parser: ArgumentParser):
+    version = "flint - bliss %s" % (bliss.release.short_version)
+    parser.add_argument("-V", "--version", action="version", version=version)
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        default=False,
+        help="Set logging system in debug mode",
+    )
+
+
+def parse_options():
+    """
+    Returns parsed command line argument as an `options` object.
+
+    :raises ExitException: In case of the use of `--help` in the comman line
+    """
+    parser = ArgumentParser()
+    configure_parser_arguments(parser)
+    options = parser.parse_args()
+    return options
+
+
 def main():
     # patch system poll
     need_gevent_loop = True  # not poll_patch.init(1) if poll_patch else True
 
     logging.basicConfig(level=logging.INFO)
     ROOT_LOGGER.level = logging.INFO
+
+    options = parse_options()
+    if options.debug:
+        logging.root.setLevel(logging.DEBUG)
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")

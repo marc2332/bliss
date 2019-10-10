@@ -40,7 +40,7 @@ class CurvePlotWidget(qt.QDockWidget):
         ] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = Plot1D(parent=self, backend="mpl")
+        self.__plot = Plot1D(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)

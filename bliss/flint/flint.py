@@ -38,6 +38,7 @@ from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
+    import silx
     from silx.gui import qt
     from silx.gui import plot as silx_plot
     from silx.gui.plot.items.roi import RectangleROI
@@ -525,6 +526,14 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Set logging system in debug mode",
     )
+    parser.add_argument(
+        "--opengl",
+        "--gl",
+        dest="opengl",
+        action="store_true",
+        default=False,
+        help="Enable OpenGL rendering (else matplotlib is used)",
+    )
 
 
 def parse_options():
@@ -554,6 +563,9 @@ def main():
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
+
+    if options.opengl:
+        silx.config.DEFAULT_PLOT_BACKEND = "opengl"
 
     bliss.flint.resources.silx_integration()
 

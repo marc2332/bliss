@@ -208,6 +208,13 @@ class Channel(qt.QObject, _Sealable):
     def device(self) -> Device:
         return self.parent()
 
+    def master(self) -> Device:
+        parent = self.device()
+        if parent.isMaster():
+            return parent
+        else:
+            return parent.master()
+
     def name(self) -> str:
         return self.__name
 

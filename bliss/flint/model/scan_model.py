@@ -211,6 +211,9 @@ class Channel(qt.QObject, _Sealable):
     def name(self) -> str:
         return self.__name
 
+    def baseName(self):
+        return self.__name.split(":")[-1]
+
     @property
     def ndim(self) -> int:
         """

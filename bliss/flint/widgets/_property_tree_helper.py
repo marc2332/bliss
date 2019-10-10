@@ -15,6 +15,7 @@ from silx.gui import icons
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 
 
 class StandardRowItem(qt.QStandardItem):
@@ -49,23 +50,42 @@ class ScanRowItem(StandardRowItem):
 
     def setDeviceLookAndFeel(self, device: scan_model.Device):
         if device.isMaster():
-            text = "Master %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-timer")
+            text = device.name()
+            icon = icons.getQIcon("flint:icons/device-timer")
+            toolTip = "Master %s" % device.name()
         else:
-            text = "Device %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-device")
+            text = device.name()
+            icon = icons.getQIcon("flint:icons/device-default")
+            toolTip = "Device %s" % device.name()
         self.setText(text)
         self.setIcon(icon)
+        self.setToolTip(toolTip)
 
     def setChannelLookAndFeel(self, channel: scan_model.Channel):
-        text = "Channel %s" % channel.name()
+        text = channel.baseName()
+        if channel.type() == scan_model.ChannelType.COUNTER:
+            icon = icons.getQIcon("flint:icons/channel-curve")
+        elif channel.type() == scan_model.ChannelType.SPECTRUM:
+            icon = icons.getQIcon("flint:icons/channel-spectrum")
+        elif channel.type() == scan_model.ChannelType.IMAGE:
+            icon = icons.getQIcon("flint:icons/channel-image")
+        else:
+            icon = icons.getQIcon("flint:icons/channel-curve")
+
+        toolTip = "Channel %s" % channel.name()
         self.setText(text)
-        icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
+        self.setToolTip(toolTip)
 
     def setPlotItemLookAndFeel(self, plotItem: plot_model.Item):
         if isinstance(plotItem, plot_curve_model.CurveItem):
-            icon = icons.getQIcon("flint:icons/item-channel")
+            icon = icons.getQIcon("flint:icons/channel-curve")
+        elif isinstance(plotItem, plot_item_model.McaItem):
+            icon = icons.getQIcon("flint:icons/channel-spectrum")
+        elif isinstance(plotItem, plot_item_model.ImageItem):
+            icon = icons.getQIcon("flint:icons/channel-image")
+        elif isinstance(plotItem, plot_item_model.ScatterItem):
+            icon = icons.getQIcon("flint:icons/channel-curve")
         elif isinstance(plotItem, plot_curve_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
         elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):

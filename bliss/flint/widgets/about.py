@@ -7,10 +7,6 @@
 
 """About box for flint"""
 
-__authors__ = ["V. Valls"]
-__license__ = "MIT"
-__date__ = "05/07/2018"
-
 import os
 import sys
 import xml.etree.ElementTree

@@ -189,6 +189,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             mca_channel = plot_model.ChannelRef(plot, spectrum_name)
             item = plot_item_model.McaItem(plot)
             item.setMcaChannel(mca_channel)
+            plot.addItem(item)
             result.append(plot)
 
     # Image plot
@@ -206,6 +207,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             image_channel = plot_model.ChannelRef(plot, image_name)
             item = plot_item_model.ImageItem(plot)
             item.setImageChannel(image_channel)
+            plot.addItem(item)
             result.append(plot)
 
     return result

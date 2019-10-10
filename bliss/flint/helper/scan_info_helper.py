@@ -185,7 +185,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     spectra.append(c)
 
         for spectrum_name in spectra:
-            plot = plot_item_model.ScatterPlot()
+            plot = plot_item_model.McaPlot()
             mca_channel = plot_model.ChannelRef(plot, spectrum_name)
             item = plot_item_model.McaItem(plot)
             item.setMcaChannel(mca_channel)

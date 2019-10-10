@@ -13,6 +13,8 @@ import numpy
 import pickle
 import gevent
 from bliss.common.cleanup import excepthook
+from bliss.common.measurement import BaseCounter
+from bliss.common.axis import Axis
 from bliss.data.node import DataNodeIterator, _get_or_create_node, DataNodeContainer
 from bliss.config import settings
 import sys
@@ -92,11 +94,40 @@ def get_data(scan):
     """
     Return a dictionary of { channel_name: numpy array }
     """
+
+    class DataContainer(dict):
+        def __info__(self):
+            return f"DataContainer use [counter],[motor] or {self.keys()}"
+
+        def __getitem__(self, key):
+            if isinstance(key, BaseCounter):
+                return super().__getitem__(key.fullname)
+            elif isinstance(key, Axis):
+                return super().__getitem__(f"axis:{key.name}")
+
+            try:
+                return super().__getitem__(key)
+            except KeyError as er:
+                match_value = [
+                    (fullname, data)
+                    for fullname, data in self.items()
+                    if key in fullname.split(":")
+                ]
+                if len(match_value) == 1:
+                    return match_value[0][1]
+                elif len(match_value) > 1:
+                    raise KeyError(
+                        f"Ambiguous key **{key}**, there is several match ->",
+                        [x[0] for x in match_value],
+                    )
+                else:
+                    raise er
+
     dtype = list()
     max_channel_len = 0
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
-    data = dict()
+    data = DataContainer()
     nodes_and_index = [(node, 0) for node in scan.nodes.values()]
     for channel_name, channel_data in get_data_from_nodes(pipeline, *nodes_and_index):
         data[channel_name] = channel_data

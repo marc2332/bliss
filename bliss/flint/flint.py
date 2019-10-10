@@ -29,7 +29,10 @@ from bliss.config.conductor.client import (
 )
 import bliss.flint.resources
 
-# from bliss.flint.qgevent import set_gevent_dispatcher
+try:
+    from bliss.flint import poll_patch
+except ImportError:
+    poll_patch = None
 
 from PyQt5.QtCore import pyqtRemoveInputHook
 
@@ -687,7 +690,8 @@ def create_flint(settings):
 
 
 def main():
-    # set_gevent_dispatcher()
+    # patch system poll
+    need_gevent_loop = not poll_patch.init(1) if poll_patch else True
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
@@ -727,9 +731,13 @@ def main():
     timer.start(500)
     timer.timeout.connect(lambda: None)
 
-    timer2 = qt.QTimer()
-    timer2.start(10)
-    timer2.timeout.connect(lambda: gevent.sleep(0.01))
+    if need_gevent_loop:
+        timer2 = qt.QTimer()
+        timer2.start(10)
+        timer2.timeout.connect(lambda: gevent.sleep(0.01))
+        ROOT_LOGGER.info("Gevent based on QtTimer")
+    else:
+        ROOT_LOGGER.info("Gevent use poll patched")
 
     stop = gevent.event.AsyncResult()
     thread = gevent.spawn(background_task, flint, stop)

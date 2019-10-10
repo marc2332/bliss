@@ -21,45 +21,22 @@ sip_extensions = []
 
 build_flint = sys.platform not in ["win32", "cygwin"]
 
-try:
-    from Cython.Build import cythonize
-except ImportError:
-    cython = False
-    cythonize = lambda ext: [ext]
-else:
-    cython = True
-
 if build_flint:
-    # need qt headers and lib
-    if conda_base is not None:
-        qt_include_dirs = [os.path.join(conda_base, "include", "qt")]
-        qt_library_dirs = [os.path.join(conda_base, "lib")]
-    else:
-        qt_include_dirs = []
-        qt_library_dirs = []
-
-    if cython:
-        sources = [
-            "extensions/cython/flint/qwindowsystem.pyx",
-            "extensions/cython/flint/q_window_system.cpp",
-        ]
-    else:
-        sources = [
-            "extensions/cython/flint/qwindowsystem.cpp",
-            "extensions/cython/flint/q_window_system.cpp",
-        ]
-
-    flint_extension = Extension(
-        "bliss.flint.qwindowsystem",
-        include_dirs=qt_include_dirs,
-        library_dirs=qt_library_dirs,
-        extra_compile_args=["-std=c++11"],
-        libraries=["Qt5Gui"],
-        language="c++",
-        sources=sources,
+    poll = Extension(
+        "bliss.common.poll_patch",
+        sources=["extensions/c/poll/poll.c"],
+        extra_compile_args=["-pthread"],
+        libraries=["dl"],
     )
-
-    extensions.extend(cythonize(flint_extension))
+    extensions.append(poll)
+    poll_patch = Extension(
+        "bliss.flint.poll_patch",
+        sources=[
+            "extensions/cython/flint/poll_patch.pyx",
+            "extensions/cython/flint/poll_patch_init.c",
+        ],
+    )
+    extensions.append(poll_patch)
 
 
 def abspath(*path):
@@ -173,6 +150,7 @@ def main():
         "pygraphviz >= 1.5",
         "networkx",
         "tblib",
+        "cython",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

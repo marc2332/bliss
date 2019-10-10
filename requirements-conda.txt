@@ -1,6 +1,7 @@
 # Conda requirements file
 blessings
 colorama
+cython
 docopt
 flask
 louie >= 2.0

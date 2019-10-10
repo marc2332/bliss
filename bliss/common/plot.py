@@ -155,6 +155,11 @@ from bliss import current_session
 from bliss.common import subprocess
 from bliss.config.conductor.client import get_default_connection
 
+try:
+    from bliss.flint import poll_patch
+except ImportError:
+    poll_patch = None
+
 __all__ = [
     "plot",
     "plot_curve",
@@ -203,6 +208,8 @@ def check_flint(session_name):
 def start_flint():
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
+    if poll_patch is not None:
+        poll_patch.set_ld_preload(env)
     args = [sys.executable, "-m", "bliss.flint"]
     return subprocess.Popen(args, env=env, start_new_session=True).pid
 

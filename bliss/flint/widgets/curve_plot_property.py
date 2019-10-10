@@ -205,7 +205,7 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class _DataItem(_property_tree_helper.StandardRowItem):
+class _DataItem(_property_tree_helper.ScanRowItem):
     def __init__(self):
         super(_DataItem, self).__init__()
         qt.QStandardItem.__init__(self)
@@ -337,14 +337,7 @@ class _DataItem(_property_tree_helper.StandardRowItem):
                     curve.setXChannel(xChannel)
 
     def setDevice(self, device: scan_model.Device):
-        if device.isMaster():
-            text = "Master %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-timer")
-        else:
-            text = "Device %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-device")
-        self.setText(text)
-        self.setIcon(icon)
+        self.setDeviceLookAndFeel(device)
         self.__updateXAxisStyle(True, None)
 
     def __rootRow(self) -> int:
@@ -370,11 +363,7 @@ class _DataItem(_property_tree_helper.StandardRowItem):
     def setChannel(self, channel: scan_model.Channel):
         assert self.__treeView is not None
         self.__channel = channel
-        text = "Channel %s" % channel.name()
-        self.setText(text)
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
-
+        self.setChannelLookAndFeel(channel)
         self.__updateXAxisStyle(True, qt.Qt.Unchecked)
         self.__xaxis.modelUpdated = self.__xAxisChanged
         self.__yaxes.modelUpdated = self.__yAxisChanged
@@ -400,20 +389,15 @@ class _DataItem(_property_tree_helper.StandardRowItem):
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
 
+        self.setPlotItemLookAndFeel(plotItem)
         if isinstance(plotItem, plot_curve_model.CurveItem):
-            icon = icons.getQIcon("flint:icons/item-channel")
-            self.setIcon(icon)
             self.__xaxis.modelUpdated = self.__xAxisChanged
             useXAxis = True
         elif isinstance(plotItem, plot_curve_model.CurveMixIn):
-            icon = icons.getQIcon("flint:icons/item-func")
-            self.setIcon(icon)
             # self.__updateXAxisStyle(False, None)
             useXAxis = False
             self.__updateXAxisStyle(False)
         elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
-            icon = icons.getQIcon("flint:icons/item-stats")
-            self.setIcon(icon)
             useXAxis = False
             self.__updateXAxisStyle(False)
 
@@ -708,10 +692,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 parentChannel.setPlotItem(plotItem)
                 sourceTree[plotItem] = parentChannel
             else:
-                itemClass = plotItem.__class__
-                text = "%s" % itemClass.__name__
                 item = _DataItem()
-                item.setText(text)
+                item.setPlotItemLookAndFeel(plotItem, updateText=True)
                 item.setEnvironment(self.__tree, self.__flintModel)
                 parent.appendRow(item.rowItems())
                 # It have to be done when model index are initialized

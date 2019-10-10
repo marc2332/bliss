@@ -243,6 +243,13 @@ class ManageMainBehaviours(qt.QObject):
             workspace.addPlot(plotModel)
             widget.setPlotModel(plotModel)
 
+        # FIXME: No way to tab widgets to a new floating widget
+        widgets = workspace.widgets()
+        if len(widgets) == 0:
+            lastTab = None
+        else:
+            lastTab = widgets[0]
+
         # Create widgets for unused plots
         for plotModel in availablePlots:
             compatibleWidgetClasses = [
@@ -267,8 +274,13 @@ class ManageMainBehaviours(qt.QObject):
                 widget.setPlotModel(plotModel)
                 workspace.addPlot(plotModel)
                 workspace.addWidget(widget)
-                widget.setFloating(True)
-                widget.setVisible(True)
+                if lastTab is None:
+                    widget.setFloating(True)
+                    widget.setVisible(True)
+                    widget.updateGeometry()
+                else:
+                    window.tabifyDockWidget(lastTab, widget)
+                lastTab = widget
 
     def __getUnusedTitle(self, prefix, workspace) -> str:
         for num in range(1, 100):

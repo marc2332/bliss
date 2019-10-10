@@ -155,6 +155,15 @@ class Flint:
         window.setWindowTitle("Flint scans")
         window.setObjectName("scan-window")
         window.setDockNestingEnabled(True)
+        window.setDockOptions(
+            window.dockOptions()
+            | qt.QMainWindow.AllowNestedDocks
+            | qt.QMainWindow.AllowTabbedDocks
+            | qt.QMainWindow.GroupedDragging
+            | qt.QMainWindow.AnimatedDocks
+            # | qt.QMainWindow.VerticalTabs
+        )
+
         window.setVisible(True)
 
         flintModel = flint_model.FlintState()

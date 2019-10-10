@@ -311,10 +311,14 @@ class ScanManager:
                 scan._fireScanDataUpdated()
         else:
             channel = scan.getChannelByName(channel_name)
-            data = scan_model.Data(channel, raw_data)
-            # FIXME: It have to be cleaned up somehow
-            # It have a strong influence on the update of all the plots (very bad)
-            scan._fireScanDataUpdated()
+            if channel is None:
+                _logger.error("Channel '%s' not provided", channel_name)
+            else:
+                data = scan_model.Data(channel, raw_data)
+                channel.setData(data)
+                # FIXME: It have to be cleaned up somehow
+                # It have a strong influence on the update of all the plots (very bad)
+                scan._fireScanDataUpdated()
 
     def __old_new_scan_data(
         self, data_type, master_name, data, channel_name, raw_data, channels_data

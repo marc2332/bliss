@@ -599,10 +599,8 @@ def test_prepare_once_prepare_many(session):
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()
-    assert "diode2" in dat
-    assert "diode" in dat
-    assert len(s.get_data()["diode2"]) == 10
-    assert len(s.get_data()["diode"]) == 10
+    assert len(dat["diode2"]) == 10
+    assert len(dat["diode"]) == 10
 
     # diode2 and diode3 are usually on the same SamplingCounterAcquisitionDevice
     # lets see if they can be split as well
@@ -611,10 +609,8 @@ def test_prepare_once_prepare_many(session):
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()
-    assert "diode2" in dat
-    assert "diode3" in dat
-    assert len(s.get_data()["diode2"]) == 10
-    assert len(s.get_data()["diode3"]) == 10
+    assert len(dat["diode2"]) == 10
+    assert len(dat["diode3"]) == 10
 
 
 def test_tango_attr_counter(beacon, dummy_tango_server):

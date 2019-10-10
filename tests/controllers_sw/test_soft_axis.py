@@ -92,10 +92,6 @@ def test_soft_axis_scan(session):
 
     data = scan.get_data()
 
-    # TODO: names should be full counter names after issue #395 is solved
-    channel_names = {"elapsed_time", "motor_counter", "another_motor", "epoch"}
-    assert set(data.keys()) == channel_names
-
     positions = numpy.linspace(-200, 200, 100)
     numpy.testing.assert_array_almost_equal(data["motor_counter"], positions)
     numpy.testing.assert_array_almost_equal(data["another_motor"], positions)

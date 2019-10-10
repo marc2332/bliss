@@ -22,6 +22,7 @@ from bliss.flint.model import plot_curve_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from . import delegates
+from . import _property_tree_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -204,9 +205,10 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class _DataItem(qt.QStandardItem):
-    def __init__(self, text: str = ""):
-        qt.QStandardItem.__init__(self, text)
+class _DataItem(_property_tree_helper.StandardRowItem):
+    def __init__(self):
+        super(_DataItem, self).__init__()
+        qt.QStandardItem.__init__(self)
         self.__xaxis = delegates.HookedStandardItem("")
         self.__yaxes = delegates.HookedStandardItem("")
         self.__displayed = delegates.HookedStandardItem("")
@@ -222,6 +224,15 @@ class _DataItem(qt.QStandardItem):
         self.__channel: Optional[scan_model.Channel] = None
         self.__treeView: Optional[qt.QTreeView] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
+
+        self.setOtherRowItems(
+            self.__xaxis,
+            self.__yaxes,
+            self.__displayed,
+            self.__style,
+            self.__remove,
+            self.__error,
+        )
 
     def __hash__(self):
         return hash(id(self))
@@ -240,17 +251,6 @@ class _DataItem(qt.QStandardItem):
 
     def styleItem(self) -> qt.QStandardItem:
         return self.__style
-
-    def items(self) -> List[qt.QStandardItem]:
-        return [
-            self,
-            self.__xaxis,
-            self.__yaxes,
-            self.__displayed,
-            self.__style,
-            self.__remove,
-            self.__error,
-        ]
 
     def updateError(self):
         scan = self.__flintModel.currentScan()
@@ -571,7 +571,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 else:
                     parent = itemMaster
 
-            parent.appendRow(item.items())
+            parent.appendRow(item.rowItems())
             # It have to be done when model index are initialized
             item.setDevice(device)
             devices.append(item)
@@ -585,7 +585,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             for channel in channels:
                 channelItem = _DataItem()
                 channelItem.setEnvironment(self.__tree, self.__flintModel)
-                item.appendRow(channelItem.items())
+                item.appendRow(channelItem.rowItems())
                 # It have to be done when model index are initialized
                 channelItem.setChannel(channel)
                 channelItem.setPlotModel(self.__plotModel)
@@ -710,9 +710,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
             else:
                 itemClass = plotItem.__class__
                 text = "%s" % itemClass.__name__
-                item = _DataItem(text)
+                item = _DataItem()
+                item.setText(text)
                 item.setEnvironment(self.__tree, self.__flintModel)
-                parent.appendRow(item.items())
+                parent.appendRow(item.rowItems())
                 # It have to be done when model index are initialized
                 item.setPlotItem(plotItem)
                 sourceTree[plotItem] = item

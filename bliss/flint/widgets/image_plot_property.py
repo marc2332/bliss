@@ -14,33 +14,35 @@ from typing import Optional
 import logging
 
 from silx.gui import qt
-from silx.gui import icons
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from . import delegates
+from . import _property_tree_helper
 
 
 _logger = logging.getLogger(__name__)
 
 
-class _DataItem(qt.QStandardItem):
-    def __init__(self, text: str = ""):
-        qt.QStandardItem.__init__(self, text)
+class _DataItem(_property_tree_helper.ScanRowItem):
+    def __init__(self):
+        super(_DataItem, self).__init__()
         self.__used = delegates.HookedStandardItem("")
         self.__displayed = delegates.HookedStandardItem("")
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
 
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
         self.__channel: Optional[scan_model.Channel] = None
         self.__treeView: Optional[qt.QTreeView] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
+
+        self.setOtherRowItems(
+            self.__used, self.__displayed, self.__style, self.__remove
+        )
 
     def __hash__(self):
         return hash(id(self))
@@ -53,9 +55,6 @@ class _DataItem(qt.QStandardItem):
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         self.__plotModel = plotModel
-
-    def items(self) -> List[qt.QStandardItem]:
-        return [self, self.__used, self.__displayed, self.__style, self.__remove]
 
     def __usedChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:
@@ -80,23 +79,11 @@ class _DataItem(qt.QStandardItem):
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setDevice(self, device: scan_model.Device):
-        if device.isMaster():
-            text = "Master %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-timer")
-        else:
-            text = "Device %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-device")
-        self.setText(text)
-        self.setIcon(icon)
+        self.setDeviceLookAndFeel(device)
         self.__used.setCheckable(False)
 
     def setChannel(self, channel: scan_model.Channel):
-        self.__channel = channel
-        text = "Channel %s" % channel.name()
-        self.setText(text)
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
-
+        self.setChannelLookAndFeel(channel)
         self.__used.modelUpdated = None
         self.__used.setCheckable(True)
         self.__used.modelUpdated = self.__usedChanged
@@ -121,9 +108,8 @@ class _DataItem(qt.QStandardItem):
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
 
-        if isinstance(plotItem, plot_item_model.ImageItem):
-            icon = icons.getQIcon("flint:icons/item-channel")
-            self.setIcon(icon)
+        if self.__channel is None:
+            self.setPlotItemLookAndFeel(plotItem)
 
         # FIXME: It have to be converted into delegate
         self.__treeView.openPersistentEditor(self.__displayed.index())
@@ -243,7 +229,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
                 else:
                     parent = itemMaster
 
-            parent.appendRow(item.items())
+            parent.appendRow(item.rowItems())
             # It have to be done when model index are initialized
             item.setDevice(device)
             devices.append(item)
@@ -257,7 +243,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
             for channel in channels:
                 channelItem = _DataItem()
                 channelItem.setEnvironment(self.__tree, self.__flintModel)
-                item.appendRow(channelItem.items())
+                item.appendRow(channelItem.rowItems())
                 # It have to be done when model index are initialized
                 channelItem.setChannel(channel)
                 channelItem.setPlotModel(self.__plotModel)
@@ -333,11 +319,9 @@ class ImagePlotPropertyWidget(qt.QWidget):
                 channelItem = channelItems[dataChannelName]
                 channelItem.setPlotItem(plotItem)
             else:
-                itemClass = plotItem.__class__
-                text = "%s" % itemClass.__name__
-                item = _DataItem(text)
+                item = _DataItem()
                 item.setEnvironment(self.__tree, self.__flintModel)
-                itemWithoutLocation.appendRow(item.items())
+                itemWithoutLocation.appendRow(item.rowItems())
                 # It have to be done when model index are initialized
                 item.setPlotItem(plotItem)
 

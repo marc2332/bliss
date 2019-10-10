@@ -22,14 +22,15 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from . import delegates
+from . import _property_tree_helper
 
 
 _logger = logging.getLogger(__name__)
 
 
-class _DataItem(qt.QStandardItem):
-    def __init__(self, text: str = ""):
-        qt.QStandardItem.__init__(self, text)
+class _DataItem(_property_tree_helper.ScanRowItem):
+    def __init__(self):
+        super(_DataItem, self).__init__()
         self.__xAxis = delegates.HookedStandardItem("")
         self.__yAxis = delegates.HookedStandardItem("")
         self.__valueAxis = delegates.HookedStandardItem("")
@@ -38,13 +39,21 @@ class _DataItem(qt.QStandardItem):
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
 
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
         self.__channel: Optional[scan_model.Channel] = None
         self.__treeView: Optional[qt.QTreeView] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
+
+        self.setOtherRowItems(
+            self.__xAxis,
+            self.__yAxis,
+            self.__valueAxis,
+            self.__displayed,
+            self.__style,
+            self.__remove,
+            self.__error,
+        )
 
     def __hash__(self):
         return hash(id(self))
@@ -63,18 +72,6 @@ class _DataItem(qt.QStandardItem):
 
     def styleItem(self) -> qt.QStandardItem:
         return self.__style
-
-    def items(self) -> List[qt.QStandardItem]:
-        return [
-            self,
-            self.__xAxis,
-            self.__yAxis,
-            self.__valueAxis,
-            self.__displayed,
-            self.__style,
-            self.__remove,
-            self.__error,
-        ]
 
     def updateError(self):
         scan = self.__flintModel.currentScan()
@@ -182,25 +179,14 @@ class _DataItem(qt.QStandardItem):
                     scatter.setYChannel(channel)
 
     def setDevice(self, device: scan_model.Device):
-        if device.isMaster():
-            text = "Master %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-timer")
-        else:
-            text = "Device %s" % device.name()
-            icon = icons.getQIcon("flint:icons/item-device")
-        self.setText(text)
-        self.setIcon(icon)
+        self.setDeviceLookAndFeel(device)
         self.__xAxis.setData(None, role=delegates.RadioRole)
         self.__yAxis.setData(None, role=delegates.RadioRole)
 
     def setChannel(self, channel: scan_model.Channel):
         assert self.__treeView is not None
         self.__channel = channel
-        text = "Channel %s" % channel.name()
-        self.setText(text)
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
-
+        self.setChannelLookAndFeel(channel)
         self.__valueAxis.modelUpdated = None
         self.__valueAxis.setCheckable(True)
         self.__valueAxis.modelUpdated = self.__valueAxisChanged
@@ -232,8 +218,8 @@ class _DataItem(qt.QStandardItem):
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
 
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
+        if self.__channel is None:
+            self.setPlotItemLookAndFeel(plotItem)
 
         # FIXME: It have to be converted into delegate
         self.__treeView.openPersistentEditor(self.__xAxis.index())
@@ -392,7 +378,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
                 else:
                     parent = itemMaster
 
-            parent.appendRow(item.items())
+            parent.appendRow(item.rowItems())
             # It have to be done when model index are initialized
             item.setDevice(device)
             devices.append(item)
@@ -406,7 +392,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             for channel in channels:
                 channelItem = _DataItem()
                 channelItem.setEnvironment(self.__tree, self.__flintModel)
-                item.appendRow(channelItem.items())
+                item.appendRow(channelItem.rowItems())
                 # It have to be done when model index are initialized
                 channelItem.setChannel(channel)
                 channelItem.setPlotModel(self.__plotModel)
@@ -534,11 +520,9 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
             if parent is not None:
                 # Recover invalid items in this scan
-                itemClass = plotItem.__class__
-                text = "%s" % itemClass.__name__
-                item = _DataItem(text)
+                item = _DataItem()
                 item.setEnvironment(self.__tree, self.__flintModel)
-                parent.appendRow(item.items())
+                parent.appendRow(item.rowItems())
                 # It have to be done when model index are initialized
                 item.setPlotItem(plotItem)
 

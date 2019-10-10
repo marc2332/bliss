@@ -217,8 +217,6 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__error = qt.QStandardItem("")
         self.__xAxisSelected = False
 
-        icon = icons.getQIcon("flint:icons/item-channel")
-        self.setIcon(icon)
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
         self.__channel: Optional[scan_model.Channel] = None
@@ -389,7 +387,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
 
-        self.setPlotItemLookAndFeel(plotItem)
+        if self.__channel is None:
+            self.setPlotItemLookAndFeel(plotItem)
+
         if isinstance(plotItem, plot_curve_model.CurveItem):
             self.__xaxis.modelUpdated = self.__xAxisChanged
             useXAxis = True
@@ -693,7 +693,6 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 sourceTree[plotItem] = parentChannel
             else:
                 item = _DataItem()
-                item.setPlotItemLookAndFeel(plotItem, updateText=True)
                 item.setEnvironment(self.__tree, self.__flintModel)
                 parent.appendRow(item.rowItems())
                 # It have to be done when model index are initialized

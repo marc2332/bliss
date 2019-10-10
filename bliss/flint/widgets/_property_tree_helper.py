@@ -63,16 +63,17 @@ class ScanRowItem(StandardRowItem):
         icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
-    def setPlotItemLookAndFeel(self, plotItem: plot_model.Item, updateText=False):
+    def setPlotItemLookAndFeel(self, plotItem: plot_model.Item):
         if isinstance(plotItem, plot_curve_model.CurveItem):
             icon = icons.getQIcon("flint:icons/item-channel")
         elif isinstance(plotItem, plot_curve_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
         elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
             icon = icons.getQIcon("flint:icons/item-stats")
+        else:
+            icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
-        if updateText:
-            itemClass = plotItem.__class__
-            text = "%s" % itemClass.__name__
-            self.setText(text)
+        itemClass = plotItem.__class__
+        text = "%s" % itemClass.__name__
+        self.setText(text)

@@ -83,6 +83,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__used.setCheckable(False)
 
     def setChannel(self, channel: scan_model.Channel):
+        self.__channel = channel
         self.setChannelLookAndFeel(channel)
         self.__used.modelUpdated = None
         self.__used.setCheckable(True)

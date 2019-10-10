@@ -132,18 +132,6 @@ def test_soft_counter_scan(session):
 
     data = scan.get_data()
 
-    # TODO: counter names should be full counter names after issue #395 is solved
-    counter_names = {
-        "elapsed_time",
-        "value",
-        "temp_deg",
-        "voltage",
-        "get_pressure",
-        "temp_f",
-        "epoch",
-    }
-    assert set(data.keys()) == counter_names
-
     numpy.testing.assert_array_almost_equal(data["value"], 10 * [45.67])
     numpy.testing.assert_array_almost_equal(data["temp_deg"], 10 * [12.34])
     numpy.testing.assert_array_almost_equal(data["voltage"], 10 * [67.89])

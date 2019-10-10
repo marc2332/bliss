@@ -39,6 +39,7 @@ def test_long_trigger_timescan(session, diode_acq_device_factory):
     s = Scan(chain, save=False)
     s.run()
 
-    assert len(s.get_data()) == 3
-    assert "elapsed_time" in s.get_data()
-    assert len(s.get_data()["elapsed_time"]) == 3  # check data is present
+    data = s.get_data()
+
+    assert len(data) == 3
+    assert len(data["elapsed_time"]) == 3  # check data is present

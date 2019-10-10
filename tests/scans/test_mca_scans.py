@@ -218,6 +218,6 @@ def test_mca_scans_with_roi_sums(session):
     roi_sum = sum(
         sum(data[name][0][400:700])
         for name in data.keys()
-        if name.startswith("spectrum")
+        if name.find("spectrum") > -1
     )
     assert data["my_roi"][0] == roi_sum

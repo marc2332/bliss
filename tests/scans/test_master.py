@@ -128,12 +128,12 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
 
     assert dummy_device.nb_trigger == 50
     scan_data = scan.get_data()
-    assert isinstance(scan_data["elapsed_time"], numpy.ndarray)
+    assert isinstance(scan_data["timer1:elapsed_time"], numpy.ndarray)
     assert isinstance(scan_data["timer2:elapsed_time"], numpy.ndarray)
     assert isinstance(scan_data["pi"], numpy.ndarray)
     assert isinstance(scan_data["nb"], numpy.ndarray)
-    assert isinstance(scan_data["diode"], numpy.ndarray)
-    assert len(scan_data["elapsed_time"]) == 2
+    assert isinstance(scan_data[diode_sim], numpy.ndarray)
+    assert len(scan_data["timer1:elapsed_time"]) == 2
     assert len(scan_data["timer2:elapsed_time"]) == 50
 
     ### check structure in redis

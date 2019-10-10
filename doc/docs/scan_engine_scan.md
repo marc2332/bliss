@@ -25,11 +25,19 @@ loopscan 2 0.1
 Took 0:00:03.523786 (estimation was for 0:00:00.200000)
 
 TEST_SESSION [2]: s.get_data().keys()
-         Out [2]: dict_keys(['elapsed_time', 'diode'])
+         Out [2]: dict_keys(['timer:elapsed_time', 'timer:epoch', 'simulation_diode_controller:diode'])
 
+# retrieved with counter instance
+TEST_SESSION [4]: s.get_data()[diode]
+         Out [4]: array([ 2.77777778, 26. ])
+	 
+# retrieved with short name (when there is no name collision)
+TEST_SESSION [5]: s.get_data()['diode']
+         Out [5]: array([ 2.77777778, 26. ])
 
-TEST_SESSION [3]: s.get_data()['diode']
-         Out [3]: array([ 2.77777778, 26. ])
+# or with fullname
+TEST_SESSION [5]: s.get_data()['simulation_diode_controller:diode']
+         Out [5]: array([ 2.77777778, 26. ])
 ```
 
 ## Alignment functions

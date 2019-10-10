@@ -156,6 +156,34 @@ class Flint:
     def get_session(self):
         return self._session_name
 
+    def _spawn_scans_session_watch(self, session_name, clean_redis=False):
+        if clean_redis:
+            clean_all_redis_connection()
+
+        ready_event = gevent.event.Event()
+
+        task = gevent.spawn(
+            watch_session_scans,
+            session_name,
+            self.new_scan,
+            self.new_scan_child,
+            self.new_scan_data,
+            self.end_scan,
+            ready_event=ready_event,
+        )
+
+        task.link_exception(
+            functools.partial(
+                self._spawn_scans_session_watch, session_name, clean_redis=True
+            )
+        )
+
+        self.scans_watch_task = task
+
+        ready_event.wait()
+
+        return task
+
     def set_session(self, session_name):
         if session_name == self._session_name:
             return
@@ -163,35 +191,7 @@ class Flint:
         if self.scans_watch_task:
             self.scans_watch_task.kill()
 
-        ready_event = gevent.event.Event()
-
-        def spawn():
-            task = gevent.spawn(
-                watch_session_scans,
-                session_name,
-                self.new_scan,
-                self.new_scan_child,
-                self.new_scan_data,
-                self.end_scan,
-                ready_event=ready_event,
-            )
-            return task
-
-        def respawn(old_task):
-            if old_task.exception and not isinstance(
-                old_task.exception, gevent.GreenletExit
-            ):
-                # first purge redis connection...
-                # we sometime corrupt redis connection if you kill
-                # the task in wrong place.
-                # so close all the connection to restart for fresh.
-                clean_all_redis_connection()
-                t = spawn()
-                t.link(respawn)
-
-        task = spawn()
-        ready_event.wait()
-        task.link(respawn)
+        self._spawn_scans_session_watch(session_name)
 
         self._session_name = session_name
 

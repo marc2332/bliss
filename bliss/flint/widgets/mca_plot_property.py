@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Union
 from typing import List
 from typing import Dict
-from typing import Callable
 from typing import Optional
 
 import logging
@@ -312,7 +311,6 @@ class McaPlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
 
-        sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scan = self.__scan
         if scan is not None:
             channelItems = self.__genScanTree(

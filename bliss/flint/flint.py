@@ -420,6 +420,8 @@ class Flint:
             for plot in self.live_scan_plots_dict[master_name]["0d"]:
                 plot._set_data(data["data"])
                 plot.update_all()
+                for channel_name, channel_data in data["data"].items():
+                    self.update_data(plot.plot_id, channel_name, channel_data)
         elif data_type == "1d":
             channel_name = data["channel_name"]
             spectrum_data = data["channel_data_node"].get(-1)

@@ -174,6 +174,9 @@ class Flint:
         self.__manager = manager
 
         propertyWidget = MainPropertyWidget(window)
+        propertyWidget.setFeatures(
+            propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
         flintModel.setPropertyWidget(propertyWidget)
         window.addDockWidget(qt.Qt.LeftDockWidgetArea, propertyWidget)
         return flintModel
@@ -191,6 +194,9 @@ class Flint:
         curvePlotWidget.setFlintModel(flintModel)
         curvePlotWidget.setObjectName("dock1")
         curvePlotWidget.setWindowTitle("Plot1")
+        curvePlotWidget.setFeatures(
+            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
 
         workspace.addWidget(curvePlotWidget)
         window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)

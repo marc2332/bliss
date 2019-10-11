@@ -19,9 +19,10 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
-class ScatterPlotWidget(qt.QDockWidget):
+class ScatterPlotWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)
 

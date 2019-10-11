@@ -21,9 +21,10 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_curve_model
+from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
-class CurvePlotWidget(qt.QDockWidget):
+class CurvePlotWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)
 

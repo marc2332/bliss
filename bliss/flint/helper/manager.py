@@ -87,7 +87,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__updateLiveScanWindow(newScan)
 
     def __updateLiveScanWindow(self, newScan: scan_model.Scan):
-        window = self.__flintModel.window()
+        window = self.__flintModel.liveWindow()
         # FIXME: Not nice to reach the tabWidget. It is implementation dependent
         tabWidget: qt.QTabWidget = window.parent().parent()
         liveScanIndex = tabWidget.indexOf(window)
@@ -127,7 +127,7 @@ class ManageMainBehaviours(qt.QObject):
                 modelId = None
             widgetDescriptions.append((widget.objectName(), widget.__class__, modelId))
 
-        window = self.__flintModel.window()
+        window = self.__flintModel.liveWindow()
         layout = window.saveState()
 
         state = (plots, widgetDescriptions, layout)
@@ -154,7 +154,7 @@ class ManageMainBehaviours(qt.QObject):
         for plot in plots.values():
             workspace.addPlot(plot)
 
-        window = self.__flintModel.window()
+        window = self.__flintModel.liveWindow()
         for name, widgetClass, modelId in widgetDescriptions:
             widget = widgetClass(window)
             widget.setFlintModel(self.__flintModel)
@@ -269,7 +269,7 @@ class ManageMainBehaviours(qt.QObject):
             lastTab = widgets[0]
 
         # Create widgets for unused plots
-        window = flint.window()
+        window = flint.liveWindow()
         for plotModel in availablePlots:
             if plotModel.styleStrategy() is None:
                 plotModel.setStyleStrategy(DefaultStyleStrategy())

@@ -165,7 +165,7 @@ class Flint:
         window.setVisible(True)
 
         flintModel = flint_model.FlintState()
-        flintModel.setWindow(window)
+        flintModel.setLiveWindow(window)
 
         manager = ManageMainBehaviours(flintModel)
         manager.setFlintModel(flintModel)
@@ -185,7 +185,7 @@ class Flint:
     def __create_default_workspace(self):
         # FIXME: Here we can feed the workspace with something persistent
         flintModel = self.get_flint_model()
-        window = flintModel.window()
+        window = flintModel.liveWindow()
 
         workspace = flint_model.Workspace()
         curvePlotWidget = CurvePlotWidget(parent=window)

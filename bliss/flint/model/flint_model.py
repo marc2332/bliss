@@ -72,14 +72,14 @@ class FlintState(qt.QObject):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace: Workspace = None
         self.__currentScan: scan_model.Scan = None
-        self.__window = None
+        self.__liveWindow = None
         self.__propertyWidget = None
 
-    def setWindow(self, window: qt.QMainWindow):
-        self.__window = window
+    def setLiveWindow(self, window: qt.QMainWindow):
+        self.__liveWindow = window
 
-    def window(self) -> qt.QMainWindow:
-        return self.__window
+    def liveWindow(self) -> qt.QMainWindow:
+        return self.__liveWindow
 
     def setPropertyWidget(self, propertyWidget: qt.QWidget):
         propertyWidget.setObjectName("property-widget")

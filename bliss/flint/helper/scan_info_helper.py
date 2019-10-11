@@ -25,31 +25,38 @@ _logger = logging.getLogger(__name__)
 Channel = collections.namedtuple("Channel", ["name", "kind", "device", "master"])
 
 
+def _merge_master_keys(values: Dict, key: str):
+    """
+    Merge default and master keys in order to:
+    - Provide masters first
+    - Respect the order
+    - Avoid duplication
+    """
+    result = list(values.get("master", {}).get(key, []))
+    default = values.get(key, [])
+    for k in default:
+        if k not in result:
+            result.append(k)
+    return result
+
+
 def iter_channels(scan_info: Dict[str, Any]):
     acquisition_chain = scan_info["acquisition_chain"]
     for master_name, data in acquisition_chain.items():
-        scalars = data.get("scalars", [])
-        spectra = data.get("spectra", [])
-        images = data.get("images", [])
-        if "master" in data:
-            master_data = data["master"]
-            scalars.extend(master_data.get("scalars", []))
-            spectra.extend(master_data.get("spectra", []))
-            images.extend(master_data.get("images", []))
+        scalars = _merge_master_keys(data, "scalars")
+        spectra = _merge_master_keys(data, "spectra")
+        images = _merge_master_keys(data, "images")
 
-        scalars = list(set(scalars))
         for channel_name in scalars:
             device_name = channel_name.split(":")[0]
             channel = Channel(channel_name, "scalar", device_name, master_name)
             yield channel
 
-        spectra = list(set(spectra))
         for channel_name in spectra:
             device_name = channel_name.split(":")[0]
             channel = Channel(channel_name, "spectrum", device_name, master_name)
             yield channel
 
-        images = list(set(images))
         for channel_name in images:
             device_name = channel_name.split(":")[0]
             channel = Channel(channel_name, "image", device_name, master_name)

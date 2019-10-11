@@ -137,19 +137,68 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
         for _master, channels in scan_info["acquisition_chain"].items():
             scalars = channels.get("scalars", [])
             master_channels = channels.get("master", {}).get("scalars", [])
+            scalars_units = channels.get("scalars_units", {})
 
-            for channel_name in scalars:
-                item = plot_curve_model.CurveItem(plot)
-                data_channel = plot_model.ChannelRef(plot, channel_name)
+            if have_scatter:
+                # In case of scatter the curve plot have to plot the time in x
+                # Masters in y1 and the first value in y2
 
-                if len(master_channels) == 0:
-                    master_channel = None
+                for timer in scalars:
+                    if timer in master_channels:
+                        # skip the masters
+                        continue
+                    if scalars_units.get(timer, None) != "s":
+                        # skip non time base
+                        continue
+                    break
                 else:
-                    master_channel = plot_model.ChannelRef(plot, master_channels[0])
+                    timer = None
 
-                item.setXChannel(master_channel)
-                item.setYChannel(data_channel)
-                plot.addItem(item)
+                for scalar in scalars:
+                    if scalar in master_channels:
+                        # skip the masters
+                        continue
+                    if scalars_units.get(scalar, None) == "s":
+                        # skip the time base
+                        continue
+                    break
+                else:
+                    scalar = None
+
+                if timer is not None:
+                    if scalar is not None:
+                        item = plot_curve_model.CurveItem(plot)
+                        x_channel = plot_model.ChannelRef(plot, timer)
+                        y_channel = plot_model.ChannelRef(plot, scalar)
+                        item.setXChannel(x_channel)
+                        item.setYChannel(y_channel)
+                        item.setYAxis("left")
+                        plot.addItem(item)
+
+                    for channel_name in master_channels:
+                        item = plot_curve_model.CurveItem(plot)
+                        x_channel = plot_model.ChannelRef(plot, timer)
+                        y_channel = plot_model.ChannelRef(plot, channel_name)
+                        item.setXChannel(x_channel)
+                        item.setYChannel(y_channel)
+                        item.setYAxis("right")
+                        plot.addItem(item)
+                else:
+                    # The plot will be empty
+                    pass
+            else:
+                for channel_name in scalars:
+                    item = plot_curve_model.CurveItem(plot)
+                    data_channel = plot_model.ChannelRef(plot, channel_name)
+
+                    if len(master_channels) == 0:
+                        master_channel = None
+                    else:
+                        master_channel = plot_model.ChannelRef(plot, master_channels[0])
+
+                    item.setXChannel(master_channel)
+                    item.setYChannel(data_channel)
+                    plot.addItem(item)
 
         result.append(plot)
 

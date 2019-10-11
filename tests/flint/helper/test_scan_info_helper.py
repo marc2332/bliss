@@ -3,7 +3,9 @@
 import pytest
 
 from bliss.flint.helper import scan_info_helper
-from bliss.flint.model import scan_model, plot_item_model
+from bliss.flint.model import scan_model
+from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_curve_model
 
 
 SCAN_INFO = {
@@ -121,8 +123,10 @@ def test_create_scatter_plot_model():
         "npoints2": 6,
         "npoints1": 6,
     }
-    plots = scan_info_helper.create_plot_model(scan_info)
-    plots = [plot for plot in plots if isinstance(plot, plot_item_model.ScatterPlot)]
+    result_plots = scan_info_helper.create_plot_model(scan_info)
+    plots = [
+        plot for plot in result_plots if isinstance(plot, plot_item_model.ScatterPlot)
+    ]
     assert len(plots) == 1
     plot = plots[0]
     assert len(plot.items()) == 1
@@ -131,3 +135,15 @@ def test_create_scatter_plot_model():
     assert item.xChannel().name() == "axis:roby"
     assert item.yChannel().name() == "axis:robz"
     assert item.valueChannel().name() == "simulation_diode_controller:diode"
+
+    plots = [
+        plot for plot in result_plots if isinstance(plot, plot_curve_model.CurvePlot)
+    ]
+    assert len(plots) == 1
+    plot = plots[0]
+    assert len(plot.items()) >= 1
+    item = plot.items()[0]
+    assert type(item) == plot_curve_model.CurveItem
+    # The first channel should be the diode/time
+    assert item.xChannel().name() == "timer:elapsed_time"
+    assert item.yChannel().name() == "simulation_diode_controller:diode"

@@ -190,9 +190,7 @@ class Wago(Device):
                             [1] : logical device channel
         """
 
-        channel_type, offset = array_in
-
-        return self.wago.hard2log(channel_type, offset)
+        return self.wago.devhard2log(array_in)
 
     def _read_phys(self, tango_attribute):
         self.debug_stream(
@@ -337,7 +335,7 @@ class Wago(Device):
             >>> DevKey2Name(3)
             b"gabsTf3"
         """
-        return self.wago.key2name(key)
+        return self.wago.devkey2name(key)
 
     @command(
         dtype_in=tango.DevVarShortArray,
@@ -353,8 +351,8 @@ class Wago(Device):
     def DevLog2Hard(self, array_in):
         """
         Args:
-            Logical Device Key (int)
-            Logical Channel (int)
+            array_in (list): Logical Device Key (int), Logical Channel (int)
+
         Notes:
             Logical Channels is 0 if there is only one name associated to that Key
 
@@ -363,13 +361,13 @@ class Wago(Device):
             750-408,2 foh2pos, sain2, foh2pos, sain4
             750-408, foh2pos, sain6, foh2pos, sain8
 
-        >>> DevLog2Hard(0,2) # gives the third channel with the name foh2ctrl
+        >>> DevLog2Hard((0,2)) # gives the third channel with the name foh2ctrl
 
-        >>> DevLog2Hard(1,0) # gives the first channel with the name foh2pos
+        >>> DevLog2Hard((1,0)) # gives the first channel with the name foh2pos
 
-        >>> DevLog2Hard(2,0) # gives the first (and only) channel with the name sain2
+        >>> DevLog2Hard((2,0)) # gives the first (and only) channel with the name sain2
 
-        >>> DevLog2Hard(2,1) # will fail because there is only one channel with name sain2
+        >>> DevLog2Hard((2,1)) # will fail because there is only one channel with name sain2
 
         Output:
             [0] : offset in wago controller memory (ex: 0x16)
@@ -379,8 +377,7 @@ class Wago(Device):
             [4] : physical channel of the module (ex: 1 for the 2nd)
 
         """
-        device_key, logical_channel = array_in
-        return self.wago.log2hard(device_key, logical_channel)
+        return self.wago.devlog2hard(array_in)
 
     @command(
         dtype_in=str,
@@ -425,24 +422,7 @@ class Wago(Device):
     def DevReadNoCacheDigi(self, key):
         """
         """
-
-        # Doing a digital read on an analog channel gives the raw bit value (not converted in voltage, temperature ...)
-        # convert_values=False forces this raw reading
-        val = self.wago.get(self.DevKey2Name(key), convert_values=False)
-
-        # TODO: there are modules with 24 and 32 bit values, behaviour should be check
-
-        def to_signed(num):
-            # convert a 16 bit number to a signed representation
-            if num >> 15:  # if is negative
-                calc = -((num ^ 0xffff) + 1)  # 2 complement
-                return calc
-            return num
-
-        # needed a conversion to fit the DevShort which is signed
-        values = [to_signed(v) for v in flatten([val])]
-
-        return values
+        return self.wago.devreadnocachedigi(key)
 
     @command(
         dtype_in=tango.DevShort,
@@ -454,8 +434,7 @@ class Wago(Device):
     def DevReadNoCachePhys(self, key):
         """
         """
-        val = self.wago.get(self.DevKey2Name(key))
-        return flatten([val])
+        return self.wago.devreadnocachephys(key)
 
     @command(
         dtype_in=tango.DevShort,
@@ -502,7 +481,7 @@ class Wago(Device):
                             etc
 
         """
-        return self.wago.wc_comm(command, *params)
+        return self.wago.devwccomm(command, *params)
 
     @command(
         dtype_in=tango.DevVarShortArray,
@@ -524,8 +503,7 @@ class Wago(Device):
     def DevWritePhys(self, array):
         """
         """
-        name = self.DevKey2Name(array[0])
-        self.wago.set(flatten([name] + list(array[1:])))
+        self.wago.devwritephys(array)
 
 
 def main(argv=sys.argv):

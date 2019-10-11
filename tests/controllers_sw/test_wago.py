@@ -84,19 +84,19 @@ def test_mapping_class_1():
         "gabsP2": 25,
     }
 
-    assert m.name2key("gabsTf1") == 0
-    assert m.name2key("gabsP1") == 24
-    assert m.key2name(12) == "psTf1"
-    assert m.key2name(13) == "psTf2"
+    assert m.devname2key("gabsTf1") == 0
+    assert m.devname2key("gabsP1") == 24
+    assert m.devkey2name(12) == "psTf1"
+    assert m.devkey2name(13) == "psTf2"
 
     # some tricky check
     for n_of_logphysmap in m.physical_mapping.keys():
-        assert m.physical_mapping[n_of_logphysmap].logical_device == m.key2name(
-            m.logical_keys[m.key2name(n_of_logphysmap)]
+        assert m.physical_mapping[n_of_logphysmap].logical_device == m.devkey2name(
+            m.logical_keys[m.devkey2name(n_of_logphysmap)]
         )
 
     for k, ch in ((i, 0) for i in range(26)):
-        assert m.hard2log(m.log2hard(k, ch)[1], m.log2hard(k, ch)[0])
+        assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
 
 def test_mapping_class_2():
@@ -110,15 +110,15 @@ def test_mapping_class_2():
     assert m.attached_modules == ["750-469"] * 4
     assert m.modules == ["750-842"] + ["750-469"] * 4
 
-    assert m.name2key("a") == 0
-    assert m.name2key("b") == 1
-    assert m.name2key("c") == 2
+    assert m.devname2key("a") == 0
+    assert m.devname2key("b") == 1
+    assert m.devname2key("c") == 2
     with pytest.raises(KeyError):
-        assert m.key2name(3)
+        assert m.devkey2name(3)
 
-    assert m.key2name(0) == "a"
-    assert m.key2name(1) == "b"
-    assert m.key2name(2) == "c"
+    assert m.devkey2name(0) == "a"
+    assert m.devkey2name(1) == "b"
+    assert m.devkey2name(2) == "c"
     assert m.logical_mapping["a"][0].physical_module == 0
     assert m.logical_mapping["a"][1].physical_module == 0
     with pytest.raises(IndexError):
@@ -134,14 +134,14 @@ def test_mapping_class_2():
     assert m.logical_mapping["b"][3].physical_channel == 1
     assert m.logical_mapping["c"][1].physical_channel == 1
 
-    assert m.log2hard(0, 0) == (0, 18775, 469, 0, 0)
-    assert m.log2hard(0, 1) == (1, 18775, 469, 0, 1)
+    assert m.devlog2hard((0, 0)) == (0, 18775, 469, 0, 0)
+    assert m.devlog2hard((0, 1)) == (1, 18775, 469, 0, 1)
     with pytest.raises(IndexError):
-        m.log2hard(0, 2)
-    assert m.log2hard(1, 0) == (2, 18775, 469, 1, 0)
+        m.devlog2hard((0, 2))
+    assert m.devlog2hard((1, 0)) == (2, 18775, 469, 1, 0)
 
     for k, ch in ((i, 0) for i in range(3)):
-        assert m.hard2log(m.log2hard(k, ch)[1], m.log2hard(k, ch)[0])
+        assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
 
 def test_check_mapping():

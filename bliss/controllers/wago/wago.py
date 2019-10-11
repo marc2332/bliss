@@ -407,7 +407,7 @@ class ModulesConfig:
 
         return cls("\n".join(mapping), ignore_missing=ignore_missing)
 
-    def key2name(self, key):
+    def devkey2name(self, key):
         """
         From a key (channel enumeration) to the assigned text name
 
@@ -421,11 +421,12 @@ class ModulesConfig:
         except IndexError:
             raise Exception("invalid logical channel key")
 
-    def name2key(self, name):
-        # TODO: test + docstring
+    def devname2key(self, name):
+        """
+        From the name of a channel to the given key"""
         return self.logical_keys[name]
 
-    def hard2log(self, channel_type, offset):
+    def devhard2log(self, array_in):
         """
         Given some information about the position of a register in Wago memory
         it returns the corresponding logical device key and logical channel
@@ -443,9 +444,8 @@ class ModulesConfig:
                     starts again from zero.
 
         Returns: (logical_device_key, logical_device_channel)
-
-        TODO: improve in_channel
         """
+        channel_type, offset = array_in
         if isinstance(channel_type, str):
             # converto to integer if receiving types like 'TC' or 'IB'
             channel_type = (ord(channel_type[0]) << 8) + ord(channel_type[1])
@@ -459,9 +459,10 @@ class ModulesConfig:
                 if offset_ == offset and channel_base_address == channel_type:
                     return logical_device_key, logical_channel
 
-    def log2hard(self, device_key, logical_channel):
+    def devlog2hard(self, array_in):
 
-        logical_device = self.key2name(device_key)
+        device_key, logical_channel = array_in
+        logical_device = self.devkey2name(device_key)
 
         i = 0
         device = self.logical_mapping[logical_device][logical_channel]
@@ -479,7 +480,9 @@ class ModulesConfig:
             physical_channel,
         )
 
-    def log2scale(self, logical_name, logical_channel):
+    def devlog2scale(self, array_in):
+        raise NotImplementedError
+        logical_name, logical_channel = array_in
         _, _, module_type, _, _ = self.logical_mapping[logical_name][logical_channel]
         return scale
 
@@ -1130,17 +1133,17 @@ class _WagoController:
         except IndexError:
             raise Exception("invalid logical channel key")
 
-    def name2key(self, name):
+    def devname2key(self, name):
         """From a logical device (name) to the key"""
         return self.modules_config.logical_keys[name]
 
-    def wc_comm(self, args):
+    def devwccomm(self, args):
         """
         Send an command to Wago using the Interlock protocol
 
         Note: as the logic was implemented through reverse engineering there may be inaccuracie.
         """
-        log_debug(self, f"In wc_comm args: {args}")
+        log_debug(self, f"In devwccomm args: {args}")
         command, params = args[0], args[1:]
         MAX_RETRY = 3
         SLEEP_TIME = 0.01
@@ -1155,7 +1158,7 @@ class _WagoController:
         addr, data = 0x100, 0x0000  # WC_PASSWD, 0
 
         log_debug(
-            self, f"wc_comm Phase 1: writing at address {addr:04X} value {data:04X}"
+            self, f"devwccomm Phase 1: writing at address {addr:04X} value {data:04X}"
         )
         response = self.client.write_register(addr, "H", data, timeout=self.timeout)
 
@@ -1175,7 +1178,7 @@ class _WagoController:
         addr, size = 0x100, 3
 
         log_debug(
-            self, f"wc_comm Phase 2: reading at address {addr:04X} n.{size} registers"
+            self, f"devwccomm Phase 2: reading at address {addr:04X} n.{size} registers"
         )
 
         start = time.time()
@@ -1198,7 +1201,7 @@ class _WagoController:
                 )
                 raise MissingFirmware("No interlock software loaded in the PLC")
             if ack == 0:  # check if is ok
-                log_debug(self, "wc_comm Phase 2: ACK received")
+                log_debug(self, "devwccomm Phase 2: ACK received")
                 break
             else:
                 gevent.sleep(SLEEP_TIME)
@@ -1227,7 +1230,7 @@ class _WagoController:
         data += list(params)  # adds the parameters
 
         log_debug(
-            self, f"wc_comm Phase 3: writing at address: {addr:04X} values : {data}"
+            self, f"devwccomm Phase 3: writing at address: {addr:04X} values : {data}"
         )
 
         self.client.write_registers(addr, "H" * len(data), data, timeout=self.timeout)
@@ -1249,7 +1252,7 @@ class _WagoController:
         addr = 0x100
         size = 4
         log_debug(
-            self, f"wc_comm Phase 4: reading at address: {addr:04X} words: {size}"
+            self, f"devwccomm Phase 4: reading at address: {addr:04X} words: {size}"
         )
         gevent.sleep(0.1)  # needed delay otherwise we will receive part of old message
         try:
@@ -1259,7 +1262,7 @@ class _WagoController:
         except Exception as exc:
             log_debug(
                 self,
-                f"wc_comm Phase 4: failed to read at address: {addr} words: {size}",
+                f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
             )
             raise
         # ERROR CHECK
@@ -1268,7 +1271,7 @@ class _WagoController:
         ):  # or command_executed != 0x04:  # 0x04 is the modbus command
             log_error(
                 self,
-                f"wc_comm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
+                f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
             )
             raise RuntimeError(
                 f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
@@ -1276,7 +1279,7 @@ class _WagoController:
         else:
             log_debug(
                 self,
-                f"wc_comm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
+                f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
             )
 
         """
@@ -1287,7 +1290,7 @@ class _WagoController:
 
         addr = 0x104
         size = registers_to_read
-        log_debug(self, f"wc_comm Phase 5: reading at address: {addr} words: {size}")
+        log_debug(self, f"devwccomm Phase 5: reading at address: {addr} words: {size}")
 
         if size:
             try:
@@ -1300,13 +1303,13 @@ class _WagoController:
             except Exception as exc:
                 log_exception(
                     self,
-                    f"wc_comm Phase 5: failed to read at address: {addr} words: {size}",
+                    f"devwccomm Phase 5: failed to read at address: {addr} words: {size}",
                 )
                 raise
             # return [to_signed(n) for n in response]
             return response
 
-    def hard2log(self, channel_type, offset):
+    def devhard2log(self, array_in):
         """
         Given some information about the position of a register in Wago memory
         it returns the corresponding logical device key and logical channel
@@ -1324,12 +1327,10 @@ class _WagoController:
                     starts again from zero.
 
         Returns: (logical_device_key, logical_device_channel)
-
-        TODO: improve in_channel
         """
-        return self.modules_config.hard2log(channel_type, offset)
+        return self.modules_config.devhard2log(array_in)
 
-    def log2hard(self, device_key, logical_channel):
+    def devlog2hard(self, array_in):
         """Gives information about mapping in Wago memory of I?O
 
         Args:
@@ -1342,13 +1343,13 @@ class _WagoController:
         >>> wago = WagoController("wcdp3")
         >>> wago.set_mapping(mapping)
 
-        >>> wago.devlog2hard(0,2) # gives the third channel with the name foh2ctrl
+        >>> wago.devlog2hard((0,2)) # gives the third channel with the name foh2ctrl
 
-        >>> wago.devlog2hard(1,0) # gives the first channel with the name foh2pos
+        >>> wago.devlog2hard((1,0)) # gives the first channel with the name foh2pos
 
-        >>> wago.devlog2hard(2,0) # gives the first (and only) channel with the name sain2
+        >>> wago.devlog2hard((2,0)) # gives the first (and only) channel with the name sain2
 
-        >>> wago.devlog2hard(2,1) # will fail because there is only one channel with name sain2
+        >>> wago.devlog2hard((2,1)) # will fail because there is only one channel with name sain2
 
         Returns (tuple):
             [0] : offset in wago controller memory (ex: 0x16)
@@ -1358,7 +1359,7 @@ class _WagoController:
             [4] : physical channel of the module (ex: 1 for the 2nd)
         """
 
-        return self.modules_config.log2hard(device_key, logical_channel)
+        return self.modules_config.devlog2hard(array_in)
 
     def print_plugged_modules(self):
         print(self._plugged_modules())

@@ -116,7 +116,6 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
 
 
 def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
-
     result: List[plot_model.Plot] = []
 
     have_scalar = False
@@ -158,16 +157,31 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     if have_scatter:
         for _master, channels in scan_info["acquisition_chain"].items():
-            plot = plot_item_model.ScatterPlot()
+            if len(channels.get("master", {}).get("scalars", [])) < 2:
+                # Not enough of a scatter
+                continue
 
+            plot = plot_item_model.ScatterPlot()
             scalars = channels.get("scalars", [])
             axes_channels = channels["master"]["scalars"]
-            assert len(axes_channels) >= 2
+            scalars_units = channels.get("scalars_units", {})
+
+            # Reach the first scalar which is not a time unit
+            for scalar in scalars:
+                if scalar in axes_channels:
+                    # skip the masters
+                    continue
+                if scalars_units.get(scalar, None) == "s":
+                    # skip the time base
+                    continue
+                break
+            else:
+                scalar = None
 
             x_channel = plot_model.ChannelRef(plot, axes_channels[0])
             y_channel = plot_model.ChannelRef(plot, axes_channels[1])
-            if len(scalars) > 0:
-                data_channel = plot_model.ChannelRef(plot, scalars[0])
+            if scalar is not None:
+                data_channel = plot_model.ChannelRef(plot, scalar)
             else:
                 data_channel = None
 

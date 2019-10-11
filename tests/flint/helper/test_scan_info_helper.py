@@ -3,7 +3,7 @@
 import pytest
 
 from bliss.flint.helper import scan_info_helper
-from bliss.flint.model import scan_model
+from bliss.flint.model import scan_model, plot_item_model
 
 
 SCAN_INFO = {
@@ -75,3 +75,59 @@ def test_create_plot_model():
     # FIXME: Replace it with something stronger
     plots = scan_info_helper.create_plot_model(SCAN_INFO)
     assert len(plots) >= 0
+
+
+def test_create_scatter_plot_model():
+    scan_info = {
+        "data_dim": 2,
+        "acquisition_chain": {
+            "axis": {
+                "master": {
+                    "scalars": ["axis:roby", "axis:robz"],
+                    "scalars_units": {"axis:roby": None, "axis:robz": "mm"},
+                    "spectra": [],
+                    "images": [],
+                    "display_names": {"axis:roby": "roby", "axis:robz": "robz"},
+                },
+                "scalars": [
+                    "timer:elapsed_time",
+                    "timer:epoch",
+                    "simulation_diode_controller:diode",
+                    "simulation_diode_controller:diode2",
+                    "simulation_diode_controller:diode3",
+                    "axis:roby",
+                    "axis:robz",
+                    "axis:roby",
+                    "axis:robz",
+                ],
+                "scalars_units": {
+                    "timer:elapsed_time": "s",
+                    "timer:epoch": "s",
+                    "simulation_diode_controller:diode": None,
+                    "simulation_diode_controller:diode2": None,
+                    "simulation_diode_controller:diode3": None,
+                },
+                "spectra": [],
+                "images": [],
+                "display_names": {
+                    "timer:elapsed_time": "elapsed_time",
+                    "timer:epoch": "epoch",
+                    "simulation_diode_controller:diode": "diode",
+                    "simulation_diode_controller:diode2": "diode2",
+                    "simulation_diode_controller:diode3": "diode3",
+                },
+            }
+        },
+        "npoints2": 6,
+        "npoints1": 6,
+    }
+    plots = scan_info_helper.create_plot_model(scan_info)
+    plots = [plot for plot in plots if isinstance(plot, plot_item_model.ScatterPlot)]
+    assert len(plots) == 1
+    plot = plots[0]
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert type(item) == plot_item_model.ScatterItem
+    assert item.xChannel().name() == "axis:roby"
+    assert item.yChannel().name() == "axis:robz"
+    assert item.valueChannel().name() == "simulation_diode_controller:diode"

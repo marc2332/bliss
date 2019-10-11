@@ -159,13 +159,19 @@ class McaPlotPropertyWidget(qt.QWidget):
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
             self.__setScan(self.__flintModel.currentScan())
 
+    def focusWidget(self):
+        return self.__focusWidget
+
     def setFocusWidget(self, widget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
-        self.__plotModelUpdated(widget.plotModel())
+            plotModel = widget.plotModel()
+        else:
+            plotModel = None
+        self.__plotModelUpdated(plotModel)
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)

@@ -80,6 +80,8 @@ class ScanManager:
 
         self.__old_new_scan(scan_info)
 
+        self._end_scan_event.clear()
+
     def __old_new_scan(self, scan_info):
         # delete plots data
         for master, plots in self.live_scan_plots_dict.items():
@@ -237,7 +239,6 @@ class ScanManager:
                 window.close()
 
         self.flint.live_scan_mdi_area.tileSubWindows()
-        self._end_scan_event.clear()
 
     def new_scan_data(self, data_type, master_name, data):
         if data_type in ("1d", "2d"):
@@ -288,6 +289,13 @@ class ScanManager:
         self.__old_new_scan_data(
             data_type, master_name, data, channel_name, raw_data, channels_data
         )
+
+        data_event = (
+            self.flint.data_event[master_name]
+            .setdefault(data_type, {})
+            .setdefault(data.get("channel_index", 0), gevent.event.Event())
+        )
+        data_event.set()
 
     def __update_channel_data(self, channel_name, raw_data):
         assert self.__scan is not None
@@ -351,13 +359,6 @@ class ScanManager:
                 plot.addImage(raw_data, legend=channel_name, copy=False)
             else:
                 plot_image.setData(raw_data, copy=False)
-
-        data_event = (
-            self.flint.data_event[master_name]
-            .setdefault(data_type, {})
-            .setdefault(data.get("channel_index", 0), gevent.event.Event())
-        )
-        data_event.set()
 
     def end_scan(self, scan_info: Dict):
         assert self.__scan is not None

@@ -81,13 +81,7 @@ class ManageMainBehaviours(qt.QObject):
 
         propertyWidget = self.__flintModel.propertyWidget()
         if propertyWidget is not None:
-            if hasattr(widget, "createPropertyWidget"):
-                window = self.__flintModel.window()
-                specificPropertyWidget = widget.createPropertyWidget(window)
-                propertyWidget.setWidget(specificPropertyWidget)
-            else:
-                print("Widget %s do not have propertyWidget factory")
-                propertyWidget.setWidget(None)
+            propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)

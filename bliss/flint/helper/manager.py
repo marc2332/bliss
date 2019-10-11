@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Optional
 from typing import List
 from typing import Dict
+from typing import ClassVar
 
 import pickle
 import logging
@@ -33,6 +34,7 @@ class ManageMainBehaviours(qt.QObject):
         super(ManageMainBehaviours, self).__init__(parent=parent)
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__activeDock = None
+        self.__classMapping = {}
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -158,26 +160,44 @@ class ManageMainBehaviours(qt.QObject):
 
         self.__flintModel.setWorkspace(workspace)
 
-    def moveWidgetToWorkspace(self, workspace):
-        widgets = self.__flintModel.workspace().popWidgets()
-
+    def __initClassMapping(self):
+        if len(self.__classMapping) > 0:
+            return
         from bliss.flint.widgets.curve_plot import CurvePlotWidget
         from bliss.flint.widgets.mca_plot import McaPlotWidget
         from bliss.flint.widgets.image_plot import ImagePlotWidget
         from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
 
-        mapping = {}
-        mapping[CurvePlotWidget] = plot_curve_model.CurvePlot
-        mapping[McaPlotWidget] = plot_item_model.McaPlot
-        mapping[ImagePlotWidget] = plot_item_model.ImagePlot
-        mapping[ScatterPlotWidget] = plot_item_model.ScatterPlot
+        mapping = [
+            (CurvePlotWidget, plot_curve_model.CurvePlot),
+            (McaPlotWidget, plot_item_model.McaPlot),
+            (ImagePlotWidget, plot_item_model.ImagePlot),
+            (ScatterPlotWidget, plot_item_model.ScatterPlot),
+        ]
 
+        for k, v in mapping:
+            self.__classMapping[k] = v
+            self.__classMapping[v] = k
+
+    def __getWidgetClassFromPlotClass(
+        self, plotClass: ClassVar[plot_model.Plot]
+    ) -> ClassVar[qt.QDockWidget]:
+        self.__initClassMapping()
+        return self.__classMapping.get(plotClass, None)
+
+    def __getPlotClassFromWidgetClass(
+        self, widgetClass: ClassVar[qt.QDockWidget]
+    ) -> ClassVar[plot_model.Plot]:
+        self.__initClassMapping()
+        return self.__classMapping.get(widgetClass, None)
+
+    def moveWidgetToWorkspace(self, workspace):
+        widgets = self.__flintModel.workspace().popWidgets()
         availablePlots = list(workspace.plots())
-
         for widget in widgets:
             widget.setFlintModel(self.__flintModel)
 
-            compatibleModel = mapping.get(widget.__class__, None)
+            compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
             if compatibleModel is None:
                 print("No compatible class model")
                 plotModel = None
@@ -209,22 +229,10 @@ class ManageMainBehaviours(qt.QObject):
         flint.setCurrentScan(scan)
 
         # Reuse/create and connect the widgets
-
-        from bliss.flint.widgets.curve_plot import CurvePlotWidget
-        from bliss.flint.widgets.mca_plot import McaPlotWidget
-        from bliss.flint.widgets.image_plot import ImagePlotWidget
-        from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
-
-        mapping = {}
-        mapping[CurvePlotWidget] = plot_curve_model.CurvePlot
-        mapping[McaPlotWidget] = plot_item_model.McaPlot
-        mapping[ImagePlotWidget] = plot_item_model.ImagePlot
-        mapping[ScatterPlotWidget] = plot_item_model.ScatterPlot
-
         availablePlots = list(plots)
         widgets = self.__flintModel.workspace().widgets()
         for widget in widgets:
-            compatibleModel = mapping.get(widget.__class__, None)
+            compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
             if compatibleModel is None:
                 _logger.error(
                     "No compatible plot model for widget %s", widget.__class__
@@ -243,7 +251,9 @@ class ManageMainBehaviours(qt.QObject):
             workspace.addPlot(plotModel)
             widget.setPlotModel(plotModel)
 
-        # FIXME: No way to tab widgets to a new floating widget
+        # There is no way in Qt to tabify a widget to a new floating widget
+        # Then this code tabify the new widgets on an existing widget
+        # FIXME: This behavior is not really convenient
         widgets = workspace.widgets()
         if len(widgets) == 0:
             lastTab = None
@@ -251,36 +261,44 @@ class ManageMainBehaviours(qt.QObject):
             lastTab = widgets[0]
 
         # Create widgets for unused plots
+        window = flint.window()
         for plotModel in availablePlots:
-            compatibleWidgetClasses = [
-                c for c in mapping if mapping[c] == type(plotModel)
-            ]
-            if len(compatibleWidgetClasses) == 0:
-                _logger.error(
-                    "No compatible widget for plot model %s. Plot not displayed.",
-                    type(plotModel),
-                )
-                workspace.addPlot(plotModel)
+            if plotModel.styleStrategy() is None:
+                plotModel.setStyleStrategy(DefaultStyleStrategy())
+            widget = self.__createWidgetFromPlot(window, plotModel)
+            workspace.addPlot(plotModel)
+            if widget is None:
+                continue
+
+            workspace.addWidget(widget)
+            if lastTab is None:
+                widget.setFloating(True)
+                widget.setVisible(True)
+                widget.updateGeometry()
             else:
-                if plotModel.styleStrategy() is None:
-                    plotModel.setStyleStrategy(DefaultStyleStrategy())
-                compatibleWidgetClass = compatibleWidgetClasses[0]
-                window = flint.window()
-                widget: qt.QDockWidget = compatibleWidgetClass(window)
-                widget.setFlintModel(flint)
-                prefix = str(compatibleWidgetClass.__name__).replace("PlotWidget", "")
-                title = self.__getUnusedTitle(prefix, workspace)
-                widget.setWindowTitle(title)
-                widget.setPlotModel(plotModel)
-                workspace.addPlot(plotModel)
-                workspace.addWidget(widget)
-                if lastTab is None:
-                    widget.setFloating(True)
-                    widget.setVisible(True)
-                    widget.updateGeometry()
-                else:
-                    window.tabifyDockWidget(lastTab, widget)
-                lastTab = widget
+                window.tabifyDockWidget(lastTab, widget)
+            lastTab = widget
+
+    def __createWidgetFromPlot(
+        self, parent: qt.QWidget, plotModel: plot_model.Plot
+    ) -> qt.QDockWidget:
+        widgetClass = self.__getWidgetClassFromPlotClass(type(plotModel))
+        if widgetClass is None:
+            _logger.error(
+                "No compatible widget for plot model %s. Plot not displayed.",
+                type(plotModel),
+            )
+            return None
+
+        flint = self.__flintModel
+        workspace = flint.workspace()
+        widget: qt.QDockWidget = widgetClass(parent)
+        widget.setPlotModel(plotModel)
+        widget.setFlintModel(flint)
+        prefix = str(widgetClass.__name__).replace("PlotWidget", "")
+        title = self.__getUnusedTitle(prefix, workspace)
+        widget.setWindowTitle(title)
+        return widget
 
     def __getUnusedTitle(self, prefix, workspace) -> str:
         for num in range(1, 100):

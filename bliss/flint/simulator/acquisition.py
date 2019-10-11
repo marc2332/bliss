@@ -327,6 +327,8 @@ class AcquisitionSimulator(qt.QObject):
 
         master_time1 = scan_model.Device(scan)
         master_time1.setName("timer_scatter")
+        master_time1_index = scan_model.Channel(master_time1)
+        master_time1_index.setName("timer_scatter:elapsed_time")
 
         device1 = scan_model.Device(scan)
         device1.setName("motor1")
@@ -364,8 +366,12 @@ class AcquisitionSimulator(qt.QObject):
                 },
                 "spectra": [],
             },
-            "scalars": [device3_channel1.name(), device4_channel1.name()],
-            "scalars_units": {},
+            "scalars": [
+                device3_channel1.name(),
+                device4_channel1.name(),
+                master_time1_index.name(),
+            ],
+            "scalars_units": {master_time1_index.name(): "s"},
         }
         self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
         self.__scan_info["data_dim"] = 2
@@ -374,6 +380,10 @@ class AcquisitionSimulator(qt.QObject):
         nbPoints = duration // interval
         nbX = int(numpy.sqrt(nbPoints))
         nbY = nbPoints // nbX + 1
+
+        # Time base
+        index1 = numpy.linspace(0, duration, nbPoints)
+        self.registerData(1, master_time1_index, index1)
 
         # Motor position
         yy = numpy.atleast_2d(numpy.ones(nbY)).T

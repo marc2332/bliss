@@ -1,11 +1,15 @@
 """Testing Flint model."""
 
 import numpy
+from silx.gui import qt
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_model
 
 
-class CurveMock(plot_item_model.CurveMixIn):
+class CurveMock(qt.QObject, plot_item_model.CurveMixIn):
+
+    valueChanged = qt.Signal()
+
     def __init__(self, xx: numpy.ndarray, yy: numpy.ndarray):
         super(CurveMock, self).__init__()
         self._xx = xx

@@ -273,6 +273,19 @@ class ManageMainBehaviours(qt.QObject):
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
 
+    def __dockClosed(self):
+        dock = self.sender()
+        flint = self.__flintModel
+
+        propertyWidget = flint.propertyWidget()
+        if propertyWidget.focusWidget() is dock:
+            propertyWidget.setFocusWidget(None)
+
+        dock.setPlotModel(None)
+        dock.setFlintModel(None)
+        workspace = flint.workspace()
+        workspace.removeWidget(dock)
+
     def __createWidgetFromPlot(
         self, parent: qt.QWidget, plotModel: plot_model.Plot
     ) -> qt.QDockWidget:
@@ -289,6 +302,8 @@ class ManageMainBehaviours(qt.QObject):
         widget: qt.QDockWidget = widgetClass(parent)
         widget.setPlotModel(plotModel)
         widget.setFlintModel(flint)
+        widget.windowClosed.connect(self.__dockClosed)
+
         prefix = str(widgetClass.__name__).replace("PlotWidget", "")
         title = self.__getUnusedTitle(prefix, workspace)
         widget.setWindowTitle(title)

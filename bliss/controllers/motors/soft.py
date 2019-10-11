@@ -71,9 +71,9 @@ class _Config(dict):
 class SoftController(Controller):
     def __init__(self, axis_name, obj, axis_config):
         axis_config = _Config(axis_config)
-        axes = ((axis_name, NoSettingsAxis, axis_config),)
+        axes = {axis_name: (NoSettingsAxis, axis_config)}
         super(SoftController, self).__init__(
-            "__soft_controller__", {}, axes, (), (), ()
+            "__soft_controller__", {}, axes, {}, {}, {}
         )
         self.obj = obj
         self._position = get_position_func(obj, axis_config["position"])

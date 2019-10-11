@@ -50,13 +50,13 @@ import gc
 import re
 import weakref
 import collections
+import types
 
 import yaml
 from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Resolver
 
 from bliss.config.conductor import client
 from bliss.config import channels
-from bliss.config.map import update_map_for_object
 
 CONFIG = None
 
@@ -715,7 +715,7 @@ class Config:
         """
         return set(self._usertag2node.get(tag_name, ()))
 
-    def get(self, name, add_axes_counters=True):
+    def get(self, name):
         """
         Returns an object instance from its configuration name
 
@@ -753,20 +753,25 @@ class Config:
 
             if instance_object is None:
                 func = getattr(m, "create_objects_from_config_node")
-                name2itemsAndname2itemcache = func(self, config_node)
-                if len(name2itemsAndname2itemcache) == 2:
-                    name2items = name2itemsAndname2itemcache[0]
-                    name2itemcache = name2itemsAndname2itemcache[1]
-                    self._name2cache.update(name2itemcache)
+                return_value = func(self, config_node)
+                if isinstance(return_value, types.GeneratorType):
+                    iteration = iter(return_value)
                 else:
-                    name2items = name2itemsAndname2itemcache
-                self._name2instance.update(name2items)
-                instance_object = name2items.get(name)
+                    iteration = [return_value]
 
-        if add_axes_counters:
-            update_map_for_object(instance_object)
+                for name2itemsAndname2itemcache in iteration:
+                    if (
+                        isinstance(name2itemsAndname2itemcache, (tuple, list))
+                        and len(name2itemsAndname2itemcache) == 2
+                    ):
+                        name2items = name2itemsAndname2itemcache[0]
+                        name2itemcache = name2itemsAndname2itemcache[1]
+                        self._name2cache.update(name2itemcache)
+                    else:
+                        name2items = name2itemsAndname2itemcache
+                    self._name2instance.update(name2items)
 
-        return instance_object
+        return self._name2instance.get(name)
 
     def _create_index(self, node):
         name = node.get(self.NAME_KEY)

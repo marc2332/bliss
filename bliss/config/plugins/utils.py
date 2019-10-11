@@ -52,7 +52,7 @@ def _checkref(config, item_cfg_node, referenced_objects, name, value, placeholde
         if placeholder:
             obj = placeholder(value)
         else:
-            obj = config.get(value, add_axes_counters=False)
+            obj = config.get(value)
         item_cfg_node[name] = obj
         referenced_objects[name] = obj
         return True
@@ -113,7 +113,7 @@ class Reference:
         return self.__name
 
     def __call__(self, *args, **kwargs):
-        return get_config().get(self.name, add_axes_counters=False)
+        return get_config().get(self.name)
 
     def __str__(self):
         return f"${self.name}"

@@ -15,8 +15,9 @@ from bliss.common.axis import Axis
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config
 from bliss.common.tango import DeviceProxy
-from bliss.config.plugins.utils import find_class, replace_reference
+from bliss.config.plugins.utils import find_class, replace_reference_by_object
 import bliss.controllers.motors
+from bliss.controllers.motor import CalcController
 
 import gevent
 import sys
@@ -324,36 +325,27 @@ def create_objects_from_config_node(config, node):
     controller_name = node.get("name")
     controller_class = find_class(node, "bliss.controllers.motors")
     controller_module = sys.modules[controller_class.__module__]
-    axes = list()
-    axes_names = list()
-    encoders = list()
-    encoders_names = list()
-    switches = list()
-    switches_names = list()
-    shutters = list()
-    shutters_names = list()
+    axes = dict()
+    encoders = dict()
+    switches = dict()
+    shutters = dict()
     node = node.to_dict()
+    cache_dict = dict()
 
-    for (
-        objects,
-        objects_names,
-        default_class,
-        default_class_name,
-        config_nodes_list,
-    ) in (
-        (axes, axes_names, Axis, "", node.get("axes", [])),
-        (encoders, encoders_names, Encoder, "", node.get("encoders", [])),
-        (shutters, shutters_names, None, "Shutter", node.get("shutters", [])),
-        (switches, switches_names, None, "Switch", node.get("switches", [])),
+    for (objects, default_class, default_class_name, config_nodes_list) in (
+        (axes, Axis, "", node.get("axes", [])),
+        (encoders, Encoder, "", node.get("encoders", [])),
+        (shutters, None, "Shutter", node.get("shutters", [])),
+        (switches, None, "Switch", node.get("switches", [])),
     ):
         for config_dict in config_nodes_list:
-            replace_reference(config, config_dict)
-            if not isinstance(config_dict.get("name"), str):
-                # reference
-                object_class = config_dict.get("name")
-                object_name = object_class.name
+            config_dict = config_dict.copy()
+            object_name = config_dict.get("name")
+            if object_name.startswith("$"):
+                object_class = None
+                object_name = object_name.strip("$")
             else:
-                object_name = config_dict.get("name")
+                cache_dict[object_name] = config_dict
                 object_class_name = config_dict.get("class")
                 if object_class_name is None:
                     object_class = default_class
@@ -369,26 +361,39 @@ def create_objects_from_config_node(config, node):
                         object_class = getattr(controller_module, object_class_name)
                     except AttributeError:
                         object_class = getattr(axis_module, object_class_name)
-            objects_names.append(object_name)
-            objects.append((object_name, object_class, config_dict))
+            objects[object_name] = object_class, config_dict
 
     controller = controller_class(
         controller_name, node, axes, encoders, shutters, switches
     )
-    controller._init()
-
-    all_names = axes_names + encoders_names + switches_names + shutters_names
-    cache_dict = dict(zip(all_names, [controller] * len(all_names)))
+    cache_dict = {
+        name: (controller, config_dict) for name, config_dict in cache_dict.items()
+    }
     objects_dict = {}
     if controller_name:
         objects_dict[controller_name] = controller
+    yield objects_dict, cache_dict
+
+    # evaluate referenced axes
+    for axis_name, (axis_class, config_dict) in axes.items():
+        if axis_class is None:  # mean reference axis
+            create_object_from_cache(config, axis_name, (controller, config_dict))
+    if isinstance(controller, CalcController):
+        # As any motors can be used into a calc
+        # force for all axis creation
+        for axis_name in list(cache_dict.keys()):
+            config.get(axis_name)
+
+    controller._init()
+
     if obj_name is not None:
-        obj = create_object_from_cache(None, obj_name, controller)
-        objects_dict[obj_name] = obj
-    return objects_dict, cache_dict
+        obj = config.get(obj_name)
+        yield {obj_name: obj}
 
 
-def create_object_from_cache(config, name, controller):
+def create_object_from_cache(config, name, cache_objects):
+    controller, config_dict = cache_objects
+    replace_reference_by_object(config, config_dict)
     for func in (
         controller.get_axis,
         controller.get_encoder,

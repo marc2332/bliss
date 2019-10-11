@@ -14,7 +14,7 @@ from bliss.common.standard import Group
 from bliss.controllers.motors.mockup import Mockup
 from bliss.controllers.motors.mockup import MockupHook
 from bliss.common.hook import MotionHook
-from bliss.config.plugins.utils import Reference
+from bliss.config.static import Node
 
 
 def test_motion_hook_init(beacon):
@@ -27,27 +27,18 @@ def test_motion_hook_init(beacon):
                 assert axis.velocity
                 assert axis.position == 1
 
-    beacon._name2instance["test_hook"] = MyMotionHook()
-    mockup_controller = Mockup(
-        "",
-        {},
-        [
-            (
-                "test_mh",
-                Axis,
-                {
-                    "name": "test_mh",
-                    "velocity": 100,
-                    "acceleration": 10,
-                    "steps_per_unit": 500,
-                    "motion_hooks": [Reference("test_hook")],
-                },
-            )
-        ],
-        [],
-        [],
-        [],
+    hook = MyMotionHook()
+    beacon._name2instance["test_hook"] = hook
+    config_node = Node()
+    config_node.update(
+        {"name": "test_mh", "velocity": 100, "acceleration": 10, "steps_per_unit": 500}
     )
+    beacon._name2node["test_mh"] = config_node
+    n = beacon.get_config("test_mh")
+    config_node = config_node.copy()
+    config_node["motion_hooks"] = [hook]
+
+    mockup_controller = Mockup("", {}, {"test_mh": (Axis, config_node)}, [], [], [])
     mockup_controller._init()
 
     test_mh = None
@@ -64,7 +55,7 @@ def test_motion_hook_init(beacon):
             test_mh.__close__()
 
 
-def test_config(hooked_m0, hooked_m1):
+def test_config(hooked_m0, hooked_error_m0, hooked_m1):
     """test hooked axes configuration"""
     assert len(hooked_m0.motion_hooks) == 1
     hook0 = hooked_m0.motion_hooks[0]

@@ -276,14 +276,13 @@ def test_global_map(beacon, s1hg, roby):
     heater = beacon.get("heater")
     # m.draw_pygraphviz()
 
-    assert len(m) == 34
     axes = list(m.find_children("axes"))
     assert id(roby) in axes
     assert id(s1hg) in axes
-    assert len(axes) == 2
+    assert len(axes) == 9
     counters = list(m.find_children("counters"))
-    assert id(heater) in counters
-    assert len(counters) == 1
+    assert id(heater.counters[0]) in counters
+    assert len(counters) == 3
     slits_children = m.find_children(id(s1hg.controller))
     for real_axis in s1hg.controller.reals:
         assert id(real_axis) in slits_children
@@ -299,28 +298,17 @@ def test_global_map(beacon, s1hg, roby):
     assert id(outp) in sr_children
     inp_pred = m.find_predecessors(id(inp))
     outp_pred = m.find_predecessors(id(outp))
-    outp_pred.remove("counters")
     assert set(outp_pred) == set(inp_pred)
-    assert "motion_hooks" in m.find_children("controllers")
-    motion_hooks_children = m.find_children("motion_hooks")
-    assert len(motion_hooks_children) == 3
     hooked_m0 = beacon.get("hooked_m0")
     hooked_m0_pred = m.find_predecessors(id(hooked_m0))
     assert "axes" in hooked_m0_pred
+    assert "motion_hooks" in m.find_children("controllers")
+    motion_hooks_children = m.find_children("motion_hooks")
+    assert len(motion_hooks_children) == 1
     hooked_m0_pred.remove("axes")
     assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
         ["controllers", "motion_hooks"]
     )
-
-
-def test_bad_function_on_trigger_update(beamline):
-    def bad_func(graph):
-        raise NotImplementedError
-
-    beamline.add_map_handler(bad_func)
-
-    with pytest.raises(NotImplementedError):
-        beamline.register("new node")
 
 
 def test_create_submap_1(complex_beamline):
@@ -364,57 +352,19 @@ def test_create_partial_map_2(complex_beamline):
         assert node in sub_G
 
 
-def test_non_cyclic_ref(beacon):
-    m = Map()
+def test_version_node_number(beamline):
+    beamline.register("tagada")
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 0
+    beamline.register("tagada_parent", children_list=["tagada"])
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 1
 
-    class Cnt:
-        class Counter:
-            def __init__(self, name, mode):
-                self.name = name
-                self.mode = mode
-
-        def __init__(self):
-            self.in_set_mode = False
-            self.mode = None
-            self.__counter = list()
-
-        def set_mode(self, mode):
-            if self.mode == mode:
-                return
-
-            if self.in_set_mode:
-                return
-            print(f"set_mode {mode} {id(self)}")
-            self.in_set_mode = True
-            while self.__counter:
-                cnt = self.__counter.pop(0)
-                print(f"remove {cnt.name} {id(self)} {sys.getrefcount(cnt)}")
-            for i in range(10):
-                print(f"create counter {i} {id(self)}")
-                c = Cnt.Counter(f"counter {i}", mode)
-                m.register(c)
-                self.__counter.append(c)
-            self.in_set_mode = False
-            self.mode = mode
-
-    def update_mode(G):
-        for node in list(G):
-            ref = G.node[node].get("instance")
-            try:
-                inst = ref()
-            except:
-                continue
-            if isinstance(inst, Cnt):
-                inst.set_mode(current_mode)
-
-    m.add_map_handler(update_mode)
-    cnts = list()
-    for current_mode in ["bla", "truc", "chose", "hello", "mario"]:
-        print(f"create cnt {current_mode}")
-        cnt = Cnt()
-        print(f"register cnt {current_mode}")
-        m.register(cnt)
-        cnts.append(cnt)
+    beamline.register("super", children_list=["tagada_parent"])
+    node = beamline.G.nodes["tagada"]
+    assert node["version"] == 2
+    node = beamline.G.nodes["tagada_parent"]
+    assert node["version"] == 1
 
 
 #########################  MANUAL TESTING  ###################################

@@ -38,6 +38,7 @@ from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import *
 from bliss.config.channels import Cache
+from bliss import global_map
 
 
 class Controller:
@@ -49,20 +50,18 @@ class Controller:
         self.__config = config
         self.__name = config.get("name")
         self.__initialized_hw = Cache(self, "initialized", default_value=False)
-        self._objects = {}
         self.__initialized_hw_obj = {}
         self.__initialized_obj = {}
         self.__lock = lock.RLock()
 
-        for name, klass, cfg in itertools.chain(inputs, outputs, loops):
-            log_debug(self, f"  {klass.__name__} name: {name}")
-            log_debug(self, f"  {klass.__name__} config: {cfg}")
-            new_obj = klass(self, cfg)
-
-            self._objects[name] = new_obj
-
-            if new_obj.controller is self:
-                set_custom_members(self, new_obj, self._initialize_obj)
+        self._objects_cache = {
+            name: (klass, cfg)
+            for name, (klass, cfg) in itertools.chain(
+                inputs.items(), outputs.items(), loops.items()
+            )
+        }
+        self._objects = dict()
+        global_map.register(self, parents_list=["controllers"])
 
     @property
     def name(self):
@@ -106,17 +105,26 @@ class Controller:
         """
         log_info(self, "Controller:get_object: %s" % (name))
         # it is used by Loop class
-        return self._objects.get(name)
+        try:
+            obj = self._objects[name]
+        except KeyError:  # create object if doesn't exist yet
+            klass, cfg = self._objects_cache.pop(name, (None, None))
+            if klass:
+                log_debug(self, f"  {klass.__name__} name: {name}")
+                log_debug(self, f"  {klass.__name__} config: {cfg}")
+                obj = klass(self, cfg)
+                if obj.controller is self:
+                    set_custom_members(self, obj, self._initialize_obj)
+                    obj_initialized = Cache(obj, "initialized", default_value=0)
+                    self.__initialized_hw_obj[obj] = obj_initialized
+                    self.__initialized_obj[obj] = False
+                self._objects[name] = obj
+            else:
+                obj = None
+        return obj
 
     def _init(self):
         self.initialize()
-
-        for name, obj in self._objects.items():
-            if obj.controller is not self:
-                continue
-            obj_initialized = Cache(obj, "initialized", default_value=0)
-            self.__initialized_hw_obj[obj] = obj_initialized
-            self.__initialized_obj[obj] = False
 
     def _initialize_obj(self, obj, *args, **kwargs):
         with self.__lock:

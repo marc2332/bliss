@@ -183,15 +183,17 @@ def test_calc_motor_publishing(session, calc_mot2):
     assert "axis:roby" in pub_motors
 
 
-def test_calc_motor_energy(mono, energy, wavelength):
+def test_calc_motor_energy(beacon):
     # calculate energy form the position of roby
-
-    energy.controller.close()
+    mono = beacon.get("mono")
     mono.position = 9.1
-    energy.controller.initialize()
+
+    energy = beacon.get("energy")
     assert abs(energy.position - 12.5011) < 0.001
 
+    wavelength = beacon.get("wavelength")
     assert abs(wavelength.position - 0.991784) < 0.001
 
     energy.move(6.56)
     assert abs(mono.position - 17.54141) < 0.001
+    energy.controller.close()

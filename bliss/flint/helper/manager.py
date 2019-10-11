@@ -84,6 +84,21 @@ class ManageMainBehaviours(qt.QObject):
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
+        self.__updateLiveScanWindow(newScan)
+
+    def __updateLiveScanWindow(self, newScan: scan_model.Scan):
+        window = self.__flintModel.window()
+        # FIXME: Not nice to reach the tabWidget. It is implementation dependent
+        tabWidget: qt.QTabWidget = window.parent().parent()
+        liveScanIndex = tabWidget.indexOf(window)
+        tabWidget.setCurrentIndex(liveScanIndex)
+
+        scan_info = newScan.scanInfo()
+        title = scan_info["title"]
+        scan_nb = scan_info["scan_nb"]
+
+        text = f"Live scan | {title} - scan number {scan_nb}"
+        tabWidget.setTabText(liveScanIndex, text)
 
     def __storeScanIfNeeded(self, scan: scan_model.Scan):
         if self.__flintModel is None:

@@ -144,15 +144,13 @@ class Flint:
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
         self._qt_redis_connection = connection.create_redis_connection(address=address)
-        self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.set_title()
 
     def get_scan_manager(self):
         return self.__scanManager
 
     def __create_flint_model(self):
-        window = qt.QMainWindow(self.mainwin)
-        window.setWindowTitle("Flint scans")
+        window = self.new_tab("Live scan", qt.QMainWindow)
         window.setObjectName("scan-window")
         window.setDockNestingEnabled(True)
         window.setDockOptions(
@@ -289,7 +287,7 @@ class Flint:
 
     def get_live_scan_plot(self, master, plot_type, index):
         # FIXME: It is broken and should not be used
-        return self.live_scan_plots_dict[master][plot_type][index].plot_id
+        raise Exception("get_live_scan_plot API is not available")
 
     def new_scan_data(self, data_type, master_name, data):
         self.__scanManager.new_scan_data(data_type, master_name, data)
@@ -301,6 +299,8 @@ class Flint:
         self.__scanManager.wait_end_of_scan()
 
     def new_tab(self, label, widget=qt.QWidget):
+        # FIXME: The parent have to be set
+        # FIXME: Rename the argument to widgetClass
         widget = widget()
         self.parent_tab.addTab(widget, label)
         return widget

@@ -14,7 +14,6 @@ from silx.gui import icons
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
-from bliss.flint.model import plot_curve_model
 from bliss.flint.model import plot_item_model
 
 
@@ -78,7 +77,7 @@ class ScanRowItem(StandardRowItem):
         self.setToolTip(toolTip)
 
     def setPlotItemLookAndFeel(self, plotItem: plot_model.Item):
-        if isinstance(plotItem, plot_curve_model.CurveItem):
+        if isinstance(plotItem, plot_item_model.CurveItem):
             icon = icons.getQIcon("flint:icons/channel-curve")
         elif isinstance(plotItem, plot_item_model.McaItem):
             icon = icons.getQIcon("flint:icons/channel-spectrum")
@@ -86,9 +85,9 @@ class ScanRowItem(StandardRowItem):
             icon = icons.getQIcon("flint:icons/channel-image")
         elif isinstance(plotItem, plot_item_model.ScatterItem):
             icon = icons.getQIcon("flint:icons/channel-curve")
-        elif isinstance(plotItem, plot_curve_model.CurveMixIn):
+        elif isinstance(plotItem, plot_item_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
-        elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
+        elif isinstance(plotItem, plot_item_model.CurveStatisticMixIn):
             icon = icons.getQIcon("flint:icons/item-stats")
         else:
             icon = icons.getQIcon("flint:icons/item-channel")

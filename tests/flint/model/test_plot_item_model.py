@@ -1,11 +1,11 @@
 """Testing Flint model."""
 
 import numpy
-from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_model
 
 
-class CurveMock(plot_curve_model.CurveMixIn):
+class CurveMock(plot_item_model.CurveMixIn):
     def __init__(self, xx: numpy.ndarray, yy: numpy.ndarray):
         super(CurveMock, self).__init__()
         self._xx = xx
@@ -23,7 +23,7 @@ def test_max_compute():
     yy = [0, -10, 2, 5, 9, 500, 100]
     xx = numpy.arange(len(yy)) * 10
 
-    item = plot_curve_model.MaxCurveItem()
+    item = plot_item_model.MaxCurveItem()
     curveItem = CurveMock(xx=xx, yy=yy)
     item.setSource(curveItem)
 
@@ -41,7 +41,7 @@ def test_max_incremental_compute_1():
     yy = [0, -10, 2, 5, 9, 500, 100]
     xx = numpy.arange(len(yy)) * 10
 
-    item = plot_curve_model.MaxCurveItem()
+    item = plot_item_model.MaxCurveItem()
     curveItem = CurveMock(xx=xx[: len(xx) // 2], yy=yy[: len(xx) // 2])
     item.setSource(curveItem)
     result = item.compute(scan)
@@ -63,7 +63,7 @@ def test_max_incremental_compute_2():
     yy = [0, 10, 500, 5, 9, -10, 100]
     xx = numpy.arange(len(yy)) * 10
 
-    item = plot_curve_model.MaxCurveItem()
+    item = plot_item_model.MaxCurveItem()
     curveItem = CurveMock(xx=xx[: len(xx) // 2], yy=yy[: len(xx) // 2])
     item.setSource(curveItem)
     result = item.compute(scan)
@@ -80,20 +80,20 @@ def test_max_incremental_compute_2():
 
 
 def test_picklable():
-    plot = plot_curve_model.CurvePlot()
+    plot = plot_item_model.CurvePlot()
     plot.setScansStored(True)
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     item.setXChannel(plot_model.ChannelRef(None, "x"))
     item.setYChannel(plot_model.ChannelRef(None, "y"))
     plot.addItem(item)
 
-    item2 = plot_curve_model.DerivativeItem(plot)
+    item2 = plot_item_model.DerivativeItem(plot)
     item2.setYAxis("right")
     item2.setSource(item)
     plot.addItem(item2)
 
-    item3 = plot_curve_model.MaxCurveItem(plot)
+    item3 = plot_item_model.MaxCurveItem(plot)
     item3.setSource(item2)
     plot.addItem(item3)
     import pickle

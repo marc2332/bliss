@@ -3,9 +3,8 @@
 import pytest
 
 from bliss.flint.helper import model_helper
-from bliss.flint.model import plot_curve_model
-from bliss.flint.model import plot_model
 from bliss.flint.model import scan_model
+from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 
 
@@ -38,7 +37,7 @@ def test_reach_any_curve_item_from_device__empty_plot():
 
 def test_reach_any_curve_item_from_device__with_xy():
     plot = plot_model.Plot()
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
@@ -59,7 +58,7 @@ def test_reach_any_curve_item_from_device__with_xy():
 
 def test_reach_any_curve_item_from_device__only_x():
     plot = plot_model.Plot()
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     plot.addItem(item)
@@ -78,20 +77,20 @@ def test_reach_any_curve_item_from_device__only_x():
 
 def test_reach_any_curve_item_from_device__with_others():
     plot = plot_model.Plot()
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o1")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o2")
     other.setYChannel(channel)
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
     item.setYChannel(channel)
     plot.addItem(item)
 
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o3")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o4")
@@ -111,20 +110,20 @@ def test_reach_any_curve_item_from_device__with_others():
 
 def test_reach_any_curve_item_from_device__sub_device():
     plot = plot_model.Plot()
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o1")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o2")
     other.setYChannel(channel)
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
     item.setYChannel(channel)
     plot.addItem(item)
 
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o3")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o4")
@@ -146,27 +145,27 @@ def test_reach_any_curve_item_from_device__sub_device():
 
 def test_reach_all_curve_item_from_device__with_others():
     plot = plot_model.Plot()
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o1")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o2")
     other.setYChannel(channel)
 
-    item1 = plot_curve_model.CurveItem(plot)
+    item1 = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item1.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
     item1.setYChannel(channel)
     plot.addItem(item1)
 
-    item2 = plot_curve_model.CurveItem(plot)
+    item2 = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item2.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c3")
     item2.setYChannel(channel)
     plot.addItem(item2)
 
-    other = plot_curve_model.CurveItem(plot)
+    other = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "o3")
     other.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o4")
@@ -198,7 +197,7 @@ def test_reach_all_curve_item_from_device__with_others():
 def test_consistent_top_master__from_device():
     plot = plot_model.Plot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
@@ -225,7 +224,7 @@ def test_consistent_top_master__from_device():
 def test_consistent_top_master__only_x():
     plot = plot_model.Plot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     plot.addItem(item)
@@ -250,7 +249,7 @@ def test_consistent_top_master__only_x():
 def test_consistent_top_master__only_y():
     plot = plot_model.Plot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c2")
     item.setYChannel(channel)
     plot.addItem(item)
@@ -275,7 +274,7 @@ def test_consistent_top_master__only_y():
 def test_consistent_top_master__not_consistent():
     plot = plot_model.Plot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "o1")
@@ -302,7 +301,7 @@ def test_consistent_top_master__not_consistent():
 def test_consistent_top_master__not_available_channel():
     plot = plot_model.Plot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "z1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
@@ -327,10 +326,10 @@ def test_consistent_top_master__not_available_channel():
 
 
 def test_most_used_xchannel_per_masters():
-    plot = plot_curve_model.CurvePlot()
+    plot = plot_item_model.CurvePlot()
 
     for channel_name in ["c1", "c2", "c1", "c3", "c3", "c3"]:
-        item = plot_curve_model.CurveItem(plot)
+        item = plot_item_model.CurveItem(plot)
         channel = plot_model.ChannelRef(plot, channel_name)
         item.setXChannel(channel)
         plot.addItem(item)
@@ -373,9 +372,9 @@ def test_remove_item_and_keep_axes__scatter():
 
 
 def test_remove_item_and_keep_axes__curve():
-    plot = plot_curve_model.CurvePlot()
+    plot = plot_item_model.CurvePlot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")
@@ -448,7 +447,7 @@ def test_create_scatter_item__existing_axes():
 
 
 def test_create_curve_item__empty():
-    plot = plot_curve_model.CurvePlot()
+    plot = plot_item_model.CurvePlot()
 
     scan = scan_model.Scan()
     master1 = scan_model.Device(scan)
@@ -467,9 +466,9 @@ def test_create_curve_item__empty():
 
 
 def test_create_curve_item__existing_axes():
-    plot = plot_curve_model.CurvePlot()
+    plot = plot_item_model.CurvePlot()
 
-    item = plot_curve_model.CurveItem(plot)
+    item = plot_item_model.CurveItem(plot)
     channel = plot_model.ChannelRef(plot, "c1")
     item.setXChannel(channel)
     channel = plot_model.ChannelRef(plot, "c2")

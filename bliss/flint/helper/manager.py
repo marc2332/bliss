@@ -21,7 +21,6 @@ from silx.gui import qt
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
-from bliss.flint.model import plot_curve_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
@@ -93,9 +92,9 @@ class ManageMainBehaviours(qt.QObject):
         if workspace is None:
             return None
         for plot in workspace.plots():
-            if isinstance(plot, plot_curve_model.CurvePlot):
+            if isinstance(plot, plot_item_model.CurvePlot):
                 if plot.isScansStored():
-                    item = plot_curve_model.ScanItem(plot, scan)
+                    item = plot_item_model.ScanItem(plot, scan)
                     plot.addItem(item)
 
     def saveWorkspace(self):
@@ -163,7 +162,7 @@ class ManageMainBehaviours(qt.QObject):
         from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
 
         mapping = [
-            (CurvePlotWidget, plot_curve_model.CurvePlot),
+            (CurvePlotWidget, plot_item_model.CurvePlot),
             (McaPlotWidget, plot_item_model.McaPlot),
             (ImagePlotWidget, plot_item_model.ImagePlot),
             (ScatterPlotWidget, plot_item_model.ScatterPlot),

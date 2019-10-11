@@ -20,7 +20,7 @@ import silx._version
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
-from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
@@ -135,7 +135,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__cleanScan(scan)
             return
         for item in plotModel.items():
-            if isinstance(item, plot_curve_model.ScanItem):
+            if isinstance(item, plot_item_model.ScanItem):
                 if item.scan() is scan:
                     return
         self.__cleanScan(scan)
@@ -168,7 +168,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         scanItems = []
         plotModel = self.__plotModel
         for item in plotModel.items():
-            if isinstance(item, plot_curve_model.ScanItem):
+            if isinstance(item, plot_item_model.ScanItem):
                 scanItems.append(item)
 
         if len(scanItems) > 0:
@@ -211,7 +211,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         scanItems = []
         plotModel = self.__plotModel
         for scanItem in plotModel.items():
-            if isinstance(scanItem, plot_curve_model.ScanItem):
+            if isinstance(scanItem, plot_item_model.ScanItem):
                 scanItems.append(scanItem)
 
         if len(scanItems) > 0:
@@ -226,7 +226,7 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __updatePlotItem(self, item: plot_model.Item, scan: scan_model.Scan):
         if not item.isValid():
             return
-        if isinstance(item, plot_curve_model.ScanItem):
+        if isinstance(item, plot_item_model.ScanItem):
             return
 
         plot = self.__plot
@@ -242,8 +242,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__cleanScanItem(item, scan)
             return
 
-        if isinstance(item, plot_curve_model.CurveMixIn):
-            if isinstance(item, plot_curve_model.CurveItem):
+        if isinstance(item, plot_item_model.CurveMixIn):
+            if isinstance(item, plot_item_model.CurveItem):
                 x = item.xChannel()
                 y = item.yChannel()
                 # FIXME: remove legend, use item mapping
@@ -268,8 +268,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             )
             plotItems.append((key, "curve"))
 
-        elif isinstance(item, plot_curve_model.CurveStatisticMixIn):
-            if isinstance(item, plot_curve_model.MaxCurveItem):
+        elif isinstance(item, plot_item_model.CurveStatisticMixIn):
+            if isinstance(item, plot_item_model.MaxCurveItem):
                 legend = str(item) + "/" + str(scan)
                 result = item.reachResult(scan)
                 if item.isResultValid(result):

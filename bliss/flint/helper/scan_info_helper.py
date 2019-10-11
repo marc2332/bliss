@@ -16,7 +16,6 @@ import collections
 import logging
 from ..model import scan_model
 from ..model import plot_model
-from ..model import plot_curve_model
 from ..model import plot_item_model
 
 
@@ -133,7 +132,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # Scalar plot
 
     if have_scalar:
-        plot = plot_curve_model.CurvePlot()
+        plot = plot_item_model.CurvePlot()
         for _master, channels in scan_info["acquisition_chain"].items():
             scalars = channels.get("scalars", [])
             master_channels = channels.get("master", {}).get("scalars", [])
@@ -167,7 +166,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
                 if timer is not None:
                     if scalar is not None:
-                        item = plot_curve_model.CurveItem(plot)
+                        item = plot_item_model.CurveItem(plot)
                         x_channel = plot_model.ChannelRef(plot, timer)
                         y_channel = plot_model.ChannelRef(plot, scalar)
                         item.setXChannel(x_channel)
@@ -176,7 +175,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                         plot.addItem(item)
 
                     for channel_name in master_channels:
-                        item = plot_curve_model.CurveItem(plot)
+                        item = plot_item_model.CurveItem(plot)
                         x_channel = plot_model.ChannelRef(plot, timer)
                         y_channel = plot_model.ChannelRef(plot, channel_name)
                         item.setXChannel(x_channel)
@@ -188,7 +187,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     pass
             else:
                 for channel_name in scalars:
-                    item = plot_curve_model.CurveItem(plot)
+                    item = plot_item_model.CurveItem(plot)
                     data_channel = plot_model.ChannelRef(plot, channel_name)
 
                     if len(master_channels) == 0:

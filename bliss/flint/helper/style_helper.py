@@ -17,7 +17,6 @@ from typing import Tuple
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
-from bliss.flint.model import plot_curve_model
 from bliss.flint.model import plot_item_model
 
 
@@ -111,10 +110,10 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
         i = 0
         for scan in scans:
             for item in plot.items():
-                if isinstance(item, plot_curve_model.ScanItem):
+                if isinstance(item, plot_item_model.ScanItem):
                     continue
                 if isinstance(item, plot_model.AbstractComputableItem):
-                    if isinstance(item, plot_curve_model.CurveStatisticMixIn):
+                    if isinstance(item, plot_item_model.CurveStatisticMixIn):
                         source = item.source()
                         baseStyle = self.getStyleFromItem(source, scan)
                         style = plot_model.Style(
@@ -144,7 +143,7 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
 
         scans: List[Optional[scan_model.Scan]] = []
         for item in plot.items():
-            if isinstance(item, plot_curve_model.ScanItem):
+            if isinstance(item, plot_item_model.ScanItem):
                 scans.append(item.scan())
         if scans == []:
             scans.append(None)

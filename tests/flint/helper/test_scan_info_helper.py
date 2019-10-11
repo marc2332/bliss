@@ -5,7 +5,6 @@ import pytest
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.model import plot_curve_model
 
 
 SCAN_INFO = {
@@ -137,13 +136,13 @@ def test_create_scatter_plot_model():
     assert item.valueChannel().name() == "simulation_diode_controller:diode"
 
     plots = [
-        plot for plot in result_plots if isinstance(plot, plot_curve_model.CurvePlot)
+        plot for plot in result_plots if isinstance(plot, plot_item_model.CurvePlot)
     ]
     assert len(plots) == 1
     plot = plots[0]
     assert len(plot.items()) >= 1
     item = plot.items()[0]
-    assert type(item) == plot_curve_model.CurveItem
+    assert type(item) == plot_item_model.CurveItem
     # The first channel should be the diode/time
     assert item.xChannel().name() == "timer:elapsed_time"
     assert item.yChannel().name() == "simulation_diode_controller:diode"

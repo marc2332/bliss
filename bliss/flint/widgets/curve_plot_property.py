@@ -18,7 +18,7 @@ from silx.gui import icons
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
-from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from . import delegates
@@ -88,7 +88,7 @@ class YAxesEditor(qt.QWidget):
     def __isReadOnly(self):
         if self.__plotItem is None:
             return False
-        return not isinstance(self.__plotItem, plot_curve_model.CurveMixIn)
+        return not isinstance(self.__plotItem, plot_item_model.CurveMixIn)
 
     def __updateToolTips(self):
         isReadOnly = self.__isReadOnly()
@@ -323,7 +323,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             # Create an item to store the x-value
             plot = self.__plotModel
             channelName = self.__channel.name()
-            newItem = plot_curve_model.CurveItem(plot)
+            newItem = plot_item_model.CurveItem(plot)
             newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
             plot.addItem(newItem)
         else:
@@ -390,14 +390,14 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         if self.__channel is None:
             self.setPlotItemLookAndFeel(plotItem)
 
-        if isinstance(plotItem, plot_curve_model.CurveItem):
+        if isinstance(plotItem, plot_item_model.CurveItem):
             self.__xaxis.modelUpdated = self.__xAxisChanged
             useXAxis = True
-        elif isinstance(plotItem, plot_curve_model.CurveMixIn):
+        elif isinstance(plotItem, plot_item_model.CurveMixIn):
             # self.__updateXAxisStyle(False, None)
             useXAxis = False
             self.__updateXAxisStyle(False)
-        elif isinstance(plotItem, plot_curve_model.CurveStatisticMixIn):
+        elif isinstance(plotItem, plot_item_model.CurveStatisticMixIn):
             useXAxis = False
             self.__updateXAxisStyle(False)
 
@@ -653,7 +653,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         for plotItem in self.__plotModel.items():
             parentChannel = None
 
-            if isinstance(plotItem, plot_curve_model.ScanItem):
+            if isinstance(plotItem, plot_item_model.ScanItem):
                 continue
 
             if isinstance(plotItem, plot_model.AbstractComputableItem):
@@ -671,7 +671,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 if scan is None:
                     parent = itemWithoutLocation
                 else:
-                    if isinstance(plotItem, plot_curve_model.CurveItem):
+                    if isinstance(plotItem, plot_item_model.CurveItem):
                         xChannel = plotItem.xChannel()
                         if xChannel is None:
                             continue

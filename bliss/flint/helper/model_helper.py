@@ -14,19 +14,19 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
-from bliss.flint.model import plot_model, plot_item_model
-from bliss.flint.model import plot_curve_model
+from bliss.flint.model import plot_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 
 
 def reachAnyCurveItemFromDevice(
     plot: plot_model.Plot, scan: scan_model.Scan, topMaster: scan_model.Device
-) -> Optional[plot_curve_model.CurveItem]:
+) -> Optional[plot_item_model.CurveItem]:
     """
     Reach any plot item from this top master
     """
     for item in plot.items():
-        if not isinstance(item, plot_curve_model.CurveItem):
+        if not isinstance(item, plot_item_model.CurveItem):
             continue
         xChannel = item.xChannel()
         assert xChannel is not None
@@ -41,13 +41,13 @@ def reachAnyCurveItemFromDevice(
 
 def reachAllCurveItemFromDevice(
     plot: plot_model.Plot, scan: scan_model.Scan, topMaster: scan_model.Device
-) -> List[plot_curve_model.CurveItem]:
+) -> List[plot_item_model.CurveItem]:
     """
     Reach all plot items from this top master
     """
     curves = []
     for item in plot.items():
-        if not isinstance(item, plot_curve_model.CurveItem):
+        if not isinstance(item, plot_item_model.CurveItem):
             continue
         xChannel = item.xChannel()
         assert xChannel is not None
@@ -61,7 +61,7 @@ def reachAllCurveItemFromDevice(
 
 
 def getConsistentTopMaster(
-    scan: scan_model.Scan, plotItem: plot_curve_model.CurveItem
+    scan: scan_model.Scan, plotItem: plot_item_model.CurveItem
 ) -> Optional[scan_model.Device]:
     """Returns a top master from this item only if channels comes from the
     same top master.
@@ -102,7 +102,7 @@ def getConsistentTopMaster(
 
 
 def getMostUsedXChannelPerMasters(
-    scan: scan_model.Scan, plotModel: plot_curve_model.CurvePlot
+    scan: scan_model.Scan, plotModel: plot_item_model.CurvePlot
 ) -> Dict[scan_model.Device, str]:
     """
     Returns a dictionary mapping top master with the most used x-channels.
@@ -115,7 +115,7 @@ def getMostUsedXChannelPerMasters(
     # Count the amount of same x-channel per top masters
     xChannelsPerMaster: Dict[scan_model.Device, Dict[str, int]] = {}
     for plotItem in plotModel.items():
-        if not isinstance(plotItem, plot_curve_model.CurveItem):
+        if not isinstance(plotItem, plot_item_model.CurveItem):
             continue
         # Here is only top level curve items
         xChannel = plotItem.xChannel()
@@ -187,20 +187,20 @@ def removeItemAndKeepAxes(plot: plot_model.Plot, item: plot_model.Item):
         else:
             # It's not the last one
             plot.removeItem(item)
-    elif isinstance(item, plot_curve_model.CurveItem):
+    elif isinstance(item, plot_item_model.CurveItem):
         xChannel = item.xChannel()
         if xChannel is not None:
             # Reach curves sharing the same x-channel
             curves = []
             for curve in plot.items():
-                if isinstance(curve, plot_curve_model.CurveItem):
+                if isinstance(curve, plot_item_model.CurveItem):
                     if xChannel == curve.xChannel():
                         curves.append(curve)
 
             if len(curves) == 1:
                 # Only remove the value to remember the axes
                 xChannel = cloneChannelRef(plot, xChannel)
-                newItem = plot_curve_model.CurveItem(plot)
+                newItem = plot_item_model.CurveItem(plot)
                 newItem.setXChannel(xChannel)
                 with plot.transaction():
                     plot.removeItem(item)
@@ -280,7 +280,7 @@ def createCurveItem(
             return item, True
         else:
             xChannel = cloneChannelRef(plot, item.xChannel())
-            newItem = plot_curve_model.CurveItem(plot)
+            newItem = plot_item_model.CurveItem(plot)
             newItem.setXChannel(xChannel)
             newItem.setYChannel(plot_model.ChannelRef(plot, channel.name()))
             newItem.setYAxis(yAxis)
@@ -302,7 +302,7 @@ def createCurveItem(
             # FIXME: Maybe it's better idea to display it with x-index
             channelName = channel.name()
 
-        newItem = plot_curve_model.CurveItem(plot)
+        newItem = plot_item_model.CurveItem(plot)
         newItem.setXChannel(plot_model.ChannelRef(plot, channelName))
         newItem.setYChannel(plot_model.ChannelRef(plot, channel.name()))
         newItem.setYAxis(yAxis)

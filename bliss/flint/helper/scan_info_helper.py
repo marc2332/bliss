@@ -64,6 +64,7 @@ def iter_channels(scan_info: Dict[str, Any]):
 
 def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     scan = scan_model.Scan()
+    scan.setScanInfo(scan_info)
 
     devices: Dict[str, scan_model.Device] = {}
 

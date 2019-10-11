@@ -52,6 +52,7 @@ class Scan(qt.QObject, _Sealable):
         self.__channels: Dict[str, Channel] = {}
         self.__cacheData: Dict[Any, Any] = {}
         self.__cacheMessage: Dict[Any, Any] = {}
+        self.__scanInfo = {}
 
     def seal(self):
         self.__channels = {}
@@ -59,6 +60,15 @@ class Scan(qt.QObject, _Sealable):
             device.seal()
             self.__cacheChannels(device)
         super(Scan, self).seal()
+
+    def setScanInfo(self, scanInfo: Dict):
+        if self.isSealed():
+            raise SealedError()
+        # FIXME: It would be good to create a read-only recursive proxy to expose it
+        self.__scanInfo = scanInfo
+
+    def scanInfo(self) -> Dict:
+        return self.__scanInfo
 
     def addDevice(self, device: Device):
         if self.isSealed():

@@ -16,6 +16,8 @@ from enum import Enum
 
 from prompt_toolkit import print_formatted_text, HTML
 
+import tango
+
 import bliss.common.measurement
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
@@ -64,14 +66,18 @@ EXAMPLE
 
 LOGICAL MAPPING
 
-We can define LOGICAL DEVICES that will group I/O of different kind and from different physical modules.
+We can define LOGICAL DEVICES that will group I/O of different kind and from
+different physical modules.
 This LOGICAL MAPPING will abstract the logic from the hardware.
 
 Naming conventions:
 
- * LOGICAL_DEVICE: (string) is a mnemonic string that identify the device like: foh2ctrl, esTf1, pres, sain6.
- * LOGICAL_DEVICE_KEY: (int) an enumeration of logical devices where first logical device will have device key 0, second logical device will have device key 1 and so on.
- * LOGICAL_CHANNEL: (int) every Logical Device can have multiple channels that are numbered from 0. One logical channel will map to a Physical Channel
+ * LOGICAL_DEVICE: (string) is a mnemonic string that identify the device like:
+   foh2ctrl, esTf1, pres, sain6.
+ * LOGICAL_DEVICE_KEY: (int) an enumeration of logical devices where first logical
+   device will have device key 0, second logical device will have device key 1 and so on.
+ * LOGICAL_CHANNEL: (int) every Logical Device can have multiple channels that are 
+   numbered from 0. One logical channel will map to a Physical Channel
 
 Example taken from a configuration:
     Config:
@@ -81,8 +87,10 @@ Example taken from a configuration:
 
     Explanation:
         We have 5 logical devices: foh2ctrl, foh2pos, sain2, sain6, sain8.
-        foh2ctrl has 4 logical channel from 0 to 3, they are situated in the physical module n.0 respectively on physical channels from 0 to 3
-        foh2pos has 4 logical channel from 0 to 1, two logical channels are situated on physical module n.1 (channels n.0 and n.2) and two are
+        foh2ctrl has 4 logical channel from 0 to 3, they are situated in the
+                 physical module n.0 respectively on physical channels from 0 to 3
+        foh2pos has 4 logical channel from 0 to 1, two logical channels are situated
+                on physical module n.1 (channels n.0 and n.2) and two are
                 situated on physical module n.2 (channels n.0 and n.2)
         sain2 has 2 logical channels situated on physical module n.1 on channels n.1 and n.3
         sain6 has 1 logical channel situated on physical module n.2 on channel n.1
@@ -250,8 +258,8 @@ for module_name, module_info in MODULES_CONFIG.items():
         reading_info["bits"] = 16
 
 
-def WagoController(comm):
-    """Return _WagoController instance, unique for a particular host"""
+def BlissWago(comm, modules_config):
+    """Return WagoController instance, unique for a particular host"""
 
     with gevent.Timeout(3):
         host = comm.host
@@ -261,10 +269,65 @@ def WagoController(comm):
     try:
         wc = WAGO_CONTROLLERS[f"{fqdn}:{port}"]
     except KeyError:
-        wc = _WagoController(comm)
+        wc = WagoController(comm, modules_config)
         WAGO_CONTROLLERS[f"{fqdn}:{port}"] = wc
 
     return wc
+
+
+class TangoWago:
+    def __init__(self, tango_url, modules_config):
+        """
+        Bridge beetween Wago `user` class and
+        a tango Device Server
+        """
+        self.tango_url = tango_url
+        self.modules_config = modules_config
+        self._proxy = tango.DeviceProxy(tango_url)
+
+    def get(self, *args, **kwargs):
+        values = []
+        for name in args:
+            key = self.modules_config.devname2key(name)
+            val = self._proxy.command_inout("DevReadNoCachePhys", key)
+            values.append(val)
+        return flatten(values)
+
+    def set(self, *args):
+        """Args should be list or pairs: channel_name, value
+        or a list with channel_name, val1, val2, ..., valn
+        or a combination of the two
+        """
+        # write_table = self.modules_config._resolve_write(*args)
+        channels_to_write = []
+        current_list = channels_to_write
+        for x in args:
+            if type(x) in (bytes, str):
+                # channel name
+                current_list = [str(x)]
+                channels_to_write.append(current_list)
+            else:
+                # value
+                current_list.append(x)
+
+        for i in range(len(channels_to_write)):
+            x = channels_to_write[i]
+            if len(x) > 2:
+                # group values for channel with same name
+                # in a list
+                channels_to_write[i] = [x[0], x[1:]]
+
+        for logical_device, *values in channels_to_write:
+            logical_device_key = self.modules_config.devname2key(logical_device)
+
+            array = [logical_device_key]
+            for channel, val in enumerate(flatten(values)):
+                array.extend([channel, val])
+            # logical_device_key, than pairs of channel,values
+            self._proxy.command_inout("devwritephys", array)
+
+    def __getattr__(self, attr):
+        return getattr(self._proxy, attr)
 
 
 class ModulesConfig:
@@ -400,12 +463,20 @@ class ModulesConfig:
         ignore_missing = config_tree.get("ignore_missing", False)
         mapping = []
 
-        for module in config_tree["mapping"]:
-            module_type = module["type"]
-            logical_names = module["logical_names"]
-            mapping.append("%s,%s" % (module_type, logical_names))
+        if config_tree.get("mapping"):
+            for module in config_tree["mapping"]:
+                module_type = module["type"]
+                logical_names = module["logical_names"]
+                mapping.append("%s,%s" % (module_type, logical_names))
 
         return cls("\n".join(mapping), ignore_missing=ignore_missing)
+
+    @classmethod
+    def from_tango_config(cls, config: dict):
+        """Alternative constructor with Wago Device Server 
+        config property"""
+
+        return cls("\n".join(config), ignore_missing=True)
 
     def devkey2name(self, key):
         """
@@ -488,6 +559,130 @@ class ModulesConfig:
 
     def keys(self):
         return self.logical_keys.values()
+
+    def _resolve_read(self, *channel_names):
+        """
+        Resolve modules/channels to be read on PLC
+        Args:
+            *channel_names (list): list of channels to be read
+        Returns:
+            (list): one list of three elements for every PLC's module that has to be read
+                    containing: module number (from 0 to n)
+                                type of I/O: (0=DIGI_IN, 1=DIGI_OUT, 2=ANA_IN, 3=ANA_OUT)
+                                module internal IN/OUT number (from 0 to n)
+        Return example:
+            [[(0, 2, 0), (0, 2, 1)], [(2, 2, 1)], [(6, 2, 1)]]
+            Means that we want to read:
+            - Digital IN of channel 0 and 1 of module 0
+            - Digital IN of channel 1 of module 2
+            - Digital IN of channel 1 of module 6
+        """
+        channels_to_read = []
+        found_channel = set()
+        for channel_name in channel_names:
+            # find module(s) corresponding to given channel name
+            # all multiple channels with the same name will be retrieved
+            for i, mapping_info in enumerate(self.mapping):
+                channels_map = mapping_info["channels"]
+                if channels_map:
+                    for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
+                        if channel_name in channels_map[j]:
+                            found_channel.add(channel_name)
+                            channels_to_read.append([])
+                            if mapping_info["n_channels"] == 1:
+                                channels_map[j] = [channels_map[j][0]]
+                            for k, chan in enumerate(channels_map[j]):
+                                if chan == channel_name:
+                                    channels_to_read[-1].append((i, j, k))
+
+        not_found_channels = set(channel_names) - found_channel
+        if not_found_channels:
+            raise KeyError(
+                f"Channel(s) '{not_found_channels}` doesn't exist in Mapping"
+            )
+
+        # return tuple info: MODULE_NUM, IOTYPE, MOD_INT_CHANNEL
+        return channels_to_read
+
+    def _resolve_write(self, *args):
+        """Args should be list or pairs: channel_name, value
+        or a list with channel_name, val1, val2, ..., valn
+        or a combination of the two
+        Args:
+            list or pairs:  channel_name, value
+                            or a list with channel_name, val1, val2, ..., valn
+                            or a combination of the two
+
+        Returns:
+            write_table:
+
+        """
+        channels_to_write = []
+        current_list = channels_to_write
+        for x in args:
+            if type(x) in (bytes, str):
+                # channel name
+                current_list = [str(x)]
+                channels_to_write.append(current_list)
+            else:
+                # value
+                current_list.append(x)
+
+        for i in range(len(channels_to_write)):
+            x = channels_to_write[i]
+            if len(x) > 2:
+                # group values for channel with same name
+                # in a list
+                channels_to_write[i] = [x[0], x[1:]]
+
+        write_table = {}
+        n_chan = 0
+        found_channel = set()
+        channel_names = set()
+        for channel_name, value in channels_to_write:
+            channel_names.add(channel_name)
+            for i, mapping_info in enumerate(self.mapping):
+                channel_map = mapping_info["channels"]
+                if not channel_map:
+                    continue
+                for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
+                    n_channels = channel_map[j].count(channel_name)
+                    if n_channels:
+                        found_channel.add(channel_name)
+                        if j not in (DIGI_OUT, ANA_OUT):
+                            raise RuntimeError(
+                                "Cannot write: %r is not an output" % channel_name
+                            )
+                        if isinstance(value, list):
+                            if n_channels > len(value):
+                                raise RuntimeError(
+                                    "Cannot write: not enough values for channel %r: expected %d, got %d"
+                                    % (channel_name, n_channels, len(value))
+                                )
+                            else:
+                                idx = -1
+                                for k in range(n_channels):
+                                    idx = channel_map[j].index(channel_name, idx + 1)
+
+                                    write_table.setdefault(i, []).append(
+                                        (j, idx, value[n_chan + k])
+                                    )
+                        else:
+                            if n_channels > 1:
+                                raise RuntimeError(
+                                    "Cannot write: only one value given for channel %r, expected: %d"
+                                    % (channel_name, n_channels)
+                                )
+                            k = channel_map[j].index(channel_name)
+                            write_table.setdefault(i, []).append((j, k, value))
+                        n_chan += n_channels
+        not_found_channels = channel_names - found_channel
+        if not_found_channels:
+            raise KeyError(
+                f"Channel(s) '{not_found_channels}` doesn't exist in Mapping"
+            )
+
+        return write_table
 
     @property
     def logical_keys(self):
@@ -604,7 +799,17 @@ class ModulesConfig:
             for physical_module, mapping_info in enumerate(self.mapping):
                 channels_map = mapping_info["channels"]
                 module_type = mapping_info["module"]
-                for logical_channel, logical_device in enumerate(flatten(channels_map)):
+
+                # some channels may not have a name but we have
+                # to take them into account to calculate the proper
+                # logical_channel
+                total_n_channels = mapping_info["n_channels"]
+                required_channel_list = flatten(channels_map)
+                all_channels_map = required_channel_list + [None] * (
+                    total_n_channels - len(required_channel_list)
+                )
+
+                for logical_channel, logical_device in enumerate(all_channels_map):
                     # getting channel base address
                     module_info = MODULES_CONFIG[module_type]
                     if module_info[DIGI_IN] > 0 and module_info[DIGI_OUT] > 0:
@@ -620,46 +825,40 @@ class ModulesConfig:
                         channel_base_address = (ord("I") << 8) + ord(
                             "B"
                         )  # Corresponds 0x4942 18754
+                        offset = digi_in
+                        digi_in += 1
                     elif module_info[DIGI_OUT] > 0:
                         channel_base_address = (ord("O") << 8) + ord(
                             "B"
                         )  # Corresponds 0x4f42 20290
+                        offset = digi_out
+                        digi_out += 1
                     elif module_info[ANA_IN] > 0:
                         channel_base_address = (ord("I") << 8) + ord(
                             "W"
                         )  # Corresponds 0x4957 18775
+                        offset = ana_in
+                        ana_in += 1
                     elif module_info[ANA_OUT] > 0:
                         channel_base_address = (ord("O") << 8) + ord(
                             "W"
                         )  # Corresponds 0x4f57 20311
-
-                    if logical_device in channels_map[0]:  # DIGI_IN
-                        offset = digi_in
-                        digi_in += 1
-                    elif logical_device in channels_map[1]:  # DIGI_OUT
-                        offset = digi_out
-                        digi_out += 1
-                    elif logical_device in channels_map[2]:  # ANA_IN
-                        offset = ana_in
-                        ana_in += 1
-                    elif logical_device in channels_map[3]:  # ANA_OUT
                         offset = ana_out
                         ana_out += 1
-                    else:
-                        NotImplementedError(
-                            f"Logical device not in {flatten(channels_map)}"
-                        )
 
-                    all_channels.append(
-                        LogPhysMap(
-                            logical_device,
-                            logical_channel,
-                            physical_module,
-                            module_type,
-                            channel_base_address,
-                            offset,
+                    if (
+                        logical_device
+                    ):  # exclude None channels (that does not have a name)
+                        all_channels.append(
+                            LogPhysMap(
+                                logical_device,
+                                logical_channel,
+                                physical_module,
+                                module_type,
+                                channel_base_address,
+                                offset,
+                            )
                         )
-                    )
             self.__physical_mapping = {
                 key: info for key, info in enumerate(all_channels)
             }
@@ -670,15 +869,16 @@ class MissingFirmware(RuntimeError):
     pass
 
 
-class _WagoController:
+class WagoController:
     """
     The wago controller class
     """
 
-    def __init__(self, comm, timeout=1.0):
+    def __init__(self, comm, modules_config: ModulesConfig, timeout=1.0):
 
         self.client = comm
         self.timeout = timeout
+        self.modules_config = modules_config
 
         self.series, self.order_nu = 0, 0
         self.firmware = {"date": "", "version": 0, "time": ""}
@@ -723,25 +923,6 @@ class _WagoController:
         """
         with self.lock:
             self.client.close()
-
-    def set_mapping(self, mapping_str, ignore_missing=False):
-        """
-        Set the mapping of the controller from the config property
-
-        Esample:
-            750-478,inclino,rien
-            750-469,thbs1,thbs2
-            750-469,thbs3,thbs4
-            750-469,thbs5,thbs6
-            750-469,thbs7,thbs8
-            750-469,thbs9,thbs10
-            750-469,bstc1, bstc2
-            750-469,coltc1,coltc2
-            750-517,intlckcol,intlckinc
-
-        """
-
-        self.modules_config = ModulesConfig(mapping_str, ignore_missing=ignore_missing)
 
     def _read_fs(self, raw_value, low=0, high=10, base=32768):
         """Read Digital Input type module. Make full scale conversion.
@@ -918,50 +1099,6 @@ class _WagoController:
 
         return tuple(ret)
 
-    def _resolve(self, *channel_names):
-        """
-        Resolve modules/channels to be read on PLC
-        Args:
-            *channel_names (list): list of channels to be read
-        Returns:
-            (list): one list of three elements for every PLC's module that has to be read
-                    containing: module number (from 0 to n)
-                                type of I/O: (0=DIGI_IN, 1=DIGI_OUT, 2=ANA_IN, 3=ANA_OUT)
-                                module internal IN/OUT number (from 0 to n)
-        Return example:
-            [[(0, 2, 0), (0, 2, 1)], [(2, 2, 1)], [(6, 2, 1)]]
-            Means that we want to read:
-            - Digital IN of channel 0 and 1 of module 0
-            - Digital IN of channel 1 of module 2
-            - Digital IN of channel 1 of module 6
-        """
-        channels_to_read = []
-        found_channel = set()
-        for channel_name in channel_names:
-            # find module(s) corresponding to given channel name
-            # all multiple channels with the same name will be retrieved
-            for i, mapping_info in enumerate(self.modules_config.mapping):
-                channels_map = mapping_info["channels"]
-                if channels_map:
-                    for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
-                        if channel_name in channels_map[j]:
-                            found_channel.add(channel_name)
-                            channels_to_read.append([])
-                            if mapping_info["n_channels"] == 1:
-                                channels_map[j] = [channels_map[j][0]]
-                            for k, chan in enumerate(channels_map[j]):
-                                if chan == channel_name:
-                                    channels_to_read[-1].append((i, j, k))
-
-        not_found_channels = set(channel_names) - found_channel
-        if not_found_channels:
-            raise KeyError(
-                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.client.host}"
-            )
-
-        # return tuple info: MODULE_NUM, IOTYPE, MOD_INT_CHANNEL
-        return channels_to_read
-
     def get(self, *channel_names, convert_values=True):
         """
         Read one or more values from channels
@@ -974,7 +1111,7 @@ class _WagoController:
 
         ret = []
 
-        channels_to_read = self._resolve(*channel_names)
+        channels_to_read = self.modules_config._resolve_read(*channel_names)
 
         # get the module number taking the first element of sub lists
         # for example: [[(0, 2, 0), (0, 2, 1)], [(2, 2, 1)], [(6, 2, 1)]] - > this gives [0, 2, 6]
@@ -1051,75 +1188,48 @@ class _WagoController:
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
-        kwargs
-        channels_to_write = []
-        current_list = channels_to_write
-        for x in args:
-            if type(x) in (bytes, str):
-                # channel name
-                current_list = [str(x)]
-                channels_to_write.append(current_list)
-            else:
-                # value
-                current_list.append(x)
+        write_table = self.modules_config._resolve_write(*args)
 
-        for i in range(len(channels_to_write)):
-            x = channels_to_write[i]
-            if len(x) > 2:
-                # group values for channel with same name
-                # in a list
-                channels_to_write[i] = [x[0], x[1:]]
-
-        write_table = {}
-        n_chan = 0
-        found_channel = set()
-        channel_names = set()
-        for channel_name, value in channels_to_write:
-            channel_names.add(channel_name)
-            for i, mapping_info in enumerate(self.modules_config):
-                channel_map = mapping_info["channels"]
-                if not channel_map:
-                    continue
-                for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
-                    n_channels = channel_map[j].count(channel_name)
-                    if n_channels:
-                        found_channel.add(channel_name)
-                        if j not in (DIGI_OUT, ANA_OUT):
-                            raise RuntimeError(
-                                "Cannot write: %r is not an output" % channel_name
-                            )
-                        if isinstance(value, list):
-                            if n_channels > len(value):
-                                raise RuntimeError(
-                                    "Cannot write: not enough values for channel %r: expected %d, got %d"
-                                    % (channel_name, n_channels, len(value))
-                                )
-                            else:
-                                idx = -1
-                                for k in range(n_channels):
-                                    idx = channel_map[j].index(channel_name, idx + 1)
-
-                                    write_table.setdefault(i, []).append(
-                                        (j, idx, value[n_chan + k])
-                                    )
-                        else:
-                            if n_channels > 1:
-                                raise RuntimeError(
-                                    "Cannot write: only one value given for channel %r, expected: %d"
-                                    % (channel_name, n_channels)
-                                )
-                            k = channel_map[j].index(channel_name)
-                            write_table.setdefault(i, []).append((j, k, value))
-                        n_chan += n_channels
-        not_found_channels = channel_names - found_channel
-        if not_found_channels:
-            raise KeyError(
-                f"Channel(s) '{not_found_channels}` doesn't exist in Wago {self.client.host}"
-            )
         with self.lock:
             return self.write_phys(write_table)
 
-    def key2name(self, key):
+    def devwritephys(self, array_in):
+        name = self.devkey2name(array_in[0])
+        self.set(flatten([name] + list(array_in[1:])))
+
+    def devwritedigi(self, array_in):
+        self.devwritephys(array_in)
+
+    def devreadnocachedigi(self, key):
+        # Doing a digital read on an analog channel gives the raw bit value (not converted in voltage, temperature ...)
+        # convert_values=False forces this raw reading
+        val = self.get(self.devkey2name(key), convert_values=False)
+
+        # TODO: there are modules with 24 and 32 bit values, behaviour should be check
+
+        def to_signed(num):
+            # convert a 16 bit number to a signed representation
+            if num >> 15:  # if is negative
+                calc = -((num ^ 0xffff) + 1)  # 2 complement
+                return calc
+            return num
+
+        # needed a conversion to fit the DevShort which is signed
+        values = [to_signed(v) for v in flatten([val])]
+
+        return values
+
+    def devreaddigi(self, key):
+        return self.devreadnocachedigi(key)
+
+    def devreadnocachephys(self, key):
+        val = self.get(self.devkey2name(key))
+        return flatten([val])
+
+    def devreadphys(self, key):
+        return self.devreadnocachephys(key)
+
+    def devkey2name(self, key):
         """
         From a key (channel enumeration) to the assigned text name
 
@@ -1449,7 +1559,7 @@ class _WagoController:
 
         for i, module in enumerate(self.modules_config.modules):
             # exclude the CPU main module
-            if not _WagoController._check_mapping(module, registers[i]):
+            if not WagoController._check_mapping(module, registers[i]):
                 raise RuntimeError(
                     f"PLC addon module n.{i} (starting from zero) does not corresponds to mapping:{module}"
                 )
@@ -1539,12 +1649,7 @@ class Wago:
         self.name = name
 
         # parsing config_tree
-        mapping = []
-        for module in config_tree["mapping"]:
-            module_type = module["type"]
-            logical_names = module["logical_names"]
-            mapping.append("%s,%s" % (module_type, logical_names))
-        mapping_str = "\n".join(mapping)
+        self.modules_config = ModulesConfig.from_config_tree(config_tree)
 
         self.cnt_dict = {}
         self.cnt_names = []
@@ -1566,56 +1671,59 @@ class Wago:
                 self.cnt_dict[nam] = i
                 add_property(self, nam, WagoCounter(nam, self, i))
 
-        ignore_missing = config_tree.get("ignore_missing", False)
-
         from bliss.comm.util import get_comm
 
         # instantiating comm and controller class
-        if config_tree.get("simulate"):
-            # getting modules config to obtain modules attached to PLC
-            modules_config = ModulesConfig(mapping_str, ignore_missing=ignore_missing)
+        if config_tree["modbustcp"]["url"].startswith("tango://"):
+            tango_url = config_tree["modbustcp"]["url"]
+            if not len(self.modules_config.attached_modules):
+                # if no config is provided for DeviceProxy get tango property
+                mapping = tango.DeviceProxy(tango_url).get_property("config")["config"]
+                self.modules_config = ModulesConfig.from_tango_config(mapping)
+            self.controller = TangoWago(tango_url, self.modules_config)
 
-            # simulate the controller
+        elif config_tree.get("simulate"):
+
+            # launch the simulator
             from tests.conftest import get_open_ports
             from tests.emulators.wago import WagoMockup
 
-            # gevent.spawn(
-            #    Wago, ("localhost", port), modules=modules_config.modules, randomize_values=True
-            # )
-            self.__mockup = WagoMockup(config_tree)
+            self.__mockup = WagoMockup(self.modules_config)
+            # create the comm
             conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
             comm = get_comm(conf)
+            self.controller = BlissWago(comm, self.modules_config)
+            self.controller.connect()
+
         else:
             comm = get_comm(config_tree)
+            self.controller = BlissWago(comm, self.modules_config)
+            self.controller.connect()
 
-        self.controller = WagoController(comm)
-        global_map.register(
-            self,
-            parents_list=["wago"],
-            children_list=[comm, self.controller],
-            tag=f"Wago({self.name})",
-        )
-
-        self.controller.set_mapping(mapping_str, ignore_missing=ignore_missing)
+        global_map.register(self, parents_list=["wago"], tag=f"Wago({self.name})")
 
         from bliss.controllers.wago.interlocks import beacon_interlock_parsing
 
         try:
             self._interlocks_on_beacon = beacon_interlock_parsing(
-                config_tree["interlocks"], self.controller.modules_config
+                config_tree["interlocks"], self.modules_config
             )
         except KeyError:
             # no interlock is defined on beacon or configuration mistake
             pass
 
-        self.controller.connect()
-
-    def logical_keys(self):
+    def __info__(self):
         """
         Returns:
             (tuple): names of logical keys
         """
-        return tuple(self.controller.logical_keys.keys())
+        mapping = [
+            (k, len(ch)) for k, ch in self.modules_config.logical_mapping.items()
+        ]
+        repr_ = "Wago PLC\n"
+        for k, l in mapping:
+            repr_ += f"logical device {k} has {l} channels\n"
+        return repr_
 
     def close(self):
         self.controller.close()
@@ -1635,32 +1743,41 @@ class Wago:
         on_plc, on_beacon = False, False
 
         print_formatted_text(HTML(f"Interlocks on <violet>{self.name}</violet>"))
-        print_formatted_text(HTML("<green>On PLC:</green>"))
         try:
-            self._interlocks_on_plc = download(self.controller)
+            self._interlocks_on_plc = download(self.controller, self.modules_config)
             on_plc = True
-        except MissingFirmware:
+        except (MissingFirmware, tango.DevFailed):
             print("Interlock Firmware is not present in the PLC")
-        else:
-            print(show(self.name, self._interlocks_on_plc))
 
-        print_formatted_text(HTML("\n<green>On Beacon:</green>"))
         try:
             self._interlocks_on_beacon
             on_beacon = True
         except AttributeError:
             print("Interlock configuration is not present in Beacon")
-        else:
-            print(show(self.name, self._interlocks_on_beacon))
 
-        if all((on_beacon, on_plc)):
+        if on_beacon and on_plc:
+            # if configuration is present on both beacon and plc
             are_equal, messages = compare(
                 self._interlocks_on_beacon, self._interlocks_on_plc
             )
-            if not are_equal:
+            if are_equal:
+                print_formatted_text(HTML("<green>On PLC:</green>"))
+                print(show(self.name, self._interlocks_on_plc))
+            else:
+                print_formatted_text(HTML("<green>On PLC:</green>"))
+                print(show(self.name, self._interlocks_on_plc))
+                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
+                print(show(self.name, self._interlocks_on_beacon))
                 print("There are configuration differences:")
                 for line in messages:
                     print(line)
+        else:
+            if on_plc:
+                print_formatted_text(HTML("<green>On PLC:</green>"))
+                print(show(self.name, self._interlocks_on_plc))
+            if on_beacon:
+                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
+                print(show(self.name, self._interlocks_on_beacon))
 
     def interlock_reset_relay(self, instance_num):
         from bliss.controllers.wago.interlocks import interlock_reset as reset
@@ -1672,7 +1789,7 @@ class Wago:
         from bliss.controllers.wago.interlocks import interlock_upload as upload
         from bliss.controllers.wago.interlocks import interlock_download as download
 
-        self._interlocks_on_plc = download(self.controller)
+        self._interlocks_on_plc = download(self.controller, self.modules_config)
         are_equal, messages = compare(
             self._interlocks_on_beacon, self._interlocks_on_plc
         )
@@ -1707,8 +1824,8 @@ class Wago:
 
     @synchronized()
     def get(self, *args, **kwargs):
-        if self.controller is None:
-            self.connect()
+        # if self.controller is None:
+        #    self.connect()
         return self.controller.get(*args, **kwargs)
 
     @property
@@ -1728,7 +1845,7 @@ class Wago:
         return self.get(*self.cnt_names)
 
     def read_all(self, *counters):
-        """ Read all the counters
+        """Read all the counters
         Args:
             *counters (list): names of counters to be read
         Returns:

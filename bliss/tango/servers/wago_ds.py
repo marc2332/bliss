@@ -84,14 +84,16 @@ class Wago(Device):
             raise RuntimeError(msg)
         conf = {"modbustcp": {"url": self.iphost, "timeout": self.TCPTimeout / 1000}}
         comm = get_comm(conf)
-        self.wago = WagoController(comm)
 
         try:
             self.set_state(DevState.INIT)
             self.debug_stream("Setting Wago modules mapping")
-            self.wago.set_mapping("\n".join(self.config), ignore_missing=True)
+            modules_config = ModulesConfig(self.config, ignore_missing=True)
         except Exception as exc:
             self.error_stream(f"Exception on Wago setting modules mapping: {exc}")
+        else:
+            self.wago = WagoController(comm, modules_config)
+
         try:
             self.debug_stream("Trying to connect to Wago")
             self.wago.connect()
@@ -388,7 +390,7 @@ class Wago(Device):
     @DebugIt()
     def DevName2Key(self, name):
         """
-        Return the numerical keys associated to a logical name. 
+        Return the numerical keys associated to a logical name.
 
         Args:
             Arg(s) In:   DevString *vargin - logical device name

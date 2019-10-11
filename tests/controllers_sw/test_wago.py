@@ -9,7 +9,7 @@ from bliss.controllers.wago.helpers import (
     wordarray_to_bytestring,
 )
 
-from bliss.controllers.wago.wago import WagoController, _WagoController, ModulesConfig
+from bliss.controllers.wago.wago import BlissWago, WagoController, ModulesConfig
 from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
@@ -165,7 +165,7 @@ def test_check_mapping():
         ("750-1515", 34818),
     )
     for module, register in values:
-        assert _WagoController._check_mapping(module, register)
+        assert WagoController._check_mapping(module, register)
 
 
 mapping = "750-842 " + " ".join(["750-469"] * 9) + " 750-517" * 2 + " 750-479"
@@ -260,16 +260,17 @@ def test_wago_modbus_simulator(wago_mockup):
 
     conf = {"modbustcp": {"url": f"{host}:{port}"}}
     comm = get_comm(conf)
-    wago = WagoController(comm)
-    wago.connect()
-    with pytest.raises(RuntimeError):
-        wago.set_mapping(mapping)  # one channel is missing on 750-479
+    with pytest.raises(RuntimeError):  # one channel is missing on 750-479
+        modules_config = ModulesConfig(mapping)
 
-    wago.set_mapping(mapping, ignore_missing=True)
+    modules_config = ModulesConfig(mapping, ignore_missing=True)
+    wago = BlissWago(comm, modules_config)
+    wago.connect()
+
     names = "gabsTf1 gabsTf2 gabsTf3 gabsTf4 gabsTr1 gabsTr2 gabsTr3 gabsTr4 sabsT1 sabsT2 sabsT3 sabsT4 psTf1 psTf2 psTf3 psTf4 psTr1 psTr2 psTr3 psTr4 intlcka1 intlcka2 intlcka3 intlcka4 gabsP1"
 
     for i, name in zip(range(0, 24), names.split()):
-        assert wago.key2name(i) == name
+        assert wago.devkey2name(i) == name
 
     for name in names.split():
         wago.get(name)
@@ -278,7 +279,7 @@ def test_wago_modbus_simulator(wago_mockup):
     wago.close()
 
 
-def test_wago_config_get(default_session):
+def test_wago_config_get(default_session, wago_mockup):
 
     """
     # getting mockup port (as is randomly chosen)
@@ -287,17 +288,13 @@ def test_wago_config_get(default_session):
     # patching port into config
     default_session.config.get_config("wago_simulator")["modbustcp"]["url"] = f"{host}:{port}"
     """
-
     wago = default_session.config.get("wago_simulator")
 
-    ignore_missing = default_session.config.get_config("wago_simulator").get(
-        "ignore_missing", False
-    )
     assert wago.controller.series == 750
     wago.controller.print_plugged_modules()
 
 
-def test_wago_counters(default_session):
+def test_wago_counters(default_session, wago_mockup):
 
     """
     check you can define a wago key as a counter in config and read it

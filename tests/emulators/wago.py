@@ -10,7 +10,7 @@ from umodbus.server.tcp import RequestHandler, get_server
 from umodbus.utils import log_to_stream
 
 from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
-from bliss.controllers.wago.wago import MODULES_CONFIG, _WagoController, ModulesConfig
+from bliss.controllers.wago.wago import MODULES_CONFIG, ModulesConfig
 from bliss.controllers.wago.helpers import remove_comments, splitlines
 
 from tests.conftest import get_open_ports
@@ -392,11 +392,11 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
 
 
 class WagoMockup:
-    def __init__(self, config_tree):
-        """creates a wago simulator threaded instance based on a config_tree mapping"""
+    def __init__(self, modules_config: ModulesConfig):
+        """creates a wago simulator threaded instance based on a given mapping"""
 
         # creating a ModulesConfig to retrieve mapping
-        modules = ModulesConfig.from_config_tree(config_tree).modules
+        modules = modules_config.modules
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
@@ -410,4 +410,4 @@ class WagoMockup:
 
     def close(self):
         self.app.do_run = False
-        self.t.join()
+        self.t.kill()

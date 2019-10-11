@@ -5,16 +5,15 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import struct
 import re
 from collections import namedtuple
 from itertools import zip_longest
 
 from typing import Union
 import yaml
+import tango
 
 import bliss
-from bliss.common.standard import debugon
 from bliss.common.logtools import *
 
 from bliss.controllers.wago.helpers import (
@@ -27,9 +26,9 @@ from bliss.controllers.wago.helpers import (
     pretty_float,
 )
 from bliss.controllers.wago.wago import (
-    WagoController,
+    BlissWago,
     ModulesConfig,
-    _WagoController,
+    WagoController,
     get_module_info,
 )
 
@@ -606,15 +605,15 @@ def _interlock_channel_info_from_plc(
         info["low_limit"] = get_conf_output[2]
         info["high_limit"] = get_conf_output[3]
         info["type"]["type"] = word_to_2ch(get_conf_output[-2])
-    if len(get_conf_output) > 6:  # todo: check order of a dac
+    if len(get_conf_output) > 6:  # TODO: check order of a dac
         info["dac"] = get_conf_output[5]
         info["dac_scale"] = get_conf_output[6]
         info["dac_offset"] = get_conf_output[7]
 
-    logical_device_key, logical_device_channel = modules_config.hard2log(
-        info["type"]["register_type"], offset
+    logical_device_key, logical_device_channel = modules_config.devhard2log(
+        (info["type"]["register_type"], offset)
     )
-    logical_device = modules_config.key2name(logical_device_key)
+    logical_device = modules_config.devkey2name(logical_device_key)
 
     info["logical_device"] = logical_device
     info["logical_device_key"] = logical_device_key
@@ -728,7 +727,7 @@ def _interlock_channel_info_from_parsed(num, parsed, modules_config: ModulesConf
         info["dac_offset"] = parsed.dac_offset
     """
 
-    info["logical_device_key"] = modules_config.name2key(parsed.logical_device)
+    info["logical_device_key"] = modules_config.devname2key(parsed.logical_device)
 
     return info
 
@@ -804,15 +803,17 @@ def interlock_compare(int_list_1, int_list_2):
     return not bool(len(messages)), messages
 
 
-def interlock_download(wago):
+def interlock_download(
+    wago: Union[tango.DeviceProxy, BlissWago], modules_config: ModulesConfig
+):
     """Downloads interlock configuration from wago
 
     Note: wago mapping should be set before calling this
     """
 
-    log_info(wago, f"Checking interlock on Wago {wago.client.host}")
+    # log_info(wago, f"Checking interlock on Wago {wago.client.host}")
 
-    free_inst, available_inst, _ = wago.wc_comm(
+    free_inst, available_inst, _ = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
     )
     registered_inst = available_inst - free_inst
@@ -824,34 +825,28 @@ def interlock_download(wago):
     interlock_list = []  # list containing all interlock dictionaries
 
     for i in range(1, registered_inst + 1):
-        offset, flags, n_of_channels = wago.wc_comm((COMMANDS["ILCK_GETCONF"], i))
+        offset, flags, n_of_channels = wago.devwccomm((COMMANDS["ILCK_GETCONF"], i))
 
         # get istance description
+        word_name = wago.devwccomm((COMMANDS["ILCK_GETNAME"], i))
         description = ""  # TODO: '\x00\x00 is not a proper response
         for word in word_name:
             description += word_to_2ch(word)
 
         # getting state of relay
-        status_flags, value = wago.wc_comm((COMMANDS["ILCK_GETSTAT"], i))
+        status_flags, value = wago.devwccomm((COMMANDS["ILCK_GETSTAT"], i))
         flags |= stmask(status_flags)
 
         log_debug(
             wago,
             f"Wago interlock n.{i} with description {description} has {n_of_channels} n_of_channels, flags:{flags:b}",
         )
-        logical_device_key, logical_device_channel = wago.hard2log(
-            register_type_to_int("OB"), offset
+        logical_device_key, logical_device_channel = wago.devhard2log(
+            (register_type_to_int("OB"), offset)
         )
 
         # relay channel name ( like pk_int[1] )
-        logical_device = wago.key2name(logical_device_key)
-        if len(wago.logical_mapping[logical_device]) < logical_device_channel + 1:
-            raise Exception("...")
-        """
-        if len(wago.logical_mapping[logical_device]) > 1:
-            # we have more than one channel for this relay, so we need to choose the channel
-            logical_device += f"[{logical_device_channel}]"
-        """
+        logical_device = wago.devkey2name(logical_device_key)
 
         interlock_relay_info = _interlock_relay_info(
             i,
@@ -870,7 +865,7 @@ def interlock_download(wago):
         log_debug(wago, "Is TRIPPED" if is_tripped(flags) else "Is NOT TRIPPED")
 
         for j in range(1, n_of_channels + 1):
-            received = wago.wc_comm((COMMANDS["ILCK_GETCONF"], i, j))
+            received = wago.devwccomm((COMMANDS["ILCK_GETCONF"], i, j))
             log_debug(wago, f"Wago interlock n.{i} channel n.{j} received {received}")
             flags = received[0]
             offset = received[1]
@@ -886,22 +881,22 @@ def interlock_download(wago):
                 else:
                     register_type = "IW"
 
-            logical_device_key, logical_device_channel = wago.hard2log(
-                register_type, offset
+            logical_device_key, logical_device_channel = wago.devhard2log(
+                (register_type_to_int(register_type), offset)
             )
             interlock_channel_info = _interlock_channel_info_from_plc(
-                j, received, wago.modules_config
+                j, received, modules_config
             )
             interlock_relay_info["channels"].append(interlock_channel_info)
         interlock_list.append(interlock_relay_info)
     return interlock_list
 
 
-def interlock_purge(wago: _WagoController, interlock_list: list):
-
+def interlock_purge(wago: WagoController):
+    """Purges all interlocks available into a PLC"""
     log_info(wago, f"Interlock: Uploading interlock on Wago {wago.client.host}")
 
-    free_inst, available_inst, imsk = wago.wc_comm(
+    free_inst, available_inst, imsk = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
     )
     registered_inst = available_inst - free_inst
@@ -910,27 +905,29 @@ def interlock_purge(wago: _WagoController, interlock_list: list):
     # DELETE INSTANCES
     for i in range(1, registered_inst + 1):
         if imsk & 0b1:  # check first bit
-            wago.wc_comm((COMMANDS["ILCK_DELETE"], i))  # deleting instance
-        imsk >> 1
+            wago.devwccomm((COMMANDS["ILCK_DELETE"], i))  # deleting instance
+        imsk >>= 1
 
 
-def interlock_upload(wago: _WagoController, interlock_list: list):
+def interlock_upload(wago: WagoController, interlock_list: list):
     """
     Upload a list of interlocks on Wago
 
     Args:
-        wago (_WagoController): instance of Class
+        wago (WagoController): instance of Class
         interlock_list (list): list created by specfile_interlock_parsing or with beacon config
     """
-    interlock_purge(wago, interlock_list)
+    interlock_purge(wago)
 
     # CREATING INSTANCES
 
     for interlock in interlock_list:
         logical_device_key = interlock["logical_device_key"]
         logical_device_channel = interlock["logical_device_channel"]
-        offset, _, _, _, _ = wago.log2hard(logical_device_key, logical_device_channel)
-        response = wago.wc_comm((COMMANDS["ILCK_CREATE"], offset, interlock["flags"]))
+        offset, _, _, _, _ = wago.devlog2hard(
+            (logical_device_key, logical_device_channel)
+        )
+        response = wago.devwccomm((COMMANDS["ILCK_CREATE"], offset, interlock["flags"]))
         instance_number = response[0]
         description = (
             bytestring_to_wordarray(interlock["description"])
@@ -938,14 +935,14 @@ def interlock_upload(wago: _WagoController, interlock_list: list):
             else []
         )
 
-        wago.wc_comm((COMMANDS["ILCK_SETNAME"], instance_number, *name))
+        wago.devwccomm((COMMANDS["ILCK_SETNAME"], instance_number, *description))
         for channel in interlock["channels"]:
             logical_device_key, logical_device_channel = (
                 channel["logical_device_key"],
                 channel["logical_device_channel"],
             )
-            offset, _, _, _, _ = wago.log2hard(
-                logical_device_key, logical_device_channel
+            offset, _, _, _, _ = wago.devlog2hard(
+                (logical_device_key, logical_device_channel)
             )
             params = (instance_number, channel["flags"], offset)
             if not channel["type"]["digital"]:
@@ -954,7 +951,7 @@ def interlock_upload(wago: _WagoController, interlock_list: list):
                 params += ((ord(type_[0]) << 8) + ord(type_[1]),)
             # TODO: implement DAC
 
-            response = wago.wc_comm((COMMANDS["ILCK_ADDCHAN"], *params))
+            response = wago.devwccomm((COMMANDS["ILCK_ADDCHAN"], *params))
             """
             if response[0] != offset + 1:
                 log_error(wago, f"ILCK_ADDCHAN {params} should give {offset+1}")
@@ -964,7 +961,7 @@ def interlock_upload(wago: _WagoController, interlock_list: list):
 
 def interlock_reset(wago, instance_n):
     log_debug(wago, f"Interlock: Resetting instance n.{instance_n}")
-    response = wago.wc_comm((COMMANDS["ILCK_RESET"], instance_n))  # deleting instance
+    response = wago.devwccomm((COMMANDS["ILCK_RESET"], instance_n))  # deleting instance
     if response:
         raise RuntimeError(f"Interlock: Error response from PLC: {ERRORS[response[0]]}")
 

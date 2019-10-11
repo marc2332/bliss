@@ -224,6 +224,7 @@ class Flint:
         return self._session_name
 
     def _spawn_scans_session_watch(self, session_name, clean_redis=False):
+        # FIXME: It could be mostly moved into scan_manager
         if clean_redis:
             clean_all_redis_connection()
 
@@ -232,10 +233,10 @@ class Flint:
         task = gevent.spawn(
             watch_session_scans,
             session_name,
-            self.new_scan,
-            self.new_scan_child,
-            self.new_scan_data,
-            self.end_scan,
+            self.__scanManager.new_scan,
+            self.__scanManager.new_scan_child,
+            self.__scanManager.new_scan_data,
+            self.__scanManager.end_scan,
             ready_event=ready_event,
         )
 
@@ -259,7 +260,6 @@ class Flint:
             self.scans_watch_task.kill()
 
         self._spawn_scans_session_watch(session_name)
-
         self._session_name = session_name
 
         redis = get_redis_connection()
@@ -270,12 +270,6 @@ class Flint:
         redis.rpop(key)
 
         self.set_title(session_name)
-
-    def new_scan(self, scan_info):
-        self.__scanManager.new_scan(scan_info)
-
-    def new_scan_child(self, scan_info, data_channel):
-        pass
 
     def wait_data(self, master, plot_type, index):
         ev = (
@@ -288,12 +282,6 @@ class Flint:
     def get_live_scan_plot(self, master, plot_type, index):
         # FIXME: It is broken and should not be used
         raise Exception("get_live_scan_plot API is not available")
-
-    def new_scan_data(self, data_type, master_name, data):
-        self.__scanManager.new_scan_data(data_type, master_name, data)
-
-    def end_scan(self, scan_info):
-        self.__scanManager.end_scan(scan_info)
 
     def wait_end_of_scan(self):
         self.__scanManager.wait_end_of_scan()

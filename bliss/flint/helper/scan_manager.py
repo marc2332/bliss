@@ -61,6 +61,9 @@ class ScanManager:
 
         self._end_scan_event.clear()
 
+    def new_scan_child(self, scan_info, data_channel):
+        pass
+
     def new_scan_data(self, data_type, master_name, data):
         if data_type in ("1d", "2d"):
             key = master_name, data["channel_name"]

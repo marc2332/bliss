@@ -83,7 +83,7 @@ COMMANDS = {
     #
     "ILCK_SETNAME": 0x0106,  # 262
     "ILCK_GETNAME": 0x0107,  # 263
-    # 263,2 the answer is the ascii name given as an array of words
+    # 263,2 the answer is the ascii description given as an array of words
     "ILCK_GETSTAT": 0x0108,  # 264
     # first value & STMASK will result in status, second value is VALUE
     # Example: 264,1 asks for state of interlock 1
@@ -295,19 +295,20 @@ def interlock_parse_relay_line(line):
         - Instance flags (<iflag>): inverted, sticky, noforce
         - comment are not processed and should be removed before with `remove_comments`
     """
-    regex_relay_line = r"\s*relay +(?P<relay>[a-zA-Z0-9_]+)(\[(?P<channel>[0-9])\])?( +(?P<iflags>(inverted|inv|INV|INVERTED|sticky|STICKY|noforce|NOFORCE| )+))?( +name +(?P<name>[a-zA-Z0-9_ -\/]+))?$"
+    regex_relay_line = r"\s*relay +(?P<relay>[a-zA-Z0-9_]+)(\[(?P<channel>[0-9])\])?( +(?P<iflags>(inverted|inv|INV|INVERTED|sticky|STICKY|noforce|NOFORCE| )+))?( +name +(?P<description>[a-zA-Z0-9_ -\/]+))?$"
     m = re.match(regex_relay_line, line)
     ParsedRelayLine = namedtuple(
-        "ParsedRelayLine", "logical_device logical_device_channel flags name"
+        "ParsedRelayLine", "logical_device logical_device_channel flags description"
     )
     if m:
         line = ParsedRelayLine(
             m["relay"],
             0 if m["channel"] is None else int(m["channel"]),
             string_to_flags(m["iflags"]),
-            "" if m["name"] is None else m["name"],
+            "" if m["description"] is None else m["description"],
         )
         return line
+    return None
 
 
 ParsedChannelLine = namedtuple(
@@ -332,7 +333,7 @@ def interlock_parse_channel_line(line):
         - comment are not processed and should be removed before with `remove_comments`
     """
     regex_control_ch_line = (
-        r"\s*(?P<name>[a-zA-Z0-9_+-]+)(\[(?P<channel>[0-9]+)\])?\s+(?P<type>"
+        r"\s*(?P<logical_name>[a-zA-Z0-9_+-]+)(\[(?P<channel>[0-9]+)\])?\s+(?P<type>"
         + "|".join(TYPES.keys())
         + ")( +(?P<min>\-?[0-9\.]+))?( +(?P<max>\-?[0-9\.]+))?( +(?P<chflags>(inverted|inv|INV|INVERTED|sticky|STICKY|monitor|MONITOR| )*))?"
     )
@@ -353,7 +354,7 @@ def interlock_parse_channel_line(line):
         max_ = float(m["max"]) if m["max"] else None
 
         line = ParsedChannelLine(
-            m["name"],
+            m["logical_name"],
             0 if m["channel"] is None else int(m["channel"]),
             m["type"],
             min_,
@@ -372,14 +373,14 @@ def beacon_interlock_parsing(yml, modules_config: ModulesConfig):
         logical_device = node["relay"]
         logical_device_channel = node.get("relay_channel", 0)
         flags = string_to_flags(node.get("flags", "") + " DIGITAL")
-        name = node.get("name", None)
+        description = node.get("description", "")
 
-        logical_device_key = modules_config.name2key(logical_device)
+        logical_device_key = modules_config.devname2key(logical_device)
 
         interlock_list.append(
             _interlock_relay_info(
                 num,
-                name,
+                description,
                 flags,
                 logical_device,
                 logical_device_key,
@@ -430,16 +431,16 @@ def specfile_interlock_parsing(iterable, modules_config: ModulesConfig):
         if line:
             if interlock_parse_relay_line(line) is not None:
                 num = len(interlock_list) + 1
-                logical_device, logical_device_channel, iflags, name = interlock_parse_relay_line(
+                logical_device, logical_device_channel, iflags, description = interlock_parse_relay_line(
                     line
                 )
-                logical_device_key = modules_config.name2key(logical_device)
+                logical_device_key = modules_config.devname2key(logical_device)
                 flags = iflags
 
                 interlock_list.append(
                     _interlock_relay_info(
                         num,
-                        name,
+                        description,
                         flags,
                         logical_device,
                         logical_device_key,
@@ -473,9 +474,9 @@ def specfile_to_yml(iterable):
             if flags:
                 r_y["flags"] = flags
             if r.logical_device_channel:
-                r_y["logical_channel"] = r.channel
-            if r.name:
-                r_y["name"] = r.name
+                r_y["logical_channel"] = r.logical_device_channel
+            if r.description:
+                r_y["description"] = r.description
             r_y["channels"] = []
 
             yml["interlocks"].append(r_y)
@@ -503,21 +504,20 @@ def specfile_to_yml(iterable):
 
 
 def _interlock_relay_info(
-    num, name, flags, logical_device, logical_device_key, logical_device_channel
+    num, description, flags, logical_device, logical_device_key, logical_device_channel
 ):
     """
     Args:
         num (int): progressive number of interlock
-        name (str): name of relay
+        description (str): description of relay
         flags (int): flags
         logical_device (str): name of output device (E.G. relaymono)
         logical_device_key (int): logical device key
         logical_device_channel (int): logical device channel
-        ##channels (list): containing channel_info dictionaries
     """
     info = {
         "num": num,
-        "name": name.strip("\0"),
+        "description": description.strip("\0"),
         "logical_device": logical_device,
         "logical_device_key": logical_device_key,
         "logical_device_channel": logical_device_channel,
@@ -763,8 +763,8 @@ def interlock_compare(int_list_1, int_list_2):
                 messages.append(
                     f"Configuration differs for {k}: {int_1[k]} != {int_2[k]}"
                 )
-        if bytestring_to_wordarray(int_1["name"]) != bytestring_to_wordarray(
-            int_2["name"]
+        if bytestring_to_wordarray(int_1["description"]) != bytestring_to_wordarray(
+            int_2["description"]
         ):
             messages.append(
                 f"Interlock n.{num} for name: {int_1['name']} != {int_2['name']}"
@@ -826,11 +826,10 @@ def interlock_download(wago):
     for i in range(1, registered_inst + 1):
         offset, flags, n_of_channels = wago.wc_comm((COMMANDS["ILCK_GETCONF"], i))
 
-        # get istance name
-        word_name = wago.wc_comm((COMMANDS["ILCK_GETNAME"], i))
-        name = ""  # TODO: '\x00\x00 is not a proper response
+        # get istance description
+        description = ""  # TODO: '\x00\x00 is not a proper response
         for word in word_name:
-            name += word_to_2ch(word)
+            description += word_to_2ch(word)
 
         # getting state of relay
         status_flags, value = wago.wc_comm((COMMANDS["ILCK_GETSTAT"], i))
@@ -838,7 +837,7 @@ def interlock_download(wago):
 
         log_debug(
             wago,
-            f"Wago interlock n.{i} with name {name} has {n_of_channels} n_of_channels, flags:{flags:b}",
+            f"Wago interlock n.{i} with description {description} has {n_of_channels} n_of_channels, flags:{flags:b}",
         )
         logical_device_key, logical_device_channel = wago.hard2log(
             register_type_to_int("OB"), offset
@@ -855,13 +854,18 @@ def interlock_download(wago):
         """
 
         interlock_relay_info = _interlock_relay_info(
-            i, name, flags, logical_device, logical_device_key, logical_device_channel
+            i,
+            description,
+            flags,
+            logical_device,
+            logical_device_key,
+            logical_device_channel,
         )
         interlock_relay_info["value"] = value
 
         log_debug(
             wago,
-            f"Relay name={logical_device} inverted={is_inverted(flags)}, tripped={is_tripped(flags)}, noforce={is_noforce(flags)}",
+            f"Relay logical name={logical_device} inverted={is_inverted(flags)}, tripped={is_tripped(flags)}, noforce={is_noforce(flags)}",
         )
         log_debug(wago, "Is TRIPPED" if is_tripped(flags) else "Is NOT TRIPPED")
 
@@ -928,9 +932,9 @@ def interlock_upload(wago: _WagoController, interlock_list: list):
         offset, _, _, _, _ = wago.log2hard(logical_device_key, logical_device_channel)
         response = wago.wc_comm((COMMANDS["ILCK_CREATE"], offset, interlock["flags"]))
         instance_number = response[0]
-        name = (
-            bytestring_to_wordarray(interlock["name"])
-            if interlock["name"] is not None
+        description = (
+            bytestring_to_wordarray(interlock["description"])
+            if interlock["description"] is not None
             else []
         )
 
@@ -973,9 +977,9 @@ def interlock_show(wc_name: str, interlock_info: list):
     out = f"{len(interlock_info)} interlock instance\n"
 
     for info in sorted(interlock_info, key=lambda i: i["num"]):
-        num, name, logical_device, logical_device_channel = (
+        num, description, logical_device, logical_device_channel = (
             info["num"],
-            info["name"],
+            info["description"],
             info["logical_device"],
             info["logical_device_channel"],
         )
@@ -990,7 +994,7 @@ def interlock_show(wc_name: str, interlock_info: list):
         state = "TRIPPED" if info["status"]["tripped"] else "NOT TRIPPED"
 
         bchstring = flags_to_string(bchmask(info["flags"]))
-        out += f"  Instance #{num}   Name: {name}\n"
+        out += f"  Instance #{num}   Description: {description}\n"
         out += f"    Alarm relay = {logical_device}[{logical_device_channel}]  {bchstring}".ljust(
             68
         )

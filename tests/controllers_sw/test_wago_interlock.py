@@ -331,7 +331,7 @@ def test_parse_interlock_file_1():
     modules_config = ModulesConfig(file_1_modules_config, ignore_missing=True)
     interlock_list = specfile_interlock_parsing(file_1, modules_config)
     assert interlock_list[0]["num"] == 1
-    assert interlock_list[0]["name"] == "Temperature DCM DMM"
+    assert interlock_list[0]["description"] == "Temperature DCM DMM"
     assert interlock_list[0]["status"] == {
         "tripped": False,
         "alarm": False,
@@ -375,7 +375,7 @@ def test_interlock_show(caplog):
         channel["value"] = random.randint(-100, 1000)
 
     assert intlck1["num"] == 1
-    assert intlck1["name"] == ""
+    assert intlck1["description"] == ""
     assert intlck1["logical_device"] == "p1_rel"
     assert intlck1["logical_device_key"] == 0
     assert intlck1["logical_device_channel"] == 0
@@ -424,7 +424,7 @@ def test_specfile_to_yml():
     expected = """interlocks:
 - relay: itlke
   flags: STICKY
-  name: Temperature DCM DMM
+  description: Temperature DCM DMM
   channels:
   - logical_name: 1stxtalsi111
     type: TC
@@ -481,7 +481,7 @@ def test_beacon_interlock_parsing(default_session):
 
     assert len(interlock_list) == 2
     assert interlock_list[0]["num"] == 1
-    assert interlock_list[0]["name"] == "Interlock"
+    assert interlock_list[0]["description"] == "Interlock"
     assert interlock_list[0]["flags"] == string_to_flags("DIGITAL STICKY")
     assert interlock_list[0]["channels"][0]["logical_device"] == "esTf1"
     assert interlock_list[0]["channels"][0]["flags"] == string_to_flags("ANALOG INPUT")

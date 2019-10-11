@@ -29,7 +29,7 @@ counter_names: esTr1, esTr2
 interlocks:
     - relay: intlckf1
       flags: STICKY
-      name: Interlock
+        description: Interlock
       channels:
           - logical_name: esTf1
             type: TC
@@ -49,7 +49,7 @@ interlocks:
             max: 50
     - relay: intlckf2
       flags: STICKY
-      name: Interlock 2
+        description: _Interlock 2
       channels:
           - logical_name: esTr1
             type: TC

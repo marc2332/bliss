@@ -60,3 +60,14 @@ def test_scan_data_update_master_channels():
         "device4:channel1",
     }
     assert event.updatedChannelNames() == expected
+
+
+def test_sealed():
+    scan = scan_model.Scan()
+    scan.setScanInfo({"foo": "bar"})
+    scan.seal()
+    try:
+        scan.setScanInfo({"foo": "bar"})
+        assert False
+    except scan_model.SealedError:
+        pass

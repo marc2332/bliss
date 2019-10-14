@@ -24,7 +24,10 @@ _logger = logging.getLogger(__name__)
 
 
 class SealedError(Exception):
-    pass
+    def __init__(self, message=None):
+        if message is None:
+            message = "The object is sealed, then not anymore editable."
+        super(SealedError, self).__init__(message)
 
 
 class _Sealable:

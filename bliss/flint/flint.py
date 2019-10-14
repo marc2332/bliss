@@ -691,7 +691,7 @@ def create_flint(settings):
 
 def main():
     # patch system poll
-    need_gevent_loop = not poll_patch.init(1) if poll_patch else True
+    need_gevent_loop = True  # not poll_patch.init(1) if poll_patch else True
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")

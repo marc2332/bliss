@@ -28,3 +28,5 @@ htmlcov/
 bliss/release.py
 prof
 .mypy_cache/
+graph.dot
+graph.png

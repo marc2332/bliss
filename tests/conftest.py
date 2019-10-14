@@ -13,12 +13,13 @@ from collections import namedtuple
 import atexit
 import gevent
 import struct
+import subprocess
+import signal
 
 import pytest
 import redis
 
 from bliss import global_map
-from bliss.common import subprocess
 from bliss.common.session import DefaultSession
 from bliss.config import static
 from bliss.config.conductor import client
@@ -26,6 +27,10 @@ from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
+from bliss.common import plot
+
+from random import randint
+from contextlib import contextmanager
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -383,3 +388,59 @@ def wago_mockup(default_session):
     wago = WagoMockup(config_tree)
     yield wago
     wago.close()
+
+
+@pytest.fixture(scope="session")
+def xvfb():
+    xvfb = shutil.which("Xvfb")
+    # Xvfb not found
+    if xvfb is None:
+        yield
+        return
+    # Control DISPLAY variable
+    try:
+        display = os.environ.get("DISPLAY")
+        new_display = ":{}".format(randint(100, 1000000000))
+        os.environ["DISPLAY"] = new_display
+        # Control xvbf process
+        try:
+            p = subprocess.Popen([xvfb, "-screen", "0", "1024x768x24", new_display])
+            yield p.pid
+        # Teardown process
+        finally:
+            p.kill()
+            p.wait(1.)
+    # Restore DISPLAY variable
+    finally:
+        if display:
+            os.environ["DISPLAY"] = display
+
+
+@contextmanager
+def flint_context():
+    flint = plot.get_flint()
+    pid = flint._pid
+    yield pid
+    flint.close()  # better to call it ourselves than relying on 'broken pipe' from the system
+    plot.reset_flint()
+    os.kill(pid, signal.SIGTERM)
+    try:
+        os.waitpid(pid, 0)
+    # It happens sometimes, for some reason
+    except OSError:
+        pass
+
+
+@pytest.fixture
+def flint_session(xvfb, beacon):
+    session = beacon.get("flint")
+    session.setup()
+    with flint_context():
+        yield session
+    session.close()
+
+
+@pytest.fixture
+def test_session_with_flint(xvfb, session):
+    with flint_context():
+        yield session

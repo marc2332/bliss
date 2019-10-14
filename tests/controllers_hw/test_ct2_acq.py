@@ -27,7 +27,7 @@ import pytest
 from gevent import sleep, spawn
 from gevent.event import Event
 
-from bliss.common import subprocess
+import subprocess
 from bliss.common.event import dispatcher
 from bliss.controllers.ct2.client import create_and_configure_device
 from bliss.controllers.ct2.device import AcqMode, AcqStatus, StatusSignal

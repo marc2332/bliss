@@ -5,12 +5,12 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import subprocess
 import pytest
 import sys
 import os
 
 from bliss import release
-from bliss.common import subprocess
 from bliss.common.session import Session
 from bliss.shell.cli.main import get_sessions_list
 from bliss.shell.cli.main import print_sessions_and_trees

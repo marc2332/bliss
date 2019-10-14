@@ -477,9 +477,8 @@ class SmarAct(Controller):
         if not axis.channel.is_physical_position_known:
             log_warning(
                 self,
-                "%r physical position unknown (hint: do a "
-                "homing to find reference mark)",
-                axis.name,
+                "{0} physical position unknown (hint: do a "
+                "homing to find reference mark)".format(axis.name),
             )
 
     def state(self, axis):
@@ -509,7 +508,7 @@ class SmarAct(Controller):
             axis.channel.stop()
         else:
             self.command("S")
-        log_debug(self, "%r sent stop", axis.name)
+        log_debug(self, "{0} sent stop".format(axis.name))
 
     #    def stop_all(self, *motion_list):
     #        # TODO: only stop all if motion moves all existing channels

@@ -154,7 +154,7 @@ class TypingHelper(object):
             text = text[:-1]
 
         # Go to end of buffer before to insert parenthesis.
-        if repl.default_buffer._Buffer__cursor_position != len(text):
+        if repl.default_buffer._Buffer__cursor_position < len(text):
             repl.default_buffer._set_cursor_position(len(text))
 
         try:

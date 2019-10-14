@@ -180,19 +180,30 @@ class Scan(qt.QObject, _Sealable):
     def setCachedResult(self, obj: Any, result: Any):
         self.__cacheData[obj] = result
 
-    def hasCacheValidation(self, obj: Any, version: int):
+    def hasCacheValidation(self, obj: Any, version: int) -> bool:
+        """
+        Returns true if this version of the object was validated.
+        """
         result = self.__cacheMessage.get(obj, None)
         if result is None:
             return False
         if result[0] != version:
-            del self.__cacheMessage[obj]
             return False
         return True
 
     def setCacheValidation(self, obj: Any, version: int, result: Optional[str]):
+        """
+        Set the validation of a mutable object.
+        """
+        current = self.__cacheMessage.get(obj)
+        if current is not None and current[0] == version:
+            raise KeyError("Result already stored for this object version")
         self.__cacheMessage[obj] = (version, result)
 
-    def getCacheValidation(self, obj: Any, version: int):
+    def getCacheValidation(self, obj: Any, version: int) -> Optional[str]:
+        """
+        Returns None if the object was validated, else returns a message
+        """
         result = self.__cacheMessage[obj]
         if result[0] != version:
             raise KeyError("Version do not match")

@@ -135,8 +135,10 @@ class ScanManager:
                     data = scan_model.Data(channel, array)
                     channel.setData(data)
 
-                # FIXME: It have to be cleaned up somehow
-                scan._fireScanDataUpdated()
+                # The group name is the master device name
+                master_name = group_name
+                # FIXME: Should be fired by the Scan object (but here we have more informations)
+                scan._fireScanDataUpdated(masterDeviceName=master_name)
         else:
             channel = scan.getChannelByName(channel_name)
             if channel is None:
@@ -144,16 +146,15 @@ class ScanManager:
             else:
                 data = scan_model.Data(channel, raw_data)
                 channel.setData(data)
-                # FIXME: It have to be cleaned up somehow
-                # It have a strong influence on the update of all the plots (very bad)
-                scan._fireScanDataUpdated()
+                # FIXME: Should be fired by the Scan object (but here we have more informations)
+                scan._fireScanDataUpdated(channelName=channel.name())
 
     def end_scan(self, scan_info: Dict):
         assert self.__scan is not None
 
         scan = self.__scan
 
-        updated = False
+        updated_masters = set([])
         for group_name in self.__data_storage.groups():
             channels = self.__data_storage.get_channels_by_group(group_name)
             for channel_name in channels:
@@ -161,10 +162,12 @@ class ScanManager:
                 array = self.__data_storage.get_data(channel_name)
                 data = scan_model.Data(channel, array)
                 channel.setData(data)
-                updated = True
-        if updated:
-            # FIXME: It have to be cleaned up somehow
-            scan._fireScanDataUpdated()
+                updated_masters.add(group_name)
+        if len(updated_masters) > 0:
+            # FIXME: Should be fired by the Scan object (but here we have more informations)
+            for master_name in updated_masters:
+                # FIXME: This could be a single event
+                scan._fireScanDataUpdated(masterDeviceName=master_name)
 
         self.__data_storage.clear()
         self.__scan = None

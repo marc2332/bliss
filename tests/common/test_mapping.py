@@ -309,6 +309,7 @@ def test_global_map(beacon, s1hg, roby):
     assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
         ["controllers", "motion_hooks"]
     )
+    assert len(list(m.instance_iter("controllers"))) == 4
 
 
 def test_create_submap_1(complex_beamline):

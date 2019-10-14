@@ -473,7 +473,7 @@ class Session:
                     if item_node.plugin is None:
                         print(f"Initialized '{item_name}' with **default** plugin")
                     else:
-                        print(f"Initialized '{item_name}")
+                        print(f"Initialized '{item_name}'")
 
         for item_name, alias_cfg in self._aliases_info().items():
             alias_name = alias_cfg["alias_name"]

@@ -58,6 +58,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
     def __hash__(self):
         return hash(id(self))
 
+    def channel(self) -> Optional[scan_model.Channel]:
+        return self.__channel
+
     def setEnvironment(
         self, treeView: qt.QTreeView, flintState: flint_model.FlintState
     ):
@@ -337,20 +340,22 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         if self.__scan is scan:
             return
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.disconnect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
         self.__scan = scan
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.connect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
         self.__updateTree()
 
-    def __scanDataUpdated(self):
+    def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         model = self.__tree.model()
         flags = qt.Qt.MatchWildcard | qt.Qt.MatchRecursive
         items = model.findItems("*", flags)
+        channels = set(event.iterUpdatedChannels())
         # FIXME: This loop could be optimized
         for item in items:
             if isinstance(item, _DataItem):
-                item.updateError()
+                if item.channel() in channels:
+                    item.updateError()
 
     def __genScanTree(
         self,

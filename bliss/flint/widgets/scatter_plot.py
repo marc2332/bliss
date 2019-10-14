@@ -114,12 +114,12 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if self.__scan is scan:
             return
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.disconnect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
             self.__scan.scanStarted.disconnect(self.__scanStarted)
             self.__scan.scanFinished.disconnect(self.__scanFinished)
         self.__scan = scan
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.connect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
         self.__redrawAll()
@@ -134,8 +134,25 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __scanFinished(self):
         pass
 
-    def __scanDataUpdated(self):
-        self.__redrawAll()
+    def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
+        plotModel = self.__plotModel
+        if plotModel is None:
+            return
+        for item in plotModel.items():
+            if not isinstance(item, plot_item_model.ScatterItem):
+                continue
+            if not item.isValid():
+                continue
+            # Create an API to return the involved channel names
+            xName = item.xChannel().name()
+            yName = item.yChannel().name()
+            valueName = item.valueChannel().name()
+            if (
+                event.isUpdatedChannelName(xName)
+                or event.isUpdatedChannelName(yName)
+                or event.isUpdatedChannelName(valueName)
+            ):
+                self.__updateItem(item)
 
     def __cleanAll(self):
         for _item, itemKeys in self.__items.items():

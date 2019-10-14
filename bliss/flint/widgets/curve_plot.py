@@ -118,13 +118,13 @@ class CurvePlotWidget(ExtendedDockWidget):
         if self.__scan is scan:
             return
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.disconnect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
             self.__scan.scanStarted.disconnect(self.__scanStarted)
             self.__scan.scanFinished.disconnect(self.__scanFinished)
             self.__cleanScanIfNeeded(self.__scan)
         self.__scan = scan
         if self.__scan is not None:
-            self.__scan.scanDataUpdated.connect(self.__scanDataUpdated)
+            self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
             self.__redrawScan(self.__scan)
@@ -150,8 +150,22 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __scanFinished(self):
         pass
 
-    def __scanDataUpdated(self):
-        self.__redrawCurrentScan()
+    def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
+        scan = self.__scan
+        if scan is None:
+            return
+        plotModel = self.__plotModel
+        if plotModel is None:
+            return
+        for item in plotModel.items():
+            if isinstance(item, plot_item_model.CurveItem):
+                if item.isValid():
+                    xName = item.xChannel().name()
+                    yName = item.yChannel().name()
+                    if event.isUpdatedChannelName(xName) or event.isUpdatedChannelName(
+                        yName
+                    ):
+                        self.__updatePlotItem(item, scan)
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

@@ -11,6 +11,7 @@ from typing import List
 from typing import Iterator
 from typing import Dict
 from typing import Any
+from typing import Set
 
 import logging
 import numpy
@@ -37,13 +38,61 @@ class _Sealable:
         return self.__isSealed
 
 
+class ScanDataUpdateEvent:
+    def __init__(
+        self,
+        scan: Scan,
+        masterDevice: Optional[Device] = None,
+        channel: Optional[Channel] = None,
+    ):
+        self.__masterDevice = masterDevice
+        self.__channel = channel
+        self.__scan = scan
+        self.__channelNames: Optional[Set[str]] = None
+
+    def updatedChannelNames(self) -> Set[str]:
+        if self.__channelNames is None:
+            channelNames = {c.name() for c in self.iterUpdatedChannels()}
+            self.__channelNames = channelNames
+        return self.__channelNames
+
+    def isUpdatedChannelName(self, channelName: str) -> bool:
+        foo = self.updatedChannelNames()
+        return channelName in foo
+
+    def isEverythingUpdated(self) -> bool:
+        if self.__masterDevice is not None:
+            return False
+        return True
+
+    def iterUpdatedDevices(self):
+        if self.__channel is not None:
+            yield self.__channel.device()
+            return
+        for device in self.__scan.devices():
+            if self.__masterDevice is not None:
+                if device is not self.__masterDevice:
+                    # FIXME: master() is not accurate. It could be a sub-master
+                    if device.master() is not self.__masterDevice:
+                        continue
+            yield device
+
+    def iterUpdatedChannels(self):
+        if self.__channel is not None:
+            yield self.__channel
+            return
+        for device in self.iterUpdatedDevices():
+            for channel in device.channels():
+                yield channel
+
+
 class Scan(qt.QObject, _Sealable):
 
     scanStarted = qt.Signal()
     scanSuccessed = qt.Signal()
     scanFailed = qt.Signal()
     scanFinished = qt.Signal()
-    scanDataUpdated = qt.Signal()
+    scanDataUpdated = qt.Signal([], [ScanDataUpdateEvent])
 
     def __init__(self, parent=None):
         qt.QObject.__init__(self, parent=parent)
@@ -77,9 +126,32 @@ class Scan(qt.QObject, _Sealable):
             raise ValueError("Already in the device list")
         self.__devices.append(device)
 
-    def _fireScanDataUpdated(self):
+    def getDeviceByName(self, name: str) -> Device:
+        for device in self.__devices:
+            if device.name() == name:
+                return device
+        raise ValueError("Device %s not found." % name)
+
+    def _fireScanDataUpdated(
+        self, channelName: str = None, masterDeviceName: str = None
+    ):
         self.__cacheData = {}
         self.__cacheMessage = {}
+
+        if masterDeviceName is None and channelName is None:
+            # Propagate the event to all the channels of the this scan
+            event = ScanDataUpdateEvent(self)
+        elif masterDeviceName is not None:
+            # Propagate the event to all the channels contained on this device (recursively)
+            device = self.getDeviceByName(masterDeviceName)
+            event = ScanDataUpdateEvent(self, masterDevice=device)
+        elif channelName is not None:
+            # Propagate the event to a single channel
+            channel = self.getChannelByName(channelName)
+            event = ScanDataUpdateEvent(self, channel=channel)
+        else:
+            assert False
+        self.scanDataUpdated[ScanDataUpdateEvent].emit(event)
         self.scanDataUpdated.emit()
 
     def __cacheChannels(self, device: Device):

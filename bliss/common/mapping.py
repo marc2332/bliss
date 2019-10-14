@@ -270,9 +270,12 @@ class Map:
                     inst_ref = self.G.node.get(node_id)["instance"]
                 except KeyError:
                     continue
-                inst = inst_ref()
-                if inst:
-                    yield inst
+                if isinstance(inst_ref, str):
+                    yield from self.instance_iter(inst_ref)
+                else:
+                    inst = inst_ref()
+                    if inst:
+                        yield inst
 
     def trigger_update(self):
         """

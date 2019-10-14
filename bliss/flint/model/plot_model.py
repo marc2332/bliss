@@ -124,11 +124,7 @@ class NotStored:
 
 
 class ChannelRef(qt.QObject):
-
-    currentScanDataUpdated = qt.Signal()
-
-    def __init__(self, parent=None, channelName=None, scanName=None):
-        # FIXME Check the real need of this scanName
+    def __init__(self, parent=None, channelName=None):
         super(ChannelRef, self).__init__(parent=parent)
         self.__channelName = channelName
 
@@ -145,10 +141,6 @@ class ChannelRef(qt.QObject):
 
     def __setstate__(self, state):
         self.__channelName = state[0]
-
-    def _fireCurrentScanDataUpdated(self):
-        """"""
-        self.currentScanDataUpdated.emit()
 
     def name(self) -> str:
         return self.__channelName

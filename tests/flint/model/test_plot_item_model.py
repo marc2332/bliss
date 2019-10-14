@@ -1,4 +1,4 @@
-"""Testing Flint model."""
+"""Testing plot item model."""
 
 import numpy
 from silx.gui import qt

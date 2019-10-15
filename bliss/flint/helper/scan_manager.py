@@ -59,6 +59,9 @@ class ScanManager:
         manager.updateScanAndPlots(scan, plots)
         self.__scan = scan
 
+        scan._setState(scan_model.ScanState.PROCESSING)
+        scan.scanStarted.emit()
+
         self._end_scan_event.clear()
 
     def new_scan_child(self, scan_info, data_channel):
@@ -170,6 +173,10 @@ class ScanManager:
                 scan._fireScanDataUpdated(masterDeviceName=master_name)
 
         self.__data_storage.clear()
+
+        scan._setState(scan_model.ScanState.FINISHED)
+        scan.scanFinished.emit()
+
         self.__scan = None
         self._end_scan_event.set()
 

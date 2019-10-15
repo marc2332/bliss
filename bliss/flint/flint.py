@@ -149,6 +149,9 @@ class Flint:
         self._qt_redis_connection = connection.create_redis_connection(address=address)
         self.set_title()
 
+    def get_flint_model(self):
+        return self.__flintModel
+
     def get_scan_manager(self):
         return self.__scanManager
 
@@ -169,6 +172,7 @@ class Flint:
 
         flintModel = flint_model.FlintState()
         flintModel.setLiveWindow(window)
+        flintModel.setFlintApi(self)
 
         manager = ManageMainBehaviours(flintModel)
         manager.setFlintModel(flintModel)
@@ -661,6 +665,7 @@ def main():
         from bliss.flint.simulator.simulator_widget import SimulatorWidget
 
         display = SimulatorWidget(flint.mainwin)
+        display.setFlintModel(flint.get_flint_model())
         simulator = AcquisitionSimulator(display)
         scanManager = flint.get_scan_manager()
         simulator.setScanManager(scanManager)

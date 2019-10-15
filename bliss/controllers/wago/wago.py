@@ -23,7 +23,7 @@ from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
 from bliss.common.logtools import *
-from bliss.common.measurement import SamplingCounter
+from bliss.common.measurement import SamplingCounter, counter_namespace
 from bliss.controllers.wago.helpers import splitlines, to_signed
 
 
@@ -1837,7 +1837,7 @@ class Wago:
         counters_list = []
         for cnt_name in self.cnt_names:
             counters_list.append(getattr(self, cnt_name))
-        return counters_list
+        return counter_namespace(counters_list)
 
     def _cntread(self, acq_time=None):
         if len(self.cnt_names) == 1:

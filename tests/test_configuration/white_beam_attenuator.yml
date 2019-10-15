@@ -1,0 +1,5 @@
+name: wba
+plugin: bliss
+class:  WhiteBeamAttenuator
+attenuators:
+  - attenuator: $att1

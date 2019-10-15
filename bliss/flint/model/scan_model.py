@@ -109,6 +109,12 @@ class ScanDataUpdateEvent:
                 yield channel
 
 
+class ScanState(enum.Enum):
+    INITIALIZED = 0
+    PROCESSING = 1
+    FINISHED = 2
+
+
 class Scan(qt.QObject, _Sealable):
     """Description of the scan object.
 
@@ -151,6 +157,15 @@ class Scan(qt.QObject, _Sealable):
         self.__cacheData: Dict[Any, Any] = {}
         self.__cacheMessage: Dict[Any, Any] = {}
         self.__scanInfo = {}
+        self.__state = ScanState.INITIALIZED
+
+    def _setState(self, state: ScanState):
+        """Private method to set the state of the scan."""
+        self.__state = state
+
+    def state(self) -> ScanState:
+        """Returns the state of the scan."""
+        return self.__state
 
     def seal(self):
         self.__channels = {}

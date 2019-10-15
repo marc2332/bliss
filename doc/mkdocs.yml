@@ -98,6 +98,7 @@ nav:
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
                 - Data saving: scan_saving.md
+                - Metadata: scan_metadata.md
                 - Counters on the fly: scan_ctmg.md
                 - BLISS scan engine explained:
                     - Overview: scan_engine.md

@@ -26,7 +26,7 @@ from bliss.controllers.wago.helpers import (
     pretty_float,
 )
 from bliss.controllers.wago.wago import (
-    BlissWago,
+    TangoWago,
     ModulesConfig,
     WagoController,
     get_module_info,
@@ -804,7 +804,7 @@ def interlock_compare(int_list_1, int_list_2):
 
 
 def interlock_download(
-    wago: Union[tango.DeviceProxy, BlissWago], modules_config: ModulesConfig
+    wago: Union[TangoWago, WagoController], modules_config: ModulesConfig
 ):
     """Downloads interlock configuration from wago
 
@@ -892,7 +892,7 @@ def interlock_download(
     return interlock_list
 
 
-def interlock_purge(wago: WagoController):
+def interlock_purge(wago: Union[TangoWago, WagoController]):
     """Purges all interlocks available into a PLC"""
     log_info(wago, f"Interlock: Uploading interlock on Wago {wago.client.host}")
 
@@ -909,7 +909,7 @@ def interlock_purge(wago: WagoController):
         imsk >>= 1
 
 
-def interlock_upload(wago: WagoController, interlock_list: list):
+def interlock_upload(wago: Union[TangoWago, WagoController], interlock_list: list):
     """
     Upload a list of interlocks on Wago
 

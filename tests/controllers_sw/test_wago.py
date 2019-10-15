@@ -1,5 +1,5 @@
-import pytest
 import re
+import pytest
 
 from bliss.comm.modbus import ModbusTcp, ModbusError
 
@@ -9,7 +9,7 @@ from bliss.controllers.wago.helpers import (
     wordarray_to_bytestring,
 )
 
-from bliss.controllers.wago.wago import BlissWago, WagoController, ModulesConfig
+from bliss.controllers.wago.wago import WagoController, ModulesConfig
 from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
@@ -253,7 +253,7 @@ def test_wago_modbus_simulator(wago_mockup):
 750-469, psTr3, psTr4
 750-517, intlcka1, intlcka2
 750-517, intlcka3, intlcka4
-750-479, gabsP1
+750-556, gabsP1
     """
 
     from bliss.comm.util import get_comm
@@ -264,8 +264,16 @@ def test_wago_modbus_simulator(wago_mockup):
         modules_config = ModulesConfig(mapping)
 
     modules_config = ModulesConfig(mapping, ignore_missing=True)
-    wago = BlissWago(comm, modules_config)
+    wago = WagoController(comm, modules_config)
     wago.connect()
+    wago.set("intlcka1", 1, "intlcka2", 0)
+    wago.get("intlcka1", "intlcka2") == (True, False)
+    wago.set("intlcka1", 0, "intlcka2", 1)
+    wago.get("intlcka1", "intlcka2") == (False, True)
+    value = wago.get("gabsP1")
+    assert value == wago.get("gabsP1")  # check if is the same value
+    new_value = value + 1
+    assert wago.set("gabsP1", new_value) != wago.get("gabsP1")
 
     names = "gabsTf1 gabsTf2 gabsTf3 gabsTf4 gabsTr1 gabsTr2 gabsTr3 gabsTr4 sabsT1 sabsT2 sabsT3 sabsT4 psTf1 psTf2 psTf3 psTf4 psTr1 psTr2 psTr3 psTr4 intlcka1 intlcka2 intlcka3 intlcka4 gabsP1"
 

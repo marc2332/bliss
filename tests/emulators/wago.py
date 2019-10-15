@@ -16,7 +16,7 @@ from bliss.controllers.wago.helpers import remove_comments, splitlines
 from tests.conftest import get_open_ports
 
 
-def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=True):
+def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=False):
     """
     Creates a synchronous modbus server serving 2 different memory areas
      * coils and inputs for boolean values
@@ -28,6 +28,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
     Args:
         modules (str): list of modules E.G. "750-469","750-517"
                        NOTE: the first one should be a CPU like "750-842"
+        randomize_values: if True it will randomize values at each read
 
     Example:
         >>> modules = "750-842 750-469 750-469 750-469 750-469 750-469 750-469 750-469 750-469 750-469 750-517 750-517 750-479"
@@ -47,13 +48,17 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
     def random_word():
         return random.randrange(65535)
 
-    regs_io_boolean = defaultdict(random_bit)  # initialize at a random value
+    regs_io_boolean_input = defaultdict(random_bit)  # initialize at a random value
+    regs_io_boolean_output = defaultdict(random_bit)  # initialize at a random value
 
     regs_word = defaultdict(
         int
     )  # modbus input registers and holding registers shares the same area
 
-    regs_io_words = defaultdict(
+    regs_io_words_input = defaultdict(
+        random_word
+    )  # modbus input registers and holding registers shares the same area
+    regs_io_words_output = defaultdict(
         random_word
     )  # modbus input registers and holding registers shares the same area
 
@@ -329,7 +334,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if randomize_values:
             return bool(random.getrandbits(1))
         else:
-            return regs_io_boolean[address]
+            return regs_io_boolean_input[address]
 
     # First 512 digital outputs
     @app.route(
@@ -339,7 +344,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if randomize_values:
             return bool(random.getrandbits(1))
         else:
-            return regs_io_boolean[address]
+            return regs_io_boolean_output[address - 512]
 
     @app.route(
         slave_ids=slave_ids, function_codes=[5, 15], addresses=list(range(0, 1024))
@@ -348,10 +353,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if address > 511:
             # registers starting at 512 are a duplication
             address -= 512
-        if randomize_values:
-            return bool(random.getrandbits(1))
-        else:
-            return regs_io_boolean[address]
+        regs_io_boolean_output[address] = value
 
     ###### ANALOG IN/OUT ######
 
@@ -362,7 +364,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if randomize_values:
             return random.randrange(65535)
         else:
-            return regs_io_words[address]
+            return regs_io_words_input[address]
 
     # First 512 digital outputs
     @app.route(
@@ -372,7 +374,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if randomize_values:
             return random.randrange(65535)
         else:
-            return regs_io_words[address - 512]
+            return regs_io_words_output[address - 512]
 
     @app.route(
         slave_ids=slave_ids,
@@ -383,16 +385,13 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         if address > 511:
             # registers starting at 512 are a duplication
             address -= 512
-        if randomize_values:
-            return random.randrange(65535)
-        else:
-            return regs_io_words[address - 512]
+        regs_io_words_output[address] = value
 
     return app
 
 
 class WagoMockup:
-    def __init__(self, modules_config: ModulesConfig):
+    def __init__(self, modules_config: ModulesConfig, randomize_values=False):
         """creates a wago simulator threaded instance based on a given mapping"""
 
         # creating a ModulesConfig to retrieve mapping
@@ -400,7 +399,9 @@ class WagoMockup:
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
-        self.app = Wago((self.host, self.port), modules=modules)
+        self.app = Wago(
+            (self.host, self.port), modules=modules, randomize_values=randomize_values
+        )
 
         def serve():
             while getattr(self.app, "do_run", True):

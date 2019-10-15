@@ -25,6 +25,8 @@
         logical_names: esTr3, esTr4
       - type: 750-517
         logical_names: intlckf1, intlckf2
+      - type: 750-554
+        logical_names: o10v1, o10v2
   counter_names: esTr1, esTr2
   interlocks:
       - relay: intlckf1

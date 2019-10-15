@@ -15,6 +15,7 @@ import collections
 from enum import Enum
 
 from prompt_toolkit import print_formatted_text, HTML
+from tabulate import tabulate
 
 import tango
 
@@ -22,6 +23,7 @@ import bliss.common.measurement
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
+from bliss.comm.util import get_comm
 from bliss.common.logtools import *
 from bliss.common.measurement import SamplingCounter, counter_namespace
 from bliss.controllers.wago.helpers import splitlines, to_signed
@@ -32,13 +34,18 @@ EXPLANATION AND NAMING CONVENTION
 
 PHYSICAL MAPPING
 
-Every Wago PLC is normally assembled with a central unit (Wago PLC Ethernet/IP type 750-842) plus a variable numbers of addons as needed.
-Addon modules usually has one or more input/output that can be plugged to the outside world.
+Every Wago PLC is normally assembled with a central unit (Wago PLC Ethernet/IP type
+750-842) plus a variable numbers of addons as needed.
+Addon modules usually has one or more input/output that can be plugged to the outside
+world.
 
 Naming Convention:
 
- * PHYSICAL_MODULES: (int) hardware modules with I/O that you physically compose to obtain the physical configuration, we will number them from 0 (first hardware module) to n.
- * PHYSICAL_CHANNELS: (int) I/O inside one PHYSICAL_MODULE, we will number them from 0 (first channel) to n.
+ * PHYSICAL_MODULES: (int) hardware modules with I/O that you physically compose to
+obtain the physical configuration, we will number them from 0 (first hardware module)
+to n.
+ * PHYSICAL_CHANNELS: (int) I/O inside one PHYSICAL_MODULE, we will number them from 0
+(first channel) to n.
 
 EXAMPLE
 
@@ -90,9 +97,10 @@ Example taken from a configuration:
         foh2ctrl has 4 logical channel from 0 to 3, they are situated in the
                  physical module n.0 respectively on physical channels from 0 to 3
         foh2pos has 4 logical channel from 0 to 1, two logical channels are situated
-                on physical module n.1 (channels n.0 and n.2) and two are
-                situated on physical module n.2 (channels n.0 and n.2)
-        sain2 has 2 logical channels situated on physical module n.1 on channels n.1 and n.3
+                on physical module n.1 (channels n.0 and n.2) and two are situated
+                on physical module n.2 (channels n.0 and n.2)
+        sain2 has 2 logical channels situated on physical module n.1 on channels n.1
+              and n.3
         sain6 has 1 logical channel situated on physical module n.2 on channel n.1
         sain8 has 1 logical channel situated on physical module n.2 on channel n.3
 
@@ -100,7 +108,7 @@ Example taken from a configuration:
 """
 
 
-WAGO_CONTROLLERS = {}
+WAGO_COMMS = {}
 
 
 DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT, N_CHANNELS, READING_TYPE, DESCRIPTION, READING_INFO, WRITING_INFO = (
@@ -258,40 +266,50 @@ for module_name, module_info in MODULES_CONFIG.items():
         reading_info["bits"] = 16
 
 
-def BlissWago(comm, modules_config):
-    """Return WagoController instance, unique for a particular host"""
+def get_bliss_comm(conf):
+    """Return comm instance, unique for a particular host"""
 
+    comm = get_comm(conf)  # this will only setup, not connect
     with gevent.Timeout(3):
         host = comm.host
         port = comm.port
         fqdn = socket.getfqdn(host)
 
     try:
-        wc = WAGO_CONTROLLERS[f"{fqdn}:{port}"]
+        singleton = WAGO_COMMS[f"{fqdn}:{port}"]
     except KeyError:
-        wc = WagoController(comm, modules_config)
-        WAGO_CONTROLLERS[f"{fqdn}:{port}"] = wc
+        singleton = comm
+        WAGO_COMMS[f"{fqdn}:{port}"] = singleton
 
-    return wc
+    return comm
 
 
 class TangoWago:
-    def __init__(self, tango_url, modules_config):
+    def __init__(self, comm, modules_config):
         """
         Bridge beetween Wago `user` class and
         a tango Device Server
         """
-        self.tango_url = tango_url
+        self.comm = comm
         self.modules_config = modules_config
-        self._proxy = tango.DeviceProxy(tango_url)
+
+        global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
 
     def get(self, *args, **kwargs):
         values = []
         for name in args:
             key = self.modules_config.devname2key(name)
-            val = self._proxy.command_inout("DevReadNoCachePhys", key)
+            val = self.comm.command_inout("DevReadNoCachePhys", key)
             values.append(val)
         return flatten(values)
+
+    def connect(self):
+        """Added for compatibility"""
+        pass
+
+    def close(self):
+        """Added for compatibility"""
+        pass
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
@@ -324,10 +342,13 @@ class TangoWago:
             for channel, val in enumerate(flatten(values)):
                 array.extend([channel, val])
             # logical_device_key, than pairs of channel,values
-            self._proxy.command_inout("devwritephys", array)
+            self.comm.command_inout("devwritephys", array)
 
     def __getattr__(self, attr):
-        return getattr(self._proxy, attr)
+        if attr.startswith("dev"):
+            return getattr(self.comm, attr)
+        else:
+            raise AttributeError
 
 
 class ModulesConfig:
@@ -886,14 +907,14 @@ class WagoController:
         self.coupler = False
 
         self.lock = gevent.lock.Semaphore()
-        global_map.register(self, tag=f"Engine")
+        global_map.register(self, tag=f"Engine", children_list=[comm])
 
     def connect(self):
         """ Connect to the wago. Check if we have a coupler or a controller.
         In case of controller get the firmware version and firmware date.
         """
         with self.lock:
-            log_debug(self, "In connect of wago")
+            log_debug(self, "In connect")
             # check if we have a coupler or a controller
             self.series = self.client.read_input_registers(0x2011, "H")
 
@@ -1175,7 +1196,7 @@ class WagoController:
                         + channel_index
                     )
                     writing_type = module_info[READING_TYPE]
-                    if writing_type == "fs":
+                    if writing_type.startswith("fs"):
                         write_value = self._write_fs(
                             value2write, **module_info[READING_INFO]
                         )
@@ -1451,7 +1472,6 @@ class WagoController:
 
         >>> mapping = "750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl\n750-408,2 foh2pos, sain2, foh2pos, sain4\n750-408, foh2pos, sain6, foh2pos, sain8"
         >>> wago = WagoController("wcdp3")
-        >>> wago.set_mapping(mapping)
 
         >>> wago.devlog2hard((0,2)) # gives the third channel with the name foh2ctrl
 
@@ -1671,19 +1691,20 @@ class Wago:
                 self.cnt_dict[nam] = i
                 add_property(self, nam, WagoCounter(nam, self, i))
 
-        from bliss.comm.util import get_comm
-
         # instantiating comm and controller class
-        if config_tree["modbustcp"]["url"].startswith("tango://"):
-            tango_url = config_tree["modbustcp"]["url"]
+        if config_tree.get("tango"):
+            try:
+                comm = get_comm(config_tree)
+            except Exception as exc:
+                log_exception(self, "Can't connect to tango host")
+                raise
             if not len(self.modules_config.attached_modules):
                 # if no config is provided for DeviceProxy get tango property
-                mapping = tango.DeviceProxy(tango_url).get_property("config")["config"]
+                mapping = comm.get_property("config")["config"]
                 self.modules_config = ModulesConfig.from_tango_config(mapping)
-            self.controller = TangoWago(tango_url, self.modules_config)
+            self.controller = TangoWago(comm, self.modules_config)
 
         elif config_tree.get("simulate"):
-
             # launch the simulator
             from tests.conftest import get_open_ports
             from tests.emulators.wago import WagoMockup
@@ -1691,16 +1712,21 @@ class Wago:
             self.__mockup = WagoMockup(self.modules_config)
             # create the comm
             conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
-            comm = get_comm(conf)
-            self.controller = BlissWago(comm, self.modules_config)
+            comm = get_bliss_comm(conf)
+            self.controller = WagoController(comm, self.modules_config)
             self.controller.connect()
 
         else:
-            comm = get_comm(config_tree)
-            self.controller = BlissWago(comm, self.modules_config)
+            comm = get_bliss_comm(config_tree)
+            self.controller = WagoController(comm, self.modules_config)
             self.controller.connect()
 
-        global_map.register(self, parents_list=["wago"], tag=f"Wago({self.name})")
+        global_map.register(
+            self,
+            parents_list=["wago"],
+            children_list=[self.controller],
+            tag=f"Wago({self.name})",
+        )
 
         from bliss.controllers.wago.interlocks import beacon_interlock_parsing
 
@@ -1713,17 +1739,15 @@ class Wago:
             pass
 
     def __info__(self):
-        """
-        Returns:
-            (tuple): names of logical keys
-        """
         mapping = [
             (k, len(ch)) for k, ch in self.modules_config.logical_mapping.items()
         ]
-        repr_ = "Wago PLC\n"
+        tab = [["logical device", "num of channel", "module_type", "description"]]
         for k, l in mapping:
-            repr_ += f"logical device {k} has {l} channels\n"
-        return repr_
+            module_type = self.modules_config.logical_mapping[k][0].module_type
+            description = get_module_info(module_type).description
+            tab.append([k, l, module_type, description])
+        return tabulate(tab, headers="firstrow", stralign="center")
 
     def close(self):
         self.controller.close()
@@ -1818,8 +1842,6 @@ class Wago:
     def set(self, *args, **kwargs):
         if not self._safety_check(*args):
             return
-        if self.controller is None:
-            self.connect()
         return self.controller.set(*args, **kwargs)
 
     @synchronized()

@@ -41,6 +41,7 @@ nav:
                       - Multiple positions: config_mp.md
                       - Slits: config_slits.md
                       - Energy and Wavelength: config_enwl.md
+                      - White beam Attenuator: config_wba.md
                       - 2D detectors (Lima): config_lima.md
                       - MCA:
                             - General: config_mca.md

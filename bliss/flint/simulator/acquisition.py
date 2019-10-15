@@ -41,6 +41,7 @@ class AcquisitionSimulator(qt.QObject):
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__scan: Optional[scan_model.Scan] = None
         self.__scan_manager: Optional[scan_manager.ScanManager] = None
+        self.__scanNb = 0
         self.__tick: int = 0
         self.__duration: int = 0
         self.__interval: int = 0
@@ -61,7 +62,18 @@ class AcquisitionSimulator(qt.QObject):
         self.__tick = 0
         self.__duration = duration
         self.__interval = interval
-        self.__scan_info = {"acquisition_chain": {}, "title": "foo", "scan_nb": 0}
+        durationSecond = (duration / 1000) * 2
+        self.__scan_info = {
+            "acquisition_chain": {},
+            "title": "foo",
+            "scan_nb": self.__scanNb,
+            "estimation": {
+                "total_motion_time": durationSecond / 2,
+                "total_count_time": durationSecond / 2,
+                "total_time": durationSecond,
+            },
+        }
+        self.__scanNb += 1
 
         scan = self.__createScan(interval, duration, name)
         self.__scan = scan

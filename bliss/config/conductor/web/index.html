@@ -546,7 +546,10 @@
       $(function() {
 
         /* initialize tooltips */
-        /* $('[data-toggle="tooltip"]').tooltip() */
+        $('[data-toggle="tooltip"]').tooltip({
+          delay: { "show": 500, "hide": 0 },
+          container: 'body'
+        })
 
         /* initialize tabs */
         $('#tab-buttons a').click(function (e) {

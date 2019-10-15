@@ -3,16 +3,10 @@
 # This file is part of the bliss project
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
-
-# -*- coding: utf-8 -*-
-
-# This file is part of the bliss project
-#
-# Copyright (c) 2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-The ESRF white beam attenuators are Icepap driven coper poles with sevaral
+The ESRF white beam attenuators are motor driven coper poles with sevaral
 holes/filters.
 Each attenuator pole has positive/negative limit switch and a home switch
 active for each filter. The configuration procedure tries to find
@@ -23,6 +17,7 @@ Example YAML_ configuration:
 
   name: wba
   plugin: bliss
+  class: WhiteBeamAttenuator
   attenuators:
     - attenuator: $wba_Al
     - attenuator: $wba_Mo
@@ -35,7 +30,7 @@ from bliss.common.utils import grouped
 
 
 class WhiteBeamAttenuator:
-    """Methods to control the Icepap White Beam Attenuator."""
+    """Methods to control White Beam Attenuator."""
 
     def __init__(self, name, config):
         self.attenuators = config.get("attenuators")
@@ -53,7 +48,7 @@ class WhiteBeamAttenuator:
                 return self.attenuators.index(attenuator)
         return None
 
-    def _find_home_size(self, motor, step=None):
+    def find_home_size(self, motor, step=None):
         """Procedure to find the size of the filter - home switch is active.
            Move the motor until the home switch is no more active.
         Args:
@@ -95,8 +90,8 @@ class WhiteBeamAttenuator:
         motor.position = 0
         motor.dial = 0
 
-        for pos in self.attenuators[idx]["attenuator"]._positions_list:
-            size = self._find_home_size(motor)
+        for pos in self.attenuators[idx]["attenuator"].positions_list:
+            size = self.find_home_size(motor)
             motor.rmove(-size / 2)
             new_position[pos["label"]] = motor.position
             print(

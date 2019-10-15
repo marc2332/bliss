@@ -72,14 +72,22 @@ class FlintState(qt.QObject):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace: Workspace = None
         self.__currentScan: scan_model.Scan = None
+        # FIXME: widget should be weakref
         self.__liveWindow = None
         self.__propertyWidget = None
+        self.__liveStatusWidget = None
 
     def setLiveWindow(self, window: qt.QMainWindow):
         self.__liveWindow = window
 
     def liveWindow(self) -> qt.QMainWindow:
         return self.__liveWindow
+
+    def setLiveStatusWidget(self, widget: qt.QWidget):
+        self.__liveStatusWidget = widget
+
+    def liveStatusWidget(self) -> qt.QWidget:
+        return self.__liveStatusWidget
 
     def setPropertyWidget(self, propertyWidget: qt.QWidget):
         propertyWidget.setObjectName("property-widget")

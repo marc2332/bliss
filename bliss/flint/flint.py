@@ -49,6 +49,7 @@ from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
+from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.helper import scan_manager
 from bliss.flint.model import flint_model
@@ -150,7 +151,7 @@ class Flint:
         return self.__scanManager
 
     def __create_flint_model(self):
-        window = self.new_tab("Live scan", qt.QMainWindow)
+        window: qt.QMainWindow = self.new_tab("Live scan", qt.QMainWindow)
         window.setObjectName("scan-window")
         window.setDockNestingEnabled(True)
         window.setDockOptions(
@@ -171,12 +172,23 @@ class Flint:
         manager.setFlintModel(flintModel)
         self.__manager = manager
 
+        scanStatusWidget = ScanStatus(window)
+        scanStatusWidget.setFlintModel(flintModel)
+        scanStatusWidget.setFeatures(
+            scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        flintModel.setLiveStatusWidget(scanStatusWidget)
+        window.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
+
         propertyWidget = MainPropertyWidget(window)
         propertyWidget.setFeatures(
             propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
         )
         flintModel.setPropertyWidget(propertyWidget)
-        window.addDockWidget(qt.Qt.LeftDockWidgetArea, propertyWidget)
+        window.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
+
+        size = scanStatusWidget.sizeHint()
+        scanStatusWidget.setFixedHeight(size.height())
         return flintModel
 
     def _manager(self) -> ManageMainBehaviours:

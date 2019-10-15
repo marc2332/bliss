@@ -131,7 +131,7 @@ class ScanStatus(ExtendedDockWidget):
         if now > self.__end:
             percent = 100
         self.__widget.process.setValue(percent)
-        remaining = stringutils.human_readable_duration(seconds=round(remaining + 1))
+        remaining = stringutils.human_readable_duration(seconds=round(remaining))
         self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
 
     def __scanStarted(self):

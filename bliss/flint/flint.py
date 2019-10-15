@@ -305,8 +305,8 @@ class Flint:
         self.parent_tab.addTab(widget, label)
         return widget
 
-    def run_method(self, key, method, args, kwargs):
-        plot = self.plot_dict[key]
+    def run_method(self, plot_id, method, args, kwargs):
+        plot = self._get_plot_widget(plot_id)
         method = getattr(plot, method)
         return method(*args, **kwargs)
 
@@ -326,7 +326,7 @@ class Flint:
         return plot_id
 
     def get_plot_name(self, plot_id):
-        parent = self.plot_dict[plot_id].parent()
+        parent = self._get_plot_widget(plot_id).parent()
         if isinstance(parent, qt.QMdiArea):
             label = parent.windowTitle()
         else:
@@ -342,7 +342,7 @@ class Flint:
         plot.close()
 
     def get_interface(self, plot_id):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         names = dir(plot)
         with ignore_warnings():
             return [
@@ -358,7 +358,7 @@ class Flint:
         FIXME: It have to be moved to user preferences
         """
         try:
-            self.plot_dict[plot_id]._backend.fig.set_dpi(dpi)
+            self._get_plot_widget(plot_id)._backend.fig.set_dpi(dpi)
         except Exception:
             # Prevent access to private _backend object
             pass
@@ -378,7 +378,7 @@ class Flint:
             return self.data_dict[plot_id].get(field, [])
 
     def select_data(self, plot_id, method, names, kwargs):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         # Hackish legend handling
         if "legend" not in kwargs and method.startswith("add"):
             kwargs["legend"] = " -> ".join(names)
@@ -389,19 +389,22 @@ class Flint:
         method(*args, **kwargs)
 
     def deselect_data(self, plot_id, names):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         legend = " -> ".join(names)
         plot.remove(legend)
 
     def clear_data(self, plot_id):
         del self.data_dict[plot_id]
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         plot.clear()
+
+    def _get_plot_widget(self, plot_id):
+        return self.plot_dict[plot_id]
 
     # User interaction
 
     def select_shapes(self, plot_id, initial_shapes=(), timeout=None):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         dock = self._create_roi_dock_widget(plot, initial_shapes)
         roi_widget = dock.widget()
         done_event = gevent.event.AsyncResult()
@@ -449,7 +452,7 @@ class Flint:
 
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         selector = cls(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)

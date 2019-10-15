@@ -28,6 +28,8 @@ from bliss.config.conductor.client import (
     clean_all_redis_connection,
 )
 import bliss.flint.resources
+from bliss.flint.model import plot_item_model
+from bliss.flint.helper import model_helper
 
 try:
     from bliss.flint import poll_patch
@@ -291,9 +293,38 @@ class Flint:
         )
         ev.wait(timeout=3)
 
-    def get_live_scan_plot(self, master, plot_type, index):
-        # FIXME: It is broken and should not be used
-        raise Exception("get_live_scan_plot API is not available")
+    def get_live_scan_plot(self, channel_name, plot_type):
+        assert plot_type in ["scatter", "image", "curve", "mca"]
+
+        plot_class = {
+            "scatter": plot_item_model.ScatterPlot,
+            "image": plot_item_model.ImagePlot,
+            "mca": plot_item_model.McaPlot,
+            "curve": plot_item_model.CurvePlot,
+        }[plot_type]
+
+        scan = self.__flintModel.currentScan()
+        if scan is None:
+            raise Exception("No scan displayed")
+
+        channel = scan.getChannelByName(channel_name)
+        if channel is None:
+            raise Exception(
+                "The channel '%s' is not part of the current scan" % channel_name
+            )
+
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            plot = widget.plotModel()
+            if plot is None:
+                continue
+            if not isinstance(plot, plot_class):
+                continue
+            if model_helper.isChannelDisplayedAsValue(plot, channel):
+                return f"live:{iwidget}"
+
+        # FIXME: Here we could create a specific plot
+        raise Exception("The channel '%s' is not part of any plots" % channel_name)
 
     def wait_end_of_scan(self):
         self.__scanManager.wait_end_of_scan()
@@ -399,6 +430,24 @@ class Flint:
         plot.clear()
 
     def _get_plot_widget(self, plot_id):
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            workspace = self.__flintModel.workspace()
+            try:
+                iwidget = int(plot_id[5:])
+                if iwidget < 0:
+                    raise ValueError()
+            except:
+                raise ValueError(f"'{plot_id}' is not a valid plot_id")
+            widgets = list(workspace.widgets())
+            if iwidget >= len(widgets):
+                raise ValueError(f"'{plot_id}' is not anymore available")
+            widget = widgets[iwidget]
+            if not hasattr(widget, "_silxPlot"):
+                raise ValueError(
+                    f"The widget associated to '{plot_id}' do not provide a silx API"
+                )
+            return widget._silxPlot()
+
         return self.plot_dict[plot_id]
 
     # User interaction

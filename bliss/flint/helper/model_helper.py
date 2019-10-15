@@ -309,3 +309,34 @@ def createCurveItem(
 
     plot.addItem(newItem)
     return newItem, False
+
+
+def isChannelDisplayedAsValue(plot: plot_model.Plot, channel: scan_model.Channel):
+    channel_name = channel.name()
+    for item in plot.items():
+        if isinstance(item, plot_item_model.CurveItem):
+            channel = item.yChannel()
+            if channel is None:
+                continue
+            if channel.name() == channel_name:
+                return True
+        elif isinstance(item, plot_item_model.McaItem):
+            channel = item.mcaChannel()
+            if channel is None:
+                continue
+            if channel.name() == channel_name:
+                return True
+        if isinstance(item, plot_item_model.ScatterItem):
+            channel = item.valueChannel()
+            if channel is None:
+                continue
+            if channel.name() == channel_name:
+                return True
+        if isinstance(item, plot_item_model.ImageItem):
+            channel = item.imageChannel()
+            if channel is None:
+                continue
+            if channel.name() == channel_name:
+                return True
+
+    return False

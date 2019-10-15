@@ -8,6 +8,7 @@
 """Communication tools (:func:`~bliss.comm.util.get_interface`,
 :func:`~bliss.comm.util.HexMsg`)"""
 
+import re
 
 __all__ = [
     "get_interface",
@@ -19,9 +20,17 @@ __all__ = [
     "GPIB",
     "UDP",
     "MODBUSTCP",
+    "TANGO",
 ]
 
-TCP, SERIAL, GPIB, UDP, MODBUSTCP = "tcp", "serial", "gpib", "udp", "modbustcp"
+TCP, SERIAL, GPIB, UDP, MODBUSTCP, TANGO = (
+    "tcp",
+    "serial",
+    "gpib",
+    "udp",
+    "modbustcp",
+    "tango",
+)
 
 
 def get_interface(*args, **kwargs):
@@ -71,7 +80,12 @@ def get_interface(*args, **kwargs):
             from .modbus import ModbusTCP
 
             interfaces = dict(
-                serial=Serial, gpib=Gpib, tcp=Tcp, udp=Udp, modbustcp=ModbusTCP
+                serial=Serial,
+                gpib=Gpib,
+                tcp=Tcp,
+                udp=Udp,
+                modbustcp=ModbusTCP,
+                tango=DeviceProxy,
             )
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
@@ -124,6 +138,10 @@ def get_comm_type(config):
         if comm_type:
             raise ValueError("More than one communication channel found")
         comm_type = MODBUSTCP
+    if "tango" in config:
+        if comm_type:
+            raise ValueError("More than one communication channel found")
+        comm_type = TANGO
     if comm_type is None:
         raise ValueError("get_comm_type(): No communication channel found in config")
     return comm_type
@@ -146,6 +164,8 @@ def get_comm(config, ctype=None, **opts):
       :class:`~bliss.comm.serial.Serial` as well as all other gpib parameters.
     * If *modbustcp* is given, it must have *url* keyword. *url* must be either
       ```[<host> [, <port>] ]``` or ```"<host>[:<port>]"```. *port* is optional
+    * If *tango* is given, it must have *url* keyword. *url* must be a tango
+      Fully Qualified Domain Name (FQDN)
 
     Args:
        config (dict): a dict like config object which contains communication
@@ -169,6 +189,7 @@ def get_comm(config, ctype=None, **opts):
             "Expected {0!r} communication channel. Got {1!r}".format(ctype, comm_type)
         )
     klass = None
+    args = []
     if "tcp-proxy" in config:
         proxy_config = config["tcp-proxy"]
         config = proxy_config
@@ -201,22 +222,37 @@ def get_comm(config, ctype=None, **opts):
         opts.setdefault("port", url)
         from .serial import Serial as klass
     elif comm_type == MODBUSTCP:
+        url = config["modbustcp"]["url"]
+        m = re.match(r"^(?P<host>[^:/ ]+)(:(?P<port>[0-9]+))?$", url)
+        if not m:
+            raise RuntimeError(f"The given url {url} is not a valid: use 'host:port'")
         opts.update(config["modbustcp"])
-        default_port = opts.pop("port", 502)
-        opts.update(config[comm_type])
-        url = opts["url"]
-        if isinstance(url, str):
-            url = url.rsplit(":", 1)
-        if len(url) == 1:
-            url.append(default_port)
-        opts["url"] = f"{url[0]}:{url[1]}"
         from .modbus import ModbusTCP as klass
+    elif comm_type == TANGO:
+        url = config["tango"]["url"]
+        timeout = config.get("timeout")
+        if timeout is not None:
+            opts["timeout"] = timeout
+        protocols_list = ["tango"]  # if needed add more protocols here
+        pr = "|".join(protocols_list)
+        m = re.match(
+            r"^((?P<protocol>"
+            + pr
+            + r")://)?(?P<host>[^:/ ]+)?(:(?P<port>[0-9]+)/)?(?P<domain>[a-z0-9_-]+)/(?P<family>[a-z0-9_-]+)/(?P<member>[a-z0-9_-]+)$",
+            url,
+        )
+        if not m:
+            raise RuntimeError(
+                f"The given Tango url {url} is not compliant with Tango FQDN"
+            )
+        args.append(url)
+        from tango import DeviceProxy as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
         raise ValueError("get_comm(): No communication channel found in config")
 
     if proxy_config is None:
-        return klass(**opts)
+        return klass(*args, **opts)
     else:
         com_config = {comm_type: opts}
         from .tcp_proxy import Proxy

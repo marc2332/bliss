@@ -34,9 +34,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css"></link>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput-typeahead.css"></link>
 
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js" ></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
 
-    <script src="js/beacon.js"></script>
+    <script src="js/beacon-utils.js"></script>
     <link rel="stylesheet" href="css/beacon.css"></link>
 
   </head>
@@ -52,39 +52,39 @@
 	     data-toggle="tooltip" data-placement="right"
 	     title="Go back to {{ name if name else "Beamline" }} configuration home">
 	    <img alt="Beacon"
-		 src="{{ icon if icon else 'res/logo.png' }}" height="42"></img>
+		 src="{{ icon if icon else 'res/logo.png' }}" height="50"></img>
 	  </a>
 	</div>
 
 	<!-- nav bar items -->
 	<div class="collapse navbar-collapse">
 	  <div class="nav navbar-nav">
-	    <div class="btn-group" role="group" id="tab-buttons" data-toggle="buttons" >
-	      <a role="tab" class="btn btn-primary navbar-btn"
+	    <div class="btn-group" role="group" id="tab-buttons" data-toggle="buttons">
+	      <a role="tab" class="btn btn-primary navbar-btn active" style="font-size: 20px"
 		 href="#files-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show files view">
 		<span class="fa fa-files-o"></span>
 	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn"
+	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
 		 href="#items-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show items view">
 		<span class="fa fa-th-list"></span>
 	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn"
+	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
 		 href="#plugins-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show plugins view">
 		<span class="fa fa-chain"></span>
 	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn"
+	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
 		 href="#tags-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show tags view">
 		<span class="fa fa-tags"></span>
 	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn"
+	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
 		 href="#sessions-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show sessions view">
@@ -96,17 +96,21 @@
 	  <!-- Filter form -->
 	  <form class="navbar-form navbar-left">
             <div class="form-group">
-              <input id="filter-edit" type="text" class="form-control"
-		     placeholder="Filter for..."
-		     data-toggle="tooltip" data-placement="bottom"
-		     title="Start typing the name of the item(s) your are looking for">
+              <div class="input-group">
+                <input id="filter-edit" type="text" class="form-control"
+                placeholder="Filter for..."
+                data-toggle="tooltip" data-placement="bottom"
+                title="Start typing the name of the item(s) your are looking for">
+                <span class="input-group-btn">
+                  <button id="clear-filter" type="button" class="btn btn-default"
+                  data-toggle="tooltip" data-placement="bottom"
+                  title="Clears current filter">
+                  <span class="fa fa-eraser"></span>
+                  Clear
+                </button>
+              </span>
             </div>
-            <button id="clear-filter" type="button" class="btn btn-default"
-		    data-toggle="tooltip" data-placement="bottom"
-		    title="Clears current filter">
-	      <span class="fa fa-eraser"></span>
-	      Clear
-	    </button>
+          </div>
 	  </form>
 
 	  <div class="btn-group" role="group" id="refresh-buttons" data-toggle="buttons" >
@@ -122,17 +126,14 @@
 	  </div>
 
 	  <!-- Menu -->
-	  <ul class="nav navbar-nav">
-            <li class="dropdown">
-              <a href="#" class="dropdown-toggle" data-toggle="dropdown"
-		 role="button" aria-haspopup="true" aria-expanded="false">
-		Add...<span class="caret"></span>
-	      </a>
-              <ul class="dropdown-menu">
-		<li><a id="add-file" href="#">File</a></li>
-              </ul>
-            </li>
-	  </ul>
+    <ul class="nav navbar-nav">
+      <li class="dropdown">
+        <a id="add-file" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true"
+          aria-expanded="false" style="padding-left: 0;">
+          <span class="fa fa-plus"></span> Add file
+        </a>
+      </li>
+    </ul>
 
 	  <div class="nav navbar-nav navbar-right">
 	    <a id="brand-text" class="navbar-brand navbar-brand-compact" href="#">
@@ -545,11 +546,16 @@
       $(function() {
 
         /* initialize tooltips */
-        /* $('[data-toggle="tooltip"]').tooltip() */
+        $('[data-toggle="tooltip"]').tooltip({
+          delay: { "show": 500, "hide": 0 },
+          container: 'body'
+        })
 
         /* initialize tabs */
         $('#tab-buttons a').click(function (e) {
           e.preventDefault()
+          $('#tab-buttons a').removeClass('active')
+          $(this).addClass('active')
           $(this).tab('show')
         });
 

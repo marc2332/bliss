@@ -948,12 +948,13 @@ class Axis:
         except Exception as e:
             _info_string += f"     acceleration: None\n"
 
-        if isinstance(self.controller, bliss.controllers.motor.CalcController):
-            _info_string += "CalcController\n"
-        else:
-            _info_string += (
-                f"     velocity: {self.velocity}  (config: {self.config_velocity})\n"
-            )
+        # To avoid error if no velocity.
+        try:
+            _vel = self.velocity
+            _vel_config = self.config_velocity
+            _info_string += f"     velocity: {_vel}  (config: {_vel_config})\n"
+        except Exception as e:
+            _info_string += f"     velocity: None\n"
 
         try:
             _info_string += self.__controller.__info__(self)

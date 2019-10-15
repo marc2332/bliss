@@ -401,6 +401,25 @@ def wago_mockup(default_session):
     wago.close()
 
 
+@pytest.fixture
+def transfocator_mockup(default_session):
+    from tests.emulators.wago import WagoMockup
+
+    config_tree = default_session.config.get_config("transfocator_simulator")
+    modules_config = ModulesConfig.from_config_tree(config_tree)
+    wago = WagoMockup(modules_config)
+
+    # patching the port of the simulator
+    # as simulate=True in the config a simulator will be launched
+    default_session.config.get_config("transfocator_simulator")[
+        "controller_port"
+    ] = f"{wago.port}"
+    default_session.config.get_config("transfocator_simulator")["simulate"] = False
+
+    yield wago
+    wago.close()
+
+
 @pytest.fixture(scope="session")
 def xvfb():
     xvfb = shutil.which("Xvfb")

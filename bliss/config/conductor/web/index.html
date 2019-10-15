@@ -60,7 +60,7 @@
 	<div class="collapse navbar-collapse">
 	  <div class="nav navbar-nav">
 	    <div class="btn-group" role="group" id="tab-buttons" data-toggle="buttons">
-	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
+	      <a role="tab" class="btn btn-primary navbar-btn active" style="font-size: 20px"
 		 href="#files-view"
 		 data-toggle="tooltip" data-placement="bottom"
 		 title="Show files view">
@@ -554,6 +554,8 @@
         /* initialize tabs */
         $('#tab-buttons a').click(function (e) {
           e.preventDefault()
+          $('#tab-buttons a').removeClass('active')
+          $(this).addClass('active')
           $(this).tab('show')
         });
 

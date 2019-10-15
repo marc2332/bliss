@@ -158,6 +158,70 @@ mapping:
 ```
 Using `_` underscore to map unused channels is a convention but is not ignoring them, simply mapping with the name `_`.
 
+### Simulation ###
+
+We can simulate any Wago simply installing requirements-dev-conda and
+adding the following entry to the configuration:
+```yaml
+simulate: True
+```
+This will launch a simulator on localhost (and a random port) ignoring other
+connection settings.
+You can use this simulator for basic testing, be aware that is initialized
+with random values and than it will keep the last value set.
+Also don't forget the flag `simulate: True` if you want to connect to the
+real Hardware!
+
+## Basic usage from the shell ##
+
+Normally you would simply need `set` and `get` methods
+
+```python
+BLISS [1]: w = config.get("transfocator_simulator")
+BLISS [2]:
+BLISS [2]:
+BLISS [2]: wago_simulator = config.get("wago_simulator")
+BLISS [3]: wago_simulator
+  Out [3]:  logical device     num of channel   module_type              description
+           ----------------  ----------------  -------------  ----------------------------------
+               foh2ctrl                     4     750-504          4 Channel Digital Output
+               foh2pos                      4     750-408          4 Channel Digital Input
+                sain2                       1     750-408          4 Channel Digital Input
+                sain4                       1     750-408          4 Channel Digital Input
+                sain6                       1     750-408          4 Channel Digital Input
+                sain8                       1     750-408          4 Channel Digital Input
+                 pres                       1     750-408          4 Channel Digital Input
+                esTf1                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTf2                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTf3                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTf4                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTr1                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTr2                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTr3                       1     750-469     2 Channel Ktype Thermocouple Input
+                esTr4                       1     750-469     2 Channel Ktype Thermocouple Input
+               intlckf1                     1     750-517         2 Changeover Relay Output
+               intlckf2                     1     750-517         2 Changeover Relay Output
+                o10v1                       1     750-554          2 Channel 4/20mA Output
+                o10v2                       1     750-554          2 Channel 4/20mA Output
+
+BLISS [4]: wago_simulator.get("foh2ctrl")
+  Out [4]: [1, 0, 1, 1]
+
+BLISS [5]: wago_simulator.set("foh2ctrl",0,0,0,0)
+BLISS [6]: wago_simulator.get("foh2ctrl")
+  Out [6]: [0, 0, 0, 0]
+
+BLISS [7]: wago_simulator.get("esTr1", "esTr2","o10v1")
+  Out [7]: [78.8, -203.4, 44404]
+
+BLISS [8]: wago_simulator.set("esTr1", 0)
+!!! === RuntimeError: Cannot write: 'esTr1' is not an output === !!! ( for more details type cmd 'last_error' )
+
+```
+
+
+
+
 # Interlock Protocol #
 
 ## What is Interlock Protocol? ##

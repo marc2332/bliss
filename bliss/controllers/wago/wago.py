@@ -1125,6 +1125,8 @@ class WagoController:
         Read one or more values from channels
         Args:
             *channel_names (list): list of channels to be read
+            convert_values (bool): default=True converts from raw reading to meaningful values
+
         Returns:
             (list): channel values
         """
@@ -1840,14 +1842,25 @@ class Wago:
 
     @synchronized()
     def set(self, *args, **kwargs):
+        """Set one or more logical_devices
+        Args should be list or pairs: channel_name, value
+        or a list with channel_name, val1, val2, ..., valn
+        or a combination of the two
+        """
         if not self._safety_check(*args):
             return
         return self.controller.set(*args, **kwargs)
 
     @synchronized()
     def get(self, *args, **kwargs):
-        # if self.controller is None:
-        #    self.connect()
+        """Read one or more values from channels
+        Args:
+            *channel_names (list): list of channels to be read
+            convert_values (bool): default=True converts from raw reading to meaningful values
+
+        Returns:
+            (list): channel values
+        """
         return self.controller.get(*args, **kwargs)
 
     @property

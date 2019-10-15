@@ -182,6 +182,7 @@ def main():
             "icons/*.mng",
             "icons/*.gif",
             "icons/*/*.png",
+            "gui/*.ui",
         ],
     }
 

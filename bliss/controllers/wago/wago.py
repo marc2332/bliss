@@ -266,7 +266,7 @@ for module_name, module_info in MODULES_CONFIG.items():
         reading_info["bits"] = 16
 
 
-def get_bliss_comm(conf):
+def get_wago_comm(conf):
     """Return comm instance, unique for a particular host"""
 
     comm = get_comm(conf)  # this will only setup, not connect
@@ -1712,12 +1712,12 @@ class Wago:
             self.__mockup = WagoMockup(self.modules_config)
             # create the comm
             conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
-            comm = get_bliss_comm(conf)
+            comm = get_wago_comm(conf)
             self.controller = WagoController(comm, self.modules_config)
             self.controller.connect()
 
         else:
-            comm = get_bliss_comm(config_tree)
+            comm = get_wago_comm(config_tree)
             self.controller = WagoController(comm, self.modules_config)
             self.controller.connect()
 

@@ -86,10 +86,10 @@ class MultiplePositions:
     def __init__(self, name, config):
         self.simultaneous = True
         self.targets_dict = {}  # dict of all the targets (to be used by GUI)
-        self._positions_list = []
+        self.positions_list = []
         self._config = config
         self._group = None
-        self._name = name
+        self.name = name
         self._last_label = None
         self._current_label = None
         self._position_channel = Channel(
@@ -103,7 +103,7 @@ class MultiplePositions:
         self._read_config()
 
         # Add label-named method for all positions.
-        for position in self._positions_list:
+        for position in self.positions_list:
             self.add_label_move_method(position["label"])
 
         global_map.register(self, tag=name)
@@ -114,7 +114,7 @@ class MultiplePositions:
         """
 
         def label_move_func(mp_obj, pos):
-            print(f"Moving '{mp_obj._name}' to position: {pos}")
+            print(f"Moving '{mp_obj.name}' to position: {pos}")
             # display of motors values ?
             mp_obj.move(pos)
 
@@ -127,45 +127,39 @@ class MultiplePositions:
             )
         else:
             log_error(
-                self, f"{self._name}: '{pos_label}' is not a valid python identifier."
+                self, f"{self.name}: '{pos_label}' is not a valid python identifier."
             )
 
     def _read_config(self):
         """ Read the configuration.
         """
         self.targets_dict = {}
-        self._positions_list = []
+        self.positions_list = []
         try:
             for pos in self._config.get("positions"):
-                self._positions_list.append(pos)
+                self.positions_list.append(pos)
                 self.targets_dict[pos.get("label")] = pos.get("target")
             self.simultaneous = self._config.get("move_simultaneous", True)
             _label = self.position
             if "unknown" not in self.position:
                 self._current_label = _label
             if not (self._last_label and self._current_label):
-                self._last_label = self._positions_list[0]["label"]
+                self._last_label = self.positions_list[0]["label"]
         except TypeError:
             print("No position configured")
 
     @property
-    def status(self):
-        """ Print the exhaustive status of the object.
-        """
-        pos_str, motpos_str = self.info()
-        print(pos_str)
-        print(motpos_str)
-
     def info(self):
         """ Return the exhaustive status of the object.
-        Return a tuple of strings.
+        Returns:
+            (str): tabulated string
         """
         # HEADER
         table = [("", "LABEL", "DESCRIPTION", "MOTOR POSITION(S)")]
 
         curr_pos = self._get_position()
         motpos_str = ""
-        for pos in self._positions_list:
+        for pos in self.positions_list:
             descr = pos.get("description", "")
             if pos["label"] == curr_pos:
                 mystr = "* "
@@ -187,13 +181,13 @@ class MultiplePositions:
             table.append((mystr, pos["label"], descr, motstr))
         # POSITIONS
         pos_str = tabulate(tuple(table), numalign="right", tablefmt="plain")
-        # MOTORS
-        return (pos_str, motpos_str)
+
+        return f"{pos_str}\n {motpos_str}"
 
     def __info__(self):
         """Standard method called by BLISS Shell info helper."""
         try:
-            info_string = "\n".join(self.info())
+            info_string = self.info
 
         except Exception:
             log_error(

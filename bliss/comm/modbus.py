@@ -179,11 +179,31 @@ class Modbus_RTU:
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
 
     def _read(self, func_code, address, nb, struct_format, timeout_errmsg, timeout):
+        log_debug_data(
+            self,
+            f"In _read",
+            {
+                "fc": func_code,
+                "addr": address,
+                "nb": nb,
+                "struct_format": struct_format,
+            },
+        )
         msg = self._cmd(address, func_code, nb)
         data = struct.unpack(">%s" % struct_format, msg)
         return data if len(data) > 1 else data[0]
 
     def _write(self, func_code, address, struct_format, value, timeout_errmsg, timeout):
+        log_debug_data(
+            self,
+            f"In _write",
+            {
+                "fc": func_code,
+                "addr": address,
+                "value": value,
+                "struct_format": struct_format,
+            },
+        )
         if isinstance(value, (tuple, list)):
             data_write = struct.pack(">%s" % struct_format, *value)
         else:
@@ -248,13 +268,16 @@ class Modbus_RTU:
 
         with self.lock:
 
+            log_debug_data(self, "Request message", msg)
             self._serial.write(msg)
             if data_write is not None:  # WRITE
                 raw_msg = self._serial.read(4)
+                log_debug_data(self, "Response message", raw_msg)
                 rx_node, rx_func_code, first_address = struct.unpack(">BBH", raw_msg)
                 nb_bytes = 2
             else:  # READ
                 raw_msg = self._serial.read(3)
+                log_debug_data(self, "Response message", raw_msg)
                 rx_node, rx_func_code, nb_bytes = struct.unpack(">BBB", raw_msg)
 
             if rx_node != self.node:
@@ -379,6 +402,11 @@ class ModbusTcp:
     ##@brief read holding registers
     @try_connect_modbustcp
     def read_holding_registers(self, address, struct_format, timeout=None):
+        log_debug_data(
+            self,
+            f"read_holding_registers",
+            {"address": address, "num": len(struct_format)},
+        )
         timeout_errmsg = "timeout on read_holding_registers modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -394,6 +422,11 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_register(self, address, struct_format, value, timeout=None):
+        log_debug_data(
+            self,
+            f"write_register",
+            {"address": address, "num": len(struct_format), "value": value},
+        )
         timeout_errmsg = "timeout on write_register modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -402,7 +435,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_float(self, address, value, timeout=None):
-
+        log_debug_data(self, f"write_float", {"address": address, "value": value})
         timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -433,6 +466,11 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def read_input_registers(self, address, struct_format, timeout=None):
+        log_debug_data(
+            self,
+            f"read_input_registers",
+            {"address": address, "num": len(struct_format)},
+        )
         timeout_errmsg = "timeout on read_input_registers modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -448,6 +486,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def read_coils(self, address, nb_coils, timeout=None):
+        log_debug_data(self, f"read_coils", {"address": address, "num": nb_coils})
         timeout_errmsg = "timeout on read_coils tcp (%s, %d)" % (self._host, self._port)
         nb_bytes = ((nb_coils + 7) & ~7) // 8
         struct_format = "%dB" % nb_bytes
@@ -463,12 +502,18 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_coil(self, address, on_off, timeout=None):
+        log_debug_data(self, f"write_coil", {"address": address, "value": on_off})
         timeout_errmsg = "timeout on write_coil tcp (%s, %d)" % (self._host, self._port)
         value = 0xFF00 if on_off else 0x0000
         self._write(0x05, address, "H", value, timeout_errmsg, timeout)
 
     @try_connect_modbustcp
     def write_registers(self, address, struct_format, values, timeout=None):
+        log_debug_data(
+            self,
+            f"write_registers",
+            {"address": address, "num": len(struct_format), "values": values},
+        )
         timeout_errmsg = "timeout on write_registers modbus tcp (%s, %d)" % (
             self._host,
             self._port,
@@ -477,6 +522,7 @@ class ModbusTcp:
 
     @try_connect_modbustcp
     def write_coils(self, address, on_off, timeout=None):
+        log_debug_data(self, f"write_coils", {"address": address, "values": on_off})
         # implements function code 16
         raise NotImplementedError
 
@@ -572,6 +618,7 @@ class ModbusTcp:
 
     def _raw_write(self, tid, func, msg):
         full_msg = struct.pack(">HHHBB", tid, 0, len(msg) + 2, self._unit, func) + msg
+        log_debug_data(self, "raw_write", full_msg)
         with self._lock:
             self._fd.sendall(full_msg)
 
@@ -585,6 +632,7 @@ class ModbusTcp:
                 if raw_data:
                     data += raw_data
                     if len(data) > 7:
+                        log_debug_data(modbus, "raw_read", data[:7])
                         tid, pid, length, uid = struct.unpack(">HHHB", data[:7])
                         if len(data) >= length + 6:  # new msg
                             func_code = data[7]
@@ -596,7 +644,7 @@ class ModbusTcp:
                                 transaction.put((uid, func_code, msg))
                 else:
                     break
-        except:
+        except socket.error:
             pass
         finally:
             fd.close()
@@ -613,7 +661,6 @@ class ModbusTcp:
 class ModbusTCP(ModbusTcp):
     def __init__(self, **kwargs):
         """Inizialize comunication through get_comm"""
-
         unit = kwargs.get("unit", 0xFF)
         host = kwargs["url"].split(":")[0]
         timeout = kwargs.get("timeout", 3.0)

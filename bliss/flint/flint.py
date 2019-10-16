@@ -615,6 +615,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Enable scan simulation panel",
     )
+    parser.add_argument(
+        "--enable-event-interleave",
+        dest="event_interleave",
+        action="store_true",
+        default=False,
+        help="Enable interleave of Qt and gevent event loops (experimental)",
+    )
 
 
 def parse_options():
@@ -630,15 +637,23 @@ def parse_options():
 
 
 def main():
-    # patch system poll
-    need_gevent_loop = True  # not poll_patch.init(1) if poll_patch else True
-
     logging.basicConfig(level=logging.INFO)
     ROOT_LOGGER.level = logging.INFO
 
     options = parse_options()
     if options.debug:
         logging.root.setLevel(logging.DEBUG)
+
+    need_gevent_loop = True
+    if options.event_interleave:
+        if poll_patch:
+            need_gevent_loop = False
+            poll_patch.init(1)
+        else:
+            message = "qt/gevent interleave requested but `poll_patch` was not loaded."
+            ROOT_LOGGER.error(message)
+            ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead")
+            need_gevent_loop = True
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
@@ -695,9 +710,9 @@ def main():
         timer2 = qt.QTimer()
         timer2.start(10)
         timer2.timeout.connect(lambda: gevent.sleep(0.01))
-        ROOT_LOGGER.info("Gevent based on QtTimer")
+        ROOT_LOGGER.info("gevent based on QTimer")
     else:
-        ROOT_LOGGER.info("Gevent use poll patched")
+        ROOT_LOGGER.info("gevent use poll patched")
 
     stop = gevent.event.AsyncResult()
     thread = gevent.spawn(background_task, flint, stop)

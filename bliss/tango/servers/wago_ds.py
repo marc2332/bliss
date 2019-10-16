@@ -126,7 +126,7 @@ class Wago(Device):
 
         out += f"Wago modules physically plugged and seen by the controller:\n"
         try:
-            out += self.wago._plugged_modules()
+            out += self.wago.plugged_modules_description()
         except Exception as exc:
             self.error_stream(f"Exception on dev_status: {exc}")
 
@@ -147,6 +147,13 @@ class Wago(Device):
             ),
         ) in self.wago.physical_mapping.items():
             out += f"{logical_device}:\nlogical_channel{i}: module: {physical_module} channel: {physical_channel}\n"
+        try:
+            self.wago.check_plugged_modules()
+        except RuntimeError as exc:
+            out += f"\nConfiguration error: {exc}"
+            out += "\nGiven mapping DOES NOT match Wago attached modules"
+        else:
+            out += "\nGiven mapping does match Wago attached modules"
 
         return out
 

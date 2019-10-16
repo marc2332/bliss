@@ -288,7 +288,8 @@ def test_wago_modbus_simulator(wago_mockup):
     for name in names.split():
         wago.get(name)
     assert wago.series == 750
-    wago._plugged_modules()
+    with pytest.raises(RuntimeError):
+        wago.check_plugged_modules()
     wago.close()
 
 
@@ -304,7 +305,7 @@ def test_wago_config_get(default_session, wago_mockup):
     wago = default_session.config.get("wago_simulator")
 
     assert wago.controller.series == 750
-    wago.controller.print_plugged_modules()
+    wago.controller.check_plugged_modules()
 
 
 def test_wago_counters(default_session, wago_mockup):

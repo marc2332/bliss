@@ -174,10 +174,12 @@ class ScanManager:
             channels = self.__data_storage.get_channels_by_group(group_name)
             for channel_name in channels:
                 channel = scan.getChannelByName(channel_name)
-                array = self.__data_storage.get_data(channel_name)
-                data = scan_model.Data(channel, array)
-                channel.setData(data)
+                array = self.__data_storage.get_data_else_none(channel_name)
+                if array is not None:
+                    data = scan_model.Data(channel, array)
+                    channel.setData(data)
                 updated_masters.add(group_name)
+
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)
             for master_name in updated_masters:

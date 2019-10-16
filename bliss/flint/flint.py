@@ -622,6 +622,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         help="Set the DPI used for the matplotlib backend. "
         "This value will be stored in the user preferences (default: 100)",
     )
+    parser.add_argument(
+        "--clear-settings",
+        action="store_true",
+        dest="clear_settings",
+        default=False,
+        help="Start with cleared local user settings. ",
+    )
 
 
 def parse_options():
@@ -643,6 +650,10 @@ def set_global_settings(settings: qt.QSettings, options):
     This function also update the local user settings from the command line
     options.
     """
+    if options.clear_settings:
+        # Clear all the stored keys
+        settings.clear()
+
     try:
         import matplotlib
     except ImportError:

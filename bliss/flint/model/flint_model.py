@@ -77,6 +77,13 @@ class FlintState(qt.QObject):
         self.__propertyWidget = None
         self.__liveStatusWidget = None
         self.__flintApi = None
+        self.__settings = None
+
+    def setSettings(self, settings: qt.QSettings):
+        self.__settings = settings
+
+    def settings(self) -> qt.QSettings:
+        return self.__settings
 
     def setLiveWindow(self, window: qt.QMainWindow):
         self.__liveWindow = window

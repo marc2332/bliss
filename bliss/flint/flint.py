@@ -126,7 +126,7 @@ class Flint:
 
     _id_generator = itertools.count()
 
-    def __init__(self, mainwin, parent_tab):
+    def __init__(self, mainwin, parent_tab, settings: qt.QSettings):
         self.mainwin = mainwin
         self.parent_tab = parent_tab
         self.main_index = self.create_new_id()
@@ -138,6 +138,7 @@ class Flint:
         self._session_name = None
 
         flintModel = self.__create_flint_model()
+        flintModel.setSettings(settings)
         self.__flintModel = flintModel
 
         workspace = self.__create_default_workspace()
@@ -567,7 +568,7 @@ def create_flint(settings):
 
     log_widget.connect_logger(ROOT_LOGGER)
 
-    flint = Flint(win, tabs)
+    flint = Flint(win, tabs, settings)
 
     # resize window to 70% of available screen space, if no settings
     pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7

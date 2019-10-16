@@ -26,6 +26,7 @@ class ScanStatus(ExtendedDockWidget):
         widget = qt.loadUi(silx.resources.resource_filename("flint:gui/scan-status.ui"))
         self.__widget = widget
         self.setWidget(self.__widget)
+        self.__widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
 
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__scan: Optional[scan_model.Scan] = None

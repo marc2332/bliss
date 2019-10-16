@@ -13,6 +13,18 @@ from silx.gui import qt
 _logger = logging.getLogger(__name__)
 
 
+class _Stack(qt.QStackedWidget):
+    def setWidget(self, widget: qt.QWidget):
+        count = self.count()
+        if count >= 1:
+            w = self.widget(0)
+            self.removeWidget(w)
+        self.addWidget(widget)
+
+    def sizeHint(self):
+        return qt.QSize(200, 500)
+
+
 class MainPropertyWidget(qt.QDockWidget):
 
     widgetUpdated = qt.Signal()
@@ -22,6 +34,9 @@ class MainPropertyWidget(qt.QDockWidget):
         self.setObjectName("scan-property-widget")
         self.setWindowTitle("Plot properties")
         self.__focusWidget = None
+        self.__stack = _Stack(self)
+        self.__stack.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding)
+        self.setWidget(self.__stack)
 
     def focusWidget(self):
         return self.__focusWidget
@@ -29,12 +44,12 @@ class MainPropertyWidget(qt.QDockWidget):
     def setFocusWidget(self, widget):
         if hasattr(widget, "createPropertyWidget"):
             specificPropertyWidget = widget.createPropertyWidget(self)
-            self.setWidget(specificPropertyWidget)
+            self.__stack.setWidget(specificPropertyWidget)
         elif widget is None:
-            self.setWidget(None)
+            self.__stack.setWidget(None)
         else:
             _logger.error("Widget %s do not have propertyWidget factory", widget)
-            self.setWidget(None)
+            self.__stack.setWidget(None)
 
         self.__focusWidget = widget
         self.widgetUpdated.emit()

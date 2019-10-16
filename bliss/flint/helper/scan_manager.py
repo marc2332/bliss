@@ -152,6 +152,19 @@ class ScanManager:
                 scan._fireScanDataUpdated(channelName=channel.name())
 
     def end_scan(self, scan_info: Dict):
+        try:
+            self._end_scan(scan_info)
+        finally:
+            self.__data_storage.clear()
+
+            scan = self.__scan
+            scan._setState(scan_model.ScanState.FINISHED)
+            scan.scanFinished.emit()
+
+            self.__scan = None
+            self._end_scan_event.set()
+
+    def _end_scan(self, scan_info: Dict):
         assert self.__scan is not None
 
         scan = self.__scan
@@ -170,14 +183,6 @@ class ScanManager:
             for master_name in updated_masters:
                 # FIXME: This could be a single event
                 scan._fireScanDataUpdated(masterDeviceName=master_name)
-
-        self.__data_storage.clear()
-
-        scan._setState(scan_model.ScanState.FINISHED)
-        scan.scanFinished.emit()
-
-        self.__scan = None
-        self._end_scan_event.set()
 
     def wait_end_of_scan(self):
         self._end_scan_event.wait()

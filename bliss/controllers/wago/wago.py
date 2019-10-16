@@ -297,6 +297,7 @@ class TangoWago:
         global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
 
     def get(self, *args, **kwargs):
+        log_debug(self, f"In get args={args} kwargs={kwargs}")
         values = []
         for name in args:
             key = self.modules_config.devname2key(name)
@@ -306,17 +307,18 @@ class TangoWago:
 
     def connect(self):
         """Added for compatibility"""
-        pass
+        log_debug(self, "In connect")
 
     def close(self):
         """Added for compatibility"""
-        pass
+        log_debug(self, "In close")
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
+        log_debug(self, f"In set args={args}")
         # write_table = self.modules_config._resolve_write(*args)
         channels_to_write = []
         current_list = channels_to_write
@@ -899,7 +901,7 @@ class WagoController:
     """
 
     def __init__(self, comm, modules_config: ModulesConfig, timeout=1.0):
-
+        log_debug(self, "In __init__")
         self.client = comm
         self.timeout = timeout
         self.modules_config = modules_config
@@ -916,8 +918,8 @@ class WagoController:
         """ Connect to the wago. Check if we have a coupler or a controller.
         In case of controller get the firmware version and firmware date.
         """
+        log_debug(self, "In connect")
         with self.lock:
-            log_debug(self, "In connect")
             # check if we have a coupler or a controller
             self.series = self.client.read_input_registers(0x2011, "H")
 
@@ -946,6 +948,7 @@ class WagoController:
         """
         Close the connection.
         """
+        log_debug(self, "In close")
         with self.lock:
             self.client.close()
 
@@ -1134,6 +1137,10 @@ class WagoController:
         Returns:
             (list): channel values
         """
+        log_debug(
+            self,
+            f"In get channel_names={channel_names}, convert_values={convert_values}",
+        )
         MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
 
         ret = []
@@ -1215,6 +1222,7 @@ class WagoController:
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
+        log_debug(self, f"In set args={args}")
         write_table = self.modules_config._resolve_write(*args)
 
         with self.lock:
@@ -1794,6 +1802,7 @@ class Wago:
         return repr_
 
     def close(self):
+        log_debug(self, f"In close")
         self.controller.close()
         try:
             self.__mockup.close()
@@ -1848,6 +1857,7 @@ class Wago:
                 print(show(self.name, self._interlocks_on_beacon))
 
     def interlock_reset_relay(self, instance_num):
+        log_debug(self, f"Resetting instance num: {instance_num}")
         from bliss.controllers.wago.interlocks import interlock_reset as reset
 
         reset(self.controller, instance_num)

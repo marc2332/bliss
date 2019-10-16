@@ -91,6 +91,8 @@ class Wago(Device):
             modules_config = ModulesConfig(self.config, ignore_missing=True)
         except Exception as exc:
             self.error_stream(f"Exception on Wago setting modules mapping: {exc}")
+            self.set_state(DevState.FAULT)
+            return
         else:
             self.wago = WagoController(comm, modules_config)
 
@@ -100,6 +102,7 @@ class Wago(Device):
         except Exception as exc:
             self.error_stream(f"Exception on Wago connection: {exc}")
             self.set_state(DevState.FAULT)
+            return
         else:
             self.debug_stream("Connected to Wago")
             self._attribute_factory()

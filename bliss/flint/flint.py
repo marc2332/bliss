@@ -622,6 +622,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Enable interleave of Qt and gevent event loops (experimental)",
     )
+    parser.add_argument(
+        "--matplotlib-dpi",
+        type=int,
+        dest="matplotlib_dpi",
+        default=None,
+        help="Set the DPI used for the matplotlib backend (default is 100) (this value will be stored in the user preferences)",
+    )
 
 
 def parse_options():
@@ -634,6 +641,43 @@ def parse_options():
     configure_parser_arguments(parser)
     options = parser.parse_args()
     return options
+
+
+def set_global_settings(settings: qt.QSettings, options):
+    """"Set the global settings from command line options and local user
+    settings.
+
+    This function also update the local user settings from the command line
+    options.
+    """
+    try:
+        import matplotlib
+    except ImportError:
+        matplotlib = None
+
+    def update_and_return(option, setting_key, default_to_remove):
+        """Update a single setting from the command line option and returns the
+        final value."""
+        if option is None:
+            value = settings.value(setting_key, None)
+        else:
+            if option == default_to_remove:
+                settings.remove(setting_key)
+                value = None
+            else:
+                settings.setValue(setting_key, option)
+                value = option
+        return value
+
+    if matplotlib:
+        settings.beginGroup("matplotlib")
+        value = update_and_return(options.matplotlib_dpi, "dpi", 100)
+        if value is not None:
+            matplotlib.rcParams["figure.dpi"] = float(value)
+        settings.endGroup()
+
+    if options.opengl:
+        silx.config.DEFAULT_PLOT_BACKEND = "opengl"
 
 
 def main():
@@ -659,13 +703,13 @@ def main():
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
-
-    if options.opengl:
-        silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+    settings = qt.QSettings(
+        qt.QSettings.IniFormat, qt.QSettings.UserScope, qapp.applicationName()
+    )
+    set_global_settings(settings, options)
 
     bliss.flint.resources.silx_integration()
 
-    settings = qt.QSettings()
     flint = create_flint(settings)
 
     def save_window_settings():

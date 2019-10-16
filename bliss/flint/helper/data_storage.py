@@ -36,7 +36,12 @@ class DataStorage:
     def has_channel(self, channel_name) -> bool:
         return channel_name in self.__groups
 
-    def get_data(self, channel_name) -> numpy.ndarray:
+    def get_data_else_none(
+        self, channel_name, none_if_not_inside=False
+    ) -> Optional[numpy.ndarray]:
+        return self.__data.get(channel_name, None)
+
+    def get_data(self, channel_name, none_if_not_inside=False) -> numpy.ndarray:
         return self.__data[channel_name]
 
     def get_avaible_data_size(self, group_name: str) -> int:

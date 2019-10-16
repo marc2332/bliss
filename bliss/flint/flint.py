@@ -387,17 +387,6 @@ class Flint:
                 if callable(getattr(plot, name))
             ]
 
-    def set_plot_dpi(self, plot_id, dpi):
-        """Allow to custom the DPI of the plot
-
-        FIXME: It have to be moved to user preferences
-        """
-        try:
-            self._get_plot_widget(plot_id)._backend.fig.set_dpi(dpi)
-        except Exception:
-            # Prevent access to private _backend object
-            pass
-
     # Data management
 
     def update_data(self, plot_id, field, data):

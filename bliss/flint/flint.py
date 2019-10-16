@@ -590,12 +590,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         help="Set logging system in debug mode",
     )
     parser.add_argument(
-        "--opengl",
+        "--enable-opengl",
         "--gl",
         dest="opengl",
         action="store_true",
         default=False,
-        help="Enable OpenGL rendering (else matplotlib is used)",
+        help="Enable OpenGL rendering. It provides a faster rendering for plots "
+        "but could have issue with remote desktop (default: matplotlib is used)",
     )
     parser.add_argument(
         "--enable-simulator",
@@ -609,14 +610,17 @@ def configure_parser_arguments(parser: ArgumentParser):
         dest="event_interleave",
         action="store_true",
         default=False,
-        help="Enable interleave of Qt and gevent event loops (experimental)",
+        help="Enable interleave of Qt and gevent event loops. "
+        "It process efficiently events from fast acquisition scans but could be unstable "
+        "(experimental)",
     )
     parser.add_argument(
         "--matplotlib-dpi",
         type=int,
         dest="matplotlib_dpi",
         default=None,
-        help="Set the DPI used for the matplotlib backend (default is 100) (this value will be stored in the user preferences)",
+        help="Set the DPI used for the matplotlib backend. "
+        "This value will be stored in the user preferences (default: 100)",
     )
 
 

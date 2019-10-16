@@ -45,6 +45,7 @@ class ScanManager:
         self.__scan: Optional[scan_model.Scan] = None
 
     def new_scan(self, scan_info):
+        self._end_scan_event.clear()
         self.__data_storage.clear()
 
         scan = scan_info_helper.create_scan_model(scan_info)
@@ -61,8 +62,6 @@ class ScanManager:
 
         scan._setState(scan_model.ScanState.PROCESSING)
         scan.scanStarted.emit()
-
-        self._end_scan_event.clear()
 
     def new_scan_child(self, scan_info, data_channel):
         pass

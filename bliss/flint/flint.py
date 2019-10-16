@@ -151,7 +151,7 @@ class Flint:
         self.set_title()
         self.init_from_settings()
 
-    def get_flint_model(self):
+    def get_flint_model(self) -> flint_model.FlintState:
         return self.__flintModel
 
     def get_scan_manager(self):
@@ -239,8 +239,6 @@ class Flint:
         window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
         return workspace
 
-    def get_flint_model(self) -> flint_model.FlintState:
-        return self.__flintModel
 
     def create_new_id(self):
         return next(self._id_generator)

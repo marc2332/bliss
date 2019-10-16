@@ -112,20 +112,26 @@ class ManageMainBehaviours(qt.QObject):
                     item = plot_item_model.ScanItem(plot, scan)
                     plot.addItem(item)
 
-    def saveWorkspace(self):
+    def saveWorkspace(self, includePlots=True):
         workspace = self.__flintModel.workspace()
         plots = {}
-        for plot in workspace.plots():
-            plots[id(plot)] = plot
+        if includePlots:
+            for plot in workspace.plots():
+                plots[id(plot)] = plot
 
         widgetDescriptions = []
         for widget in workspace.widgets():
-            model = widget.plotModel()
-            if model is not None:
-                modelId = id(model)
+            if includePlots:
+                model = widget.plotModel()
+                if model is not None:
+                    modelId = id(model)
+                else:
+                    modelId = None
             else:
                 modelId = None
-            widgetDescriptions.append((widget.objectName(), widget.__class__, modelId))
+            widgetDescriptions.append(
+                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
+            )
 
         window = self.__flintModel.liveWindow()
         layout = window.saveState()
@@ -155,10 +161,11 @@ class ManageMainBehaviours(qt.QObject):
             workspace.addPlot(plot)
 
         window = self.__flintModel.liveWindow()
-        for name, widgetClass, modelId in widgetDescriptions:
+        for name, title, widgetClass, modelId in widgetDescriptions:
             widget = widgetClass(window)
             widget.setFlintModel(self.__flintModel)
             widget.setObjectName(name)
+            widget.setWindowTitle(title)
             if modelId is not None:
                 plot = plots[modelId]
                 widget.setPlotModel(plot)
@@ -280,9 +287,8 @@ class ManageMainBehaviours(qt.QObject):
 
             workspace.addWidget(widget)
             if lastTab is None:
-                widget.setFloating(True)
+                window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
                 widget.setVisible(True)
-                widget.updateGeometry()
             else:
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
@@ -321,6 +327,7 @@ class ManageMainBehaviours(qt.QObject):
         prefix = str(widgetClass.__name__).replace("PlotWidget", "")
         title = self.__getUnusedTitle(prefix, workspace)
         widget.setWindowTitle(title)
+        widget.setObjectName(title.lower() + "-dock")
         return widget
 
     def __getUnusedTitle(self, prefix, workspace) -> str:

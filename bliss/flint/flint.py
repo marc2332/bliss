@@ -141,7 +141,7 @@ class Flint:
         flintModel.setSettings(settings)
         self.__flintModel = flintModel
 
-        workspace = self.__create_default_workspace()
+        workspace = flint_model.Workspace()
         flintModel.setWorkspace(workspace)
         self.__scanManager = scan_manager.ScanManager(self)
 
@@ -168,12 +168,35 @@ class Flint:
         self.mainwin.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
         settings.endGroup()
 
+        settings.beginGroup("live-window")
+        state = settings.value("workspace", None)
+        if state is not None:
+            try:
+                self.__manager.restoreWorkspace(state)
+                ROOT_LOGGER.info("Workspace restored")
+            except:
+                ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
+                self.__feed_default_workspace()
+        else:
+            self.__feed_default_workspace()
+        settings.endGroup()
+
     def save_to_settings(self):
         settings = self.__flintModel.settings()
         settings.beginGroup("main-window")
         settings.setValue("size", self.mainwin.size())
         settings.setValue("pos", self.mainwin.pos())
         settings.endGroup()
+
+        settings.beginGroup("live-window")
+        try:
+            state = self.__manager.saveWorkspace(includePlots=False)
+            settings.setValue("workspace", state)
+            ROOT_LOGGER.info("Workspace saved")
+        except:
+            ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
+        settings.endGroup()
+
         settings.sync()
 
     def __create_flint_model(self):
@@ -200,6 +223,7 @@ class Flint:
         self.__manager = manager
 
         scanStatusWidget = ScanStatus(window)
+        scanStatusWidget.setObjectName("scan-status-dock")
         scanStatusWidget.setFlintModel(flintModel)
         scanStatusWidget.setFeatures(
             scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
@@ -208,6 +232,7 @@ class Flint:
         window.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
 
         propertyWidget = MainPropertyWidget(window)
+        propertyWidget.setObjectName("property-dock")
         propertyWidget.setFeatures(
             propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
         )
@@ -215,30 +240,40 @@ class Flint:
         window.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
 
         size = scanStatusWidget.sizeHint()
-        scanStatusWidget.setFixedHeight(size.height())
+        scanStatusWidget.widget().setFixedHeight(size.height())
+        scanStatusWidget.widget().setMinimumWidth(200)
+
+        scanStatusWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
+        )
+        propertyWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
+        )
+
         return flintModel
 
     def _manager(self) -> ManageMainBehaviours:
         return self.__manager
 
-    def __create_default_workspace(self):
+    def __feed_default_workspace(self):
         # FIXME: Here we can feed the workspace with something persistent
         flintModel = self.get_flint_model()
+        workspace = flintModel.workspace()
         window = flintModel.liveWindow()
 
-        workspace = flint_model.Workspace()
         curvePlotWidget = CurvePlotWidget(parent=window)
         curvePlotWidget.setFlintModel(flintModel)
-        curvePlotWidget.setObjectName("dock1")
-        curvePlotWidget.setWindowTitle("Plot1")
+        curvePlotWidget.setObjectName("curve1-dock")
+        curvePlotWidget.setWindowTitle("Curve1")
         curvePlotWidget.setFeatures(
             curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        curvePlotWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
         )
 
         workspace.addWidget(curvePlotWidget)
         window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
-        return workspace
-
 
     def create_new_id(self):
         return next(self._id_generator)

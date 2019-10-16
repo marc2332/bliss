@@ -351,6 +351,20 @@ class Flint:
         )
         ev.wait(timeout=3)
 
+    def get_live_scan_data(self, channel_name):
+        model = self.get_flint_model()
+        scan = model.currentScan()
+        if scan is None:
+            raise Exception("No scan available")
+        channel = scan.getChannelByName(channel_name)
+        if channel is None:
+            raise Exception(f"Channel {channel_name} is not part of this scan")
+        data = channel.data()
+        if data is None:
+            # Just no data
+            return None
+        return data.array()
+
     def get_live_scan_plot(self, channel_name, plot_type):
         assert plot_type in ["scatter", "image", "curve", "mca"]
 

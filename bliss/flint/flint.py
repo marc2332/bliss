@@ -149,12 +149,32 @@ class Flint:
         address = connection.get_redis_connection_address()
         self._qt_redis_connection = connection.create_redis_connection(address=address)
         self.set_title()
+        self.init_from_settings()
 
     def get_flint_model(self):
         return self.__flintModel
 
     def get_scan_manager(self):
         return self.__scanManager
+
+    def init_from_settings(self):
+        settings = self.__flintModel.settings()
+        # resize window to 70% of available screen space, if no settings
+        settings.beginGroup("main-window")
+        pos = qt.QDesktopWidget().availableGeometry(self.mainwin).size() * 0.7
+        w = pos.width()
+        h = pos.height()
+        self.mainwin.resize(settings.value("size", qt.QSize(w, h)))
+        self.mainwin.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
+        settings.endGroup()
+
+    def save_to_settings(self):
+        settings = self.__flintModel.settings()
+        settings.beginGroup("main-window")
+        settings.setValue("size", self.mainwin.size())
+        settings.setValue("pos", self.mainwin.pos())
+        settings.endGroup()
+        settings.sync()
 
     def __create_flint_model(self):
         window: qt.QMainWindow = self.new_tab("Live scan", qt.QMainWindow)
@@ -569,14 +589,6 @@ def create_flint(settings):
     log_widget.connect_logger(ROOT_LOGGER)
 
     flint = Flint(win, tabs, settings)
-
-    # resize window to 70% of available screen space, if no settings
-    pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
-    w = pos.width()
-    h = pos.height()
-    win.resize(settings.value("size", qt.QSize(w, h)))
-    win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
-
     return flint
 
 
@@ -716,13 +728,7 @@ def main():
     bliss.flint.resources.silx_integration()
 
     flint = create_flint(settings)
-
-    def save_window_settings():
-        settings.setValue("size", flint.mainwin.size())
-        settings.setValue("pos", flint.mainwin.pos())
-        settings.sync()
-
-    qapp.aboutToQuit.connect(save_window_settings)
+    qapp.aboutToQuit.connect(flint.save_to_settings)
 
     if options.simulator:
         from bliss.flint.simulator.acquisition import AcquisitionSimulator

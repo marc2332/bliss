@@ -80,6 +80,9 @@ nav:
                       - Correlators:
                             - Flex: config_correlator_flex.md
                       - VME time frame generator: config_tango_tfg.md
+                - Tango Device Servers:
+                      - Introduction: config_tango_ds.md
+                      - Wago Device Server: config_tango_wago.md
                 - Deprecated: config_deprecated.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md

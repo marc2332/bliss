@@ -278,12 +278,16 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
-def wago_tango_server(ports, beacon):
+def wago_tango_server(ports, default_session, wago_mockup):
     from bliss.tango.servers.wago_ds import main
     from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "1/1/wagodummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    # patching the property Iphost of wago tango device to connect to the mockup
+    wago_ds = DeviceProxy(device_fqdn)
+    wago_ds.put_property({"Iphost": f"{wago_mockup.host}:{wago_mockup.port}"})
 
     p = subprocess.Popen(["Wago", "wago_tg_server"])
 
@@ -380,12 +384,38 @@ def alias_session(beacon, lima_simulator):
 
 @pytest.fixture
 def wago_mockup(default_session):
-    # do not use wago_mockup fixture together with default_session
-    # because default_session already launches a wago_simulator and it will cause error on closing
     from tests.emulators.wago import WagoMockup
 
     config_tree = default_session.config.get_config("wago_simulator")
-    wago = WagoMockup(config_tree)
+    modules_config = ModulesConfig.from_config_tree(config_tree)
+    wago = WagoMockup(modules_config)
+
+    # patching the port of the simulator
+    # as simulate=True in the config a simulator will be launched
+    default_session.config.get_config("wago_simulator")["modbustcp"][
+        "url"
+    ] = f"{wago.host}:{wago.port}"
+    default_session.config.get_config("wago_simulator")["simulate"] = False
+
+    yield wago
+    wago.close()
+
+
+@pytest.fixture
+def transfocator_mockup(default_session):
+    from tests.emulators.wago import WagoMockup
+
+    config_tree = default_session.config.get_config("transfocator_simulator")
+    modules_config = ModulesConfig.from_config_tree(config_tree)
+    wago = WagoMockup(modules_config)
+
+    # patching the port of the simulator
+    # as simulate=True in the config a simulator will be launched
+    default_session.config.get_config("transfocator_simulator")[
+        "controller_port"
+    ] = f"{wago.port}"
+    default_session.config.get_config("transfocator_simulator")["simulate"] = False
+
     yield wago
     wago.close()
 

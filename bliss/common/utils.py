@@ -16,6 +16,7 @@ import numpy
 import sys
 import copy
 import collections.abc
+from collections import Iterable
 
 from bliss.common.event import saferef
 
@@ -68,15 +69,19 @@ def grouped(iterable, n):
     return zip(*[iter(iterable)] * n)
 
 
-def flatten(seq):
-    """list -> list                                                                                                                                                                           
-    return a flattend list from an abitrarily nested list                                                                                                                                     
-    """
-    if not seq:
-        return seq
-    if not isinstance(seq[0], list):
-        return [seq[0]] + flatten(seq[1:])
-    return flatten(seq[0]) + flatten(seq[1:])
+def flatten_gen(items):
+    """Yield items from any nested iterable; see Reference."""
+    for x in items:
+        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+            for sub_x in flatten(x):
+                yield sub_x
+        else:
+            yield x
+
+
+def flatten(items):
+    """returns a list"""
+    return [i for i in flatten_gen(items)]
 
 
 def all_equal(iterable):

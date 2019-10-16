@@ -1,5 +1,5 @@
-import pytest
 import re
+import pytest
 
 from bliss.comm.modbus import ModbusTcp, ModbusError
 
@@ -9,7 +9,7 @@ from bliss.controllers.wago.helpers import (
     wordarray_to_bytestring,
 )
 
-from bliss.controllers.wago.wago import WagoController, _WagoController, ModulesConfig
+from bliss.controllers.wago.wago import WagoController, ModulesConfig
 from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
@@ -84,19 +84,19 @@ def test_mapping_class_1():
         "gabsP2": 25,
     }
 
-    assert m.name2key("gabsTf1") == 0
-    assert m.name2key("gabsP1") == 24
-    assert m.key2name(12) == "psTf1"
-    assert m.key2name(13) == "psTf2"
+    assert m.devname2key("gabsTf1") == 0
+    assert m.devname2key("gabsP1") == 24
+    assert m.devkey2name(12) == "psTf1"
+    assert m.devkey2name(13) == "psTf2"
 
     # some tricky check
     for n_of_logphysmap in m.physical_mapping.keys():
-        assert m.physical_mapping[n_of_logphysmap].logical_device == m.key2name(
-            m.logical_keys[m.key2name(n_of_logphysmap)]
+        assert m.physical_mapping[n_of_logphysmap].logical_device == m.devkey2name(
+            m.logical_keys[m.devkey2name(n_of_logphysmap)]
         )
 
     for k, ch in ((i, 0) for i in range(26)):
-        assert m.hard2log(m.log2hard(k, ch)[1], m.log2hard(k, ch)[0])
+        assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
 
 def test_mapping_class_2():
@@ -110,15 +110,15 @@ def test_mapping_class_2():
     assert m.attached_modules == ["750-469"] * 4
     assert m.modules == ["750-842"] + ["750-469"] * 4
 
-    assert m.name2key("a") == 0
-    assert m.name2key("b") == 1
-    assert m.name2key("c") == 2
+    assert m.devname2key("a") == 0
+    assert m.devname2key("b") == 1
+    assert m.devname2key("c") == 2
     with pytest.raises(KeyError):
-        assert m.key2name(3)
+        assert m.devkey2name(3)
 
-    assert m.key2name(0) == "a"
-    assert m.key2name(1) == "b"
-    assert m.key2name(2) == "c"
+    assert m.devkey2name(0) == "a"
+    assert m.devkey2name(1) == "b"
+    assert m.devkey2name(2) == "c"
     assert m.logical_mapping["a"][0].physical_module == 0
     assert m.logical_mapping["a"][1].physical_module == 0
     with pytest.raises(IndexError):
@@ -134,14 +134,14 @@ def test_mapping_class_2():
     assert m.logical_mapping["b"][3].physical_channel == 1
     assert m.logical_mapping["c"][1].physical_channel == 1
 
-    assert m.log2hard(0, 0) == (0, 18775, 469, 0, 0)
-    assert m.log2hard(0, 1) == (1, 18775, 469, 0, 1)
+    assert m.devlog2hard((0, 0)) == (0, 18775, 469, 0, 0)
+    assert m.devlog2hard((0, 1)) == (1, 18775, 469, 0, 1)
     with pytest.raises(IndexError):
-        m.log2hard(0, 2)
-    assert m.log2hard(1, 0) == (2, 18775, 469, 1, 0)
+        m.devlog2hard((0, 2))
+    assert m.devlog2hard((1, 0)) == (2, 18775, 469, 1, 0)
 
     for k, ch in ((i, 0) for i in range(3)):
-        assert m.hard2log(m.log2hard(k, ch)[1], m.log2hard(k, ch)[0])
+        assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
 
 def test_check_mapping():
@@ -165,7 +165,7 @@ def test_check_mapping():
         ("750-1515", 34818),
     )
     for module, register in values:
-        assert _WagoController._check_mapping(module, register)
+        assert WagoController._check_mapping(module, register)
 
 
 mapping = "750-842 " + " ".join(["750-469"] * 9) + " 750-517" * 2 + " 750-479"
@@ -253,23 +253,32 @@ def test_wago_modbus_simulator(wago_mockup):
 750-469, psTr3, psTr4
 750-517, intlcka1, intlcka2
 750-517, intlcka3, intlcka4
-750-479, gabsP1
+750-556, gabsP1
     """
 
     from bliss.comm.util import get_comm
 
     conf = {"modbustcp": {"url": f"{host}:{port}"}}
     comm = get_comm(conf)
-    wago = WagoController(comm)
-    wago.connect()
-    with pytest.raises(RuntimeError):
-        wago.set_mapping(mapping)  # one channel is missing on 750-479
+    with pytest.raises(RuntimeError):  # one channel is missing on 750-479
+        modules_config = ModulesConfig(mapping)
 
-    wago.set_mapping(mapping, ignore_missing=True)
+    modules_config = ModulesConfig(mapping, ignore_missing=True)
+    wago = WagoController(comm, modules_config)
+    wago.connect()
+    wago.set("intlcka1", 1, "intlcka2", 0)
+    wago.get("intlcka1", "intlcka2") == (True, False)
+    wago.set("intlcka1", 0, "intlcka2", 1)
+    wago.get("intlcka1", "intlcka2") == (False, True)
+    value = wago.get("gabsP1")
+    assert value == wago.get("gabsP1")  # check if is the same value
+    new_value = value + 1
+    assert wago.set("gabsP1", new_value) != wago.get("gabsP1")
+
     names = "gabsTf1 gabsTf2 gabsTf3 gabsTf4 gabsTr1 gabsTr2 gabsTr3 gabsTr4 sabsT1 sabsT2 sabsT3 sabsT4 psTf1 psTf2 psTf3 psTf4 psTr1 psTr2 psTr3 psTr4 intlcka1 intlcka2 intlcka3 intlcka4 gabsP1"
 
     for i, name in zip(range(0, 24), names.split()):
-        assert wago.key2name(i) == name
+        assert wago.devkey2name(i) == name
 
     for name in names.split():
         wago.get(name)
@@ -278,7 +287,7 @@ def test_wago_modbus_simulator(wago_mockup):
     wago.close()
 
 
-def test_wago_config_get(default_session):
+def test_wago_config_get(default_session, wago_mockup):
 
     """
     # getting mockup port (as is randomly chosen)
@@ -287,17 +296,13 @@ def test_wago_config_get(default_session):
     # patching port into config
     default_session.config.get_config("wago_simulator")["modbustcp"]["url"] = f"{host}:{port}"
     """
-
     wago = default_session.config.get("wago_simulator")
 
-    ignore_missing = default_session.config.get_config("wago_simulator").get(
-        "ignore_missing", False
-    )
     assert wago.controller.series == 750
     wago.controller.print_plugged_modules()
 
 
-def test_wago_counters(default_session):
+def test_wago_counters(default_session, wago_mockup):
 
     """
     check you can define a wago key as a counter in config and read it

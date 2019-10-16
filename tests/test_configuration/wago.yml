@@ -1,61 +1,63 @@
-name: wago_simulator
-plugin: bliss
-module: wago.wago
-class: Wago
-modbustcp:
-    url: localhost
-simulate: True
-ignore_missing: True
-mapping:
-    - type: 750-504
-      logical_names: foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
-    - type: 750-408
-      logical_names: foh2pos, sain2, foh2pos, sain4
-    - type: 750-408
-      logical_names: foh2pos, sain6, foh2pos, sain8
-    - type: 750-408
-      logical_names: pres
-    - type: 750-469
-      logical_names: esTf1, esTf2
-    - type: 750-469
-      logical_names: esTf3, esTf4
-    - type: 750-469
-      logical_names: esTr1, esTr2
-    - type: 750-469
-      logical_names: esTr3, esTr4
-    - type: 750-517
-      logical_names: intlckf1, intlckf2
-counter_names: esTr1, esTr2
-interlocks:
-    - relay: intlckf1
-      flags: STICKY
-      name: Interlock
-      channels:
-          - logical_name: esTf1
-            type: TC
-            min: 10
-            max: 50
-          - logical_name: esTf2
-            type: TC
-            min: -10
-            max: 50.5
-          - logical_name: esTr1
-            type: TC
-            min: 10
-            max: 50
-          - logical_name: esTr2
-            type: TC
-            min: 10
-            max: 50
-    - relay: intlckf2
-      flags: STICKY
-      name: Interlock 2
-      channels:
-          - logical_name: esTr1
-            type: TC
-            min: -10
-            max: 50.5
-          - logical_name: esTr2
-            type: TC
-            min: -10
-            max: 50
+- name: wago_simulator
+  plugin: bliss
+  module: wago.wago
+  class: Wago
+  modbustcp:
+      url: localhost
+  simulate: True
+  ignore_missing: True
+  mapping:
+      - type: 750-504
+        logical_names: foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
+      - type: 750-408
+        logical_names: foh2pos, sain2, foh2pos, sain4
+      - type: 750-408
+        logical_names: foh2pos, sain6, foh2pos, sain8
+      - type: 750-408
+        logical_names: pres
+      - type: 750-469
+        logical_names: esTf1, esTf2
+      - type: 750-469
+        logical_names: esTf3, esTf4
+      - type: 750-469
+        logical_names: esTr1, esTr2
+      - type: 750-469
+        logical_names: esTr3, esTr4
+      - type: 750-517
+        logical_names: intlckf1, intlckf2
+      - type: 750-554
+        logical_names: o10v1, o10v2
+  counter_names: esTr1, esTr2
+  interlocks:
+      - relay: intlckf1
+        flags: STICKY
+        description: Interlock
+        channels:
+            - logical_name: esTf1
+              type: TC
+              min: 10
+              max: 50
+            - logical_name: esTf2
+              type: TC
+              min: -10
+              max: 50.5
+            - logical_name: esTr1
+              type: TC
+              min: 10
+              max: 50
+            - logical_name: esTr2
+              type: TC
+              min: 10
+              max: 50
+      - relay: intlckf2
+        flags: STICKY
+        description: _Interlock 2
+        channels:
+            - logical_name: esTr1
+              type: TC
+              min: -10
+              max: 50.5
+            - logical_name: esTr2
+              type: TC
+              min: -10
+              max: 50

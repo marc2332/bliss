@@ -72,7 +72,7 @@ Usage::
 import gevent
 import tabulate
 from bliss.common.utils import grouped
-from bliss.controllers.wago import WagoController
+from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
 
@@ -160,9 +160,11 @@ class Transfocator:
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.safety = bool(config.get("safety", False))
         self.wago_ip = config["controller_ip"]
+        self.wago_port = config.get("controller_port", 502)
         self.wago = None
         self.empty_jacks = []
         self.pinhole = []
+        self.simulate = config.get("simulate", False)
         self._state_chan = channels.Channel(
             "transfocator: %s" % name, callback=self.__state_changed
         )
@@ -203,9 +205,24 @@ class Transfocator:
     def connect(self):
         """ Connect to the WAGO module, if not already done """
         if self.wago is None:
-            self.wago = WagoController(self.wago_ip)
             mapping = TfWagoMapping(self.nb_lens, self.nb_pinhole)
-            self.wago.set_mapping(str(mapping), ignore_missing=True)
+
+            modules_config = ModulesConfig(str(mapping), ignore_missing=True)
+
+            if self.simulate:
+                # launch the simulator
+                from tests.conftest import get_open_ports
+                from tests.emulators.wago import WagoMockup
+
+                self.__mockup = WagoMockup(modules_config)
+                # create the comm
+                conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
+            else:
+                # assuming a tcp direct connection, could be done also with a Wago Device Server
+                conf = {"modbustcp": {"url": f"{self.wago_ip}:{self.wago_port}"}}
+
+            comm = get_wago_comm(conf)
+            self.wago = WagoController(comm, modules_config)
 
     def pos_read(self):
         """ Read the WAGO position

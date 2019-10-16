@@ -702,14 +702,14 @@ def main():
     # enable periodic execution of Qt's loop,
     # this is to react on SIGINT
     # (from stackoverflow answer: https://stackoverflow.com/questions/4938723)
-    timer = qt.QTimer()
-    timer.start(500)
-    timer.timeout.connect(lambda: None)
+    ctrlc_timer = qt.QTimer()
+    ctrlc_timer.start(500)
+    ctrlc_timer.timeout.connect(lambda: None)
 
     if need_gevent_loop:
-        timer2 = qt.QTimer()
-        timer2.start(10)
-        timer2.timeout.connect(lambda: gevent.sleep(0.01))
+        gevent_timer = qt.QTimer()
+        gevent_timer.start(10)
+        gevent_timer.timeout.connect(lambda: gevent.sleep(0.01))
         ROOT_LOGGER.info("gevent based on QTimer")
     else:
         ROOT_LOGGER.info("gevent use poll patched")

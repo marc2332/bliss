@@ -92,6 +92,9 @@ def safe_rpc_server(obj):
             yield task, url
             task.kill()
             task.join()
+        except:
+            ROOT_LOGGER.error(f"Exception while serving {url}", exc_info=True)
+            raise
         finally:
             server.close()
 

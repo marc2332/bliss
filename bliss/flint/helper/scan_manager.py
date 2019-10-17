@@ -102,9 +102,15 @@ class ScanManager:
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            raw_data = image_view.get_image(-1)
-            channel_name = data["channel_name"]
-            self.__update_channel_data(channel_name, raw_data)
+            try:
+                raw_data = image_view.get_image(-1)
+            except KeyError:
+                # The image could not be ready
+                _logger.debug("Error while reching the last image", exc_info=True)
+                raw_data = None
+            if raw_data is not None:
+                channel_name = data["channel_name"]
+                self.__update_channel_data(channel_name, raw_data)
         else:
             assert False
 

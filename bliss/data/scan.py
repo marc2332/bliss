@@ -189,7 +189,6 @@ def _watch_data_callback(
                         scan_new_callback(scan_info)
                     except:
                         sys.excepthook(*sys.exc_info())
-                        raise
                     running_scans.setdefault(db_name, dict())
             elif event_type == _SCAN_EVENT.NEW_CHILD:
                 for (
@@ -207,7 +206,6 @@ def _watch_data_callback(
                             scan_new_child_callback(scan_info, channel_data_node)
                         except:
                             sys.excepthook(*sys.exc_info())
-                            raise
                         try:
                             fullname = channel_data_node.fullname
                             nodes_info.setdefault(
@@ -297,7 +295,6 @@ def _watch_data_callback(
                                     )
                                 except:
                                     sys.excepthook(*sys.exc_info())
-                                    raise
                                 gevent.idle()
                     elif zerod_nodes:
                         gevent.sleep(.1)  # relax a little bit
@@ -323,7 +320,6 @@ def _watch_data_callback(
                                     )
                                 except:
                                     sys.excepthook(*sys.exc_info())
-                                    raise
 
             elif event_type == _SCAN_EVENT.END:
                 for db_name, scan_info in event_data:
@@ -332,7 +328,6 @@ def _watch_data_callback(
                             scan_end_callback(scan_info)
                         except:
                             sys.excepthook(*sys.exc_info())
-                            raise
                     running_scans.pop(db_name, None)
         gevent.idle()
 

@@ -134,10 +134,10 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     if have_scalar:
         plot = plot_item_model.CurvePlot()
-        for _master, channels in scan_info["acquisition_chain"].items():
-            scalars = channels.get("scalars", [])
-            master_channels = channels.get("master", {}).get("scalars", [])
-            scalars_units = channels.get("scalars_units", {})
+        for master_name, channels_dict in scan_info["acquisition_chain"].items():
+            scalars = channels_dict.get("scalars", [])
+            master_channels = channels_dict.get("master", {}).get("scalars", [])
+            scalars_units = channels_dict.get("scalars_units", {})
 
             if have_scatter:
                 # In case of scatter the curve plot have to plot the time in x
@@ -187,7 +187,26 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     # The plot will be empty
                     pass
             else:
+                channels = [
+                    m for m in master_channels if m.split(":")[0] == master_name
+                ]
+                if len(channels) > 0:
+                    master_channel = channels[0]
+                    master_channel_unit = channels_dict.get("master", {}).get(
+                        "scalars_units", None
+                    )
+                    is_motor_scan = master_channel_unit != "s"
+                else:
+                    is_motor_scan = False
+
                 for channel_name in scalars:
+                    channel_unit = channels_dict.get("scalars_units", {}).get(
+                        channel_name, None
+                    )
+                    if is_motor_scan and channel_unit == "s":
+                        # Do not display base time for motor based scan
+                        continue
+
                     item = plot_item_model.CurveItem(plot)
                     data_channel = plot_model.ChannelRef(plot, channel_name)
 

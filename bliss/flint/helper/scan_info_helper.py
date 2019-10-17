@@ -281,3 +281,17 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             result.append(plot)
 
     return result
+
+
+def get_full_title(scan: scan_model.Scan) -> str:
+    """1 from scan_info a readable title"""
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return "No scan title"
+    title = scan_info.get("title", "No scan title")
+    scan_nb = scan_info.get("scan_nb", None)
+    if scan_nb is None:
+        text = f"{title} (#{scan_nb})"
+    else:
+        text = f"{title}"
+    return text

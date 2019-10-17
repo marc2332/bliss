@@ -349,7 +349,7 @@ class esrf_hexapode(Controller):
         info_str = self.info(menu)
 
         if menu:
-            msg_widget = UserMsg(f"{info_str}\n")
+            msg_widget = UserMsg(label=f"{info_str}\n")
             msg_title = f"{self.name}: {self.device}"
             display(msg_widget, title=msg_title)
         else:

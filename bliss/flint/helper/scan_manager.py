@@ -90,10 +90,6 @@ class ScanManager:
             self._refresh_task = None
 
     def __new_scan_data(self, data_type, master_name, data):
-        channels_data = None
-        raw_data = None
-        channel_name = None
-
         if data_type == "0d":
             channels_data = data["data"]
             for channel_name, channel_data in channels_data.items():

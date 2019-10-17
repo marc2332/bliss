@@ -348,7 +348,7 @@ class TangoWago:
             self.comm.command_inout("devwritephys", array)
 
     def __getattr__(self, attr):
-        if attr.startswith("dev"):
+        if attr.startswith("dev") or attr in ("status", "state"):
             return getattr(self.comm, attr)
         else:
             raise AttributeError
@@ -1793,12 +1793,15 @@ class Wago:
                 repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
             else:
                 repr_ += "\n\nGiven mapping does match Wago attached modules"
-        else:
+        elif hasattr(self.controller, "status"):
             # Wago device server
-            if "DOES NOT match Wago attached" in self.controller.dev_status():
+            if "DOES NOT match Wago attached" in self.controller.status():
                 repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
             else:
                 repr_ += "\n\nGiven mapping does match Wago attached modules"
+        else:
+            repr_ += "\n\nCould not check matching beetween mapping and Wago attached modules"
+
         return repr_
 
     def close(self):

@@ -22,6 +22,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
+from bliss.flint.helper import scan_info_helper
 
 
 class CurvePlotWidget(ExtendedDockWidget):
@@ -128,6 +129,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
             self.__redrawScan(self.__scan)
+            if self.__scan.state() != scan_model.ScanState.INITIALIZED:
+                self.__updateTitle(self.__scan)
 
     def __cleanScanIfNeeded(self, scan):
         plotModel = self.__plotModel
@@ -145,7 +148,11 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.clear()
 
     def __scanStarted(self):
-        pass
+        self.__updateTitle(self.__scan)
+
+    def __updateTitle(self, scan: scan_model.Scan):
+        title = scan_info_helper.get_full_title(scan)
+        self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
         pass

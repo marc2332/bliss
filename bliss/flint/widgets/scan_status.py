@@ -17,6 +17,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.utils import stringutils
+from bliss.flint.helper import scan_info_helper
 
 
 class ScanStatus(ExtendedDockWidget):
@@ -101,14 +102,12 @@ class ScanStatus(ExtendedDockWidget):
     def __updateScanInfo(self):
         scan = self.__scan
         assert scan is not None
-        scan_info = scan.scanInfo()
-        title = scan_info.get("title", "")
-        scan_nb = scan_info.get("scan_nb", "")
-        text = f"{title} - scan number {scan_nb}"
-        self.__widget.scanInfo.setText(text)
+        title = scan_info_helper.get_full_title(scan)
+        self.__widget.scanInfo.setText(title)
 
         # estimation = scan_info.get('estimation')
         # ex: {'total_motion_time': 2.298404048112306, 'total_count_time': 0.1, 'total_time': 2.398404048112306}
+        scan_info = scan.scanInfo()
         totalTime = scan_info.get("estimation", {}).get("total_time", None)
         if totalTime is not None:
             if totalTime <= 0:

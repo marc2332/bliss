@@ -23,5 +23,4 @@ class ExtendedDockWidget(qt.QDockWidget):
         closeButton.clicked.connect(self.__windowClosed)
 
     def __windowClosed(self):
-        print("CLOSE")
         self.windowClosed.emit()

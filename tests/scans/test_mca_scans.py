@@ -189,8 +189,7 @@ def test_mca_default_chain_with_measurement_group(session):
 def test_mca_scans_with_rois(session):
     simu = session.config.get("simu1")
     simu.rois.clear()
-    # ROI between indexes 400 and 700
-    simu.rois.add_roi("my_roi", 500, 100, 200)
+    simu.rois.add_roi("my_roi", 400, 700)
     scan = scans.ct(
         0.1,
         simu.counters.my_roi_det0,
@@ -205,8 +204,7 @@ def test_mca_scans_with_rois(session):
 def test_mca_scans_with_roi_sums(session):
     simu = session.config.get("simu1")
     simu.rois.clear()
-    # ROI between indexes 400 and 700
-    simu.rois.add_roi("my_roi", 500, 100, 200)
+    simu.rois.add_roi("my_roi", 400, 700)
     scan = scans.ct(
         0.1,
         simu.counters.my_roi,

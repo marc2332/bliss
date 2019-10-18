@@ -6,6 +6,7 @@ MUSST is a board designed by ISG group.
 external events.
 
 It can also be used to:
+
 * read encoder signals
 * read ADC values
 * read MCA spectrum
@@ -24,7 +25,8 @@ faster and must be used to use the MUSST in continuous scans.
 
 !!! note
     For ESRF users:
-    * If using a PCI board:
+
+    * If using a PCI board, install:
         - gpib drivers
         - gpib Tango device server `GpibController_PCI` (debian8 or redhate4)
         - Configure server startup script

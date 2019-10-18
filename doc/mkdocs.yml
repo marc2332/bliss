@@ -114,6 +114,8 @@ nav:
                 - Continuous scans: scan_continuous.md
         - Instruments:
                 - ESRF BeamViewer (EBV): using_beamviewer.md
+                - MCA:
+                    - MCA: using_mca.md
                 - Shutter: using_shutter.md
         - Online data display:
                 - Editing Lima ROI counters: flint_roi_counters.md

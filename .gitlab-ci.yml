@@ -20,7 +20,10 @@ check_style:
   image: continuumio/miniconda3:latest
   script:
     - pip install -r requirements-dev.txt
+    # run black
     - LC_ALL=C.UTF-8 black --check --safe .
+    # run flake8 on diff between current branch and last common ancestor with master
+    - git diff -U0 origin/master...$CI_COMMIT_SHA | flake8 --diff
 
 run_tests:source:
   stage: tests

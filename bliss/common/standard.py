@@ -256,6 +256,8 @@ def wa(**kwargs):
         ) in global_map.get_axes_positions_iter(
             on_error=ErrorWithTraceback(error_txt=err)
         ):
+            if not hasattr(setup_globals, axis_name):
+                continue
             if len(header) == max_cols:
                 header, pos, dial = [], [], []
                 tables.append((header, pos, dial))

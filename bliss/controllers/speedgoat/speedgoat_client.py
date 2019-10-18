@@ -289,6 +289,106 @@ def is_ring_buffer_node(tree, node):
 ##########################################################################
 
 
+class FastDAQ(object):
+    def __init__(self, speedgoat, scope):
+
+        self.speedgoat = speedgoat
+        self.scope = scope
+
+    #
+    # buffer
+    #
+    def set_counters(self, counter_list):
+        signal_list = []
+        for counter in counter_list:
+            signal_list.append(counter.index())
+
+        self.set_signals(signal_list)
+
+    def set_signals(self, signal_list):
+        nb_signals = len(signal_list)
+        if nb_signals > 20:
+            raise ValueError(
+                "Nb signals {} exceeds maximum ({})".format(nb_signals, 20)
+            )
+
+        self._signal_list = signal_list
+        sp_signal_list = np.full((20,), 1)
+        for idx in range(len(self._signal_list)):
+            sp_signal_list[idx] = self._signal_list[idx]
+
+        self.speedgoat.params["select_data/selectVector/Value"] = sp_signal_list
+
+    #
+    # Fast Scope
+    #
+    def start_fast_acquisition(self, frequency, nb_samples, counter_list):
+        self.scope.stop()
+        gevent.sleep(0.1)
+
+        if frequency > 0:
+            self.scope.decimation = int(0.5 + (10000.0 / frequency))
+        else:
+            return
+
+        if nb_samples > 0 and nb_samples <= 2000000:
+            self.scope.num_samples = nb_samples
+        else:
+            return
+
+        self.set_counters(counter_list)
+
+        self.scope.start()
+        self.speedgoat.set_param("fastDaqTrigger/Value", 0)
+        self.speedgoat.set_param("fastDaqTrigger/Value", 1)
+
+    @property
+    def acq_frequency(self):
+        return 10000.0 / self.scope.decimation
+
+    @acq_frequency.setter
+    def acq_frequency(self, freq):
+        if freq > 0:
+            self.scope.decimation = int(0.5 + (10000.0 / freq))
+
+    @property
+    def acq_nb_samples(self):
+        return self.scope.num_samples
+
+    @acq_nb_samples.setter
+    def acq_nb_samples(self, nb_samples):
+        if nb_samples > 0 and nb_samples <= 2000000:
+            self.scope.num_samples = nb_samples
+
+    def start(self):
+        self.scope.start()
+        self.speedgoat.set_param("fastDaqTrigger/Value", 0)
+        self.speedgoat.set_param("fastDaqTrigger/Value", 1)
+
+    #
+    # Scope
+    #
+
+    def scope_stop(self):
+        self.scope.stop()
+
+    def scope_start(self):
+        self.scope.start()
+
+    def scope_state(self):
+        self.scope.state()
+
+    def scope_read_is_finish(self):
+        return self.scope.state == ScopeState.Finished
+
+    def scope_get_data(self):
+        signals = self.scope.signal_list
+        data_arr = []
+        for signal in signals:
+            data_arr.append((signal, self.scope.get_data(signal, 0, None, 1)))
+        return data_arr
+
+
 class DAQ(object):
     def __init__(self, speedgoat, scope):
 
@@ -480,7 +580,7 @@ class CountersController(object):
         self.signal_node = signal_node
         self.param_node = param_node
 
-        self.name = self.speedgoat.name + "_counters_controller"
+        self.name = self.speedgoat.name + "CC"
         self.counterlist = []
 
         # build counter signal list
@@ -1016,14 +1116,14 @@ class Parameters(object):
         self.speedgoat = weakref.proxy(speedgoat)
 
     def __getitem__(self, name):
-        if isinstance(name, (str, unicode)):
+        if isinstance(name, str):
             block, name = name.rsplit("/", 1) if "/" in name else ("", name)
             return self.speedgoat.get_param_value_from_name(block, name)
         block_names = [bn.rsplit("/", 1) if "/" in bn else ("", bn) for bn in name]
         return self.speedgoat.get_param_value_from_names(*block_names)
 
     def __setitem__(self, name, value):
-        if isinstance(name, (str, unicode)):
+        if isinstance(name, str):
             block, name = name.rsplit("/", 1)
             self.speedgoat.set_param_value_from_name(block, name, value)
             return
@@ -1044,7 +1144,7 @@ class Signals(object):
         self.speedgoat = weakref.proxy(speedgoat)
 
     def __getitem__(self, name):
-        if isinstance(name, (str, unicode)):
+        if isinstance(name, str):
             tree = self.speedgoat._cache["signal_tree"]
             node = tree.get_node(name)
             idx = node.data["idx"]
@@ -1230,6 +1330,9 @@ class Speedgoat(object):
     def get_daq(self):
         return DAQ(self, self.scopes[11])
 
+    def get_fastdaq(self):
+        return FastDAQ(self, self.scopes[10])
+
     def get_daqs(self):
         pi = self.get_param_infos()
         tree = create_tree(pi)
@@ -1252,7 +1355,6 @@ class Speedgoat(object):
         return ScopeMode(self._conn.tg_sc_get_mode(scope_id))
 
     def __getattr__(self, name):
-        print("__getattr__", name)
         server_call = getattr(self._conn, name)
 
         def func(*args):
@@ -1261,3 +1363,15 @@ class Speedgoat(object):
         func.__name__ = name
         setattr(self, name, func)
         return func
+
+    def set_param(self, param, value):
+        self.params[param] = value
+        ret_val = self.params[param]
+        while self.get_param(param) != value:
+            gevent.sleep(0.00001)  # 10us
+
+    def get_param(self, param):
+        return self.params[param]
+
+    def get_signal(self, signal):
+        return self.signals[signal]

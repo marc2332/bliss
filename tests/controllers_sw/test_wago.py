@@ -144,31 +144,36 @@ def test_mapping_class_2():
         assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
 
-def test_check_mapping():
+def test_describe_hardware_module():
     values = (
         ("750-842", 842),
-        ("750-408", 33793),
-        ("750-414", 33793),
-        ("750-436", 34817),
+        ("4 Channel Digital Input", 33793),
+        ("4 Channel Digital Input", 33793),
+        ("8 Channel Digital Input", 34817),
         ("750-469", 469),
         ("750-476", 476),
         ("750-478", 478),
-        ("750-504", 33794),
+        ("4 Channel Digital Output", 33794),
         # ("750-508", 33283),  # does not work
-        ("750-517", 33282),
-        ("750-530", 34818),
+        ("2 Channel Digital Output", 33282),
+        ("8 Channel Digital Output", 34818),
         ("750-550", 550),
         ("750-556", 556),
         ("750-562", 562),
-        ("750-562-UP", 562),
-        ("750-1417", 34817),
-        ("750-1515", 34818),
+        ("8 Channel Digital Input", 34817),
+        ("8 Channel Digital Output", 34818),
     )
     for module, register in values:
-        assert WagoController._check_mapping(module, register)
+        assert module == WagoController._describe_hardware_module(register)
 
 
 mapping = "750-842 " + " ".join(["750-469"] * 9) + " 750-517" * 2 + " 750-479"
+
+
+def test_wago_check_mapping():
+    assert WagoController._check_mapping("750-400", "2 Channel Digital Input")
+    assert WagoController._check_mapping("750-530", "8 Channel Digital Output")
+    assert WagoController._check_mapping("750-502", "2 Channel Digital Output")
 
 
 def test_modbus_request(wago_mockup):
@@ -283,7 +288,8 @@ def test_wago_modbus_simulator(wago_mockup):
     for name in names.split():
         wago.get(name)
     assert wago.series == 750
-    wago._plugged_modules()
+    with pytest.raises(RuntimeError):
+        wago.check_plugged_modules()
     wago.close()
 
 
@@ -299,7 +305,7 @@ def test_wago_config_get(default_session, wago_mockup):
     wago = default_session.config.get("wago_simulator")
 
     assert wago.controller.series == 750
-    wago.controller.print_plugged_modules()
+    wago.controller.check_plugged_modules()
 
 
 def test_wago_counters(default_session, wago_mockup):
@@ -310,3 +316,16 @@ def test_wago_counters(default_session, wago_mockup):
     wago = default_session.config.get("wago_simulator")
     assert len(wago.counters) == 2
     assert type(wago.esTr1.read()) == type(0.0)
+
+
+def test_wago_info(capsys, default_session, wago_mockup):
+    wago = default_session.config.get("wago_simulator")
+    wago.controller.check_plugged_modules()
+    print(wago.__info__())
+    captured = capsys.readouterr()
+    assert "Given mapping does match Wago attached modules" in captured.out
+    # giving a wrong configuration
+    wago.controller.modules_config = ModulesConfig("750-469, a,b\n")
+    print(wago.__info__())
+    captured = capsys.readouterr()
+    assert "Given mapping DOES NOT match Wago attached modules" in captured.out

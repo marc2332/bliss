@@ -15,3 +15,5 @@ def test_wago_ds(wago_tango_server, default_session):
     dev_proxy.pres
     dev_proxy.esTr1
     dev_proxy.intlckf1 = False
+
+    assert "DOES NOT match Wago attached modules" in dev_proxy.Status()

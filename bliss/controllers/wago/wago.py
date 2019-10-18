@@ -13,6 +13,7 @@ import re
 import logging
 import collections
 from enum import Enum
+from itertools import zip_longest
 
 from prompt_toolkit import print_formatted_text, HTML
 from tabulate import tabulate
@@ -296,6 +297,7 @@ class TangoWago:
         global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
 
     def get(self, *args, **kwargs):
+        log_debug(self, f"In get args={args} kwargs={kwargs}")
         values = []
         for name in args:
             key = self.modules_config.devname2key(name)
@@ -305,17 +307,18 @@ class TangoWago:
 
     def connect(self):
         """Added for compatibility"""
-        pass
+        log_debug(self, "In connect")
 
     def close(self):
         """Added for compatibility"""
-        pass
+        log_debug(self, "In close")
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
+        log_debug(self, f"In set args={args}")
         # write_table = self.modules_config._resolve_write(*args)
         channels_to_write = []
         current_list = channels_to_write
@@ -345,7 +348,7 @@ class TangoWago:
             self.comm.command_inout("devwritephys", array)
 
     def __getattr__(self, attr):
-        if attr.startswith("dev"):
+        if attr.startswith("dev") or attr in ("status", "state"):
             return getattr(self.comm, attr)
         else:
             raise AttributeError
@@ -424,6 +427,7 @@ class ModulesConfig:
     @property
     def modules(self):
         """Returns all vendor modules of PLC
+        the information is taken from the given mapping
 
         Example:
             >>> wago.modules
@@ -434,6 +438,7 @@ class ModulesConfig:
     @property
     def attached_modules(self):
         """Returns all attached modules of PLC (excluding CPU module)
+        the information is taken from the given mapping
         Example:
             >>> wago.modules
             ['750-430', '740-456']
@@ -896,7 +901,7 @@ class WagoController:
     """
 
     def __init__(self, comm, modules_config: ModulesConfig, timeout=1.0):
-
+        log_debug(self, "In __init__")
         self.client = comm
         self.timeout = timeout
         self.modules_config = modules_config
@@ -913,8 +918,8 @@ class WagoController:
         """ Connect to the wago. Check if we have a coupler or a controller.
         In case of controller get the firmware version and firmware date.
         """
+        log_debug(self, "In connect")
         with self.lock:
-            log_debug(self, "In connect")
             # check if we have a coupler or a controller
             self.series = self.client.read_input_registers(0x2011, "H")
 
@@ -937,11 +942,13 @@ class WagoController:
                 self.firmware["time"] = "/".join(
                     (x.decode("utf-8") for x in reply.split(b"\x00") if x)
                 )
+        self.__check_plugged_modules()
 
     def close(self):
         """
         Close the connection.
         """
+        log_debug(self, "In close")
         with self.lock:
             self.client.close()
 
@@ -1130,6 +1137,10 @@ class WagoController:
         Returns:
             (list): channel values
         """
+        log_debug(
+            self,
+            f"In get channel_names={channel_names}, convert_values={convert_values}",
+        )
         MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
 
         ret = []
@@ -1211,6 +1222,7 @@ class WagoController:
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
+        log_debug(self, f"In set args={args}")
         write_table = self.modules_config._resolve_write(*args)
 
         with self.lock:
@@ -1493,33 +1505,55 @@ class WagoController:
 
         return self.modules_config.devlog2hard(array_in)
 
-    def print_plugged_modules(self):
-        print(self._plugged_modules())
+    def plugged_modules_description(self):
+        out = ""
+        for i, m in enumerate(self.attached_modules):
+            if m.startswith("750-"):
+                description = get_module_info(m)[DESCRIPTION]
+                out += f"module{i}: {m} ({description})\n"
+            else:
+                out += f"module{i}: I/O mod ({m})\n"
+        return out
 
-    def _plugged_modules(self):
-        try:
-            return self.__plugged_modules
-        except AttributeError:
-            pass
+    def __check_plugged_modules(self):
+        """Called at startup to retrieve attached modules configuration from
+        the PLC"""
+        log_debug(self, "Retrieving attached modules configuration")
         try:
             modules = self.client.read_holding_registers(0x2030, "65H")
         except Exception as exc:
             log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
             raise
 
-        out = ""
-        for i, m in enumerate(modules, -1):
+        self.__modules = []
+        for m in modules:
             if not m:
                 break
-            if m & 0x8000:  # digital in/out
-                direction = "Input" if m & 0x1 else "Output"
-                mod_size = (m & 0xf00) >> 8
-                out += f"module{i}: I/O mod ({mod_size} Channel digital {direction})\n"
             else:
-                description = get_module_info(f"750-{m}")[DESCRIPTION]
-                out += f"module{i}: 750-{m} ({description})\n"
-        self.__plugged_modules = out
-        return self.__plugged_modules
+                self.__modules.append(WagoController._describe_hardware_module(m))
+
+    @staticmethod
+    def _describe_hardware_module(register):
+        """Given the result of a Wago modbus reading for checking the type
+        of the attached modules, returns a Wago module type like '750-469'
+        or whenever is not possible a description like '4 Channel Digital Input'
+        """
+        if register & 0x8000:  # digital in/out
+            type_ = "Digital Input" if register & 0x1 else "Digital Output"
+            mod_size = (register & 0xf00) >> 8
+            return f"{mod_size} Channel {type_}"
+            # resulting for example 4ID for a 4 input module
+            # and 2OD for a 2 output module
+        else:
+            return f"750-{register}"
+
+    @property
+    def modules(self):
+        return self.__modules
+
+    @property
+    def attached_modules(self):
+        return self.__modules[1:]
 
     @property
     def logical_mapping(self):
@@ -1534,56 +1568,57 @@ class WagoController:
         return self.modules_config.logical_keys
 
     @staticmethod
-    def _check_mapping(module, register):
-        """Checks if the given register value coresponds to the PLC type of module given
-
+    def _check_mapping(module1: str, module2: str) -> bool:
+        """Compares two given modules and returns True if they are equal
         Args:
-            module (str): name of the module (E.G. '750-462')
-            register (int): value obtained by modbus request on PLC that contains module
-                            informations
-        Return:
-            True if modules corresponds to register info
-            False if modules do not corresponds to registers info
+            module1
+            module2
+        Example:
+            WagoController._check_mapping("750-400","2 Channel Digital Input")
         """
-        if register & 0x8000:  # digital in/out
-            isinput = True if register & 0x1 else False
-            mod_size = (register & 0xf00) >> 8
-
-            digi_in, digi_out, _, _, total, type_ = get_module_info(module)[:6]
-
-            if (
-                bool(digi_in)
-                and isinput
-                or bool(digi_out)
-                and not isinput
-                and (
-                    (isinput and mod_size == digi_in)
-                    or (not isinput and mod_size == digi_out)
-                )
-                and type_ == "digital"
-            ):
-                return True
-
+        # preliminary comparison
+        if module1 is None or module2 is None:
+            return False
+        if module1.startswith("750-") and module2.startswith("750-"):
+            return module1 == module2
+        elif module1.startswith("750-"):
+            # second_mod will be descriptive
+            type_mod = module1
+            descr_mod = module2
         else:
-            # all other modules
-            if f"750-{register}" == module:
-                return True
-            if "750-562-UP" == module and register == 562:
-                return True
+            type_mod = module2
+            descr_mod = module1
+
+        # module2 is a digital
+        type_mod_digi_in, type_mod_digi_out, _, _, type_mod_total, type_mod_type = get_module_info(
+            type_mod
+        )[
+            :6
+        ]
+        descr_mod_isinput = True if "Input" in descr_mod else False
+        descr_mod_size, _, _, descr_mod_inout = descr_mod.split()
+        if (
+            bool(type_mod_digi_in)
+            and descr_mod_isinput
+            or bool(type_mod_digi_out)
+            and not descr_mod_isinput  # type is the same
+            and (
+                (descr_mod_isinput and int(descr_mod_size) == type_mod_digi_in)
+                or (not descr_mod_isinput and int(descr_mod_size) == type_mod_digi_out)
+            )
+            and type_mod_type == "digital"
+        ):
+            return True
         return False
 
     def check_plugged_modules(self):
-        try:
-            registers = self.client.read_holding_registers(0x2030, "65H")
-        except Exception as exc:
-            log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
-            raise
-
-        for i, module in enumerate(self.modules_config.modules):
+        for i, (module1, module2) in enumerate(
+            zip_longest(self.attached_modules, self.modules_config.attached_modules)
+        ):
             # exclude the CPU main module
-            if not WagoController._check_mapping(module, registers[i]):
+            if not WagoController._check_mapping(module1, module2):
                 raise RuntimeError(
-                    f"PLC addon module n.{i} (starting from zero) does not corresponds to mapping:{module}"
+                    f"PLC module n.{i} (starting from zero) does not corresponds to mapping:{module1} != {module2}"
                 )
 
 
@@ -1749,9 +1784,28 @@ class Wago:
             module_type = self.modules_config.logical_mapping[k][0].module_type
             description = get_module_info(module_type).description
             tab.append([k, l, module_type, description])
-        return tabulate(tab, headers="firstrow", stralign="center")
+        repr_ = tabulate(tab, headers="firstrow", stralign="center")
+        if hasattr(self.controller, "check_plugged_modules"):
+            try:
+                self.controller.check_plugged_modules()
+            except RuntimeError as exc:
+                log_error(self, f"Configuration Error: {exc}")
+                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
+            else:
+                repr_ += "\n\nGiven mapping does match Wago attached modules"
+        elif hasattr(self.controller, "status"):
+            # Wago device server
+            if "DOES NOT match Wago attached" in self.controller.status():
+                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
+            else:
+                repr_ += "\n\nGiven mapping does match Wago attached modules"
+        else:
+            repr_ += "\n\nCould not check matching beetween mapping and Wago attached modules"
+
+        return repr_
 
     def close(self):
+        log_debug(self, f"In close")
         self.controller.close()
         try:
             self.__mockup.close()
@@ -1806,6 +1860,7 @@ class Wago:
                 print(show(self.name, self._interlocks_on_beacon))
 
     def interlock_reset_relay(self, instance_num):
+        log_debug(self, f"Resetting instance num: {instance_num}")
         from bliss.controllers.wago.interlocks import interlock_reset as reset
 
         reset(self.controller, instance_num)

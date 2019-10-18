@@ -60,9 +60,12 @@ The different configurations are:
         the 750-402 and 750-408 Digital Input module has 4 channels only.
 """
 
-from . import wago
+from bliss.controllers.wago.wago import WagoController, ModulesConfig
+from bliss.comm.util import get_comm
 import time
 from bliss.common.utils import wrap_methods
+from bliss.common.logtools import *
+from bliss import global_map
 
 
 class MattWagoMapping:
@@ -163,18 +166,38 @@ class MattControl:
         self.stat_m = stat_m
         self.ctrl_m = ctrl_m
         self.exec_timeout = 5
+        global_map.register(self)
+
+    @property
+    def wago(self):
+        try:
+            return self.__wago
+        except AttributeError:
+            raise Exception("Matt is not connected to Wago")
 
     def connect(self):
-        self.wago = wago.WagoController(self.wago_ip)
+        log_debug(self, "In connect()")
         mapping = MattWagoMapping(
             self.nb_filter, self.att_type, self.att_alternate, self.stat_m, self.ctrl_m
         )
-        self.wago.set_mapping(str(mapping), ignore_missing=True)
+        modules_config = ModulesConfig(str(mapping), ignore_missing=True)
+
+        log_debug(self, "Trying to connect to Wago")
+        conf = {"modbustcp": {"url": self.wago_ip}}
+        comm = get_comm(conf)
+
+        wago = WagoController(comm, modules_config)
+        wago.connect()
+        self.__wago = wago
+
+        global_map.register(self, children_list=[self.wago])
 
     def exit(self):
+        log_debug(self, "In exit()")
         self.wago.close()
 
     def pos_read(self):
+        log_debug(self, "In pos_read()")
         ret = 0
         nstat = 2
 
@@ -193,12 +216,14 @@ class MattControl:
         return ret
 
     def read_1posbit(self, stat):
+        log_debug(self, f"In read_1posbit({stat})")
         ret = 0
         for i in range(self.nb_filter):
             ret += stat[i] << i
         return ret
 
     def read_2posbit_odd(self, stat):
+        log_debug(self, f"In read_2posbit_odd({stat})")
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -210,6 +235,7 @@ class MattControl:
         return ret
 
     def read_2posbit(self, stat):
+        log_debug(self, f"In read_2posbit({stat})")
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -223,6 +249,7 @@ class MattControl:
         return ret
 
     def read_2posbit_alternate(self, stat):
+        log_debug(self, f"In read_2posbit_alternate({stat})")
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -233,6 +260,7 @@ class MattControl:
         return ret
 
     def pos_write(self, value):
+        log_debug(self, f"In pos_write({value})")
         valarr = []
         valarr = [False] * self.nb_filter
 
@@ -253,6 +281,7 @@ class MattControl:
         return mystr
 
     def status_read(self):
+        log_debug(self, f"In status_read()")
         stat = []
         mystr = ""
         lbl = "F"
@@ -276,6 +305,7 @@ class MattControl:
         return stat
 
     def matt_set(self, val):
+        log_debug(self, f"In matt_set({val})")
         oldvalue = self.pos_read()
         if oldvalue >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
@@ -300,6 +330,7 @@ class MattControl:
                 raise RuntimeError("Timeout while waiting for filters to be %d" % val)
 
     def filter_set(self, filt, put_in):
+        log_debug(self, f"In filter_set({filt}, {put_in})")
         value = self.pos_read()
         if value >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
@@ -324,16 +355,19 @@ class MattControl:
                 )
 
     def mattin(self, filt):
+        log_debug(self, f"In mattin({filt}")
         if filt >= self.nb_filter:
             raise RuntimeError("Wrong filter number %d" % filt)
         self.filter_set(filt, True)
 
     def mattout(self, filt):
+        log_debug(self, f"In mattout({filt}")
         if filt >= self.nb_filter:
             raise RuntimeError("Wrong filter number %d" % filt)
         self.filter_set(filt, False)
 
     def mattsetall(self, flag):
+        log_debug(self, f"In mattsetall({flag}")
         value = 0
         if flag is True:
             for i in range(self.nb_filter):
@@ -341,11 +375,13 @@ class MattControl:
         self.mattstatus_set(value)
 
     def mattstatus_get(self):
+        log_debug(self, f"In mattstatus_get()")
         value = []
         value.append(float(self.pos_read()))
         return value
 
     def mattstatus_set(self, value):
+        log_debug(self, f"In mattstatus_set({value})")
         self.pos_write(value)
         t0 = time.time()
         check = self.pos_read()

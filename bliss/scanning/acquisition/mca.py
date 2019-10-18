@@ -9,6 +9,8 @@ import itertools
 from contextlib import closing
 from collections import defaultdict
 
+from ast import literal_eval
+
 import numpy
 import gevent.event
 
@@ -387,7 +389,9 @@ class RoiMcaCounter(BaseMcaCounter):
 
     def register_device(self, device):
         super(RoiMcaCounter, self).register_device(device)
-        self.start_index, self.stop_index = self.mca.rois.resolve(self.roi_name)
+        self.start_index, self.stop_index = literal_eval(
+            self.mca.rois.config[self.roi_name]
+        )
 
     @property
     def dtype(self):

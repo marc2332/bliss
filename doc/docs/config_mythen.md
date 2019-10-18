@@ -1,25 +1,34 @@
 ![Mythen](img/mythen2.jpg)
 # Dectris Mythen strip (1D) detector controller
 
-The Mythen is a 1D,strip , detector based on hybrid pixel technology made by Dectric company.
-It can operate at 1000Hz, 24-bit, with a readout time of 89us. Its energy range is from 4 to 40 keV (down to 4keV only for 320um x 4 mm sensors). Threshold and energy in keV can be selected.
+The Mythen is a 1D,strip , detector based on hybrid pixel technology made by
+Dectric company.  It can operate at 1000Hz, 24-bit, with a readout time of
+89us. Its energy range is from 4 to 40 keV (down to 4keV only for 320um x 4 mm
+sensors). Threshold and energy in keV can be selected.
 
-The Mythen strip detector is commonly used as *MCA-like detector* in the field of spectroscopy application.
+The Mythen strip detector is commonly used as *MCA-like detector* in the field
+of spectroscopy application.
 
-There are actually two versions of Mythen hardware, so-called Mythen and Mythen2, the BLISS controller supports both systems.
+There are actually two versions of Mythen hardware, so-called Mythen and
+Mythen2, the BLISS controller supports both systems.
 
-The Mythen is a networked device which can be configured for a fix IP address. An embedded web client is running in the Detector Control System4 (DCS4) box. The DCS4 is delivered from factory with  IP address 192.168.0.90.
+The Mythen is a networked device which can be configured for a fix IP
+address. An embedded web client is running in the Detector Control System4
+(DCS4) box. The DCS4 is delivered from factory with IP address 192.168.0.90.
 
-The Mythen web client can be used to test the detector, it provides a full access to the detector configuration and the acquisition.
+The Mythen web client can be used to test the detector, it provides a full
+access to the detector configuration and the acquisition.
 
 ## Configuration example from ID10 EH1
-```YAML
+```yaml
 - name: mythen1
   module: mca.mythen
   class: Mythen
   plugin: bliss
-  hostname: mythenid101 
-  apply_defaults: True    # Reset all the settings to their default value, it applies a reset command, see dectris manual for reset values
+  hostname: mythenid101
+  apply_defaults: True    # Reset all the settings to their default value, it
+                            applies a reset command, see dectris manual for
+                            reset values
   energy: 10              # keV
   threshold: 5            # kev
 
@@ -27,13 +36,16 @@ The Mythen web client can be used to test the detector, it provides a full acces
   module: mca.mythen
   class: Mythen
   plugin: bliss
-  hostname: mythenid102 
+  hostname: mythenid102
   apply_defaults: True
   energy: 12
 ```
-Above example works in case there is a \_\_init__.yml in the same directory containing
 
-    plugin: bliss 
+Above example works in case there is a \_\_init__.yml in the same directory
+containing:
+```yaml
+    plugin: bliss
+```
 
 ## Full list of configuration with default values
 
@@ -62,18 +74,21 @@ Above example works in case there is a \_\_init__.yml in the same directory cont
 
 
 
-(1) : The supported energy and threshold ranges depend on the module type, see the detector manual
-for the ranges.
+(1) : The supported energy and threshold ranges depend on the module type, see
+the detector manual for the ranges.
 
 (2) : in/out polarity change is deprecated from mythen controller model DCS4.
 
 ## Sample Tricks
-The mythen has low level commands for `energy/threshold/correction/deadtime` settings and a high level command `element_settings` with predefined settings for cupper, molybdenum, Chromium or Iron tube . Changing the `element_settings` will apply new values for the low levet settings.
+The mythen has low level commands for `energy/threshold/correction/deadtime`
+settings and a high level command `element_settings` with predefined settings
+for Copper, Molybdenum, Chromium or Silver tube. Changing the `element_settings`
+will apply new values for the low levet settings.
 
 From the Mythen controller object you can display the settings in one shot:
-```PYTHON
+```python
 TEST_MYTHEN [1]: mythen2 = config.get('mythenid102')
-TEST_MYTHEN [3]: mythen2                                                                        
+TEST_MYTHEN [3]: mythen2 
         Out [3]: Mythen on mythenid102:
                    nmodules                  = 2
                    delay_after_frame         = 0.0
@@ -96,15 +111,19 @@ TEST_MYTHEN [3]: mythen2
 ```
 
 
-Some Mythen commands (energy, threshold, element_settings ...) apply on the **selected module**. The DCS4 can control up to 4 modules and you can choose to select all (default) on only one. The attribute `selected_module` give you access to this:
+Some Mythen commands (energy, threshold, element_settings ...) apply on the
+**selected module**. The DCS4 can control up to 4 modules and you can choose to
+select all (default) on only one. The attribute `selected_module` gives
+access to this:
 
-```PYTHON
-TEST_MYTHEN [4]: mythen2.selected_module                                                        
+```python
+TEST_MYTHEN [4]: mythen2.selected_module
         Out [4]: 0  # means all selected
 TEST_MYTHEN [5]: mythen2.selected_module=2 #select module number 2
-TEST_MYTHEN [6]: mythen2.element_settings='Cu' # change settings of module #2 to Cu
+TEST_MYTHEN [6]: mythen2.element_settings='Cu' # change settings of
+                                                 module #2 to Cu
 
-TEST_MYTHEN [8]: mythen2                                                                        
+TEST_MYTHEN [8]: mythen2
         Out [8]: Mythen on mythenid102:
                    nmodules                  = 2
                    delay_after_frame         = 0.0

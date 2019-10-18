@@ -1,31 +1,29 @@
 # Installation and configuration of XIA MCA
 
-XIA MCA electronics:
+Installation of XIA devices is common to the 3 XIA MCA electronics:
 
 * xmap
 * mercury
 * falconx
 
-Xia electronics are plugged in a windows (10 pro 64 bits) computer.
+Devices are plugged in a windows (10 pro 64 bits) computer.
 
-A BLISS RPC server is running on the windows PC.
+BLISS must be installed on the windows PC to be able to run a BLISS RPC server.
 
-BLISS must be installed on the windows PC to be able to run the RPC server.
-
-**Handel** is the library used to deal with XIA devices and data.
-
-Handel comes with ProSpect software.
+**Handel** is the library used to deal with XIA devices and data. Handel comes
+with **ProSpect** software.
 
 To access XIA device using the Handel library from BLISS runing on a linux
 station, a BLISS rpc server named `bliss-handel-server` must be running on the
 windows PC.
 
 
-**ProSpect** is the windows software provided by XIA to control XIA devices.
+**ProSpect** is the windows software provided by XIA to control and calibrate
+XIA devices.
 
 There are 2 versions of ProSpect:
 
-* ProSpect for Xmap and Mercury
+* ProSpect for Xmap and Mercury (merged with the deprecated *xManager*)
 * ProSpect for FalconX
 
 
@@ -65,18 +63,7 @@ conda config --env --append channels tango-controls
 * clone and install BLISS
     * `git clone https://gitlab.esrf.fr/bliss/bliss bliss.git`
     * `cd bliss.git`
-    * remove `pygraphviz` from `requirements-conda.txt`:
-        * `blessings`
-        * `louie`
-        * `gxx_linux-64`
-        * `mendeleev`
-        * `ptpython`
-        * `pygraphviz`
-        * `redis`
-        * `redis-py`
-        * `tango`
-        * `tmux`
-        * `treelib`
+    * remove `pygraphviz` from `requirements-conda.txt`
     * `conda install --file requirements-conda.txt`
     * `python setup.py install`
 

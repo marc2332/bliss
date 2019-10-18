@@ -9,6 +9,7 @@
 
 # Imports
 from numbers import Number
+from bliss.common.logtools import *
 
 from bliss.comm import rpc
 from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
@@ -58,6 +59,24 @@ class BaseXIA(BaseMCA):
 
     def finalize(self):
         self._proxy.close()
+
+    def info(self):
+        info_str = super().info()
+        info_str += "\nXIA infos:\n"
+
+        info_str += f"config file: {self.current_configuration}\n"
+        return info_str
+
+    def __info__(self):
+        try:
+            info_str = self.info()
+        except Exception:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
+
+        return info_str
 
     # Configuration
 
@@ -206,24 +225,29 @@ class BaseXIA(BaseMCA):
 
     def start_acquisition(self):
         # Make sure the acquisition is stopped first
+        log_debug(self, "start_acquisition")
         self._proxy.stop_run()
         self._proxy.start_run()
 
     def stop_acquisition(self):
+        log_debug(self, "stop_acquisition")
         self._proxy.stop_run()
 
     def is_acquiring(self):
         return self._proxy.is_running()
 
     def get_acquisition_data(self):
+        log_debug(self, "get_acquisition_data")
         spectrums = self._proxy.get_spectrums()
         return self._convert_spectrums(spectrums)
 
     def get_acquisition_statistics(self):
+        log_debug(self, "get_acquisition_statistics")
         stats = self._proxy.get_statistics()
         return self._convert_statistics(stats)
 
     def poll_data(self):
+        log_debug(self, "poll_data")
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
         spectrums = dict(
             (key, self._convert_spectrums(value)) for key, value in spectrums.items()
@@ -371,3 +395,21 @@ class FalconX(BaseXIA):
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.FALCONX
         assert all(e in range(8) for e in self.elements)
+
+    def info(self):
+        info_str = super().info()
+        info_str += "\nFalconX info:\n"
+
+        info_str += f"ip address: ???\n"
+        return info_str
+
+    def __info__(self):
+        try:
+            info_str = self.info()
+        except Exception:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
+
+        return info_str

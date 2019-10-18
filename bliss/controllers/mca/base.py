@@ -17,6 +17,7 @@ import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
 from bliss import global_map
+from bliss.common.logtools import *
 
 # Enums
 
@@ -83,6 +84,45 @@ class BaseMCA(object):
     @property
     def elements(self):
         raise NotImplementedError
+
+    def info(self):
+        info_str = " ---=== MCA ===---\n"
+        info_str += f"object: {self.__class__}\n\n"
+        info_str += "Detector info:\n"
+        info_str += f"brand: {self.detector_brand}\n"
+        info_str += f"type: {self.detector_type}\n"
+        # info_str += f"detector brand: {self.detector_brand}\n"
+
+        info_str += f"\nConfig:\n"
+        # info_str += f"Counters: {self.counters}\n"
+        info_str += f"ROIS:\n"
+        info_str += f"{self.rois}\n"
+        info_str += f"\n"
+        try:
+            info_str += f"spectrum size: {self.spectrum_size}\n"
+        except NotImplementedError:
+            pass
+        try:
+            info_str += f"calib type: {self.calibration_type}\n"
+        except NotImplementedError:
+            pass
+        info_str += f"\n"
+
+        return info_str
+
+    def __info__(self):
+        """Standard function called by BLISS Shell typing helper to get info
+        about objects.
+        """
+        try:
+            info_str = self.info()
+        except Exception:
+            log_error(
+                self,
+                "An error happend during execution of __info__(), use .info() to get it.",
+            )
+
+        return info_str
 
     # Modes
 
@@ -233,6 +273,7 @@ class BaseMCA(object):
     def run_software_acquisition(
         self, acquisition_number, acquisition_time=1., polling_time=0.1
     ):
+        log_debug(self, "run_software_acquisition")
         # Trigger mode
         self.set_trigger_mode(TriggerMode.SOFTWARE)
         # Preset mode
@@ -247,6 +288,7 @@ class BaseMCA(object):
     def run_gate_acquisition(
         self, acquisition_number, block_size=None, polling_time=0.1
     ):
+        log_debug(self, "run_gate_acquisition")
         # Trigger mode
         self.set_trigger_mode(TriggerMode.GATE)
         # Acquisition number
@@ -263,6 +305,7 @@ class BaseMCA(object):
     def run_synchronized_acquisition(
         self, acquisition_number, block_size=None, polling_time=0.1
     ):
+        log_debug(self, "run_synchronized_acquisition")
         # Trigger mode
         self.set_trigger_mode(TriggerMode.SYNC)
         # Acquisition number

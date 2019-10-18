@@ -78,6 +78,7 @@ def get_interface(*args, **kwargs):
             from .serial import Serial
             from .udp import Udp
             from .modbus import ModbusTCP
+            from tango import DeviceProxy
 
             interfaces = dict(
                 serial=Serial,

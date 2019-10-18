@@ -185,7 +185,10 @@ def _watch_data_callback(
         for event_type, event_data in local_events.items():
             if event_type == _SCAN_EVENT.NEW:
                 for db_name, scan_info in event_data:
-                    scan_new_callback(scan_info)
+                    try:
+                        scan_new_callback(scan_info)
+                    except:
+                        sys.excepthook(*sys.exc_info())
                     running_scans.setdefault(db_name, dict())
             elif event_type == _SCAN_EVENT.NEW_CHILD:
                 for (
@@ -199,7 +202,10 @@ def _watch_data_callback(
                         channel_db_name,
                         channel_data_node,
                     ) in data_channels_event.items():
-                        scan_new_child_callback(scan_info, channel_data_node)
+                        try:
+                            scan_new_child_callback(scan_info, channel_data_node)
+                        except:
+                            sys.excepthook(*sys.exc_info())
                         try:
                             fullname = channel_data_node.fullname
                             nodes_info.setdefault(
@@ -281,11 +287,14 @@ def _watch_data_callback(
                                 + channels.get("scalars", [])
                             )
                             if event_channels_full_name.intersection(channels_set):
-                                scan_data_callback(
-                                    "0d",
-                                    master,
-                                    {"data": nodes_data, "scan_info": scan_info},
-                                )
+                                try:
+                                    scan_data_callback(
+                                        "0d",
+                                        master,
+                                        {"data": nodes_data, "scan_info": scan_info},
+                                    )
+                                except:
+                                    sys.excepthook(*sys.exc_info())
                                 gevent.idle()
                     elif zerod_nodes:
                         gevent.sleep(.1)  # relax a little bit
@@ -298,21 +307,27 @@ def _watch_data_callback(
                                 channel_name, (None, -1, None)
                             )
                             if channel_db_name:
-                                scan_data_callback(
-                                    f"{dim}d",
-                                    master,
-                                    {
-                                        "channel_index": i,
-                                        "channel_name": channel_name,
-                                        "channel_data_node": channel_data_node,
-                                        "scan_info": scan_info,
-                                    },
-                                )
+                                try:
+                                    scan_data_callback(
+                                        f"{dim}d",
+                                        master,
+                                        {
+                                            "channel_index": i,
+                                            "channel_name": channel_name,
+                                            "channel_data_node": channel_data_node,
+                                            "scan_info": scan_info,
+                                        },
+                                    )
+                                except:
+                                    sys.excepthook(*sys.exc_info())
 
             elif event_type == _SCAN_EVENT.END:
                 for db_name, scan_info in event_data:
                     if scan_end_callback:
-                        scan_end_callback(scan_info)
+                        try:
+                            scan_end_callback(scan_info)
+                        except:
+                            sys.excepthook(*sys.exc_info())
                     running_scans.pop(db_name, None)
         gevent.idle()
 

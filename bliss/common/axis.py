@@ -739,6 +739,9 @@ class Axis:
     @_set_position.setter
     @lazy_init
     def _set_position(self, new_set_pos):
+        new_set_pos = float(
+            new_set_pos
+        )  # accepts both float or numpy array of 1 element
         self.settings.set("_set_position", new_set_pos)
         return new_set_pos
 
@@ -807,7 +810,7 @@ class Axis:
             raise RuntimeError(
                 "%s: can't set axis dial position " "while moving" % self.name
             )
-
+        new_dial = float(new_dial)  # accepts both float or numpy array of 1 element
         return self.__do_set_dial(new_dial, no_offset=self.no_offset)
 
     def __do_set_position(self, new_pos, no_offset):
@@ -838,7 +841,7 @@ class Axis:
             raise RuntimeError(
                 "%s: can't set axis user position " "while moving" % self.name
             )
-
+        new_pos = float(new_pos)  # accepts both float or numpy array of 1 element
         return self.__do_set_position(new_pos, self.no_offset)
 
     @lazy_init
@@ -1008,6 +1011,9 @@ class Axis:
     @lazy_init
     def velocity(self, new_velocity):
         # Write -> Converts into motor units to change velocity of axis."
+        new_velocity = float(
+            new_velocity
+        )  # accepts both float or numpy array of 1 element
         self.__controller.set_velocity(self, new_velocity * abs(self.steps_per_unit))
         _user_vel = self.__controller.read_velocity(self) / abs(self.steps_per_unit)
         self.settings.set("velocity", _user_vel)
@@ -1043,7 +1049,7 @@ class Axis:
             raise RuntimeError(
                 "Cannot set acceleration while axis '%s` is moving." % self.name
             )
-
+        new_acc = float(new_acc)  # accepts both float or numpy array of 1 element
         # Converts into motor units to change acceleration of axis.
         self.__controller.set_acceleration(self, new_acc * abs(self.steps_per_unit))
         _ctrl_acc = self.__controller.read_acceleration(self)
@@ -1070,6 +1076,9 @@ class Axis:
     @lazy_init
     def acctime(self, new_acctime):
         # Converts acctime into acceleration.
+        new_acctime = float(
+            new_acctime
+        )  # accepts both float or numpy array of 1 element
         self.acceleration = self.velocity / new_acctime
         return self.velocity / self.acceleration
 
@@ -1102,7 +1111,10 @@ class Axis:
         except TypeError:
             raise ValueError("Must set the two limits at once")
 
-        self.low_limit, self.high_limit = limits
+        # accepts iterable (incl. numpy array)
+        self.low_limit, self.high_limit = (
+            float(x) if x is not None else None for x in limits
+        )
         return self.limits
 
     @property
@@ -1122,6 +1134,7 @@ class Axis:
         # <limit> must be given in USER units
         # Saved in settings in DIAL units
         if limit is not None:
+            limit = float(limit)  # accepts numpy array of 1 element, or float
             limit = self.user2dial(limit)
         self.settings.set("low_limit", limit)
         return self.low_limit
@@ -1142,6 +1155,7 @@ class Axis:
         # Sets High Limit (given in USER units)
         # Saved in settings in DIAL units.
         if limit is not None:
+            limit = float(limit)  # accepts numpy array of 1 element, or float
             limit = self.user2dial(limit)
 
         self.settings.set("high_limit", limit)
@@ -1336,6 +1350,10 @@ class Axis:
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
         """
+        user_target_pos = float(
+            user_target_pos
+        )  # accepts both floats and numpy arrays of 1 element
+
         log_debug(
             self,
             "user_target_pos=%g  wait=%r relative=%r"
@@ -1396,6 +1414,8 @@ class Axis:
         Args:
             velocity: signed velocity for constant speed motion
         """
+        velocity = float(velocity)  # accepts both floats or numpy arrays of 1 element
+
         with self._lock:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))

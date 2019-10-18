@@ -142,6 +142,10 @@ class ChannelRef(qt.QObject):
     def __setstate__(self, state):
         self.__channelName = state[0]
 
+    def baseName(self):
+        baseName = self.__channelName.split(":")[-1]
+        return baseName
+
     def name(self) -> str:
         return self.__channelName
 

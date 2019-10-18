@@ -8,6 +8,7 @@
 import pytest
 import re
 import time
+import numpy
 import gevent
 import gevent.event
 from bliss.common import event
@@ -159,6 +160,11 @@ def test_rmove(robz):
 
 
 def test_acceleration(robz):
+    robz.acceleration = 1
+    assert robz.acceleration == 1
+    robz.acceleration = numpy.array([2])
+    assert robz.acceleration == 2
+
     acc = robz.acceleration
     assert robz.acctime == pytest.approx(robz.velocity / robz.acceleration)
 
@@ -177,6 +183,8 @@ def test_acceleration(robz):
 def test_axis_set_acctime(roby):
     roby.acctime = 0.250
     assert roby.acctime == 0.25
+    roby.acctime = numpy.array([0.3])
+    assert roby.acctime == 0.3
 
 
 def test_axis_move(robz):
@@ -192,6 +200,9 @@ def test_axis_move(robz):
 
     assert robz.position == 180
     assert robz._set_position == 180
+
+    robz.move(numpy.array([181]))
+    assert robz.position == 181
 
 
 def test_axis_multiple_move(robz):
@@ -354,6 +365,8 @@ def test_limits_offset(robz):
     assert robz.limits == (-1000, 1e9)
 
     # change limits (new limits given in user units)
+    robz.limits = numpy.array([-90, 90])
+    assert robz.limits == (-90, 90)
     robz.limits = (-100, 100)
     assert robz.limits == (-100, 100)
     assert robz.config_limits == (-1000, 1e9)
@@ -446,6 +459,9 @@ def test_axis_set_pos(roby):
     ipos = roby.position
     fpos = 10
     ilow_lim, ihigh_lim = roby.limits = -100, 100
+    roby.position = numpy.array([fpos * 2])
+    assert roby.position == pytest.approx(2 * fpos)
+    assert roby._set_position == pytest.approx(2 * fpos)
     roby.position = fpos
     assert roby.position == pytest.approx(fpos)
     assert roby._set_position == pytest.approx(fpos)
@@ -460,6 +476,8 @@ def test_axis_set_velocity(roby):
     # vel is in user-unit per seconds.
     roby.velocity = 5000
     assert roby.velocity == 5000
+    roby.velocity = numpy.array([6000])
+    assert roby.velocity == 6000
     assert roby.config_velocity == 2500
 
 
@@ -560,6 +578,10 @@ def test_dial(robz):
     robz.position = robz.dial = 2
     assert robz.dial == 2
     assert robz.position == 2
+    robz.position = numpy.array([3])
+    assert robz.position == 3
+    robz.dial = numpy.array([3])
+    assert robz.dial == 3
 
 
 def test_set_position(m0):

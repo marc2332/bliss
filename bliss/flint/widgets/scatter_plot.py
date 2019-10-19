@@ -117,6 +117,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__updateItem(item)
 
     def __updateAxesLabel(self):
+        scan = self.__scan
         plot = self.__plotModel
         if plot is None:
             xLabel = ""
@@ -128,8 +129,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 if not item.isValid():
                     continue
                 if isinstance(item, plot_item_model.ScatterItem):
-                    xLabels.append(item.xChannel().baseName())
-                    yLabels.append(item.yChannel().baseName())
+                    xLabels.append(item.xChannel().displayName(scan))
+                    yLabels.append(item.yChannel().displayName(scan))
+            print(xLabels)
             xLabel = " + ".join(sorted(set(xLabels)))
             yLabel = " + ".join(sorted(set(yLabels)))
         self.__plot.getXAxis().setLabel(xLabel)

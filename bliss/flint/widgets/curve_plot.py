@@ -122,6 +122,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__syncAxisTitle.triggerIf(not inTransaction)
 
     def __updateAxesLabel(self):
+        scan = self.__scan
         plot = self.__plotModel
         if plot is None:
             xLabel = ""
@@ -135,11 +136,11 @@ class CurvePlotWidget(ExtendedDockWidget):
                 if not item.isValid():
                     continue
                 if isinstance(item, plot_item_model.CurveItem):
-                    xLabels.append(item.xChannel().baseName())
+                    xLabels.append(item.xChannel().displayName(scan))
                     if item.yAxis() == "left":
-                        y1Labels.append(item.yChannel().baseName())
+                        y1Labels.append(item.yChannel().displayName(scan))
                     elif item.yAxis() == "right":
-                        y2Labels.append(item.yChannel().baseName())
+                        y2Labels.append(item.yChannel().displayName(scan))
                     else:
                         pass
             xLabel = " + ".join(sorted(set(xLabels)))

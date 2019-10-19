@@ -369,7 +369,10 @@ class AcquisitionSimulator(qt.QObject):
         scan_info = {
             "display_names": {},
             "master": {
-                "display_names": {},
+                "display_names": {
+                    device1_channel1.name(): device1.name(),
+                    device2_channel1.name(): device2.name(),
+                },
                 "images": [],
                 "scalars": [device1_channel1.name(), device2_channel1.name()],
                 "scalars_units": {

@@ -114,6 +114,7 @@ class McaPlotWidget(ExtendedDockWidget):
             self.__syncAxisTitle.triggerIf(not inTransaction)
 
     def __updateAxesLabel(self):
+        scan = self.__scan
         plot = self.__plotModel
         if plot is None:
             label = ""
@@ -123,7 +124,7 @@ class McaPlotWidget(ExtendedDockWidget):
                 if not item.isValid():
                     continue
                 if isinstance(item, plot_item_model.McaItem):
-                    labels.append(item.mcaChannel().baseName())
+                    labels.append(item.mcaChannel().displayName(scan))
             label = " + ".join(sorted(set(labels)))
         self.__plot.getYAxis().setLabel(label)
 

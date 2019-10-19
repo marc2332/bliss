@@ -67,6 +67,8 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     scan.setScanInfo(scan_info)
 
     devices: Dict[str, scan_model.Device] = {}
+    channel_units = read_units(scan_info)
+    channel_display_names = read_display_names(scan_info)
 
     # Mapping from scan_info to scan model
     kinds = {
@@ -110,9 +112,37 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         channel = scan_model.Channel(device)
         channel.setName(channel_info.name)
         channel.setType(kind)
+        unit = channel_units.get(channel_info.name, None)
+        if unit is not None:
+            channel.setUnit(unit)
+        display_name = channel_display_names.get(channel_info.name, None)
+        if display_name is not None:
+            channel.setDisplayName(display_name)
 
     scan.seal()
     return scan
+
+
+def read_units(scan_info: Dict) -> Dict[str, str]:
+    """Merge all units together"""
+    units = {}
+    for _master, channel_dict in scan_info["acquisition_chain"].items():
+        u = channel_dict.get("scalars_units", {})
+        units.update(u)
+        u = channel_dict.get("master", {}).get("scalars_units", {})
+        units.update(u)
+    return units
+
+
+def read_display_names(scan_info: Dict) -> Dict[str, str]:
+    """Merge all display names together"""
+    display_names = {}
+    for _master, channel_dict in scan_info["acquisition_chain"].items():
+        u = channel_dict.get("display_names", {})
+        display_names.update(u)
+        u = channel_dict.get("master", {}).get("display_names", {})
+        display_names.update(u)
+    return display_names
 
 
 def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:

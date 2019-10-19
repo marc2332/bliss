@@ -148,6 +148,8 @@ def read_display_names(scan_info: Dict) -> Dict[str, str]:
 def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     result: List[plot_model.Plot] = []
 
+    channel_units = read_units(scan_info)
+
     have_scalar = False
     have_scatter = False
     for _master, channels in scan_info["acquisition_chain"].items():
@@ -167,7 +169,6 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
         for master_name, channels_dict in scan_info["acquisition_chain"].items():
             scalars = channels_dict.get("scalars", [])
             master_channels = channels_dict.get("master", {}).get("scalars", [])
-            scalars_units = channels_dict.get("scalars_units", {})
 
             if have_scatter:
                 # In case of scatter the curve plot have to plot the time in x
@@ -177,7 +178,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     if timer in master_channels:
                         # skip the masters
                         continue
-                    if scalars_units.get(timer, None) != "s":
+                    if channel_units.get(timer, None) != "s":
                         # skip non time base
                         continue
                     break
@@ -188,7 +189,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     if scalar in master_channels:
                         # skip the masters
                         continue
-                    if scalars_units.get(scalar, None) == "s":
+                    if channel_units.get(scalar, None) == "s":
                         # skip the time base
                         continue
                     break
@@ -262,14 +263,13 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             plot = plot_item_model.ScatterPlot()
             scalars = channels.get("scalars", [])
             axes_channels = channels["master"]["scalars"]
-            scalars_units = channels.get("scalars_units", {})
 
             # Reach the first scalar which is not a time unit
             for scalar in scalars:
                 if scalar in axes_channels:
                     # skip the masters
                     continue
-                if scalars_units.get(scalar, None) == "s":
+                if channel_units.get(scalar, None) == "s":
                     # skip the time base
                     continue
                 break

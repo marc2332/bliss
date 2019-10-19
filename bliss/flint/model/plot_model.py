@@ -142,7 +142,17 @@ class ChannelRef(qt.QObject):
     def __setstate__(self, state):
         self.__channelName = state[0]
 
-    def baseName(self):
+    def displayName(self, scan: Optional[scan_model.Scan]) -> str:
+        """Returns the best short name available."""
+        if scan is not None:
+            channel = scan.getChannelByName(self.__channelName)
+            if channel is not None:
+                name = channel.displayName()
+                if name is not None:
+                    return name
+        return self.baseName()
+
+    def baseName(self) -> str:
         baseName = self.__channelName.split(":")[-1]
         return baseName
 

@@ -120,19 +120,16 @@ class ScanStatus(ExtendedDockWidget):
             self.__widget.remainingTime.setText("No estimation time")
 
     def __updateRemaining(self):
-        if self.__end is None:
-            return
-        now = time.time()
-        remaining = self.__end - now
-        if remaining < 0:
-            remaining = 0
-        percent = 100 * (now - self.__start) / (self.__end - self.__start)
-        percent = int(percent)
-        if now > self.__end:
-            percent = 100
-        self.__widget.process.setValue(percent)
-        remaining = stringutils.human_readable_duration(seconds=round(remaining))
-        self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
+        scan = self.__scan
+        if self.__end is not None:
+            now = time.time()
+            remaining = self.__end - now
+            remaining = stringutils.human_readable_duration(seconds=round(remaining))
+            self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
+        percent = scan_info_helper.get_scan_progress_percent(scan)
+        if percent is not None:
+            self.__widget.process.setValue(percent * 100)
+            self.__widget.process.setEnabled(True)
 
     def __scanStarted(self):
         self.__start = time.time()

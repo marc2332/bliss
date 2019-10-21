@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 import collections
 import logging
@@ -344,3 +345,28 @@ def get_full_title(scan: scan_model.Scan) -> str:
     else:
         text = f"{title}"
     return text
+
+
+def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
+    """Returns the percent of progress of this scan."""
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return None
+
+    # FIXME: npoints do not distinguish many top masters, AFAIK
+    npoints = scan_info.get("npoints", None)
+    if npoints is not None:
+        master_channels = []
+        for _master_name, channel_info in scan_info["acquisition_chain"].items():
+            master_channels.extend(channel_info.get("master", {}).get("scalars", []))
+
+        for master_channel in master_channels:
+            channel = scan.getChannelByName(master_channel)
+            if channel is None:
+                return None
+            data = channel.data()
+            if data is None:
+                return 0.0
+            return len(data.array()) / npoints
+
+    return None

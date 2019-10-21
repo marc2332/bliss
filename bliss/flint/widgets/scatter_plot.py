@@ -131,7 +131,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 if isinstance(item, plot_item_model.ScatterItem):
                     xLabels.append(item.xChannel().displayName(scan))
                     yLabels.append(item.yChannel().displayName(scan))
-            print(xLabels)
             xLabel = " + ".join(sorted(set(xLabels)))
             yLabel = " + ".join(sorted(set(yLabels)))
         self.__plot.getXAxis().setLabel(xLabel)

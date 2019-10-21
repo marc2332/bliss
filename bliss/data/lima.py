@@ -120,7 +120,9 @@ class LimaImageChannelDataNode(DataNode):
                         except IndexError:
                             pass
                         else:
-                            data = numpy.fromstring(raw_data[HEADER_SIZE:], dtype=mode)
+                            data = numpy.frombuffer(
+                                raw_data[HEADER_SIZE:], dtype=mode
+                            ).copy()
                             data.shape = image_height, image_width
                 if data is None:
                     data = self._get_from_server_memory(proxy, image_nb)

@@ -104,9 +104,9 @@ class ScanManager:
             image_view = channel_data_node.get(-1)
             try:
                 raw_data = image_view.get_image(-1)
-            except KeyError:
+            except IndexError:
                 # The image could not be ready
-                _logger.debug("Error while reching the last image", exc_info=True)
+                _logger.error("Error while reching the last image", exc_info=True)
                 raw_data = None
             if raw_data is not None:
                 channel_name = data["channel_name"]

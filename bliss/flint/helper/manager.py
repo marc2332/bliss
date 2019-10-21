@@ -214,7 +214,7 @@ class ManageMainBehaviours(qt.QObject):
 
             compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
             if compatibleModel is None:
-                print("No compatible class model")
+                _logger.error("No compatible class model")
                 plotModel = None
             else:
                 plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
@@ -222,7 +222,7 @@ class ManageMainBehaviours(qt.QObject):
                     plotModel = plots[0]
                     availablePlots.remove(plotModel)
                 else:
-                    print("No compatible model")
+                    _logger.error("No compatible model")
                     plotModel = compatibleModel()
                     plotModel.setStyleStrategy(DefaultStyleStrategy())
                     workspace.addPlot(plotModel)

@@ -80,6 +80,8 @@ class Icepap(Controller):
         hostname = self.config.get("host")
         self._cnx = Command(hostname, 5000, eol="\n")
         global_map.register(self, children_list=[self._cnx])
+
+        # Timestamps of last power command (ON or OFF) for each axis.
         self._last_axis_power_time = dict()
 
     def initialize(self):
@@ -200,11 +202,34 @@ class Icepap(Controller):
             status = axis._state()
         else:
             last_power_time = self._last_axis_power_time.get(axis, 0)
+            # ?STATUS: Query multiple board status.
+            # ?FSTATUS: Query multiple board FAST status.
+
+            # (From icepap doc)
+            # ?STATUS Returns the current status words of the specified boards
+            # as 32-bit values in C-like hexadecimal notation.  Note that in the
+            # cases of very frequent status polling, the ?FSTATUS query may be
+            # preferred to ?STATUS as ?FSTATUS returns values stored in the
+            # system controller and therefore benefits from shorter execution
+            # latency. ?STATUS on the other hand returns the status information
+            # stored in the boards and therefore guarantees more up to date
+            # values.
+            # ?FSTATUS is a system query that is managed exclusively by the
+            # master system controller. ?FSTATUS returns values stored in the
+            # system controller that are updated every time that any bit in the
+            # status word of a board changes. The ?FSTATUS query is intended to
+            # be used for frequent polling from the control host, as it is
+            # faster as it presents less latency than ?STATUS, and it does not
+            # load the internal communication bus.
+
+            # If power has been switched ON or OFF less than 1 second ago, use STATUS
+            # instead of FSTATUS to avoid reading an invalid cache (T.C.?)
             if time.time() - last_power_time < 1.0 and not isinstance(axis, LinkedAxis):
                 status = int(_command(self._cnx, "%s:?STATUS" % axis.address), 16)
             else:
                 self._last_axis_power_time.pop(axis, None)
                 status = int(_command(self._cnx, "?FSTATUS %s" % axis.address), 16)
+
         status ^= 1 << 23  # neg POWERON FLAG
         state = self._icestate.new()
         for mask, value in (
@@ -218,14 +243,17 @@ class Icepap(Controller):
             if status & mask:
                 state.set(value)
 
+        # MODE bits: 2-3
         state_mode = (status >> 2) & 0x3
         if state_mode:
             state.set(self.STATUS_MODCODE.get(state_mode)[0])
 
+        # STOPCODE bits: 14-17
         stop_code = (status >> 14) & 0xf
         if stop_code:
             state.set(self.STATUS_STOPCODE.get(stop_code)[0])
 
+        # DISABLE bits: 4-6
         disable_condition = (status >> 4) & 0x7
         if disable_condition:
             state.set(self.STATUS_DISCODE.get(disable_condition)[0])
@@ -234,8 +262,15 @@ class Icepap(Controller):
             # if motor is ready then no need to investigate deeper
             return state
 
-        if not (stop_code != 7 and stop_code != 14 and stop_code):
-            state.set("MOVING")
+        # This moving consideration is valid only if axis is ENABLED.
+        if not disable_condition:
+            # STOPCODE 7 and 14 are not affected.
+            if stop_code != 7 and stop_code != 14 and stop_code:
+                # there is a valid stop code -> not moving
+                pass
+            else:
+                # stop_code is 0 -> MOVING (needed for trajectories state)
+                state.set("MOVING")
 
         if not state.MOVING:
             # it seems it is not safe to call warning and/or alarm commands

@@ -234,11 +234,20 @@ class ManageMainBehaviours(qt.QObject):
         flint = self.__flintModel
         workspace = flint.workspace()
 
+        if flint.currentScan() is not None:
+            sameScan = (
+                flint.currentScan().scanInfo()["acquisition_chain"]
+                == scan.scanInfo()["acquisition_chain"]
+            )
+        else:
+            sameScan = False
+
         # Remove previous plot models
-        for widget in workspace.widgets():
-            widget.setPlotModel(None)
-        for plot in workspace.plots():
-            workspace.removePlot(plot)
+        if not sameScan:
+            for widget in workspace.widgets():
+                widget.setPlotModel(None)
+            for plot in workspace.plots():
+                workspace.removePlot(plot)
 
         # Set the new scan
         flint.setCurrentScan(scan)
@@ -261,10 +270,11 @@ class ManageMainBehaviours(qt.QObject):
                 else:
                     plotModel = compatibleModel()
 
-            if plotModel.styleStrategy() is None:
-                plotModel.setStyleStrategy(DefaultStyleStrategy())
-            workspace.addPlot(plotModel)
-            widget.setPlotModel(plotModel)
+            if not sameScan:
+                if plotModel.styleStrategy() is None:
+                    plotModel.setStyleStrategy(DefaultStyleStrategy())
+                workspace.addPlot(plotModel)
+                widget.setPlotModel(plotModel)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget

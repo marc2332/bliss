@@ -23,6 +23,7 @@ Minimalistic configuration example:
 
 import numpy
 
+from bliss import global_map
 from bliss.comm.rpc import Client
 from bliss.common.measurement import IntegratingCounter, counter_namespace
 
@@ -174,6 +175,7 @@ def create_and_configure_device(config_or_name):
     if "timeout" in device_config:
         kwargs["timeout"] = device_config["timeout"]
     device = Client(device_config["address"], **kwargs)
+    global_map.register(device, parents_list=["counters"])
 
     device.name = name
     device.acq_counter_group = CT2CounterGroup(device)

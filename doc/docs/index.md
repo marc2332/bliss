@@ -162,6 +162,13 @@ an existing conda env. in which BLISS is installed.
 4) to simulate a lima camera run also
 
         TANGO_HOST=localhost:20000 LimaCCDs simulator
+
+Then, on Bliss shell, you can get access to this device with
+
+```
+TEST_SESSION[3]: limaDev = config.get("lima_simulator")
+```
+
         
 5) start a BLISS test_session 
 

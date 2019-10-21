@@ -23,6 +23,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
+from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
 _logger = logging.getLogger(__name__)
@@ -242,8 +243,17 @@ class ManageMainBehaviours(qt.QObject):
         else:
             sameScan = False
 
+        isCt = scan.scanInfo().get("type", None) == "ct"
+        if isCt:
+            # Filter out curves and scatters
+            plots = [
+                p
+                for p in plots
+                if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
+            ]
+
         # Remove previous plot models
-        if not sameScan:
+        if not sameScan and not isCt:
             for widget in workspace.widgets():
                 widget.setPlotModel(None)
             for plot in workspace.plots():
@@ -255,26 +265,43 @@ class ManageMainBehaviours(qt.QObject):
         # Reuse/create and connect the widgets
         availablePlots = list(plots)
         widgets = self.__flintModel.workspace().widgets()
-        for widget in widgets:
-            compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
-            if compatibleModel is None:
-                _logger.error(
-                    "No compatible plot model for widget %s", widget.__class__
-                )
-                plotModel = None
-            else:
-                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
-                if len(plots) > 0:
-                    plotModel = plots[0]
-                    availablePlots.remove(plotModel)
-                else:
-                    plotModel = compatibleModel()
+        if isCt:
+            # Remove plots which are already displayed
+            names = set([])
+            for widget in widgets:
+                plotModel = widget.plotModel()
+                if plotModel is not None:
+                    channels = model_helper.getChannelNamesDisplayedAsValue(plotModel)
+                    names.update(channels)
 
-            if not sameScan:
-                if plotModel.styleStrategy() is None:
-                    plotModel.setStyleStrategy(DefaultStyleStrategy())
-                workspace.addPlot(plotModel)
-                widget.setPlotModel(plotModel)
+            for p in list(availablePlots):
+                channels = set(model_helper.getChannelNamesDisplayedAsValue(p))
+                if len(channels - names) == 0:
+                    # All the channels are already displayed
+                    availablePlots.remove(p)
+        else:
+            for widget in widgets:
+                compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
+                if compatibleModel is None:
+                    _logger.error(
+                        "No compatible plot model for widget %s", widget.__class__
+                    )
+                    plotModel = None
+                else:
+                    plots = [
+                        p for p in availablePlots if isinstance(p, compatibleModel)
+                    ]
+                    if len(plots) > 0:
+                        plotModel = plots[0]
+                        availablePlots.remove(plotModel)
+                    else:
+                        plotModel = compatibleModel()
+
+                if not sameScan:
+                    if plotModel.styleStrategy() is None:
+                        plotModel.setStyleStrategy(DefaultStyleStrategy())
+                    workspace.addPlot(plotModel)
+                    widget.setPlotModel(plotModel)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget

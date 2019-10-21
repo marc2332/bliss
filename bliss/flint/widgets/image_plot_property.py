@@ -332,4 +332,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
                 # It have to be done when model index are initialized
                 item.setPlotItem(plotItem)
 
+        if itemWithoutLocation.rowCount() == 0:
+            model.removeRows(itemWithoutLocation.row(), 1)
+
         self.__tree.expandAll()

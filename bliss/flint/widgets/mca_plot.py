@@ -21,6 +21,8 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
+from bliss.flint.helper import scan_info_helper
+from bliss.flint.utils import signalutils
 
 
 class McaPlotWidget(ExtendedDockWidget):
@@ -45,6 +47,10 @@ class McaPlotWidget(ExtendedDockWidget):
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
+        self.__plot.getXAxis().setLabel("Channels ID")
+
+        self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
+        self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -82,25 +88,45 @@ class McaPlotWidget(ExtendedDockWidget):
             self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAll()
+        self.__syncAxisTitle.trigger()
 
     def plotModel(self) -> plot_model.Plot:
         return self.__plotModel
 
     def __structureChanged(self):
         self.__redrawAll()
+        self.__syncAxisTitle.trigger()
 
     def __transactionFinished(self):
         if self.__plotWasUpdated:
             self.__plotWasUpdated = False
             self.__plot.resetZoom()
+        self.__syncAxisTitle.validate()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
     ):
+        inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.MCA_CHANNEL:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
+
+    def __updateAxesLabel(self):
+        scan = self.__scan
+        plot = self.__plotModel
+        if plot is None:
+            label = ""
+        else:
+            labels = []
+            for item in plot.items():
+                if not item.isValid():
+                    continue
+                if isinstance(item, plot_item_model.McaItem):
+                    labels.append(item.mcaChannel().displayName(scan))
+            label = " + ".join(sorted(set(labels)))
+        self.__plot.getYAxis().setLabel(label)
 
     def __currentScanChanged(
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan
@@ -119,6 +145,8 @@ class McaPlotWidget(ExtendedDockWidget):
             self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
+            if self.__scan.state() != scan_model.ScanState.INITIALIZED:
+                self.__updateTitle(self.__scan)
         self.__redrawAll()
 
     def __clear(self):
@@ -126,7 +154,11 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__plot.clear()
 
     def __scanStarted(self):
-        pass
+        self.__updateTitle(self.__scan)
+
+    def __updateTitle(self, scan: scan_model.Scan):
+        title = scan_info_helper.get_full_title(scan)
+        self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
         pass

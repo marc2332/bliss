@@ -90,10 +90,6 @@ class ScanManager:
             self._refresh_task = None
 
     def __new_scan_data(self, data_type, master_name, data):
-        channels_data = None
-        raw_data = None
-        channel_name = None
-
         if data_type == "0d":
             channels_data = data["data"]
             for channel_name, channel_data in channels_data.items():
@@ -106,9 +102,15 @@ class ScanManager:
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            raw_data = image_view.get_image(-1)
-            channel_name = data["channel_name"]
-            self.__update_channel_data(channel_name, raw_data)
+            try:
+                raw_data = image_view.get_image(-1)
+            except IndexError:
+                # The image could not be ready
+                _logger.error("Error while reching the last image", exc_info=True)
+                raw_data = None
+            if raw_data is not None:
+                channel_name = data["channel_name"]
+                self.__update_channel_data(channel_name, raw_data)
         else:
             assert False
 

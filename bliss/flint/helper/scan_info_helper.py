@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 
 import collections
 import logging
@@ -67,6 +68,8 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     scan.setScanInfo(scan_info)
 
     devices: Dict[str, scan_model.Device] = {}
+    channel_units = read_units(scan_info)
+    channel_display_names = read_display_names(scan_info)
 
     # Mapping from scan_info to scan model
     kinds = {
@@ -110,13 +113,43 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         channel = scan_model.Channel(device)
         channel.setName(channel_info.name)
         channel.setType(kind)
+        unit = channel_units.get(channel_info.name, None)
+        if unit is not None:
+            channel.setUnit(unit)
+        display_name = channel_display_names.get(channel_info.name, None)
+        if display_name is not None:
+            channel.setDisplayName(display_name)
 
     scan.seal()
     return scan
 
 
+def read_units(scan_info: Dict) -> Dict[str, str]:
+    """Merge all units together"""
+    units = {}
+    for _master, channel_dict in scan_info["acquisition_chain"].items():
+        u = channel_dict.get("scalars_units", {})
+        units.update(u)
+        u = channel_dict.get("master", {}).get("scalars_units", {})
+        units.update(u)
+    return units
+
+
+def read_display_names(scan_info: Dict) -> Dict[str, str]:
+    """Merge all display names together"""
+    display_names = {}
+    for _master, channel_dict in scan_info["acquisition_chain"].items():
+        u = channel_dict.get("display_names", {})
+        display_names.update(u)
+        u = channel_dict.get("master", {}).get("display_names", {})
+        display_names.update(u)
+    return display_names
+
+
 def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     result: List[plot_model.Plot] = []
+
+    channel_units = read_units(scan_info)
 
     have_scalar = False
     have_scatter = False
@@ -134,10 +167,9 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     if have_scalar:
         plot = plot_item_model.CurvePlot()
-        for _master, channels in scan_info["acquisition_chain"].items():
-            scalars = channels.get("scalars", [])
-            master_channels = channels.get("master", {}).get("scalars", [])
-            scalars_units = channels.get("scalars_units", {})
+        for master_name, channels_dict in scan_info["acquisition_chain"].items():
+            scalars = channels_dict.get("scalars", [])
+            master_channels = channels_dict.get("master", {}).get("scalars", [])
 
             if have_scatter:
                 # In case of scatter the curve plot have to plot the time in x
@@ -147,7 +179,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     if timer in master_channels:
                         # skip the masters
                         continue
-                    if scalars_units.get(timer, None) != "s":
+                    if channel_units.get(timer, None) != "s":
                         # skip non time base
                         continue
                     break
@@ -158,7 +190,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     if scalar in master_channels:
                         # skip the masters
                         continue
-                    if scalars_units.get(scalar, None) == "s":
+                    if channel_units.get(scalar, None) == "s":
                         # skip the time base
                         continue
                     break
@@ -187,7 +219,26 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                     # The plot will be empty
                     pass
             else:
+                channels = [
+                    m for m in master_channels if m.split(":")[0] == master_name
+                ]
+                if len(channels) > 0:
+                    master_channel = channels[0]
+                    master_channel_unit = channels_dict.get("master", {}).get(
+                        "scalars_units", None
+                    )
+                    is_motor_scan = master_channel_unit != "s"
+                else:
+                    is_motor_scan = False
+
                 for channel_name in scalars:
+                    channel_unit = channels_dict.get("scalars_units", {}).get(
+                        channel_name, None
+                    )
+                    if is_motor_scan and channel_unit == "s":
+                        # Do not display base time for motor based scan
+                        continue
+
                     item = plot_item_model.CurveItem(plot)
                     data_channel = plot_model.ChannelRef(plot, channel_name)
 
@@ -213,14 +264,13 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             plot = plot_item_model.ScatterPlot()
             scalars = channels.get("scalars", [])
             axes_channels = channels["master"]["scalars"]
-            scalars_units = channels.get("scalars_units", {})
 
             # Reach the first scalar which is not a time unit
             for scalar in scalars:
                 if scalar in axes_channels:
                     # skip the masters
                     continue
-                if scalars_units.get(scalar, None) == "s":
+                if channel_units.get(scalar, None) == "s":
                     # skip the time base
                     continue
                 break
@@ -281,3 +331,42 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             result.append(plot)
 
     return result
+
+
+def get_full_title(scan: scan_model.Scan) -> str:
+    """Returns from scan_info a readable title"""
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return "No scan title"
+    title = scan_info.get("title", "No scan title")
+    scan_nb = scan_info.get("scan_nb", None)
+    if scan_nb is None:
+        text = f"{title} (#{scan_nb})"
+    else:
+        text = f"{title}"
+    return text
+
+
+def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
+    """Returns the percent of progress of this scan."""
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return None
+
+    # FIXME: npoints do not distinguish many top masters, AFAIK
+    npoints = scan_info.get("npoints", None)
+    if npoints is not None:
+        master_channels = []
+        for _master_name, channel_info in scan_info["acquisition_chain"].items():
+            master_channels.extend(channel_info.get("master", {}).get("scalars", []))
+
+        for master_channel in master_channels:
+            channel = scan.getChannelByName(master_channel)
+            if channel is None:
+                return None
+            data = channel.data()
+            if data is None:
+                return 0.0
+            return len(data.array()) / npoints
+
+    return None

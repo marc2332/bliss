@@ -388,6 +388,8 @@ class Channel(qt.QObject, _Sealable):
         self.__data: Optional[Data] = None
         self.__name: str = ""
         self.__type: ChannelType = ChannelType.COUNTER
+        self.__displayName: Optional[str] = None
+        self.__unit: Optional[str] = None
         parent.addChannel(self)
 
     def setType(self, channelType: ChannelType):
@@ -400,6 +402,28 @@ class Channel(qt.QObject, _Sealable):
         Returns the kind of this channel.
         """
         return self.__type
+
+    def setDisplayName(self, displayName: str):
+        if self.isSealed():
+            raise SealedError()
+        self.__displayName = displayName
+
+    def displayName(self) -> Optional[str]:
+        """
+        Returns the preferred display name of this channel.
+        """
+        return self.__displayName
+
+    def setUnit(self, unit: str):
+        if self.isSealed():
+            raise SealedError()
+        self.__unit = unit
+
+    def unit(self) -> Optional[str]:
+        """
+        Returns the unit of this channel.
+        """
+        return self.__unit
 
     def device(self) -> Device:
         """

@@ -710,4 +710,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 item.setPlotItem(plotItem)
                 sourceTree[plotItem] = item
 
+        if itemWithoutLocation.rowCount() == 0:
+            model.removeRows(itemWithoutLocation.row(), 1)
+        if itemWithoutMaster.rowCount() == 0:
+            model.removeRows(itemWithoutMaster.row(), 1)
+
         self.__tree.expandAll()

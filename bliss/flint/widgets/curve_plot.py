@@ -22,6 +22,8 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
+from bliss.flint.helper import scan_info_helper
+from bliss.flint.utils import signalutils
 
 
 class CurvePlotWidget(ExtendedDockWidget):
@@ -48,6 +50,9 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
+
+        self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
+        self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -85,29 +90,65 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAllScans()
+        self.__syncAxisTitle.trigger()
 
     def plotModel(self) -> plot_model.Plot:
         return self.__plotModel
 
     def __structureChanged(self):
         self.__redrawAllScans()
+        self.__syncAxisTitle.trigger()
 
     def __transactionFinished(self):
         if self.__plotWasUpdated:
             self.__plotWasUpdated = False
             self.__plot.resetZoom()
+        self.__syncAxisTitle.trigger()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
     ):
+        inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.YAXIS:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
+
+    def __updateAxesLabel(self):
+        scan = self.__scan
+        plot = self.__plotModel
+        if plot is None:
+            xLabel = ""
+            y1Label = ""
+            y2Label = ""
+        else:
+            xLabels = []
+            y1Labels = []
+            y2Labels = []
+            for item in plot.items():
+                if not item.isValid():
+                    continue
+                if isinstance(item, plot_item_model.CurveItem):
+                    xLabels.append(item.xChannel().displayName(scan))
+                    if item.yAxis() == "left":
+                        y1Labels.append(item.yChannel().displayName(scan))
+                    elif item.yAxis() == "right":
+                        y2Labels.append(item.yChannel().displayName(scan))
+                    else:
+                        pass
+            xLabel = " + ".join(sorted(set(xLabels)))
+            y1Label = " + ".join(sorted(set(y1Labels)))
+            y2Label = " + ".join(sorted(set(y2Labels)))
+        self.__plot.getXAxis().setLabel(xLabel)
+        self.__plot.getYAxis(axis="left").setLabel(y1Label)
+        self.__plot.getYAxis(axis="right").setLabel(y2Label)
 
     def __currentScanChanged(
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan
@@ -128,6 +169,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
             self.__redrawScan(self.__scan)
+            if self.__scan.state() != scan_model.ScanState.INITIALIZED:
+                self.__updateTitle(self.__scan)
 
     def __cleanScanIfNeeded(self, scan):
         plotModel = self.__plotModel
@@ -145,7 +188,11 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.clear()
 
     def __scanStarted(self):
-        pass
+        self.__updateTitle(self.__scan)
+
+    def __updateTitle(self, scan: scan_model.Scan):
+        title = scan_info_helper.get_full_title(scan)
+        self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
         pass

@@ -37,6 +37,20 @@ class MainPropertyWidget(qt.QDockWidget):
         self.__stack = _Stack(self)
         self.__stack.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding)
         self.setWidget(self.__stack)
+        self.__stack.setWidget(self.createEmptyWidget(self))
+
+    def createEmptyWidget(self, parent: qt.QWidget):
+        html = """<html>
+<head/><body>
+<p><span style=" font-size:14pt; font-weight:600; color:#939393;">Click on a plot</span></p>
+<p><span style=" font-size:14pt; font-weight:600; color:#939393;">to display here</span></p>
+<p><span style=" font-size:14pt; font-weight:600; color:#939393;">its properties</span></p>
+</body></html>"""
+        widget = qt.QLabel(parent)
+        widget.setWordWrap(True)
+        widget.setText(html)
+        widget.setAlignment(qt.Qt.AlignHCenter | qt.Qt.AlignVCenter)
+        return widget
 
     def focusWidget(self):
         return self.__focusWidget
@@ -46,10 +60,10 @@ class MainPropertyWidget(qt.QDockWidget):
             specificPropertyWidget = widget.createPropertyWidget(self)
             self.__stack.setWidget(specificPropertyWidget)
         elif widget is None:
-            self.__stack.setWidget(None)
+            self.__stack.setWidget(self.createEmptyWidget(self))
         else:
             _logger.error("Widget %s do not have propertyWidget factory", widget)
-            self.__stack.setWidget(None)
+            self.__stack.setWidget(self.createEmptyWidget(self))
 
         self.__focusWidget = widget
         self.widgetUpdated.emit()

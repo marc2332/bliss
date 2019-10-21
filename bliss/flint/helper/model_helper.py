@@ -311,6 +311,32 @@ def createCurveItem(
     return newItem, False
 
 
+def getChannelNamesDisplayedAsValue(plot: plot_model.Plot) -> List[str]:
+    names = []
+    for item in plot.items():
+        if isinstance(item, plot_item_model.CurveItem):
+            channel = item.yChannel()
+            if channel is None:
+                continue
+            names.append(channel.name())
+        elif isinstance(item, plot_item_model.McaItem):
+            channel = item.mcaChannel()
+            if channel is None:
+                continue
+            names.append(channel.name())
+        if isinstance(item, plot_item_model.ScatterItem):
+            channel = item.valueChannel()
+            if channel is None:
+                continue
+            names.append(channel.name())
+        if isinstance(item, plot_item_model.ImageItem):
+            channel = item.imageChannel()
+            if channel is None:
+                continue
+            names.append(channel.name())
+    return names
+
+
 def isChannelDisplayedAsValue(plot: plot_model.Plot, channel: scan_model.Channel):
     channel_name = channel.name()
     for item in plot.items():

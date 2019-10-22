@@ -44,8 +44,33 @@ class ScanManager:
         self.__data_storage = DataStorage()
         self._end_scan_event = gevent.event.Event()
         self.__scan: Optional[scan_model.Scan] = None
+        self.__scan_id = None
+        self.__absorb_events = True
+
+    def _set_absorb_events(self, absorb_events: bool):
+        self.__absorb_events = absorb_events
+
+    def __get_scan_id(self, scan_info) -> str:
+        unique = scan_info.get("node_name", None)
+        if unique is not None:
+            return unique
+        # Lets try to use the dict as unique object
+        return str(id(scan_info))
+
+    def __is_current_scan(self, scan_info) -> bool:
+        unique = self.__get_scan_id(scan_info)
+        return self.__scan_id == unique
 
     def new_scan(self, scan_info):
+        unique = self.__get_scan_id(scan_info)
+        if self.__scan_id is None:
+            self.__scan_id = unique
+        else:
+            # We should receive a single new_scan per scan, but let's check anyway
+            if not self.__is_current_scan(scan_info):
+                _logger.debug("New scan from %s ignored", unique)
+                return
+
         self._end_scan_event.clear()
         self.__data_storage.clear()
 
@@ -66,17 +91,29 @@ class ScanManager:
         scan.scanStarted.emit()
 
     def new_scan_child(self, scan_info, data_channel):
+        if not self.__is_current_scan(scan_info):
+            unique = self.__get_scan_id(scan_info)
+            _logger.debug("New scan child from %s ignored", unique)
+            return
         pass
 
     def new_scan_data(self, data_type, master_name, data):
+        scan_info = data["scan_info"]
+        if not self.__is_current_scan(scan_info):
+            unique = self.__get_scan_id(scan_info)
+            _logger.debug("New scan data from %s ignored", unique)
+            return
         if data_type in ("1d", "2d"):
             key = master_name, data["channel_name"]
         else:
             key = master_name, None
 
         self._last_event[key] = (data_type, data)
-        if self._refresh_task is None:
-            self._refresh_task = gevent.spawn(self.__refresh)
+        if self.__absorb_events:
+            if self._refresh_task is None:
+                self._refresh_task = gevent.spawn(self.__refresh)
+        else:
+            self.__refresh()
 
     def __refresh(self):
         try:
@@ -156,7 +193,14 @@ class ScanManager:
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(channelName=channel.name())
 
+    def get_scan(self) -> Optional[scan_model.Scan]:
+        return self.__scan
+
     def end_scan(self, scan_info: Dict):
+        if not self.__is_current_scan(scan_info):
+            unique = self.__get_scan_id(scan_info)
+            _logger.debug("New scan data from %s ignored", unique)
+            return
         try:
             self._end_scan(scan_info)
         finally:
@@ -167,6 +211,7 @@ class ScanManager:
             scan.scanFinished.emit()
 
             self.__scan = None
+            self.__scan_id = None
             self._end_scan_event.set()
 
     def _end_scan(self, scan_info: Dict):

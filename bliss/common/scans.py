@@ -94,7 +94,7 @@ def ascan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'ascan <motor> ... <count_time>']
         save (bool): save scan data to file [default: True]
-        save_images (bool): save image files [default: True]
+        save_images (bool or None): save image files [default: None, means it follows 'save']
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -192,7 +192,7 @@ def amesh(
     if not isinstance(intervals2, int):
         raise ValueError("number of intervals for motor2 must be an integer number.")
 
-    save_images = kwargs.pop("save_images", True)
+    save_images = kwargs.pop("save_images", None)
 
     scan_info = {
         "type": kwargs.get("type", "amesh"),
@@ -398,7 +398,7 @@ def a2scan(
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'a2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
-        save_images (bool): save image files [default: True]
+        save_images (bool or None): save image files [default: None, means it follows 'save']
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -454,7 +454,7 @@ def lookupscan(count_time, *motors_positions, **kwargs):
         scan_info=scan_info,
         name=kwargs.setdefault("name", "lookupscan"),
         save=scan_info["save"],
-        save_images=kwargs.get("save_images", True),
+        save_images=kwargs.get("save_images"),
         data_watch_callback=StepScanDataWatch(),
     )
 
@@ -843,7 +843,7 @@ def d2scan(
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'd2scan <motor1> ... <count_time>']
         save (bool): save scan data to file [default: True]
-        save_images (bool): save image files [default: True]
+        save_images (bool or None): save image files [default: None, means it follows 'save']
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -871,7 +871,7 @@ def timescan(count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'timescan <count_time>']
         save (bool): save scan data to file [default: True]
-        save_images (bool): save image files [default: True]
+        save_images (bool or None): save image files [default: None, means it follows 'save']
         sleep_time (float): sleep time between 2 points [default: None]
         run (bool): if True (default), run the scan. False means just create
                     scan object and acquisition chain
@@ -881,7 +881,7 @@ def timescan(count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
-    save_images = kwargs.get("save_images", True)
+    save_images = kwargs.get("save_images")
 
     scan_info = {
         "type": kwargs.get("type", "timescan"),
@@ -1030,10 +1030,10 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         name (str): scan name in data nodes tree and directories [default: 'scan']
         title (str): scan title [default: 'pointscan <motor> <positions>']
         save (bool): save scan data to file [default: True]
-        save_images (bool): save image files [default: True]
+        save_images (bool or None): save image files [default: None, means it follows 'save']
         return_scan (bool): True by default
     """
-    save_images = kwargs.pop("save_images", True)
+    save_images = kwargs.pop("save_images", None)
 
     scan_info = {
         "type": kwargs.get("type", "pointscan"),

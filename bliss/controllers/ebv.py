@@ -3,6 +3,8 @@ import gevent.lock
 
 from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_comm
 from bliss.config.channels import Channel
+from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.common.utils import add_property
 from bliss.common import event
 from bliss import global_map
 
@@ -48,6 +50,14 @@ class EBVDiodeRange:
         self.value = float_value
 
 
+class EBVCounter(SamplingCounter):
+    def __call__(self, *args, **kwargs):
+        return self
+
+    def read(self):
+        return self.controller.current
+
+
 class EBV:
     _PULSE_INDEX = {"led_on": 0, "led_off": 1, "screen_in": 1, "screen_out": 0}
     _DIODE_RANGES = [
@@ -64,6 +74,7 @@ class EBV:
         self._single_model = config_node.get("single_model", False)
         self._channel = config_node.get("channel", 0)
         self._has_foil = config_node.get("has_foil", False)
+        self._cnt_name = config_node.get("counter_name", "diode")
 
         self._led_status = Channel(
             f"{name}:led_status",
@@ -91,6 +102,9 @@ class EBV:
         self.controller = WagoController(comm, mapping)
 
         self.initialize()
+
+        self._diode_counter = EBVCounter(self._cnt_name, self, unit="mA")
+        add_property(self, self._cnt_name, self._diode_counter)
 
         global_map.register(
             self,
@@ -186,6 +200,13 @@ class EBV:
         except:
             info += "!!! Failed to read EBV status !!!"
         return info
+
+    @property
+    def counters(self):
+        return counter_namespace([self._diode_counter])
+
+    def read(self):
+        return self.current
 
     @property
     def screen_status(self):

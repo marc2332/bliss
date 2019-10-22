@@ -5,6 +5,18 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Contains implementation of concrete objects used to model plots.
+
+It exists 4 kinds of plots: curves, scatter, image, MCAs. Each plot contains
+specific items. But it is not a constraint from the architecture.
+
+Here is a list of plot and item inheritance.
+
+.. image:: _static/flint/model/plot_model_item.png
+    :alt: Scan model
+    :align: center
+"""
 from __future__ import annotations
 from typing import Optional
 from typing import Tuple
@@ -18,6 +30,8 @@ from ..utils import mathutils
 
 
 class CurvePlot(plot_model.Plot):
+    """"Define a plot which mastly draw curves."""
+
     def __init__(self, parent=None):
         super(CurvePlot, self).__init__(parent=parent)
         self.__scansStored = False
@@ -39,6 +53,8 @@ class CurvePlot(plot_model.Plot):
 
 
 class ScanItem(plot_model.Item, plot_model.NotStored):
+    """Define a specific scan which have to be displayed by the plot."""
+
     def __init__(self, parent=None, scan: scan_model.Scan = None):
         super(ScanItem, self).__init__(parent=parent)
         assert scan is not None
@@ -49,6 +65,9 @@ class ScanItem(plot_model.Item, plot_model.NotStored):
 
 
 class CurveMixIn:
+    """Define what have to be provide a curve in order to manage curves from a
+    scan and computed curves in the same way."""
+
     def __init__(self):
         self.__yAxis = "left"
 
@@ -88,6 +107,11 @@ class CurveStatisticMixIn:
 
 
 class CurveItem(plot_model.Item, CurveMixIn):
+    """Define a curve as part of a plot.
+
+    X and Y values are defined by a `ChannelRef`.
+    """
+
     def __init__(self, parent: plot_model.Plot = None):
         super(CurveItem, self).__init__(parent=parent)
         self.__x: Optional[plot_model.ChannelRef] = None
@@ -239,6 +263,8 @@ MaxData = collections.namedtuple(
 
 
 class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
+    """Implement a statistic which identify the maximum location of a curve."""
+
     def isResultValid(self, result):
         return result is not None
 
@@ -316,10 +342,15 @@ class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticM
 
 
 class McaPlot(plot_model.Plot):
-    pass
+    """Define a plot which is specific for MCAs."""
 
 
 class McaItem(plot_model.Item):
+    """Define a MCA as part of a plot.
+
+    The MCA data is defined by a `ChannelRef`.
+    """
+
     def __init__(self, parent: plot_model.Plot = None):
         super(McaItem, self).__init__(parent=parent)
         self.__mca: Optional[plot_model.ChannelRef] = None
@@ -347,10 +378,15 @@ class McaItem(plot_model.Item):
 
 
 class ImagePlot(plot_model.Plot):
-    pass
+    """Define a plot which displays images."""
 
 
 class ImageItem(plot_model.Item):
+    """Define an image as part of a plot.
+
+    The image is defined by a `ChannelRef`.
+    """
+
     def __init__(self, parent: plot_model.Plot = None):
         super(ImageItem, self).__init__(parent=parent)
         self.__image: Optional[plot_model.ChannelRef] = None
@@ -378,10 +414,15 @@ class ImageItem(plot_model.Item):
 
 
 class ScatterPlot(plot_model.Plot):
-    pass
+    """Define a plot which displays scatters."""
 
 
 class ScatterItem(plot_model.Item):
+    """Define a MCA as part of a plot.
+
+    The X, Y, and Value data are each defined by a `ChannelRef`.
+    """
+
     def __init__(self, parent: plot_model.Plot = None):
         super(ScatterItem, self).__init__(parent=parent)
         self.__x: Optional[plot_model.ChannelRef] = None

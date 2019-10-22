@@ -5,6 +5,28 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+This module provides abstract object to model a plot.
+
+A plot identify what we want to display.
+
+It is not directly connected to a scan data, in order to be used to any scan.
+But it uses links to channels: `ChannelRef`. The reference is provided by channel
+unique names.
+
+Style are managed by a style strategy. Each item displayed will have a style
+object cached in the strategy object. Right now a default strategy class provides
+the default styles for all the plots.
+
+Plus each item can have an own style, which can constrain the factory, to allow
+the user to custom the rendering. It is part of the architecture but not yet part
+of the implementation.
+
+.. image:: _static/flint/model/plot_model.png
+    :alt: Scan model
+    :align: center
+"""
+
 from __future__ import annotations
 from typing import Tuple
 from typing import List
@@ -20,6 +42,8 @@ from . import scan_model
 
 
 class ChangeEventType(enum.Enum):
+    """Enumerate the list of attributes which can emit a change event."""
+
     YAXIS = enum.auto()
     VISIBILITY = enum.auto()
     CUSTOM_STYLE = enum.auto()
@@ -31,16 +55,35 @@ class ChangeEventType(enum.Enum):
 
 
 class Plot(qt.QObject):
+    """Main object do modelize what we want to plot."""
 
-    # FIXME: Have to be reworked
     itemAdded = qt.Signal(object)
+    """Emitted when an item was added"""
+
     itemRemoved = qt.Signal(object)
+    """Emitted when an item was removed"""
+
     structureChanged = qt.Signal()
+    """Emitted when the item structure have changed"""
+
     styleChanged = qt.Signal()
-    configurationChanged = qt.Signal()
+    """Emitted when the style object have changed"""
+
     itemValueChanged = qt.Signal(object, object)
+    """Emitted when a property of an item have changed.
+
+    The first argument received is the item, and the next one is the attribute
+    (one value from the enum `ChangeEventType`)."""
+
     transactionStarted = qt.Signal()
+    """Emitted when a transaction have started.
+
+    See `transaction`."""
+
     transactionFinished = qt.Signal()
+    """Emitted when a transaction have finished.
+
+    See `transaction`."""
 
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
@@ -63,10 +106,19 @@ class Plot(qt.QObject):
             self.__styleStrategy.setPlot(self)
 
     def isInTransaction(self) -> bool:
+        """True if the plot is in a transaction.
+
+        See `transaction`.
+        """
         return self.__inTransaction > 0
 
     @contextlib.contextmanager
     def transaction(self):
+        """Context manager to create set of events which should be manage
+        together.
+
+        Mostly designed to reduce computation on the redraw side.
+        """
         self.__inTransaction += 1
         self.transactionStarted.emit()
         try:
@@ -102,10 +154,13 @@ class Plot(qt.QObject):
         return self.__items
 
     def invalidateStructure(self):
+        """Called by the plot or items when the structure of the plot (item tree)
+        have changed."""
         self.__invalidateStyleStrategy()
         self.structureChanged.emit()
 
     def styleStrategy(self):
+        """Returns the style strategy used by this plot."""
         return self.__styleStrategy
 
     def __invalidateStyleStrategy(self):
@@ -114,6 +169,7 @@ class Plot(qt.QObject):
         self.__styleStrategy.invalidateStyles()
 
     def setStyleStrategy(self, styleStrategy: StyleStrategy):
+        """Set the style strategy which have to be used by this plot."""
         self.__styleStrategy = styleStrategy
         self.__styleStrategy.setPlot(self)
         self.styleChanged.emit()
@@ -124,11 +180,15 @@ class NotStored:
 
 
 class ChannelRef(qt.QObject):
+    """Identify a channel by it's name.
+    """
+
     def __init__(self, parent=None, channelName=None):
         super(ChannelRef, self).__init__(parent=parent)
         self.__channelName = channelName
 
     def __eq__(self, other: Any):
+        """"True if the channel name is the same."""
         if not isinstance(other, ChannelRef):
             return
         return self.__channelName == other.name()
@@ -153,19 +213,29 @@ class ChannelRef(qt.QObject):
         return self.baseName()
 
     def baseName(self) -> str:
+        """Returns the base name of this channel."""
         baseName = self.__channelName.split(":")[-1]
         return baseName
 
     def name(self) -> str:
+        """Returns the full name of this channel."""
         return self.__channelName
 
     def data(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        """Returns the data referenced by this channel inside this scan.
+
+        Returns None if the channel is not found, or the data is  None.
+        """
         channel = scan.getChannelByName(self.__channelName)
         if channel is None:
             return None
         return channel.data()
 
     def array(self, scan: scan_model.Scan) -> Optional[numpy.ndarray]:
+        """Returns the `numpy.array` referenced by this channel inside this scan.
+
+        Returns None if the channel is not found, or the data is  None.
+        """
         channel = scan.getChannelByName(self.__channelName)
         if channel is None:
             return None
@@ -176,8 +246,11 @@ class ChannelRef(qt.QObject):
 
 
 class Item(qt.QObject):
+    """Describe a generic item provided by plots.
+    """
 
     valueChanged = qt.Signal(ChangeEventType)
+    """Emitted when one attribute of the item have changed."""
 
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
@@ -196,9 +269,17 @@ class Item(qt.QObject):
         self.setVisible(state[1])
 
     def version(self) -> int:
+        """Version of this item.
+
+        Every time one of the attribute of the item is changed, this value is
+        incremented."""
         return self.__version
 
     def isValid(self):
+        """Returns true if all the mandatory attributes of this items are set.
+
+        It means that this item have a meaning.
+        """
         return True
 
     def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
@@ -208,9 +289,15 @@ class Item(qt.QObject):
         return None
 
     def isValidInScan(self, scan: scan_model.Scan) -> bool:
+        """Returns true if this item do not have any messages associated with
+        the data of this scan."""
         return self.getErrorMessage(scan) is None
 
     def getErrorMessage(self, scan: scan_model.Scan) -> Optional[str]:
+        """Returns a message associated to the validation of this item.
+
+        A None result mean that the item is valid in the context of this scan.
+        """
         if not scan.hasCacheValidation(self, self.version()):
             result: Optional[str] = self.getScanValidation(scan)
             scan.setCacheValidation(self, self.version(), result)
@@ -219,12 +306,14 @@ class Item(qt.QObject):
         return result
 
     def isChildOf(self, parent: Item) -> bool:
+        """Returns true if this `parent` item is the parent of this item."""
         return False
 
     def _setPlot(self, plot: Optional[Plot]):
         self.__plot = plot
 
     def plot(self) -> Optional[Plot]:
+        """Returns the plot containing this item."""
         return self.__plot
 
     def _emitValueChanged(self, eventType: ChangeEventType):
@@ -235,15 +324,18 @@ class Item(qt.QObject):
         self.valueChanged.emit(eventType)
 
     def setVisible(self, isVisible: bool):
+        """Set the visibility property of this item."""
         if self.__isVisible == isVisible:
             return
         self.__isVisible = isVisible
         self._emitValueChanged(ChangeEventType.VISIBILITY)
 
     def isVisible(self) -> bool:
+        """Returns true if this item is visible."""
         return self.__isVisible
 
     def getStyle(self, scan: scan_model.Scan = None) -> Style:
+        """Returns the style of this item."""
         plot = self.parent()
         strategy = plot.styleStrategy()
         # FIXME: It means the architecture is not nice
@@ -370,6 +462,8 @@ class Style:
 
 
 class StyleStrategy:
+    """"Compute and store styles used by items from a plot"""
+
     def __init__(self):
         self.__plot: Plot = None
 

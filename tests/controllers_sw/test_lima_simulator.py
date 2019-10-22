@@ -260,6 +260,24 @@ def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
+def test_dir_no_saving(lima_simulator, scan_tmpdir, session):
+    # issue 1070
+    simulator = session.config.get("lima_simulator")
+    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving_dump = scan_saving.to_dict()
+
+    scan_saving.base_path = str(scan_tmpdir)
+
+    try:
+        scan_config = scan_saving.get()
+
+        setup_globals.timescan(0.1, simulator, npoints=1, save=False)
+
+        assert not os.path.exists(os.path.join(scan_config["root_path"]))
+    finally:
+        scan_saving.from_dict(scan_saving_dump)
+
+
 def test_lima_scan_internal_trigger_with_roi(session, lima_simulator):
     # test for issue #485
     simulator = session.config.get("lima_simulator")

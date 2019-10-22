@@ -1,14 +1,11 @@
 import gevent
 import gevent.lock
 
-from bliss.controllers.wago.wago import (\
-    ModulesConfig, 
-    WagoController,
-    get_wago_comm,
-)
+from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_comm
 from bliss.config.channels import Channel
 from bliss.common import event
 from bliss import global_map
+
 
 def build_wago_mapping(single_model=False, channel=0, has_foil=False):
     STATUS_MODULE = [
@@ -17,10 +14,8 @@ def build_wago_mapping(single_model=False, channel=0, has_foil=False):
     ]
     SINGLE_CONTROL_MODULE = "750-530,screen,screen,led,led,gain,gain,gain,gain"
     CONTROL_MODULE = [
-        "750-530,screen,screen,led,led,gain,gain,gain,gain\n"
-        "750-530,_,_,_,_,_,_,_,_",
-        "750-530,_,_,_,_,_,_,_,_\n"
-        "750-530,screen,screen,led,led,gain,gain,gain,gain"
+        "750-530,screen,screen,led,led,gain,gain,gain,gain\n" "750-530,_,_,_,_,_,_,_,_",
+        "750-530,_,_,_,_,_,_,_,_\n" "750-530,screen,screen,led,led,gain,gain,gain,gain",
     ]
     CURRENT_MODULE = ["750-479,current", "750-479,_,current"]
     FOIL_STATUS_MODULE = [
@@ -45,26 +40,23 @@ def build_wago_mapping(single_model=False, channel=0, has_foil=False):
     mapstr = "\n".join(modules)
     return ModulesConfig(mapstr, ignore_missing=True)
 
+
 class EBVDiodeRange:
     def __init__(self, wago_value, str_value, float_value):
         self.wago_value = wago_value
         self.name = str_value
         self.value = float_value
 
+
 class EBV:
-    PULSE_INDEX = {
-       "led_on": 0,
-       "led_off": 1,
-       "screen_in": 1,
-       "screen_out": 0
-    }
-    DIODE_RANGES = [
-        EBVDiodeRange([True,False,True,False], "1mA", 1),
-        EBVDiodeRange([False,False,True,False], "100uA", 1E1),
-        EBVDiodeRange([True,True,False,False], "10uA", 1E2),
-        EBVDiodeRange([False,True,False,False], "1uA", 1E3),
-        EBVDiodeRange([True,False,False,False], "100nA", 1E4),
-        EBVDiodeRange([False,False,False,False], "10nA", 1E5),
+    _PULSE_INDEX = {"led_on": 0, "led_off": 1, "screen_in": 1, "screen_out": 0}
+    _DIODE_RANGES = [
+        EBVDiodeRange([True, False, True, False], "1mA", 1),
+        EBVDiodeRange([False, False, True, False], "100uA", 1E1),
+        EBVDiodeRange([True, True, False, False], "10uA", 1E2),
+        EBVDiodeRange([False, True, False, False], "1uA", 1E3),
+        EBVDiodeRange([True, False, False, False], "100nA", 1E4),
+        EBVDiodeRange([False, False, False, False], "10nA", 1E5),
     ]
 
     def __init__(self, name, config_node):
@@ -76,22 +68,21 @@ class EBV:
         self._led_status = Channel(
             f"{name}:led_status",
             default_value="UNKNOWN",
-            callback=self.__led_status_changed
+            callback=self.__led_status_changed,
         )
         self._screen_status = Channel(
             f"{name}:screen_status",
             default_value="UNKNOWN",
-            callback=self.__screen_status_changed
+            callback=self.__screen_status_changed,
         )
         self._diode_range = Channel(
-            f"{name}:diode_range",
-            callback=self.__diode_range_changed
+            f"{name}:diode_range", callback=self.__diode_range_changed
         )
-        self._diode_gain = self.DIODE_RANGES[0]
+        self._current_gain = self._DIODE_RANGES[0].value
         self._foil_status = Channel(
             f"{name}:foil_status",
             default_value="UNKNOWN",
-            callback=self.__foil_status_changed
+            callback=self.__foil_status_changed,
         )
 
         self.__comm_lock = gevent.lock.RLock()
@@ -119,6 +110,10 @@ class EBV:
         event.send(self, "screen_status", state)
 
     def __diode_range_changed(self, value):
+        for gain in self._DIODE_RANGES:
+            if gain.name == value:
+                self._current_gain = gain.value
+                break
         event.send(self, "diode_range", value)
 
     def __foil_status_changed(self, state):
@@ -162,14 +157,13 @@ class EBV:
     def __update_diode_range(self):
         with self.__comm_lock:
             gain_value = self.controller.get("gain")
-        for gain in self.DIODE_RANGES:
+        for gain in self._DIODE_RANGES:
             if gain_value == gain.wago_value:
-                self._diode_gain = gain
                 self._diode_range.value = gain.name
                 break
-       
-    def __pulse_command(self, name, value): 
-        index = self.PULSE_INDEX[value]
+
+    def __pulse_command(self, name, value):
+        index = self._PULSE_INDEX[value]
         with self.__comm_lock:
             set_value = [0, 0]
             self.controller.set(name, set_value)
@@ -179,7 +173,7 @@ class EBV:
             set_value[index] = 0
             gevent.sleep(0.01)
             self.controller.set(name, set_value)
-        
+
     def __info__(self):
         self.__update()
         info = f"EBV [{self.name}] (wago: {self.controller.client.host})\n"
@@ -210,7 +204,7 @@ class EBV:
 
     @property
     def diode_range_available(self):
-        return [ gain.name for gain in self.DIODE_RANGES ]
+        return [gain.name for gain in self._DIODE_RANGES]
 
     @property
     def diode_range(self):
@@ -219,7 +213,7 @@ class EBV:
 
     @diode_range.setter
     def diode_range(self, value):
-        for gain in self.DIODE_RANGES:
+        for gain in self._DIODE_RANGES:
             if gain.name == value:
                 with self.__comm_lock:
                     self.controller.set("gain", gain.wago_value)
@@ -230,7 +224,7 @@ class EBV:
     @property
     def diode_gain(self):
         self.__update_diode_range()
-        return self._diode_gain.value
+        return self._current_gain
 
     @diode_gain.setter
     def diode_gain(self, value):
@@ -239,7 +233,7 @@ class EBV:
         except:
             raise ValueError(f"Invalid diode gain [{value}]")
         set_gain = None
-        all_gain = list(self.DIODE_RANGES)
+        all_gain = list(self._DIODE_RANGES)
         all_gain.reverse()
         for gain in all_gain:
             if gain.value >= askval:
@@ -259,12 +253,12 @@ class EBV:
 
     @property
     def current(self):
-        return self.raw_current / (10.0 * self._diode_gain.value)
-           
+        return self.raw_current / (10.0 * self._current_gain)
+
     def led_on(self):
         self.__pulse_command("led", "led_on")
         self.__update_state()
-        
+
     def led_off(self):
         self.__pulse_command("led", "led_off")
         self.__update_state()
@@ -272,19 +266,19 @@ class EBV:
     def screen_in(self):
         self.__pulse_command("screen", "screen_in")
         self.__update_state()
-  
+
     def screen_out(self):
         self.__pulse_command("screen", "screen_out")
         self.__update_state()
 
     def foil_in(self):
         if not self._has_foil:
-           raise RuntimeError(f"No foil on EBV [{self.name}]")
+            raise RuntimeError(f"No foil on EBV [{self.name}]")
         self.__set_foil(True)
 
     def foil_out(self):
         if not self._has_foil:
-           raise RuntimeError(f"No foil on EBV [{self.name}]")
+            raise RuntimeError(f"No foil on EBV [{self.name}]")
         self.__set_foil(False)
 
     def __set_foil(self, flag):

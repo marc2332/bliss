@@ -57,8 +57,9 @@ class ScanManager:
                 self.__data_storage.create_channel(channel.name, channel.master)
 
         plots = scan_info_helper.create_plot_model(scan_info)
-        manager = self.flint._manager()
-        manager.updateScanAndPlots(scan, plots)
+        if self.flint is not None:
+            manager = self.flint._manager()
+            manager.updateScanAndPlots(scan, plots)
         self.__scan = scan
 
         scan._setState(scan_model.ScanState.PROCESSING)
@@ -115,12 +116,13 @@ class ScanManager:
         else:
             assert False
 
-        data_event = (
-            self.flint.data_event[master_name]
-            .setdefault(data_type, {})
-            .setdefault(data.get("channel_index", 0), gevent.event.Event())
-        )
-        data_event.set()
+        if self.flint is not None:
+            data_event = (
+                self.flint.data_event[master_name]
+                .setdefault(data_type, {})
+                .setdefault(data.get("channel_index", 0), gevent.event.Event())
+            )
+            data_event.set()
 
     def __update_channel_data(self, channel_name, raw_data):
         assert self.__scan is not None

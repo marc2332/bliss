@@ -151,6 +151,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     channel_units = read_units(scan_info)
 
+    default_plot = None
+
     have_scalar = False
     have_scatter = False
     for _master, channels in scan_info["acquisition_chain"].items():
@@ -167,6 +169,9 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     if have_scalar:
         plot = plot_item_model.CurvePlot()
+        if not have_scalar:
+            default_plot = plot
+
         for master_name, channels_dict in scan_info["acquisition_chain"].items():
             scalars = channels_dict.get("scalars", [])
             master_channels = channels_dict.get("master", {}).get("scalars", [])
@@ -262,6 +267,9 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
                 continue
 
             plot = plot_item_model.ScatterPlot()
+            if default_plot is None:
+                default_plot = plot
+
             scalars = channels.get("scalars", [])
             axes_channels = channels["master"]["scalars"]
 
@@ -306,6 +314,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
         for spectrum_name in spectra:
             plot = plot_item_model.McaPlot()
+            if default_plot is None:
+                default_plot = plot
             mca_channel = plot_model.ChannelRef(plot, spectrum_name)
             item = plot_item_model.McaItem(plot)
             item.setMcaChannel(mca_channel)
@@ -324,11 +334,18 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
         for image_name in images:
             plot = plot_item_model.ImagePlot()
+            if default_plot is None:
+                default_plot = plot
             image_channel = plot_model.ChannelRef(plot, image_name)
             item = plot_item_model.ImageItem(plot)
             item.setImageChannel(image_channel)
             plot.addItem(item)
             result.append(plot)
+
+    if default_plot is not None:
+        # Move the default plot on to
+        result.remove(default_plot)
+        result.insert(0, default_plot)
 
     return result
 

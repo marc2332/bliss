@@ -251,6 +251,11 @@ class ManageMainBehaviours(qt.QObject):
         else:
             sameScan = False
 
+        if len(plots) > 0:
+            defaultPlot = plots[0]
+        else:
+            defaultPlot = None
+
         isCt = scan.scanInfo().get("type", None) == "ct"
         if isCt:
             # Filter out curves and scatters
@@ -337,6 +342,17 @@ class ManageMainBehaviours(qt.QObject):
             else:
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
+
+        if defaultPlot is not None:
+            # Try to set the focus on the default plot
+            focusWidget = [
+                w for w in workspace.widgets() if w.plotModel() is defaultPlot
+            ]
+            if len(focusWidget) > 0:
+                focusWidget = focusWidget[0]
+                focusWidget.show()
+                focusWidget.raise_()
+                focusWidget.setFocus(qt.Qt.OtherFocusReason)
 
     def __dockClosed(self):
         dock = self.sender()

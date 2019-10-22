@@ -14,7 +14,7 @@ import collections
 import enum
 
 from gevent import event
-from bliss.scanning.chain import AcquisitionDevice
+from bliss.scanning.chain import AcquisitionDevice, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 
 from bliss.common.utils import all_equal
@@ -50,6 +50,7 @@ class SamplingMode(enum.IntEnum):
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
     def __init__(
         self,
+        acq_ctrl,
         counters,  # _or_groupreadhandler,
         count_time,
         npoints,
@@ -61,6 +62,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         AcquisitionDevice.__init__(
             self,
             acq_ctrl,
+            counters=counters,
             npoints=npoints,
             trigger_type=AcquisitionDevice.SOFTWARE,
             prepare_once=prepare_once,
@@ -68,39 +70,11 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         )
 
         self.__count_time = count_time
-        self._counters = collections.defaultdict(list)
         self._nb_acq_points = 0
-
-        for cnt in counters:
-            self.add_counter(cnt)
-
-    @property
-    def name(self):
-        return self._reader.name
 
     @property
     def count_time(self):
         return self.__count_time
-
-    def _do_add_counter(self, counter):
-        chan_name = f"{self._reader.fullname}:{counter.name}"
-        self.channels.append(
-            AcquisitionChannel(
-                chan_name, counter.dtype, counter.shape, unit=counter.unit
-            )
-        )
-        self._counters[counter].append(self.channels[-1])
-
-    def add_counter(self, counter):
-        if counter in self._counters:
-            return
-        reader = _get_group_reader([counter])
-
-        if reader != self._reader:
-            raise RuntimeError(
-                f"Cannot add counter {counter.name}: reader does not correspond to already added counters"
-            )
-        self._do_add_counter(counter)
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
@@ -153,7 +127,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, *counters, count_time=None, npoints=1, **unused_keys):
+    def __init__(self, acq_ctrl, *counters, count_time=None, npoints=1, **unused_keys):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -193,6 +167,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
         BaseCounterAcquisitionDevice.__init__(
             self,
+            acq_ctrl,
             counters,
             count_time,
             npoints,
@@ -504,12 +479,12 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             start_once=None,
         )
 
-    @AcquisitionDevice.parent.setter
+    @AcquisitionObject.parent.setter
     def parent(self, p):
-        self._AcquisitionDevice__parent = p
-        self._AcquisitionDevice__npoints = p.npoints
-        self._AcquisitionDevice__prepare_once = p.prepare_once
-        self._AcquisitionDevice__start_once = p.start_once
+        self._AcquisitionObject__parent = p
+        self._AcquisitionObject__npoints = p.npoints
+        self._AcquisitionObject__prepare_once = p.prepare_once
+        self._AcquisitionObject__start_once = p.start_once
 
     def prepare(self):
         self._nb_acq_points = 0
@@ -551,6 +526,9 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 gevent.sleep(self.count_time / 2.0)
 
 
+# =======================  TO BE MOVED IN MEASURMENT OR ACQUISITION ===========================================
+
+
 class SamplingChainNode(ChainNode):
     def _get_default_chain_parameters(self, scan_params, acq_params):
 
@@ -583,7 +561,7 @@ class SamplingChainNode(ChainNode):
         npoints = acq_params["npoints"]
 
         return SamplingCounterAcquisitionDevice(
-            *self.counters, count_time=count_time, npoints=npoints
+            self.controller, *self.counters, count_time=count_time, npoints=npoints
         )
 
 
@@ -625,7 +603,7 @@ class IntegratingChainNode(ChainNode):
         count_time = acq_params["count_time"]
 
         return IntegratingCounterAcquisitionDevice(
-            *self.counters, count_time=count_time
+            self.controller, *self.counters, count_time=count_time
         )
 
 

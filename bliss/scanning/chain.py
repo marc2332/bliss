@@ -9,19 +9,24 @@ import time
 import sys
 import logging
 import weakref
-import collections.abc
+import enum
+import collections
 from contextlib import contextmanager
 
 import gevent
 from treelib import Tree
 
 from bliss.common.event import dispatcher
+from bliss.common.alias import CounterAlias
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from .channel import AcquisitionChannelList
-from .channel import duplicate_channel, attach_channels
+from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
+from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.motor_group import is_motor_group
 from bliss.common.axis import Axis
+
+
+TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
 
 
 # Running task for a specific device
@@ -54,7 +59,7 @@ def profile(stats_dict, device_name, func_name):
         _debug("End %s.%s Took %fs" % (device_name, func_name, call_end - call_start))
 
 
-class DeviceIterator(object):
+class DeviceIterator:
     def __init__(self, device):
         self.__device_ref = weakref.ref(device)
         self.__sequence_index = 0
@@ -109,7 +114,7 @@ class DeviceIterator(object):
         self.device._start(stats_dict)
 
 
-class DeviceIteratorWrapper(object):
+class DeviceIteratorWrapper:
     def __init__(self, device):
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
@@ -157,7 +162,7 @@ class DeviceIteratorWrapper(object):
         return self.__current
 
 
-class ChainPreset(object):
+class ChainPreset:
     """
     This class interface will be called by the chain object
     at the beginning and at the end of a chain iteration.
@@ -189,7 +194,7 @@ class ChainPreset(object):
         pass
 
 
-class ChainIterationPreset(object):
+class ChainIterationPreset:
     """
     Same usage of the Preset object except that it will be called
     before and at the end of each iteration of the scan.
@@ -214,32 +219,43 @@ class ChainIterationPreset(object):
         pass
 
 
-class AcquisitionMaster(object):
-    HARDWARE, SOFTWARE = list(range(2))
-
+class AcquisitionObject:
     def __init__(
         self,
         device,
+        counters=None,
         name=None,
-        npoints=None,
-        trigger_type=SOFTWARE,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
         prepare_once=False,
         start_once=False,
+        ctrl_params=None,
     ):
+
         self.__device = device
         self.__name = name
         self.__parent = None
-        self.__slaves = list()
-        self.__triggers = list()
         self.__channels = AcquisitionChannelList()
         self.__npoints = npoints
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        self.__duplicated_channels = {}
-        self.__prepared = False
-        self.__stats_dict = {}
-        self.__terminator = True
+
+        self._counters = collections.defaultdict(list)
+
+        if not counters:
+            counters = []
+
+        for cnt in counters:
+            self.add_counter(cnt)
+
+    @property
+    def parent(self):
+        return self.__parent
+
+    @parent.setter
+    def parent(self, p):
+        self.__parent = p
 
     @property
     def trigger_type(self):
@@ -268,24 +284,90 @@ class AcquisitionMaster(object):
         return self.__name if self.__name is not None else self._device_name
 
     @property
-    def slaves(self):
-        return self.__slaves
-
-    @property
-    def parent(self):
-        return self.__parent
-
-    @parent.setter
-    def parent(self, p):
-        self.__parent = p
-
-    @property
     def channels(self):
         return self.__channels
 
     @property
     def npoints(self):
         return self.__npoints
+
+    def _do_add_counter(self, counter):
+        if isinstance(counter, CounterAlias):
+            controller_fullname, _, _ = counter.fullname.rpartition(":")
+            chan_name = f"{controller_fullname}:{counter.name}"
+        else:
+            chan_name = counter.fullname
+
+        try:
+            unit = counter.unit
+        except AttributeError:
+            unit = None
+
+        self.channels.append(
+            AcquisitionChannel(chan_name, counter.dtype, counter.shape, unit=unit)
+        )
+        self._counters[counter].append(self.channels[-1])
+
+    def add_counter(self, counter):
+        if counter in self._counters:
+            return
+
+        if counter.controller == self.device:
+            self._do_add_counter(counter)
+        else:
+            raise RuntimeError(
+                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter.controller} != {self.device}"
+            )
+
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
+    def prepare(self):
+        raise NotImplementedError
+
+    def start(self):
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
+
+
+class AcquisitionMaster(AcquisitionObject):
+
+    HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
+
+    def __init__(
+        self,
+        device,
+        counters=None,
+        name=None,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
+    ):
+
+        super().__init__(
+            device,
+            counters=counters,
+            name=name,
+            npoints=npoints,
+            trigger_type=trigger_type,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
+        )
+
+        self.__slaves = list()
+        self.__triggers = list()
+        self.__duplicated_channels = {}
+        self.__prepared = False
+        self.__stats_dict = {}
+        self.__terminator = True
+
+    @property
+    def slaves(self):
+        return self.__slaves
 
     @property
     def terminator(self):
@@ -311,34 +393,6 @@ class AcquisitionMaster(object):
 
             return self.prepare()
 
-    def fill_meta_at_scan_init(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called during the scan initialization
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def fill_meta_at_scan_end(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called at the scan end
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def prepare(self):
-        raise NotImplementedError
-
-    def set_image_saving(self, directory, prefix, force_no_saving=False):
-        pass
-
-    def start(self):
-        raise NotImplementedError
-
-    def stop(self):
-        raise NotImplementedError
-
     def _start(self, stats_dict):
         with profile(stats_dict, self.name, "start"):
             dispatcher.send("start", self)
@@ -353,15 +407,9 @@ class AcquisitionMaster(object):
                 self.__prepared = False
             return self.stop()
 
-    def trigger_ready(self):
-        return True
-
     def _trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
             return self.trigger()
-
-    def trigger(self):
-        raise NotImplementedError
 
     def trigger_slaves(self):
         stats_dict = self.__stats_dict
@@ -388,7 +436,7 @@ class AcquisitionMaster(object):
                 )
             else:
                 for slave in self.slaves:
-                    if slave.trigger_type == AcquisitionMaster.SOFTWARE:
+                    if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
                         self.__triggers.append(
                             (slave, gevent.spawn(slave._trigger, stats_dict))
                         )
@@ -401,11 +449,6 @@ class AcquisitionMaster(object):
                 gevent.joinall(slave_tasks, raise_error=True)
             finally:
                 gevent.killall(slave_tasks)
-
-    def wait_ready(self):
-        # wait until ready for next acquisition
-        # (not considering slave devices)
-        return True
 
     def add_external_channel(
         self, device, name, rename=None, conversion=None, dtype=None
@@ -486,77 +529,30 @@ class AcquisitionMaster(object):
         finally:
             gevent.killall(tasks)
 
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
-class AcquisitionDevice:
-    HARDWARE, SOFTWARE = list(range(2))
+    def prepare(self):
+        raise NotImplementedError
 
-    def __init__(
-        self,
-        device,
-        name=None,
-        npoints=0,
-        trigger_type=SOFTWARE,
-        prepare_once=False,
-        start_once=False,
-    ):
-        self.__device = device
-        self.__parent = None
-        self.__name = name
-        self.__trigger_type = trigger_type
-        self.__channels = AcquisitionChannelList()
-        self.__npoints = npoints
-        self.__prepare_once = prepare_once
-        self.__start_once = start_once
-        self._reading_task = None
+    def start(self):
+        raise NotImplementedError
 
-    @property
-    def parent(self):
-        return self.__parent
+    def stop(self):
+        raise NotImplementedError
 
-    @parent.setter
-    def parent(self, p):
-        self.__parent = p
+    def trigger(self):
+        raise NotImplementedError
 
-    @property
-    def trigger_type(self):
-        return self.__trigger_type
+    def trigger_ready(self):
+        return True
 
-    @property
-    def prepare_once(self):
-        return self.__prepare_once
+    def wait_ready(self):
+        # wait until ready for next acquisition
+        # (not considering slave devices)
+        return True
 
-    @property
-    def start_once(self):
-        return self.__start_once
-
-    @property
-    def device(self):
-        return self.__device
-
-    @property
-    def _device_name(self):
-        if is_motor_group(self.device) or isinstance(self.device, Axis):
-            return "axis"
-        return self.device.name
-
-    @property
-    def name(self):
-        return self.__name if self.__name is not None else self._device_name
-
-    @property
-    def channels(self):
-        return self.__channels
-
-    @property
-    def npoints(self):
-        return self.__npoints
-
-    def _prepare(self, stats_dict):
-        with profile(stats_dict, self.name, "prepare"):
-
-            if not self._check_reading_task():
-                raise RuntimeError("%s: Last reading task is not finished." % self.name)
-            return self.prepare()
+    def set_image_saving(self, directory, prefix, force_no_saving=False):
+        pass
 
     def fill_meta_at_scan_init(self, scan_meta):
         """
@@ -574,11 +570,42 @@ class AcquisitionDevice:
         """
         pass
 
-    def prepare(self):
-        raise NotImplementedError
 
-    def start(self):
-        raise NotImplementedError
+class AcquisitionDevice(AcquisitionObject):
+
+    HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
+
+    def __init__(
+        self,
+        device,
+        counters=None,
+        name=None,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
+    ):
+
+        super().__init__(
+            device,
+            counters=counters,
+            name=name,
+            npoints=npoints,
+            trigger_type=trigger_type,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
+        )
+
+        self._reading_task = None
+
+    def _prepare(self, stats_dict):
+        with profile(stats_dict, self.name, "prepare"):
+
+            if not self._check_reading_task():
+                raise RuntimeError("%s: Last reading task is not finished." % self.name)
+            return self.prepare()
 
     def _start(self, stats_dict):
         with profile(stats_dict, self.name, "start"):
@@ -587,15 +614,9 @@ class AcquisitionDevice:
             if self._check_reading_task():
                 self._reading_task = gevent.spawn(self.reading)
 
-    def stop(self):
-        raise NotImplementedError
-
     def _stop(self, stats_dict):
         with profile(stats_dict, self.name, "stop"):
             self.stop()
-
-    def trigger_ready(self):
-        return True
 
     def _check_reading_task(self):
         if self._reading_task:
@@ -609,20 +630,50 @@ class AcquisitionDevice:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
 
+    def wait_reading(self):
+        if self._reading_task is not None:
+            return self._reading_task.get()
+        return True
+
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
+    def prepare(self):
+        raise NotImplementedError
+
+    def start(self):
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
+
     def trigger(self):
         raise NotImplementedError
 
     def reading(self):
         pass
 
-    def wait_reading(self):
-        if self._reading_task is not None:
-            return self._reading_task.get()
+    def trigger_ready(self):
         return True
 
     def wait_ready(self):
         # wait until ready for next acquisition
         return True
+
+    def fill_meta_at_scan_init(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called during the scan initialization
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
+
+    def fill_meta_at_scan_end(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called at the scan end
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
 
 
 class AcquisitionChainIter(object):
@@ -1177,16 +1228,16 @@ class ChainNode:
         #    scan_params, acq_params = self.get_translated_parameters( scan_params, acq_params )
 
         # --- Create the acquisition object -------------------------------------------------------
-        self._acquisition_obj = self.get_acquisition_object(scan_params, acq_params)
+        acq_obj = self.get_acquisition_object(scan_params, acq_params)
+
+        if not isinstance(acq_obj, AcquisitionObject):
+            raise TypeError(f"Object: {acq_obj} is not an AcquisitionObject")
+        else:
+            self._acquisition_obj = acq_obj
 
         # --- Add the counters to the acquisition object ---------------
         for counter in self._counters:
-            try:
-                self._acquisition_obj.add_counter(counter)
-            except AttributeError:
-                print(
-                    f"acquisition_obj:{self._acquisition_obj} does not have .add_counter method !"
-                )
+            self._acquisition_obj.add_counter(counter)
 
         # --- Deal with children acquisition objects ------------------
         self.create_children_acq_obj(force)

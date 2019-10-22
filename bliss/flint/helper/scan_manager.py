@@ -34,6 +34,7 @@ class ScanManager:
     """
 
     def __init__(self, flint):
+        # FIXME: Flint should be removed, we should use FlintState
         self.flint = flint
         self._refresh_task = None
         self._last_event: Dict[
@@ -167,6 +168,8 @@ class ScanManager:
             self._end_scan_event.set()
 
     def _end_scan(self, scan_info: Dict):
+        # FIXME: As _last_event is maybe not empty, it would be good to wait unitl
+        # it became empty
         assert self.__scan is not None
 
         scan = self.__scan

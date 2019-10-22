@@ -27,24 +27,6 @@ from bliss.controllers.acquisition import CounterController
 # from bliss.common.measurement import SamplingMode
 
 
-def _get_group_reader(counters):
-    readers = set(cnt.read_handler for cnt in counters)
-
-    if len(set(readers)) != 1:
-        raise RuntimeError(
-            f"Counters {', '.join(cnt.name for cnt in counters)} do not belong to the same group read handler"
-        )
-    else:
-        reader = readers.pop()
-
-    if reader is None:
-        raise RuntimeError(
-            f"Cannot find a reader for counter(s): {', '.join(cnt.name for cnt in counters)}"
-        )
-
-    return reader
-
-
 @enum.unique
 class SamplingMode(enum.IntEnum):
     """SamplingCounter modes:
@@ -75,18 +57,16 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         start_once,
         **unused_keys,
     ):
-        reader = _get_group_reader(counters)
 
         AcquisitionDevice.__init__(
             self,
-            reader,
+            acq_ctrl,
             npoints=npoints,
             trigger_type=AcquisitionDevice.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
         )
 
-        self._reader = reader
         self.__count_time = count_time
         self._counters = collections.defaultdict(list)
         self._nb_acq_points = 0
@@ -173,14 +153,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(
-        # self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
-        self,
-        *counters,
-        count_time=None,
-        npoints=1,
-        **unused_keys,
-    ):
+    def __init__(self, *counters, count_time=None, npoints=1, **unused_keys):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -236,7 +209,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
         # helper to create AcquisitionChannels
         AC = lambda name_suffix, unit: AcquisitionChannel(
-            f"{self._reader.fullname}:{counter.name}_{name_suffix}",
+            f"{self.device.name}:{counter.name}_{name_suffix}",
             counter.dtype,
             counter.shape,
             unit=unit,
@@ -271,7 +244,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         elif counter.mode == SamplingMode.SAMPLES:
             self.channels.append(
                 AcquisitionChannel(
-                    f"{self._reader.fullname}:{counter.name}_samples",
+                    f"{self.device.name}:{counter.name}_samples",
                     counter.dtype,
                     counter.shape + (1,),
                     unit=counter.unit,
@@ -280,7 +253,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        self._reader.prepare(*self._counters)
+        self.device.prepare()
 
         # check modes to see if sampling loop is needed or not
         if all(
@@ -294,10 +267,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
         self._event.clear()
 
-        self._reader.start(*self._counters)
+        self.device.start()
 
     def stop(self):
-        self._reader.stop(*self._counters)
+        self.device.stop()
 
         self._stop_flag = True
         self._trig_time = None
@@ -353,8 +326,14 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
+                    counters = list(self._counters.keys())
                     read_value = numpy.array(
-                        self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
+                        [
+                            counters[i].conversion_function(x)
+                            for i, x in enumerate(self.device.read_all(*counters))
+                        ],
+                        dtype=numpy.double,
+                        ndmin=1,
                     )
                     end_read = time.time()
 
@@ -383,7 +362,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
-                    self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
+                    self.device.read_all(*self._counters), dtype=numpy.double, ndmin=1
                 )
                 samples = acc_value
 
@@ -505,8 +484,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
 
 class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
-    def __init__(self, *counters, count_time=None, **unused_keys):
-
+    def __init__(self, acq_ctrl, *counters, count_time=None):
         # print(f"=== IntegratingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, unused_keys={unused_keys} ")
 
         if any(
@@ -517,8 +495,8 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 "start_once flags will be overwritten by master controller"
             )
 
-        BaseCounterAcquisitionDevice.__init__(
-            self,
+        super().__init__(
+            acq_ctrl,
             counters,
             count_time=count_time,
             npoints=None,
@@ -536,27 +514,32 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     def prepare(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self._reader.prepare(*self._counters)
+        self.device.prepare(*self._counters)
 
     def start(self):
-        self._reader.start(*self._counters)
+        self.device.start(*self._counters)
 
     def stop(self):
-        self._reader.stop(*self._counters)
+        self.device.stop(*self._counters)
         self._stop_flag = True
 
     def trigger(self):
         pass
 
-    def _read_data(self, from_index):
-        return self._reader._get_values(from_index, *self._counters)
+    # def _read_data(self, from_index):
 
     def reading(self):
         from_index = 0
         while (
             not self.npoints or self._nb_acq_points < self.npoints
         ) and not self._stop_flag:
-            data = self._read_data(from_index)
+
+            counters = list(self._counters.keys())
+            data = [
+                counters[i].conversion_function(x)
+                for i, x in enumerate(self.device.get_values(from_index, *counters))
+            ]
+
             if not all_equal([len(d) for d in data]):
                 raise RuntimeError("Read data can't have different sizes")
             if len(data[0]) > 0:

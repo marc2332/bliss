@@ -43,36 +43,6 @@ def add_conversion_function(obj, method_name, function):
 # Base counter class
 
 
-class GroupedReadMixin:
-    def __init__(self, controller):
-        assert controller is not None
-        self._controller_ref = weakref.ref(controller)
-
-    @property
-    def controller(self):
-        return self._controller_ref()
-
-    @property
-    def name(self):
-        return self.controller.name
-
-    @property
-    def fullname(self):
-        try:
-            return self.controller.fullname
-        except AttributeError:
-            return self.controller.name
-
-    def prepare(self, *counters):
-        pass
-
-    def start(self, *counters):
-        pass
-
-    def stop(self, *counters):
-        pass
-
-
 class BaseCounter:
     """Define a standard counter interface."""
 
@@ -110,7 +80,6 @@ class BaseCounter:
         The standard implementation defines it as:
         `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
-
         args = []
         if self.controller.master_controller is not None:
             args.append(self.controller.master_controller.name)
@@ -120,17 +89,9 @@ class BaseCounter:
 
 
 class Counter(BaseCounter):
-    def __init__(
-        self,
-        name,
-        grouped_read_handler=None,
-        conversion_function=None,
-        controller=None,
-        unit=None,
-    ):
+    def __init__(self, name, conversion_function=None, controller=None, unit=None):
         self._name = name
         self._controller = controller
-        self.__read_handler = grouped_read_handler
         self._conversion_function = (
             conversion_function if conversion_function is not None else lambda x: x
         )
@@ -144,10 +105,6 @@ class Counter(BaseCounter):
     @autocomplete_property
     def controller(self):
         return self._controller
-
-    @property
-    def read_handler(self):
-        return self.__read_handler
 
     @property
     def name(self):
@@ -165,45 +122,17 @@ class Counter(BaseCounter):
 
 
 class SamplingCounter(Counter):
-    GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
-
-    class GroupedReadHandler(GroupedReadMixin):
-        def _read(self, *counters, **kwargs):
-            # execute '.read()', taking into account conversion function for each counter
-            return [
-                counters[i].conversion_function(x)
-                for i, x in enumerate(self.read(*counters, **kwargs))
-            ]
-
-        def read(self, *counters, **kwargs):
-            """
-            this method should return a list of read values in the same order
-            as counters
-            """
-            raise NotImplementedError
-
     def __init__(
         self,
         name,
         controller,
-        grouped_read_handler=None,
         conversion_function=None,
         mode=SamplingMode.MEAN,
         unit=None,
     ):
-        if grouped_read_handler:
-            read_handler = grouped_read_handler
-        else:
-            if hasattr(controller, "read_all"):
-                read_handler = CONTROLLER_GROUPED_READ_HANDLERS.setdefault(
-                    controller, DefaultSamplingCounterGroupedReadHandler(controller)
-                )
-            else:
-                read_handler = DefaultSingleSamplingCounterReadHandler(self)
+        super().__init__(name, conversion_function, controller, unit=unit)
 
-        super().__init__(name, read_handler, conversion_function, controller, unit=unit)
-
-        self.read = self.__read
+        # self.read = self.__read
 
         if isinstance(mode, SamplingMode):
             self._mode = mode
@@ -247,77 +176,19 @@ class SamplingCounter(Counter):
     def statistics(self):
         return self._statistics
 
-    def __read(self):
-        read_handler = self.read_handler
-        if read_handler is None:
-            raise NotImplementedError
-        read_handler.prepare(self)
-        read_handler.start(self)
-        try:
-            return read_handler._read(self)[0]
-        finally:
-            read_handler.stop(self)
-
     def read(self):
-        raise NotImplementedError
-
-
-class DefaultSamplingCounterGroupedReadHandler(SamplingCounter.GroupedReadHandler):
-    def read(self, *counters, **kwargs):
-        return self.controller.read_all(*counters)
-
-
-class DefaultSingleSamplingCounterReadHandler(SamplingCounter.GroupedReadHandler):
-    def __init__(self, controller):
-        super().__init__(controller)
-        # in this case, 'controller' is a SamplingCounter object,
-        # its '.read()' method will be overwritten so we keep a
-        # reference to the original one here to be able to call
-        # it in the "group" .read() below
-        self.__read = controller.read
-
-    @property
-    def fullname(self):
-        # in case of a 'single' reader, the controller is
-        # in fact the counter itself ; this reader object will
-        # be used as 'device' by the AcquisitionDevice.
-        # The fullname is used to build the acq. channels names,
-        # we have to remove the last part since it will be
-        # added when the channels will be instantiated from
-        # counters, to avoid a repetition of the counter name,
-        # like: "simulation_diode_controller:diode:diode"
-        #                                          ^^^^^
-        # Moreover, acq devices names are used to make the
-        # db_name: it cannot be the "real" fullname
-        # otherwise there would be again the same repetition
-        name, _, _ = self.controller.fullname.partition(":")
-        return name
-
-    @property
-    def name(self):
-        # 'name' has to return the (truncated) fullname,
-        # because it is used as name by the Acquisition Device,
-        # and the name of each device in the chain is used
-        # to build the db_name -- this is to avoid db_names
-        # like: diode:diode
-        #       ^^^^^^
-        return self.fullname
-
-    def prepare(self, *counters):
-        return self.controller.controller.prepare()
-
-    def start(self, *counters):
-        return self.controller.controller.start()
-
-    def stop(self, *counters):
-        return self.controller.controller.stop()
-
-    def read(self, *counters, **kwargs):
-        return [self.__read(**kwargs)]
+        self.controller.prepare(self)
+        self.controller.start(self)
+        try:
+            value = self.controller.read_all(self)[0]
+            return self.conversion_function(value)
+        finally:
+            self.controller.stop(self)
 
 
 class SoftCounterController(SamplingCounterController):
-    pass
+    def read(self, counter):
+        return counter.apply(counter.get_value())
 
 
 class SoftCounter(SamplingCounter):
@@ -422,66 +293,16 @@ class SoftCounter(SamplingCounter):
             value_func.__name__ = value_name
         return value_func, value_name
 
-    def read(self):
-        return self.apply(self.get_value())
-
 
 class IntegratingCounter(Counter):
-    class GroupedReadHandler(GroupedReadMixin):
-        def _get_values(self, from_index, *counters, **kwargs):
-            # execute '.get_values()', taking into account conversion function for each counter
-            return [
-                counters[i].conversion_function(x)
-                for i, x in enumerate(self.get_values(from_index, *counters, **kwargs))
-            ]
+    def __init__(self, name, controller, conversion_function=None, unit=None):
 
-        def get_values(self, from_index, *counters, **kwargs):
-            """
-            this method should return a list of numpy arrays in the same order
-            as the counter_name
-            """
-            raise NotImplementedError
-
-    def __init__(
-        self,
-        name,
-        controller,
-        grouped_read_handler=None,
-        conversion_function=None,
-        unit=None,
-    ):
-        if grouped_read_handler:
-            read_handler = grouped_read_handler
-        else:
-            if hasattr(controller, "get_values"):
-                read_handler = CONTROLLER_GROUPED_READ_HANDLERS.setdefault(
-                    controller, DefaultIntegratingCounterGroupedReadHandler(controller)
-                )
-            else:
-                read_handler = DefaultSingleIntegratingCounterReadHandler(self)
-
-        super(IntegratingCounter, self).__init__(
+        super().__init__(
             name,
-            read_handler,
             conversion_function=conversion_function,
             controller=controller,
             unit=unit,
         )
-
-        if self.get_values != IntegratingCounter.get_values:
-            # method has been overwritten
-            self.get_values = self.__get_values
-
-    def __get_values(self, from_index, **kwargs):
-        read_handler = self.read_handler
-        if read_handler is None:
-            raise NotImplementedError
-        read_handler.prepare(self)
-        read_handler.start(self)
-        try:
-            return read_handler._get_values(from_index, self, **kwargs)[0]
-        finally:
-            read_handler.stop(self)
 
     def get_values(self, from_index=0):
         """
@@ -492,51 +313,13 @@ class IntegratingCounter(Counter):
         When data is ready should return the data from the acquisition
         point **from_index**
         """
-        raise NotImplementedError
-
-
-class DefaultIntegratingCounterGroupedReadHandler(
-    IntegratingCounter.GroupedReadHandler
-):
-    """
-    Default read all handler for controller which have get_values method
-    """
-
-    def get_values(self, from_index, *counters, **kwargs):
-        return self.controller.get_values(from_index, *counters)
-
-
-class DefaultSingleIntegratingCounterReadHandler(IntegratingCounter.GroupedReadHandler):
-    def __init__(self, controller):
-        super().__init__(controller)
-        self.__get_values = controller.get_values
-
-    @property
-    def fullname(self):
-        # see DefaultSingleSamplingCounterReadHandler class
-        # for details about .fullname and .name
-        name, _, _ = self.controller.fullname.partition(":")
-        return name
-
-    @property
-    def name(self):
-        # see DefaultSingleSamplingCounterReadHandler class
-        # for details about .fullname and .name
-        return self.fullname
-
-    def prepare(self, *counters):
-        return self.controller.controller.prepare()
-
-    def start(self, *counters):
-        return self.controller.controller.start()
-
-    def stop(self, *counters):
-        return self.controller.controller.stop()
-
-    def get_values(self, from_index, *counters, **kwargs):
-        return [
-            numpy.array(self.__get_values(from_index, **kwargs), dtype=numpy.double)
-        ]
+        self.controller.prepare(self)
+        self.controller.start(self)
+        try:
+            value = self.controller.get_values(from_index, self)[0]
+            return self.conversion_function(value)
+        finally:
+            self.controller.stop(self)
 
 
 class CalcCounterChainNode(ChainNode):

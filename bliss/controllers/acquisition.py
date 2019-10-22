@@ -46,15 +46,3 @@ class CounterController:
 
     def apply_parameters(self, ctrl_params):
         pass
-
-    #### needed by grouped read...
-    def prepare(self):
-        pass
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-    ####

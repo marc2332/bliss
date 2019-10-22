@@ -174,6 +174,10 @@ class ManageMainBehaviours(qt.QObject):
 
         window.restoreState(layout)
 
+        # Make sure everything is visible (just in case)
+        for widget in workspace.widgets():
+            widget.setVisible(True)
+
         self.__flintModel.setWorkspace(workspace)
 
     def __initNewDock(self, widget):

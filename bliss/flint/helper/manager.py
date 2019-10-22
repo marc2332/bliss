@@ -164,9 +164,9 @@ class ManageMainBehaviours(qt.QObject):
         window = self.__flintModel.liveWindow()
         for name, title, widgetClass, modelId in widgetDescriptions:
             widget = widgetClass(window)
-            widget.setFlintModel(self.__flintModel)
             widget.setObjectName(name)
             widget.setWindowTitle(title)
+            self.__initNewDock(widget)
             if modelId is not None:
                 plot = plots[modelId]
                 widget.setPlotModel(plot)
@@ -175,6 +175,11 @@ class ManageMainBehaviours(qt.QObject):
         window.restoreState(layout)
 
         self.__flintModel.setWorkspace(workspace)
+
+    def __initNewDock(self, widget):
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        widget.setFlintModel(self.__flintModel)
+        widget.windowClosed.connect(self.__dockClosed)
 
     def __initClassMapping(self):
         if len(self.__classMapping) > 0:
@@ -358,8 +363,7 @@ class ManageMainBehaviours(qt.QObject):
         workspace = flint.workspace()
         widget: qt.QDockWidget = widgetClass(parent)
         widget.setPlotModel(plotModel)
-        widget.setFlintModel(flint)
-        widget.windowClosed.connect(self.__dockClosed)
+        self.__initNewDock(widget)
 
         prefix = str(widgetClass.__name__).replace("PlotWidget", "")
         title = self.__getUnusedTitle(prefix, workspace)

@@ -6,11 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from __future__ import annotations
-from typing import Tuple
-from typing import Union
 from typing import Optional
-from typing import Dict
-from typing import List
 
 import gevent
 from silx.gui import qt

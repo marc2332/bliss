@@ -222,7 +222,7 @@ def createScatterItem(
     """
     Create an item to a plot using a channel.
 
-    Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated. 
+    Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated.
     """
     # Reach any plot item from this master
     baseItem: Optional[plot_item_model.ScatterItem]
@@ -263,7 +263,7 @@ def createCurveItem(
     """
     Create an item to a plot using a channel.
 
-    Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated. 
+    Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated.
     """
     # Reach the master device
     topMaster = channel.device().topMaster()

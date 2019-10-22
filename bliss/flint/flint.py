@@ -92,7 +92,7 @@ def safe_rpc_server(obj):
             yield task, url
             task.kill()
             task.join()
-        except:
+        except Exception:
             ROOT_LOGGER.error(f"Exception while serving {url}", exc_info=True)
             raise
         finally:
@@ -177,7 +177,7 @@ class Flint:
             try:
                 self.__manager.restoreWorkspace(state)
                 ROOT_LOGGER.info("Workspace restored")
-            except:
+            except Exception:
                 ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
                 self.__feed_default_workspace()
         else:
@@ -196,7 +196,7 @@ class Flint:
             state = self.__manager.saveWorkspace(includePlots=False)
             settings.setValue("workspace", state)
             ROOT_LOGGER.info("Workspace saved")
-        except:
+        except Exception:
             ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
         settings.endGroup()
 
@@ -500,7 +500,7 @@ class Flint:
                 iwidget = int(plot_id[5:])
                 if iwidget < 0:
                     raise ValueError()
-            except:
+            except Exception:
                 raise ValueError(f"'{plot_id}' is not a valid plot_id")
             widgets = list(workspace.widgets())
             if iwidget >= len(widgets):

@@ -12,7 +12,6 @@ Helper class to manage the state of the model
 from __future__ import annotations
 from typing import Optional
 from typing import List
-from typing import Dict
 from typing import ClassVar
 
 import pickle

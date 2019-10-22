@@ -9,7 +9,6 @@ Manage scan events to feed with the application model
 """
 from __future__ import annotations
 from typing import Optional
-from typing import List
 from typing import Dict
 from typing import Tuple
 

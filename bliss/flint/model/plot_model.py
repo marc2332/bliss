@@ -341,7 +341,8 @@ class Item(qt.QObject):
         # FIXME: It means the architecture is not nice
         try:
             return strategy.getStyleFromItem(self, scan)
-        except:
+        except Exception:
+            # FIXME: This exception catch should be more accurate than Exception
             return strategy.getStyleFromItem(self, None)
 
 

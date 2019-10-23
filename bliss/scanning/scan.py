@@ -590,11 +590,24 @@ class ScanDisplay(ParametersWardrobe):
         """Set the list of extra arguments to provide to flint at it's
         creation"""
         # FIXME: It could warn to restart flint in case it is already loaded
-        # FIXME: It could check valid command line argument with a small refactoring
         if not isinstance(extra_args, (list, tuple)):
             raise TypeError(
                 "SCADISPLAY_SCAN.extra_args expects a list or a tuple of strings"
             )
+
+        # Do not load it while it is not needed
+        from argparse import ArgumentParser
+        from bliss.flint import config
+
+        # Parse and check flint command line arguments
+        parser = ArgumentParser(prog="Flint")
+        config.configure_parser_arguments(parser)
+        try:
+            parser.parse_args(extra_args)
+        except SystemExit:
+            # Avoid to exit while parsing the arguments
+            pass
+
         self._extra_args = list(extra_args)
 
     @property

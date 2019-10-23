@@ -5,25 +5,22 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
 import time
-import warnings
 import functools
-import gevent
-import collections
 import enum
 
-from gevent import event
-from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
-from bliss.scanning.channel import AcquisitionChannel
-
-from bliss.common.utils import all_equal
 from collections import namedtuple
 from datetime import datetime
 
-from bliss.scanning.chain import ChainNode
+import gevent
+from gevent import event
 
-# from bliss.common.measurement import SamplingMode
+import numpy
+
+from bliss.common.utils import all_equal
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
+from bliss.scanning.channel import AcquisitionChannel
 
 
 @enum.unique
@@ -126,7 +123,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, acq_ctrl, *counters, count_time=None, npoints=1, **unused_keys):
+    def __init__(self, acq_ctrl, *counters, count_time=None, npoints=1):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -136,14 +133,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         Other keys are:
           * npoints -- number of points for this acquisition (0: endless acquisition)
         """
-
-        # print(f"=== SamplingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, npoints={npoints}, unused_keys={unused_keys} ")
-
-        if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):
-            warnings.warn(
-                "SamplingCounterAcquisitionDevice: prepare_once or start_once"
-                "flags will be ignored"
-            )
 
         start_once = npoints > 0
         npoints = max(1, npoints)
@@ -459,15 +448,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
     def __init__(self, acq_ctrl, *counters, count_time=None):
-        # print(f"=== IntegratingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, unused_keys={unused_keys} ")
-
-        if any(
-            [x in ["npoints", "prepare_once", "start_once"] for x in unused_keys.keys()]
-        ):
-            warnings.warn(
-                "IntegratingCounterAcquisitionDevice: npoints, prepare_once or "
-                "start_once flags will be overwritten by master controller"
-            )
 
         super().__init__(
             acq_ctrl,
@@ -499,8 +479,6 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
     def trigger(self):
         pass
-
-    # def _read_data(self, from_index):
 
     def reading(self):
         from_index = 0

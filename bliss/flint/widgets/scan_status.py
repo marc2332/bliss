@@ -118,9 +118,6 @@ class ScanStatus(ExtendedDockWidget):
         scan_info = scan.scanInfo()
         totalTime = scan_info.get("estimation", {}).get("total_time", None)
         if totalTime is not None:
-            if totalTime <= 0:
-                # Avoid zero division
-                totalTime = 0.1
             self.__end = self.__start + totalTime
         else:
             self.__end = None
@@ -132,6 +129,8 @@ class ScanStatus(ExtendedDockWidget):
         if self.__end is not None:
             now = time.time()
             remaining = self.__end - now
+            if remaining < 0:
+                remaining = 0
             remaining = stringutils.human_readable_duration(seconds=round(remaining))
             self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
         percent = scan_info_helper.get_scan_progress_percent(scan)

@@ -776,18 +776,19 @@ class Scan:
 
         self.__node = None
 
-    def __prepare_note(self):
-        start_timestamp = time.time()
-        start_time = datetime.datetime.fromtimestamp(start_timestamp)
-        self._scan_info["start_time"] = start_time
-        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-        self._scan_info["start_time_str"] = start_time_str
-        self._scan_info["start_timestamp"] = start_timestamp
+    def _prepare_note(self):
+        if self.__node is None:
+            start_timestamp = time.time()
+            start_time = datetime.datetime.fromtimestamp(start_timestamp)
+            self._scan_info["start_time"] = start_time
+            start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+            self._scan_info["start_time_str"] = start_time_str
+            self._scan_info["start_timestamp"] = start_timestamp
 
-        node_name = str(self.__scan_number) + "_" + self.name
-        self.__node = _create_node(
-            node_name, "scan", parent=self.root_node, info=self._scan_info
-        )
+            node_name = str(self.__scan_number) + "_" + self.name
+            self.__node = _create_node(
+                node_name, "scan", parent=self.root_node, info=self._scan_info
+            )
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1067,7 +1068,7 @@ class Scan:
         set_watch_event = None
 
         ### create scan node in redis
-        self.__prepare_note()
+        self._prepare_note()
 
         if self._data_watch_callback is not None:
             data_watch_callback_event = gevent.event.Event()

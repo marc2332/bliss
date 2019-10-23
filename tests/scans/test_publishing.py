@@ -181,6 +181,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
 
     s = Scan(chain, "test_scan")
 
+    # force existance of scan node before starting the scan
+    s._prepare_note()
+
     channels_data = dict()
     iteration_greenlet = gevent.spawn(
         iterate_channel_events, s.node.db_name, channels_data
@@ -329,6 +332,9 @@ def test_children_timing(beacon, session, scan_tmpdir):
 
     s = scans.loopscan(30, .1, diode2, run=False, wait=True)
 
+    # force existance of scan node before starting the scan
+    s._prepare_note()
+
     event = gevent.event.Event()
     g = gevent.spawn(walker, s.node, event=event)
     event.wait()
@@ -373,6 +379,9 @@ def test_scan_end_timing(
                     "some": "text",
                 }
                 return
+
+    # force existance of scan node before starting the scan
+    scan._prepare_note()
 
     gg = gevent.spawn(g, scan.node)
     gevent.sleep(.1)

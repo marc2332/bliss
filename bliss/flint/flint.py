@@ -45,7 +45,6 @@ with warnings.catch_warnings():
     from silx.gui import plot as silx_plot
     from silx.gui.plot.items.roi import RectangleROI
 
-import bliss.release
 from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
@@ -55,6 +54,7 @@ from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.helper import scan_manager
 from bliss.flint.model import flint_model
+from bliss.flint import config
 
 # Globals
 
@@ -642,58 +642,6 @@ def create_flint(settings):
     return flint
 
 
-def configure_parser_arguments(parser: ArgumentParser):
-    version = "flint - bliss %s" % (bliss.release.short_version)
-    parser.add_argument("-V", "--version", action="version", version=version)
-    parser.add_argument(
-        "--debug",
-        dest="debug",
-        action="store_true",
-        default=False,
-        help="Set logging system in debug mode",
-    )
-    parser.add_argument(
-        "--enable-opengl",
-        "--gl",
-        dest="opengl",
-        action="store_true",
-        default=False,
-        help="Enable OpenGL rendering. It provides a faster rendering for plots "
-        "but could have issue with remote desktop (default: matplotlib is used)",
-    )
-    parser.add_argument(
-        "--enable-simulator",
-        dest="simulator",
-        action="store_true",
-        default=False,
-        help="Enable scan simulation panel",
-    )
-    parser.add_argument(
-        "--enable-event-interleave",
-        dest="event_interleave",
-        action="store_true",
-        default=False,
-        help="Enable interleave of Qt and gevent event loops. "
-        "It process efficiently events from fast acquisition scans but could be unstable "
-        "(experimental)",
-    )
-    parser.add_argument(
-        "--matplotlib-dpi",
-        type=int,
-        dest="matplotlib_dpi",
-        default=None,
-        help="Set the DPI used for the matplotlib backend. "
-        "This value will be stored in the user preferences (default: 100)",
-    )
-    parser.add_argument(
-        "--clear-settings",
-        action="store_true",
-        dest="clear_settings",
-        default=False,
-        help="Start with cleared local user settings. ",
-    )
-
-
 def parse_options():
     """
     Returns parsed command line argument as an `options` object.
@@ -701,7 +649,7 @@ def parse_options():
     :raises ExitException: In case of the use of `--help` in the comman line
     """
     parser = ArgumentParser()
-    configure_parser_arguments(parser)
+    config.configure_parser_arguments(parser)
     options = parser.parse_args()
     return options
 

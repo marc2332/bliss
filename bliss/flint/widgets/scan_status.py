@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Optional
 
 import time
+import logging
 
 from silx.gui import qt
 import silx.resources
@@ -24,7 +25,14 @@ class ScanStatus(ExtendedDockWidget):
     def __init__(self, parent=None):
         super(ScanStatus, self).__init__(parent=parent)
 
-        widget = qt.loadUi(silx.resources.resource_filename("flint:gui/scan-status.ui"))
+        filename = silx.resources.resource_filename("flint:gui/scan-status.ui")
+
+        # FIXME: remove this catch of warning when it is possible
+        log = logging.getLogger("py.warnings")
+        log.disabled = True
+        widget = qt.loadUi(filename)
+        log.disabled = False
+
         self.__widget = widget
         self.setWidget(self.__widget)
         self.__widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)

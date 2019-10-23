@@ -21,10 +21,10 @@ multiplexeur, detector cover... Those devices should be control with
 ```python
 DEMO [1]: from bliss.scanning import chain
 DEMO [2]: from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-DEMO [3]: from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+DEMO [3]: from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 DEMO [4]: acq_chain = chain.AcquisitionChain()
 DEMO [5]: timer = SoftwareTimerMaster(1, npoints=2)
-DEMO [6]: counter_device = SamplingCounterAcquisitionDevice(diode, count_time=1, npoints=2)
+DEMO [6]: counter_device = SamplingCounterAcquisitionSlave(diode, count_time=1, npoints=2)
 DEMO [7]: acq_chain.add(timer, counter_device)
 DEMO [8]: print(acq_chain._tree)
 acquisition chain

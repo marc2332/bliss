@@ -571,8 +571,7 @@ class AcquisitionMaster(AcquisitionObject):
         pass
 
 
-class AcquisitionDevice(AcquisitionObject):
-
+class AcquisitionSlave(AcquisitionObject):
     HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
 
     def __init__(
@@ -693,7 +692,7 @@ class AcquisitionChainIter(object):
         self._root_node = self._tree.create_node("acquisition chain", "root")
         device2iter = dict()
         for dev in sub_tree.expand_tree():
-            if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
+            if not isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
             parent = device2iter.get(dev_node.bpointer, "root")
@@ -797,7 +796,7 @@ class AcquisitionChainIter(object):
             x
             for x in self._tree.expand_tree()
             if x is not "root"
-            and isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))
+            and isinstance(x.device, (AcquisitionSlave, AcquisitionMaster))
         ):
             if hasattr(acq_dev_iter, "wait_reading"):
                 acq_dev_iter.wait_reading()
@@ -939,8 +938,8 @@ class AcquisitionChain(object):
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
 
-        # --- if slave already exist in chain and new slave is an AcquisitionDevice
-        if slave_node is not None and isinstance(slave, AcquisitionDevice):
+        # --- if slave already exist in chain and new slave is an AcquisitionSlave
+        if slave_node is not None and isinstance(slave, AcquisitionSlave):
 
             # --- if {new master is not the master of the current_slave} and {current_master of current_slave is not root}
             # --- => try to put the same slave under a different master => raise error !
@@ -960,9 +959,9 @@ class AcquisitionChain(object):
                 # user error, multiple add, ignore for now
                 return
 
-        # --- if slave already exist in chain and new slave is not an AcquisitionDevice => existing AcqMaster slave under new or existing master
-        # --- if slave not already in chain   and new slave is not an AcquisitionDevice => new      AcqMaster slave under new or existing master
-        # --- if slave not already in chain   and new slave is     an AcquisitionDevice => new      AcqDevice slave under new or existing master
+        # --- if slave already exist in chain and new slave is not an AcquisitionSlave => existing AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is not an AcquisitionSlave => new      AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is     an AcquisitionSlave => new      AcqDevice slave under new or existing master
 
         if master_node is None:  # --- if new master not in chain
             for node in self.nodes_list:

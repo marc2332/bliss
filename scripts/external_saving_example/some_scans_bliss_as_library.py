@@ -9,7 +9,7 @@ from bliss.config import static
 
 config = static.get_config()
 
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition import timer
 from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
@@ -53,12 +53,12 @@ scan1_b.run()
 ## a scan with multiple top masters
 chain = AcquisitionChain()
 master1 = timer.SoftwareTimerMaster(1, npoints=2, name="timer1")
-diode_device = SamplingCounterAcquisitionDevice(
+diode_device = SamplingCounterAcquisitionSlave(
     diode.controller, diode, count_time=1, npoints=2
 )
 master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
 lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
-second_diode_device = SamplingCounterAcquisitionDevice(
+second_diode_device = SamplingCounterAcquisitionSlave(
     diode2.controller, diode2, count_time=.1, npoints=50
 )
 chain.add(lima_master, second_diode_device)

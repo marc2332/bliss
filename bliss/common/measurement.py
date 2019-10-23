@@ -17,7 +17,7 @@ from bliss.common.utils import autocomplete_property
 from bliss.controllers.acquisition import CounterController, counter_namespace
 from bliss.scanning.chain import ChainNode
 from bliss.scanning.acquisition.counter import SamplingCounterController, SamplingMode
-from bliss.scanning.acquisition.calc import CalcAcquisitionDevice
+from bliss.scanning.acquisition.calc import CalcAcquisitionSlave
 from bliss import global_map
 
 
@@ -330,7 +330,7 @@ class CalcCounterChainNode(ChainNode):
         for key in acq_params.keys():
             if key not in expected_keys:
                 print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for CalcAcquisitionDevice({self.controller}) ==="
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for CalcAcquisitionSlave({self.controller}) ==="
                 )
 
         output_channels_list = acq_params.get("output_channels_list")
@@ -343,12 +343,12 @@ class CalcCounterChainNode(ChainNode):
             acq_obj = node.acquisition_obj
             if acq_obj is None:
                 raise ValueError(
-                    f"cannot create CalcAcquisitionDevice: acquisition object of {node}({node.controller}) is None!"
+                    f"cannot create CalcAcquisitionSlave: acquisition object of {node}({node.controller}) is None!"
                 )
             else:
                 acq_devices.append(acq_obj)
 
-        return CalcAcquisitionDevice(name, acq_devices, func, output_channels_list)
+        return CalcAcquisitionSlave(name, acq_devices, func, output_channels_list)
 
 
 class CalcCounter(BaseCounter):

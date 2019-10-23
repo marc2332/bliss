@@ -14,7 +14,7 @@ import collections
 import enum
 
 from gevent import event
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionObject
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 
 from bliss.common.utils import all_equal
@@ -47,7 +47,7 @@ class SamplingMode(enum.IntEnum):
     INTEGRATE_STATS = enum.auto()
 
 
-class BaseCounterAcquisitionDevice(AcquisitionDevice):
+class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
         acq_ctrl,
@@ -59,12 +59,12 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         **unused_keys,
     ):
 
-        AcquisitionDevice.__init__(
+        AcquisitionSlave.__init__(
             self,
             acq_ctrl,
             counters=counters,
             npoints=npoints,
-            trigger_type=AcquisitionDevice.SOFTWARE,
+            trigger_type=AcquisitionSlave.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
         )
@@ -95,7 +95,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         scan_meta.instrument.set(self, tmp_dict)
 
 
-class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
+class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
     # mode dependent helpers that are evaluated once per point
     mode_lambdas = {
@@ -165,7 +165,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         # read one single value
         self._SINGLE_COUNT = False
 
-        BaseCounterAcquisitionDevice.__init__(
+        BaseCounterAcquisitionSlave.__init__(
             self,
             acq_ctrl,
             counters,
@@ -179,7 +179,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         super()._do_add_counter(counter)  # add the 'default' counter (mean)
 
         self.mode_helpers.append(
-            SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
+            SamplingCounterAcquisitionSlave.mode_lambdas[counter.mode]
         )
 
         # helper to create AcquisitionChannels
@@ -414,7 +414,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         (count, mean, M2, Min, Max) = existingAggregate
         (mean, variance) = (mean, M2 / count)
         if count < 2:
-            return SamplingCounterAcquisitionDevice.stats_nt(
+            return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
                 count,
                 numpy.nan,
@@ -427,7 +427,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             )
         else:
             timest = str(datetime.fromtimestamp(timest)) if timest != None else None
-            return SamplingCounterAcquisitionDevice.stats_nt(
+            return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
                 numpy.int(count),
                 numpy.sqrt(variance),
@@ -454,10 +454,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             count_time,
             count_time,
         ]
-        return SamplingCounterAcquisitionDevice.stats_nt(*st)
+        return SamplingCounterAcquisitionSlave.stats_nt(*st)
 
 
-class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
+class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
     def __init__(self, acq_ctrl, *counters, count_time=None):
         # print(f"=== IntegratingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, unused_keys={unused_keys} ")
@@ -553,14 +553,14 @@ class SamplingChainNode(ChainNode):
         for key in acq_params.keys():
             if key not in expected_keys:
                 print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionDevice({self.controller}) ==="
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionSlave({self.controller}) ==="
                 )
 
         # --- MANDATORY PARAMETERS -------------------------------------
         count_time = acq_params["count_time"]
         npoints = acq_params["npoints"]
 
-        return SamplingCounterAcquisitionDevice(
+        return SamplingCounterAcquisitionSlave(
             self.controller, *self.counters, count_time=count_time, npoints=npoints
         )
 
@@ -596,13 +596,13 @@ class IntegratingChainNode(ChainNode):
         for key in acq_params.keys():
             if key not in expected_keys:
                 print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionDevice({self.controller}) ==="
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionSlave({self.controller}) ==="
                 )
 
         # --- MANDATORY PARAMETERS -------------------------------------
         count_time = acq_params["count_time"]
 
-        return IntegratingCounterAcquisitionDevice(
+        return IntegratingCounterAcquisitionSlave(
             self.controller, *self.counters, count_time=count_time
         )
 

@@ -749,6 +749,7 @@ def set_global_settings(settings: qt.QSettings, options):
 
 def main():
     logging.basicConfig(level=logging.INFO)
+    logging.captureWarnings(True)
     ROOT_LOGGER.level = logging.INFO
 
     options = parse_options()

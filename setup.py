@@ -193,7 +193,7 @@ def main():
         description=meta["description"],
         license=meta["license"],
         url=meta["url"],
-        package_dir={"bliss": "bliss"},
+        package_dir={"bliss": "bliss", "nexus_writer_service": "nexus_writer_service"},
         packages=packages,
         package_data=package_data,
         ext_modules=extensions,
@@ -222,6 +222,7 @@ def main():
                 "NanoBpm = bliss.tango.servers.nanobpm_ds:main",
                 "NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main",
                 "Wago = bliss.tango.servers.wago_ds:main",
+                "NexusWriter = nexus_writer_service.server.nxscanwriter:main",
             ]
         },
         install_requires=install_requires,

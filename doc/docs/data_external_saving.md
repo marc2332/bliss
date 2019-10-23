@@ -1,4 +1,14 @@
-## Example: using Bliss data api for hdf5 saving
+#NeXus complient external writer process
+
+To start the external writer inside an environment where bliss is installed
+
+```bash
+   $NexusWriter -s test_session --log=info
+```
+
+
+
+# Example: using Bliss data api for hdf5 saving
 
 !!! note
     The  example script discussed here is provided in Bliss repository 

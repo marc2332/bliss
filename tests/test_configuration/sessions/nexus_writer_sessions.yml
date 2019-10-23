@@ -1,0 +1,34 @@
+-   class: Session
+    name: nexus_writer_config
+    setup-file: ./nexus_writer_config_setup.py
+    include-sessions:
+       - nexus_writer_base
+    config-objects: []
+
+-   class: Session
+    name: nexus_writer_base
+    setup-file: ./nexus_writer_base_setup.py
+    config-objects: 
+        - diode
+        - diode2
+        - diode3
+        - diode4
+        - diode5
+        - diode6
+        - diode7
+        - diode8
+        - diode9
+        - simu1
+        - lima_simulator
+        - roby
+        - robz    
+        - m1
+        - sim_ct_gauss    
+        - sim_ct_gauss_noise
+
+    aliases:
+       - original_name: m1
+         alias_name: robx
+       - original_name: simulation_diode_controller:diode
+         alias_name: diode1
+

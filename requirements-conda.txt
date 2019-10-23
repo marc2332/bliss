@@ -15,7 +15,7 @@ mock
 msgpack-numpy >= 0.4.4.2
 msgpack-python >= 0.6.1
 netifaces
-networkx
+networkx == 2.4
 numpy >= 1.13
 pandas
 parso >=0.5.1

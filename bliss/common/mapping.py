@@ -59,7 +59,7 @@ class Map:
         if isinstance(instance, weakref.ProxyTypes):
             instance = instance.__repr__.__self__  # trick to get the hard reference
         try:
-            return False, self.G.node[map_id(instance)]
+            return False, self.G.nodes[map_id(instance)]
         except KeyError:
             self.G.add_node(
                 map_id(instance),
@@ -70,7 +70,7 @@ class Map:
                 ),
                 version=0,
             )  # weakreference to the instance with callback on removal
-            return True, self.G.node[map_id(instance)]
+            return True, self.G.nodes[map_id(instance)]
 
     def register(
         self, instance, parents_list=None, children_list=None, tag: str = None, **kwargs
@@ -264,10 +264,10 @@ class Map:
     def instance_iter(self, tag):
         node_list = list(self.G[tag])
         for node_id in node_list:
-            node = self.G.node.get(node_id)
+            node = self.G.nodes.get(node_id)
             if node is not None:
                 try:
-                    inst_ref = self.G.node.get(node_id)["instance"]
+                    inst_ref = self.G.nodes.get(node_id)["instance"]
                 except KeyError:
                     continue
                 if isinstance(inst_ref, str):
@@ -377,7 +377,7 @@ class Map:
                     father, **self.G.nodes[father]
                 )  # adds the node copying info
                 sub_G.add_node(son, **self.G.nodes[son])  # adds the node copying info
-                sub_G.add_path([father, son])
+                nx.add_path(sub_G, [father, son])
 
         # DOWNSTREAM part of the map
         # getting all nodes from the given node to the end of the map
@@ -397,7 +397,7 @@ class Map:
         sub_G.add_node(id_, **self.G.nodes[id_])  # adds the node copying info
         for n in self.G.adj.get(id_):
             if n not in sub_G.neighbors(id_):
-                sub_G.add_path([id_, n])
+                nx.add_path(sub_G, [id_, n])
                 sub_G.nodes[id_]
                 self.create_submap(sub_G, n)
 
@@ -451,7 +451,7 @@ class Map:
             else:
                 G = self.G
 
-            labels = {node: G.node[node]["label"] for node in G}
+            labels = {node: G.nodes[node]["label"] for node in G}
             nx.draw_networkx(G, with_labels=True, labels=labels)
             plt.show()
         except ModuleNotFoundError:
@@ -540,7 +540,7 @@ class Map:
         """
         for n in self.G:
             value = self.format_node(n, format_string=format_string)
-            self.G.node[n][dict_key] = value
+            self.G.nodes[n][dict_key] = value
 
     def update_labels(self, format_string="tag->name->class->id"):
         self._update_key_for_nodes(format_string, "label")
@@ -578,7 +578,7 @@ def format_node(graph, node, format_string="tag->name->class->id"):
     n = node
     format_arguments = format_string.split("->")
     value = ""  # clears the dict_key
-    reference = G.node[n].get("instance")
+    reference = G.nodes[n].get("instance")
     inst = reference if isinstance(reference, str) else reference()
     if inst is None:
         raise RuntimeError(
@@ -603,7 +603,7 @@ def format_node(graph, node, format_string="tag->name->class->id"):
                     attr = getattr(inst, attr_name)
                     all_args.append(str(attr))
             else:
-                val = G.node[n].get(arg)
+                val = G.nodes[n].get(arg)
                 if val:
                     # if finds the value assigns to dict_key
                     all_args.append(str(val))

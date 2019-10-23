@@ -208,7 +208,7 @@ def test_format_node_1(beamline):
         == str(id(tn))[:4]
     )
     assert beamline.format_node(id(tn), format_string="inst.arg1->name") == "arg1"
-    assert not hasattr(beamline.G.node[id(tn)], "name")
+    assert not hasattr(beamline.G.nodes[id(tn)], "name")
     assert beamline.format_node(id(tn), format_string="name->inst.arg1") == "arg1"
     assert beamline.format_node("global", format_string="inst") == "global"
 
@@ -217,14 +217,14 @@ def test_check_formatting_1(beamline):
     """Should plot only the id as fakearg doesn't exists"""
     beamline._update_key_for_nodes("fakearg+id->name", dict_key="mykey")
     for el in beamline.G:
-        assert beamline.G.node[el]["mykey"] == str(el)
+        assert beamline.G.nodes[el]["mykey"] == str(el)
 
 
 def test_check_formatting_2(beamline):
     """Should plot only the id as fakearg doesn't exists"""
     beamline._update_key_for_nodes("fakearg+id->name")
     for el in beamline.G:
-        assert beamline.G.node[el]["label"] == str(el)
+        assert beamline.G.nodes[el]["label"] == str(el)
 
 
 def test_check_formatting_3(beamline):
@@ -233,29 +233,29 @@ def test_check_formatting_3(beamline):
     beamline._update_key_for_nodes("tag->name->id", dict_key="ee")
     for el in beamline.G:
         if el == id(tn):  # SimpleNode should have a tag=myname
-            assert beamline.G.node[el]["ee"] == "myname"
+            assert beamline.G.nodes[el]["ee"] == "myname"
         else:
             # name not found, should find id
-            assert beamline.G.node[el]["ee"] == beamline.G.node[el]["tag"]
+            assert beamline.G.nodes[el]["ee"] == beamline.G.nodes[el]["tag"]
 
 
 def test_bad_formatting(beamline):
     beamline._update_key_for_nodes("asda11@@@1", dict_key="ee")
     for el in beamline.G:
-        assert "ee" in beamline.G.node[el]  # check existance
-        assert beamline.G.node[el]["ee"] == ""  # check isnull string
+        assert "ee" in beamline.G.nodes[el]  # check existance
+        assert beamline.G.nodes[el]["ee"] == ""  # check isnull string
     beamline._update_key_for_nodes("!!!!", dict_key="ee")
     for el in beamline.G:
-        assert "ee" in beamline.G.node[el]
-        assert beamline.G.node[el]["ee"] == ""
+        assert "ee" in beamline.G.nodes[el]
+        assert beamline.G.nodes[el]["ee"] == ""
     beamline._update_key_for_nodes("_2aasdad1", dict_key="ee")
     for el in beamline.G:
-        assert "ee" in beamline.G.node[el]
-        assert beamline.G.node[el]["ee"] == ""
+        assert "ee" in beamline.G.nodes[el]
+        assert beamline.G.nodes[el]["ee"] == ""
     beamline._update_key_for_nodes("2", dict_key="ee")
     for el in beamline.G:
-        assert "ee" in beamline.G.node[el]
-        assert beamline.G.node[el]["ee"] == ""
+        assert "ee" in beamline.G.nodes[el]
+        assert beamline.G.nodes[el]["ee"] == ""
 
 
 def test_deleted_instance(beamline):

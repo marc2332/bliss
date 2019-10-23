@@ -554,8 +554,13 @@ class ScanDisplay(ParametersWardrobe):
 
         super().__init__(
             "%s:scan_display_params" % session_name,
-            default_values={"auto": False, "motor_position": True, "_counters": []},
-            property_attributes=("session", "counters"),
+            default_values={
+                "auto": False,
+                "motor_position": True,
+                "_counters": [],
+                "_extra_args": [],
+            },
+            property_attributes=("session", "counters", "extra_args"),
             not_removable=("auto", "motor_position"),
             **keys,
         )
@@ -573,6 +578,24 @@ class ScanDisplay(ParametersWardrobe):
     def session(self):
         """ This give the name of the current session or default if no current session is defined """
         return self._session_name
+
+    @property
+    def extra_args(self):
+        """Returns the list of extra arguments which will be provided to flint
+        at it's next creation"""
+        return self._extra_args
+
+    @extra_args.setter
+    def extra_args(self, extra_args):
+        """Set the list of extra arguments to provide to flint at it's
+        creation"""
+        # FIXME: It could warn to restart flint in case it is already loaded
+        # FIXME: It could check valid command line argument with a small refactoring
+        if not isinstance(extra_args, (list, tuple)):
+            raise TypeError(
+                "SCADISPLAY_SCAN.extra_args expects a list or a tuple of strings"
+            )
+        self._extra_args = list(extra_args)
 
     @property
     def counters(self):

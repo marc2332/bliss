@@ -729,19 +729,6 @@ class Scan:
             )
         self.__writer._save_images = save_images
 
-        ### order is important in the next lines...
-        self.writer.template.update(
-            {
-                "scan_name": self.name,
-                "session": session_name,
-                "scan_number": "{scan_number}",
-            }
-        )
-
-        self.__scan_number = self._next_scan_number()
-
-        self.writer.template["scan_number"] = self.scan_number
-
         self.__nodes = dict()
         self._devices = []
 
@@ -751,7 +738,6 @@ class Scan:
             dev.fill_meta_at_scan_init(self.user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
-        self._scan_info["scan_nb"] = self.__scan_number
         self._scan_info["filename"] = self.writer.filename
         self._scan_info.setdefault("title", name)
 
@@ -778,6 +764,20 @@ class Scan:
 
     def _prepare_note(self):
         if self.__node is None:
+            ### order is important in the next lines...
+            self.writer.template.update(
+                {
+                    "scan_name": self.name,
+                    "session": self.__scan_saving.session,
+                    "scan_number": "{scan_number}",
+                }
+            )
+
+            self.__scan_number = self._next_scan_number()
+
+            self.writer.template["scan_number"] = self.scan_number
+            self._scan_info["scan_nb"] = self.__scan_number
+
             start_timestamp = time.time()
             start_time = datetime.datetime.fromtimestamp(start_timestamp)
             self._scan_info["start_time"] = start_time

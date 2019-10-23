@@ -8,10 +8,11 @@
 from bliss import setup_globals
 from bliss.common.standard import wa, wm, sta, stm
 from bliss.common.utils import deep_update
+import pytest
 
 
-def test_wa_normal(beacon, capsys):
-    bad = beacon.get("bad")
+def test_wa_normal(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = False
     wa()
     captured = capsys.readouterr()
@@ -26,8 +27,8 @@ def test_wa_normal(beacon, capsys):
     assert captured.out == output
 
 
-def test_wa_exception(beacon, capsys):
-    bad = beacon.get("bad")
+def test_wa_exception(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = True
     wa()
     captured = capsys.readouterr()
@@ -49,8 +50,24 @@ def test_wa_exception(beacon, capsys):
     assert captured.err[-len(errmsg) :] == errmsg
 
 
-def test_wm_normal(beacon, capsys):
-    bad = beacon.get("bad")
+@pytest.fixture
+def s1hg(default_session):
+    s1hg = default_session.config.get("s1hg")
+    yield s1hg
+    s1hg.__close__()
+
+
+def test_wa_slits(s1hg, capsys):
+    wa()
+    captured = capsys.readouterr()
+
+    assert "s1hg" in captured.out
+    assert not "s1f" in captured.out
+    assert not "s1b" in captured.out
+
+
+def test_wm_normal(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = False
     wm("bad")
     captured = capsys.readouterr()
@@ -72,8 +89,8 @@ def test_wm_normal(beacon, capsys):
     assert captured.out == output
 
 
-def test_wm_exception(beacon, capsys):
-    bad = beacon.get("bad")
+def test_wm_exception(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = True
     wm("bad")
     captured = capsys.readouterr()
@@ -101,8 +118,8 @@ def test_wm_exception(beacon, capsys):
     assert captured.err[-len(errmsg) :] == errmsg
 
 
-def test_sta_normal(beacon, capsys):
-    bad = beacon.get("bad")
+def test_sta_normal(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = False
     sta()
     captured = capsys.readouterr()
@@ -114,8 +131,18 @@ def test_sta_normal(beacon, capsys):
     assert captured.out == output
 
 
-def test_sta_exception(beacon, capsys):
-    bad = beacon.get("bad")
+def test_sta_slits(s1hg, capsys):
+    sta()
+
+    captured = capsys.readouterr()
+
+    assert "s1hg" in captured.out
+    assert not "s1f" in captured.out
+    assert not "s1b" in captured.out
+
+
+def test_sta_exception(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = True
     sta()
     captured = capsys.readouterr()
@@ -133,8 +160,8 @@ def test_sta_exception(beacon, capsys):
     assert captured.err[-len(errmsg) :] == errmsg
 
 
-def test_stm_normal(beacon, capsys):
-    bad = beacon.get("bad")
+def test_stm_normal(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = False
     stm("bad")
     captured = capsys.readouterr()
@@ -146,8 +173,8 @@ def test_stm_normal(beacon, capsys):
     assert captured.out == output
 
 
-def test_stm_exception(beacon, capsys):
-    bad = beacon.get("bad")
+def test_stm_exception(default_session, capsys):
+    bad = default_session.config.get("bad")
     bad.controller.bad_position = True
     stm("bad")
     captured = capsys.readouterr()

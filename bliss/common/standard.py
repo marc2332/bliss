@@ -256,6 +256,8 @@ def wa(**kwargs):
         ) in global_map.get_axes_positions_iter(
             on_error=ErrorWithTraceback(error_txt=err)
         ):
+            if axis_name not in current_session.env_dict:
+                continue
             if len(header) == max_cols:
                 header, pos, dial = [], [], []
                 tables.append((header, pos, dial))
@@ -425,6 +427,7 @@ def stm(*axes, read_hw=False):
             ),
         )
         for axis in global_map.get_axis_objects_iter(*axes)
+        if axis.name in current_session.env_dict
     ]
     print(_tabulate(table))
 

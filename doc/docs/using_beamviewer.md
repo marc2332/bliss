@@ -39,7 +39,7 @@ BLISS [25]: myebv.led_status
 
 ### FOIL control
 
-If EBV has no foils, you'll get:
+If EBV has no foil, you'll get:
 ```
 BLISS [26]: myebv.foil_status
   Out [26]: 'NONE'
@@ -87,7 +87,7 @@ BLISS [44]: myebv.diode_range
   Out [44]: '100uA'
 ```
 
-You can also access the floating value of gain to convert used to convert reading to **mA**:
+You can also access the floating value of gain used to convert reading to **mA**:
 ```
 BLISS [44]: myebv.diode_range
   Out [44]: '100uA'
@@ -120,7 +120,7 @@ Tue Oct 22 18:17:36 2019
 diode = -2.44140625e-07 (-2.44140625e-06/s)
 ```
 
-Default counter is *diode* but can be changed in configuration.
+Default counter name is *diode* but can be changed in configuration.
 Counter object is accessible though `myebv.diode`.
 So either `myebv` or `myebv.diode` can be added to measurement group (ebv hold only one sampling counter).
 

@@ -754,12 +754,7 @@ class Scan:
         self._scan_info["scan_nb"] = self.__scan_number
         self._scan_info["filename"] = self.writer.filename
         self._scan_info.setdefault("title", name)
-        start_timestamp = time.time()
-        start_time = datetime.datetime.fromtimestamp(start_timestamp)
-        self._scan_info["start_time"] = start_time
-        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-        self._scan_info["start_time_str"] = start_time_str
-        self._scan_info["start_timestamp"] = start_timestamp
+
         deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
         self._data_watch_task = None
@@ -776,12 +771,21 @@ class Scan:
             get_flint()
 
         self.__state = ScanState.IDLE
+
+        self._preset_list = list()
+
+    def __prepare_note(self):
+        start_timestamp = time.time()
+        start_time = datetime.datetime.fromtimestamp(start_timestamp)
+        self._scan_info["start_time"] = start_time
+        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+        self._scan_info["start_time_str"] = start_time_str
+        self._scan_info["start_timestamp"] = start_timestamp
+
         node_name = str(self.__scan_number) + "_" + self.name
         self.__node = _create_node(
             node_name, "scan", parent=self.root_node, info=self._scan_info
         )
-
-        self._preset_list = list()
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1059,6 +1063,9 @@ class Scan:
 
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None
+
+        ### create scan node in redis
+        self.__prepare_note()
 
         if self._data_watch_callback is not None:
             data_watch_callback_event = gevent.event.Event()

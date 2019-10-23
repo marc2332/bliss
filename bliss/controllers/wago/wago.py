@@ -20,13 +20,14 @@ from tabulate import tabulate
 
 import tango
 
-import bliss.common.measurement
+import bliss.common.counter
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import *
-from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed
 
 
@@ -1687,7 +1688,7 @@ class WagoCounter(SamplingCounter):
         return gain
 
 
-class Wago:
+class Wago(SamplingCounterController):
     """ The wago class
     """
 
@@ -1703,7 +1704,8 @@ class Wago:
 
         interlocks:
         """
-        self.name = name
+
+        super().__init__(name=name)
 
         # parsing config_tree
         self.modules_config = ModulesConfig.from_config_tree(config_tree)

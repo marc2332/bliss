@@ -116,7 +116,9 @@ def test_external_hdf5_writer(
     gevent.sleep(.2)
     ## just to see if there is no event created before the scan runs...
     scan_task = gevent.spawn(s3.run)
-    gevent.sleep(.33)
+    # todo add synchronisatin once !1594 is merged
+    # for now .. incrase sleep time
+    gevent.sleep(1)
 
     try:
         scan_task.kill(KeyboardInterrupt)

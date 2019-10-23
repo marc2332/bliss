@@ -118,7 +118,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
         f"{scan_name}/instrument/positioners_dial/robzz": {},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/myDiode": {
-            "fullname": "simulation_diode_controller:diode"
+            "fullname": "simulation_diode_sampling_controller:diode"
         },
         f"{scan_name}/measurement/axis:robyy": {"fullname": "axis:roby"},
     }

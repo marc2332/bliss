@@ -99,7 +99,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     scan_children_node = [roby_node_db_name]
     roby_children_node = [
         roby_node_db_name + ":roby",
-        roby_node_db_name + ":simulation_diode_controller",
+        roby_node_db_name + ":simulation_diode_sampling_controller",
     ]
     assert redis_data_conn.lrange(s.node.db_name + "_children_list", 0, -1) == [
         x.encode() for x in scan_children_node
@@ -142,7 +142,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     scan_children_node = [roby_node_db_name]
     roby_children_node = [
         roby_node_db_name + ":roby",
-        roby_node_db_name + ":simulation_diode_controller:diode",
+        roby_node_db_name + ":simulation_diode_sampling_controller:diode",
     ]
 
     for child_node_name in scan_children_node + roby_children_node:

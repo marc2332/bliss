@@ -179,15 +179,15 @@ def test_SampCnt_mode_SAMPLES_from_conf(session):
     s = loopscan(10, .05, diode2, diode9)
 
     assert (
-        "simulation_diode_controller:diode2"
+        "simulation_diode_sampling_controller:diode2"
         in s.scan_info["acquisition_chain"]["timer"]["scalars"]
     )
     assert (
-        "simulation_diode_controller:diode9"
+        "simulation_diode_sampling_controller:diode9"
         in s.scan_info["acquisition_chain"]["timer"]["scalars"]
     )
     assert (
-        "simulation_diode_controller:diode9_samples"
+        "simulation_diode_sampling_controller:diode9_samples"
         in s.scan_info["acquisition_chain"]["timer"]["spectra"]
     )
 

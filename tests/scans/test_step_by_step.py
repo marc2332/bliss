@@ -536,10 +536,12 @@ def test_motor_group(session):
     assert items["timer"].parent.db_name == scan.node.db_name + ":axis"
     timer_channels = dict((chan.name, chan) for chan in items["timer"].children())
     assert "timer:elapsed_time" in timer_channels
-    assert "simulation_diode_controller" in timer_channels
+    assert "simulation_diode_sampling_controller" in timer_channels
     assert (
         "diode"
-        in list(timer_channels["simulation_diode_controller"].children())[0].name
+        in list(timer_channels["simulation_diode_sampling_controller"].children())[
+            0
+        ].name
     )
 
 

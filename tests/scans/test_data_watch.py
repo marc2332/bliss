@@ -148,14 +148,16 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         assert dtype == "0d"
         assert master_name == master.name
         vars["scan_data_m1"] = data["data"]["axis:m1"]
-        vars["scan_data_diode"] = data["data"]["simulation_diode_controller:diode"]
+        vars["scan_data_diode"] = data["data"][
+            "simulation_diode_sampling_controller:diode"
+        ]
 
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {
         master.name: {
-            "display_names": {"simulation_diode_controller:diode": "diode"},
-            "scalars_units": {"simulation_diode_controller:diode": None},
-            "scalars": ["simulation_diode_controller:diode"],
+            "display_names": {"simulation_diode_sampling_controller:diode": "diode"},
+            "scalars_units": {"simulation_diode_sampling_controller:diode": None},
+            "scalars": ["simulation_diode_sampling_controller:diode"],
             "images": [],
             "spectra": [],
             "master": {

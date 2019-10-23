@@ -86,12 +86,15 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert nodes[2] != nodes[1]
 
     counter_names = [c.fullname for c in nodes[1].channels]
-    assert counter_names == ["simulation_diode_controller:diode"]
+    assert counter_names == ["simulation_diode_sampling_controller:diode"]
     # counters order is not important
     # as we use **set** to eliminate duplicated counters
     counter_names = set([c.fullname for c in nodes[2].channels])
     assert counter_names == set(
-        ["simulation_diode_controller:diode2", "simulation_diode_controller:diode3"]
+        [
+            "simulation_diode_sampling_controller:diode2",
+            "simulation_diode_sampling_controller:diode3",
+        ]
     )
 
 

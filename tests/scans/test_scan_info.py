@@ -24,7 +24,7 @@ def test_scan_info_scalars_units(session):
     )
     assert (
         s.scan_info["acquisition_chain"]["timer"]["scalars_units"][
-            "simulation_diode_controller:diode"
+            "simulation_diode_sampling_controller:diode"
         ]
         is None
     )

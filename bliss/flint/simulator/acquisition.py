@@ -72,6 +72,7 @@ class AcquisitionSimulator(qt.QObject):
                 "total_count_time": durationSecond / 2,
                 "total_time": durationSecond,
             },
+            "node_name": "scan" + str(self.__scanNb),
         }
         self.__scanNb += 1
 
@@ -463,6 +464,7 @@ class AcquisitionSimulator(qt.QObject):
                     newData = scan_model.Data(channel, array)
                     if self.__scan_manager is not None:
                         scan_data = {
+                            "scan_info": self.__scan_info,
                             "channel_name": channel.name(),
                             "channel_data_node": ChannelDataNodeMock(array=array),
                             "channel_index": 0,
@@ -477,6 +479,7 @@ class AcquisitionSimulator(qt.QObject):
                     newData = scan_model.Data(channel, array)
                     if self.__scan_manager is not None:
                         scan_data = {
+                            "scan_info": self.__scan_info,
                             "channel_name": channel.name(),
                             "channel_data_node": ChannelDataNodeMock(image=array),
                             "channel_index": 0,
@@ -490,7 +493,7 @@ class AcquisitionSimulator(qt.QObject):
 
         if self.__scan_manager is not None:
             if len(channel_scan_data) > 0:
-                scan_data = {"data": channel_scan_data}
+                scan_data = {"data": channel_scan_data, "scan_info": self.__scan_info}
                 self.__scan_manager.new_scan_data("0d", "foo", scan_data)
 
         if self.__flintModel is not None:
@@ -506,5 +509,5 @@ class AcquisitionSimulator(qt.QObject):
         self.__timer.deleteLater()
         self.__timer = None
         if self.__scan_manager is not None:
-            self.__scan_manager.end_scan(scan_info={})
+            self.__scan_manager.end_scan(self.__scan_info)
         print("Acquisition finished")

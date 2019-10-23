@@ -774,6 +774,8 @@ class Scan:
 
         self._preset_list = list()
 
+        self.__node = None
+
     def __prepare_note(self):
         start_timestamp = time.time()
         start_time = datetime.datetime.fromtimestamp(start_timestamp)

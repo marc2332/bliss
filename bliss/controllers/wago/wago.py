@@ -986,7 +986,7 @@ class WagoController:
         """
         reading_type = read_table[READING_TYPE]
         reading_info = read_table[READING_INFO]
-        if reading_type == "fs":
+        if reading_type.startswith("fs"):
             return self._read_fs(raw_value, **reading_info)
         if reading_type == "ssi":
             return self._read_ssi(raw_value, **reading_info)

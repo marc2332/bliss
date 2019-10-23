@@ -2,7 +2,7 @@
 
 * opening/closing of a shutter
 * detector cover
-* multiplexer
+* [multiplexer](config_opiom.html#multiplexer)
 * scan pause...
 
 It's a hook in scan iteration. This hook can be set in different

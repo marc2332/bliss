@@ -12,6 +12,7 @@ import gevent
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, CalcController
 from bliss.common.axis import Axis, AxisState
+from bliss.common.switch import Switch as BaseSwitch
 from bliss.common import event
 from bliss.config.static import get_config
 
@@ -46,12 +47,18 @@ class Motion:
         self.trajectory = LinearTrajectory(pi, pf, velocity, acceleration, ti)
 
 
+class Switch(BaseSwitch):
+    def __init__(self, name, controller, config):
+        super().__init__(name, config)
+
+
 class Mockup(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
         self._axis_moves = {}
         self.__encoders = {}
+        self.__switches = {}
 
         # Custom attributes.
         self.__voltages = {}

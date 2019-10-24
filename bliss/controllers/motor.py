@@ -56,63 +56,26 @@ class Controller:
         self.__initialized_encoder = dict()
         self.__initialized_axis = dict()
         self.__lock = lock.RLock()  # Semaphore()
+        self._axes_config = axes
         self._axes = dict()
+        self._encoders_config = encoders
         self._encoders = dict()
+        self._shutters_config = shutters
         self._shutters = dict()
+        self._switches_config = switches
         self._switches = dict()
         self._tagged = dict()
 
         self.axis_settings = ControllerAxisSettings()
 
-        def create_axis(axis_name):
-            axis_class, axis_config = axes[axis_name]
-            # make Axis objects from the class,
-            # in case of references, eg. real axes for calc controllers,
-            # axis_class is None and axis_config['name'] is already
-            # the wanted object
-            if axis_class is None:
-                axis = axis_config.get("name")
-            else:
-                axis = axis_class(axis_name, self, axis_config)
-            #
-            self._axes[axis_name] = axis
-            axis_tags = axis_config.get("tags")
-            if axis_tags:
-                for tag in axis_tags.split():
-                    self._tagged.setdefault(tag, []).append(axis)
-
-            if axis.controller is self:
-                set_custom_members(self, axis, self._initialize_axis)
-                return axis
-
-        self.__create_axis = create_axis
-
-        def create_encoder(encoder_name):
-            encoder_class, encoder_config = encoders[encoder_name]
-            encoder = encoder_class(encoder_name, self, encoder_config)
-            self._encoders[encoder_name] = encoder
-            return encoder
-
-        self.__create_encoder = create_encoder
-
-        def create_object(obj_name, obj_config_dict, object_dict):
-            obj_class, obj_config = obj_config_dict[obj_name]
-            if obj_class is None:
-                raise ValueError("Missing **class** for '%s`" % obj_name)
-            object_dict[obj_name] = obj = obj_class(obj_name, self, obj_config)
-            return obj
-
-        def create_shutter(shutter_name):
-            return create_object(shutter_name, shutters, self._shutters)
-
-        self.__create_shutter = create_shutter
-
-        def create_switche(switch_name):
-            return create_object(switch_name, switches, self._switches)
-
-        self.__create_switche = create_switche
-
         global_map.register(self, parents_list=["controllers"])
+
+    def __create_object(self, obj_name, obj_config_dict, object_dict):
+        obj_class, obj_config = obj_config_dict[obj_name]
+        if obj_class is None:
+            raise ValueError("Missing **class** for '%s`" % obj_name)
+        object_dict[obj_name] = obj = obj_class(obj_name, self, obj_config)
+        return obj
 
     def _init(self):
         self.initialize()
@@ -132,7 +95,7 @@ class Controller:
     def get_shutter(self, name):
         shutter = self._shutters.get(name)
         if shutter is None:
-            shutter = self.__create_shutter(name)
+            shutter = self.__create_object(name, self._shutters_config, self._shutters)
         return shutter
 
     @property
@@ -142,7 +105,7 @@ class Controller:
     def get_switch(self, name):
         switch = self._switches.get(name)
         if switch is None:
-            switch = self.__create_switche(switch)
+            switch = self.__create_object(name, self._switches_config, self._switches)
         return switch
 
     @property
@@ -277,9 +240,28 @@ class Controller:
     def get_axis(self, axis_name):
         axis = self._axes.get(axis_name)
         if axis is None:  # create it
-            axis = self.__create_axis(axis_name)
-            if axis is None:  # reference axis
-                return axis
+            axis_class, axis_config = self._axes_config[axis_name]
+            # make Axis objects from the class,
+            # in case of references, eg. real axes for calc controllers,
+            # axis_class is None and axis_config['name'] is already
+            # the wanted object
+            if axis_class is None:
+                axis = axis_config.get("name")
+            else:
+                axis = axis_class(axis_name, self, axis_config)
+            #
+            self._axes[axis_name] = axis
+
+            axis_tags = axis_config.get("tags")
+            if axis_tags:
+                for tag in axis_tags.split():
+                    self._tagged.setdefault(tag, []).append(axis)
+
+            if axis.controller is self:
+                set_custom_members(self, axis, self._initialize_axis)
+            else:
+                # reference axis
+                return
 
             axis._beacon_channels.clear()
             hash_setting = settings.HashSetting("axis.%s" % axis.name)
@@ -334,7 +316,9 @@ class Controller:
     def get_encoder(self, encoder_name):
         encoder = self._encoders.get(encoder_name)
         if encoder is None:  # create it
-            encoder = self.__create_encoder(encoder_name)
+            encoder_class, encoder_config = self._encoders_config[encoder_name]
+            encoder = encoder_class(encoder_name, self, encoder_config)
+            self._encoders[encoder_name] = encoder
         return encoder
 
     def get_class_name(self):

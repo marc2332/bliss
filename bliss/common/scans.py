@@ -53,7 +53,7 @@ from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration, Axis
 from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
-from bliss.data.nodes.scan import get_counter_names
+from bliss.data.scan import get_counter_names
 from bliss.scanning.default import DefaultAcquisitionChain
 from bliss.scanning.scan import Scan, StepScanDataWatch, SCANS
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster

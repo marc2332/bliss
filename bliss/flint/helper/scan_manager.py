@@ -97,6 +97,14 @@ class ScanManager:
         pass
 
     def new_scan_data(self, data_type, master_name, data):
+        scan = self.__scan
+        if scan is None:
+            _logger.error(
+                "New scan data was received before new_scan (%s, %s)",
+                data_type,
+                master_name,
+            )
+            return
         scan_info = data["scan_info"]
         if not self.__is_current_scan(scan_info):
             unique = self.__get_scan_id(scan_info)
@@ -166,7 +174,6 @@ class ScanManager:
             data_event.set()
 
     def __update_channel_data(self, channel_name, raw_data, frame_id=None):
-        assert self.__scan is not None
         scan = self.__scan
         if self.__data_storage.has_channel(channel_name):
             group_name = self.__data_storage.get_group(channel_name)

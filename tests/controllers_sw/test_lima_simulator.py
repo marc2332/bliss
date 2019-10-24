@@ -330,3 +330,21 @@ def test_lima_scan_get_data(session, lima_simulator):
     raw_image_data = view.get_image(-1)
 
     assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
+
+
+def test_lima_scan_get_last_live_image(session, lima_simulator):
+    simulator = session.config.get("lima_simulator")
+    s = loopscan(3, 0.1, simulator)
+
+    data = s.get_data()
+
+    assert simulator.name + ":image" in data
+    view = data[simulator.name + ":image"]
+
+    assert len(view) == 3
+
+    view.from_stream = True
+    raw_image_data, frame_id = view.get_last_live_image()
+
+    assert frame_id not in [None, -1]
+    assert raw_image_data.shape == (simulator.image.height, simulator.image.width)

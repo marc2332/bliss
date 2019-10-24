@@ -138,8 +138,26 @@ class ImagePlotWidget(ExtendedDockWidget):
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
 
-    def __updateTitle(self, scan: scan_model.Scan):
+    def __formatItemTitle(self, scan: scan_model.Scan, item=None):
+        if item is None:
+            return None
+        channel = item.imageChannel()
+        if channel is None:
+            return None
+
+        frameInfo = ""
+        displayName = channel.displayName(scan)
+        data = channel.data(scan)
+        if data is not None:
+            if data.frameId() is not None:
+                frameInfo = ", frame id: %s" % data.frameId()
+        return f"{displayName}{frameInfo}"
+
+    def __updateTitle(self, scan: scan_model.Scan, item=None):
         title = scan_info_helper.get_full_title(scan)
+        itemTitle = self.__formatItemTitle(scan, item)
+        if itemTitle is not None:
+            title = f"{title}\n{itemTitle}"
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
@@ -186,6 +204,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         if not isinstance(item, plot_item_model.ImageItem):
             return
 
+        scan = self.__scan
         plot = self.__plot
         plotItems: List[Tuple[str, str]] = []
 
@@ -213,6 +232,7 @@ class ImagePlotWidget(ExtendedDockWidget):
                 image, legend=legend, resetzoom=False, colormap=colormap
             )
             plotItems.append((key, "image"))
+            self.__updateTitle(scan, item)
         else:
             yy = numpy.atleast_2d(numpy.arange(image.shape[0])).T
             xx = numpy.atleast_2d(numpy.arange(image.shape[1]))

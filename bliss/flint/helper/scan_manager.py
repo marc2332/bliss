@@ -140,15 +140,20 @@ class ScanManager:
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
+            image_data = None
             try:
-                raw_data = image_view.get_image(-1)
+                if hasattr(image_view, "get_last_live_image"):
+                    image_data, frame_id = image_view.get_last_live_image()
+                if image_data is None:
+                    image_data = image_view.get_image(-1)
+                    frame_id = None
             except IndexError:
                 # The image could not be ready
                 _logger.error("Error while reaching the last image", exc_info=True)
-                raw_data = None
-            if raw_data is not None:
+                image_data = None
+            if image_data is not None:
                 channel_name = data["channel_name"]
-                self.__update_channel_data(channel_name, raw_data)
+                self.__update_channel_data(channel_name, image_data, frame_id=frame_id)
         else:
             assert False
 
@@ -160,7 +165,7 @@ class ScanManager:
             )
             data_event.set()
 
-    def __update_channel_data(self, channel_name, raw_data):
+    def __update_channel_data(self, channel_name, raw_data, frame_id=None):
         assert self.__scan is not None
         scan = self.__scan
         if self.__data_storage.has_channel(channel_name):
@@ -183,11 +188,12 @@ class ScanManager:
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(masterDeviceName=master_name)
         else:
+            # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)
             if channel is None:
                 _logger.error("Channel '%s' not provided", channel_name)
             else:
-                data = scan_model.Data(channel, raw_data)
+                data = scan_model.Data(channel, raw_data, frameId=frame_id)
                 channel.setData(data)
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(channelName=channel.name())

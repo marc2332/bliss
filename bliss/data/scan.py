@@ -11,10 +11,61 @@ import sys
 import numpy
 import gevent
 
+from bliss.common.measurement import BaseCounter
+from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import DataNodeIterator, _get_or_create_node
 
 _SCAN_EVENT = enum.IntEnum("SCAN_EVENT", "NEW NEW_CHILD NEW_DATA END")
+
+
+def get_counter_names(scan):
+    """
+    Return a list of counter names
+    """
+    return [node.name for node in scan.nodes.values() if node.type == "channel"]
+
+
+def get_data(scan):
+    """
+    Return a dictionary of { channel_name: numpy array }
+    """
+
+    class DataContainer(dict):
+        def __info__(self):
+            return f"DataContainer use [counter],[motor] or {self.keys()}"
+
+        def __getitem__(self, key):
+            if isinstance(key, BaseCounter):
+                return super().__getitem__(key.fullname)
+            elif isinstance(key, Axis):
+                return super().__getitem__(f"axis:{key.name}")
+
+            try:
+                return super().__getitem__(key)
+            except KeyError as er:
+                match_value = [
+                    (fullname, data)
+                    for fullname, data in self.items()
+                    if key in fullname.split(":")
+                ]
+                if len(match_value) == 1:
+                    return match_value[0][1]
+                elif len(match_value) > 1:
+                    raise KeyError(
+                        f"Ambiguous key **{key}**, there is several match ->",
+                        [x[0] for x in match_value],
+                    )
+                else:
+                    raise er
+
+    connection = scan.node.db_connection
+    pipeline = connection.pipeline()
+    data = DataContainer()
+    nodes_and_index = [(node, 0) for node in scan.nodes.values()]
+    for channel_name, channel_data in get_data_from_nodes(pipeline, *nodes_and_index):
+        data[channel_name] = channel_data
+    return data
 
 
 def _watch_data_callback(

@@ -59,6 +59,22 @@ class Dummy(Device):
     def status(self):
         return "Some Text " + str(self.get_state())
 
+    @command(dtype_in="DevVarLongArray")
+    def DevSerSetParameter(self, _):
+        pass
+
+    @command(dtype_in=int)
+    def DevSerFlush(self, _):
+        pass
+
+    @command(dtype_in="DevVarCharArray")
+    def DevSerWriteChar(self, _):
+        pass
+
+    @command(dtype_in=int, dtype_out="DevVarCharArray")
+    def DevSerReadNBinData(self, size):
+        return b" " * size
+
 
 if __name__ == "__main__":
     run((Dummy,))

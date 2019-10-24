@@ -28,7 +28,7 @@ class ScanManager:
     """"Manage scan events emitted by redis.
 
     A new scan create a `scan_model.Scan` object. This object is registered to
-    flint as a new scan. Each fearther events are propagated to this scan
+    flint as a new scan. Each further events are propagated to this scan
     structure.
     """
 
@@ -144,7 +144,7 @@ class ScanManager:
                 raw_data = image_view.get_image(-1)
             except IndexError:
                 # The image could not be ready
-                _logger.error("Error while reching the last image", exc_info=True)
+                _logger.error("Error while reaching the last image", exc_info=True)
                 raw_data = None
             if raw_data is not None:
                 channel_name = data["channel_name"]

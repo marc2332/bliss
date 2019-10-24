@@ -18,7 +18,7 @@ from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.config.settings import scan as redis_scan
 from bliss.config.settings import QueueObjSetting
-from bliss.data.scan import Scan as ScanNode
+from bliss.data.nodes.scan import Scan as ScanNode
 from bliss.data.node import (
     get_session_node,
     get_node,
@@ -28,7 +28,7 @@ from bliss.data.node import (
     _get_or_create_node,
     sessions_list,
 )
-from bliss.data.channel import ChannelDataNode
+from bliss.data.nodes.channel import ChannelDataNode
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.channel import AcquisitionChannel
 

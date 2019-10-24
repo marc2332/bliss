@@ -689,7 +689,7 @@ class Scan:
         name="scan",
         scan_info=None,
         save=True,
-        save_images=True,
+        save_images=None,  # None means follows "save"
         scan_saving=None,
         data_watch_callback=None,
         watchdog_callback=None,
@@ -727,7 +727,7 @@ class Scan:
                 scan_config["images_path"],
                 os.path.basename(scan_config["data_path"]),
             )
-        self.__writer._save_images = save_images
+        self.__writer._save_images = save if save_images is None else save_images
 
         ### order is important in the next lines...
         self.writer.template.update(

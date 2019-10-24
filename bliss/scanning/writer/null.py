@@ -25,7 +25,7 @@ class Writer(FileWriter):
         any_image = any(
             channel.reference and len(channel.shape) == 2 for channel in device.channels
         )
-        if any_image:
+        if any_image and self._save_images:
             super().create_path(images_path)
             super().prepare_saving(device, images_path)
 

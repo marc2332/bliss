@@ -58,7 +58,7 @@ Common keyword arguments that can be used in all scans:
 * `name (str)`: scan name in data nodes tree and directories [default: 'scan']
 * `title (str)`: scan title [default: 'a2scan <motor1> ... <count_time>']
 * `save (bool)`: save scan data to file [default: True]
-* `save_images (bool)`: save image files [default: True]
+* `save_images (bool or None)`: save image files [default: None, means it follows the save argument]
 * `sleep_time (float)`: sleep time between 2 points [default: None]
 * `run (bool)`: if `True` (default), run the scan. `False` means to just create
     scan object and acquisition chain.

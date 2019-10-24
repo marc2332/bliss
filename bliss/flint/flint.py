@@ -39,11 +39,17 @@ except ImportError:
 from PyQt5.QtCore import pyqtRemoveInputHook
 
 with warnings.catch_warnings():
+    # Avoid warning when silx will be loaded
     warnings.simplefilter("ignore")
-    import silx
-    from silx.gui import qt
-    from silx.gui import plot as silx_plot
-    from silx.gui.plot.items.roi import RectangleROI
+    try:
+        import h5py
+    except ImportError:
+        pass
+
+import silx
+from silx.gui import qt
+from silx.gui import plot as silx_plot
+from silx.gui.plot.items.roi import RectangleROI
 
 from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.interaction import PointsSelector, ShapeSelector

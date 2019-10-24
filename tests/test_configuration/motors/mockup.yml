@@ -9,6 +9,8 @@ controller:
     acceleration: 100
 - class: mockup
   name: test
+  switches:
+  - name: test_switch
   axes:
   - name: robz
     steps_per_unit: 10000

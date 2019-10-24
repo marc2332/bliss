@@ -28,6 +28,7 @@ from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
 from bliss.common import plot
+from bliss.common.tango import DeviceProxy, DevFailed
 
 from random import randint
 from contextlib import contextmanager
@@ -211,7 +212,6 @@ def scan_tmpdir(tmpdir):
 @pytest.fixture
 def lima_simulator(ports, beacon):
     from Lima.Server.LimaCCDs import main
-    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "id00/limaccds/simulator1"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
@@ -236,7 +236,6 @@ def lima_simulator(ports, beacon):
 
 @pytest.fixture
 def bliss_tango_server(ports, beacon):
-    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "id00/bliss/test"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
@@ -256,7 +255,6 @@ def bliss_tango_server(ports, beacon):
 
 @pytest.fixture
 def dummy_tango_server(ports, beacon):
-    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "id00/tango/dummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
@@ -280,7 +278,6 @@ def dummy_tango_server(ports, beacon):
 @pytest.fixture
 def wago_tango_server(ports, default_session, wago_mockup):
     from bliss.tango.servers.wago_ds import main
-    from bliss.common.tango import DeviceProxy, DevFailed
 
     device_name = "1/1/wagodummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)

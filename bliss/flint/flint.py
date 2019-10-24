@@ -67,9 +67,8 @@ from bliss.flint import config
 # FIXME is it really needed to call it outside the main function?
 pyqtRemoveInputHook()
 
-# Logging
-
 ROOT_LOGGER = logging.getLogger()
+"""Application logger"""
 
 
 @contextlib.contextmanager

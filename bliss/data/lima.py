@@ -76,6 +76,62 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = None
             return proxy
 
+        def get_last_live_image(self, proxy=0, update=True):
+            """Returns the last image data from stream within it's frame number.
+
+            If no data is available, the function returns tuple (None, None).
+            """
+            if update:
+                self._update()
+
+            if proxy == 0:
+                # 0 is used to discriminate with None, which can be passed
+                proxy = self._get_proxy()
+
+            if not proxy:
+                return None, None
+
+            if not self.from_stream:
+                return None, None
+
+            # get last video image
+            _, raw_data = proxy.video_last_image
+            if len(raw_data) <= HEADER_SIZE:
+                return None, None
+
+            (
+                magic,
+                header_version,
+                image_mode,
+                image_frameNumber,
+                image_width,
+                image_height,
+                endian,
+                header_size,
+                pad0,
+                pad1,
+            ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+
+            if magic != 0x5644454f or header_version != 1:
+                raise IndexError("Bad image header.")
+            if image_frameNumber < 0:
+                raise IndexError("Image (from Lima live interface) not available yet.")
+
+            video_modes = (numpy.uint8, numpy.uint16, numpy.int32, numpy.int64)
+            try:
+                mode = video_modes[image_mode]
+            except IndexError:
+                raise IndexError("Unknown image mode (found %s)." % image_mode)
+
+            data = numpy.frombuffer(raw_data[HEADER_SIZE:], dtype=mode).copy()
+            data.shape = image_height, image_width
+
+            # FIXME: Some detectors (like andor) which do not provide TRIGGER_SOFT_MULTI
+            # Will always returns frame_id = 0. In this case it would be better to return
+            # None as the frame_id
+
+            return data, image_frameNumber
+
         def get_image(self, image_nb, proxy=0):
             self._update()
 
@@ -86,44 +142,9 @@ class LimaImageChannelDataNode(DataNode):
             data = None
             if proxy:
                 if self.from_stream and image_nb == -1:
-                    # get last video image
-                    _, raw_data = proxy.video_last_image
-                    if len(raw_data) > HEADER_SIZE:
-                        (
-                            magic,
-                            header_version,
-                            image_mode,
-                            image_frameNumber,
-                            image_width,
-                            image_height,
-                            endian,
-                            header_size,
-                            pad0,
-                            pad1,
-                        ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
-
-                        if magic != 0x5644454f or header_version != 1:
-                            raise IndexError("Bad image header.")
-                        if image_frameNumber < 0:
-                            raise IndexError(
-                                "Image (from Lima live interface) not available yet."
-                            )
-
-                        video_modes = (
-                            numpy.uint8,
-                            numpy.uint16,
-                            numpy.int32,
-                            numpy.int64,
-                        )
-                        try:
-                            mode = video_modes[image_mode]
-                        except IndexError:
-                            pass
-                        else:
-                            data = numpy.frombuffer(
-                                raw_data[HEADER_SIZE:], dtype=mode
-                            ).copy()
-                            data.shape = image_height, image_width
+                    data, _frame_id = self.get_last_live_image(
+                        proxy=proxy, update=False
+                    )
                 if data is None:
                     data = self._get_from_server_memory(proxy, image_nb)
 

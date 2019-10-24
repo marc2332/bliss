@@ -38,7 +38,7 @@ from bliss.data.node import (
     DataNodeContainer,
     is_zerod,
 )
-from bliss.data.scan import get_data
+from bliss.data.nodes.scan import get_data
 from bliss.common import motor_group
 from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain, StopChain
 from .writer.null import Writer as NullWriter

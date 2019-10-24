@@ -526,9 +526,13 @@ class Data(qt.QObject):
     helper to deal with the data (like hash). Counld be renamed into `Quantity`.
     """
 
-    def __init__(self, parent=None, array: numpy.ndarray = None):
+    def __init__(self, parent=None, array: numpy.ndarray = None, frameId: int = None):
         super(Data, self).__init__(parent=parent)
         self.__array = array
+        self.__frameId = frameId
 
     def array(self) -> numpy.ndarray:
         return self.__array
+
+    def frameId(self) -> int:
+        return self.__frameId

@@ -36,7 +36,10 @@ try:
 except ImportError:
     poll_patch = None
 
-from PyQt5.QtCore import pyqtRemoveInputHook
+
+# Enforce loading of PyQt5
+# In case silx/matplotlib tries to import PySide, PyQt4...
+import PyQt5.QtCore
 
 with warnings.catch_warnings():
     # Avoid warning when silx will be loaded
@@ -61,11 +64,6 @@ from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.helper import scan_manager
 from bliss.flint.model import flint_model
 from bliss.flint import config
-
-# Globals
-
-# FIXME is it really needed to call it outside the main function?
-pyqtRemoveInputHook()
 
 ROOT_LOGGER = logging.getLogger()
 """Application logger"""
@@ -719,6 +717,9 @@ def main():
             ROOT_LOGGER.error(message)
             ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead")
             need_gevent_loop = True
+
+    # Avoid warning in case of locked loop (debug mode/ipython mode)
+    PyQt5.QtCore.pyqtRemoveInputHook()
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")

@@ -365,13 +365,17 @@ def get_full_title(scan: scan_model.Scan) -> str:
 
 
 def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
-    """Returns the percent of progress of this scan."""
+    """Returns the percent of progress of this scan.
+    """
     scan_info = scan.scanInfo()
     if scan_info is None:
         return None
 
     # FIXME: npoints do not distinguish many top masters, AFAIK
     npoints = scan_info.get("npoints", None)
+    if npoints == 0:
+        return None
+
     if npoints is not None:
         master_channels = []
         for _master_name, channel_info in scan_info["acquisition_chain"].items():

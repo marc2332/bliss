@@ -633,11 +633,40 @@ def create_flint(settings):
 
         About.about(win, "Flint")
 
+    def debug_console():
+        try:
+            from silx.gui.console import IPythonDockWidget
+        except ImportError:
+            ROOT_LOGGER.debug("Error while loading IPython console", exc_info=True)
+            ROOT_LOGGER.error("IPython not available")
+            return
+
+        flintState = flint.get_flint_model()
+
+        available_vars = {"flintState": flintState, "window": win}
+        banner = (
+            "The variable 'flintState' and 'window' are available.\n"
+            "Use the 'whos' and 'help(flintState)' commands for more information.\n"
+            "\n"
+        )
+        widget = IPythonDockWidget(
+            parent=win, available_vars=available_vars, custom_banner=banner
+        )
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        win.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+        widget.show()
+
+    helpMenu = menubar.addMenu("&Help")
+
     action = qt.QAction("&About", win)
     action.setStatusTip("Show the application's About box")
     action.triggered.connect(about)
-    windowMenu = menubar.addMenu("&Help")
-    windowMenu.addAction(action)
+    helpMenu.addAction(action)
+
+    action = qt.QAction("&IPython console", win)
+    action.setStatusTip("Show a IPython console (for debug purpose)")
+    action.triggered.connect(debug_console)
+    helpMenu.addAction(action)
 
     log_widget.connect_logger(ROOT_LOGGER)
 

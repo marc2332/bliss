@@ -149,6 +149,7 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
                 halfHeight * 2,
             )
             painter.drawPixmap(dest, pixmap, pixmapRect)
+            return
         super(StylePropertyWidget, self).paint(painter, rect, palette)
 
     def getColormapPixmap(self, name=None, colors=None):

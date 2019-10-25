@@ -18,8 +18,14 @@ from bliss.common import event, measurement, scans
 def test_ascan(session):
     robz2 = session.env_dict["robz2"]
     simul_counter = session.env_dict["sim_ct_gauss"]
-    s = scans.ascan(robz2, 0, 0.1, 2, 0, simul_counter, return_scan=True, save=False)
-    assert robz2.position == 0.1
+    s = scans.ascan(
+        robz2, 0, 0.1234567, 2, 0, simul_counter, return_scan=True, save=False
+    )
+    assert pytest.approx(robz2.position, 0.1234567)
+    # test for issue #1079
+    # use tolerance to get axis precision
+    assert pytest.approx(robz2.tolerance, 1e-4)
+    assert s.scan_info["title"].startswith("ascan robz2 0 0.1235 ")
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
@@ -36,9 +42,15 @@ def test_ascan_gauss2(session):
 def test_dscan(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
     robz2 = session.env_dict["robz2"]
+    robz2.position = 0.1265879
     # contrary to ascan, dscan returns to start pos
     start_pos = robz2.position
     s = scans.dscan(robz2, -0.2, 0.2, 1, 0, simul_counter, return_scan=True, save=False)
+    # test for issues #1080
+    # use tolerance to get axis precision
+    assert pytest.approx(robz2.tolerance, 1e-4)
+    assert s.scan_info["title"].startswith("dscan robz2 -0.2 0.2")
+    #
     assert robz2.position == start_pos
     scan_data = s.get_data()
     assert numpy.allclose(

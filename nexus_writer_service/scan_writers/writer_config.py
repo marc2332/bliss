@@ -1,12 +1,16 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the bliss project
+# This file is part of the nexus writer service of the BLISS project.
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Code is maintained by the ESRF Data Analysis Unit.
+#
+# Original author: Wout de Nolf
+#
+# Copyright (c) 2015-2019 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Configurable Nexus writer listening to Redis events
+Configurable Nexus writer listening to Redis events of a scan
 """
 
 import os
@@ -16,17 +20,17 @@ import datetime
 from contextlib import contextmanager
 from . import writer_base
 from ..io import nexus
-from ..utils import scanutils
 
 
 default_saveoptions = dict(writer_base.default_saveoptions)
-default_saveoptions['stack_mcas'] = False
+default_saveoptions["stack_mcas"] = False
 
 
 cli_saveoptions = dict(writer_base.cli_saveoptions)
-cli_saveoptions['stackmca'] = ({'action': 'store_true',
-                                'help': 'Merged MCA datasets in application definition'},
-                               'stack_mcas')
+cli_saveoptions["stackmca"] = (
+    {"action": "store_true", "help": "Merged MCA datasets in application definition"},
+    "stack_mcas",
+)
 
 
 class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
@@ -48,7 +52,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         for option, default in default_saveoptions.items():
             kwargs[option] = kwargs.get(option, default)
         super(NexusScanWriterConfigurable, self).__init__(*args, **kwargs)
-        self._applications = {'appxrf': self._save_application_xrf}
+        self._applications = {"appxrf": self._save_application_xrf}
 
     def _filename(self, level=0):
         """
@@ -58,7 +62,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         try:
             return filenames[level]
         except IndexError:
-            return ''
+            return ""
 
     @property
     def filenames(self):
@@ -67,8 +71,10 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
                        and the others for the masters
         """
         if self.save:
-            return scanutils.filenames(self.scan_info,
-                                       default=self._default_filename)
+            lst = self.config_writer.get("filenames", None)
+            if not lst:
+                lst = [self._default_filename]
+            return lst
         else:
             return []
 
@@ -77,56 +83,55 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         Writer information not published by the core Bliss library
         """
-        return self.scan_info_get('external', default={})
+        return self.scan_info_get("external", default={})
 
     @property
     def instrument_name(self):
-        return self.config_writer.get('instrument', '')
+        return self.config_writer.get("instrument", "")
 
     @property
     def config_devices(self):
         """
         Extra information on devices
         """
-        return self.config_writer.get('devices', {})
+        return self.config_writer.get("devices", {})
 
     @property
     def config_technique(self):
         """
         Technique information belonging to this scan
         """
-        return self.config_writer.get('technique', {})
+        return self.config_writer.get("technique", {})
 
     @property
     def technique_name(self):
         """
         Applications definitions defined for this scan
         """
-        return self.config_technique.get('name', '')
+        return self.config_technique.get("name", "")
 
     @property
     def applications(self):
         """
         Applications definitions defined for this scan
         """
-        return self.config_technique.get('applications', {})
+        return self.config_technique.get("applications", {})
 
     @property
     def plots(self):
         """
         NXdata signals
         """
-        return self.config_technique.get('plots', {})
+        return self.config_technique.get("plots", {})
 
     @property
     def plotselect(self):
         """
         Default NXdata group
         """
-        return self.config_technique.get('plotselect', '')
+        return self.config_technique.get("plotselect", "")
 
-    def _select_plot_signals(self, subscan, plotname, items=None,
-                             ndim=-1, grid=False):
+    def _select_plot_signals(self, subscan, plotname, items=None, ndim=-1, grid=False):
         """
         Select plot signals as specified in the static beamline configuration.
 
@@ -144,20 +149,21 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
                     if self._matching_fullname(configname, fullname):
                         self._add_signal(plotname, grid, dproxy, signaldict)
         else:
-            signaldict = super(NexusScanWriterConfigurable, self)\
-                ._select_plot_signals(subscan, plotname, ndim=ndim, grid=grid)
+            signaldict = super(NexusScanWriterConfigurable, self)._select_plot_signals(
+                subscan, plotname, ndim=ndim, grid=grid
+            )
         return signaldict
 
     @property
     def positioners_end(self):
-        positioners = self.config_writer.get('positioners', {})
-        units = self.config_writer.get('positioners_units', {})
+        positioners = self.config_writer.get("positioners", {})
+        units = self.config_writer.get("positioners_units", {})
         return positioners, units
 
     @property
     def positioners_dial_end(self):
-        positioners = self.config_writer.get('positioners_dial', {})
-        units = self.config_writer.get('positioners_units', {})
+        positioners = self.config_writer.get("positioners_dial", {})
+        units = self.config_writer.get("positioners_units", {})
         return positioners, units
 
     def _finalize_extra(self, subscan):
@@ -177,7 +183,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :returns str, DatasetProxy: fullname and dataset handle
         """
         for fullname, dproxy in self.datasets(subscan).items():
-            if dproxy.type == 'mca' and dproxy.data_type == 'principal':
+            if dproxy.type == "mca" and dproxy.data_type == "principal":
                 yield fullname, dproxy
 
     def _get_application(self, nxapplidef, attr, default=None):
@@ -189,8 +195,9 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         ret = nxapplidef.get(attr, None)
         if ret is None:
-            self.logger.warning('Application definition incomplete ({} is missing)'
-                                .format(repr(attr)))
+            self.logger.warning(
+                "Application definition incomplete ({} is missing)".format(repr(attr))
+            )
             ret = default
         return ret
 
@@ -203,7 +210,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         device_type = self._device_type_from_applications(node)
         if not device_type:
-            device_type = 'unknown{}D'.format(len(node.shape))
+            device_type = "unknown{}D".format(len(node.shape))
         return device_type
 
     def _device_type_from_applications(self, node):
@@ -215,11 +222,11 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         for name, nxapplidef in self.applications.items():
             name = name.lower()
-            if name == 'xrf':
+            if name == "xrf":
                 devicetype = self._device_type_xrf(node, nxapplidef)
             if devicetype:
                 return devicetype
-        return ''
+        return ""
 
     def _device_type_xrf(self, node, xrfapplidef):
         """
@@ -231,15 +238,19 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         ndim = len(node.shape)
         if ndim == 1:
-            return 'mca'
+            return "mca"
         fullname = node.fullname
         if ndim == 0:
-            counternames = [self._get_application(xrfapplidef, 'I0'),
-                            self._get_application(xrfapplidef, 'It')]
-            if any(self._matching_fullname(configname, fullname)
-                   for configname in counternames):
-                return 'sensor'
-        return ''
+            counternames = [
+                self._get_application(xrfapplidef, "I0"),
+                self._get_application(xrfapplidef, "It"),
+            ]
+            if any(
+                self._matching_fullname(configname, fullname)
+                for configname in counternames
+            ):
+                return "sensor"
+        return ""
 
     @contextmanager
     def nxapplication(self, subscan, name, definition_name):
@@ -258,8 +269,11 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
             # Find nxapplication (when existing)
             for child in nxentry:
                 nxsubentry = nxentry[child]
-                if child == name and nexus.isNxClass(nxsubentry, 'NXsubentry') and \
-                   definition_name == nxsubentry.attrs.get('definition', None):
+                if (
+                    child == name
+                    and nexus.isNxClass(nxsubentry, "NXsubentry")
+                    and definition_name == nxsubentry.attrs.get("definition", None)
+                ):
                     break
             else:
                 nxsubentry = None
@@ -281,14 +295,14 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param str definition_name:
         :returns tuple, dict:
         """
-        start_timestamp = self.scan_info_get('start_timestamp')
+        start_timestamp = self.scan_info_get("start_timestamp")
         if not start_timestamp:
-            self._h5missing('start_timestamp')
+            self._h5missing("start_timestamp")
             return None
         start_time = datetime.datetime.fromtimestamp(start_timestamp)
-        datasets = {'definition': definition_name}
-        args = name,
-        kwargs = {'start_time': start_time, 'datasets': datasets}
+        datasets = {"definition": definition_name}
+        args = (name,)
+        kwargs = {"start_time": start_time, "datasets": datasets}
         return args, kwargs
 
     def _save_applications(self, subscan):
@@ -298,7 +312,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param str subscan:
         """
         for name, nxapplidef in self.applications.items():
-            nxclass = nxapplidef.get('class').lower()
+            nxclass = nxapplidef.get("class").lower()
             save_app = self._applications.get(nxclass)
             if save_app is not None:
                 save_app(subscan, name, nxapplidef)
@@ -311,10 +325,10 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param str name:
         :param dict xrfapplidef:
         """
-        with self.nxapplication(subscan, name, 'APPxrf') as nxsubentry:
+        with self.nxapplication(subscan, name, "APPxrf") as nxsubentry:
             if nxsubentry is None:
                 return
-            self.logger.debug("Save 'APPxrf' Nexus application")
+            self.logger.info("Save 'APPxrf' Nexus application")
             self._save_application_i0(subscan, nxsubentry, xrfapplidef)
             self._save_application_it(subscan, nxsubentry, xrfapplidef)
             self._save_application_mca(subscan, nxsubentry, xrfapplidef)
@@ -327,8 +341,8 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param h5py.Group parent: application subentry
         :param dict nxapplidef:
         """
-        I0configname = self._get_application(nxapplidef, 'I0')
-        I0appliname = 'i0'
+        I0configname = self._get_application(nxapplidef, "I0")
+        I0appliname = "i0"
         self._save_application_link(subscan, parent, I0configname, I0appliname)
 
     def _save_application_it(self, subscan, parent, nxapplidef):
@@ -338,8 +352,8 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param h5py.Group parent: application subentry
         :param dict nxapplidef:
         """
-        Itconfigname = self._get_application(nxapplidef, 'It')
-        Itappliname = 'it'
+        Itconfigname = self._get_application(nxapplidef, "It")
+        Itappliname = "it"
         self._save_application_link(subscan, parent, Itconfigname, Itappliname)
 
     def _save_application_mca(self, subscan, parent, xrfapplidef):
@@ -351,51 +365,73 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param dict xrfapplidef:
         """
         # Mca names from the beamline configuration
-        confignames = self._get_application(xrfapplidef, 'mca', [])
+        confignames = self._get_application(xrfapplidef, "mca", [])
         if not confignames:
             # All MCA's when not specified
             for fullname, dproxy in self.mca_iter(subscan):
                 confignames.append(fullname)
             confignames = sorted(confignames)
         if not confignames:
-            self.logger.warning('Application definition incomplete (no mca\'s found)')
+            self.logger.warning("Application definition incomplete (no mca's found)")
             return
 
         # Links or concatenate?
-        concatenate = self.saveoptions['stack_mcas']
+        concatenate = self.saveoptions["stack_mcas"]
         aslinks = len(confignames) == 1 or not concatenate
         if aslinks:
             method = self._save_application_links
             kwargs = {}
         else:
             method = self._save_application_merged
-            kwargs = {'virtual': bool(self.scan_shape(subscan))}
+            kwargs = {"virtual": bool(self.scan_shape(subscan))}
 
         # Add mca
         withsuffix = len(confignames) > 1 and not concatenate
         if withsuffix:
-            mcaapplinamefmt = 'mca{:02d}'
+            mcaapplinamefmt = "mca{:02d}"
         else:
-            mcaapplinamefmt = 'mca'
-        method(subscan, parent, confignames, mcaapplinamefmt,
-               devicetype='mca', datatype='principal', **kwargs)
+            mcaapplinamefmt = "mca"
+        method(
+            subscan,
+            parent,
+            confignames,
+            mcaapplinamefmt,
+            devicetype="mca",
+            datatype="principal",
+            **kwargs
+        )
 
         if withsuffix:
-            mcaapplinamefmt = 'elapsed_time_mca{:02d}'
+            mcaapplinamefmt = "elapsed_time_mca{:02d}"
         else:
-            mcaapplinamefmt = 'elapsed_time'
-        method(subscan, parent, confignames, mcaapplinamefmt,
-               devicetype='mca', datatype='realtime', **kwargs)
+            mcaapplinamefmt = "elapsed_time"
+        method(
+            subscan,
+            parent,
+            confignames,
+            mcaapplinamefmt,
+            devicetype="mca",
+            datatype="realtime",
+            **kwargs
+        )
 
         if withsuffix:
-            mcaapplinamefmt = 'live_time_mca{:02d}'
+            mcaapplinamefmt = "live_time_mca{:02d}"
         else:
-            mcaapplinamefmt = 'live_time'
-        method(subscan, parent, confignames, mcaapplinamefmt,
-               devicetype='mca', datatype='livetime', **kwargs)
+            mcaapplinamefmt = "live_time"
+        method(
+            subscan,
+            parent,
+            confignames,
+            mcaapplinamefmt,
+            devicetype="mca",
+            datatype="livetime",
+            **kwargs
+        )
 
-    def _save_application_merged(self, subscan, parent, confignames,
-                                 appliname, virtual=True, **kwargs):
+    def _save_application_merged(
+        self, subscan, parent, confignames, appliname, virtual=True, **kwargs
+    ):
         """
         Add datasets to an application as one single dataset,
         virtual or merged copy.
@@ -412,27 +448,28 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
             return
         uris = []
         for configname in confignames:
-            notfoundmsg = 'Application definition incomplete ({} not found for {})'\
-                          .format(repr(configname), repr(appliname))
-            for fullname in self._iter_fullnames(subscan,
-                                                 configname,
-                                                 notfoundmsg=notfoundmsg,
-                                                 **kwargs):
+            notfoundmsg = "Application definition incomplete ({} not found for {})".format(
+                repr(configname), repr(appliname)
+            )
+            for fullname in self._iter_fullnames(
+                subscan, configname, notfoundmsg=notfoundmsg, **kwargs
+            ):
                 dproxy = self.datasetproxy(subscan, fullname)
                 with dproxy.open() as dset:
                     if not uris:
-                        value = {'data': uris,
-                                 'fillvalue': dset.fillvalue,
-                                 'axis': 0,
-                                 'newaxis': True,
-                                 'virtual': virtual}
+                        value = {
+                            "data": uris,
+                            "fillvalue": dset.fillvalue,
+                            "axis": 0,
+                            "newaxis": True,
+                            "virtual": virtual,
+                        }
                         attrs = dset.attrs
                     uris.append(nexus.getUri(dset))
         if uris:
             nexus.nxCreateDataSet(parent, appliname, value, attrs)
 
-    def _save_application_links(self, subscan, parent, confignames, applifmt,
-                                **kwargs):
+    def _save_application_links(self, subscan, parent, confignames, applifmt, **kwargs):
         """
         Add dataset links to an application.
 
@@ -448,11 +485,11 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
             return
         for i, configname in enumerate(confignames):
             appliname = applifmt.format(i)
-            self._save_application_link(subscan, parent, configname,
-                                        appliname, **kwargs)
+            self._save_application_link(
+                subscan, parent, configname, appliname, **kwargs
+            )
 
-    def _save_application_link(self, subscan, parent, configname, appliname,
-                               **kwargs):
+    def _save_application_link(self, subscan, parent, configname, appliname, **kwargs):
         """
         Link to a dataset in the application definition
 
@@ -464,12 +501,12 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         if not configname or appliname in parent:
             return
-        notfoundmsg = 'Application definition incomplete ({} not found for {})'\
-                      .format(repr(configname), repr(appliname))
-        for fullname in self._iter_fullnames(subscan,
-                                             configname,
-                                             notfoundmsg=notfoundmsg,
-                                             **kwargs):
+        notfoundmsg = "Application definition incomplete ({} not found for {})".format(
+            repr(configname), repr(appliname)
+        )
+        for fullname in self._iter_fullnames(
+            subscan, configname, notfoundmsg=notfoundmsg, **kwargs
+        ):
             dproxy = self.datasetproxy(subscan, fullname)
             with dproxy.open() as dset:
                 nexus.nxCreateDataSet(parent, appliname, dset, None)
@@ -487,14 +524,17 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param str configname: from the writer configuration
         :param str fullname: node.fullname
         """
-        seps = r'[\.:]'
+        seps = r"[\.:]"
         configparts = re.split(seps, configname)
         fullparts = re.split(seps, fullname)
-        return all(pfull.endswith(pconfig) for pfull, pconfig
-                   in zip(fullparts[::-1], configparts[::-1]))
+        return all(
+            pfull.endswith(pconfig)
+            for pfull, pconfig in zip(fullparts[::-1], configparts[::-1])
+        )
 
-    def _iter_fullnames(self, subscan, configname, devicetype=None,
-                        datatype=None, notfoundmsg=None):
+    def _iter_fullnames(
+        self, subscan, configname, devicetype=None, datatype=None, notfoundmsg=None
+    ):
         """
         Yield all Redis node's full names referred to by a name
         from the writer configuration.
@@ -510,10 +550,11 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         incomplete = True
         for fullname, dproxy in self.detector_iter(subscan):
             if self._matching_fullname(configname, fullname):
-                    if (devicetype == dproxy.type or not devicetype) and\
-                       (datatype == dproxy.data_type or not datatype):
-                        incomplete = False
-                        yield fullname
+                if (devicetype == dproxy.type or not devicetype) and (
+                    datatype == dproxy.data_type or not datatype
+                ):
+                    incomplete = False
+                    yield fullname
         if incomplete and notfoundmsg:
             self.logger.warning(notfoundmsg)
 
@@ -531,17 +572,19 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         with self.nxentry(subscan) as nxentry:
             if nxentry is None:
                 return
-            self.logger.debug('Create scan links in masters ...')
+            self.logger.info("Create scan links in masters ...")
             prefix, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
             link = h5py.ExternalLink(nxentry.file.filename, nxentry.name)
-            linkname = prefix + ': ' + nxentry.name[1:]
+            linkname = prefix + ": " + nxentry.name[1:]
             for level in range(1, n + 1):
                 with self.nxroot(level=level) as nxroot:
                     if nxroot is None:
                         continue
                     if linkname in nxroot:
                         continue
-                    self.logger.debug('Create link {} in master {}'
-                                      .format(repr(linkname),
-                                              repr(nxroot.file.filename)))
+                    self.logger.debug(
+                        "Create link {} in master {}".format(
+                            repr(linkname), repr(nxroot.file.filename)
+                        )
+                    )
                     nxroot[linkname] = link

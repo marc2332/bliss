@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the bliss project
+# This file is part of the nexus writer service of the BLISS project.
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Code is maintained by the ESRF Data Analysis Unit.
+#
+# Original author: Wout de Nolf
+#
+# Copyright (c) 2015-2019 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
@@ -27,10 +31,10 @@ def swap_flattening_order(lst, shape, order):
     """
     if len(shape) <= 1:
         return lst
-    if order == 'C':
-        ofrom, oto = 'C', 'F'
-    elif order == 'F':
-        ofrom, oto = 'F', 'C'
+    if order == "C":
+        ofrom, oto = "C", "F"
+    elif order == "F":
+        ofrom, oto = "F", "C"
     else:
         raise ValueError("Order must be 'C' or 'F'")
     idx = numpy.arange(len(lst))
@@ -56,7 +60,7 @@ def add_edf_arguments(filenames, createkwargs=None):
             return createkwargs
     else:
         filenames = [filenames]
-    shape0 = createkwargs.get('frame_shape', tuple())
+    shape0 = createkwargs.get("frame_shape", tuple())
     for filename in filenames:
         if isinstance(filename, (tuple, list)):
             filename, indices = filename
@@ -64,30 +68,40 @@ def add_edf_arguments(filenames, createkwargs=None):
                 indices = [indices]
         else:
             indices = None
-        if '.edf.' in os.path.basename(filename):
-            raise RuntimeError('{}: external datasets with compression not supported'
-                               .format(repr(filename)))
+        if ".edf." in os.path.basename(filename):
+            raise RuntimeError(
+                "{}: external datasets with compression not supported".format(
+                    repr(filename)
+                )
+            )
         if indices:
             img = fabio.open(filename)
             # EdfImage.getframe returns an EdfImage, not a EdfFrame
 
             def getframe(img):
                 return img._frames[img.currentframe]
+
             it = (getframe(img.getframe(i)) for i in indices)
         else:
             it = EdfImage.lazy_iterator(filename)
         for frame in it:
             if frame.swap_needed():
-                raise RuntimeError('{} (frame {}): external datasets do not support byte-swap'
-                                   .format(repr(filename), frame.iFrame))
+                raise RuntimeError(
+                    "{} (frame {}): external datasets do not support byte-swap".format(
+                        repr(filename), frame.iFrame
+                    )
+                )
             compressioni = frame._data_compression
             if compressioni:
                 compressioni = compressioni.lower()
             if compressioni == "none":
                 compressioni = None
             if compressioni is not None:
-                raise RuntimeError('{} (frame {}): external datasets with compression not supported'
-                                   .format(repr(filename), frame.iFrame))
+                raise RuntimeError(
+                    "{} (frame {}): external datasets with compression not supported".format(
+                        repr(filename), frame.iFrame
+                    )
+                )
             shapei = frame.shape
             dtypei = frame.dtype
             start = frame.start
@@ -96,26 +110,28 @@ def add_edf_arguments(filenames, createkwargs=None):
 
             def assertEqual(key, value, evalue):
                 if value != evalue:
-                    raise RuntimeError('{} (frame {}): {} = {} instead of {}'
-                                       .format(repr(filename), frame.iFrame,
-                                               repr(key), value, evalue))
+                    raise RuntimeError(
+                        "{} (frame {}): {} = {} instead of {}".format(
+                            repr(filename), frame.iFrame, repr(key), value, evalue
+                        )
+                    )
 
             if shape0:
-                assertEqual('shape', shapei, shape0)
+                assertEqual("shape", shapei, shape0)
             else:
-                createkwargs['frame_shape'] = shape0 = shapei
-            if 'dtype' in createkwargs:
-                assertEqual('dtype', dtypei, createkwargs['dtype'])
+                createkwargs["frame_shape"] = shape0 = shapei
+            if "dtype" in createkwargs:
+                assertEqual("dtype", dtypei, createkwargs["dtype"])
             else:
-                createkwargs['dtype'] = dtypei
-            if 'compression' in createkwargs:
-                assertEqual('compression', compressioni, createkwargs['compression'])
+                createkwargs["dtype"] = dtypei
+            if "compression" in createkwargs:
+                assertEqual("compression", compressioni, createkwargs["compression"])
             else:
-                createkwargs['compression'] = compressioni
-            if 'external' in createkwargs:
-                createkwargs['external'].append(external)
+                createkwargs["compression"] = compressioni
+            if "external" in createkwargs:
+                createkwargs["external"].append(external)
             else:
-                createkwargs['external'] = [external]
+                createkwargs["external"] = [external]
     return createkwargs
 
 
@@ -129,30 +145,31 @@ def resize(createkwargs, enframes, filename, fillvalue):
     :param num fillvalue: in case not enough external files
     :returns int: number of frames skipped
     """
-    frame_shape = createkwargs.get('frame_shape', None)
+    frame_shape = createkwargs.get("frame_shape", None)
     if not frame_shape:
-        raise RuntimeError('The shape of one external frame must be provided')
-    nframes = len(createkwargs['external'])
+        raise RuntimeError("The shape of one external frame must be provided")
+    nframes = len(createkwargs["external"])
     if nframes > enframes:
-        createkwargs['external'] = createkwargs['external'][:enframes]
+        createkwargs["external"] = createkwargs["external"][:enframes]
     elif nframes < enframes:
         if nframes:
-            ext = os.path.splitext(createkwargs['external'][0])[-1]
+            ext = os.path.splitext(createkwargs["external"][0])[-1]
         else:
-            ext = '.edf'
+            ext = ".edf"
         if os.path.splitext(filename)[-1] != ext:
             filename += ext
-        if ext == '.edf':
+        if ext == ".edf":
             mkdir(filename)
             EdfImage(data=numpy.full(fillvalue, frame_shape)).write(filename)
         else:
-            raise RuntimeError('Dummy file with extension {} not supported'
-                               .format(repr(ext)))
-        createkwargs['external'] += [filename] * (enframes-nframes)
+            raise RuntimeError(
+                "Dummy file with extension {} not supported".format(repr(ext))
+            )
+        createkwargs["external"] += [filename] * (enframes - nframes)
     return nframes - enframes
 
 
-def finalize(createkwargs, order='C', shape=None):
+def finalize(createkwargs, order="C", shape=None):
     """
     Finalize external dataset arguments: define shape
 
@@ -161,17 +178,17 @@ def finalize(createkwargs, order='C', shape=None):
     :param str order: fill order of shape
     :raises RuntimeError: scan shape does not match number of frames
     """
-    nframes = len(createkwargs['external'])
-    frame_shape = createkwargs.pop('frame_shape', None)
+    nframes = len(createkwargs["external"])
+    frame_shape = createkwargs.pop("frame_shape", None)
     if not frame_shape:
-        raise RuntimeError('The shape of one external frame must be provided')
+        raise RuntimeError("The shape of one external frame must be provided")
     if shape:
-        createkwargs['shape'] = shape + frame_shape
-        if order == 'F':
-            external = swap_flattening_order(createkwargs['external'], shape, 'C')
-            createkwargs['external'] = external
+        createkwargs["shape"] = shape + frame_shape
+        if order == "F":
+            external = swap_flattening_order(createkwargs["external"], shape, "C")
+            createkwargs["external"] = external
     else:
-        createkwargs['shape'] = (nframes,) + frame_shape
+        createkwargs["shape"] = (nframes,) + frame_shape
 
 
 def add_arguments(file_format, filenames, shape=None, createkwargs=None):
@@ -186,8 +203,7 @@ def add_arguments(file_format, filenames, shape=None, createkwargs=None):
     :param order(str): refers to the scan dimensions, not the image dimensions
     :returns dict:
     """
-    if file_format == 'edf':
-        return add_edf_arguments(filenames,
-                                 createkwargs=createkwargs)
+    if file_format == "edf":
+        return add_edf_arguments(filenames, createkwargs=createkwargs)
     else:
-        raise ValueError('Unknown external data format ' + repr(file_format))
+        raise ValueError("Unknown external data format " + repr(file_format))

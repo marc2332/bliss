@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the bliss project
+# This file is part of the nexus writer service of the BLISS project.
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Code is maintained by the ESRF Data Analysis Unit.
+#
+# Original author: Wout de Nolf
+#
+# Copyright (c) 2015-2019 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
@@ -27,7 +31,7 @@ from .io_utils import mkdir
 from ..utils import data_merging
 
 
-DEFAULT_PLOT_NAME = 'plotselect'
+DEFAULT_PLOT_NAME = "plotselect"
 
 
 try:
@@ -100,7 +104,7 @@ class LocalTZinfo(datetime.tzinfo):
 
     def localize(self, dt):
         if dt.tzinfo is not None:
-            raise ValueError('Not naive datetime (tzinfo is already set)')
+            raise ValueError("Not naive datetime (tzinfo is already set)")
         return dt.replace(tzinfo=self)
 
 
@@ -127,10 +131,11 @@ def timestamp():
 
 def hdf5_sep(func):
     @wraps(func)
-    def as_os_path(*args, sep='/'):
-        args = [re.sub(r'[\/]+', os.sep, x) for x in args]
+    def as_os_path(*args, sep="/"):
+        args = [re.sub(r"[\/]+", os.sep, x) for x in args]
         ret = func(*args)
         return ret.replace(os.sep, sep)
+
     return as_os_path
 
 
@@ -172,15 +177,15 @@ def splitUri(uri):
     :return tuple: filename(str), group(str)
     """
     try:
-        i = uri.index('::')
+        i = uri.index("::")
     except (IndexError, ValueError):
         filename = uri
-        h5groupname = '/'
+        h5groupname = "/"
     else:
         filename = uri[:i]
-        h5groupname = uri[i+2:]
-        if h5groupname[0] != '/':
-            h5groupname = '/' + h5groupname
+        h5groupname = uri[i + 2 :]
+        if h5groupname[0] != "/":
+            h5groupname = "/" + h5groupname
     return filename, h5groupname
 
 
@@ -194,7 +199,7 @@ def normUri(uri):
     filename, path = splitUri(uri)
     filename = os.path.normpath(filename)
     path = hdf5_normpath(path)
-    return filename + '::' + path
+    return filename + "::" + path
 
 
 def getUri(node):
@@ -204,7 +209,7 @@ def getUri(node):
     :param h5py.Dataset or h5py.Group:
     :returns str:
     """
-    return node.file.filename + '::' + node.name
+    return node.file.filename + "::" + node.name
 
 
 def relUri(uri, refuri):
@@ -224,7 +229,7 @@ def relUri(uri, refuri):
     else:
         refa, refb = splitUri(refuri)
     if a == refa:
-        reta = '.'
+        reta = "."
         retb = hdf5_relpath(b, refb)
     else:
         abase = os.path.basename(a)
@@ -261,7 +266,7 @@ def exists(uri):
     :returns bool:
     """
     try:
-        with uriContext(uri, mode='r') as node:
+        with uriContext(uri, mode="r") as node:
             return node is not None
     except (OSError, IOError, KeyError):
         pass
@@ -278,7 +283,7 @@ def uriContains(uri, datasets=None, attributes=None):
     if not attributes:
         attributes = []
     try:
-        with uriContext(uri, mode='r') as node:
+        with uriContext(uri, mode="r") as node:
             for dset in datasets:
                 if dset not in node:
                     return False
@@ -297,7 +302,7 @@ def nxComplete(uri):
     :param str uri:
     :returns bool:
     """
-    return uriContains(uri, datasets=['end_time'])
+    return uriContains(uri, datasets=["end_time"])
 
 
 def iterup(h5group, includeself=True):
@@ -338,7 +343,7 @@ def h5Name(h5group):
     :param h5py.Group h5group:
     :returns str:
     """
-    return h5group.name.split('/')[-1]
+    return h5group.name.split("/")[-1]
 
 
 def nxClass(h5group):
@@ -348,7 +353,7 @@ def nxClass(h5group):
     :param h5py.Group h5group:
     :returns str or None:
     """
-    return h5group.attrs.get('NX_class', None)
+    return h5group.attrs.get("NX_class", None)
 
 
 def isNxClass(h5group, *classes):
@@ -369,7 +374,7 @@ def raiseIsNxClass(h5group, *classes):
     :raises RuntimeError:
     """
     if isNxClass(h5group, *classes):
-        raise RuntimeError('Nexus class not in {}'.format(classes))
+        raise RuntimeError("Nexus class not in {}".format(classes))
 
 
 def raiseIsNotNxClass(h5group, *classes):
@@ -379,7 +384,7 @@ def raiseIsNotNxClass(h5group, *classes):
     :raises RuntimeError:
     """
     if not isNxClass(h5group, *classes):
-        raise RuntimeError('Nexus class not in {}'.format(classes))
+        raise RuntimeError("Nexus class not in {}".format(classes))
 
 
 def nxClassNeedsInit(parent, name, nxclass):
@@ -397,8 +402,11 @@ def nxClassNeedsInit(parent, name, nxclass):
     if name in parent:
         _nxclass = nxClass(parent[name])
         if _nxclass != nxclass:
-            raise RuntimeError('{} is an instance of {} instead of {}'
-                               .format(parent[name].name, nxclass, _nxclass))
+            raise RuntimeError(
+                "{} is an instance of {} instead of {}".format(
+                    parent[name].name, nxclass, _nxclass
+                )
+            )
         return False
     else:
         parent.create_group(name)
@@ -421,15 +429,15 @@ def updated(h5group, final=False, parents=False):
                 continue
             else:
                 break
-        elif nxclass in [u'NXentry', u'NXsubentry']:
-            if 'start_time' not in group:
-                group['start_time'] = tm
+        elif nxclass in [u"NXentry", u"NXsubentry"]:
+            if "start_time" not in group:
+                group["start_time"] = tm
             if final:
-                updateDataset(group, 'end_time', tm)
-        elif nxclass in [u'NXprocess', u'NXnote']:
-            updateDataset(group, 'date', tm)
-        elif nxclass == u'NXroot':
-            group.attrs['file_update_time'] = tm
+                updateDataset(group, "end_time", tm)
+        elif nxclass in [u"NXprocess", u"NXnote"]:
+            updateDataset(group, "date", tm)
+        elif nxclass == u"NXroot":
+            group.attrs["file_update_time"] = tm
         if not parents:
             break
 
@@ -466,7 +474,7 @@ def nxClassInit(parent, name, nxclass, parentclasses=None, **kwargs):
         raiseIsNxClass(parent, None)
     if nxClassNeedsInit(parent, name, nxclass):
         h5group = parent[name]
-        nxAddAttrInit(kwargs, 'NX_class', nxclass)
+        nxAddAttrInit(kwargs, "NX_class", nxclass)
         nxInit(h5group, **kwargs)
         updated(h5group)
 
@@ -479,15 +487,15 @@ def nxRootInit(h5group):
     :raises ValueError: not root
     :raises RuntimeError: wrong Nexus class
     """
-    if h5group.name != '/':
-        raise ValueError('Group should be the root')
-    if nxClassNeedsInit(h5group, None, u'NXroot'):
-        h5group.attrs['file_time'] = timestamp()
-        h5group.attrs['file_name'] = asNxChar(h5group.file.filename)
-        h5group.attrs['HDF5_Version'] = asNxChar(h5py.version.hdf5_version)
-        h5group.attrs['h5py_version'] = asNxChar(h5py.version.version)
-        h5group.attrs['creator'] = asNxChar('bliss')
-        h5group.attrs['NX_class'] = u'NXroot'
+    if h5group.name != "/":
+        raise ValueError("Group should be the root")
+    if nxClassNeedsInit(h5group, None, u"NXroot"):
+        h5group.attrs["file_time"] = timestamp()
+        h5group.attrs["file_name"] = asNxChar(h5group.file.filename)
+        h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
+        h5group.attrs["h5py_version"] = asNxChar(h5py.version.version)
+        h5group.attrs["creator"] = asNxChar("bliss")
+        h5group.attrs["NX_class"] = u"NXroot"
         updated(h5group)
 
 
@@ -514,8 +522,8 @@ def nxAddDatasetInit(dic, key, value):
     :param key:
     :param value:
     """
-    dic['datasets'] = dic.get('datasets', {})
-    dic['datasets'][key] = value
+    dic["datasets"] = dic.get("datasets", {})
+    dic["datasets"][key] = value
 
 
 def nxAddAttrInit(dic, key, value):
@@ -526,8 +534,8 @@ def nxAddAttrInit(dic, key, value):
     :param key:
     :param value:
     """
-    dic['attrs'] = dic.get('attrs', {})
-    dic['attrs'][key] = value
+    dic["attrs"] = dic.get("attrs", {})
+    dic["attrs"][key] = value
 
 
 def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
@@ -541,11 +549,11 @@ def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
     :raises RuntimeError: wrong NX_class or parent NX_class
     """
     if sub:
-        nxclass = u'NXsubentry'
-        parents = u'NXentry',
+        nxclass = u"NXsubentry"
+        parents = (u"NXentry",)
     else:
-        nxclass = u'NXentry'
-        parents = u'NXroot',
+        nxclass = u"NXentry"
+        parents = (u"NXroot",)
     raiseIsNotNxClass(parent, *parents)
     if nxClassNeedsInit(parent, name, nxclass):
         h5group = parent[name]
@@ -553,8 +561,8 @@ def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
             start_time = timestamp()
         else:
             start_time = datetime_to_nexus(start_time)
-        nxAddDatasetInit(kwargs, 'start_time', start_time)
-        nxAddAttrInit(kwargs, 'NX_class', nxclass)
+        nxAddDatasetInit(kwargs, "start_time", start_time)
+        nxAddAttrInit(kwargs, "NX_class", nxclass)
         nxInit(h5group, **kwargs)
         updated(h5group)
 
@@ -595,24 +603,24 @@ def nxNoteInit(parent, name, data=None, type=None):
                           not an Nexus class instance
     """
     raiseIsNxClass(parent, None)
-    if nxClassNeedsInit(parent, name, u'NXnote'):
+    if nxClassNeedsInit(parent, name, u"NXnote"):
         h5group = parent[name]
-        h5group.attrs['NX_class'] = u'NXnote'
+        h5group.attrs["NX_class"] = u"NXnote"
         update = True
     else:
         h5group = parent[name]
         update = False
     if data is not None:
-        updateDataset(h5group, 'data', data)
+        updateDataset(h5group, "data", data)
         update = True
     if type is not None:
-        updateDataset(h5group, 'type', type)
+        updateDataset(h5group, "type", type)
         update = True
     if update:
         updated(h5group)
 
 
-def nxProcessConfigurationInit(parent, configdict=None, type='json', indent=2):
+def nxProcessConfigurationInit(parent, configdict=None, type="json", indent=2):
     """
     Initialize NXnote instance
 
@@ -622,23 +630,23 @@ def nxProcessConfigurationInit(parent, configdict=None, type='json', indent=2):
     :param num indent: pretty-string with indent level
     :raises RuntimeError: parent not NXprocess
     """
-    raiseIsNotNxClass(parent, u'NXprocess')
+    raiseIsNotNxClass(parent, u"NXprocess")
     if configdict is not None:
-        data = ''
+        data = ""
         with StringIO() as s:
-            if type == 'json':
+            if type == "json":
                 dicttojson(configdict, s, indent=indent)
                 data = s.getvalue()
-            elif type == 'ini':
+            elif type == "ini":
                 dicttoini(configdict, s)
                 data = s.getvalue()
         if not data:
             data = pprint.pformat(configdict, indent=indent)
-            type = 'txt'
+            type = "txt"
     else:
         data = None
         type = None
-    name = 'configuration'
+    name = "configuration"
     nxNoteInit(parent, name, data=data, type=type)
     updated(parent[name])
 
@@ -653,21 +661,21 @@ def nxProcessInit(parent, name, configdict=None, **kwargs):
     :param **kwargs: see `nxProcessConfigurationInit`
     :raises RuntimeError: wrong Nexus class or parent not NXentry
     """
-    raiseIsNotNxClass(parent, u'NXentry')
-    if nxClassNeedsInit(parent, name, u'NXprocess'):
+    raiseIsNotNxClass(parent, u"NXentry")
+    if nxClassNeedsInit(parent, name, u"NXprocess"):
         h5group = parent[name]
-        updateDataset(h5group, 'program', 'bliss')
-        updateDataset(h5group, 'version', bliss.__version__)
-        h5group.attrs['NX_class'] = u'NXprocess'
+        updateDataset(h5group, "program", "bliss")
+        updateDataset(h5group, "version", bliss.__version__)
+        h5group.attrs["NX_class"] = u"NXprocess"
         updated(h5group)
     else:
         h5group = parent[name]
     nxProcessConfigurationInit(h5group, configdict=configdict, **kwargs)
-    nxClassInit(h5group, 'results', u'NXcollection')
+    nxClassInit(h5group, "results", u"NXcollection")
 
 
 @contextmanager
-def _h5file(path, creationlocks=None, mode='r', **kwargs):
+def _h5file(path, creationlocks=None, mode="r", **kwargs):
     """
     HDF5 file context with creation locking
 
@@ -681,16 +689,14 @@ def _h5file(path, creationlocks=None, mode='r', **kwargs):
         with h5py.File(path, mode=mode, **kwargs) as h5file:
             yield h5file
     else:
-        with creationlocks.acquire_context_creation(path,
-                                                    h5py.File,
-                                                    path,
-                                                    mode=mode,
-                                                    **kwargs) as h5file:
+        with creationlocks.acquire_context_creation(
+            path, h5py.File, path, mode=mode, **kwargs
+        ) as h5file:
             yield h5file
 
 
 @contextmanager
-def h5open(path, mode='r', enable_file_locking=False, swmr=False, **kwargs):
+def h5open(path, mode="r", enable_file_locking=False, swmr=False, **kwargs):
     """
     HDF5 file context which does not lock the file by default.
     When file locking is enabled, you can have a single writer
@@ -723,32 +729,32 @@ def h5open(path, mode='r', enable_file_locking=False, swmr=False, **kwargs):
     if not HASSWMR:
         swmr = False
     if swmr:
-        kwargs['libver'] = 'latest'
+        kwargs["libver"] = "latest"
     if enable_file_locking:
         os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
     else:
         os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
     try:
         with _h5file(path, mode=mode, swmr=swmr, **kwargs) as h5file:
-            if mode != 'r' and swmr:
+            if mode != "r" and swmr:
                 try:
                     h5file.swmr_mode = True
                 except Exception:
                     pass
             yield h5file
     except (OSError, IOError):
-        if mode != 'r' and not HASSWMR:
+        if mode != "r" and not HASSWMR:
             raise
         # Try opposite SWMR mode
         swmr = not swmr
         if swmr:
-            kwargs['libver'] = 'latest'
+            kwargs["libver"] = "latest"
         with _h5file(path, mode=mode, swmr=swmr, **kwargs) as h5file:
             yield h5file
 
 
 @contextmanager
-def nxRoot(path, mode='r', creationlocks=None, **kwargs):
+def nxRoot(path, mode="r", creationlocks=None, **kwargs):
     """
     h5py.File context with NXroot initialization
 
@@ -758,7 +764,7 @@ def nxRoot(path, mode='r', creationlocks=None, **kwargs):
     :param **kwargs: see h5py.File
     :yields h5py.File:
     """
-    if mode != 'r':
+    if mode != "r":
         mkdir(os.path.dirname(path))
     with h5open(path, mode=mode, creationlocks=creationlocks, **kwargs) as h5file:
         if creationlocks is None:
@@ -817,11 +823,11 @@ def nxCollection(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u'NXcollection', **kwargs)
+    nxClassInit(parent, name, u"NXcollection", **kwargs)
     return parent[name]
 
 
-def nxInstrument(parent, name='instrument', **kwargs):
+def nxInstrument(parent, name="instrument", **kwargs):
     """
     Get NXinstrument instance (initialize when missing)
 
@@ -830,7 +836,7 @@ def nxInstrument(parent, name='instrument', **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u'NXinstrument', parentclasses=(u'NXentry',), **kwargs)
+    nxClassInit(parent, name, u"NXinstrument", parentclasses=(u"NXentry",), **kwargs)
     return parent[name]
 
 
@@ -843,7 +849,7 @@ def nxDetector(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u'NXdetector', parentclasses=(u'NXinstrument',), **kwargs)
+    nxClassInit(parent, name, u"NXdetector", parentclasses=(u"NXinstrument",), **kwargs)
     return parent[name]
 
 
@@ -856,7 +862,9 @@ def nxPositioner(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u'NXpositioner', parentclasses=(u'NXinstrument',), **kwargs)
+    nxClassInit(
+        parent, name, u"NXpositioner", parentclasses=(u"NXinstrument",), **kwargs
+    )
     return parent[name]
 
 
@@ -871,7 +879,7 @@ def nxData(parent, name, **kwargs):
     """
     if name is None:
         name = DEFAULT_PLOT_NAME
-    nxClassInit(parent, name, u'NXdata', **kwargs)
+    nxClassInit(parent, name, u"NXdata", **kwargs)
     return parent[name]
 
 
@@ -882,8 +890,8 @@ def nxDataGetSignals(data):
     :param h5py.Group data:
     :returns list(str): signal names (default first)
     """
-    signal = data.attrs.get('signal', None)
-    auxsignals = data.attrs.get('auxiliary_signals', None)
+    signal = data.attrs.get("signal", None)
+    auxsignals = data.attrs.get("auxiliary_signals", None)
     if signal is None:
         lst = []
     else:
@@ -901,19 +909,20 @@ def nxDataSetSignals(data, signals):
     :param list(str) signals:
     """
     if signals:
-        data.attrs['signal'] = asNxChar(signals[0])
+        data.attrs["signal"] = asNxChar(signals[0])
         if len(signals) > 1:
-            data.attrs['auxiliary_signals'] = asNxChar(signals[1:])
+            data.attrs["auxiliary_signals"] = asNxChar(signals[1:])
         else:
-            data.attrs.pop('auxiliary_signals', None)
+            data.attrs.pop("auxiliary_signals", None)
     else:
-        data.attrs.pop('signal', None)
-        data.attrs.pop('auxiliary_signals', None)
+        data.attrs.pop("signal", None)
+        data.attrs.pop("auxiliary_signals", None)
     updated(data)
 
 
-def _datasetMergeInfo(uris, shape=None, dtype=None, axis=0, newaxis=True,
-                      order=None, fill_generator=None):
+def _datasetMergeInfo(
+    uris, shape=None, dtype=None, axis=0, newaxis=True, order=None, fill_generator=None
+):
     """
     Equivalent to `numpy.stack` or `numpy.concatenate` combined
     with `numpy.reshape`. Return I/O index generator for merging.
@@ -935,7 +944,7 @@ def _datasetMergeInfo(uris, shape=None, dtype=None, axis=0, newaxis=True,
     if not isinstance(uris, (tuple, list)):
         uris = [uris]
     for uri in uris:
-        with uriContext(uri, mode='r') as dset:
+        with uriContext(uri, mode="r") as dset:
             dtypes.add(dset.dtype)
             shapei = dset.shape
             shapes.append(shapei)
@@ -946,28 +955,39 @@ def _datasetMergeInfo(uris, shape=None, dtype=None, axis=0, newaxis=True,
                 pass
             ushapes.append(tuple(shapei))
     if len(set(ushapes)) > 1:
-        raise RuntimeError('Cannot concatenate datasets with shapes {}'
-                           .format(ushapes))
+        raise RuntimeError("Cannot concatenate datasets with shapes {}".format(ushapes))
     # Merged dtype
     if dtype is None:
-        dtype = sum(numpy.array(0, dtype=dt)
-                    for dt in dtypes).dtype
+        dtype = sum(numpy.array(0, dtype=dt) for dt in dtypes).dtype
     # Generator for source->destination filling
     if fill_generator is None:
-        shape, fill_generator = data_merging.mergeGenerator(uris, shapes,
-                                                           shape=shape,
-                                                           order=order,
-                                                           axis=axis,
-                                                           newaxis=newaxis,
-                                                           allow_advanced_indexing=False)
+        shape, fill_generator = data_merging.mergeGenerator(
+            uris,
+            shapes,
+            shape=shape,
+            order=order,
+            axis=axis,
+            newaxis=newaxis,
+            allow_advanced_indexing=False,
+        )
     elif shape is None:
         raise ValueError("Specify 'shape' when specifying 'fill_generator'")
     return shape, dtype, fill_generator
 
 
-def createVirtualDataset(h5group, name, uris, axis=0, newaxis=True,
-                         maxshape=None, fillvalue=None, shape=None,
-                         dtype=None, order=None, fill_generator=None):
+def createVirtualDataset(
+    h5group,
+    name,
+    uris,
+    axis=0,
+    newaxis=True,
+    maxshape=None,
+    fillvalue=None,
+    shape=None,
+    dtype=None,
+    order=None,
+    fill_generator=None,
+):
     """
     Create a virtual dataset (references to the individual datasets)
 
@@ -983,28 +1003,29 @@ def createVirtualDataset(h5group, name, uris, axis=0, newaxis=True,
     :param fill_generator:
     :returns h5py.Dataset:
     """
-    shape, dtype, fill_generator = _datasetMergeInfo(uris, shape=shape,
-                                                     dtype=dtype,
-                                                     axis=axis,
-                                                     order=order,
-                                                     newaxis=newaxis,
-                                                     fill_generator=fill_generator)
+    shape, dtype, fill_generator = _datasetMergeInfo(
+        uris,
+        shape=shape,
+        dtype=dtype,
+        axis=axis,
+        order=order,
+        newaxis=newaxis,
+        fill_generator=fill_generator,
+    )
     layout = h5py.VirtualLayout(shape, dtype=dtype, maxshape=maxshape)
     destination = splitUri(getUri(h5group))
     for uri, idx_generator in fill_generator():
         source = splitUri(uri)
         spath, sname = relUri(source, destination)
-        with uriContext(uri, mode='r') as dset:
-            if '..' in spath:
+        with uriContext(uri, mode="r") as dset:
+            if ".." in spath:
                 spath, sname = source
             # TODO: VirtualSource does not support relative
             #       dataset paths like SoftLink
             sname = source[1]
-            spath, sname = source
-            vsource = h5py.VirtualSource(spath, sname,
-                                         shape=dset.shape,
-                                         dtype=dset.dtype,
-                                         maxshape=dset.maxshape)
+            vsource = h5py.VirtualSource(
+                spath, sname, shape=dset.shape, dtype=dset.dtype, maxshape=dset.maxshape
+            )
             for idxin, idxout in idx_generator():
                 if idxin:
                     layout[idxout] = vsource[idxin]
@@ -1013,9 +1034,18 @@ def createVirtualDataset(h5group, name, uris, axis=0, newaxis=True,
     return h5group.create_virtual_dataset(name, layout, fillvalue=fillvalue)
 
 
-def createConcatenatedDataset(h5group, name, uris, axis=0, newaxis=True,
-                              shape=None, dtype=None, order=None,
-                              fill_generator=None, **kwargs):
+def createConcatenatedDataset(
+    h5group,
+    name,
+    uris,
+    axis=0,
+    newaxis=True,
+    shape=None,
+    dtype=None,
+    order=None,
+    fill_generator=None,
+    **kwargs
+):
     """
     Create a concatenated dataset (copy of the individual datasets)
 
@@ -1029,17 +1059,20 @@ def createConcatenatedDataset(h5group, name, uris, axis=0, newaxis=True,
     :param fill_generator:
     :returns h5py.Dataset:
     """
-    shape, dtype, fill_generator = _datasetMergeInfo(uris, shape=shape,
-                                                     dtype=dtype,
-                                                     order=order,
-                                                     axis=axis,
-                                                     newaxis=newaxis,
-                                                     fill_generator=fill_generator)
-    kwargs['shape'] = shape
-    kwargs['dtype'] = dtype
+    shape, dtype, fill_generator = _datasetMergeInfo(
+        uris,
+        shape=shape,
+        dtype=dtype,
+        order=order,
+        axis=axis,
+        newaxis=newaxis,
+        fill_generator=fill_generator,
+    )
+    kwargs["shape"] = shape
+    kwargs["dtype"] = dtype
     dset = h5group.create_dataset(name, **kwargs)
     for uri, index_generator in fill_generator():
-        with uriContext(uri, mode='r') as dseti:
+        with uriContext(uri, mode="r") as dseti:
             for idxin, idxout in index_generator():
                 dset[idxout] = dseti[idxin]
     return dset
@@ -1057,7 +1090,9 @@ def createMergedDataset(h5group, name, uris, virtual=True, **kwargs):
     :returns h5py.Dataset:
     """
     if not HASVIRTUAL:
-        logger.warning('Virtual HDF5 datasets are not supported: concatenate instead (this creates a copy).')
+        logger.warning(
+            "Virtual HDF5 datasets are not supported: concatenate instead (this creates a copy)."
+        )
         virtual = False
     if virtual:
         return createVirtualDataset(h5group, name, uris, **kwargs)
@@ -1079,9 +1114,9 @@ def createLink(h5group, name, destination):
         destination = getUri(destination)
     destination = splitUri(destination)
     filename, path = relUri(destination, getUri(h5group))
-    if filename == '.':
+    if filename == ".":
         # TODO: h5py does not support relative up links
-        if '..' in path:
+        if ".." in path:
             path = destination[1]
         h5group[name] = h5py.SoftLink(path)
     else:
@@ -1109,14 +1144,16 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
     if stringasuri:
         dsettypes = (h5py.Dataset, unicode, bytes)
     else:
-        dsettypes = (h5py.Dataset, )
+        dsettypes = (h5py.Dataset,)
     if isinstance(value, dict):
-        data = value.get('data', None)
-        merge = any(k in value for k in ['axis', 'newaxis', 'virtual', 'fill_generator'])
+        data = value.get("data", None)
+        merge = any(
+            k in value for k in ["axis", "newaxis", "virtual", "fill_generator"]
+        )
         if not merge:
             if isinstance(data, dsettypes):
                 # dataset or uri
-                shape = value.get('shape', None)
+                shape = value.get("shape", None)
                 # TODO: dtype, maxshape as well?
                 # merge when attributes do not match the existing dataset
                 if isinstance(data, h5py.Dataset):
@@ -1130,40 +1167,42 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
                     value = data
             elif isinstance(data, (unicode, bytes)):
                 # dataset of string type
-                value['data'] = asNxChar(data)
+                value["data"] = asNxChar(data)
     if value is None:
         # dataset exists already or will be created elsewhere
         pass
     elif isinstance(value, dsettypes):
         # link to dataset
-        logger.debug('Create HDF5 dataset {}/{}: link to {}'
-                     .format(getUri(h5group), name, value))
+        logger.debug(
+            "Create HDF5 dataset {}/{}: link to {}".format(getUri(h5group), name, value)
+        )
         createLink(h5group, name, value)
     elif isinstance(value, dict):
         # create dataset (internal, external, virtual) with extra options
         if merge:
             value = dict(value)
-            axis = value.pop('axis', 0)
-            uris = value.pop('data', [])
-            logger.debug('Create HDF5 dataset {}/{}: merge {}'
-                         .format(getUri(h5group), name, uris))
+            axis = value.pop("axis", 0)
+            uris = value.pop("data", [])
+            logger.debug(
+                "Create HDF5 dataset {}/{}: merge {}".format(
+                    getUri(h5group), name, uris
+                )
+            )
             createMergedDataset(h5group, name, uris, axis=axis, **value)
         else:
             # TODO: external datasets do not support relative paths
-            #external = value.get('external', None)
-            #if external:
+            # external = value.get('external', None)
+            # if external:
             #    dirname = os.path.dirname(h5group.file.filename)
             #    value['external'] = [(os.path.relpath(tpl[0], dirname),) + tpl[1:]
             #                         for tpl in external]
-            logger.debug('Create HDF5 dataset {}/{}'
-                         .format(getUri(h5group), name))
+            logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
             h5group.create_dataset(name, **value)
     else:
         # create dataset (internal) without extra options
         if isinstance(value, (unicode, bytes)):
             value = asNxChar(value)
-        logger.debug('Create HDF5 dataset {}/{}'
-                     .format(getUri(h5group), name))
+        logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
         h5group[name] = value
     dset = h5group.get(name, None)
     if attrs and dset is not None:
@@ -1184,15 +1223,15 @@ def nxDatasetInterpretation(scan_ndim, detector_ndim, dataset_ndim):
         if scan_ndim == dataset_ndim:
             # Scan dimension is not flattened
             if scan_ndim == 2:
-                return 'image'
+                return "image"
             elif scan_ndim == 3:
-                return 'vertex'
+                return "vertex"
     elif detector_ndim == 1:
-        return 'spectrum'
+        return "spectrum"
     elif detector_ndim == 2:
-        return 'image'
+        return "image"
     elif detector_ndim == 3:
-        return 'vertex'
+        return "vertex"
     return None
 
 
@@ -1204,7 +1243,7 @@ def nxDataAddSignals(data, signals, append=True):
     :param list(3-tuple) signals: see `nxCreateDataSet`
     :param bool append:
     """
-    raiseIsNotNxClass(data, u'NXdata')
+    raiseIsNotNxClass(data, u"NXdata")
     if append:
         names = nxDataGetSignals(data)
     else:
@@ -1225,9 +1264,9 @@ def nxDataAddAxes(data, axes, append=True):
     :param list(3-tuple) axes: see `nxCreateDataSet`
     :param bool append:
     """
-    raiseIsNotNxClass(data, u'NXdata')
+    raiseIsNotNxClass(data, u"NXdata")
     if append:
-        names = data.attrs.get('axes', [])
+        names = data.attrs.get("axes", [])
     else:
         names = []
     for name, value, attrs in axes:
@@ -1235,7 +1274,7 @@ def nxDataAddAxes(data, axes, append=True):
         if name not in names:
             names.append(name)
     if names:
-        data.attrs['axes'] = asNxChar(names)
+        data.attrs["axes"] = asNxChar(names)
         updated(data)
 
 
@@ -1249,7 +1288,7 @@ def nxDataAddErrors(data, errors):
     for name in data:
         dest = errors.get(name, None)
         if dest:
-            data[name + '_errors'] = h5py.SoftLink(dest.name)
+            data[name + "_errors"] = h5py.SoftLink(dest.name)
 
 
 def selectDatasets(root, match=None):
@@ -1262,15 +1301,17 @@ def selectDatasets(root, match=None):
     :param match: restrict selection (callable, 'max_ndim', 'mostcommon_ndim')
     :returns list(h5py.Dataset):
     """
-    if match == 'max_ndim':
+    if match == "max_ndim":
         match, post = None, match
-    elif match == 'mostcommon_ndim':
+    elif match == "mostcommon_ndim":
         match, post = None, match
     else:
         post = None
     if not match:
+
         def match(dset):
             return True
+
     datasets = []
     if isinstance(root, h5py.Dataset):
         if match(root):
@@ -1285,9 +1326,9 @@ def selectDatasets(root, match=None):
                 continue
             if match(dset):
                 datasets.append(dset)
-        if post == 'max_ndim':
+        if post == "max_ndim":
             ndimref = max(dset.ndim for dset in datasets)
-        elif post == 'mostcommon_ndim':
+        elif post == "mostcommon_ndim":
             occurences = Counter(dset.ndim for dset in datasets)
             ndimref = occurences.most_common(1)[0][0]
         else:
@@ -1309,7 +1350,7 @@ def markDefault(h5node, nxentrylink=True):
     nxdata = None
     for parent in iterup(path.parent):
         parentnxclass = nxClass(parent)
-        if parentnxclass == u'NXdata':
+        if parentnxclass == u"NXdata":
             # path becomes default signal of parent
             signals = nxDataGetSignals(parent)
             signal = h5Name(path)
@@ -1317,16 +1358,16 @@ def markDefault(h5node, nxentrylink=True):
                 signals.pop(signals.index(signal))
             nxDataSetSignals(parent, [signal] + signals)
             updated(parent)
-        elif nxclass == u'NXentry':
+        elif nxclass == u"NXentry":
             # Set this entry as default of root
-            parent.attrs['default'] = h5Name(path)
+            parent.attrs["default"] = h5Name(path)
             updated(parent)
         elif parentnxclass is not None:
-            if nxclass == u'NXdata':
+            if nxclass == u"NXdata":
                 # Select the NXdata for plotting
                 nxdata = path
             if nxdata:
-                if parentnxclass == u'NXentry' and nxentrylink:
+                if parentnxclass == u"NXentry" and nxentrylink:
                     # Instead of setting the default of parent to the selected NXdata,
                     # create a direct link to the select NXData and set that link as
                     # default of the parent
@@ -1339,7 +1380,7 @@ def markDefault(h5node, nxentrylink=True):
                         # unless plotname is the selected NXdata, in which case
                         # nothing has to be done
                         if parent[plotname].name != nxdata.name:
-                            fmt = plotname + '{}'
+                            fmt = plotname + "{}"
                             i = 0
                             while fmt.format(i) in parent:
                                 i += 1
@@ -1347,12 +1388,12 @@ def markDefault(h5node, nxentrylink=True):
                             parent[plotname] = h5py.SoftLink(nxdata.name)
                     else:
                         parent[plotname] = h5py.SoftLink(nxdata.name)
-                    parent.attrs['default'] = plotname
+                    parent.attrs["default"] = plotname
                 else:
                     # Set default of parent to the selected NXdata
-                    parent.attrs['default'] = nxdata.name[len(parent.name)+1:]
+                    parent.attrs["default"] = nxdata.name[len(parent.name) + 1 :]
                 updated(parent)
-            if parentnxclass == u'NXroot':
+            if parentnxclass == u"NXroot":
                 break
         path = parent
         nxclass = parentnxclass

@@ -1,11 +1,16 @@
 #NeXus complient external writer process
 
-To start the external writer inside an environment where bliss is installed
+To start a session writer as a process inside an environment where bliss is installed
 
 ```bash
-   $NexusWriter -s test_session --log=info
+   NexusSessionWriter test_session --log=info
 ```
 
+To start a session writer as a service inside an environment where bliss is installed
+
+```bash
+   NexusWriterService
+```
 
 
 # Example: using Bliss data api for hdf5 saving

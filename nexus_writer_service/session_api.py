@@ -8,22 +8,18 @@
 #
 # Copyright (c) 2015-2019 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+API available in bliss session
 
-"""External Nexus writer
-
-.. autosummary::
-    :toctree:
-
-    nexus_writer_service
-    session_writer
-    metadata
-    writers
-    io
-    utils
+from nexus_writer_service import *
 """
 
-import logging
-from .utils import logging_utils
+from .utils import data_policy
+from .utils.data_policy import *
 
-logger = logging.getLogger(__name__)
-logging_utils.cliconfig(logger)
+from .utils import scan_utils
+from .utils.scan_utils import *
+
+__all__ = []
+__all__.extend(data_policy.__all__)
+__all__.extend(scan_utils.__all__)

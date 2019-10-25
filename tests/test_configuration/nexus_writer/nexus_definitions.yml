@@ -1,0 +1,125 @@
+name: nexus_definitions
+technique:
+  default: none
+  techniques:
+    xrf:
+      applications:
+      - xrf
+      plots:
+      - xrf_counters
+      - xrf_spectra
+      - counters
+      - spectra
+      - xrf_counters_grid
+      - xrf_spectra_grid
+      - counters_grid
+      - spectra_grid
+    xas:
+      applications:
+      - xrf
+      plots:
+      - xas_counters
+      - xrf_spectra
+      - counters
+      - spectra
+      - xas_counters_grid
+      - xrf_spectra_grid
+      - counters_grid
+      - spectra_grid
+    xrfxrd:
+      applications:
+      - xrf
+      plots:
+      - xrf_counters
+      - xrf_spectra
+      - xrd
+      - counters
+      - spectra
+      - images
+      - xrf_counters_grid
+      - xrf_spectra_grid
+      - xrd_grid
+      - counters_grid
+      - spectra_grid
+      - images_grid
+  applications:
+    xrf:
+      personal_name: xrf
+      class: APPxrf
+      I0: simiodet
+      It: simidet
+      mca:
+      - simxmap1:det0
+      - simxmap2:det1
+  plots:
+    counters:
+      personal_name: all_counters
+      ndim: 0
+    spectra:
+      personal_name: all_spectra
+      ndim: 1
+    images:
+      personal_name: all_images
+      ndim: 2
+    xas_counters:
+      personal_name: xas_counters
+      items:
+      - simabsorbance
+      - simfdetnorm
+      - simxmap1:deadtime_det0
+      - simxmap2:deadtime_det1
+    xrf_counters:
+      personal_name: xrf_counters
+      items:
+      - simidetnorm
+      - simfdetnorm
+      - simxmap1:deadtime_det0
+      - simxmap2:deadtime_det1
+    xrf_spectra:
+      personal_name: xrf_spectra
+      items:
+      - simxmap1:spectrum_det0
+      - simxmap2:spectrum_det1
+    xrd:
+      personal_name: xrd_patterns
+      items:
+      - simfrelon:image
+    counters_grid:
+      personal_name: all_counters_grid
+      ndim: 0
+      grid: true
+    spectra_grid:
+      personal_name: all_spectra_grid
+      ndim: 1
+      grid: true
+    images_grid:
+      personal_name: all_images_grid
+      ndim: 2
+      grid: true
+    xas_counters_grid:
+      personal_name: xas_counters_grid
+      items:
+      - simabsorbance
+      - simfdetnorm
+      - simxmap1:deadtime_det0
+      - simxmap2:deadtime_det1
+      grid: true
+    xrf_counters_grid:
+      personal_name: xrf_counters_grid
+      items:
+      - simidetnorm
+      - simfdetnorm
+      - simxmap1:deadtime_det0
+      - simxmap2:deadtime_det1
+      grid: true
+    xrf_spectra_grid:
+      personal_name: xrf_spectra_grid
+      items:
+      - simxmap1:spectrum_det0
+      - simxmap2:spectrum_det1
+      grid: true
+    xrd_grid:
+      personal_name: xrd_patterns_grid
+      items:
+      - simfrelon:image
+      grid: true

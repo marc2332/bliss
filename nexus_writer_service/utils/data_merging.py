@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 #
-# This file is part of the bliss project
+# This file is part of the nexus writer service of the BLISS project.
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Code is maintained by the ESRF Data Analysis Unit.
+#
+# Original author: Wout de Nolf
+#
+# Copyright (c) 2015-2019 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
@@ -38,18 +42,18 @@ def intListToSliceIndexing(coord, slicetwo=False, allow_negative_stride=False):
     """
     coord = numpy.asarray(coord)
     ndim, ncoord = coord.shape
-    #print('\n')
-    #print(numpy.concatenate([coord, numpy.arange(ncoord)[None,:]], axis=0))
+    # print('\n')
+    # print(numpy.concatenate([coord, numpy.arange(ncoord)[None,:]], axis=0))
 
     # Determine slices
     strides = numpy.diff(coord, axis=1)
-    #print(numpy.concatenate([numpy.zeros((ndim,1),dtype=int), strides], axis=1))
+    # print(numpy.concatenate([numpy.zeros((ndim,1),dtype=int), strides], axis=1))
     diff = numpy.diff(strides, axis=1)
-    newslices = numpy.any(diff, axis=0) 
+    newslices = numpy.any(diff, axis=0)
     if not allow_negative_stride:
         negative_strides = numpy.any(strides < 0, axis=0)
         newslices |= negative_strides[1:]
-    
+
     def getstrides(start):
         try:
             return strides[:, start]
@@ -63,20 +67,21 @@ def intListToSliceIndexing(coord, slicetwo=False, allow_negative_stride=False):
         _strides = getstrides(start)
         if not allow_negative_stride:
             if (_strides < 0).any():
-                lst = [list(range(start, end+stride, stride)) if stride else [start]
-                       for start, end, stride in zip(_start, _end, _strides)]
+                lst = [
+                    list(range(start, end + stride, stride)) if stride else [start]
+                    for start, end, stride in zip(_start, _end, _strides)
+                ]
                 n = max(map(len, lst))
-                lst = [e*n if len(e) == 1 else e for e in lst]
+                lst = [e * n if len(e) == 1 else e for e in lst]
                 for idx in zip(*lst):
                     yield tuple(idx)
                 return
-        yield tuple(createSlice(*args)
-                    for args in zip(_start, _end, _strides))
+        yield tuple(createSlice(*args) for args in zip(_start, _end, _strides))
 
     def split2(start, end):
         if slicetwo:
             return False
-        if start+1 == end:
+        if start + 1 == end:
             if allow_negative_stride:
                 return True
             else:
@@ -91,7 +96,7 @@ def intListToSliceIndexing(coord, slicetwo=False, allow_negative_stride=False):
         if skip:
             skip = False
         elif newslice:
-            if start+1 == end and not slicetwo:
+            if start + 1 == end and not slicetwo:
                 yield tuple(coord[:, start])
                 start = end
             else:
@@ -104,7 +109,7 @@ def intListToSliceIndexing(coord, slicetwo=False, allow_negative_stride=False):
     end = ncoord - 1
     if start == end:
         yield tuple(coord[:, start])
-    elif start+1 == end and not slicetwo:
+    elif start + 1 == end and not slicetwo:
         a = tuple(coord[:, start])
         b = tuple(coord[:, end])
         yield a
@@ -127,8 +132,8 @@ def intListToSliceIndexing2(coordrange, coord):
     for idx in intListToSliceIndexing(coord, slicetwo=True):
         for s in idx:
             if isinstance(s, slice):
-                stop = start + (s.stop-s.start)//s.step
-                idxflat = slice(coordrange[start], coordrange[stop-1]+1, 1)
+                stop = start + (s.stop - s.start) // s.step
+                idxflat = slice(coordrange[start], coordrange[stop - 1] + 1, 1)
                 start = stop
                 break
         else:
@@ -151,7 +156,7 @@ def _mergedShape(shapes, axis=0, newaxis=True):
     shape = list(shapes[0])
     if newaxis:
         if axis < 0:
-            axis += len(shape)+1
+            axis += len(shape) + 1
         shape.insert(axis, len(shapes))
     else:
         shape[axis] = 0
@@ -171,14 +176,19 @@ def mergeShapeGenerator(sources, shapes, mshape, axis=0, newaxis=True):
     :param bool newaxis: merge axis is new or existing
     :returns generator: index generator
     """
-    logger.debug('{} --{}--> {}'
-                 .format(shapes, 'stack' if newaxis else 'concat', mshape))
+    logger.debug(
+        "{} --{}--> {}".format(shapes, "stack" if newaxis else "concat", mshape)
+    )
     if len(sources) == 1:
+
         def fill_generator():
             def index_generator():
                 yield tuple(), tuple()
+
             yield sources[0], index_generator
+
     else:
+
         def fill_generator():
             idx = [slice(None)] * len(mshape)
             n = 0
@@ -186,11 +196,14 @@ def mergeShapeGenerator(sources, shapes, mshape, axis=0, newaxis=True):
                 if newaxis:
                     idx[axis] = i
                 else:
-                    idx[axis] = slice(n, n+shapei[axis])
+                    idx[axis] = slice(n, n + shapei[axis])
                     n += shapei[axis]
+
                 def index_generator():
                     yield tuple(), tuple(idx)
+
                 yield source, index_generator
+
     return fill_generator
 
 
@@ -205,7 +218,7 @@ def _countCommonFastAxes(shapein, shapeout, newshapeout, order=None):
     :returns tuple(int):
     """
     # Fast axis first
-    if order != 'F':
+    if order != "F":
         shapein = shapein[::-1]
         shapeout = shapeout[::-1]
         newshapeout = newshapeout[::-1]
@@ -219,21 +232,25 @@ def _countCommonFastAxes(shapein, shapeout, newshapeout, order=None):
     n = min([arrin.size, arrout.size, arroutnew.size])
     if not n:
         return 0, 0, 0
-    b = numpy.where((arrin[:n] == arroutnew[:n]) &
-                    (arrin[:n] == arrout[:n]) &
-                    (arrout[:n] == arroutnew[:n]))[0]
+    b = numpy.where(
+        (arrin[:n] == arroutnew[:n])
+        & (arrin[:n] == arrout[:n])
+        & (arrout[:n] == arroutnew[:n])
+    )[0]
     if not b.size:
         return 0, 0, 0
 
     # Number of fast axis to skip
     m = arrin[b[-1]]
-    nin = numpy.where(arrin == m)[0][-1]+1
-    nout = numpy.where(arrout == m)[0][-1]+1
-    noutnew = numpy.where(arroutnew == m)[0][-1]+1
+    nin = numpy.where(arrin == m)[0][-1] + 1
+    nout = numpy.where(arrout == m)[0][-1] + 1
+    noutnew = numpy.where(arroutnew == m)[0][-1] + 1
     return nin, nout, noutnew
 
 
-def _getCoordinates(shape, ran, nskipfast, newshape, newnskipfast, nsources=1, order=None):
+def _getCoordinates(
+    shape, ran, nskipfast, newshape, newnskipfast, nsources=1, order=None
+):
     """
     Coordinates of all elements in `newshape` except the ones on
     the skipped fast axes.
@@ -250,19 +267,19 @@ def _getCoordinates(shape, ran, nskipfast, newshape, newnskipfast, nsources=1, o
     # F: fast axis first
     # itertools.product: fast axis is last
     if nskipfast:
-        if order == 'F':
+        if order == "F":
             ran = ran[nskipfast:]
             shape = shape[nskipfast:]
         else:
             ran = ran[:-nskipfast]
             shape = shape[:-nskipfast]
     if newnskipfast:
-        if order == 'F':
+        if order == "F":
             newshape = newshape[newnskipfast:]
         else:
             newshape = newshape[:-newnskipfast]
     if nsources > 1:
-        if order == 'F':
+        if order == "F":
             idx = tuple(zip(*itertools.product(*ran[::-1])))[::-1]
         else:
             idx = tuple(zip(*itertools.product(*ran)))
@@ -272,8 +289,16 @@ def _getCoordinates(shape, ran, nskipfast, newshape, newnskipfast, nsources=1, o
     return numpy.unravel_index(flatidx, newshape, order=order)
 
 
-def mergeReshapeGenerator(sources, shapes, shapeout, newshapeout, order=None, axis=0,
-                          newaxis=True, allow_advanced_indexing=True):
+def mergeReshapeGenerator(
+    sources,
+    shapes,
+    shapeout,
+    newshapeout,
+    order=None,
+    axis=0,
+    newaxis=True,
+    allow_advanced_indexing=True,
+):
     """
     Reshaped merge I/O index generator.
 
@@ -287,9 +312,13 @@ def mergeReshapeGenerator(sources, shapes, shapeout, newshapeout, order=None, ax
     :param bool allow_advanced_indexing:
     :returns generator: index generator
     """
-    logger.debug('{} --{}--> {} --{}--> {}'
-                 .format(shapes, 'stack' if newaxis else 'concat', shapeout, order, newshapeout))
+    logger.debug(
+        "{} --{}--> {} --{}--> {}".format(
+            shapes, "stack" if newaxis else "concat", shapeout, order, newshapeout
+        )
+    )
     nsources = len(sources)
+
     def fill_generator():
         noutconcat = 0
         for i, (source, shapein) in enumerate(zip(sources, shapes)):
@@ -302,30 +331,47 @@ def mergeReshapeGenerator(sources, shapes, shapeout, newshapeout, order=None, ax
                 n = noutconcat + shapein[axis]
                 ranout[axis] = list(range(noutconcat, n))
                 noutconcat = n
-            
+
             # Indices for full dimensions
             if newaxis and nsources in shapein:
                 nskipin, nskipout, nskipoutnew = 0, 0, 0
             else:
-                nskipin, nskipout, nskipoutnew = _countCommonFastAxes(shapein, shapeout, newshapeout, order=order)
+                nskipin, nskipout, nskipoutnew = _countCommonFastAxes(
+                    shapein, shapeout, newshapeout, order=order
+                )
             fastidxin = (slice(None),) * nskipin
             fastidxoutnew = (slice(None),) * nskipoutnew
-            
+
             # Indices for other dimensions
-            coordin = _getCoordinates(shapein, ranin, nskipin, shapein, nskipin, nsources=1, order=order)
-            coordout = _getCoordinates(shapeout, ranout, nskipout, newshapeout, nskipoutnew, nsources=nsources, order=order)
+            coordin = _getCoordinates(
+                shapein, ranin, nskipin, shapein, nskipin, nsources=1, order=order
+            )
+            coordout = _getCoordinates(
+                shapeout,
+                ranout,
+                nskipout,
+                newshapeout,
+                nskipoutnew,
+                nsources=nsources,
+                order=order,
+            )
             flatin = len(coordin) == 1
             flatout = len(coordout) == 1
 
             # Add full indices
-            if order == 'F':
+            if order == "F":
+
                 def fout(tpl):
                     return fastidxoutnew + tpl
+
                 def fin(tpl):
                     return fastidxin + tpl
+
             else:
+
                 def fout(tpl):
                     return tpl + fastidxoutnew
+
                 def fin(tpl):
                     return tpl + fastidxin
 
@@ -335,32 +381,48 @@ def mergeReshapeGenerator(sources, shapes, shapeout, newshapeout, order=None, ax
                 # Index type: list of integers
                 def index_generator():
                     yield fin(coordin), fout(coordout)
+
             elif noreduction:
                 # Index type: integers
                 def index_generator():
                     for idxin, idxout in zip(zip(*coordin), zip(*coordout)):
                         yield fin(idxin), fout(idxout)
+
             elif flatin:
+
                 def index_generator():
                     for idxin, idxout in intListToSliceIndexing2(coordin[0], coordout):
                         yield fin(idxin), fout(idxout)
+
             elif flatout:
+
                 def index_generator():
                     for idxout, idxin in intListToSliceIndexing2(coordout[0], coordin):
                         yield fin(idxin), fout(idxout)
+
             else:
                 # Index type: integers and slices
                 n = len(coordin)
                 coord = coordin + coordout
+
                 def index_generator():
                     for idx in intListToSliceIndexing(coord):
                         yield fin(idx[:n]), fout(idx[n:])
+
             yield source, index_generator
+
     return fill_generator
 
 
-def mergeGenerator(sources, shapes, axis=0, newaxis=True,
-                   shape=None, order=None, allow_advanced_indexing=True):
+def mergeGenerator(
+    sources,
+    shapes,
+    axis=0,
+    newaxis=True,
+    shape=None,
+    order=None,
+    allow_advanced_indexing=True,
+):
     """
     Equivalent to `numpy.stack` or `numpy.concatenate` combined
     with `numpy.reshape`. Return I/O index generator for merging.
@@ -376,16 +438,25 @@ def mergeGenerator(sources, shapes, axis=0, newaxis=True,
     """
     mshape = _mergedShape(shapes, axis=axis, newaxis=newaxis)
     if not mshape:
+
         def fill_generator():
             return
             yield None
+
     elif shape is None or shape == mshape:
-        fill_generator = mergeShapeGenerator(sources, shapes, mshape,
-                                             axis=axis, newaxis=newaxis)
+        fill_generator = mergeShapeGenerator(
+            sources, shapes, mshape, axis=axis, newaxis=newaxis
+        )
         shape = mshape
     else:
-        fill_generator = mergeReshapeGenerator(sources, shapes, mshape, shape,
-                                               order=order, axis=axis,
-                                               newaxis=newaxis,
-                                               allow_advanced_indexing=allow_advanced_indexing)
+        fill_generator = mergeReshapeGenerator(
+            sources,
+            shapes,
+            mshape,
+            shape,
+            order=order,
+            axis=axis,
+            newaxis=newaxis,
+            allow_advanced_indexing=allow_advanced_indexing,
+        )
     return shape, fill_generator

@@ -1246,6 +1246,16 @@ class Scan:
 
             current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
+            # ---- apply parameters
+            apply_parameters_tasks = [
+                gevent.spawn(i.apply_parameters) for i in current_iters
+            ]
+            try:
+                gevent.joinall(apply_parameters_tasks, raise_error=True)
+            finally:
+                gevent.killall(apply_parameters_tasks)
+            # -----
+
             self.__state = ScanState.PREPARING
             self.__state_change.set()
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):

@@ -390,6 +390,7 @@ class ImageItem(plot_model.Item):
     def __init__(self, parent: plot_model.Plot = None):
         super(ImageItem, self).__init__(parent=parent)
         self.__image: Optional[plot_model.ChannelRef] = None
+        self.__colormap = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -411,6 +412,12 @@ class ImageItem(plot_model.Item):
     def setImageChannel(self, channel: plot_model.ChannelRef):
         self.__image = channel
         self._emitValueChanged(plot_model.ChangeEventType.IMAGE_CHANNEL)
+
+    def colormap(self):
+        return self.__colormap
+
+    def setColormap(self, colormap):
+        self.__colormap = colormap
 
 
 class ScatterPlot(plot_model.Plot):

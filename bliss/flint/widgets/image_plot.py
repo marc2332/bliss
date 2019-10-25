@@ -233,8 +233,15 @@ class ImagePlotWidget(ExtendedDockWidget):
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
 
-        if style.symbolStyle is None:
+        colormap = item.colormap()
+        if colormap is None:
             colormap = colors.Colormap(style.colormapLut)
+            # Store the colormap
+            # FIXME as the colormap is exposed to the colormap dialog
+            # it have to be synchonized to the item style
+            item.setColormap(colormap)
+
+        if style.symbolStyle is None:
             key = plot.addImage(
                 image, legend=legend, resetzoom=False, colormap=colormap
             )
@@ -245,7 +252,6 @@ class ImagePlotWidget(ExtendedDockWidget):
             xx = numpy.atleast_2d(numpy.arange(image.shape[1]))
             xx = xx * numpy.atleast_2d(numpy.ones(image.shape[0])).T + 0.5
             yy = yy * numpy.atleast_2d(numpy.ones(image.shape[1])) + 0.5
-            colormap = colors.Colormap(style.colormapLut)
             image, xx, yy = image.reshape(-1), xx.reshape(-1), yy.reshape(-1)
             key = plot.addScatter(
                 x=xx, y=yy, value=image, legend=legend, colormap=colormap

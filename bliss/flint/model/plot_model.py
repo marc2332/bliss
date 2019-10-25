@@ -52,6 +52,7 @@ class ChangeEventType(enum.Enum):
     MCA_CHANNEL = enum.auto()
     IMAGE_CHANNEL = enum.auto()
     VALUE_CHANNEL = enum.auto()
+    SCANS_STORED = enum.auto()
 
 
 class Plot(qt.QObject):
@@ -65,6 +66,9 @@ class Plot(qt.QObject):
 
     structureChanged = qt.Signal()
     """Emitted when the item structure have changed"""
+
+    valueChanged = qt.Signal(object)
+    """Emitted when a property from the plot was updated."""
 
     styleChanged = qt.Signal()
     """Emitted when the style object have changed"""

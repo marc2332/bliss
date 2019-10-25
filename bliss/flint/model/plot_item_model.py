@@ -38,7 +38,7 @@ class CurvePlot(plot_model.Plot):
 
     def setScansStored(self, enableStoring: bool):
         self.__scansStored = enableStoring
-        self.configurationChanged.emit()
+        self.valueChanged.emit(plot_model.ChangeEventType.SCANS_STORED)
 
     def isScansStored(self) -> bool:
         return self.__scansStored

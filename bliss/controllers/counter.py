@@ -41,6 +41,13 @@ class CounterController:
         return self.__name
 
     @property
+    def fullname(self):
+        if self.master_controller is None:
+            return self.name
+        else:
+            return f"{self.master_controller.fullname}:{self.name}"
+
+    @property
     def master_controller(self):
         return self._master_controller
 

@@ -735,6 +735,9 @@ def main():
     options = parse_options()
     if options.debug:
         logging.root.setLevel(logging.DEBUG)
+    else:
+        silx_log = logging.getLogger("silx")
+        silx_log.setLevel(logging.WARNING)
 
     need_gevent_loop = True
     if options.event_interleave:

@@ -22,7 +22,6 @@ from collections import namedtuple
 from datetime import datetime
 
 from bliss.scanning.chain import ChainNode
-from bliss.controllers.acquisition import CounterController
 
 # from bliss.common.measurement import SamplingMode
 

@@ -11,3 +11,4 @@ repos:
       description: Run flake8 linter on diff lines of stage area
       language: script
       entry: ./flake8-diff.sh
+      verbose: true  # force output when the hook passes

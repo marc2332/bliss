@@ -22,7 +22,7 @@ from bliss.common.scans import *
 from bliss.common.plot import plot
 from bliss.scanning.scan import SCANS
 from bliss.common.soft_axis import SoftAxis
-from bliss.common.measurement import SoftCounter
+from bliss.common.counter import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import logtools
 from bliss.common.logtools import *
@@ -77,7 +77,7 @@ from pygments.formatters import TerminalFormatter
 from bliss import setup_globals
 from bliss.common.motor_group import Group
 from bliss.common.utils import safe_get, ErrorWithTraceback
-from bliss.common.measurement import BaseCounter
+from bliss.common.counter import BaseCounter
 
 _ERR = "!ERR"
 _MAX_COLS = 9

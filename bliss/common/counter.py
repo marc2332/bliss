@@ -8,23 +8,18 @@
 # run tests for this module from the bliss root directory with:
 # python -m unittest discover -s tests/acquisition -v
 
-import numpy
-import inspect
-import weakref
-
 from collections import namedtuple
-from bliss.common.utils import autocomplete_property
-from bliss.controllers.acquisition import CounterController, counter_namespace
-from bliss.scanning.chain import ChainNode
-from bliss.scanning.acquisition.counter import SamplingCounterController, SamplingMode
-from bliss.scanning.acquisition.calc import CalcAcquisitionSlave
+
+import inspect
+import numpy
+
 from bliss import global_map
-
-
-CONTROLLER_GROUPED_READ_HANDLERS = weakref.WeakKeyDictionary()
+from bliss.common.utils import autocomplete_property
+from bliss.scanning.acquisition.counter import SamplingMode
 
 
 def add_conversion_function(obj, method_name, function):
+    """ add a conversion method to an object """
     meth = getattr(obj, method_name)
     if inspect.ismethod(meth):
         if callable(function):
@@ -38,9 +33,6 @@ def add_conversion_function(obj, method_name, function):
             raise ValueError("conversion function must be callable")
     else:
         raise ValueError("'%s` is not a method" % method_name)
-
-
-# Base counter class
 
 
 class BaseCounter:
@@ -89,6 +81,8 @@ class BaseCounter:
 
 
 class Counter(BaseCounter):
+    """ Counter class """
+
     def __init__(self, name, conversion_function=None, controller=None, unit=None):
         self._name = name
         self._controller = controller
@@ -131,8 +125,6 @@ class SamplingCounter(Counter):
         unit=None,
     ):
         super().__init__(name, conversion_function, controller, unit=unit)
-
-        # self.read = self.__read
 
         if isinstance(mode, SamplingMode):
             self._mode = mode
@@ -177,6 +169,8 @@ class SamplingCounter(Counter):
         return self._statistics
 
     def read(self):
+        """ helper/shortcut to read the counter value outside the context of a scan """
+
         self.controller.prepare(self)
         self.controller.start(self)
         try:
@@ -186,9 +180,26 @@ class SamplingCounter(Counter):
             self.controller.stop(self)
 
 
-class SoftCounterController(SamplingCounterController):
-    def read(self, counter):
-        return counter.apply(counter.get_value())
+class IntegratingCounter(Counter):
+    def __init__(self, name, controller, conversion_function=None, unit=None):
+
+        super().__init__(
+            name,
+            conversion_function=conversion_function,
+            controller=controller,
+            unit=unit,
+        )
+
+    def get_values(self, from_index=0):
+        """ helper/shortcut to read the counter values (from_index) outside the context of a scan """
+
+        self.controller.prepare(self)
+        self.controller.start(self)
+        try:
+            value = self.controller.get_values(from_index, self)[0]
+            return self.conversion_function(value)
+        finally:
+            self.controller.stop(self)
 
 
 class SoftCounter(SamplingCounter):
@@ -211,7 +222,7 @@ class SoftCounter(SamplingCounter):
 
     Here are some examples::
 
-        from bliss.common.measurement import SoftCounter
+        from bliss.common.counter import SoftCounter
 
         class Potentiostat:
 
@@ -265,6 +276,8 @@ class SoftCounter(SamplingCounter):
         self.apply = apply
         self.__name = name
 
+        from bliss.controllers.counter import SoftCounterController
+
         super().__init__(name, SoftCounterController(ctrl_name), mode=mode, unit=unit)
 
     @property
@@ -294,63 +307,6 @@ class SoftCounter(SamplingCounter):
         return value_func, value_name
 
 
-class IntegratingCounter(Counter):
-    def __init__(self, name, controller, conversion_function=None, unit=None):
-
-        super().__init__(
-            name,
-            conversion_function=conversion_function,
-            controller=controller,
-            unit=unit,
-        )
-
-    def get_values(self, from_index=0):
-        """
-        Overwrite in your class to provide an useful integrated counter class
-
-        This method is called after the prepare and start on the master handler.
-        This method can block until the data is ready or not and return empty data.
-        When data is ready should return the data from the acquisition
-        point **from_index**
-        """
-        self.controller.prepare(self)
-        self.controller.start(self)
-        try:
-            value = self.controller.get_values(from_index, self)[0]
-            return self.conversion_function(value)
-        finally:
-            self.controller.stop(self)
-
-
-class CalcCounterChainNode(ChainNode):
-    def get_acquisition_object(self, scan_params, acq_params):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["output_channels_list"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for CalcAcquisitionSlave({self.controller}) ==="
-                )
-
-        output_channels_list = acq_params.get("output_channels_list")
-
-        name = self.controller.calc_counter.name
-        func = self.controller.calc_counter.calc_func
-
-        acq_devices = []
-        for node in self._calc_dep_nodes.values():
-            acq_obj = node.acquisition_obj
-            if acq_obj is None:
-                raise ValueError(
-                    f"cannot create CalcAcquisitionSlave: acquisition object of {node}({node.controller}) is None!"
-                )
-            else:
-                acq_devices.append(acq_obj)
-
-        return CalcAcquisitionSlave(name, acq_devices, func, output_channels_list)
-
-
 class CalcCounter(BaseCounter):
     def __init__(self, name, controller, calc_function):
         self.__name = name
@@ -372,28 +328,3 @@ class CalcCounter(BaseCounter):
     @autocomplete_property
     def controller(self):
         return self.__controller
-
-
-class CalcCounterController(CounterController):
-    def __init__(self, name, calc_function, *dependent_counters):
-        super().__init__("calc_counter", chain_node_class=CalcCounterChainNode)
-        self.__dependent_counters = dependent_counters
-        self.__counter = CalcCounter(name, self, calc_function)
-        global_map.register(self.__counter, ["counters"], tag=name)
-
-    @property
-    def calc_counter(self):
-        return self.__counter
-
-    @property
-    def counters(self):
-        self._counters = {self.__counter.name: self.__counter}
-
-        for cnt in self.__dependent_counters:
-            if isinstance(cnt, CalcCounter):
-                self._counters.update(
-                    {cnt.name: cnt for cnt in cnt.controller.counters}
-                )
-            else:
-                self._counters[cnt.name] = cnt
-        return counter_namespace(self._counters)

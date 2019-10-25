@@ -71,7 +71,7 @@ import collections
 import gevent.lock
 
 from bliss.comm.util import get_comm
-from bliss.common.measurement import SamplingCounter
+from bliss.common.counter import SamplingCounter
 from bliss.common.logtools import *
 from bliss import global_map
 

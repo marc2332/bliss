@@ -89,7 +89,7 @@ print(f"scan nr {scan5_a.scan_number}-> loopscan with counter in SamplingMode.Sa
 
 
 ## artifical scan that forces different length of datasets in SamplingMode.Samples
-from bliss.common.measurement import SoftCounter, SamplingMode
+from bliss.common.counter import SoftCounter, SamplingMode
 from bliss.common.soft_axis import SoftAxis
 
 

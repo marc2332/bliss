@@ -10,8 +10,7 @@ import enum
 import sys
 import numpy
 import gevent
-
-from bliss.common.measurement import BaseCounter
+from bliss.common.counter import BaseCounter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import DataNodeIterator, _get_or_create_node

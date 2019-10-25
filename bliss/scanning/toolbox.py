@@ -13,9 +13,9 @@ from bliss import global_map
 from bliss import setup_globals
 from bliss.common import measurementgroup
 
+from bliss.common.counter import CalcCounter, BaseCounter
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.common.measurement import CalcCounter, CalcCounterController, BaseCounter
 
 
 def _get_object_from_name(name):

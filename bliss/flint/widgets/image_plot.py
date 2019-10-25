@@ -40,6 +40,7 @@ class ImagePlotWidget(ExtendedDockWidget):
 
         self.__plotWasUpdated: bool = False
         self.__plot = Plot2D(parent=self)
+        self.__plot.getIntensityHistogramAction().setVisible(True)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)

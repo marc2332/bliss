@@ -660,3 +660,20 @@ def dicttoh5(
                             continue
 
                     h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)
+
+
+def rounder(template_number, number):
+    """Round a number according to a template number
+    
+    assert rounder(0.0001, 16.12345) == "16.1234"
+    assert rounder(1, 16.123) == "16"
+    assert rounder(0.1, 8.5) == "8.5"
+    """
+    precision = (
+        len(str(template_number).split(".")[-1])
+        if not float(template_number).is_integer()
+        else 0
+    )
+    return numpy.format_float_positional(
+        number, precision=precision, unique=False, trim="-"
+    )

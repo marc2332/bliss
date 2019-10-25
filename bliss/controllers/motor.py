@@ -148,7 +148,7 @@ class Controller:
         """
         This method should contain all commands needed to initialize the controller hardware.
         i.e: reset, power on....
-    	This initialization will be called once (by the first client).
+        This initialization will be called once (by the first client).
         """
         pass
 
@@ -306,7 +306,7 @@ class Controller:
         This method should contain all commands needed to initialize the
         hardware for this axis.
         i.e: power, closed loop configuration...
-    	This initialization will call only once (by the first client).
+        This initialization will call only once (by the first client).
         """
         pass
 

@@ -466,7 +466,7 @@ class Controller:
 
     def setpoint_abort(self, toutput):
         """
-	Aborts the setpoint task (emergency stop)
+        Aborts the setpoint task (emergency stop)
            Raises NotImplementedError if not defined by inheriting class
 
         Args:

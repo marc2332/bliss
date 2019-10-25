@@ -40,11 +40,11 @@ class Curve:
         """ Set the curve to be used on a given input.
             Warning: the specified has to match with the type input.
             If not, the set curve number is 0 :(
-            Hint: Set 
-              crvn (int): curve number: 0=none, 1->20 standard, 
+            Hint: Set
+              crvn (int): curve number: 0=none, 1->20 standard,
                                         21->41 user defined
-	    Returns:
-	      None
+        Returns:
+            None
         """
         return self.controller._select(crvn, self.channel)
 

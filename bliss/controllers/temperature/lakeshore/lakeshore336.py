@@ -659,9 +659,9 @@ class lakeshore336(LakeshoreBase):
         """ Set the heater range (0=off 1=low 2=medium 3=high)
             channel (int): output channel: 1,2,3 or 4
             value (int): The value of the range if set. The valid range:
-			   for channels 1 and 2: 0=Off,1=Low,2=Medium,3=High
-			   for channels 3 and 4: 0=Off,1=On
-                           None if read
+                         for channels 1 and 2: 0=Off,1=Low,2=Medium,3=High
+                         for channels 3 and 4: 0=Off,1=On
+                         None if read
            Args:
               value (int): The value of the range
         """

@@ -74,8 +74,8 @@ class SimulationDiodeIntegratingCounter(IntegratingCounter):
     pass
 
 
-DEFAULT_CONTROLLER = SimulationDiodeController()
-DEFAULT_INTEGRATING_CONTROLLER = SimulationIntegrationDiodeController()
+DEFAULT_CONTROLLER = None
+DEFAULT_INTEGRATING_CONTROLLER = None
 
 
 def simulation_diode(name, config):
@@ -83,12 +83,17 @@ def simulation_diode(name, config):
         # assuming independent sampling counter controller
         controller = SimulationDiodeController()
     else:
+        global DEFAULT_CONTROLLER
+        global DEFAULT_INTEGRATING_CONTROLLER
         if config.get("integration"):
+            if DEFAULT_INTEGRATING_CONTROLLER is None:
+                DEFAULT_INTEGRATING_CONTROLLER = SimulationIntegrationDiodeController()
             return SimulationDiodeIntegratingCounter(
                 name, DEFAULT_INTEGRATING_CONTROLLER
             )
-
         else:
+            if DEFAULT_CONTROLLER is None:
+                DEFAULT_CONTROLLER = SimulationDiodeController()
             controller = DEFAULT_CONTROLLER
     if config.get("constant") is not None:
         diode = CstSimulationDiodeSamplingCounter(name, controller)

@@ -16,7 +16,6 @@ from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import ChainNode, AcquisitionObject
 from bliss.controllers.counter import CounterController
-from bliss.controllers.simulation_diode import DEFAULT_CONTROLLER as diode_controller
 
 
 def test_default_chain_with_sampling_counter(beacon):
@@ -66,7 +65,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode2
     assert diode3
 
-    assert diode2.controller == diode3.controller == diode_controller
+    assert diode2.controller == diode3.controller
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 

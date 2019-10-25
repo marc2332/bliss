@@ -158,8 +158,9 @@ class VSCANNER(Controller):
     def set_velocity(self, axis, new_velocity):
         """Set velocity of <axis>, make the conversion in V/ms
         * <new_velocity> is in user_unit/s
-        * 'VEL <vel>': set velocity in V/ms.
+        * 'VEL <_new_vel>': set velocity in V/ms
         """
+        # Convert in V/ms
         _new_vel = new_velocity / 1000.0
         self.send_no_ans(axis, "VEL %f 0" % _new_vel)
         log_debug(self, "set_velocity() -- %g" % _new_vel)
@@ -256,15 +257,22 @@ class VSCANNER(Controller):
             # Store motions parameters in a dict to create the SCAN or VXY command.
             motion_params[motion.axis.chan_letter] = (motion.target_pos, motion.delta)
 
+            # Crappy hack:
             # Store velocities in a list to determine if we do a SCAN or a VXY command.
-            velocities.append(float(motion.axis.velocity))
+            # NB: values are not used.
+            velocities.append(float(motion.axis.velocity) * motion.axis.steps_per_unit)
+
+            # Q: in which case there is no velocity in motion ???
 
         if any(velocities):
             _msg = f"start_all() -- SCAN (relative) move"
             log_debug(self, _msg)
 
-            # VEL command
-            self.set_velocity(first_axis, first_axis.velocity)
+            # first_axis.velocity is in user units.
+            # ??? only the first axis ?
+            self.set_velocity(
+                first_axis, first_axis.velocity * first_axis.steps_per_unit
+            )
 
             # LINE <dVx> <dVy> <nPixel> <lMode>
             # Initialize the line settings that are used by the PSHAPE
@@ -289,17 +297,17 @@ class VSCANNER(Controller):
             # Define relative spacing between lines of a scan: 0 0 in
             # our case to perform a single movement on the 2 axes.
             _cmd = "SCAN 0 0 1 U"
-            log_debug(self, f"prepare_move() -- _cmd_SCAN='{_cmd}'")
+            log_debug(self, f"start_all() -- _cmd_SCAN='{_cmd}'")
             self.send_no_ans(first_axis, _cmd)
 
             # PSHAPE ALL: clean and generate the line table.
             _cmd = "PSHAPE ALL"
-            log_debug(self, f"prepare_move() -- _cmd: '{_cmd}'")
+            log_debug(self, f"start_all() -- _cmd: '{_cmd}'")
             self.send_no_ans(first_axis, _cmd)
 
             # START
             _cmd = "START 1 NORET"
-            log_debug(self, f"prepare_move() --_cmd_START={_cmd}")
+            log_debug(self, f"start_all() --_cmd_START={_cmd}")
             self.send_no_ans(first_axis, _cmd)
 
         else:
@@ -334,7 +342,7 @@ class VSCANNER(Controller):
         If a scan is running, it is stopped and the output voltages
            are set back to the initial values.
         """
-        self.send(axis, "STOP")
+        self.send_no_ans(axis, "STOP")
 
     """
     Raw communication commands.

@@ -1,6 +1,14 @@
 repos:
--   repo: https://github.com/ambv/black
+-   repo: https://github.com/psf/black
     rev: 18.6b4
     hooks:
     - id: black
       language_version: python3  # Should be >= 3.6
+-   repo: local
+    hooks:
+    - id: flake8-diff
+      name: flake8-diff
+      description: Run flake8 linter on diff lines of stage area
+      language: script
+      entry: ./flake8-diff.sh
+      verbose: true  # force output when the hook passes

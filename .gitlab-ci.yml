@@ -18,12 +18,22 @@ stages:
 check_style:
   stage: style
   image: continuumio/miniconda3:latest
-  script:
+  before_script:
     - pip install -r requirements-dev.txt
+  script:
     # run black
     - LC_ALL=C.UTF-8 black --check --safe .
+
+check_lint:
+  stage: style
+  image: continuumio/miniconda3:latest
+  before_script:
+    - pip install -r requirements-dev.txt
+  script:
     # run flake8 on diff between current branch and last common ancestor with master
     - git diff -U0 origin/master...$CI_COMMIT_SHA | flake8 --diff
+  # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
+  allow_failure: true
 
 run_tests:source:
   stage: tests

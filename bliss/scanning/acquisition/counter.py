@@ -46,23 +46,23 @@ class SamplingMode(enum.IntEnum):
 class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
-        acq_ctrl,
-        counters,  # _or_groupreadhandler,
-        count_time,
-        npoints,
-        prepare_once,
-        start_once,
-        **unused_keys,
+        device,
+        counters=None,
+        count_time=None,
+        npoints=1,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
     ):
 
-        AcquisitionSlave.__init__(
-            self,
-            acq_ctrl,
+        super().__init__(
+            device,
             counters=counters,
             npoints=npoints,
-            trigger_type=AcquisitionSlave.SOFTWARE,
+            trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
         self.__count_time = count_time
@@ -123,7 +123,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, acq_ctrl, *counters, count_time=None, npoints=1):
+    def __init__(self, device, *counters, count_time=None, npoints=1, ctrl_params=None):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -153,14 +153,14 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         # read one single value
         self._SINGLE_COUNT = False
 
-        BaseCounterAcquisitionSlave.__init__(
-            self,
-            acq_ctrl,
-            counters,
-            count_time,
-            npoints,
-            True,  # prepare_once
-            start_once,  # start_once
+        super().__init__(
+            device,
+            counters=counters,
+            count_time=count_time,
+            npoints=npoints,
+            prepare_once=True,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
     def _do_add_counter(self, counter):
@@ -446,16 +446,16 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
 
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
-    # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
-    def __init__(self, acq_ctrl, *counters, count_time=None):
+    def __init__(self, device, *counters, count_time=None, ctrl_params=None):
 
         super().__init__(
-            acq_ctrl,
-            counters,
+            device,
+            counters=counters,
             count_time=count_time,
-            npoints=None,
-            prepare_once=None,
-            start_once=None,
+            npoints=1,
+            prepare_once=False,
+            start_once=False,
+            ctrl_params=ctrl_params,
         )
 
     @AcquisitionObject.parent.setter
@@ -521,9 +521,9 @@ class SamplingChainNode(ChainNode):
 
         params = {"count_time": count_time, "npoints": npoints}
 
-        return scan_params, params
+        return params
 
-    def get_acquisition_object(self, scan_params, acq_params):
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
 
         # --- Warn user if an unexpected is found in acq_params
         expected_keys = ["count_time", "npoints"]
@@ -538,19 +538,11 @@ class SamplingChainNode(ChainNode):
         npoints = acq_params["npoints"]
 
         return SamplingCounterAcquisitionSlave(
-            self.controller, *self.counters, count_time=count_time, npoints=npoints
-        )
-
-
-class SamplingCounterController(CounterController):
-    def __init__(
-        self,
-        name="sampling_counter_controller",
-        master_controller=None,
-        chain_node_class=SamplingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+            self.controller,
+            *self.counters,
+            count_time=count_time,
+            npoints=npoints,
+            ctrl_params=ctrl_params,
         )
 
 
@@ -564,9 +556,9 @@ class IntegratingChainNode(ChainNode):
 
         params = {"count_time": count_time}
 
-        return scan_params, params
+        return params
 
-    def get_acquisition_object(self, scan_params, acq_params):
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
 
         # --- Warn user if an unexpected is found in acq_params
         expected_keys = ["count_time"]
@@ -580,17 +572,8 @@ class IntegratingChainNode(ChainNode):
         count_time = acq_params["count_time"]
 
         return IntegratingCounterAcquisitionSlave(
-            self.controller, *self.counters, count_time=count_time
-        )
-
-
-class IntegratingCounterController(CounterController):
-    def __init__(
-        self,
-        name="integrating_counter_controller",
-        master_controller=None,
-        chain_node_class=IntegratingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+            self.controller,
+            *self.counters,
+            count_time=count_time,
+            ctrl_params=ctrl_params,
         )

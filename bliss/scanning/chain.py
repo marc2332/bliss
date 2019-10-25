@@ -675,7 +675,7 @@ class AcquisitionSlave(AcquisitionObject):
         pass
 
 
-class AcquisitionChainIter(object):
+class AcquisitionChainIter:
     def __init__(
         self, acquisition_chain, sub_tree, presets_list, parallel_prepare=True
     ):
@@ -899,7 +899,7 @@ class AcquisitionChainIter(object):
         return self
 
 
-class AcquisitionChain(object):
+class AcquisitionChain:
     def __init__(self, parallel_prepare=False):
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
@@ -1111,6 +1111,10 @@ class ChainNode:
     def scan_parameters(self):
         return self._scan_params
 
+    @property
+    def controller_parameters(self):
+        return self._ctrl_params
+
     def set_parameters(
         self, scan_params=None, acq_params=None, ctrl_params=None, force=False
     ):
@@ -1161,19 +1165,19 @@ class ChainNode:
         # ---- Should be implemented in the controller module ----------------------------------------
         #
         # -------------------------------------------------------------------------------------------
-        # scan_params, acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
-        # return scan_params, acq_params                       <== return the modified parameters
+        # acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
+        # return acq_params                       <== return the modified acquisition object parameters
         # -------------------------------------------------------------------------------------------
 
-        return scan_params, acq_params
+        return acq_params
 
-    def get_acquisition_object(self, scan_params, acq_params):
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
         """ return the acquisition object associated to this node """
 
         # ---- Must be implemented in the controller module ----------------------------------------
         #
         # -------------------------------------------------------------------------------------------
-        # obj_args = f(scan_params, acq_params)         <== filter and check parameters
+        # obj_args = acq_params["arg_name"]             <== obtain args required for the acq obj init (or raise error)
         # acq_obj = xxxAcqusiitionDevice( *obj_args )   <== instanciate the acquisition object
         # return acq_obj                                <== return the acquisition object
         # -------------------------------------------------------------------------------------------
@@ -1215,19 +1219,12 @@ class ChainNode:
                 self._ctrl_params.copy()
             )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
 
-        # --- Apply controller parameters --------------
-        # self.controller.apply_parameters(ctrl_params)  => called by the AcqObj in prepare()
-
         # --- Apply default chain logic on parameters ---------------------------------------------
         if self._default_chain_mode:
-            scan_params, acq_params = self._get_default_chain_parameters(
-                scan_params, acq_params
-            )
-        # else: #--- or use a custom traduction of parameters
-        #    scan_params, acq_params = self.get_translated_parameters( scan_params, acq_params )
+            acq_params = self._get_default_chain_parameters(scan_params, acq_params)
 
         # --- Create the acquisition object -------------------------------------------------------
-        acq_obj = self.get_acquisition_object(scan_params, acq_params)
+        acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)
 
         if not isinstance(acq_obj, AcquisitionObject):
             raise TypeError(f"Object: {acq_obj} is not an AcquisitionObject")

@@ -14,7 +14,6 @@ from bliss.common.logtools import *
 from bliss.comm import rpc
 from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
 
-from bliss.common.logtools import *
 from bliss import global_map
 
 # Mercury controller

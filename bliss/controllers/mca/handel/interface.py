@@ -225,7 +225,7 @@ def is_running():
 def get_module_statistics(module):
     channels = get_module_channels(module)
     # FalconX requires a spectrum read for the statistics to be updated
-    if get_module_type(module).startswith(u"falconx"):
+    if get_module_type(module).startswith("falconx"):
         for channel in channels:
             if channel >= 0:
                 try:
@@ -617,7 +617,7 @@ def get_channels():
 def get_master_channels():
     """Return one active channel for each buffer."""
     # For the FalconX, each channel has its own buffer
-    if get_module_type().startswith(u"falconx"):
+    if get_module_type().startswith("falconx"):
         return get_channels()
     # Otherwise, one channel per module is enough
     return tuple(

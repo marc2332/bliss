@@ -22,7 +22,7 @@ def interface():
 def test_init(interface):
     m = interface.handel.xiaInit
     m.return_value = 0
-    assert interface.init(u"somefile") is None
+    assert interface.init("somefile") is None
     m.assert_called_once_with(b"somefile")
     # Make sure errors have been checked
     interface.check_error.assert_called_once_with(0)
@@ -326,7 +326,7 @@ def test_get_module_statistics(interface):
                 "bliss.controllers.mca.handel.interface.get_spectrum"
             ) as m4:
                 m2.return_value = [-1, -1, -1, 8]
-                m3.return_value = u"falconxn"
+                m3.return_value = "falconxn"
                 m4.side_effect = HandelError(12, "hello")
 
                 # First test
@@ -1000,13 +1000,13 @@ def test_get_master_channels(interface):
     ) as m1:
         with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m2:
             m1.return_value = [(0, 1, 2, 3), (-1, 5, 6, 7)]
-            m2.return_value = u"notfalconx"
+            m2.return_value = "notfalconx"
             assert interface.get_master_channels() == (0, 5)
             m1.assert_called_once_with()
     with mock.patch("bliss.controllers.mca.handel.interface.get_channels") as m1:
         with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m2:
             m1.return_value = (0, 1, 2)
-            m2.return_value = u"falconxn"
+            m2.return_value = "falconxn"
             assert interface.get_master_channels() == (0, 1, 2)
             m1.assert_called_once_with()
 
@@ -1124,7 +1124,7 @@ def test_apply_acquisition_values(interface):
     ) as m2:
         with mock.patch("bliss.controllers.mca.handel.interface.get_module_type") as m3:
             m2.return_value = ((0,),)
-            m3.return_value = u"notfalconx"
+            m3.return_value = "notfalconx"
             assert interface.apply_acquisition_values() is None
             dummy = m.call_args[0][2]
             m.assert_called_once_with(0, b"apply", dummy)

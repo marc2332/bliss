@@ -341,7 +341,7 @@ def get_signal_info(handle, idx):
         block, name = full_name.rsplit("/", 1)
     else:
         block, name = "", full_name
-    result = dict(block=block, name=name, idx=idx, shape=(), dtype=u"double", size=1)
+    result = dict(block=block, name=name, idx=idx, shape=(), dtype="double", size=1)
     return result
 
 

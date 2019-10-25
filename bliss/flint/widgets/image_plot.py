@@ -12,6 +12,8 @@ from typing import Dict
 from typing import List
 
 import numpy
+import collections
+
 from silx.gui import qt
 from silx.gui import colors
 from silx.gui.plot import Plot2D
@@ -22,6 +24,9 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
+
+
+_ItemDescription = collections.namedtuple("_ItemDescription", ("key", "kind", "shape"))
 
 
 class ImagePlotWidget(ExtendedDockWidget):
@@ -36,7 +41,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
 
-        self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
+        self.__items: Dict[plot_model.Item, List[_ItemDescription]] = {}
 
         self.__plotWasUpdated: bool = False
         self.__plot = Plot2D(parent=self)
@@ -185,6 +190,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         for key in itemKeys:
             self.__plot.remove(*key)
         self.__plot.resetZoom()
+        print("cleanItem", item)
 
     def __redrawAll(self):
         self.__cleanAll()
@@ -207,7 +213,7 @@ class ImagePlotWidget(ExtendedDockWidget):
 
         scan = self.__scan
         plot = self.__plot
-        plotItems: List[Tuple[str, str]] = []
+        plotItems: List[_ItemDescription] = []
 
         resetZoom = not self.__plotModel.isInTransaction()
 
@@ -232,7 +238,7 @@ class ImagePlotWidget(ExtendedDockWidget):
             key = plot.addImage(
                 image, legend=legend, resetzoom=False, colormap=colormap
             )
-            plotItems.append((key, "image"))
+            plotItems.append(_ItemDescription(key, "image", image.shape))
             self.__updateTitle(scan, item)
         else:
             yy = numpy.atleast_2d(numpy.arange(image.shape[0])).T
@@ -247,9 +253,27 @@ class ImagePlotWidget(ExtendedDockWidget):
             scatter = plot.getScatter(key)
             scatter.setSymbol(style.symbolStyle)
             scatter.setSymbolSize(style.symbolSize)
-            plotItems.append((key, "scatter"))
+            plotItems.append(_ItemDescription(key, "scatter", image.shape))
+
+        self.__updateStoredItems(item, resetZoom, plotItems)
+
+    def __updateStoredItems(
+        self, item: plot_model.Item, resetZoom: bool, plotItems: List[_ItemDescription]
+    ):
+        if len(plotItems) == 0:
+            return
+
+        if item in self.__items:
+            previous = self.__items[item]
+            haveChanged = previous[0].shape != plotItems[0].shape
+        else:
+            haveChanged = True
 
         self.__items[item] = plotItems
+
+        if not haveChanged:
+            return
+
         if resetZoom:
             self.__plot.resetZoom()
         else:

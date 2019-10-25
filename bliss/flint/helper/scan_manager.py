@@ -177,9 +177,9 @@ class ScanManager:
         scan = self.__scan
         if self.__data_storage.has_channel(channel_name):
             group_name = self.__data_storage.get_group(channel_name)
-            oldSize = self.__data_storage.get_avaible_data_size(group_name)
+            oldSize = self.__data_storage.get_available_data_size(group_name)
             self.__data_storage.set_data(channel_name, raw_data)
-            newSize = self.__data_storage.get_avaible_data_size(group_name)
+            newSize = self.__data_storage.get_available_data_size(group_name)
             if newSize > oldSize:
                 channels = self.__data_storage.get_channels_by_group(group_name)
                 for channel_name in channels:

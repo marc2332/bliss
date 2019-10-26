@@ -729,19 +729,6 @@ class Scan:
             )
         self.__writer._save_images = save if save_images is None else save_images
 
-        ### order is important in the next lines...
-        self.writer.template.update(
-            {
-                "scan_name": self.name,
-                "session": session_name,
-                "scan_number": "{scan_number}",
-            }
-        )
-
-        self.__scan_number = self._next_scan_number()
-
-        self.writer.template["scan_number"] = self.scan_number
-
         self.__nodes = dict()
         self._devices = []
 
@@ -751,15 +738,9 @@ class Scan:
             dev.fill_meta_at_scan_init(self.user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
-        self._scan_info["scan_nb"] = self.__scan_number
         self._scan_info["filename"] = self.writer.filename
         self._scan_info.setdefault("title", name)
-        start_timestamp = time.time()
-        start_time = datetime.datetime.fromtimestamp(start_timestamp)
-        self._scan_info["start_time"] = start_time
-        start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
-        self._scan_info["start_time_str"] = start_time_str
-        self._scan_info["start_timestamp"] = start_timestamp
+
         deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
         self._data_watch_task = None
@@ -776,12 +757,38 @@ class Scan:
             get_flint()
 
         self.__state = ScanState.IDLE
-        node_name = str(self.__scan_number) + "_" + self.name
-        self.__node = _create_node(
-            node_name, "scan", parent=self.root_node, info=self._scan_info
-        )
 
         self._preset_list = list()
+
+        self.__node = None
+
+    def _prepare_note(self):
+        if self.__node is None:
+            ### order is important in the next lines...
+            self.writer.template.update(
+                {
+                    "scan_name": self.name,
+                    "session": self.__scan_saving.session,
+                    "scan_number": "{scan_number}",
+                }
+            )
+
+            self.__scan_number = self._next_scan_number()
+
+            self.writer.template["scan_number"] = self.scan_number
+            self._scan_info["scan_nb"] = self.__scan_number
+
+            start_timestamp = time.time()
+            start_time = datetime.datetime.fromtimestamp(start_timestamp)
+            self._scan_info["start_time"] = start_time
+            start_time_str = start_time.strftime("%a %b %d %H:%M:%S %Y")
+            self._scan_info["start_time_str"] = start_time_str
+            self._scan_info["start_timestamp"] = start_timestamp
+
+            node_name = str(self.__scan_number) + "_" + self.name
+            self.__node = _create_node(
+                node_name, "scan", parent=self.root_node, info=self._scan_info
+            )
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1059,6 +1066,9 @@ class Scan:
 
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None
+
+        ### create scan node in redis
+        self._prepare_note()
 
         if self._data_watch_callback is not None:
             data_watch_callback_event = gevent.event.Event()

@@ -65,6 +65,12 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
     assert s.name == "test_scan"
     assert s.root_node.db_name == parent.db_name
+
+    assert s.node is None
+
+    with gevent.Timeout(5):
+        s.run()
+
     assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
     assert s.node.db_name == s.root_node.db_name + ":" + "1_" + s.name
@@ -77,9 +83,6 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
     scan_info_dict = redis_data_conn.hgetall(s.node.db_name + "_info")
     assert pickle.loads(scan_info_dict[b"metadata"]) == 42
-
-    with gevent.Timeout(5):
-        s.run()
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 
@@ -177,6 +180,9 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     )
 
     s = Scan(chain, "test_scan")
+
+    # force existance of scan node before starting the scan
+    s._prepare_note()
 
     channels_data = dict()
     iteration_greenlet = gevent.spawn(
@@ -326,6 +332,9 @@ def test_children_timing(beacon, session, scan_tmpdir):
 
     s = scans.loopscan(30, .1, diode2, run=False, wait=True)
 
+    # force existance of scan node before starting the scan
+    s._prepare_note()
+
     event = gevent.event.Event()
     g = gevent.spawn(walker, s.node, event=event)
     event.wait()
@@ -370,6 +379,9 @@ def test_scan_end_timing(
                     "some": "text",
                 }
                 return
+
+    # force existance of scan node before starting the scan
+    scan._prepare_note()
 
     gg = gevent.spawn(g, scan.node)
     gevent.sleep(.1)

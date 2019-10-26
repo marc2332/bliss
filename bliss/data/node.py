@@ -69,9 +69,9 @@ def to_timestamp(dt, epoch=None):
 # make list of available plugins for generating DataNode objects
 node_plugins = dict()
 for importer, module_name, _ in pkgutil.iter_modules(
-    [os.path.dirname(__file__)], prefix="bliss.data."
+    [os.path.join(os.path.dirname(__file__), "nodes")], prefix="bliss.data.nodes."
 ):
-    node_type = module_name.replace("bliss.data.", "")
+    node_type = module_name.replace("bliss.data.nodes.", "")
     node_plugins[node_type] = {"name": module_name}
 
 

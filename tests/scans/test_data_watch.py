@@ -16,7 +16,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
 from bliss.scanning.scan import Scan, ScanSaving, ScanState
-from bliss.data.scan import get_data, watch_session_scans
+from bliss.data.scan import watch_session_scans, get_data
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.standard import info
 

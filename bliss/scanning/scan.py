@@ -762,7 +762,7 @@ class Scan:
 
         self.__node = None
 
-    def _prepare_note(self):
+    def _prepare_node(self):
         if self.__node is None:
             ### order is important in the next lines...
             self.writer.template.update(
@@ -1068,7 +1068,7 @@ class Scan:
         set_watch_event = None
 
         ### create scan node in redis
-        self._prepare_note()
+        self._prepare_node()
 
         if self._data_watch_callback is not None:
             data_watch_callback_event = gevent.event.Event()

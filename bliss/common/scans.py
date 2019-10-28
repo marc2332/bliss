@@ -48,6 +48,7 @@ from functools import wraps
 import types
 
 from bliss import global_map, current_session
+from bliss.common.utils import rounder
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import estimate_duration, Axis
@@ -206,12 +207,12 @@ def amesh(
         args = (
             scan_info["type"],
             motor1.name,
-            start1,
-            stop1,
+            rounder(motor1.tolerance, start1),
+            rounder(motor1.tolerance, stop1),
             intervals1,
             motor2.name,
-            start2,
-            stop2,
+            rounder(motor2.tolerance, start2),
+            rounder(motor2.tolerance, stop2),
             intervals2,
             count_time,
         )
@@ -481,6 +482,8 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
         raise ValueError("number of interval must be an integer number.")
     npoints = intervals + 1
     counter_list = list()
+    # scan type is forced to be either aNscan or dNscan
+    scan_type = kwargs.pop("type", None)
     tmp_l, motors_positions = list(motors_positions), list()
     title_list = list()
     starts_list = []
@@ -492,7 +495,14 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
             starts_list.append(start)
             stop = tmp_l.pop(0)
             stops_list.append(stop)
-            title_list.extend((val.name, start, stop))
+            d = val.position if scan_type == "dscan" else 0
+            title_list.extend(
+                (
+                    val.name,
+                    rounder(val.tolerance, start - d),
+                    rounder(val.tolerance, stop - d),
+                )
+            )
             motors_positions.extend((val, numpy.linspace(start, stop, npoints)))
         else:
             counter_list.append(val)
@@ -500,8 +510,6 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
     kwargs.setdefault("start", starts_list)
     kwargs.setdefault("stop", stops_list)
 
-    # scan type is forced to be either aNscan or dNscan
-    scan_type = kwargs.pop("type", None)
     if scan_type == "dscan":
         scan_type = (
             f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"

@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Flint
-  - Location of the live plots stay the same between 2 scans
+   - Location of the live plots stay the same between 2 scans
 
 ### Removed
 - Flint

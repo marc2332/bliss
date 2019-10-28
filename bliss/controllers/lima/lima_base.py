@@ -83,7 +83,7 @@ class Lima(CounterController):
 
     # Standard interface
 
-    class LimaBeaconObject(BeaconObject):
+    class LimaSavingParameters(BeaconObject):
         _suffix_conversion_dict = {
             "EDFGZ": ".edf.gz",
             "EDFLZ4": ".edf.lz4",
@@ -92,7 +92,6 @@ class Lima(CounterController):
             "HDF5BS": ".h5",
             "CBFMHEADER": ".cbf",
         }
-        # TODO: is this suffix list correct? CBFMHEADER? HDF5BS? EDFCONCAT?
 
         class SavingMode(enum.IntEnum):
             ONE_FILE_PER_FRAME = 0
@@ -211,9 +210,48 @@ class Lima(CounterController):
             )
 
     # Todo to be another beacon object like saving
-    class LimaTools(object):
+    class LimaTools(BeaconObject):
+        def __init__(self, config, proxy, name):
+            self._proxy = proxy
+            self.name = name
+
+            super().__init__(config, share_hardware=False)
+
+        flip = BeaconObject.property_setting("flip", default=[False, False])
+
+        @flip.setter
+        def flip(self, value):
+            assert isinstance(value, list)
+            assert len(value) == 2
+            assert isinstance(value[0], bool) and isinstance(value[1], bool)
+            return value
+
+        rotation = BeaconObject.property_setting("rotation", default="NONE")
+
+        @rotation.setter
+        def rotation(self, value):
+            if isinstance(value, int):
+                value = str(value)
+            if value == "0":
+                value = "NONE"
+            assert isinstance(value, str)
+            assert value in ["NONE", "90", "180", "270"]
+
+            return value
+
         def to_dict(self):
-            return {}
+            return {"image_rotation": self.rotation, "image_flip": self.flip}
+
+        def __info__(self):
+            return f"< lima prosessing settings {self.to_dict()} >"
+
+        # TODO: to be seen for beacon object:
+        # if I do `lima_simulator.processing.rotation = 0` as first call after
+        # config.get("lima_simulator")
+        # I get
+        # AttributeError: 'LimaTools' object has no attribute '_settings'
+        # if I do print(lima_simulator.processing.rotation) first,
+        # thinks work fine after that
 
     def __init__(self, name, config_tree):
         """Lima controller.
@@ -250,6 +288,7 @@ class Lima(CounterController):
         global_map.register(self, parents_list=["lima"])
 
         saving_conf = config_tree.get("saving", {})
+        processing_conf = config_tree.get("processing", {})
 
         if current_session:
             name_prefix = current_session.name
@@ -258,18 +297,32 @@ class Lima(CounterController):
 
         if saving_conf:
             saving_conf_name = saving_conf.get("name", self.name + "_saving")
-            self._saving = self.LimaBeaconObject(
+            self._saving = self.LimaSavingParameters(
                 saving_conf,
                 self._proxy,
                 f"{name_prefix}:{self.name}:{saving_conf_name}",
             )
         else:
-            self._saving = self.LimaBeaconObject(
-                {}, self._proxy, f"{name_prefix}:{self.name}:saving"
+            self._saving = self.LimaSavingParameters(
+                {"name": "does_not_exist_in_config"},
+                self._proxy,
+                f"{name_prefix}:{self.name}:saving",
             )
+            # TODO: work on beaconObject so that "name" does not need to be provided via config
 
-        # still an empty shell...
-        self._processing = self.LimaTools()
+        if processing_conf:
+            processing_conf_name = saving_conf.get("name", self.name + "_processing")
+            self._processing = self.LimaTools(
+                saving_conf,
+                self._proxy,
+                f"{name_prefix}:{self.name}:{processing_conf_name}",
+            )
+        else:
+            self._processing = self.LimaTools(
+                {"name": "does_not_exist_in_config"},
+                self._proxy,
+                f"{name_prefix}:{self.name}:processing",
+            )
 
     def apply_parameters_to_hw(self, ctrl_params):
         for key, value in ctrl_params.items():
@@ -278,9 +331,17 @@ class Lima(CounterController):
     def get_default_parameters(self):
         return {**self.saving.to_dict(), **self.processing.to_dict()}
 
-    @autocomplete_property  # TODO: not used yet
+    @autocomplete_property
     def processing(self):
         return self._processing
+
+    def configure_saving(self):
+        """shell dialog for saving related settings"""
+        from bliss.shell.dialog.controller.lima_dialogs import (
+            lima_saving_parameters_dialog
+        )
+
+        lima_saving_parameters_dialog(self)
 
     @autocomplete_property
     def saving(self):

@@ -35,20 +35,27 @@ def add_conversion_function(obj, method_name, function):
         raise ValueError("'%s` is not a method" % method_name)
 
 
-class BaseCounter:
-    """Define a standard counter interface."""
+class Counter:
+    """ Counter class """
 
-    # Properties
-
-    @autocomplete_property
-    def controller(self):
-        """A controller or None."""
-        return None
+    def __init__(self, name, controller, conversion_function=None, unit=None):
+        self._name = name
+        self._controller = controller
+        self._conversion_function = (
+            conversion_function if conversion_function is not None else lambda x: x
+        )
+        assert callable(self._conversion_function)
+        self._unit = unit
+        parents_list = ["counters"] + ([controller] if controller is not None else [])
+        global_map.register(self, parents_list, tag=self.name)
 
     @property
     def name(self):
-        """A unique name within the controller scope."""
-        raise NotImplementedError
+        return self._name
+
+    @autocomplete_property
+    def controller(self):
+        return self._controller
 
     @property
     def dtype(self):
@@ -59,11 +66,6 @@ class BaseCounter:
     def shape(self):
         """The data shape as used by numpy."""
         return ()
-
-    def get_metadata(self):
-        return {}
-
-    # Extra logic
 
     @property
     def fullname(self):
@@ -79,40 +81,16 @@ class BaseCounter:
         args.append(self.name)
         return ":".join(args)
 
-
-class Counter(BaseCounter):
-    """ Counter class """
-
-    def __init__(self, name, conversion_function=None, controller=None, unit=None):
-        self._name = name
-        self._controller = controller
-        self._conversion_function = (
-            conversion_function if conversion_function is not None else lambda x: x
-        )
-        assert callable(self._conversion_function)
-        self._unit = unit
-        parents_list = ["counters"] + ([controller] if controller is not None else [])
-        global_map.register(self, parents_list, tag=self.name)
-
-    # Standard interface
-
-    @autocomplete_property
-    def controller(self):
-        return self._controller
-
-    @property
-    def name(self):
-        return self._name
-
     @property
     def unit(self):
         return self._unit
 
-    # Extra interface
-
     @property
     def conversion_function(self):
         return self._conversion_function
+
+    def get_metadata(self):
+        return {}
 
 
 class SamplingCounter(Counter):
@@ -124,7 +102,9 @@ class SamplingCounter(Counter):
         mode=SamplingMode.MEAN,
         unit=None,
     ):
-        super().__init__(name, conversion_function, controller, unit=unit)
+        super().__init__(
+            name, controller, conversion_function=conversion_function, unit=unit
+        )
 
         if isinstance(mode, SamplingMode):
             self._mode = mode
@@ -184,10 +164,7 @@ class IntegratingCounter(Counter):
     def __init__(self, name, controller, conversion_function=None, unit=None):
 
         super().__init__(
-            name,
-            conversion_function=conversion_function,
-            controller=controller,
-            unit=unit,
+            name, controller, conversion_function=conversion_function, unit=unit
         )
 
     def get_values(self, from_index=0):
@@ -274,15 +251,10 @@ class SoftCounter(SamplingCounter):
         if apply is None:
             apply = lambda x: x
         self.apply = apply
-        self.__name = name
 
         from bliss.controllers.counter import SoftCounterController
 
         super().__init__(name, SoftCounterController(ctrl_name), mode=mode, unit=unit)
-
-    @property
-    def name(self):
-        return self.__name
 
     @staticmethod
     def get_read_func(obj, value):
@@ -307,15 +279,10 @@ class SoftCounter(SamplingCounter):
         return value_func, value_name
 
 
-class CalcCounter(BaseCounter):
+class CalcCounter(Counter):
     def __init__(self, name, controller, calc_function):
-        self.__name = name
-        self.__controller = controller
         self.__calc_function = calc_function
-
-    @property
-    def name(self):
-        return self.__name
+        super().__init__(name, controller)
 
     @property
     def calc_func(self):
@@ -324,7 +291,3 @@ class CalcCounter(BaseCounter):
     @property
     def fullname(self):
         return self.name
-
-    @autocomplete_property
-    def controller(self):
-        return self.__controller

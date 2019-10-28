@@ -62,7 +62,6 @@ import logging
 import functools
 import itertools
 import linecache
-import collections.abc
 
 from gevent import sleep
 from tabulate import tabulate
@@ -77,7 +76,6 @@ from pygments.formatters import TerminalFormatter
 from bliss import setup_globals
 from bliss.common.motor_group import Group
 from bliss.common.utils import safe_get, ErrorWithTraceback
-from bliss.common.counter import BaseCounter
 
 _ERR = "!ERR"
 _MAX_COLS = 9

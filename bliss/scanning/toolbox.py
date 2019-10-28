@@ -13,7 +13,8 @@ from bliss import global_map
 from bliss import setup_globals
 from bliss.common import measurementgroup
 
-from bliss.common.counter import CalcCounter, BaseCounter
+from bliss.common.counter import CalcCounter, Counter
+from bliss.controllers.counter import CalcCounterController, CounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
@@ -106,8 +107,8 @@ def get_all_counters(counter_args):
         )
 
     for cnt in all_counters:
-        if not isinstance(cnt, BaseCounter):
-            raise TypeError(f"{cnt} is not a BaseCounter object")
+        if not isinstance(cnt, Counter):
+            raise TypeError(f"{cnt} is not a Counter object")
 
     return all_counters
 
@@ -334,7 +335,7 @@ class DefaultAcquisitionChain:
             master = device_settings.get("master")
 
             device = device_settings["device"]
-            if isinstance(device, BaseCounter):
+            if isinstance(device, Counter):
                 controller = device.controller
             else:
                 controller = device

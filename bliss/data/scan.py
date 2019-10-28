@@ -10,7 +10,7 @@ import enum
 import sys
 import numpy
 import gevent
-from bliss.common.counter import BaseCounter
+from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import DataNodeIterator, _get_or_create_node
@@ -35,7 +35,7 @@ def get_data(scan):
             return f"DataContainer use [counter],[motor] or {self.keys()}"
 
         def __getitem__(self, key):
-            if isinstance(key, BaseCounter):
+            if isinstance(key, Counter):
                 return super().__getitem__(key.fullname)
             elif isinstance(key, Axis):
                 return super().__getitem__(f"axis:{key.name}")

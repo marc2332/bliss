@@ -354,14 +354,20 @@ class MapWithAliases(Map):
             raise AttributeError(fullname)
         else:
             for cnt in self.instance_iter("counters"):
-                if cnt.fullname == fullname:
-                    return cnt
+                try:
+                    if cnt.fullname == fullname:
+                        return cnt
+                except AttributeError:
+                    continue
             # could not find counter in map, look for controllers counters
             for ctrl in self.instance_iter("controllers"):
                 try:
                     ctrl_name = ctrl.fullname
                 except AttributeError:
-                    ctrl_name = ctrl.name
+                    try:
+                        ctrl_name = ctrl.name
+                    except AttributeError:
+                        continue
                 if ctrl_name == controller_fullname:
                     for cnt in ctrl.counters:
                         if cnt.fullname == fullname:

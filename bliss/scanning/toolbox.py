@@ -37,6 +37,8 @@ def _get_object_from_name(name):
             raise AttributeError(name)
         else:
             for ctrl in global_map.instance_iter("controllers"):
+                if not isinstance(ctrl, CounterController):
+                    continue
                 ctrl_name, _, counters_or_group = x.rpartition(".")
                 if ctrl.name == ctrl_name:
                     return operator.attrgetter(f"{counters_or_group}.{shortname}")(ctrl)
@@ -46,12 +48,16 @@ def _get_object_from_name(name):
         # it's a counter or a CounterController (with .counters)
         try:
             return next(
-                x for x in global_map.instance_iter("counters") if x.name == name
+                x
+                for x in global_map.instance_iter("counters")
+                if isinstance(x, Counter) and x.name == name
             )
         except StopIteration:
             try:
                 return next(
-                    x for x in global_map.instance_iter("controllers") if x.name == name
+                    x
+                    for x in global_map.instance_iter("controllers")
+                    if isinstance(x, CounterController) and x.name == name
                 )
             except StopIteration:
                 raise AttributeError(name)

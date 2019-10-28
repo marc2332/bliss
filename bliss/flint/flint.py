@@ -740,14 +740,13 @@ def main():
         silx_log.setLevel(logging.WARNING)
 
     need_gevent_loop = True
-    if options.event_interleave:
+    if options.gevent_poll:
         if poll_patch:
             need_gevent_loop = False
             poll_patch.init(1)
         else:
-            message = "qt/gevent interleave requested but `poll_patch` was not loaded."
-            ROOT_LOGGER.error(message)
-            ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead")
+            ROOT_LOGGER.error("gevent_poll requested but `poll_patch` was not loaded.")
+            ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead.")
             need_gevent_loop = True
 
     # Avoid warning in case of locked loop (debug mode/ipython mode)

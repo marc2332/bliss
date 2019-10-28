@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Many images can be displayed on the same plot. The first one is displayed as an image, others as scatter
    - `SCAN_DIPSLAY.extra_args` was added to custom command line argument passed to flint
       - `--enable-opengl` to use OpenGL rendering for plots (it should provide faster rendering, but could have issue with remote desktop)
-      - `--enable-event-interleave` to use experimental Qt/gevent interleave of event loops (it should reduce CPU consumption but could be unstable)
+      - `--enable-gevent-poll` to use experimental patching of poll system function for a better cooperative between Qt and gevent (it should reduce CPU consumption but could be unstable)
       - `--matplotlib-dpi DPI` to custom the plot DPI (this setting will be stored in the local user preferences)
       - `--clear-settings` to allow to start with cleared previous local user settings
    - 2 scripts was added to optimize and convert SVG to PNG

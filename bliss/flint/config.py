@@ -43,12 +43,12 @@ def configure_parser_arguments(parser: ArgumentParser):
         help="Enable scan simulation panel",
     )
     parser.add_argument(
-        "--enable-event-interleave",
-        dest="event_interleave",
+        "--enable-gevent-poll",
+        dest="gevent_poll",
         action="store_true",
         default=False,
-        help="Enable interleave of Qt and gevent event loops. "
-        "It process efficiently events from fast acquisition scans but could be unstable "
+        help="Enable system patching of the 'poll' function in order to create a cooperative event loop between Qt and gevent. "
+        "It processes efficiently events from fast acquisition scans but could be unstable "
         "(experimental)",
     )
     parser.add_argument(

@@ -15,6 +15,7 @@ from types import ModuleType
 from bliss.config import static
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
+from bliss import is_bliss_shell
 
 _SESSION_IMPORTERS = set()
 CURRENT_SESSION = None
@@ -406,7 +407,8 @@ class Session:
         from bliss.scanning.scan import ScanSaving
 
         self.scan_saving = ScanSaving(self.name)
-        env_dict["SCAN_SAVING"] = self.scan_saving
+        if is_bliss_shell():
+            env_dict["SCAN_SAVING"] = self.scan_saving
         env_dict["ALIASES"] = global_map.aliases
 
         from bliss.common.measurementgroup import ACTIVE_MG

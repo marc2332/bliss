@@ -476,7 +476,7 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
 
     lima_sim = beacon.get("lima_simulator")
     robz2 = session.env_dict["robz2"]
-    scan_saving = session.env_dict["SCAN_SAVING"]
+    scan_saving = session.scan_saving
     saved_base_path = scan_saving.base_path
     try:
         scan_saving.base_path = str(scan_tmpdir)

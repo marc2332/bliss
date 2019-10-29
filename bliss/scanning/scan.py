@@ -746,7 +746,7 @@ class Scan:
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
-            scan_saving = current_session.env_dict["SCAN_SAVING"]
+            scan_saving = current_session.scan_saving
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving

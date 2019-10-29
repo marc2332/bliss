@@ -7,8 +7,6 @@
 
 import os
 import sys
-import gevent
-import functools
 import warnings
 from treelib import Tree
 
@@ -54,7 +52,7 @@ class _StringImporter(object):
         return None
 
     def load_module(self, fullname):
-        if not fullname in self._modules.keys():
+        if fullname not in self._modules.keys():
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -80,7 +78,7 @@ class _StringImporter(object):
         return new_module
 
     def get_source(self, fullname):
-        if not fullname in self._modules.keys():
+        if fullname not in self._modules.keys():
             raise ImportError(fullname)
 
         filename = self._modules.get(fullname)
@@ -402,12 +400,13 @@ class Session:
 
         env_dict["config"] = self.config
 
-        if not "load_script" in env_dict:
+        if "load_script" not in env_dict:
             env_dict["load_script"] = self.load_script
 
         from bliss.scanning.scan import ScanSaving
 
-        env_dict["SCAN_SAVING"] = ScanSaving(self.name)
+        self.scan_saving = ScanSaving(self.name)
+        env_dict["SCAN_SAVING"] = self.scan_saving
         env_dict["ALIASES"] = global_map.aliases
 
         from bliss.common.measurementgroup import ACTIVE_MG
@@ -462,8 +461,8 @@ class Session:
                 continue
 
             try:
-                o = self.config.get(item_name)
-            except:
+                self.config.get(item_name)
+            except Exception:
                 if verbose:
                     print(f"FAILED to initialize '{item_name}'")
                 sys.excepthook(*sys.exc_info())
@@ -483,7 +482,7 @@ class Session:
                 sys.excepthook(*sys.exc_info())
         try:
             self.config.get(self.name)
-        except:
+        except Exception:
             sys.excepthook(*sys.exc_info())
 
         setup_globals.__dict__.update(self.env_dict)

@@ -182,7 +182,7 @@ def test_standard_scan_display(session):
 
     # put scan file in a different tmp directory or use SAVE = False
     # env_dict, session_obj = session
-    # env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    # session.scan_saving.base_path = str(scan_tmpdir)
 
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, wp = os.pipe()

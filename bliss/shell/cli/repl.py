@@ -434,6 +434,10 @@ def cli(
                                   (default: 0.25s). Use 0 or None to
                                   deactivate refresh.
     """
+    from bliss import set_bliss_shell_mode
+
+    set_bliss_shell_mode(True)
+
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report
 

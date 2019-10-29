@@ -70,3 +70,22 @@ def logging_startup(
     # install an additional handler, only for debug messages
     # (debugon / debugoff)
     global_log.set_debug_handler(logging.StreamHandler())
+
+
+# Bliss shell mode False indicates Bliss in running in library mode
+_BLISS_SHELL_MODE = False
+
+
+def set_bliss_shell_mode(mode=True):
+    """
+    Set Bliss shell mode
+    """
+    global _BLISS_SHELL_MODE
+    _BLISS_SHELL_MODE = mode
+
+
+def is_bliss_shell():
+    """
+    Tells if Bliss is running in shell or library mode
+    """
+    return _BLISS_SHELL_MODE

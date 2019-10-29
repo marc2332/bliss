@@ -127,7 +127,7 @@ def test_lookupscan(session):
     roby = session.env_dict["roby"]
     robz = session.env_dict["robz"]
     diode = session.env_dict["diode"]
-    s = scans.lookupscan(0.1, roby, (0, 0.1), robz, (0.1, 0.2), diode, save=False)
+    s = scans.lookupscan([(roby, (0, 0.1)), (robz, (0.1, 0.2))], 0.1, diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
     assert numpy.array_equal(scan_data["robz"], (0.1, 0.2))
@@ -137,7 +137,7 @@ def test_anscan(session):
     roby = session.env_dict["roby"]
     robz = session.env_dict["robz"]
     diode = session.env_dict["diode"]
-    s = scans.anscan(0.1, 1, roby, 0, 0.1, robz, 0.1, 0.2, diode, save=False)
+    s = scans.anscan([(roby, 0, 0.1), (robz, 0.1, 0.2)], 0.1, 1, diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
     assert numpy.array_equal(scan_data["robz"], (0.1, 0.2))
@@ -606,3 +606,19 @@ def test_calc_counters_with_two(session):
     s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter_controller, save=False)
     data = s.get_data()
     assert all(data["out"] == (data["diode"] + data["diode2"]) / 2.)
+
+
+def check_typeguard(valid, motor, *counters):
+    if valid:
+        s = scans.dscan(motor, -.1, .1, 3, .1, *counters, run=False)
+    else:
+        with pytest.raises(TypeError):
+            s = scans.dscan(motor, -.1, .1, 3, .1, *counters, run=False)
+
+
+def test_typeguard_scanable(default_session):
+    diode = default_session.config.get("diode")
+    m0 = default_session.config.get("m0")
+    check_typeguard(True, m0, diode)
+    check_typeguard(False, diode, diode)
+    check_typeguard(False, m0, m0)

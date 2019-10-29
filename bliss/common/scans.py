@@ -47,7 +47,7 @@ import gevent
 from functools import wraps
 import types
 import typeguard
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, List, Sequence
 
 from bliss import current_session
 from bliss.common.utils import rounder
@@ -63,27 +63,36 @@ from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
 from bliss.common.counter import Counter
 from bliss.common.measurementgroup import MeasurementGroup
+from bliss.common.protocols import CounterContainer, Scannable
 
 _log = logging.getLogger("bliss.scans")
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
+_countable = Counter
+_countables = Union[Counter, MeasurementGroup, CounterContainer]
+_scannable = Scannable
+_scannable_start_stop_list = List[Tuple[_scannable, float, float]]
+_position_list = Union[Sequence, numpy.ndarray]
+_scannable_position_list = List[Tuple[_scannable, _position_list]]
+
 
 @typeguard.typechecked
 def ascan(
-    motor: Axis,
+    motor: _scannable,
     start: float,
     stop: float,
     intervals: int,
     count_time: float,
-    *counter_args: Union[Counter, MeasurementGroup],
-    name: str = "scan",
+    *counter_args: _countables,
+    name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
     save_images: bool = True,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Absolute scan
@@ -116,13 +125,11 @@ def ascan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    args = [motor, start, stop]
-    args += counter_args
-
     return anscan(
+        [(motor, start, stop)],
         count_time,
         intervals,
-        *args,
+        *counter_args,
         name=name,
         title=title,
         save=save,
@@ -130,10 +137,27 @@ def ascan(
         sleep_time=sleep_time,
         run=run,
         return_scan=return_scan,
+        scan_info=scan_info,
     )
 
 
-def dscan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
+@typeguard.typechecked
+def dscan(
+    motor: _scannable,
+    start: float,
+    stop: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     Relative scan
 
@@ -167,37 +191,87 @@ def dscan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    args = [motor, start, stop]
-    args += counter_args
-    return dnscan(count_time, intervals, *args, **kwargs)
+    return dnscan(
+        [(motor, start, stop)],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
-def lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
-    if len(counter_args) == 0:
-        raise ValueError("lineup: please specify a counter")
-    if len(counter_args) > 1:
-        raise ValueError("lineup: too many counters")
+@typeguard.typechecked
+def lineup(
+    motor: _scannable,
+    start: float,
+    stop: float,
+    intervals: int,
+    count_time: float,
+    counter: _countable,
+    name: str = "lineup",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+):
 
-    kwargs["type"] = "lineup"
-    kwargs["name"] = kwargs.get("name", "lineup")
-    kwargs["return_scan"] = True
-    scan = dscan(motor, start, stop, intervals, count_time, counter_args[0], **kwargs)
-    scan.goto_peak(counter_args[0])
-    return scan
+    # ~ if len(counter_args) == 0:
+    # ~ raise ValueError("lineup: please specify a counter")
+    # ~ if len(counter_args) > 1:
+    # ~ raise ValueError("lineup: too many counters")
+
+    scan = dscan(
+        motor,
+        start,
+        stop,
+        intervals,
+        count_time,
+        counter,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=True,
+    )
+    scan.goto_peak(counter)
+
+    if return_scan:
+        return scan
 
 
+@typeguard.typechecked
 def amesh(
-    motor1,
-    start1,
-    stop1,
-    intervals1,
-    motor2,
-    start2,
-    stop2,
-    intervals2,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    intervals1: int,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    intervals2: int,
+    count_time: float,
+    *counter_args: _countables,
+    backnforth: bool = False,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    type: str = "amesh",
+    name: str = "amesh",
+    scan_info: Optional[dict] = None,
 ):
     """
     Mesh scan
@@ -215,24 +289,22 @@ def amesh(
 
     :param backnforth if True do back and forth on the first motor
     """
-    if not isinstance(intervals1, int):
-        raise ValueError("number of intervals for motor1 must be an integer number.")
-    if not isinstance(intervals2, int):
-        raise ValueError("number of intervals for motor2 must be an integer number.")
+    if scan_info is None:
+        scan_info = dict()
 
-    save_images = kwargs.pop("save_images", None)
+    scan_info.update(
+        {
+            "type": type,
+            "save": save,
+            "title": title,
+            "sleep_time": sleep_time,
+            "data_dim": 2,
+        }
+    )
 
-    scan_info = {
-        "type": kwargs.get("type", "amesh"),
-        "save": kwargs.get("save", True),
-        "title": kwargs.get("title"),
-        "sleep_time": kwargs.get("sleep_time"),
-        "data_dim": 2,
-    }
-
-    if scan_info["title"] is None:
+    if title is None:
         args = (
-            scan_info["type"],
+            type,
             motor1.name,
             rounder(motor1.tolerance, start1),
             rounder(motor1.tolerance, stop1),
@@ -260,9 +332,17 @@ def amesh(
         }
     )
 
-    backnforth = kwargs.pop("backnforth", False)
+    scan_params = {
+        "type": type,
+        "npoints": npoints1 * npoints2,
+        "count_time": count_time,
+        "sleep_time": sleep_time,
+        "start": [start1, start2],
+        "stop": [stop1, stop2],
+    }
+
     chain = DEFAULT_CHAIN.get(
-        scan_info,
+        scan_params,
         counter_args,
         top_master=MeshStepTriggerMaster(
             motor1,
@@ -292,44 +372,44 @@ def amesh(
     scan = Scan(
         chain,
         scan_info=scan_info,
-        name=kwargs.setdefault("name", "amesh"),
-        save=scan_info["save"],
+        name=name,
+        save=save,
         save_images=save_images,
         data_watch_callback=StepScanDataWatch(),
     )
 
-    if kwargs.get("run", True):
+    if run:
         scan.run()
 
-    if kwargs.get("return_scan", True):
+    if return_scan:
         return scan
 
 
+@typeguard.typechecked
 def dmesh(
-    motor1,
-    start1,
-    stop1,
-    intervals1,
-    motor2,
-    start2,
-    stop2,
-    intervals2,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    intervals1: int,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    intervals2: int,
+    count_time: float,
+    *counter_args: _countables,
+    backnforth: bool = False,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    type: str = "dmesh",
+    name: str = "dmesh",
+    scan_info: Optional[dict] = None,
 ):
-    """Relative amesh
+    """Relative mesh
     """
-    if not isinstance(intervals1, int):
-        raise ValueError("number of intervals for motor1 must be an integer number.")
-    if not isinstance(intervals2, int):
-        raise ValueError("number of intervals for motor2 must be an integer number.")
-
-    kwargs.setdefault("type", "dmesh")
-    kwargs.setdefault("name", "dmesh")
-    run = kwargs.pop("run", True)
-    kwargs["run"] = False
-
     start1 += motor1.position
     stop1 += motor1.position
     start2 += motor2.position
@@ -346,7 +426,16 @@ def dmesh(
         intervals2,
         count_time,
         *counter_args,
-        **kwargs,
+        backnforth=backnforth,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=False,
+        return_scan=True,
+        type=type,
+        name=name,
+        scan_info=scan_info,
     )
 
     def run_with_cleanup(self, __run__=scan.run):
@@ -358,20 +447,29 @@ def dmesh(
     if run:
         scan.run()
 
-    return scan
+    if return_scan:
+        return scan
 
 
+@typeguard.typechecked
 def a2scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Absolute 2 motors scan
@@ -407,66 +505,123 @@ def a2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    args = [motor1, start1, stop1, motor2, start2, stop2]
-    args += counter_args
-    return anscan(count_time, intervals, *args, **kwargs)
+    return anscan(
+        [(motor1, start1, stop1), (motor2, start2, stop2)],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
-def lookupscan(count_time, *motors_positions, **kwargs):
+# TODO: What is the difference between type and name (keep in mind that there is also title)
+@typeguard.typechecked
+def lookupscan(
+    motor_pos_tuple_list: _scannable_position_list,
+    count_time,
+    *counter_args: _countables,
+    type: str = "lookupscan",
+    name: str = "lookupscan",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+    scan_params: Optional[dict] = None,
+):
     """Lookupscan usage:
     lookupscan(0.1,m0,numpy.arange(0,2,0.5),m1,numpy.linspace(1,3,4),diode2)
     to scan 2 motor with their own position table and with diode2 as
     the only counter.
     """
-    counter_list = list()
-    tmp_l, motors_positions = list(motors_positions), list()
-    starts_list = list()
-    stops_list = list()
-    while tmp_l:
-        val = tmp_l.pop(0)
-        if isinstance(val, Axis):
-            pos = tmp_l.pop(0)
-            starts_list.append(pos[0])
-            stops_list.append(pos[-1])
-            motors_positions.extend((val, pos))
-        else:
-            counter_list.append(val)
+    if scan_info is None:
+        scan_info = dict()
+    if scan_params is None:
+        scan_params = dict()
 
-    kwargs.setdefault(
-        "title",
-        "lookupscan %f on motors (%s)"
-        % (count_time, ",".join(x.name for x in motors_positions[::2])),
+    npoints = len(motor_pos_tuple_list[0][1])
+    motors_positions = list()
+    title_list = list()
+
+    for m_tup in motor_pos_tuple_list:
+        assert len(m_tup[1]) == npoints
+        motors_positions.extend((m_tup[0], m_tup[1]))
+
+    if not title:
+        title = "lookupscan %f on motors (%s)" % (
+            count_time,
+            ",".join(x[0].name for x in motor_pos_tuple_list),
+        )
+
+    scan_info.update(
+        {
+            "npoints": npoints,
+            "count_time": count_time,
+            "type": type,
+            "save": save,
+            "title": title,
+            "sleep_time": sleep_time,
+        }
     )
 
-    scan_info = {
-        "npoints": len(motors_positions[1]),
-        "count_time": count_time,
-        "type": kwargs.get("type", "lookupscan"),
-        "save": kwargs.get("save", True),
-        "start": starts_list,  # kwargs.get("start", []),
-        "stop": stops_list,  # kwargs.get("stop", []),
-        "title": kwargs["title"],
-        "sleep_time": kwargs.get("sleep_time"),
-    }
+    scan_params.update(
+        {
+            "npoints": npoints,
+            "count_time": count_time,
+            "sleep_time": sleep_time,
+            "type": type,
+        }
+    )
 
     chain = DEFAULT_CHAIN.get(
-        scan_info, counter_list, top_master=VariableStepTriggerMaster(*motors_positions)
+        scan_params,
+        counter_args,
+        top_master=VariableStepTriggerMaster(*motors_positions),
     )
     scan = Scan(
         chain,
         scan_info=scan_info,
-        name=kwargs.setdefault("name", "lookupscan"),
-        save=scan_info["save"],
-        save_images=kwargs.get("save_images"),
+        name=name,
+        save=save,
+        save_images=save_images,
         data_watch_callback=StepScanDataWatch(),
     )
 
-    if kwargs.get("run", True):
+    if run:
         scan.run()
-    return scan
+
+    if return_scan:
+        return scan
 
 
-def anscan(count_time, intervals, *motors_positions, **kwargs):
+# TODO: what is the difference between type and name?
+# TODO: type is really an ugly key-word-arg
+# TODO: what is the option return_scan good for?
+@typeguard.typechecked
+def anscan(
+    motor_tuple_list: _scannable_start_stop_list,
+    count_time: float,
+    intervals: int,
+    *counter_args: _countables,
+    type: Optional[str] = None,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     anscan usage:
       anscan(ctime, intervals, m1, start_m1_pos, stop_m1_pos, m2, start_m2_pos, stop_m2_pos, counter)
@@ -480,61 +635,83 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
     1 to 2 and **m2** from 3 to 7 and with diode2 as the only counter.
     """
 
-    if not isinstance(intervals, int):
-        raise ValueError("number of interval must be an integer number.")
     npoints = intervals + 1
-    counter_list = list()
-    # scan type is forced to be either aNscan or dNscan
-    # scan_type = kwargs.pop("type", None)  #TODO: See if check needed!
-    tmp_l, motors_positions = list(motors_positions), list()
+    if scan_info is None:
+        scan_info = dict()
+    motors_positions = list()
     title_list = list()
-    starts_list = []
-    stops_list = []
-    while tmp_l:
-        val = tmp_l.pop(0)
-        if isinstance(val, Axis):
-            start = tmp_l.pop(0)
-            starts_list.append(start)
-            stop = tmp_l.pop(0)
-            stops_list.append(stop)
-            d = val.position if scan_type == "dscan" else 0
-            title_list.extend(
-                (
-                    val.name,
-                    rounder(val.tolerance, start - d),
-                    rounder(val.tolerance, stop - d),
-                )
-            )
-            motors_positions.extend((val, numpy.linspace(start, stop, npoints)))
-        else:
-            counter_list.append(val)
-
-    kwargs.setdefault("start", starts_list)
-    kwargs.setdefault("stop", stops_list)
-
-    if scan_type == "dscan":
-        scan_type = (
-            f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"
+    starts_list = list()
+    stops_list = list()
+    for m_tup in motor_tuple_list:
+        mot = m_tup[0]
+        d = mot.position if type == "dscan" else 0
+        start = m_tup[1]
+        stop = m_tup[2]
+        title_list.extend(
+            (mot.name, rounder(mot.tolerance, start), rounder(mot.tolerance, stop))
         )
+        start = m_tup[1] + d
+        stop = m_tup[2] + d
+        motors_positions.append((mot, numpy.linspace(start, stop, npoints)))
+        starts_list.append(start)
+        stops_list.append(stop)
+
+    scan_info["start"] = starts_list
+    scan_info["stop"] = stops_list
+
+    scan_params = dict()
+    scan_params["start"] = starts_list
+    scan_params["stop"] = stops_list
+
+    # scan type is forced to be either aNscan or dNscan
+    if type == "dscan":
+        type = f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"
     else:
-        scan_type = (
-            f"a{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "ascan"
-        )
-    kwargs["type"] = scan_type
+        type = f"a{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "ascan"
 
-    kwargs.setdefault("name", scan_type)
-    if "title" not in kwargs:
-        args = [scan_type]
+    if not name:
+        name = type
+
+    if not title:
+        args = [type]
         args += title_list
         args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        kwargs["title"] = template.format(*args)
+        title = template.format(*args)
 
-    motors_positions += counter_list
-    return lookupscan(count_time, *motors_positions, **kwargs)
+    return lookupscan(
+        motors_positions,
+        count_time,
+        *counter_args,
+        save=save,
+        save_images=save_images,
+        run=run,
+        title=title,
+        name=name,
+        type=type,
+        sleep_time=sleep_time,
+        return_scan=return_scan,
+        scan_info=scan_info,
+        scan_params=scan_params,
+    )
 
 
-def dnscan(count_time, intervals, *motors_positions, **kwargs):
+@typeguard.typechecked
+def dnscan(
+    motor_tuple_list: _scannable_start_stop_list,
+    count_time: float,
+    intervals: int,
+    *counter_args: _countables,
+    type: Optional[str] = None,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     dnscan usage:
       dnscan(0.1, 10, m0, rel_start_m0, rel_end_m0, m1, rel_start_m1, rel_stop_m1, counter)
@@ -542,42 +719,27 @@ def dnscan(count_time, intervals, *motors_positions, **kwargs):
       dnscan(0.1, 10, m0, -1, 1, m1, -2, 2, diode2)
     """
 
-    if not isinstance(intervals, int):
-        raise ValueError("number of interval must be an integer number.")
-    counter_list = list()
-    tmp_l, motors_positions = list(motors_positions), list()
-
-    starts_list = []  # absolute start values.
-    stops_list = []  # absolute stop values.
-    old_pos_list = []  # absolute original motor positions.
-    motors_list = []
-
-    while tmp_l:
-        val = tmp_l.pop(0)
-        if isinstance(val, Axis):
-            motors_list.append(val)
-            oldpos = val.position
-            old_pos_list.append(oldpos)
-            start = tmp_l.pop(0)
-            starts_list.append(start)
-            stop = tmp_l.pop(0)
-            stops_list.append(stop)
-            motors_positions.extend((val, oldpos + start, oldpos + stop))
-        else:
-            counter_list.append(val)
-
-    run = kwargs.pop("run", True)
-    kwargs["run"] = False
-    kwargs["type"] = "dscan"
-    kwargs.setdefault("start", starts_list)
-    kwargs.setdefault("stop", stops_list)
-
-    motors_positions += counter_list
-
-    scan = anscan(count_time, intervals, *motors_positions, **kwargs)
+    scan = anscan(
+        motor_tuple_list,
+        count_time,
+        intervals,
+        *counter_args,
+        save=save,
+        save_images=save_images,
+        title=title,
+        name=name,
+        type="dscan",
+        sleep_time=sleep_time,
+        run=False,
+        scan_info=scan_info,
+    )
 
     def run_with_cleanup(self, __run__=scan.run):
-        with cleanup(*motors_list, restore_list=(cleanup_axis.POS,), verbose=True):
+        with cleanup(
+            *[m[0] for m in motor_tuple_list],
+            restore_list=(cleanup_axis.POS,),
+            verbose=True,
+        ):
             __run__()
 
     scan.run = types.MethodType(run_with_cleanup, scan)
@@ -585,240 +747,328 @@ def dnscan(count_time, intervals, *motors_positions, **kwargs):
     if run:
         scan.run()
 
-    return scan
+    if return_scan:
+        return scan
 
 
+@typeguard.typechecked
 def a3scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Absolute 3 motors scan.
     Identical to a2scan but for 3 motors.
     """
-    args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
-    args += counter_args
-    return anscan(count_time, intervals, *args, **kwargs)
+    return anscan(
+        [(motor1, start1, stop1), (motor2, start2, stop2), (motor3, start3, stop3)],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def a4scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    motor4,
-    start4,
-    stop4,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    motor4: _scannable,
+    start4: float,
+    stop4: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Absolute 4 motors scan.
     Identic to a2scan but for 4 motors.
     """
-    args = [
-        motor1,
-        start1,
-        stop1,
-        motor2,
-        start2,
-        stop2,
-        motor3,
-        start3,
-        stop3,
-        motor4,
-        start4,
-        stop4,
-    ]
-    args += counter_args
-    return anscan(count_time, intervals, *args, **kwargs)
+
+    return anscan(
+        [
+            (motor1, start1, stop1),
+            (motor2, start2, stop2),
+            (motor3, start3, stop3),
+            (motor4, start4, stop4),
+        ],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def a5scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    motor4,
-    start4,
-    stop4,
-    motor5,
-    start5,
-    stop5,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    motor4: _scannable,
+    start4: float,
+    stop4: float,
+    motor5: _scannable,
+    start5: float,
+    stop5: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Absolute 5 motors scan.
     Identic to a2scan but for 5 motors.
     """
-    args = [
-        motor1,
-        start1,
-        stop1,
-        motor2,
-        start2,
-        stop2,
-        motor3,
-        start3,
-        stop3,
-        motor4,
-        start4,
-        stop4,
-        motor5,
-        start5,
-        stop5,
-    ]
-    args += counter_args
-    return anscan(count_time, intervals, *args, **kwargs)
+    return anscan(
+        [
+            (motor1, start1, stop1),
+            (motor2, start2, stop2),
+            (motor3, start3, stop3),
+            (motor4, start4, stop4),
+            (motor5, start5, stop5),
+        ],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def d3scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Relative 3 motors scan.
     Identic to d2scan but for 3 motors.
     """
-    args = [motor1, start1, stop1, motor2, start2, stop2, motor3, start3, stop3]
-    args += counter_args
-    return dnscan(count_time, intervals, *args, **kwargs)
+    return dnscan(
+        [(motor1, start1, stop1), (motor2, start2, stop2), (motor3, start3, stop3)],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def d4scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    motor4,
-    start4,
-    stop4,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    motor4: _scannable,
+    start4: float,
+    stop4: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Relative 4 motors scan.
     Identic to d2scan but for 4 motors.
     """
-    args = [
-        motor1,
-        start1,
-        stop1,
-        motor2,
-        start2,
-        stop2,
-        motor3,
-        start3,
-        stop3,
-        motor4,
-        start4,
-        stop4,
-    ]
-    args += counter_args
-    return dnscan(count_time, intervals, *args, **kwargs)
+    return dnscan(
+        [
+            (motor1, start1, stop1),
+            (motor2, start2, stop2),
+            (motor3, start3, stop3),
+            (motor4, start4, stop4),
+        ],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def d5scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    motor3,
-    start3,
-    stop3,
-    motor4,
-    start4,
-    stop4,
-    motor5,
-    start5,
-    stop5,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    motor3: _scannable,
+    start3: float,
+    stop3: float,
+    motor4: _scannable,
+    start4: float,
+    stop4: float,
+    motor5: _scannable,
+    start5: float,
+    stop5: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Relative 5 motors scan.
-    Identic to d2scan but for 5 motors.
+    Identic to s2scan but for 5 motors.
     """
-    args = [
-        motor1,
-        start1,
-        stop1,
-        motor2,
-        start2,
-        stop2,
-        motor3,
-        start3,
-        stop3,
-        motor4,
-        start4,
-        stop4,
-        motor5,
-        start5,
-        stop5,
-    ]
-    args += counter_args
-    return dnscan(count_time, intervals, *args, **kwargs)
+    return dnscan(
+        [
+            (motor1, start1, stop1),
+            (motor2, start2, stop2),
+            (motor3, start3, stop3),
+            (motor4, start4, stop4),
+            (motor5, start5, stop5),
+        ],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
+@typeguard.typechecked
 def d2scan(
-    motor1,
-    start1,
-    stop1,
-    motor2,
-    start2,
-    stop2,
-    intervals,
-    count_time,
-    *counter_args,
-    **kwargs,
+    motor1: _scannable,
+    start1: float,
+    stop1: float,
+    motor2: _scannable,
+    start2: float,
+    stop2: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: Optional[str] = None,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
 ):
     """
     Relative 2 motors scan
@@ -859,12 +1109,37 @@ def d2scan(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    args = [motor1, start1, stop1, motor2, start2, stop2]
-    args += counter_args
-    return dnscan(count_time, intervals, *args, **kwargs)
+    return dnscan(
+        [(motor1, start1, stop1), (motor2, start2, stop2)],
+        count_time,
+        intervals,
+        *counter_args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
-def timescan(count_time, *counter_args, **kwargs):
+@typeguard.typechecked
+def timescan(
+    count_time: float,
+    *counter_args: _countables,
+    npoints: Optional[int] = 0,
+    name: str = "timescan",
+    title: Optional[str] = None,
+    type: str = "timescan",
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     Time scan
 
@@ -887,52 +1162,67 @@ def timescan(count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
         npoints (int): number of points [default: 0, meaning infinite number of points]
-        output_mode (str): valid are 'tail' (append each line to output) or
-                           'monitor' (refresh output in single line)
-                           [default: 'tail']
     """
-    save_images = kwargs.get("save_images")
+    #        output_mode (str): valid are 'tail' (append each line to output) or
+    #                           'monitor' (refresh output in single line)
+    #                           [default: 'tail']
 
-    scan_info = {
-        "type": kwargs.get("type", "timescan"),
-        "save": kwargs.get("save", True),
-        "title": kwargs.get("title"),
-        "sleep_time": kwargs.get("sleep_time"),
-        "output_mode": kwargs.get("output_mode", "tail"),
-    }
+    if scan_info is None:
+        scan_info = dict()
 
-    if scan_info["title"] is None:
-        args = scan_info["type"], count_time
+    scan_info.update(
+        {
+            "type": type,
+            "save": save,
+            "sleep_time": sleep_time,
+            #       "output_mode": kwargs.get("output_mode", "tail"),
+        }
+    )
+
+    if title is None:
+        args = type, count_time
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         scan_info["title"] = template.format(*args)
 
-    npoints = kwargs.get("npoints", 0)
+    scan_info.update({"npoints": npoints, "count_time": count_time})
 
-    scan_info.update(
-        {"npoints": npoints, "start": [], "stop": [], "count_time": count_time}
-    )
+    _log.info("Doing %s", type)
 
-    _log.info("Doing %s", scan_info["type"])
+    scan_params = {"npoints": npoints, "count_time": count_time, "type": type}
 
     chain = DEFAULT_CHAIN.get(scan_info, counter_args)
 
     scan = Scan(
         chain,
         scan_info=scan_info,
-        name=kwargs.setdefault("name", "timescan"),
-        save=scan_info["save"],
+        name=name,
+        save=save,
         save_images=save_images,
         data_watch_callback=StepScanDataWatch(),
     )
 
-    if kwargs.get("run", True):
+    if run:
         scan.run()
 
-    if kwargs.get("return_scan", True):
+    if return_scan:
         return scan
 
 
-def loopscan(npoints, count_time, *counter_args, **kwargs):
+@typeguard.typechecked
+def loopscan(
+    npoints: int,
+    count_time: float,
+    *counter_args: _countables,
+    name: str = "loopscan",
+    title: Optional[str] = None,
+    type: str = "loopscan",
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     Similar to :ref:`timescan` but npoints is mandatory
 
@@ -958,19 +1248,42 @@ def loopscan(npoints, count_time, *counter_args, **kwargs):
                            'monitor' (refresh output in single line)
                            [default: 'tail']
     """
-    if not isinstance(npoints, int):
-        raise ValueError("number of point must be an integer number.")
-    kwargs.setdefault("npoints", npoints)
-    kwargs.setdefault("name", "loopscan")
-    kwargs.setdefault("type", "loopscan")
-    args = kwargs.get("type", "loopscan"), npoints, count_time
-    template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-    title = template.format(*args)
-    kwargs.setdefault("title", title)
-    return timescan(count_time, *counter_args, **kwargs)
+
+    if title is None:
+        args = type, npoints, count_time
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        title = template.format(*args)
+
+    return timescan(
+        count_time,
+        *counter_args,
+        npoints=npoints,
+        name=name,
+        title=title,
+        type=type,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
 
-def ct(count_time, *counter_args, **kwargs):
+@typeguard.typechecked
+def ct(
+    count_time: float,
+    *counter_args: _countables,
+    name: str = "ct",
+    title: Optional[str] = None,
+    save: bool = False,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
+
     """
     Counts for a specified time
 
@@ -994,16 +1307,40 @@ def ct(count_time, *counter_args, **kwargs):
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
-    kwargs["type"] = "ct"
-    kwargs.setdefault("save", False)
-    kwargs["npoints"] = 1
 
-    kwargs.setdefault("name", "ct")
+    return timescan(
+        count_time,
+        *counter_args,
+        npoints=1,
+        name=name,
+        title=title,
+        type="ct",
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
+    )
 
-    return timescan(count_time, *counter_args, **kwargs)
 
-
-def pointscan(motor, positions, count_time, *counter_args, **kwargs):
+# Todo: should this define start,stop? why is there total_acq_time?
+@typeguard.typechecked
+def pointscan(
+    motor: _scannable,
+    positions: _position_list,
+    count_time: float,
+    *counter_args: _countables,
+    name: str = "pointscan",
+    title: Optional[str] = None,
+    type: str = "pointscan",
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+):
     """
     Point scan
 
@@ -1028,18 +1365,13 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         return_scan (bool): True by default
         run (bool): True by default
     """
-    save_images = kwargs.pop("save_images", None)
-
-    scan_info = {
-        "type": kwargs.get("type", "pointscan"),
-        "save": kwargs.get("save", True),
-        "title": kwargs.get("title"),
-    }
+    if scan_info is None:
+        scan_info = dict()
 
     npoints = len(positions)
-    if scan_info["title"] is None:
+    if title is None:
         args = (
-            scan_info["type"],
+            type,
             motor.name,
             positions[0],
             positions[npoints - 1],
@@ -1047,7 +1379,7 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
             count_time,
         )
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
+        title = template.format(*args)
 
     scan_info.update(
         {
@@ -1056,11 +1388,24 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
             "start": positions[0],
             "stop": positions[npoints - 1],
             "count_time": count_time,
+            "title": title,
+            "type": type,
+            # "save": save,
         }
     )
 
+    scan_params = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "type": type,
+        "start": positions[0],
+        "stop": positions[npoints - 1],
+    }
+
     chain = DEFAULT_CHAIN.get(
-        scan_info, counter_args, top_master=VariableStepTriggerMaster(motor, positions)
+        scan_params,
+        counter_args,
+        top_master=VariableStepTriggerMaster(motor, positions),
     )
 
     _log.info(
@@ -1074,16 +1419,16 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
     scan = Scan(
         chain,
         scan_info=scan_info,
-        name=kwargs.setdefault("name", "pointscan"),
-        save=scan_info["save"],
+        name=name,
+        save=save,
         save_images=save_images,
         data_watch_callback=StepScanDataWatch(),
     )
 
-    if kwargs.get("run", True):
+    if run:
         scan.run()
 
-    if kwargs.get("return_scan", True):
+    if return_scan:
         return scan
 
 

@@ -39,7 +39,7 @@ class Proxy(object):
             cnx = Tcp(**tcp_config)
             self.name = "%s:%d" % (cnx._host, cnx._port)
         else:
-            raise NotImplemented("Proxy: Not managed yet")
+            raise NotImplementedError("Proxy: Not managed yet")
 
         self._cnx = None
         self._join_task = None

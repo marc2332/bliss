@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-""" 
+"""
     BLISS controller for MICOS motor controller
 
     Manufacturer manual:
@@ -13,7 +13,7 @@
     TACO DS:
     /segfs/dserver/classes/steppermotor/micos/src/Micos.c
 
-    Possible contents of YML configuration file (of course there are 
+    Possible contents of YML configuration file (of course there are
     no comments in real yml file):
     controller:
       class: micos
@@ -23,117 +23,117 @@
       name: micos
       description: EH2 micos motor controller
       axes:
-				      # Comments/Remarks:
+                                      # Comments/Remarks:
         - name:             ths       # Motor mnemonic
           number:             1       # Axis number. Possible values:[1,99].
 
-	  # STANDARD parameters for a motor:
-	  # --------------------------------
+          # STANDARD parameters for a motor:
+          # --------------------------------
           steps_per_unit:     1       # steps/deg
           velocity:          60       # deg/sec
-          acceleration:     100       # deg/sec**2 
+          acceleration:     100       # deg/sec**2
 
-	  # next one was removed from yml file, since not used
-	  #backlash:         50       # deg
-	  low_limit:        -10000    # s/w low limit [deg] (used by BLISS
-				      # core)
-	  high_limit:        10000    # s/w high limit [deg] (used by BLISS
-				      # core)
+          # next one was removed from yml file, since not used
+          #backlash:         50       # deg
+          low_limit:        -10000    # s/w low limit [deg] (used by BLISS
+                                      # core)
+          high_limit:        10000    # s/w high limit [deg] (used by BLISS
+                                      # core)
 
-	  # SPECIFIC parameters:
-	  # --------------------
+          # SPECIFIC parameters:
+          # --------------------
 
-	  # related to endswitches: 'cal' (-ve) + 'rm' (+ve)
-	  low_endswitch_type:  2      # Set 'cal' endswitch (= low h/w limit)
+          # related to endswitches: 'cal' (-ve) + 'rm' (+ve)
+          low_endswitch_type:  2      # Set 'cal' endswitch (= low h/w limit)
                                       # function to ignored (i.e. dont care
-                                      # if it is closer or opener) so that 
-				      # motor can do several turns
-	  high_endswitch_type: 2      # Set 'rm' endswitch (= high h/w limit)
+                                      # if it is closer or opener) so that
+                                      # motor can do several turns
+          high_endswitch_type: 2      # Set 'rm' endswitch (= high h/w limit)
                                       # function to ignored (i.e. dont care
-                                      # if it is closer or opener) so that 
-				      # motor can do several turns
-	  hw_low_limit:     -10000    # h/w low limit [deg] (named hardware
-				      # limit, to distinguish it from BLISS
-				      # core s/w limit and since it can be 
-				      # set in Micos controller, though Micos
-			 	      # doc names it s/w limit.
-				      # What Micos names low h/w limit is
-				      # the one defined by 'cal' limit switch.
-				      # In initialize_hardware_axis() we do
-				      # not call _set_hw_limits(), since low
-				      # endswitch ('cal') function is set to
-				      # ignored (see low_endswitch_type).
-				      # We keep this parameter in config file
-				      # in case later function/type of 
-				      # endswitch changes and where one can
-				      # limit the movement to stop before
-				      # 'cal' switch by setting this low 
-				      # limit.
-	  hw_high_limit:     10000    # h/w high limit [deg] (named hardware
-				      # limit, to distinguish it from BLISS 
-				      # core s/w limit and since it can be 
-				      # set in Micos controller, though Micos
-				      # doc names it s/w limit.
-				      # What Micos names high h/w limit is
-				      # the one defined by 'rm' limit switch
-				      # In initialize_hardware_axis() we do
-				      # not call _set_hw_limits(), since high
-				      # endswitch ('rm') function is set to
-				      # ignored (see high_endswitch_type).
-				      # We keep this parameter in config file
-				      # in case later function/type of 
-				      # endswitch changes and where one can
-				      # limit the movement to stop before 'rm'
-				      # switch by setting this high limit.
-	  tofrom_endsw_velocity: 5    # velocity with which approach or go
-				      # away from low ('cal') and high ('rm')
-				      # switch. We keep this parameter in
-				      # low and high endswitch function/type
-				      # is changed, when we need this 
-				      # velocity to move to / away from limit
-				      # switches. Also we use unique/single
-				      # value, though the Micos command set
-				      # allows to set each of 4 velocities 
-				      # (to/from 'cal' and to/from 'rm')
-				      # separately so that we could use 4
-				      # difference velocities. 
+                                      # if it is closer or opener) so that
+                                      # motor can do several turns
+          hw_low_limit:     -10000    # h/w low limit [deg] (named hardware
+                                      # limit, to distinguish it from BLISS
+                                      # core s/w limit and since it can be
+                                      # set in Micos controller, though Micos
+                                       # doc names it s/w limit.
+                                      # What Micos names low h/w limit is
+                                      # the one defined by 'cal' limit switch.
+                                      # In initialize_hardware_axis() we do
+                                      # not call _set_hw_limits(), since low
+                                      # endswitch ('cal') function is set to
+                                      # ignored (see low_endswitch_type).
+                                      # We keep this parameter in config file
+                                      # in case later function/type of
+                                      # endswitch changes and where one can
+                                      # limit the movement to stop before
+                                      # 'cal' switch by setting this low
+                                      # limit.
+          hw_high_limit:     10000    # h/w high limit [deg] (named hardware
+                                      # limit, to distinguish it from BLISS
+                                      # core s/w limit and since it can be
+                                      # set in Micos controller, though Micos
+                                      # doc names it s/w limit.
+                                      # What Micos names high h/w limit is
+                                      # the one defined by 'rm' limit switch
+                                      # In initialize_hardware_axis() we do
+                                      # not call _set_hw_limits(), since high
+                                      # endswitch ('rm') function is set to
+                                      # ignored (see high_endswitch_type).
+                                      # We keep this parameter in config file
+                                      # in case later function/type of
+                                      # endswitch changes and where one can
+                                      # limit the movement to stop before 'rm'
+                                      # switch by setting this high limit.
+          tofrom_endsw_velocity: 5    # velocity with which approach or go
+                                      # away from low ('cal') and high ('rm')
+                                      # switch. We keep this parameter in
+                                      # low and high endswitch function/type
+                                      # is changed, when we need this
+                                      # velocity to move to / away from limit
+                                      # switches. Also we use unique/single
+                                      # value, though the Micos command set
+                                      # allows to set each of 4 velocities
+                                      # (to/from 'cal' and to/from 'rm')
+                                      # separately so that we could use 4
+                                      # difference velocities.
 
-	  # related to seeking a reference position ('home')
+          # related to seeking a reference position ('home')
           to_reference_velocity: 1    # velocity with which the motor moves
-				      # when seeking the reference position
-				      # [deg/sec]. Default = 2 deg/sec, but
-				      # this is too fast (though ref. position
-				      # is found, the ref. status remains at
-				      # since when seek for the ref. position
-				      # is done with too high speed, the 
-				      # motor does not stop exactly at the
-				      # reference position, but slightly off
-				      # and therefore the ref. status is 0.
+                                      # when seeking the reference position
+                                      # [deg/sec]. Default = 2 deg/sec, but
+                                      # this is too fast (though ref. position
+                                      # is found, the ref. status remains at
+                                      # since when seek for the ref. position
+                                      # is done with too high speed, the
+                                      # motor does not stop exactly at the
+                                      # reference position, but slightly off
+                                      # and therefore the ref. status is 0.
                                       # To find reference position in one move
-				      # velocity must be low = 1 def/sec, but
-                                      # later we changed algorithm in 
-				      # _move_to_reference() method, where we
-                                      # do several moves and start with the 
+                                      # velocity must be low = 1 def/sec, but
+                                      # later we changed algorithm in
+                                      # _move_to_reference() method, where we
+                                      # do several moves and start with the
                                       # higher speed (= 10 deg/sec).
 
-	  # related to power-up action
-          action_at_powerup:  32      # set power-up action to 32 = enable 
-				      # closed loop
+          # related to power-up action
+          action_at_powerup:  32      # set power-up action to 32 = enable
+                                      # closed loop
 
-	  # related to closed loop
-	  cloop_on:           True    # closed loop enable/disable. Set it
-                                      # to True to be consistent with 
-				      # action_at_powerup
+          # related to closed loop
+          cloop_on:           True    # closed loop enable/disable. Set it
+                                      # to True to be consistent with
+                                      # action_at_powerup
           cloop_winsize:      10E-3   # size of the closed-loop window [deg]
-          cloop_gstbit5sel:   True    # bit 5 of general status state 
+          cloop_gstbit5sel:   True    # bit 5 of general status state
                                       # selection. It is set to 1 if position
                                       # is within closed-loop window for at
                                       # least closed-loop window settling time
-          cloop_trigopsel:    0       # output trigger selection. Active 
-				      # under the same condition as bit 5 
-				      # of general status. Possible values:
-				      # 0 (no trigger) or 1 of [1,2,3 or 4] 
-				      # (4 Digital Output channels)
+          cloop_trigopsel:    0       # output trigger selection. Active
+                                      # under the same condition as bit 5
+                                      # of general status. Possible values:
+                                      # 0 (no trigger) or 1 of [1,2,3 or 4]
+                                      # (4 Digital Output channels)
           cloop_wintime:      1.2E-3  # closed-loop settling time [sec]
 """
 
@@ -238,16 +238,16 @@ class micos(Controller):
 
     def initialize(self):
         """
-	Called when an object of Micos controller class is created
-	(called only once, even if many objects are created).
+        Called when an object of Micos controller class is created
+        (called only once, even if many objects are created).
 
-	Before first usage of one axis of this controller object, 
-	hardware initialization is performed in the following order:
-	 - initialize_hardware()
-	 - initialize_axis()
-	 - set_velocity() and set_acceleration()
-	 - apply software limits
-	 - initialize_hardware_axis()
+        Before first usage of one axis of this controller object,
+        hardware initialization is performed in the following order:
+         - initialize_hardware()
+         - initialize_axis()
+         - set_velocity() and set_acceleration()
+         - apply software limits
+         - initialize_hardware_axis()
 
         Opens serial line.
         """
@@ -281,7 +281,7 @@ class micos(Controller):
 
     def initialize_hardware(self):
         """
-        Initializes the MICOS controller 
+        Initializes the MICOS controller
         Called once for this controller whatever the number of axes.
         Executes actions COMMON for all axes.
         """
@@ -297,24 +297,24 @@ class micos(Controller):
 
     def initialize_axis(self, axis):
         """
-	This function serves for the SOFTWARE INITIALIZION of ONE axis.
+        This function serves for the SOFTWARE INITIALIZION of ONE axis.
 
-	Required/mandatory in the minimal set of motor-controller
-	functions to implement. If this function is not implemented,
-	the initialization of axis is not done.
+        Required/mandatory in the minimal set of motor-controller
+        functions to implement. If this function is not implemented,
+        the initialization of axis is not done.
 
         Reads axis config and/or settings.
 
-	Remark: When SPEC used TACO DS, in object_initialize() of DS the last
-		stored parameters were obtained from TACO DB and applied
-		to the hardware, but then SPEC in setup invoked DevReset, 
-		which caused DS to execute 'nreset' command, which restored
-		the hardware to the values saved in NVRAM with 'nsave', so 
-		SPEC by doing this overwrote what DS saved in the TACO DB. 
-		---> not very logical; moreover, TACO DS whenever setting
-		one parameter, it stored its value in TACO DB. In the end
-		this way more parameters than are 'Storable' to NVRAM were
-		stored in TACO DB.
+        Remark: When SPEC used TACO DS, in object_initialize() of DS the last
+                stored parameters were obtained from TACO DB and applied
+                to the hardware, but then SPEC in setup invoked DevReset,
+                which caused DS to execute 'nreset' command, which restored
+                the hardware to the values saved in NVRAM with 'nsave', so
+                SPEC by doing this overwrote what DS saved in the TACO DB.
+                ---> not very logical; moreover, TACO DS whenever setting
+                one parameter, it stored its value in TACO DB. In the end
+                this way more parameters than are 'Storable' to NVRAM were
+                stored in TACO DB.
 
         Args:
             - <axis> : Bliss axis object.
@@ -598,16 +598,16 @@ class micos(Controller):
 
     def initialize_hardware_axis(self, axis):
         """
-	This function serves for the HARDWARE INITIALIZION of an axis.
-	It uses the values of various axis-related parameters as obtained
-	in initialize_axis().
-	In various set-like functions always check for a general error.
+        This function serves for the HARDWARE INITIALIZION of an axis.
+        It uses the values of various axis-related parameters as obtained
+        in initialize_axis().
+        In various set-like functions always check for a general error.
 
-	Remark: In the beginning of this function could do reset to the
-	        the last values that were stored in NVRAM, but do not know
-		how many times NVRAM can be overwritten, so unlike SPEC
-		(where DevReset of TACO DS was called in setup), will not
-		do reset here.
+        Remark: In the beginning of this function could do reset to the
+                the last values that were stored in NVRAM, but do not know
+                how many times NVRAM can be overwritten, so unlike SPEC
+                (where DevReset of TACO DS was called in setup), will not
+                do reset here.
 
         Args:
             - <axis> : Bliss axis object.
@@ -666,15 +666,15 @@ class micos(Controller):
         """
         This function enables/activates axis.
 
-	Remark: If for one reason or another bit 7 in status byte 
-	        returned by 'nstatus' command is 1 --> state OFF
-		then this command does not help to remove the OFF
-		state. Only reset_axis() helps, but then need to do 
-		the homing again since reset_axis() moves the motor
-		to another place (empirically it was found that the
-		distance between the position obtained after reset_axis()
-		and the reference(= home) position is 19.23526 degrees.
-	
+        Remark: If for one reason or another bit 7 in status byte
+                returned by 'nstatus' command is 1 --> state OFF
+                then this command does not help to remove the OFF
+                state. Only reset_axis() helps, but then need to do
+                the homing again since reset_axis() moves the motor
+                to another place (empirically it was found that the
+                distance between the position obtained after reset_axis()
+                and the reference(= home) position is 19.23526 degrees.
+
         Args:
             - <axis> : Bliss axis object.
         """
@@ -720,7 +720,7 @@ class micos(Controller):
         """
         Save storable parameters to NVRAM
 
-	Remark: for the moment comment the line with command
+        Remark: for the moment comment the line with command
 
         Args:
             - <axis> : Bliss axis object.
@@ -888,9 +888,9 @@ class micos(Controller):
         Set new dial position
 
         Remark: The manual says that the dial position is automatically
-	        set to 0, when 'cal' limit switch is reached, but that 
-	        that we can use this command to set the 'origin' wherever
-	        we want.
+                set to 0, when 'cal' limit switch is reached, but that
+                that we can use this command to set the 'origin' wherever
+                we want.
 
         Args:
             - <axis> : bliss axis object.
@@ -1003,17 +1003,17 @@ class micos(Controller):
 
     def limit_search(self, axis, limit):
         """
-	Search hardware low (if limit < 0) or high (if limit >= 0) limit
-	When search for low hardware limit, the search is done to reach
-	so called cal endswitch.
-	When search for high hardware limit, the search is done to reach
-	so called rm endswitch.
+        Search hardware low (if limit < 0) or high (if limit >= 0) limit
+        When search for low hardware limit, the search is done to reach
+        so called cal endswitch.
+        When search for high hardware limit, the search is done to reach
+        so called rm endswitch.
 
         Args:
             - <axis> : bliss axis object.
-	    - <limit>: if >= 0, search for the positive hw limit
-	               if < 0, search for the negative hw limit
-	"""
+            - <limit>: if >= 0, search for the positive hw limit
+                       if < 0, search for the negative hw limit
+        """
 
         log_info(self, "limit_search()")
 
@@ -1032,23 +1032,23 @@ class micos(Controller):
 
     def home_search(self, axis, switch):
         """
-	Search for a reference position in either +ve direction
-	if switch is > 0 or -ve direction is switch is < 0.
-	For Micos rotative motor the +ve sense is clockwise rotation
-	and -ve sense is anti clock-wise rotation.
-	This search is done with adapted velocity (see config
-	parameter 'to_reference_velocity', which is much lower
+        Search for a reference position in either +ve direction
+        if switch is > 0 or -ve direction is switch is < 0.
+        For Micos rotative motor the +ve sense is clockwise rotation
+        and -ve sense is anti clock-wise rotation.
+        This search is done with adapted velocity (see config
+        parameter 'to_reference_velocity', which is much lower
         than the velocity for the standard moves.
-	In the BLISS shell this function translates to home() for
-	a give axis. For ex. on ID10 the Micos rotational motor
-	axis name = ths. We then type ths.home(1) or ths.home(-1)
-	to make a home search.
+        In the BLISS shell this function translates to home() for
+        a give axis. For ex. on ID10 the Micos rotational motor
+        axis name = ths. We then type ths.home(1) or ths.home(-1)
+        to make a home search.
 
         Args:
             - <axis> : bliss axis object.
-	    - <switch>: if >= 0, search in the positive sense (= clockwise)_
-	                if < 0, search in the negative sense (= ccw)
-	"""
+            - <switch>: if >= 0, search in the positive sense (= clockwise)_
+                        if < 0, search in the negative sense (= ccw)
+        """
 
         log_info(self, "home_search()")
 
@@ -1068,17 +1068,17 @@ class micos(Controller):
 
     def home_state(self, axis):
         """
-	See the state of reaching or not the reference position
-	Attention!! This is INTERNAL function supposed to be used
-	inside the function home_search(). At the level of axis
-	in BLISS shell there is no method corresponding to this
-	function. 
+        See the state of reaching or not the reference position
+        Attention!! This is INTERNAL function supposed to be used
+        inside the function home_search(). At the level of axis
+        in BLISS shell there is no method corresponding to this
+        function.
 
         Args:
             - <axis> : bliss axis object.
-	Returns:
-	    - <ref.pos. state>: 1 = if motor is at reference(= home) position
-				0 = if motor is not at ref.(= home) position
+        Returns:
+            - <ref.pos. state>: 1 = if motor is at reference(= home) position
+                                0 = if motor is not at ref.(= home) position
         """
 
         log_info(self, "home_state()")
@@ -1104,8 +1104,8 @@ class micos(Controller):
 
         Args:
             - <axis> : bliss axis object.
-	Returns:
-	    - <id-related info>: string with Micos ID and Firmware version
+        Returns:
+            - <id-related info>: string with Micos ID and Firmware version
         """
 
         log_info(self, "_get_id()")
@@ -1127,8 +1127,8 @@ class micos(Controller):
 
         Args:
             - <axis> : bliss axis object.
-	#Returns:
-	#    - <useful info>: some useful axis-related info
+        #Returns:
+        #    - <useful info>: some useful axis-related info
         """
 
         log_info(self, "get_info()")
@@ -1175,13 +1175,13 @@ class micos(Controller):
     # ----------------  Direct communication methods ------------------
 
     def raw_write(self, axis, cmd):
-        """ 
-	Raw write command (useful mostly for the commands that are not
-	used in the 'std' methods or not implemented as 'custom' methods).
+        """
+        Raw write command (useful mostly for the commands that are not
+        used in the 'std' methods or not implemented as 'custom' methods).
 
         Args:
             - <axis> : bliss axis object.
-	    - <cmd>  : command string 
+            - <cmd>  : command string
         """
         log_info(self, "raw_write()")
         log_debug(self, "raw_write(): String to write: %s" % cmd)
@@ -1189,14 +1189,14 @@ class micos(Controller):
 
     def raw_write_read(self, axis, cmd):
         """
-	Raw write_read command (useful mostly for the commands that are not
-	used in the 'std' methods or not implemented as 'custom' methods).
+        Raw write_read command (useful mostly for the commands that are not
+        used in the 'std' methods or not implemented as 'custom' methods).
 
         Args:
             - <axis> : bliss axis object.
-	    - <cmd>  : command string 
-	Returns:
-	    - <reply>: reply for the command
+            - <cmd>  : command string
+        Returns:
+            - <reply>: reply for the command
         """
         log_info(self, "raw_write_read()")
         log_debug(self, "raw_write_read(): String to write: %s" % cmd)
@@ -1216,7 +1216,7 @@ class micos(Controller):
     @object_method
     def save_axis_parameters(self, axis):
         """
-	Save storable axis parameters in NVRAM
+        Save storable axis parameters in NVRAM
 
         Args:
             - <axis> : bliss axis object.
@@ -1227,7 +1227,7 @@ class micos(Controller):
     @object_method
     def restore_axis_parameters(self, axis):
         """
-	Restore storable axis parameters from NVRAM
+        Restore storable axis parameters from NVRAM
 
         Args:
             - <axis> : bliss axis object.
@@ -1238,7 +1238,7 @@ class micos(Controller):
     @object_method
     def reset_axis(self, axis):
         """
-	Makes a software reset of the axis.
+        Makes a software reset of the axis.
 
         Args:
             - <axis> : bliss axis object.
@@ -1251,7 +1251,7 @@ class micos(Controller):
     @object_method
     def clear_axis(self, axis):
         """
-	Clears axis' command stack.
+        Clears axis' command stack.
 
         Args:
             - <axis> : bliss axis object.
@@ -1264,7 +1264,7 @@ class micos(Controller):
     @object_method
     def set_axis_on(self, axis):
         """
-	Enables axis
+        Enables axis
 
         Args:
             - <axis> : bliss axis object.
@@ -1275,7 +1275,7 @@ class micos(Controller):
     @object_method
     def set_axis_off(self, axis):
         """
-	Disables axis
+        Disables axis
 
         Args:
             - <axis> : Bliss axis object.
@@ -1288,7 +1288,7 @@ class micos(Controller):
     @object_method
     def set_cloop_on(self, axis):
         """
-	Enables closed loop
+        Enables closed loop
 
         Args:
             - <axis> : Bliss axis object.
@@ -1299,7 +1299,7 @@ class micos(Controller):
     @object_method
     def set_cloop_off(self, axis):
         """
-	Disables closed loop
+        Disables closed loop
 
         Args:
             - <axis> : Bliss axis object.
@@ -1312,12 +1312,12 @@ class micos(Controller):
     @object_method(types_info=("float", "None"))
     def rel_move(self, axis, displacement):
         """
-	Make a relative move
+        Make a relative move
 
         Args:
             - <axis> : Bliss axis object.
             - <displacement> : Relative displacement with the respect to
-			       the current position.
+                               the current position.
         """
         log_info(self, "rel_move()")
         self._rel_move(axis, displacement)
@@ -1327,10 +1327,10 @@ class micos(Controller):
     @object_method(types_info=("None", "str"))
     def get_id(self, axis):
         """
-	Get a kind of ID-info
+        Get a kind of ID-info
 
-	Returns:
-	    - <id-info>: string with Micos ID and Firmware version 
+        Returns:
+            - <id-info>: string with Micos ID and Firmware version
         """
         log_info(self, "get_id()")
         self._get_id(axis)
@@ -1340,7 +1340,7 @@ class micos(Controller):
     @object_method
     def calibrate(self, axis):
         """
-	Make a move to the negative limit switch ('cal' switch)
+        Make a move to the negative limit switch ('cal' switch)
 
         Args:
             - <axis> : Bliss axis object.
@@ -1351,7 +1351,7 @@ class micos(Controller):
     @object_method
     def rangemeasure(self, axis):
         """
-	Make a move to the positive limit switch ('rm' switch)
+        Make a move to the positive limit switch ('rm' switch)
 
         Args:
             - <axis> : Bliss axis object.
@@ -1364,13 +1364,13 @@ class micos(Controller):
     @object_method(types_info=("None", "str"))
     def get_cloop_params(self, axis):
         """
-	Get closed loop parameters (P, I, D, ...)
+        Get closed loop parameters (P, I, D, ...)
 
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <cloop-params>: String in the form 'P I D' and even some more
-			      values, which are not ducumented.
+        Returns:
+            - <cloop-params>: String in the form 'P I D' and even some more
+                              values, which are not ducumented.
         """
         log_info(self, "get_cloop_params()")
         self._get_cloop_params(axis)
@@ -1378,12 +1378,12 @@ class micos(Controller):
     @object_method(types_info=("str", "None"))
     def set_cloop_params(self, axis, cloop_params):
         """
-	Set closed loop parameters (P, I, D)
+        Set closed loop parameters (P, I, D)
 
         Args:
             - <axis> : Bliss axis object.
-	    - <cloop_params>: string in form 'P I D'
-	"""
+            - <cloop_params>: string in form 'P I D'
+        """
         log_info(self, "set_cloop_params()")
         self._set_cloop_params(axis, cloop_params)
 
@@ -1392,19 +1392,19 @@ class micos(Controller):
     @object_method(types_info=("float", "None"))
     def move_to_reference(self, axis, max_displacement):
         """
-	Move to the reference (= home) position with the velocity
-	'to_reference_velocity' as set in the intialize_hardware_axis()
-	with the call self._set_to_reference_velocity(axis).
+        Move to the reference (= home) position with the velocity
+        'to_reference_velocity' as set in the intialize_hardware_axis()
+        with the call self._set_to_reference_velocity(axis).
 
         Args:
             - <axis> : Bliss axis object.
-	    - <max_displacament>: maximum displacement (+/-) with respect
-		to the current position within which we expect to find the
-		reference (= home) position. To be most sure to find it,
-		it is convenient to pass +/- 370 degrees as max_displacement
-		in the invocation of this method (like in home_search 
-		function/method).
-	"""
+            - <max_displacament>: maximum displacement (+/-) with respect
+                to the current position within which we expect to find the
+                reference (= home) position. To be most sure to find it,
+                it is convenient to pass +/- 370 degrees as max_displacement
+                in the invocation of this method (like in home_search
+                function/method).
+        """
         log_info(self, "move_to_reference()")
 
         # make a move to search for the reference position
@@ -1427,9 +1427,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Return:
-	    - <axis_on>: axis ON(= True)/OFF(= False) state
-	"""
+        Return:
+            - <axis_on>: axis ON(= True)/OFF(= False) state
+        """
         log_info(self, "get_axis_on()")
         ret = self._get_axis_on(axis)
         return ret
@@ -1465,9 +1465,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <action_at_powerup>: numeric value of powerup action
-	"""
+        Returns:
+            - <action_at_powerup>: numeric value of powerup action
+        """
         log_info(self, "get_action_at_powerup()")
         ret = self._get_action_at_powerup(axis)
         return ret
@@ -1477,8 +1477,8 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	    - <action_at_powerup>: numeric value of powerup action
-	"""
+            - <action_at_powerup>: numeric value of powerup action
+        """
         log_info(self, "set_action_at_powerup()")
         log_debug(self, f"Powerup action = {powerup_action}")
         self._set_action_at_powerup(axis, powerup_action)
@@ -1490,9 +1490,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <cloop_on>: closed loop enabled(True)/disabled(False) state
-	"""
+        Returns:
+            - <cloop_on>: closed loop enabled(True)/disabled(False) state
+        """
         log_info(self, "get_cloop_on()")
         ret = self._get_cloop_on(axis)
         return ret
@@ -1513,9 +1513,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <cloop_wintime>: closed loop settling time (sec)
-	"""
+        Returns:
+            - <cloop_wintime>: closed loop settling time (sec)
+        """
         log_info(self, "get_cloop_wintime()")
         ret = self._get_cloop_wintime(axis)
         return ret
@@ -1525,8 +1525,8 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	    - <cloop_wintime>: closed loop settling time (sec)
-	"""
+            - <cloop_wintime>: closed loop settling time (sec)
+        """
         log_info(self, "set_cloop_wintime()")
         self._set_cloop_wintime(axis, wintime)
 
@@ -1537,10 +1537,10 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <hold_current>: holding current = current supplied to the
-			      motor when not moving (unit not documented!!)
-	"""
+        Returns:
+            - <hold_current>: holding current = current supplied to the
+                              motor when not moving (unit not documented!!)
+        """
         log_info(self, "get_hold_current()")
         ret = self._get_hold_current(axis)
         return ret
@@ -1550,9 +1550,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	    - <hold_current>: holding current = current supplied to the
-			      motor when not moving (unit not documented!!)
-	"""
+            - <hold_current>: holding current = current supplied to the
+                              motor when not moving (unit not documented!!)
+        """
         log_info(self, "set_hold_current()")
         self._set_hold_current(axis, hold_current)
 
@@ -1561,10 +1561,10 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <move_current>: moving current = current supplied to the
-			      motor when moving (unit not documented!!)
-	"""
+        Returns:
+            - <move_current>: moving current = current supplied to the
+                              motor when moving (unit not documented!!)
+        """
         log_info(self, "get_move_current()")
         ret = self._get_move_current(axis)
         return ret
@@ -1574,9 +1574,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	    - <move_current>: moving current = current supplied to the
-			      motor when moving (unit not documented!!)
-	"""
+            - <move_current>: moving current = current supplied to the
+                              motor when moving (unit not documented!!)
+        """
         log_info(self, "set_move_current()")
         self._set_move_current(axis, move_current)
 
@@ -1587,10 +1587,10 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <to_ref_vel>: velocity used in the search for the reference
-			    (= home) position
-	"""
+        Returns:
+            - <to_ref_vel>: velocity used in the search for the reference
+                            (= home) position
+        """
         log_info(self, "get_to_reference_velocity()")
         ret = self._get_to_reference_velocity(axis)
         return ret
@@ -1600,9 +1600,9 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	    - <to_ref_vel>: velocity used in the search for the reference
-			    (= home) position
-	"""
+            - <to_ref_vel>: velocity used in the search for the reference
+                            (= home) position
+        """
         log_info(self, "set_to_reference_velocity()")
         self._set_to_reference_velocity(axis, ref_vel)
 
@@ -1611,11 +1611,11 @@ class micos(Controller):
         """
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <ref_status>: status of the reference(= home) position.
-			    1 = when the home position is reached
-			    0 = at other than reference (= home) position
-	"""
+        Returns:
+            - <ref_status>: status of the reference(= home) position.
+                            1 = when the home position is reached
+                            0 = at other than reference (= home) position
+        """
         log_info(self, "get_reference_status()")
         ret = self._get_reference_status(axis)
         return ret
@@ -1701,8 +1701,8 @@ class micos(Controller):
         """
         Get so-called general/system error. Can be considered more like
         the software error.
-        The last occured general/system error of the axis is always 
-	indicated.
+        The last occured general/system error of the axis is always
+        indicated.
         The error message is deleted on controller once it is read out with
         'getnerror' command.
         The general/system error occurence IS NOT indicated in the status
@@ -1712,9 +1712,9 @@ class micos(Controller):
 
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <gen_error>: general error as number
-			   (see GENERAL_ERROR_DICT)
+        Returns:
+            - <gen_error>: general error as number
+                           (see GENERAL_ERROR_DICT)
         """
 
         log_info(self, "_get_generror()")
@@ -1753,9 +1753,9 @@ class micos(Controller):
 
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <mach_error>: list of machine errors as numbers
-			    (see MACHINE_ERROR_DICT)
+        Returns:
+            - <mach_error>: list of machine errors as numbers
+                            (see MACHINE_ERROR_DICT)
         """
 
         log_info(self, "_get_macherror()")
@@ -1799,13 +1799,13 @@ class micos(Controller):
 
     def _get_status(self, axis):
         """
-        Get status 
+        Get status
 
         Args:
             - <axis> : Bliss axis object.
-	Returns:
-	    - <status-byte> : Raw status-byte as string
-	"""
+        Returns:
+            - <status-byte> : Raw status-byte as string
+        """
 
         log_info(self, "_get_status()")
 
@@ -1852,13 +1852,13 @@ class micos(Controller):
         Makes a software reset of the axis. The axis is intialized
         and active with the last (in NVRAM) saved parameters.
 
-	Important:
-	- After switching on the Micos motor controller and the 
-	  compressed air we must execute this function (via reset_axis()).
-	  This command not only initializes axis with the last saved 
-	  parameters, but also moves axis to some place and set position 
-	  to be 0 there.
-	- Therefore after reset_axis() call we must proceed to home search.
+        Important:
+        - After switching on the Micos motor controller and the
+          compressed air we must execute this function (via reset_axis()).
+          This command not only initializes axis with the last saved
+          parameters, but also moves axis to some place and set position
+          to be 0 there.
+        - Therefore after reset_axis() call we must proceed to home search.
 
         Args:
             - <axis> : Bliss axis object.
@@ -1921,18 +1921,18 @@ class micos(Controller):
 
     def _get_endswitch_types(self, axis):
         """
-	Get both endswitch types
+        Get both endswitch types
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <(low-esty, high-esty)> : Tuple of 2 integers: low and high
-				        end-switch types. Since our choice
-				        in the config/yml file is 2, we'll
-					always get both values 2 = ignore
-					end-switches, so we can make several
-					turns with the motor.
-	"""
+                                        end-switch types. Since our choice
+                                        in the config/yml file is 2, we'll
+                                        always get both values 2 = ignore
+                                        end-switches, so we can make several
+                                        turns with the motor.
+        """
         log_info(self, "_get_endswitch_types()")
         _cmd = "%d getsw " % axis.number
         ret = self._send(axis, _cmd)
@@ -1948,14 +1948,14 @@ class micos(Controller):
 
     def _set_endswitch_types(self, axis, loest=Null(), hiest=Null()):
         """
-	Set both endswitch types
+        Set both endswitch types
 
         Args:
             - <axis> : Bliss axis object.
-	    - <[loest, hiest]>: low and high endswitch types
-		If not passed on input of this function then the 
-		values obtained from the configuration file are applied.
-	"""
+            - <[loest, hiest]>: low and high endswitch types
+                If not passed on input of this function then the
+                values obtained from the configuration file are applied.
+        """
         log_info(self, "_set_endswitch_types()")
 
         # If parameters passed, use them.
@@ -1988,10 +1988,10 @@ class micos(Controller):
         Args:
             - <axis> : Bliss axis object.
         Returns:
-            - <(loesst, hiesst)> : Tuple with 2 integers: 
-		low and high end-switch status. 
-		   0 = end-switch not active, 
-		   1 = end-switch active
+            - <(loesst, hiesst)> : Tuple with 2 integers:
+                low and high end-switch status.
+                   0 = end-switch not active,
+                   1 = end-switch active
         """
         log_info(self, "_get_endswitch_status()")
         _cmd = "%d getswst " % axis.number
@@ -2008,20 +2008,20 @@ class micos(Controller):
 
     def _get_hw_limits(self, axis):
         """
-        Get 'hardware' limits. 
+        Get 'hardware' limits.
 
-	In Micos terminology these are still named software limits.
-	We will name them 'hardware' limits, since we set them in 
-	the Micos controller hardware.
+        In Micos terminology these are still named software limits.
+        We will name them 'hardware' limits, since we set them in
+        the Micos controller hardware.
 
-	True hardware limits are really the ones at limit switches
-	reached by 'ncal' and 'nrm' commands. 
+        True hardware limits are really the ones at limit switches
+        reached by 'ncal' and 'nrm' commands.
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
-            - <(hw_lolim, hw_hilim)>: tuple with low and high 
-				      'hardware' limits
+            - <(hw_lolim, hw_hilim)>: tuple with low and high
+                                      'hardware' limits
         """
 
         log_info(self, "_get_hw_limits()")
@@ -2038,19 +2038,19 @@ class micos(Controller):
     def _set_hw_limits(self, axis, hw_low_limit=Null(), hw_high_limit=Null()):
         """
         Set 'hardware' limits (mm) on the controller.
-	The same comment applies as for function _get_hw_limits() above
+        The same comment applies as for function _get_hw_limits() above
 
-	TODO: ideally search for low(cal) and high(rm) endswitch should
-	      be done first so that hw limits can be checked then to be
-	      within the endswitch limits. [still attention should be paied
-	      to the fact that user can redefine the positions, so that 
-	      the one at low endswitch is not 0 but - something ...] 
+        TODO: ideally search for low(cal) and high(rm) endswitch should
+              be done first so that hw limits can be checked then to be
+              within the endswitch limits. [still attention should be paied
+              to the fact that user can redefine the positions, so that
+              the one at low endswitch is not 0 but - something ...]
 
         Args:
             - <axis> : Bliss axis object.
-	    - <[hw_low_limit, hw_high_limit]>: low and high 'hardware'
-		limits. If not passed on input of this function then the 
-		values obtained from the configuration file are applied.
+            - <[hw_low_limit, hw_high_limit]>: low and high 'hardware'
+                limits. If not passed on input of this function then the
+                values obtained from the configuration file are applied.
         """
 
         log_info(self, "_set_hw_limits()")
@@ -2075,18 +2075,18 @@ class micos(Controller):
 
     def _get_tofrom_endsw_velocity(self, axis):
         """
-	Get velocity used to go to or away from 'cal' (= -ve end limit
-	switch) and 'rm' (= +ve end limit switch)
-	It is sufficient to read 2 speeds for one switch and take 
-	the first since for simplicity we set all 4 velocities:
-	to/from 'cal' switch and to/from 'rm' switch to be the same 
+        Get velocity used to go to or away from 'cal' (= -ve end limit
+        switch) and 'rm' (= +ve end limit switch)
+        It is sufficient to read 2 speeds for one switch and take
+        the first since for simplicity we set all 4 velocities:
+        to/from 'cal' switch and to/from 'rm' switch to be the same
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
-	    - <tofrom_endsw_velocity> : endswitches search velocity
-					(deg/sec)
-	"""
+            - <tofrom_endsw_velocity> : endswitches search velocity
+                                        (deg/sec)
+        """
 
         log_info(self, "_get_tofrom_endsw_velocity()")
 
@@ -2103,19 +2103,19 @@ class micos(Controller):
 
     def _set_tofrom_endsw_velocity(self, axis, tofrom_endsw_velocity=Null()):
         """
-	Set velocity used to go to or away from 'cal' (= -ve end limit
-	switch) and 'rm' (= +ve end limit switch)
-	There are 4 distinguished commands: 
-	- one for going to 'cal' limit/end switch 
-	- one for going away from 'cal' limit/end switch
-	- one for going to 'rm' limit/end switch 
-	- one for going away from 'rm' limit/end switch
+        Set velocity used to go to or away from 'cal' (= -ve end limit
+        switch) and 'rm' (= +ve end limit switch)
+        There are 4 distinguished commands:
+        - one for going to 'cal' limit/end switch
+        - one for going away from 'cal' limit/end switch
+        - one for going to 'rm' limit/end switch
+        - one for going away from 'rm' limit/end switch
 
         Args:
             - <axis> : Bliss axis object.
-	    - <tofrom_endsw_velocity> : endswitches search velocity
-					(deg/sec)
-	"""
+            - <tofrom_endsw_velocity> : endswitches search velocity
+                                        (deg/sec)
+        """
 
         log_info(self, "_set_tofrom_endsw_velocity()")
 
@@ -2158,19 +2158,19 @@ class micos(Controller):
 
     def _cal_limit_switch_move(self, axis):
         """
-	Make a movement to cal-limit switch (= -ve limit).
-	Motor moves in negative direction till cal limit switch
-	is reached/active, then it move slightly away in positive
-	direction so that the cal limit switch is not more active
-	and position is set to 0.
+        Make a movement to cal-limit switch (= -ve limit).
+        Motor moves in negative direction till cal limit switch
+        is reached/active, then it move slightly away in positive
+        direction so that the cal limit switch is not more active
+        and position is set to 0.
 
-	This is a blocking command (--> therefore do not call
-	_get_generror() since would get timeout in communication
-	over serial line).
+        This is a blocking command (--> therefore do not call
+        _get_generror() since would get timeout in communication
+        over serial line).
 
         Args:
             - <axis> : Bliss axis object.
-	"""
+        """
 
         log_info(self, "_cal_limit_switch_move()")
 
@@ -2187,20 +2187,20 @@ class micos(Controller):
 
     def _rm_limit_switch_move(self, axis):
         """
-	Make a movement to rm-limit switch (= +ve limit).
-	Motor moves in positive direction till rm limit switch
-	is reached/active, then it move slightly away in negative
-	direction so that the rm limit switch is no more active.
-	Position reached is not stored in the controller
-	(while position 0 is stored when cal limit switch is reached)
-	
-	This is a blocking command (--> therefore do not call
-	_get_generror() since would get timeout in communication
-	over serial line).
+        Make a movement to rm-limit switch (= +ve limit).
+        Motor moves in positive direction till rm limit switch
+        is reached/active, then it move slightly away in negative
+        direction so that the rm limit switch is no more active.
+        Position reached is not stored in the controller
+        (while position 0 is stored when cal limit switch is reached)
+
+        This is a blocking command (--> therefore do not call
+        _get_generror() since would get timeout in communication
+        over serial line).
 
         Args:
             - <axis> : Bliss axis object.
-	"""
+        """
 
         log_info(self, "_rm_limit_switch_move()")
 
@@ -2219,14 +2219,14 @@ class micos(Controller):
 
     def _get_action_at_powerup(self, axis):
         """
-	Get function/action which are automatically
-	executed after switching on the controller.
+        Get function/action which are automatically
+        executed after switching on the controller.
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <action_at_powerup> : numeric value for action at power up
-	"""
+        """
 
         log_info(self, "_get_action_at_powerup()")
 
@@ -2242,19 +2242,19 @@ class micos(Controller):
 
     def _set_action_at_powerup(self, axis, powerup_action):
         """
-	Select function/action which is automatically
-	executed after switching on the controller.
+        Select function/action which is automatically
+        executed after switching on the controller.
 
-	The possible functions/actions are listed in the 
-	dictionnary PowerupActionDict, which is defined in the 
-	initial part of this file (before this micos motor controller
-	class definition).
-	
+        The possible functions/actions are listed in the
+        dictionnary PowerupActionDict, which is defined in the
+        initial part of this file (before this micos motor controller
+        class definition).
+
         Args:
-	    - <powerup_action> : Numeric value of chosen action.
-				 (key in PowerupActionDict)
+            - <powerup_action> : Numeric value of chosen action.
+                                 (key in PowerupActionDict)
             - <axis> : Bliss axis object.
-	"""
+        """
 
         log_info(self, "_set_action_at_powerup()")
 
@@ -2285,13 +2285,13 @@ class micos(Controller):
 
     def _get_cloop_on(self, axis):
         """
-	See if closed loop is enabled or disabled.
+        See if closed loop is enabled or disabled.
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <cloop_on> : Boolean : True if closed loop enabled
-	"""
+        """
 
         log_info(self, "_get_cloop_on()")
 
@@ -2303,11 +2303,11 @@ class micos(Controller):
 
     def _set_cloop_on(self, axis):
         """
-	Enable/activate closed loop.
+        Enable/activate closed loop.
 
         Args:
             - <axis> : Bliss axis object.
-	"""
+        """
 
         log_info(self, "_set_cloop_on()")
 
@@ -2320,11 +2320,11 @@ class micos(Controller):
 
     def _set_cloop_off(self, axis):
         """
-	Disable/desactivate closed loop.
+        Disable/desactivate closed loop.
 
         Args:
             - <axis> : Bliss axis object.
-	"""
+        """
 
         log_info(self, "_set_cloop_off()")
 
@@ -2337,28 +2337,28 @@ class micos(Controller):
 
     def _get_cloop_window(self, axis):
         """
-	Get closed loop window parameters, except settle time.
-	When closed loop is enabled, then if general status bit 5 
-	is enabled this bit will be set when position is close to
-	the target position within closed loop window size for at
-	least the closed loop settle time. If general status bit 5
-	is disabled, then even if this condition is met, the bit 5
-	will not be set in general status.
-	Similarly the trigger signal can be selected on one of 4
-	digital output channels and the signal will appear it the
-	condition is met. If trigger output is disabled, then
-	there will be no signal on the selected output even if 
-	closed loop condition is met. 
+        Get closed loop window parameters, except settle time.
+        When closed loop is enabled, then if general status bit 5
+        is enabled this bit will be set when position is close to
+        the target position within closed loop window size for at
+        least the closed loop settle time. If general status bit 5
+        is disabled, then even if this condition is met, the bit 5
+        will not be set in general status.
+        Similarly the trigger signal can be selected on one of 4
+        digital output channels and the signal will appear it the
+        condition is met. If trigger output is disabled, then
+        there will be no signal on the selected output even if
+        closed loop condition is met.
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <(winsize,gstbit5sel,trigopsel)> : Tuple consisting of:
-	      Float: closed loop window size (mm),
-	      Boolean: False/True: bit5 in general status disabled/enabled)
-	      Int 0 (trigger on output disabled) or 
-		  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
-	"""
+              Float: closed loop window size (mm),
+              Boolean: False/True: bit5 in general status disabled/enabled)
+              Int 0 (trigger on output disabled) or
+                  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
+        """
 
         log_info(self, "_get_cloop_window()")
 
@@ -2402,18 +2402,18 @@ class micos(Controller):
         self, axis, winsize=Null(), gstbit5sel=Null(), trigopsel=Null()
     ):
         """
-	Set closed loop window parameters, except settle time.
-	For explanation of the meaning of different parameters, see
-	the comment in the header of the function _get_cloop_window().
-	This function has effect only if closed loop is enabled.
+        Set closed loop window parameters, except settle time.
+        For explanation of the meaning of different parameters, see
+        the comment in the header of the function _get_cloop_window().
+        This function has effect only if closed loop is enabled.
 
         Args:
             - <axis> : Bliss axis object.
-	    - <winsize> : Float: closed loop window size (mm),
-	    - <gstbit5sel> : Boolean:  bit5 in general status disabled/enabled
-	    - <trigopsel>: Int: 0 (trigger on output disabled) or 
-		  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
-	"""
+            - <winsize> : Float: closed loop window size (mm),
+            - <gstbit5sel> : Boolean:  bit5 in general status disabled/enabled
+            - <trigopsel>: Int: 0 (trigger on output disabled) or
+                  one of 1,2,3,4 (trigger selected on output D1,2,3,4)
+        """
 
         log_info(self, "_set_cloop_window()")
 
@@ -2465,13 +2465,13 @@ class micos(Controller):
 
     def _get_cloop_wintime(self, axis):
         """
-	Get closed loop window settle time
+        Get closed loop window settle time
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <wintime> : Float : closed loop window settle time (sec)
-	"""
+        """
 
         log_info(self, "_get_cloop_wintime()")
 
@@ -2493,13 +2493,13 @@ class micos(Controller):
 
     def _set_cloop_wintime(self, axis, wintime=Null()):
         """
-	Set closed loop window settling time
-	This function has effect only if closed loop is enabled.
+        Set closed loop window settling time
+        This function has effect only if closed loop is enabled.
 
         Args:
             - <axis> : Bliss axis object.
-	    - <wintime> : Float: closed loop window settling time (sec)
-	"""
+            - <wintime> : Float: closed loop window settling time (sec)
+        """
         log_info(self, "_set_cloop_wintime()")
 
         if axis.cloop_on == False:
@@ -2524,17 +2524,17 @@ class micos(Controller):
 
     def _get_cloop_params(self, axis):
         """
-	Get closed loop parameters (P,I,D)
-	Remark: When reading these parameters saw that there are 
-		some more than only P I D returned (returned strin
-		has several more values, which are not ducumented
-		in the Venus software manual).
+        Get closed loop parameters (P,I,D)
+        Remark: When reading these parameters saw that there are
+                some more than only P I D returned (returned strin
+                has several more values, which are not ducumented
+                in the Venus software manual).
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
-	    - <P I D>: 3 closed loop parameters as 1 string
-	"""
+            - <P I D>: 3 closed loop parameters as 1 string
+        """
 
         log_info(self, "_get_cloop_params()")
 
@@ -2550,14 +2550,14 @@ class micos(Controller):
 
     def _set_cloop_params(self, axis, cloop_params):
         """
-	Set closed loop parameters (P,I,D)
-	Remark: For the moment we did not touch/modified these
-		values, which keep their factory setting.
+        Set closed loop parameters (P,I,D)
+        Remark: For the moment we did not touch/modified these
+                values, which keep their factory setting.
 
         Args:
             - <axis> : Bliss axis object.
-	    - <cloop_params> = <"P I D"> as string
-	"""
+            - <cloop_params> = <"P I D"> as string
+        """
 
         log_info(self, "_set_cloop_params()")
 
@@ -2581,7 +2581,7 @@ class micos(Controller):
 
         Args:
             - <axis> : Bliss axis object.
-	    - <displacement> : Float: relative move displacement (mm)
+            - <displacement> : Float: relative move displacement (mm)
         Returns:
             - None
         """
@@ -2596,14 +2596,14 @@ class micos(Controller):
 
     def _get_hold_current(self, axis):
         """
-	Get holding current = current consumption when motor is not moving
-	TODO: find the unit
+        Get holding current = current consumption when motor is not moving
+        TODO: find the unit
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <hold_current> : Float : holding current (unit = ??)
-	"""
+        """
 
         log_info(self, "_get_hold_current()")
 
@@ -2617,13 +2617,13 @@ class micos(Controller):
 
     def _set_hold_current(self, axis, hold_current):
         """
-	Set holding current = current consumption when motor is not moving
-	TODO: find the unit
+        Set holding current = current consumption when motor is not moving
+        TODO: find the unit
 
         Args:
             - <axis> : Bliss axis object.
-	    - <hold_current> : Holding current (unit = ??)
-	"""
+            - <hold_current> : Holding current (unit = ??)
+        """
 
         log_info(self, "_set_hold_current()")
 
@@ -2644,14 +2644,14 @@ class micos(Controller):
 
     def _get_move_current(self, axis):
         """
-	Get moving current = current consumption when motor is moving
-	TODO: find the unit
+        Get moving current = current consumption when motor is moving
+        TODO: find the unit
 
         Args:
             - <axis> : Bliss axis object.
         Returns:
             - <move_current> : Float : moving current (unit = ??)
-	"""
+        """
 
         log_info(self, "_get_move_current()")
 
@@ -2665,13 +2665,13 @@ class micos(Controller):
 
     def _set_move_current(self, axis, move_current):
         """
-	Set moving current = current consumption when motor is moving
-	TODO: find the unit
+        Set moving current = current consumption when motor is moving
+        TODO: find the unit
 
         Args:
             - <axis> : Bliss axis object.
-	    - <hold_current> : Moving current (unit = ??)
-	"""
+            - <hold_current> : Moving current (unit = ??)
+        """
 
         log_info(self, "_set_move_current()")
 
@@ -2692,19 +2692,19 @@ class micos(Controller):
 
     def _get_to_reference_velocity(self, axis):
         """
-	Get velocity for the move to the reference position
-        (default = 2.0 degrees/sec and is too high to stop 
-	 exactly at the reference position)
-	Remark: Reading this velocity we saw that in the 
-	        returned string there is one additional value,
-		which is not described in Venus sofware manual.
+        Get velocity for the move to the reference position
+        (default = 2.0 degrees/sec and is too high to stop
+         exactly at the reference position)
+        Remark: Reading this velocity we saw that in the
+                returned string there is one additional value,
+                which is not described in Venus sofware manual.
 
         Args:
             - <axis> : Bliss axis object.
-	Return:
-	    - <ref_vel> : velocity with which motor moves to search for
-			  reference position (degrees/sec)
-	"""
+        Return:
+            - <ref_vel> : velocity with which motor moves to search for
+                          reference position (degrees/sec)
+        """
 
         log_info(self, "_get_to_reference_velocity()")
 
@@ -2722,14 +2722,14 @@ class micos(Controller):
 
     def _set_to_reference_velocity(self, axis, to_reference_velocity=Null()):
         """
-	Set velocity for the move to the reference position
+        Set velocity for the move to the reference position
         (default = 2.0 degrees/sec)
 
         Args:
             - <axis> : Bliss axis object.
-	    - <to_reference_velocity> : velocity with which motor moves to
-			 search for the reference position (degrees/sec)
-	"""
+            - <to_reference_velocity> : velocity with which motor moves to
+                         search for the reference position (degrees/sec)
+        """
 
         log_info(self, "_set_to_reference_velocity()")
 
@@ -2748,50 +2748,50 @@ class micos(Controller):
 
     def _move_to_reference(self, axis, max_relative_path):
         """
-	Makes a move to a reference position. Micos' manual terminology
-	calls reference position what we usually name home position.
+        Makes a move to a reference position. Micos' manual terminology
+        calls reference position what we usually name home position.
 
-	Initially here below in the body of this function the so called
-	'1 pass solution' was implemented, where the search for the 
-	reference position was done with small velocity (much lower than
-	the one used for the ordinary moves). For search of the reference
-	position the lower velocity (parameter 'to_reference_velocity'
-	in config file) is used in order to stop EXACTLY at the reference
-	position, where the reference position status is 1 (elsewhere 
-	it is 0). The default value (in NVRAM) for the home search velocity
-	is 2.0 degrees/sec, but empirically we found that this is still 
-	too high for '1 pass solution'. So we set it to 1 degree/sec to 
-	have more chance that when the reference position is reached,
-	the reference position status is 1. If the speed for the reference
-	position search is too high, then the motor stops very close to 
-	the reference position (passing a bit further after finding it),
-        but reference position status is 0. 
-	We cannot then distinguish this situation from the case, where 
-	the max_relative_path is too small and when motor stops before 
-	arriving at/finding the reference position. 
-	According to the manual this is supposed to be a blocking command,
-	but empirically we found that during the movement in search for 
-	the reference position, we can query the reference position status.
-	We also found empirically that the controller during movement for
-	the reference position search does not like us to query for a 
-	general error. Therefore in this function afer sending command
-	nrefmove, we do not call _get_generror() since would get timeout
-	in communication over serial line.
+        Initially here below in the body of this function the so called
+        '1 pass solution' was implemented, where the search for the
+        reference position was done with small velocity (much lower than
+        the one used for the ordinary moves). For search of the reference
+        position the lower velocity (parameter 'to_reference_velocity'
+        in config file) is used in order to stop EXACTLY at the reference
+        position, where the reference position status is 1 (elsewhere
+        it is 0). The default value (in NVRAM) for the home search velocity
+        is 2.0 degrees/sec, but empirically we found that this is still
+        too high for '1 pass solution'. So we set it to 1 degree/sec to
+        have more chance that when the reference position is reached,
+        the reference position status is 1. If the speed for the reference
+        position search is too high, then the motor stops very close to
+        the reference position (passing a bit further after finding it),
+        but reference position status is 0.
+        We cannot then distinguish this situation from the case, where
+        the max_relative_path is too small and when motor stops before
+        arriving at/finding the reference position.
+        According to the manual this is supposed to be a blocking command,
+        but empirically we found that during the movement in search for
+        the reference position, we can query the reference position status.
+        We also found empirically that the controller during movement for
+        the reference position search does not like us to query for a
+        general error. Therefore in this function afer sending command
+        nrefmove, we do not call _get_generror() since would get timeout
+        in communication over serial line.
 
-	To speed up the reference position search we changed the code
-	where we allow several moves in a loop till the reference 
-	position is found. So in the first pass we use rather high speed,
-	which in each subsequent pass (where move is done in the opposite
-	direction) is divided by 10 as well as the max. distance to go.
-	Empirically we found that with initial reference position search 
-	speed of 10 degrees/sec 2 moves were sufficient to find the 
-	reference/home position.
+        To speed up the reference position search we changed the code
+        where we allow several moves in a loop till the reference
+        position is found. So in the first pass we use rather high speed,
+        which in each subsequent pass (where move is done in the opposite
+        direction) is divided by 10 as well as the max. distance to go.
+        Empirically we found that with initial reference position search
+        speed of 10 degrees/sec 2 moves were sufficient to find the
+        reference/home position.
 
         Args:
             - <axis> : Bliss axis object.
-	    - <max_relative_path> : +/- max rel. path within which the ref. 
+            - <max_relative_path> : +/- max rel. path within which the ref.
                                     position is expected to be found
-	"""
+        """
 
         log_info(self, "_move_to_reference()")
 
@@ -2972,14 +2972,14 @@ class micos(Controller):
 
     def _get_reference_status(self, axis):
         """
-	Get status of reference position
-	It is 1 when the reference position is reached
+        Get status of reference position
+        It is 1 when the reference position is reached
 
         Args:
             - <axis> : Bliss axis object.
-	Return:
-	    - <0/1> : reference position not reached / reached
-	"""
+        Return:
+            - <0/1> : reference position not reached / reached
+        """
 
         log_info(self, "_get_reference_status()")
 

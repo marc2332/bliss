@@ -23,7 +23,6 @@ from .base import (
     AcquisitionMode,
 )
 
-from bliss.common.logtools import *
 from bliss import global_map
 
 # Mercury controller

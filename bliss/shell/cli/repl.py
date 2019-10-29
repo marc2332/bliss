@@ -23,7 +23,7 @@ from ptpython.repl import PythonRepl
 import six
 from ptpython.repl import _lex_python_result
 from prompt_toolkit.formatted_text.utils import fragment_list_width
-from prompt_toolkit.formatted_text import merge_formatted_text
+from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
 from prompt_toolkit.formatted_text import PygmentsTokens
 from prompt_toolkit.shortcuts import print_formatted_text
 

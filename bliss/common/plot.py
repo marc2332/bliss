@@ -210,7 +210,13 @@ def start_flint():
     env["BEACON_HOST"] = get_beacon_config()
     if poll_patch is not None:
         poll_patch.set_ld_preload(env)
+
+    # Imported here to avoid cyclic dependency
+    from bliss.scanning.scan import ScanDisplay
+
+    scan_display = ScanDisplay()
     args = [sys.executable, "-m", "bliss.flint"]
+    args.extend(scan_display.extra_args)
     return subprocess.Popen(args, env=env, start_new_session=True).pid
 
 

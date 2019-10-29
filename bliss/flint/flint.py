@@ -17,8 +17,8 @@ import contextlib
 import collections
 import signal
 
-import numpy
 import gevent.event
+from argparse import ArgumentParser
 
 from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
@@ -28,36 +28,45 @@ from bliss.config.conductor.client import (
     clean_all_redis_connection,
 )
 import bliss.flint.resources
+from bliss.flint.model import plot_item_model
+from bliss.flint.helper import model_helper
 
 try:
     from bliss.flint import poll_patch
 except ImportError:
     poll_patch = None
 
-from PyQt5.QtCore import pyqtRemoveInputHook
+
+# Enforce loading of PyQt5
+# In case silx/matplotlib tries to import PySide, PyQt4...
+import PyQt5.QtCore
 
 with warnings.catch_warnings():
+    # Avoid warning when silx will be loaded
     warnings.simplefilter("ignore")
-    from silx.gui import qt
-    from silx.gui.plot import Plot1D
-    from silx.gui.plot import Plot2D
-    from silx.gui import plot as silx_plot
-    from silx.gui.plot.items.roi import RectangleROI
+    try:
+        import h5py
+    except ImportError:
+        pass
 
-from .widgets.live_plot_1d import LivePlot1D
-from .widgets.live_scatter_plot import LiveScatterPlot
+import silx
+from silx.gui import qt
+from silx.gui import plot as silx_plot
+from silx.gui.plot.items.roi import RectangleROI
+
+from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.curve_plot import CurvePlotWidget
+from bliss.flint.widgets.property_widget import MainPropertyWidget
+from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.log_widget import LogWidget
-
-# Globals
-
-# FIXME is it really needed to call it outside the main function?
-pyqtRemoveInputHook()
-
-# Logging
+from bliss.flint.helper import scan_manager
+from bliss.flint.model import flint_model
+from bliss.flint import config
 
 ROOT_LOGGER = logging.getLogger()
+"""Application logger"""
 
 
 @contextlib.contextmanager
@@ -86,6 +95,9 @@ def safe_rpc_server(obj):
             yield task, url
             task.kill()
             task.join()
+        except Exception:
+            ROOT_LOGGER.error(f"Exception while serving {url}", exc_info=True)
+            raise
         finally:
             server.close()
 
@@ -115,34 +127,167 @@ def background_task(flint, stop):
 class Flint:
     """Flint interface, meant to be exposed through an RPC server."""
 
+    # FIXME: Everything relative to GUI should be removed in order to only provide
+    # RPC functions
+
     _id_generator = itertools.count()
 
-    def __init__(self, mainwin, parent_tab):
+    def __init__(self, mainwin, parent_tab, settings: qt.QSettings):
         self.mainwin = mainwin
         self.parent_tab = parent_tab
-        self.main_index = next(self._id_generator)
+        self.main_index = self.create_new_id()
         self.plot_dict = {self.main_index: parent_tab}
-        self.mdi_windows_dict = {}
         self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
         self._session_name = None
-        self._last_event = dict()
-        self._refresh_task = None
-        self._end_scan_event = gevent.event.Event()
+
+        flintModel = self.__create_flint_model()
+        flintModel.setSettings(settings)
+        self.__flintModel = flintModel
+
+        workspace = flint_model.Workspace()
+        flintModel.setWorkspace(workspace)
+        self.__scanManager = scan_manager.ScanManager(self)
 
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
         self._qt_redis_connection = connection.create_redis_connection(address=address)
-
-        def new_live_scan_plots():
-            return {"0d": [], "1d": [], "2d": []}
-
-        self.live_scan_plots_dict = collections.defaultdict(new_live_scan_plots)
-
-        self.live_scan_mdi_area = self.new_tab("Live scan", qt.QMdiArea)
         self.set_title()
+        self.init_from_settings()
+
+    def get_flint_model(self) -> flint_model.FlintState:
+        return self.__flintModel
+
+    def get_scan_manager(self):
+        return self.__scanManager
+
+    def init_from_settings(self):
+        settings = self.__flintModel.settings()
+        # resize window to 70% of available screen space, if no settings
+        settings.beginGroup("main-window")
+        pos = qt.QDesktopWidget().availableGeometry(self.mainwin).size() * 0.7
+        w = pos.width()
+        h = pos.height()
+        self.mainwin.resize(settings.value("size", qt.QSize(w, h)))
+        self.mainwin.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
+        settings.endGroup()
+
+        settings.beginGroup("live-window")
+        state = settings.value("workspace", None)
+        if state is not None:
+            try:
+                self.__manager.restoreWorkspace(state)
+                ROOT_LOGGER.info("Workspace restored")
+            except Exception:
+                ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
+                self.__feed_default_workspace()
+        else:
+            self.__feed_default_workspace()
+        settings.endGroup()
+
+    def save_to_settings(self):
+        settings = self.__flintModel.settings()
+        settings.beginGroup("main-window")
+        settings.setValue("size", self.mainwin.size())
+        settings.setValue("pos", self.mainwin.pos())
+        settings.endGroup()
+
+        settings.beginGroup("live-window")
+        try:
+            state = self.__manager.saveWorkspace(includePlots=False)
+            settings.setValue("workspace", state)
+            ROOT_LOGGER.info("Workspace saved")
+        except Exception:
+            ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
+        settings.endGroup()
+
+        settings.sync()
+
+    def __create_flint_model(self):
+        window: qt.QMainWindow = self.new_tab("Live scan", qt.QMainWindow)
+        window.setObjectName("scan-window")
+        window.setDockNestingEnabled(True)
+        window.setDockOptions(
+            window.dockOptions()
+            | qt.QMainWindow.AllowNestedDocks
+            | qt.QMainWindow.AllowTabbedDocks
+            | qt.QMainWindow.GroupedDragging
+            | qt.QMainWindow.AnimatedDocks
+            # | qt.QMainWindow.VerticalTabs
+        )
+
+        window.setVisible(True)
+
+        flintModel = flint_model.FlintState()
+        flintModel.setLiveWindow(window)
+        flintModel.setFlintApi(self)
+
+        manager = ManageMainBehaviours(flintModel)
+        manager.setFlintModel(flintModel)
+        self.__manager = manager
+
+        scanStatusWidget = ScanStatus(window)
+        scanStatusWidget.setObjectName("scan-status-dock")
+        scanStatusWidget.setFlintModel(flintModel)
+        scanStatusWidget.setFeatures(
+            scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        flintModel.setLiveStatusWidget(scanStatusWidget)
+        window.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
+
+        propertyWidget = MainPropertyWidget(window)
+        propertyWidget.setObjectName("property-dock")
+        propertyWidget.setFeatures(
+            propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        flintModel.setPropertyWidget(propertyWidget)
+        window.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
+
+        size = scanStatusWidget.sizeHint()
+        scanStatusWidget.widget().setFixedHeight(size.height())
+        scanStatusWidget.widget().setMinimumWidth(200)
+
+        scanStatusWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
+        )
+        propertyWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
+        )
+
+        return flintModel
+
+    def _manager(self) -> ManageMainBehaviours:
+        return self.__manager
+
+    def __feed_default_workspace(self):
+        # FIXME: Here we can feed the workspace with something persistent
+        flintModel = self.get_flint_model()
+        workspace = flintModel.workspace()
+        window = flintModel.liveWindow()
+
+        curvePlotWidget = CurvePlotWidget(parent=window)
+        curvePlotWidget.setFlintModel(flintModel)
+        curvePlotWidget.setObjectName("curve1-dock")
+        curvePlotWidget.setWindowTitle("Curve1")
+        curvePlotWidget.setFeatures(
+            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        curvePlotWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
+        )
+
+        workspace.addWidget(curvePlotWidget)
+        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
+
+    def create_new_id(self):
+        return next(self._id_generator)
+
+    def redis_session_info(self):
+        return dict(
+            session_name=self._session_name, redis_connection=self._qt_redis_connection
+        )
 
     def set_title(self, session_name=None):
         window = self.parent_tab.window()
@@ -157,6 +302,7 @@ class Flint:
         return self._session_name
 
     def _spawn_scans_session_watch(self, session_name, clean_redis=False):
+        # FIXME: It could be mostly moved into scan_manager
         if clean_redis:
             clean_all_redis_connection()
 
@@ -165,10 +311,10 @@ class Flint:
         task = gevent.spawn(
             watch_session_scans,
             session_name,
-            self.new_scan,
-            self.new_scan_child,
-            self.new_scan_data,
-            self.end_scan,
+            self.__scanManager.new_scan,
+            self.__scanManager.new_scan_child,
+            self.__scanManager.new_scan_data,
+            self.__scanManager.end_scan,
             ready_event=ready_event,
         )
 
@@ -192,7 +338,6 @@ class Flint:
             self.scans_watch_task.kill()
 
         self._spawn_scans_session_watch(session_name)
-
         self._session_name = session_name
 
         redis = get_redis_connection()
@@ -204,174 +349,6 @@ class Flint:
 
         self.set_title(session_name)
 
-    def new_scan(self, scan_info):
-        self._end_scan_event.clear()
-
-        # show tab
-        self.parent_tab.setCurrentIndex(0)
-        self.parent_tab.setTabText(
-            0,
-            "Live scan | %s - scan number %d"
-            % (scan_info["title"], scan_info["scan_nb"]),
-        )
-
-        # delete plots data
-        for master, plots in self.live_scan_plots_dict.items():
-            for plot_type in ("0d", "1d", "2d"):
-                for plot in plots[plot_type]:
-                    self.data_dict.pop(plot.plot_id, None)
-
-        old_window_titles = []
-        for mdi_window in self.live_scan_mdi_area.subWindowList():
-            plot = mdi_window.widget()
-            window_title = plot.windowTitle()
-            old_window_titles.append(window_title)
-
-        # create new windows
-        flags = (
-            qt.Qt.Window
-            | qt.Qt.WindowMinimizeButtonHint
-            | qt.Qt.WindowMaximizeButtonHint
-            | qt.Qt.WindowTitleHint
-        )
-        window_titles = []
-        for master, channels in scan_info["acquisition_chain"].items():
-            scalars = channels.get("scalars", [])
-            spectra = channels.get("spectra", [])
-            # merge master which are spectra
-            if "spectra" in channels:
-                for c in channels["master"].get("spectra", []):
-                    if c not in spectra:
-                        spectra.append(c)
-            images = channels.get("images", [])
-            # merge master which are image
-            if "master" in channels:
-                for c in channels["master"].get("images", []):
-                    if c not in images:
-                        images.append(c)
-
-            if scalars:
-                window_title = "1D: " + master + " -> counters"
-                window_titles.append(window_title)
-                scalars_plot_win = self.mdi_windows_dict.get(window_title)
-                if not scalars_plot_win:
-                    scalars_plot_win = LivePlot1D(
-                        session_name=self._session_name,
-                        redis_connection=self._qt_redis_connection,
-                    )
-                    scalars_plot_win.setWindowTitle(window_title)
-                    scalars_plot_win.plot_id = next(self._id_generator)
-                    self.plot_dict[scalars_plot_win.plot_id] = scalars_plot_win
-                    self.live_scan_plots_dict[master]["0d"].append(scalars_plot_win)
-                    self.mdi_windows_dict[
-                        window_title
-                    ] = self.live_scan_mdi_area.addSubWindow(scalars_plot_win, flags)
-                    scalars_plot_win.show()
-                else:
-                    scalars_plot_win = scalars_plot_win.widget()
-                scalars_plot_win.set_x_axes(channels["master"]["scalars"])
-                scalars_plot_win.set_y_axes(scalars)
-
-                if (
-                    len(channels["master"]["scalars"]) >= 2
-                    and scan_info.get("data_dim", 1) == 2
-                ):
-                    window_title = "Scatter: " + master + " -> counters"
-                    window_titles.append(window_title)
-                    scatter_plot_win = self.mdi_windows_dict.get(window_title)
-                    if not scatter_plot_win:
-                        scatter_plot_win = LiveScatterPlot(
-                            session_name=self._session_name,
-                            redis_connection=self._qt_redis_connection,
-                        )
-                        scatter_plot_win.setWindowTitle(window_title)
-                        scatter_plot_win.plot_id = next(self._id_generator)
-                        self.plot_dict[scatter_plot_win.plot_id] = scatter_plot_win
-                        self.live_scan_plots_dict[master]["0d"].append(scatter_plot_win)
-                        self.mdi_windows_dict[
-                            window_title
-                        ] = self.live_scan_mdi_area.addSubWindow(
-                            scatter_plot_win, flags
-                        )
-                        scatter_plot_win.show()
-                    else:
-                        scatter_plot_win = scatter_plot_win.widget()
-                    scatter_plot_win.set_x_axes(channels["master"]["scalars"])
-                    scatter_plot_win.set_z_axes(scalars)
-                    scatter_plot_win.set_scan_info(
-                        scan_info.get("title", ""),
-                        scan_info.get("instrument", {}).get("positioners", dict()),
-                    )
-
-            for spectrum in spectra:
-                window_title = "1D: " + master + " -> " + spectrum
-                window_titles.append(window_title)
-                spectrum_win = self.mdi_windows_dict.get(window_title)
-                if not spectrum_win:
-                    spectrum_win = Plot1D()
-                    spectrum_win.setWindowTitle(window_title)
-                    spectrum_win.plot_id = next(self._id_generator)
-                    self.plot_dict[spectrum_win.plot_id] = spectrum_win
-                    self.live_scan_plots_dict[master]["1d"].append(spectrum_win)
-                    self.mdi_windows_dict[
-                        window_title
-                    ] = self.live_scan_mdi_area.addSubWindow(spectrum_win, flags)
-                spectrum_win.show()
-
-            for image in images:
-                window_title = "2D: " + master + " -> " + image
-                window_titles.append(window_title)
-                image_win = self.mdi_windows_dict.get(image)
-                if not image_win:
-                    image_win = Plot2D()
-                    image_win.setKeepDataAspectRatio(True)
-                    image_win.getYAxis().setInverted(True)
-                    image_win.getIntensityHistogramAction().setVisible(True)
-                    image_win.plot_id = next(self._id_generator)
-                    self.plot_dict[image_win.plot_id] = image_win
-                    self.live_scan_plots_dict[master]["2d"].append(image_win)
-                    self.mdi_windows_dict[image] = self.live_scan_mdi_area.addSubWindow(
-                        image_win, flags
-                    )
-                else:
-                    if (
-                        image_win.widget()
-                        not in self.live_scan_plots_dict[master]["2d"]
-                    ):
-                        self.live_scan_plots_dict[master]["2d"].append(
-                            image_win.widget()
-                        )
-                image_win.setWindowTitle(window_title)
-                image_win.show()
-
-        # delete unused plots and windows
-        for window_title in old_window_titles:
-            if window_title not in window_titles:
-                # need to clean window
-                plot_type, master, _, data_source = window_title.split()
-
-                if plot_type.startswith("2D"):
-                    if any([title.endswith(data_source) for title in window_titles]):
-                        continue
-                    else:
-                        window_title = data_source
-
-                window = self.mdi_windows_dict[window_title]
-                plot = window.widget()
-                del self.plot_dict[plot.plot_id]
-
-                if isinstance(plot, Plot1D):
-                    self.live_scan_plots_dict[master]["1d"].remove(plot)
-                elif isinstance(plot, Plot2D):
-                    self.live_scan_plots_dict[master]["2d"].remove(plot)
-                else:
-                    self.live_scan_plots_dict[master]["0d"].remove(plot)
-
-                del self.mdi_windows_dict[window_title]
-                window.close()
-
-        self.live_scan_mdi_area.tileSubWindows()
-
     def wait_data(self, master, plot_type, index):
         ev = (
             self.data_event[master]
@@ -380,96 +357,72 @@ class Flint:
         )
         ev.wait(timeout=3)
 
-    def get_live_scan_plot(self, master, plot_type, index):
-        return self.live_scan_plots_dict[master][plot_type][index].plot_id
+    def get_live_scan_data(self, channel_name):
+        model = self.get_flint_model()
+        scan = model.currentScan()
+        if scan is None:
+            raise Exception("No scan available")
+        channel = scan.getChannelByName(channel_name)
+        if channel is None:
+            raise Exception(f"Channel {channel_name} is not part of this scan")
+        data = channel.data()
+        if data is None:
+            # Just no data
+            return None
+        return data.array()
 
-    def new_scan_child(self, scan_info, data_channel):
-        pass
+    def get_live_scan_plot(self, channel_name, plot_type):
+        assert plot_type in ["scatter", "image", "curve", "mca"]
 
-    def new_scan_data(self, data_type, master_name, data):
-        if data_type in ("1d", "2d"):
-            key = master_name, data["channel_name"]
-        else:
-            key = master_name, None
+        plot_class = {
+            "scatter": plot_item_model.ScatterPlot,
+            "image": plot_item_model.ImagePlot,
+            "mca": plot_item_model.McaPlot,
+            "curve": plot_item_model.CurvePlot,
+        }[plot_type]
 
-        self._last_event[key] = (data_type, data)
-        if self._refresh_task is None:
-            self._refresh_task = gevent.spawn(self._refresh)
+        scan = self.__flintModel.currentScan()
+        if scan is None:
+            raise Exception("No scan displayed")
 
-    def end_scan(self, scan_info):
-        self._end_scan_event.set()
+        channel = scan.getChannelByName(channel_name)
+        if channel is None:
+            raise Exception(
+                "The channel '%s' is not part of the current scan" % channel_name
+            )
+
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            plot = widget.plotModel()
+            if plot is None:
+                continue
+            if not isinstance(plot, plot_class):
+                continue
+            if model_helper.isChannelDisplayedAsValue(plot, channel):
+                return f"live:{iwidget}"
+
+        # FIXME: Here we could create a specific plot
+        raise Exception("The channel '%s' is not part of any plots" % channel_name)
 
     def wait_end_of_scan(self):
-        self._end_scan_event.wait()
-
-    def _refresh(self):
-        try:
-            while self._last_event:
-                local_event = self._last_event
-                self._last_event = dict()
-                for (master_name, _), (data_type, data) in local_event.items():
-                    try:
-                        self._new_scan_data(data_type, master_name, data)
-                    except:
-                        sys.excepthook(*sys.exc_info())
-        finally:
-            self._refresh_task = None
-
-    def _new_scan_data(self, data_type, master_name, data):
-        if data_type == "0d":
-            for plot in self.live_scan_plots_dict[master_name]["0d"]:
-                plot._set_data(data["data"])
-                plot.update_all()
-                for channel_name, channel_data in data["data"].items():
-                    self.update_data(plot.plot_id, channel_name, channel_data)
-        elif data_type == "1d":
-            channel_name = data["channel_name"]
-            spectrum_data = data["channel_data_node"].get(-1)
-            plot = self.live_scan_plots_dict[master_name]["1d"][data["channel_index"]]
-            self.update_data(plot.plot_id, channel_name, spectrum_data)
-            if spectrum_data.ndim == 1:
-                length, = spectrum_data.shape
-                x = numpy.arange(length)
-                y = spectrum_data
-            else:
-                # assuming ndim == 2
-                x = spectrum_data[0]
-                y = spectrum_data[1]
-            plot.addCurve(x, y, legend=channel_name)
-        elif data_type == "2d":
-            channel_name = data["channel_name"]
-            plot = self.live_scan_plots_dict[master_name]["2d"][data["channel_index"]]
-            channel_data_node = data["channel_data_node"]
-            channel_data_node.from_stream = True
-            image_view = channel_data_node.get(-1)
-            image_data = image_view.get_image(-1)
-            self.update_data(plot.plot_id, channel_name, image_data)
-            plot_image = plot.getImage(channel_name)  # returns last plotted image
-            if plot_image is None:
-                plot.addImage(image_data, legend=channel_name, copy=False)
-            else:
-                plot_image.setData(image_data, copy=False)
-        data_event = (
-            self.data_event[master_name]
-            .setdefault(data_type, {})
-            .setdefault(data.get("channel_index", 0), gevent.event.Event())
-        )
-        data_event.set()
+        self.__scanManager.wait_end_of_scan()
 
     def new_tab(self, label, widget=qt.QWidget):
+        # FIXME: The parent have to be set
+        # FIXME: Rename the argument to widgetClass
         widget = widget()
         self.parent_tab.addTab(widget, label)
         return widget
 
-    def run_method(self, key, method, args, kwargs):
-        plot = self.plot_dict[key]
+    def run_method(self, plot_id, method, args, kwargs):
+        plot = self._get_plot_widget(plot_id)
         method = getattr(plot, method)
         return method(*args, **kwargs)
 
     # Plot management
 
     def add_plot(self, cls_name, name=None):
-        plot_id = next(self._id_generator)
+        plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
         new_tab_widget = self.new_tab(name)
@@ -482,7 +435,7 @@ class Flint:
         return plot_id
 
     def get_plot_name(self, plot_id):
-        parent = self.plot_dict[plot_id].parent()
+        parent = self._get_plot_widget(plot_id).parent()
         if isinstance(parent, qt.QMdiArea):
             label = parent.windowTitle()
         else:
@@ -498,7 +451,7 @@ class Flint:
         plot.close()
 
     def get_interface(self, plot_id):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         names = dir(plot)
         with ignore_warnings():
             return [
@@ -507,17 +460,6 @@ class Flint:
                 if not name.startswith("_")
                 if callable(getattr(plot, name))
             ]
-
-    def set_plot_dpi(self, plot_id, dpi):
-        """Allow to custom the DPI of the plot
-
-        FIXME: It have to be moved to user preferences
-        """
-        try:
-            self.plot_dict[plot_id]._backend.fig.set_dpi(dpi)
-        except Exception:
-            # Prevent access to private _backend object
-            pass
 
     # Data management
 
@@ -534,7 +476,7 @@ class Flint:
             return self.data_dict[plot_id].get(field, [])
 
     def select_data(self, plot_id, method, names, kwargs):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         # Hackish legend handling
         if "legend" not in kwargs and method.startswith("add"):
             kwargs["legend"] = " -> ".join(names)
@@ -545,19 +487,40 @@ class Flint:
         method(*args, **kwargs)
 
     def deselect_data(self, plot_id, names):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         legend = " -> ".join(names)
         plot.remove(legend)
 
     def clear_data(self, plot_id):
         del self.data_dict[plot_id]
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         plot.clear()
+
+    def _get_plot_widget(self, plot_id):
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            workspace = self.__flintModel.workspace()
+            try:
+                iwidget = int(plot_id[5:])
+                if iwidget < 0:
+                    raise ValueError()
+            except Exception:
+                raise ValueError(f"'{plot_id}' is not a valid plot_id")
+            widgets = list(workspace.widgets())
+            if iwidget >= len(widgets):
+                raise ValueError(f"'{plot_id}' is not anymore available")
+            widget = widgets[iwidget]
+            if not hasattr(widget, "_silxPlot"):
+                raise ValueError(
+                    f"The widget associated to '{plot_id}' do not provide a silx API"
+                )
+            return widget._silxPlot()
+
+        return self.plot_dict[plot_id]
 
     # User interaction
 
     def select_shapes(self, plot_id, initial_shapes=(), timeout=None):
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         dock = self._create_roi_dock_widget(plot, initial_shapes)
         roi_widget = dock.widget()
         done_event = gevent.event.AsyncResult()
@@ -605,7 +568,7 @@ class Flint:
 
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
-        plot = self.plot_dict[plot_id]
+        plot = self._get_plot_widget(plot_id)
         selector = cls(plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
@@ -670,48 +633,150 @@ def create_flint(settings):
 
         About.about(win, "Flint")
 
+    def debug_console():
+        try:
+            from silx.gui.console import IPythonDockWidget
+        except ImportError:
+            ROOT_LOGGER.debug("Error while loading IPython console", exc_info=True)
+            ROOT_LOGGER.error("IPython not available")
+            return
+
+        flintState = flint.get_flint_model()
+
+        available_vars = {"flintState": flintState, "window": win}
+        banner = (
+            "The variable 'flintState' and 'window' are available.\n"
+            "Use the 'whos' and 'help(flintState)' commands for more information.\n"
+            "\n"
+        )
+        widget = IPythonDockWidget(
+            parent=win, available_vars=available_vars, custom_banner=banner
+        )
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        win.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+        widget.show()
+
+    helpMenu = menubar.addMenu("&Help")
+
     action = qt.QAction("&About", win)
     action.setStatusTip("Show the application's About box")
     action.triggered.connect(about)
-    windowMenu = menubar.addMenu("&Help")
-    windowMenu.addAction(action)
+    helpMenu.addAction(action)
+
+    action = qt.QAction("&IPython console", win)
+    action.setStatusTip("Show a IPython console (for debug purpose)")
+    action.triggered.connect(debug_console)
+    helpMenu.addAction(action)
 
     log_widget.connect_logger(ROOT_LOGGER)
 
-    flint = Flint(win, tabs)
-
-    # resize window to 70% of available screen space, if no settings
-    pos = qt.QDesktopWidget().availableGeometry(win).size() * 0.7
-    w = pos.width()
-    h = pos.height()
-    win.resize(settings.value("size", qt.QSize(w, h)))
-    win.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
-
+    flint = Flint(win, tabs, settings)
     return flint
 
 
+def parse_options():
+    """
+    Returns parsed command line argument as an `options` object.
+
+    :raises ExitException: In case of the use of `--help` in the comman line
+    """
+    parser = ArgumentParser()
+    config.configure_parser_arguments(parser)
+    options = parser.parse_args()
+    return options
+
+
+def set_global_settings(settings: qt.QSettings, options):
+    """"Set the global settings from command line options and local user
+    settings.
+
+    This function also update the local user settings from the command line
+    options.
+    """
+    if options.clear_settings:
+        # Clear all the stored keys
+        settings.clear()
+
+    try:
+        import matplotlib
+    except ImportError:
+        matplotlib = None
+
+    def update_and_return(option, setting_key, default_to_remove):
+        """Update a single setting from the command line option and returns the
+        final value."""
+        if option is None:
+            value = settings.value(setting_key, None)
+        else:
+            if option == default_to_remove:
+                settings.remove(setting_key)
+                value = None
+            else:
+                settings.setValue(setting_key, option)
+                value = option
+        return value
+
+    if matplotlib:
+        settings.beginGroup("matplotlib")
+        value = update_and_return(options.matplotlib_dpi, "dpi", 100)
+        if value is not None:
+            matplotlib.rcParams["figure.dpi"] = float(value)
+        settings.endGroup()
+
+    if options.opengl:
+        silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+
+
 def main():
-    # patch system poll
-    need_gevent_loop = True  # not poll_patch.init(1) if poll_patch else True
+    logging.basicConfig(level=logging.INFO)
+    logging.captureWarnings(True)
+    ROOT_LOGGER.level = logging.INFO
+
+    options = parse_options()
+    if options.debug:
+        logging.root.setLevel(logging.DEBUG)
+    else:
+        silx_log = logging.getLogger("silx")
+        silx_log.setLevel(logging.WARNING)
+
+    need_gevent_loop = True
+    if options.gevent_poll:
+        if poll_patch:
+            need_gevent_loop = False
+            poll_patch.init(1)
+        else:
+            ROOT_LOGGER.error("gevent_poll requested but `poll_patch` was not loaded.")
+            ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead.")
+            need_gevent_loop = True
+
+    # Avoid warning in case of locked loop (debug mode/ipython mode)
+    PyQt5.QtCore.pyqtRemoveInputHook()
 
     qapp = qt.QApplication(sys.argv)
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
+    settings = qt.QSettings(
+        qt.QSettings.IniFormat, qt.QSettings.UserScope, qapp.applicationName()
+    )
+    set_global_settings(settings, options)
 
     bliss.flint.resources.silx_integration()
 
-    settings = qt.QSettings()
     flint = create_flint(settings)
+    qapp.aboutToQuit.connect(flint.save_to_settings)
 
-    def save_window_settings():
-        settings.setValue("size", flint.mainwin.size())
-        settings.setValue("pos", flint.mainwin.pos())
-        settings.sync()
+    if options.simulator:
+        from bliss.flint.simulator.acquisition import AcquisitionSimulator
+        from bliss.flint.simulator.simulator_widget import SimulatorWidget
 
-    qapp.aboutToQuit.connect(save_window_settings)
-
-    ROOT_LOGGER.level = logging.INFO
+        display = SimulatorWidget(flint.mainwin)
+        display.setFlintModel(flint.get_flint_model())
+        simulator = AcquisitionSimulator(display)
+        scanManager = flint.get_scan_manager()
+        simulator.setScanManager(scanManager)
+        display.setSimulator(simulator)
+        display.show()
 
     def handle_exception(exc_type, exc_value, exc_traceback):
         ROOT_LOGGER.critical(
@@ -728,17 +793,17 @@ def main():
     # enable periodic execution of Qt's loop,
     # this is to react on SIGINT
     # (from stackoverflow answer: https://stackoverflow.com/questions/4938723)
-    timer = qt.QTimer()
-    timer.start(500)
-    timer.timeout.connect(lambda: None)
+    ctrlc_timer = qt.QTimer()
+    ctrlc_timer.start(500)
+    ctrlc_timer.timeout.connect(lambda: None)
 
     if need_gevent_loop:
-        timer2 = qt.QTimer()
-        timer2.start(10)
-        timer2.timeout.connect(lambda: gevent.sleep(0.01))
-        ROOT_LOGGER.info("Gevent based on QtTimer")
+        gevent_timer = qt.QTimer()
+        gevent_timer.start(10)
+        gevent_timer.timeout.connect(lambda: gevent.sleep(0.01))
+        ROOT_LOGGER.info("gevent based on QTimer")
     else:
-        ROOT_LOGGER.info("Gevent use poll patched")
+        ROOT_LOGGER.info("gevent use poll patched")
 
     stop = gevent.event.AsyncResult()
     thread = gevent.spawn(background_task, flint, stop)

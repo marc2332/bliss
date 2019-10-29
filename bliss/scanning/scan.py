@@ -554,8 +554,13 @@ class ScanDisplay(ParametersWardrobe):
 
         super().__init__(
             "%s:scan_display_params" % session_name,
-            default_values={"auto": False, "motor_position": True, "_counters": []},
-            property_attributes=("session", "counters"),
+            default_values={
+                "auto": False,
+                "motor_position": True,
+                "_counters": [],
+                "_extra_args": [],
+            },
+            property_attributes=("session", "counters", "extra_args"),
             not_removable=("auto", "motor_position"),
             **keys,
         )
@@ -573,6 +578,37 @@ class ScanDisplay(ParametersWardrobe):
     def session(self):
         """ This give the name of the current session or default if no current session is defined """
         return self._session_name
+
+    @property
+    def extra_args(self):
+        """Returns the list of extra arguments which will be provided to flint
+        at it's next creation"""
+        return self._extra_args
+
+    @extra_args.setter
+    def extra_args(self, extra_args):
+        """Set the list of extra arguments to provide to flint at it's
+        creation"""
+        # FIXME: It could warn to restart flint in case it is already loaded
+        if not isinstance(extra_args, (list, tuple)):
+            raise TypeError(
+                "SCADISPLAY_SCAN.extra_args expects a list or a tuple of strings"
+            )
+
+        # Do not load it while it is not needed
+        from argparse import ArgumentParser
+        from bliss.flint import config
+
+        # Parse and check flint command line arguments
+        parser = ArgumentParser(prog="Flint")
+        config.configure_parser_arguments(parser)
+        try:
+            parser.parse_args(extra_args)
+        except SystemExit:
+            # Avoid to exit while parsing the arguments
+            pass
+
+        self._extra_args = list(extra_args)
 
     @property
     def counters(self):
@@ -1291,11 +1327,13 @@ class Scan:
 
         return None
 
-    def get_plot(self, scan_item, wait=False):
-        """Return plot object showing 'scan_item' from Flint live scan view
+    def get_plot(self, channel_item, plot_type, wait=False):
+        """Return the first plot object of type 'plot_type' showing the
+        'channel_item' from Flint live scan view.
 
         Argument:
-            scan_item: can be a motor, a counter, or anything within a measurement group
+            channel_item: must be a channel
+            plot_type: can be "image", "curve", "scatter", "mca"
 
         Keyword argument:
             wait (defaults to False): wait for plot to be shown
@@ -1304,24 +1342,11 @@ class Scan:
         if not check_flint(current_session.name):
             return
 
-        for master, channels in self.scan_info["acquisition_chain"].items():
-            # find plot within this master slave channels
-            args = self._find_plot_type_index(scan_item.name, channels)
-            if args is None:
-                # hopefully scan item is one of this master channels
-                args = self._find_plot_type_index(scan_item.name, channels["master"])
-            if args:
-                break
-        else:
-            raise ValueError("Cannot find plot with '%s`" % scan_item.name)
-
-        plot_type, index = args
-
         flint = get_flint()
         if wait:
-            flint.wait_data(master, plot_type, index)
+            flint.wait_end_of_scan()
         try:
-            plot_id = flint.get_live_scan_plot(master, plot_type, index)
+            plot_id = flint.get_live_scan_plot(channel_item.fullname, plot_type)
         except IndexError:
             return
         if plot_type == "0d":

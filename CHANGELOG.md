@@ -5,7 +5,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Flint
+   - Provides dock widget for all the main widgets of the live scan window
+   - Provides a widget to monitor the state of the current scan
+   - Provides a single 'property' widget to configure the live plots
+   - Provides new widgets for curves, scatter, images, MCAs (it is supposed to provide more or less the same features)
+   - Curve widget supports many master (a curve can only be created from 2 channels of the same top master)
+   - A IPython dialog is provided in the Help menu
+   - Location of the docks are saved between 2 executions of the application (local computer user preferences)
+   - Improve autodetection of the plot and axes according to the kind of scans
+   - Experimental
+      - Many MCAs can be displayed on the same plot
+      - Many scatters (sharing the same axis) can be displayed on the same plot
+      - Many images can be displayed on the same plot. The first one is displayed as an image, others as scatter
+   - `SCAN_DIPSLAY.extra_args` was added to custom command line argument passed to flint
+      - `--enable-opengl` to use OpenGL rendering for plots (it should provide faster rendering, but could have issue with remote desktop)
+      - `--enable-gevent-poll` to use experimental patching of poll system function for a better cooperative between Qt and gevent (it should reduce CPU consumption but could be unstable)
+      - `--matplotlib-dpi DPI` to custom the plot DPI (this setting will be stored in the local user preferences)
+      - `--clear-settings` to allow to start with cleared previous local user settings
+   - 2 scripts was added to optimize and convert SVG to PNG
+      - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
+
+### Changed
+- Flint
+   - Default curve colors was updated
+   - `bliss.scanning.Scan.get_plot` API was changed, now it uses a channel object and a plot kind (`image`, `scatter`, `mca` or `curve`)
+      - This API is only used by `edit_roi_counters` and will may be removed
+   - `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
+
 ### Fixed
+- Flint
+   - Location of the live plots stay the same between 2 scans
+
+### Removed
+- Flint
+   - `flint.set_dpi` was removed. A local use setting is provided now.
+   - Redis node `SESSION:plot_select` is not anymore updated by the GUI
+   - Redis node `SESSION:scatter_select` is not anymore updated by the GUI
 
 ## [0.3.0] - 2019-10-01
 ### Added

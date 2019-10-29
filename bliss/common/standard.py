@@ -702,7 +702,7 @@ def edit_roi_counters(detector, acq_time=None):
                 )
                 return
 
-    plot = scan.get_plot(detector.image, wait=True)
+    plot = scan.get_plot(detector.image, plot_type="image", wait=True)
     if not plot:
         print("Flint is not available -- cannot edit roi counters")
         return

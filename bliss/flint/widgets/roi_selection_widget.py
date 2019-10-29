@@ -30,6 +30,9 @@ class RoiSelectionWidget(qt.QMainWindow):
         panel = qt.QWidget()
         self.setCentralWidget(panel)
 
+        mode = plot.getInteractiveMode()["mode"]
+        self.__previousMode = mode
+
         self.roi_manager = RegionOfInterestManager(plot)
         self.roi_manager.setColor("pink")
         self.roi_manager.sigRoiAdded.connect(self.on_added)
@@ -48,7 +51,15 @@ class RoiSelectionWidget(qt.QMainWindow):
 
     def on_apply(self):
         self.selectionFinished.emit(self.roi_manager.getRois())
+        self.clear()
+
+    def clear(self):
         self.roi_manager.clear()
+        try:
+            self.plot.setInteractiveMode(self.__previousMode)
+        except Exception:
+            # In case the mode is not supported
+            pass
 
     def on_added(self, roi):
         if not roi.getLabel():

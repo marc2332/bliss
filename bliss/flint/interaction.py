@@ -114,13 +114,13 @@ class ShapeSelector(qt.QObject):
 
     selectionChanged = qt.Signal(tuple)
     """Signal emitted whenever the selection has changed.
-    
+
     It provides the selection.
     """
 
     selectionFinished = qt.Signal(tuple)
     """Signal emitted when selection is terminated.
-    
+
     It provides the selection.
     """
 
@@ -273,13 +273,13 @@ class PointsSelector(qt.QObject):
 
     selectionChanged = qt.Signal(tuple)
     """Signal emitted whenever the selection has changed.
-    
+
     It provides the selection.
     """
 
     selectionFinished = qt.Signal(tuple)
     """Signal emitted when selection is terminated.
-    
+
     It provides the selection.
     """
 
@@ -440,7 +440,7 @@ class BlissPlot(PlotWindow):
 
     sigSelectionDone = qt.Signal(object)
     """Signal emitted when the selection is done
-    
+
     It provides the list of selected points
     """
 

@@ -9,13 +9,12 @@ import itertools
 from contextlib import closing
 from collections import defaultdict
 
-from ast import literal_eval
-
 import numpy
 import gevent.event
+import time
 
 from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
-from bliss.controllers.mca import TriggerMode, PresetMode, Stats
+from bliss.controllers.mca import TriggerMode, PresetMode, Stats, AcquisitionMode
 from bliss.common.measurement import BaseCounter, counter_namespace
 
 
@@ -42,7 +41,7 @@ class StateMachine(object):
         self.goto(destination)
 
 
-# Acquisition device
+# MCA Acquisition device
 
 
 class McaAcquisitionDevice(AcquisitionDevice):
@@ -150,17 +149,18 @@ class McaAcquisitionDevice(AcquisitionDevice):
     def prepare(self):
         """Prepare the acquisition."""
         # Generic configuration
-        self.device.set_trigger_mode(self.trigger_mode)
-        self.device.set_spectrum_size(self.spectrum_size)
+        self.device.trigger_mode = self.trigger_mode
+        self.device.spectrum_size = self.spectrum_size
         # Mode-specfic configuration
         if self.soft_trigger_mode:
-            self.device.set_preset_mode(PresetMode.REALTIME, self.preset_time)
+            self.device.preset_mode = PresetMode.REALTIME
+            self.device.preset_value = self.preset_time
         elif self.sync_trigger_mode:
-            self.device.set_hardware_points(self.npoints + 1)
-            self.device.set_block_size(self.block_size)
+            self.device.hardware_points = self.npoints + 1
+            self.device.block_size = self.block_size
         elif self.gate_trigger_mode:
-            self.device.set_hardware_points(self.npoints)
-            self.device.set_block_size(self.block_size)
+            self.device.hardware_points = self.npoints
+            self.device.block_size = self.block_size
 
     def start(self):
         """Start the acquisition."""
@@ -283,6 +283,49 @@ class McaAcquisitionDevice(AcquisitionDevice):
             publishing_dict[counter.name].append(point)
 
 
+# HWSCA Acquisition device
+
+
+class HWScaAcquisitionDevice(AcquisitionDevice):
+    def __init__(self, mca, **keys):
+        # Parent call
+        super(HWScaAcquisitionDevice, self).__init__(
+            mca, npoints=0, prepare_once=True, start_once=True
+        )
+
+        self.mca = mca
+        self.spectrum_size = mca.spectrum_size
+        self.scas = list()
+
+    def reading(self):
+        pass
+
+    def prepare(self):
+        self.mca.set_hardware_scas(self.scas)
+
+    def start(self):
+        self.device.start_acquisition()
+        self._time_start = time.time()
+
+    def stop(self):
+        self.device.stop_acquisition()
+        self._time_stop = time.time()
+
+    def trigger(self):
+        pass
+
+    def add_counter(self, counter):
+        counter.register_device(self)
+        (det, start, stop) = (
+            counter.detector_channel,
+            counter.start_index,
+            counter.stop_index,
+        )
+        self.scas.append(
+            (det, min(start, self.spectrum_size - 2), min(stop, self.spectrum_size - 1))
+        )
+
+
 # Mca counters
 
 
@@ -290,15 +333,27 @@ class BaseMcaCounter(BaseCounter):
 
     # Default chain integration
 
+    @property
+    def _acquisition_device_class(self):
+        acq_mode = self.controller.acquisition_mode
+        if acq_mode == AcquisitionMode.HWSCA:
+            return HWScaAcquisitionDevice
+        if acq_mode == AcquisitionMode.MCA:
+            return McaAcquisitionDevice
+
     def create_acquisition_device(
         self, scan_pars, device_dict=None, master_dict=None, **settings
     ):
-        npoints = scan_pars["npoints"]
-        count_time = scan_pars["count_time"]
+        acq_mode = self.controller.acquisition_mode
+        if acq_mode == AcquisitionMode.HWSCA:
+            return HWScaAcquisitionDevice(self.controller, **settings)
+        if acq_mode == AcquisitionMode.MCA:
+            npoints = scan_pars["npoints"]
+            count_time = scan_pars["count_time"]
 
-        return McaAcquisitionDevice(
-            self.controller, npoints=npoints, preset_time=count_time, **settings
-        )
+            return McaAcquisitionDevice(
+                self.controller, npoints=npoints, preset_time=count_time, **settings
+            )
 
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca
@@ -389,9 +444,7 @@ class RoiMcaCounter(BaseMcaCounter):
 
     def register_device(self, device):
         super(RoiMcaCounter, self).register_device(device)
-        self.start_index, self.stop_index = literal_eval(
-            self.mca.rois.config[self.roi_name]
-        )
+        self.start_index, self.stop_index = self.mca.rois.get(self.roi_name)
 
     @property
     def dtype(self):
@@ -412,6 +465,21 @@ class RoiSumMcaCounter(RoiMcaCounter):
         return sum(map(self.compute_roi, spectrums.values()))
 
 
+class RoiIntegralCounter(BaseMcaCounter):
+    def __init__(self, mca, roi_name, detector):
+        self.roi_name = roi_name
+        self.start_index, self.stop_index = None, None
+        super(RoiIntegralCounter, self).__init__(mca, roi_name, detector)
+
+    def register_device(self, device):
+        super(RoiIntegralCounter, self).register_device(device)
+        self.start_index = 0
+        self.stop_index = self.acquisition_device.spectrum_size - 1
+
+    def extract_point(self, spectrums, stats):
+        return sum(spectrums[self.detector_channel][:])
+
+
 def mca_counters(mca):
     """Provide a flat access to all MCA counters.
 
@@ -424,23 +492,30 @@ def mca_counters(mca):
     - counters.ocr_det<N>
     - counters.deadtime_det<N>
     """
-    # Spectrum
-    counters = [SpectrumMcaCounter(mca, element) for element in mca.elements]
-    # Stats
-    counters += [
-        StatisticsMcaCounter(mca, stat, element)
-        for element in mca.elements
-        for stat in Stats._fields
-    ]
     # Rois
-    counters += [
+    counters = [
         RoiMcaCounter(mca, roi, element)
         for element in mca.elements
         for roi in mca.rois.get_names()
     ]
+    if mca.acquisition_mode == AcquisitionMode.HWSCA:
+        if not len(counters):
+            counters += [
+                RoiIntegralCounter(mca, "counts", element) for element in mca.elements
+            ]
+    if mca.acquisition_mode == AcquisitionMode.MCA:
+        # Spectrum
+        counters += [SpectrumMcaCounter(mca, element) for element in mca.elements]
+        # Stats
+        counters += [
+            StatisticsMcaCounter(mca, stat, element)
+            for element in mca.elements
+            for stat in Stats._fields
+        ]
 
-    # Roi sums
-    counters += [RoiSumMcaCounter(mca, roi) for roi in mca.rois.get_names()]
+        # Roi sums
+        if len(mca.elements) > 1:
+            counters += [RoiSumMcaCounter(mca, roi) for roi in mca.rois.get_names()]
 
     # Instantiate
     return counter_namespace(counters)

@@ -19,18 +19,18 @@ class RoiConfig:
     def __info__(self):
         """For BLISS shell typing helper information.
         """
+        if not self.nrois:
+            return "NO ROI defined yet !!"
+
         roi_table = []
         header = ("Name", "start", "end")
-        separator = ("------", "-----", "-----")
-        roi_table.append(header)
-        roi_table.append(separator)
 
-        for roi_name in self.get_names():
-            start, end = self.get_roi(roi_name)
+        for (roi_name, values) in self.items():
+            start, end = values
             roi_line = (f"{roi_name}", f"{start}", f"{end}")
             roi_table.append(roi_line)
 
-        return tabulate(tuple(roi_table), numalign="right", tablefmt="plain")
+        return tabulate(tuple(roi_table), header, numalign="right", tablefmt="simple")
 
     # Properties
 
@@ -56,6 +56,10 @@ class RoiConfig:
             self._setting = HashSetting(name)
         return self._setting
 
+    @property
+    def nrois(self):
+        return len(self.config)
+
     # Public methods
 
     def get_names(self):
@@ -63,20 +67,20 @@ class RoiConfig:
         """
         return list(self.config.keys())
 
-    def get_roi(self, roi_name):
+    def get(self, roi_name):
         """Return ROI object from its name.
         <roi_name> ('str'): name of a ROI
         """
         return literal_eval(self.config[roi_name])
 
-    def add_roi(self, name, start, end):
+    def set(self, name, start, end):
         """Add a ROI named <name> defined by low channel index <start> and high
         channel index <end>.
         """
         # Check
         self.config[name] = start, end
 
-    def remove_roi(self, name):
+    def remove(self, name):
         """Remove ROI named <roi>.
         """
         del self.config[name]
@@ -85,3 +89,25 @@ class RoiConfig:
         """Remove all ROIs from config setting.
         """
         self.config.clear()
+
+    def __len__(self):
+        return len(self.config)
+
+    def __contains__(self, name):
+        return name in self.config
+
+    def keys(self):
+        return list(self.config.keys())
+
+    def values(self):
+        return [literal_eval(value) for value in self.config.values()]
+
+    def items(self):
+        return [(name, literal_eval(value)) for (name, value) in self.config.items()]
+
+    def has_key(self, name):
+        return self.config.has_key(name)
+
+    def update(self, rois):
+        for name, roi in rois.items():
+            self.config[name] = roi

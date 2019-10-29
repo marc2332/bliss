@@ -74,20 +74,24 @@ def test_xia_preset_mode(xia):
     client = xia._proxy
 
     # First test
-    xia.set_preset_mode(None)
+    xia.preset_mode = None
+    xia.preset_value = 0
     assert client.set_acquisition_value.call_args_list == [
         (("preset_type", 0),),
         (("preset_value", 0),),
     ]
-    client.apply_acquisition_values.assert_called_once_with()
+    assert client.apply_acquisition_values.call_count == 2
+
+    xia.preset_mode = PresetMode.NONE
+    xia.preset_value = 1
+    assert xia.preset_value == 1
 
     # Error tests
     with pytest.raises(ValueError):
-        xia.set_preset_mode(3)
+        xia.preset_mode = 3
     with pytest.raises(TypeError):
-        xia.set_preset_mode(PresetMode.NONE, 1)
-    with pytest.raises(TypeError):
-        xia.set_preset_mode(PresetMode.REALTIME, None)
+        xia.preset_mode = PresetMode.REALTIME
+        xia.preset_value = None
 
 
 def test_xia_trigger_mode(xia):
@@ -102,7 +106,7 @@ def test_xia_trigger_mode(xia):
         xmap_prefix = []
 
     # First test
-    xia.set_trigger_mode(None)
+    xia.trigger_mode = None
     assert client.set_acquisition_value.call_args_list == [
         (("gate_ignore", 1),),
         (("mapping_mode", 0),),
@@ -112,7 +116,7 @@ def test_xia_trigger_mode(xia):
     # Second test
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
-    xia.set_trigger_mode(TriggerMode.GATE)
+    xia.trigger_mode = TriggerMode.GATE
     assert client.set_acquisition_value.call_args_list == xmap_prefix + [
         (("gate_ignore", 0),),
         (("mapping_mode", 1),),
@@ -124,7 +128,7 @@ def test_xia_trigger_mode(xia):
     client.set_acquisition_value.reset_mock()
     client.apply_acquisition_values.reset_mock()
     client.get_acquisition_value.return_value = 3  # Multiple
-    xia.set_trigger_mode(TriggerMode.SYNC)
+    xia.trigger_mode = TriggerMode.SYNC
     assert client.set_acquisition_value.call_args_list == xmap_prefix + [
         (("gate_ignore", 1),),
         (("mapping_mode", 1),),
@@ -134,19 +138,20 @@ def test_xia_trigger_mode(xia):
 
     # Error tests
     with pytest.raises(ValueError):
-        xia.set_trigger_mode(13)
+        xia.trigger_mode = 13
 
     # XMAP specific
     if xmap:
         client.get_trigger_channels.return_value = []
         with pytest.raises(ValueError):
-            xia.set_trigger_mode(TriggerMode.GATE)
+            xia.trigger_mode = TriggerMode.GATE
 
     # XMAP specific
     if xmap:
         client.get_trigger_channels.return_value = [0]
         with pytest.raises(ValueError):
-            xia.set_trigger_mode(TriggerMode.GATE, channel=1)
+            xia._gate_master = 1
+            xia.set_xmap_gate_master(TriggerMode.GATE)
 
 
 def test_xia_hardware_points(xia):
@@ -154,7 +159,7 @@ def test_xia_hardware_points(xia):
 
     # Test single setter
     client.get_acquisition_value.return_value = 1.
-    xia.set_hardware_points(3)
+    xia.hardware_points = 3
     client.set_acquisition_value.assert_called_once_with("num_map_pixels", 3)
     client.apply_acquisition_values.assert_called_once_with()
 
@@ -170,21 +175,24 @@ def test_xia_hardware_points(xia):
 
     # Error tests
     with pytest.raises(ValueError):
-        xia.set_hardware_points(0)
+        xia.hardware_points = 0
 
 
 def test_xia_block_size(xia):
     client = xia._proxy
 
     # Test simple setter
-    assert xia.set_block_size(3) is None
+    def myset(value):
+        xia.block_size = value
+
+    assert myset(3) is None
     client.set_acquisition_value.assert_called_once_with("num_map_pixels_per_buffer", 3)
     client.apply_acquisition_values.assert_called_once_with()
 
     # Test simple getter
     client.get_acquisition_value.reset_mock()
     client.get_acquisition_value.return_value = 3
-    xia.block_size == 3
+    assert xia.block_size == 3
     assert client.get_acquisition_value.call_args_list == [
         (("mapping_mode",),),
         (("num_map_pixels_per_buffer",),),
@@ -192,7 +200,7 @@ def test_xia_block_size(xia):
 
     # Test default setter
     client.apply_acquisition_values.reset_mock()
-    assert xia.set_block_size() is None
+    assert myset(None) is None
     client.set_maximum_pixels_per_buffer.assert_called_once_with()
     client.apply_acquisition_values.assert_called_once_with()
 
@@ -241,17 +249,17 @@ def test_xia_finalization(xia):
     client.close.assert_called_once_with()
 
 
-@pytest.mark.parametrize("dtype", ["xia", "mercury", "xmap", "falconx"])
-def test_xia_from_wrong_beacon_config(dtype, beacon, mocker):
+@pytest.fixture(params=["xia", "mercury", "xmap", "falconx"])
+def test_xia_from_wrong_beacon_config(request, beacon, mocker):
     # Rpc error
     m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     m.side_effect = IOError("Cannot connect!")
     with pytest.raises(IOError):
-        beacon.get(dtype + "1")
+        beacon.get(request.param + "1")
 
     # Handel error
     m = mocker.patch("bliss.controllers.mca.xia.rpc.Client")
     client = m.return_value
     client.init.side_effect = IOError("File not found!")
     with pytest.raises(IOError):
-        beacon.get(dtype + "1")
+        beacon.get(request.param + "1")

@@ -10,9 +10,18 @@
 # Imports
 from numbers import Number
 from bliss.common.logtools import *
+from bliss.config.beacon_object import BeaconObject
 
 from bliss.comm import rpc
-from .base import BaseMCA, Brand, DetectorType, PresetMode, Stats, TriggerMode
+from .base import (
+    BaseMCA,
+    Brand,
+    DetectorType,
+    PresetMode,
+    Stats,
+    TriggerMode,
+    AcquisitionMode,
+)
 
 from bliss.common.logtools import *
 from bliss import global_map
@@ -33,38 +42,70 @@ class BaseXIA(BaseMCA):
 
     The configuration methods are expected to be called in the following order:
     - load_configuration
-    - set_trigger_mode
-    - set_preset_mode (for SOFTWARE trigger mode)
-    - set_hardware_points (for SYNC and GATE trigger modes)
-    - set_block_size (for SYNC and GATE trigger modes)
+    - trigger_mode
+    - preset_mode (for SOFTWARE trigger mode)
+    - preset_value
+    - hardware_points (for SYNC and GATE trigger modes)
+    - block_size (for SYNC and GATE trigger modes)
     """
 
     def __init__(self, *args, **kwargs):
+        self._proxy = None
         super().__init__(*args, **kwargs)
         global_map.register(self, parents_list=["mca"], tag=f"XiaMca:{self.name}")
+
+    # Config / Settings
+    @BeaconObject.property(priority=1, must_be_in_config=True, only_in_config=True)
+    def url(self):
+        return self._url
+
+    @url.setter
+    def url(self, url):
+        self._url = url
+
+    @BeaconObject.property(priority=2, must_be_in_config=True, only_in_config=True)
+    def configuration_directory(self):
+        return self._config_dir
+
+    @configuration_directory.setter
+    def configuration_directory(self, config_dir):
+        self._config_dir = config_dir
+
+    @BeaconObject.property(priority=3, must_be_in_config=True, only_in_config=True)
+    def default_configuration(self):
+        return self._default_config
+
+    @default_configuration.setter
+    def default_configuration(self, config_file):
+        self._default_config = config_file
 
     # Life cycle
 
     def initialize_attributes(self):
         self._proxy = None
-        self._current_config = None
-        self._url = self._config["url"]
-        self._config_dir = self._config["configuration_directory"]
-        self._default_config = self._config["default_configuration"]
+        self._current_config = self.settings.get(
+            "current_configuration", self._default_config
+        )
+        self._gate_master = self.config.get("gate_master", None)
+        self._trigger_mode = TriggerMode.SOFTWARE
 
     def initialize_hardware(self):
         self._proxy = rpc.Client(self._url)
         global_map.register(self._proxy, parents_list=[self], tag="comm")
-        self.load_configuration(self._default_config)
+        try:
+            print(f"Loading {self._name} config {self._current_config}")
+            self.load_configuration(self._current_config)
+        except:
+            print("Loading config failed !!")
 
     def finalize(self):
         self._proxy.close()
 
     def info(self):
         info_str = super().info()
-        info_str += "\nXIA infos:\n"
-
-        info_str += f"config file: {self.current_configuration}\n"
+        info_str += "XIA configuration file:\n"
+        info_str += f"   - default : {self.default_configuration}\n"
+        info_str += f"   - current : {self.current_configuration}\n"
         return info_str
 
     def __info__(self):
@@ -80,9 +121,12 @@ class BaseXIA(BaseMCA):
 
     # Configuration
 
+    def _set_current_config(self, filename):
+        self._current_config = filename
+        self._settings["current_configuration"] = filename
+
     @property
     def current_configuration(self):
-        """The current configuration filename loaded by the hardware."""
         return self._current_config
 
     @property
@@ -128,10 +172,10 @@ class BaseXIA(BaseMCA):
             self._proxy.start_system()  # Takes about 5 seconds
             self._run_checks()
         except:
-            self._current_config = None
+            self._set_current_config(None)
             raise
         else:
-            self._current_config = filename
+            self._set_current_config(filename)
 
     def reload_configuration(self):
         """Force a reload of the current configuration.
@@ -139,7 +183,12 @@ class BaseXIA(BaseMCA):
         Useful when the file has changed or when the hardware or hardware
         server have been restarted.
         """
+        if self._current_config:
+            raise ValueError("No valid current configuration")
         self.load_configuration(self._current_config)
+
+    def reload_default(self):
+        self.load_configuration(self._default_config)
 
     def _run_checks(self):
         """Make sure the configuration corresponds to a mercury.
@@ -168,7 +217,9 @@ class BaseXIA(BaseMCA):
     def spectrum_size(self):
         return int(self._proxy.get_acquisition_value("number_mca_channels"))
 
-    def set_spectrum_size(self, size):
+    @spectrum_size.setter
+    def spectrum_size(self, size):
+        log_debug(self, f"set spectrum_size to {size}")
         self._proxy.set_acquisition_value("number_mca_channels", size)
         self._proxy.apply_acquisition_values()
 
@@ -182,7 +233,9 @@ class BaseXIA(BaseMCA):
         num = self._proxy.get_acquisition_value("num_map_pixels")
         return int(num)
 
-    def set_hardware_points(self, value):
+    @hardware_points.setter
+    def hardware_points(self, value):
+        log_debug(self, f"set hardware_points to {value}")
         # Invalid argument
         if value < 1:
             raise ValueError("Acquisition number should be strictly positive")
@@ -205,7 +258,9 @@ class BaseXIA(BaseMCA):
         size = self._proxy.get_acquisition_value("num_map_pixels_per_buffer")
         return int(size)
 
-    def set_block_size(self, value=None):
+    @block_size.setter
+    def block_size(self, value=None):
+        log_debug(self, f"set block_size to {value}")
         mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         # MCA mode
         if mapping == 0 and value not in (None, 1):
@@ -292,37 +347,77 @@ class BaseXIA(BaseMCA):
             PresetMode.TRIGGERS,
         ]
 
-    def set_preset_mode(self, mode, value=None):
+    @property
+    def preset_mode(self):
+        mode = self._proxy.get_acquisition_value("preset_type")
+        ptype = {
+            0: PresetMode.NONE,
+            1: PresetMode.REALTIME,
+            2: PresetMode.LIVETIME,
+            3: PresetMode.EVENTS,
+            4: PresetMode.TRIGGERS,
+        }[int(mode)]
+        return ptype
+
+    @preset_mode.setter
+    def preset_mode(self, mode):
+        log_debug(self, f"set preset_mode to {mode}")
         # Cast arguments
         if mode is None:
             mode = PresetMode.NONE
         # Check arguments
         if mode not in self.supported_preset_modes:
             raise ValueError("{!s} preset mode not supported".format(mode))
-        if mode == PresetMode.NONE and value is not None:
-            raise TypeError("Preset value should be None when no preset mode is set")
-        if mode != PresetMode.NONE and not isinstance(value, Number):
-            raise TypeError("Preset value should be a number when a preset mode is set")
-        # Get hardware values
-        ptype, pcast = {
-            PresetMode.NONE: (0, lambda x: 0),
-            PresetMode.REALTIME: (1, float),
-            PresetMode.LIVETIME: (2, float),
-            PresetMode.EVENTS: (3, int),
-            PresetMode.TRIGGERS: (4, int),
+        # Convert
+        pvalue = {
+            PresetMode.NONE: 0,
+            PresetMode.REALTIME: 1,
+            PresetMode.LIVETIME: 2,
+            PresetMode.EVENTS: 3,
+            PresetMode.TRIGGERS: 4,
         }[mode]
-        pvalue = pcast(value)
         # Configure
-        self._proxy.set_acquisition_value("preset_type", ptype)
+        self._proxy.set_acquisition_value("preset_type", pvalue)
+        self._proxy.apply_acquisition_values()
+
+    @property
+    def preset_value(self):
+        value = self._proxy.get_acquisition_value("preset_value")
+        # Return cast value depending on mode
+        return self.__preset_value_cast(value)
+
+    @preset_value.setter
+    def preset_value(self, value):
+        log_debug(self, f"set preset_value to {value}")
+        mode = self.preset_mode
+        # Cast arguments depending on preset mode
+        pvalue = self.__preset_value_cast(value)
+        # Configure
         self._proxy.set_acquisition_value("preset_value", pvalue)
         self._proxy.apply_acquisition_values()
+
+    def __preset_value_cast(self, value):
+        mode = self.preset_mode
+        pcast = {
+            PresetMode.NONE: lambda x: 0,
+            PresetMode.REALTIME: float,
+            PresetMode.LIVETIME: float,
+            PresetMode.EVENTS: int,
+            PresetMode.TRIGGERS: int,
+        }[mode]
+        return pcast(value)
 
     @property
     def supported_trigger_modes(self):
         return [TriggerMode.SOFTWARE, TriggerMode.SYNC, TriggerMode.GATE]
 
-    def set_trigger_mode(self, mode, channel=None):
-        """Set the trigger mode."""
+    @property
+    def trigger_mode(self):
+        return self._trigger_mode
+
+    @trigger_mode.setter
+    def trigger_mode(self, mode):
+        log_debug(self, f"set trigger_mode to {mode}")
         # Cast arguments
         if mode is None:
             mode = TriggerMode.SOFTWARE
@@ -331,9 +426,7 @@ class BaseXIA(BaseMCA):
             raise ValueError("{!s} trigger mode not supported".format(mode))
         # XMAP Trigger
         if self.detector_type == DetectorType.XMAP:
-            self.set_xmap_trigger_mode(mode, channel=channel)
-        elif channel is not None:
-            raise ValueError("Channel argument can only provided for XMAP detector")
+            self.set_xmap_gate_master(mode)
         # Configure mapping mode and gate ignore
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
         mapping_mode = 0 if mode == TriggerMode.SOFTWARE else 1
@@ -344,22 +437,31 @@ class BaseXIA(BaseMCA):
             gate = 1
             self._proxy.set_acquisition_value("pixel_advance_mode", gate)
         self._proxy.apply_acquisition_values()
+        self._trigger_mode = mode
 
-    def set_xmap_trigger_mode(self, mode, channel=None):
+    def set_xmap_gate_master(self, mode):
         # Add extra logic for external and gate trigger mode
         if mode in (TriggerMode.SYNC, TriggerMode.GATE):
             available = self._proxy.get_trigger_channels()
             # Check available trigger channels
             if not available:
                 raise ValueError("This configuration does not support trigger signals")
+            channel = self._gate_master
             # Check channel argument
-            if channel is not None and channel not in available:
-                raise ValueError("The given channel is not a valid trigger channel")
-            # Set default channel value
             if channel is None:
                 channel = available[0]
+            elif channel not in available:
+                raise ValueError(
+                    "The given gate master channel is not a valid trigger channel"
+                )
             # Set gate master parameter
+            log_debug(self, f"set xmap gate_master to {channel}")
             self._proxy.set_acquisition_value("gate_master", True, channel)
+            self._gate_master = channel
+
+    # Modes
+    def set_hardware_scas(self, scas):
+        raise NotImplementedError
 
 
 # Specific XIA classes
@@ -380,6 +482,50 @@ class Mercury(BaseXIA):
         assert self.detector_type == DetectorType.MERCURY
         assert all(e in range(4) for e in self.elements)
 
+    @property
+    def supported_acquisition_modes(self):
+        return [AcquisitionMode.MCA, AcquisitionMode.HWSCA]
+
+    def set_hardware_scas(self, scas):
+        log_debug(self, "set_hardware_scas")
+        det_scas = dict()
+        for (det, start, stop) in scas:
+            if det not in det_scas:
+                det_scas[det] = list()
+            det_scas[det].append((start, stop))
+        for det, scalist in det_scas.items():
+            ndetsca = len(scalist)
+            self._proxy.set_acquisition_value("number_of_scas", ndetsca, det)
+            for (isca, (start, stop)) in enumerate(scalist):
+                log_debug(
+                    self,
+                    f"setting hwsca det#{det} isca#{isca} start#{start} stop#{stop}",
+                )
+                self._proxy.set_acquisition_value("sca{:d}_lo".format(isca), start, det)
+                self._proxy.set_acquisition_value("sca{:d}_hi".format(isca), stop, det)
+            self._proxy.set_acquisition_value("trigger_output", 1, det)
+            self._proxy.set_acquisition_value("livetime_output", 1, det)
+        self._proxy.apply_acquisition_values()
+
+    def reset_hardware_scas(self):
+        for det in self.elements:
+            self._proxy.set_acquisition_value("number_of_scas", 0, det)
+            self._proxy.set_acquisition_value("trigger_output", 0, det)
+            self._proxy.set_acquisition_value("livetime_output", 0, det)
+        self._proxy.apply_acquisition_values()
+
+    def get_hardware_scas(self):
+        scas = list()
+        for det in self.elements:
+            nsca = self._proxy.get_acquisition_value("number_of_scas", det)
+            for isca in range(int(nsca)):
+                start = self._proxy.get_acquisition_value(
+                    "sca{:d}_lo".format(isca), det
+                )
+                stop = self._proxy.get_acquisition_value("sca{:d}_hi".format(isca), det)
+                scas.append((det, int(start), int(stop)))
+        return scas
+
 
 class XMAP(BaseXIA):
     """Controller class for the XMAP (a XIA MCA)."""
@@ -387,6 +533,10 @@ class XMAP(BaseXIA):
     def _run_type_specific_checks(self):
         assert self.detector_type == DetectorType.XMAP
         assert all(e in range(16) for e in self.elements)
+
+    @property
+    def gate_master(self):
+        return self._gate_master
 
 
 class FalconX(BaseXIA):

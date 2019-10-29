@@ -1,7 +1,14 @@
 """Test module for MCA base class."""
 
 import pytest
-from bliss.controllers.mca import BaseMCA, Brand, DetectorType
+from bliss.controllers.mca import (
+    BaseMCA,
+    Brand,
+    DetectorType,
+    PresetMode,
+    TriggerMode,
+    Stats,
+)
 from bliss.controllers.mca import PresetMode, TriggerMode, Stats
 
 
@@ -10,7 +17,7 @@ def test_mca_enums():
     assert "MERCURY" in dir(DetectorType)
 
 
-def test_base_mca():
+def test_base_mca(beacon):
 
     # No initialize_attributes method
     class IncompleteMCA1(BaseMCA):
@@ -39,16 +46,11 @@ def test_base_mca():
     config = {}
     mca = IncompleteMCA3("incomplete", config)
     assert mca.name == "incomplete"
-    assert mca._config is config
+    assert mca.config is config
 
     # Method dict
     methods = {
         mca.finalize: (),
-        mca.set_preset_mode: ("some_mode",),
-        mca.set_hardware_points: (12,),
-        mca.set_block_size: (6,),
-        mca.set_trigger_mode: ("some_mode",),
-        mca.set_spectrum_range: ("some", "range"),
         mca.start_acquisition: (),
         mca.stop_acquisition: (),
         mca.is_acquiring: (),
@@ -67,6 +69,11 @@ def test_base_mca():
         "detector_brand",
         "detector_type",
         "elements",
+        "preset_mode",
+        "preset_value",
+        "spectrum_range",
+        "spectrum_size",
+        "trigger_mode",
         "hardware_points",
         "block_size",
         "supported_preset_modes",
@@ -80,25 +87,46 @@ def test_base_mca():
             getattr(mca, prop)
 
 
-def test_base_mca_logic():
+def test_base_mca_logic(beacon):
     stats = Stats(*list(range(1, 8)))
 
     class TestMCA(BaseMCA):
 
         supported_preset_modes = [PresetMode.NONE, PresetMode.REALTIME]
 
-        def set_preset_mode(self, mode, value):
+        @property
+        def preset_mode(self):
+            return PresetMode.NONE
+
+        @preset_mode.setter
+        def preset_mode(self, mode):
             assert mode is None or mode in self.supported_preset_modes
+
+        @property
+        def preset_value(self):
+            return 3.0
+
+        @preset_value.setter
+        def preset_value(self, value):
+            assert value == 3.0
 
         supported_trigger_modes = [TriggerMode.SOFTWARE, TriggerMode.GATE]
 
-        def set_trigger_mode(self, mode):
+        @property
+        def trigger_mode(self):
+            return TriggerMode.SOFTWARE
+
+        @trigger_mode.setter
+        def trigger_mode(self, mode):
             assert mode is None or mode in self.supported_trigger_modes
 
-        def set_hardware_points(self, value):
-            assert value == 1
+        @property
+        def hardware_points(self):
+            return 1
 
-        hardware_points = 1
+        @hardware_points.setter
+        def hardware_points(self, value):
+            assert value == 1
 
         def initialize_attributes(self):
             pass
@@ -125,7 +153,7 @@ def test_base_mca_logic():
     config = {}
     mca = TestMCA("incomplete", config)
     assert mca.name == "incomplete"
-    assert mca._config is config
+    assert mca.config is config
 
     # Run a single acquisition
     assert mca.run_software_acquisition(1, 3.) == ([{0: [3, 2, 1]}], [{0: stats}])

@@ -5,7 +5,7 @@ import time
 import numpy
 import gevent
 
-from .base import BaseMCA, PresetMode, TriggerMode, Stats
+from .base import BaseMCA, PresetMode, TriggerMode, Stats, Brand, DetectorType
 
 
 class SimulatedMCA(BaseMCA):
@@ -39,11 +39,11 @@ class SimulatedMCA(BaseMCA):
 
     @property
     def detector_brand(self):
-        return "SIMULATION"
+        return Brand.SIMULATED
 
     @property
     def detector_type(self):
-        return "SIMULATION"
+        return DetectorType.SIMULATED
 
     @property
     def elements(self):
@@ -62,22 +62,40 @@ class SimulatedMCA(BaseMCA):
     def spectrum_size(self):
         return self._spectrum_size
 
-    def set_spectrum_size(self, size):
+    @spectrum_size.setter
+    def spectrum_size(self, size):
         self._spectrum_size = size
 
     @property
     def supported_preset_modes(self):
-        return (PresetMode.NONE,)
+        return (PresetMode.REALTIME,)
 
-    def set_preset_mode(self, mode, value=None):
+    @property
+    def preset_mode(self):
+        return PresetMode.REALTIME
+
+    @preset_mode.setter
+    def preset_mode(self, mode):
         assert mode is PresetMode.REALTIME
+
+    @property
+    def preset_value(self):
+        return self._realtime
+
+    @preset_value.setter
+    def preset_value(self, value):
         self._realtime = value
 
     @property
     def supported_trigger_modes(self):
         return TriggerMode.SOFTWARE, TriggerMode.GATE, TriggerMode.SYNC
 
-    def set_trigger_mode(self, mode):
+    @property
+    def trigger_mode(self):
+        return self._trigger_mode
+
+    @trigger_mode.setter
+    def trigger_mode(self, mode):
         if mode is None:
             mode = TriggerMode.SOFTWARE
         assert mode in self.supported_trigger_modes
@@ -87,14 +105,16 @@ class SimulatedMCA(BaseMCA):
     def hardware_points(self):
         return self._hardware_points
 
-    def set_hardware_points(self, value):
+    @hardware_points.setter
+    def hardware_points(self, value):
         self._hardware_points = value
 
     @property
     def block_size(self):
         return self._block_size or 100
 
-    def set_block_size(self, value=None):
+    @block_size.setter
+    def block_size(self, value=None):
         self._block_size = value
 
     # Acquisition control

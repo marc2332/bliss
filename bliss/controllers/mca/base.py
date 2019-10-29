@@ -12,24 +12,29 @@
 import enum
 import itertools
 import collections
+import tabulate
 
 import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
 from bliss import global_map
 from bliss.common.logtools import *
+from bliss.common.utils import autocomplete_property
+from bliss.config.beacon_object import BeaconObject
 
 # Enums
 
 Brand = enum.Enum(
-    "Brand", "XIA OCEAN_OPTICS ISG HAMAMATSU AMPTEK VANTEC CANBERRA RONTEC"
+    "Brand", "SIMULATED XIA OCEAN_OPTICS ISG HAMAMATSU AMPTEK VANTEC CANBERRA RONTEC"
 )
 
 DetectorType = enum.Enum(
     "DetectorType",
-    "FALCONX XMAP MERCURY MICRO_DXP DXP_2X "
+    "SIMULATED FALCONX XMAP MERCURY MICRO_DXP DXP_2X "
     "MAYA2000 MUSST_MCA MCA8000D DSA1000 MULTIMAX",
 )
+
+AcquisitionMode = enum.Enum("AcquisitionMode", "MCA HWSCA")
 
 TriggerMode = enum.Enum("TriggerMode", "SOFTWARE SYNC GATE")
 
@@ -43,16 +48,21 @@ Stats = collections.namedtuple(
 # Base class
 
 
-class BaseMCA(object):
+class BaseMCA(BeaconObject):
     """Generic MCA controller."""
 
     # Life cycle
 
     def __init__(self, name, config):
         self._name = name
+        BeaconObject.__init__(self, config)
         global_map.register(self, parents_list=["counters", "controllers"])
-        self._config = config
+
         self._rois = RoiConfig(self)
+        self.init()
+
+    @BeaconObject.lazy_init
+    def init(self):
         self.initialize_attributes()
         self.initialize_hardware()
 
@@ -88,23 +98,26 @@ class BaseMCA(object):
     def info(self):
         info_str = " ---=== MCA ===---\n"
         info_str += f"object: {self.__class__}\n\n"
-        info_str += "Detector info:\n"
-        info_str += f"brand: {self.detector_brand}\n"
-        info_str += f"type: {self.detector_type}\n"
-        # info_str += f"detector brand: {self.detector_brand}\n"
-
-        info_str += f"\nConfig:\n"
-        # info_str += f"Counters: {self.counters}\n"
-        info_str += f"ROIS:\n"
-        info_str += f"{self.rois}\n"
-        info_str += f"\n"
+        info_str += f"Detector brand : {self.detector_brand.name}\n"
         try:
-            info_str += f"spectrum size: {self.spectrum_size}\n"
-        except NotImplementedError:
+            info_str += f"Detector type  : {self.detector_type.name}\n"
+        except:
+            info_str += f"Detector type  : UNKNOWN\n"
+
+        # info_str += f"\nConfig:\n"
+        # info_str += f"Counters: {self.counters}\n"
+        info_str += f"\nROIS:\n"
+        info_str += "{0}\n".format(self.rois.__info__())
+        info_str += f"\n"
+
+        info_str += f"Acquisition mode : {self.acquisition_mode.name}\n"
+        try:
+            info_str += f"Spectrum size    : {self.spectrum_size}\n"
+        except:
             pass
         try:
-            info_str += f"calib type: {self.calibration_type}\n"
-        except NotImplementedError:
+            info_str += f"Calib type       : {self.calibration_type}\n"
+        except:
             pass
         info_str += f"\n"
 
@@ -127,17 +140,59 @@ class BaseMCA(object):
     # Modes
 
     @property
+    def supported_acquisition_modes(self):
+        return [AcquisitionMode.MCA]
+
+    @BeaconObject.property(default=AcquisitionMode.MCA)
+    def acquisition_mode(self):
+        pass
+
+    @acquisition_mode.setter
+    def acquisition_mode(self, mode):
+        setmode = mode
+        if type(mode) == str:
+            for acq_mode in self.supported_acquisition_modes:
+                if mode.upper() == acq_mode.name:
+                    setmode = acq_mode
+                    break
+        elif type(mode) == int:
+            for acq_mode in self.supported_acquisition_modes:
+                if mode == acq_mode.value:
+                    setmode = acq_mode
+        if setmode not in self.supported_acquisition_modes:
+            raise ValueError("Not supported acquisition mode [{}]".format(mode))
+        return setmode
+
+    @property
     def supported_preset_modes(self):
         raise NotImplementedError
 
-    def set_preset_mode(self, mode, *args):
+    @property
+    def preset_mode(self):
+        raise NotImplementedError
+
+    @preset_mode.setter
+    def preset_mode(self, mode):
+        raise NotImplementedError
+
+    @property
+    def preset_value(self):
+        raise NotImplementedError
+
+    @preset_value.setter
+    def preset_value(self, value):
         raise NotImplementedError
 
     @property
     def supported_trigger_modes(self):
         raise NotImplementedError
 
-    def set_trigger_mode(self, mode):
+    @property
+    def trigger_mode(self):
+        raise NotImplementedError
+
+    @trigger_mode.setter
+    def trigger_mode(self, mode):
         raise NotImplementedError
 
     # Settings
@@ -146,14 +201,20 @@ class BaseMCA(object):
     def calibration_type(self):
         raise NotImplementedError
 
-    def set_spectrum_range(self, first, last):
+    @property
+    def spectrum_range(self):
+        return (0, self.spectrum_size - 1)
+
+    @spectrum_range.setter
+    def spectrum_range(self, first_last_tuple):
         raise NotImplementedError
 
     @property
     def spectrum_size(self):
         raise NotImplementedError
 
-    def set_spectrum_size(self, size):
+    @spectrum_size.setter
+    def spectrum_size(self, size):
         raise NotImplementedError
 
     # Buffer settings
@@ -162,14 +223,16 @@ class BaseMCA(object):
     def hardware_points(self):
         raise NotImplementedError
 
-    def set_hardware_points(self, value):
+    @hardware_points.setter
+    def hardware_points(self, value):
         raise NotImplementedError
 
     @property
     def block_size(self):
         raise NotImplementedError
 
-    def set_block_size(self, value=None):
+    @block_size.setter
+    def block_size(self, value=None):
         raise NotImplementedError
 
     # Acquisition
@@ -208,9 +271,20 @@ class BaseMCA(object):
 
     # Roi handling
 
-    @property
+    @autocomplete_property
     def rois(self):
         return self._rois
+
+    # statistics display
+
+    def statistics(self):
+        stats = self.get_acquisition_statistics()
+        datas = [
+            [idx, val.realtime, val.livetime, val.deadtime, val.icr, val.ocr]
+            for (idx, val) in stats.items()
+        ]
+        heads = ["det#", "RealTime", "LiveTime", "DeadTime", "ICR", "OCR"]
+        print("\n" + tabulate.tabulate(datas, heads, numalign="right") + "\n")
 
     # Extra logic
 
@@ -275,9 +349,10 @@ class BaseMCA(object):
     ):
         log_debug(self, "run_software_acquisition")
         # Trigger mode
-        self.set_trigger_mode(TriggerMode.SOFTWARE)
+        self.trigger_mode = TriggerMode.SOFTWARE
         # Preset mode
-        self.set_preset_mode(PresetMode.REALTIME, acquisition_time)
+        self.preset_mode = PresetMode.REALTIME
+        self.preset_value = acquisition_time
         # Run acquisition
         data, statistics = zip(
             *self.software_controlled_run(acquisition_number, polling_time)
@@ -290,11 +365,11 @@ class BaseMCA(object):
     ):
         log_debug(self, "run_gate_acquisition")
         # Trigger mode
-        self.set_trigger_mode(TriggerMode.GATE)
+        self.trigger_mode = TriggerMode.GATE
         # Acquisition number
-        self.set_hardware_points(acquisition_number)
+        self.hardware_points = acquisition_number
         # Block size
-        self.set_block_size(block_size)
+        self.block_size = block_size
         # Run acquisition
         data, statistics = zip(
             *self.hardware_controlled_run(acquisition_number, polling_time)
@@ -307,11 +382,11 @@ class BaseMCA(object):
     ):
         log_debug(self, "run_synchronized_acquisition")
         # Trigger mode
-        self.set_trigger_mode(TriggerMode.SYNC)
+        self.trigger_mode = TriggerMode.SYNC
         # Acquisition number
-        self.set_hardware_points(acquisition_number + 1)
+        self.hardware_points = acquisition_number + 1
         # Block size
-        self.set_block_size(block_size)
+        self.block_size = block_size
         # Create generator
         data_generator = self.hardware_controlled_run(
             acquisition_number + 1, polling_time

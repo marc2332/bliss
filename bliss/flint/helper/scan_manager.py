@@ -122,7 +122,7 @@ class ScanManager:
         else:
             # We should receive a single new_scan per scan, but let's check anyway
             if not self.__is_current_scan(scan_info):
-                _logger.debug("New scan from %s ignored", unique)
+                _logger.debug("new_scan from %s ignored", unique)
                 return
 
         self._end_scan_event.clear()
@@ -269,7 +269,7 @@ class ScanManager:
     def end_scan(self, scan_info: Dict):
         if not self.__is_current_scan(scan_info):
             unique = self.__get_scan_id(scan_info)
-            _logger.debug("New scan data from %s ignored", unique)
+            _logger.debug("end_scan from %s ignored", unique)
             return
         try:
             self._end_scan(scan_info)

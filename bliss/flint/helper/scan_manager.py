@@ -271,12 +271,21 @@ class ScanManager:
             unique = self.__get_scan_id(scan_info)
             _logger.debug("end_scan from %s ignored", unique)
             return
+
+        scan = self.__scan
+        if scan is None:
+            _logger.error(
+                "A second end_scan (or end_scan before new_scan) from %s was received. Ignored",
+                unique,
+            )
+            return
+
         try:
+            assert self.__scan is not None
             self._end_scan(scan_info)
         finally:
             self.__data_storage.clear()
 
-            scan = self.__scan
             scan._setState(scan_model.ScanState.FINISHED)
             scan.scanFinished.emit()
 
@@ -289,11 +298,7 @@ class ScanManager:
         # Cause it can be processed by another greenlet
         self._end_data_process_event.wait()
 
-        # it became empty
-        assert self.__scan is not None
-
         scan = self.__scan
-
         updated_masters = set([])
         for group_name in self.__data_storage.groups():
             channels = self.__data_storage.get_channels_by_group(group_name)

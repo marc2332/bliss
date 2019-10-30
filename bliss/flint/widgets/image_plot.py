@@ -181,14 +181,14 @@ class ImagePlotWidget(ExtendedDockWidget):
 
     def __cleanAll(self):
         for _item, itemKeys in self.__items.items():
-            for key in itemKeys:
-                self.__plot.remove(*key)
+            for description in itemKeys:
+                self.__plot.remove(description.key, description.kind)
         self.__plot.resetZoom()
 
     def __cleanItem(self, item: plot_model.Item):
         itemKeys = self.__items.pop(item, [])
-        for key in itemKeys:
-            self.__plot.remove(*key)
+        for description in itemKeys:
+            self.__plot.remove(description.key, description.kind)
         self.__plot.resetZoom()
 
     def __redrawAll(self):

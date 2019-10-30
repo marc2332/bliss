@@ -1,7 +1,5 @@
 """Testing scan info helper module."""
 
-import pytest
-
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_item_model

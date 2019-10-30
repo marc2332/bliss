@@ -1,18 +1,16 @@
-import pytest
-import gevent
 import numpy
 from bliss.common import plot
 from bliss.common.plot import get_flint
 from bliss.common.scans import plotselect
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 
 def test_get_plot(test_session_with_flint, lima_simulator):
     session = test_session_with_flint
     lima = session.config.get("lima_simulator")
-    simu1 = session.config.get("simu1")
+    # simu1 = session.config.get("simu1")
     ascan = session.env_dict["ascan"]
     roby = session.config.get("roby")
     diode = session.config.get("diode")
@@ -21,7 +19,7 @@ def test_get_plot(test_session_with_flint, lima_simulator):
     plotselect(diode)
 
     # s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
-    s = ascan(roby, 0, 5, 5, 0.001, diode, lima)
+    ascan(roby, 0, 5, 5, 0.001, diode, lima)
 
     # synchronize redis events with flint
     flint.wait_end_of_scan()

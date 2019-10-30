@@ -1,7 +1,5 @@
 """Testing LogWidget."""
 
-import pytest
-
 from bliss.flint.helper import model_helper
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model

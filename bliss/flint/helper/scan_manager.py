@@ -42,6 +42,9 @@ class ScanManager:
 
         self.__data_storage = DataStorage()
         self._end_scan_event = gevent.event.Event()
+        """Event to allow to wait for the the end of a scan"""
+        self._end_data_process_event = gevent.event.Event()
+        """Event to allow to wait for the the end of data processing"""
         self.__scan: Optional[scan_model.Scan] = None
         self.__scan_id = None
         self.__absorb_events = True
@@ -117,6 +120,7 @@ class ScanManager:
 
         self._last_event[key] = (data_type, data)
         if self.__absorb_events:
+            self._end_data_process_event.clear()
             if self._refresh_task is None:
                 self._refresh_task = gevent.spawn(self.__refresh)
         else:
@@ -134,6 +138,7 @@ class ScanManager:
                         _logger.error("Error while reaching data", exc_info=True)
         finally:
             self._refresh_task = None
+            self._end_data_process_event.set()
 
     def __new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
@@ -227,7 +232,10 @@ class ScanManager:
             self._end_scan_event.set()
 
     def _end_scan(self, scan_info: Dict):
-        # FIXME: As _last_event is maybe not empty, it would be good to wait unitl
+        # Make sure all the previous data was processed
+        # Cause it can be processed by another greenlet
+        self._end_data_process_event.wait()
+
         # it became empty
         assert self.__scan is not None
 

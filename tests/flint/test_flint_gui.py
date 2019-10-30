@@ -2,7 +2,6 @@
 
 import pytest
 from bliss.common import plot
-import gevent
 
 
 def test_empty_plot(flint_session):

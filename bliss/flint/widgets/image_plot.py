@@ -190,7 +190,6 @@ class ImagePlotWidget(ExtendedDockWidget):
         for key in itemKeys:
             self.__plot.remove(*key)
         self.__plot.resetZoom()
-        print("cleanItem", item)
 
     def __redrawAll(self):
         self.__cleanAll()

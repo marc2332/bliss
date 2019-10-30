@@ -1,11 +1,9 @@
-import pytest
-import gevent
 import numpy
 from bliss.common import plot
 from bliss.common.plot import get_flint
 from bliss.common.scans import plotselect
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 

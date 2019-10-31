@@ -1,14 +1,12 @@
 def ct2_config(cnum, type, unit, module, chan) '{
     local mne factor ctrl_dev
-
     global CT2_MAC_HDW[]
-
     ctrl_dev = ct2_ADDR
+	CT2_MAC_HDW[ctrl_dev]["last"] = CT2_MAC_HDW[ctrl_dev]["t0"] = time()
     if (type == "ctrl") {
         printf("Using P201 \"%s\" counters\n", ctrl_dev)
         return
     }
-
     mne = cnt_mne(cnum)
     if (chan == 0) {
         printf("Configuring \"%s\" as timer\n", mne)
@@ -20,56 +18,86 @@ def ct2_config(cnum, type, unit, module, chan) '{
     }
 }'
 
+if (!(whatis("__ct2_profile")  & 2)) rdef __ct2_profile \'#$*\'
+
+def ct2_profiling '{
+    if ((whatis("__ct2_profile")>>16) <= 5) { # just a # sign -> off
+        rdef __ct2_profile "eprintf(\"ct2: %s %s %f \", FnId, addon, y = ((x = time()) - CT2_MAC_HDW[ctrl_dev][\"last\"])); CT2_MAC_HDW[ctrl_dev][\"last\"] = x; if(y > 0.01) eprintf(\"too long \"); eprint"
+        print "CT2 profiling is ON"
+    } else {
+        rdef __ct2_profile \'#$*\'
+        print "CT2 profiling is OFF"
+    }
+}
+'
+
 def ct2_cmd(cnum, key, p1, p2) '{
     local chan is_running ctrl_dev acq_chan acq_chan_list[] sep val[] int_cnt
-    local cnt_idx cnt_i
-
+    local cnt_idx cnt_i x y FnId
+    FnId="ct2_cmd"
     global CT2_MAC_HDW_LAST[]
-
     ctrl_dev = ct2_ADDR
     if (cnum != "..")
         chan = counter_par(cnum, "channel")
-
     if (key == "get_status") {
+		__ct2_profile key " 1"
         is_running = (tango_get(ctrl_dev, "acq_status") == "Running")
+		__ct2_profile key " 2"
         CT2_MAC_HDW[ctrl_dev]["running"] = is_running
         return is_running
     } else if (key == "prestart_all") {
+        CT2_MAC_HDW[ctrl_dev]["last"] = CT2_MAC_HDW[ctrl_dev]["t0"] = time()
         CT2_MAC_HDW[ctrl_dev]["acq_channels"] = ""
         CT2_MAC_HDW[ctrl_dev]["nb_channels"] = 0
         CT2_MAC_HDW_LAST["valid"] = 0
     } else if (key == "start_one") {
+		__ct2_profile key " 1" 
         if (chan != 0) {
             acq_chan = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
             sep = length(acq_chan) ? " " : ""
             acq_chan = sprintf("%s%s%d", acq_chan, sep, chan)
             CT2_MAC_HDW[ctrl_dev]["acq_channels"] = acq_chan
             cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]++
-            counter_par(cnum, "counter_idx", cnt_idx, "add")          
+            counter_par(cnum, "counter_idx", cnt_idx, "add")
+			__ct2_profile key " chan != 0"
         } else {
-            tango_put(ctrl_dev, "acq_expo_time", p1)
-            split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
-            tango_put(ctrl_dev, "acq_channels", acq_chan_list)
-            tango_put(ctrl_dev, "acq_nb_points", 1)
-            tango_put(ctrl_dev, "acq_mode", "IntTrigReadout")
-            tango_put(ctrl_dev, "acq_point_period", 0)
+            if (p1 != CT2_MAC_HDW[ctrl_dev]["lastp1"]) {
+	            tango_put(ctrl_dev, "acq_expo_time", p1)
+				CT2_MAC_HDW[ctrl_dev]["lastp1"] = p1
+				__ct2_profile key " chan == 0 tango_put expo time"
+            }
+            if (CT2_MAC_HDW[ctrl_dev]["acq_channels"] != CT2_MAC_HDW[ctrl_dev]["lastacq_channels"]) {
+				split(CT2_MAC_HDW[ctrl_dev]["acq_channels"], acq_chan_list)
+				tango_put(ctrl_dev, "acq_channels", acq_chan_list)
+				CT2_MAC_HDW[ctrl_dev]["lastacq_channels"] = CT2_MAC_HDW[ctrl_dev]["acq_channels"]
+				__ct2_profile key " tango_put acq_channels"
+			}
+            if (1 != CT2_MAC_HDW[ctrl_dev]["lastacq_nb_points"]) {
+				tango_put(ctrl_dev, "acq_nb_points", 1)
+				CT2_MAC_HDW[ctrl_dev]["lastacq_nb_points"] = 1
+				__ct2_profile key " tango_put acq_nb_points"
+			}
             tango_io(ctrl_dev, "prepare_acq")
+			__ct2_profile key " tango_io prepare_acq"
             tango_io(ctrl_dev, "start_acq")
+			__ct2_profile key " tango_io start_acq"
         }
     } else if (key == "counts") {
+		__ct2_profile key " 1"
         if (!CT2_MAC_HDW_LAST["valid"]) {
             tango_get(ctrl_dev, "counters", val)
+			__ct2_profile key " valid tango_get counters"
             int_cnt = CT2_MAC_HDW[ctrl_dev]["int_cnt"]
             if (val[int_cnt - 1] != 0) {
                 cnt_idx = (chan ? chan : int_cnt) - 1
                 return val[cnt_idx]
             }
-
             TANGO_ERR = -1
             tango_get(ctrl_dev, "data", val)
+			__ct2_profile key " valid tango_get data "
             if (TANGO_ERR != "0")
                 return -1
-            for (cnt_i in val) 
+            for (cnt_i in val)
                 CT2_MAC_HDW_LAST[cnt_i] = val[cnt_i]
             CT2_MAC_HDW_LAST["valid"] = 1
         }
@@ -77,16 +105,14 @@ def ct2_cmd(cnum, key, p1, p2) '{
             cnt_idx = counter_par(cnum, "counter_idx")
         else
             cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]
-
         return CT2_MAC_HDW_LAST[cnt_idx]
     } else if (key == "halt_all") {
         tango_io(ctrl_dev, "stop_acq")
+		__ct2_profile key " stop_acq "
     }
 }'
-
 def ct2_get(cnum, key, val_arr) '{
-    local ctrl_dev arr_keys 
-
+    local ctrl_dev arr_keys
     ctrl_dev = counter_par(cnum, "address")
     if (key == "?") {
         printf("%s\n%s\n%s\n", \
@@ -95,7 +121,6 @@ def ct2_get(cnum, key, val_arr) '{
 	       "acq_channels, counters, latches, data")
 	return
     }
-
     arr_keys = " acq_channels counters latches data "
     if (index(arr_keys, sprintf(" %s ", key)) > 0) {
         return tango_get(ctrl_dev, key, val_arr)
@@ -103,10 +128,8 @@ def ct2_get(cnum, key, val_arr) '{
         return tango_get(ctrl_dev, key)
     }
 }'
-
 def ct2_put(cnum, key, val) '{
-    local ctrl_dev mode_str 
-
+    local ctrl_dev mode_str
     ctrl_dev = counter_par(cnum, "address")
     if (key == "?") {
         printf("%s\n%s\n%s\n", \
@@ -115,13 +138,10 @@ def ct2_put(cnum, key, val) '{
 	       "acq_channels")
 	return
     }
-
     return tango_put(ctrl_dev, key, val)
 }'
-
 def ct2_io(cnum, cmd) '{
     local ctrl_dev mode_str val val_arr[]
-
     ctrl_dev = counter_par(cnum, "address")
     if (cmd == "?") {
         printf("%s\n%s\n", \
@@ -129,6 +149,5 @@ def ct2_io(cnum, cmd) '{
 	       "trigger_latch")
         return
     }
-
     tango_io(ctrl_dev, cmd)
 }'

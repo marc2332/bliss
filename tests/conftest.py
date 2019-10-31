@@ -509,7 +509,7 @@ def flint_context():
     flint = plot.get_flint()
     pid = flint._pid
     yield pid
-    flint = None
+    flint = None  # Break the reference to the proxy
     plot.reset_flint()
     os.kill(pid, signal.SIGTERM)
     try:

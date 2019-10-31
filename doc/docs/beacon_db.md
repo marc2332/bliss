@@ -8,7 +8,7 @@ The idea is to have **a centralized configuration database per beamline**.
 !!! info
     YAML has been chosen because the standard native types (list,
     dictionary, numbers, unicode strings...) can be easily mapped to Python
-    equivalents, it handles comments (contrary to JSON) and also because it is
+    equivalents. It handles comments (contrary to JSON) and is
     optimized for human-readability (contrary to XML).
 
 Beacon goes all over the configuration database directories, and builds

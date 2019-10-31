@@ -27,7 +27,7 @@ It is required to start Beacon server using `--db-path` to specify the path to t
 
     beacon-server --db-path=~/local/beamline_configuration
 
-Beacon port number can be set manually (otherwise, by default, Beacon will just choose the first free port it finds):
+The Beacon port number can be set manually (otherwise, by default, Beacon will just choose the first free port it finds):
 
     beacon-server --db-path=~/local/beamline_configuration --port=25000
 

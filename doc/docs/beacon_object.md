@@ -1,18 +1,17 @@
 # Linked Yaml config file with settings
 
-Behavior of parameters of objects used in BLISS is a subtle entanglement of
+The behavior of object parameters used in BLISS is a subtle entanglement of
 *configuration* (YAML file), *in-memory configuration* and *settings* (Redis
 database).
 
-**BeaconObject** helper aims to standardize and to simplify management of
-parameters in BLISS objects usage.
+The **BeaconObject** helper aims to standardize and to simplify parameter management in BLISS objects usage.
 
-## `BeaconObject`
+##`BeaconObject`
 
-This mechanism is based on `bliss.config.beacon_object.BeaconObject` class.
+This mechanism is based on the `bliss.config.beacon_object.BeaconObject` class.
 
-A new BLISS object must inherit from `BeaconObject` class and a **beacon
-configuration node** be passed as first argument.
+A new BLISS object must inherit the `BeaconObject` class and have a **beacon
+configuration node**  passed as first argument.
 
 ```python
 [...]

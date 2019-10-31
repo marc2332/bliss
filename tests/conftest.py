@@ -509,7 +509,7 @@ def flint_context():
     flint = plot.get_flint()
     pid = flint._pid
     yield pid
-    flint.close()  # better to call it ourselves than relying on 'broken pipe' from the system
+    flint = None
     plot.reset_flint()
     os.kill(pid, signal.SIGTERM)
     try:

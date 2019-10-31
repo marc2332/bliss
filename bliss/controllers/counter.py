@@ -59,6 +59,9 @@ class CounterController:
     def counters(self):
         return counter_namespace(self._counters)
 
+    def add_counter(self, counter):
+        self._counters[counter.name] = counter
+
     def create_chain_node(self):
         if self._chain_node_class is None:
             raise NotImplementedError

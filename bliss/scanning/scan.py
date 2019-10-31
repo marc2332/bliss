@@ -11,11 +11,8 @@ import os
 import string
 import weakref
 import sys
-from treelib import Tree
 import time
 import datetime
-import re
-import numpy
 import collections
 import uuid
 from functools import wraps
@@ -28,18 +25,11 @@ from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
-from bliss.config.conductor import client
 from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
 from bliss.config.settings import pipeline
-from bliss.data.node import (
-    _get_or_create_node,
-    _create_node,
-    DataNodeContainer,
-    is_zerod,
-)
+from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.common import motor_group
-from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain, StopChain
+from .chain import AcquisitionDevice, AcquisitionMaster, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -647,11 +637,11 @@ def _get_channels_dict(acq_object, channels_dict):
         display_names[fullname] = chan_name
         scalars_units[fullname] = acq_chan.unit
         shape = acq_chan.shape
-        if len(shape) == 0 and not fullname in scalars:
+        if len(shape) == 0 and fullname not in scalars:
             scalars.append(fullname)
-        elif len(shape) == 1 and not fullname in spectra:
+        elif len(shape) == 1 and fullname not in spectra:
             spectra.append(fullname)
-        elif len(shape) == 2 and not fullname in images:
+        elif len(shape) == 2 and fullname not in images:
             images.append(fullname)
 
     return channels_dict

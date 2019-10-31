@@ -5,6 +5,9 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import Dict
+
 import os
 import sys
 import logging
@@ -27,9 +30,6 @@ from bliss.config.conductor.client import (
     get_redis_connection,
     clean_all_redis_connection,
 )
-import bliss.flint.resources
-from bliss.flint.model import plot_item_model
-from bliss.flint.helper import model_helper
 
 try:
     from bliss.flint import poll_patch
@@ -54,14 +54,17 @@ from silx.gui import qt
 from silx.gui import plot as silx_plot
 from silx.gui.plot.items.roi import RectangleROI
 
-from bliss.flint.helper.manager import ManageMainBehaviours
+import bliss.flint.resources
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.log_widget import LogWidget
+from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.helper import scan_manager
+from bliss.flint.helper import model_helper
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 from bliss.flint import config
 
@@ -114,11 +117,20 @@ def get_flint_key():
     return "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), os.getpid())
 
 
-def background_task(flint, stop):
-    key = get_flint_key()
-    with safe_rpc_server(flint) as (task, url):
-        with maintain_value(key, url):
-            gevent.wait([stop, task], count=1)
+class FlintServer:
+    def __init__(self, flintApi):
+        self.stop = gevent.event.AsyncResult()
+        self.thread = gevent.spawn(self._task, flintApi, self.stop)
+
+    def _task(self, flint, stop):
+        key = get_flint_key()
+        with safe_rpc_server(flint) as (task, url):
+            with maintain_value(key, url):
+                gevent.wait([stop, task], count=1)
+
+    def join(self):
+        self.stop.set_result(True)
+        self.thread.join()
 
 
 class FlintWindow(qt.QMainWindow):
@@ -141,6 +153,7 @@ class FlintWindow(qt.QMainWindow):
 
     def setFlintState(self, flintState):
         self.__flintState = flintState
+        self.updateTitle()
 
     def tabs(self):
         # FIXME: Have to be removed as it is not really an abstraction
@@ -216,90 +229,18 @@ class FlintWindow(qt.QMainWindow):
 
         About.about(self, "Flint")
 
+    def createTab(self, label, widgetClass=qt.QWidget):
+        # FIXME: The parent have to be set
+        widget = widgetClass()
+        self.__tabs.addTab(widget, label)
+        return widget
 
-class Flint:
-    """Flint interface, meant to be exposed through an RPC server."""
+    def removeTab(self, widget):
+        index = self.__tabs.indexOf(widget)
+        self.__tabs.removeTab(index)
 
-    # FIXME: Everything relative to GUI should be removed in order to only provide
-    # RPC functions
-
-    _id_generator = itertools.count()
-
-    def __init__(self, mainwin, settings: qt.QSettings):
-        self.mainwin = mainwin
-        self.parent_tab = mainwin.tabs()
-        self.main_index = self.create_new_id()
-        self.plot_dict = {self.main_index: self.parent_tab}
-        self.data_event = collections.defaultdict(dict)
-        self.selector_dict = collections.defaultdict(list)
-        self.data_dict = collections.defaultdict(dict)
-        self.scans_watch_task = None
-        self._session_name = None
-
-        flintModel = self.__create_flint_model()
-        flintModel.setSettings(settings)
-        self.__flintModel = flintModel
-
-        workspace = flint_model.Workspace()
-        flintModel.setWorkspace(workspace)
-        self.__scanManager = scan_manager.ScanManager(self)
-
-        connection = get_default_connection()
-        address = connection.get_redis_connection_address()
-        self._qt_redis_connection = connection.create_redis_connection(address=address)
-        self.set_title()
-        self.init_from_settings()
-
-    def get_flint_model(self) -> flint_model.FlintState:
-        return self.__flintModel
-
-    def get_scan_manager(self):
-        return self.__scanManager
-
-    def init_from_settings(self):
-        settings = self.__flintModel.settings()
-        # resize window to 70% of available screen space, if no settings
-        settings.beginGroup("main-window")
-        pos = qt.QDesktopWidget().availableGeometry(self.mainwin).size() * 0.7
-        w = pos.width()
-        h = pos.height()
-        self.mainwin.resize(settings.value("size", qt.QSize(w, h)))
-        self.mainwin.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
-        settings.endGroup()
-
-        settings.beginGroup("live-window")
-        state = settings.value("workspace", None)
-        if state is not None:
-            try:
-                self.__manager.restoreWorkspace(state)
-                ROOT_LOGGER.info("Workspace restored")
-            except Exception:
-                ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
-                self.__feed_default_workspace()
-        else:
-            self.__feed_default_workspace()
-        settings.endGroup()
-
-    def save_to_settings(self):
-        settings = self.__flintModel.settings()
-        settings.beginGroup("main-window")
-        settings.setValue("size", self.mainwin.size())
-        settings.setValue("pos", self.mainwin.pos())
-        settings.endGroup()
-
-        settings.beginGroup("live-window")
-        try:
-            state = self.__manager.saveWorkspace(includePlots=False)
-            settings.setValue("workspace", state)
-            ROOT_LOGGER.info("Workspace saved")
-        except Exception:
-            ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
-        settings.endGroup()
-
-        settings.sync()
-
-    def __create_flint_model(self):
-        window: qt.QMainWindow = self.new_tab("Live scan", qt.QMainWindow)
+    def createLiveWindow(self):
+        window: qt.QMainWindow = self.createTab("Live scan", qt.QMainWindow)
         window.setObjectName("scan-window")
         window.setDockNestingEnabled(True)
         window.setDockOptions(
@@ -310,49 +251,91 @@ class Flint:
             | qt.QMainWindow.AnimatedDocks
             # | qt.QMainWindow.VerticalTabs
         )
-
         window.setVisible(True)
+        return window
 
-        flintModel = flint_model.FlintState()
-        flintModel.setLiveWindow(window)
-        flintModel.setFlintApi(self)
+    def updateTitle(self):
+        # FIXME: Should be private
+        # FIXME: Should be triggered by signal
+        flint = self.__flintState.flintApi()
+        session_name = flint.get_session()
 
-        manager = ManageMainBehaviours(flintModel)
-        manager.setFlintModel(flintModel)
-        self.__manager = manager
+        if not session_name:
+            session = "no session attached."
+        else:
+            session = "attached to '%s`" % session_name
+        title = "Flint (PID={}) - {}".format(os.getpid(), session)
+        self.setWindowTitle(title)
 
-        scanStatusWidget = ScanStatus(window)
-        scanStatusWidget.setObjectName("scan-status-dock")
-        scanStatusWidget.setFlintModel(flintModel)
-        scanStatusWidget.setFeatures(
-            scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-        flintModel.setLiveStatusWidget(scanStatusWidget)
-        window.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
+    def initFromSettings(self):
+        settings = self.__flintState.settings()
+        # resize window to 70% of available screen space, if no settings
+        settings.beginGroup("main-window")
+        pos = qt.QDesktopWidget().availableGeometry(self).size() * 0.7
+        w = pos.width()
+        h = pos.height()
+        self.resize(settings.value("size", qt.QSize(w, h)))
+        self.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
+        settings.endGroup()
 
-        propertyWidget = MainPropertyWidget(window)
-        propertyWidget.setObjectName("property-dock")
-        propertyWidget.setFeatures(
-            propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-        flintModel.setPropertyWidget(propertyWidget)
-        window.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
+        manager = self.__flintState.mainManager()
+        settings.beginGroup("live-window")
+        state = settings.value("workspace", None)
+        if state is not None:
+            try:
+                manager.restoreWorkspace(state)
+                ROOT_LOGGER.info("Workspace restored")
+            except Exception:
+                ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
+                self.__feed_default_workspace()
+        else:
+            self.__feed_default_workspace()
+        settings.endGroup()
 
-        size = scanStatusWidget.sizeHint()
-        scanStatusWidget.widget().setFixedHeight(size.height())
-        scanStatusWidget.widget().setMinimumWidth(200)
+    def saveToSettings(self):
+        settings = self.__flintState.settings()
+        settings.beginGroup("main-window")
+        settings.setValue("size", self.size())
+        settings.setValue("pos", self.pos())
+        settings.endGroup()
 
-        scanStatusWidget.widget().setSizePolicy(
-            qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
-        )
-        propertyWidget.widget().setSizePolicy(
-            qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
-        )
+        manager = self.__flintState.mainManager()
+        settings.beginGroup("live-window")
+        try:
+            state = manager.saveWorkspace(includePlots=False)
+            settings.setValue("workspace", state)
+            ROOT_LOGGER.info("Workspace saved")
+        except Exception:
+            ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
+        settings.endGroup()
 
-        return flintModel
+        settings.sync()
 
-    def _manager(self) -> ManageMainBehaviours:
-        return self.__manager
+
+class Flint:
+    """Flint interface, meant to be exposed through an RPC server."""
+
+    # FIXME: Everything relative to GUI should be removed in order to only provide
+    # RPC functions
+
+    _id_generator = itertools.count()
+
+    def __init__(self, flintModel: flint_model.FlintState):
+        self.__flintModel = flintModel
+        self.plot_dict: Dict[object, qt.QWidget] = {}
+        self.plot_title: Dict[object, str] = {}
+        self.data_event = collections.defaultdict(dict)
+        self.selector_dict = collections.defaultdict(list)
+        self.data_dict = collections.defaultdict(dict)
+        self.scans_watch_task = None
+        self._session_name = None
+
+        connection = get_default_connection()
+        address = connection.get_redis_connection_address()
+        self._qt_redis_connection = connection.create_redis_connection(address=address)
+
+    def get_flint_model(self) -> flint_model.FlintState:
+        return self.__flintModel
 
     def __feed_default_workspace(self):
         # FIXME: Here we can feed the workspace with something persistent
@@ -382,15 +365,6 @@ class Flint:
             session_name=self._session_name, redis_connection=self._qt_redis_connection
         )
 
-    def set_title(self, session_name=None):
-        window = self.parent_tab.window()
-        if not session_name:
-            session = "no session attached."
-        else:
-            session = "attached to '%s`" % session_name
-        title = "Flint (PID={}) - {}".format(os.getpid(), session)
-        window.setWindowTitle(title)
-
     def get_session(self):
         return self._session_name
 
@@ -401,13 +375,14 @@ class Flint:
 
         ready_event = gevent.event.Event()
 
+        scanManager = self.__flintModel.scanManager()
         task = gevent.spawn(
             watch_session_scans,
             session_name,
-            self.__scanManager.new_scan,
-            self.__scanManager.new_scan_child,
-            self.__scanManager.new_scan_data,
-            self.__scanManager.end_scan,
+            scanManager.new_scan,
+            scanManager.new_scan_child,
+            scanManager.new_scan_data,
+            scanManager.end_scan,
             ready_event=ready_event,
         )
 
@@ -440,7 +415,9 @@ class Flint:
         redis.lpush(key, value)
         redis.rpop(key)
 
-        self.set_title(session_name)
+        # FIXME: session update have to be triggered by event from FlintModel
+        mainWindow = self.__flintModel.mainWindow()
+        mainWindow.updateTitle()
 
     def wait_data(self, master, plot_type, index):
         ev = (
@@ -498,14 +475,8 @@ class Flint:
         raise Exception("The channel '%s' is not part of any plots" % channel_name)
 
     def wait_end_of_scan(self):
-        self.__scanManager.wait_end_of_scan()
-
-    def new_tab(self, label, widget=qt.QWidget):
-        # FIXME: The parent have to be set
-        # FIXME: Rename the argument to widgetClass
-        widget = widget()
-        self.parent_tab.addTab(widget, label)
-        return widget
+        scanManager = self.__flintModel.scanManager()
+        scanManager.wait_end_of_scan()
 
     def run_method(self, plot_id, method, args, kwargs):
         plot = self._get_plot_widget(plot_id)
@@ -518,29 +489,24 @@ class Flint:
         plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
-        new_tab_widget = self.new_tab(name)
+        new_tab_widget = self.__flintModel.mainWindow().createTab(name)
         qt.QVBoxLayout(new_tab_widget)
         cls = getattr(silx_plot, cls_name)
         plot = cls(new_tab_widget)
         self.plot_dict[plot_id] = plot
+        self.plot_title[plot_id] = name
         new_tab_widget.layout().addWidget(plot)
         plot.show()
         return plot_id
 
     def get_plot_name(self, plot_id):
-        parent = self._get_plot_widget(plot_id).parent()
-        if isinstance(parent, qt.QMdiArea):
-            label = parent.windowTitle()
-        else:
-            index = self.parent_tab.indexOf(parent)
-            label = self.parent_tab.tabText(index)
-        return label
+        return self.plot_title[plot_id]
 
     def remove_plot(self, plot_id):
         plot = self.plot_dict.pop(plot_id)
-        parent = plot.parent()
-        index = self.parent_tab.indexOf(parent)
-        self.parent_tab.removeTab(index)
+        plotParent = plot.parent()
+        window = self.__flintModel.mainWindow()
+        window.removeTab(plotParent)
         plot.close()
 
     def get_interface(self, plot_id):
@@ -686,16 +652,73 @@ class Flint:
 # Main execution
 
 
-def create_flint(settings):
+def create_flint_model(settings) -> flint_model.FlintState:
     """"
     Create Flint class and main windows without interaction with the
     environment.
     """
-    flintWindow = FlintWindow()
-    flint = Flint(flintWindow, settings)
-    flintState = flint.get_flint_model()
-    flintWindow.setFlintState(flintState)
-    return flint
+    flintModel = flint_model.FlintState()
+    flintModel.setSettings(settings)
+
+    flintApi = Flint(flintModel)
+    flintModel.setFlintApi(flintApi)
+
+    flintWindow = FlintWindow(None)
+    flintWindow.setFlintState(flintModel)
+    flintModel.setMainWindow(flintWindow)
+
+    liveWindow = flintWindow.createLiveWindow()
+    flintModel.setLiveWindow(liveWindow)
+
+    manager = ManageMainBehaviours(flintModel)
+    manager.setFlintModel(flintModel)
+    flintModel.setMainManager(manager)
+
+    # Live GUI
+
+    scanStatusWidget = ScanStatus(liveWindow)
+    scanStatusWidget.setObjectName("scan-status-dock")
+    scanStatusWidget.setFlintModel(flintModel)
+    scanStatusWidget.setFeatures(
+        scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+    )
+    flintModel.setLiveStatusWidget(scanStatusWidget)
+    liveWindow.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
+
+    propertyWidget = MainPropertyWidget(liveWindow)
+    propertyWidget.setObjectName("property-dock")
+    propertyWidget.setFeatures(
+        propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+    )
+    flintModel.setPropertyWidget(propertyWidget)
+    liveWindow.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
+
+    size = scanStatusWidget.sizeHint()
+    scanStatusWidget.widget().setFixedHeight(size.height())
+    scanStatusWidget.widget().setMinimumWidth(200)
+
+    scanStatusWidget.widget().setSizePolicy(
+        qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
+    )
+    propertyWidget.widget().setSizePolicy(
+        qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
+    )
+
+    # Workspace
+
+    workspace = flint_model.Workspace()
+    flintModel.setWorkspace(workspace)
+
+    # Everything is there we can read the settings
+
+    flintWindow.initFromSettings()
+
+    # Finally scan manager
+
+    scanManager = scan_manager.ScanManager(flintModel)
+    flintModel.setScanManager(scanManager)
+
+    return flintModel
 
 
 def parse_options():
@@ -787,17 +810,18 @@ def main():
 
     bliss.flint.resources.silx_integration()
 
-    flint = create_flint(settings)
-    qapp.aboutToQuit.connect(flint.save_to_settings)
+    flintModel = create_flint_model(settings)
+    flintWindow = flintModel.mainWindow()
+    qapp.aboutToQuit.connect(flintWindow.saveToSettings)
 
     if options.simulator:
         from bliss.flint.simulator.acquisition import AcquisitionSimulator
         from bliss.flint.simulator.simulator_widget import SimulatorWidget
 
-        display = SimulatorWidget(flint.mainwin)
-        display.setFlintModel(flint.get_flint_model())
+        display = SimulatorWidget(flintWindow)
+        display.setFlintModel(flintModel)
         simulator = AcquisitionSimulator(display)
-        scanManager = flint.get_scan_manager()
+        scanManager = flintModel.scanManager()
         simulator.setScanManager(scanManager)
         display.setSimulator(simulator)
         display.show()
@@ -829,20 +853,19 @@ def main():
     else:
         ROOT_LOGGER.info("gevent use poll patched")
 
-    stop = gevent.event.AsyncResult()
-    thread = gevent.spawn(background_task, flint, stop)
+    # RPC service of the Flint API
+    server = FlintServer(flintModel.flintApi())
 
     # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
-    single_shot.timeout.connect(flint.mainwin.show)
+    single_shot.timeout.connect(flintWindow.show)
     single_shot.start(0)
 
     try:
         sys.exit(qapp.exec_())
     finally:
-        stop.set_result(True)
-        thread.join()
+        server.join()
 
 
 if __name__ == "__main__":

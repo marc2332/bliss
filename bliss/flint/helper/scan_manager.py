@@ -18,6 +18,7 @@ import gevent.event
 
 from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 
 
@@ -32,9 +33,8 @@ class ScanManager:
     structure.
     """
 
-    def __init__(self, flint):
-        # FIXME: Flint should be removed, we should use FlintState
-        self.flint = flint
+    def __init__(self, flintModel: flint_model.FlintState):
+        self.__flintModel = flintModel
         self._refresh_task = None
         self._last_event: Dict[
             Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
@@ -84,8 +84,8 @@ class ScanManager:
                 self.__data_storage.create_channel(channel.name, channel.master)
 
         plots = scan_info_helper.create_plot_model(scan_info)
-        if self.flint is not None:
-            manager = self.flint._manager()
+        if self.__flintModel is not None:
+            manager = self.__flintModel.mainManager()
             manager.updateScanAndPlots(scan, plots)
         self.__scan = scan
 
@@ -170,9 +170,10 @@ class ScanManager:
         else:
             assert False
 
-        if self.flint is not None:
+        if self.__flintModel is not None:
+            flintApi = self.__flintModel.flintApi()
             data_event = (
-                self.flint.data_event[master_name]
+                flintApi.data_event[master_name]
                 .setdefault(data_type, {})
                 .setdefault(data.get("channel_index", 0), gevent.event.Event())
             )

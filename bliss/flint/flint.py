@@ -121,7 +121,100 @@ def background_task(flint, stop):
             gevent.wait([stop, task], count=1)
 
 
-# Flint interface
+class FlintWindow(qt.QMainWindow):
+    """"Main Flint window"""
+
+    def __init__(self, parent=None):
+        qt.QMainWindow.__init__(self, parent=parent)
+        self.setAttribute(qt.Qt.WA_QuitOnClose, True)
+
+        self.__flintState: flint_model.FlintState
+
+        central_widget = qt.QWidget(self)
+
+        tabs = qt.QTabWidget(central_widget)
+        self.__tabs = tabs
+
+        self.setCentralWidget(tabs)
+        self.__initMenus()
+        self.__initLogWindow()
+
+    def setFlintState(self, flintState):
+        self.__flintState = flintState
+
+    def tabs(self):
+        # FIXME: Have to be removed as it is not really an abstraction
+        return self.__tabs
+
+    def __initLogWindow(self):
+        logWindow = qt.QDialog(self)
+        logWidget = LogWidget(logWindow)
+        qt.QVBoxLayout(logWindow)
+        logWindow.layout().addWidget(logWidget)
+        logWindow.setAttribute(qt.Qt.WA_QuitOnClose, False)
+        logWindow.setWindowTitle("Log messages")
+        self.__logWindow = logWindow
+        logWidget.connect_logger(ROOT_LOGGER)
+
+    def __initMenus(self):
+        exitAction = qt.QAction("&Exit", self)
+        exitAction.setShortcut("Ctrl+Q")
+        exitAction.setStatusTip("Exit flint")
+        exitAction.triggered.connect(self.close)
+        showLogAction = qt.QAction("Show &log", self)
+        showLogAction.setShortcut("Ctrl+L")
+        showLogAction.setStatusTip("Show log window")
+
+        showLogAction.triggered.connect(self.showLogDialog)
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu("&File")
+        fileMenu.addAction(exitAction)
+        windowMenu = menubar.addMenu("&Windows")
+        windowMenu.addAction(showLogAction)
+
+        helpMenu = menubar.addMenu("&Help")
+
+        action = qt.QAction("&About", self)
+        action.setStatusTip("Show the application's About box")
+        action.triggered.connect(self.showAboutBox)
+        helpMenu.addAction(action)
+
+        action = qt.QAction("&IPython console", self)
+        action.setStatusTip("Show a IPython console (for debug purpose)")
+        action.triggered.connect(self.openDebugConsole)
+        helpMenu.addAction(action)
+
+    def openDebugConsole(self):
+        """Open a new debug console"""
+        try:
+            from silx.gui.console import IPythonDockWidget
+        except ImportError:
+            ROOT_LOGGER.debug("Error while loading IPython console", exc_info=True)
+            ROOT_LOGGER.error("IPython not available")
+            return
+
+        available_vars = {"flintState": self.__flintState, "window": self}
+        banner = (
+            "The variable 'flintState' and 'window' are available.\n"
+            "Use the 'whos' and 'help(flintState)' commands for more information.\n"
+            "\n"
+        )
+        widget = IPythonDockWidget(
+            parent=self, available_vars=available_vars, custom_banner=banner
+        )
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+        widget.show()
+
+    def showLogDialog(self):
+        """Show the log dialog of Flint"""
+        self.__logWindow.show()
+
+    def showAboutBox(self):
+        """Show the about box of Flint"""
+        from .widgets.about import About
+
+        About.about(self, "Flint")
 
 
 class Flint:
@@ -132,11 +225,11 @@ class Flint:
 
     _id_generator = itertools.count()
 
-    def __init__(self, mainwin, parent_tab, settings: qt.QSettings):
+    def __init__(self, mainwin, settings: qt.QSettings):
         self.mainwin = mainwin
-        self.parent_tab = parent_tab
+        self.parent_tab = mainwin.tabs()
         self.main_index = self.create_new_id()
-        self.plot_dict = {self.main_index: parent_tab}
+        self.plot_dict = {self.main_index: self.parent_tab}
         self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
@@ -598,79 +691,10 @@ def create_flint(settings):
     Create Flint class and main windows without interaction with the
     environment.
     """
-    win = qt.QMainWindow()
-    win.setAttribute(qt.Qt.WA_QuitOnClose, True)
-
-    central_widget = qt.QWidget(win)
-    tabs = qt.QTabWidget(central_widget)
-    win.setCentralWidget(tabs)
-    log_window = qt.QDialog(win)
-    log_widget = LogWidget(log_window)
-    qt.QVBoxLayout(log_window)
-    log_window.layout().addWidget(log_widget)
-    log_window.setAttribute(qt.Qt.WA_QuitOnClose, False)
-    log_window.setWindowTitle("Log messages")
-    exitAction = qt.QAction("&Exit", win)
-    exitAction.setShortcut("Ctrl+Q")
-    exitAction.setStatusTip("Exit flint")
-    exitAction.triggered.connect(win.close)
-    showLogAction = qt.QAction("Show &log", win)
-    showLogAction.setShortcut("Ctrl+L")
-    showLogAction.setStatusTip("Show log window")
-
-    def showLog():
-        log_window.show()
-
-    showLogAction.triggered.connect(showLog)
-    menubar = win.menuBar()
-    fileMenu = menubar.addMenu("&File")
-    fileMenu.addAction(exitAction)
-    windowMenu = menubar.addMenu("&Windows")
-    windowMenu.addAction(showLogAction)
-
-    def about():
-        from .widgets.about import About
-
-        About.about(win, "Flint")
-
-    def debug_console():
-        try:
-            from silx.gui.console import IPythonDockWidget
-        except ImportError:
-            ROOT_LOGGER.debug("Error while loading IPython console", exc_info=True)
-            ROOT_LOGGER.error("IPython not available")
-            return
-
-        flintState = flint.get_flint_model()
-
-        available_vars = {"flintState": flintState, "window": win}
-        banner = (
-            "The variable 'flintState' and 'window' are available.\n"
-            "Use the 'whos' and 'help(flintState)' commands for more information.\n"
-            "\n"
-        )
-        widget = IPythonDockWidget(
-            parent=win, available_vars=available_vars, custom_banner=banner
-        )
-        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
-        win.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
-        widget.show()
-
-    helpMenu = menubar.addMenu("&Help")
-
-    action = qt.QAction("&About", win)
-    action.setStatusTip("Show the application's About box")
-    action.triggered.connect(about)
-    helpMenu.addAction(action)
-
-    action = qt.QAction("&IPython console", win)
-    action.setStatusTip("Show a IPython console (for debug purpose)")
-    action.triggered.connect(debug_console)
-    helpMenu.addAction(action)
-
-    log_widget.connect_logger(ROOT_LOGGER)
-
-    flint = Flint(win, tabs, settings)
+    flintWindow = FlintWindow()
+    flint = Flint(flintWindow, settings)
+    flintState = flint.get_flint_model()
+    flintWindow.setFlintState(flintState)
     return flint
 
 

@@ -8,7 +8,6 @@
 from __future__ import annotations
 from typing import Dict
 
-import os
 import sys
 import logging
 import warnings
@@ -55,7 +54,6 @@ from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.scan_status import ScanStatus
-from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.helper.manager import ManageMainBehaviours
 from bliss.flint.helper import scan_manager
 from bliss.flint.helper import model_helper
@@ -63,6 +61,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 from bliss.flint import config
 from bliss.flint.helper.rpc_server import FlintServer
+from bliss.flint.flint_window import FlintWindow
 
 ROOT_LOGGER = logging.getLogger()
 """Application logger"""
@@ -78,185 +77,6 @@ def ignore_warnings(logger=ROOT_LOGGER):
             yield
         finally:
             logger.level = level
-
-
-class FlintWindow(qt.QMainWindow):
-    """"Main Flint window"""
-
-    def __init__(self, parent=None):
-        qt.QMainWindow.__init__(self, parent=parent)
-        self.setAttribute(qt.Qt.WA_QuitOnClose, True)
-
-        self.__flintState: flint_model.FlintState
-
-        central_widget = qt.QWidget(self)
-
-        tabs = qt.QTabWidget(central_widget)
-        self.__tabs = tabs
-
-        self.setCentralWidget(tabs)
-        self.__initMenus()
-        self.__initLogWindow()
-
-    def setFlintState(self, flintState):
-        self.__flintState = flintState
-        self.updateTitle()
-
-    def tabs(self):
-        # FIXME: Have to be removed as it is not really an abstraction
-        return self.__tabs
-
-    def __initLogWindow(self):
-        logWindow = qt.QDialog(self)
-        logWidget = LogWidget(logWindow)
-        qt.QVBoxLayout(logWindow)
-        logWindow.layout().addWidget(logWidget)
-        logWindow.setAttribute(qt.Qt.WA_QuitOnClose, False)
-        logWindow.setWindowTitle("Log messages")
-        self.__logWindow = logWindow
-        logWidget.connect_logger(ROOT_LOGGER)
-
-    def __initMenus(self):
-        exitAction = qt.QAction("&Exit", self)
-        exitAction.setShortcut("Ctrl+Q")
-        exitAction.setStatusTip("Exit flint")
-        exitAction.triggered.connect(self.close)
-        showLogAction = qt.QAction("Show &log", self)
-        showLogAction.setShortcut("Ctrl+L")
-        showLogAction.setStatusTip("Show log window")
-
-        showLogAction.triggered.connect(self.showLogDialog)
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu("&File")
-        fileMenu.addAction(exitAction)
-        windowMenu = menubar.addMenu("&Windows")
-        windowMenu.addAction(showLogAction)
-
-        helpMenu = menubar.addMenu("&Help")
-
-        action = qt.QAction("&About", self)
-        action.setStatusTip("Show the application's About box")
-        action.triggered.connect(self.showAboutBox)
-        helpMenu.addAction(action)
-
-        action = qt.QAction("&IPython console", self)
-        action.setStatusTip("Show a IPython console (for debug purpose)")
-        action.triggered.connect(self.openDebugConsole)
-        helpMenu.addAction(action)
-
-    def openDebugConsole(self):
-        """Open a new debug console"""
-        try:
-            from silx.gui.console import IPythonDockWidget
-        except ImportError:
-            ROOT_LOGGER.debug("Error while loading IPython console", exc_info=True)
-            ROOT_LOGGER.error("IPython not available")
-            return
-
-        available_vars = {"flintState": self.__flintState, "window": self}
-        banner = (
-            "The variable 'flintState' and 'window' are available.\n"
-            "Use the 'whos' and 'help(flintState)' commands for more information.\n"
-            "\n"
-        )
-        widget = IPythonDockWidget(
-            parent=self, available_vars=available_vars, custom_banner=banner
-        )
-        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
-        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
-        widget.show()
-
-    def showLogDialog(self):
-        """Show the log dialog of Flint"""
-        self.__logWindow.show()
-
-    def showAboutBox(self):
-        """Show the about box of Flint"""
-        from .widgets.about import About
-
-        About.about(self, "Flint")
-
-    def createTab(self, label, widgetClass=qt.QWidget):
-        # FIXME: The parent have to be set
-        widget = widgetClass()
-        self.__tabs.addTab(widget, label)
-        return widget
-
-    def removeTab(self, widget):
-        index = self.__tabs.indexOf(widget)
-        self.__tabs.removeTab(index)
-
-    def createLiveWindow(self):
-        window: qt.QMainWindow = self.createTab("Live scan", qt.QMainWindow)
-        window.setObjectName("scan-window")
-        window.setDockNestingEnabled(True)
-        window.setDockOptions(
-            window.dockOptions()
-            | qt.QMainWindow.AllowNestedDocks
-            | qt.QMainWindow.AllowTabbedDocks
-            | qt.QMainWindow.GroupedDragging
-            | qt.QMainWindow.AnimatedDocks
-            # | qt.QMainWindow.VerticalTabs
-        )
-        window.setVisible(True)
-        return window
-
-    def updateTitle(self):
-        # FIXME: Should be private
-        # FIXME: Should be triggered by signal
-        flint = self.__flintState.flintApi()
-        session_name = flint.get_session()
-
-        if not session_name:
-            session = "no session attached."
-        else:
-            session = "attached to '%s`" % session_name
-        title = "Flint (PID={}) - {}".format(os.getpid(), session)
-        self.setWindowTitle(title)
-
-    def initFromSettings(self):
-        settings = self.__flintState.settings()
-        # resize window to 70% of available screen space, if no settings
-        settings.beginGroup("main-window")
-        pos = qt.QDesktopWidget().availableGeometry(self).size() * 0.7
-        w = pos.width()
-        h = pos.height()
-        self.resize(settings.value("size", qt.QSize(w, h)))
-        self.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
-        settings.endGroup()
-
-        manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
-        state = settings.value("workspace", None)
-        if state is not None:
-            try:
-                manager.restoreWorkspace(state)
-                ROOT_LOGGER.info("Workspace restored")
-            except Exception:
-                ROOT_LOGGER.error("Error while restoring the workspace", exc_info=True)
-                self.__feed_default_workspace()
-        else:
-            self.__feed_default_workspace()
-        settings.endGroup()
-
-    def saveToSettings(self):
-        settings = self.__flintState.settings()
-        settings.beginGroup("main-window")
-        settings.setValue("size", self.size())
-        settings.setValue("pos", self.pos())
-        settings.endGroup()
-
-        manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
-        try:
-            state = manager.saveWorkspace(includePlots=False)
-            settings.setValue("workspace", state)
-            ROOT_LOGGER.info("Workspace saved")
-        except Exception:
-            ROOT_LOGGER.error("Error while saving the workspace", exc_info=True)
-        settings.endGroup()
-
-        settings.sync()
 
 
 class Flint:

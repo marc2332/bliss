@@ -20,9 +20,8 @@ import collections
 import uuid
 from functools import wraps
 
-from bliss import setup_globals
-from bliss import current_session
-from bliss.common.event import connect, send, disconnect
+from bliss import setup_globals, current_session, is_bliss_shell
+from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
@@ -683,7 +682,11 @@ def display_motor(func):
     def f(self, *args, **kwargs):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()
-        if scan_display_params.auto and scan_display_params.motor_position:
+        if (
+            is_bliss_shell()
+            and scan_display_params.auto
+            and scan_display_params.motor_position
+        ):
             p = self.get_plot(axis)
             p.qt.addXMarker(axis.position, legend=axis.name, text=axis.name)
 
@@ -789,7 +792,7 @@ class Scan:
         )
 
         scan_display_params = ScanDisplay()
-        if scan_display_params.auto:
+        if is_bliss_shell() and scan_display_params.auto:
             get_flint()
 
         self.__state = ScanState.IDLE

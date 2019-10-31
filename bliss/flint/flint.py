@@ -11,8 +11,6 @@ from typing import Dict
 import os
 import sys
 import logging
-import platform
-import tempfile
 import warnings
 import itertools
 import functools
@@ -23,13 +21,10 @@ import signal
 import gevent.event
 from argparse import ArgumentParser
 
-from bliss.comm import rpc
 from bliss.data.scan import watch_session_scans
 from bliss.config.conductor.client import get_default_connection
-from bliss.config.conductor.client import (
-    get_redis_connection,
-    clean_all_redis_connection,
-)
+from bliss.config.conductor.client import get_redis_connection
+from bliss.config.conductor.client import clean_all_redis_connection
 
 try:
     from bliss.flint import poll_patch
@@ -67,6 +62,7 @@ from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 from bliss.flint import config
+from bliss.flint.helper.rpc_server import FlintServer
 
 ROOT_LOGGER = logging.getLogger()
 """Application logger"""
@@ -82,55 +78,6 @@ def ignore_warnings(logger=ROOT_LOGGER):
             yield
         finally:
             logger.level = level
-
-
-# Gevent functions
-
-
-@contextlib.contextmanager
-def safe_rpc_server(obj):
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        url = "ipc://{}".format(f.name)
-        server = rpc.Server(obj)
-        try:
-            server.bind(url)
-            task = gevent.spawn(server.run)
-            yield task, url
-            task.kill()
-            task.join()
-        except Exception:
-            ROOT_LOGGER.error(f"Exception while serving {url}", exc_info=True)
-            raise
-        finally:
-            server.close()
-
-
-@contextlib.contextmanager
-def maintain_value(key, value):
-    redis = get_redis_connection()
-    redis.lpush(key, value)
-    yield
-    redis.delete(key)
-
-
-def get_flint_key():
-    return "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), os.getpid())
-
-
-class FlintServer:
-    def __init__(self, flintApi):
-        self.stop = gevent.event.AsyncResult()
-        self.thread = gevent.spawn(self._task, flintApi, self.stop)
-
-    def _task(self, flint, stop):
-        key = get_flint_key()
-        with safe_rpc_server(flint) as (task, url):
-            with maintain_value(key, url):
-                gevent.wait([stop, task], count=1)
-
-    def join(self):
-        self.stop.set_result(True)
-        self.thread.join()
 
 
 class FlintWindow(qt.QMainWindow):
@@ -409,7 +356,7 @@ class Flint:
         self._session_name = session_name
 
         redis = get_redis_connection()
-        key = get_flint_key()
+        key = config.get_flint_key()
         current_value = redis.lindex(key, 0).decode()
         value = session_name + " " + current_value.split()[-1]
         redis.lpush(key, value)

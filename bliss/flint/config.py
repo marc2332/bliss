@@ -12,6 +12,8 @@ This module must not have dependancy to Qt or OpenGL, or matplotlib cause it is
 used by bliss.
 """
 
+import os
+import platform
 from argparse import ArgumentParser
 import bliss.release
 
@@ -66,3 +68,7 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Start with cleared local user settings. ",
     )
+
+
+def get_flint_key():
+    return "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), os.getpid())

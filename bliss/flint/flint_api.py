@@ -26,7 +26,6 @@ from silx.gui.plot.items.roi import RectangleROI
 
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
-from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
@@ -57,26 +56,6 @@ class FlintApi:
 
     def get_flint_model(self) -> flint_model.FlintState:
         return self.__flintModel
-
-    def __feed_default_workspace(self):
-        # FIXME: Here we can feed the workspace with something persistent
-        flintModel = self.get_flint_model()
-        workspace = flintModel.workspace()
-        window = flintModel.liveWindow()
-
-        curvePlotWidget = CurvePlotWidget(parent=window)
-        curvePlotWidget.setFlintModel(flintModel)
-        curvePlotWidget.setObjectName("curve1-dock")
-        curvePlotWidget.setWindowTitle("Curve1")
-        curvePlotWidget.setFeatures(
-            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-        curvePlotWidget.widget().setSizePolicy(
-            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
-        )
-
-        workspace.addWidget(curvePlotWidget)
-        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
 
     def create_new_id(self):
         return next(self._id_generator)

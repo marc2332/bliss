@@ -12,6 +12,7 @@ import os
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
+from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -151,6 +152,26 @@ class FlintWindow(qt.QMainWindow):
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 
+    def __feedDefaultWorkspace(self):
+        # FIXME: Here we can feed the workspace with something persistent
+        flintModel = self.__flintState
+        workspace = flintModel.workspace()
+        window = flintModel.liveWindow()
+
+        curvePlotWidget = CurvePlotWidget(parent=window)
+        curvePlotWidget.setFlintModel(flintModel)
+        curvePlotWidget.setObjectName("curve1-dock")
+        curvePlotWidget.setWindowTitle("Curve1")
+        curvePlotWidget.setFeatures(
+            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        curvePlotWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
+        )
+
+        workspace.addWidget(curvePlotWidget)
+        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
+
     def initFromSettings(self):
         settings = self.__flintState.settings()
         # resize window to 70% of available screen space, if no settings
@@ -171,9 +192,9 @@ class FlintWindow(qt.QMainWindow):
                 _logger.info("Workspace restored")
             except Exception:
                 _logger.error("Error while restoring the workspace", exc_info=True)
-                self.__feed_default_workspace()
+                self.__feedDefaultWorkspace()
         else:
-            self.__feed_default_workspace()
+            self.__feedDefaultWorkspace()
         settings.endGroup()
 
     def saveToSettings(self):

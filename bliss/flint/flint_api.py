@@ -233,6 +233,11 @@ class FlintApi:
     def get_interface(self, plot_id):
         plot = self._get_plot_widget(plot_id)
         names = dir(plot)
+        # Deprecated attrs
+        removes = ["DEFAULT_BACKEND"]
+        for r in removes:
+            if r in names:
+                names.remove(r)
         return [
             name
             for name in names

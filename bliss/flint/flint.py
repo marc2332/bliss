@@ -585,7 +585,7 @@ class Flint:
         done_event = gevent.event.AsyncResult()
 
         roi_widget.selectionFinished.connect(
-            functools.partial(self._selectionFinished, done_event=done_event)
+            functools.partial(self._selection_finished, done_event=done_event)
         )
 
         try:
@@ -593,7 +593,7 @@ class Flint:
         finally:
             plot.removeDockWidget(dock)
 
-    def _selectionFinished(self, selections, done_event=None):
+    def _selection_finished(self, selections, done_event=None):
         shapes = []
         try:
             shapes = [

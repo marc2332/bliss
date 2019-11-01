@@ -23,9 +23,9 @@ Use cases for settings:
 
     `redis-cli -s /tmp/redis.sock -n 0`
 
-    WARNING: `redis-cli` must be use with care, alteration of the database integrity
+    WARNING: `redis-cli` must be used with care, alteration of the database integrity
     can lead to very strange behaviour.
-    
+
     Never forget: *"With great power comes great responsibility"*
 
 
@@ -128,8 +128,8 @@ the `SimpleSetting` object returns again the `default_value`.
 ## BaseHashSetting and HashSetting
 
 The `BaseHashSetting` class is used to represent a *dictionary* of
-scalar values. `HashSetting` simply adds a kwarg `default_values` that
-is a dictionary containing values taken as a fallback.
+scalar values. `HashSetting` simply adds a kwarg (keyword argument)
+`default_values` that is a dictionary containing values taken as a fallback.
 
 ```python
 from bliss.config import settings
@@ -204,14 +204,14 @@ simple settings and to be able to switch from one set of values to another set e
 We call the different sets with the name of `instances`.
 Every instance has a `name` and share the same attributes with other instances.
 
-You can imagine and visualize a ParameterWardrobe as a table where rows are the attributes and column are the instances. 
+You can imagine and visualize a ParameterWardrobe as a table where rows are the attributes and column are the instances.
 In fact **we can use the values from one column/instance at a time.**
 
-The name of ParameterWardrobe comes from the idea of having some parts of the body to dress and some **suit of clothes** 
+The name of ParameterWardrobe comes from the idea of having some parts of the body to dress and **suits of clothes**
 to choose from, for example: working suit, night suit, swimming suit.
 
 
-Let's to an example with a `dress` object,
+Let's try an example with a `dress` object,
 ```py
 BLISS [10]: dress = ParametersWardrobe('dress')  # this creates a Wardrobe with a 'default' instance
 BLISS [11]: dress.current_istance
@@ -230,7 +230,7 @@ BLISS [16]: dress
               .last_accessed  = '2019-06-05-12:38'
               .legs           = 'jeans'
 ```
-So you have your default suit of dress that you can use with dotted notation inside your code:
+So you have your default suit of dress, that you can use with dot notation inside your code:
 
 ```py
 BLISS [25]: dress.body
@@ -274,10 +274,10 @@ BLISS [33]: dress
 
 Now we have two *instances* of dress and  we are currently using `Night dress`.
 
-We can change values and visualize them. If no value is assigned to the instance
-default is taken.
+We can change values and visualize them. If no value is assigned to the
+instance, the default is taken.
 
-Let's add *another instance* and use a method to visualize all instances in a 
+Let's add *another instance* and use a method to visualize all instances in a
 tabular form:
 
 ```python
@@ -315,7 +315,7 @@ ParametersWardrobe can handle all basic types of data like:
  * dict
  * set
 
-Let's do another example:
+Let's have another example:
 
 ```python
 BLISS [40]: all = ParametersWardrobe('all')
@@ -334,8 +334,8 @@ BLISS [48]: all.list
                     [6.91528554e-310, 4.64581452e-310, 1.39151878e+147]]])
 
 BLISS [49]: all
-  Out [49]: Parameters (default) - 
-            
+  Out [49]: Parameters (default) -
+
               .bool           = True
               .creation_date  = '2019-06-05-14:43'
               .dict           = {'index': 'value'}
@@ -346,21 +346,21 @@ BLISS [49]: all
 
 ### Useful methods of ParameterWardrobe are:
 
-Here is given a list of methods and purposes of ParameterWardrobe. To understand
-the details of usage just read the docstring with python `help(...)` method from Bliss shell.
+Here is a list of methods and purposes of ParameterWardrobe. To understand
+the usage details, just read the docstring with python's `help(...)` method from the Bliss shell.
 
-####  .add 
+####  .add
 To add a new attribute to the Wardrobe
 
 ####  .switch
-To switch current instance to another one and creating a new one if does not exist.
+To switch the current instance to another one and creating it if needed.
 
 ####  .remove or purge
-`remove` allows deleting of instances or attributes.
-`purge` removes completely a ParametersWardrobe from redis.
+`remove` allows deleting instances or attributes.
+`purge` completely removes a ParametersWardrobe from redis.
 
 ####  .freeze
-Freezes the current instance hardwriting values that are taken from default.
+Freezes the current instance copying values the default instance.
 
 ####  .to_dict and .from_dict
 Allows to easily import/export instances, the main purpose is to have data in a form that
@@ -387,4 +387,4 @@ Gives the list of all instance names.
 
 ####  .creation_date and .last_accessed
 Read only values (properties) that gives some information for ParameterWardrobe
-mainteinance.
+maintenance.

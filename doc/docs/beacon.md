@@ -1,7 +1,7 @@
 # Introduction to Beacon
 
-*Beacon* is the server process, that is at the corner stone of BLISS since it
-provides services on which essential features of BLISS are built upon:
+*Beacon* is the server process, the corner stone of BLISS, since it
+provides services, upon which essential features of BLISS are built:
 
 * **configuration database**
     - text files in **YAML** format

@@ -69,7 +69,10 @@ class MCAChainNode(ChainNode):
 
     def get_acquisition_object(self, acq_params, ctrl_params=None):
 
-        from bliss.scanning.acquisition.mca import McaAcquisitionSlave
+        from bliss.scanning.acquisition.mca import (
+            McaAcquisitionSlave,
+            HWScaAcquisitionSlave,
+        )
 
         # --- Warn user if an unexpected is found in acq_params
         expected_keys = [
@@ -90,52 +93,102 @@ class MCAChainNode(ChainNode):
 
         # --- MANDATORY PARAMETERS --------------------------------
         npoints = acq_params["npoints"]
-        trigger_mode = acq_params["trigger_mode"]
-        preset_time = acq_params["preset_time"]
-        block_size = acq_params["block_size"]
-        polling_time = acq_params["polling_time"]
-        spectrum_size = acq_params["spectrum_size"]
         prepare_once = acq_params["prepare_once"]
         start_once = acq_params["start_once"]
 
         # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
+        acq_mode = self.controller.acquisition_mode
+        if acq_mode == AcquisitionMode.HWSCA:
+            return HWScaAcquisitionSlave(
+                self.controller,
+                npoints=npoints,
+                prepare_once=prepare_once,
+                start_once=start_once,
+            )
 
-        return McaAcquisitionSlave(
-            self.controller,
-            npoints,
-            trigger_mode=trigger_mode,
-            preset_time=preset_time,
-            block_size=block_size,
-            polling_time=polling_time,
-            spectrum_size=spectrum_size,
-            counters=(),
-            prepare_once=prepare_once,
-            start_once=start_once,
-            ctrl_params=ctrl_params,
-        )
+        elif acq_mode == AcquisitionMode.MCA:
+
+            trigger_mode = acq_params["trigger_mode"]
+            preset_time = acq_params["preset_time"]
+            block_size = acq_params["block_size"]
+            polling_time = acq_params["polling_time"]
+            spectrum_size = acq_params["spectrum_size"]
+
+            return McaAcquisitionSlave(
+                self.controller,
+                npoints,
+                trigger_mode=trigger_mode,
+                preset_time=preset_time,
+                block_size=block_size,
+                polling_time=polling_time,
+                spectrum_size=spectrum_size,
+                counters=(),
+                prepare_once=prepare_once,
+                start_once=start_once,
+                ctrl_params=ctrl_params,
+            )
+
+
+# MCABeaconObject
+class MCABeaconObject(BeaconObject):
+    def __init__(self, mca, config):
+        self.mca = mca
+        super().__init__(config)
+
+    @property
+    def name(self):
+        return self.mca.name
+
+    @BeaconObject.lazy_init
+    def init(self):
+        self.mca.initialize_attributes()
+        self.mca.initialize_hardware()
+
+    @BeaconObject.property(default=AcquisitionMode.MCA)
+    def acquisition_mode(self):
+        pass
+
+    @acquisition_mode.setter
+    def acquisition_mode(self, mode):
+        setmode = mode
+        if type(mode) == str:
+            for acq_mode in self.mca.supported_acquisition_modes:
+                if mode.upper() == acq_mode.name:
+                    setmode = acq_mode
+                    break
+        elif type(mode) == int:
+            for acq_mode in self.mca.supported_acquisition_modes:
+                if mode == acq_mode.value:
+                    setmode = acq_mode
+        if setmode not in self.mca.supported_acquisition_modes:
+            raise ValueError("Not supported acquisition mode [{}]".format(mode))
+        return setmode
 
 
 # Base class
-
-class BaseMCA(CounterController, BeaconObject):
+class BaseMCA(CounterController):
     """Generic MCA controller."""
 
     # Life cycle
 
-    def __init__(self, name, config):
-        #self._name = name
-        BeaconObject.__init__(self, config)
+    def __init__(self, name, config, beacon_obj_class=MCABeaconObject):
         CounterController.__init__(self, name, chain_node_class=MCAChainNode)
-        global_map.register(self, parents_list=["counters", "controllers"])
 
+        self.beacon_obj = beacon_obj_class(self, config)
         self._config = config
         self._rois = RoiConfig(self)
-        self.init()
+        self.beacon_obj.init()
 
-    @BeaconObject.lazy_init
-    def init(self):
-        self.initialize_attributes()
-        self.initialize_hardware()
+    @property
+    def config(self):
+        return self.beacon_obj.config
+
+    @property
+    def settings(self):
+        return self.beacon_obj.settings
+
+    def apply_config(self, reload=False):
+        return self.beacon_obj.apply_config(reload=reload)
 
     def initialize_attributes(self):
         raise NotImplementedError
@@ -208,25 +261,13 @@ class BaseMCA(CounterController, BeaconObject):
     def supported_acquisition_modes(self):
         return [AcquisitionMode.MCA]
 
-    @BeaconObject.property(default=AcquisitionMode.MCA)
+    @property
     def acquisition_mode(self):
-        pass
+        return self.beacon_obj.acquisition_mode
 
     @acquisition_mode.setter
     def acquisition_mode(self, mode):
-        setmode = mode
-        if type(mode) == str:
-            for acq_mode in self.supported_acquisition_modes:
-                if mode.upper() == acq_mode.name:
-                    setmode = acq_mode
-                    break
-        elif type(mode) == int:
-            for acq_mode in self.supported_acquisition_modes:
-                if mode == acq_mode.value:
-                    setmode = acq_mode
-        if setmode not in self.supported_acquisition_modes:
-            raise ValueError("Not supported acquisition mode [{}]".format(mode))
-        return setmode
+        self.beacon_obj.acquisition_mode = mode
 
     @property
     def supported_preset_modes(self):

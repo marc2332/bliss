@@ -1256,7 +1256,6 @@ class ParametersWardrobe(metaclass=ParametersType):
         "_wardr_name",
         "_property_attributes",
         "_not_removable",
-        "__update",
     ]
 
     def __init__(
@@ -1307,8 +1306,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             property_attributes = ()
         if not not_removable:
             not_removable = ()
-
-        self.__update = True
 
         # different instance names are stored in a queue where
         # the first item is the currently used one
@@ -1665,8 +1662,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         if name not in self.instances:
             raise NameError(f"The instance name '{name}' does not exist")
 
-        self.__update = False  # to not change current instance
-        self.switch(name)
+        self.switch(name, update=False)
 
         attrs = list(self._get_redis_single_instance("default").keys())
         instance_ = {}
@@ -1681,7 +1677,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             instance_[attr] = getattr(self, attr)
 
         self.switch(self.current_instance)  # back to current instance
-        self.__update = True
         return instance_
 
     def _get_all_instances(self):
@@ -1802,7 +1797,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         self._instances.clear()
 
-    def switch(self, name, copy=None):
+    def switch(self, name, copy=None, update=True):
         """
         Switches to a new instance of parameters.
 
@@ -1839,7 +1834,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             )
 
         # updating last_accessed
-        if self.__update:
+        if update:
             self._proxy["_last_accessed"] = datetime.datetime.now().strftime(
                 "%Y-%m-%d-%H:%M"
             )
@@ -1855,7 +1850,7 @@ class ParametersWardrobe(metaclass=ParametersType):
                 self._populate(key, value=value)
 
         # removing and prepending the name so it will be the first
-        if self.__update:
+        if update:
             self._instances.remove(name)
             self._instances.prepend(name)
 

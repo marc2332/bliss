@@ -161,6 +161,21 @@ def set_global_settings(settings: qt.QSettings, options):
         silx.config.DEFAULT_PLOT_BACKEND = "opengl"
 
 
+def process_gevent():
+    """Process gevent in case of QTimer triggering it."""
+    try:
+        gevent.sleep(0.01)
+    except Exception:
+        ROOT_LOGGER.critical("Uncaught exception from gevent", exc_info=True)
+
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Catch exceptions which was uncaught."""
+    ROOT_LOGGER.critical(
+        "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
+    )
+
+
 def main():
     logging.basicConfig(level=logging.INFO)
     logging.captureWarnings(True)
@@ -213,11 +228,6 @@ def main():
         display.setSimulator(simulator)
         display.show()
 
-    def handle_exception(exc_type, exc_value, exc_traceback):
-        ROOT_LOGGER.critical(
-            "Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback)
-        )
-
     sys.excepthook = handle_exception
 
     # set up CTRL-C signal handler, that exits gracefully
@@ -235,7 +245,7 @@ def main():
     if need_gevent_loop:
         gevent_timer = qt.QTimer()
         gevent_timer.start(10)
-        gevent_timer.timeout.connect(lambda: gevent.sleep(0.01))
+        gevent_timer.timeout.connect(process_gevent)
         ROOT_LOGGER.info("gevent based on QTimer")
     else:
         ROOT_LOGGER.info("gevent use poll patched")

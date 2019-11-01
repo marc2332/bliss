@@ -16,8 +16,6 @@ import collections
 import gevent.event
 
 from bliss.data.scan import watch_session_scans
-from bliss.config.conductor.client import get_default_connection
-from bliss.config.conductor.client import get_redis_connection
 from bliss.config.conductor.client import clean_all_redis_connection
 
 from silx.gui import qt
@@ -29,7 +27,6 @@ from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
-from bliss.flint import config
 
 
 class FlintApi:
@@ -48,28 +45,15 @@ class FlintApi:
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
         self.scans_watch_task = None
-        self._session_name = None
-
-        connection = get_default_connection()
-        address = connection.get_redis_connection_address()
-        self._qt_redis_connection = connection.create_redis_connection(address=address)
-
-    def get_flint_model(self) -> flint_model.FlintState:
-        return self.__flintModel
 
     def create_new_id(self):
         return next(self._id_generator)
 
-    def redis_session_info(self):
-        return dict(
-            session_name=self._session_name, redis_connection=self._qt_redis_connection
-        )
-
-    def get_session(self):
-        return self._session_name
-
     def _spawn_scans_session_watch(self, session_name, clean_redis=False):
         # FIXME: It could be mostly moved into scan_manager
+        if self.scans_watch_task:
+            self.scans_watch_task.kill()
+
         if clean_redis:
             clean_all_redis_connection()
 
@@ -99,25 +83,12 @@ class FlintApi:
         return task
 
     def set_session(self, session_name):
-        if session_name == self._session_name:
+        manager = self.__flintModel.mainManager()
+        if not manager.updateBlissSessionName(session_name):
             return
 
-        if self.scans_watch_task:
-            self.scans_watch_task.kill()
-
+        # FIXME: Have to be moved
         self._spawn_scans_session_watch(session_name)
-        self._session_name = session_name
-
-        redis = get_redis_connection()
-        key = config.get_flint_key()
-        current_value = redis.lindex(key, 0).decode()
-        value = session_name + " " + current_value.split()[-1]
-        redis.lpush(key, value)
-        redis.rpop(key)
-
-        # FIXME: session update have to be triggered by event from FlintModel
-        mainWindow = self.__flintModel.mainWindow()
-        mainWindow.updateTitle()
 
     def wait_data(self, master, plot_type, index):
         ev = (
@@ -128,8 +99,7 @@ class FlintApi:
         ev.wait(timeout=3)
 
     def get_live_scan_data(self, channel_name):
-        model = self.get_flint_model()
-        scan = model.currentScan()
+        scan = self.__flintModel.currentScan()
         if scan is None:
             raise Exception("No scan available")
         channel = scan.getChannelByName(channel_name)

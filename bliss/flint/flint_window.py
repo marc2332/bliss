@@ -25,7 +25,7 @@ class FlintWindow(qt.QMainWindow):
         qt.QMainWindow.__init__(self, parent=parent)
         self.setAttribute(qt.Qt.WA_QuitOnClose, True)
 
-        self.__flintState: flint_model.FlintState
+        self.__flintState: flint_model.FlintState = None
 
         central_widget = qt.QWidget(self)
 
@@ -37,8 +37,12 @@ class FlintWindow(qt.QMainWindow):
         self.__initLogWindow()
 
     def setFlintState(self, flintState):
+        if self.__flintState is not None:
+            self.__flintState.blissSessionChanged.disconnect(self.__blissSessionChanged)
         self.__flintState = flintState
-        self.updateTitle()
+        if self.__flintState is not None:
+            self.__flintState.blissSessionChanged.connect(self.__blissSessionChanged)
+        self.__updateTitle()
 
     def tabs(self):
         # FIXME: Have to be removed as it is not really an abstraction
@@ -139,16 +143,16 @@ class FlintWindow(qt.QMainWindow):
         window.setVisible(True)
         return window
 
-    def updateTitle(self):
-        # FIXME: Should be private
-        # FIXME: Should be triggered by signal
-        flint = self.__flintState.flintApi()
-        session_name = flint.get_session()
+    def __blissSessionChanged(self):
+        self.__updateTitle()
 
-        if not session_name:
+    def __updateTitle(self):
+        sessionName = self.__flintState.blissSessionName()
+
+        if sessionName is None:
             session = "no session attached."
         else:
-            session = "attached to '%s`" % session_name
+            session = "attached to '%s`" % sessionName
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 

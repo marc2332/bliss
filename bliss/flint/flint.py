@@ -99,6 +99,7 @@ def create_flint_model(settings) -> flint_model.FlintState:
     # Everything is there we can read the settings
 
     flintWindow.initFromSettings()
+    manager.initRedis()
 
     # Finally scan manager
 

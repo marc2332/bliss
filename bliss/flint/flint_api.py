@@ -15,9 +15,6 @@ import collections
 
 import gevent.event
 
-from bliss.data.scan import watch_session_scans
-from bliss.config.conductor.client import clean_all_redis_connection
-
 from silx.gui import qt
 from silx.gui import plot as silx_plot
 from silx.gui.plot.items.roi import RectangleROI
@@ -44,51 +41,13 @@ class FlintApi:
         self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
-        self.scans_watch_task = None
 
     def create_new_id(self):
         return next(self._id_generator)
 
-    def _spawn_scans_session_watch(self, session_name, clean_redis=False):
-        # FIXME: It could be mostly moved into scan_manager
-        if self.scans_watch_task:
-            self.scans_watch_task.kill()
-
-        if clean_redis:
-            clean_all_redis_connection()
-
-        ready_event = gevent.event.Event()
-
-        scanManager = self.__flintModel.scanManager()
-        task = gevent.spawn(
-            watch_session_scans,
-            session_name,
-            scanManager.new_scan,
-            scanManager.new_scan_child,
-            scanManager.new_scan_data,
-            scanManager.end_scan,
-            ready_event=ready_event,
-        )
-
-        task.link_exception(
-            functools.partial(
-                self._spawn_scans_session_watch, session_name, clean_redis=True
-            )
-        )
-
-        self.scans_watch_task = task
-
-        ready_event.wait()
-
-        return task
-
     def set_session(self, session_name):
         manager = self.__flintModel.mainManager()
-        if not manager.updateBlissSessionName(session_name):
-            return
-
-        # FIXME: Have to be moved
-        self._spawn_scans_session_watch(session_name)
+        manager.updateBlissSessionName(session_name)
 
     def wait_data(self, master, plot_type, index):
         ev = (

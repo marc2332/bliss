@@ -463,23 +463,22 @@ class ScanSaving(ParametersWardrobe):
             images_prefix = images_prefix.format(**cache_dict)
             data_filename = data_filename.format(**cache_dict)
 
-            parent = _get_or_create_node(self.session, "container")
-            base_path_items = [
-                x
-                for x in os.path.normpath(cache_dict.get("base_path")).split(
-                    os.path.sep
+            db_path_items = [(self.session, "container")]
+            base_path_items = list(
+                filter(
+                    None,
+                    os.path.normpath(cache_dict.get("base_path")).split(os.path.sep),
                 )
-                if x
-            ]
+            )
             sub_items = os.path.normpath(sub_path).split(os.path.sep)
             try:
-                if parent.name == sub_items[0]:
+                if db_path_items[0][0] == sub_items[0]:
                     del sub_items[0]
             except IndexError:
                 pass
             sub_items = base_path_items + sub_items
             for path_item in sub_items:
-                parent = _get_or_create_node(path_item, "container", parent=parent)
+                db_path_items.append((path_item, "container"))
         except KeyError as keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
@@ -493,7 +492,7 @@ class ScanSaving(ParametersWardrobe):
                 "root_path": path,
                 "data_path": os.path.join(path, data_filename),
                 "images_path": images_path,
-                "parent": parent,
+                "db_path_items": db_path_items,
                 "writer": self._get_writer_object(path, images_path, data_filename),
             }
 
@@ -509,7 +508,11 @@ class ScanSaving(ParametersWardrobe):
         """
         This method return the parent node which should be used to publish new data
         """
-        return self.get()["parent"]
+        db_path_items = self.get()["db_path_items"]
+        parent_node = _get_or_create_node(*db_path_items[0])
+        for item_name, node_type in db_path_items[1:]:
+            parent_node = _get_or_create_node(item_name, node_type, parent=parent_node)
+        return parent_node
 
     def _get_writer_class(self, writer_module):
         module_name = "%s.%s" % (self.WRITER_MODULE_PATH, writer_module)
@@ -761,6 +764,7 @@ class Scan:
         data_watch_callback -- a callback inherited from DataWatchCallback
         """
         self.__name = name
+        self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
@@ -769,8 +773,6 @@ class Scan:
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
-
-        self.root_node = scan_config["parent"]
 
         self._scan_info["save"] = save
         if save:
@@ -822,6 +824,8 @@ class Scan:
 
     def _prepare_node(self):
         if self.__node is None:
+            self.root_node = self.__scan_saving.get_parent_node()
+
             ### order is important in the next lines...
             self.writer.template.update(
                 {

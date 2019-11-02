@@ -32,7 +32,7 @@ def scan_saving():
 def test_scan_saving(session, scan_saving):
     scan_saving.base_path = "/tmp"
     scan_saving.template = "{session}/toto"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == "toto"
     assert parent_node.parent is not None
     assert parent_node.parent.parent.name == scan_saving.session
@@ -40,7 +40,7 @@ def test_scan_saving(session, scan_saving):
     assert parent_node.db_name == "%s:%s" % (parent_node.parent.db_name, "toto")
 
     scan_saving.template = "toto"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == "toto"
     assert parent_node.parent is not None
     assert parent_node.parent.parent.name == scan_saving.session
@@ -78,7 +78,7 @@ Parameters (default) -
     assert info(scan_saving) == scan_saving_repr
 
     scan_saving.template = "toto/{session}"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == scan_saving.session
     assert parent_node.parent is not None
     assert parent_node.parent.name == "toto"

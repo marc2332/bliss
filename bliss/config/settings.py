@@ -22,7 +22,7 @@ import yaml
 from .conductor import client
 from bliss.config.conductor.client import set_config_db_file, remote_open
 from bliss.common.utils import Null
-from bliss import setup_globals
+from bliss import current_session
 
 logger = logging.getLogger(__name__)
 
@@ -1142,53 +1142,11 @@ class ParametersType(type):
         return type.__new__(cls, name, bases, attrs)
 
 
-class ParamDescriptor:
+class ParamDescriptorWithDefault:
     """
     Used to link python global objects
     If necessary It will create an entry on redis under
     parameters:objects:name
-    """
-
-    OBJECT_PREFIX = "parameters:object:"
-
-    def __init__(self, proxy, name, value, assign=True):
-        self.proxy = proxy
-        self.name = name
-        if assign:
-            self.assign(value)
-
-    def assign(self, value):
-        """
-        if the value is a global defined object it will create a link
-        to that object inside the ParamDescriptor and the link will
-        be stored inside redis in this way:'parameters:object:name'
-        otherwise the value will be stored normally
-        """
-        if hasattr(value, "name") and hasattr(setup_globals, value.name):
-            value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
-        try:
-            self.proxy[self.name] = value
-        except Exception:
-            raise ValueError("%s.%s: cannot set value" % (self.proxy._name, self.name))
-
-    def __get__(self, obj, obj_type):
-        value = self.proxy[self.name]
-        if isinstance(value, str) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
-            value = value[len(ParamDescriptor.OBJECT_PREFIX) :]
-            return getattr(setup_globals, value)
-        return value
-
-    def __set__(self, obj, value):
-        return self.assign(value)
-
-    def __delete__(self, *args):
-        del self.proxy[self.name]
-
-
-class ParamDescriptorWithDefault:
-    """
-    Like ParamDescriptor but It contains two references on redis:
-    proxy and proxy_default.
     If the proxy key doesn't exists it returns the value of the default
     """
 
@@ -1208,8 +1166,8 @@ class ParamDescriptorWithDefault:
         be stored inside redis in this way:'parameters:object:name'
         otherwise the value will be stored normally
         """
-        if hasattr(value, "name") and hasattr(setup_globals, value.name):
-            value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
+        if hasattr(value, "name") and value.name in current_session.env_dict:
+            value = "%s%s" % (self.OBJECT_PREFIX, value.name)
         try:
             self.proxy[self.name] = value
         except Exception:
@@ -1221,13 +1179,11 @@ class ParamDescriptorWithDefault:
         except KeyError:
             # getting from default
             value = self.proxy_default[self.name]
-        if isinstance(value, str) and value.startswith(
-            ParamDescriptorWithDefault.OBJECT_PREFIX
-        ):
-            value = value[len(ParamDescriptorWithDefault.OBJECT_PREFIX) :]
+        if isinstance(value, str) and value.startswith(self.OBJECT_PREFIX):
+            value = value[len(self.OBJECT_PREFIX) :]
             try:
-                return getattr(setup_globals, value)
-            except AttributeError:
+                return current_session.env_dict[value]
+            except KeyError:
                 raise AttributeError(
                     f"The object '{self.name}' is not "
                     "found in the globals: Be sure to"

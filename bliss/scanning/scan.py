@@ -344,10 +344,6 @@ class ScanSaving(ParametersWardrobe):
 
         The *parent* node should be use as parameters for the Scan.
         """
-
-        keys = dict()
-        _change_to_obj_marshalling(keys)
-
         # default and not removable values
         _default_values = {
             "base_path": "/tmp/scans",
@@ -376,7 +372,6 @@ class ScanSaving(ParametersWardrobe):
             default_values=_default_values,
             property_attributes=_property_attributes,
             not_removable=_default_values.keys(),
-            **keys,
         )
 
     def __dir__(self):
@@ -534,9 +529,6 @@ class ScanDisplay(ParametersWardrobe):
         """
         This class represents the display parameters for scans for a session.
         """
-        keys = dict()
-        _change_to_obj_marshalling(keys)
-
         if session_name is None:
             session_name = current_session.name
 
@@ -550,7 +542,6 @@ class ScanDisplay(ParametersWardrobe):
             },
             property_attributes=("session", "counters", "extra_args"),
             not_removable=("auto", "motor_position"),
-            **keys,
         )
 
         self.add("_session_name", session_name)
@@ -580,7 +571,7 @@ class ScanDisplay(ParametersWardrobe):
         # FIXME: It could warn to restart flint in case it is already loaded
         if not isinstance(extra_args, (list, tuple)):
             raise TypeError(
-                "SCADISPLAY_SCAN.extra_args expects a list or a tuple of strings"
+                "SCAN_DISPLAY.extra_args expects a list or a tuple of strings"
             )
 
         # Do not load it while it is not needed

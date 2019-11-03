@@ -177,6 +177,17 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     )
 
 
+def initApplication(argv):
+    qapp = qt.QApplication.instance()
+    if qapp is None:
+        qapp = qt.QApplication(argv)
+    qapp.setApplicationName("flint")
+    qapp.setOrganizationName("ESRF")
+    qapp.setOrganizationDomain("esrf.eu")
+    bliss.flint.resources.silx_integration()
+    return qapp
+
+
 def main():
     logging.basicConfig(level=logging.INFO)
     logging.captureWarnings(True)
@@ -202,16 +213,11 @@ def main():
     # Avoid warning in case of locked loop (debug mode/ipython mode)
     PyQt5.QtCore.pyqtRemoveInputHook()
 
-    qapp = qt.QApplication(sys.argv)
-    qapp.setApplicationName("flint")
-    qapp.setOrganizationName("ESRF")
-    qapp.setOrganizationDomain("esrf.eu")
+    qapp = initApplication(sys.argv)
     settings = qt.QSettings(
         qt.QSettings.IniFormat, qt.QSettings.UserScope, qapp.applicationName()
     )
     set_global_settings(settings, options)
-
-    bliss.flint.resources.silx_integration()
 
     flintModel = create_flint_model(settings)
     flintWindow = flintModel.mainWindow()

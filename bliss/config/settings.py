@@ -1807,8 +1807,9 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         # removing and prepending the name so it will be the first
         if update:
-            self._instances.remove(name)
-            self._instances.prepend(name)
+            with pipeline(self._instances):
+                self._instances.remove(name)
+                self._instances.prepend(name)
 
         for key in self._proxy.keys():
             self._populate(key)

@@ -12,26 +12,8 @@ from bliss.common import plot
 logger = logging.getLogger(__name__)
 
 
-def get_real_flint(*args, **kwargs):
-    settings = qt.QSettings()
-    flint_model = flint.create_flint_model(settings)
-    interface = flint_model.flintApi()
-    interface._pid = -666
-    return interface
-
-
-@pytest.mark.usefixtures("xvfb", "beacon")
+@pytest.mark.usefixtures("xvfb", "beacon", "flint_norpc")
 class TestFlint(TestCaseQt):
-    def setUp(self):
-        flint.initApplication([])
-        self.old_get_flint = plot.get_flint
-        plot.get_flint = get_real_flint
-        TestCaseQt.setUp(self)
-
-    def tearDown(self):
-        plot.get_flint = self.old_get_flint
-        self.old_get_flint = None
-        TestCaseQt.tearDown(self)
 
     def test_empty_plot(self):
         p = plot.plot()

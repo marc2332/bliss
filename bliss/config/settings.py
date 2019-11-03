@@ -1198,10 +1198,6 @@ class ParamDescriptorWithDefault:
     def __set__(self, obj, value):
         return self.assign(value)
 
-    def __delete__(self, *args):
-        del self.proxy[self.name]
-        del self.proxy_default[self.name]
-
 
 class ParametersWardrobe(metaclass=ParametersType):
     DESCRIPTOR = ParamDescriptorWithDefault

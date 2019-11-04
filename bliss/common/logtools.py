@@ -356,6 +356,21 @@ class Log:
 
     @staticmethod
     def _find_loggers(glob):
+        # be sure all logger are created under controller
+        for node in global_map.walk_node("controllers"):
+            try:
+                instance_ref = node["instance"]
+            except KeyError:
+                continue
+            else:
+                if isinstance(instance_ref, str):
+                    continue
+
+                instance = instance_ref()
+                if instance is None:
+                    continue
+                get_logger(instance)
+
         manager = logging.getLogger().manager
         loggers = {
             name: obj

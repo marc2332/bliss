@@ -11,36 +11,25 @@ import os
 import string
 import weakref
 import sys
-from treelib import Tree
 import time
 import datetime
-import re
-import numpy
 import collections
 import uuid
 from functools import wraps
 
-from bliss import setup_globals
-from bliss import current_session
-from bliss.common.event import connect, send, disconnect
+from bliss import setup_globals, current_session, is_bliss_shell
+from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
-from bliss.config.conductor import client
 from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
 from bliss.config.settings import pipeline
-from bliss.data.node import (
-    _get_or_create_node,
-    _create_node,
-    DataNodeContainer,
-    is_zerod,
-)
+from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.common import motor_group
-from .chain import AcquisitionDevice, AcquisitionMaster, AcquisitionChain, StopChain
+from .chain import AcquisitionDevice, AcquisitionMaster, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -648,11 +637,11 @@ def _get_channels_dict(acq_object, channels_dict):
         display_names[fullname] = chan_name
         scalars_units[fullname] = acq_chan.unit
         shape = acq_chan.shape
-        if len(shape) == 0 and not fullname in scalars:
+        if len(shape) == 0 and fullname not in scalars:
             scalars.append(fullname)
-        elif len(shape) == 1 and not fullname in spectra:
+        elif len(shape) == 1 and fullname not in spectra:
             spectra.append(fullname)
-        elif len(shape) == 2 and not fullname in images:
+        elif len(shape) == 2 and fullname not in images:
             images.append(fullname)
 
     return channels_dict
@@ -683,7 +672,11 @@ def display_motor(func):
     def f(self, *args, **kwargs):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()
-        if scan_display_params.auto and scan_display_params.motor_position:
+        if (
+            is_bliss_shell()
+            and scan_display_params.auto
+            and scan_display_params.motor_position
+        ):
             p = self.get_plot(axis)
             p.qt.addXMarker(axis.position, legend=axis.name, text=axis.name)
 
@@ -789,7 +782,7 @@ class Scan:
         )
 
         scan_display_params = ScanDisplay()
-        if scan_display_params.auto:
+        if is_bliss_shell() and scan_display_params.auto:
             get_flint()
 
         self.__state = ScanState.IDLE

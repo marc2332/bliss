@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Session
+  - Store scans in `.scans` property in `Session` object.
 - Flint
   - Provides dock widget for all the main widgets of the live scan window
   - Provides a widget to monitor the state of the current scan
@@ -41,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `bliss.scanning.Scan.get_plot` API was changed, now it uses a channel object and a plot kind (`image`, `scatter`, `mca` or `curve`)
     - This API is only used by `edit_roi_counters` and will may be removed
   - Try to avoid to reach images which are not needed (according to the frame id already reached)
-- `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
+  - `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
 - Globals
   - `SCANS` is now available only in Bliss Shell. Refers to `current_session.scans`
   - `SCAN_SAVING` is now available only in Bliss Shell. Refers to `current_session.scan_saving`

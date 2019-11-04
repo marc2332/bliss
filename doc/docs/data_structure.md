@@ -324,6 +324,10 @@ SCANS[-1].get_data()
 }
 ```
 
+!!! note
+    Scans are stored per session in the `.scans` property of Session object.
+    The global `SCANS` is only available from Bliss Shell and refers to `current_session.scans`.
+
 #### Getting image data
 
 Image data is not directly retrieved via the scan object `.get_data()` method,

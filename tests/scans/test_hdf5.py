@@ -141,7 +141,7 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 2, .1, env_dict["lima_simulator"])
 
@@ -183,7 +183,7 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
 
@@ -215,9 +215,7 @@ def test_scan_saving_parameters(session, lima_simulator, scan_tmpdir):
         )
 
         # put scan file in a tmp directory
-        session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
-
-        scan_saving = session.env_dict["SCAN_SAVING"].get()
+        session.scan_saving.base_path = str(scan_tmpdir)
 
         s = scans.loopscan(1, 0.01, lima_sim)
     finally:
@@ -238,7 +236,7 @@ def test_positioners_in_scan_info(alias_session, scan_tmpdir):
     diode = alias_session.config.get("diode")
 
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     # test that positioners are remaining in for a simple counter that does not update 'scan_info'
     s1 = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
@@ -264,7 +262,7 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
     diode = alias_session.config.get("diode")
 
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     # test that positioners are remaining in for a simple counter that does not update 'scan_info'
     s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
@@ -281,7 +279,7 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
 
 def test_scan_saving_without_axis_in_session(default_session, scan_tmpdir):
     # put scan file in a tmp directory
-    default_session.env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    default_session.scan_saving.base_path = str(scan_tmpdir)
 
     diode = default_session.config.get("diode")
 
@@ -297,7 +295,7 @@ def test_scan_saving_without_axis_in_session(default_session, scan_tmpdir):
 def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
 
     # put scan file in a tmp directory
-    setup_globals.SCAN_SAVING.base_path = str(scan_tmpdir)
+    session.scan_saving.base_path = str(scan_tmpdir)
     lima_sim = session.config.get("lima_simulator")
 
     s = scans.loopscan(3, .1, lima_sim)

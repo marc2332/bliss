@@ -65,7 +65,7 @@ def alias_session_scans_listener(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     lima_sim = env_dict["lima_simulator"]
 

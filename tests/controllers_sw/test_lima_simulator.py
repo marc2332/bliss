@@ -135,7 +135,7 @@ def test_directories_mapping(beacon, lima_simulator):
 
 def test_lima_mapping_and_saving(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
-    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path = "/tmp/scans"
@@ -163,7 +163,7 @@ def test_lima_mapping_and_saving(session, lima_simulator):
 
 def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
     simulator = session.config.get("lima_simulator")
-    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path = str(scan_tmpdir)
@@ -198,7 +198,7 @@ def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
 
 def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session):
     simulator = session.config.get("lima_simulator")
-    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path = str(scan_tmpdir)
@@ -235,7 +235,7 @@ def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session)
 def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
     # issue 1010
     simulator = session.config.get("lima_simulator")
-    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path = str(scan_tmpdir)
@@ -263,7 +263,7 @@ def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
 def test_dir_no_saving(lima_simulator, scan_tmpdir, session):
     # issue 1070
     simulator = session.config.get("lima_simulator")
-    scan_saving = setup_globals.SCAN_SAVING
+    scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
     scan_saving.base_path = str(scan_tmpdir)

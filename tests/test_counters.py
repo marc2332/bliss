@@ -218,10 +218,8 @@ def test_SampCnt_mode_SAMPLES_from_conf(session):
 
 
 def test_SampCnt_mode_STATS(session, scan_tmpdir):
-    env_dict = session.env_dict
-
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    session.scan_saving.base_path = str(scan_tmpdir)
 
     o = Timed_Diode()
 
@@ -280,10 +278,8 @@ def test_SampCnt_STATS_algorithm():
 
 
 def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
-    env_dict = session.env_dict
-
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    session.scan_saving.base_path = str(scan_tmpdir)
 
     o = Timed_Diode()
     ax = SoftAxis("test-sample-pos", o)
@@ -314,10 +310,10 @@ def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
 
 
 def test_SampCnt_mode_SINGLE(session, scan_tmpdir):
-
     env_dict = session.env_dict
+
     # put scan file in a tmp directory
-    env_dict["SCAN_SAVING"].base_path = str(scan_tmpdir)
+    session.scan_saving.base_path = str(scan_tmpdir)
 
     diode2 = env_dict["diode2"]
     diode8 = env_dict["diode8"]

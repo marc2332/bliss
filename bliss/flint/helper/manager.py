@@ -14,6 +14,10 @@ from typing import Optional
 from typing import List
 from typing import ClassVar
 
+from bliss.config.conductor.client import get_default_connection
+from bliss.config.conductor.client import get_redis_connection
+from bliss.flint import config
+
 import pickle
 import logging
 from silx.gui import qt
@@ -43,6 +47,28 @@ class ManageMainBehaviours(qt.QObject):
         if self.__flintModel is not None:
             self.__flintModel.workspaceChanged.connect(self.__workspaceChanged)
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
+
+    def initRedis(self):
+        connection = get_default_connection()
+        address = connection.get_redis_connection_address()
+        redisConnection = connection.create_redis_connection(address=address)
+        self.__flintModel.setRedisConnection(redisConnection)
+
+    def updateBlissSessionName(self, sessionName):
+        model = self.__flintModel
+        previousSessionName = model.blissSessionName()
+        if previousSessionName == sessionName:
+            # FIXME: In case of a restart of bliss, is it safe?
+            return False
+
+        redis = get_redis_connection()
+        key = config.get_flint_key()
+        current_value = redis.lindex(key, 0).decode()
+        value = sessionName + " " + current_value.split()[-1]
+        redis.lpush(key, value)
+        redis.rpop(key)
+        model.setBlissSessionName(sessionName)
+        return True
 
     def __workspaceChanged(
         self,

@@ -27,7 +27,7 @@ def test_interleaved_scans():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
-    manager = scan_manager.ScanManager(flint=None)
+    manager = scan_manager.ScanManager(flintModel=None)
     # Disabled async consumption
     manager._set_absorb_events(False)
 
@@ -49,7 +49,7 @@ def test_double_scans():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
-    manager = scan_manager.ScanManager(flint=None)
+    manager = scan_manager.ScanManager(flintModel=None)
     # Disabled async consumption
     manager._set_absorb_events(False)
 

@@ -68,6 +68,8 @@ class FlintState(qt.QObject):
 
     workspaceChanged = qt.Signal(object, object)
 
+    blissSessionChanged = qt.Signal()
+
     def __init__(self, parent=None):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace: Workspace = None
@@ -76,14 +78,50 @@ class FlintState(qt.QObject):
         self.__liveWindow = None
         self.__propertyWidget = None
         self.__liveStatusWidget = None
+        self.__manager = None
         self.__flintApi = None
         self.__settings = None
+        self.__mainWindow = None
+        self.__scanManager = None
+        self.__blissSessionName = None
+        self.__redisConnection = None
 
     def setSettings(self, settings: qt.QSettings):
         self.__settings = settings
 
     def settings(self) -> qt.QSettings:
         return self.__settings
+
+    def setBlissSessionName(self, sessionName: str):
+        self.__blissSessionName = sessionName
+        self.blissSessionChanged.emit()
+
+    def blissSessionName(self) -> str:
+        return self.__blissSessionName
+
+    def setRedisConnection(self, redisConnection):
+        self.__redisConnection = redisConnection
+
+    def redisConnection(self):
+        return self.__redisConnection
+
+    def setMainWindow(self, mainWindow: qt.QMainWindow):
+        self.__mainWindow = mainWindow
+
+    def mainWindow(self) -> qt.QMainWindow:
+        return self.__mainWindow
+
+    def setMainManager(self, manager):
+        self.__manager = manager
+
+    def mainManager(self):
+        return self.__manager
+
+    def setScanManager(self, manager):
+        self.__scanManager = manager
+
+    def scanManager(self):
+        return self.__scanManager
 
     def setLiveWindow(self, window: qt.QMainWindow):
         self.__liveWindow = window

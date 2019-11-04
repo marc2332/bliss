@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-""""
+"""
 Manage scan events to feed with the application model
 """
 from __future__ import annotations
@@ -14,10 +14,16 @@ from typing import Tuple
 
 import logging
 import numpy
+import functools
+
 import gevent.event
+
+from bliss.data.scan import watch_session_scans
+from bliss.config.conductor.client import clean_all_redis_connection
 
 from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 
 
@@ -32,10 +38,11 @@ class ScanManager:
     structure.
     """
 
-    def __init__(self, flint):
-        # FIXME: Flint should be removed, we should use FlintState
-        self.flint = flint
+    def __init__(self, flintModel: flint_model.FlintState):
+        self.__flintModel = flintModel
+        self._scans_watch_task = None
         self._refresh_task = None
+
         self._last_event: Dict[
             Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
         ] = dict()
@@ -48,6 +55,51 @@ class ScanManager:
         self.__scan: Optional[scan_model.Scan] = None
         self.__scan_id = None
         self.__absorb_events = True
+
+        if self.__flintModel is not None:
+            self.__flintModel.blissSessionChanged.connect(self.__bliss_session_changed)
+            self.__bliss_session_changed()
+
+    def __bliss_session_changed(self):
+        session_name = self.__flintModel.blissSessionName()
+        self._spawn_scans_session_watch(session_name)
+
+    def _spawn_scans_session_watch(self, session_name: str, clean_redis: bool = False):
+        if self._scans_watch_task:
+            self._scans_watch_task.kill()
+            self._scans_watch_task = None
+
+        if clean_redis:
+            # FIXME: There is maybe a problem here. As the redis connection
+            # Is also stored in FlintState and is not updated
+            clean_all_redis_connection()
+
+        if session_name is None:
+            return
+
+        ready_event = gevent.event.Event()
+
+        task = gevent.spawn(
+            watch_session_scans,
+            session_name,
+            self.new_scan,
+            self.new_scan_child,
+            self.new_scan_data,
+            self.end_scan,
+            ready_event=ready_event,
+        )
+
+        task.link_exception(
+            functools.partial(
+                self._spawn_scans_session_watch, session_name, clean_redis=True
+            )
+        )
+
+        self._scans_watch_task = task
+
+        ready_event.wait()
+
+        return task
 
     def _set_absorb_events(self, absorb_events: bool):
         self.__absorb_events = absorb_events
@@ -84,8 +136,8 @@ class ScanManager:
                 self.__data_storage.create_channel(channel.name, channel.master)
 
         plots = scan_info_helper.create_plot_model(scan_info)
-        if self.flint is not None:
-            manager = self.flint._manager()
+        if self.__flintModel is not None:
+            manager = self.__flintModel.mainManager()
             manager.updateScanAndPlots(scan, plots)
         self.__scan = scan
 
@@ -170,9 +222,10 @@ class ScanManager:
         else:
             assert False
 
-        if self.flint is not None:
+        if self.__flintModel is not None:
+            flintApi = self.__flintModel.flintApi()
             data_event = (
-                self.flint.data_event[master_name]
+                flintApi.data_event[master_name]
                 .setdefault(data_type, {})
                 .setdefault(data.get("channel_index", 0), gevent.event.Event())
             )

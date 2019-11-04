@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.usefixtures("xvfb", "beacon", "flint_norpc")
 class TestFlint(TestCaseQt):
-
     def test_empty_plot(self):
         p = plot.plot()
         pid = plot.get_flint()._pid
@@ -34,11 +33,11 @@ class TestFlint(TestCaseQt):
     def test_custom_plot_curveplot(self):
         widget = plot.CurvePlot(name="foo")
 
-        cos_data = numpy.cos(numpy.linspace(0, 2*numpy.pi, 10))
-        sin_data = numpy.sin(numpy.linspace(0, 2*numpy.pi, 10))
+        cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
+        sin_data = numpy.sin(numpy.linspace(0, 2 * numpy.pi, 10))
 
-        widget.add_data({'cos': cos_data, 'sin': sin_data})
-        widget.select_data('sin', 'cos')
-        widget.select_data('sin', 'cos', color='green', symbol='x')
-        widget.deselect_data('sin', 'cos')
+        widget.add_data({"cos": cos_data, "sin": sin_data})
+        widget.select_data("sin", "cos")
+        widget.select_data("sin", "cos", color="green", symbol="x")
+        widget.deselect_data("sin", "cos")
         widget.clear_data()

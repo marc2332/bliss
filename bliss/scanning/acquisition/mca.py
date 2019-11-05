@@ -56,14 +56,13 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def __init__(
         self,
-        mca,
+        *mca_or_mca_counters,
         npoints,
         trigger_mode=SOFT,
         preset_time=1.0,
         block_size=None,
         polling_time=0.1,
         spectrum_size=None,
-        counters=None,
         prepare_once=True,
         start_once=True,
         ctrl_params=None,
@@ -88,8 +87,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         # Parent call
         super().__init__(
-            mca,
-            counters=counters,
+            *mca_or_mca_counters,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
@@ -103,7 +101,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         # Default value
         if spectrum_size is None:
-            spectrum_size = mca.spectrum_size
+            spectrum_size = self.device.spectrum_size
 
         # Extra arguments
         self.block_size = block_size

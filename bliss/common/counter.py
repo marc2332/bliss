@@ -10,12 +10,12 @@
 
 from collections import namedtuple
 
+import enum
 import inspect
 import numpy
 
 from bliss import global_map
 from bliss.common.utils import autocomplete_property
-from bliss.scanning.acquisition.counter import SamplingMode
 
 
 def add_conversion_function(obj, method_name, function):
@@ -33,6 +33,26 @@ def add_conversion_function(obj, method_name, function):
             raise ValueError("conversion function must be callable")
     else:
         raise ValueError("'%s` is not a method" % method_name)
+
+
+@enum.unique
+class SamplingMode(enum.IntEnum):
+    """SamplingCounter modes:
+    * MEAN: emit the mathematical average
+    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
+    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
+    * SINGLE: emit the first value (if possible: call read only once)
+    * LAST: emit the last value 
+    * INTEGRATE: emit MEAN multiplied by counting time
+    """
+
+    MEAN = enum.auto()
+    STATS = enum.auto()
+    SAMPLES = enum.auto()
+    SINGLE = enum.auto()
+    LAST = enum.auto()
+    INTEGRATE = enum.auto()
+    INTEGRATE_STATS = enum.auto()
 
 
 class Counter:

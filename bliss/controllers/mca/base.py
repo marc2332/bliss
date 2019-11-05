@@ -116,13 +116,12 @@ class MCAChainNode(ChainNode):
 
             return McaAcquisitionSlave(
                 self.controller,
-                npoints,
+                npoints=npoints,
                 trigger_mode=trigger_mode,
                 preset_time=preset_time,
                 block_size=block_size,
                 polling_time=polling_time,
                 spectrum_size=spectrum_size,
-                counters=(),
                 prepare_once=prepare_once,
                 start_once=start_once,
                 ctrl_params=ctrl_params,

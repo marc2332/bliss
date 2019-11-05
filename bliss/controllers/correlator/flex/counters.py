@@ -86,14 +86,18 @@ class FlexAcquisitionSlave(AcquisitionSlave):
     MODE = MODE
 
     def __init__(
-        self, flex, count_time=1, mode=None, counters=None, ctrl_params=None, **kwargs
+        self,
+        *flex_or_flex_counters,
+        count_time=1,
+        mode=None,
+        ctrl_params=None,
+        **kwargs,
     ):
         prepare_once = kwargs.get("prepare_once", True)
         start_once = kwargs.get("start_once", False)
         AcquisitionSlave.__init__(
             self,
-            flex,
-            counters=counters,
+            *flex_or_flex_counters,
             npoints=kwargs.get("npoints", 1),
             prepare_once=prepare_once,
             start_once=start_once,

@@ -22,9 +22,8 @@ from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
-from bliss.common.motor_group import is_motor_group
+from bliss.common.motor_group import Group, is_motor_group
 from bliss.common.axis import Axis
-
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
 
@@ -222,8 +221,7 @@ class ChainIterationPreset:
 class AcquisitionObject:
     def __init__(
         self,
-        device,
-        counters=None,
+        *devices,
         name=None,
         npoints=1,
         trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
@@ -232,7 +230,6 @@ class AcquisitionObject:
         ctrl_params=None,
     ):
 
-        self.__device = device
         self.__name = name
         self.__parent = None
         self.__channels = AcquisitionChannelList()
@@ -242,12 +239,32 @@ class AcquisitionObject:
         self.__start_once = start_once
 
         self._counters = collections.defaultdict(list)
+        self._init(devices)
 
-        if not counters:
-            counters = []
+    def _init(self, devices):
+        self._device, counters = self.init(devices)
 
         for cnt in counters:
             self.add_counter(cnt)
+
+    def init(self, devices):
+        """Return the device and counters list"""
+        if devices:
+            from bliss.common.counter import Counter  # beware of circular import
+
+            if all(isinstance(dev, Counter) for dev in devices):
+                return devices[0].controller, devices
+            elif all(isinstance(dev, Axis) for dev in devices):
+                return Group(*devices), []
+            else:
+                if len(devices) == 1:
+                    return devices[0], []
+        else:
+            return None, []
+        raise TypeError(
+            "Cannot handle devices which are not all Counter or Axis objects, or a single object",
+            devices,
+        )
 
     @property
     def parent(self):
@@ -271,7 +288,7 @@ class AcquisitionObject:
 
     @property
     def device(self):
-        return self.__device
+        return self._device
 
     @property
     def _device_name(self):
@@ -337,8 +354,7 @@ class AcquisitionMaster(AcquisitionObject):
 
     def __init__(
         self,
-        device,
-        counters=None,
+        *devices,
         name=None,
         npoints=1,
         trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
@@ -348,8 +364,7 @@ class AcquisitionMaster(AcquisitionObject):
     ):
 
         super().__init__(
-            device,
-            counters=counters,
+            *devices,
             name=name,
             npoints=npoints,
             trigger_type=trigger_type,
@@ -576,8 +591,7 @@ class AcquisitionSlave(AcquisitionObject):
 
     def __init__(
         self,
-        device,
-        counters=None,
+        *devices,
         name=None,
         npoints=1,
         trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
@@ -587,8 +601,7 @@ class AcquisitionSlave(AcquisitionObject):
     ):
 
         super().__init__(
-            device,
-            counters=counters,
+            *devices,
             name=name,
             npoints=npoints,
             trigger_type=trigger_type,
@@ -1061,7 +1074,6 @@ class AcquisitionChain:
 
 class ChainNode:
     def __init__(self, controller):
-
         self._controller = controller
 
         self._counters = []
@@ -1185,7 +1197,6 @@ class ChainNode:
         raise NotImplementedError
 
     def create_acquisition_object(self, force=False):
-
         """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
             Create the children acquisition objects if any are attached to this node.
             
@@ -1251,7 +1262,6 @@ class ChainNode:
             node.create_acquisition_object(force)
 
     def get_repr_str(self):
-
         if self._acquisition_obj is None:
             txt = f"|__ !* {self._controller.name} *! "
         else:

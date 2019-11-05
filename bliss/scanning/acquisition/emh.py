@@ -70,8 +70,7 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         """
         AcquisitionSlave.__init__(
             self,
-            emh,
-            counters=counter_list,
+            *(counter_list if counter_list else (emh,)),
             name=emh.name,
             npoints=npoints,
             trigger_type=AcquisitionSlave.HARDWARE,

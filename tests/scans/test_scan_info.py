@@ -97,7 +97,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         name = "my_master"
 
         def __init__(self):
-            super().__init__(self, None, "my_master")
+            super().__init__(name="my_master")
 
         def fill_meta_at_scan_init(self, scan_meta):
             scan_meta.instrument.set(self, master_dict)
@@ -116,7 +116,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         name = device_name
 
         def __init__(self):
-            super().__init__(self, None, device_name)
+            super().__init__(name=device_name)
 
         def fill_meta_at_scan_init(self, scan_meta):
             scan_meta.instrument.set(self, device_dict)

@@ -416,9 +416,7 @@ def test_single_integ_counter(session):
     timer = SoftwareTimerMaster(0, npoints=1)
     acq_controller = DummyCounterController()
     counter = SimulationDiodeIntegratingCounter("test_diode", acq_controller)
-    acq_device = IntegratingCounterAcquisitionSlave(
-        acq_controller, counter, count_time=0
-    )
+    acq_device = IntegratingCounterAcquisitionSlave(counter, count_time=0)
     chain = AcquisitionChain()
     chain.add(timer, acq_device)
     s = Scan(chain, save=False)
@@ -432,9 +430,7 @@ def test_prepare_once_prepare_many(session):
     diode3 = session.config.get("diode3")
 
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionSlave(
-        diode.controller, diode, count_time=.1, npoints=10
-    )
+    d = SamplingCounterAcquisitionSlave(diode, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()
@@ -444,9 +440,7 @@ def test_prepare_once_prepare_many(session):
     # diode2 and diode3 are usually on the same SamplingCounterAcquisitionSlave
     # lets see if they can be split as well
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionSlave(
-        diode3.controller, diode3, count_time=.1, npoints=10
-    )
+    d = SamplingCounterAcquisitionSlave(diode3, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()

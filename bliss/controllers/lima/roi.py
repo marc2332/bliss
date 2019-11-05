@@ -42,10 +42,7 @@ class RoiChainNode(ChainNode):
 
         count_time = acq_params["count_time"]
         return IntegratingCounterAcquisitionSlave(
-            self.controller,
-            *self.counters,
-            count_time=count_time,
-            ctrl_params=ctrl_params,
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
         )
 
 

@@ -77,7 +77,6 @@ class Writer(FileWriter):
             channel = sender
             if channel.reference:
                 return
-
             data = event_dict.get("data")
 
             dataset = parent[channel.name]
@@ -85,9 +84,7 @@ class Writer(FileWriter):
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
                 return
-
             last_point_index = self.last_point_index[channel]
-
             data_len = data.shape[0]
             new_point_index = last_point_index + data_len
 

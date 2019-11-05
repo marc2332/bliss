@@ -113,9 +113,7 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionSlave(
-        diode_sim.controller, diode_sim, count_time=0.1
-    )
+    diode_device = SamplingCounterAcquisitionSlave(diode_sim, count_time=0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
     lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
@@ -156,9 +154,7 @@ def test_multiple_top_master_terminator_exception(session, dummy_acq_device, cap
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionSlave(
-        diode_sim.controller, diode_sim, count_time=1
-    )
+    diode_device = SamplingCounterAcquisitionSlave(diode_sim, count_time=1)
     master2 = timer.SoftwareTimerMaster(0.1, npoints=10, name="timer2")
     dummy_device = dummy_acq_device.get(None, name="dummy_device", npoints=1)
     chain.add(master2, dummy_device)

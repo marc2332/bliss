@@ -7,7 +7,6 @@
 
 import time
 import functools
-import enum
 
 from collections import namedtuple
 from datetime import datetime
@@ -21,33 +20,13 @@ from bliss.common.utils import all_equal
 from bliss.scanning.chain import ChainNode
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
-
-
-@enum.unique
-class SamplingMode(enum.IntEnum):
-    """SamplingCounter modes:
-    * MEAN: emit the mathematical average
-    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
-    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
-    * SINGLE: emit the first value (if possible: call read only once)
-    * LAST: emit the last value 
-    * INTEGRATE: emit MEAN multiplied by counting time
-    """
-
-    MEAN = enum.auto()
-    STATS = enum.auto()
-    SAMPLES = enum.auto()
-    SINGLE = enum.auto()
-    LAST = enum.auto()
-    INTEGRATE = enum.auto()
-    INTEGRATE_STATS = enum.auto()
+from bliss.common.counter import SamplingMode
 
 
 class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
-        device,
-        counters=None,
+        *counters,
         count_time=None,
         npoints=1,
         prepare_once=False,
@@ -56,10 +35,9 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     ):
 
         super().__init__(
-            device,
-            counters=counters,
+            *counters,
             npoints=npoints,
-            trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
+            trigger_type=AcquisitionSlave.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
             ctrl_params=ctrl_params,
@@ -123,7 +101,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, device, *counters, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -154,8 +132,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._SINGLE_COUNT = False
 
         super().__init__(
-            device,
-            counters=counters,
+            *counters,
             count_time=count_time,
             npoints=npoints,
             prepare_once=True,
@@ -172,10 +149,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
         # helper to create AcquisitionChannels
         AC = lambda name_suffix, unit: AcquisitionChannel(
-            f"{self.device.name}:{counter.name}_{name_suffix}",
-            counter.dtype,
-            counter.shape,
-            unit=unit,
+            f"{counter.fullname}_{name_suffix}", counter.dtype, counter.shape, unit=unit
         )
 
         if counter.mode == SamplingMode.STATS:
@@ -207,7 +181,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         elif counter.mode == SamplingMode.SAMPLES:
             self.channels.append(
                 AcquisitionChannel(
-                    f"{self.device.name}:{counter.name}_samples",
+                    f"{counter.fullname}_samples",
                     counter.dtype,
                     counter.shape + (1,),
                     unit=counter.unit,
@@ -446,11 +420,10 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
 
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
-    def __init__(self, device, *counters, count_time=None, ctrl_params=None):
+    def __init__(self, *counters, count_time=None, ctrl_params=None):
 
         super().__init__(
-            device,
-            counters=counters,
+            *counters,
             count_time=count_time,
             npoints=1,
             prepare_once=False,
@@ -503,9 +476,6 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 gevent.sleep(self.count_time / 2.0)
 
 
-# =======================  TO BE MOVED IN MEASURMENT OR ACQUISITION ===========================================
-
-
 class SamplingChainNode(ChainNode):
     def _get_default_chain_parameters(self, scan_params, acq_params):
 
@@ -538,7 +508,6 @@ class SamplingChainNode(ChainNode):
         npoints = acq_params["npoints"]
 
         return SamplingCounterAcquisitionSlave(
-            self.controller,
             *self.counters,
             count_time=count_time,
             npoints=npoints,
@@ -572,8 +541,5 @@ class IntegratingChainNode(ChainNode):
         count_time = acq_params["count_time"]
 
         return IntegratingCounterAcquisitionSlave(
-            self.controller,
-            *self.counters,
-            count_time=count_time,
-            ctrl_params=ctrl_params,
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
         )

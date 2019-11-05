@@ -134,8 +134,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         AcquisitionSlave.__init__(
             self,
-            counter.controller,
-            counters=[counter],
+            counter,
             npoints=scan_npoints,
             prepare_once=True,  # Do not call prepare at each point.
             start_once=True,  # Do not call start at each point.

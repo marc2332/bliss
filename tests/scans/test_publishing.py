@@ -66,9 +66,7 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionSlave(
-            diode.controller, diode, count_time=0.01, npoints=5
-        ),
+        SamplingCounterAcquisitionSlave(diode, count_time=0.01, npoints=5),
     )
 
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
@@ -125,9 +123,7 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, 5),
-        SamplingCounterAcquisitionSlave(
-            diode.controller, diode, count_time=0.01, npoints=5
-        ),
+        SamplingCounterAcquisitionSlave(diode, count_time=0.01, npoints=5),
     )
 
     s = Scan(chain, "test_scan")
@@ -185,9 +181,7 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(m, 0, 1, npts),
-        SamplingCounterAcquisitionSlave(
-            diode.controller, diode, count_time=0.01, npoints=npts
-        ),
+        SamplingCounterAcquisitionSlave(diode, count_time=0.01, npoints=npts),
     )
 
     s = Scan(chain, "test_scan")

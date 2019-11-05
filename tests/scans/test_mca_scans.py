@@ -32,9 +32,7 @@ def test_mca_continuous_soft_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionSlave(
-        simu, counters=simu.counters, npoints=3, preset_time=0.1
-    )
+    mca_device = McaAcquisitionSlave(*simu.counters, npoints=3, preset_time=0.1)
 
     # Create chain
     chain = AcquisitionChain()
@@ -51,11 +49,7 @@ def test_mca_continuous_gate_scan(session):
     # Get mca
     simu = session.config.get("simu1")
     mca_device = McaAcquisitionSlave(
-        simu,
-        counters=simu.counters,
-        block_size=2,
-        npoints=5,
-        trigger_mode=McaAcquisitionSlave.GATE,
+        *simu.counters, block_size=2, npoints=5, trigger_mode=McaAcquisitionSlave.GATE
     )
     # Create chain
     chain = AcquisitionChain()
@@ -72,11 +66,7 @@ def test_mca_continuous_sync_scan(session):
     # Get mca
     simu = session.config.get("simu1")
     mca_device = McaAcquisitionSlave(
-        simu,
-        counters=simu.counters,
-        block_size=2,
-        npoints=5,
-        trigger_mode=McaAcquisitionSlave.SYNC,
+        *simu.counters, block_size=2, npoints=5, trigger_mode=McaAcquisitionSlave.SYNC
     )
     # Create chain
     chain = AcquisitionChain()
@@ -92,9 +82,7 @@ def test_mca_step_soft_scan(session):
     m0 = session.config.get("roby")
     # Get mca
     simu = session.config.get("simu1")
-    mca_device = McaAcquisitionSlave(
-        simu, counters=simu.counters, npoints=3, preset_time=0.1
-    )
+    mca_device = McaAcquisitionSlave(*simu.counters, npoints=3, preset_time=0.1)
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(3, m0, 0, 1), mca_device)

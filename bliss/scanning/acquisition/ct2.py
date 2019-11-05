@@ -58,7 +58,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
             trigger_type=trigger_type,
             ctrl_params=ctrl_params,
         )
-        super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
+        super().__init__(device, name=name, **kwargs)
 
     def add_counter(self, counter):
         pass

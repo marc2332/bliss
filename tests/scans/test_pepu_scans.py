@@ -83,7 +83,7 @@ def pepu():
 def test_pepu_soft_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters)
+    device = PepuAcquisitionSlave(*pepu.counters, npoints=10)
     # Create chain
     chain = AcquisitionChain()
     chain.add(LinearStepTriggerMaster(10, m0, 0, 1), device)
@@ -99,7 +99,7 @@ def test_pepu_soft_scan(session, pepu):
 def test_pepu_continuous_soft_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters)
+    device = PepuAcquisitionSlave(*pepu.counters, npoints=10)
     # Create chain
     chain = AcquisitionChain()
     chain.add(SoftwarePositionTriggerMaster(m0, 0, 1, 10, time=1.0), device)
@@ -148,7 +148,7 @@ def test_pepu_default_chain_with_measurement_group(session, pepu):
 def test_pepu_continuous_scan(session, pepu):
     m0 = session.config.get("roby")
     # Get pepu
-    device = PepuAcquisitionSlave(pepu, 10, counters=pepu.counters, trigger=Signal.DI1)
+    device = PepuAcquisitionSlave(*pepu.counters, npoints=10, trigger=Signal.DI1)
     # Create chain
     chain = AcquisitionChain()
     chain.add(MotorMaster(m0, 0, 1, time=1.0), device)

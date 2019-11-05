@@ -142,9 +142,7 @@ def diode_acq_device_factory():
             trigger_fail = kwargs.pop("trigger_fail", False)
             trigger_delay = kwargs.pop("trigger_delay", 0)
             diode = CustomSimulationDiode()
-            acq_device = CustomSamplingCounterAcquisitionSlave(
-                diode.controller, diode, *args, **kwargs
-            )
+            acq_device = CustomSamplingCounterAcquisitionSlave(diode, *args, **kwargs)
             acq_device.trigger_fail = trigger_fail
             acq_device.trigger_delay = trigger_delay
             return acq_device, diode

@@ -304,7 +304,7 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
 
     class FakeChainNode(ChainNode):
         def get_acquisition_object(self, acq_params, ctrl_params=None):
-            return AcquisitionObject(self.controller, [], ctrl_params=ctrl_params)
+            return AcquisitionObject(self.controller, ctrl_params=ctrl_params)
 
     class FakeMaster(CounterController):
         def __init__(self, name):

@@ -47,10 +47,7 @@ class TemperatureControllerChainNode(ChainNode):
     def get_acquisition_object(self, acq_params, ctrl_params=None):
         count_time = acq_params["count_time"]
         return SamplingCounterAcquisitionSlave(
-            self.controller,
-            *self.counters,
-            count_time=count_time,
-            ctrl_params=ctrl_params
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
         )
 
 

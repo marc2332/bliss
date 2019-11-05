@@ -7,8 +7,8 @@
 import weakref
 import numpy
 import gevent
-from bliss.common.measurement import BaseCounter, namespace, counter_namespace
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.common.counter import Counter
+from bliss.scanning.chain import AcquisitionSlave
 from .card import MODE
 
 INTS_NAMES = ("intensity_A", "intensity_B", "acq_time")
@@ -31,11 +31,13 @@ def get_counters(flex):
     return intensities + datas
 
 
-class Data(BaseCounter):
+class Data(Counter):
     def __init__(self, flex, chan_nb, spectrum_size):
         self._flex = weakref.ref(flex)
         self._chan_nb = chan_nb
         self._spectrum_size = spectrum_size
+
+        super().__init__(self.name, flex)
 
     @property
     def controller(self):
@@ -56,66 +58,51 @@ class Data(BaseCounter):
     def shape(self):
         return (self._spectrum_size,)
 
-    def create_acquisition_device(self, scan_pars, **settings):
-        return FlexAcquisitionDevice(self.controller, **scan_pars)
 
-
-class Intensity(BaseCounter):
+class Intensity(Counter):
     def __init__(self, flex, name):
         self._flex = weakref.ref(flex)
         self._name = name
+        super().__init__(self.name, flex)
 
     @property
     def controller(self):
         return self._flex()
 
-    @property
-    def name(self):
-        return self._name
+    # @property
+    # def name(self):
+    #     return self._name
 
-    @property
-    def dtype(self):
-        return numpy.float
+    # @property
+    # def dtype(self):
+    #     return numpy.float
 
-    @property
-    def shape(self):
-        return ()
-
-    def create_acquisition_device(self, scan_pars, **settings):
-        return FlexAcquisitionDevice(self.controller, **scan_pars)
+    # @property
+    # def shape(self):
+    #     return ()
 
 
-class FlexAcquisitionDevice(AcquisitionDevice):
+class FlexAcquisitionSlave(AcquisitionSlave):
     MODE = MODE
 
-    def __init__(self, flex, count_time=1, mode=None, counters=(), **kwargs):
+    def __init__(
+        self, flex, count_time=1, mode=None, counters=None, ctrl_params=None, **kwargs
+    ):
         prepare_once = kwargs.get("prepare_once", True)
         start_once = kwargs.get("start_once", False)
-        AcquisitionDevice.__init__(
+        AcquisitionSlave.__init__(
             self,
             flex,
+            counters=counters,
             npoints=kwargs.get("npoints", 1),
             prepare_once=prepare_once,
             start_once=start_once,
+            ctrl_params=ctrl_params,
         )
         self._count_time = count_time
         self._mode = mode
-        self.counters = list()
-        self.add_counters(counters)
         self._stop_task = None
         self._event = gevent.event.Event()
-
-    def add_counter(self, counter):
-        self.counters.append(counter)
-        self.channels.append(
-            AcquisitionChannel(
-                f"{self.name}:{counter.name}", counter.dtype, counter.shape
-            )
-        )
-
-    def add_counters(self, counters):
-        for c in counters:
-            self.add_counter(c)
 
     def prepare(self):
         if self._mode is not None:

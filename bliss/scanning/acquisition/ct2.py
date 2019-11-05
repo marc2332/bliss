@@ -9,7 +9,7 @@
 
 import gevent.event
 
-from bliss.common.event import dispatcher
+from bliss.common import event
 from bliss.scanning.chain import AcquisitionMaster
 from bliss.controllers.ct2.device import (
     AcqMode,
@@ -33,6 +33,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         acq_mode=AcqMode.IntTrigMulti,
         prepare_once=True,
         start_once=True,
+        ctrl_params=None,
     ):
         name = type(device).__name__
         self._connected = False
@@ -55,8 +56,12 @@ class CT2AcquisitionMaster(AcquisitionMaster):
             prepare_once=prepare_once,
             start_once=prepare_once,
             trigger_type=trigger_type,
+            ctrl_params=ctrl_params,
         )
         super(CT2AcquisitionMaster, self).__init__(device, name, **kwargs)
+
+    def add_counter(self, counter):
+        pass
 
     def __on_event(self, value, signal):
         if signal == StatusSignal:
@@ -73,13 +78,13 @@ class CT2AcquisitionMaster(AcquisitionMaster):
     def connect(self):
         if self._connected:
             return
-        dispatcher.connect(self.__on_event, sender=self.device)
+        event.connect(self.device, event.Any, self.__on_event)
         self._connected = True
 
     def disconnect(self):
         if not self._connected:
             return
-        dispatcher.disconnect(self.__on_event, sender=self.device)
+        event.disconnect(self.device, event.Any, self.__on_event)
         self._connected = False
 
     def prepare(self):

@@ -8,7 +8,12 @@
 import random
 import gevent
 
-from bliss.common.measurement import SamplingCounter, IntegratingCounter
+from bliss.common.counter import SamplingCounter, IntegratingCounter
+
+from bliss.controllers.counter import (
+    SamplingCounterController,
+    IntegratingCounterController,
+)
 
 """
 example of configuration:
@@ -29,50 +34,44 @@ example of configuration:
 """
 
 
-class DummySimulationDiodeController:
-    @property
-    def name(self):
-        return "simulation_diode_controller"
+class SimulationDiodeController(SamplingCounterController):
+    def __init__(self):
+        super().__init__(name="simulation_diode_sampling_controller")
 
-
-class SimulationDiodeController(DummySimulationDiodeController):
     def read_all(self, *counters):
         gevent.sleep(0.01)
-        return [random.randint(-100, 100) for cnt in counters]
+        return [
+            cnt.cst_val
+            if isinstance(cnt, CstSimulationDiodeSamplingCounter)
+            else random.randint(-100, 100)
+            for cnt in counters
+        ]
 
 
-class SimulationIntegrationDiodeController(DummySimulationDiodeController):
+class SimulationIntegrationDiodeController(IntegratingCounterController):
+    def __init__(self):
+        super().__init__(name="simulation_diode_integrating_controller")
+
     def get_values(self, from_index, *counters):
         gevent.sleep(0.01)
         return [10 * [random.randint(-100, 100)] for cnt in counters]
 
 
 class SimulationDiodeSamplingCounter(SamplingCounter):
-    def read(self, sleep=True):
-        if sleep:
-            gevent.sleep(0.01)  # simulate hw reading
-        return random.randint(-100, 100)
+    pass
 
 
 class CstSimulationDiodeSamplingCounter(SamplingCounter):
     def __init__(self, *args, **kwargs):
-        super(CstSimulationDiodeSamplingCounter, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.cst_val = 0
 
     def set_cst_value(self, value):
         self.cst_val = value
 
-    def read(self, sleep=True):
-        if sleep:
-            gevent.sleep(0.01)  # simulate hw reading
-        return self.cst_val
-
 
 class SimulationDiodeIntegratingCounter(IntegratingCounter):
-    def get_values(self, from_index, sleep=True):
-        if sleep:
-            gevent.sleep(0.01)
-        return 10 * [random.randint(-100, 100)]
+    pass
 
 
 DEFAULT_CONTROLLER = SimulationDiodeController()
@@ -82,18 +81,23 @@ DEFAULT_INTEGRATING_CONTROLLER = SimulationIntegrationDiodeController()
 def simulation_diode(name, config):
     if config.get("independent"):
         # assuming independent sampling counter controller
-        controller = DummySimulationDiodeController()
+        controller = SimulationDiodeController()
     else:
         if config.get("integration"):
             return SimulationDiodeIntegratingCounter(
-                name, DEFAULT_INTEGRATING_CONTROLLER, None
+                name, DEFAULT_INTEGRATING_CONTROLLER
             )
+
         else:
             controller = DEFAULT_CONTROLLER
     if config.get("constant") is not None:
         diode = CstSimulationDiodeSamplingCounter(name, controller)
         diode.set_cst_value(int(config.get("constant")))
-        return diode
-    if config.get("mode") is not None:
-        return SimulationDiodeSamplingCounter(name, controller, mode=config.get("mode"))
-    return SimulationDiodeSamplingCounter(name, controller)
+    elif config.get("mode") is not None:
+        diode = SimulationDiodeSamplingCounter(
+            name, controller, mode=config.get("mode")
+        )
+    else:
+        diode = SimulationDiodeSamplingCounter(name, controller)
+    controller._counters[diode.name] = diode
+    return diode

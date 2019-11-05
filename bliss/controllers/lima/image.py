@@ -7,25 +7,29 @@
 
 from .roi import Roi
 from .properties import LimaProperty
-from bliss.common.measurement import BaseCounter
-import numpy
-import os
+from bliss.common.counter import Counter
 
 
-class ImageCounter(BaseCounter):
+class ImageCounter(Counter):
     def __init__(self, controller, proxy):
         self._proxy = proxy
-        self._controller = controller
+        # self._controller = controller
+
+        super().__init__("image", controller)
 
     # Standard counter interface
 
-    @property
-    def name(self):
-        return "image"
+    # @property
+    # def name(self):
+    #     return "image"
 
-    @property
-    def master_controller(self):
-        return self._controller
+    # @property
+    # def controller(self):
+    #     return self._controller
+
+    # def create_acquisition_device(self, node_pars):
+    #     """Instantiate the corresponding acquisition device."""
+    #     return self.controller.create_master_device(node_pars)
 
     @property
     def dtype(self):

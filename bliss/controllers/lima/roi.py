@@ -11,7 +11,42 @@ import functools
 import numpy
 
 from bliss.config import settings
-from bliss.common.measurement import IntegratingCounter
+from bliss.common.counter import IntegratingCounter
+from bliss.controllers.counter import IntegratingCounterController
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
+from bliss.scanning.chain import ChainNode
+from bliss.controllers.counter import counter_namespace
+
+
+class RoiChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for ROI IntegratingCounterAcquisitionSlave({self.controller}) ==="
+                )
+
+        count_time = acq_params["count_time"]
+        return IntegratingCounterAcquisitionSlave(
+            self.controller,
+            *self.counters,
+            count_time=count_time,
+            ctrl_params=ctrl_params,
+        )
 
 
 class Roi:
@@ -72,20 +107,16 @@ class RoiStatCounter(IntegratingCounter):
         self.roi_name = roi_name
         self.stat = stat
         name = f"{self.roi_name}_{stat.name.lower()}"
-        self.parent_roi_counters = kwargs.pop("controller")
-        master_controller = kwargs.pop("master_controller")
-        IntegratingCounter.__init__(
-            self, name, self.parent_roi_counters, master_controller, **kwargs
-        )
+        super().__init__(name, kwargs.pop("controller"), **kwargs)
 
     def get_metadata(self):
-        return {self.roi_name: self.parent_roi_counters.get(self.roi_name).to_dict()}
+        return {self.roi_name: self.controller.get(self.roi_name).to_dict()}
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
-        roi_id = self.parent_roi_counters._roi_ids[self.roi_name]
+        roi_id = self.controller._roi_ids[self.roi_name]
         return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod
@@ -126,32 +157,7 @@ class SingleRoiCounters:
         yield self.max
 
 
-class RoiCounterGroupReadHandler(IntegratingCounter.GroupedReadHandler):
-    def __init__(self, controller):
-        super().__init__(controller)
-
-    def prepare(self, *counters):
-        self.controller.upload_rois()
-
-    def get_values(self, from_index, *counters):
-        roi_counter_size = len(RoiStat)
-        raw_data = self.controller._proxy.readCounters(from_index)
-        if not raw_data.size:
-            return len(counters) * (numpy.array(()),)
-        raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
-        result = dict([int(counter), []] for counter in counters)
-
-        for roi_counter in raw_data:
-            roi_id = int(roi_counter[0])
-            for stat in range(roi_counter_size):
-                full_id = RoiStatCounter.roi_stat_id(roi_id, stat)
-                counter_data = result.get(full_id)
-                if counter_data is not None:
-                    counter_data.append(roi_counter[stat])
-        return list(map(numpy.array, result.values()))
-
-
-class RoiCounters:
+class RoiCounters(IntegratingCounterController):
     """Lima ROI counters
 
     Example usage:
@@ -183,11 +189,12 @@ class RoiCounters:
     """
 
     def __init__(self, proxy, acquisition_proxy):
+        super().__init__(
+            "roi_counters",
+            master_controller=acquisition_proxy,
+            chain_node_class=RoiChainNode,
+        )
         self._proxy = proxy
-        # 'acquisition proxy' is the BLISS lima controller
-        self._acquisition_proxy = acquisition_proxy
-        self.__name = "roi_counters"
-        self.__fullname = f"{acquisition_proxy.name}:{self.name}"
         self._current_config = settings.SimpleSetting(
             self.fullname, default_value="default"
         )
@@ -195,15 +202,6 @@ class RoiCounters:
         self._roi_ids = {}
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
-        self._grouped_read_handler = RoiCounterGroupReadHandler(self)
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def fullname(self):
-        return self.__fullname
 
     def _set_roi(self, name, roi_values):
         if isinstance(roi_values, Roi):
@@ -342,12 +340,7 @@ class RoiCounters:
             raise AttributeError("Unknown ROI counter {!r}".format(name))
         cached_roi_data, counters = self.__cached_counters.get(name, (None, None))
         if cached_roi_data != roi_data:
-            counters = SingleRoiCounters(
-                name,
-                controller=self,
-                master_controller=self._acquisition_proxy,
-                grouped_read_handler=self._grouped_read_handler,
-            )
+            counters = SingleRoiCounters(name, controller=self)
             self.__cached_counters[name] = (roi_data, counters)
 
         return counters
@@ -358,11 +351,13 @@ class RoiCounters:
 
     @property
     def counters(self):
-        return [
-            counter
-            for counters in self.iter_single_roi_counters()
-            for counter in counters
-        ]
+        return counter_namespace(
+            [
+                counter
+                for counters in self.iter_single_roi_counters()
+                for counter in counters
+            ]
+        )
 
     # Representation
 
@@ -395,3 +390,23 @@ class RoiCounters:
         else:
             lines.append("*** no ROIs defined ***")
         return "\n".join(lines)
+
+    def prepare(self, *counters):
+        self.upload_rois()
+
+    def get_values(self, from_index, *counters):
+        roi_counter_size = len(RoiStat)
+        raw_data = self._proxy.readCounters(from_index)
+        if not raw_data.size:
+            return len(counters) * (numpy.array(()),)
+        raw_data.shape = (raw_data.size) // roi_counter_size, roi_counter_size
+        result = dict([int(counter), []] for counter in counters)
+
+        for roi_counter in raw_data:
+            roi_id = int(roi_counter[0])
+            for stat in range(roi_counter_size):
+                full_id = RoiStatCounter.roi_stat_id(roi_id, stat)
+                counter_data = result.get(full_id)
+                if counter_data is not None:
+                    counter_data.append(roi_counter[stat])
+        return list(map(numpy.array, result.values()))

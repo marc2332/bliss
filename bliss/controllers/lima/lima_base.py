@@ -6,19 +6,21 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import importlib
-import types
 import os
 
-from .properties import LimaProperties, LimaProperty
-from .bpm import Bpm
-from .roi import Roi, RoiCounters
-from .image import ImageCounter
-from .bgsub import BgSub
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.common.measurement import counter_namespace
 from bliss.config import settings
+
+from bliss.controllers.counter import CounterController, counter_namespace
+from bliss.scanning.acquisition.lima import LimaChainNode
+
+from .properties import LimaProperties, LimaProperty
+from .bpm import Bpm
+from .roi import RoiCounters
+from .image import ImageCounter
+from .bgsub import BgSub
 
 
 class CameraBase(object):
@@ -51,7 +53,7 @@ class ChangeTangoTimeout(object):
         self.__device.set_timeout_millis(self.__back_timeout)
 
 
-class Lima(object):
+class Lima(CounterController):
     """
     Lima controller.
     Basic configuration:
@@ -76,54 +78,6 @@ class Lima(object):
 
     # Standard interface
 
-    def create_master_device(self, scan_pars, **settings):
-        # Prevent cyclic imports
-        from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
-
-        scan_pars.update(settings)
-
-        # Extract information
-        npoints = scan_pars.get("npoints", 1)
-        acq_expo_time = scan_pars["count_time"]
-        save_flag = scan_pars.get("save", False)
-        if "INTERNAL_TRIGGER_MULTI" in self.available_triggers:
-            default_trigger_mode = "INTERNAL_TRIGGER_MULTI"
-        else:
-            default_trigger_mode = "INTERNAL_TRIGGER"
-
-        acq_trigger_mode = scan_pars.pop("acq_trigger_mode", default_trigger_mode)
-        acq_mode = scan_pars.pop("acq_mode", "SINGLE")
-
-        prepare_once = acq_trigger_mode in (
-            "INTERNAL_TRIGGER_MULTI",
-            "EXTERNAL_GATE",
-            "EXTERNAL_TRIGGER_MULTI",
-        )
-        start_once = acq_trigger_mode not in (
-            "INTERNAL_TRIGGER",
-            "INTERNAL_TRIGGER_MULTI",
-        )
-        data_synchronisation = scan_pars.get("data_synchronisation", False)
-        if data_synchronisation:
-            prepare_once = start_once = False
-        acq_nb_frames = npoints if prepare_once else 1
-        stat_history = npoints
-        # Instanciate master
-        return LimaAcquisitionMaster(
-            self,
-            acq_nb_frames=acq_nb_frames,
-            acq_expo_time=acq_expo_time,
-            acq_trigger_mode=acq_trigger_mode,
-            acq_mode=acq_mode,
-            acc_max_expo_time=scan_pars.pop("acc_max_expo_time", 1.),
-            save_flag=save_flag,
-            wait_frame_id=range(acq_nb_frames),
-            prepare_once=prepare_once,
-            start_once=start_once,
-            saving_statistics_history=stat_history,
-            **scan_pars,
-        )
-
     def __init__(self, name, config_tree):
         """Lima controller.
 
@@ -134,7 +88,6 @@ class Lima(object):
         optional:
         tango_timeout -- tango timeout (s)
         """
-        self.name = name
         self.__tg_url = config_tree.get("tango_url")
         self.__tg_timeout = config_tree.get("tango_timeout", 3)
         self.__prepare_timeout = config_tree.get("prepare_timeout", None)
@@ -145,7 +98,9 @@ class Lima(object):
         self._image = None
         self._acquisition = None
         self._proxy = self._get_proxy()
-        global_map.register(self, parents_list=["counters"])
+
+        super().__init__(name, chain_node_class=LimaChainNode)
+
         self._directories_mapping = config_tree.get("directories_mapping", dict())
         self._active_dir_mapping = settings.SimpleSetting(
             "%s:directories_mapping" % name

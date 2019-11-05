@@ -35,10 +35,10 @@ check_lint:
   # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
   allow_failure: true
 
-run_tests:source:
+.run_tests:source:
   stage: tests
   image: continuumio/miniconda3:latest
-  script: 
+  script:
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
     # create test env and install BLISS
@@ -59,7 +59,6 @@ run_tests:source:
     changes: # skip tests for doc changes
       - "bin/**/*"
       - "**/*.{py}"
-      - "conda_recipe/**/*"
       - "extensions/**/*"
       - "scripts/**/*"
       - "spec/**/*"
@@ -68,6 +67,20 @@ run_tests:source:
       - "requirements*"
       - "setup.*"
 
+run_tests:branch:
+  extends: .run_tests:source
+  only:
+    refs:
+      - branches
+  except:
+    refs:
+      - merge_requests
+
+run_tests:merge_request:
+  extends: .run_tests:source
+  only:
+    refs:
+      - merge_requests
 
 package:
   stage: build

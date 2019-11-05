@@ -92,6 +92,11 @@ import numpy
 from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
 
+from bliss.controllers.counter import CounterController
+from bliss.scanning.chain import ChainNode
+from bliss.common.counter import Counter
+from bliss.controllers.counter import counter_namespace
+
 TEMPLATE_RENISHAW = """\
 CHCFG IN1 BISS
 CHCFG IN2 BISS
@@ -581,7 +586,52 @@ class DeviceConfigAttr(DeviceAttr):
         return instance.raw_write(value)
 
 
-class PEPU(object):
+class PepuChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        start = acq_params.get("start", Signal.SOFT)
+        trigger = acq_params.get("trigger", Signal.SOFT)
+        frequency = acq_params.get("frequency", None)
+        prepare_once = acq_params.get("prepare_once", True)
+        start_once = acq_params.get("start_once", True)
+
+        params = {}
+        params["npoints"] = npoints
+        params["start"] = start
+        params["trigger"] = trigger
+        params["frequency"] = frequency
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
+
+        npoints = acq_params["npoints"]
+        start = acq_params["start"]
+        trigger = acq_params["trigger"]
+        frequency = acq_params["frequency"]
+        # prepare_once = acq_params["prepare_once"]
+        # start_once   = acq_params["start_once"]
+
+        return PepuAcquisitionSlave(
+            self.controller,
+            npoints=npoints,
+            start=start,
+            trigger=trigger,
+            frequency=frequency,
+            ctrl_params=ctrl_params,
+        )
+
+
+class PEPU(CounterController):
     """
     ESRF - PePU controller
     """
@@ -597,8 +647,13 @@ class PEPU(object):
     dance_info = DeviceAttr("DINFO", str, None)
     config = DeviceConfigAttr()
 
-    def __init__(self, name, config):
-        self.name = name
+    def __init__(self, name, config, master_controller=None):
+
+        super().__init__(
+            name, master_controller=master_controller, chain_node_class=PepuChainNode
+        )
+
+        # self.name = name
         self.bliss_config = config
         self.streams = dict()
 
@@ -711,10 +766,48 @@ class PEPU(object):
     def __info__(self):
         return "{0}(name={1!r})".format(type(self).__name__, self.name)
 
-    # Counter shortcut
-
     @property
     def counters(self):
-        from bliss.scanning.acquisition.pepu import pepu_counters
+        # --- add counters
+        channels = list(self.in_channels.values()) + list(self.calc_channels.values())
+        counters = []
+        for channel in channels:
+            counters.append(PepuCounter(channel))
 
-        return pepu_counters(self)
+        self._counters = {cnt.name: cnt for cnt in counters}
+
+        return counter_namespace(self._counters)
+
+
+class PepuCounter(Counter):
+    def __init__(self, channel):
+        self.channel = channel
+        self.acquisition_device = None
+        super().__init__(self.channel.name, self.channel.pepu)
+
+    # Standard interface
+
+    # @property
+    # def controller(self):
+    #     return self.channel.pepu
+
+    # @property
+    # def name(self):
+    #     return self.channel.name
+
+    @property
+    def dtype(self):
+        return float
+
+    # @property
+    # def shape(self):
+    #     return ()
+
+    # Extra logic
+
+    def feed_point(self, stream_data):
+        self.emit_data_point(stream_data[self.name])
+
+    def emit_data_point(self, data_point):
+        pepu = self.acquisition_device
+        pepu.channels.update({f"{pepu.name}:{self.name}": data_point})

@@ -42,7 +42,7 @@ Note that the values are acquired at the software trigger, not the end of the
 integration time.
 
 The PePU is integrated in continuous scans by instanciating the
-`PepuAcquisitionDevice` class. It takes the following arguments:
+`PepuAcquisitionSlave` class. It takes the following arguments:
 
  - `pepu`: the pepu controller
  - `npoints`: the number of points to acquire
@@ -60,7 +60,7 @@ Here's an example of a continuous scan using a PePU::
     from bliss.config.static import get_config
     from bliss.scanning.chain import AcquisitionChain
     from bliss.scanning.acquisition.motor import MotorMaster
-    from bliss.scanning.acquisition.pepu import PepuAcquisitionDevice
+    from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
 
     # Get controllers from config
     config = get_config()
@@ -68,7 +68,7 @@ Here's an example of a continuous scan using a PePU::
     pepu = config.get("pepudcm2")
 
     # Instanciate the acquisition device
-    device = PepuAcquisitionDevice(pepu, 10, trigger=Signal.DI1)
+    device = PepuAcquisitionSlave(pepu, 10, trigger=Signal.DI1)
 
     # Counters can be added after instanciation
     device.add_counters(pepu.counters)
@@ -86,12 +86,11 @@ Here's an example of a continuous scan using a PePU::
     print(data['CALC2'])
 """
 
-from ...controllers.pepu import Trigger, Signal
-from ..chain import AcquisitionDevice, AcquisitionChannel
-from ...common.measurement import BaseCounter, counter_namespace
+from bliss.controllers.pepu import Trigger, Signal
+from bliss.scanning.chain import AcquisitionSlave
 
 
-class PepuAcquisitionDevice(AcquisitionDevice):
+class PepuAcquisitionSlave(AcquisitionSlave):
 
     SOFT = Signal.SOFT
     FREQ = Signal.FREQ
@@ -105,15 +104,11 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         start=Signal.SOFT,
         trigger=Signal.SOFT,
         frequency=None,
-        prepare_once=True,
-        start_once=True,
-        counters=(),
+        counters=None,
+        ctrl_params=None,
     ):
 
         # Checking
-
-        assert start_once
-        assert prepare_once
 
         if trigger not in (Signal.SOFT, Signal.FREQ, Signal.DI1, Signal.DI2):
             raise ValueError("{!r} is not a valid trigger".format(trigger))
@@ -134,47 +129,37 @@ class PepuAcquisitionDevice(AcquisitionDevice):
 
         # Initialize
 
-        super(PepuAcquisitionDevice, self).__init__(
+        super(PepuAcquisitionSlave, self).__init__(
             pepu,
+            counters=counters,
             npoints=npoints,
             trigger_type=trigger_type,
-            prepare_once=prepare_once,
-            start_once=start_once,
+            prepare_once=True,
+            start_once=True,
+            ctrl_params=ctrl_params,
         )
 
-        self.pepu = pepu
         self.stream = None
-        self.counters = []
         self.frequency = frequency
-        self.add_counters(counters)
         self.trig = Trigger(start, trigger)
 
     # Counter management
 
-    def add_counter(self, counter):
-        self.counters.append(counter)
-        assert self.pepu == counter.channel.pepu
+    def _do_add_counter(self, counter):
+        assert self.device == counter.channel.pepu
+        super()._do_add_counter(counter)
         counter.acquisition_device = self
-        self.channels.append(
-            AcquisitionChannel(
-                f"{self.name}:{counter.name}", counter.dtype, counter.shape
-            )
-        )
-
-    def add_counters(self, counters):
-        for counter in counters:
-            self.add_counter(counter)
 
     def publish(self, data):
-        for counter in self.counters:
+        for counter in self._counters:
             counter.feed_point(data)
 
     # Standard methods
 
     def prepare(self):
         """Prepare the acquisition."""
-        sources = [counter.name for counter in self.counters]
-        self.stream = self.pepu.create_stream(
+        sources = [counter.name for counter in self._counters]
+        self.stream = self.device.create_stream(
             self.name,
             trigger=self.trig,
             frequency=self.frequency,
@@ -184,7 +169,7 @@ class PepuAcquisitionDevice(AcquisitionDevice):
         )
         self.stream.start()
         if self.trig.start == Signal.SOFT and self.trig.clock != Signal.SOFT:
-            self.pepu.software_trigger()
+            self.device.software_trigger()
 
     def start(self):
         """Start the acquisition."""
@@ -198,59 +183,10 @@ class PepuAcquisitionDevice(AcquisitionDevice):
     def trigger(self):
         """Send a software trigger."""
         if self.trig.clock == Signal.SOFT:
-            self.pepu.software_trigger()
+            self.device.software_trigger()
 
     def reading(self):
         """Spawn by the chain."""
         for data in self.stream.idata(self.npoints):
             if len(data):
                 self.publish(data)
-
-
-class PepuCounter(BaseCounter):
-
-    # Default chain integration
-
-    def create_acquisition_device(
-        self, scan_pars, device_dict=None, master_dict=None, **settings
-    ):
-        npoints = scan_pars["npoints"]
-        return PepuAcquisitionDevice(self.controller, npoints=npoints, **settings)
-
-    def __init__(self, channel):
-        self.channel = channel
-        self.acquisition_device = None
-
-    # Standard interface
-
-    @property
-    def controller(self):
-        return self.channel.pepu
-
-    @property
-    def name(self):
-        return self.channel.name
-
-    @property
-    def dtype(self):
-        return float
-
-    @property
-    def shape(self):
-        return ()
-
-    # Extra logic
-
-    def feed_point(self, stream_data):
-        self.emit_data_point(stream_data[self.name])
-
-    def emit_data_point(self, data_point):
-        pepu = self.acquisition_device
-        pepu.channels.update({f"{pepu.name}:{self.name}": data_point})
-
-
-def pepu_counters(pepu):
-    """Provide a convenient access to the PEPU counters."""
-    channels = list(pepu.in_channels.values()) + list(pepu.calc_channels.values())
-    counters = map(PepuCounter, channels)
-    return counter_namespace(counters)

@@ -11,6 +11,7 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 import contextlib
 import time
+
 from bliss.common import timedisplay
 
 from prompt_toolkit import print_formatted_text, HTML

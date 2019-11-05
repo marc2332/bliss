@@ -18,10 +18,11 @@ from treelib import Tree
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from .channel import AcquisitionChannelList, AcquisitionChannel
+from .channel import AcquisitionChannelList
 from .channel import duplicate_channel, attach_channels
 from bliss.common.motor_group import is_motor_group
 from bliss.common.axis import Axis
+
 
 # Running task for a specific device
 #
@@ -852,7 +853,6 @@ class AcquisitionChain(object):
     def __init__(self, parallel_prepare=False):
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
-        self._device_to_node = dict()
         self._presets_master_list = weakref.WeakKeyDictionary()
         self._parallel_prepare = parallel_prepare
         self._stats_dict = dict()
@@ -867,37 +867,73 @@ class AcquisitionChain(object):
         return list(nodes_gen)
 
     def add(self, master, slave=None):
+
+        # --- handle ChainNodes --------------------------------------
+        if isinstance(master, ChainNode):
+            master.create_acquisition_object(force=False)
+            master = master.acquisition_obj
+
+        if isinstance(slave, ChainNode):
+            slave.create_acquisition_object(force=False)
+            self.add(master, slave.acquisition_obj)
+
+            for node in slave.children:
+                node.create_acquisition_object(force=False)
+                self.add(slave.acquisition_obj, node.acquisition_obj)
+
+            return
+
+        # print(f"===== ADD SLAVE {slave}({slave.name}) in MASTER {master} ({master.name})")
+
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
+
+        # --- if slave already exist in chain and new slave is an AcquisitionDevice
         if slave_node is not None and isinstance(slave, AcquisitionDevice):
+
+            # --- if {new master is not the master of the current_slave} and {current_master of current_slave is not root}
+            # --- => try to put the same slave under a different master => raise error !
             if (
-                slave_node.bpointer is not self._root_node
-                and master_node is not slave_node.bpointer
+                self._tree.get_node(slave_node.bpointer) is not self._root_node
+                and master is not slave_node.bpointer
             ):
                 raise RuntimeError(
                     "Cannot add acquisition device %s to multiple masters, current master is %s"
                     % (slave, slave_node._bpointer)
                 )
-            else:  # user error, multiple add, ignore for now
+            else:  # --- if {new master is the master of the current_slave} => same allocation => ignore ok
+                # --- if {new master is not the master of the current_slave}
+                # ---   and {current_master of current_slave is root} => try to re-allocate a top-level AcqDevice under a new master
+                # ---     => it should never append because an AcqDev is never given as a master.
+
+                # user error, multiple add, ignore for now
                 return
 
-        if master_node is None:
+        # --- if slave already exist in chain and new slave is not an AcquisitionDevice => existing AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is not an AcquisitionDevice => new      AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is     an AcquisitionDevice => new      AcqDevice slave under new or existing master
+
+        if master_node is None:  # --- if new master not in chain
             for node in self.nodes_list:
-                if node.name == master.name:
+                if (
+                    node.name == master.name
+                ):  # --- forribde new master with a name already in use
                     raise RuntimeError(
                         f"Cannot add acquisition master with name '{node.name}`: duplicated name"
                     )
 
+            # --- create a new master node
             master_node = self._tree.create_node(
                 tag=master.name, identifier=master, parent="root"
             )
         if slave is not None:
-            if slave_node is None:
+            if slave_node is None:  # --- create a new slave node
                 slave_node = self._tree.create_node(
                     tag=slave.name, identifier=slave, parent=master
                 )
-            else:
+            else:  # --- move an existing AcqMaster under a different master
                 self._tree.move_node(slave, master)
+
             slave.parent = master
 
     def add_preset(self, preset, master=None):
@@ -971,3 +1007,216 @@ class AcquisitionChain(object):
         if add_presets:
             for preset in chain._presets_list:
                 self.add_preset(preset)
+
+
+class ChainNode:
+    def __init__(self, controller):
+
+        self._controller = controller
+
+        self._counters = []
+        self._child_nodes = []
+
+        self._is_master = False
+        self._is_top_level = True
+        self._acquisition_obj = None
+
+        self._scan_params = None
+        self._acq_obj_params = None
+        self._ctrl_params = None
+
+        self._default_chain_mode = False
+
+        self._calc_dep_nodes = {}  # to store CalcCounter dependent nodes
+
+    @property
+    def controller(self):
+        return self._controller
+
+    @property
+    def is_master(self):
+        return self._is_master
+
+    @property
+    def is_top_level(self):
+        return self._is_top_level
+
+    @property
+    def children(self):
+        return self._child_nodes
+
+    @property
+    def counters(self):
+        return self._counters
+
+    @property
+    def acquisition_obj(self):
+        return self._acquisition_obj
+
+    @property
+    def acquisition_parameters(self):
+        return self._acq_obj_params
+
+    @property
+    def scan_parameters(self):
+        return self._scan_params
+
+    def set_parameters(
+        self, scan_params=None, acq_params=None, ctrl_params=None, force=False
+    ):
+        """ Store the scan and/or acquisition parameters into the node. 
+            These parameters will be used when the acquisition object is instanciated (see self.create_acquisition_object )
+            If the parameters have been set already, new parameters will be ignored (except if Force==True).
+        """
+
+        if scan_params is not None:
+            if self._scan_params is not None and self._scan_params != scan_params:
+                print(
+                    f"=== ChainNode WARNING: try to set SCAN_PARAMS again: \n Current {self._scan_params} \n New     {scan_params} "
+                )
+
+            if force or self._scan_params is None:
+                self._scan_params = scan_params
+
+        if acq_params is not None:
+            if self._acq_obj_params is not None and self._acq_obj_params != acq_params:
+                print(
+                    f"=== ChainNode WARNING: try to set ACQ_PARAMS again: \n Current {self._acq_obj_params} \n New     {acq_params} "
+                )
+
+            if force or self._acq_obj_params is None:
+                self._acq_obj_params = acq_params
+
+        if ctrl_params is not None:
+            if self._ctrl_params is not None and self._ctrl_params != ctrl_params:
+                print(
+                    f"=== ChainNode WARNING: try to set CTRL_PARAMS again: \n Current {self._ctrl_params} \n New     {ctrl_params} "
+                )
+
+            if force or self._ctrl_params is None:
+                self._ctrl_params = ctrl_params
+
+    def add_child(self, chain_node):
+        if chain_node not in self._child_nodes:
+            self._child_nodes.append(chain_node)
+            self._is_master = True
+            chain_node._is_top_level = False
+
+    def add_counter(self, counter):
+        self._counters.append(counter)
+
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+        """ Modify or update the scan and acquisition object parameters in the context of the default chain """
+
+        # ---- Should be implemented in the controller module ----------------------------------------
+        #
+        # -------------------------------------------------------------------------------------------
+        # scan_params, acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
+        # return scan_params, acq_params                       <== return the modified parameters
+        # -------------------------------------------------------------------------------------------
+
+        return scan_params, acq_params
+
+    def get_acquisition_object(self, scan_params, acq_params):
+        """ return the acquisition object associated to this node """
+
+        # ---- Must be implemented in the controller module ----------------------------------------
+        #
+        # -------------------------------------------------------------------------------------------
+        # obj_args = f(scan_params, acq_params)         <== filter and check parameters
+        # acq_obj = xxxAcqusiitionDevice( *obj_args )   <== instanciate the acquisition object
+        # return acq_obj                                <== return the acquisition object
+        # -------------------------------------------------------------------------------------------
+
+        raise NotImplementedError
+
+    def create_acquisition_object(self, force=False):
+
+        """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
+            Create the children acquisition objects if any are attached to this node.
+            
+            - 'force' (bool): if False, it won't instanciate the acquisition object if it already exists, else it will overwrite it.
+
+        """
+
+        # --- Return acquisition object if it already exist and Force is False ----------------------------
+        if not force and self._acquisition_obj is not None:
+            return self._acquisition_obj
+
+        # --- Prepare parameters -----------------------------------------------------------------------------------------
+        if self._scan_params is None:
+            scan_params = {}
+        else:
+            scan_params = (
+                self._scan_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
+
+        if self._acq_obj_params is None:
+            acq_params = {}
+        else:
+            acq_params = (
+                self._acq_obj_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
+
+        if self._ctrl_params is None:
+            ctrl_params = {}
+        else:
+            ctrl_params = (
+                self._ctrl_params.copy()
+            )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
+
+        # --- Apply controller parameters --------------
+        # self.controller.apply_parameters(ctrl_params)  => called by the AcqObj in prepare()
+
+        # --- Apply default chain logic on parameters ---------------------------------------------
+        if self._default_chain_mode:
+            scan_params, acq_params = self._get_default_chain_parameters(
+                scan_params, acq_params
+            )
+        # else: #--- or use a custom traduction of parameters
+        #    scan_params, acq_params = self.get_translated_parameters( scan_params, acq_params )
+
+        # --- Create the acquisition object -------------------------------------------------------
+        self._acquisition_obj = self.get_acquisition_object(scan_params, acq_params)
+
+        # --- Add the counters to the acquisition object ---------------
+        for counter in self._counters:
+            try:
+                self._acquisition_obj.add_counter(counter)
+            except AttributeError:
+                print(
+                    f"acquisition_obj:{self._acquisition_obj} does not have .add_counter method !"
+                )
+
+        # --- Deal with children acquisition objects ------------------
+        self.create_children_acq_obj(force)
+
+        return self._acquisition_obj
+
+    def create_children_acq_obj(self, force=False):
+        for node in self.children:
+            if node._scan_params is None:
+                node.set_parameters(scan_params=self._scan_params)
+
+            if node._acq_obj_params is None:
+                node.set_parameters(acq_params=self._acq_obj_params)
+
+            node.create_acquisition_object(force)
+
+    def get_repr_str(self):
+
+        if self._acquisition_obj is None:
+            txt = f"|__ !* {self._controller.name} *! "
+        else:
+            txt = f"|__ {self._acquisition_obj.__class__.__name__}( {self._controller.name} ) "
+
+        if len(self._counters) > 0:
+            txt += "("
+            for cnt in self._counters:
+                txt += f" {cnt.name},"
+            txt = txt[:-1]
+            txt += " ) "
+
+        txt += "|"
+
+        return txt

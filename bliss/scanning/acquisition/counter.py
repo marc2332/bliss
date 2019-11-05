@@ -11,13 +11,20 @@ import warnings
 import functools
 import gevent
 import collections
+import enum
+
 from gevent import event
-from bliss.common.event import dispatcher
-from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import SamplingMode
+from bliss.scanning.chain import AcquisitionDevice
+from bliss.scanning.channel import AcquisitionChannel
+
 from bliss.common.utils import all_equal
 from collections import namedtuple
 from datetime import datetime
+
+from bliss.scanning.chain import ChainNode
+from bliss.controllers.acquisition import CounterController
+
+# from bliss.common.measurement import SamplingMode
 
 
 def _get_group_reader(counters):
@@ -36,6 +43,26 @@ def _get_group_reader(counters):
         )
 
     return reader
+
+
+@enum.unique
+class SamplingMode(enum.IntEnum):
+    """SamplingCounter modes:
+    * MEAN: emit the mathematical average
+    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
+    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
+    * SINGLE: emit the first value (if possible: call read only once)
+    * LAST: emit the last value 
+    * INTEGRATE: emit MEAN multiplied by counting time
+    """
+
+    MEAN = enum.auto()
+    STATS = enum.auto()
+    SAMPLES = enum.auto()
+    SINGLE = enum.auto()
+    LAST = enum.auto()
+    INTEGRATE = enum.auto()
+    INTEGRATE_STATS = enum.auto()
 
 
 class BaseCounterAcquisitionDevice(AcquisitionDevice):
@@ -68,6 +95,10 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
             self.add_counter(cnt)
 
     @property
+    def name(self):
+        return self._reader.name
+
+    @property
     def count_time(self):
         return self.__count_time
 
@@ -84,6 +115,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         if counter in self._counters:
             return
         reader = _get_group_reader([counter])
+
         if reader != self._reader:
             raise RuntimeError(
                 f"Cannot add counter {counter.name}: reader does not correspond to already added counters"
@@ -158,6 +190,8 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         Other keys are:
           * npoints -- number of points for this acquisition (0: endless acquisition)
         """
+
+        # print(f"=== SamplingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, npoints={npoints}, unused_keys={unused_keys} ")
 
         if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):
             warnings.warn(
@@ -473,6 +507,8 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
     # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
     def __init__(self, *counters, count_time=None, **unused_keys):
 
+        # print(f"=== IntegratingCounterAcquisitionDevice: counters={counters}, count_time={count_time}, unused_keys={unused_keys} ")
+
         if any(
             [x in ["npoints", "prepare_once", "start_once"] for x in unused_keys.keys()]
         ):
@@ -530,3 +566,93 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 gevent.idle()
             else:
                 gevent.sleep(self.count_time / 2.0)
+
+
+class SamplingChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        params = {"count_time": count_time, "npoints": npoints}
+
+        return scan_params, params
+
+    def get_acquisition_object(self, scan_params, acq_params):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time", "npoints"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionDevice({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
+        return SamplingCounterAcquisitionDevice(
+            *self.counters, count_time=count_time, npoints=npoints
+        )
+
+
+class SamplingCounterController(CounterController):
+    def __init__(
+        self,
+        name="sampling_counter_controller",
+        master_controller=None,
+        chain_node_class=SamplingChainNode,
+    ):
+        super().__init__(
+            name, master_controller=master_controller, chain_node_class=chain_node_class
+        )
+
+
+class IntegratingChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return scan_params, params
+
+    def get_acquisition_object(self, scan_params, acq_params):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionDevice({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        count_time = acq_params["count_time"]
+
+        return IntegratingCounterAcquisitionDevice(
+            *self.counters, count_time=count_time
+        )
+
+
+class IntegratingCounterController(CounterController):
+    def __init__(
+        self,
+        name="integrating_counter_controller",
+        master_controller=None,
+        chain_node_class=IntegratingChainNode,
+    ):
+        super().__init__(
+            name, master_controller=master_controller, chain_node_class=chain_node_class
+        )

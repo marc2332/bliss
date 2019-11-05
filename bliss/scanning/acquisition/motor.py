@@ -23,7 +23,8 @@ from bliss.physics.trajectory import find_pvt
 
 from bliss.controllers.motor import CalcController
 
-from ..chain import AcquisitionMaster, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
 
 
 class UndershootMixin(object):

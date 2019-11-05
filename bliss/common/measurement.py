@@ -11,12 +11,13 @@
 import numpy
 import inspect
 import weakref
-from collections import namedtuple
-import enum
 
+from collections import namedtuple
 from bliss.common.utils import autocomplete_property
+from bliss.controllers.acquisition import CounterController, counter_namespace
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import SamplingCounterController, SamplingMode
 from bliss.scanning.acquisition.calc import CalcAcquisitionDevice
-from bliss.scanning.channel import AcquisitionChannel
 from bliss import global_map
 
 
@@ -37,17 +38,6 @@ def add_conversion_function(obj, method_name, function):
             raise ValueError("conversion function must be callable")
     else:
         raise ValueError("'%s` is not a method" % method_name)
-
-
-# Counter namespaces
-
-
-def counter_namespace(counters):
-    if isinstance(counters, dict):
-        dct = counters
-    else:
-        dct = {counter.name: counter for counter in counters}
-    return namedtuple("namespace", sorted(dct))(**dct)
 
 
 # Base counter class
@@ -94,11 +84,6 @@ class BaseCounter:
         return None
 
     @property
-    def master_controller(self):
-        """A master controller or None."""
-        return None
-
-    @property
     def name(self):
         """A unique name within the controller scope."""
         raise NotImplementedError
@@ -106,21 +91,15 @@ class BaseCounter:
     @property
     def dtype(self):
         """The data type as used by numpy."""
-        raise NotImplementedError
+        return numpy.float
 
     @property
     def shape(self):
         """The data shape as used by numpy."""
-        raise NotImplementedError
+        return ()
 
     def get_metadata(self):
         return {}
-
-    # Methods
-
-    def create_acquisition_device(self, scan_pars, **settings):
-        """Instantiate the corresponding acquisition device."""
-        raise NotImplementedError
 
     # Extra logic
 
@@ -131,11 +110,11 @@ class BaseCounter:
         The standard implementation defines it as:
         `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
+
         args = []
-        if self.master_controller is not None:
-            args.append(self.master_controller.name)
-        if self.controller is not None:
-            args.append(self.controller.name)
+        if self.controller.master_controller is not None:
+            args.append(self.controller.master_controller.name)
+        args.append(self.controller.name)
         args.append(self.name)
         return ":".join(args)
 
@@ -175,61 +154,14 @@ class Counter(BaseCounter):
         return self._name
 
     @property
-    def dtype(self):
-        return numpy.float
-
-    @property
-    def shape(self):
-        return ()
-
-    @property
     def unit(self):
         return self._unit
-
-    # Default chain handling
-
-    @property
-    def _acquisition_device_class(self):
-        raise NotImplementedError
-
-    def create_acquisition_device(self, scan_pars, **settings):
-        scan_pars.update(settings)
-        return self._acquisition_device_class(self, **scan_pars)
 
     # Extra interface
 
     @property
     def conversion_function(self):
         return self._conversion_function
-
-    def prepare(self):
-        pass
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-
-@enum.unique
-class SamplingMode(enum.IntEnum):
-    """SamplingCounter modes:
-    * MEAN: emit the mathematical average
-    * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
-    * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
-    * SINGLE: emit the first value (if possible: call read only once)
-    * LAST: emit the last value 
-    * INTEGRATE: emit MEAN multiplied by counting time
-    """
-
-    MEAN = enum.auto()
-    STATS = enum.auto()
-    SAMPLES = enum.auto()
-    SINGLE = enum.auto()
-    LAST = enum.auto()
-    INTEGRATE = enum.auto()
-    INTEGRATE_STATS = enum.auto()
 
 
 class SamplingCounter(Counter):
@@ -293,12 +225,6 @@ class SamplingCounter(Counter):
             None,
             None,
         )
-
-    @property
-    def _acquisition_device_class(self):
-        from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
-
-        return SamplingCounterAcquisitionDevice
 
     @property
     def mode(self):
@@ -378,16 +304,20 @@ class DefaultSingleSamplingCounterReadHandler(SamplingCounter.GroupedReadHandler
         return self.fullname
 
     def prepare(self, *counters):
-        return self.controller.prepare()
+        return self.controller.controller.prepare()
 
     def start(self, *counters):
-        return self.controller.start()
+        return self.controller.controller.start()
 
     def stop(self, *counters):
-        return self.controller.stop()
+        return self.controller.controller.stop()
 
     def read(self, *counters, **kwargs):
         return [self.__read(**kwargs)]
+
+
+class SoftCounterController(SamplingCounterController):
+    pass
 
 
 class SoftCounter(SamplingCounter):
@@ -463,16 +393,12 @@ class SoftCounter(SamplingCounter):
             apply = lambda x: x
         self.apply = apply
         self.__name = name
-        self.__fullname = f"{ctrl_name}:{name}"
-        super().__init__(name, None, mode=mode, unit=unit)
+
+        super().__init__(name, SoftCounterController(ctrl_name), mode=mode, unit=unit)
 
     @property
     def name(self):
         return self.__name
-
-    @property
-    def fullname(self):
-        return self.__fullname
 
     @staticmethod
     def get_read_func(obj, value):
@@ -520,7 +446,6 @@ class IntegratingCounter(Counter):
         self,
         name,
         controller,
-        master_controller,
         grouped_read_handler=None,
         conversion_function=None,
         unit=None,
@@ -543,26 +468,9 @@ class IntegratingCounter(Counter):
             unit=unit,
         )
 
-        if master_controller:
-            self._master_controller_ref = weakref.ref(master_controller)
-        else:
-            self._master_controller_ref = lambda: None
-
         if self.get_values != IntegratingCounter.get_values:
             # method has been overwritten
             self.get_values = self.__get_values
-
-    @autocomplete_property
-    def master_controller(self):
-        return self._master_controller_ref()
-
-    @property
-    def _acquisition_device_class(self):
-        from bliss.scanning.acquisition.counter import (
-            IntegratingCounterAcquisitionDevice
-        )
-
-        return IntegratingCounterAcquisitionDevice
 
     def __get_values(self, from_index, **kwargs):
         read_handler = self.read_handler
@@ -617,13 +525,13 @@ class DefaultSingleIntegratingCounterReadHandler(IntegratingCounter.GroupedReadH
         return self.fullname
 
     def prepare(self, *counters):
-        return self.controller.prepare()
+        return self.controller.controller.prepare()
 
     def start(self, *counters):
-        return self.controller.start()
+        return self.controller.controller.start()
 
     def stop(self, *counters):
-        return self.controller.stop()
+        return self.controller.controller.stop()
 
     def get_values(self, from_index, *counters, **kwargs):
         return [
@@ -631,57 +539,78 @@ class DefaultSingleIntegratingCounterReadHandler(IntegratingCounter.GroupedReadH
         ]
 
 
+class CalcCounterChainNode(ChainNode):
+    def get_acquisition_object(self, scan_params, acq_params):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["output_channels_list"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for CalcAcquisitionDevice({self.controller}) ==="
+                )
+
+        output_channels_list = acq_params.get("output_channels_list")
+
+        name = self.controller.calc_counter.name
+        func = self.controller.calc_counter.calc_func
+
+        acq_devices = []
+        for node in self._calc_dep_nodes.values():
+            acq_obj = node.acquisition_obj
+            if acq_obj is None:
+                raise ValueError(
+                    f"cannot create CalcAcquisitionDevice: acquisition object of {node}({node.controller}) is None!"
+                )
+            else:
+                acq_devices.append(acq_obj)
+
+        return CalcAcquisitionDevice(name, acq_devices, func, output_channels_list)
+
+
 class CalcCounter(BaseCounter):
-    def __init__(self, name, calc_function, *dependent_counters):
+    def __init__(self, name, controller, calc_function):
         self.__name = name
-        self.__dependent_counters = dependent_counters
+        self.__controller = controller
         self.__calc_function = calc_function
-        global_map.register(self, ["counters"], tag=name)
 
     @property
     def name(self):
         return self.__name
 
     @property
+    def calc_func(self):
+        return self.__calc_function
+
+    @property
     def fullname(self):
         return self.name
 
-    @property
-    def dtype(self):
-        return numpy.float
-
-    @property
-    def shape(self):
-        return ()
-
     @autocomplete_property
     def controller(self):
-        return self
+        return self.__controller
 
-    @autocomplete_property
-    def counters(self):
-        cnts = [self]
-        for c in self.__dependent_counters:
-            if isinstance(c, CalcCounter):
-                cnts.extend(c.counters)
-            else:
-                cnts.append(c)
-        return cnts
+
+class CalcCounterController(CounterController):
+    def __init__(self, name, calc_function, *dependent_counters):
+        super().__init__("calc_counter", chain_node_class=CalcCounterChainNode)
+        self.__dependent_counters = dependent_counters
+        self.__counter = CalcCounter(name, self, calc_function)
+        global_map.register(self.__counter, ["counters"], tag=name)
 
     @property
-    def acquisition_channels(self):
-        return [AcquisitionChannel(self.name, self.dtype, self.shape)]
+    def calc_counter(self):
+        return self.__counter
 
-    def create_acquisition_device(self, scan_pars, device_dict=None, **settings):
-        acq_devices = set()
-        counters = self.counters
-        counters.pop(0)  # remove self
-        for cnt in counters:
-            try:
-                controller = cnt.controller if cnt.controller is not None else cnt
-                acq_devices.add(device_dict[controller])
-            except KeyError:
-                raise RuntimeError(
-                    f"Can't find acquisition device for counter {cnt.name}"
+    @property
+    def counters(self):
+        self._counters = {self.__counter.name: self.__counter}
+
+        for cnt in self.__dependent_counters:
+            if isinstance(cnt, CalcCounter):
+                self._counters.update(
+                    {cnt.name: cnt for cnt in cnt.controller.counters}
                 )
-        return CalcAcquisitionDevice(self.name, list(acq_devices), self.__calc_function)
+            else:
+                self._counters[cnt.name] = cnt
+        return counter_namespace(self._counters)

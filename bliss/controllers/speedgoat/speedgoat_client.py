@@ -106,7 +106,10 @@ import numpy as np
 import gevent
 import treelib
 from bliss.comm import rpc
-from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import CounterController
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import SamplingChainNode
 
 ##########################################################################
 ##########                                                      ##########
@@ -574,14 +577,57 @@ def is_counters_controller_node(tree, node):
     return False
 
 
-class CountersController(object):
+class SpeedgoatChainNode(SamplingChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        trigger_type = acq_params.get("trigger_type", "SOFTWARE")
+
+        params = {
+            "count_time": count_time,
+            "npoints": npoints,
+            "trigger_type": trigger_type,
+        }
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        trigger_type = acq_params["trigger_type"]
+        npoints = acq_params["npoints"]
+
+        if trigger_type == "HARDWARE":
+
+            from bliss.scanning.acquisition.speedgoat import SpeedgoatAcquisitionSlave
+
+            return SpeedgoatAcquisitionSlave(
+                self.controller, npoints, ctrl_params=ctrl_params
+            )
+        else:
+            count_time = acq_params["count_time"]
+            return SamplingChainNode.get_acquisition_object(
+                self, acq_params, ctrl_params=ctrl_params
+            )
+
+
+class SpeedgoatCountersController(CounterController):
     def __init__(self, speedgoat, signal_node, param_node):
         self.speedgoat = speedgoat
         self.signal_node = signal_node
         self.param_node = param_node
 
-        self.name = self.speedgoat.name + "CC"
-        self.counterlist = []
+        super().__init__(
+            self.speedgoat.name + "CC", chain_node_class=SpeedgoatChainNode
+        )
 
         # build counter signal list
         sig_cnt = {}
@@ -613,10 +659,6 @@ class CountersController(object):
             self.available_counters[cnt_name] = Counter(
                 self, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
-
-    @property
-    def counters(self):
-        return counter_namespace(self.counterlist)
 
     def read_counters(self, counter_list_name):
         # return list of values
@@ -679,7 +721,7 @@ class SpeedgoatCounter(SamplingCounter):
                 'speedgoat: Counter "%s" not configured in speedgoat' % name
             )
 
-        self.controller.counterlist.append(self)
+        self.controller._counters[name] = self
 
 
 ##########################################################################
@@ -1320,7 +1362,7 @@ class Speedgoat(object):
                 tree.filter_nodes(functools.partial(is_counters_controller_node, tree))
             )
             if (len(signal_node) == 1) and (len(param_node) == 1):
-                self._cache["counters_controller"] = ctrl = CountersController(
+                self._cache["counters_controller"] = ctrl = SpeedgoatCountersController(
                     self, signal_node[0], param_node[0]
                 )
                 self._cache["counters"] = ctrl.available_counters

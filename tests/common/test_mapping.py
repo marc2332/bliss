@@ -368,6 +368,15 @@ def test_version_node_number(beamline):
     assert node["version"] == 1
 
 
+def test_walk_node(complex_beamline):
+    nodes_info = list(complex_beamline.walk_node("controllers"))
+    assert len(nodes_info) == 12
+    for node in nodes_info:
+        assert node["instance"] in (
+            "controllers Contr_1 Contr_2 Contr_3 Axis_1 Axis_1 Axis_2 m0 m1 m2 m3 Serial_1 TcpIp".split()
+        )
+
+
 #########################  MANUAL TESTING  ###################################
 
 

@@ -277,6 +277,12 @@ class Map:
                     if inst:
                         yield inst
 
+    def walk_node(self, from_node):
+        sub_map = nx.DiGraph()
+        self.create_submap(sub_map, map_id(from_node))
+        for node_id in sub_map.nodes():
+            yield self.G.nodes[node_id]
+
     def trigger_update(self):
         """
         Triggers pending creation, deletion on the map

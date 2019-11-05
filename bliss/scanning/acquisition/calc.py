@@ -1,10 +1,5 @@
-from ..chain import AcquisitionDevice
-from ..channel import AcquisitionChannel
+from bliss.scanning.chain import AcquisitionSlave, ChainNode
 from bliss.common.event import dispatcher
-import bliss
-import numpy
-import gevent
-import sys
 
 
 class CalcHook(object):
@@ -21,7 +16,7 @@ class CalcHook(object):
         pass
 
 
-class CalcAcquisitionDevice(AcquisitionDevice):
+class CalcAcquisitionSlave(AcquisitionSlave):
     """
     Helper to do some extra Calculation on counters.
     i.e: compute encoder position to user position
@@ -36,9 +31,20 @@ class CalcAcquisitionDevice(AcquisitionDevice):
          - optionally you can redefine prepare,start,stop. 
     """
 
-    def __init__(self, name, src_acq_devices_list, func, output_channels_list=None):
-        AcquisitionDevice.__init__(
-            self, None, name, trigger_type=AcquisitionDevice.HARDWARE
+    def __init__(
+        self,
+        name,
+        src_acq_devices_list,
+        func,
+        output_channels_list=None,
+        ctrl_params=None,
+    ):
+        AcquisitionSlave.__init__(
+            self,
+            None,
+            name=name,
+            trigger_type=AcquisitionSlave.HARDWARE,
+            ctrl_params=ctrl_params,
         )
         self._connected = False
         self.src_acq_devices_list = src_acq_devices_list
@@ -55,9 +61,9 @@ class CalcAcquisitionDevice(AcquisitionDevice):
             self.channels.extend(output_channels_list)
 
     def add_counter(self, counter):
-        self.channels.append(
-            AcquisitionChannel(counter.name, counter.dtype, counter.shape)
-        )
+        if counter in self._counters:
+            return
+        return self._do_add_counter(counter)
 
     def connect(self):
         if self._connected:
@@ -100,3 +106,34 @@ class CalcAcquisitionDevice(AcquisitionDevice):
     def stop(self):
         self.disconnect()
         self.cbk.stop()
+
+
+class CalcCounterChainNode(ChainNode):
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["output_channels_list"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for CalcAcquisitionSlave({self.controller}) ==="
+                )
+
+        output_channels_list = acq_params.get("output_channels_list")
+
+        name = self.controller.calc_counter.name
+        func = self.controller.calc_counter.calc_func
+
+        acq_devices = []
+        for node in self._calc_dep_nodes.values():
+            acq_obj = node.acquisition_obj
+            if acq_obj is None:
+                raise ValueError(
+                    f"cannot create CalcAcquisitionSlave: acquisition object of {node}({node.controller}) is None!"
+                )
+            else:
+                acq_devices.append(acq_obj)
+
+        return CalcAcquisitionSlave(
+            name, acq_devices, func, output_channels_list, ctrl_params=ctrl_params
+        )

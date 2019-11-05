@@ -13,9 +13,10 @@ import numpy
 import gevent.event
 import time
 
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
-from bliss.controllers.mca import TriggerMode, PresetMode, Stats, AcquisitionMode
-from bliss.common.measurement import BaseCounter, counter_namespace
+from bliss.scanning.chain import AcquisitionSlave
+from bliss.controllers.mca import TriggerMode, PresetMode, Stats
+from bliss.common.counter import Counter
+from bliss.controllers.counter import counter_namespace
 
 
 class StateMachine(object):
@@ -44,7 +45,7 @@ class StateMachine(object):
 # MCA Acquisition device
 
 
-class McaAcquisitionDevice(AcquisitionDevice):
+class McaAcquisitionSlave(AcquisitionSlave):
 
     READY = "READY"
     TRIGGERED = "TRIGGERED"
@@ -62,13 +63,12 @@ class McaAcquisitionDevice(AcquisitionDevice):
         block_size=None,
         polling_time=0.1,
         spectrum_size=None,
-        counters=(),
+        counters=None,
         prepare_once=True,
         start_once=True,
+        ctrl_params=None,
     ):
         # Checks
-        assert start_once
-        assert prepare_once
 
         # Trigger type
         if isinstance(trigger_mode, str):
@@ -76,28 +76,28 @@ class McaAcquisitionDevice(AcquisitionDevice):
                 trigger_mode,
                 {
                     "TriggerMode": TriggerMode,
-                    "SOFTWARE": McaAcquisitionDevice.SOFT,
-                    "SYNC": McaAcquisitionDevice.SYNC,
-                    "GATE": McaAcquisitionDevice.GATE,
+                    "SOFTWARE": McaAcquisitionSlave.SOFT,
+                    "SYNC": McaAcquisitionSlave.SYNC,
+                    "GATE": McaAcquisitionSlave.GATE,
                 },
             )
         if trigger_mode == self.SOFT:
-            trigger_type = McaAcquisitionDevice.SOFTWARE
+            trigger_type = McaAcquisitionSlave.SOFTWARE
         else:
-            trigger_type = McaAcquisitionDevice.HARDWARE
+            trigger_type = McaAcquisitionSlave.HARDWARE
 
         # Parent call
-        super(McaAcquisitionDevice, self).__init__(
+        super().__init__(
             mca,
+            counters=counters,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
             start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
         # Internals
-        self.mca = mca
-        self.counters = []
         self.acquisition_gen = None
         self.acquisition_state = StateMachine(self.READY)
 
@@ -113,22 +113,12 @@ class McaAcquisitionDevice(AcquisitionDevice):
         self.spectrum_size = spectrum_size
 
         # Add counters
-        self.add_counters(counters)
 
     # Counter management
 
-    def add_counter(self, counter):
-        self.counters.append(counter)
+    def _do_add_counter(self, counter):
+        super()._do_add_counter(counter)
         counter.register_device(self)
-        self.channels.append(
-            AcquisitionChannel(
-                f"{self.name}:{counter.name}", counter.dtype, counter.shape
-            )
-        )
-
-    def add_counters(self, counters):
-        for counter in counters:
-            self.add_counter(counter)
 
     # Mode properties
 
@@ -276,7 +266,7 @@ class McaAcquisitionDevice(AcquisitionDevice):
 
     def _publish(self, publishing_dict, spectrums, stats):
         # Feed data to all counters
-        for counter in self.counters:
+        for counter in self._counters:
             point = counter.feed_point(spectrums, stats)
 
             # Atomic - add point to publising dict
@@ -329,31 +319,31 @@ class HWScaAcquisitionDevice(AcquisitionDevice):
 # Mca counters
 
 
-class BaseMcaCounter(BaseCounter):
+class BaseMcaCounter(Counter):
 
     # Default chain integration
 
-    @property
-    def _acquisition_device_class(self):
-        acq_mode = self.controller.acquisition_mode
-        if acq_mode == AcquisitionMode.HWSCA:
-            return HWScaAcquisitionDevice
-        if acq_mode == AcquisitionMode.MCA:
-            return McaAcquisitionDevice
+    # @property
+    # def _acquisition_device_class(self):
+    #     acq_mode = self.controller.acquisition_mode
+    #     if acq_mode == AcquisitionMode.HWSCA:
+    #         return HWScaAcquisitionDevice
+    #     if acq_mode == AcquisitionMode.MCA:
+    #         return McaAcquisitionDevice
 
-    def create_acquisition_device(
-        self, scan_pars, device_dict=None, master_dict=None, **settings
-    ):
-        acq_mode = self.controller.acquisition_mode
-        if acq_mode == AcquisitionMode.HWSCA:
-            return HWScaAcquisitionDevice(self.controller, **settings)
-        if acq_mode == AcquisitionMode.MCA:
-            npoints = scan_pars["npoints"]
-            count_time = scan_pars["count_time"]
+    # def create_acquisition_device(
+    #     self, scan_pars, device_dict=None, master_dict=None, **settings
+    # ):
+    #     acq_mode = self.controller.acquisition_mode
+    #     if acq_mode == AcquisitionMode.HWSCA:
+    #         return HWScaAcquisitionDevice(self.controller, **settings)
+    #     if acq_mode == AcquisitionMode.MCA:
+    #         npoints = scan_pars["npoints"]
+    #         count_time = scan_pars["count_time"]
 
-            return McaAcquisitionDevice(
-                self.controller, npoints=npoints, preset_time=count_time, **settings
-            )
+    #         return McaAcquisitionDevice(
+    #             self.controller, npoints=npoints, preset_time=count_time, **settings
+    #         )
 
     def __init__(self, mca, base_name, detector=None):
         self.mca = mca
@@ -362,11 +352,15 @@ class BaseMcaCounter(BaseCounter):
         self.detector_channel = detector
         self.base_name = base_name
 
+        # global_map.register(self, parents_list=["counters"], tag=self.name)
+
+        super().__init__(base_name, mca)
+
     # Standard counter interface
 
-    @property
-    def controller(self):
-        return self.mca
+    # @property
+    # def controller(self):
+    #     return self.mca
 
     @property
     def name(self):
@@ -374,13 +368,13 @@ class BaseMcaCounter(BaseCounter):
             return self.base_name
         return "{}_det{}".format(self.base_name, self.detector_channel)
 
-    @property
-    def dtype(self):
-        return numpy.float
+    # @property
+    # def dtype(self):
+    #     return numpy.float
 
-    @property
-    def shape(self):
-        return ()
+    # @property
+    # def shape(self):
+    #     return ()
 
     # Extra logic
 
@@ -389,7 +383,7 @@ class BaseMcaCounter(BaseCounter):
         self.data_points = []
         self.acquisition_device = device
         # Consistency checks
-        assert self.controller is self.acquisition_device.mca
+        assert self.controller is self.acquisition_device.device
         if self.detector_channel is not None:
             assert self.detector_channel in self.controller.elements
 

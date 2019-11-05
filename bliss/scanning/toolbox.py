@@ -5,12 +5,10 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import warnings
 import operator
 import functools
 
 from bliss import global_map
-from bliss import setup_globals
 from bliss.common import measurementgroup
 
 from bliss.common.counter import CalcCounter, Counter
@@ -20,11 +18,43 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 def _get_object_from_name(name):
-    """Get the bliss object corresponding to the given name."""
-    try:
-        return operator.attrgetter(name)(setup_globals)
-    except AttributeError:
-        raise AttributeError(name)
+    """Get the bliss object corresponding to the given name.
+
+    `name` can be:
+    - a counter's name or an acquisition device's name ("name")
+    - a counter's fullname ("ctrl:cnt")
+    - a counter from an acquisition device ("ctrl.counters.cnt")
+    - a counter group from an acquisition device ("ctrl.counter_groups.group")
+    """
+    if ":" in name:
+        return global_map.get_counter_from_fullname(name)
+
+    elif "." in name:
+        # could be "ctrl.counters.cnt" or "ctrl.counter_groups.group"
+        try:
+            x, _, shortname = name.rpartition(".")
+        except ValueError:
+            raise AttributeError(name)
+        else:
+            for ctrl in global_map.instance_iter("controllers"):
+                ctrl_name, _, counters_or_group = x.rpartition(".")
+                if ctrl.name == ctrl_name:
+                    return operator.attrgetter(f"{counters_or_group}.{shortname}")(ctrl)
+            raise AttributeError(name)
+
+    else:
+        # it's a counter or a CounterController (with .counters)
+        try:
+            return next(
+                x for x in global_map.instance_iter("counters") if x.name == name
+            )
+        except StopIteration:
+            try:
+                return next(
+                    x for x in global_map.instance_iter("controllers") if x.name == name
+                )
+            except StopIteration:
+                raise AttributeError(name)
 
 
 def _get_counters_from_measurement_group(mg):
@@ -102,8 +132,10 @@ def get_all_counters(counter_args):
     # Missing counters
     if missing:
         raise ValueError(
-            "Missing counters, not in setup_globals: {}.\n"
-            "Hint: disable inactive counters.".format(", ".join(missing))
+            "Missing counters, not in global_map: {}.\n"
+            "Hint: disable inactive counters.".format(
+                ", ".join([x if type(x) == type("") else x.name for x in missing])
+            )
         )
 
     for cnt in all_counters:

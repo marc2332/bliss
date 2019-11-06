@@ -10,7 +10,7 @@ import types
 import pytest
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy
-from bliss.common.measurement import BaseCounter
+from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
 from bliss.common.scans import loopscan, DEFAULT_CHAIN
 from bliss import setup_globals
@@ -35,7 +35,7 @@ def test_lima_simulator(beacon, lima_simulator):
     finally:
         simulator.acquisition.trigger_mode = trigger_mode
 
-    assert isinstance(simulator.image, BaseCounter)
+    assert isinstance(simulator.image, Counter)
 
     assert simulator.camera.test == "test"
 

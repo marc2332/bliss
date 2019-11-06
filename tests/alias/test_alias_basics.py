@@ -229,7 +229,7 @@ def test_alias_original_object_removal(alias_session):
 
     diode = alias_session.config.get("diode")
     # add alias with name
-    ALIASES.add("dd", "diode")
+    ALIASES.add("dd", diode)
     assert "dd" in env_dict
     assert "diode" not in env_dict
 

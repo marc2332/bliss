@@ -21,18 +21,135 @@ Minimalistic configuration example:
 (for the complete CT2 YAML_ specification see :ref:`bliss-ct2-yaml`)
 """
 
+import functools
 import numpy
+from bliss.common.proxy import Proxy
 
-from bliss import global_map
 from bliss.comm.rpc import Client
-from bliss.common.measurement import IntegratingCounter, counter_namespace
+from bliss.common.counter import IntegratingCounter
+from bliss.controllers.ct2.device import AcqMode
+from bliss.controllers.counter import CounterController
+
+from bliss.scanning.chain import ChainNode
+from bliss.controllers.counter import IntegratingCounterController
 
 
-class CT2CounterGroup(IntegratingCounter.GroupedReadHandler):
+class CT2MasterChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Extract scan parameters
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params.get("npoints", 1)
+
+        try:
+            acq_expo_time = acq_params["acq_expo_time"]
+        except:
+            acq_expo_time = scan_params["count_time"]
+
+        acq_point_period = acq_params.get("acq_point_period")
+        acq_mode = acq_params.get("acq_mode", AcqMode.IntTrigMulti)
+        prepare_once = acq_params.get("prepare_once", True)
+        start_once = acq_params.get("start_once", True)
+
+        params = {}
+        params["npoints"] = npoints
+        params["acq_expo_time"] = acq_expo_time
+        params["acq_point_period"] = acq_point_period
+        params["acq_mode"] = acq_mode
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # Break import cycles
+        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+
+        npoints = acq_params["npoints"]
+        acq_expo_time = acq_params["acq_expo_time"]
+        acq_point_period = acq_params["acq_point_period"]
+        acq_mode = acq_params["acq_mode"]
+        prepare_once = acq_params["prepare_once"]
+        start_once = acq_params["start_once"]
+
+        # Create master
+        return CT2AcquisitionMaster(
+            self.controller,
+            npoints=npoints,
+            acq_expo_time=acq_expo_time,
+            acq_point_period=acq_point_period,
+            acq_mode=acq_mode,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
+        )
+
+
+class CT2Counter(IntegratingCounter):
+    def __init__(self, name, channel, controller):
+        self.channel = channel
+        super().__init__(name, controller)
+
+    def convert(self, data):
+        return data
+
+    def __repr__(self):
+        return "{0}({1!r}, ch={2})".format(type(self).__name__, self.name, self.channel)
+
+
+class CT2CounterTimer(CT2Counter):
+    def __init__(self, name, controller):
+        self.timer_freq = controller.master_controller.timer_freq
+        super(CT2CounterTimer, self).__init__(
+            name, controller.master_controller.internal_timer_counter, controller
+        )
+
+    def convert(self, ticks):
+        return ticks / self.timer_freq
+
+
+class CT2Controller(Proxy, CounterController):
+    def __init__(self, device_config, name="ct2_acquisition_controller", **kwargs):
+
+        address = device_config["address"]
+
+        Proxy.__init__(
+            self, functools.partial(Client, address, **kwargs), init_once=True
+        )
+        CounterController.__init__(self, name=name, chain_node_class=CT2MasterChainNode)
+
+        # Remote call
+        self.configure(device_config)
+
+        slave = CT2CounterController("ct2_counters_controller", self)
+
+        # Add ct2 counters
+        for channel in device_config.get("channels", ()):
+            ct_name = channel.get("counter name", None)
+            if ct_name:
+                address = int(channel["address"])
+                self._counters[ct_name] = CT2Counter(ct_name, address, controller=slave)
+        # Add ct2 counter timer
+        timer = device_config.get("timer", None)
+        if timer is not None:
+            ct_name = timer.get("counter name", None)
+            if ct_name:
+                self._counters[ct_name] = CT2CounterTimer(ct_name, controller=slave)
+
+
+class CT2CounterController(IntegratingCounterController):
+    def __init__(self, name, master_controller):
+        IntegratingCounterController.__init__(
+            self, name=name, master_controller=master_controller
+        )
+
     def prepare(self, *counters):
         channels = []
         counter_indexes = {}
-        ctrl = self.controller
+        ctrl = self.master_controller
         in_channels = ctrl.INPUT_CHANNELS
         timer_counter = ctrl.internal_timer_counter
         point_nb_counter = ctrl.internal_point_nb_counter
@@ -52,12 +169,12 @@ class CT2CounterGroup(IntegratingCounter.GroupedReadHandler):
         # counter_indexes dict<counter: index in data array>
         self.counter_indexes = counter_indexes
         # a hack here: since this prepare is called AFTER the
-        # CT2AcquisitionDevice prepare, we do a "second" prepare
+        # CT2AcquisitionSlave prepare, we do a "second" prepare
         # here after the acq_channels have been configured
         ctrl.prepare_acq()
 
     def get_values(self, from_index, *counters):
-        data = self.controller.get_data(from_index).T
+        data = self.master_controller.get_data(from_index).T
         if not data.size:
             return len(counters) * (numpy.array(()),)
         result = [
@@ -66,90 +183,12 @@ class CT2CounterGroup(IntegratingCounter.GroupedReadHandler):
         return result
 
 
-class CT2Counter(IntegratingCounter):
-    def __init__(self, name, channel, master_controller, grouped_read_handler):
-        self.channel = channel
-        super(CT2Counter, self).__init__(
-            name,
-            grouped_read_handler,
-            master_controller=master_controller,
-            grouped_read_handler=grouped_read_handler,
-        )
-
-    def convert(self, data):
-        return data
-
-    def __repr__(self):
-        return "{0}({1!r}, ch={2})".format(type(self).__name__, self.name, self.channel)
-
-
-class CT2CounterTimer(CT2Counter):
-    def __init__(self, name, master_controller, grouped_read_handler):
-        self.timer_freq = master_controller.timer_freq
-        super(CT2CounterTimer, self).__init__(
-            name,
-            master_controller.internal_timer_counter,
-            master_controller=master_controller,
-            grouped_read_handler=grouped_read_handler,
-        )
-
-    def convert(self, ticks):
-        return ticks / self.timer_freq
-
-
 def __get_device_config(name):
     from bliss.config.static import get_config
 
     config = get_config()
     device_config = config.get_config(name)
     return device_config
-
-
-def configure(device, device_config):
-    # Remote call
-    device._orig_configure(device_config)
-    counters = []
-    # Add ct2 counters
-    for channel in device_config.get("channels", ()):
-        ct_name = channel.get("counter name", None)
-        if ct_name:
-            address = int(channel["address"])
-            counters.append(
-                CT2Counter(
-                    ct_name,
-                    address,
-                    master_controller=device,
-                    grouped_read_handler=device.acq_counter_group,
-                )
-            )
-    # Add ct2 counter timer
-    timer = device_config.get("timer", None)
-    if timer is not None:
-        ct_name = timer.get("counter name", None)
-        if ct_name:
-            counters.append(
-                CT2CounterTimer(
-                    ct_name,
-                    master_controller=device,
-                    grouped_read_handler=device.acq_counter_group,
-                )
-            )
-    # Set namespace
-    device.counters = counter_namespace(counters)
-
-
-def create_master_device(controller, scan_pars, **settings):
-    # Break import cycles
-    from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
-
-    # Extract scan parameters
-    npoints = scan_pars.get("npoints", 1)
-    acq_expo_time = scan_pars["count_time"]
-
-    # Create master
-    return CT2AcquisitionMaster(
-        controller, npoints=npoints, acq_expo_time=acq_expo_time, **settings
-    )
 
 
 def create_and_configure_device(config_or_name):
@@ -174,18 +213,10 @@ def create_and_configure_device(config_or_name):
     kwargs = {}
     if "timeout" in device_config:
         kwargs["timeout"] = device_config["timeout"]
-    device = Client(device_config["address"], **kwargs)
-    global_map.register(device, parents_list=["counters"])
 
-    device.name = name
-    device.acq_counter_group = CT2CounterGroup(device)
+    acq_ctrl = CT2Controller(device_config, name, **kwargs)
 
-    device._orig_configure = device.configure
-    device.configure = configure.__get__(device, type(device))
-    device.create_master_device = create_master_device.__get__(device, type(device))
-
-    device.configure(device_config)
-    return device
+    return acq_ctrl
 
 
 def create_object_from_config_node(config, node):

@@ -13,15 +13,15 @@ import gevent
 from bliss.common import event
 from bliss.common import scans
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition.motor import SweepMotorMaster, MotorMaster
 
 
-class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
+class DebugMotorMockupPositionAcquisitionSlave(AcquisitionSlave):
     def __init__(self, name, motor_mockup):
-        super(DebugMotorMockupPositionAcquisitionDevice, self).__init__(
-            motor_mockup, name, prepare_once=True, start_once=True
+        super(DebugMotorMockupPositionAcquisitionSlave, self).__init__(
+            motor_mockup, name=name, prepare_once=True, start_once=True
         )
         self.motor_mockup = motor_mockup
         self.channels.append(AcquisitionChannel(name + "_start_pos", float, ()))
@@ -60,7 +60,7 @@ def test_iter_sweep_motor_master(session):
     chain = AcquisitionChain()
     start_pos = [0, 10, 20, 30, 40]
     master = SweepMotorMaster(roby, start_pos, 50, 0.1, 10)
-    device = DebugMotorMockupPositionAcquisitionDevice("debug", roby)
+    device = DebugMotorMockupPositionAcquisitionSlave("debug", roby)
     chain.add(master, device)
     s = Scan(chain, save=False)
     with gevent.Timeout(50):
@@ -81,7 +81,7 @@ def test_iter_cont_motor_master(session):
     chain = AcquisitionChain()
     start_pos = [0, 5, 10, 15, 20, 25, 30]
     master = MotorMaster(roby, start_pos, 35, 0.05)
-    device = DebugMotorMockupPositionAcquisitionDevice("debug", roby)
+    device = DebugMotorMockupPositionAcquisitionSlave("debug", roby)
     chain.add(master, device)
     s = Scan(chain, save=False)
     with gevent.Timeout(10):

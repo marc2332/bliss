@@ -13,15 +13,15 @@ import gevent
 from bliss.common import event
 from bliss.common import scans
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition.motor import SweepMotorMaster
 
 
-class DebugMotorMockupPositionAcquisitionDevice(AcquisitionDevice):
+class DebugMotorMockupPositionAcquisitionSlave(AcquisitionSlave):
     def __init__(self, name, motor_mockup):
-        super(DebugMotorMockupPositionAcquisitionDevice, self).__init__(
-            motor_mockup, name, prepare_once=True, start_once=True
+        super(DebugMotorMockupPositionAcquisitionSlave, self).__init__(
+            motor_mockup, name=name, prepare_once=True, start_once=True
         )
         self.motor_mockup = motor_mockup
         self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
@@ -55,7 +55,7 @@ def test_sweep_motor_master(session):
     roby.velocity = 2000
     roby.acceleration = 10000
     master = SweepMotorMaster(roby, 0, 10, 0.025, 5)
-    device = DebugMotorMockupPositionAcquisitionDevice("debug", roby)
+    device = DebugMotorMockupPositionAcquisitionSlave("debug", roby)
     chain = AcquisitionChain()
     chain.add(master, device)
     s = Scan(chain, save=False)

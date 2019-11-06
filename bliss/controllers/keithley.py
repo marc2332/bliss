@@ -83,7 +83,7 @@ import functools
 import numpy
 import gevent
 
-from bliss.common.measurement import SamplingCounter
+from bliss.common.counter import SamplingCounter
 from bliss.comm.util import get_interface, get_comm
 from bliss.config.beacon_object import BeaconObject
 from bliss.config.settings import pipeline

@@ -27,8 +27,8 @@ def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
         rw_cfg = rw_cfg.deep_copy()
     test_file_contents = client.get_text_file(file_name)
 
-    with open(test_file_path, "r") as f:
-        assert f.read() == test_file_contents
+    with open(test_file_path, "rb") as f:
+        assert f.read().decode() == test_file_contents
 
     assert rw_cfg["one"][0]["pink"] == "martini"
     assert rw_cfg["one"][0]["red"] == "apples"

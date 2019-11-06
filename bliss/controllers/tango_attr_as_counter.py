@@ -40,12 +40,14 @@ bliss/tests/test_configuration/tango_attribute_counter.yml
 """
 
 import weakref
-from bliss.common.measurement import SamplingCounter
+from bliss.common.counter import SamplingCounter
 from bliss.common import tango
 from bliss import global_map
 from bliss.common.logtools import *
 
-_CtrGroupReadDict = weakref.WeakValueDictionary()
+from bliss.controllers.counter import SamplingCounterController
+
+_TangoCounterControllerDict = weakref.WeakValueDictionary()
 
 
 def get_proxy(tango_uri):
@@ -91,17 +93,16 @@ def get_attr_config(tango_uri, attr_name):
     return get_attr_config.config[attr_cfg_key]
 
 
-class _CtrGroupRead(object):
+class TangoCounterController(SamplingCounterController):
     def __init__(self, tango_uri):
+        proxy = get_proxy(tango_uri)
+
+        super().__init__(name=proxy.name())
+
         self._tango_uri = tango_uri
-
-        self._counter_names = list()
         self._attributes_config = None
-        global_map.register(self, tag=self.name)
 
-    @property
-    def name(self):
-        return ",".join(self._counter_names)
+        global_map.register(self, tag=self.name)
 
     def read_all(self, *counters):
         """Read all attributes at once each time it's requiered.
@@ -122,9 +123,6 @@ class _CtrGroupRead(object):
         log_debug(self, f"tango -- {self._tango_uri} -- values: {attr_values}")
         return attr_values
 
-    def add_counter(self, counter_name):
-        self._counter_names.append(counter_name)
-
 
 class tango_attr_as_counter(SamplingCounter):
     def __init__(self, name, config):
@@ -133,12 +131,14 @@ class tango_attr_as_counter(SamplingCounter):
             raise KeyError("uri")
 
         self.attribute = config["attr_name"]
-        self._ctrl = _CtrGroupReadDict.setdefault(tango_uri, _CtrGroupRead(tango_uri))
+        controller = _TangoCounterControllerDict.setdefault(
+            tango_uri, TangoCounterController(tango_uri)
+        )
 
-        self._ctrl.add_counter(name)
+        controller._counters[name] = self
 
         log_debug(
-            self._ctrl, f"             to reflect '{self.attribute}' tango attribute."
+            controller, f"             to read '{self.attribute}' tango attribute."
         )
 
         _tango_attr_config = get_attr_config(tango_uri, self.attribute)
@@ -156,12 +156,12 @@ class tango_attr_as_counter(SamplingCounter):
         else:
             unit = yml_unit
         log_debug(
-            self._ctrl, f"             * unit read from YAML config: '{yml_unit}'"
+            controller, f"             * unit read from YAML config: '{yml_unit}'"
         )
         log_debug(
-            self._ctrl, f"             * unit read from Tango config: '{tango_unit}'"
+            controller, f"             * unit read from Tango config: '{tango_unit}'"
         )
-        log_debug(self._ctrl, f"             * unit used: '{unit}'")
+        log_debug(controller, f"             * unit used: '{unit}'")
 
         # DISPLAY_UNIT
         # Use 'display_unit' as conversion factor if present in Tango configuration.
@@ -173,7 +173,7 @@ class tango_attr_as_counter(SamplingCounter):
 
         # INIT
         SamplingCounter.__init__(
-            self, name, self._ctrl, unit=unit, conversion_function=self.convert_func
+            self, name, controller, unit=unit, conversion_function=self.convert_func
         )
 
     def convert_func(self, value):

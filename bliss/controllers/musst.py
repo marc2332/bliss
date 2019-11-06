@@ -16,7 +16,9 @@ from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
-from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.controllers.counter import CounterController
+from bliss.scanning.acquisition.musst import MusstChainNode
+from bliss.common.counter import SamplingCounter
 
 
 def _get_simple_property(command_name, doc_sring):
@@ -61,7 +63,7 @@ class MusstCounter(SamplingCounter):
         self.channel = channel
 
 
-class musst(object):
+class musst(CounterController):
     class channel(object):
         COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 
@@ -237,7 +239,9 @@ class musst(object):
           name:               -- use to reference an external switch
         """
 
-        self.name = name
+        super().__init__(name, chain_node_class=MusstChainNode)
+
+        # self.name = name
         gpib = config_tree.get("gpib")
         comm_opts = dict()
         if gpib:
@@ -315,7 +319,7 @@ class musst(object):
 
             cnt_obj = MusstCounter(cnt_name, self, cnt_channel.upper())
             cnt_list.append(cnt_obj)
-        self.__counters = counter_namespace(cnt_list)
+        self._counters = {cnt.name: cnt for cnt in cnt_list}
 
     def _channels_init(self, config_tree):
         # Configured channels
@@ -371,10 +375,6 @@ class musst(object):
             ch_value, ch_status = self.putget(f"?CH CH{ch_idx}").split(" ")
             ch_config = self.putget(f"?CHCFG CH{ch_idx}")
             print(f"    CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}")
-
-    @property
-    def counters(self):
-        return self.__counters
 
     @protect_from_kill
     def putget(self, msg, ack=False):

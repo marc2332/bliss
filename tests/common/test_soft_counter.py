@@ -9,7 +9,8 @@ import pytest
 import numpy.testing
 
 from bliss.common.standard import loopscan
-from bliss.common.measurement import SoftCounter, SamplingMode
+from bliss.common.counter import SoftCounter, SamplingMode
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
 
 class NullObject(object):
@@ -148,18 +149,13 @@ def test_soft_sampling_counter_mode(session):
     c = SoftCounter(diode, "read")
     assert c.mode.name == "MEAN"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "MEAN"
-
-    # UPDATING THE MODE
-    c.mode = "INTEGRATE"
-    s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "INTEGRATE"
+    assert isinstance(s.acq_chain.nodes_list[1], SamplingCounterAcquisitionSlave)
 
     # SPECIFYING THE MODE
     c = SoftCounter(diode, "read", mode=SamplingMode.INTEGRATE)
     assert c.mode.name == "INTEGRATE"
     s = loopscan(10, 0.01, c, run=False)
-    assert s.acq_chain.nodes_list[1].device.controller.mode.name == "INTEGRATE"
+    assert isinstance(s.acq_chain.nodes_list[1], SamplingCounterAcquisitionSlave)
 
 
 def test_SampCnt_soft_statistics(session):

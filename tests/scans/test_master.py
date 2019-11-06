@@ -1,11 +1,12 @@
 import numpy
 import gevent
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MotorMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 import pytest
 import gevent
 import numpy
@@ -17,8 +18,8 @@ def test_dummy_scan_without_external_channel(
 ):
     # Get controllers
     chain = AcquisitionChain()
-    master = dummy_acq_master.get(None, "master", npoints=1)
-    device = dummy_acq_device.get(None, "device", npoints=1)
+    master = dummy_acq_master.get(None, name="master", npoints=1)
+    device = dummy_acq_device.get(None, name="device", npoints=1)
     chain.add(master, device)
     # Run scan
     scan = Scan(chain, "test", save=False)
@@ -30,8 +31,8 @@ def test_dummy_scan_without_external_channel(
 def test_dummy_scan_with_external_channel(session, dummy_acq_master, dummy_acq_device):
     # Get controllers
     chain = AcquisitionChain()
-    master = dummy_acq_master.get(None, "master", npoints=1)
-    device = dummy_acq_device.get(None, "device", npoints=1)
+    master = dummy_acq_master.get(None, name="master", npoints=1)
+    device = dummy_acq_device.get(None, name="device", npoints=1)
     chain.add(master, device)
     # Add external channel
     chan = device.channels[0]
@@ -55,7 +56,7 @@ def test_stopiter_with_top_master(session, lima_simulator, dummy_acq_device):
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.1)
     chain.add(master, lima_master)
 
-    device = dummy_acq_device.get(None, "device", npoints=1)
+    device = dummy_acq_device.get(None, name="device", npoints=1)
     chain.add(lima_master, device)
 
     scan = Scan(chain, "test")
@@ -95,11 +96,11 @@ def test_add_multiple_top_masters_same_name(
     session, dummy_acq_master, dummy_acq_device
 ):
     chain = AcquisitionChain()
-    master1 = dummy_acq_master.get(None, "master")
-    master2 = dummy_acq_master.get(None, "master")
-    master3 = dummy_acq_master.get(None, "master")
-    master4 = dummy_acq_master.get(None, "master4")
-    dummy_device = dummy_acq_device.get(None, "dummy_device")
+    master1 = dummy_acq_master.get(None, name="master")
+    master2 = dummy_acq_master.get(None, name="master")
+    master3 = dummy_acq_master.get(None, name="master")
+    master4 = dummy_acq_master.get(None, name="master4")
+    dummy_device = dummy_acq_device.get(None, name="dummy_device")
 
     assert chain.add(master1, master3) is None
     with pytest.raises(RuntimeError) as e_info:
@@ -112,12 +113,12 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=0.1)
+    diode_device = SamplingCounterAcquisitionSlave(diode_sim, count_time=0.1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
     lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
     # note: dummy device has 2 channels: pi and nb
-    dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
+    dummy_device = dummy_acq_device.get(None, name="dummy_device", npoints=1)
     chain.add(lima_master, dummy_device)
     chain.add(master2, lima_master)
     chain.add(master1, diode_device)
@@ -153,9 +154,9 @@ def test_multiple_top_master_terminator_exception(session, dummy_acq_device, cap
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
     diode_sim = session.config.get("diode")
-    diode_device = SamplingCounterAcquisitionDevice(diode_sim, count_time=1)
+    diode_device = SamplingCounterAcquisitionSlave(diode_sim, count_time=1)
     master2 = timer.SoftwareTimerMaster(0.1, npoints=10, name="timer2")
-    dummy_device = dummy_acq_device.get(None, "dummy_device", npoints=1)
+    dummy_device = dummy_acq_device.get(None, name="dummy_device", npoints=1)
     chain.add(master2, dummy_device)
     chain.add(master1, diode_device)
 
@@ -167,9 +168,9 @@ def test_multiple_top_master_terminator_exception(session, dummy_acq_device, cap
 
 def test_master_synchro(session, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain(parallel_prepare=True)
-    master = dummy_acq_master.get(None, "master", npoints=1)
-    device1 = dummy_acq_device.get(None, "device1", npoints=1, sleep_time=0.1)
-    device2 = dummy_acq_device.get(None, "device2", npoints=1, sleep_time=0.2)
+    master = dummy_acq_master.get(None, name="master", npoints=1)
+    device1 = dummy_acq_device.get(None, name="device1", npoints=1, sleep_time=0.1)
+    device2 = dummy_acq_device.get(None, name="device2", npoints=1, sleep_time=0.2)
     chain.add(master, device1)
     chain.add(master, device2)
     scan = Scan(chain, "test", save=False)
@@ -183,7 +184,7 @@ def test_lima_reintrant_iterator(session, lima_simulator):
 
     class TriggerMaster(AcquisitionMaster):
         def __init__(self):
-            super().__init__(None, "trigger")
+            super().__init__(None, name="trigger")
             self.iter_val = -1
 
         def __iter__(self):

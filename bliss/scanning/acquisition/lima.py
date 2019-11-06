@@ -6,14 +6,19 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from itertools import count
-from ..chain import AcquisitionMaster, AcquisitionChannel
-from bliss.controllers import lima
-from bliss.common.tango import get_fqn
 import gevent
 from gevent import event
 from gevent import lock
 import numpy
-import os
+
+
+from bliss.scanning.chain import AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.controllers import lima
+from bliss.common.tango import get_fqn
+
+
+from bliss.scanning.chain import ChainNode
 
 LIMA_DTYPE = {
     (0, 2): numpy.uint16,
@@ -40,6 +45,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         prepare_once=False,
         start_once=False,
         wait_frame_id=None,
+        ctrl_params=None,
         **keys,
     ):
         """
@@ -79,11 +85,12 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(
             self,
             device.proxy,
-            device.name,
-            acq_nb_frames,
+            name=device.name,
+            npoints=acq_nb_frames,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
             start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
         self._lima_controller = device
@@ -142,8 +149,13 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.__image_status = (False, -1)
 
     def add_counter(self, counter):
+        # def _do_add_counter(self, counter):
+        if counter in self._counters:
+            return
+
         if counter.name != "image":
             raise ValueError("Lima master only supports the 'image' counter")
+
         self._image_channel = AcquisitionChannel(
             f"{self.name}:{counter.name}",
             counter.dtype,
@@ -152,6 +164,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             data_node_type="lima",
         )
         self.channels.append(self._image_channel)
+        self._counters[counter].append(self.channels[-1])
 
     @property
     def save_flag(self):
@@ -327,4 +340,143 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         scan_meta.instrument.set(
             self,
             {self.name: {"lima_parameters": self.parameters, "NX_class": "NXdetector"}},
+        )
+
+
+class LimaChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Extract information
+        npoints = acq_params.get("acq_nb_frames", scan_params.get("npoints", 1))
+
+        try:
+            acq_expo_time = acq_params["acq_expo_time"]
+        except:
+            acq_expo_time = scan_params["count_time"]
+
+        if "INTERNAL_TRIGGER_MULTI" in self.controller.available_triggers:
+            default_trigger_mode = "INTERNAL_TRIGGER_MULTI"
+        else:
+            default_trigger_mode = "INTERNAL_TRIGGER"
+
+        acq_trigger_mode = acq_params.get("acq_trigger_mode", default_trigger_mode)
+
+        prepare_once = acq_trigger_mode in (
+            "INTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_GATE",
+            "EXTERNAL_TRIGGER_MULTI",
+        )
+        start_once = acq_trigger_mode not in (
+            "INTERNAL_TRIGGER",
+            "INTERNAL_TRIGGER_MULTI",
+        )
+
+        data_synchronisation = scan_params.get("data_synchronisation", False)
+        if data_synchronisation:
+            prepare_once = start_once = False
+
+        acq_nb_frames = npoints if prepare_once else 1
+
+        stat_history = npoints
+
+        # ---Temporary fix should be moved to controller parameters --------
+        saving_format = acq_params.get("saving_format", "EDF")
+        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
+        saving_suffix = acq_params.get("saving_suffix", ".edf")
+
+        # Return required parameters
+        params = {}
+        params["acq_nb_frames"] = acq_nb_frames
+        params["acq_expo_time"] = acq_expo_time
+        params["acq_trigger_mode"] = acq_trigger_mode
+        params["acq_mode"] = acq_params.get("acq_mode", "SINGLE")
+        params["acc_max_expo_time"] = acq_params.get("acc_max_expo_time", 1.)
+        params["save"] = acq_params.get(
+            "save", True
+        )  # => key != AcqObj keyword and location not well defined  !
+        params["wait_frame_id"] = range(acq_nb_frames)
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+        params["stat_history"] = stat_history
+
+        # ---Temporary fix should be moved to controller parameters --------
+        params["saving_format"] = saving_format
+        params["saving_frame_per_file"] = saving_frame_per_file
+        params["saving_suffix"] = saving_suffix
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = [
+            "acq_mode",
+            "acq_nb_frames",
+            "acq_expo_time",
+            "acq_trigger_mode",
+            "acc_max_expo_time",
+            "prepare_once",
+            "start_once",
+            "wait_frame_id",
+            "acc_time_mode",
+            "latency_time",
+            "save",
+            "stat_history",
+            "saving_format",  # ---Temporary fix should be moved to controller parameters
+            "saving_frame_per_file",  # ---Temporary fix should be moved to controller parameters
+            "saving_suffix",  # ---Temporary fix should be moved to controller parameters
+        ]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for LimaAcquisitionMaster({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        acq_mode = acq_params["acq_mode"]
+        acq_nb_frames = acq_params["acq_nb_frames"]
+        acq_expo_time = acq_params["acq_expo_time"]
+        acq_trigger_mode = acq_params["acq_trigger_mode"]
+        prepare_once = acq_params["prepare_once"]
+        start_once = acq_params["start_once"]
+        # wait_frame_id = acq_params["wait_frame_id"]
+
+        if acq_mode == "ACCUMULATION":
+            acc_max_expo_time = acq_params["acc_max_expo_time"]
+        else:
+            # acc_max_expo_time = self.controller.acc_max_expo_time
+            acc_max_expo_time = 1.0
+
+        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
+        stat_history = acq_params.get("stat_history", acq_nb_frames)
+        wait_frame_id = acq_params.get("wait_frame_id", range(acq_nb_frames))
+        acc_time_mode = acq_params.get("acc_time_mode", "LIVE")
+        latency_time = acq_params.get("latency_time", 0)
+        save_flag = acq_params.get(
+            "save", True
+        )  # => key != AcqObj keyword  and location not well defined  !
+
+        # ---Temporary fix should be moved to controller parameters --------
+        saving_format = acq_params.get("saving_format", "EDF")
+        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
+        saving_suffix = acq_params.get("saving_suffix", ".edf")
+
+        return LimaAcquisitionMaster(
+            self.controller,
+            acq_mode=acq_mode,
+            acq_nb_frames=acq_nb_frames,
+            acq_expo_time=acq_expo_time,
+            acq_trigger_mode=acq_trigger_mode,
+            acc_time_mode=acc_time_mode,
+            acc_max_expo_time=acc_max_expo_time,
+            latency_time=latency_time,
+            save_flag=save_flag,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            wait_frame_id=wait_frame_id,
+            saving_statistics_history=stat_history,
+            saving_format=saving_format,  # => temp fix should be moved to controller parameters
+            saving_frame_per_file=saving_frame_per_file,  # => temp fix should be moved to controller parameters
+            saving_suffix=saving_suffix,  # => temp fix should be moved to controller parameters
+            ctrl_params=ctrl_params,
         )

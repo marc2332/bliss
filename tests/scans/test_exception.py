@@ -1,29 +1,30 @@
 import gevent
-from bliss.common import scans
-from bliss.common.measurement import SamplingCounter
-
-
 import pytest
+
+from bliss.common import scans
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 
 
 def test_exception_in_reading(session):
     event = gevent.event.Event()
 
-    class Cnt(SamplingCounter):
-        def __init__(self, npoints):
-            SamplingCounter.__init__(self, "bla", None)
-            self.nbpoints = npoints
-
-        def read(self):
+    class CntController(SamplingCounterController):
+        def read(self, counter):
             try:
-                if self.nbpoints > 5:
+                if counter.nbpoints > 5:
                     return 1.
 
                 event.set()
                 gevent.sleep(10e-3)
                 raise RuntimeError("Bla bla bla")
             finally:
-                self.nbpoints -= 1
+                counter.nbpoints -= 1
+
+    class Cnt(SamplingCounter):
+        def __init__(self, npoints):
+            SamplingCounter.__init__(self, "bla", CntController())
+            self.nbpoints = npoints
 
     c = Cnt(10)
 

@@ -29,7 +29,8 @@ from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from .chain import AcquisitionDevice, AcquisitionMaster, StopChain
+from bliss.common import motor_group
+from .chain import AcquisitionSlave, AcquisitionMaster, AcquisitionChain, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -930,8 +931,11 @@ class Scan:
         counter_name = counter.name if not isinstance(counter, str) else counter
         data = self.get_data()
         x_data = data[axis_name]
-        y_data = data[counter_name]
-
+        try:
+            y_data = data[counter_name]
+        except KeyError:
+            # try with the counter short name
+            y_data = data[counter_name.split(":")[-1]]
         return x_data, y_data, axis_name
 
     def fwhm(self, counter, axis=None):
@@ -1068,7 +1072,7 @@ class Scan:
                 parent_node = self.node
             else:
                 parent_node = self.nodes[dev_node.bpointer]
-            if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
+            if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 data_container_node = _create_node(dev.name, parent=parent_node)
                 self.nodes[dev] = data_container_node
                 self._prepare_channels(dev.channels, data_container_node)
@@ -1080,7 +1084,7 @@ class Scan:
 
     def disconnect_all(self):
         for dev in self._devices:
-            if isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
+            if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 for channel in dev.channels:
                     disconnect(channel, "new_data", self._channel_event)
                 for signal in ("start", "end"):

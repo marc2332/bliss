@@ -17,8 +17,12 @@ from bliss.common.task import task
 from bliss.common.logtools import *
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import with_custom_members
-from bliss.common.measurement import SamplingCounter, counter_namespace
 from bliss import global_map
+from bliss.controllers.counter import counter_namespace
+from bliss.controllers.counter import SamplingCounterController
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.common.counter import SamplingCounter
 
 
 def lazy_init(func):
@@ -30,27 +34,25 @@ def lazy_init(func):
     return func_wrapper
 
 
-class TempControllerCounter(SamplingCounter):
-    """ Implements access to counter object for
-        Input and Output type objects
-    """
+class TemperatureControllerChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["acq_expo_time"]
+        except:
+            count_time = scan_params["count_time"]
 
-    def __init__(self, name, controller):
-        SamplingCounter.__init__(
-            self, name, controller, unit=controller.config.get("unit", None)
+        params = {"count_time": count_time}
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        count_time = acq_params["count_time"]
+        return SamplingCounterAcquisitionSlave(
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
         )
-
-    def read(self):
-        return self.controller.read()
-
-    @property
-    def fullname(self):
-        return self.controller.name
 
 
 @with_custom_members
-class Input:
-    # What about making this class a SamplingCounter ?
+class Input(SamplingCounterController):
     """ Implements the access to temperature sensors
     """
 
@@ -58,10 +60,15 @@ class Input:
         """ Constructor """
         # log.debug("  config type is: %s" % type(config))
         # log.debug("  controller type is: %s" % type(controller))
+        super().__init__(
+            config["name"], chain_node_class=TemperatureControllerChainNode
+        )
         self.__controller = controller
-        self.__name = config["name"]
         self.__config = config
-        self.__counter = TempControllerCounter(self.name, self)
+        self._counters[self.name] = SamplingCounter(
+            self.name, self, unit=self.config.get("unit")
+        )
+
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
         global_map.register(self, parents_list=[controller])
@@ -72,28 +79,12 @@ class Input:
         return self.__controller
 
     @property
-    def name(self):
-        """ returns the sensor name """
-        return self.__name
-
-    @property
     def config(self):
         """ returns the sensor config """
         return self.__config
 
-    @property
     @lazy_init
-    def counter(self):
-        """ returns the counter object """
-        return self.__counter
-
-    @property
-    def counters(self):
-        """Standard counter namespace."""
-        return counter_namespace([self.counter])
-
-    @lazy_init
-    def read(self):
+    def read(self, counter=None):
         """ returns the sensor value """
         log_debug(self, "On Input:read")
         return self.controller.read_input(self)
@@ -106,13 +97,17 @@ class Input:
 
 
 @with_custom_members
-class Output:
+class Output(SamplingCounterController):
     """ Implements the access to temperature heaters """
 
     def __init__(self, controller, config):
         """ Constructor """
+        super().__init__(
+            config["name"], chain_node_class=TemperatureControllerChainNode
+        )
         self.__controller = controller
-        self.__name = config["name"]
+        global_map.register(self, parents_list=[controller])
+
         try:
             self.__limits = (config.get("low_limit"), config.get("high_limit"))
         except:
@@ -126,7 +121,9 @@ class Output:
         self.__config = config
         self.__ramping = 0
         self.__mode = 0
-        self.__counter = TempControllerCounter(self.name, self)
+        self._counters[self.name] = SamplingCounter(
+            self.name, self, unit=config.get("unit")
+        )
 
         # if defined as  self.deadband, attribute available from the instance
         # if defined as  self.__deadband, not available.
@@ -134,17 +131,14 @@ class Output:
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
-        global_map.register(self, parents_list=[controller])
+        self._counters[self.name] = SamplingCounter(
+            self.name, self, unit=self.config.get("unit")
+        )
 
     @property
     def controller(self):
         """ returns the temperature controller """
         return self.__controller
-
-    @property
-    def name(self):
-        """ returns the heater name """
-        return self.__name
 
     @property
     def config(self):
@@ -164,19 +158,8 @@ class Output:
             While the setpoint is not reached, a wait will block on it."""
         return self.__deadband
 
-    @property
     @lazy_init
-    def counter(self):
-        """ returns the counter object """
-        return self.__counter
-
-    @property
-    def counters(self):
-        """Standard counter namespace."""
-        return counter_namespace([self.counter])
-
-    @lazy_init
-    def read(self):
+    def read(self, counter=None):
         """ returns the heater value """
         log_debug(self, "On Output:read")
         return self.controller.read_output(self)

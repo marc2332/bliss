@@ -8,7 +8,7 @@
 
 from bliss.common import scans
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.scan import Scan, ScanSaving
 from bliss.scanning.chain import AcquisitionChain
 from bliss import global_map
@@ -96,7 +96,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
     counter = env_dict["myDiode"]
     master = SoftwarePositionTriggerMaster(robyy, 0, 1, 10, time=1)
     end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, count_time=0.01, npoints=10)
+    acq_dev = SamplingCounterAcquisitionSlave(counter, count_time=0.01, npoints=10)
     chain = AcquisitionChain()
     chain.add(master, acq_dev)
 
@@ -116,7 +116,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
         f"{scan_name}/instrument/positioners_dial/robzz": {},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/myDiode": {
-            "fullname": "simulation_diode_controller:diode"
+            "fullname": "simulation_diode_sampling_controller:diode"
         },
         f"{scan_name}/measurement/axis:robyy": {"fullname": "axis:roby"},
     }

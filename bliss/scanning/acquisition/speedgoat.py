@@ -5,19 +5,12 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from ..chain import AcquisitionMaster, AcquisitionDevice, AcquisitionChannel
-from bliss.common.event import dispatcher
 import gevent
-from gevent import event
-import numpy
 
 from bliss import setup_globals
 
-from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionChannel
-from bliss.scanning.acquisition.motor import MotorMaster
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.musst import MusstAcquisitionMaster
-from bliss.scanning.acquisition.musst import MusstAcquisitionDevice
 
 
 def sg_test_musst_start(point_nb, point_time):
@@ -68,7 +61,7 @@ def sg_test_musst_start(point_nb, point_time):
     musstdcm.set_histogram_buffer_size(2048, 1)  # Histogram (MCA)
     musstdcm.set_event_buffer_size(int(524288 / 16), 1)  # Buffers
 
-    # musst_acq = MusstAcquisitionDevice(musstdcm, store_list=["time", "trajmot"])
+    # musst_acq = MusstAcquisitionSlave(musstdcm, store_list=["time", "trajmot"])
     # MUSST: add musst in the acquisition chain
     # chain.add(musst_master, musst_acq)
     # musst_master.add_external_channel(musst_acq, 'time', 'mussttime')
@@ -141,34 +134,35 @@ def sg_test_speedgoat(point_nb, point_time, mg):
             print("Done")
 
 
-class SpeedgoatAcquisitionDevice(AcquisitionDevice):
+class SpeedgoatAcquisitionSlave(AcquisitionSlave):
     # option de trigger: trigger_type=AcquisitionMaster.HARDWARE | AcquisitionMaster.SOFTWARE
-    def __init__(self, speedgoat, npoints, counter_list):
+    def __init__(self, acq_controller, npoints, ctrl_params=None):
         """
         Acquisition device for the speedgoat counters.
         """
-        AcquisitionDevice.__init__(
-            self, speedgoat, npoints=npoints, trigger_type=AcquisitionMaster.HARDWARE
-        )
 
-        self.channels.extend(
-            (AcquisitionChannel(name, numpy.float, ()) for name in counter_list)
+        AcquisitionSlave.__init__(
+            self,
+            acq_controller,
+            npoints=npoints,
+            trigger_type=AcquisitionMaster.HARDWARE,
+            ctrl_params=ctrl_params,
         )
 
         self.__stop_flag = False
-        self.speedgoat = speedgoat
+        self.speedgoat = acq_controller.speedgoat
         self.daq = self.speedgoat.get_daq()
         self.nb_points = npoints
-        self.counters = []
-        for name in counter_list:
-            self.counters.append(self.speedgoat.counters[name])
+
+    def add_counter(self, counter):
+        super().add_counter(self.speedgoat.counters[counter.name])
 
     def wait_ready(self):
         # return only when ready
         return True
 
     def prepare(self):
-        self.daq.daq_prepare(self.counters, self.nb_points)
+        self.daq.daq_prepare(list(self._counters.keys()), self.nb_points)
         self.__stop_flag = False
         self.read_points = 0
 
@@ -183,18 +177,6 @@ class SpeedgoatAcquisitionDevice(AcquisitionDevice):
         self.__stop_flag = True
 
     def reading(self):
-        try:
-            self._reading()
-        except:
-            import traceback
-
-            traceback.print_exc()
-            import pdb
-
-            pdb.set_trace()
-            raise
-
-    def _reading(self):
 
         # while not self.__stop_flag and self.speedgoat.DAQ.is_running():
         #    new_read_event = self

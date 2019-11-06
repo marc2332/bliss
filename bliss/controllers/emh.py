@@ -37,10 +37,13 @@ import time
 import numpy as np
 
 from bliss.comm.util import get_comm, TCP
-from bliss.common import session
+
+from bliss import global_map
 from bliss.common.logtools import *
-from bliss.common.measurement import counter_namespace
-from bliss.common.measurement import SamplingCounter
+
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import CounterController
+from bliss.scanning.acquisition.counter import SamplingChainNode
 
 TRIGGER_INPUTS = {"DIO_1", "DIO_2", "DIO_3", "DIO_4"}
 TRIGGER_MODES = ("SOFTWARE", "HARDWARE", "AUTOTRIGGER")
@@ -76,36 +79,78 @@ class EmhCounter(SamplingCounter):
         return info_string
 
 
-class EMH:
+class EmhChainNode(SamplingChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        trigger_type = acq_params.get("trigger_type", "AUTOTRIGGER")
+
+        params = {
+            "count_time": count_time,
+            "npoints": npoints,
+            "trigger_type": trigger_type,
+        }
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        trigger_type = acq_params["trigger_type"]
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
+        if trigger_type == "HARDWARE":
+            from bliss.scanning.acquisition.emh import EmhAcquisitionSlave
+
+            trigger = acq_params["trigger"]
+
+            return EmhAcquisitionSlave(
+                self.controller,
+                trigger,
+                count_time,
+                npoints,
+                self.counters,
+                ctrl_params=ctrl_params,
+            )
+        else:
+            acq_params.pop("trigger_type")
+            return SamplingChainNode.get_acquisition_object(
+                self, acq_params, ctrl_params=ctrl_params
+            )
+
+
+class EMH(CounterController):
     """ EMH controller
     """
 
     def __init__(self, name, config):
+        super().__init__(name, chain_node_class=EmhChainNode)
 
-        self.name = name
+        # self.name = name
         self.bliss_config = config
 
         self.comm = get_comm(config, TCP, eol="\r\n", port=5025)
 
         # Logging and debug
-        session.get_current().map.register(
-            self, children_list=[self.comm], tag=self.name
-        )
+        global_map.register(self, children_list=[self.comm], tag=self.name)
 
         # BPM COUNTERS
-        self.counters_list = list()
         for counter_conf in config.get("counters", list()):
             unit = counter_conf.get_inherited("unit")
             counter = EmhCounter(
                 counter_conf["counter_name"], self, counter_conf["channel"], unit
             )
-            self.counters_list.append(counter)
+            self._counters[counter.name] = counter
 
         self.bpm_values = {"bpmx": -1, "bpmy": -1, "bpmi": -1}
-
-    @property
-    def counters(self):
-        return counter_namespace(self.counters_list)
 
     def read_all(self, *counters):
         """Read all channel of the EMH controller and perform BPM calculations.

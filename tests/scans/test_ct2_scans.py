@@ -1,10 +1,11 @@
-import numpy
+
 import pytest
+import numpy
 
 from bliss.common import scans
-from bliss.common.event import dispatcher
+from bliss.common import event
 from bliss.controllers.ct2.client import create_and_configure_device
-from bliss.controllers.ct2.device import AcqStatus, StatusSignal, PointNbSignal
+from bliss.controllers.ct2.device import AcqStatus, StatusSignal
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def ct2(mocker):
     )
 
     def start_acq():
-        dispatcher.send(StatusSignal, ct2, AcqStatus.Ready)
+        event.send(ct2, StatusSignal, AcqStatus.Ready)
 
     # Patch ct2
     del ct2.counter_groups

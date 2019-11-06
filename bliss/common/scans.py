@@ -55,13 +55,10 @@ from bliss.common.axis import estimate_duration, Axis
 from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
-from bliss.scanning.default import DefaultAcquisitionChain
+from bliss.scanning.toolbox import DefaultAcquisitionChain
 from bliss.scanning.scan import Scan, StepScanDataWatch, SCANS
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
-from bliss.scanning.acquisition.motor import (
-    LinearStepTriggerMaster,
-    MeshStepTriggerMaster,
-)
+from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
 
 _log = logging.getLogger("bliss.scans")

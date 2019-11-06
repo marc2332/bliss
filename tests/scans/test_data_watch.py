@@ -14,7 +14,7 @@ from bliss import setup_globals
 from bliss.common import event
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.scan import Scan, ScanSaving, ScanState
 from bliss.data.scan import watch_session_scans, get_data
 from bliss.scanning.chain import AcquisitionChain
@@ -96,7 +96,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     scan_saving.template = "toto"
     master = SoftwarePositionTriggerMaster(m1, 0, 1, 10, time=1)
     end_pos = master._calculate_undershoot(1, end=True)
-    acq_dev = SamplingCounterAcquisitionDevice(counter, count_time=0.01, npoints=10)
+    acq_dev = SamplingCounterAcquisitionSlave(counter, count_time=0.01, npoints=10)
     chain = AcquisitionChain()
     chain.add(master, acq_dev)
 
@@ -146,14 +146,16 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
         assert dtype == "0d"
         assert master_name == master.name
         vars["scan_data_m1"] = data["data"]["axis:m1"]
-        vars["scan_data_diode"] = data["data"]["simulation_diode_controller:diode"]
+        vars["scan_data_diode"] = data["data"][
+            "simulation_diode_sampling_controller:diode"
+        ]
 
     assert vars["new_scan_cb_called"]
     assert vars["scan_acq_chain"] == {
         master.name: {
-            "display_names": {"simulation_diode_controller:diode": "diode"},
-            "scalars_units": {"simulation_diode_controller:diode": None},
-            "scalars": ["simulation_diode_controller:diode"],
+            "display_names": {"simulation_diode_sampling_controller:diode": "diode"},
+            "scalars_units": {"simulation_diode_sampling_controller:diode": None},
+            "scalars": ["simulation_diode_sampling_controller:diode"],
             "images": [],
             "spectra": [],
             "master": {
@@ -172,7 +174,7 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
 
 def test_data_watch_callback(session, diode_acq_device_factory):
     chain = AcquisitionChain()
-    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=1)
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=1)
     master = SoftwareTimerMaster(0.1, npoints=1)
     chain.add(master, acquisition_device_1)
 

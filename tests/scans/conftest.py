@@ -5,17 +5,18 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-import itertools
-import gevent
 import time
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionDevice
+import random
+import itertools
+import pytest
+import gevent
+
+
+from bliss.controllers.counter import SamplingCounterController
 from bliss.controllers.simulation_diode import SimulationDiodeSamplingCounter
-from bliss.scanning.chain import (
-    AcquisitionMaster,
-    AcquisitionDevice,
-    AcquisitionChannel,
-)
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning import scan_meta as scan_meta_module
 
 
@@ -42,10 +43,10 @@ class DummyMaster(AcquisitionMaster):
         pass
 
 
-class DummyDevice(AcquisitionDevice):
+class DummyDevice(AcquisitionSlave):
     def __init__(self, *args, **kwargs):
         self.sleep_time = kwargs.pop("sleep_time", 0)
-        AcquisitionDevice.__init__(self, *args, **kwargs)
+        AcquisitionSlave.__init__(self, *args, **kwargs)
         self.channels.append(AcquisitionChannel(f"{self.name}:pi", float, ()))
         self.channels.append(AcquisitionChannel(f"{self.name}:nb", float, ()))
         self.nb_trigger = 0
@@ -68,24 +69,30 @@ class DummyDevice(AcquisitionDevice):
         pass
 
 
+class CustomSimulationDiodeController(SamplingCounterController):
+    def read(self, counter):
+        if counter.read_exception:
+            raise RuntimeError("Diode reading exception")
+        counter.store_time.append(time.time())
+
+        gevent.sleep(0.01)
+        value = random.randint(-100, 100)
+        counter.store_values.append(value)
+        return value
+
+
 class CustomSimulationDiode(SimulationDiodeSamplingCounter):
     diode_nb = itertools.count()
 
     def __init__(self):
         SimulationDiodeSamplingCounter.__init__(
-            self, "diode%d" % next(CustomSimulationDiode.diode_nb), None
+            self,
+            "diode%d" % next(CustomSimulationDiode.diode_nb),
+            CustomSimulationDiodeController(),
         )
         self.store_time = list()
         self.store_values = list()
         self.read_exception = False
-
-    def read(self, *args, **kwargs):
-        if self.read_exception:
-            raise RuntimeError("Diode reading exception")
-        self.store_time.append(time.time())
-        value = SimulationDiodeSamplingCounter.read(self, *args, **kwargs)
-        self.store_values.append(value)
-        return value
 
 
 @pytest.fixture
@@ -100,9 +107,9 @@ def bad_diode():
     return diode
 
 
-class CustomSamplingCounterAcquisitionDevice(SamplingCounterAcquisitionDevice):
+class CustomSamplingCounterAcquisitionSlave(SamplingCounterAcquisitionSlave):
     def __init__(self, *args, **kwargs):
-        SamplingCounterAcquisitionDevice.__init__(self, *args, **kwargs)
+        SamplingCounterAcquisitionSlave.__init__(self, *args, **kwargs)
 
         self.trigger_fail = False
         self.trigger_delay = 0
@@ -112,12 +119,12 @@ class CustomSamplingCounterAcquisitionDevice(SamplingCounterAcquisitionDevice):
 
     def start(self, *args, **kwargs):
         self.start_time = time.time()
-        return SamplingCounterAcquisitionDevice.start(self, *args, **kwargs)
+        return SamplingCounterAcquisitionSlave.start(self, *args, **kwargs)
 
     def stop(self, *args, **kwargs):
         self.stop_time = time.time()
         self.stop_flag = True
-        return SamplingCounterAcquisitionDevice.stop(self, *args, **kwargs)
+        return SamplingCounterAcquisitionSlave.stop(self, *args, **kwargs)
 
     def trigger(self):
         if self.trigger_fail:
@@ -125,7 +132,7 @@ class CustomSamplingCounterAcquisitionDevice(SamplingCounterAcquisitionDevice):
         else:
             if self.trigger_delay:
                 gevent.sleep(self.trigger_delay)
-            return SamplingCounterAcquisitionDevice.trigger(self)
+            return SamplingCounterAcquisitionSlave.trigger(self)
 
 
 @pytest.fixture
@@ -135,10 +142,10 @@ def diode_acq_device_factory():
             trigger_fail = kwargs.pop("trigger_fail", False)
             trigger_delay = kwargs.pop("trigger_delay", 0)
             diode = CustomSimulationDiode()
-            acq_device = CustomSamplingCounterAcquisitionDevice(diode, *args, **kwargs)
+            acq_device = CustomSamplingCounterAcquisitionSlave(diode, *args, **kwargs)
             acq_device.trigger_fail = trigger_fail
             acq_device.trigger_delay = trigger_delay
-            return acq_device
+            return acq_device, diode
 
     return SamplingCounterAcqDeviceFactory()
 

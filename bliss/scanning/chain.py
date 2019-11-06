@@ -9,19 +9,24 @@ import time
 import sys
 import logging
 import weakref
-import collections.abc
+import enum
+import collections
 from contextlib import contextmanager
 
 import gevent
 from treelib import Tree
 
 from bliss.common.event import dispatcher
+from bliss.common.alias import CounterAlias
 from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from .channel import AcquisitionChannelList, AcquisitionChannel
-from .channel import duplicate_channel, attach_channels
-from bliss.common.motor_group import is_motor_group
+from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
+from bliss.scanning.channel import duplicate_channel, attach_channels
+from bliss.common.motor_group import Group, is_motor_group
 from bliss.common.axis import Axis
+
+TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
+
 
 # Running task for a specific device
 #
@@ -53,7 +58,7 @@ def profile(stats_dict, device_name, func_name):
         _debug("End %s.%s Took %fs" % (device_name, func_name, call_end - call_start))
 
 
-class DeviceIterator(object):
+class DeviceIterator:
     def __init__(self, device):
         self.__device_ref = weakref.ref(device)
         self.__sequence_index = 0
@@ -108,7 +113,7 @@ class DeviceIterator(object):
         self.device._start(stats_dict)
 
 
-class DeviceIteratorWrapper(object):
+class DeviceIteratorWrapper:
     def __init__(self, device):
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
@@ -156,7 +161,7 @@ class DeviceIteratorWrapper(object):
         return self.__current
 
 
-class ChainPreset(object):
+class ChainPreset:
     """
     This class interface will be called by the chain object
     at the beginning and at the end of a chain iteration.
@@ -188,7 +193,7 @@ class ChainPreset(object):
         pass
 
 
-class ChainIterationPreset(object):
+class ChainIterationPreset:
     """
     Same usage of the Preset object except that it will be called
     before and at the end of each iteration of the scan.
@@ -213,32 +218,61 @@ class ChainIterationPreset(object):
         pass
 
 
-class AcquisitionMaster(object):
-    HARDWARE, SOFTWARE = list(range(2))
-
+class AcquisitionObject:
     def __init__(
         self,
-        device,
+        *devices,
         name=None,
-        npoints=None,
-        trigger_type=SOFTWARE,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
         prepare_once=False,
         start_once=False,
+        ctrl_params=None,
     ):
-        self.__device = device
+
         self.__name = name
         self.__parent = None
-        self.__slaves = list()
-        self.__triggers = list()
         self.__channels = AcquisitionChannelList()
         self.__npoints = npoints
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        self.__duplicated_channels = {}
-        self.__prepared = False
-        self.__stats_dict = {}
-        self.__terminator = True
+
+        self._counters = collections.defaultdict(list)
+        self._init(devices)
+
+    def _init(self, devices):
+        self._device, counters = self.init(devices)
+
+        for cnt in counters:
+            self.add_counter(cnt)
+
+    def init(self, devices):
+        """Return the device and counters list"""
+        if devices:
+            from bliss.common.counter import Counter  # beware of circular import
+
+            if all(isinstance(dev, Counter) for dev in devices):
+                return devices[0].controller, devices
+            elif all(isinstance(dev, Axis) for dev in devices):
+                return Group(*devices), []
+            else:
+                if len(devices) == 1:
+                    return devices[0], []
+        else:
+            return None, []
+        raise TypeError(
+            "Cannot handle devices which are not all Counter or Axis objects, or a single object",
+            devices,
+        )
+
+    @property
+    def parent(self):
+        return self.__parent
+
+    @parent.setter
+    def parent(self, p):
+        self.__parent = p
 
     @property
     def trigger_type(self):
@@ -254,7 +288,7 @@ class AcquisitionMaster(object):
 
     @property
     def device(self):
-        return self.__device
+        return self._device
 
     @property
     def _device_name(self):
@@ -267,24 +301,88 @@ class AcquisitionMaster(object):
         return self.__name if self.__name is not None else self._device_name
 
     @property
-    def slaves(self):
-        return self.__slaves
-
-    @property
-    def parent(self):
-        return self.__parent
-
-    @parent.setter
-    def parent(self, p):
-        self.__parent = p
-
-    @property
     def channels(self):
         return self.__channels
 
     @property
     def npoints(self):
         return self.__npoints
+
+    def _do_add_counter(self, counter):
+        if isinstance(counter, CounterAlias):
+            controller_fullname, _, _ = counter.fullname.rpartition(":")
+            chan_name = f"{controller_fullname}:{counter.name}"
+        else:
+            chan_name = counter.fullname
+
+        try:
+            unit = counter.unit
+        except AttributeError:
+            unit = None
+
+        self.channels.append(
+            AcquisitionChannel(chan_name, counter.dtype, counter.shape, unit=unit)
+        )
+        self._counters[counter].append(self.channels[-1])
+
+    def add_counter(self, counter):
+        if counter in self._counters:
+            return
+
+        if counter.controller == self.device:
+            self._do_add_counter(counter)
+        else:
+            raise RuntimeError(
+                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter.controller} != {self.device}"
+            )
+
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
+    def prepare(self):
+        raise NotImplementedError
+
+    def start(self):
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
+
+
+class AcquisitionMaster(AcquisitionObject):
+
+    HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
+
+    def __init__(
+        self,
+        *devices,
+        name=None,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
+    ):
+
+        super().__init__(
+            *devices,
+            name=name,
+            npoints=npoints,
+            trigger_type=trigger_type,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
+        )
+
+        self.__slaves = list()
+        self.__triggers = list()
+        self.__duplicated_channels = {}
+        self.__prepared = False
+        self.__stats_dict = {}
+        self.__terminator = True
+
+    @property
+    def slaves(self):
+        return self.__slaves
 
     @property
     def terminator(self):
@@ -310,34 +408,6 @@ class AcquisitionMaster(object):
 
             return self.prepare()
 
-    def fill_meta_at_scan_init(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called during the scan initialization
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def fill_meta_at_scan_end(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called at the scan end
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def prepare(self):
-        raise NotImplementedError
-
-    def set_image_saving(self, directory, prefix, force_no_saving=False):
-        pass
-
-    def start(self):
-        raise NotImplementedError
-
-    def stop(self):
-        raise NotImplementedError
-
     def _start(self, stats_dict):
         with profile(stats_dict, self.name, "start"):
             dispatcher.send("start", self)
@@ -352,15 +422,9 @@ class AcquisitionMaster(object):
                 self.__prepared = False
             return self.stop()
 
-    def trigger_ready(self):
-        return True
-
     def _trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
             return self.trigger()
-
-    def trigger(self):
-        raise NotImplementedError
 
     def trigger_slaves(self):
         stats_dict = self.__stats_dict
@@ -387,7 +451,7 @@ class AcquisitionMaster(object):
                 )
             else:
                 for slave in self.slaves:
-                    if slave.trigger_type == AcquisitionMaster.SOFTWARE:
+                    if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
                         self.__triggers.append(
                             (slave, gevent.spawn(slave._trigger, stats_dict))
                         )
@@ -400,11 +464,6 @@ class AcquisitionMaster(object):
                 gevent.joinall(slave_tasks, raise_error=True)
             finally:
                 gevent.killall(slave_tasks)
-
-    def wait_ready(self):
-        # wait until ready for next acquisition
-        # (not considering slave devices)
-        return True
 
     def add_external_channel(
         self, device, name, rename=None, conversion=None, dtype=None
@@ -485,77 +544,30 @@ class AcquisitionMaster(object):
         finally:
             gevent.killall(tasks)
 
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
-class AcquisitionDevice:
-    HARDWARE, SOFTWARE = list(range(2))
+    def prepare(self):
+        raise NotImplementedError
 
-    def __init__(
-        self,
-        device,
-        name=None,
-        npoints=0,
-        trigger_type=SOFTWARE,
-        prepare_once=False,
-        start_once=False,
-    ):
-        self.__device = device
-        self.__parent = None
-        self.__name = name
-        self.__trigger_type = trigger_type
-        self.__channels = AcquisitionChannelList()
-        self.__npoints = npoints
-        self.__prepare_once = prepare_once
-        self.__start_once = start_once
-        self._reading_task = None
+    def start(self):
+        raise NotImplementedError
 
-    @property
-    def parent(self):
-        return self.__parent
+    def stop(self):
+        raise NotImplementedError
 
-    @parent.setter
-    def parent(self, p):
-        self.__parent = p
+    def trigger(self):
+        raise NotImplementedError
 
-    @property
-    def trigger_type(self):
-        return self.__trigger_type
+    def trigger_ready(self):
+        return True
 
-    @property
-    def prepare_once(self):
-        return self.__prepare_once
+    def wait_ready(self):
+        # wait until ready for next acquisition
+        # (not considering slave devices)
+        return True
 
-    @property
-    def start_once(self):
-        return self.__start_once
-
-    @property
-    def device(self):
-        return self.__device
-
-    @property
-    def _device_name(self):
-        if is_motor_group(self.device) or isinstance(self.device, Axis):
-            return "axis"
-        return self.device.name
-
-    @property
-    def name(self):
-        return self.__name if self.__name is not None else self._device_name
-
-    @property
-    def channels(self):
-        return self.__channels
-
-    @property
-    def npoints(self):
-        return self.__npoints
-
-    def _prepare(self, stats_dict):
-        with profile(stats_dict, self.name, "prepare"):
-
-            if not self._check_reading_task():
-                raise RuntimeError("%s: Last reading task is not finished." % self.name)
-            return self.prepare()
+    def set_image_saving(self, directory, prefix, force_no_saving=False):
+        pass
 
     def fill_meta_at_scan_init(self, scan_meta):
         """
@@ -573,11 +585,39 @@ class AcquisitionDevice:
         """
         pass
 
-    def prepare(self):
-        raise NotImplementedError
 
-    def start(self):
-        raise NotImplementedError
+class AcquisitionSlave(AcquisitionObject):
+    HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
+
+    def __init__(
+        self,
+        *devices,
+        name=None,
+        npoints=1,
+        trigger_type=TRIGGER_MODE_ENUM.SOFTWARE,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
+    ):
+
+        super().__init__(
+            *devices,
+            name=name,
+            npoints=npoints,
+            trigger_type=trigger_type,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
+        )
+
+        self._reading_task = None
+
+    def _prepare(self, stats_dict):
+        with profile(stats_dict, self.name, "prepare"):
+
+            if not self._check_reading_task():
+                raise RuntimeError("%s: Last reading task is not finished." % self.name)
+            return self.prepare()
 
     def _start(self, stats_dict):
         with profile(stats_dict, self.name, "start"):
@@ -586,15 +626,9 @@ class AcquisitionDevice:
             if self._check_reading_task():
                 self._reading_task = gevent.spawn(self.reading)
 
-    def stop(self):
-        raise NotImplementedError
-
     def _stop(self, stats_dict):
         with profile(stats_dict, self.name, "stop"):
             self.stop()
-
-    def trigger_ready(self):
-        return True
 
     def _check_reading_task(self):
         if self._reading_task:
@@ -608,23 +642,53 @@ class AcquisitionDevice:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
 
+    def wait_reading(self):
+        if self._reading_task is not None:
+            return self._reading_task.get()
+        return True
+
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
+    def prepare(self):
+        raise NotImplementedError
+
+    def start(self):
+        raise NotImplementedError
+
+    def stop(self):
+        raise NotImplementedError
+
     def trigger(self):
         raise NotImplementedError
 
     def reading(self):
         pass
 
-    def wait_reading(self):
-        if self._reading_task is not None:
-            return self._reading_task.get()
+    def trigger_ready(self):
         return True
 
     def wait_ready(self):
         # wait until ready for next acquisition
         return True
 
+    def fill_meta_at_scan_init(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called during the scan initialization
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
 
-class AcquisitionChainIter(object):
+    def fill_meta_at_scan_end(self, scan_meta):
+        """
+        In this method, acquisition device should fill the information relative to his device in
+        the scan_meta object. It is called at the scan end
+        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        """
+        pass
+
+
+class AcquisitionChainIter:
     def __init__(
         self, acquisition_chain, sub_tree, presets_list, parallel_prepare=True
     ):
@@ -641,7 +705,7 @@ class AcquisitionChainIter(object):
         self._root_node = self._tree.create_node("acquisition chain", "root")
         device2iter = dict()
         for dev in sub_tree.expand_tree():
-            if not isinstance(dev, (AcquisitionDevice, AcquisitionMaster)):
+            if not isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
                 continue
             dev_node = acquisition_chain._tree.get_node(dev)
             parent = device2iter.get(dev_node.bpointer, "root")
@@ -745,7 +809,7 @@ class AcquisitionChainIter(object):
             x
             for x in self._tree.expand_tree()
             if x is not "root"
-            and isinstance(x.device, (AcquisitionDevice, AcquisitionMaster))
+            and isinstance(x.device, (AcquisitionSlave, AcquisitionMaster))
         ):
             if hasattr(acq_dev_iter, "wait_reading"):
                 acq_dev_iter.wait_reading()
@@ -848,11 +912,10 @@ class AcquisitionChainIter(object):
         return self
 
 
-class AcquisitionChain(object):
+class AcquisitionChain:
     def __init__(self, parallel_prepare=False):
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
-        self._device_to_node = dict()
         self._presets_master_list = weakref.WeakKeyDictionary()
         self._parallel_prepare = parallel_prepare
         self._stats_dict = dict()
@@ -867,37 +930,73 @@ class AcquisitionChain(object):
         return list(nodes_gen)
 
     def add(self, master, slave=None):
+
+        # --- handle ChainNodes --------------------------------------
+        if isinstance(master, ChainNode):
+            master.create_acquisition_object(force=False)
+            master = master.acquisition_obj
+
+        if isinstance(slave, ChainNode):
+            slave.create_acquisition_object(force=False)
+            self.add(master, slave.acquisition_obj)
+
+            for node in slave.children:
+                node.create_acquisition_object(force=False)
+                self.add(slave.acquisition_obj, node.acquisition_obj)
+
+            return
+
+        # print(f"===== ADD SLAVE {slave}({slave.name}) in MASTER {master} ({master.name})")
+
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)
-        if slave_node is not None and isinstance(slave, AcquisitionDevice):
+
+        # --- if slave already exist in chain and new slave is an AcquisitionSlave
+        if slave_node is not None and isinstance(slave, AcquisitionSlave):
+
+            # --- if {new master is not the master of the current_slave} and {current_master of current_slave is not root}
+            # --- => try to put the same slave under a different master => raise error !
             if (
-                slave_node.bpointer is not self._root_node
-                and master_node is not slave_node.bpointer
+                self._tree.get_node(slave_node.bpointer) is not self._root_node
+                and master is not slave_node.bpointer
             ):
                 raise RuntimeError(
                     "Cannot add acquisition device %s to multiple masters, current master is %s"
                     % (slave, slave_node._bpointer)
                 )
-            else:  # user error, multiple add, ignore for now
+            else:  # --- if {new master is the master of the current_slave} => same allocation => ignore ok
+                # --- if {new master is not the master of the current_slave}
+                # ---   and {current_master of current_slave is root} => try to re-allocate a top-level AcqDevice under a new master
+                # ---     => it should never append because an AcqDev is never given as a master.
+
+                # user error, multiple add, ignore for now
                 return
 
-        if master_node is None:
+        # --- if slave already exist in chain and new slave is not an AcquisitionSlave => existing AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is not an AcquisitionSlave => new      AcqMaster slave under new or existing master
+        # --- if slave not already in chain   and new slave is     an AcquisitionSlave => new      AcqDevice slave under new or existing master
+
+        if master_node is None:  # --- if new master not in chain
             for node in self.nodes_list:
-                if node.name == master.name:
+                if (
+                    node.name == master.name
+                ):  # --- forribde new master with a name already in use
                     raise RuntimeError(
                         f"Cannot add acquisition master with name '{node.name}`: duplicated name"
                     )
 
+            # --- create a new master node
             master_node = self._tree.create_node(
                 tag=master.name, identifier=master, parent="root"
             )
         if slave is not None:
-            if slave_node is None:
+            if slave_node is None:  # --- create a new slave node
                 slave_node = self._tree.create_node(
                     tag=slave.name, identifier=slave, parent=master
                 )
-            else:
+            else:  # --- move an existing AcqMaster under a different master
                 self._tree.move_node(slave, master)
+
             slave.parent = master
 
     def add_preset(self, preset, master=None):
@@ -971,3 +1070,210 @@ class AcquisitionChain(object):
         if add_presets:
             for preset in chain._presets_list:
                 self.add_preset(preset)
+
+
+class ChainNode:
+    def __init__(self, controller):
+        self._controller = controller
+
+        self._counters = []
+        self._child_nodes = []
+
+        self._is_master = False
+        self._is_top_level = True
+        self._acquisition_obj = None
+
+        self._scan_params = None
+        self._acq_obj_params = None
+        self._ctrl_params = None
+
+        self._default_chain_mode = False
+
+        self._calc_dep_nodes = {}  # to store CalcCounter dependent nodes
+
+    @property
+    def controller(self):
+        return self._controller
+
+    @property
+    def is_master(self):
+        return self._is_master
+
+    @property
+    def is_top_level(self):
+        return self._is_top_level
+
+    @property
+    def children(self):
+        return self._child_nodes
+
+    @property
+    def counters(self):
+        return self._counters
+
+    @property
+    def acquisition_obj(self):
+        return self._acquisition_obj
+
+    @property
+    def acquisition_parameters(self):
+        return self._acq_obj_params
+
+    @property
+    def scan_parameters(self):
+        return self._scan_params
+
+    @property
+    def controller_parameters(self):
+        return self._ctrl_params
+
+    def set_parameters(
+        self, scan_params=None, acq_params=None, ctrl_params=None, force=False
+    ):
+        """ Store the scan and/or acquisition parameters into the node. 
+            These parameters will be used when the acquisition object is instanciated (see self.create_acquisition_object )
+            If the parameters have been set already, new parameters will be ignored (except if Force==True).
+        """
+
+        if scan_params is not None:
+            if self._scan_params is not None and self._scan_params != scan_params:
+                print(
+                    f"=== ChainNode WARNING: try to set SCAN_PARAMS again: \n Current {self._scan_params} \n New     {scan_params} "
+                )
+
+            if force or self._scan_params is None:
+                self._scan_params = scan_params
+
+        if acq_params is not None:
+            if self._acq_obj_params is not None and self._acq_obj_params != acq_params:
+                print(
+                    f"=== ChainNode WARNING: try to set ACQ_PARAMS again: \n Current {self._acq_obj_params} \n New     {acq_params} "
+                )
+
+            if force or self._acq_obj_params is None:
+                self._acq_obj_params = acq_params
+
+        if ctrl_params is not None:
+            if self._ctrl_params is not None and self._ctrl_params != ctrl_params:
+                print(
+                    f"=== ChainNode WARNING: try to set CTRL_PARAMS again: \n Current {self._ctrl_params} \n New     {ctrl_params} "
+                )
+
+            if force or self._ctrl_params is None:
+                self._ctrl_params = ctrl_params
+
+    def add_child(self, chain_node):
+        if chain_node not in self._child_nodes:
+            self._child_nodes.append(chain_node)
+            self._is_master = True
+            chain_node._is_top_level = False
+
+    def add_counter(self, counter):
+        self._counters.append(counter)
+
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+        """ Modify or update the scan and acquisition object parameters in the context of the default chain """
+
+        # ---- Should be implemented in the controller module ----------------------------------------
+        #
+        # -------------------------------------------------------------------------------------------
+        # acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
+        # return acq_params                       <== return the modified acquisition object parameters
+        # -------------------------------------------------------------------------------------------
+
+        return acq_params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        """ return the acquisition object associated to this node """
+
+        # ---- Must be implemented in the controller module ----------------------------------------
+        #
+        # -------------------------------------------------------------------------------------------
+        # obj_args = acq_params["arg_name"]             <== obtain args required for the acq obj init (or raise error)
+        # acq_obj = xxxAcqusiitionDevice( *obj_args )   <== instanciate the acquisition object
+        # return acq_obj                                <== return the acquisition object
+        # -------------------------------------------------------------------------------------------
+
+        raise NotImplementedError
+
+    def create_acquisition_object(self, force=False):
+        """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
+            Create the children acquisition objects if any are attached to this node.
+            
+            - 'force' (bool): if False, it won't instanciate the acquisition object if it already exists, else it will overwrite it.
+
+        """
+
+        # --- Return acquisition object if it already exist and Force is False ----------------------------
+        if not force and self._acquisition_obj is not None:
+            return self._acquisition_obj
+
+        # --- Prepare parameters -----------------------------------------------------------------------------------------
+        if self._scan_params is None:
+            scan_params = {}
+        else:
+            scan_params = (
+                self._scan_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
+
+        if self._acq_obj_params is None:
+            acq_params = {}
+        else:
+            acq_params = (
+                self._acq_obj_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
+
+        if self._ctrl_params is None:
+            ctrl_params = {}
+        else:
+            ctrl_params = (
+                self._ctrl_params.copy()
+            )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
+
+        # --- Apply default chain logic on parameters ---------------------------------------------
+        if self._default_chain_mode:
+            acq_params = self._get_default_chain_parameters(scan_params, acq_params)
+
+        # --- Create the acquisition object -------------------------------------------------------
+        acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)
+
+        if not isinstance(acq_obj, AcquisitionObject):
+            raise TypeError(f"Object: {acq_obj} is not an AcquisitionObject")
+        else:
+            self._acquisition_obj = acq_obj
+
+        # --- Add the counters to the acquisition object ---------------
+        for counter in self._counters:
+            self._acquisition_obj.add_counter(counter)
+
+        # --- Deal with children acquisition objects ------------------
+        self.create_children_acq_obj(force)
+
+        return self._acquisition_obj
+
+    def create_children_acq_obj(self, force=False):
+        for node in self.children:
+            if node._scan_params is None:
+                node.set_parameters(scan_params=self._scan_params)
+
+            if node._acq_obj_params is None:
+                node.set_parameters(acq_params=self._acq_obj_params)
+
+            node.create_acquisition_object(force)
+
+    def get_repr_str(self):
+        if self._acquisition_obj is None:
+            txt = f"|__ !* {self._controller.name} *! "
+        else:
+            txt = f"|__ {self._acquisition_obj.__class__.__name__}( {self._controller.name} ) "
+
+        if len(self._counters) > 0:
+            txt += "("
+            for cnt in self._counters:
+                txt += f" {cnt.name},"
+            txt = txt[:-1]
+            txt += " ) "
+
+        txt += "|"
+
+        return txt

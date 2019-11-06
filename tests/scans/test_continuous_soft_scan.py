@@ -14,16 +14,16 @@ import gevent
 from bliss.common import event
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState
-from bliss.scanning.chain import AcquisitionChain
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.scans import DEFAULT_CHAIN
 
 
-class DebugMotorMockupAcquisitionDevice(AcquisitionDevice):
+class DebugMotorMockupAcquisitionSlave(AcquisitionSlave):
     def __init__(self, name, motor_mockup):
-        super(DebugMotorMockupAcquisitionDevice, self).__init__(motor_mockup, name)
+        super().__init__(motor_mockup, name=name)
         self.motor_mockup = motor_mockup
         self.channels.append(AcquisitionChannel(name + "_pos", float, ()))
         self.channels.append(AcquisitionChannel(name + "_time", float, ()))
@@ -60,7 +60,7 @@ def test_software_position_trigger_master(session):
     chain = AcquisitionChain()
     chain.add(
         SoftwarePositionTriggerMaster(robz, 0, 1, 5),
-        DebugMotorMockupAcquisitionDevice("debug", robz),
+        DebugMotorMockupAcquisitionSlave("debug", robz),
     )
     # Run scan
     s = Scan(chain, save=False)
@@ -83,7 +83,7 @@ def test_iter_software_position_trigger_master(session):
     chain = AcquisitionChain()
     start_pos = [0, 12, 24]
     master = SoftwarePositionTriggerMaster(robz, start_pos, 30, 10, time=0.5)
-    device = DebugMotorMockupAcquisitionDevice("debug", robz)
+    device = DebugMotorMockupAcquisitionSlave("debug", robz)
     chain.add(master, device)
     s = Scan(chain, save=False)
     with gevent.Timeout(10):
@@ -111,13 +111,9 @@ def test_multi_top_master(session, diode_acq_device_factory, diode):
     timer = SoftwareTimerMaster(count_time, name="fast", npoints=npoints)
     chain.add(master, timer)
 
-    acquisition_device = diode_acq_device_factory.get(
+    acquisition_device, diode1 = diode_acq_device_factory.get(
         count_time=count_time, npoints=npoints
     )
-    # get diode from acq device
-    # 'acq_device.device' is a reader object
-    diode1 = acquisition_device.device.controller
-    #
     diode2 = diode
     chain.add(timer, acquisition_device)
 
@@ -138,8 +134,8 @@ def test_interrupted_scan(session, diode_acq_device_factory):
     robz = session.config.get("robz")
     robz.velocity = 1
     chain = AcquisitionChain()
-    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
-    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_2, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
     chain.add(master, acquisition_device_2)
@@ -164,7 +160,7 @@ def test_scan_too_fast(session, diode_acq_device_factory):
     robz = session.config.get("robz")
     robz.velocity = 10
     chain = AcquisitionChain()
-    acquisition_device_1 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
+    acquisition_device_1, _ = diode_acq_device_factory.get(count_time=0.1, npoints=5)
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
     s = Scan(chain, save=False)
@@ -179,12 +175,12 @@ def test_scan_failure(session, diode_acq_device_factory):
     robz = session.config.get("robz")
     robz.velocity = 2
     chain = AcquisitionChain()
-    acquisition_device_1 = diode_acq_device_factory.get(
+    acquisition_device_1, diode1 = diode_acq_device_factory.get(
         count_time=0.1, npoints=5, trigger_fail=True
     )
-    diode1 = acquisition_device_1.device.controller
-    acquisition_device_2 = diode_acq_device_factory.get(count_time=0.1, npoints=5)
-    diode2 = acquisition_device_2.device.controller
+    acquisition_device_2, diode2 = diode_acq_device_factory.get(
+        count_time=0.1, npoints=5
+    )
     master = SoftwarePositionTriggerMaster(robz, 0, 1, 5)
     chain.add(master, acquisition_device_1)
     chain.add(master, acquisition_device_2)

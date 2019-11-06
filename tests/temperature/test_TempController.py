@@ -134,15 +134,15 @@ def test_kd(temp_tloop):
     assert KW == myval
 
 
-def test_read_input_counter(temp_tin):
+def test_input_reading(temp_tin):
     myval = temp_tin.read()
     print("%s" % (myval))
-    myvalcount = temp_tin.counter.read()
+    myvalcount = temp_tin.read()
     assert myval == pytest.approx(myvalcount, 1e-02)
 
 
-def test_read_output_counter(temp_tout):
+def test_output_reading(temp_tout):
     myval = temp_tout.read()
     print("%s" % (myval))
-    myvalcount = temp_tout.counter.read()
+    myvalcount = temp_tout.read()
     assert myval == pytest.approx(myvalcount, 1e-02)

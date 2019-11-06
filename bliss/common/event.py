@@ -12,6 +12,7 @@ from louie import dispatcher
 from louie.dispatcher import get_receivers
 from louie import robustapply
 from louie import saferef
+from louie import Any
 
 
 def _get_sender(sender):
@@ -29,12 +30,18 @@ def send(sender, signal, *args, **kwargs):
 
 def connect(sender, signal, callback):
     sender = _get_sender(sender)
-    dispatcher.connect(callback, signal, sender)
+    if signal is Any:
+        dispatcher.connect(callback, sender=sender)
+    else:
+        dispatcher.connect(callback, signal, sender)
 
 
 def disconnect(sender, signal, callback):
     sender = _get_sender(sender)
     try:
-        dispatcher.disconnect(callback, signal, sender)
+        if signal is Any:
+            dispatcher.disconnect(callback, sender=sender)
+        else:
+            dispatcher.disconnect(callback, signal, sender)
     except Exception:
         pass

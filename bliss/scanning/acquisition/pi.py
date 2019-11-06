@@ -8,10 +8,10 @@ import numpy
 import gevent
 from gevent import event
 from bliss.common.utils import grouped
-from ..chain import AcquisitionDevice, AcquisitionChannel
+from ..chain import AcquisitionSlave, AcquisitionChannel
 
 
-class PIAcquisitionDevice(AcquisitionDevice):
+class PIAcquisitionSlave(AcquisitionSlave):
     """
     Helper to read **Physik Instrumente** controller data recorder.
     """
@@ -24,7 +24,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
            count_time the sampling time of the data recorder for one point
            trigger_source if None will use the **trigger_type** to define it.
         """
-        AcquisitionDevice.__init__(self, pi_controller, npoints=npoints, **keys)
+        AcquisitionSlave.__init__(self, pi_controller, npoints=npoints, **keys)
         self.__motor_data_type = list()
         self.__external_input = 0
         self.__count_time = count_time
@@ -93,7 +93,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
         self.__started = False
         self.__stopped = False
         self._nb_acq_points = 0
-        if self.trigger_type == AcquisitionDevice.SOFTWARE:
+        if self.trigger_type == AcquisitionSlave.SOFTWARE:
             return
         self.trigger()
 
@@ -101,7 +101,7 @@ class PIAcquisitionDevice(AcquisitionDevice):
         if self.__triger_source is not None:
             trigger_source = self.__triger_source
             data_len = self.device.get_data_len()
-        elif self.trigger_type == AcquisitionDevice.SOFTWARE:
+        elif self.trigger_type == AcquisitionSlave.SOFTWARE:
             trigger_source = self.device.IMMEDIATELY
             data_len = None
         else:

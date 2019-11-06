@@ -29,7 +29,7 @@ def test_ct(session):
 
 def test_long_trigger_timescan(session, diode_acq_device_factory):
     chain = AcquisitionChain()
-    acquisition_device_1 = diode_acq_device_factory.get(
+    acquisition_device_1, _ = diode_acq_device_factory.get(
         count_time=0.1, npoints=3, trigger_delay=1
     )
     master = SoftwareTimerMaster(0.1, name="timer", npoints=3)

@@ -9,7 +9,7 @@ import itertools
 import errno
 import os
 
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster
 from bliss.common.event import connect, disconnect
 
 
@@ -157,7 +157,7 @@ class FileWriter(object):
                 self.prepare_saving(dev, images_path)
 
                 for slave in dev.slaves:
-                    if isinstance(slave, AcquisitionDevice) and callable(
+                    if isinstance(slave, AcquisitionSlave) and callable(
                         self._device_event_callback
                     ):
                         self._prepare_callbacks(

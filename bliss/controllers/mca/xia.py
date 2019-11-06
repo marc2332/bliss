@@ -8,8 +8,7 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
-from numbers import Number
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, log_debug
 from bliss.config.beacon_object import BeaconObject
 
 from bliss.comm import rpc
@@ -21,13 +20,41 @@ from .base import (
     Stats,
     TriggerMode,
     AcquisitionMode,
+    MCABeaconObject,
 )
 
 from bliss import global_map
 
+# MCABeaconObject
+class XIABeaconObject(MCABeaconObject):
+
+    # Config / Settings
+    @BeaconObject.property(priority=1, must_be_in_config=True, only_in_config=True)
+    def url(self):
+        return self.mca._url
+
+    @url.setter
+    def url(self, url):
+        self.mca._url = url
+
+    @BeaconObject.property(priority=2, must_be_in_config=True, only_in_config=True)
+    def configuration_directory(self):
+        return self.mca._config_dir
+
+    @configuration_directory.setter
+    def configuration_directory(self, config_dir):
+        self.mca._config_dir = config_dir
+
+    @BeaconObject.property(priority=3, must_be_in_config=True, only_in_config=True)
+    def default_configuration(self):
+        return self.mca._default_config
+
+    @default_configuration.setter
+    def default_configuration(self, config_file):
+        self.mca._default_config = config_file
+
+
 # Mercury controller
-
-
 class BaseXIA(BaseMCA):
     """Base controller class for the XIA MCAs.
 
@@ -48,35 +75,35 @@ class BaseXIA(BaseMCA):
     - block_size (for SYNC and GATE trigger modes)
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, name, config, beacon_obj_class=XIABeaconObject):
         self._proxy = None
-        super().__init__(*args, **kwargs)
+        super().__init__(name, config, beacon_obj_class=beacon_obj_class)
         global_map.register(self, parents_list=["mca"], tag=f"XiaMca:{self.name}")
 
     # Config / Settings
-    @BeaconObject.property(priority=1, must_be_in_config=True, only_in_config=True)
+    @property
     def url(self):
-        return self._url
+        return self.beacon_obj.url
 
     @url.setter
     def url(self, url):
-        self._url = url
+        self.beacon_obj.url = url
 
-    @BeaconObject.property(priority=2, must_be_in_config=True, only_in_config=True)
+    @property
     def configuration_directory(self):
-        return self._config_dir
+        return self.beacon_obj.configuration_directory
 
     @configuration_directory.setter
     def configuration_directory(self, config_dir):
-        self._config_dir = config_dir
+        self.beacon_obj.configuration_directory = config_dir
 
-    @BeaconObject.property(priority=3, must_be_in_config=True, only_in_config=True)
+    @property
     def default_configuration(self):
-        return self._default_config
+        return self.beacon_obj.default_configuration
 
     @default_configuration.setter
     def default_configuration(self, config_file):
-        self._default_config = config_file
+        self.beacon_obj.default_configuration = config_file
 
     # Life cycle
 
@@ -91,11 +118,11 @@ class BaseXIA(BaseMCA):
     def initialize_hardware(self):
         self._proxy = rpc.Client(self._url)
         global_map.register(self._proxy, parents_list=[self], tag="comm")
-        try:
-            print(f"Loading {self._name} config {self._current_config}")
-            self.load_configuration(self._current_config)
-        except:
-            print("Loading config failed !!")
+        # try:
+        print(f"Loading {self.name} config {self._current_config}")
+        self.load_configuration(self._current_config)
+        # except:
+        #    print("Loading config failed !!")
 
     def finalize(self):
         self._proxy.close()
@@ -122,7 +149,8 @@ class BaseXIA(BaseMCA):
 
     def _set_current_config(self, filename):
         self._current_config = filename
-        self._settings["current_configuration"] = filename
+        # self._settings["current_configuration"] = filename
+        self.beacon_obj._settings["current_configuration"] = filename
 
     @property
     def current_configuration(self):

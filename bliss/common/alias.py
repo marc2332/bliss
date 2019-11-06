@@ -130,19 +130,6 @@ class ObjectAlias(Proxy):
         return self.__wrapped__
 
 
-def get_counter_alias(alias_name, obj):
-    try:
-        # let's see if the object controller has '.counters' property
-        obj.controller.counters
-    except AttributeError:
-        # no: the counter can be considered as a stand-alone object
-        obj = ObjectAlias(alias_name, obj)
-    else:
-        # yes: the counter is probably generated on the fly
-        obj = CounterAlias(alias_name, obj)
-    return obj
-
-
 class Aliases:
     """Helper class to manage aliases list: display, add
     """
@@ -161,37 +148,36 @@ class Aliases:
             - verbose: flag to print user information message
         """
         original_object = None
+        alias_obj = None
 
         if isinstance(obj_or_name, str):
             fullname = obj_or_name  # can be a motor name or a counter fullname
 
             # check if object exists
-            for obj in itertools.chain(
-                self.__map.get_axes_iter(), self.__map.get_counters_iter()
-            ):
+            for obj in self.__map.get_axes_iter():
                 if obj.name == fullname:
                     original_object = obj
-                    obj = ObjectAlias(alias_name, obj)
+                    alias_obj = ObjectAlias(alias_name, obj)
                     break
-                else:
-                    # must be a 'complicated' counter
-                    try:
-                        if obj.fullname == fullname:
-                            original_object = obj
-                            obj = get_counter_alias(alias_name, obj)
-                            break
-                    except AttributeError:
-                        continue
             else:
+                # counter
+                try:
+                    obj = self.__map.get_counter_from_fullname(fullname)
+                except AttributeError:
+                    pass
+                else:
+                    original_object = obj
+                    alias_obj = CounterAlias(alias_name, obj)
+            if alias_obj is None:
                 raise RuntimeError(
-                    f"Cannot make alias '{alias_name}' for '{obj_or_name}': object does not exist, or has an invalid type"
+                    f"Cannot make alias '{alias_name}' for '{fullname}': object does not exist, or has an invalid type"
                 )
         else:
             obj = obj_or_name
             original_object = obj
 
             if obj in self.__map.get_axes_iter():
-                obj = ObjectAlias(alias_name, obj)
+                alias_obj = ObjectAlias(alias_name, obj)
             else:
                 # cannot use directly 'obj in self.__map.get_counters_iter()'
                 # because counters are generated on-the-fly for the moment,
@@ -205,7 +191,7 @@ class Aliases:
                 else:
                     for cnt in self.__map.get_counters_iter():
                         if cnt.fullname == fn:
-                            obj = get_counter_alias(alias_name, obj)
+                            alias_obj = CounterAlias(alias_name, obj)
                             break
                     else:
                         raise TypeError(
@@ -213,10 +199,10 @@ class Aliases:
                         )
 
         # create alias object
-        self.__aliases_dict[alias_name] = obj
+        self.__aliases_dict[alias_name] = alias_obj
 
         # assign object to alias name in env dict
-        self.__session.env_dict[alias_name] = obj
+        self.__session.env_dict[alias_name] = alias_obj
         # delete old object from env dict
         try:
             if self.__session.env_dict.get(original_object.name) is original_object:
@@ -224,7 +210,7 @@ class Aliases:
         except KeyError:
             pass
 
-        return obj
+        return alias_obj
 
     def add(self, alias_name, obj_or_name, verbose=True):
         if alias_name in self.__session.config.names_list:
@@ -318,11 +304,13 @@ class MapWithAliases(Map):
 
     def get_counters_iter(self):
         for cnt in self.instance_iter("counters"):
+            yield cnt
+        for ctrl in self.instance_iter("controllers"):
             try:
-                for cnt in cnt.counters:
+                for cnt in ctrl.counters:
                     yield cnt
             except AttributeError:
-                yield cnt
+                continue
 
     @property
     def aliases(self):
@@ -357,3 +345,31 @@ class MapWithAliases(Map):
             if isinstance(i, str):
                 i = axes_dict[i]
             yield i
+
+    def get_counter_from_fullname(self, fullname):
+        # looking for a counter with a fullname ([master_controller:]controller:name)
+        try:
+            controller_fullname, _, _ = fullname.rpartition(":")
+        except ValueError:
+            raise AttributeError(fullname)
+        else:
+            for cnt in self.instance_iter("counters"):
+                try:
+                    if cnt.fullname == fullname:
+                        return cnt
+                except AttributeError:
+                    continue
+            # could not find counter in map, look for controllers counters
+            for ctrl in self.instance_iter("controllers"):
+                try:
+                    ctrl_name = ctrl.fullname
+                except AttributeError:
+                    try:
+                        ctrl_name = ctrl.name
+                    except AttributeError:
+                        continue
+                if ctrl_name == controller_fullname:
+                    for cnt in ctrl.counters:
+                        if cnt.fullname == fullname:
+                            return cnt
+            raise AttributeError(fullname)

@@ -15,7 +15,7 @@ from bliss.common import scans
 from bliss.scanning.scan import ScanDisplay
 
 from bliss.scanning.scan import Scan, StepScanDataWatch
-from bliss.scanning.chain import AcquisitionChain, AcquisitionDevice
+from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
 
@@ -39,11 +39,11 @@ def grab_lines(
 
 
 def test_fast_scan_display(session):
-    class BlockDataDevice(AcquisitionDevice):
+    class BlockDataDevice(AcquisitionSlave):
         def __init__(self, npoints, chunk):
             super().__init__(
                 None,
-                "block_data_device",
+                name="block_data_device",
                 npoints=npoints,
                 prepare_once=True,
                 start_once=True,

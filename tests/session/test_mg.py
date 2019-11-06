@@ -6,11 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.common import measurement
 from bliss.common.standard import info
 
 # 3 measurement groups : test_mg MG1 MG2 are configured

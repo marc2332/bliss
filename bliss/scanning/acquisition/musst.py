@@ -5,12 +5,57 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from ..chain import AcquisitionMaster, AcquisitionDevice, AcquisitionChannel
-from bliss.common.event import dispatcher
+from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.chain import ChainNode
+
 import gevent
 from gevent import event
 import numpy
 import time
+
+
+class MusstChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Return required parameters
+        params = {}
+        params["program"] = None
+        params["program_data"] = None
+        params["program_start_name"] = None
+        params["program_abort_name"] = None
+        params["vars"] = None
+        params["program_template_replacement"] = None
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = []
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for MusstAcquisitionMaster({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        program = acq_params["program"]
+        program_data = acq_params["program_data"]
+        program_start_name = acq_params["program_start_name"]
+        program_abort_name = acq_params["program_abort_name"]
+        mvars = acq_params["vars"]
+        program_template_replacement = acq_params["program_template_replacement"]
+
+        return MusstAcquisitionMaster(
+            self.controller,
+            program=program,
+            program_data=program_data,
+            program_start_name=program_start_name,
+            program_abort_name=program_abort_name,
+            vars=mvars,
+            program_template_replacement=program_template_replacement,
+            ctrl_params=ctrl_params,
+        )
 
 
 class MusstAcquisitionMaster(AcquisitionMaster):
@@ -23,6 +68,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         program_abort_name=None,
         vars=None,
         program_template_replacement=None,
+        ctrl_params=None,
         **keys,
     ):
         """
@@ -40,8 +86,9 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         AcquisitionMaster.__init__(
             self,
             musst_dev,
-            musst_dev.name,
+            name=musst_dev.name,
             trigger_type=AcquisitionMaster.HARDWARE,
+            ctrl_params=ctrl_params,
             **keys,
         )
         self.musst = musst_dev
@@ -128,7 +175,7 @@ class MusstAcquisitionMaster(AcquisitionMaster):
         self._event.set()
 
 
-def MusstAcquisitionDevice(
+def MusstAcquisitionSlave(
     musst_dev,
     program=None,
     program_start_name=None,
@@ -138,12 +185,12 @@ def MusstAcquisitionDevice(
     program_template_replacement=None,
 ):
     """
-    This will create either a simple MusstAcquisitionDevice or
-    MusstAcquisitionMaster + MusstAcquisitionDevice for compatibility reason.
+    This will create either a simple MusstAcquisitionSlave or
+    MusstAcquisitionMaster + MusstAcquisitionSlave for compatibility reason.
     This chose is made if you provide a **program**.
     """
     if program is None:
-        return _MusstAcquisitionDevice(musst_dev, store_list=store_list)
+        return _MusstAcquisitionSlave(musst_dev, store_list=store_list)
     else:
         master = MusstAcquisitionMaster(
             musst_dev,
@@ -153,10 +200,10 @@ def MusstAcquisitionDevice(
             vars=vars,
             program_template_replacement=program_template_replacement,
         )
-        return _MusstAcquisitionDevice(master, store_list=store_list)
+        return _MusstAcquisitionSlave(master, store_list=store_list)
 
 
-class _MusstAcquisitionDevice(AcquisitionDevice):
+class _MusstAcquisitionSlave(AcquisitionSlave):
     class Iterator(object):
         def __init__(self, acq_device):
             self.__device = acq_device
@@ -166,13 +213,15 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
             next(self.__current_iter)
             return self.__device
 
-    def __init__(self, musst, store_list=None):
+    def __init__(self, musst, store_list=None, ctrl_params=None):
         """
         Acquisition device for the musst card.
 
         store_list -- a list of variable you store in musst memory during the scan
         """
-        AcquisitionDevice.__init__(self, musst, trigger_type=AcquisitionMaster.HARDWARE)
+        AcquisitionSlave.__init__(
+            self, musst, trigger_type=AcquisitionSlave.HARDWARE, ctrl_params=ctrl_params
+        )
         store_list = store_list if store_list is not None else list()
         self.channels.extend(
             (
@@ -189,8 +238,8 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
 
     def __iter__(self):
         if isinstance(self.device, MusstAcquisitionMaster):
-            return _MusstAcquisitionDevice.Iterator(self)
-        raise TypeError("'MusstAcquisitionDevice' is not iterable")
+            return _MusstAcquisitionSlave.Iterator(self)
+        raise TypeError("'MusstAcquisitionSlave' is not iterable")
 
     def prepare(self):
         if isinstance(self.device, MusstAcquisitionMaster):
@@ -200,7 +249,7 @@ class _MusstAcquisitionDevice(AcquisitionDevice):
             master = self.parent
             if not isinstance(master, MusstAcquisitionMaster):
                 raise RuntimeError(
-                    "MusstAcquisitionDevice must have a MusstAcquisitionMaster has"
+                    "MusstAcquisitionSlave must have a MusstAcquisitionMaster has"
                     " parent here it's (%r)" % master
                 )
             elif master.device != self.device:

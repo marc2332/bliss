@@ -6,17 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy as np
-import time
 import pprint
 
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
-from bliss.scanning.acquisition.counter import SamplingMode
-from bliss.common.measurement import GroupedReadMixin, Counter
+from bliss.scanning.chain import AcquisitionSlave, ChainNode
+from bliss.common.counter import Counter
+from bliss.controllers.counter import CounterController
 from bliss import global_map
 
 # for logging
 import logging
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_debug_data, get_logger
 
 """
 `simulation_counter` allows to define a fake counter.
@@ -109,38 +108,44 @@ dscan(m1,-1,1, 13, 0.01)
 """
 
 
-class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
-    def __init__(self, counter, scan_param, distribution, gauss_param, noise_factor):
+class SimulationCounterAcquisitionSlave(AcquisitionSlave):
+    def __init__(
+        self,
+        counter,
+        scan_type,
+        scan_npoints,
+        scan_start,
+        scan_stop,
+        distribution,
+        gauss_param,
+        noise_factor,
+    ):
         global_map.register(self)
         log_debug(
-            self, "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounter_AcquisitionDevice()"
+            self, "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounterAcquisitionSlave()"
         )
 
-        self.counter = counter
-        self.scan_param = scan_param
         self.distribution = distribution
         self.gauss_param = gauss_param
         self.noise_factor = noise_factor
-        self.scan_type = self.scan_param.get("type")
+        self.scan_type = scan_type
+        self.scan_start = scan_start
+        self.scan_stop = scan_stop
 
-        AcquisitionDevice.__init__(
+        AcquisitionSlave.__init__(
             self,
-            None,
-            counter.name,
-            npoints=self.scan_param.get("npoints"),
+            counter,
+            npoints=scan_npoints,
             prepare_once=True,  # Do not call prepare at each point.
             start_once=True,  # Do not call start at each point.
         )
-
-        # add a new channel (data) to the acq dev.
-        self.channels.append(AcquisitionChannel(counter.name, np.float, ()))
 
     def is_count_scan(self):
         """
         Return True if the scan involving this acq_device has NOT a
         predefined (timescan) number of points or is just a single count (ct).
         """
-        if self.scan_param.get("npoints") < 2:
+        if self.npoints < 2:
             return True
         else:
             return False
@@ -150,7 +155,7 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
         self._index = 0
 
         #### Get scan paramerters
-        nbpoints = self.scan_param.get("npoints")
+        nbpoints = self.npoints
 
         # npoints should be 0 only in case of timescan without 'npoints' parameter
         if nbpoints == 0:
@@ -158,16 +163,16 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
 
         if self.is_count_scan() or self.scan_type in ["pointscan"]:
             # ct, timescan(without npoints), pointscan
-            scan_start = self.scan_param.get("start")
-            scan_stop = self.scan_param.get("stop")
+            scan_start = self.scan_start
+            scan_stop = self.scan_stop
         elif self.scan_type in ["loopscan", "timescan"]:
             # no user defined start/stop or timescan-with-npoints
             scan_start = 0
             scan_stop = nbpoints
         else:
             # ascan etc.
-            scan_start = self.scan_param.get("start")[0]
-            scan_stop = self.scan_param.get("stop")[0]
+            scan_start = self.scan_start[0]
+            scan_stop = self.scan_stop[0]
 
         log_debug(
             self,
@@ -235,7 +240,7 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
         self.data = self.data * noise
         log_debug_data(self, "self.data with  noise=", self.data)
 
-        self.counter.data = self.data
+        next(iter(self._counters.keys())).data = self.data
 
         log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
 
@@ -319,20 +324,14 @@ class SimulationCounter_AcquisitionDevice(AcquisitionDevice):
         log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
 
-class SimulationCounter(Counter):
-    def __init__(self, name, config):
-        Counter.__init__(self, name)
+class SimulationCounterControllerChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
 
-        self.config = config
-        self.acq_device = None
-        self.scan_pars = None
+        counter = self.counters[0]
 
-    def create_acquisition_device(self, scan_pars, **settings):
-        log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device")
-
-        mu_offset = self.config.get("mu_offset", 0.0)
-        sigma_factor = self.config.get("sigma_factor", 1.0)
-        height_factor = self.config.get("height_factor", 1.0)
+        mu_offset = counter.config.get("mu_offset", 0.0)
+        sigma_factor = counter.config.get("sigma_factor", 1.0)
+        height_factor = counter.config.get("height_factor", 1.0)
 
         gauss_param = {
             "mu_offset": mu_offset,
@@ -340,22 +339,95 @@ class SimulationCounter(Counter):
             "height_factor": height_factor,
         }
 
-        self.acq_device = SimulationCounter_AcquisitionDevice(
-            self,
-            scan_param=scan_pars,
-            distribution=self.config.get("distribution", "FLAT"),
-            gauss_param=gauss_param,
-            noise_factor=self.config.get("noise_factor", 0.0),
+        try:
+            scan_type = acq_params["type"]
+        except:
+            scan_type = scan_params["type"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        try:
+            start = acq_params["start"]
+        except:
+            start = scan_params["start"]
+
+        try:
+            stop = acq_params["stop"]
+        except:
+            stop = scan_params["stop"]
+
+        params = {}
+        params["type"] = scan_type
+        params["npoints"] = npoints
+        params["start"] = start
+        params["stop"] = stop
+        params["distribution"] = counter.config.get("distribution", "FLAT")
+        params["gauss_param"] = gauss_param
+        params["noise_factor"] = counter.config.get("noise_factor", 0.0)
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        ################ TO BE CLEANED !!!!!!!!!!!!!!! #############################
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = [
+            "type",
+            "npoints",
+            "start",
+            "stop",
+            "distribution",
+            "gauss_param",
+            "noise_factor",
+        ]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SimulationCounterAcquisitionSlave({self.controller}) ==="
+                )
+
+        counter = self.counters[0]
+
+        log_debug(counter, "SIMULATION_COUNTER -- create_acquisition_device")
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+
+        scan_type = acq_params["type"]
+        scan_npoints = acq_params["npoints"]
+        scan_start = acq_params["start"]
+        scan_stop = acq_params["stop"]
+        distribution = acq_params["distribution"]
+        gauss_param = acq_params["gauss_param"]
+        noise_factor = acq_params["noise_factor"]
+
+        acq_dev = SimulationCounterAcquisitionSlave(
+            counter,
+            scan_type,
+            scan_npoints,
+            scan_start,
+            scan_stop,
+            distribution,
+            gauss_param,
+            noise_factor,
         )
 
-        log_debug(self, "SIMULATION_COUNTER -- COUNTER CONFIG")
-        if get_logger(self).isEnabledFor(logging.DEBUG):
-            pprint.pprint(self.config)
+        counter.acq_device = (
+            acq_dev
+        )  # <= weird stuff to keep SimulationCounter.get_acquisition_device() working !
 
-        log_debug(self, "SIMULATION_COUNTER -- SCAN_PARS")
+        log_debug(counter, "SIMULATION_COUNTER -- COUNTER CONFIG")
+        if get_logger(counter).isEnabledFor(logging.DEBUG):
+            pprint.pprint(counter.config)
 
-        if get_logger(self).isEnabledFor(logging.DEBUG):
-            pprint.pprint(scan_pars)
+        log_debug(counter, "SIMULATION_COUNTER -- SCAN_PARS")
+
+        if get_logger(counter).isEnabledFor(logging.DEBUG):
+            pprint.pprint(acq_params)  # .copy().update(acq_params))
+
         """ SCAN_PARS
         {'type': 'ascan', 'save': True, 'title': 'ascan mm1 0 1 5 0.2', 'sleep_time': None,
          'npoints': 5, 'total_acq_time': 1.0, 'start': [0], 'stop': [1], 'count_time': 0.2,
@@ -363,10 +435,24 @@ class SimulationCounter(Counter):
          }
         """
 
-        self.scan_pars = scan_pars
-
         log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device END")
-        return self.acq_device
+        return acq_dev
+
+
+class SimulationCounterController(CounterController):
+    def __init__(self):
+        super().__init__(
+            "simulation_counter_controller",
+            chain_node_class=SimulationCounterControllerChainNode,
+        )
+
+
+class SimulationCounter(Counter):
+    def __init__(self, name, config):
+        super().__init__(name, SimulationCounterController())
+
+        self.config = config
+        self.acq_device = None
 
     def get_acquisition_device(self):
         log_debug(self, "SIMULATION_COUNTER -- get_acquisition_device()")
@@ -375,7 +461,3 @@ class SimulationCounter(Counter):
     def read(self):
         log_debug(self, "SIMULATION_COUNTER -- read()")
         return 33
-
-    # If no controller, a warning is emited in `master_to_devices_mapping()`
-    # def controller(self):
-    #     return None

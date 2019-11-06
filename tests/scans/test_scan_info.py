@@ -8,7 +8,7 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionDevice
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.scan import Scan
 
 
@@ -24,7 +24,7 @@ def test_scan_info_scalars_units(session):
     )
     assert (
         s.scan_info["acquisition_chain"]["timer"]["scalars_units"][
-            "simulation_diode_controller:diode"
+            "simulation_diode_sampling_controller:diode"
         ]
         is None
     )
@@ -97,7 +97,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         name = "my_master"
 
         def __init__(self):
-            super().__init__(self, None, "my_master")
+            super().__init__(name="my_master")
 
         def fill_meta_at_scan_init(self, scan_meta):
             scan_meta.instrument.set(self, master_dict)
@@ -112,11 +112,11 @@ def test_scan_meta_master_and_device(session, scan_meta):
         }
     }
 
-    class DummyDevice(AcquisitionDevice):
+    class DummyDevice(AcquisitionSlave):
         name = device_name
 
         def __init__(self):
-            super().__init__(self, None, device_name)
+            super().__init__(name=device_name)
 
         def fill_meta_at_scan_init(self, scan_meta):
             scan_meta.instrument.set(self, device_dict)

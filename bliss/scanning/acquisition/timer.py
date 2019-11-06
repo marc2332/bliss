@@ -5,7 +5,8 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from ..chain import AcquisitionMaster, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.event import dispatcher
 import time
 import gevent
@@ -15,7 +16,7 @@ import weakref
 
 class SoftwareTimerMaster(AcquisitionMaster):
     def __init__(self, count_time, sleep_time=None, name="timer", **keys):
-        AcquisitionMaster.__init__(self, None, name, **keys)
+        AcquisitionMaster.__init__(self, name=name, **keys)
         self.count_time = count_time
         self.sleep_time = sleep_time
 

@@ -5,46 +5,37 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import random
 import pytest
 import gevent
 import h5py
 import numpy
 import tango
-from bliss.common.measurement import (
-    SamplingCounter,
-    IntegratingCounter,
-    SamplingMode,
-    SoftCounter,
-)
+
+from bliss.common.counter import SamplingCounter, SamplingMode, SoftCounter
 from bliss.common.scans import loopscan, ct, ascan
 from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
-from unittest import mock
 
+from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.simulation_diode import (
     SimulationDiodeSamplingCounter,
     SimulationDiodeIntegratingCounter,
     SimulationDiodeController,
 )
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.scan import Scan
 from bliss.scanning.acquisition.counter import (
-    IntegratingCounterAcquisitionDevice,
-    SamplingCounterAcquisitionDevice,
+    IntegratingCounterAcquisitionSlave,
+    SamplingCounterAcquisitionSlave,
 )
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 class Diode(SamplingCounter):
     def __init__(self, diode, convert_func):
-        SamplingCounter.__init__(
-            self,
-            "test_diode",
-            None,
-            grouped_read_handler=None,
-            conversion_function=convert_func,
-        )
+        super().__init__("test_diode", None, conversion_function=convert_func)
         self.diode = diode
 
     def read(self, *args):
@@ -100,33 +91,17 @@ class Timed_Diode:
 
 class DiodeWithController(SamplingCounter):
     def __init__(self, diode, convert_func):
-        SamplingCounter.__init__(
-            self,
-            "test_diode",
-            diode.controller,
-            grouped_read_handler=None,
-            conversion_function=convert_func,
-        )
+        super.__init__("test_diode", diode.controller, conversion_function=convert_func)
         self.diode = diode
 
 
-class AcquisitionController:
-    pass
+class DummyCounterController(IntegratingCounterController):
+    def __init__(self):
+        super().__init__("dummy_counter_controller")
 
-
-class IntegCounter(IntegratingCounter):
-    def __init__(self, acq_controller, convert_func):
-        IntegratingCounter.__init__(
-            self,
-            "test_integ_diode",
-            None,
-            acq_controller,
-            grouped_read_handler=None,
-            conversion_function=convert_func,
-        )
-
-    def get_values(self, from_index):
-        return numpy.random.random(1)
+    def get_values(self, from_index, *counters):
+        gevent.sleep(0.01)
+        return [10 * [random.randint(-100, 100)] for cnt in counters]
 
 
 def test_diode(beacon):
@@ -204,15 +179,15 @@ def test_SampCnt_mode_SAMPLES_from_conf(session):
     s = loopscan(10, .05, diode2, diode9)
 
     assert (
-        "simulation_diode_controller:diode2"
+        "simulation_diode_sampling_controller:diode2"
         in s.scan_info["acquisition_chain"]["timer"]["scalars"]
     )
     assert (
-        "simulation_diode_controller:diode9"
+        "simulation_diode_sampling_controller:diode9"
         in s.scan_info["acquisition_chain"]["timer"]["scalars"]
     )
     assert (
-        "simulation_diode_controller:diode9_samples"
+        "simulation_diode_sampling_controller:diode9_samples"
         in s.scan_info["acquisition_chain"]["timer"]["spectra"]
     )
 
@@ -262,11 +237,9 @@ def test_SampCnt_STATS_algorithm():
     statistics = numpy.array([0, 0, 0, numpy.nan, numpy.nan])
     dat = numpy.random.normal(10, 1, 100)
     for k in dat:
-        statistics = SamplingCounterAcquisitionDevice.rolling_stats_update(
-            statistics, k
-        )
+        statistics = SamplingCounterAcquisitionSlave.rolling_stats_update(statistics, k)
 
-    stats = SamplingCounterAcquisitionDevice.rolling_stats_finalize(statistics)
+    stats = SamplingCounterAcquisitionSlave.rolling_stats_finalize(statistics)
 
     assert pytest.approx(stats.mean, numpy.mean(dat))
     assert stats.N == len(dat)
@@ -392,14 +365,12 @@ def test_SampCnt_mode_INTEGRATE_STATS(session):
     statistics = numpy.array([0, 0, 0, numpy.nan, numpy.nan])
     dat = numpy.random.normal(10, 1, 100)
     for k in dat:
-        statistics = SamplingCounterAcquisitionDevice.rolling_stats_update(
-            statistics, k
-        )
+        statistics = SamplingCounterAcquisitionSlave.rolling_stats_update(statistics, k)
 
-    stats = SamplingCounterAcquisitionDevice.rolling_stats_finalize(statistics)
+    stats = SamplingCounterAcquisitionSlave.rolling_stats_finalize(statistics)
 
     count_time = .1
-    integ_stats = SamplingCounterAcquisitionDevice.STATS_to_INTEGRATE_STATS(
+    integ_stats = SamplingCounterAcquisitionSlave.STATS_to_INTEGRATE_STATS(
         stats, count_time
     )
 
@@ -415,14 +386,14 @@ def test_SampCnt_mode_INTEGRATE_STATS(session):
 
 
 def test_integ_counter(beacon):
-    acq_controller = AcquisitionController()
+    acq_controller = DummyCounterController()
 
     def multiply_by_two(x):
         acq_controller.raw_value = x
         return 2 * x
 
     counter = SimulationDiodeIntegratingCounter(
-        "test_diode", acq_controller, lambda: None, conversion_function=multiply_by_two
+        "test_diode", acq_controller, conversion_function=multiply_by_two
     )
 
     assert list(counter.get_values(0)) == list(2 * acq_controller.raw_value)
@@ -443,146 +414,14 @@ def test_bad_counters(session, beacon):
 
 def test_single_integ_counter(session):
     timer = SoftwareTimerMaster(0, npoints=1)
-    acq_controller = AcquisitionController()
-    acq_controller.name = "bla"
-    counter = SimulationDiodeIntegratingCounter(
-        "test_diode", acq_controller, lambda: None
-    )
-    acq_device = IntegratingCounterAcquisitionDevice(counter, count_time=0, npoints=1)
+    acq_controller = DummyCounterController()
+    counter = SimulationDiodeIntegratingCounter("test_diode", acq_controller)
+    acq_device = IntegratingCounterAcquisitionSlave(counter, count_time=0)
     chain = AcquisitionChain()
     chain.add(timer, acq_device)
     s = Scan(chain, save=False)
-    s.run()
-
-
-def test_integ_start_once_true(session):
-    acq_controller = AcquisitionController()
-    acq_controller.name = "acq_controller"
-    counter = IntegCounter(acq_controller, lambda x: x * 2)
-
-    acq_device = IntegratingCounterAcquisitionDevice(
-        counter, count_time=.1, npoints=1, start_once=True
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=1, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
     with gevent.Timeout(2):
         s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 1
-
-
-def test_sampling_start_once_true(session):
-    diode = session.config.get("diode")
-    acq_device = SamplingCounterAcquisitionDevice(
-        diode, count_time=.1, npoints=2, start_once=True
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 2
-
-
-def test_integ_start_once_false(session):
-    acq_controller = AcquisitionController()
-    acq_controller.name = "acq_controller"
-    counter = IntegCounter(acq_controller, lambda x: x * 2)
-
-    acq_device = IntegratingCounterAcquisitionDevice(
-        counter, count_time=.1, npoints=1, start_once=False
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=1, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 1
-
-
-def test_sampling_start_once_false(session):
-    diode = session.config.get("diode")
-    acq_device = SamplingCounterAcquisitionDevice(
-        diode, count_time=.1, npoints=2, start_once=False
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 2
-
-
-def test_integ_prepare_once_true(session):
-    acq_controller = AcquisitionController()
-    acq_controller.name = "acq_controller"
-    counter = IntegCounter(acq_controller, lambda x: x * 2)
-    acq_device = IntegratingCounterAcquisitionDevice(
-        counter, count_time=.1, npoints=1, prepare_once=True
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=1, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 1
-
-
-def test_sampling_prepare_once_true(session):
-    diode = session.config.get("diode")
-    acq_device = SamplingCounterAcquisitionDevice(
-        diode, count_time=.1, npoints=2, prepare_once=True
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 2
-
-
-def test_integ_prepare_once_false(session):
-    acq_controller = AcquisitionController()
-    acq_controller.name = "acq_controller"
-    counter = IntegCounter(acq_controller, lambda x: x * 2)
-    acq_device = IntegratingCounterAcquisitionDevice(
-        counter, count_time=.1, npoints=1, prepare_once=False
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=1, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 1
-
-
-def test_sampling_prepare_once_false(session):
-    diode = session.config.get("diode")
-    acq_device = SamplingCounterAcquisitionDevice(
-        diode, count_time=.1, npoints=1, prepare_once=False
-    )
-    master1 = SoftwareTimerMaster(0.1, npoints=1, name="timer1")
-    ch = AcquisitionChain()
-    ch.add(master1, acq_device)
-    s = Scan(ch, name="bla")
-    with gevent.Timeout(2):
-        s.run()
-    for k, v in s.get_data().items():
-        assert len(v) == 1
 
 
 def test_prepare_once_prepare_many(session):
@@ -591,17 +430,17 @@ def test_prepare_once_prepare_many(session):
     diode3 = session.config.get("diode3")
 
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionDevice(diode, count_time=.1, npoints=10)
+    d = SamplingCounterAcquisitionSlave(diode, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()
     assert len(dat["diode2"]) == 10
     assert len(dat["diode"]) == 10
 
-    # diode2 and diode3 are usually on the same SamplingCounterAcquisitionDevice
+    # diode2 and diode3 are usually on the same SamplingCounterAcquisitionSlave
     # lets see if they can be split as well
     s = loopscan(10, .1, diode2, run=False)
-    d = SamplingCounterAcquisitionDevice(diode3, count_time=.1, npoints=10)
+    d = SamplingCounterAcquisitionSlave(diode3, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
     dat = s.get_data()

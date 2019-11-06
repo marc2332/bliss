@@ -1,7 +1,7 @@
 import random
 from bliss import current_session
 from bliss.common.standard import *
-from bliss.common.measurement import SamplingCounter
+from bliss.common.counter import SamplingCounter
 import numpy
 import gevent
 from bliss.common.event import dispatcher

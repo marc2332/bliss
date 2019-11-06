@@ -235,6 +235,32 @@ def lima_simulator(ports, beacon):
 
 
 @pytest.fixture
+def lima_simulator2(ports, beacon):
+    from Lima.Server.LimaCCDs import main
+    from bliss.common.tango import DeviceProxy, DevFailed
+
+    device_name = "id00/limaccds/simulator2"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["LimaCCDs", "simulator2"])
+
+    with gevent.Timeout(10, RuntimeError("Lima simulator2 is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
 def bliss_tango_server(ports, beacon):
 
     device_name = "id00/bliss/test"

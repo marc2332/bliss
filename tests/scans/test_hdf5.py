@@ -85,7 +85,7 @@ def test_hdf5_file_items(session):
         f"{scan_name}/instrument": {"NX_class": "NXinstrument"},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
         f"{scan_name}/measurement/axis:roby": {},
-        f"{scan_name}/measurement/simulation_diode_controller:diode": {},
+        f"{scan_name}/measurement/simulation_diode_sampling_controller:diode": {},
         f"{scan_name}/measurement/simu1:spectrum_det0": {},
         f"{scan_name}/measurement/timer:elapsed_time": {},
         f"{scan_name}/start_time": {},
@@ -103,18 +103,20 @@ def test_hdf5_values(session):
     scan_file = s.writer.filename
     data = s.get_data()["diode"]
     f = h5py.File(scan_file)
-    dataset = f[s.node.name]["measurement"]["simulation_diode_controller:diode"]
+    dataset = f[s.node.name]["measurement"][
+        "simulation_diode_sampling_controller:diode"
+    ]
     assert list(dataset) == list(data)
 
 
 def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
-    dummy1 = dummy_acq_device.get(None, "dummy1", npoints=1)
+    dummy1 = dummy_acq_device.get(None, name="dummy1", npoints=1)
     master2 = timer.SoftwareTimerMaster(0.001, npoints=50, name="timer2")
     lima_sim = session.config.get("lima_simulator")
     lima_master = LimaAcquisitionMaster(lima_sim, acq_nb_frames=1, acq_expo_time=0.001)
-    dummy2 = dummy_acq_device.get(None, "dummy2", npoints=1)
+    dummy2 = dummy_acq_device.get(None, name="dummy2", npoints=1)
     chain.add(lima_master, dummy2)
     chain.add(master2, lima_master)
     chain.add(master1, dummy1)

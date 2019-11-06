@@ -5,90 +5,50 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
 import time
-import warnings
 import functools
-import gevent
-import collections
-from gevent import event
-from bliss.common.event import dispatcher
-from ..chain import AcquisitionDevice, AcquisitionChannel
-from bliss.common.measurement import SamplingMode
-from bliss.common.utils import all_equal
+
 from collections import namedtuple
 from datetime import datetime
 
+import gevent
+from gevent import event
 
-def _get_group_reader(counters):
-    readers = set(cnt.read_handler for cnt in counters)
+import numpy
 
-    if len(set(readers)) != 1:
-        raise RuntimeError(
-            f"Counters {', '.join(cnt.name for cnt in counters)} do not belong to the same group read handler"
-        )
-    else:
-        reader = readers.pop()
-
-    if reader is None:
-        raise RuntimeError(
-            f"Cannot find a reader for counter(s): {', '.join(cnt.name for cnt in counters)}"
-        )
-
-    return reader
+from bliss.common.utils import all_equal
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.common.counter import SamplingMode
 
 
-class BaseCounterAcquisitionDevice(AcquisitionDevice):
+class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
-        counters,  # _or_groupreadhandler,
-        count_time,
-        npoints,
-        prepare_once,
-        start_once,
-        **unused_keys,
+        *counters,
+        count_time=None,
+        npoints=1,
+        prepare_once=False,
+        start_once=False,
+        ctrl_params=None,
     ):
-        reader = _get_group_reader(counters)
 
-        AcquisitionDevice.__init__(
-            self,
-            reader,
+        super().__init__(
+            *counters,
             npoints=npoints,
-            trigger_type=AcquisitionDevice.SOFTWARE,
+            trigger_type=AcquisitionSlave.SOFTWARE,
             prepare_once=prepare_once,
             start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
-        self._reader = reader
         self.__count_time = count_time
-        self._counters = collections.defaultdict(list)
         self._nb_acq_points = 0
-
-        for cnt in counters:
-            self.add_counter(cnt)
 
     @property
     def count_time(self):
         return self.__count_time
-
-    def _do_add_counter(self, counter):
-        chan_name = f"{self._reader.fullname}:{counter.name}"
-        self.channels.append(
-            AcquisitionChannel(
-                chan_name, counter.dtype, counter.shape, unit=counter.unit
-            )
-        )
-        self._counters[counter].append(self.channels[-1])
-
-    def add_counter(self, counter):
-        if counter in self._counters:
-            return
-        reader = _get_group_reader([counter])
-        if reader != self._reader:
-            raise RuntimeError(
-                f"Cannot add counter {counter.name}: reader does not correspond to already added counters"
-            )
-        self._do_add_counter(counter)
 
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
@@ -109,7 +69,7 @@ class BaseCounterAcquisitionDevice(AcquisitionDevice):
         scan_meta.instrument.set(self, tmp_dict)
 
 
-class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
+class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
     # mode dependent helpers that are evaluated once per point
     mode_lambdas = {
@@ -141,14 +101,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(
-        # self, counters_or_groupreadhandler, count_time=None, npoints=1, **unused_keys
-        self,
-        *counters,
-        count_time=None,
-        npoints=1,
-        **unused_keys,
-    ):
+    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -158,12 +111,6 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         Other keys are:
           * npoints -- number of points for this acquisition (0: endless acquisition)
         """
-
-        if any([x in ["prepare_once", "start_once"] for x in unused_keys.keys()]):
-            warnings.warn(
-                "SamplingCounterAcquisitionDevice: prepare_once or start_once"
-                "flags will be ignored"
-            )
 
         start_once = npoints > 0
         npoints = max(1, npoints)
@@ -184,28 +131,25 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         # read one single value
         self._SINGLE_COUNT = False
 
-        BaseCounterAcquisitionDevice.__init__(
-            self,
-            counters,
-            count_time,
-            npoints,
-            True,  # prepare_once
-            start_once,  # start_once
+        super().__init__(
+            *counters,
+            count_time=count_time,
+            npoints=npoints,
+            prepare_once=True,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
     def _do_add_counter(self, counter):
         super()._do_add_counter(counter)  # add the 'default' counter (mean)
 
         self.mode_helpers.append(
-            SamplingCounterAcquisitionDevice.mode_lambdas[counter.mode]
+            SamplingCounterAcquisitionSlave.mode_lambdas[counter.mode]
         )
 
         # helper to create AcquisitionChannels
         AC = lambda name_suffix, unit: AcquisitionChannel(
-            f"{self._reader.fullname}:{counter.name}_{name_suffix}",
-            counter.dtype,
-            counter.shape,
-            unit=unit,
+            f"{counter.fullname}_{name_suffix}", counter.dtype, counter.shape, unit=unit
         )
 
         if counter.mode == SamplingMode.STATS:
@@ -237,7 +181,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         elif counter.mode == SamplingMode.SAMPLES:
             self.channels.append(
                 AcquisitionChannel(
-                    f"{self._reader.fullname}:{counter.name}_samples",
+                    f"{counter.fullname}_samples",
                     counter.dtype,
                     counter.shape + (1,),
                     unit=counter.unit,
@@ -246,7 +190,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        self._reader.prepare(*self._counters)
+        self.device.prepare()
 
         # check modes to see if sampling loop is needed or not
         if all(
@@ -260,10 +204,10 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         self._ready_event.set()
         self._event.clear()
 
-        self._reader.start(*self._counters)
+        self.device.start()
 
     def stop(self):
-        self._reader.stop(*self._counters)
+        self.device.stop()
 
         self._stop_flag = True
         self._trig_time = None
@@ -319,8 +263,14 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
+                    counters = list(self._counters.keys())
                     read_value = numpy.array(
-                        self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
+                        [
+                            counters[i].conversion_function(x)
+                            for i, x in enumerate(self.device.read_all(*counters))
+                        ],
+                        dtype=numpy.double,
+                        ndmin=1,
                     )
                     end_read = time.time()
 
@@ -349,7 +299,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
-                    self._reader._read(*self._counters), dtype=numpy.double, ndmin=1
+                    self.device.read_all(*self._counters), dtype=numpy.double, ndmin=1
                 )
                 samples = acc_value
 
@@ -426,7 +376,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
         (count, mean, M2, Min, Max) = existingAggregate
         (mean, variance) = (mean, M2 / count)
         if count < 2:
-            return SamplingCounterAcquisitionDevice.stats_nt(
+            return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
                 count,
                 numpy.nan,
@@ -439,7 +389,7 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             )
         else:
             timest = str(datetime.fromtimestamp(timest)) if timest != None else None
-            return SamplingCounterAcquisitionDevice.stats_nt(
+            return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
                 numpy.int(count),
                 numpy.sqrt(variance),
@@ -466,61 +416,55 @@ class SamplingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
             count_time,
             count_time,
         ]
-        return SamplingCounterAcquisitionDevice.stats_nt(*st)
+        return SamplingCounterAcquisitionSlave.stats_nt(*st)
 
 
-class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
-    # def __init__(self, counters_or_groupreadhandler, count_time=None, **unused_keys):
-    def __init__(self, *counters, count_time=None, **unused_keys):
+class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
+    def __init__(self, *counters, count_time=None, ctrl_params=None):
 
-        if any(
-            [x in ["npoints", "prepare_once", "start_once"] for x in unused_keys.keys()]
-        ):
-            warnings.warn(
-                "IntegratingCounterAcquisitionDevice: npoints, prepare_once or "
-                "start_once flags will be overwritten by master controller"
-            )
-
-        BaseCounterAcquisitionDevice.__init__(
-            self,
-            counters,
+        super().__init__(
+            *counters,
             count_time=count_time,
-            npoints=None,
-            prepare_once=None,
-            start_once=None,
+            npoints=1,
+            prepare_once=False,
+            start_once=False,
+            ctrl_params=ctrl_params,
         )
 
-    @AcquisitionDevice.parent.setter
+    @AcquisitionObject.parent.setter
     def parent(self, p):
-        self._AcquisitionDevice__parent = p
-        self._AcquisitionDevice__npoints = p.npoints
-        self._AcquisitionDevice__prepare_once = p.prepare_once
-        self._AcquisitionDevice__start_once = p.start_once
+        self._AcquisitionObject__parent = p
+        self._AcquisitionObject__npoints = p.npoints
+        self._AcquisitionObject__prepare_once = p.prepare_once
+        self._AcquisitionObject__start_once = p.start_once
 
     def prepare(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self._reader.prepare(*self._counters)
+        self.device.prepare(*self._counters)
 
     def start(self):
-        self._reader.start(*self._counters)
+        self.device.start(*self._counters)
 
     def stop(self):
-        self._reader.stop(*self._counters)
+        self.device.stop(*self._counters)
         self._stop_flag = True
 
     def trigger(self):
         pass
-
-    def _read_data(self, from_index):
-        return self._reader._get_values(from_index, *self._counters)
 
     def reading(self):
         from_index = 0
         while (
             not self.npoints or self._nb_acq_points < self.npoints
         ) and not self._stop_flag:
-            data = self._read_data(from_index)
+
+            counters = list(self._counters.keys())
+            data = [
+                counters[i].conversion_function(x)
+                for i, x in enumerate(self.device.get_values(from_index, *counters))
+            ]
+
             if not all_equal([len(d) for d in data]):
                 raise RuntimeError("Read data can't have different sizes")
             if len(data[0]) > 0:
@@ -530,3 +474,72 @@ class IntegratingCounterAcquisitionDevice(BaseCounterAcquisitionDevice):
                 gevent.idle()
             else:
                 gevent.sleep(self.count_time / 2.0)
+
+
+class SamplingChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except:
+            npoints = scan_params["npoints"]
+
+        params = {"count_time": count_time, "npoints": npoints}
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time", "npoints"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionSlave({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
+        return SamplingCounterAcquisitionSlave(
+            *self.counters,
+            count_time=count_time,
+            npoints=npoints,
+            ctrl_params=ctrl_params,
+        )
+
+
+class IntegratingChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionSlave({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        count_time = acq_params["count_time"]
+
+        return IntegratingCounterAcquisitionSlave(
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
+        )

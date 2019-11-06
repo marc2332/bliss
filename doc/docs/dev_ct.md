@@ -878,7 +878,7 @@ import numpy
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.measurement import BaseCounter, namespace, counter_namespace
-from bliss.scanning.chain import AcquisitionDevice, AcquisitionChannel
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionChannel
 
 
 class Currency:
@@ -922,9 +922,9 @@ class Counter(BaseCounter):
     def create_acquisition_device(self,scan_pars,**settings):
         return AcqDevice(self.controller,**scan_pars)
 
-class AcqDevice(AcquisitionDevice):
+class AcqDevice(AcquisitionSlave):
     def __init__(self,financial,**scan_pars):
-        AcquisitionDevice.__init__(self,financial,financial.name,
+        AcquisitionSlave.__init__(self,financial,financial.name,
                                    npoints = scan_pars.get('npoints',1),
                                    prepare_once=True)
         self.counters = list()

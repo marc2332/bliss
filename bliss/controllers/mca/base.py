@@ -22,6 +22,10 @@ from bliss.common.logtools import *
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 
+from bliss.controllers.counter import CounterController
+from bliss.scanning.chain import ChainNode
+
+
 # Enums
 
 Brand = enum.Enum(
@@ -45,26 +49,145 @@ Stats = collections.namedtuple(
 )
 
 
+class MCAChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Return required parameters
+        params = {}
+        params["npoints"] = acq_params.get("npoints", scan_params.get("npoints", 1))
+        params["trigger_mode"] = acq_params.get("trigger_mode", TriggerMode.SOFTWARE)
+        params["preset_time"] = acq_params.get(
+            "preset_time", scan_params.get("count_time", 1.0)
+        )
+        params["block_size"] = acq_params.get("block_size", None)
+        params["polling_time"] = acq_params.get("polling_time", 0.1)
+        params["spectrum_size"] = acq_params.get("spectrum_size", None)
+        params["prepare_once"] = acq_params.get("prepare_once", True)
+        params["start_once"] = acq_params.get("start_once", True)
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        from bliss.scanning.acquisition.mca import (
+            McaAcquisitionSlave,
+            HWScaAcquisitionSlave,
+        )
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = [
+            "npoints",
+            "trigger_mode",
+            "preset_time",
+            "block_size",
+            "polling_time",
+            "spectrum_size",
+            "prepare_once",
+            "start_once",
+        ]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for McaAcquisitionSlave({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS --------------------------------
+        npoints = acq_params["npoints"]
+        prepare_once = acq_params["prepare_once"]
+        start_once = acq_params["start_once"]
+
+        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
+        acq_mode = self.controller.acquisition_mode
+        if acq_mode == AcquisitionMode.HWSCA:
+            return HWScaAcquisitionSlave(
+                self.controller,
+                npoints=npoints,
+                prepare_once=prepare_once,
+                start_once=start_once,
+            )
+
+        elif acq_mode == AcquisitionMode.MCA:
+
+            trigger_mode = acq_params["trigger_mode"]
+            preset_time = acq_params["preset_time"]
+            block_size = acq_params["block_size"]
+            polling_time = acq_params["polling_time"]
+            spectrum_size = acq_params["spectrum_size"]
+
+            return McaAcquisitionSlave(
+                self.controller,
+                npoints=npoints,
+                trigger_mode=trigger_mode,
+                preset_time=preset_time,
+                block_size=block_size,
+                polling_time=polling_time,
+                spectrum_size=spectrum_size,
+                prepare_once=prepare_once,
+                start_once=start_once,
+                ctrl_params=ctrl_params,
+            )
+
+
+# MCABeaconObject
+class MCABeaconObject(BeaconObject):
+    def __init__(self, mca, config):
+        self.mca = mca
+        super().__init__(config)
+
+    @property
+    def name(self):
+        return self.mca.name
+
+    @BeaconObject.lazy_init
+    def init(self):
+        self.mca.initialize_attributes()
+        self.mca.initialize_hardware()
+
+    @BeaconObject.property(default=AcquisitionMode.MCA)
+    def acquisition_mode(self):
+        pass
+
+    @acquisition_mode.setter
+    def acquisition_mode(self, mode):
+        setmode = mode
+        if type(mode) == str:
+            for acq_mode in self.mca.supported_acquisition_modes:
+                if mode.upper() == acq_mode.name:
+                    setmode = acq_mode
+                    break
+        elif type(mode) == int:
+            for acq_mode in self.mca.supported_acquisition_modes:
+                if mode == acq_mode.value:
+                    setmode = acq_mode
+        if setmode not in self.mca.supported_acquisition_modes:
+            raise ValueError("Not supported acquisition mode [{}]".format(mode))
+        return setmode
+
+
 # Base class
-
-
-class BaseMCA(BeaconObject):
+class BaseMCA(CounterController):
     """Generic MCA controller."""
 
     # Life cycle
 
-    def __init__(self, name, config):
-        self._name = name
-        BeaconObject.__init__(self, config)
-        global_map.register(self, parents_list=["counters", "controllers"])
+    def __init__(self, name, config, beacon_obj_class=MCABeaconObject):
+        CounterController.__init__(self, name, chain_node_class=MCAChainNode)
 
+        self.beacon_obj = beacon_obj_class(self, config)
+        self._config = config
         self._rois = RoiConfig(self)
-        self.init()
+        self.beacon_obj.init()
 
-    @BeaconObject.lazy_init
-    def init(self):
-        self.initialize_attributes()
-        self.initialize_hardware()
+    @property
+    def config(self):
+        return self.beacon_obj.config
+
+    @property
+    def settings(self):
+        return self.beacon_obj.settings
+
+    def apply_config(self, reload=False):
+        return self.beacon_obj.apply_config(reload=reload)
 
     def initialize_attributes(self):
         raise NotImplementedError
@@ -74,12 +197,6 @@ class BaseMCA(BeaconObject):
 
     def finalize(self):
         raise NotImplementedError
-
-    # General properties
-
-    @property
-    def name(self):
-        return self._name
 
     # Information
 
@@ -143,25 +260,13 @@ class BaseMCA(BeaconObject):
     def supported_acquisition_modes(self):
         return [AcquisitionMode.MCA]
 
-    @BeaconObject.property(default=AcquisitionMode.MCA)
+    @property
     def acquisition_mode(self):
-        pass
+        return self.beacon_obj.acquisition_mode
 
     @acquisition_mode.setter
     def acquisition_mode(self, mode):
-        setmode = mode
-        if type(mode) == str:
-            for acq_mode in self.supported_acquisition_modes:
-                if mode.upper() == acq_mode.name:
-                    setmode = acq_mode
-                    break
-        elif type(mode) == int:
-            for acq_mode in self.supported_acquisition_modes:
-                if mode == acq_mode.value:
-                    setmode = acq_mode
-        if setmode not in self.supported_acquisition_modes:
-            raise ValueError("Not supported acquisition mode [{}]".format(mode))
-        return setmode
+        self.beacon_obj.acquisition_mode = mode
 
     @property
     def supported_preset_modes(self):

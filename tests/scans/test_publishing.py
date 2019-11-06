@@ -352,9 +352,9 @@ def test_children_timing(beacon, session, scan_tmpdir):
 
 
 def test_scan_end_timing(
-    session, scan_meta, dummy_acq_master, dummy_acq_device
+    session, dummy_acq_master, dummy_acq_device
 ):  # , clean_gevent):
-    scan_meta.clear()
+    session.user_scan_meta.clear()
 
     # Get controllers
     chain = AcquisitionChain()

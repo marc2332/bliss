@@ -405,10 +405,15 @@ class Session:
             env_dict["load_script"] = self.load_script
 
         from bliss.scanning.scan import ScanSaving
+        from bliss.scanning.scan_meta import create_user_scan_meta
 
         self.scan_saving = ScanSaving(self.name)
+        self.user_scan_meta = create_user_scan_meta()
+
         if is_bliss_shell():
             env_dict["SCAN_SAVING"] = self.scan_saving
+            env_dict["USER_SCAN_META"] = self.user_scan_meta
+
         env_dict["ALIASES"] = global_map.aliases
 
         from bliss.common.measurementgroup import ACTIVE_MG

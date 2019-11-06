@@ -170,6 +170,5 @@ def dummy_acq_master():
 
 @pytest.fixture
 def scan_meta():
-    s = scan_meta_module.get_user_scan_meta()
+    s = scan_meta_module.create_user_scan_meta()
     yield s
-    scan_meta_module.USER_SCAN_META = None

@@ -26,7 +26,7 @@ class Switch(BaseSwitch):
     def __init__(self, name, controller, config):
         BaseSwitch.__init__(self, name, config)
         self.__controller = weakref.proxy(controller)
-        self.__axes = weakref.WeakValueDictionary()
+        self.__addresses = dict()
         self.__rack_connector_id = None
         self.__syncpos_type = None
 
@@ -51,16 +51,11 @@ class Switch(BaseSwitch):
         include_rack = config.get("include-rack")
         if include_rack is None:  # All
             include_rack = set()
-            for axis in self.__controller._axes.values():
-                # be sure that axis is initialized
-                try:
-                    axis.position
-                except (RuntimeError, KeyError):
+            for axis_class, axis_config in self.__controller._axes_config.values():
+                address = axis_config.get("address", None)
+                if not isinstance(address, int):
                     continue
-                try:
-                    include_rack.add(axis.address // 10)
-                except (AttributeError, TypeError):  # LinkedAxis and TrajectoryAxis
-                    continue
+                include_rack.add(address // 10)
         else:
             include_rack = set(include_rack)
 
@@ -71,14 +66,17 @@ class Switch(BaseSwitch):
             exclude_rack = set(exclude_rack)
 
         managed_rack = include_rack - exclude_rack
-        self.__axes = weakref.WeakValueDictionary()
-        for axis_name, axis in self.__controller._axes.items():
-            try:
-                rack_id = axis.address // 10
-            except (AttributeError, TypeError):
+        self.__addresses = dict()
+        for (
+            axis_name,
+            (axis_class, axis_config),
+        ) in self.__controller._axes_config.items():
+            address = axis_config.get("address", None)
+            if not isinstance(address, int):
                 continue
+            rack_id = address // 10
             if rack_id in managed_rack:
-                self.__axes[axis_name.upper()] = axis
+                self.__addresses[axis_name.upper()] = address
 
     def _set(self, state):
         cnx = self.__controller._cnx
@@ -86,15 +84,15 @@ class Switch(BaseSwitch):
             _command(cnx, "PMUX REMOVE E%d" % self.__rack_connector_id)
             return
 
-        axis = self.__axes.get(state)
-        if axis is None:
+        address = self.__addresses.get(state)
+        if address is None:
             raise ValueError(
                 "State %s does't exist in the switch %s" % (state, self.name)
             )
 
         _command(cnx, "PMUX REMOVE E%d" % self.__rack_connector_id)
-        _ackcommand(cnx, "PMUX HARD B%d E%d" % (axis.address, self.__rack_connector_id))
-        _ackcommand(cnx, "%d:SYNCPOS %s" % (axis.address, self.__syncpos_type))
+        _ackcommand(cnx, "PMUX HARD B%d E%d" % (address, self.__rack_connector_id))
+        _ackcommand(cnx, "%d:SYNCPOS %s" % (address, self.__syncpos_type))
 
     def _get(self):
         reply = _command(self.__controller._cnx, "?PMUX")
@@ -103,10 +101,24 @@ class Switch(BaseSwitch):
             m = pattern.match(line)
             if m:
                 axis_address = int(m.group(1))
-                for axis_name, axis in self.__axes.items():
-                    if axis.address == axis_address:
+                for axis_name, address in self.__addresses.items():
+                    if address == axis_address:
                         return axis_name
         return "DISABLED"
 
     def _states_list(self):
-        return list(self.__axes.keys()) + ["DISABLED"]
+        return list(self.__addresses.keys()) + ["DISABLED"]
+
+    def pmux_state(self):
+        reply = _command(self.__controller._cnx, "?PMUX")
+        return reply.split("\r\n")
+
+    def pmux_reset(self, rackid=None):
+        cnx = self.__controller._cnx
+        if rackid is None:
+            _ackcommand(cnx, "PMUX REMOVE")
+            self.set("DISABLED")
+        elif rackid == self.__rack_connector_id:
+            self.set("DISABLED")
+        else:
+            _ackcommand(cnx, "PMUX REMOVE E%d" % rackid)

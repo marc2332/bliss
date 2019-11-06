@@ -879,6 +879,37 @@ class Scan:
             )
         self.__writer._save_images = save if save_images is None else save_images
 
+        ### make channel names unique in the scope of the scan
+        def check_acq_chan_unique_name(acq_chain):
+            channels = []
+
+            for n in acq_chain._tree.is_branch(acq_chain._tree.root):
+                uniquify_chan_name(acq_chain, n, channels)
+
+        def uniquify_chan_name(acq_chain, node, channels):
+            # TODO: check if name or fullname should be used below
+            if node.channels:
+                for c in node.channels:
+                    if c.name in channels:
+                        if acq_chain._tree.get_node(node).bpointer:
+                            new_name = (
+                                acq_chain._tree.get_node(node).bpointer.name
+                                + ":"
+                                + c.name
+                            )
+                        else:
+                            new_name = c.name
+                        if new_name in channels:
+                            new_name = str(id(c)) + ":" + c.name
+                        c._AcquisitionChannel__name = new_name
+                    channels.append(c.name)
+
+            for n in acq_chain._tree.is_branch(node):
+                uniquify_chan_name(acq_chain, n, channels)
+
+        check_acq_chan_unique_name(chain)
+        ###
+
         self.__nodes = dict()
         self._devices = []
 

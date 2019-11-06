@@ -10,6 +10,7 @@ import weakref
 import os
 import gevent
 import hashlib
+import functools
 from bliss.comm import get_comm
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
@@ -43,6 +44,15 @@ def _clear_cmd():
             self._musst__last_md5.value = None
 
     return property(exec_cmd, doc="Delete the current program")
+
+
+def lazy_init(func):
+    @functools.wraps(func)
+    def f(self, *args, **kwargs):
+        self._init()
+        return func(self, *args, **kwargs)
+
+    return f
 
 
 class MusstCounter(SamplingCounter):
@@ -272,7 +282,42 @@ class musst(object):
         self.__one_line_programing = config_tree.get(
             "one_line_programing", "serial_url" in config_tree
         )
+        self._channels = None
+        self._counter_init(config_tree)
 
+        # this function will be used by lazy_init
+        def init():
+            if self._channels is None:
+                self._channels_init(config_tree)
+
+        self._init = init
+
+    def _counter_init(self, config_tree):
+        # Configured counters
+        cnt_list = list()
+        for cnt_config in config_tree.get("counters", list()):
+            cnt_name = cnt_config.get("name")
+            cnt_channel = cnt_config.get("channel")
+
+            if cnt_channel.upper() not in (
+                "TIMER",
+                "CH1",
+                "CH2",
+                "CH3",
+                "CH4",
+                "CH5",
+                "CH6",
+            ):
+                raise ValueError(
+                    'Musst Counter: counter "%s" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]'
+                    % (cnt_name, cnt_channel)
+                )
+
+            cnt_obj = MusstCounter(cnt_name, self, cnt_channel.upper())
+            cnt_list.append(cnt_obj)
+        self.__counters = counter_namespace(cnt_list)
+
+    def _channels_init(self, config_tree):
         # Configured channels
         self._channels = dict()
         channels_list = config_tree.get("channels", list())
@@ -310,30 +355,6 @@ class musst(object):
                 raise ValueError(
                     "musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)"
                 )
-
-        # Configured counters
-        cnt_list = list()
-        for cnt_config in config_tree.get("counters", list()):
-            cnt_name = cnt_config.get("name")
-            cnt_channel = cnt_config.get("channel")
-
-            if cnt_channel.upper() not in (
-                "TIMER",
-                "CH1",
-                "CH2",
-                "CH3",
-                "CH4",
-                "CH5",
-                "CH6",
-            ):
-                raise ValueError(
-                    'Musst Counter: counter "%s" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]'
-                    % (cnt_name, cnt_channel)
-                )
-
-            cnt_obj = MusstCounter(cnt_name, self, cnt_channel.upper())
-            cnt_list.append(cnt_obj)
-        self.__counters = counter_namespace(cnt_list)
 
     def __info__(self):
         """Default method called by the 'BLISS shell default typing helper'
@@ -615,6 +636,7 @@ class musst(object):
             value = self.__frequency_conversion.get(value)
         return self.putget("TMRCFG %s" % value)
 
+    @lazy_init
     def get_channel(self, channel_id, type=None, switch=None, switch_name=None):
         if 0 < channel_id <= 6:
             return self.channel(
@@ -623,6 +645,7 @@ class musst(object):
         else:
             raise RuntimeError("musst doesn't have channel id %d" % channel_id)
 
+    @lazy_init
     def get_channel_by_name(self, channel_name):
         channel_name = channel_name.upper()
         channels = self._channels.get(channel_name)
@@ -632,6 +655,7 @@ class musst(object):
             )
         return channels[0]  # first match
 
+    @lazy_init
     def get_channel_by_names(self, *channel_names):
         channels = dict()
         for channel_name in channel_names:

@@ -6,8 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motors.soft import SoftController
-from bliss import global_map
-from bliss import setup_globals
+from bliss import global_map, setup_globals
+from bliss.common.session import get_current_session
 
 
 def SoftAxis(
@@ -42,5 +42,8 @@ def SoftAxis(
     controller._init()
     axis = controller.get_axis(name)
     global_map.register(axis, parents_list=[controller], tag=f"axis.{name}")
+    current_session = get_current_session()
     setattr(setup_globals, name, axis)
+    if current_session is not None:
+        current_session.env_dict[name] = axis
     return axis

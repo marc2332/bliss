@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - A IPython dialog is provided in the Help menu
    - Location of the docks are saved between 2 executions of the application (local computer user preferences)
    - Improve autodetection of the plot and axes according to the kind of scans
+   - Display the frame id for images
    - Experimental
       - Many MCAs can be displayed on the same plot
       - Many scatters (sharing the same axis) can be displayed on the same plot
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - `bliss.scanning.Scan.get_plot` API was changed, now it uses a channel object and a plot kind (`image`, `scatter`, `mca` or `curve`)
       - This API is only used by `edit_roi_counters` and will may be removed
    - `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
+   - Try to avoid to reach images which are not needed (according to the frame id already reached)
 
 ### Fixed
 - Flint

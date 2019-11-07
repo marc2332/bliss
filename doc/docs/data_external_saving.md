@@ -1,4 +1,33 @@
-## Example: using Bliss data api for hdf5 saving
+#NeXus complient external writer process
+BLISS offers the possiblitiy to a sepearete process (on the system level) for saving and achiving the aquired data.
+The code of this external NeXus writer is maintained by the ESRF Data Analysis Unit (DAU) to ensure seamless 
+integration with data analysis tools provied by the DAU.
+
+To start a session writer as a process inside an environment where BLISS is installed
+
+```bash
+   $ NexusSessionWriter test_session --log=info
+```
+
+!!! warning
+    Currently the external NeXus writer is in an experimental state and the protocol to ensure the completeness for the
+    saved data still needs to be put in place.
+    
+    To test the external writer without using the file saving mechanism provided by BLISS itself the following line has 
+    to be entered in the BLISS shell:
+    
+    ```python
+        SCAN_SAVING.writer = 'null'
+    ```
+
+To start a session writer as a service inside an environment where BLISS is installed
+
+```bash
+   $ NexusWriterService
+```
+
+
+# Example: using Bliss data api for hdf5 saving
 
 !!! note
     The  example script discussed here is provided in Bliss repository 

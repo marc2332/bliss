@@ -192,6 +192,38 @@ class ScanManager:
             self._refresh_task = None
             self._end_data_process_event.set()
 
+    def __is_image_must_be_read(self, channel_name, image_view) -> bool:
+        # FIXME: This is a trick to trig _update() function, else last_image_ready is wrong
+        image_view.last_index
+        redis_frame_id = image_view.last_image_ready
+        print("redis_frame_id", redis_frame_id)
+        if redis_frame_id == -1:
+            # Mitigate with #1069
+            # A signal can be emitted when there is not yet data
+            # FIXME: This have to be fixed in bliss
+            return False
+
+        stored_data = self.__data_storage.get_data_else_none(channel_name)
+        if stored_data is None:
+            # Not yet data, then update is needed
+            return True
+
+        stored_frame_id = stored_data.frameId()
+        if stored_frame_id is None:
+            # The data is something else that an image?
+            # It's weird, then update the data
+            return True
+
+        if stored_frame_id == 0:
+            # Some detectors (like andor) which do not provide
+            # TRIGGER_SOFT_MULTI will always returns frame_id = 0 (from video image)
+            # Then if a 0 was stored it is better to update anyway
+            # FIXME: This case should be managed by bliss
+            return True
+
+        # An updated is needed when bliss provides a most recent frame
+        return redis_frame_id > stored_frame_id
+
     def __new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
             channels_data = data["data"]
@@ -206,18 +238,20 @@ class ScanManager:
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
             image_data = None
+            channel_name = data["channel_name"]
+            must_update = self.__is_image_must_be_read(channel_name, image_view)
             try:
-                if hasattr(image_view, "get_last_live_image"):
-                    image_data, frame_id = image_view.get_last_live_image()
-                if image_data is None:
-                    image_data = image_view.get_image(-1)
-                    frame_id = None
+                if must_update:
+                    if hasattr(image_view, "get_last_live_image"):
+                        image_data, frame_id = image_view.get_last_live_image()
+                    if image_data is None:
+                        image_data = image_view.get_image(-1)
+                        frame_id = None
             except IndexError:
                 # The image could not be ready
                 _logger.error("Error while reaching the last image", exc_info=True)
                 image_data = None
             if image_data is not None:
-                channel_name = data["channel_name"]
                 self.__update_channel_data(channel_name, image_data, frame_id=frame_id)
         else:
             assert False

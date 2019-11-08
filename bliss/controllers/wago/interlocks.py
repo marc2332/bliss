@@ -333,10 +333,10 @@ def interlock_parse_channel_line(line):
     """
     regex_control_ch_line = (
         r"\s*(?P<logical_name>[a-zA-Z0-9_+-]+)(\[(?P<channel>[0-9]+)\])?\s+(?P<type>"
-        + "|".join(TYPES.keys())
-        + ")( +(?P<min>\-?[0-9\.]+))?( +(?P<max>\-?[0-9\.]+))?( +(?P<chflags>(inverted|inv|INV|INVERTED|sticky|STICKY|monitor|MONITOR| )*))?"
+        + r"|".join(TYPES.keys())
+        + r")( +(?P<min>\-?[0-9\.]+))?( +(?P<max>\-?[0-9\.]+))?( +(?P<chflags>(inverted|inv|INV|INVERTED|sticky|STICKY|monitor|MONITOR| )*))?"
     )
-    regex_control_ch_line += "( +(?P<dac>[a-zA-Z0-9_+-]+) +(?P<dac_scale>[0-9-\.]+) +(?P<dac_offset>[0-9]+))?$"
+    regex_control_ch_line += r"( +(?P<dac>[a-zA-Z0-9_+-]+) +(?P<dac_scale>[0-9-\.]+) +(?P<dac_offset>[0-9]+))?$"
 
     m = re.match(regex_control_ch_line, line)
 

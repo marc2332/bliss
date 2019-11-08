@@ -420,7 +420,7 @@ class EMH(CounterController):
         # 0:C1 1:C2 2:C3 3:C4 4:bpmx 5:bpmy 6:bpmi
         currents = np.zeros((7, count))
         timestamps = np.zeros((7, count))
-        match_number = re.compile("-?\ *[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?")
+        match_number = re.compile(r"-?\ *[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?")
 
         for chan in range(4):
             chan_rdata = chan_data[chan].strip()

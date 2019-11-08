@@ -40,14 +40,18 @@ class TemperatureControllerChainNode(ChainNode):
             count_time = acq_params["acq_expo_time"]
         except:
             count_time = scan_params["count_time"]
-
-        params = {"count_time": count_time}
+        npoints = scan_params["npoints"]
+        params = {"count_time": count_time, "npoints": npoints}
         return params
 
     def get_acquisition_object(self, acq_params, ctrl_params=None):
         count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
         return SamplingCounterAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
+            *self.counters,
+            count_time=count_time,
+            npoints=npoints,
+            ctrl_params=ctrl_params
         )
 
 

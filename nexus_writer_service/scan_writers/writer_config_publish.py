@@ -16,7 +16,7 @@ Writer configuration to be published in Redis
 import inspect
 import logging
 from bliss import global_map
-from bliss.common.measurement import SamplingMode
+from bliss.common.counter import SamplingMode
 from ..utils import config_utils
 from ..utils import scan_utils
 
@@ -99,6 +99,35 @@ def fill_device_info(scan):
     return {"devices": device_info(scan)}
 
 
+def _mca_device_info(ctr):
+    """
+    :param BaseMcaCounter ctr:
+    :returns str:
+    """
+    description = (
+        ctr.controller.detector_brand.name + "/" + ctr.controller.detector_type.name
+    )
+    return {"type": "mca", "description": description}
+
+
+def _mca_roi_data_info(ctr):
+    """
+    :param RoiMcaCounter ctr:
+    :returns dict:
+    """
+    roi = ctr.controller.rois.get(ctr.roi_name)
+    return {"roi_start": roi[0], "roi_end": roi[1]}
+
+
+def _lima_roi_data_info(ctr):
+    """
+    :param RoiStatCounter ctr:
+    :returns dict:
+    """
+    roi = ctr.controller.get(ctr.roi_name)
+    return {"roi_" + k: v for k, v in roi.to_dict().items()}
+
+
 def device_info(scan):
     """
     Publish information on devices (defines types and groups counters).
@@ -112,9 +141,9 @@ def device_info(scan):
     # This is not all of them
     for ctr in global_map.get_counters_iter():
         fullname = ctr.fullname.replace(".", ":")  # Redis name
-        # Derived from: bliss.common.measurement.BaseCounter
-        #   bliss.common.measurement.Counter
-        #       bliss.common.measurement.SamplingCounter
+        # Derived from: bliss.common.counter.BaseCounter
+        #   bliss.common.counter.Counter
+        #       bliss.common.counter.SamplingCounter
         #           bliss.common.temperature.TempControllerCounter
         #           bliss.controllers.simulation_diode.SimulationDiodeSamplingCounter
         #   bliss.scanning.acquisition.mca.BaseMcaCounter
@@ -124,30 +153,16 @@ def device_info(scan):
         # print(ctr.fullname, type(ctr), type(ctr.controller), ctr_classes)
         # controller_classes = [c.__name__ for c in inspect.getmro(ctr.controller.__class__)]
         if "SpectrumMcaCounter" in ctr_classes:
-            device_info = {
-                "type": "mca",
-                "description": ctr.controller.detector_brand
-                + "/"
-                + ctr.controller.detector_type,
-            }
+            device_info = _mca_device_info(ctr)
             device = {"device_info": device_info, "device_type": "mca"}
             devices[fullname] = device
         elif "StatisticsMcaCounter" in ctr_classes:
-            device_info = {
-                "type": "mca",
-                "description": ctr.controller.detector_brand
-                + "/"
-                + ctr.controller.detector_type,
-            }
+            device_info = _mca_device_info(ctr)
             device = {"device_info": device_info, "device_type": "mca"}
             devices[fullname] = device
         elif "RoiMcaCounter" in ctr_classes:
-            device_info = {
-                "type": "mca",
-                "description": ctr.mca.detector_brand + "/" + ctr.mca.detector_type,
-            }
-            roi = ctr.mca.rois.get_roi(ctr.roi_name)
-            data_info = {"roi_start": roi[0], "roi_end": roi[1]}
+            device_info = _mca_device_info(ctr)
+            data_info = _mca_roi_data_info(ctr)
             device = {
                 "device_info": device_info,
                 "data_info": data_info,
@@ -164,8 +179,7 @@ def device_info(scan):
             devices[fullname] = device
         elif "RoiStatCounter" in ctr_classes:
             device_info = {"type": "lima"}
-            roi = ctr.parent_roi_counters.get(ctr.roi_name)
-            data_info = {"roi_" + k: v for k, v in roi.to_dict().items()}
+            data_info = _lima_roi_data_info(ctr)
             device = {
                 "device_info": device_info,
                 "device_type": "lima",

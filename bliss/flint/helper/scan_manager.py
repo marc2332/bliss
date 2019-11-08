@@ -242,8 +242,7 @@ class ScanManager:
             must_update = self.__is_image_must_be_read(channel_name, image_view)
             try:
                 if must_update:
-                    if hasattr(image_view, "get_last_live_image"):
-                        image_data, frame_id = image_view.get_last_live_image()
+                    image_data, frame_id = image_view.get_last_live_image()
                     if image_data is None:
                         image_data = image_view.get_image(-1)
                         frame_id = None

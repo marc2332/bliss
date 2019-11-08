@@ -244,6 +244,7 @@ class ScanManager:
                 if must_update:
                     image_data, frame_id = image_view.get_last_live_image()
                     if image_data is None:
+                        # FIXME: It would be good to havce an API returning the frame id together with the data
                         image_data = image_view.get_image(-1)
                         frame_id = None
             except IndexError:

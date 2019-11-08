@@ -588,7 +588,6 @@ Tue Jul 30 15:03:20 2019
   Out [5]: Scan(number=9, name=ct, path=<no saving>)
 
 BLISS [6]: loopscan(10,.1,current_world_population,day_births,day_deaths,save=False)
-Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
 
 Scan 10 Tue Jul 30 15:04:00 2019 <no saving> default user = seb
 loopscan 10 0.1
@@ -605,7 +604,7 @@ loopscan 10 0.1
            8       5.97999               7.72307e+09        248089         98475
            9       6.78664               7.72307e+09        248094         98477
 
-Took 0:00:07.647674 (estimation was for 0:00:01)
+Took 0:00:07.647674
   Out [6]: Scan(number=10, name=loopscan, path=<no saving>)
 ```
 
@@ -692,7 +691,6 @@ Wed Jul 31 10:53:46 2019
   Out [2]: Scan(number=14, name=ct, path=<no saving>)
 
 BLISS [3]: loopscan(5,0.1,ls,save=False)                                                                                                                                                                     
-Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
 
 Scan 15 Wed Jul 31 10:54:59 2019 <no saving> default user = seb
 loopscan 5 0.1
@@ -704,7 +702,7 @@ loopscan 5 0.1
            3      0.304939            41            36            34            39            38             0         593.5            41           1007             0            36            32
            4      0.406526            41            36            34            39            38             0       595.333            41           1007             0            36            32
 
-Took 0:00:00.576275 (estimation was for 0:00:00.500000)
+Took 0:00:00.576275
   Out [3]: Scan(number=15, name=loopscan, path=<no saving>)
 
 ```
@@ -817,7 +815,6 @@ Wed Jul 31 14:20:03 2019
   Out [2]: Scan(number=22, name=ct, path=<no saving>)
 
 BLISS [3]: loopscan(5,.1,ls,save=False)
-Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
 
 Scan 23 Wed Jul 31 14:20:21 2019 <no saving> default user = seb
 loopscan 5 0.1
@@ -829,11 +826,10 @@ loopscan 5 0.1
            3      0.304585            36            32            40            35
            4       0.40642            36            32            40            35
 
-Took 0:00:00.541600 (estimation was for 0:00:00.500000)
+Took 0:00:00.541600
   Out [3]: Scan(number=23, name=loopscan, path=<no saving>)
 
 BLISS [4]: loopscan(5,.1,ls.counters,save=False)
-Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
 
 Scan 24 Wed Jul 31 14:20:30 2019 <no saving> default user = seb
 loopscan 5 0.1
@@ -845,7 +841,7 @@ loopscan 5 0.1
            3      0.303091            40            36            33            36            34             0       586.333            40        1003.11             0            35            32
            4      0.412361            40            36            33            36            34             0        587.75            40        1004.12             0            35            32
 
-Took 0:00:00.576561 (estimation was for 0:00:00.500000)
+Took 0:00:00.576561
   Out [4]: Scan(number=24, name=loopscan, path=<no saving>)
 ```
 

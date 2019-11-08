@@ -51,7 +51,6 @@ DEMO [20]: print(MG1.available, MG2.available)         #  4 counters defined
 ['simct2', 'simct3'] ['simct4', 'simct5']
 
 DEMO [21]: timescan(0.1, MG1, MG2, npoints=3)
-Total 3 points, 0:00:00.300000 (motion: 0:00:00, count: 0:00:00.300000)
 
 Scan 15 Wed Feb 21 16:31:48 2018 /tmp/scans/cyril/ cyril user = guilloud
 timescan 0.1
@@ -60,7 +59,7 @@ timescan 0.1
           1       0.13725       0.49622      0.503753      0.500348      0.500601
           2        0.2391      0.502216      0.500213      0.494356      0.493359
 
-Took 0:00:00.395435 (estimation was for 0:00:00.300000)
+Took 0:00:00.395435
 ```
 
 ### List of measurement groups

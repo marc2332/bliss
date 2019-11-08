@@ -51,7 +51,7 @@ from bliss import global_map, current_session
 from bliss.common.utils import rounder
 from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
-from bliss.common.axis import estimate_duration, Axis
+from bliss.common.axis import Axis
 from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
@@ -218,40 +218,15 @@ def amesh(
 
     npoints1 = intervals1 + 1
     npoints2 = intervals2 + 1
-    # estimate scan time
-    step_size1 = abs(stop1 - start1) / float(npoints1)
-    i_motion_t1 = estimate_duration(motor1, start1)
-    n_motion_t1 = estimate_duration(motor1, start1, start1 + step_size1)
-    total_motion_t1 = npoints1 * npoints2 * n_motion_t1
-
-    step_size2 = abs(stop2 - start2) / float(npoints2)
-    i_motion_t2 = estimate_duration(motor2, start2)
-    n_motion_t2 = max(
-        estimate_duration(motor2, start2, start2 + step_size2),
-        estimate_duration(motor1, stop1, start1),
-    )
-    total_motion_t2 = npoints2 * n_motion_t2
-
-    imotion_t = max(i_motion_t1, i_motion_t2)
-
-    total_motion_t = imotion_t + total_motion_t1 + total_motion_t2
-    total_count_t = npoints1 * npoints2 * count_time
-    estimation = {
-        "total_motion_time": total_motion_t,
-        "total_count_time": total_count_t,
-        "total_time": total_motion_t + total_count_t,
-    }
 
     scan_info.update(
         {
             "npoints1": npoints1,
             "npoints2": npoints2,
             "npoints": npoints1 * npoints2,
-            "total_acq_time": total_count_t,
             "start": [start1, start2],
             "stop": [stop1, stop2],
             "count_time": count_time,
-            "estimation": estimation,
         }
     )
 
@@ -902,26 +877,10 @@ def timescan(count_time, *counter_args, **kwargs):
         scan_info["title"] = template.format(*args)
 
     npoints = kwargs.get("npoints", 0)
-    total_count_t = npoints * count_time
 
     scan_info.update(
-        {
-            "npoints": npoints,
-            "total_acq_time": total_count_t,
-            "start": [],
-            "stop": [],
-            "count_time": count_time,
-        }
+        {"npoints": npoints, "start": [], "stop": [], "count_time": count_time}
     )
-
-    if npoints > 0:
-        # estimate scan time
-        estimation = {
-            "total_motion_time": 0,
-            "total_count_time": total_count_t,
-            "total_time": total_count_t,
-        }
-        scan_info["estimation"] = estimation
 
     _log.info("Doing %s", scan_info["type"])
 

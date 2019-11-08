@@ -191,7 +191,6 @@ The measurement group can be passed to a `scan` or `ct` procedure to
 define counters for the scan:
 
     DEMO [4]: ascan(simot1, -2, 2, 7, 0.1, align_counters)
-    Total 7 points, 0:00:09.500000 (motion: 0:00:08.800000, count: 0:00:00.700000)
 
     Scan 5 Wed Feb 21 15:26:31 2018 /tmp/scans/demo/ demo user = guilloud
     ascan simot1 -2 2 7 0.1
@@ -205,7 +204,7 @@ define counters for the scan:
             5       8.86126          1.33      0.219424      0.023286     0.0137307
             6       9.78928             2     -0.558003    0.00988632     0.0165549
 
-    Took 0:00:09.993863 (estimation was for 0:00:09.500000)
+    Took 0:00:09.993863
 
 Multiple measurement groups can be passed:
 
@@ -213,7 +212,6 @@ Multiple measurement groups can be passed:
     ['simct2', 'simct3'] ['simct4', 'simct5']
 
     DEMO [21]: timescan(0.1, MG1, MG2, npoints=3)
-    Total 3 points, 0:00:00.300000 (motion: 0:00:00, count: 0:00:00.300000)
 
     Scan 15 Wed Feb 21 16:31:48 2018 /tmp/scans/demo/ demo user = guilloud
     timescan 0.1
@@ -223,7 +221,7 @@ Multiple measurement groups can be passed:
             1       0.13725       0.49622      0.503753      0.500348      0.500601
             2        0.2391      0.502216      0.500213      0.494356      0.493359
 
-    Took 0:00:00.395435 (estimation was for 0:00:00.300000)
+    Took 0:00:00.395435
 
 ### Active measurement group
 
@@ -375,7 +373,6 @@ More about [default scans](scan_default.md).
 
 ```python
 TEST_SESSION [1]: ascan(roby, 0, 10, 10, 0.1, diode, diode2)
-Total 10 points, 0:00:03.168758 (motion: 0:00:02.168758, count: 0:00:01)
 
 Scan 1 Wed Apr 18 08:46:20 2018 /tmp/scans/ test_session user = matias
 ascan roby 0 10 10 0.1
@@ -392,7 +389,7 @@ ascan roby 0 10 10 0.1
     8       1.92679        8.8889      -10.5556            34
     9       2.16557            10            18      -25.5556
 
-Took 0:00:02.328219 (estimation was for 0:00:03.168758)
+Took 0:00:02.328219
 ```
 
 
@@ -431,7 +428,6 @@ Example:
 ```python
 TEST_SESSION [4]: myscan = ascan(roby, 0, 1, 10, 0.001, diode,
                                  simu1.counters.spectrum_det0, return_scan=True)
-Total 10 points, 0:00:02.019930 (motion: 0:00:02.009930, count: 0:00:00.010000)
 Activated counters not shown: spectrum_det0
 
 Scan 3 Fri Apr 20 11:26:55 2018 /tmp/scans/test_session/
@@ -450,7 +446,7 @@ ascan roby 0 1 10 0.001
        8       3.65932        0.8889            74
        9       4.07872             1           -43
 
-Took 0:00:04.441955 (estimation was for 0:00:02.019930)
+Took 0:00:04.441955
 
 TEST_SESSION [5]: data = get_data(myscan)
 ```
@@ -498,7 +494,6 @@ TEST_SESSION [8]: SCAN_DISPLAY.auto=True
 
 TEST_SESSION [9]: timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det
          ...: 0, npoints=10)
-Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
 Activated counters not shown: spectrum_det0, image
 
 Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
@@ -516,7 +511,7 @@ timescan 0.1
        8       2.52451      -7.88889       24.2222
        9       2.83371        24.125         7.625
 
-Took 0:00:03.214453 (estimation was for 0:00:01)
+Took 0:00:03.214453
 
 TEST_SESSION [9]:
 ```
@@ -615,7 +610,6 @@ plot containing this counter data is returned:
 
 ```python
 TEST_SESSION [8]: s = loopscan(5, 0.1, lima, return_scan=True)
-Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
 Activated counters not shown: image
 
 Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
@@ -629,7 +623,7 @@ timescan 0.1
        3       1.36573
        4       1.50349
 
-Took 0:00:01.666654 (estimation was for 0:00:00.500000)
+Took 0:00:01.666654
 
 TEST_SESSION [9]: p = s.get_plot(lima)
 TEST_SESSION [10]: p

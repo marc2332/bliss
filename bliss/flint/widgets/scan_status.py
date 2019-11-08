@@ -113,16 +113,10 @@ class ScanStatus(ExtendedDockWidget):
         title = scan_info_helper.get_full_title(scan)
         self.__widget.scanInfo.setText(title)
 
-        # estimation = scan_info.get('estimation')
-        # ex: {'total_motion_time': 2.298404048112306, 'total_count_time': 0.1, 'total_time': 2.398404048112306}
         scan_info = scan.scanInfo()
-        totalTime = scan_info.get("estimation", {}).get("total_time", None)
-        if totalTime is not None:
-            self.__end = self.__start + totalTime
-        else:
-            self.__end = None
-            self.__widget.process.setEnabled(False)
-            self.__widget.remainingTime.setText("No estimation time")
+        self.__end = None
+        self.__widget.process.setEnabled(False)
+        self.__widget.remainingTime.setText("No estimation time")
 
     def __updateRemaining(self):
         scan = self.__scan

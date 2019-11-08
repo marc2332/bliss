@@ -428,13 +428,6 @@ class SimulationCounterControllerChainNode(ChainNode):
         if get_logger(counter).isEnabledFor(logging.DEBUG):
             pprint.pprint(acq_params)  # .copy().update(acq_params))
 
-        """ SCAN_PARS
-        {'type': 'ascan', 'save': True, 'title': 'ascan mm1 0 1 5 0.2', 'sleep_time': None,
-         'npoints': 5, 'total_acq_time': 1.0, 'start': [0], 'stop': [1], 'count_time': 0.2,
-         'estimation': {'total_motion_time': 2.4644, 'total_count_time': 1.0, 'total_time': 3.46474}
-         }
-        """
-
         log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device END")
         return acq_dev
 

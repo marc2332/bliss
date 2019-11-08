@@ -32,7 +32,6 @@ DEMO [3]: p = Preset()
 DEMO [4]: s = loopscan(2,0.1,diode,run=False)
 DEMO [5]: s.add_preset(p)
 DEMO [6]: s.run()
-Total 2 points, 0:00:00.200000 (motion: 0:00:00, count: 0:00:00.200000)
 
 Scan 12 Wed Mar 13 11:06:11 2019 /tmp/scans/demo/data.h5 demo user = seb
 loopscan 2 0.1
@@ -44,7 +43,7 @@ Starting scan loopscan
 Opening the shutter
            0             0      -40.2222
            1      0.104891      -9.11111
-Took 0:00:09.830967 (estimation was for 0:00:00.200000)
+Took 0:00:09.830967
 loopscan scan is stopped
 Closing the shutter
 ```
@@ -73,7 +72,6 @@ DEMO [1]: s = loopscan(2,0.1,diode,run=False)
 DEMO [1]: p = Preset()
 DEMO [1]: s.acq_chain.add_preset(p)
 DEMO [1]: s.run()
-Total 2 points, 0:00:00.200000 (motion: 0:00:00, count: 0:00:00.200000)
 
 Scan 13 Wed Mar 13 11:54:08 2019 /tmp/scans/demo/data.h5 demo user = seb
 loopscan 2 0.1
@@ -85,7 +83,7 @@ Starting, Opening the shutter
            1      0.105099       1.22222
 Stopped, closing the shutter
 
-Took 0:00:36.189189 (estimation was for 0:00:00.200000)
+Took 0:00:36.189189
 ```
 
 ## ChainIterationPreset
@@ -115,7 +113,6 @@ DEMO [2]: p = Preset()
 DEMO [3]: s = loopscan(2,0.1,diode,run=False)
 DEMO [4]: s.acq_chain.add_preset(p)
 DEMO [5]: s.run()
-Total 2 points, 0:00:00.200000 (motion: 0:00:00, count: 0:00:00.200000)
 
 Scan 18 Wed Mar 13 14:15:40 2019 /tmp/scans/demo/data.h5 demo user = seb
 loopscan 2 0.1
@@ -130,7 +127,7 @@ Starting, Opening the shutter iter 1
            1       0.10728       13.5556
 Stopped, closing the shutter, iter 1
 
-Took 0:00:16.677241 (estimation was for 0:00:00.200000)
+Took 0:00:16.677241
 ```
 
 In this example, you can see that *data display* and the *chain

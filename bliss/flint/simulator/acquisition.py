@@ -67,11 +67,6 @@ class AcquisitionSimulator(qt.QObject):
             "acquisition_chain": {},
             "title": "foo",
             "scan_nb": self.__scanNb,
-            "estimation": {
-                "total_motion_time": durationSecond / 2,
-                "total_count_time": durationSecond / 2,
-                "total_time": durationSecond,
-            },
             "node_name": "scan" + str(self.__scanNb),
         }
         self.__scanNb += 1

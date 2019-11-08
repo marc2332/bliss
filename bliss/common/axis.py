@@ -504,34 +504,6 @@ class CyclicTrajectory(Trajectory):
         return new_obj
 
 
-def estimate_duration(axis, target_pos, initial_pos=None):
-    """
-    Estimate motion time based on current axis position
-    and configuration
-    """
-    ipos = axis.position if initial_pos is None else initial_pos
-    fpos = target_pos
-    delta = fpos - ipos
-    do_backlash = cmp(delta, 0) != cmp(axis.backlash, 0)
-    if do_backlash:
-        delta -= axis.backlash
-        fpos -= axis.backlash
-
-    try:
-        acc = axis.acceleration
-        vel = axis.velocity
-    except NotImplementedError:
-        # calc axes do not implement acceleration and velocity by default
-        return 0
-
-    linear_trajectory = LinearTrajectory(ipos, fpos, vel, acc)
-    duration = linear_trajectory.duration
-    if do_backlash:
-        backlash_estimation = estimate_duration(axis, target_pos, fpos)
-        duration += backlash_estimation
-    return duration
-
-
 def lazy_init(func):
     @functools.wraps(func)
     def func_wrapper(self, *args, **kwargs):

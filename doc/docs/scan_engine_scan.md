@@ -13,7 +13,6 @@ key as the counter name and a numpy array with the assaociated data.
 
 ```python
 TEST_SESSION [1]: s = loopscan(2,0.1,diode)
-Total 2 points, 0:00:00.200000 (motion: 0:00:00, count: 0:00:00.200000)
 
 Scan 3 Wed Mar 06 11:47 /scans/test_session/data.h5 test_session user = seb
 loopscan 2 0.1
@@ -22,7 +21,7 @@ loopscan 2 0.1
            0             0       2.77778
            1      0.107661            26
 
-Took 0:00:03.523786 (estimation was for 0:00:00.200000)
+Took 0:00:03.523786
 
 TEST_SESSION [2]: s.get_data().keys()
          Out [2]: dict_keys(['timer:elapsed_time', 'timer:epoch', 'simulation_diode_controller:diode'])
@@ -61,7 +60,6 @@ Function `where` display the current scan motor position.
 
 ```python
 TEST_SESSION [1]: s = ascan(robz,0,1,10,0.1,counter)
-Total 10 points, 0:00:01.480618 (motion: 0:00:00.480618, count: 0:00:01)
 
 Scan 7 Wed Mar 06 12:45 /scans/test_session/data.h5 test_session user = seb
 ascan robz 0 1 10 0.1
@@ -78,7 +76,7 @@ ascan robz 0 1 10 0.1
            8       1.60499        0.8889      0.035737
            9       1.80242             1     0.0652613
 
-Took 0:00:02.167129 (estimation was for 0:00:01.480618)
+Took 0:00:02.167129
 TEST_SESSION [2]: robz.position #position of robz at the end of scan
          Out [2]: 1.0
 
@@ -133,7 +131,6 @@ DEMO [14]: s = timescan(1, sim_acq_dev.counters.sc1, run=False)
 DEMO [15]: debugon("bliss.scans")
 
 DEMO [16]: s.run()
-Total 0 points
 
 Scan 7 Fri Nov 30 13:31:15 2018 /tmp/scans/cyril/ cyril user = guilloud
 timescan 1

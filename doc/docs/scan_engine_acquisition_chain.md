@@ -80,7 +80,6 @@ DEBUG 2019-03-06 17:05:29,289 Scan: Start diode.wait_ready
 DEBUG 2019-03-06 17:05:29,289 Scan: Start simulation_diode_controller.wait_ready
 DEBUG 2019-03-06 17:05:29,290 Scan: End diode.wait_ready Took 0.000545s
 DEBUG 2019-03-06 17:05:29,290 Scan: End simulation_diode_controller.wait_ready Took 0.000495s
-Total 2 points, 0:00:02 (motion: 0:00:00, count: 0:00:02)
 
 Scan 11 Wed Mar 06 17:05:24 2019 /tmp/scans/test_session/data.h5 test_session user = seb
 loopscan 2 1
@@ -143,7 +142,7 @@ DEBUG 2019-03-06 17:05:31,352 Scan: End simulation_diode_controller.stop Took 0.
 DEBUG 2019-03-06 17:05:31,353 Scan: Start timer.wait_slaves
 DEBUG 2019-03-06 17:05:31,354 Scan: End timer.wait_slaves Took 0.000611s
 
-Took 0:00:06.935785 (estimation was for 0:00:02)
+Took 0:00:06.935785
 ```
 
 ## Display the chain tree

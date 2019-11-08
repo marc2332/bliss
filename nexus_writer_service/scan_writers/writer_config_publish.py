@@ -104,10 +104,10 @@ def _mca_device_info(ctr):
     :param BaseMcaCounter ctr:
     :returns str:
     """
-    description = ctr.controller.detector_brand.name + "/" + \
-                  ctr.controller.detector_type.name
-    return {"type": "mca",
-            "description": description}
+    description = (
+        ctr.controller.detector_brand.name + "/" + ctr.controller.detector_type.name
+    )
+    return {"type": "mca", "description": description}
 
 
 def _mca_roi_data_info(ctr):
@@ -116,8 +116,7 @@ def _mca_roi_data_info(ctr):
     :returns dict:
     """
     roi = ctr.controller.rois.get(ctr.roi_name)
-    return {"roi_start": roi[0],
-            "roi_end": roi[1]}
+    return {"roi_start": roi[0], "roi_end": roi[1]}
 
 
 def _lima_roi_data_info(ctr):

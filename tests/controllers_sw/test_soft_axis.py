@@ -10,7 +10,7 @@ import pytest
 import numpy
 
 from bliss import setup_globals
-from bliss.common.standard import SoftAxis, SoftCounter, ascan
+from bliss.common.standard import SoftAxis, SoftCounter, ascan, wa
 
 
 class Object(object):
@@ -95,3 +95,11 @@ def test_soft_axis_scan(session):
     positions = numpy.linspace(-200, 200, 100)
     numpy.testing.assert_array_almost_equal(data["motor_counter"], positions)
     numpy.testing.assert_array_almost_equal(data["another_motor"], positions)
+
+
+def test_soft_axis_wa(session, capsys):
+    o = Object()
+    m0 = SoftAxis("bla", o)
+    wa()  # call where all
+    captured = capsys.readouterr()
+    assert "bla" in captured.out

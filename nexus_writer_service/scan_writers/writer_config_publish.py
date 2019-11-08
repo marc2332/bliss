@@ -16,7 +16,7 @@ Writer configuration to be published in Redis
 import inspect
 import logging
 from bliss import global_map
-from bliss.common.measurement import SamplingMode
+from bliss.common.counter import SamplingMode
 from ..utils import config_utils
 from ..utils import scan_utils
 

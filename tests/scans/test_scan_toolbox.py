@@ -9,7 +9,7 @@
 import numpy
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.roi import Roi
-from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
+from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain
 from bliss.controllers.lima.lima_base import Lima
@@ -21,10 +21,7 @@ from bliss.scanning.acquisition.calc import CalcHook
 
 def scan_demo(motor, start, stop, npoints, count_time, *counters):
 
-    total_time = count_time * npoints
-    acq_master = SoftwarePositionTriggerMaster(
-        motor, start, stop, npoints, time=total_time
-    )
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
 
     chain = AcquisitionChain()
     builder = ChainBuilder(counters)

@@ -3,7 +3,6 @@ from collections import defaultdict
 import logging
 from socketserver import TCPServer
 import threading
-import gevent
 
 from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
@@ -387,7 +386,13 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
             address -= 512
         regs_io_words_output[address] = value
 
-    return app
+    t = threading.currentThread()
+
+    try:
+        while getattr(t, "do_run", True):  # handles until a signal from parent thread
+            app.handle_request()
+    finally:
+        app.server_close()
 
 
 class WagoMockup:
@@ -399,16 +404,15 @@ class WagoMockup:
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
-        self.app = Wago(
-            (self.host, self.port), modules=modules, randomize_values=randomize_values
+
+        self.t = threading.Thread(
+            target=Wago,
+            args=((self.host, self.port),),
+            kwargs={"modules": modules, "randomize_values": randomize_values},
         )
 
-        def serve():
-            while getattr(self.app, "do_run", True):
-                self.app.handle_request()
-
-        self.t = gevent.spawn(serve)
+        self.t.start()
 
     def close(self):
-        self.app.do_run = False
-        self.t.kill()
+        self.t.do_run = False
+        self.t.join(1)

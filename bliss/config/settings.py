@@ -14,6 +14,7 @@ import re
 import reprlib
 import datetime
 import logging
+import hashlib
 
 import numpy
 from tabulate import tabulate
@@ -706,6 +707,42 @@ class BaseHashSetting(BaseSetting):
             return False
 
 
+lua_script = """
+-- Atomic addiction of a key to a hash and to a list
+-- to keep track of inserction order
+
+-- KEYS[1]: redis-key of hash
+-- ARGV[1]: attribute to be added
+-- ARGV[2]: value of the attribute
+
+local hashkey = KEYS[1]
+local attribute = ARGV[1]
+local value = ARGV[2]
+
+local listkey = hashkey .. ":creation_order"
+
+local attribute_names = redis.call("LRANGE", listkey, 0, -1)
+local found = false
+-- check if key is in list
+for k, v in pairs(attribute_names) do
+    if v == attribute then
+        -- found, so change value
+        return redis.call("HSET", hashkey, attribute, value)
+    end
+end
+
+if found then
+    return 0
+end
+
+-- adding attribute to list
+redis.call("RPUSH",listkey, attribute)
+
+-- adding attribute and value to hash
+return redis.call("HSET", hashkey, attribute, value)
+""".encode()
+
+
 class OrderedHashSetting(BaseHashSetting):
     """
     A Setting stored as a key,value pair in Redis
@@ -720,6 +757,8 @@ class OrderedHashSetting(BaseHashSetting):
                 before writing
     """
 
+    add_key_script_sha1 = None
+
     def __init__(
         self,
         name,
@@ -728,23 +767,25 @@ class OrderedHashSetting(BaseHashSetting):
         write_type_conversion=str,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
+        if (
+            self.add_key_script_sha1 is None
+        ):  # class attribute to execute only the first time
+            # calculate sha1 of the script
+            sha1 = hashlib.sha1(lua_script).hexdigest()
+
+            # check if script already exists in Redis and if not loads it
+            if not self.connection.script_exists(sha1)[0]:
+                sha1_from_redis = self.connection.script_load(lua_script)
+                if sha1_from_redis != sha1:
+                    raise RuntimeError("Exception in sending lua script to Redis")
+            type(self).add_key_script_sha1 = sha1
 
     @property
     def _name_order(self):
         return self._name + ":creation_order"
 
     def __delitem__(self, key):
-        cnx = self._cnx()
-        cnx.hdel(self._name, key)
-        cnx.zrem(self._name_order, key)
-
-    def _next_score(self):
-        cnx = self._cnx()
-        result = cnx.zrange(self._name_order, -1, -1, withscores=True)
-        if not len(result):
-            return 0
-        value, score = result[0]
-        return int(score) + 1
+        self.remove(key)
 
     def __len__(self):
         return super().__len__()
@@ -763,7 +804,7 @@ class OrderedHashSetting(BaseHashSetting):
 
     def _raw_get_all(self):
         cnx = self._cnx()
-        order = iter(k for k in cnx.zrange(self._name_order, 0, -1))
+        order = iter(k for k in cnx.lrange(self._name_order, 0, -1))
         return {key: cnx.hget(self._name, key) for key in order}
 
     @read_decorator
@@ -771,9 +812,9 @@ class OrderedHashSetting(BaseHashSetting):
         cnx = self._cnx().pipeline()
         cnx.hget(self._name, key)
         cnx.hdel(self._name, key)
-        cnx.zrem(self._name_order, key)
-        (value, worked) = cnx.execute()
-        if not worked:
+        cnx.lrem(self._name_order, 0, key)
+        (value, removed_h, removed_l) = cnx.execute()
+        if not (removed_h and removed_l):
             if isinstance(default, Null):
                 raise KeyError(key)
             else:
@@ -781,47 +822,49 @@ class OrderedHashSetting(BaseHashSetting):
         return value
 
     def remove(self, *keys):
-        cnx = self._cnx()
+        cnx = self._cnx().pipeline()
+        for key in keys:
+            cnx.lrem(self._name_order, 0, key)
         cnx.hdel(self._name, *keys)
-        cnx.zrem(self._name_order, *keys)
+        cnx.execute()
 
     def clear(self):
-        cnx = self._cnx()
+        cnx = self._cnx().pipeline()
         cnx.delete(self._name)
         cnx.delete(self._name_order)
+        cnx.execute()
 
     @write_decorator_dict
-    def set(self, values):
-        cnx = self._cnx()
+    def set(self, mapping):
+        cnx = self._cnx().pipeline()
         cnx.delete(self._name)
         cnx.delete(self._name_order)
-        if values is not None:
-            cnx.hmset(self._name, values)
-            for k in values.keys():
-                cnx.zadd(self._name_order, {k: self._next_score()})
+        if mapping is not None:
+            cnx.hmset(self._name, mapping)
+            # use lrange e rpush
+            cnx.rpush(self._name_order, *mapping.keys())
+        cnx.execute()
 
     @write_decorator_dict
     def update(self, values):
         cnx = self._cnx()
         if values:
-            cnx.hmset(self._name, values)
-            for k in values.keys():
-                cnx.zadd(self._name_order, {k: self._next_score()}, nx=True)
+            for k, v in values.items():
+                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
 
     def has_key(self, key):
         cnx = self._cnx()
-        return cnx.zrank(self._name_order, key) is not None
+        return cnx.hexists(self.name, key)
 
     def keys(self):
         cnx = self._cnx()
-        return (k.decode() for k in cnx.zrange(self._name_order, 0, -1))
+        return (k.decode() for k in cnx.lrange(self._name_order, 0, -1))
 
     def values(self):
         for k in self.keys():
             yield self[k]
 
     def items(self):
-        cnx = self._cnx()
         for k in self.keys():
             v = self[k]
             if self._read_type_conversion:
@@ -834,15 +877,16 @@ class OrderedHashSetting(BaseHashSetting):
         return self.get(key)
 
     def __setitem__(self, key, value):
-        cnx = self._cnx()
+        cnx = self._cnx().pipeline()
         if value is None:
             cnx.hdel(self._name, key)
-            cnx.zrem(self._name_order, key)
+            cnx.lrem(self._name_order, 0, key)
+            cnx.execute()
             return
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
-        cnx.hset(self._name, key, value)
-        cnx.zadd(self._name_order, {key: self._next_score()}, nx=True)
+        cnx.evalsha(self.add_key_script_sha1, 1, self._name, key, value)
+        cnx.execute()
 
     def __contains__(self, key):
         return self.has_key(key)
@@ -1015,7 +1059,7 @@ class HashObjSetting(HashSetting):
         super().__init__(name, **keys)
 
 
-class OrderedHashObjSetting(OrderedHashSetting):
+class OrderedHashSettingrderedHashObjSetting(OrderedHashSetting):
     """
     Class to manage a setting that is stored as a dictionary on redis
     where values of the dictionary are pickled

@@ -15,10 +15,13 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 def test_timescan(session):
-    simul_counter = getattr(setup_globals, "sim_ct_gauss")
-    s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
+    names = "sim_ct_gauss", "diode2", "diode9", "thermo_sample"
+    detectors = [getattr(setup_globals, name) for name in names]
+    s = scans.timescan(0.1, *detectors, npoints=10, return_scan=True, save=False)
     scan_data = s.get_data()
-    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+    for name in names:
+        assert scan_data[name].size == 10
+    assert numpy.array_equal(scan_data[names[0]], detectors[0].data)
 
 
 def test_ct(session):

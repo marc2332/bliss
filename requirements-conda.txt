@@ -41,3 +41,4 @@ pytango
 tblib
 tmux >= 2.7
 treelib
+pyopengl

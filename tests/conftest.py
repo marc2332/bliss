@@ -343,6 +343,11 @@ def session(beacon):
 @pytest.fixture
 def default_session(beacon):
     default_session = DefaultSession()
+
+    # avoid creation of simulators
+    default_session.config.get_config("wago_simulator")["simulate"] = False
+    default_session.config.get_config("transfocator_simulator")["simulate"] = False
+
     default_session.setup()
     yield default_session
     default_session.close()
@@ -395,7 +400,6 @@ def wago_mockup(default_session):
     default_session.config.get_config("wago_simulator")["modbustcp"][
         "url"
     ] = f"{wago.host}:{wago.port}"
-    default_session.config.get_config("wago_simulator")["simulate"] = False
 
     yield wago
     wago.close()
@@ -414,7 +418,6 @@ def transfocator_mockup(default_session):
     default_session.config.get_config("transfocator_simulator")[
         "controller_port"
     ] = f"{wago.port}"
-    default_session.config.get_config("transfocator_simulator")["simulate"] = False
 
     yield wago
     wago.close()

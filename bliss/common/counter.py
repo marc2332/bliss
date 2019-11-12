@@ -300,14 +300,6 @@ class SoftCounter(SamplingCounter):
 
 
 class CalcCounter(Counter):
-    def __init__(self, name, controller, calc_function):
-        self.__calc_function = calc_function
-        super().__init__(name, controller)
-
-    @property
-    def calc_func(self):
-        return self.__calc_function
-
     @property
     def fullname(self):
         return self.name

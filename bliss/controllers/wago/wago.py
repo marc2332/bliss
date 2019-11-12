@@ -390,7 +390,7 @@ class ModulesConfig:
             if channels:
                 # if channels are specified, check it corresponds
                 # to the number of available channels
-                if module_info[N_CHANNELS] != len(channels):
+                if module_info.n_channels != len(channels):
                     if not ignore_missing:
                         raise RuntimeError(
                             "Missing mapped channels on module %d: %r"
@@ -398,8 +398,14 @@ class ModulesConfig:
                         )
                 for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
                     channels_map.append([])
-                    for _ in range(module_info[j]):
-                        if module_info[N_CHANNELS] == 1:
+                    if module_info.reading_type in ("ssi24", "ssi32", "637"):
+                        # those modules need 2 words per value
+                        total_channels = range(int(module_info[j] / 2))
+                    else:
+                        total_channels = range(module_info[j])
+
+                    for _ in total_channels:
+                        if module_info.n_channels == 1:
                             channels_map[-1].append(channels[0])
                         else:
                             try:
@@ -989,7 +995,7 @@ class WagoController:
         reading_info = read_table[READING_INFO]
         if reading_type.startswith("fs"):
             return self._read_fs(raw_value, **reading_info)
-        if reading_type == "ssi":
+        if reading_type in ("ssi24", "ssi32", "637"):
             return self._read_ssi(raw_value, **reading_info)
         if reading_type == "thc":
             return self._read_thc(raw_value, **reading_info)
@@ -1098,7 +1104,7 @@ class WagoController:
                 raw_values = ana_in_reading[i : i + n]
                 if not convert_values:
                     readings.append(raw_values)
-                elif module_read_table[READING_TYPE] == "ssi":
+                elif module_read_table[READING_TYPE] in ("ssi24", "ssi32", "637"):
                     readings.append(
                         tuple(self._read_value(raw_values, module_read_table))
                     )

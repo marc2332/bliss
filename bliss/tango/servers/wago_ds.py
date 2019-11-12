@@ -256,7 +256,7 @@ class Wago(Device):
             if type_ in ("thc", "fs"):
                 # temperature and Analog requires Float
                 var_type = tango.DevDouble
-            elif type_ in ("ssi", "637"):
+            elif type_ in ("ssi24", "ssi32", "637"):
                 # encoder requires Long
                 var_type = tango.DevLong
             elif type_ in ("digital"):
@@ -275,12 +275,8 @@ class Wago(Device):
                     read_write = "rw"
                 else:
                     raise NotImplementedError
-            elif type_ in ("ssi", "637"):
+            elif type_ in ("ssi24", "ssi32", "637"):
                 read_write = "r"
-                if module_info[ANA_OUT] > 0:
-                    read_write += "w"
-                else:
-                    raise NotImplementedError
             elif type_ in ("digital"):
                 if module_info[DIGI_IN] == module_info[N_CHANNELS]:
                     read_write = "r"

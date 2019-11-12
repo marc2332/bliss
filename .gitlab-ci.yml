@@ -115,8 +115,8 @@ create_doc:reference:
   stage: build
   image: continuumio/miniconda3:latest
   script:
-    # install opengl libraries (needed to avoid problem with pyopengl dependancy)
-    - apt-get update && apt-get -y install libxi6
+    # install opengl libraries (needed to avoid problem with pyopengl dependency)
+    - apt-get update && apt-get -y install libgl1-mesa-glx
     # create doc env and install all requirements
     - conda create -q --yes --name docenv --file requirements-conda.txt --file requirements-doc-conda.txt
     - source activate docenv
@@ -132,8 +132,8 @@ create_doc:user:
   stage: build
   image: continuumio/miniconda3:latest
   script:
-    # install opengl libraries (needed to avoid problem with pyopengl dependancy)
-    - apt-get update && apt-get -y install libxi6
+    # install opengl libraries (needed to avoid problem with pyopengl dependency)
+    - apt-get update && apt-get -y install libgl1-mesa-glx
     # create doc env and install all requirements
     - conda create -q --yes --name mkdocsenv --file requirements-conda.txt --file requirements-doc-conda.txt
     - source activate mkdocsenv

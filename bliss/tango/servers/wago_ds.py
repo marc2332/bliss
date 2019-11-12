@@ -262,6 +262,8 @@ class Wago(Device):
             elif type_ in ("digital"):
                 # digital requires boolean
                 var_type = tango.DevBoolean
+            else:
+                raise NotImplementedError
 
             module_info = MODULES_CONFIG[module_type]
 
@@ -286,6 +288,8 @@ class Wago(Device):
                     raise NotImplementedError(
                         f"Digital I/O number of channels should be equal to total for {module_type}"
                     )
+            else:
+                raise NotImplementedError
 
             # define read and write methods
             _read_channel = lambda: None
@@ -406,7 +410,7 @@ class Wago(Device):
             long *error - pointer to error code (in the case of failure)
 
         """
-        return self.wago.logical_keys[name]
+        return self.wago.devname2key(name)
 
     @command(
         dtype_in=tango.DevShort,
@@ -430,7 +434,12 @@ class Wago(Device):
     def DevReadNoCacheDigi(self, key):
         """
         """
-        return self.wago.devreadnocachedigi(key)
+        value = self.wago.get(self.wago.devkey2name(key), convert_values=False)
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevShort,
@@ -442,7 +451,12 @@ class Wago(Device):
     def DevReadNoCachePhys(self, key):
         """
         """
-        return self.wago.devreadnocachephys(key)
+        value = self.wago.get(self.wago.devkey2name(key))
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevShort,

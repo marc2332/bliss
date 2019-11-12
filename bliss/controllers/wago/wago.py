@@ -304,7 +304,16 @@ class TangoWago:
             key = self.modules_config.devname2key(name)
             val = self.comm.command_inout("DevReadNoCachePhys", key)
             values.append(val)
-        return flatten(values)
+
+        values = flatten(values)
+
+        if not values:
+            return None
+
+        if len(values) == 1:
+            return values[0]
+
+        return values
 
     def connect(self):
         """Added for compatibility"""
@@ -550,6 +559,8 @@ class ModulesConfig:
         Returns: (logical_device_key, logical_device_channel)
         """
         channel_type, offset = array_in
+        if channel_type not in (0x4942, 0x4f42, 0x4f57, 0x4957):
+            raise RuntimeError("Wrong I/O type: (ex: ('I'<<8 + 'W') )")
         if isinstance(channel_type, str):
             # converto to integer if receiving types like 'TC' or 'IB'
             channel_type = (ord(channel_type[0]) << 8) + ord(channel_type[1])
@@ -562,6 +573,8 @@ class ModulesConfig:
                 )
                 if offset_ == offset and channel_base_address == channel_type:
                     return logical_device_key, logical_channel
+
+        raise RuntimeError("Invalid offset")
 
     def devlog2hard(self, array_in):
 

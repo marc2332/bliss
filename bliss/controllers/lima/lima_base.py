@@ -20,6 +20,7 @@ from bliss.controllers.counter import CounterController, counter_namespace
 from bliss.scanning.acquisition.lima import LimaChainNode
 from bliss import current_session
 
+from bliss.config.channels import Cache, clear_cache
 
 from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
@@ -101,9 +102,7 @@ class Lima(CounterController):
 
         def __init__(self, config, proxy, name):
             self._proxy = proxy
-            self.name = name
-
-            super().__init__(config, share_hardware=False)
+            super().__init__(config, name=name, share_hardware=False, path=["saving"])
 
         mode = BeaconObject.property_setting(
             "mode", default=SavingMode.ONE_FILE_PER_N_FRAMES
@@ -128,12 +127,14 @@ class Lima(CounterController):
         def available_saving_formats(self):
             return self._proxy.getAttrStringValueList("saving_format")
 
-        # used in ONE_FILE_PER_N_FRAMES mode   TODO: pass doc to property...
-        frames_per_file = BeaconObject.property_setting("frames_per_file", default=100)
+        _frames_per_file_doc = """used in ONE_FILE_PER_N_FRAMES mode"""
+        frames_per_file = BeaconObject.property_setting(
+            "frames_per_file", default=100, doc=_frames_per_file_doc
+        )
 
-        # used in N_MB_PER_FILE mode   TODO: pass doc to property...
+        _max_file_size_in_MB_doc = """used in N_MB_PER_FILE mode"""
         max_file_size_in_MB = BeaconObject.property_setting(
-            "max_file_size_in_MB", default=500
+            "max_file_size_in_MB", default=500, doc=_max_file_size_in_MB_doc
         )
 
         # TODO: so far this is not shown in __info__ should it stay like that?
@@ -214,9 +215,9 @@ class Lima(CounterController):
     class LimaTools(BeaconObject):
         def __init__(self, config, proxy, name):
             self._proxy = proxy
-            self.name = name
-
-            super().__init__(config, share_hardware=False)
+            super().__init__(
+                config, name="name", share_hardware=False, path=["processing"]
+            )
 
         flip = BeaconObject.property_setting("flip", default=[False, False])
 
@@ -253,14 +254,6 @@ class Lima(CounterController):
         def __info__(self):
             return f"< lima prosessing settings {self.to_dict()} >"
 
-        # TODO: to be seen for beacon object:
-        # if I do `lima_simulator.processing.rotation = 0` as first call after
-        # config.get("lima_simulator")
-        # I get
-        # AttributeError: 'LimaTools' object has no attribute '_settings'
-        # if I do print(lima_simulator.processing.rotation) first,
-        # thinks work fine after that
-
     def __init__(self, name, config_tree):
         """Lima controller.
 
@@ -281,6 +274,7 @@ class Lima(CounterController):
         self._image = None
         self._acquisition = None
         self._proxy = self._get_proxy()
+        self._cached_ctrl_params = {}
 
         super().__init__(name, chain_node_class=LimaChainNode)
 
@@ -295,44 +289,22 @@ class Lima(CounterController):
         global_map.register("lima", ["global"])
         global_map.register(self, parents_list=["lima"])
 
-        saving_conf = config_tree.get("saving", {})
-        processing_conf = config_tree.get("processing", {})
+        clear_cache(self)
 
         if current_session:
             name_prefix = current_session.name
         else:
             name_prefix = ""
 
-        if saving_conf:
-            saving_conf_name = saving_conf.get("name", self.name + "_saving")
-            self._saving = self.LimaSavingParameters(
-                saving_conf,
-                self._proxy,
-                f"{name_prefix}:{self.name}:{saving_conf_name}",
-            )
-        else:
-            self._saving = self.LimaSavingParameters(
-                {"name": "does_not_exist_in_config"},
-                self._proxy,
-                f"{name_prefix}:{self.name}:saving",
-            )
-            # TODO: work on beaconObject so that "name" does not need to be provided via config
+        self._saving = self.LimaSavingParameters(
+            config_tree, self._proxy, f"{name_prefix}:{self.name}:saving"
+        )
 
-        if processing_conf:
-            processing_conf_name = saving_conf.get("name", self.name + "_processing")
-            self._processing = self.LimaTools(
-                saving_conf,
-                self._proxy,
-                f"{name_prefix}:{self.name}:{processing_conf_name}",
-            )
-        else:
-            self._processing = self.LimaTools(
-                {"name": "does_not_exist_in_config"},
-                self._proxy,
-                f"{name_prefix}:{self.name}:processing",
-            )
+        self._processing = self.LimaTools(
+            config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
+        )
 
-    def apply_parameters_to_hw(self, ctrl_params):
+    def apply_parameters(self, ctrl_params):
 
         if "saving_format" in ctrl_params:
             assert ctrl_params["saving_format"] in self.saving.available_saving_formats
@@ -341,10 +313,17 @@ class Lima(CounterController):
             ]
 
         for key, value in ctrl_params.items():
-            setattr(self.proxy, key, value)
+            if key not in self._cached_ctrl_params:
+                self._cached_ctrl_params[key] = Cache(self, key)
+            if self._cached_ctrl_params[key].value != value:
+                setattr(self.proxy, key, value)
+                self._cached_ctrl_params[key].value = value
 
     def get_default_parameters(self):
         return {**self.saving.to_dict(), **self.processing.to_dict()}
+
+    def clear_cache(self):
+        clear_cache(self)
 
     @autocomplete_property
     def processing(self):

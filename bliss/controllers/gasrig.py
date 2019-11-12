@@ -80,7 +80,6 @@ Example usage:
     >>> gasrig1 = config.get('gasrig1')
     >>> from bliss.common.scans import timescan
     >>> timescan(0.1, gasrig1.k1_t, gasrig1.k1_p npoints=10)
-    Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
 
     Scan 24 Tue Sep 19 11:04:19 2017 /tmp/scans/slits/ slits user = coutinho
     timescan 0.1
@@ -97,7 +96,7 @@ Example usage:
            8      0.829707        26.002    -0.0127244
            9      0.931273        26.002    -0.0126653
 
-    Took 0:00:01.074992 (estimation was for 0:00:01)
+    Took 0:00:01.074992
 
     >>> gasrig1.open_valve(1)
     >>> gasrig1.close_all_valves()

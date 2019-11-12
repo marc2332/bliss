@@ -90,8 +90,7 @@ class ScanPrinter:
     """compose scan output"""
 
     HEADER = (
-        "Total {npoints} points{estimation_str}\n"
-        + "{not_shown_counters_str}\n"
+        "{not_shown_counters_str}\n"
         + "Scan {scan_nb} {start_time_str} {filename} "
         + "{session_name} user = {user_name}\n"
         + "{title}\n\n"
@@ -191,17 +190,6 @@ class ScanPrinter:
         if scan_type == "ct":
             header = not_shown_counters_str
         else:
-            estimation = scan_info.get("estimation")
-            if estimation:
-                total = datetime.timedelta(seconds=estimation["total_time"])
-                motion = datetime.timedelta(seconds=estimation["total_motion_time"])
-                count = datetime.timedelta(seconds=estimation["total_count_time"])
-                estimation_str = ", {0} (motion: {1}, count: {2})".format(
-                    total, motion, count
-                )
-            else:
-                estimation_str = ""
-
             col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
             h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
             header = "  ".join(
@@ -209,7 +197,6 @@ class ScanPrinter:
             )
             header = self.HEADER.format(
                 column_header=header,
-                estimation_str=estimation_str,
                 not_shown_counters_str=not_shown_counters_str,
                 **scan_info,
             )
@@ -293,11 +280,6 @@ class ScanPrinter:
         if scan_info.get("output_mode", "tail") == "monitor" and self.term.is_a_tty:
             print()
         msg = "\nTook {0}".format(dt)
-        if "estimation" in scan_info:
-            time_estimation = scan_info["estimation"]["total_time"]
-            msg += " (estimation was for {0})".format(
-                datetime.timedelta(seconds=time_estimation)
-            )
         print(msg)
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
@@ -316,8 +298,7 @@ class ScanPrinter:
 class ScanDataListener:
 
     HEADER = (
-        "Total {npoints} points{estimation_str}\n"
-        + "{not_shown_counters_str}\n"
+        "{not_shown_counters_str}\n"
         + "Scan {scan_nb} {start_time_str} {filename} "
         + "{session_name} user = {user_name}\n"
         + "{title}\n\n"
@@ -406,7 +387,6 @@ class ScanDataListener:
             # positioners_dial = scan_info.get('positioners_dial')     # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 20.0, ... }
             # positioners = scan_info.get('positioners')               # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 10.0, ...}
 
-            # estimation = scan_info.get('estimation')                 # ex: {'total_motion_time': 2.298404048112306, 'total_count_time': 0.1, 'total_time': 2.398404048112306}
             # acquisition_chain = scan_info.get('acquisition_chain')   # ex: {'axis': {'master': {'scalars': ['axis:roby'], 'spectra': [], 'images': []}, 'scalars': ['timer:elapsed_time', 'diode:diode'], 'spectra': [], 'images': []}}
 
             self.scan_steps_index = 1
@@ -478,17 +458,6 @@ class ScanDataListener:
             if scan_type == "ct":
                 header = not_shown_counters_str
             else:
-                estimation = scan_info.get("estimation")
-                if estimation:
-                    total = datetime.timedelta(seconds=estimation["total_time"])
-                    motion = datetime.timedelta(seconds=estimation["total_motion_time"])
-                    count = datetime.timedelta(seconds=estimation["total_count_time"])
-                    estimation_str = ", {0} (motion: {1}, count: {2})".format(
-                        total, motion, count
-                    )
-                else:
-                    estimation_str = ""
-
                 col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
                 h_templ = [
                     "{{0:>{width}}}".format(width=col_len) for col_len in col_lens
@@ -501,7 +470,6 @@ class ScanDataListener:
                 )
                 header = self.HEADER.format(
                     column_header=header,
-                    estimation_str=estimation_str,
                     not_shown_counters_str=not_shown_counters_str,
                     **scan_info,
                 )
@@ -617,11 +585,6 @@ class ScanDataListener:
         dt = end - start
 
         msg = "\nTook {0}".format(dt)
-        if "estimation" in scan_info:
-            time_estimation = scan_info["estimation"]["total_time"]
-            msg += " (estimation was for {0})".format(
-                datetime.timedelta(seconds=time_estimation)
-            )
         print(msg)
 
         print_full_line(

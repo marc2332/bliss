@@ -146,7 +146,6 @@ Similary to `a2scan`, `aNscan` functions are provided fo N in {3,4,5}.
 example for 9 intervals:
 ```python
 DEMO [2]: a5scan(m1,1,2, m2,3,4, m3,5,6, m4,7,8, m5,8,9, 9, 0.1)
-Total 10 points, 0:00:04.100000 (motion: 0:00:03.100000, count: 0:00:01)
 
 Scan 2 Fri Oct 26 16:07:08 2018 /tmp/scans/demo/
 a5scan m1 1 2 m2 3 4 m3 5 6 m4 7 8 m5 8 9 10 0.1
@@ -163,7 +162,7 @@ a5scan m1 1 2 m2 3 4 m3 5 6 m4 7 8 m5 8 9 10 0.1
      8     3.4303    1.89    3.89     5.89     7.89     8.89    0.073870
      9    3.84454       2       4        6        8        9    0.019919
 
-Took 0:00:05.226827 (estimation was for 0:00:04.100000)
+Took 0:00:05.226827
  Out [2]: Scan(name=a5scan_2, run_number=2, path=/tmp/scans/demo/)
 ```
 
@@ -402,7 +401,6 @@ Execute :
 
 ```python
 DEMO [1]: s = n_region_scan(roby,[(0,2,3),(10,15,11)],0.1,diode,save=False)
-Total 14 points
 
 Scan 9 Tue Apr 02 14:58:33 2019 <no saving> demo user = seb
 2_region_scan on roby
@@ -440,7 +438,6 @@ Execute :
 
 ```python
 TEST_SESSION [42]: s = step_scan(roby, 0, 1, 0.2, 0.1, diode)
-Total 5 points, 0:00:01.615242 (motion: 0:00:01.115242, count: 0:00:00.500000)
 
 Scan 17 Tue Apr 02 16:04:31 2019 /tmp/..../data.h5 test_session user = seb
 ascan roby 0 1 5 0.1
@@ -452,7 +449,7 @@ ascan roby 0 1 5 0.1
            3      0.575978          0.75      -13.5556
            4      0.765097             1      -9.55556
 
-Took 0:00:01.229621 (estimation was for 0:00:01.615242)
+Took 0:00:01.229621
 ```
 
 #### Using 'presets' to customize a scan
@@ -497,7 +494,6 @@ Execute :
 
 ```python
 TEST_SESSION [16]: syringe_ascan(my_syringe, 1, roby, 0, 1, 15, 0.1, diode)
-Total 15 points, 0:00:04.384344 (motion: 0:00:02.884344, count: 0:00:01.500000)
 
 Scan 22 Tue Apr 02 16:37:24 2019 /tmp/..../data.h5 test_session user = seb
 ascan roby 0 1 15 0.1
@@ -515,7 +511,7 @@ ascan roby 0 1 15 0.1
            9        1.7079        0.6429       9.77778
 !!! === RuntimeError: No more liquid to pump === !!!
 
-Took 0:00:02.008699 (estimation was for 0:00:04.384344)
+Took 0:00:02.008699
 !!! === RuntimeError: No more liquid to pump === !!!
 
 ```

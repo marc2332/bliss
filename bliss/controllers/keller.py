@@ -48,7 +48,6 @@ Example how to use it in a scan:
     >>> config = get_config()
     >>> keller_1 = config.get('keller_1')
     >>> timescan(1, keller_1.k1_p, keller_1.k1_t, npoints=5)
-    Total 5 points, 0:00:05 (motion: 0:00:00, count: 0:00:05)
 
     Scan 16 Mon Sep 18 13:39:21 2017 /tmp/scans/slits/ slits user = coutinho
     timescan 1
@@ -60,7 +59,7 @@ Example how to use it in a scan:
        3       3.02389       27.2822    -0.0149921
        4       4.02563       27.2783    -0.0150896
 
-    Took 0:00:05.048202 (estimation was for 0:00:05)
+    Took 0:00:05.048202
 
 """
 

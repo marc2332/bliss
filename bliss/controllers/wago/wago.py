@@ -1885,7 +1885,7 @@ class Wago(SamplingCounterController):
             if yes_no == "YES":
                 upload(self.controller, self._interlocks_on_beacon)
                 # double check
-                self._interlocks_on_plc = download(self.controller)
+                self._interlocks_on_plc = download(self.controller, self.modules_config)
                 are_equal, messages = compare(
                     self._interlocks_on_beacon, self._interlocks_on_plc
                 )

@@ -54,10 +54,18 @@ def data_from_bytes(data, shape=None, dtype=None):
     try:
         return pickle.loads(data)
     except pickle.UnpicklingError:
+        if dtype is not None:
+            try:
+                t = numpy.dtype(dtype)
+                return dtype(numpy.array(data, dtype=t))
+            except TypeError:
+                pass
         return float(data)
 
 
 class ChannelDataNode(DataNode):
+    _NODE_TYPE = "channel"
+
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
@@ -72,7 +80,7 @@ class ChannelDataNode(DataNode):
             info["fullname"] = fullname
             info["unit"] = unit
 
-        DataNode.__init__(self, "channel", name, info=info, **keys)
+        DataNode.__init__(self, self._NODE_TYPE, name, info=info, **keys)
 
         self._queue = None
 

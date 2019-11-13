@@ -131,13 +131,17 @@ class CT2Controller(Proxy, CounterController):
             ct_name = channel.get("counter name", None)
             if ct_name:
                 address = int(channel["address"])
-                self._counters[ct_name] = CT2Counter(ct_name, address, controller=slave)
+                slave._counters[ct_name] = CT2Counter(
+                    ct_name, address, controller=slave
+                )
         # Add ct2 counter timer
         timer = device_config.get("timer", None)
         if timer is not None:
             ct_name = timer.get("counter name", None)
             if ct_name:
-                self._counters[ct_name] = CT2CounterTimer(ct_name, controller=slave)
+                slave._counters[ct_name] = CT2CounterTimer(ct_name, controller=slave)
+
+        self._counters = slave._counters
 
 
 class CT2CounterController(IntegratingCounterController):

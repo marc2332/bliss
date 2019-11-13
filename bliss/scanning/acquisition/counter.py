@@ -420,12 +420,12 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
 
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
-    def __init__(self, *counters, count_time=None, ctrl_params=None):
+    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
 
         super().__init__(
             *counters,
             count_time=count_time,
-            npoints=1,
+            npoints=npoints,
             prepare_once=False,
             start_once=False,
             ctrl_params=ctrl_params,

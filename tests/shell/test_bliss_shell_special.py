@@ -187,3 +187,33 @@ def test_shell_comma_kwarg(clean_gevent):
     clean_gevent["end-check"] = False
     br = _run_incomplete("print run=True ", {})
     assert br.default_buffer.text == "print(run=True,"
+
+
+def test_shell_custom_function_kwarg(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    def f(**kwargs):
+        return True
+
+    br = _run_incomplete("f ", {"f": f})
+    assert br.default_buffer.text == "f("
+
+
+def test_shell_custom_function_arg(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    def f(*args):
+        return True
+
+    br = _run_incomplete("f ", {"f": f})
+    assert br.default_buffer.text == "f("
+    br = _run_incomplete("f    ", {"f": f})
+    assert br.default_buffer.text == "f(   "
+
+    def g(par=None):
+        return par
+
+    br = _run_incomplete("g ", {"g": g})
+    assert br.default_buffer.text == "g("
+    br = _run_incomplete("g    ", {"g": g})
+    assert br.default_buffer.text == "g(   "

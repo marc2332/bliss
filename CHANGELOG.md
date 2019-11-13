@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - `--clear-settings` to allow to start with cleared previous local user settings
    - 2 scripts was added to optimize and convert SVG to PNG
       - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
+- Typing Helper
+   - pressing F7 will disable typing helper on Bliss Shell
+   - avoid interpretation of multiline code and of properties
 
 ### Changed
 - Flint

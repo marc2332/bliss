@@ -202,6 +202,8 @@ def test_shell_semicolon(clean_gevent):
     clean_gevent["end-check"] = False
     result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")
     assert result == "print(1,2);print(1)"
+    result, cli, _ = _feed_cli_with_input("print 1 2;print 1;print 23\r")
+    assert result == "print(1,2);print(1);print(23)"
 
 
 def test_shell_comma_outside_callable_assignment(clean_gevent):
@@ -352,6 +354,41 @@ def test_info_dunder(clean_gevent, capfd):
 
     finally:
         inp.close()
+
+
+def test_shell_dict_list_not_callable(clean_gevent):
+    clean_gevent["end-check"] = False
+    result, cli, _ = _feed_cli_with_input("d \r", local_locals={"d": dict()})
+    assert result == "d"
+
+
+def test_property_evaluation(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    class Bla:
+        def __init__(self):
+            self.i = 0
+
+        @property
+        def test(self):
+            self.i += 1
+            return self.i
+
+    b = Bla()
+
+    result, cli, _ = _feed_cli_with_input("b.test     \r", local_locals={"b": b})
+    assert b.test == 1
+    result, cli, _ = _feed_cli_with_input("b.test;print 1\r", local_locals={"b": b})
+    result, cli, _ = _feed_cli_with_input("b.test;print 1\r", local_locals={"b": b})
+    result, cli, _ = _feed_cli_with_input("b.test;print 1\r", local_locals={"b": b})
+    assert b.test == 2
+
+
+def test_func_no_args(clean_gevent):
+    clean_gevent["end-check"] = False
+    f = lambda: None
+    result, cli, _ = _feed_cli_with_input("f \r", local_locals={"f": f})
+    assert result == "f()"
 
 
 def _repl_out_to_string(out):

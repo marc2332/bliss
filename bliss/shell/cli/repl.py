@@ -18,6 +18,7 @@ import time
 import logging
 
 from ptpython.repl import PythonRepl
+import ptpython.layout
 
 ## imports needed to have control over _excecute of ptpython
 import six
@@ -45,6 +46,7 @@ from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
 from bliss.common.standard import info
+from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
 logger = logging.getLogger(__name__)
 
@@ -217,9 +219,11 @@ class BlissRepl(PythonRepl):
         self.session_name = kwargs.pop("session_name", "default")
         self.use_tmux = kwargs.pop("use_tmux", False)
 
+        # patch ptpython statusbar
         if self.use_tmux and sys.platform not in ["win32", "cygwin"]:
-            # patch ptpython statusbar
-            import bliss.shell.cli.ptpython_statusbar_patch
+            ptpython.layout.status_bar = TMUXstatus_bar
+        else:
+            ptpython.layout.status_bar = NEWstatus_bar
 
         super(BlissRepl, self).__init__(*args, **kwargs)
 

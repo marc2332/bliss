@@ -112,6 +112,7 @@ nav:
                     - Watchdog: scan_engine_watchdog.md
                     - Data node: scan_data_node.md
                 - Continuous scans: scan_continuous.md
+                - Grouping scans: scan_group.md
         - Instruments:
                 - ESRF BeamViewer (EBV): using_beamviewer.md
                 - MCA:

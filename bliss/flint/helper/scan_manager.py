@@ -122,7 +122,7 @@ class ScanManager:
         else:
             # We should receive a single new_scan per scan, but let's check anyway
             if not self.__is_current_scan(scan_info):
-                _logger.debug("New scan from %s ignored", unique)
+                _logger.debug("new_scan from %s ignored", unique)
                 return
 
         self._end_scan_event.clear()
@@ -192,6 +192,38 @@ class ScanManager:
             self._refresh_task = None
             self._end_data_process_event.set()
 
+    def __is_image_must_be_read(self, channel_name, image_view) -> bool:
+        # FIXME: This is a trick to trig _update() function, else last_image_ready is wrong
+        image_view.last_index
+        redis_frame_id = image_view.last_image_ready
+        print("redis_frame_id", redis_frame_id)
+        if redis_frame_id == -1:
+            # Mitigate with #1069
+            # A signal can be emitted when there is not yet data
+            # FIXME: This have to be fixed in bliss
+            return False
+
+        stored_data = self.__data_storage.get_data_else_none(channel_name)
+        if stored_data is None:
+            # Not yet data, then update is needed
+            return True
+
+        stored_frame_id = stored_data.frameId()
+        if stored_frame_id is None:
+            # The data is something else that an image?
+            # It's weird, then update the data
+            return True
+
+        if stored_frame_id == 0:
+            # Some detectors (like andor) which do not provide
+            # TRIGGER_SOFT_MULTI will always returns frame_id = 0 (from video image)
+            # Then if a 0 was stored it is better to update anyway
+            # FIXME: This case should be managed by bliss
+            return True
+
+        # An updated is needed when bliss provides a most recent frame
+        return redis_frame_id > stored_frame_id
+
     def __new_scan_data(self, data_type, master_name, data):
         if data_type == "0d":
             channels_data = data["data"]
@@ -206,18 +238,20 @@ class ScanManager:
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
             image_data = None
+            channel_name = data["channel_name"]
+            must_update = self.__is_image_must_be_read(channel_name, image_view)
             try:
-                if hasattr(image_view, "get_last_live_image"):
+                if must_update:
                     image_data, frame_id = image_view.get_last_live_image()
-                if image_data is None:
-                    image_data = image_view.get_image(-1)
-                    frame_id = None
+                    if image_data is None:
+                        # FIXME: It would be good to havce an API returning the frame id together with the data
+                        image_data = image_view.get_image(-1)
+                        frame_id = None
             except IndexError:
                 # The image could not be ready
                 _logger.error("Error while reaching the last image", exc_info=True)
                 image_data = None
             if image_data is not None:
-                channel_name = data["channel_name"]
                 self.__update_channel_data(channel_name, image_data, frame_id=frame_id)
         else:
             assert False
@@ -269,14 +303,23 @@ class ScanManager:
     def end_scan(self, scan_info: Dict):
         if not self.__is_current_scan(scan_info):
             unique = self.__get_scan_id(scan_info)
-            _logger.debug("New scan data from %s ignored", unique)
+            _logger.debug("end_scan from %s ignored", unique)
             return
+
+        scan = self.__scan
+        if scan is None:
+            _logger.error(
+                "A second end_scan (or end_scan before new_scan) from %s was received. Ignored",
+                unique,
+            )
+            return
+
         try:
+            assert self.__scan is not None
             self._end_scan(scan_info)
         finally:
             self.__data_storage.clear()
 
-            scan = self.__scan
             scan._setState(scan_model.ScanState.FINISHED)
             scan.scanFinished.emit()
 
@@ -289,11 +332,7 @@ class ScanManager:
         # Cause it can be processed by another greenlet
         self._end_data_process_event.wait()
 
-        # it became empty
-        assert self.__scan is not None
-
         scan = self.__scan
-
         updated_masters = set([])
         for group_name in self.__data_storage.groups():
             channels = self.__data_storage.get_channels_by_group(group_name)

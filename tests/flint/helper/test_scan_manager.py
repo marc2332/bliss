@@ -70,3 +70,15 @@ def test_double_scans():
     manager.end_scan(scan_info_2)
     assert manager.get_scan() is None
     assert scan.scanInfo() == scan_info_2
+
+
+def test_bad_sequence__end_before_new():
+    scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
+
+    manager = scan_manager.ScanManager(flintModel=None)
+    # Disabled async consumption
+    manager._set_absorb_events(False)
+
+    manager.end_scan(scan_info_1)
+    manager.new_scan(scan_info_1)
+    # FIXME What to do anyway then? The manager is locked

@@ -116,7 +116,7 @@ class trans4(CalcController):
         """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = numpy.atan(d2 / d1)
+        alpha = numpy.arctan(d2 / d1)
         cos2_alpha = numpy.cos(alpha) ** 2
 
         dh = positions_dict["dh"]
@@ -130,9 +130,9 @@ class trans4(CalcController):
         p2z = (ur + uh) / 2.
 
         ty = (p1y + p2y * cos2_alpha) / (1 + cos2_alpha)
-        thetaz = -numpy.atan((p1y - p2y) / d1 * (cos2_alpha / (1 + cos2_alpha)))
+        thetaz = -numpy.arctan((p1y - p2y) / d1 * (cos2_alpha / (1 + cos2_alpha)))
         tz = (p2z + p1z) / 2.
-        thetay = numpy.atan((p2z - p1z) / (2 * d1))
+        thetay = numpy.arctan((p2z - p1z) / (2 * d1))
 
         thetaz *= 1000.
         thetay *= 1000.
@@ -149,7 +149,7 @@ class trans4(CalcController):
         """
         d1 = self.config.get("d1", float)
         d2 = self.config.get("d2", float)
-        alpha = numpy.atan(d2 / d1)
+        alpha = numpy.arctan(d2 / d1)
         cos2_alpha = numpy.cos(alpha) ** 2
 
         ty = positions_dict["ty"]

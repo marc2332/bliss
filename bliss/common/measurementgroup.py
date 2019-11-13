@@ -289,6 +289,7 @@ class MeasurementGroup(object):
         counters_names = [c if isinstance(c, str) else c.name for c in cnt_or_names]
 
         for cnt in counters_names:
+            self.enable(cnt)
             if cnt in self._available_counters:
                 self._available_counters.remove(cnt)
 

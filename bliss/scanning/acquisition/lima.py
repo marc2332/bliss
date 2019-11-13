@@ -59,6 +59,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         combine with one slow step motor. if you do 20 images per line,
         the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
         """
+
         if not isinstance(device, lima.Lima):
             raise TypeError(
                 "Device for LimaAcquisitionMaster must be an"
@@ -84,7 +85,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
         AcquisitionMaster.__init__(
             self,
-            device.proxy,
+            device,
             name=device.name,
             npoints=acq_nb_frames,
             trigger_type=trigger_type,
@@ -194,21 +195,21 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.description.update(self.parameters)
 
         for param_name, param_value in self.parameters.items():
-            setattr(self.device, param_name, param_value)
+            setattr(self.device.proxy, param_name, param_value)
 
         self.wait_slaves_prepare()
-        self.device.video_active = True
+        self.device.proxy.video_active = True
         self._lima_controller.prepareAcq()
 
-        signed, depth, w, h = self.device.image_sizes
+        signed, depth, w, h = self.device.proxy.image_sizes
         if self._image_channel:
             self._image_channel.dtype = LIMA_DTYPE[(signed, depth)]
             self._image_channel.shape = (h, w)
             status = self._get_lima_status()
-            status["server_url"] = get_fqn(self.device)
+            status["server_url"] = get_fqn(self.device.proxy)
             self._image_channel.emit(status)
 
-        self._latency = self.device.latency_time
+        self._latency = self.device.proxy.latency_time
 
     def start(self):
         if (
@@ -225,10 +226,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         return True
 
     def wait_ready(self):
-        acq_state = self.device.acq_status.lower()
+        acq_state = self.device.proxy.acq_status.lower()
         while acq_state == "running":
             if self.fast_synchro:
-                if self.device.ready_for_next_image:
+                if self.device.proxy.ready_for_next_image:
                     break
                 gevent.idle()
             else:
@@ -241,7 +242,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "Synchronisation error, **wait_frame_id** is wrongly set for this scan"
                     )
                 self._ready_event.wait()
-            acq_state = self.device.acq_status.lower()
+            acq_state = self.device.proxy.acq_status.lower()
 
     def trigger(self):
         self.trigger_slaves()
@@ -272,7 +273,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return {
                 name: att.value
                 for name, att in zip(
-                    attr_names, self.device.read_attributes(attr_names)
+                    attr_names, self.device.proxy.read_attributes(attr_names)
                 )
             }
 
@@ -282,7 +283,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         last_image_acquired = -1
         try:
             while True:
-                acq_state = self.device.acq_status.lower()
+                acq_state = self.device.proxy.acq_status.lower()
                 status = self._get_lima_status()
                 status["acq_state"] = acq_state
                 if acq_trigger_mode == "INTERNAL_TRIGGER":
@@ -322,7 +323,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             if acq_state == "fault":
                 raise RuntimeError(
                     "Device %s (%s) is in Fault state"
-                    % (self.device, self.device.user_detector_name)
+                    % (self.device.proxy, self.device.user_detector_name)
                 )
         except:
             if self._image_channel:

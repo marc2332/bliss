@@ -21,6 +21,7 @@ from tango.server import Device, device_property, attribute, command
 from bliss.comm.util import get_comm
 from bliss.controllers.wago.wago import *
 from bliss.common.utils import flatten
+from bliss.config.static import get_config
 
 # Device States Description
 # ON : The motor powered on and is ready to move.
@@ -55,8 +56,8 @@ access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 
 class Wago(Device):
-    iphost = device_property(dtype=str, doc="ip address of Wago PLC")
-    protocol = device_property(dtype=str, default_value="tcp")
+    beacon_name = device_property(dtype=str, doc="Object name inside Beacon")
+    iphost = device_property(dtype=str, default_value="", doc="ip address of Wago PLC")
     TCPTimeout = device_property(dtype=int, default_value=1000, doc="timeout in ms")
     config = device_property(
         dtype=tango.DevVarCharArray, default_value="", doc="I/O modules attached to PLC"
@@ -72,6 +73,24 @@ class Wago(Device):
     def init_device(self, *args, **kwargs):
         super().init_device(*args, **kwargs)
         self.set_state(DevState.STANDBY)
+
+        # configuration can be given through Beacon if beacon_name is provided
+        # this will generate self.iphost and self.config
+        if self.beacon_name:
+            config = get_config()
+            yml_config = config.get_config(self.beacon_name)
+            if yml_config is None:
+                raise RuntimeError(
+                    f"Could not find a Beacon object with name {self.beacon_name}"
+                )
+            try:
+                self.iphost = yml_config["modbustcp"]["url"]
+            except KeyError:
+                raise RuntimeError(
+                    "modbustcp url should be given in Beacon configuration"
+                )
+            self.config = ModulesConfig.from_config_tree(yml_config).mapping_str
+
         self.TurnOn()  # automatic turn on to mimic C++ Device Server
 
     @command

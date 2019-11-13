@@ -1752,7 +1752,13 @@ class Wago(SamplingCounterController):
         # instantiating comm and controller class
         if config_tree.get("tango"):
             try:
-                comm = get_comm(config_tree)
+                # if tango url is provided do not consider modbustcp
+                new_config_tree = config_tree.copy()
+                del new_config_tree["modbustcp"]
+            except KeyError:
+                pass
+            try:
+                comm = get_comm(new_config_tree)
             except Exception as exc:
                 log_exception(self, "Can't connect to tango host")
                 raise

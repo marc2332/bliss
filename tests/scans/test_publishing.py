@@ -71,13 +71,12 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
     s = Scan(chain, "test_scan", scan_info={"metadata": 42})
     assert s.name == "test_scan"
-    assert s.root_node.db_name == parent.db_name
-
     assert s.node is None
 
     with gevent.Timeout(5):
         s.run()
 
+    assert s.root_node.db_name == parent.db_name
     assert isinstance(s.node, ScanNode)
     assert s.node.type == "scan"
     assert s.node.db_name == s.root_node.db_name + ":" + "1_" + s.name

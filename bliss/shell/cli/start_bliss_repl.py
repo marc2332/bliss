@@ -8,6 +8,7 @@
 
 import sys
 from bliss.shell.cli.repl import embed
+from bliss import get_current_session
 from bliss import logging_startup
 import logging
 
@@ -27,6 +28,8 @@ def main():
         )
     except IndexError:
         embed(session_name=session_name, use_tmux=True, expert_error_report=False)
+    finally:
+        get_current_session().close()
 
 
 if __name__ == "__main__":

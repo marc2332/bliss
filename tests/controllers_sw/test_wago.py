@@ -294,14 +294,6 @@ def test_wago_modbus_simulator(wago_mockup):
 
 
 def test_wago_config_get(default_session, wago_mockup):
-
-    """
-    # getting mockup port (as is randomly chosen)
-    host, port = wago_mockup.host, wago_mockup.port
-
-    # patching port into config
-    default_session.config.get_config("wago_simulator")["modbustcp"]["url"] = f"{host}:{port}"
-    """
     wago = default_session.config.get("wago_simulator")
 
     assert wago.controller.series == 750
@@ -309,9 +301,8 @@ def test_wago_config_get(default_session, wago_mockup):
 
 
 def test_wago_counters(default_session, wago_mockup):
-
     """
-    check you can define a wago key as a counter in config and read it
+    check if you can define a wago key as a counter in config and read it
     """
     wago = default_session.config.get("wago_simulator")
     assert len(wago.counters) == 2

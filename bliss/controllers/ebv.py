@@ -3,7 +3,8 @@ import gevent.lock
 
 from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_comm
 from bliss.config.channels import Channel
-from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 from bliss.common.utils import add_property
 from bliss.common import event
 from bliss import global_map
@@ -50,12 +51,20 @@ class EBVDiodeRange:
         self.value = float_value
 
 
+class EBVCounterController(SamplingCounterController):
+    def __init__(self, ebv_master, diode_name):
+        super().__init__(ebv_master.name)
+        self._ebv_master = ebv_master
+        self._diode_name = diode_name
+
+    def read(self, counter):
+        if counter.name == self._diode_name:
+            return self._ebv_master.current
+
+
 class EBVCounter(SamplingCounter):
     def __call__(self, *args, **kwargs):
         return self
-
-    def read(self):
-        return self.controller.current
 
 
 class EBV:
@@ -71,11 +80,13 @@ class EBV:
 
     def __init__(self, name, config_node):
         self.name = name
+        # --- config parsing
         self._single_model = config_node.get("single_model", False)
         self._channel = config_node.get("channel", 0)
         self._has_foil = config_node.get("has_foil", False)
         self._cnt_name = config_node.get("counter_name", "diode")
 
+        # --- shared states
         self._led_status = Channel(
             f"{name}:led_status",
             default_value="UNKNOWN",
@@ -96,25 +107,30 @@ class EBV:
             callback=self.__foil_status_changed,
         )
 
+        # --- wago interface
         self.__comm_lock = gevent.lock.RLock()
         mapping = build_wago_mapping(self._single_model, self._channel, self._has_foil)
         comm = get_wago_comm(config_node)
-        self.controller = WagoController(comm, mapping)
+        self._wago = WagoController(comm, mapping)
 
         self.initialize()
 
-        self._diode_counter = EBVCounter(self._cnt_name, self, unit="mA")
-        add_property(self, self._cnt_name, self._diode_counter)
+        # --- counter interface
+        self.master_controller = None
+        self.controller = EBVCounterController(self, self._cnt_name)
+        diode_counter = EBVCounter(self._cnt_name, self.controller, unit="mA")
+        self.controller.add_counter(diode_counter)
+        add_property(self, self._cnt_name, diode_counter)
 
         global_map.register(
             self,
             parents_list=["ebv"],
-            children_list=[self.controller],
+            children_list=[self._wago],
             tag=f"EBV({self.name})",
         )
 
     def initialize(self):
-        self.controller.connect()
+        self._wago.connect()
         self.__update()
 
     def __led_status_changed(self, state):
@@ -140,7 +156,7 @@ class EBV:
 
     def __update_state(self):
         with self.__comm_lock:
-            status = self.controller.get("status")
+            status = self._wago.get("status")
         # --- screen status
         if status[0] and not status[1]:
             screen = "IN"
@@ -160,7 +176,7 @@ class EBV:
             self._foil_status.value = "NONE"
         else:
             with self.__comm_lock:
-                status = self.controller.get("foil_status")
+                status = self._wago.get("foil_status")
             if status[0] and not status[1]:
                 self._foil_status.value = "IN"
             elif not status[0] and status[1]:
@@ -170,7 +186,7 @@ class EBV:
 
     def __update_diode_range(self):
         with self.__comm_lock:
-            gain_value = self.controller.get("gain")
+            gain_value = self._wago.get("gain")
         for gain in self._DIODE_RANGES:
             if gain_value == gain.wago_value:
                 self._diode_range.value = gain.name
@@ -180,17 +196,17 @@ class EBV:
         index = self._PULSE_INDEX[value]
         with self.__comm_lock:
             set_value = [0, 0]
-            self.controller.set(name, set_value)
+            self._wago.set(name, set_value)
             gevent.sleep(0.01)
             set_value[index] = 1
-            self.controller.set(name, set_value)
+            self._wago.set(name, set_value)
             set_value[index] = 0
             gevent.sleep(0.01)
-            self.controller.set(name, set_value)
+            self._wago.set(name, set_value)
 
     def __info__(self):
         self.__update()
-        info = f"EBV [{self.name}] (wago: {self.controller.client.host})\n"
+        info = f"EBV [{self.name}] (wago: {self._wago.client.host})\n"
         try:
             info += f"    screen : {self._screen_status.value}\n"
             info += f"    led    : {self._led_status.value}\n"
@@ -200,13 +216,6 @@ class EBV:
         except:
             info += "!!! Failed to read EBV status !!!"
         return info
-
-    @property
-    def counters(self):
-        return counter_namespace([self._diode_counter])
-
-    def read(self):
-        return self.current
 
     @property
     def screen_status(self):
@@ -237,7 +246,7 @@ class EBV:
         for gain in self._DIODE_RANGES:
             if gain.name == value:
                 with self.__comm_lock:
-                    self.controller.set("gain", gain.wago_value)
+                    self._wago.set("gain", gain.wago_value)
                 self.__update_diode_range()
                 return
         raise ValueError(f"Invalid diode range [{value}]")
@@ -261,7 +270,7 @@ class EBV:
                 set_gain = gain
         if set_gain is not None:
             with self.__comm_lock:
-                self.controller.set("gain", set_gain.wago_value)
+                self._wago.set("gain", set_gain.wago_value)
             self.__update_diode_range()
         else:
             raise ValueError(f"Cannot adjust gain for [{value}]")
@@ -269,7 +278,7 @@ class EBV:
     @property
     def raw_current(self):
         with self.__comm_lock:
-            value = self.controller.get("current")
+            value = self._wago.get("current")
         return float(value)
 
     @property
@@ -304,5 +313,5 @@ class EBV:
 
     def __set_foil(self, flag):
         with self.__comm_lock:
-            self.controller.set("foil_cmd", flag)
+            self._wago.set("foil_cmd", flag)
         self.__update_foil_state()

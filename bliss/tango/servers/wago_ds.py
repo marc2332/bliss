@@ -253,7 +253,7 @@ class Wago(Device):
 
             # determination of variable type
 
-            if type_ in ("thc", "fs"):
+            if type_ in ("thc", "fs10", "fs20", "fs4-20"):
                 # temperature and Analog requires Float
                 var_type = tango.DevDouble
             elif type_ in ("ssi24", "ssi32", "637"):
@@ -270,7 +270,7 @@ class Wago(Device):
             # determination of read/write type
             if type_ in ("thc",):
                 read_write = "r"
-            elif type_ in ("fs",):
+            elif type_ in ("thc", "fs10", "fs20", "fs4-20"):
                 if module_info[ANA_IN] == module_info[N_CHANNELS]:
                     read_write = "r"
                 elif module_info[ANA_OUT] == module_info[N_CHANNELS]:

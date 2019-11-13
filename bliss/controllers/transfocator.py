@@ -224,6 +224,16 @@ class Transfocator:
             comm = get_wago_comm(conf)
             self.wago = WagoController(comm, modules_config)
 
+    def close(self):
+        self.wago.close()
+        try:
+            self.__mockup.close()
+        except AttributeError:
+            pass
+
+    def __close__(self):
+        self.close()
+
     def pos_read(self):
         """ Read the WAGO position
         Returns:

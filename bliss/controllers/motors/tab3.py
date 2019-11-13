@@ -94,11 +94,11 @@ class tab3(CalcController):
                 positions_dict["back1"] - positions_dict["back2"]
             )
 
-        xtilt = numpy.atan(
+        xtilt = numpy.arctan(
             (positions_dict["back2"] - positions_dict["back1"]) / self.d1
         )
 
-        ytilt = numpy.atan((back - positions_dict["front"]) / self.d2)
+        ytilt = numpy.arctan((back - positions_dict["front"]) / self.d2)
 
         if self.geometry in (2, 6):
             xtilt, ytilt = map(numpy.degrees, (xtilt, ytilt))

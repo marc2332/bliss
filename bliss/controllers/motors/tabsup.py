@@ -45,7 +45,7 @@ class tabsup(CalcController):
 
         return {
             "ttrans": (d1 * tyb - d2 * tyf) / (d1 - d2),
-            "trot": numpy.atan((tyf - tyb) / (d2 - d1)),
+            "trot": numpy.arctan((tyf - tyb) / (d2 - d1)),
         }
 
     def calc_to_real(self, positions_dict):

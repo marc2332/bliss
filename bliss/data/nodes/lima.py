@@ -76,13 +76,12 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = None
             return proxy
 
-        def get_last_live_image(self, proxy=0, update=True):
+        def get_last_live_image(self, proxy=0):
             """Returns the last image data from stream within it's frame number.
 
             If no data is available, the function returns tuple (None, None).
             """
-            if update:
-                self._update()
+            self._update()
 
             if proxy == 0:
                 # 0 is used to discriminate with None, which can be passed
@@ -144,6 +143,33 @@ class LimaImageChannelDataNode(DataNode):
 
             return data, image_frame_number
 
+        def get_last_image(self, proxy=0):
+            """Returns the last image from the received one, together with the frame id.
+            """
+            self._update()
+
+            if self.last_image_ready < 0:
+                raise IndexError("No image has been taken yet")
+
+            if proxy == 0:
+                # 0 is used to discriminate with None, which can be passed
+                proxy = self._get_proxy()
+
+            data = None
+            if proxy:
+                # Update to use the latest image
+                self._update()
+                frame_number = self.last_image_ready
+                data = self._get_from_server_memory(proxy, frame_number)
+
+            if data is None:
+                # Update to use the latest image
+                self._update()
+                frame_number = self.last_image_ready
+                data = self._get_from_file(frame_number)
+
+            return data, frame_number
+
         def get_image(self, image_nb, proxy=0):
             self._update()
 
@@ -153,12 +179,7 @@ class LimaImageChannelDataNode(DataNode):
 
             data = None
             if proxy:
-                if self.from_stream and image_nb == -1:
-                    data, _frame_id = self.get_last_live_image(
-                        proxy=proxy, update=False
-                    )
-                if data is None:
-                    data = self._get_from_server_memory(proxy, image_nb)
+                data = self._get_from_server_memory(proxy, image_nb)
 
             if data is None:
                 return self._get_from_file(image_nb)

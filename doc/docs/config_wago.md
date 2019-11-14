@@ -34,6 +34,13 @@ The configuration is a matter of defining the following:
 
 ### Connection informations ###
 
+We can connect to Wago in two ways:
+
+- direct connection
+- through Tango Device Server
+
+
+
 The connection can be direct with the following configuration:
 
 ```yaml
@@ -60,7 +67,6 @@ tango:
 ```
 Normally host:port can also be omitted if we define the global variable `TANGO_HOST`.
 
-Note: If the connection is through Tango and the property `config` is set we can omit the mapping. 
 
 ### Mapping PLC input/output plugged modules ###
 

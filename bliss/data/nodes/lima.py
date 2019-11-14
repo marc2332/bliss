@@ -112,6 +112,18 @@ class LimaImageChannelDataNode(DataNode):
                 pad1,
             ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
 
+            if endian != 0:
+                raise ValueError(
+                    "Decoding video frame from this Lima device is not supported by bliss cause of the endianness (found %s)."
+                    % endian
+                )
+
+            if pad0 != 0 or pad1 != 0:
+                raise ValueError(
+                    "Decoding video frame from this Lima device is not supported by bliss cause of the padding (found %s, %s)."
+                    % (pad0, pad1)
+                )
+
             if magic != 0x5644454f or header_version != 1:
                 raise IndexError("Bad image header.")
             if image_frameNumber < 0:

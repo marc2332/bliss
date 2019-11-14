@@ -196,7 +196,6 @@ class ScanManager:
         # FIXME: This is a trick to trig _update() function, else last_image_ready is wrong
         image_view.last_index
         redis_frame_id = image_view.last_image_ready
-        print("redis_frame_id", redis_frame_id)
         if redis_frame_id == -1:
             # Mitigate with #1069
             # A signal can be emitted when there is not yet data

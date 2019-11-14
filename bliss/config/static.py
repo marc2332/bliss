@@ -48,6 +48,7 @@ Accessing the configured elements from python is easy
 import os
 import gc
 import re
+import operator
 import weakref
 import collections
 import types
@@ -730,6 +731,12 @@ class Config:
         Raises:
             RuntimeError: if name is not found in configuration
         """
+
+        base_name, sep, remains = name.partition(".")
+        if remains:
+            obj = self.get(base_name)
+            return operator.attrgetter(remains)(obj)
+
         if name is None:
             raise TypeError("Cannot get object with None name")
 

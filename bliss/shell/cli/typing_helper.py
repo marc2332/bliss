@@ -39,15 +39,24 @@ def is_property(text, repl):
     )
     if not m:
         return False
-    result = isinstance(
-        eval(
-            f"type({m['instance_name']}).{m['attr_name']}",
-            repl.get_globals(),
-            repl.get_locals(),
-        ),
-        property,
-    )
-    return result
+    if (
+        m["instance_name"] not in repl.get_globals()
+        and m["instance_name"] not in repl.get_locals()
+    ):
+        return False
+    try:
+        result = isinstance(
+            eval(
+                f"type({m['instance_name']}).{m['attr_name']}",
+                repl.get_globals(),
+                repl.get_locals(),
+            ),
+            property,
+        )
+    except Exception:
+        return False
+    else:
+        return result
 
 
 class TypingHelper(object):

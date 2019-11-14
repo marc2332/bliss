@@ -217,3 +217,11 @@ def test_shell_custom_function_arg(clean_gevent):
     assert br.default_buffer.text == "g("
     br = _run_incomplete("g    ", {"g": g})
     assert br.default_buffer.text == "g(   "
+
+
+def test_shell_import(clean_gevent):
+    clean_gevent["end-check"] = False
+    import bliss
+
+    br = _run_incomplete("from bliss.comm ", {"bliss": bliss})
+    assert br.default_buffer.text == "from bliss.comm "

@@ -1,12 +1,13 @@
-before_script:
-  # set pip cache to the Docker volume
-  - echo ${CI_PROJECT_DIR} 
-  - export PIP_CACHE_DIR="/opt/cache/pip"
-  - /opt/conda/bin/conda init && source /root/.bashrc
-  - conda config --append channels conda-forge
-  - conda config --add channels defaults
-  - conda config --add channels http://bcu-ci.esrf.fr/stable 
-  - conda config --add channels tango-controls
+default:
+  before_script:
+    # set pip cache to the Docker volume
+    - echo ${CI_PROJECT_DIR} 
+    - export PIP_CACHE_DIR="/opt/cache/pip"
+    - /opt/conda/bin/conda init && source /root/.bashrc
+    - conda config --append channels conda-forge
+    - conda config --add channels defaults
+    - conda config --add channels http://bcu-ci.esrf.fr/stable 
+    - conda config --add channels tango-controls
 
 stages:
   - style
@@ -18,27 +19,28 @@ stages:
 check_style:
   stage: style
   image: continuumio/miniconda3:latest
-  before_script:
-    - pip install -r requirements-dev.txt
   script:
+    - pip install -r requirements-dev.txt
     # run black
     - LC_ALL=C.UTF-8 black --check --safe .
 
 check_lint:
   stage: style
   image: continuumio/miniconda3:latest
-  before_script:
-    - pip install -r requirements-dev.txt
   script:
+    - pip install -r requirements-dev.txt
     # run flake8 on diff between current branch and last common ancestor with master
     - git diff -U0 origin/master...$CI_COMMIT_SHA | flake8 --diff
   # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
   allow_failure: true
 
-.run_tests:source:
+run_tests:source:
   stage: tests
   image: continuumio/miniconda3:latest
   script:
+    # Check for changes manually to circonvent gitlab-ci limitation (issue #1115)
+    - echo 'Looking for changes...'
+    - if ! (git diff --name-only origin/master...$CI_COMMIT_SHA | grep -E "$CHANGES"); then echo 'Nothing to do'; exit 0; fi
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
     # create test env and install BLISS
@@ -55,32 +57,8 @@ check_lint:
     paths:
       - htmlcov/
     expire_in: 7 days
-  only:
-    changes: # skip tests for doc changes
-      - "bin/**/*"
-      - "**/*.{py}"
-      - "extensions/**/*"
-      - "scripts/**/*"
-      - "spec/**/*"
-      - "tests/**/*"
-      - ".gitlab-ci.yml"
-      - "requirements*"
-      - "setup.*"
-
-run_tests:branch:
-  extends: .run_tests:source
-  only:
-    refs:
-      - branches
-  except:
-    refs:
-      - merge_requests
-
-run_tests:merge_request:
-  extends: .run_tests:source
-  only:
-    refs:
-      - merge_requests
+  variables:
+    CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 
 package:
   stage: build

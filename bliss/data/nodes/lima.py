@@ -173,6 +173,9 @@ class LimaImageChannelDataNode(DataNode):
             return data, frame_number
 
         def get_image(self, image_nb, proxy=UNSET):
+            if image_nb < 0:
+                raise ValueError("image_nb must be a real image number")
+
             self._update()
 
             if proxy is UNSET:

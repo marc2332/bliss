@@ -103,7 +103,7 @@ class LimaImageChannelDataNode(DataNode):
                 magic,
                 header_version,
                 image_mode,
-                image_frameNumber,
+                image_frame_number,
                 image_width,
                 image_height,
                 endian,
@@ -126,7 +126,7 @@ class LimaImageChannelDataNode(DataNode):
 
             if magic != 0x5644454f or header_version != 1:
                 raise IndexError("Bad image header.")
-            if image_frameNumber < 0:
+            if image_frame_number < 0:
                 raise IndexError("Image (from Lima live interface) not available yet.")
 
             video_modes = (numpy.uint8, numpy.uint16, numpy.int32, numpy.int64)
@@ -142,7 +142,7 @@ class LimaImageChannelDataNode(DataNode):
             # Will always returns frame_id = 0. In this case it would be better to return
             # None as the frame_id
 
-            return data, image_frameNumber
+            return data, image_frame_number
 
         def get_image(self, image_nb, proxy=0):
             self._update()

@@ -47,16 +47,15 @@ import gevent
 from functools import wraps
 import types
 
-from bliss import global_map, current_session
+from bliss import current_session
 from bliss.common.utils import rounder
-from bliss.common.motor_group import Group
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import Axis
 from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss.scanning.toolbox import DefaultAcquisitionChain
-from bliss.scanning.scan import Scan, StepScanDataWatch, SCANS
+from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
@@ -1065,9 +1064,9 @@ def _get_selected_counter_name(counter=None):
 
     Used to determine which counter to use for cen pic curs functions.
     """
-    if not SCANS:
+    if not current_session.scans:
         raise RuntimeError("Scans list is empty!")
-    scan_counter_names = set(get_counter_names(SCANS[-1]))
+    scan_counter_names = set(get_counter_names(current_session.scans[-1]))
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     selected_flint_counter_names = set(plot_select.keys())
     alignment_counts = scan_counter_names.intersection(selected_flint_counter_names)
@@ -1098,9 +1097,9 @@ def last_scan_motor(axis=None):
     """
     Return the last motor used in the last scan
     """
-    if not len(SCANS):
+    if not len(current_session.scans):
         raise RuntimeError("No scan available. Hint: do at least one ;)")
-    scan = SCANS[-1]
+    scan = current_session.scans[-1]
     axis_name = scan._get_data_axis_name(axis=axis)
     return current_session.env_dict[axis_name]
 
@@ -1109,9 +1108,9 @@ def last_scan_motors():
     """
     Return a list of motor used in the last scan
     """
-    if not len(SCANS):
+    if not len(current_session.scans):
         raise RuntimeError("No scan available. Hint: do at least one ;)")
-    scan = SCANS[-1]
+    scan = current_session.scans[-1]
     axes_name = scan._get_data_axes_name()
     return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
@@ -1208,14 +1207,14 @@ def _goto_multimotors(func):
 @_multimotors
 def cen(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    return SCANS[-1].cen(counter_name, axis=axis)
+    return current_session.scans[-1].cen(counter_name, axis=axis)
 
 
 @_goto_multimotors
 def goto_cen(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
     motor = last_scan_motor(axis)
-    scan = SCANS[-1]
+    scan = current_session.scans[-1]
     motor = last_scan_motor(axis)
     cfwhm, _ = scan.cen(counter_name, axis=axis)
     _log.warning("Motor %s will move from %f to %f", motor.name, motor.position, cfwhm)
@@ -1225,33 +1224,33 @@ def goto_cen(counter=None, axis=None):
 @_multimotors
 def com(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    return SCANS[-1].com(counter_name, axis=axis)
+    return current_session.scans[-1].com(counter_name, axis=axis)
 
 
 @_goto_multimotors
 def goto_com(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
     motor = last_scan_motor(axis)
-    scan = SCANS[-1]
+    scan = current_session.scans[-1]
     motor = last_scan_motor(axis)
     com_pos = scan.com(counter_name, axis=axis)
     _log.warning(
         "Motor %s will move from %f to %f", motor.name, motor.position, com_pos
     )
-    return SCANS[-1].goto_com(counter_name, axis=axis)
+    return current_session.scans[-1].goto_com(counter_name, axis=axis)
 
 
 @_multimotors
 def peak(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
-    return SCANS[-1].peak(counter_name, axis=axis)
+    return current_session.scans[-1].peak(counter_name, axis=axis)
 
 
 @_goto_multimotors
 def goto_peak(counter=None, axis=None):
     counter_name = _get_selected_counter_name(counter=counter)
     motor = last_scan_motor(axis)
-    scan = SCANS[-1]
+    scan = current_session.scans[-1]
     motor = last_scan_motor(axis=axis)
     peak_pos = scan.peak(counter_name, axis=axis)
     _log.warning(
@@ -1262,4 +1261,4 @@ def goto_peak(counter=None, axis=None):
 
 def where():
     for axis in last_scan_motors():
-        SCANS[-1].where(axis=axis)
+        current_session.scans[-1].where(axis=axis)

@@ -6,8 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-from bliss import setup_globals
-from bliss import global_map
+from bliss import global_map, current_session
 from bliss.common import scans
 from bliss.common.axis import Axis
 from bliss.scanning.scan import Scan, ScanSaving
@@ -44,7 +43,7 @@ def test_hdf5_metadata(session):
     diode = session.config.get("diode")
 
     s = scans.ascan(roby, 0, 10, 10, 0.01, diode, save=True, return_scan=True)
-    assert s is scans.SCANS[-1]
+    assert s is current_session.scans[-1]
 
     iso_start_time = datetime.datetime.fromtimestamp(
         s.scan_info["start_timestamp"]

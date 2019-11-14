@@ -26,7 +26,7 @@ else:
 
 from gevent import socket
 import functools
-from bliss import release
+from bliss import release, current_session
 from bliss.config import static
 from bliss.common import session
 from bliss.common.session import DefaultSession
@@ -121,15 +121,15 @@ def initialize(session_name=None):
     env_dict = {}
 
     exec("from bliss.common.standard import *", env_dict)
-    from bliss.scanning.scan import ScanDisplay, SCANS
+    from bliss.scanning.scan import ScanDisplay
 
-    env_dict["SCANS"] = SCANS
     env_dict["SCAN_DISPLAY"] = ScanDisplay(session.name)
 
     env_dict["history"] = lambda: print("Please press F3-key to view history!")
 
     try:
         session.setup(env_dict, verbose=True)
+        env_dict["SCANS"] = current_session.scans
     except Exception:
         error_flag = True
         sys.excepthook(*sys.exc_info())

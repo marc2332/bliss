@@ -8,6 +8,7 @@
 import os
 import sys
 import warnings
+import collections
 from treelib import Tree
 
 from bliss import setup_globals, global_map
@@ -154,6 +155,7 @@ class Session:
         self.__include_sessions = []
         self.__map = None
         self.__log = None
+        self.__scans = collections.deque(maxlen=20)
 
         self.init(config_tree)
 
@@ -196,6 +198,10 @@ class Session:
     @property
     def name(self):
         return self.__name
+
+    @property
+    def scans(self):
+        return self.__scans
 
     @property
     def config(self):

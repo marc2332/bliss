@@ -129,7 +129,7 @@ def test_read_calc_channels(pepu, channel_id):
 @pytest.mark.parametrize("acquisitions", [1, 2, 10])
 @pytest.mark.parametrize("blocks", [1, 2, 10])
 @pytest.mark.parametrize("block_size", [1, 2, 10])
-def test_streams_acquisition(pepu, acquisitions, blocks, block_size):
+def test_streams_acquisition(beacon, pepu, acquisitions, blocks, block_size):
 
     # Mocking
     command = "?DSTREAM TEST"

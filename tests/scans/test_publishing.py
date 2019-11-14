@@ -10,7 +10,7 @@ import time
 import gevent
 import numpy
 import pickle as pickle
-from bliss import setup_globals
+from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
@@ -149,7 +149,7 @@ def test_scan_data_0d(session, redis_data_conn):
     simul_counter = session.env_dict.get("sim_ct_gauss")
     s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
 
-    assert s == scans.SCANS[-1]
+    assert s == current_session.scans[-1]
 
     # redis key is build from node name and counter name with _data suffix
     # ":timer:<counter_name>:<counter_name>_data"

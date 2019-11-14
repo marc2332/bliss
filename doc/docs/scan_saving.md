@@ -1,15 +1,15 @@
 
-
-
 ## Architecture
 
 ![Screenshot](img/scan_data_flow_path.svg)
 
-
-
 ## SCAN_SAVING
 
-`SCAN_SAVING` is a global structure to tell BLISS how to save data:
+`SCAN_SAVING` is a per session structure to tell BLISS how to save data.
+
+Access it with `.scan_saving` property of Session object.
+
+From Bliss Shell you have also access to a global variable `SCAN_SAVING` that refers to `current_session.scan_saving`.
 
 example:
 
@@ -39,7 +39,6 @@ return value is used.
 
 `SCAN_SAVING.get()` performs template string interpolation and returns
 a dictionary, whose key `root_path` is the final path to scan files.
-
 
 #### SCAN_SAVING members
 
@@ -72,6 +71,7 @@ project later.
 ### Configuration example
 
 #### template configuration example
+
 In this example `SCAN_SAVING` we will add two extra parameters
 (**sample** and **experiment**) and use them to generate the final path.
 

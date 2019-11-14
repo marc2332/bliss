@@ -13,7 +13,6 @@ import weakref
 import sys
 import time
 import datetime
-import collections
 import uuid
 from functools import wraps
 
@@ -39,7 +38,6 @@ from louie import saferef
 
 
 # Globals
-SCANS = collections.deque(maxlen=20)
 current_module = sys.modules[__name__]
 
 # STORE THE CALLBACK FUNCTIONS THAT ARE CALLED DURING A SCAN ON THE EVENTS SCAN_NEW, SCAN_DATA, SCAN_END
@@ -1241,7 +1239,7 @@ class Scan:
                 self.__state = ScanState.DONE
 
                 # Add scan to the globals
-                SCANS.append(self)
+                current_session.scans.append(self)
 
                 if self.writer:
                     # write scan_info to file

@@ -1,6 +1,4 @@
 
-
-
 ## User metadata
 
 BLISS provides a global structure to associate names (string keys) to functions, which return values are
@@ -42,9 +40,4 @@ The function receives the scan object as argument. In the example above, this ar
 
 Each subsequent scan will have an 'instrument' section filled with the metadata:
 
-![Screenshot](img/scan_metadata.png)
-
-
-
-
-
+![Screenshot](img/scan_meta.png)

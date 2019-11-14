@@ -123,7 +123,7 @@ class LimaImageChannelDataNode(DataNode):
             except IndexError:
                 raise IndexError("Unknown image mode (found %s)." % image_mode)
 
-            data = numpy.frombuffer(raw_data[HEADER_SIZE:], dtype=mode).copy()
+            data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
             data.shape = image_height, image_width
 
             # FIXME: Some detectors (like andor) which do not provide TRIGGER_SOFT_MULTI

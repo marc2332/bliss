@@ -24,6 +24,10 @@ except ImportError:
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
 HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 
+UNSET = object()
+"""Allow to discriminate None and unset value from function argument,
+when None is a valid argument which can be used"""
+
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
@@ -76,15 +80,14 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = None
             return proxy
 
-        def get_last_live_image(self, proxy=0):
+        def get_last_live_image(self, proxy=UNSET):
             """Returns the last image data from stream within it's frame number.
 
             If no data is available, the function returns tuple (None, None).
             """
             self._update()
 
-            if proxy == 0:
-                # 0 is used to discriminate with None, which can be passed
+            if proxy is UNSET:
                 proxy = self._get_proxy()
 
             if not proxy:
@@ -143,7 +146,7 @@ class LimaImageChannelDataNode(DataNode):
 
             return data, image_frame_number
 
-        def get_last_image(self, proxy=0):
+        def get_last_image(self, proxy=UNSET):
             """Returns the last image from the received one, together with the frame id.
             """
             self._update()
@@ -151,8 +154,7 @@ class LimaImageChannelDataNode(DataNode):
             if self.last_image_ready < 0:
                 raise IndexError("No image has been taken yet")
 
-            if proxy == 0:
-                # 0 is used to discriminate with None, which can be passed
+            if proxy is UNSET:
                 proxy = self._get_proxy()
 
             data = None
@@ -170,11 +172,10 @@ class LimaImageChannelDataNode(DataNode):
 
             return data, frame_number
 
-        def get_image(self, image_nb, proxy=0):
+        def get_image(self, image_nb, proxy=UNSET):
             self._update()
 
-            if proxy == 0:
-                # 0 is used to discriminate with None, which can be passed
+            if proxy is UNSET:
                 proxy = self._get_proxy()
 
             data = None

@@ -11,7 +11,7 @@ import weakref
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method, object_attribute_get
 from bliss.common.axis import AxisState
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 
 from . import pi_gcs
@@ -27,7 +27,7 @@ Thu 13 Feb 2014 15:51:41
 
 
 class PI_E51X(Controller):
-    CHAN_LETTER = { 1: "A", 2: "B", 3: "C" }
+    CHAN_LETTER = {1: "A", 2: "B", 3: "C"}
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -82,9 +82,6 @@ class PI_E51X(Controller):
             raise ValueError("PI_E51X invalid motor channel : can only be 1, 2 or 3")
         axis.chan_letter = self.CHAN_LETTER[axis.channel]
 
-        """end of move event"""
-        event.connect(axis, "move_done", self.move_done_event_received)
-
         # set online
         self.set_on(axis)
 
@@ -93,6 +90,15 @@ class PI_E51X(Controller):
 
         # Closed loop
         self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
+        servo_mode = axis.config.get("servo_mode", bool, None)
+        if servo_mode is not None:
+            if self.__axis_closed_loop[axis] != servo_mode:
+                self._set_closed_loop(axis, servo_mode)
+
+        # Drift compensation
+        drift_mode = axis.config.get("drift_compensation", bool, None)
+        if drift_mode is not None:
+            self._set_dco(axis, int(drift_mode))
 
         # automatic gate (OFF by default)
         self.__axis_auto_gate[axis] = False
@@ -376,11 +382,19 @@ class PI_E51X(Controller):
 
     @object_method(types_info=("None", "None"))
     def activate_dco(self, axis):
-        self.send_no_ans(axis, "DCO %s 1" % axis.chan_letter)
+        self._set_dco(axis, 1)
 
     @object_method(types_info=("None", "None"))
     def desactivate_dco(self, axis):
-        self.send_no_ans(axis, "DCO %s 0" % axis.chan_letter)
+        self._set_dco(axis, 0)
+
+    @object_attribute_get(type_info="bool")
+    def get_dco(self, axis):
+        dco = self.send(axis, "DCO? %s" % axis.chan_letter)
+        return dco is True
+
+    def _set_dco(self, axis, onoff):
+        self.send_no_ans(axis, "DCO %s %d" % onoff)
 
     """
     Voltage commands
@@ -397,6 +411,7 @@ class PI_E51X(Controller):
     """ 
     Closed loop commands
     """
+
     def _get_closed_loop_status(self, axis):
         """
         Returns Closed loop status (Servo state) (SVO? command)
@@ -410,7 +425,9 @@ class PI_E51X(Controller):
         log_debug(self, "set closed_loop to %s" % onoff)
         self.send_no_ans(axis, "SVO %s %d" % (axis.chan_letter, onoff))
         self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
-        log_debug(self, "effective closed_loop is now %s" % self.__axis_closed_loop[axis])
+        log_debug(
+            self, "effective closed_loop is now %s" % self.__axis_closed_loop[axis]
+        )
         if self.__axis_closed_loop[axis] != onoff:
             raise RuntimeError("Failed to change closed_loop mode to %s" % onoff)
 
@@ -442,6 +459,7 @@ class PI_E51X(Controller):
     """
     Auto gate
     """
+
     @object_method(types_info=("bool", "None"))
     def enable_auto_gate(self, axis, value):
         self.__axis_auto_gate[axis] = value is True
@@ -538,15 +556,12 @@ class PI_E51X(Controller):
         _txt = "PI_E51X controller :\n"
         # Reads pre-defined infos (1 line answers)
         for (label, cmd) in _infos:
-            value = self.comm.write_readline(cmd.encode()+b"\n")
+            value = self.comm.write_readline(cmd.encode() + b"\n")
             _txt = _txt + "%s %s\n" % (label, value.decode())
 
         # Reads multi-lines infos.
         _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
-        _txt = _txt + "\n%s :\n%s\n" % (
-            "Communication parameters",
-            "\n".join(_ans),
-        )
+        _txt = _txt + "\n%s :\n%s\n" % ("Communication parameters", "\n".join(_ans))
 
         _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
         _txt = _txt + "\n%s :\n%s\n" % ("Firmware version", "\n".join(_ans))
@@ -593,7 +608,6 @@ class PI_E51X(Controller):
             ("Digital filter order       ", "SPA? %s 0x05000002" % axis.channel),
         ]
 
-        
         _txt = "     PI_E51X STATUS:\n"
 
         # Reads pre-defined infos (1 line answers)

@@ -27,6 +27,8 @@ Thu 13 Feb 2014 15:51:41
 
 
 class PI_E51X(Controller):
+    CHAN_LETTER = { 1: "A", 2: "B", 3: "C" }
+
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
@@ -71,10 +73,9 @@ class PI_E51X(Controller):
             - None
         """
         axis.channel = axis.config.get("channel", int)
-        axis.chan_letter = axis.config.get("chan_letter")
-
-        if axis.channel == 1:
-            self.ctrl_axis = axis
+        if axis.channel not in (1, 2, 3):
+            raise ValueError("PI_E51X invalid motor channel : can only be 1, 2 or 3")
+        axis.chan_letter = self.CHAN_LETTER[axis.channel]
 
         # NO automatic gating by default.
         self.auto_gate_enabled = False
@@ -96,7 +97,9 @@ class PI_E51X(Controller):
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
-        encoder.chan_letter = encoder.config.get("chan_letter")
+        if encoder.channel not in (1, 2, 3):
+            raise ValueError("PI_E51X invalid motor channel : can only be 1, 2 or 3")
+        encoder.chan_letter = self.CHAN_LETTER[axis.channel]
 
     """
     ON / OFF
@@ -364,7 +367,8 @@ class PI_E51X(Controller):
     @object_method(types_info=("None", "None"))
     def close_loop(self, axis):
         self.send_no_ans(axis, "SVO %s 1" % axis.chan_letter)
-
+# activate_closed_loop
+# get_closed_loop attr R only
     """
     DCO : Drift Compensation Offset.
     """

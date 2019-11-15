@@ -14,7 +14,6 @@ from typing import Union
 from typing import Optional
 
 import sys
-import time
 import logging
 import functools
 import weakref
@@ -55,7 +54,7 @@ class _QtLogHandler(logging.Handler):
         concurrent.submitToQtMainThread(widget.emit, msg)
 
 
-class LogWidget(qt.QTableView):
+class LogWidget(qt.QTreeView):
     """"Display messages from the Python logging system.
 
     By default only the 10000 last messages are displayed. This can be customed
@@ -67,9 +66,6 @@ class LogWidget(qt.QTableView):
     ModuleNameColumn = 2
     MessageColumn = 3
 
-    defaultDateTimeFormat = "%Y-%m-%d %H:%M:%S"
-    defaultMsecFormat = "%s,%03d"
-
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
         self.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
@@ -77,13 +73,14 @@ class LogWidget(qt.QTableView):
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
         self._maximumLogCount = 0
         self.setMaximumLogCount(10000)
+        self._formatter = logging.Formatter()
 
         model = qt.QStandardItemModel(self)
         model.setColumnCount(4)
         model.setHorizontalHeaderLabels(["Date/time", "Level", "Module", "Message"])
         self.setModel(model)
 
-        header = self.horizontalHeader()
+        header = self.header()
         header.setSectionResizeMode(
             self.DateTimeColumn, qt.QHeaderView.ResizeToContents
         )
@@ -110,12 +107,6 @@ class LogWidget(qt.QTableView):
         """
         return self.model().rowCount()
 
-    def _formatDateTime(self, record: logging.LogRecord):
-        ct = time.localtime(record.created)
-        t = time.strftime(self.defaultDateTimeFormat, ct)
-        s = self.defaultMsecFormat % (t, record.msecs)
-        return s
-
     def _colorFromLevel(self, levelno: int):
         if levelno >= logging.CRITICAL:
             return qt.QColor(240, 0, 240)
@@ -129,6 +120,21 @@ class LogWidget(qt.QTableView):
             return qt.QColor(0, 200, 200)
         return qt.QColor(0, 255, 0)
 
+    def _formatStack(self, record: logging.LogRecord):
+        s = ""
+        if record.exc_info:
+            # Cache the traceback text to avoid converting it multiple times
+            # (it's constant anyway)
+            if not record.exc_text:
+                record.exc_text = self.formatException(record.exc_info)
+        if record.exc_text:
+            s = record.exc_text
+        if record.stack_info:
+            if s[-1:] != "\n":
+                s = s + "\n"
+            s = s + self.formatStack(record.stack_info)
+        return s
+
     def emit(self, record: Union[str, logging.LogRecord]):
         record2: Optional[logging.LogRecord] = None
         if isinstance(record, str):
@@ -139,13 +145,24 @@ class LogWidget(qt.QTableView):
 
         try:
             if record2 is not None:
-                dt = self._formatDateTime(record2)
+                dt = self._formatter.formatTime(record2)
                 dateTimeItem = qt.QStandardItem(dt)
                 levelItem = qt.QStandardItem(record2.levelname)
                 color = self._colorFromLevel(record2.levelno)
                 levelItem.setForeground(color)
                 nameItem = qt.QStandardItem(record2.name)
                 messageItem = qt.QStandardItem(message)
+
+                stack = self._formatStack(record2)
+                if stack != "":
+                    dateTimeItem.appendRow(
+                        [
+                            qt.QStandardItem(),
+                            qt.QStandardItem(),
+                            qt.QStandardItem(),
+                            qt.QStandardItem(stack),
+                        ]
+                    )
             else:
                 dateTimeItem = None
         except Exception as e:

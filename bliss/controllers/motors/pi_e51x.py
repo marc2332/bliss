@@ -220,7 +220,7 @@ class PI_E51X(Controller):
         Returns:
             - None
         """
-        if self.__axis_closed_loop[axis]:
+        if self.__axis_closed_loop[motion.axis]:
             log_debug(
                 self,
                 "Move %s in position to %g" % (motion.axis.name, motion.target_pos),

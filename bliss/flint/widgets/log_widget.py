@@ -9,18 +9,19 @@
 Provide a widget to display logs from `logging` Python module.
 """
 
+from __future__ import annotations
+from typing import Union
+from typing import Optional
+
 import sys
+import time
 import logging
 import functools
-import warnings
 import weakref
 import traceback
 
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from silx.gui import qt
-    from silx.gui.utils import concurrent
+from silx.gui import qt
+from silx.gui.utils import concurrent
 
 
 class _QtLogHandler(logging.Handler):
@@ -41,8 +42,7 @@ class _QtLogHandler(logging.Handler):
         if widget is None:
             return
         try:
-            msg = self.format(record)
-            concurrent.submitToQtMainThread(widget.emit(msg))
+            concurrent.submitToQtMainThread(widget.emit, record)
         except Exception:
             self.handleError(record)
 
@@ -52,23 +52,46 @@ class _QtLogHandler(logging.Handler):
         widget = self.get_log_widget()
         if widget is None:
             return
-        concurrent.submitToQtMainThread(widget.emit(msg))
+        concurrent.submitToQtMainThread(widget.emit, msg)
 
 
-class LogWidget(qt.QPlainTextEdit):
+class LogWidget(qt.QTableView):
     """"Display messages from the Python logging system.
 
     By default only the 10000 last messages are displayed. This can be customed
     using the method `setMaximumLogCount`
     """
 
+    DateTimeColumn = 0
+    LevelColumn = 1
+    ModuleNameColumn = 2
+    MessageColumn = 3
+
+    defaultDateTimeFormat = "%Y-%m-%d %H:%M:%S"
+    defaultMsecFormat = "%s,%03d"
+
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
-        self.setReadOnly(True)
+        self.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self._handlers = weakref.WeakKeyDictionary()
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
-        self._logCount = 0
+        self._maximumLogCount = 0
         self.setMaximumLogCount(10000)
+
+        model = qt.QStandardItemModel(self)
+        model.setColumnCount(4)
+        model.setHorizontalHeaderLabels(["Date/time", "Level", "Module", "Message"])
+        self.setModel(model)
+
+        header = self.horizontalHeader()
+        header.setSectionResizeMode(
+            self.DateTimeColumn, qt.QHeaderView.ResizeToContents
+        )
+        header.setSectionResizeMode(self.LevelColumn, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(
+            self.ModuleNameColumn, qt.QHeaderView.ResizeToContents
+        )
+        header.setSectionResizeMode(self.MessageColumn, qt.QHeaderView.Stretch)
 
     @staticmethod
     def _remove_handlers(handlers):
@@ -78,24 +101,72 @@ class LogWidget(qt.QPlainTextEdit):
             logger.removeHandler(handler)
         handlers.clear()
 
-    def setMaximumLogCount(self, maximun):
-        self.setMaximumBlockCount(maximun + 1)
+    def setMaximumLogCount(self, maximum):
+        self._maximumLogCount = maximum
 
     def logCount(self):
         """
         Returns the amount of log messages displayed.
         """
-        return self._logCount
+        return self.model().rowCount()
 
-    def emit(self, message):
-        self.moveCursor(qt.QTextCursor.End)
-        cursor = self.textCursor()
-        cursor.insertText(message)
-        block = qt.QTextBlockFormat()
-        cursor.insertBlock(block)
+    def _formatDateTime(self, record: logging.LogRecord):
+        ct = time.localtime(record.created)
+        t = time.strftime(self.defaultDateTimeFormat, ct)
+        s = self.defaultMsecFormat % (t, record.msecs)
+        return s
 
-        if self._logCount < self.maximumBlockCount() - 1:
-            self._logCount += 1
+    def _colorFromLevel(self, levelno: int):
+        if levelno >= logging.CRITICAL:
+            return qt.QColor(240, 0, 240)
+        elif levelno >= logging.ERROR:
+            return qt.QColor(255, 0, 0)
+        elif levelno >= logging.WARNING:
+            return qt.QColor(180, 180, 0)
+        elif levelno >= logging.INFO:
+            return qt.QColor(0, 0, 255)
+        elif levelno >= logging.DEBUG:
+            return qt.QColor(0, 200, 200)
+        return qt.QColor(0, 255, 0)
+
+    def emit(self, record: Union[str, logging.LogRecord]):
+        record2: Optional[logging.LogRecord] = None
+        if isinstance(record, str):
+            message = record
+        else:
+            record2 = record
+            message = record.getMessage()
+
+        try:
+            if record2 is not None:
+                dt = self._formatDateTime(record2)
+                dateTimeItem = qt.QStandardItem(dt)
+                levelItem = qt.QStandardItem(record2.levelname)
+                color = self._colorFromLevel(record2.levelno)
+                levelItem.setForeground(color)
+                nameItem = qt.QStandardItem(record2.name)
+                messageItem = qt.QStandardItem(message)
+            else:
+                dateTimeItem = None
+        except Exception as e:
+            # Make sure everything is fine
+            dateTimeItem = None
+            sys.excepthook(*sys.exc_info())
+
+        if dateTimeItem is None:
+            dateTimeItem = qt.QStandardItem()
+            levelItem = qt.QStandardItem("CRITICAL")
+            color = self._colorFromLevel(logging.CRITICAL)
+            levelItem.setForeground(color)
+            nameItem = qt.QStandardItem()
+            messageItem = qt.QStandardItem(message)
+
+        model: qt.QStandardItemModel = self.model()
+        model.appendRow([dateTimeItem, levelItem, nameItem, messageItem])
+
+        if model.rowCount() > self._maximumLogCount:
+            count = model.rowCount() - self._maximumLogCount
+            model.removeRows(0, count)
 
     def connect_logger(self, logger):
         """

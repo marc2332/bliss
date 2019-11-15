@@ -8,7 +8,7 @@
 from collections import namedtuple
 import numpy
 from bliss import global_map
-from bliss.common.counter import CalcCounter
+from bliss.common.counter import Counter, CalcCounter
 from bliss.scanning.acquisition.counter import SamplingChainNode
 from bliss.scanning.acquisition.counter import IntegratingChainNode
 from bliss.scanning.acquisition.calc import CalcCounterChainNode
@@ -136,31 +136,35 @@ class CalcCounterController(CounterController):
         self.data_index = {}
         self.emitted_index = -1
 
-        self.get_counters(config)
+        self.build_counters(config)
 
-    def get_counters(self, config):
+    def build_counters(self, config):
+        """ Build the CalcCounters from config. 
+            'config' is a dict with 2 keys: 'inputs' and 'outputs'.
+            'config["inputs"]'  is a list of dict:  [{"counter":$cnt1, "tags": foo }, ...]
+            'config["outputs"]' is a list of dict:  [{"name":out1, "tags": calc_data_1 }, ...]
+            If the 'tags' is not found, the counter name will be used instead.
+        """
+        for cnt_conf in config.get("inputs"):
 
-        counters = config.get("counters")
-
-        # Config reading
-        for cnt_conf in counters:
-            cnt_name = cnt_conf.get("counter_name")
-            controller = cnt_conf.get("controller")
-            tags = cnt_conf.get("tags")
-
-            if "input" in tags.split():
-                cnt = self.get_counter_from_name(controller, cnt_name)
-                self.tags[cnt.name] = tags.replace("input", "").strip()
+            cnt = cnt_conf.get("counter")
+            if isinstance(cnt, Counter):
+                tags = cnt_conf.get("tags", cnt.name)
+                self.tags[cnt.name] = tags
                 self._input_counters.append(cnt)
             else:
-                cnt = CalcCounter(cnt_name, self)
-                self._output_counters.append(cnt)
-                self.tags[cnt.name] = tags
+                raise RuntimeError(
+                    f"CalcCounterController inputs must be a counter but received: {cnt}"
+                )
 
-    def get_counter_from_name(self, controller, name):
-        for cnt in controller.counters:
-            if cnt.name == name:
-                return cnt
+        for cnt_conf in config.get("outputs"):
+
+            cnt_name = cnt_conf.get("name")
+            if cnt_name:
+                cnt = CalcCounter(cnt_name, self)
+                tags = cnt_conf.get("tags", cnt.name)
+                self.tags[cnt.name] = tags
+                self._output_counters.append(cnt)
 
     @property
     def inputs(self):

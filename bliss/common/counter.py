@@ -300,6 +300,4 @@ class SoftCounter(SamplingCounter):
 
 
 class CalcCounter(Counter):
-    @property
-    def fullname(self):
-        return self.name
+    pass

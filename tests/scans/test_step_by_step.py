@@ -5,15 +5,11 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
 import os
-import time
+import pytest
 import numpy
-from bliss.common import scans
-from bliss.scanning import scan, chain
-from bliss.scanning.channel import AcquisitionChannel
-from bliss.scanning.acquisition import timer, calc, motor, counter
-from bliss.common import event, scans
+from bliss.common import scans, event
+from bliss.scanning import scan
 from bliss.controllers.counter import CalcCounterController
 
 
@@ -334,55 +330,38 @@ def test_scan_watch_data_no_print_on_saferef(session, capsys):
 
 def test_calc_counters(session):
     robz2 = session.env_dict["robz2"]
-    c = chain.AcquisitionChain()
     cnt = session.env_dict["sim_ct_gauss"]
 
-    # To force (lazy) initialization of sim_ct_1 ...
-    s = scans.ascan(robz2, 0, 0.1, 2, 0, cnt, return_scan=True, save=False)
+    class MyCCC(CalcCounterController):
+        def calc_function(self, input_dict):
+            return {"pow": input_dict["sim_ct_gauss"] ** 2}
 
-    t = timer.SoftwareTimerMaster(0, npoints=2)
+    config = {
+        "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],
+        "outputs": [{"name": "pow"}],
+    }
 
-    # get the acq device of simulatiion counter and add it to the chain
-    cnt_acq_device = cnt.get_acquisition_device()
-    c.add(t, cnt_acq_device)
+    ccc = MyCCC("pow2", config)
 
-    # Creates a calc counter which returns the square of the original counter
-    calc_cnt = calc.CalcAcquisitionSlave(
-        "bla",
-        (cnt_acq_device,),
-        lambda y, x: {"pow": x["sim_ct_gauss"] ** 2},
-        (AcquisitionChannel("pow", numpy.float, ()),),
-    )
-    c.add(t, calc_cnt)
-    top_master = motor.LinearStepTriggerMaster(2, robz2, 0, 1)
-    c.add(top_master, t)
-
-    s = scan.Scan(c, name="calc_scan", save=False)
-    s.run()
+    s = scans.ascan(robz2, 0, 1, 2, 0.1, ccc, return_scan=True, save=False)
     scan_data = s.get_data()
+
     assert numpy.array_equal(scan_data["sim_ct_gauss"] ** 2, scan_data["pow"])
 
 
 def test_calc_counter_callback(session):
     m1 = session.env_dict["m1"]
-    c = chain.AcquisitionChain()
     cnt = session.env_dict["sim_ct_gauss"]
 
-    # To force (lazy) initialization of sim_ct_1 ...
-    s = scans.ascan(m1, 0, 0.1, 10, 0, cnt, return_scan=True, save=False)
-
-    t = timer.SoftwareTimerMaster(0, npoints=10)
-    cnt_acq_device = cnt.get_acquisition_device()
-    c.add(t, cnt_acq_device)
-
-    class CBK(calc.CalcHook):
-        def __init__(self):
+    class MyCCC(CalcCounterController):
+        def __init__(self, name, config):
+            super().__init__(name, config)
             self.prepare_called = 0
             self.start_called = 0
             self.stop_called = 0
 
-        def compute(self, sender, data_dict):
-            return {"pow": data_dict["sim_ct_gauss"] ** 2}
+        def calc_function(self, input_dict):
+            return {"pow": input_dict["sim_ct_gauss"] ** 2}
 
         def prepare(self):
             self.prepare_called += 1
@@ -393,19 +372,18 @@ def test_calc_counter_callback(session):
         def stop(self):
             self.stop_called += 1
 
-    cbk = CBK()
-    calc_cnt = calc.CalcAcquisitionSlave(
-        "bla", (cnt_acq_device,), cbk, (AcquisitionChannel("pow", numpy.float, ()),)
-    )
-    c.add(t, calc_cnt)
-    top_master = motor.LinearStepTriggerMaster(10, m1, 0, 1)
-    c.add(top_master, t)
+    config = {
+        "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],
+        "outputs": [{"name": "pow"}],
+    }
 
-    s = scan.Scan(c, name="calc_scan", save=False)
-    s.run()
-    assert cbk.prepare_called == 10
-    assert cbk.start_called == 10
-    assert cbk.stop_called == 1
+    ccc = MyCCC("pow2", config)
+
+    scans.ascan(m1, 0, 1, 9, 0.1, ccc, save=False)
+
+    assert ccc.prepare_called == 10
+    assert ccc.start_called == 10
+    assert ccc.stop_called == 1
 
 
 def test_amesh(session):
@@ -548,55 +526,48 @@ def test_motor_group(session):
 def test_calc_counters_std_scan(session):
     robz2 = session.env_dict["robz2"]
     cnt = session.env_dict["sim_ct_gauss"]
-    calc_name = f"pow2_{cnt.name}"
     variables = {"nb_points": 0}
 
-    def pow2(sender, data_dict):
-        variables["nb_points"] += 1
-        return {calc_name: data_dict["sim_ct_gauss"] ** 2}
+    class MyCCC(CalcCounterController):
+        def calc_function(self, input_dict):
+            variables["nb_points"] += 1
+            return {"out": input_dict["sim_ct_gauss"] ** 2}
 
-    calc_counter_controller = CalcCounterController(calc_name, pow2, cnt)
+    config = {
+        "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],
+        "outputs": [{"name": "out"}],
+    }
+
+    calc_counter_controller = MyCCC("pow2", config)
+
     s = scans.ascan(robz2, 0, .1, 9, 0, calc_counter_controller, save=False)
     assert variables["nb_points"] == 10
     data = s.get_data()
-    src_data = {"sim_ct_gauss": data["sim_ct_gauss"]}
     # use of the magic '==' operator of numpy arrays, make a one-by-one
     # comparison and returns the result in a list
-    assert all(data[calc_name] == pow2(None, src_data)[calc_name])
+    assert all(data["out"] == data["sim_ct_gauss"] ** 2)
 
 
 def test_calc_counters_with_two(session):
-    calc_name = "mean"
-
-    class Mean(calc.CalcHook):
-        def prepare(self):
-            self.data = {}
-
-        def compute(self, sender, data_dict):
-            nb_point_to_emit = numpy.inf
-            for cnt_name in ("diode", "diode2"):
-                cnt_data = data_dict.get(cnt_name, [])
-                data = self.data.get(cnt_name, [])
-                if len(cnt_data):
-                    data = numpy.append(data, cnt_data)
-                    self.data[cnt_name] = data
-                nb_point_to_emit = min(nb_point_to_emit, len(data))
-            if not nb_point_to_emit:
-                return
-            mean_data = (
-                self.data["diode"][:nb_point_to_emit]
-                + self.data["diode2"][:nb_point_to_emit]
-            ) / 2.
-            self.data = {
-                key: data[nb_point_to_emit:] for key, data in self.data.items()
-            }
-            return {calc_name: mean_data}
-
     robz2 = session.env_dict["robz2"]
     diode = session.env_dict["diode"]
     diode2 = session.env_dict["diode2"]
-    mean_func = Mean()
-    mean_counter_controller = CalcCounterController(calc_name, mean_func, diode, diode2)
+
+    class MyCCC(CalcCounterController):
+        def calc_function(self, input_dict):
+            data_out = (input_dict["data1"] + input_dict["data2"]) / 2.
+            return {"out": data_out}
+
+    config = {
+        "inputs": [
+            {"counter": diode, "tags": "data1"},
+            {"counter": diode2, "tags": "data2"},
+        ],
+        "outputs": [{"name": "out"}],
+    }
+
+    mean_counter_controller = MyCCC("mean", config)
+
     s = scans.ascan(robz2, 0, .1, 10, 0, mean_counter_controller, save=False)
     data = s.get_data()
-    assert all(data[calc_name] == (data["diode"] + data["diode2"]) / 2.)
+    assert all(data["out"] == (data["diode"] + data["diode2"]) / 2.)

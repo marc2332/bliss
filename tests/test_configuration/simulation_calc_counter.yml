@@ -1,0 +1,28 @@
+- plugin: bliss
+  module: simulation_calc_counter
+  class: MeanCalcCounterController
+  name: simul_calc_controller
+  inputs:
+    - counter: $diode
+      tags: data1
+
+    - counter: $diode2
+      tags: data2
+
+  outputs:
+    - name: out1
+
+
+- plugin: bliss
+  module: simulation_calc_counter
+  class: MeanCalcCounterController
+  name: simul_calc_controller2
+  inputs:
+    - counter: $simu1.counters.deadtime_det0
+      tags: data1
+
+    - counter: $simu1.counters.deadtime_det1
+      tags: data2
+
+  outputs:
+    - name: out2

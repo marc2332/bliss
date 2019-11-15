@@ -55,7 +55,7 @@ Parameters if using GAUSSIAN:
 # configuration example:
 """
 -
-  name: sim_ct
+  name: sim_ct_1
   plugin: bliss
   class: simulation_counter
   distribution: GAUSSIAN
@@ -78,9 +78,7 @@ Parameters if using GAUSSIAN:
 
 ct(0.1)
 
-debugon(sim_ct_1.get_acquisition_device())
 debugon(sim_ct_1)
-
 
 plotselect(sim_ct_1)
 ascan(m1,-5,5,35,0.001, sim_ct_1); print(cen())
@@ -415,10 +413,6 @@ class SimulationCounterControllerChainNode(ChainNode):
             noise_factor,
         )
 
-        counter.acq_device = (
-            acq_dev
-        )  # <= weird stuff to keep SimulationCounter.get_acquisition_device() working !
-
         log_debug(counter, "SIMULATION_COUNTER -- COUNTER CONFIG")
         if get_logger(counter).isEnabledFor(logging.DEBUG):
             pprint.pprint(counter.config)
@@ -426,7 +420,7 @@ class SimulationCounterControllerChainNode(ChainNode):
         log_debug(counter, "SIMULATION_COUNTER -- SCAN_PARS")
 
         if get_logger(counter).isEnabledFor(logging.DEBUG):
-            pprint.pprint(acq_params)  # .copy().update(acq_params))
+            pprint.pprint(acq_params)
 
         log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device END")
         return acq_dev
@@ -443,13 +437,7 @@ class SimulationCounterController(CounterController):
 class SimulationCounter(Counter):
     def __init__(self, name, config):
         super().__init__(name, SimulationCounterController())
-
         self.config = config
-        self.acq_device = None
-
-    def get_acquisition_device(self):
-        log_debug(self, "SIMULATION_COUNTER -- get_acquisition_device()")
-        return self.acq_device
 
     def read(self):
         log_debug(self, "SIMULATION_COUNTER -- read()")

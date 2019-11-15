@@ -112,24 +112,47 @@ def test_default_scan(default_session, lima_simulator):
     diode7 = default_session.config.get("diode7")
 
     cc6 = MeanCalcCounterController(
-        "cc6", {"inputs": [diode1, diode2], "outputs": ["cc6"]}
+        "cc6",
+        {
+            "inputs": [{"counter": diode1}, {"counter": diode2}],
+            "outputs": [{"name": "cc6"}],
+        },
     )
     cc5 = MeanCalcCounterController(
-        "cc5", {"inputs": [diode4, diode5], "outputs": ["cc5"]}
+        "cc5",
+        {
+            "inputs": [{"counter": diode4}, {"counter": diode5}],
+            "outputs": [{"name": "cc5"}],
+        },
     )
     cc4 = MeanCalcCounterController(
-        "cc4", {"inputs": [diode6, diode7], "outputs": ["cc4"]}
+        "cc4",
+        {
+            "inputs": [{"counter": diode6}, {"counter": diode7}],
+            "outputs": [{"name": "cc4"}],
+        },
     )
     cc3 = MeanCalcCounterController(
-        "cc3", {"inputs": [cc6.counters[0], diode3], "outputs": ["cc3"]}
+        "cc3",
+        {
+            "inputs": [{"counter": cc6.counters[0]}, {"counter": diode3}],
+            "outputs": [{"name": "cc3"}],
+        },
     )
     cc2 = MeanCalcCounterController(
-        "cc2", {"inputs": [cc5.counters[0], cc4.counters[0]], "outputs": ["cc2"]}
+        "cc2",
+        {
+            "inputs": [{"counter": cc5.counters[0]}, {"counter": cc4.counters[0]}],
+            "outputs": [{"name": "cc2"}],
+        },
     )
     cc1 = MeanCalcCounterController(
-        "cc1", {"inputs": [cc3.counters[0], cc2.counters[0]], "outputs": ["cc1"]}
+        "cc1",
+        {
+            "inputs": [{"counter": cc3.counters[0]}, {"counter": cc2.counters[0]}],
+            "outputs": [{"name": "cc1"}],
+        },
     )
-
     # ------- import lima_simulator ------------------
 
     simulator1 = default_session.config.get("lima_simulator")  # controller lima

@@ -12,7 +12,7 @@ from bliss import global_map
 from bliss.common import measurementgroup
 
 from bliss.common.counter import CalcCounter, Counter
-from bliss.controllers.counter import CalcCounterController
+from bliss.controllers.counter import CalcCounterController, CounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 

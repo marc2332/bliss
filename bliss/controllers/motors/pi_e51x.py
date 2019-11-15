@@ -9,7 +9,7 @@ import time
 import weakref
 
 from bliss.controllers.motor import Controller
-from bliss.common.utils import object_method
+from bliss.common.utils import object_method, object_attribute_get
 from bliss.common.axis import AxisState
 from bliss.common.logtools import *
 from bliss import global_map
@@ -31,6 +31,7 @@ class PI_E51X(Controller):
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
+        self.__axis_online = weakref.WeakKeyDictionary()
         self.__axis_closed_loop = weakref.WeakKeyDictionary()
         self.__axis_auto_gate = weakref.WeakKeyDictionary()
         self.__axis_low_limit = weakref.WeakKeyDictionary()
@@ -42,7 +43,7 @@ class PI_E51X(Controller):
             self,
             "move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name),
         )
-        if self.auto_gate_enabled:
+        if self.__axis_auto_gate[sender]:
             if state is True:
                 log_info(self, "PI_E51X.py : movement is finished")
                 self.set_gate(sender, 0)
@@ -114,9 +115,11 @@ class PI_E51X(Controller):
 
     def set_on(self, axis):
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
+        self.__axis_online[axis] = 1
 
     def set_off(self, axis):
         self.send_no_ans(axis, "ONL %d 0" % axis.channel)
+        self.__axis_online[axis] = 0
 
     def read_position(
         self, axis, last_read={"t": time.time(), "pos": [None, None, None]}
@@ -151,14 +154,13 @@ class PI_E51X(Controller):
         cache = last_read
 
         if time.time() - cache["t"] < 0.005:
-            # print "encache meas %f" % time.time()
             _pos = cache["pos"]
+            log_debug(self, "position measured cache : %r" % _pos)
         else:
-            # print "PAS encache meas %f" % time.time()
             _pos = self._get_pos()
             cache["pos"] = _pos
             cache["t"] = time.time()
-        log_debug(self, "position measured read : %r" % _pos)
+            log_debug(self, "position measured read : %r" % _pos)
 
         return _pos[encoder.channel - 1]
 
@@ -183,15 +185,16 @@ class PI_E51X(Controller):
         return self.read_velocity(axis)
 
     def state(self, axis):
-        # if self._get_closed_loop_status(axis):
+        if not self.__axis_online[axis]:
+            return AxisState("OFF")
         if self.__axis_closed_loop[axis]:
-            # log_debug(self, "CLOSED-LOOP is active")
+            log_debug(self, "in state: CLOSED-LOOP active")
             if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
                 return AxisState("MOVING")
         else:
-            log_debug(self, "CLOSED-LOOP is not active")
+            log_debug(self, "in state: CLOSED-LOOP is not active")
             return AxisState("READY")
 
     def prepare_move(self, motion):
@@ -304,7 +307,7 @@ class PI_E51X(Controller):
         """
         _cmd = cmd.encode() + b"\n"
         self.comm.write(_cmd)
-        self.check_error(axis)
+        self.check_error(_cmd)
 
     def check_error(self, command):
         """
@@ -367,16 +370,6 @@ class PI_E51X(Controller):
         # A=+0035.0000
         return float(_ans[2:])
 
-    @object_method(types_info=("None", "None"))
-    def open_loop(self, axis):
-        self._set_closed_loop(axis, 0)
-
-    @object_method(types_info=("None", "None"))
-    def close_loop(self, axis):
-        self._set_closed_loop(axis, 1)
-
-# activate_closed_loop
-# get_closed_loop attr R only
     """
     DCO : Drift Compensation Offset.
     """
@@ -410,16 +403,16 @@ class PI_E51X(Controller):
         -> True/False
         """
         _ans = self.send(axis, "SVO? %s" % axis.chan_letter)
-        _status = float(_ans[2:])
-
-        if _status == 1:
-            return True
-        else:
-            return False
+        _status = bool(int(_ans[2:]))
+        return _status
 
     def _set_closed_loop(self, axis, onoff):
-        self.send_no_ans(axis, "SVO %s %d" % axis.chan_letter)
+        log_debug(self, "set closed_loop to %s" % onoff)
+        self.send_no_ans(axis, "SVO %s %d" % (axis.chan_letter, onoff))
         self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
+        log_debug(self, "effective closed_loop is now %s" % self.__axis_closed_loop[axis])
+        if self.__axis_closed_loop[axis] != onoff:
+            raise RuntimeError("Failed to change closed_loop mode to %s" % onoff)
 
     def _get_on_target_status(self, axis):
         """
@@ -427,13 +420,28 @@ class PI_E51X(Controller):
         True/False
         """
         _ans = self.send(axis, "ONT? %s" % axis.chan_letter)
-        _status = float(_ans[2:])
+        _status = bool(int(_ans[2:]))
+        return _status
 
-        if _status == 1:
-            return True
-        else:
-            return False
+    @object_method(types_info=("None", "None"))
+    def open_loop(self, axis):
+        self._set_closed_loop(axis, 0)
 
+    @object_method(types_info=("None", "None"))
+    def close_loop(self, axis):
+        self._set_closed_loop(axis, 1)
+
+    @object_method(types_info=("bool", "None"))
+    def activate_closed_loop(self, axis, onoff=True):
+        self._set_closed_loop(axis, onoff)
+
+    @object_attribute_get(type_info="bool")
+    def get_closed_loop(self, axis):
+        return self.__axis_closed_loop[axis]
+
+    """
+    Auto gate
+    """
     @object_method(types_info=("bool", "None"))
     def enable_auto_gate(self, axis, value):
         self.__axis_auto_gate[axis] = value is True
@@ -442,6 +450,10 @@ class PI_E51X(Controller):
             "auto_gate is %s for axis.channel %s "
             % (value is True and "ON" or "OFF", axis.channel),
         )
+
+    @object_attribute_get(type_info="bool")
+    def get_auto_gate(self, axis):
+        return self.__axis_auto_gate[axis]
 
     @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):
@@ -508,6 +520,39 @@ class PI_E51X(Controller):
     ID/INFO
     """
 
+    def __info__(self, axis=None):
+        if axis is None:
+            return self.get_controller_info()
+        else:
+            return self.get_info(axis)
+
+    def get_controller_info(self):
+        _infos = [
+            ("Identifier                 ", "*IDN?"),
+            ("Serial Number              ", "SSN?"),
+            ("Com level                  ", "CCL?"),
+            ("GCS Syntax version         ", "CSV?"),
+            ("Last error code            ", "ERR?"),
+        ]
+
+        _txt = "PI_E51X controller :\n"
+        # Reads pre-defined infos (1 line answers)
+        for (label, cmd) in _infos:
+            value = self.comm.write_readline(cmd.encode()+b"\n")
+            _txt = _txt + "%s %s\n" % (label, value.decode())
+
+        # Reads multi-lines infos.
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
+        _txt = _txt + "\n%s :\n%s\n" % (
+            "Communication parameters",
+            "\n".join(_ans),
+        )
+
+        _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
+        _txt = _txt + "\n%s :\n%s\n" % ("Firmware version", "\n".join(_ans))
+
+        return _txt
+
     def get_id(self, axis):
         """
         - Returns a 'str' string.
@@ -525,11 +570,6 @@ class PI_E51X(Controller):
             None
         """
         _infos = [
-            ("Identifier                 ", "*IDN?"),
-            ("Serial Number              ", "SSN?"),
-            ("Com level                  ", "CCL?"),
-            ("GCS Syntax version         ", "CSV?"),
-            ("Last error code            ", "ERR?"),
             ("Real Position              ", "POS? %s" % axis.chan_letter),
             ("Position low limit         ", "NLM? %s" % axis.chan_letter),
             ("Position high limit        ", "PLM? %s" % axis.chan_letter),
@@ -553,22 +593,13 @@ class PI_E51X(Controller):
             ("Digital filter order       ", "SPA? %s 0x05000002" % axis.channel),
         ]
 
-        (error_nb, err_str) = self._get_error()
-        _txt = '      ERR nb=%d  : "%s"\n' % (error_nb, err_str)
+        
+        _txt = "     PI_E51X STATUS:\n"
 
         # Reads pre-defined infos (1 line answers)
         for i in _infos:
             _txt = _txt + "        %s %s\n" % (i[0], self.send(axis, (i[1])))
-            # time.sleep(0.01)
 
-        # Reads multi-lines infos.
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
-        _txt = _txt + "        %s    \n%s\n" % (
-            "Communication parameters",
-            "\n".join(_ans),
-        )
-
-        _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
-        _txt = _txt + "    %s  \n%s\n" % ("Firmware version", "\n".join(_ans))
-
+        (error_nb, err_str) = self._get_error()
+        _txt += "        Last error code             %d= %s" % (error_nb, err_str)
         return _txt

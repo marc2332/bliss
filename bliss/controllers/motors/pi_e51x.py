@@ -120,10 +120,12 @@ class PI_E51X(Controller):
     """
 
     def set_on(self, axis):
+        log_debug(self, "set %s ONLINE" % axis.name)
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
         self.__axis_online[axis] = 1
 
     def set_off(self, axis):
+        log_debug(self, "set %s OFFLINE" % axis.name)
         self.send_no_ans(axis, "ONL %d 0" % axis.channel)
         self.__axis_online[axis] = 0
 
@@ -143,14 +145,13 @@ class PI_E51X(Controller):
         cache = last_read
 
         if time.time() - cache["t"] < 0.005:
-            # print "en cache not meas %f" % time.time()
             _pos = cache["pos"]
+            log_debug(self, "position setpoint cache : %r" % _pos)
         else:
-            # print "PAS encache not meas %f" % time.time()
             _pos = self._get_target_pos(axis)
             cache["pos"] = _pos
             cache["t"] = time.time()
-        log_debug(self, "position setpoint read : %r" % _pos)
+            log_debug(self, "position setpoint read : %r" % _pos)
 
         return _pos[axis.channel - 1]
 
@@ -182,25 +183,25 @@ class PI_E51X(Controller):
         # removes 'X=' prefix
         _velocity = float(_ans[2:])
 
-        log_debug(self, "read_velocity : %g " % _velocity)
+        log_debug(self, "read %s velocity : %g " % (axis.name, _velocity))
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
         self.send_no_ans(axis, "VEL %s %f" % (axis.chan_letter, new_velocity))
-        log_debug(self, "velocity set : %g" % new_velocity)
+        log_debug(self, "%s velocity set : %g" % (axis.name, new_velocity))
         return self.read_velocity(axis)
 
     def state(self, axis):
         if not self.__axis_online[axis]:
             return AxisState("OFF")
         if self.__axis_closed_loop[axis]:
-            log_debug(self, "in state: CLOSED-LOOP active")
+            log_debug(self, "%s state: CLOSED-LOOP active" % axis.name)
             if self._get_on_target_status(axis):
                 return AxisState("READY")
             else:
                 return AxisState("MOVING")
         else:
-            log_debug(self, "in state: CLOSED-LOOP is not active")
+            log_debug(self, "%s state: CLOSED-LOOP is not active" % axis.name)
             return AxisState("READY")
 
     def prepare_move(self, motion):
@@ -220,11 +221,18 @@ class PI_E51X(Controller):
             - None
         """
         if self.__axis_closed_loop[axis]:
+            log_debug(
+                self,
+                "Move %s in position to %g" % (motion.axis.name, motion.target_pos),
+            )
             # Command in position.
             self.send_no_ans(
                 motion.axis, "MOV %s %g" % (motion.axis.chan_letter, motion.target_pos)
             )
         else:
+            log_debug(
+                self, "Move %s in voltage to %g" % (motion.axis.name, motion.target_pos)
+            )
             # Command in voltage.
             self.send_no_ans(
                 motion.axis, "SVA %s %g" % (motion.axis.chan_letter, motion.target_pos)
@@ -282,14 +290,12 @@ class PI_E51X(Controller):
         - Type of <cmd> must be 'str'.
         - Type of returned string is 'str'.
         """
-        # print( f"SEND: {cmd}")
 
         _cmd = cmd.encode() + b"\n"
         _t0 = time.time()
 
         _ans = self.comm.write_readline(_cmd).decode()
         # "\n" in answer has been removed by tcp lib.
-        # print( f"RECV: {_ans}")
 
         _duration = time.time() - _t0
         if _duration > 0.005:
@@ -391,10 +397,16 @@ class PI_E51X(Controller):
     @object_attribute_get(type_info="bool")
     def get_dco(self, axis):
         dco = self.send(axis, "DCO? %s" % axis.chan_letter)
-        return dco is True
+        val = int(dco[2:])
+        return bool(val)
+
+    @object_method(types_info=("bool", "None"))
+    def set_dco(self, axis, onoff):
+        log_debug(self, "set drift compensation (dco) to %s" % onoff)
+        self._set_dco(axis, onoff)
 
     def _set_dco(self, axis, onoff):
-        self.send_no_ans(axis, "DCO %s %d" % onoff)
+        self.send_no_ans(axis, "DCO %s %d" % (axis.chan_letter, onoff))
 
     """
     Voltage commands
@@ -422,14 +434,16 @@ class PI_E51X(Controller):
         return _status
 
     def _set_closed_loop(self, axis, onoff):
-        log_debug(self, "set closed_loop to %s" % onoff)
+        log_debug(self, "set %s closed_loop to %s" % (axis.name, onoff))
         self.send_no_ans(axis, "SVO %s %d" % (axis.chan_letter, onoff))
         self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
         log_debug(
             self, "effective closed_loop is now %s" % self.__axis_closed_loop[axis]
         )
         if self.__axis_closed_loop[axis] != onoff:
-            raise RuntimeError("Failed to change closed_loop mode to %s" % onoff)
+            raise RuntimeError(
+                "Failed to change %s closed_loop mode to %s" % (axis.name, onoff)
+            )
 
     def _get_on_target_status(self, axis):
         """
@@ -449,7 +463,7 @@ class PI_E51X(Controller):
         self._set_closed_loop(axis, 1)
 
     @object_method(types_info=("bool", "None"))
-    def activate_closed_loop(self, axis, onoff=True):
+    def set_closed_loop(self, axis, onoff):
         self._set_closed_loop(axis, onoff)
 
     @object_attribute_get(type_info="bool")
@@ -461,7 +475,7 @@ class PI_E51X(Controller):
     """
 
     @object_method(types_info=("bool", "None"))
-    def enable_auto_gate(self, axis, value):
+    def set_auto_gate(self, axis, value):
         self.__axis_auto_gate[axis] = value is True
         log_info(
             self,

@@ -14,6 +14,7 @@ import sys
 import time
 import datetime
 import uuid
+import collections
 from functools import wraps
 
 from bliss import setup_globals, current_session, is_bliss_shell
@@ -630,10 +631,14 @@ def _get_channels_dict(acq_object, channels_dict):
         fullname = acq_chan.fullname
         if fullname in display_names:
             continue
-        chan_name = acq_chan.short_name
-        if chan_name in display_names.values():
-            chan_name = fullname
-        display_names[fullname] = chan_name
+        try:
+            _, controller_chan_name, chan_name = fullname.split(":")
+        except ValueError:
+            controller_chan_name, _, chan_name = fullname.rpartition(":")
+        display_names[fullname] = (
+            controller_chan_name,
+            acq_chan.short_name,
+        )  # use .name to get alias, if any
         scalars_units[fullname] = acq_chan.unit
         shape = acq_chan.shape
         if len(shape) == 0 and fullname not in scalars:
@@ -650,7 +655,8 @@ def _get_masters_and_channels(acq_chain):
     # go through acq chain, group acq channels by master and data shape
     tree = acq_chain._tree
 
-    chain_dict = dict()
+    chain_dict = {}
+    display_names_list = []
     for path in tree.paths_to_leaves():
         master = None
         # path[0] is root
@@ -661,8 +667,37 @@ def _get_masters_and_channels(acq_chain):
                     master = acq_object.name
                     channels = chain_dict.setdefault(master, {"master": {}})
                     _get_channels_dict(acq_object, channels["master"])
+                    display_names_list.append(channels["master"]["display_names"])
                     continue
             _get_channels_dict(acq_object, channels)
+            display_names_list.append(channels["display_names"])
+
+    # find channel display labels
+    names_count = collections.Counter()
+    # eliminate duplicated display_names dict in list
+    display_names_list = [
+        d
+        for i, d in enumerate(display_names_list)
+        if d not in display_names_list[i + 1 :]
+    ]
+    for display_names in display_names_list:
+        for controller_chan_name, chan_name in display_names.values():
+            if controller_chan_name == chan_name:
+                # weird case, but it can happen
+                names_count.update([chan_name])
+            else:
+                names_count.update([controller_chan_name, chan_name])
+    for display_names in display_names_list:
+        for fullname, (controller_chan_name, chan_name) in display_names.items():
+            if names_count[chan_name] == 1:
+                # unique short name
+                display_names[fullname] = chan_name
+            else:
+                if names_count[controller_chan_name] == 1:
+                    display_names[fullname] = controller_chan_name
+                else:
+                    display_names[fullname] = fullname
+
     return chain_dict
 
 

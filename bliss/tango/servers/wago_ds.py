@@ -21,6 +21,7 @@ from tango.server import Device, device_property, attribute, command
 from bliss.comm.util import get_comm
 from bliss.controllers.wago.wago import *
 from bliss.common.utils import flatten
+from bliss.config.static import get_config
 
 # Device States Description
 # ON : The motor powered on and is ready to move.
@@ -55,8 +56,8 @@ access_conv_tab_inv = dict((v, k) for k, v in access_conv_tab.items())
 
 
 class Wago(Device):
-    iphost = device_property(dtype=str, doc="ip address of Wago PLC")
-    protocol = device_property(dtype=str, default_value="tcp")
+    beacon_name = device_property(dtype=str, doc="Object name inside Beacon")
+    iphost = device_property(dtype=str, default_value="", doc="ip address of Wago PLC")
     TCPTimeout = device_property(dtype=int, default_value=1000, doc="timeout in ms")
     config = device_property(
         dtype=tango.DevVarCharArray, default_value="", doc="I/O modules attached to PLC"
@@ -72,6 +73,24 @@ class Wago(Device):
     def init_device(self, *args, **kwargs):
         super().init_device(*args, **kwargs)
         self.set_state(DevState.STANDBY)
+
+        # configuration can be given through Beacon if beacon_name is provided
+        # this will generate self.iphost and self.config
+        if self.beacon_name:
+            config = get_config()
+            yml_config = config.get_config(self.beacon_name)
+            if yml_config is None:
+                raise RuntimeError(
+                    f"Could not find a Beacon object with name {self.beacon_name}"
+                )
+            try:
+                self.iphost = yml_config["modbustcp"]["url"]
+            except KeyError:
+                raise RuntimeError(
+                    "modbustcp url should be given in Beacon configuration"
+                )
+            self.config = ModulesConfig.from_config_tree(yml_config).mapping_str
+
         self.TurnOn()  # automatic turn on to mimic C++ Device Server
 
     @command
@@ -253,34 +272,32 @@ class Wago(Device):
 
             # determination of variable type
 
-            if type_ in ("thc", "fs"):
+            if type_ in ("thc", "fs10", "fs20", "fs4-20"):
                 # temperature and Analog requires Float
                 var_type = tango.DevDouble
-            elif type_ in ("ssi", "637"):
+            elif type_ in ("ssi24", "ssi32", "637"):
                 # encoder requires Long
                 var_type = tango.DevLong
             elif type_ in ("digital"):
                 # digital requires boolean
                 var_type = tango.DevBoolean
+            else:
+                raise NotImplementedError
 
             module_info = MODULES_CONFIG[module_type]
 
             # determination of read/write type
             if type_ in ("thc",):
                 read_write = "r"
-            elif type_ in ("fs",):
+            elif type_ in ("thc", "fs10", "fs20", "fs4-20"):
                 if module_info[ANA_IN] == module_info[N_CHANNELS]:
                     read_write = "r"
                 elif module_info[ANA_OUT] == module_info[N_CHANNELS]:
                     read_write = "rw"
                 else:
                     raise NotImplementedError
-            elif type_ in ("ssi", "637"):
+            elif type_ in ("ssi24", "ssi32", "637"):
                 read_write = "r"
-                if module_info[ANA_OUT] > 0:
-                    read_write += "w"
-                else:
-                    raise NotImplementedError
             elif type_ in ("digital"):
                 if module_info[DIGI_IN] == module_info[N_CHANNELS]:
                     read_write = "r"
@@ -290,6 +307,8 @@ class Wago(Device):
                     raise NotImplementedError(
                         f"Digital I/O number of channels should be equal to total for {module_type}"
                     )
+            else:
+                raise NotImplementedError
 
             # define read and write methods
             _read_channel = lambda: None
@@ -410,7 +429,7 @@ class Wago(Device):
             long *error - pointer to error code (in the case of failure)
 
         """
-        return self.wago.logical_keys[name]
+        return self.wago.devname2key(name)
 
     @command(
         dtype_in=tango.DevShort,
@@ -434,7 +453,12 @@ class Wago(Device):
     def DevReadNoCacheDigi(self, key):
         """
         """
-        return self.wago.devreadnocachedigi(key)
+        value = self.wago.get(self.wago.devkey2name(key), convert_values=False)
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevShort,
@@ -446,7 +470,12 @@ class Wago(Device):
     def DevReadNoCachePhys(self, key):
         """
         """
-        return self.wago.devreadnocachephys(key)
+        value = self.wago.get(self.wago.devkey2name(key))
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevShort,

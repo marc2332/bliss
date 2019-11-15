@@ -611,7 +611,7 @@ def _interlock_channel_info_from_plc(
         info["dac_offset"] = get_conf_output[7]
 
     logical_device_key, logical_device_channel = modules_config.devhard2log(
-        (info["type"]["register_type"], offset)
+        (register_type_to_int(info["type"]["register_type"]), offset)
     )
     logical_device = modules_config.devkey2name(logical_device_key)
 

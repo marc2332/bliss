@@ -154,6 +154,28 @@ def test_orderedhash_settings(beacon):
     assert tuple(ohs.keys()) == tuple(k for k, v in data)
 
 
+def test_orderedhas_settings_resize(beacon):
+    data = tuple(
+        (str(n), v) for n, v in enumerate((ch for ch in "abcdefghilmnopqrstuvz"))
+    )
+    ohs = settings.OrderedHashSetting("resizeordhashset")
+    for k, v in data:
+        ohs[k] = v
+    cnx = ohs._cnx()
+    # popping will remove from the zset the element with lower score
+    # in this case is attr='1' score=1
+    attr, order = cnx.zpopmin(ohs._name_order)[0]
+    assert attr, order == ("1", 1)
+    ohs[100] = "bla"  # assigning a value will call lua script and trigger the resize
+    attr, order = cnx.zpopmin(ohs._name_order)[0]
+    assert attr, order == ("2", 1)  # the order is still 1 because is resized
+    attr, order = cnx.zpopmin(ohs._name_order)[0]
+    assert attr, order == ("3", 2)
+    ohs[100] = "bla"  # doing it again
+    attr, order = cnx.zpopmin(ohs._name_order)[0]
+    assert attr, order == ("4", 1)
+
+
 def test_orderedhash_settings_remove(beacon):
     removeme = settings.OrderedHashSetting("removeme")
     removeme["a"] = "a"

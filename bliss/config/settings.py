@@ -719,27 +719,45 @@ local hashkey = KEYS[1]
 local attribute = ARGV[1]
 local value = ARGV[2]
 
-local listkey = hashkey .. ":creation_order"
+local setkey = hashkey .. ":creation_order"
 
-local attribute_names = redis.call("LRANGE", listkey, 0, -1)
-local found = false
--- check if key is in list
-for k, v in pairs(attribute_names) do
-    if v == attribute then
-        -- found, so change value
-        return redis.call("HSET", hashkey, attribute, value)
+if (redis.call("EXISTS", setkey)==0) then
+    -- set does not exist, create it, create hash and return
+    redis.call("ZADD", setkey, 1, attribute)
+    return redis.call("HSET", hashkey, attribute, value)
+end
+
+local set_max_score = tonumber(redis.call("ZRANGE", setkey, -1, -1, "withscores")[2])
+local set_size = redis.call("ZCARD", setkey)
+
+if set_max_score > set_size  then
+    -- we need to reassign scores as some was deleted
+    local new_order = 1
+    table = redis.call("ZRANGE", setkey, 0, -1)
+    for k, attr in pairs(table)
+    do
+        --redis.call("ZADD", setkey, new_order, attr)
+        new_order = new_order + 1
     end
 end
 
-if found then
-    return 0
+if redis.call("ZSCORE", setkey, attribute) == false then
+    -- attribute does not exist
+    -- create zset attribute
+
+    local list = redis.call("ZPOPMAX",setkey)
+    local order, attr = tonumber(list[2]), list[1]
+    -- reinserting popped value
+    redis.call("ZADD", setkey, order, attr)
+
+
+    redis.call("ZADD", setkey, order+1, attribute)
+    -- create and set hset
+    return redis.call("HSET", hashkey, attribute, value)
+else
+    -- attribute does exist
+    return redis.call("HSET", hashkey, attribute, value)
 end
-
--- adding attribute to list
-redis.call("RPUSH",listkey, attribute)
-
--- adding attribute and value to hash
-return redis.call("HSET", hashkey, attribute, value)
 """.encode()
 
 
@@ -804,7 +822,7 @@ class OrderedHashSetting(BaseHashSetting):
 
     def _raw_get_all(self):
         cnx = self._cnx()
-        order = iter(k for k in cnx.lrange(self._name_order, 0, -1))
+        order = iter(k for k in cnx.zrange(self._name_order, 0, -1))
         return {key: cnx.hget(self._name, key) for key in order}
 
     @read_decorator
@@ -812,9 +830,9 @@ class OrderedHashSetting(BaseHashSetting):
         cnx = self._cnx().pipeline()
         cnx.hget(self._name, key)
         cnx.hdel(self._name, key)
-        cnx.lrem(self._name_order, 0, key)
-        (value, removed_h, removed_l) = cnx.execute()
-        if not (removed_h and removed_l):
+        cnx.zrem(self._name_order, key)
+        (value, removed_h, removed_z) = cnx.execute()
+        if not (removed_h and removed_z):
             if isinstance(default, Null):
                 raise KeyError(key)
             else:
@@ -823,8 +841,7 @@ class OrderedHashSetting(BaseHashSetting):
 
     def remove(self, *keys):
         cnx = self._cnx().pipeline()
-        for key in keys:
-            cnx.lrem(self._name_order, 0, key)
+        cnx.zrem(self._name_order, *keys)
         cnx.hdel(self._name, *keys)
         cnx.execute()
 
@@ -840,9 +857,8 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.delete(self._name)
         cnx.delete(self._name_order)
         if mapping is not None:
-            cnx.hmset(self._name, mapping)
-            # use lrange e rpush
-            cnx.rpush(self._name_order, *mapping.keys())
+            for k, v in mapping.items():
+                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
         cnx.execute()
 
     @write_decorator_dict
@@ -858,7 +874,7 @@ class OrderedHashSetting(BaseHashSetting):
 
     def keys(self):
         cnx = self._cnx()
-        return (k.decode() for k in cnx.lrange(self._name_order, 0, -1))
+        return (k.decode() for k in cnx.zrange(self._name_order, 0, -1))
 
     def values(self):
         for k in self.keys():
@@ -880,7 +896,7 @@ class OrderedHashSetting(BaseHashSetting):
         cnx = self._cnx().pipeline()
         if value is None:
             cnx.hdel(self._name, key)
-            cnx.lrem(self._name_order, 0, key)
+            cnx.zrem(self._name_order, key)
             cnx.execute()
             return
         if self._write_type_conversion:
@@ -1059,7 +1075,7 @@ class HashObjSetting(HashSetting):
         super().__init__(name, **keys)
 
 
-class OrderedHashSettingrderedHashObjSetting(OrderedHashSetting):
+class OrderedHashObjSetting(OrderedHashSetting):
     """
     Class to manage a setting that is stored as a dictionary on redis
     where values of the dictionary are pickled

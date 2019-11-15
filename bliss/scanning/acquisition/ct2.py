@@ -35,7 +35,6 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         start_once=True,
         ctrl_params=None,
     ):
-        name = type(device).__name__
         self._connected = False
         self.acq_expo_time = acq_expo_time
         self.acq_mode = acq_mode
@@ -58,7 +57,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
             trigger_type=trigger_type,
             ctrl_params=ctrl_params,
         )
-        super().__init__(device, name=name, **kwargs)
+        super().__init__(device, **kwargs)
 
     def add_counter(self, counter):
         pass

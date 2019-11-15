@@ -69,6 +69,9 @@ class LogWidget(qt.QTreeView):
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
         self.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+        self.setWordWrap(True)
+        self.setTextElideMode(qt.Qt.ElideRight)
+
         self._handlers = weakref.WeakKeyDictionary()
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
         self._maximumLogCount = 0

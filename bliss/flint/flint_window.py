@@ -56,7 +56,7 @@ class FlintWindow(qt.QMainWindow):
         logWindow.setAttribute(qt.Qt.WA_QuitOnClose, False)
         logWindow.setWindowTitle("Log messages")
         self.__logWindow = logWindow
-        logWidget.connect_logger(_logger)
+        logWidget.connect_logger(logging.root)
 
     def __initMenus(self):
         exitAction = qt.QAction("&Exit", self)

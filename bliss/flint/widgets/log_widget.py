@@ -143,8 +143,14 @@ class LogWidget(qt.QTreeView):
         if isinstance(record, str):
             message = record
         else:
-            record2 = record
-            message = record.getMessage()
+            try:
+                message = record.getMessage()
+                record2 = record
+            except Exception as e:
+                # In case there is a wrong call of logging methods
+                message = "Error in logs: " + e.args[0]
+                message += "\nMessage: %r" % record.msg
+                message += "\nArguments: %s" % record.args
 
         try:
             if record2 is not None:

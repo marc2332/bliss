@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 
 @pytest.mark.usefixtures("xvfb")
 class TestLogWidget(TestCaseQt):
+    def plain_text(self, widget):
+        model = widget.model()
+        text = ""
+        for i in range(model.rowCount()):
+            index = model.index(i, widget.MessageColumn)
+            item = model.itemFromIndex(index)
+            if text != "":
+                text += "\n"
+            text += item.text()
+        return text
+
     def test_logging(self):
         widget = LogWidget()
         self.qWaitForWindowExposed(widget)
@@ -46,8 +57,10 @@ class TestLogWidget(TestCaseQt):
         logger.warning("B2")
         self.qWait()
         self.assertEqual(widget.logCount(), 2)
-        self.assertEqual(widget.toPlainText().count("A1"), 0)
-        self.assertEqual(widget.toPlainText().count("B2"), 2)
+
+        plainText = self.plain_text(widget)
+        self.assertEqual(plainText.count("A1"), 0)
+        self.assertEqual(plainText.count("B2"), 2)
         widget = None
 
     def test_handler_released_on_destroy(self):

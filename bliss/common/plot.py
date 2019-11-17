@@ -230,6 +230,7 @@ def log_process_output_to_logger(process, stream_name, logger, level):
         logger: A logger from logging module
         level: A value of logging
     """
+    was_openned = False
     if hasattr(process, stream_name):
         # process come from subprocess, and was pipelined
         stream = getattr(process, stream_name)
@@ -239,7 +240,8 @@ def log_process_output_to_logger(process, stream_name, logger, level):
         stream_id = 1 if stream_name == "stdout" else 2
         try:
             path = f"/proc/{process.pid}/fd/{stream_id}"
-            stream = open(path)
+            stream = open(path, "r")
+            was_openned = True
         except:
             FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
             FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
@@ -257,6 +259,8 @@ def log_process_output_to_logger(process, stream_name, logger, level):
     except RuntimeError:
         # Process was terminated
         pass
+    if stream is not None and was_openned and not stream.closed:
+        stream.close()
 
 
 def start_flint():

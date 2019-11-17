@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Dict
 
 import sys
+import socket
+import logging
 import itertools
 import functools
 import collections
@@ -25,6 +27,36 @@ from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
+
+_logger = logging.getLogger(__name__)
+
+
+class MultiplexStreamToSocket:
+    """Multiplex a stream to another stream and sockets"""
+
+    def __init__(self, stream_output):
+        self.__sockets = []
+        self.__stream = stream_output
+
+    def write(self, message):
+        if len(self.__sockets) > 0:
+            data = message.encode("utf-8")
+            sockets = list(self.__sockets)
+            for socket in sockets:
+                try:
+                    socket.send(data)
+                except:
+                    _logger.debug("Error while sending output", exc_info=True)
+                    self.__sockets.remove(socket)
+        self.__stream.write(message)
+
+    def flush(self):
+        self.__stream.flush()
+
+    def add_listener(self, address):
+        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client.connect(tuple(address))
+        self.__sockets.append(client)
 
 
 class FlintApi:
@@ -43,12 +75,27 @@ class FlintApi:
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
 
+        self.stdout = MultiplexStreamToSocket(sys.stdout)
+        sys.stdout = self.stdout
+        self.stderr = MultiplexStreamToSocket(sys.stderr)
+        sys.stderr = self.stderr
+
+    def add_output_listener(self, stdout_address, stderr_address):
+        """Add socket based listeners to receive stdout and stderr from flint
+        """
+        self.stdout.add_listener(stdout_address)
+        self.stderr.add_listener(stderr_address)
+
     def create_new_id(self):
         return next(self._id_generator)
 
     def set_session(self, session_name):
         manager = self.__flintModel.mainManager()
         manager.updateBlissSessionName(session_name)
+
+    def get_session_name(self):
+        model = self.__flintModel
+        return model.blissSessionName()
 
     def wait_data(self, master, plot_type, index):
         ev = (

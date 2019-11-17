@@ -151,6 +151,7 @@ import psutil
 import subprocess
 from contextlib import contextmanager
 import gevent
+import socket
 
 from bliss.comm import rpc
 from bliss import current_session
@@ -263,6 +264,32 @@ def log_process_output_to_logger(process, stream_name, logger, level):
         stream.close()
 
 
+def log_socket_output_to_logger(socket, logger, level):
+    """Log the socket content into a logger until the socket is
+    closed.
+
+    Args:
+        process: A process object from subprocess or from psutil modules.
+        stream_name: One of "stdout" or "stderr".
+        logger: A logger from logging module
+        level: A value of logging
+    """
+    conn = None
+    try:
+        while True:
+            conn, _address = socket.accept()
+            while True:
+                data = conn.recv(512)
+                if not data:
+                    break
+                line = data.decode("utf-8")
+                logger._log(level, "%s", line)
+    except RuntimeError:
+        pass
+    if conn is not None:
+        conn.close()
+
+
 def start_flint():
     """ Start the flint application in a subprocess.
 
@@ -305,7 +332,10 @@ def _attach_flint(process):
 
     # Current URL
     key = get_flint_key(pid)
-    value = redis.brpoplpush(key, key, timeout=30)
+    for _ in range(3):
+        value = redis.brpoplpush(key, key, timeout=5)
+        if value is not None:
+            break
     if value is None:
         raise ValueError(
             f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
@@ -322,24 +352,43 @@ def _attach_flint(process):
 
     greenlets = FLINT["greenlet"]
     if greenlets is not None:
-        for g in greenlets:
-            if g is not None:
-                g.kill()
+        gevent.killall(greenlets)
 
-    g1 = gevent.spawn(
-        log_process_output_to_logger,
-        process,
-        "stdout",
-        FLINT_OUTPUT_LOGGER,
-        logging.INFO,
-    )
-    g2 = gevent.spawn(
-        log_process_output_to_logger,
-        process,
-        "stderr",
-        FLINT_OUTPUT_LOGGER,
-        logging.ERROR,
-    )
+    if hasattr(process, "stdout"):
+        # process which comes from subprocess, and was pipelined
+        g1 = gevent.spawn(
+            log_process_output_to_logger,
+            process,
+            "stdout",
+            FLINT_OUTPUT_LOGGER,
+            logging.INFO,
+        )
+        g2 = gevent.spawn(
+            log_process_output_to_logger,
+            process,
+            "stderr",
+            FLINT_OUTPUT_LOGGER,
+            logging.ERROR,
+        )
+    else:
+        # Else we can use a socket
+        # This way do not allow to receive the very first logs
+        stdout_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stdout_serv.bind(("", 0))
+        stdout_serv.setblocking(True)
+        stdout_serv.listen(0)
+        stderr_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stderr_serv.bind(("", 0))
+        stderr_serv.setblocking(True)
+        stderr_serv.listen(0)
+        proxy.add_output_listener(stdout_serv.getsockname(), stderr_serv.getsockname())
+        g1 = gevent.spawn(
+            log_socket_output_to_logger, stdout_serv, FLINT_OUTPUT_LOGGER, logging.INFO
+        )
+        g2 = gevent.spawn(
+            log_socket_output_to_logger, stderr_serv, FLINT_OUTPUT_LOGGER, logging.ERROR
+        )
+
     greenlets = (g1, g2)
     FLINT["greenlet"] = greenlets
 

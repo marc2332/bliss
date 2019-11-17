@@ -13,6 +13,7 @@ import enum
 import collections
 from contextlib import contextmanager
 
+
 import gevent
 from treelib import Tree
 
@@ -24,6 +25,7 @@ from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.motor_group import Group, is_motor_group
 from bliss.common.axis import Axis
+from bliss.common.validator import BlissValidator
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -263,6 +265,28 @@ class AcquisitionObject:
             self._ctrl_params = ctrl_params
         else:
             self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
+
+    @staticmethod
+    def get_param_validation_schema():
+        raise NotImplementedError
+
+    @classmethod
+    def validate_params(cls, acq_params, ctrl_params=None):
+        if ctrl_params is None:
+            params = {"acq_params": acq_params}
+        else:
+            params = {"acq_params": acq_params, "ctrl_params": ctrl_params}
+
+        validator = BlissValidator(cls.get_param_validation_schema())
+
+        if validator(params):
+            return validator.normalized(params)
+        else:
+            raise RuntimeError(str(validator.errors))
+
+    @classmethod
+    def get_default_acq_params(cls):
+        return cls.validate_acq_params({})
 
     def _init(self, devices):
         self._device, counters = self.init(devices)

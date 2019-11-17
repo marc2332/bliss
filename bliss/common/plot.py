@@ -438,6 +438,9 @@ def reset_flint():
         proxy.close()
     FLINT["proxy"] = None
     FLINT["process"] = None
+    greenlets = FLINT["greenlet"]
+    if greenlets is not None:
+        gevent.killall(greenlets)
     FLINT["greenlet"] = None
 
 

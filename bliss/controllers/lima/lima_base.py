@@ -303,9 +303,6 @@ class Lima(CounterController):
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
 
-    # def get_acquisition_object_class(self, acq_pars, ctrl_pars):
-    #    return LimaAcquisitionMaster
-
     def get_acquisition_object(self, acq_params, ctrl_params=None):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
@@ -343,30 +340,16 @@ class Lima(CounterController):
 
         stat_history = npoints
 
-        # ---Temporary fix should be moved to controller parameters --------
-        saving_format = acq_params.get("saving_format", "EDF")
-        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
-        saving_suffix = acq_params.get("saving_suffix", ".edf")
-
         # Return required parameters
         params = {}
         params["acq_nb_frames"] = acq_nb_frames
         params["acq_expo_time"] = acq_expo_time
         params["acq_trigger_mode"] = acq_trigger_mode
         params["acq_mode"] = acq_params.get("acq_mode", "SINGLE")
-        params["acc_max_expo_time"] = acq_params.get("acc_max_expo_time", 1.)
-        params["save_flag"] = acq_params.get(
-            "save", True
-        )  # => key != AcqObj keyword and location not well defined  !
         params["wait_frame_id"] = range(acq_nb_frames)
         params["prepare_once"] = prepare_once
         params["start_once"] = start_once
         params["stat_history"] = stat_history
-
-        # ---Temporary fix should be moved to controller parameters --------
-        params["saving_format"] = saving_format
-        params["saving_frame_per_file"] = saving_frame_per_file
-        params["saving_suffix"] = saving_suffix
 
         return params
 

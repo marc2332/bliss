@@ -148,7 +148,6 @@ import os
 import sys
 import numpy
 import psutil
-import platform
 import subprocess
 from contextlib import contextmanager
 import gevent
@@ -156,6 +155,7 @@ import gevent
 from bliss.comm import rpc
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
+from bliss.flint.config import get_flint_key
 
 try:
     from bliss.flint import poll_patch
@@ -207,9 +207,8 @@ def check_flint(session_name):
     redis = beacon.get_redis_connection()
 
     # get existing flint, if any
-    for key in redis.scan_iter(
-        "flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))
-    ):
+    pattern = get_flint_key(pid="*")
+    for key in redis.scan_iter(pattern):
         key = key.decode()
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
@@ -301,7 +300,7 @@ def _attach_flint(process):
         raise RuntimeError("No current session, cannot attach flint")
 
     # Current URL
-    key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
+    key = get_flint_key(pid)
     value = redis.brpoplpush(key, key, timeout=30)
     if value is None:
         raise ValueError(

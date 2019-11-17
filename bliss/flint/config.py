@@ -70,5 +70,12 @@ def configure_parser_arguments(parser: ArgumentParser):
     )
 
 
-def get_flint_key():
-    return "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), os.getpid())
+def get_flint_key(pid=None):
+    """Reach the key name storing the address of the RPC server
+    providing access to the flint API.
+    """
+    hostname = platform.node()
+    username = os.environ.get("USER")
+    if pid is None:
+        pid = os.getpid()
+    return f"flint:{hostname}:{username}:{pid}"

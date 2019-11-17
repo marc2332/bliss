@@ -344,7 +344,7 @@ def _attach_flint(process):
 
     # Return flint proxy
     FLINT_LOGGER.debug("Creating flint proxy...")
-    proxy = rpc.Client(url)
+    proxy = rpc.Client(url, timeout=3)
     proxy.set_session(session_name)
     proxy._pid = pid
 

@@ -32,9 +32,11 @@ For development, i.e in `bliss_env` Conda environement:
 
     `conda install --file ./requirements-conda.txt`
 
-* Pip-install BLISS making a link from conda environment directory pointing to
-  git repository:
-       
+* Exit and re-enter into the conda environment to ensure using up-to-date modules.
+
+* Pip-install BLISS by creating a link in conda environment directory pointing to
+  the git repository:
+
       `pip install --no-deps -e .`
 
 !!! note
@@ -56,8 +58,6 @@ At ESRF, it has been decided to put all beamline specific code in a dedicated
 git repository.
 
 For more details, see: https://bliss.gitlab-pages.esrf.fr/ansible/local_code.html
-
-
 
 
 

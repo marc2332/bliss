@@ -13,6 +13,11 @@ In short
 
 To update BLISS from source:
 ```
+
 conda install --file ./requirements-conda.txt
+
+exit and re-enter into conda environment
+
 pip install --no-deps -e .
+
 ```

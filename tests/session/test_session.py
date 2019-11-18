@@ -124,3 +124,16 @@ def test_session_env_dict(session):
         expert_error_report=True,
     )
     assert id(cli.get_globals()) == id(session.env_dict)
+
+
+def test_failing_session_globals(failing_session):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="failing_setup_session",
+        expert_error_report=True,
+    )
+    assert "SCANS" in failing_session.env_dict
+    assert "SCAN_SAVING" in failing_session.env_dict
+    assert "USER_SCAN_META" in failing_session.env_dict

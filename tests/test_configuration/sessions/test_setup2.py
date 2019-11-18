@@ -1,4 +1,4 @@
-from bliss.common.standard import *
+from bliss.shell.standard import *
 
 # Do not remove this print (used in tests)
 print("TEST_SESSION2 INITIALIZED")

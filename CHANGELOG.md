@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `SCAN_SAVING` is now available only in Bliss Shell. Refers to `current_session.scan_saving`
 - Command line arguments
   - `--tmux-debug` command line option changed to only `--debug`
+- bliss.common.standard
+  - this module is intended to be the entry point for Bliss as a library, function that
+    were printing to stdout has been changed to return some forms of aggregated data
+  - function to be used inside the Bliss shell (with print to stdout) are moved to bliss.shell.standard
 
 ### Fixed
 

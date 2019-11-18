@@ -127,7 +127,7 @@ Help about BLISS functions can be accessed with `help(<command_name>)`:
 
 ```
 BLISS [2]: help(wa)
-Help on function wa in module bliss.common.standard:
+Help on function wa in module bliss.shell.standard:
 
 wa(**kwargs)
     Displays all positions (Where All) in both user and dial units

@@ -45,7 +45,7 @@ from bliss.data.display import ScanPrinter, ScanEventHandler
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
-from bliss.common.standard import info
+from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
 logger = logging.getLogger(__name__)

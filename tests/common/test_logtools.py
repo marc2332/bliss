@@ -12,7 +12,7 @@ import re
 from bliss.common.logtools import *
 from bliss.common.logtools import Log
 from bliss import logging_startup
-from bliss.common.standard import *
+from bliss.shell.standard import *
 from bliss.common.mapping import Map, map_id
 from bliss import global_map
 import bliss

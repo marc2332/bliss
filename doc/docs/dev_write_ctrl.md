@@ -164,7 +164,7 @@ BLISS [4]: [a]
     ```
 
 The equivalent of `repr(obj)` or `str(obj)` is also availabe in
-`bliss.common.standard` as `info(obj)` which can be used also outside the Bliss
+`bliss.shell.standard` as `info(obj)` which can be used also outside the Bliss
 shell.
 
 ```
@@ -172,7 +172,7 @@ Python 3.7.3 (default, Mar 27 2019, 22:11:17)
 [GCC 7.3.0] :: Anaconda, Inc. on linux
 Type "help", "copyright", "credits" or "license" for more information.
 
->>> from bliss.common.standard import info
+>>> from bliss.shell.standard import info
 
 >>> class A(object):
 ...     def __repr__(self):

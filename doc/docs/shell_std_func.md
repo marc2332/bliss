@@ -2,7 +2,7 @@
 
 use :
 
-` from bliss.common.standard import *`
+` from bliss.shell.standard import *`
 
 to get access to standard shell functions.
 

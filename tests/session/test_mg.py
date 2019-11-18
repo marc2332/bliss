@@ -9,7 +9,7 @@ import pytest
 from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.common.standard import info
+from bliss.shell.standard import info
 
 # 3 measurement groups : test_mg MG1 MG2 are configured
 # in tests/test_configuration/sessions/test.yml

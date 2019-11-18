@@ -1,6 +1,6 @@
 import random
 from bliss import current_session
-from bliss.common.standard import *
+from bliss.shell.standard import *
 from bliss.common.counter import SamplingCounter
 import numpy
 import gevent

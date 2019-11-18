@@ -153,7 +153,7 @@ def cleanup(*args, **kwargs):
                     )
                 if axis.POS in restore_list:
                     if verbose:
-                        from bliss.common.standard import umv
+                        from bliss.shell.standard import umv
 
                         umv(*previous_motor_position)
                     else:

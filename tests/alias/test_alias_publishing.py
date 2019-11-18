@@ -22,7 +22,7 @@ def test_alias_data_channel(alias_session):
         0.001,
         env_dict["simu1"].counters.spectrum_det0,
         env_dict["dtime"],
-        env_dict["lima_simulator"].counters.r1_sum,
+        env_dict["lima_simulator"].counters.r1_sum,  # has an alias 'myroi'
         env_dict["lima_simulator"].counters.r2_sum,
         env_dict["myroi3"],
         save=True,
@@ -33,7 +33,7 @@ def test_alias_data_channel(alias_session):
 {a2scan}:axis:robzz robzz
 {a2scan}:axis:timer:elapsed_time elapsed_time
 {a2scan}:axis:timer:epoch epoch
-{a2scan}:axis:timer:lima_simulator:roi_counters:r1_sum r1_sum
+{a2scan}:axis:timer:lima_simulator:roi_counters:myroi myroi
 {a2scan}:axis:timer:lima_simulator:roi_counters:r2_sum r2_sum
 {a2scan}:axis:timer:lima_simulator:roi_counters:myroi3 myroi3
 {a2scan}:axis:timer:simu1:dtime dtime

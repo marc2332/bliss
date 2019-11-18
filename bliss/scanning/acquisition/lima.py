@@ -198,6 +198,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             setattr(self.device.proxy, param_name, param_value)
 
         self.wait_slaves_prepare()
+        if self.device.proxy.video_live is True:
+            self._lima_controller.stop_bpm_live()
+
         self.device.proxy.video_active = True
         self._lima_controller.prepareAcq()
 

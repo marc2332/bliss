@@ -248,6 +248,11 @@ class Lima(CounterController):
     def stopAcq(self):
         self._proxy.stopAcq()
 
+    def stop_bpm_live(self):
+        self._proxy.video_live = False
+        self._proxy.stopAcq()
+        self.bpm.stop()
+
     def _get_proxy(self, type_name="LimaCCDs"):
         if type_name == "LimaCCDs":
             device_name = self.__tg_url

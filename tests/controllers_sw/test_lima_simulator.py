@@ -12,8 +12,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
-from bliss.common.scans import loopscan, DEFAULT_CHAIN
-from bliss import setup_globals
+from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
 import gevent
 
 
@@ -40,11 +39,17 @@ def test_lima_simulator(beacon, lima_simulator):
     assert simulator.camera.test == "test"
 
 
-def test_lima_sim_bpm(beacon, lima_simulator):
+def test_lima_sim_bpm(beacon, default_session, lima_simulator):
     simulator = beacon.get("lima_simulator")
 
     assert "fwhm_x" in simulator.counters._fields
     assert "bpm" in simulator.counter_groups._fields
+
+    s = loopscan(1, 0.1, simulator.counter_groups.bpm, save=False)
+
+    data = s.get_data()
+    assert f"{simulator.name}:bpm:x" in s.get_data()
+    assert len(data) == 6 + 2  # 6 bpm counters + 2 timer
 
 
 def assert_lima_rois(lima_roi_counter, rois):
@@ -146,10 +151,10 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     try:
         simulator.select_directories_mapping("fancy")
         mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
-        ct = setup_globals.ct(0.1, simulator, save=True, run=False)
+        ct_scan = ct(0.1, simulator, save=True, run=False)
 
         try:
-            ct.run()
+            ct_scan.run()
         except Exception as e:
             # this will fail because directory is not likely to exist
             saving_directory = e.args[0].desc.split("Directory :")[-1].split()[0]
@@ -183,7 +188,7 @@ def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
             scan_saving.images_prefix,
         )
 
-        setup_globals.loopscan(1, 0.1, simulator)
+        loopscan(1, 0.1, simulator)
 
         assert os.path.isdir(scan_config["root_path"])
         assert os.path.isdir(os.path.join(scan_config["root_path"], "loopscan_1/toto"))
@@ -219,7 +224,7 @@ def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session)
             "{scan_name}_{scan_number}/toto/{img_acq_device}",
         )
 
-        setup_globals.timescan(0.1, simulator, npoints=1)
+        timescan(0.1, simulator, npoints=1)
 
         assert os.path.isdir(scan_config["root_path"])
         assert os.path.isdir(os.path.join(scan_config["root_path"], "timescan_1/toto"))
@@ -249,7 +254,7 @@ def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
     try:
         scan_config = scan_saving.get()
 
-        setup_globals.timescan(0.1, simulator, npoints=1)
+        timescan(0.1, simulator, npoints=1)
 
         assert os.path.exists(
             os.path.join(
@@ -271,7 +276,7 @@ def test_dir_no_saving(lima_simulator, scan_tmpdir, session):
     try:
         scan_config = scan_saving.get()
 
-        setup_globals.timescan(0.1, simulator, npoints=1, save=False)
+        timescan(0.1, simulator, npoints=1, save=False)
 
         assert not os.path.exists(os.path.join(scan_config["root_path"]))
     finally:

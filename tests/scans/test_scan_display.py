@@ -669,3 +669,57 @@ def test_standard_scan_display(session):
         finally:
 
             p.terminate()
+
+
+def test_lima_sim_bpm_display_names(beacon, default_session, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+    diode = beacon.get("diode")
+
+    s = scans.loopscan(
+        1, 0.1, simulator.counter_groups.bpm, diode, save=False, run=False
+    )
+
+    display_names_values = s.scan_info["acquisition_chain"]["timer"][
+        "display_names"
+    ].values()
+    for cnt_name in ("x", "y", "fwhm_x", "fwhm_y", "acq_time", "intensity"):
+        # only 1 BPM from 1 camera => display names are short names
+        assert f"{cnt_name}" in display_names_values
+    assert "diode" in display_names_values
+
+
+def test_lima_sim_2_bpms_display_names(
+    beacon, default_session, lima_simulator, lima_simulator2
+):
+    simulator = beacon.get("lima_simulator")
+    simulator2 = beacon.get("lima_simulator2")
+
+    s = scans.loopscan(
+        1,
+        0.1,
+        simulator.counter_groups.bpm,
+        simulator2.counter_groups.bpm,
+        save=False,
+        run=False,
+    )
+
+    display_names_values = s.scan_info["acquisition_chain"]["timer"][
+        "display_names"
+    ].values()
+    for cnt_name in ("x", "y", "fwhm_x", "fwhm_y", "acq_time", "intensity"):
+        assert f"{simulator.name}:bpm:{cnt_name}" in display_names_values
+        assert f"{simulator2.name}:bpm:{cnt_name}" in display_names_values
+
+
+def test_lima_bpm_alias(beacon, default_session, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+
+    ALIASES = default_session.env_dict["ALIASES"]
+    ALIASES.add("toto", simulator.bpm.x)
+
+    s = scans.loopscan(1, 0.1, simulator.bpm.x, save=False, run=False)
+
+    display_names_values = s.scan_info["acquisition_chain"]["timer"][
+        "display_names"
+    ].values()
+    assert "toto" in display_names_values

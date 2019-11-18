@@ -103,18 +103,17 @@ def _get_counters_from_object(arg, recursive=True):
             counters = list(arg.counters)
         except AttributeError:
             pass
-    if counters:
-        # replace counters with their aliased counterpart, if any
-        for i, cnt in enumerate(counters):
-            alias = global_map.aliases.get_alias(cnt)
-            if alias:
-                counters[i] = global_map.aliases.get(alias)
-        return counters
-    else:
+    if not counters:
         try:
-            return list(arg)
+            counters = list(arg)
         except TypeError:
-            return [arg]
+            counters = [arg]
+    # replace counters with their aliased counterpart, if any
+    for i, cnt in enumerate(counters):
+        alias = global_map.aliases.get_alias(cnt)
+        if alias:
+            counters[i] = global_map.aliases.get(alias)
+    return counters
 
 
 def get_all_counters(counter_args):

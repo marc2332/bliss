@@ -133,6 +133,9 @@ class DeviceIteratorWrapper:
                 self.__device.wait_reading()
             self.__iterator = iter(self.__device)
             self.__current = next(self.__iterator)
+        except Exception as e:
+            e.args = (self.__device.name, *e.args)
+            raise
 
     def _wait_ready(self, stats_dict):
         tasks = []
@@ -256,11 +259,16 @@ class AcquisitionObject:
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        self._ctrl_params = None
+        #self._ctrl_params = None
+        
+        #workaround to be able to update lima ctrl params before init of base.
+        if not hasattr(self._ctrl_params):
+            self._init_ctrl_params(ctrl_params)
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-
+        
+    def _init_ctrl_params(self,ctrl_params)
         if isinstance(ctrl_params, ChainNode.ChainNodeDict):
             self._ctrl_params = ctrl_params
         else:

@@ -55,6 +55,7 @@ test_session2
 test_session5
 test_alias
 test_alias2
+failing_setup_session
 flint
 test_session3
 lima_test_session

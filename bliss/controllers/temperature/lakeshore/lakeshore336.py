@@ -114,6 +114,9 @@ class LakeShore336:
 
     @property
     def eol(self):
+        eol = self._comm._eol
+        if isinstance(eol, bytes):
+            return eol.decode()
         return self._comm._eol
 
     # Initialization methods

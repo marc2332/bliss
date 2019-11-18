@@ -7,9 +7,9 @@
 
 from bliss.controllers.temp import Controller
 from bliss.common.temperature import Input, Output, Loop, lazy_init
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss.common.utils import autocomplete_property
-from bliss.common import session
+from bliss import global_map
 import os
 import re
 import sys
@@ -253,7 +253,7 @@ class LakeshoreBase(Controller):
 
         Controller.__init__(self, config, *args)
 
-        session.get_current().map.register(handler._comm, parents_list=[self, "comms"])
+        global_map.register(handler._comm, parents_list=[self, "comms"])
 
     @property
     def model(self):
@@ -500,6 +500,9 @@ class LakeshoreBase(Controller):
         channel = tloop.config.get("channel")
         self.__kp, self.__ki, self.__kd = self._lakeshore.pid(channel)
         return self.__kd
+
+    def __info__(self):
+        return "\n".join(self._show())
 
     def _show(self, name=None):
         """ Display all main parameters and values for the temperature controller

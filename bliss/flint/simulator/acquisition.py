@@ -439,6 +439,10 @@ class AcquisitionSimulator(qt.QObject):
         if name is None or name == "scatter":
             self.__createScatters(scan, interval, duration)
         scan.seal()
+
+        if len(self.__data) == 0:
+            raise ValueError("name (%s) maybe not valid" % name)
+
         print("Data prepared")
 
         return scan

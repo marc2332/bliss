@@ -14,6 +14,7 @@ import re
 import reprlib
 import datetime
 import logging
+import hashlib
 
 import numpy
 from tabulate import tabulate
@@ -22,7 +23,7 @@ import yaml
 from .conductor import client
 from bliss.config.conductor.client import set_config_db_file, remote_open
 from bliss.common.utils import Null
-from bliss import setup_globals
+from bliss import current_session
 
 logger = logging.getLogger(__name__)
 
@@ -706,6 +707,60 @@ class BaseHashSetting(BaseSetting):
             return False
 
 
+lua_script = """
+-- Atomic addiction of a key to a hash and to a list
+-- to keep track of inserction order
+
+-- KEYS[1]: redis-key of hash
+-- ARGV[1]: attribute to be added
+-- ARGV[2]: value of the attribute
+
+local hashkey = KEYS[1]
+local attribute = ARGV[1]
+local value = ARGV[2]
+
+local setkey = hashkey .. ":creation_order"
+
+if (redis.call("EXISTS", setkey)==0) then
+    -- set does not exist, create it, create hash and return
+    redis.call("ZADD", setkey, 1, attribute)
+    return redis.call("HSET", hashkey, attribute, value)
+end
+
+local set_max_score = tonumber(redis.call("ZRANGE", setkey, -1, -1, "withscores")[2])
+local set_size = redis.call("ZCARD", setkey)
+
+if set_max_score > set_size  then
+    -- we need to reassign scores as some was deleted
+    local new_order = 1
+    table = redis.call("ZRANGE", setkey, 0, -1)
+    for k, attr in pairs(table)
+    do
+        --redis.call("ZADD", setkey, new_order, attr)
+        new_order = new_order + 1
+    end
+end
+
+if redis.call("ZSCORE", setkey, attribute) == false then
+    -- attribute does not exist
+    -- create zset attribute
+
+    local list = redis.call("ZPOPMAX",setkey)
+    local order, attr = tonumber(list[2]), list[1]
+    -- reinserting popped value
+    redis.call("ZADD", setkey, order, attr)
+
+
+    redis.call("ZADD", setkey, order+1, attribute)
+    -- create and set hset
+    return redis.call("HSET", hashkey, attribute, value)
+else
+    -- attribute does exist
+    return redis.call("HSET", hashkey, attribute, value)
+end
+""".encode()
+
+
 class OrderedHashSetting(BaseHashSetting):
     """
     A Setting stored as a key,value pair in Redis
@@ -720,6 +775,8 @@ class OrderedHashSetting(BaseHashSetting):
                 before writing
     """
 
+    add_key_script_sha1 = None
+
     def __init__(
         self,
         name,
@@ -728,23 +785,25 @@ class OrderedHashSetting(BaseHashSetting):
         write_type_conversion=str,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
+        if (
+            self.add_key_script_sha1 is None
+        ):  # class attribute to execute only the first time
+            # calculate sha1 of the script
+            sha1 = hashlib.sha1(lua_script).hexdigest()
+
+            # check if script already exists in Redis and if not loads it
+            if not self.connection.script_exists(sha1)[0]:
+                sha1_from_redis = self.connection.script_load(lua_script)
+                if sha1_from_redis != sha1:
+                    raise RuntimeError("Exception in sending lua script to Redis")
+            type(self).add_key_script_sha1 = sha1
 
     @property
     def _name_order(self):
         return self._name + ":creation_order"
 
     def __delitem__(self, key):
-        cnx = self._cnx()
-        cnx.hdel(self._name, key)
-        cnx.zrem(self._name_order, key)
-
-    def _next_score(self):
-        cnx = self._cnx()
-        result = cnx.zrange(self._name_order, -1, -1, withscores=True)
-        if not len(result):
-            return 0
-        value, score = result[0]
-        return int(score) + 1
+        self.remove(key)
 
     def __len__(self):
         return super().__len__()
@@ -772,8 +831,8 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.hget(self._name, key)
         cnx.hdel(self._name, key)
         cnx.zrem(self._name_order, key)
-        (value, worked) = cnx.execute()
-        if not worked:
+        (value, removed_h, removed_z) = cnx.execute()
+        if not (removed_h and removed_z):
             if isinstance(default, Null):
                 raise KeyError(key)
             else:
@@ -781,36 +840,37 @@ class OrderedHashSetting(BaseHashSetting):
         return value
 
     def remove(self, *keys):
-        cnx = self._cnx()
-        cnx.hdel(self._name, *keys)
+        cnx = self._cnx().pipeline()
         cnx.zrem(self._name_order, *keys)
+        cnx.hdel(self._name, *keys)
+        cnx.execute()
 
     def clear(self):
-        cnx = self._cnx()
+        cnx = self._cnx().pipeline()
         cnx.delete(self._name)
         cnx.delete(self._name_order)
+        cnx.execute()
 
     @write_decorator_dict
-    def set(self, values):
-        cnx = self._cnx()
+    def set(self, mapping):
+        cnx = self._cnx().pipeline()
         cnx.delete(self._name)
         cnx.delete(self._name_order)
-        if values is not None:
-            cnx.hmset(self._name, values)
-            for k in values.keys():
-                cnx.zadd(self._name_order, {k: self._next_score()})
+        if mapping is not None:
+            for k, v in mapping.items():
+                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
+        cnx.execute()
 
     @write_decorator_dict
     def update(self, values):
         cnx = self._cnx()
         if values:
-            cnx.hmset(self._name, values)
-            for k in values.keys():
-                cnx.zadd(self._name_order, {k: self._next_score()}, nx=True)
+            for k, v in values.items():
+                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
 
     def has_key(self, key):
         cnx = self._cnx()
-        return cnx.zrank(self._name_order, key) is not None
+        return cnx.hexists(self.name, key)
 
     def keys(self):
         cnx = self._cnx()
@@ -821,7 +881,6 @@ class OrderedHashSetting(BaseHashSetting):
             yield self[k]
 
     def items(self):
-        cnx = self._cnx()
         for k in self.keys():
             v = self[k]
             if self._read_type_conversion:
@@ -834,15 +893,16 @@ class OrderedHashSetting(BaseHashSetting):
         return self.get(key)
 
     def __setitem__(self, key, value):
-        cnx = self._cnx()
+        cnx = self._cnx().pipeline()
         if value is None:
             cnx.hdel(self._name, key)
             cnx.zrem(self._name_order, key)
+            cnx.execute()
             return
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
-        cnx.hset(self._name, key, value)
-        cnx.zadd(self._name_order, {key: self._next_score()}, nx=True)
+        cnx.evalsha(self.add_key_script_sha1, 1, self._name, key, value)
+        cnx.execute()
 
     def __contains__(self, key):
         return self.has_key(key)
@@ -1142,53 +1202,11 @@ class ParametersType(type):
         return type.__new__(cls, name, bases, attrs)
 
 
-class ParamDescriptor:
+class ParamDescriptorWithDefault:
     """
     Used to link python global objects
     If necessary It will create an entry on redis under
     parameters:objects:name
-    """
-
-    OBJECT_PREFIX = "parameters:object:"
-
-    def __init__(self, proxy, name, value, assign=True):
-        self.proxy = proxy
-        self.name = name
-        if assign:
-            self.assign(value)
-
-    def assign(self, value):
-        """
-        if the value is a global defined object it will create a link
-        to that object inside the ParamDescriptor and the link will
-        be stored inside redis in this way:'parameters:object:name'
-        otherwise the value will be stored normally
-        """
-        if hasattr(value, "name") and hasattr(setup_globals, value.name):
-            value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
-        try:
-            self.proxy[self.name] = value
-        except Exception:
-            raise ValueError("%s.%s: cannot set value" % (self.proxy._name, self.name))
-
-    def __get__(self, obj, obj_type):
-        value = self.proxy[self.name]
-        if isinstance(value, str) and value.startswith(ParamDescriptor.OBJECT_PREFIX):
-            value = value[len(ParamDescriptor.OBJECT_PREFIX) :]
-            return getattr(setup_globals, value)
-        return value
-
-    def __set__(self, obj, value):
-        return self.assign(value)
-
-    def __delete__(self, *args):
-        del self.proxy[self.name]
-
-
-class ParamDescriptorWithDefault:
-    """
-    Like ParamDescriptor but It contains two references on redis:
-    proxy and proxy_default.
     If the proxy key doesn't exists it returns the value of the default
     """
 
@@ -1208,8 +1226,8 @@ class ParamDescriptorWithDefault:
         be stored inside redis in this way:'parameters:object:name'
         otherwise the value will be stored normally
         """
-        if hasattr(value, "name") and hasattr(setup_globals, value.name):
-            value = "%s%s" % (ParamDescriptor.OBJECT_PREFIX, value.name)
+        if hasattr(value, "name") and value.name in current_session.env_dict:
+            value = "%s%s" % (self.OBJECT_PREFIX, value.name)
         try:
             self.proxy[self.name] = value
         except Exception:
@@ -1221,13 +1239,11 @@ class ParamDescriptorWithDefault:
         except KeyError:
             # getting from default
             value = self.proxy_default[self.name]
-        if isinstance(value, str) and value.startswith(
-            ParamDescriptorWithDefault.OBJECT_PREFIX
-        ):
-            value = value[len(ParamDescriptorWithDefault.OBJECT_PREFIX) :]
+        if isinstance(value, str) and value.startswith(self.OBJECT_PREFIX):
+            value = value[len(self.OBJECT_PREFIX) :]
             try:
-                return getattr(setup_globals, value)
-            except AttributeError:
+                return current_session.env_dict[value]
+            except KeyError:
                 raise AttributeError(
                     f"The object '{self.name}' is not "
                     "found in the globals: Be sure to"
@@ -1242,10 +1258,6 @@ class ParamDescriptorWithDefault:
     def __set__(self, obj, value):
         return self.assign(value)
 
-    def __delete__(self, *args):
-        del self.proxy[self.name]
-        del self.proxy_default[self.name]
-
 
 class ParametersWardrobe(metaclass=ParametersType):
     DESCRIPTOR = ParamDescriptorWithDefault
@@ -1256,7 +1268,6 @@ class ParametersWardrobe(metaclass=ParametersType):
         "_wardr_name",
         "_property_attributes",
         "_not_removable",
-        "__update",
     ]
 
     def __init__(
@@ -1307,8 +1318,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             property_attributes = ()
         if not not_removable:
             not_removable = ()
-
-        self.__update = True
 
         # different instance names are stored in a queue where
         # the first item is the currently used one
@@ -1665,8 +1674,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         if name not in self.instances:
             raise NameError(f"The instance name '{name}' does not exist")
 
-        self.__update = False  # to not change current instance
-        self.switch(name)
+        self.switch(name, update=False)
 
         attrs = list(self._get_redis_single_instance("default").keys())
         instance_ = {}
@@ -1681,7 +1689,6 @@ class ParametersWardrobe(metaclass=ParametersType):
             instance_[attr] = getattr(self, attr)
 
         self.switch(self.current_instance)  # back to current instance
-        self.__update = True
         return instance_
 
     def _get_all_instances(self):
@@ -1802,7 +1809,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         self._instances.clear()
 
-    def switch(self, name, copy=None):
+    def switch(self, name, copy=None, update=True):
         """
         Switches to a new instance of parameters.
 
@@ -1839,7 +1846,7 @@ class ParametersWardrobe(metaclass=ParametersType):
             )
 
         # updating last_accessed
-        if self.__update:
+        if update:
             self._proxy["_last_accessed"] = datetime.datetime.now().strftime(
                 "%Y-%m-%d-%H:%M"
             )
@@ -1855,9 +1862,10 @@ class ParametersWardrobe(metaclass=ParametersType):
                 self._populate(key, value=value)
 
         # removing and prepending the name so it will be the first
-        if self.__update:
-            self._instances.remove(name)
-            self._instances.prepend(name)
+        if update:
+            with pipeline(self._instances):
+                self._instances.remove(name)
+                self._instances.prepend(name)
 
         for key in self._proxy.keys():
             self._populate(key)

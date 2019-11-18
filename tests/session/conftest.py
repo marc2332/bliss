@@ -27,3 +27,10 @@ def session4(beacon):
     session = beacon.get("test_session4")
     yield session
     session.close()
+
+
+@pytest.fixture
+def failing_session(beacon):
+    session = beacon.get("failing_setup_session")
+    yield session
+    session.close()

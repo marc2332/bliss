@@ -129,7 +129,6 @@ def initialize(session_name=None):
 
     try:
         session.setup(env_dict, verbose=True)
-        env_dict["SCANS"] = current_session.scans
     except Exception:
         error_flag = True
         sys.excepthook(*sys.exc_info())
@@ -139,5 +138,7 @@ def initialize(session_name=None):
     else:
         print("Done.")
         print("")
+
+    env_dict["SCANS"] = current_session.scans
 
     return session.env_dict, session

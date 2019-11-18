@@ -98,3 +98,8 @@
   name: test_session3
   config-objects:
   - test_session2
+- class: Session
+  name: failing_setup_session
+  setup-file: ./test_failing_setup.py
+  config-objects: []
+

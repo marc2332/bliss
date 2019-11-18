@@ -28,8 +28,6 @@ YAML_ configuration example:
         - name: lifetime
           attr_name: SR_Lifetime
 
-
-
 TESTS:
 pytest tests/controllers_sw/test_tango_attr_counters.py
 
@@ -43,7 +41,7 @@ import weakref
 from bliss.common.counter import SamplingCounter
 from bliss.common import tango
 from bliss import global_map
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 
 from bliss.controllers.counter import SamplingCounterController
 
@@ -179,8 +177,10 @@ class tango_attr_as_counter(SamplingCounter):
     def convert_func(self, value):
         attr_val = value * self.conversion_factor
 
-        # beurk: workaround to limit the decimals...
-        attr_val = int(attr_val * 10000) / 10000
+        # Trunc the result to avoid too much decimals.
+        # NB: Inoperant if sampling mode is not SINGLE :(
+        # TODO: support format defined in tango DS.
+        attr_val = float("%g" % attr_val)
 
         return attr_val
 

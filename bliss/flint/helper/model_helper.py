@@ -28,9 +28,11 @@ def reachAnyCurveItemFromDevice(
     for item in plot.items():
         if not isinstance(item, plot_item_model.CurveItem):
             continue
-        xChannel = item.xChannel()
-        assert xChannel is not None
-        channelName = xChannel.name()
+        itemChannel = item.xChannel()
+        if itemChannel is None:
+            itemChannel = item.yChannel()
+        assert itemChannel is not None
+        channelName = itemChannel.name()
         channel = scan.getChannelByName(channelName)
         assert channel is not None
         itemMaster = channel.device().topMaster()
@@ -49,9 +51,11 @@ def reachAllCurveItemFromDevice(
     for item in plot.items():
         if not isinstance(item, plot_item_model.CurveItem):
             continue
-        xChannel = item.xChannel()
-        assert xChannel is not None
-        channelName = xChannel.name()
+        itemChannel = item.xChannel()
+        if itemChannel is None:
+            itemChannel = item.yChannel()
+        assert itemChannel is not None
+        channelName = itemChannel.name()
         channel = scan.getChannelByName(channelName)
         assert channel is not None
         itemMaster = channel.device().topMaster()

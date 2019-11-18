@@ -12,11 +12,15 @@ from typing import Optional
 from silx.gui import qt
 
 import numpy
+import logging
 import scipy.signal
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.helper import scan_manager
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ChannelDataNodeMock:
@@ -83,7 +87,7 @@ class AcquisitionSimulator(qt.QObject):
 
         print("Acquisition started")
         self.__timer = qt.QTimer(self)
-        self.__timer.timeout.connect(self.updateNewData)
+        self.__timer.timeout.connect(self.safeUpdateNewData)
         self.__timer.start(interval)
 
     def scan(self) -> scan_model.Scan:
@@ -439,6 +443,13 @@ class AcquisitionSimulator(qt.QObject):
 
         return scan
 
+    def safeUpdateNewData(self):
+        try:
+            self.updateNewData()
+        except:
+            _logger.error("Error while updating data", exc_info=True)
+            self.__endOfScan()
+
     def updateNewData(self):
         self.__tick += 1
         channel_scan_data = {}
@@ -500,7 +511,7 @@ class AcquisitionSimulator(qt.QObject):
 
     def __endOfScan(self):
         self.__scan.scanFinished.emit()
-        self.__timer.timeout.disconnect(self.updateNewData)
+        self.__timer.timeout.disconnect(self.safeUpdateNewData)
         self.__timer.deleteLater()
         self.__timer = None
         if self.__scan_manager is not None:

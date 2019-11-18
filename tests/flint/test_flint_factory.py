@@ -50,9 +50,14 @@ def test_created_flint(flint_session):
         # FIXME: This can be removed with silx 0.12
         previous = plot.FLINT_OUTPUT_LOGGER.disabled
         plot.FLINT_OUTPUT_LOGGER.disabled = False
-        with testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1):
+        listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+        with listener:
             flint.ping()
-            time.sleep(0.5)
+            for _ in range(10):
+                if len(listener.records) >= 1:
+                    # Early break
+                    break
+                time.sleep(0.5)
     finally:
         plot.FLINT_OUTPUT_LOGGER.disabled = previous
 
@@ -63,7 +68,17 @@ def test_attached_flint(attached_flint_session):
     """
     flint = plot.get_flint()
     # Check messages and stdout
-    plot.FLINT_OUTPUT_LOGGER.disabled = False
-    with testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1):
-        flint.ping()
-        time.sleep(0.5)
+    try:
+        # FIXME: This can be removed with silx 0.12
+        previous = plot.FLINT_OUTPUT_LOGGER.disabled
+        plot.FLINT_OUTPUT_LOGGER.disabled = False
+        listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+        with listener:
+            flint.ping()
+            for _ in range(10):
+                if len(listener.records) >= 1:
+                    # Early break
+                    break
+                time.sleep(0.5)
+    finally:
+        plot.FLINT_OUTPUT_LOGGER.disabled = previous

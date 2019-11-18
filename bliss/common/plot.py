@@ -183,6 +183,8 @@ def get_beacon_config():
 
 
 def check_flint(session_name):
+    """ check if an existing Flint process is running and attached to session_name """
+
     pid = FLINT.get("process")
     if pid is not None and psutil.pid_exists(pid):
         return pid
@@ -206,6 +208,7 @@ def check_flint(session_name):
 
 
 def start_flint():
+    """ start the flint application in a subprocess and return process id """
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
     if poll_patch is not None:
@@ -221,6 +224,7 @@ def start_flint():
 
 
 def attach_flint(pid):
+    """ attach to an external flint process, make a RPC proxy and bind Flint to the current session and return the FLINT proxy """
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
     try:
@@ -248,6 +252,9 @@ def attach_flint(pid):
 
 
 def get_flint(start_new=False):
+    """ get the running flint proxy or create one.
+        use 'start_new=True' to force starting a new flint subprocess (which will be the new current one)"""
+
     old_pid = None
     pid = None
 
@@ -328,11 +335,13 @@ class BasePlot(object):
             self._flint = attach_flint(flint_pid)
         else:
             self._flint = get_flint()
+
         # Create plot window
         if existing_id is None:
             self._plot_id = self._flint.add_plot(self.WIDGET, name)
         else:
             self._plot_id = existing_id
+
         # Create qt interface
         interface = self._flint.get_interface(self._plot_id)
         self.qt = QtInterface(interface, self.submit)

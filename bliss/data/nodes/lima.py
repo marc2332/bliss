@@ -24,6 +24,10 @@ except ImportError:
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
 HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 
+UNSET = object()
+"""Allow to discriminate None and unset value from function argument,
+when None is a valid argument which can be used"""
+
 
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
@@ -76,16 +80,14 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = None
             return proxy
 
-        def get_last_live_image(self, proxy=0, update=True):
+        def get_last_live_image(self, proxy=UNSET):
             """Returns the last image data from stream within it's frame number.
 
             If no data is available, the function returns tuple (None, None).
             """
-            if update:
-                self._update()
+            self._update()
 
-            if proxy == 0:
-                # 0 is used to discriminate with None, which can be passed
+            if proxy is UNSET:
                 proxy = self._get_proxy()
 
             if not proxy:
@@ -103,7 +105,7 @@ class LimaImageChannelDataNode(DataNode):
                 magic,
                 header_version,
                 image_mode,
-                image_frameNumber,
+                image_frame_number,
                 image_width,
                 image_height,
                 endian,
@@ -112,9 +114,21 @@ class LimaImageChannelDataNode(DataNode):
                 pad1,
             ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
 
+            if endian != 0:
+                raise ValueError(
+                    "Decoding video frame from this Lima device is not supported by bliss cause of the endianness (found %s)."
+                    % endian
+                )
+
+            if pad0 != 0 or pad1 != 0:
+                raise ValueError(
+                    "Decoding video frame from this Lima device is not supported by bliss cause of the padding (found %s, %s)."
+                    % (pad0, pad1)
+                )
+
             if magic != 0x5644454f or header_version != 1:
                 raise IndexError("Bad image header.")
-            if image_frameNumber < 0:
+            if image_frame_number < 0:
                 raise IndexError("Image (from Lima live interface) not available yet.")
 
             video_modes = (numpy.uint8, numpy.uint16, numpy.int32, numpy.int64)
@@ -123,30 +137,53 @@ class LimaImageChannelDataNode(DataNode):
             except IndexError:
                 raise IndexError("Unknown image mode (found %s)." % image_mode)
 
-            data = numpy.frombuffer(raw_data[HEADER_SIZE:], dtype=mode).copy()
+            data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
             data.shape = image_height, image_width
 
             # FIXME: Some detectors (like andor) which do not provide TRIGGER_SOFT_MULTI
             # Will always returns frame_id = 0. In this case it would be better to return
             # None as the frame_id
 
-            return data, image_frameNumber
+            return data, image_frame_number
 
-        def get_image(self, image_nb, proxy=0):
+        def get_last_image(self, proxy=UNSET):
+            """Returns the last image from the received one, together with the frame id.
+            """
             self._update()
 
-            if proxy == 0:
-                # 0 is used to discriminate with None, which can be passed
+            if self.last_image_ready < 0:
+                raise IndexError("No image has been taken yet")
+
+            if proxy is UNSET:
                 proxy = self._get_proxy()
 
             data = None
             if proxy:
-                if self.from_stream and image_nb == -1:
-                    data, _frame_id = self.get_last_live_image(
-                        proxy=proxy, update=False
-                    )
-                if data is None:
-                    data = self._get_from_server_memory(proxy, image_nb)
+                # Update to use the latest image
+                self._update()
+                frame_number = self.last_image_ready
+                data = self._get_from_server_memory(proxy, frame_number)
+
+            if data is None:
+                # Update to use the latest image
+                self._update()
+                frame_number = self.last_image_ready
+                data = self._get_from_file(frame_number)
+
+            return data, frame_number
+
+        def get_image(self, image_nb, proxy=UNSET):
+            if image_nb < 0:
+                raise ValueError("image_nb must be a real image number")
+
+            self._update()
+
+            if proxy is UNSET:
+                proxy = self._get_proxy()
+
+            data = None
+            if proxy:
+                data = self._get_from_server_memory(proxy, image_nb)
 
             if data is None:
                 return self._get_from_file(image_nb)

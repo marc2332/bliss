@@ -73,6 +73,25 @@ def test_reach_any_curve_item_from_device__only_x():
     assert found is item
 
 
+def test_reach_any_curve_item_from_device__only_y():
+    plot = plot_model.Plot()
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, "c1")
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+    scan = scan_model.Scan()
+    master = scan_model.Device(scan)
+    channel1 = scan_model.Channel(master)
+    channel1.setName("c1")
+    channel2 = scan_model.Channel(master)
+    channel2.setName("c2")
+    scan.seal()
+
+    found = model_helper.reachAnyCurveItemFromDevice(plot, scan, master)
+    assert found is item
+
+
 def test_reach_any_curve_item_from_device__with_others():
     plot = plot_model.Plot()
     other = plot_item_model.CurveItem(plot)
@@ -190,6 +209,25 @@ def test_reach_all_curve_item_from_device__with_others():
 
     founds = model_helper.reachAllCurveItemFromDevice(plot, scan, master)
     assert set(founds) == set([item1, item2])
+
+
+def test_reach_all_curve_item_from_device__only_y():
+    plot = plot_model.Plot()
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, "c1")
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+    scan = scan_model.Scan()
+    master = scan_model.Device(scan)
+    channel1 = scan_model.Channel(master)
+    channel1.setName("c1")
+    channel2 = scan_model.Channel(master)
+    channel2.setName("c2")
+    scan.seal()
+
+    found = model_helper.reachAllCurveItemFromDevice(plot, scan, master)
+    assert set(found) == set([item])
 
 
 def test_consistent_top_master__from_device():

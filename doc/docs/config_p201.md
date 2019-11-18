@@ -501,7 +501,25 @@ the CT2.
 **Exposure time**:
     The time during which the input channels are enabled to count
 
-### Internal Trigger Single
+
+```python
+SESSION_SXM [5]: from bliss.controllers.ct2.device import AcqMode as CT2AcqMode
+SESSION_SXM [6]: for ii in list(CT2AcqMode):
+            ...:     print(ii.value, ii)
+
+0 AcqMode.IntTrigReadout
+1 AcqMode.SoftTrigReadout
+2 AcqMode.IntTrigSingle
+3 AcqMode.IntTrigMulti
+4 AcqMode.ExtTrigSingle
+5 AcqMode.ExtTrigMulti
+6 AcqMode.ExtGate
+7 AcqMode.ExtTrigReadout
+```
+
+
+
+### Internal Trigger Single (2)
 
 ![internal trigger single](img/CT2/internal_trigger_single.svg)
 
@@ -512,14 +530,14 @@ Note that in this mode, the acquisition finishes after the last
 *point period*, where in non *single* modes it ends right after *exposure
 time* ends.
 
-### Internal Trigger Multi
+### Internal Trigger Multi (3)
 
 ![internal trigger multi](img/CT2/internal_trigger_multi.svg)
 
 Start by software. Hardware takes one single point. Each point is
 triggered by software. Internal clock determines exposure time (constant).
 
-### Internal Trigger Readout
+### Internal Trigger Readout (0)
 
 ![internal trigger readout](img/CT2/internal_trigger_readout.svg)
 
@@ -529,14 +547,14 @@ Trigger ends previous acquisition and starts the next with no dead time.
 This mode is similar to *Internal Trigger Single* when *point period*
 equals *exposure time* (ie, no dead time).
 
-### Software Trigger Readout
+### Software Trigger Readout (1)
 
 ![software trigger readout](img/CT2/software_trigger_readout.svg)
 
 Start by software; trigger by software. Trigger ends previous acquisition
 and starts next with no dead time. Exposure time determined by trigger.
 
-### External Trigger Single
+### External Trigger Single (4)
 
 ![external trigger single](img/CT2/external_trigger_single.svg)
 
@@ -550,24 +568,24 @@ time* ends.
 This mode is similar to *Internal Trigger Single* except that the start
 is done by an external trigger instead of software.
 
-### External Trigger Multi
+### External Trigger Multi (5)
 
 ![external trigger multi](img/CT2/external_trigger_multi.svg)
 
 Start by external trigger. Trigger by external trigger. Internal clock
 determines exposure time (constant).
 
-This mode is similar to Internal Trigger Multi except that the start and
+This mode is similar to *Internal Trigger Multi* except that the start and
 the triggers are by an external trigger instead of software start and
 software trigger.
 
-### External gate
+### External gate (6)
 
 ![external gate](img/CT2/external_gate.svg)
 
 Start by external trigger. Exposure time determined by input gate signal.
 
-### External Trigger Readout
+### External Trigger Readout (7)
 
 ![external trigger readout](img/CT2/external_trigger_readout.svg)
 
@@ -575,7 +593,7 @@ Start by external trigger. Trigger by external trigger.
 Trigger ends previous acquisition and starts next with no dead time.
 Exposure time determined by trigger.
 
-This mode is similar to Internal Trigger Readout except that the start and
+This mode is similar to *Internal Trigger Readout* except that the start and
 the triggers are by an external trigger instead of software start and
 software trigger.
 

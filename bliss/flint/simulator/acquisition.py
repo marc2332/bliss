@@ -102,7 +102,9 @@ class AcquisitionSimulator(qt.QObject):
             self.__data[periode] = {}
         self.__data[periode][channel] = data
 
-    def __createCounters(self, scan: scan_model.Scan, interval, duration):
+    def __createCounters(
+        self, scan: scan_model.Scan, interval, duration, includeMasters=True
+    ):
         master_time1 = scan_model.Device(scan)
         master_time1.setName("timer")
         master_time1_index = scan_model.Channel(master_time1)
@@ -145,8 +147,8 @@ class AcquisitionSimulator(qt.QObject):
             "master": {
                 "display_names": {},
                 "images": [],
-                "scalars": [master_time1_index.name()],
-                "scalars_units": {master_time1_index.name(): "s"},
+                "scalars": [],
+                "scalars_units": {},
                 "spectra": [],
             },
             "scalars": [
@@ -157,6 +159,13 @@ class AcquisitionSimulator(qt.QObject):
             ],
             "scalars_units": {},
         }
+        if includeMasters:
+            scan_info["master"]["scalars"].append(master_time1_index.name())
+            scan_info["master"]["scalars_units"][master_time1_index.name()] = "s"
+        else:
+            scan_info["scalars"].append(master_time1_index.name())
+            scan_info["scalars_units"][master_time1_index.name()] = "s"
+
         self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
 
         scan_info = {
@@ -432,6 +441,8 @@ class AcquisitionSimulator(qt.QObject):
         scan = scan_model.Scan(None)
         if name is None or name == "counter":
             self.__createCounters(scan, interval, duration)
+        elif name == "counter-no-master":
+            self.__createCounters(scan, interval, duration, includeMasters=False)
         if name is None or name == "mca":
             self.__createMcas(scan, interval, duration)
         if name is None or name == "image":

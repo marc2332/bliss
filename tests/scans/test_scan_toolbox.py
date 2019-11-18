@@ -30,7 +30,8 @@ def scan_demo(motor, start, stop, npoints, count_time, *counters):
         "acq_expo_time": count_time * 0.5,
         "acq_mode": "SINGLE",
         "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
-        "acc_max_expo_time": 1.,
+        #   "acc_max_expo_time": 1.,
+        "wait_frame_id": range(npoints),
         "prepare_once": True,
         "start_once": False,
     }

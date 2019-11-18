@@ -27,7 +27,7 @@ class Writer(FileWriter):
         )
         if any_image and self._save_images:
             super().create_path(images_path)
-            super().prepare_saving(device, images_path)
+        super().prepare_saving(device, images_path)
 
     def new_master(self, *args):
         return

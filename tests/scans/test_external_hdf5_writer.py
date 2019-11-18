@@ -20,6 +20,8 @@ from bliss.scanning.acquisition import timer
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.scan import Scan
+from bliss.scanning.group import Group
+
 
 from scripts.external_saving_example.external_saving_example import (
     listen_scans_of_session
@@ -160,6 +162,11 @@ def test_external_hdf5_writer(
     c_samp = SoftCounter(a, "read", name="test-samp", mode=SamplingMode.SAMPLES)
     scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
 
+    # a group entry
+    s1 = scans.loopscan(3, .1, diode_sim)
+    s2 = scans.loopscan(3, .05, diode_sim)
+    g = Group(s1, s2)
+
     ##wait for all scan entries
     external_writer_file = s1.scan_info["filename"].replace(".", "_external.")
     bliss_writer_file = s1.scan_info["filename"]
@@ -217,3 +224,8 @@ def test_external_hdf5_writer(
     external_writer = h5todict(external_writer_file)["6_ascan"]
     bliss_writer = h5todict(bliss_writer_file)["6_ascan"]
     deep_compare(external_writer, bliss_writer)
+
+    # check group
+    external_writer = h5todict(external_writer_file)[g.node.name]
+    assert "scans" in external_writer
+    assert len(external_writer["scans"]) == 2

@@ -820,10 +820,14 @@ class Scan:
             get_flint()
 
         self.__state = ScanState.IDLE
-
+        self.__state_change = gevent.event.Event()
         self._preset_list = list()
-
         self.__node = None
+
+    def _create_data_node(self, node_name):
+        self.__node = _create_node(
+            node_name, "scan", parent=self.root_node, info=self._scan_info
+        )
 
     def _prepare_node(self):
         if self.__node is None:
@@ -849,9 +853,7 @@ class Scan:
             self._scan_info["start_timestamp"] = start_timestamp
 
             node_name = str(self.__scan_number) + "_" + self.name
-            self.__node = _create_node(
-                node_name, "scan", parent=self.root_node, info=self._scan_info
-            )
+            self._create_data_node(node_name)
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1045,6 +1047,11 @@ class Scan:
                 RuntimeError("Can't find axis in this scan")
         return axis
 
+    def wait_state(self, state):
+        while self.__state < state:
+            self.__state_change.clear()
+            self.__state_change.wait()
+
     def __trigger_data_watch_callback(self, signal, sender, sync=False):
         if self._data_watch_callback is not None:
             event_set = self._data_events.setdefault(sender, set())
@@ -1173,6 +1180,7 @@ class Scan:
             current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
 
             self.__state = ScanState.PREPARING
+            self.__state_change.set()
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
                 self._execute_preset("prepare")
                 self.prepare(self.scan_info, self.acq_chain._tree)
@@ -1185,6 +1193,7 @@ class Scan:
                     gevent.killall(prepare_tasks)
 
             self.__state = ScanState.STARTING
+            self.__state_change.set()
             self._execute_preset("start")
             run_next_tasks = [
                 (gevent.spawn(self._run_next, i), i) for i in current_iters
@@ -1228,6 +1237,7 @@ class Scan:
                         )
 
                 self.__state = ScanState.STOPPING
+                self.__state_change.set()
 
                 with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
                     stop_task = [
@@ -1272,6 +1282,7 @@ class Scan:
                 self.disconnect_all()
 
                 self.__state = ScanState.DONE
+                self.__state_change.set()
 
                 # Add scan to the globals
                 current_session.scans.append(self)

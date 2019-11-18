@@ -46,8 +46,10 @@ def pickle_dump(var):
 
 
 class Scan(DataNodeContainer):
+    _NODE_TYPE = "scan"
+
     def __init__(self, name, create=False, **keys):
-        DataNodeContainer.__init__(self, "scan", name, create=create, **keys)
+        DataNodeContainer.__init__(self, self._NODE_TYPE, name, create=create, **keys)
         self._info._write_type_conversion = pickle_dump
         if self.new_node:
             with settings.pipeline(self._struct, self._info) as p:

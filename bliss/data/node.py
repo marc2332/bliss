@@ -90,7 +90,8 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
                 m,
                 lambda x: inspect.isclass(x)
                 and issubclass(x, DataNode)
-                and x not in (DataNode, DataNodeContainer),
+                and x not in (DataNode, DataNodeContainer)
+                and inspect.getmodule(x) == m,
             )
             # there should be only 1 class inheriting from DataNode in the plugin
             klass = classes[0][-1]

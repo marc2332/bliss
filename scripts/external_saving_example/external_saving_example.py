@@ -50,6 +50,7 @@ class HDF5_Writer(object):
         # all channels that are involved in this scan will be added here
         self.channels = list()
         self.lima_channels = list()
+        self.group_channels = list()
 
         # here we will track for each channel how far the data has been written yet
         self.channel_indices = dict()
@@ -115,6 +116,10 @@ class HDF5_Writer(object):
             elif event_type.name == "NEW_NODE" and node.type == "lima":
                 self.lima_channels.append(node)
 
+            # dealing with node_ref_channel
+            elif event_type.name == "NEW_NODE" and node.type == "node_ref_channel":
+                self.group_channels.append(node)
+
             # adding data to channel dataset
             elif event_type.name == "NEW_DATA_IN_CHANNEL" and node.type == "channel":
                 print(self.scan_node.db_name, "add data", node.name)
@@ -126,8 +131,19 @@ class HDF5_Writer(object):
                 # in this demo we restrict ourselves to treating the lima data at the end of the scan
                 pass
 
+            # dealing with node_ref_channel
+            elif (
+                event_type.name == "NEW_DATA_IN_CHANNEL"
+                and node.type == "node_ref_channel"
+            ):
+                # could be done in real time during run time of the scan as done for channels
+                # in this demo we restrict ourselves to treating all reference in the end
+                pass
+
             # creating a new entry in the hdf5 for each 'top-master'
-            elif event_type.name == "NEW_NODE" and node.parent.type == "scan":
+            elif event_type.name == "NEW_NODE" and (
+                node.parent.type == "scan" or node.parent.type == "scan_group"
+            ):
                 print(self.scan_node.db_name, "add subscan", node.name)
                 # add a new subscan to this scan (this is to deal with "multiple top master" scans)
                 # and the fact that the hdf5 three does not reflect the redis tree in this case
@@ -212,6 +228,37 @@ class HDF5_Writer(object):
 
         dataset[:] = data
 
+    def update_node_ref_channel(self, node):
+        """insert subscans"""
+
+        self.file.create_group(f"{self.scan_name}/scans")
+        self.file[f"{self.scan_name}/scans"].attrs["NX_class"] = "NXcollection"
+        for subscan in node.get(0, -1):
+            subscan_names = [subscan.name]
+
+            # handling multiple top master
+            if len(subscan.info["acquisition_chain"]) > 1:
+                for i in range(1, len(subscan.info["acquisition_chain"])):
+                    subsubscan_number, subsubscan_name = subscan.name.split(
+                        "_", maxsplit=1
+                    )
+                    subsubscan_name = (
+                        f"{subsubscan_number}{'.%d_' % i}{subsubscan_name}"
+                    )
+                    subscan_names.append(subsubscan_name)
+
+            for subscan_name in subscan_names:
+                if subscan_name in self.file.keys():
+                    self.file[f"{self.scan_name}/scans/{subscan_name}"] = self.file[
+                        f"{subscan_name}"
+                    ]
+                else:
+                    # of cause we have to think better what to do in this case...
+                    # e.g. external link?
+                    print(
+                        "ERROR: trying to link to a scan that is not saved in the current file!"
+                    )
+
     def lima_ref_array(self, node):
         """ used to produce a string version of a lima reference that can be saved in hdf5
         """
@@ -254,6 +301,9 @@ class HDF5_Writer(object):
 
         for c in self.lima_channels:
             self.update_lima_data(c)
+
+        for c in self.group_channels:
+            self.update_node_ref_channel(c)
 
         # instrument entry
         instrument = self.file.create_group(f"{self.scan_name}/instrument")
@@ -304,7 +354,9 @@ def listen_scans_of_session(session, scan_stack=dict()):
 
         # wait for new events on scan
         print("Listening to", session)
-        for event_type, node in session_node.iterator.walk_on_new_events(filter="scan"):
+        for event_type, node in session_node.iterator.walk_on_new_events(
+            filter=["scan", "scan_group"]
+        ):
             if event_type.name == "NEW_NODE":
                 exit_read, exit_write = os.pipe()
                 # we use this pipe to be able to catch the NEW_NODE of scan and

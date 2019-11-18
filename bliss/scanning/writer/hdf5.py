@@ -109,11 +109,11 @@ class Writer(FileWriter):
         scan_name = scan.node.name
         scan_info = scan.scan_info
 
-        ###    fill image references   ###
+        ###    fill image references and groups   ###
 
         for fname, channel in scan.get_channels_dict.items():
             chan_name = channel.name
-            if channel.reference:
+            if channel.reference and channel.data_node_type == "lima":
                 """produce a string version of a lima reference that can be saved in hdf5
                 
                 At the moment there is only Lima references ;
@@ -154,6 +154,37 @@ class Writer(FileWriter):
                     )
                     dataset.attrs.modify("fullname", channel.fullname)
                     dataset[:] = data
+
+            elif channel.reference and channel.data_node_type == "node_ref_channel":
+                self.file.create_group(f"{scan_name}/scans")
+                self.file[f"{scan_name}/scans"].attrs["NX_class"] = "NXcollection"
+                for subscan in channel.data_node.get(0, -1):
+                    subscan_names = [subscan.name]
+
+                    # handling multiple top master
+                    if len(subscan.info["acquisition_chain"]) > 1:
+                        for i in range(1, len(subscan.info["acquisition_chain"])):
+                            ### logic taken from
+                            ### has to stay in sync!!
+                            subsubscan_number, subsubscan_name = subscan.name.split(
+                                "_", maxsplit=1
+                            )
+                            subsubscan_name = (
+                                f"{subsubscan_number}{'.%d_' % i}{subsubscan_name}"
+                            )
+                            subscan_names.append(subsubscan_name)
+
+                    for subscan_name in subscan_names:
+                        if subscan_name in self.file.keys():
+                            self.file[f"{scan_name}/scans/{subscan_name}"] = self.file[
+                                f"{subscan_name}"
+                            ]
+                        else:
+                            # of cause we have to think better what to do in this case...
+                            # e.g. external link?
+                            print(
+                                "ERROR: trying to link to a scan that is not saved in the current file!"
+                            )
 
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {

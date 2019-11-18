@@ -150,6 +150,7 @@ import numpy
 import psutil
 import platform
 import subprocess
+from contextlib import contextmanager
 
 from bliss.comm import rpc
 from bliss import current_session
@@ -637,3 +638,20 @@ def default_plot(data=None, **kwargs):
 
 # Alias
 plot = default_plot
+
+
+# Plotting: multi curves draw context manager
+
+
+@contextmanager
+def draw_manager(plot):
+    try:
+        # disable the silx auto_replot to avoid refreshing the GUI for each curve plot (when calling plot.select_data(...) )
+        plot.submit("setAutoReplot", False)
+        yield
+    except AssertionError:
+        # ignore eventual AssertionError raised by the rpc com
+        pass
+    finally:
+        # re-enable the silx auto_replot
+        plot.submit("setAutoReplot", True)

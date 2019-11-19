@@ -12,7 +12,7 @@ from bliss.common import plot
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.usefixtures("xvfb", "beacon", "flint_norpc")
+@pytest.mark.usefixtures("flint_norpc")
 class TestFlint(TestCaseQt):
     def test_empty_plot(self):
         p = plot.plot()

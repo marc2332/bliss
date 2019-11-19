@@ -684,25 +684,34 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     if isinstance(plotItem, plot_item_model.CurveItem):
                         xChannel = plotItem.xChannel()
                         if xChannel is None:
-                            continue
-                        topMaster = model_helper.getConsistentTopMaster(scan, plotItem)
-                        xChannelName = xChannel.name()
-                        if (
-                            topMaster is not None
-                            and xChannelPerMasters[topMaster] == xChannelName
-                        ):
-                            # The x-channel is what it is expected then we can link the y-channel
                             yChannel = plotItem.yChannel()
                             if yChannel is not None:
                                 yChannelName = yChannel.name()
                                 parentChannel = channelItems[yChannelName]
-                            xAxisItem = channelItems[xChannelName]
-                            xAxisItem.setSelectedXAxis()
-                            if yChannel is None:
-                                # This item must not be displayed
+                            else:
+                                # item with bad content
                                 continue
                         else:
-                            parent = itemWithoutLocation
+                            topMaster = model_helper.getConsistentTopMaster(
+                                scan, plotItem
+                            )
+                            xChannelName = xChannel.name()
+                            if (
+                                topMaster is not None
+                                and xChannelPerMasters[topMaster] == xChannelName
+                            ):
+                                # The x-channel is what it is expected then we can link the y-channel
+                                yChannel = plotItem.yChannel()
+                                if yChannel is not None:
+                                    yChannelName = yChannel.name()
+                                    parentChannel = channelItems[yChannelName]
+                                xAxisItem = channelItems[xChannelName]
+                                xAxisItem.setSelectedXAxis()
+                                if yChannel is None:
+                                    # This item must not be displayed
+                                    continue
+                            else:
+                                parent = itemWithoutLocation
 
             if parentChannel is not None:
                 parentChannel.setPlotItem(plotItem)

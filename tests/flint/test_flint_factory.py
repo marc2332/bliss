@@ -45,6 +45,7 @@ def test_created_flint(flint_session):
     Flint is created and attached with subprocess
     """
     flint = plot.get_flint()
+    flint.wait_started()
     # Check messages and stdout
     try:
         # FIXME: This can be removed with silx 0.12

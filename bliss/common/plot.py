@@ -169,6 +169,7 @@ import logging
 FLINT_LOGGER = logging.getLogger("flint")
 FLINT_OUTPUT_LOGGER = logging.getLogger("flint.output")
 # Disable the flint output
+FLINT_OUTPUT_LOGGER.setLevel(logging.INFO)
 FLINT_OUTPUT_LOGGER.disabled = True
 
 

@@ -155,6 +155,12 @@ class FlintApi:
         scanManager = self.__flintModel.scanManager()
         scanManager.wait_end_of_scan()
 
+    def wait_started(self):
+        """Wait for the end of the initialization at startup of the application.
+        """
+        manager = self.__flintModel.mainManager()
+        manager.waitFlintStarted()
+
     def run_method(self, plot_id, method, args, kwargs):
         plot = self._get_plot_widget(plot_id)
         method = getattr(plot, method)

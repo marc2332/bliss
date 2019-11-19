@@ -283,7 +283,12 @@ def main():
     # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
-    single_shot.timeout.connect(flintWindow.show)
+
+    def start():
+        flintWindow.show()
+        flintModel.mainManager().setFlintStarted()
+
+    single_shot.timeout.connect(start)
     single_shot.start(0)
 
     try:

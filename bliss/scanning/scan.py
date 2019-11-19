@@ -764,6 +764,7 @@ class Scan:
         data_watch_callback -- a callback inherited from DataWatchCallback
         """
         self.__name = name
+        self.__scan_number = None
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 

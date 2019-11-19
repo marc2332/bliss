@@ -541,7 +541,12 @@ class ScanDisplay(ParametersWardrobe):
                 "_counters": [],
                 "_extra_args": [],
             },
-            property_attributes=("session", "counters", "extra_args"),
+            property_attributes=(
+                "session",
+                "counters",
+                "extra_args",
+                "flint_output_enabled",
+            ),
             not_removable=("auto", "motor_position"),
         )
 
@@ -609,6 +614,34 @@ class ScanDisplay(ParametersWardrobe):
                 cnts.append(fullname)
 
             self._counters = cnts
+
+    @property
+    def flint_output_enabled(self):
+        """
+        Returns true if the output (strout/stderr) is displayed using the
+        logging system.
+
+        This is an helper to display the `disabled` state of the logger
+        `flint.output`.
+        """
+        from bliss.common import plot
+
+        logger = plot.FLINT_OUTPUT_LOGGER
+        return not logger.disabled
+
+    @flint_output_enabled.setter
+    def flint_output_enabled(self, enabled):
+        """
+        Enable or disable the display of flint output ((strout/stderr) )
+        using the logging system.
+
+        This is an helper to set the `disabled` state of the logger
+        `flint.output`.
+        """
+        from bliss.common import plot
+
+        logger = plot.FLINT_OUTPUT_LOGGER
+        logger.disabled = not enabled
 
 
 def _get_channels_dict(acq_object, channels_dict):

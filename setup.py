@@ -156,7 +156,8 @@ def main():
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]
 
     setup_requires = [
-        #        'setuptools >= 37',
+        # "setuptools >= 37",
+        "cython"
     ]
 
     if TESTING:

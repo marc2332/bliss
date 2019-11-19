@@ -132,6 +132,7 @@ class BeaconObject:
 
             else:
                 set = None
+
             super().__init__(get, set, fdel, doc)
             self.default = default
             self.must_be_in_config = must_be_in_config
@@ -405,14 +406,16 @@ class BeaconObject:
         return property
 
     @staticmethod
-    def property_setting(name, default=None):
+    def property_setting(name, default=None, doc=None):
         def get(self):
             return self.settings.get(name, default)
 
         def set(self, value):
             self.settings[name] = value
 
-        return BeaconObject._property(get, set)
+        bop = BeaconObject._property(get, set, doc=doc)
+        bop.__doc__ = doc
+        return bop
 
     @staticmethod
     def lazy_init(func):

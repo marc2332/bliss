@@ -150,14 +150,11 @@ def main():
         "pygraphviz >= 1.5",
         "networkx",
         "tblib",
-        "cython",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]
 
-    setup_requires = [
-        #        'setuptools >= 37',
-    ]
+    setup_requires = ["cython"]
 
     if TESTING:
         setup_requires += ["pytest-runner"]

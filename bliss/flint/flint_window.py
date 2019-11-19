@@ -55,6 +55,7 @@ class FlintWindow(qt.QMainWindow):
         logWindow.layout().addWidget(logWidget)
         logWindow.setAttribute(qt.Qt.WA_QuitOnClose, False)
         logWindow.setWindowTitle("Log messages")
+        logWindow.rejected.connect(self.__saveLogWindowSettings)
         self.__logWindow = logWindow
         logWidget.connect_logger(logging.root)
 
@@ -111,6 +112,7 @@ class FlintWindow(qt.QMainWindow):
     def showLogDialog(self):
         """Show the log dialog of Flint"""
         self.__logWindow.show()
+        self.__initLogWindowFromSettings()
 
     def showAboutBox(self):
         """Show the about box of Flint"""
@@ -219,3 +221,20 @@ class FlintWindow(qt.QMainWindow):
         settings.endGroup()
 
         settings.sync()
+
+    def __initLogWindowFromSettings(self):
+        settings = self.__flintState.settings()
+        # resize window to 70% of available screen space, if no settings
+        settings.beginGroup("log-window")
+        if settings.contains("size"):
+            self.__logWindow.resize(settings.value("size"))
+        if settings.contains("pos"):
+            self.__logWindow.move(settings.value("pos"))
+        settings.endGroup()
+
+    def __saveLogWindowSettings(self):
+        settings = self.__flintState.settings()
+        settings.beginGroup("log-window")
+        settings.setValue("size", self.__logWindow.size())
+        settings.setValue("pos", self.__logWindow.pos())
+        settings.endGroup()

@@ -388,3 +388,15 @@ def test_lima_scan_get_last_live_image(session, lima_simulator):
 
     assert frame_id not in [None, -1]
     assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
+
+
+def test_scan_saving_flags_with_lima(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+    loopscan(3, 0.1, simulator)
+    assert simulator.proxy.last_image_saved == 2
+    loopscan(3, 0.1, simulator, save=False)
+    assert simulator.proxy.last_image_saved == -1
+    loopscan(3, 0.1, simulator, save_images=False, save=True)
+    assert simulator.proxy.last_image_saved == -1
+    loopscan(3, 0.1, simulator, save_images=True, save=False)
+    assert simulator.proxy.last_image_saved == 2

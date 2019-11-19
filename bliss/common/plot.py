@@ -257,7 +257,9 @@ def log_process_output_to_logger(process, stream_name, logger, level):
                 pass
             if not line:
                 break
-            logger._log(level, "%s", line)
+            if line[-1] == "\n":
+                line = line[:-1]
+            logger.log(level, "%s", line)
     except RuntimeError:
         # Process was terminated
         pass
@@ -284,7 +286,9 @@ def log_socket_output_to_logger(socket, logger, level):
                 if not data:
                     break
                 line = data.decode("utf-8")
-                logger._log(level, "%s", line)
+                if len(line) >= 1 and line[-1] == "\n":
+                    line = line[:-1]
+                logger.log(level, "%s", line)
     except RuntimeError:
         pass
     if conn is not None:

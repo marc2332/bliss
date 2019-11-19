@@ -1473,6 +1473,8 @@ class WagoController:
                 raise
             # return [to_signed(n) for n in response]
             return response
+        else:
+            return []
 
     def devhard2log(self, array_in):
         """

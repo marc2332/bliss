@@ -407,6 +407,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         # FIXME: It have to be converted into delegate
         if useXAxis:
             self.__treeView.openPersistentEditor(self.__xaxis.index())
+        # FIXME: close/open is needed, sometime the item is not updated
+        self.__treeView.closePersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
@@ -540,6 +542,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
         scan: scan_model.Scan,
         channelFilter: scan_model.ChannelType,
     ) -> Dict[str, _DataItem]:
+        """Feed the provided model with a tree of scan concepts (devices,
+        channels).
+
+        Returns a map from channel name to Qt items (`_DataItem`)
+        """
         assert self.__tree is not None
         assert self.__flintModel is not None
         assert self.__plotModel is not None
@@ -679,25 +686,34 @@ class CurvePlotPropertyWidget(qt.QWidget):
                     if isinstance(plotItem, plot_item_model.CurveItem):
                         xChannel = plotItem.xChannel()
                         if xChannel is None:
-                            continue
-                        topMaster = model_helper.getConsistentTopMaster(scan, plotItem)
-                        xChannelName = xChannel.name()
-                        if (
-                            topMaster is not None
-                            and xChannelPerMasters[topMaster] == xChannelName
-                        ):
-                            # The x-channel is what it is expected then we can link the y-channel
                             yChannel = plotItem.yChannel()
                             if yChannel is not None:
                                 yChannelName = yChannel.name()
                                 parentChannel = channelItems[yChannelName]
-                            xAxisItem = channelItems[xChannelName]
-                            xAxisItem.setSelectedXAxis()
-                            if yChannel is None:
-                                # This item must not be displayed
+                            else:
+                                # item with bad content
                                 continue
                         else:
-                            parent = itemWithoutLocation
+                            topMaster = model_helper.getConsistentTopMaster(
+                                scan, plotItem
+                            )
+                            xChannelName = xChannel.name()
+                            if (
+                                topMaster is not None
+                                and xChannelPerMasters[topMaster] == xChannelName
+                            ):
+                                # The x-channel is what it is expected then we can link the y-channel
+                                yChannel = plotItem.yChannel()
+                                if yChannel is not None:
+                                    yChannelName = yChannel.name()
+                                    parentChannel = channelItems[yChannelName]
+                                xAxisItem = channelItems[xChannelName]
+                                xAxisItem.setSelectedXAxis()
+                                if yChannel is None:
+                                    # This item must not be displayed
+                                    continue
+                            else:
+                                parent = itemWithoutLocation
 
             if parentChannel is not None:
                 parentChannel.setPlotItem(plotItem)

@@ -9,10 +9,13 @@ from __future__ import annotations
 from typing import Optional
 
 import gevent
+import logging
 from silx.gui import qt
 
 from bliss.flint.model import flint_model
 from bliss.flint.simulator.acquisition import AcquisitionSimulator
+
+_logger = logging.getLogger(__name__)
 
 
 class SimulatorWidget(qt.QMainWindow):
@@ -30,6 +33,11 @@ class SimulatorWidget(qt.QMainWindow):
         button = qt.QPushButton(self)
         button.setText("Counter scan")
         button.clicked.connect(lambda: self.__startScan(10, 2000, "counter"))
+        layout.addWidget(button)
+
+        button = qt.QPushButton(self)
+        button.setText("Counter scan (no masters)")
+        button.clicked.connect(lambda: self.__startScan(10, 2000, "counter-no-master"))
         layout.addWidget(button)
 
         button = qt.QPushButton(self)
@@ -65,7 +73,10 @@ class SimulatorWidget(qt.QMainWindow):
     def __startScan(self, interval: int, duration: int, name=None):
         if self.__simulator is None:
             return
-        self.__simulator.start(interval, duration, name)
+        try:
+            self.__simulator.start(interval, duration, name)
+        except:
+            _logger.error("Error while starting scan", exc_info=True)
 
     def setSimulator(self, simulator: AcquisitionSimulator):
         self.__simulator = simulator

@@ -12,11 +12,15 @@ from typing import Optional
 from silx.gui import qt
 
 import numpy
+import logging
 import scipy.signal
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.helper import scan_manager
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ChannelDataNodeMock:
@@ -83,7 +87,7 @@ class AcquisitionSimulator(qt.QObject):
 
         print("Acquisition started")
         self.__timer = qt.QTimer(self)
-        self.__timer.timeout.connect(self.updateNewData)
+        self.__timer.timeout.connect(self.safeUpdateNewData)
         self.__timer.start(interval)
 
     def scan(self) -> scan_model.Scan:
@@ -98,7 +102,9 @@ class AcquisitionSimulator(qt.QObject):
             self.__data[periode] = {}
         self.__data[periode][channel] = data
 
-    def __createCounters(self, scan: scan_model.Scan, interval, duration):
+    def __createCounters(
+        self, scan: scan_model.Scan, interval, duration, includeMasters=True
+    ):
         master_time1 = scan_model.Device(scan)
         master_time1.setName("timer")
         master_time1_index = scan_model.Channel(master_time1)
@@ -141,8 +147,8 @@ class AcquisitionSimulator(qt.QObject):
             "master": {
                 "display_names": {},
                 "images": [],
-                "scalars": [master_time1_index.name()],
-                "scalars_units": {master_time1_index.name(): "s"},
+                "scalars": [],
+                "scalars_units": {},
                 "spectra": [],
             },
             "scalars": [
@@ -153,6 +159,13 @@ class AcquisitionSimulator(qt.QObject):
             ],
             "scalars_units": {},
         }
+        if includeMasters:
+            scan_info["master"]["scalars"].append(master_time1_index.name())
+            scan_info["master"]["scalars_units"][master_time1_index.name()] = "s"
+        else:
+            scan_info["scalars"].append(master_time1_index.name())
+            scan_info["scalars_units"][master_time1_index.name()] = "s"
+
         self.__scan_info["acquisition_chain"][master_time1.name()] = scan_info
 
         scan_info = {
@@ -428,6 +441,8 @@ class AcquisitionSimulator(qt.QObject):
         scan = scan_model.Scan(None)
         if name is None or name == "counter":
             self.__createCounters(scan, interval, duration)
+        elif name == "counter-no-master":
+            self.__createCounters(scan, interval, duration, includeMasters=False)
         if name is None or name == "mca":
             self.__createMcas(scan, interval, duration)
         if name is None or name == "image":
@@ -435,9 +450,20 @@ class AcquisitionSimulator(qt.QObject):
         if name is None or name == "scatter":
             self.__createScatters(scan, interval, duration)
         scan.seal()
+
+        if len(self.__data) == 0:
+            raise ValueError("name (%s) maybe not valid" % name)
+
         print("Data prepared")
 
         return scan
+
+    def safeUpdateNewData(self):
+        try:
+            self.updateNewData()
+        except:
+            _logger.error("Error while updating data", exc_info=True)
+            self.__endOfScan()
 
     def updateNewData(self):
         self.__tick += 1
@@ -500,7 +526,7 @@ class AcquisitionSimulator(qt.QObject):
 
     def __endOfScan(self):
         self.__scan.scanFinished.emit()
-        self.__timer.timeout.disconnect(self.updateNewData)
+        self.__timer.timeout.disconnect(self.safeUpdateNewData)
         self.__timer.deleteLater()
         self.__timer = None
         if self.__scan_manager is not None:

@@ -50,8 +50,11 @@ class ScanManager:
         self.__data_storage = DataStorage()
         self._end_scan_event = gevent.event.Event()
         """Event to allow to wait for the the end of a scan"""
+
         self._end_data_process_event = gevent.event.Event()
         """Event to allow to wait for the the end of data processing"""
+        self._end_data_process_event.set()
+
         self.__scan: Optional[scan_model.Scan] = None
         self.__scan_id = None
         self.__absorb_events = True

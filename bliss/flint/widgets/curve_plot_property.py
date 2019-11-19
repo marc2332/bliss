@@ -407,6 +407,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         # FIXME: It have to be converted into delegate
         if useXAxis:
             self.__treeView.openPersistentEditor(self.__xaxis.index())
+        # FIXME: close/open is needed, sometime the item is not updated
+        self.__treeView.closePersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())

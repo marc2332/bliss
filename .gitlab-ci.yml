@@ -52,7 +52,7 @@ run_tests:source:
     # create test env and install BLISS
     - conda create --quiet --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
-    - pip install git+https://github.com/manahl/pytest-plugins#subdirectory=pytest-profiling
+    - conda install pytest-profiling --yes
     - pip install .
     # run tests on source
     - python setup.py test --addopts "--cov bliss --cov nexus_writer_service --cov-report html --cov-report term --profile --durations=30"

@@ -540,6 +540,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
         scan: scan_model.Scan,
         channelFilter: scan_model.ChannelType,
     ) -> Dict[str, _DataItem]:
+        """Feed the provided model with a tree of scan concepts (devices,
+        channels).
+
+        Returns a map from channel name to Qt items (`_DataItem`)
+        """
         assert self.__tree is not None
         assert self.__flintModel is not None
         assert self.__plotModel is not None

@@ -50,3 +50,4 @@ qt
 silx == 0.11.0
 pyopengl
 scipy
+sortedcontainers

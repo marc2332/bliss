@@ -33,16 +33,23 @@ def params(beacon, map):
     """
     Creates a new beacon and log instance
     """
-    logging_startup()
+    # Save the logging context
+    old_handlers = list(logging.getLogger().handlers)
+    old_logger_dict = dict(logging.getLogger().manager.loggerDict)
 
+    logging_startup()
     log = Log(map=map)
 
-    yield beacon, log
-
-    logging.shutdown()
-    logging.setLoggerClass(logging.Logger)
-    logging.getLogger().handlers.clear()  # deletes all handlers
-    logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
+    try:
+        yield beacon, log
+    finally:
+        # Restore the logging context
+        logging.shutdown()
+        logging.setLoggerClass(logging.Logger)
+        logging.getLogger().handlers.clear()  # deletes all handlers
+        logging.getLogger().handlers.extend(old_handlers)
+        logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
+        logging.getLogger().manager.loggerDict.update(old_logger_dict)
 
 
 class MappedController:

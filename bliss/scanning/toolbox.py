@@ -324,18 +324,6 @@ class ChainBuilder:
             print("\n")
 
 
-class DefaultChainBuilder(ChainBuilder):
-    """ Helper object to build the default acquisition chain from a list of (measurementgroup, controllers, counter_groups, counters) objects """
-
-    def __init__(self, counters):
-        super().__init__(counters)
-
-    def _get_node_from_controller(self, controller):
-        node = controller.create_chain_node()
-        node._default_chain_mode = True
-        return node
-
-
 # ---------------------- DEFAULT CHAIN ---------------------------------------------------
 
 
@@ -399,7 +387,7 @@ class DefaultAcquisitionChain:
         # Build default master
         timer = SoftwareTimerMaster(count_time, npoints=npoints, sleep_time=sleep_time)
 
-        builder = DefaultChainBuilder(counter_args)
+        builder = ChainBuilder(counter_args)
 
         # --- create acq obj and populate the chain
         topnodes = builder.get_top_level_nodes()
@@ -409,35 +397,50 @@ class DefaultAcquisitionChain:
 
             extra_settings = self._settings.get(node.controller)
             if extra_settings:
-                acq_params = extra_settings.get("acquisition_settings")
                 # print("==== FOUND EXTRA SETTINGS")
-                node.set_parameters(scan_params=scan_pars, acq_params=acq_params)
+                acq_params = extra_settings.get("acquisition_settings", {})
+                acq_params = node._get_default_chain_parameters(scan_pars, acq_params)
+                node.set_parameters(acq_params=acq_params)
+
+                # DEAL WITH CHILDREN NODES PARAMETERS
+                for cnode in node.children:
+                    acq_params = cnode._get_default_chain_parameters(scan_pars, {})
+                    cnode.set_parameters(acq_params=acq_params)
 
                 # --- recursive add master -----------------------------------------------------
                 mstr = extra_settings.get("master")
                 while mstr:
 
                     mstr_node = builder._create_node(mstr)
-                    mstr_node.set_parameters(scan_params=scan_pars)
 
                     # -- check if master has params and/or a parent master
                     mstr_settings = self._settings.get(mstr)
                     if mstr_settings:
                         mstr_params = mstr_settings.get("acquisition_settings")
-                        mstr_node.set_parameters(acq_params=mstr_params)
                         mstr = mstr_settings.get("master")
                     else:
+                        mstr_params = {}
                         mstr = None
 
-                    chain.add(
-                        mstr_node, node
-                    )  # => ??? update the toplevel flag of the node ???
+                    mstr_params = mstr_node._get_default_chain_parameters(
+                        scan_pars, mstr_params
+                    )
+                    mstr_node.set_parameters(acq_params=mstr_params)
+
+                    chain.add(mstr_node, node)
                     node = mstr_node
 
                 chain.add(timer, node)
 
             else:
-                node.set_parameters(scan_params=scan_pars)
+                acq_params = node._get_default_chain_parameters(scan_pars, {})
+                node.set_parameters(acq_params=acq_params)
+
+                # DEAL WITH CHILDREN NODES PARAMETERS
+                for cnode in node.children:
+                    acq_params = cnode._get_default_chain_parameters(scan_pars, {})
+                    cnode.set_parameters(acq_params=acq_params)
+
                 chain.add(timer, node)
 
         # Add presets

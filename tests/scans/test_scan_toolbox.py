@@ -26,7 +26,6 @@ def scan_demo(motor, start, stop, npoints, count_time, *counters):
     chain = AcquisitionChain()
     builder = ChainBuilder(counters)
 
-    scan_params = {"npoints": npoints, "count_time": count_time}
     lima_params = {
         "acq_nb_frames": npoints,
         "acq_expo_time": count_time * 0.5,
@@ -38,17 +37,11 @@ def scan_demo(motor, start, stop, npoints, count_time, *counters):
     }
 
     for node in builder.get_nodes_by_controller_type(Lima):
-        node.set_parameters(scan_params=scan_params, acq_params=lima_params)
+        node.set_parameters(acq_params=lima_params)
         for cnode in node.children:
-            cnode.set_parameters(
-                scan_params=scan_params, acq_params={"count_time": count_time}
-            )
+            cnode.set_parameters(acq_params={"count_time": count_time})
 
         chain.add(acq_master, node)
-
-    # for node in builder.get_top_level_nodes():
-    #     node.set_parameters(scan_params=scan_params)
-    #     chain.add(acq_master, node)
 
     builder.print_tree(not_ready_only=False)
 

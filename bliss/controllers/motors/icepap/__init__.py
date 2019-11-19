@@ -378,10 +378,11 @@ class Icepap(Controller):
         return int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
 
     def limit_search(self, axis, limit):
-        cmd = "SRCH LIM" + ("+" if limit > 0 else "-")
-        _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))
-        # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
-        gevent.sleep(0.1)
+        if ("LIMPOS" if limit > 0 else "LIMNEG") not in self.state(axis):
+            cmd = "SRCH LIM" + ("+" if limit > 0 else "-")
+            _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))
+            # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
+            gevent.sleep(0.1)
 
     def initialize_encoder(self, encoder):
         # Get axis config from bliss config

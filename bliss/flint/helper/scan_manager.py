@@ -173,7 +173,7 @@ class ScanManager:
         else:
             key = master_name, None
 
-        self._last_event[key] = (data_type, data)
+        self._last_event[key] = (scan_info, data_type, data)
         if self.__absorb_events:
             self._end_data_process_event.clear()
             if self._refresh_task is None:
@@ -186,9 +186,12 @@ class ScanManager:
             while self._last_event:
                 local_event = self._last_event
                 self._last_event = dict()
-                for (master_name, _), (data_type, data) in local_event.items():
+                for (
+                    (master_name, _),
+                    (scan_info, data_type, data),
+                ) in local_event.items():
                     try:
-                        self.__new_scan_data(data_type, master_name, data)
+                        self.__new_scan_data(scan_info, data_type, master_name, data)
                     except Exception:
                         _logger.error("Error while reaching data", exc_info=True)
         finally:
@@ -226,7 +229,7 @@ class ScanManager:
         # An updated is needed when bliss provides a most recent frame
         return redis_frame_id > stored_frame_id
 
-    def __new_scan_data(self, data_type, master_name, data):
+    def __new_scan_data(self, scan_info, data_type, master_name, data):
         if data_type == "0d":
             channels_data = data["data"]
             for channel_name, channel_data in channels_data.items():

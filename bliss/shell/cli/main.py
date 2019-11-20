@@ -44,7 +44,7 @@ from bliss.config import static
 from bliss.config.static import Node
 from bliss.config.conductor import client
 from bliss import logging_startup
-from bliss import get_current_session
+from bliss import get_current_session, global_map
 
 from .repl import embed
 from . import session_files_templates as sft
@@ -221,6 +221,7 @@ def main():
         # If session_name is None, an empty session is started.
         embed(session_name=session_name)
         get_current_session().close()
+        global_map.clear()
 
     else:
 

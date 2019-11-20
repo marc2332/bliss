@@ -8,7 +8,7 @@
 
 import sys
 from bliss.shell.cli.repl import embed
-from bliss import get_current_session
+from bliss import get_current_session, global_map
 from bliss import logging_startup
 import logging
 
@@ -30,6 +30,7 @@ def main():
         embed(session_name=session_name, use_tmux=True, expert_error_report=False)
     finally:
         get_current_session().close()
+        global_map.clear()
 
 
 if __name__ == "__main__":

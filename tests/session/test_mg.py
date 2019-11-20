@@ -99,11 +99,6 @@ def test_mg_enable_disable(session, beacon):
     assert list(default_mg.enabled) == ["diode"]
     assert list(default_mg.disabled).sort() == counters_list
     cnt_diode3 = beacon.get("diode3")
-    # disable /enable by object
-    default_mg.disable(cnt_diode3)
-    assert list(default_mg.disabled).sort() == ["diode", "diode2"].sort()
-    default_mg.enable(cnt_diode3)
-    assert list(default_mg.disabled).sort() == counters_list
     default_mg.disable_all()
     default_mg.enable_all()
     assert list(default_mg.disabled).sort() == counters_list
@@ -146,7 +141,7 @@ def test_add(session, capsys):
     measurementgroup.set_active_name("test_mg")
     default_mg = getattr(setup_globals, "ACTIVE_MG")
     default_mg.enable_all()
-    assert default_mg.enabled == ["diode"]
+    assert default_mg.enabled == {"diode"}
     try:
         default_mg.add("diode2")
         assert set(default_mg.enabled) == set(["diode", "diode2"])

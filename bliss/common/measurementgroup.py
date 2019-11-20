@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import itertools
+import functools
 
 from bliss import setup_globals
 from bliss.config import settings
@@ -97,6 +98,17 @@ def set_active_name(name):
     active_mg_name.set(name)
 
 
+def _check_counter_name(func):
+    @functools.wraps(func)
+    def f(self, *counter_names, **keys):
+        for cnt_name in counter_names:
+            if not isinstance(cnt_name, str):
+                raise TypeError(f"{func.__name__} only support string")
+        return func(self, *counter_names, **keys)
+
+    return f
+
+
 class MeasurementGroup(object):
     def __init__(self, name, config_tree):
         """MeasurementGroup is a helper to activate detectors
@@ -146,26 +158,17 @@ class MeasurementGroup(object):
     def disabled(self):
         """ Disabled counter names
         """
-        return self.disabled_setting().get()
+        return set(self.disabled_setting().get())
 
     def disabled_setting(self):
         # key is : "<MG name>:<state_name>"  ex : "MG1:default"
         _key = "%s:%s" % (self.name, self._current_state.get())
         return settings.QueueSetting(_key)
 
-    def disable(self, *counters):
-        counters_names = list()
+    @_check_counter_name
+    def disable(self, *counter_names):
         valid_counters = self.available
-
-        for cc in counters:
-            if not isinstance(cc, str):
-                if cc.name in valid_counters:
-                    counters_names.append(cc.name)
-            else:
-                if cc in valid_counters:
-                    counters_names.append(cc)
-
-        to_disable = set(counters_names)
+        to_disable = set(counter_names)
         disabled = set(self.disabled)
 
         new_disabled = disabled.union(to_disable)
@@ -179,12 +182,11 @@ class MeasurementGroup(object):
     def enabled(self):
         """returns Enabled counter names list
         """
-        return [cname for cname in self.available if cname not in self.disabled]
+        return set(self.available) - set(self.disabled)
 
-    def enable(self, *counters):
-        counters_names = [c if isinstance(c, str) else c.name for c in counters]
-
-        to_enable = set(counters_names)
+    @_check_counter_name
+    def enable(self, *counter_names):
+        to_enable = set(counter_names)
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
 

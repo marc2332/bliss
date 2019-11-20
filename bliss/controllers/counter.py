@@ -68,7 +68,16 @@ class CounterController:
         else:
             return self._chain_node_class(self)
 
-    def apply_parameters(self, ctrl_params):
+    # ---------------------POTENTIALLY OVERLOAD METHODS  ------------------------------------
+
+    def get_default_parameters(self):
+        """should return an exhaustive dict of parameters that will be send 
+        to the hardware controller at the beginning of each scan.
+        These parametes may be overwritten by scan specifc ctrl_params
+        """
+        return None
+
+    def apply_parameters(self, parameters):
         pass
 
     def prepare(self, *counters):

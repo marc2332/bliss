@@ -1087,8 +1087,6 @@ class ChainNode:
         self._acq_obj_params = None
         self._ctrl_params = None
 
-        self._default_chain_mode = False
-
         self._calc_dep_nodes = {}  # to store CalcCounter dependent nodes
 
     @property
@@ -1127,22 +1125,11 @@ class ChainNode:
     def controller_parameters(self):
         return self._ctrl_params
 
-    def set_parameters(
-        self, scan_params=None, acq_params=None, ctrl_params=None, force=False
-    ):
+    def set_parameters(self, acq_params=None, ctrl_params=None, force=False):
         """ Store the scan and/or acquisition parameters into the node. 
             These parameters will be used when the acquisition object is instanciated (see self.create_acquisition_object )
             If the parameters have been set already, new parameters will be ignored (except if Force==True).
         """
-
-        if scan_params is not None:
-            if self._scan_params is not None and self._scan_params != scan_params:
-                print(
-                    f"=== ChainNode WARNING: try to set SCAN_PARAMS again: \n Current {self._scan_params} \n New     {scan_params} "
-                )
-
-            if force or self._scan_params is None:
-                self._scan_params = scan_params
 
         if acq_params is not None:
             if self._acq_obj_params is not None and self._acq_obj_params != acq_params:
@@ -1209,13 +1196,6 @@ class ChainNode:
             return self._acquisition_obj
 
         # --- Prepare parameters -----------------------------------------------------------------------------------------
-        if self._scan_params is None:
-            scan_params = {}
-        else:
-            scan_params = (
-                self._scan_params.copy()
-            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
-
         if self._acq_obj_params is None:
             acq_params = {}
         else:
@@ -1229,10 +1209,6 @@ class ChainNode:
             ctrl_params = (
                 self._ctrl_params.copy()
             )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
-
-        # --- Apply default chain logic on parameters ---------------------------------------------
-        if self._default_chain_mode:
-            acq_params = self._get_default_chain_parameters(scan_params, acq_params)
 
         # --- Create the acquisition object -------------------------------------------------------
         acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)
@@ -1253,8 +1229,6 @@ class ChainNode:
 
     def create_children_acq_obj(self, force=False):
         for node in self.children:
-            if node._scan_params is None:
-                node.set_parameters(scan_params=self._scan_params)
 
             if node._acq_obj_params is None:
                 node.set_parameters(acq_params=self._acq_obj_params)

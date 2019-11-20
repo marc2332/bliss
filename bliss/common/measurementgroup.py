@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import itertools
 import functools
+import fnmatch
 
 from bliss import setup_globals
 from bliss.config import settings
@@ -152,7 +153,7 @@ class MeasurementGroup(object):
     def available(self):
         """available counters from the static config
         """
-        return self._available_counters
+        return set(self._available_counters)
 
     @property
     def disabled(self):
@@ -166,8 +167,9 @@ class MeasurementGroup(object):
         return settings.QueueSetting(_key)
 
     @_check_counter_name
-    def disable(self, *counter_names):
+    def disable(self, *counter_pattern):
         valid_counters = self.available
+        counter_names = self._get_counter_name(counter_pattern, valid_counters)
         to_disable = set(counter_names)
         disabled = set(self.disabled)
 
@@ -185,7 +187,9 @@ class MeasurementGroup(object):
         return set(self.available) - set(self.disabled)
 
     @_check_counter_name
-    def enable(self, *counter_names):
+    def enable(self, *counter_pattern):
+        valid_counters = self.available
+        counter_names = self._get_counter_name(counter_pattern, valid_counters)
         to_enable = set(counter_names)
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
@@ -245,6 +249,23 @@ class MeasurementGroup(object):
 
         states_list_new = [sn for sn in states_list_old if sn not in state_names]
         self._all_states.set(states_list_new)
+
+    @staticmethod
+    def _get_counter_name(counter_pattern, valid_counters):
+        counter_names = list()
+        for cnt_pattern in counter_pattern:
+            # if in valid_counters, not a pattern
+            if cnt_pattern in valid_counters:
+                counter_names.append(cnt_pattern)
+            else:
+                counter_names.extend(
+                    (
+                        cnt_name
+                        for cnt_name in valid_counters
+                        if fnmatch.fnmatch(cnt_name, cnt_pattern)
+                    )
+                )
+        return counter_names
 
     def __info__(self):
         """ function used when printing a measurement group.

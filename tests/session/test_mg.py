@@ -150,16 +150,16 @@ def test_add(session, capsys):
         captured = capsys.readouterr()
         assert "diode2" in captured.out
         default_mg.remove("diode2")
-        assert default_mg.available == ["diode"]
+        assert default_mg.available == {"diode"}
         config_file.pprint()
         captured = capsys.readouterr()
         assert "diode2" not in captured.out
         default_mg.add("diode2")
         default_mg.disable("diode2")
-        assert default_mg.disabled == ["diode2"]
+        assert default_mg.disabled == {"diode2"}
         default_mg.remove("diode2")
-        assert default_mg.disabled == []
-        assert default_mg.available == ["diode"]
+        assert not default_mg.disabled
+        assert default_mg.available == {"diode"}
         config_file.pprint()
         captured = capsys.readouterr()
         assert "diode2" not in captured.out
@@ -266,3 +266,46 @@ def test_dynamic_counters_with_register_counters(
     mg = measurementgroup.MeasurementGroup("local", {"counters": mg_counters})
     selected_counters = toolbox._get_counters_from_measurement_group(mg)
     assert set([c.fullname for c in selected_counters]) == set(expected_counter_names)
+
+
+mg_lima_counters = ["lima", "lima:bpm", "lima:roi_counters"]
+mg_diode_counters = ["diode1", "diode2", "diode3"]
+
+
+@pytest.mark.parametrize(
+    "patterns, expected_counters",
+    [
+        (["lima:*"], mg_lima_counters[1:]),
+        (["diode[1-2]"], mg_diode_counters[:2]),
+        (["lima*"], mg_lima_counters),
+        (["diode1", "diode2", "lima"], mg_diode_counters[:2] + ["lima"]),
+        (["diode1", "lima:*"], mg_lima_counters[1:] + ["diode1"]),
+    ],
+    ids=["lima:*", "diode[1-2]", "lima*", "existing_names", "mix"],
+)
+def test_enable_pattern(beacon, patterns, expected_counters):
+    mg = measurementgroup.MeasurementGroup(
+        "local", {"counters": mg_lima_counters + mg_diode_counters}
+    )
+    mg.disable_all()
+    mg.enable(*patterns)
+    assert mg.enabled == set(expected_counters)
+
+
+@pytest.mark.parametrize(
+    "patterns, expected_counters",
+    [
+        (["lima:*"], mg_lima_counters[1:]),
+        (["diode[1-2]"], mg_diode_counters[:2]),
+        (["lima*"], mg_lima_counters),
+        (["diode1", "diode2", "lima"], mg_diode_counters[:2] + ["lima"]),
+        (["diode1", "lima:*"], mg_lima_counters[1:] + ["diode1"]),
+    ],
+    ids=["lima:*", "diode[1-2]", "lima*", "existing_names", "mix"],
+)
+def test_disable_pattern(beacon, patterns, expected_counters):
+    mg = measurementgroup.MeasurementGroup(
+        "local", {"counters": mg_lima_counters + mg_diode_counters}
+    )
+    mg.disable(*patterns)
+    assert mg.disabled == set(expected_counters)

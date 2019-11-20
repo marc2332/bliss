@@ -18,6 +18,7 @@ import functools
 
 import gevent.event
 
+from bliss.data.nodes.lima import ImageFormatNotSupported
 from bliss.data.scan import watch_session_scans
 from bliss.config.conductor.client import clean_all_redis_connection
 
@@ -42,6 +43,7 @@ class ScanManager:
         self.__flintModel = flintModel
         self._scans_watch_task = None
         self._refresh_task = None
+        self._extra_scan_info = {}
 
         self._last_event: Dict[
             Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
@@ -127,6 +129,9 @@ class ScanManager:
             if not self.__is_current_scan(scan_info):
                 _logger.debug("new_scan from %s ignored", unique)
                 return
+
+        # Initialize for further metadata
+        self._extra_scan_info[unique] = {}
 
         self._end_scan_event.clear()
         self.__data_storage.clear()
@@ -229,6 +234,14 @@ class ScanManager:
         # An updated is needed when bliss provides a most recent frame
         return redis_frame_id > stored_frame_id
 
+    def __is_video_available(self, scan_info, channel_name) -> bool:
+        unique = self.__get_scan_id(scan_info)
+        return self._extra_scan_info[unique].get(channel_name, True)
+
+    def __disable_video(self, scan_info, channel_name):
+        unique = self.__get_scan_id(scan_info)
+        self._extra_scan_info[unique][channel_name] = False
+
     def __new_scan_data(self, scan_info, data_type, master_name, data):
         if data_type == "0d":
             channels_data = data["data"]
@@ -247,7 +260,17 @@ class ScanManager:
             must_update = self.__is_image_must_be_read(channel_name, image_view)
             try:
                 if must_update:
-                    image_data, frame_id = image_view.get_last_live_image()
+                    video_available = self.__is_video_available(scan_info, channel_name)
+                    if video_available:
+                        try:
+                            image_data, frame_id = image_view.get_last_live_image()
+                        except ImageFormatNotSupported:
+                            _logger.debug(
+                                "Error while reaching video. Reading data from the video is disabled for this scan.",
+                                exc_info=True,
+                            )
+                            self.__disable_video(scan_info, channel_name)
+
                     if image_data is None:
                         # FIXME: It would be good to havce an API returning the frame id together with the data
                         image_data = image_view.get_image(-1)
@@ -306,10 +329,13 @@ class ScanManager:
         return self.__scan
 
     def end_scan(self, scan_info: Dict):
+        unique = self.__get_scan_id(scan_info)
         if not self.__is_current_scan(scan_info):
-            unique = self.__get_scan_id(scan_info)
             _logger.debug("end_scan from %s ignored", unique)
             return
+
+        # Clean up cache
+        del self._extra_scan_info[unique]
 
         scan = self.__scan
         if scan is None:

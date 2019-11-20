@@ -7,14 +7,19 @@
 
 import importlib
 import os
+import enum
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.config import settings
+from bliss import global_map
+from bliss.config.beacon_object import BeaconObject
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss.scanning.acquisition.lima import LimaChainNode
+from bliss import current_session
+
 
 from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
@@ -78,6 +83,138 @@ class Lima(CounterController):
 
     # Standard interface
 
+    class LimaBeaconObject(BeaconObject):
+        _suffix_conversion_dict = {
+            "EDFGZ": ".edf.gz",
+            "EDFLZ4": ".edf.lz4",
+            "HDF5": ".h5",
+            "HDF5GZ": ".h5",
+            "HDF5BS": ".h5",
+            "CBFMHEADER": ".cbf",
+        }
+        # TODO: is this suffix list correct? CBFMHEADER? HDF5BS? EDFCONCAT?
+
+        class SavingMode(enum.IntEnum):
+            ONE_FILE_PER_FRAME = 0
+            ONE_FILE_PER_SCAN = 1
+            ONE_FILE_PER_N_FRAMES = 2
+            SPECIFY_MAX_FILE_SIZE = 3
+
+        def __init__(self, config, proxy, name):
+            self._proxy = proxy
+            self.name = name
+
+            super().__init__(config, share_hardware=False)
+
+        mode = BeaconObject.property_setting(
+            "mode", default=SavingMode.ONE_FILE_PER_N_FRAMES
+        )
+
+        @mode.setter  ## TODO: write some doc about return of setter
+        def mode(self, mode):
+            if type(mode) is self.SavingMode:
+                return mode
+            elif mode in self.SavingMode.__members__.keys():
+                return self.SavingMode[mode]
+            elif self.SavingMode.__members__.values():
+                return self.SavingMode(mode)
+            else:
+                raise RuntimeError("trying to set unkown saving mode")
+
+        @property
+        def get_available_saving_modes(self):
+            return list(self.SavingMode.__members__.keys())
+
+        @property
+        def get_available_saving_formats(self):
+            return self._proxy.getAttrStringValueList("saving_format")
+
+        # used in ONE_FILE_PER_N_FRAMES mode   TODO: pass doc to property...
+        frames_per_file = BeaconObject.property_setting("frames_per_file", default=100)
+
+        # used in N_MB_PER_FILE mode   TODO: pass doc to property...
+        max_file_size_in_MB = BeaconObject.property_setting(
+            "max_file_size_in_MB", default=500
+        )
+
+        # TODO: so far this is not shown in __info__ should it stay like that?
+        # hidden parameter?
+        max_writing_tasks = BeaconObject.property_setting(
+            "max_writing_tasks", default=1
+        )
+
+        file_format = BeaconObject.property_setting("file_format", default="HDF5")
+
+        @file_format.setter
+        def file_format(self, fileformat):
+            avail_ff = self.get_available_saving_formats
+            if fileformat in avail_ff:
+                return fileformat
+            else:
+                raise RuntimeError(
+                    f"trying to set unkown saving format ({fileformat})."
+                    f"available formats are: {avail_ff}"
+                )
+
+        def to_dict(self):
+            """
+            if saving_frame_per_file = -1 it has to be recalculated in the acq 
+            dev and to be replaced by npoints of scan
+            """
+
+            suffix_dict = {
+                k: "." + k.lower() for k in self.get_available_saving_formats
+            }
+            suffix_dict.update(self._suffix_conversion_dict)
+
+            if self.mode == self.SavingMode.ONE_FILE_PER_N_FRAMES:
+                frames = self.frames_per_file
+            elif self.mode == self.SavingMode.ONE_FILE_PER_SCAN:
+                frames = -1
+            elif self.mode == self.SavingMode.SPECIFY_MAX_FILE_SIZE:
+                (sign, depth, width, height) = self._proxy.image_sizes
+                frames = int(
+                    round(
+                        self.max_file_size_in_MB / (depth * width * height / 1024 ** 2)
+                    )
+                )
+            else:
+                frames = 1
+
+            # force saving_max_writing_task in case any HDF based file format is used
+            # this logic could go into lima at some point.
+            if "HDF" in self.settings["file_format"]:
+                max_tasks = 1
+            else:
+                max_tasks = self.settings["max_writing_tasks"]
+
+            return {
+                "saving_format": self.settings["file_format"],
+                "saving_frame_per_file": frames,
+                "saving_suffix": suffix_dict[self.settings["file_format"]],
+                "saving_max_writing_task": max_tasks,
+            }
+
+        def __info__(self):
+            return (
+                #  f"Saving parameters of {self._proxy.name()}\n"
+                f"current saving mode (.mode):\t\t{self.mode.name}\n"
+                f"saving format (.file_format): \t{self.file_format} \n"
+                f"for ONE_FILE_PER_N_FRAMES mode:\n"
+                f"\t.frames_per_file:\t\t{self.frames_per_file}\n"
+                f"for SPECIFY_MAX_FILE_SIZE mode:\n"
+                f"\t.max_file_size_in_MB:\t\t{self.max_file_size_in_MB}\n"
+                f"Available modes:\n{self.get_available_saving_modes}\n"
+                f"Available file formats:\n{self.get_available_saving_formats}\n"
+                f"The follwoing parameters will be set in camera (if not overwritten by scan):\n"
+                f"{self.to_dict()}\n"
+            )
+
+    # Todo to be another beacon object like saving
+    class LimaTools(object):
+        def to_dict(self):
+            return {}
+
     def __init__(self, name, config_tree):
         """Lima controller.
 
@@ -105,6 +242,49 @@ class Lima(CounterController):
         self._active_dir_mapping = settings.SimpleSetting(
             "%s:directories_mapping" % name
         )
+
+        # TODO: might not be the good place to do this
+        # should this go to bliss/common/mapping?
+        # should the lima entry be under global or under controller?
+        global_map.register("lima", ["global"])
+        global_map.register(self, parents_list=["lima"])
+
+        saving_conf = config_tree.get("saving", {})
+
+        if current_session:
+            name_prefix = current_session.name
+        else:
+            name_prefix = ""
+
+        if saving_conf:
+            saving_conf_name = saving_conf.get("name", self.name + "_saving")
+            self._saving = self.LimaBeaconObject(
+                saving_conf,
+                self._proxy,
+                f"{name_prefix}:{self.name}:{saving_conf_name}",
+            )
+        else:
+            self._saving = self.LimaBeaconObject(
+                {}, self._proxy, f"{name_prefix}:{self.name}:saving"
+            )
+
+        # still an empty shell...
+        self._processing = self.LimaTools()
+
+    def apply_parameters_to_hw(self, ctrl_params):
+        for key, value in ctrl_params.items():
+            setattr(self.proxy, key, value)
+
+    def get_default_parameters(self):
+        return {**self.saving.to_dict(), **self.processing.to_dict()}
+
+    @autocomplete_property  # TODO: not used yet
+    def processing(self):
+        return self._processing
+
+    @autocomplete_property
+    def saving(self):
+        return self._saving
 
     @property
     def directories_mapping_names(self):
@@ -156,7 +336,7 @@ class Lima(CounterController):
 
         return path
 
-    @property
+    @autocomplete_property
     def proxy(self):
         return self._proxy
 

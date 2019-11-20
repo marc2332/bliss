@@ -318,8 +318,8 @@ class LimaImageChannelDataNode(DataNode):
                             return dataset[image_index]
                 else:
                     raise RuntimeError("Format not managed yet")
-            else:
-                raise IndexError("Cannot retrieve image %d from file" % image_nb)
+
+            raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
         def _tango_unpack(self, msg):
             struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"

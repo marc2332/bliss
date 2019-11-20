@@ -197,11 +197,14 @@ def _watch_data_callback(
                                 gevent.idle()
                     elif zerod_nodes:
                         gevent.sleep(.1)  # relax a little bit
+
                     for master, channels in scan_info["acquisition_chain"].items():
-                        other_names = channels.get("spectra", []) + channels.get(
-                            "images", []
-                        )
-                        for i, channel_name in enumerate(other_names):
+                        other_names = channels.get("spectra", [])
+                        other_names += channels.get("images", [])
+                        other_names += channels.get("master", {}).get("images", [])
+                        other_names += channels.get("master", {}).get("spectra", [])
+
+                        for i, channel_name in enumerate(set(other_names)):
                             channel_db_name, dim, channel_data_node = other_nodes.get(
                                 channel_name, (None, -1, None)
                             )

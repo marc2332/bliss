@@ -7,6 +7,7 @@
 
 import operator
 import functools
+from sortedcontainers import SortedKeyList
 
 from bliss import global_map
 from bliss.common import measurementgroup
@@ -17,66 +18,103 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
-def _get_object_from_name(name):
-    """Get the bliss object corresponding to the given name.
-
-    `name` can be:
-    - a counter's name or an acquisition device's name ("name")
-    - a counter's fullname ("ctrl:cnt")
-    - a counter from an acquisition device ("ctrl.counters.cnt")
-    - a counter group from an acquisition device ("ctrl.counter_groups.group")
-    """
-    if ":" in name:
-        return global_map.get_counter_from_fullname(name)
-
-    elif "." in name:
-        # could be "ctrl.counters.cnt" or "ctrl.counter_groups.group"
-        try:
-            x, _, shortname = name.rpartition(".")
-        except ValueError:
-            raise AttributeError(name)
-        else:
-            for ctrl in global_map.instance_iter("controllers"):
-                if not isinstance(ctrl, CounterController):
-                    continue
-                ctrl_name, _, counters_or_group = x.rpartition(".")
-                if ctrl.name == ctrl_name:
-                    return operator.attrgetter(f"{counters_or_group}.{shortname}")(ctrl)
-            raise AttributeError(name)
-
-    else:
-        # it's a counter or a CounterController (with .counters)
-        try:
-            return next(
-                x
-                for x in global_map.instance_iter("counters")
-                if isinstance(x, Counter) and x.name == name
-            )
-        except StopIteration:
-            try:
-                return next(
-                    x
-                    for x in global_map.instance_iter("controllers")
-                    if isinstance(x, CounterController) and x.name == name
-                )
-            except StopIteration:
-                raise AttributeError(name)
-
-
 def _get_counters_from_measurement_group(mg):
     """Get the counters from a measurement group."""
     counters, missing = [], []
-    for name in mg.enabled:
+    counters_by_names = dict()
+    all_counters_dict = dict()
+
+    for cnt in global_map.get_counters_iter():
         try:
-            obj = _get_object_from_name(name)
+            fname = cnt.fullname
         except AttributeError:
-            missing.append(name)
+            pass
         else:
-            # Prevent groups from pointing to other groups
-            counters += _get_counters_from_object(obj, recursive=False)
+            all_counters_dict[fname] = cnt
+        try:
+            name = cnt.name
+        except AttributeError:
+            pass
+        else:
+            s = counters_by_names.setdefault(name, set())
+            s.add(cnt)
+
+    keys = SortedKeyList(all_counters_dict)
+    for name in set(mg.enabled):
+        # check there is a unique counter with this name
+        cnts = counters_by_names.get(name)
+        if cnts is not None:
+            if len(cnts) > 1:
+                raise RuntimeError(
+                    f"Several counters may be selected with this {name}\n"
+                    f" change for one of those: {cnts}, in measurement group {mg.name}"
+                )
+            counters += _get_counters_from_object(cnts.pop(), recursive=False)
+            continue
+
+        # otherwise get counters by their full name
+        index = keys.bisect_key_left(name)
+        try:
+            index_name = keys[index]
+        except IndexError:
+            index -= 1
+            try:
+                index_name = keys[index]
+            except IndexError:
+                missing.append(name)
+                continue
+
+        if index_name == name:
+            counters += _get_counters_from_object(
+                all_counters_dict[name], recursive=False
+            )
+        else:  # match partial names
+            counter_container_name = name.rstrip(":") + ":"
+            # counters container case
+            if index_name.startswith(counter_container_name):
+                while True:
+                    counters += _get_counters_from_object(
+                        all_counters_dict[index_name], recursive=False
+                    )
+                    index += 1
+                    index_name = keys[index]
+                    if not index_name.startswith(counter_container_name):
+                        break
+            else:
+                # counter case, finding controller
+                for counter_container_name, access_name in _get_counters_container_name(
+                    name
+                ):
+                    try:
+                        counter_container = all_counters_dict[counter_container_name]
+                    except KeyError:
+                        continue
+
+                    try:
+                        cnts = operator.attrgetter(access_name)(counter_container)
+                    except AttributeError:
+                        continue
+                    try:
+                        counters += cnts
+                    except TypeError:  # Simple counter
+                        counters.append(cnts)
+                    break
+                else:
+                    missing.append(name)
     if missing:
         raise AttributeError(*missing)
     return counters
+
+
+def _get_counters_container_name(name):
+    names = name.split(":")
+    for index in range(-1, -len(names), -1):
+        counter_access_name = ".".join(names[index:])
+        counter_container_name = ":".join(names[:index])
+        # first try to access from `.counters'
+        yield counter_container_name, f"counters.{counter_access_name}"
+        # second, maybe it's a group
+        yield counter_container_name, f"counter_groups.{counter_access_name}"
 
 
 def _get_counters_from_object(arg, recursive=True):

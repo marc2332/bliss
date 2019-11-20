@@ -29,9 +29,25 @@ UNSET = object()
 when None is a valid argument which can be used"""
 
 
+class ImageFormatNotSupported(Exception):
+    """"Raised when the RAW data from a Lima device can't be decoded as a grey
+    scale or RGB numpy array."""
+
+
 class LimaImageChannelDataNode(DataNode):
     class LimaDataView(object):
         DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
+
+        IMAGE_MODES = {
+            0: numpy.uint8,
+            1: numpy.uint16,
+            2: numpy.uint32,
+            4: numpy.int8,
+            5: numpy.int16,
+            6: numpy.int32,
+        }
+
+        VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
 
         def __init__(self, data, from_index, to_index, from_stream=False):
             self.data = data
@@ -39,14 +55,6 @@ class LimaImageChannelDataNode(DataNode):
             self.to_index = to_index
             self.last_image_ready = -1
             self.from_stream = from_stream
-            self._image_mode = {
-                0: numpy.uint8,
-                1: numpy.uint16,
-                2: numpy.uint32,
-                4: numpy.int8,
-                5: numpy.int16,
-                6: numpy.int32,
-            }
 
         @property
         def ref_status(self):
@@ -115,27 +123,34 @@ class LimaImageChannelDataNode(DataNode):
             ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
 
             if endian != 0:
-                raise ValueError(
+                raise ImageFormatNotSupported(
                     "Decoding video frame from this Lima device is not supported by bliss cause of the endianness (found %s)."
                     % endian
                 )
 
             if pad0 != 0 or pad1 != 0:
-                raise ValueError(
+                raise ImageFormatNotSupported(
                     "Decoding video frame from this Lima device is not supported by bliss cause of the padding (found %s, %s)."
                     % (pad0, pad1)
                 )
 
-            if magic != 0x5644454f or header_version != 1:
-                raise IndexError("Bad image header.")
+            if magic != 0x5644454f:
+                raise ImageFormatNotSupported(
+                    "Magic header not supported (found %s)." % magic
+                )
+
+            if header_version != 1:
+                raise ImageFormatNotSupported(
+                    "Image header version not supported (found %s)." % header_version
+                )
             if image_frame_number < 0:
                 raise IndexError("Image (from Lima live interface) not available yet.")
 
-            video_modes = (numpy.uint8, numpy.uint16, numpy.int32, numpy.int64)
-            try:
-                mode = video_modes[image_mode]
-            except IndexError:
-                raise IndexError("Unknown image mode (found %s)." % image_mode)
+            mode = self.VIDEO_MODES.get(image_mode)
+            if mode is None:
+                raise ImageFormatNotSupported(
+                    "Video format unsupported (found %s)." % image_mode
+                )
 
             data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
             data.shape = image_height, image_width
@@ -328,9 +343,16 @@ class LimaImageChannelDataNode(DataNode):
             if values[0] != self.DataArrayMagic:
                 raise RuntimeError("No Lima data")
             header_offset = values[2]
-            data = numpy.fromstring(
-                msg[header_offset:], dtype=self._image_mode.get(values[4])
-            )
+
+            format_id = values[4]
+            data_format = self.IMAGE_MODES.get(format_id)
+            if data_format is None:
+                raise ImageFormatNotSupported(
+                    "Image format from Lima Tango device not supported (found %s)."
+                    % format_id
+                )
+
+            data = numpy.fromstring(msg[header_offset:], dtype=data_format)
             data.shape = values[8], values[7]
             return data
 

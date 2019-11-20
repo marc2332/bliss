@@ -10,6 +10,9 @@ from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.shell.standard import info
+from bliss.scanning import toolbox
+from bliss.controllers import counter
+from bliss.common.counter import Counter
 
 # 3 measurement groups : test_mg MG1 MG2 are configured
 # in tests/test_configuration/sessions/test.yml
@@ -167,3 +170,104 @@ def test_add(session, capsys):
         assert "diode2" not in captured.out
     finally:
         default_mg.remove("diode2")
+
+
+def test_counter_group(beacon, session, lima_simulator):
+    lima_simulator = beacon.get("lima_simulator")
+    simu_name = lima_simulator.name
+    # build a local measurementgroup
+    mg = measurementgroup.MeasurementGroup("local", {"counters": [f"{simu_name}:bpm"]})
+    counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(counters) == set(lima_simulator.bpm.counters)
+
+
+def test_counters_with_no_register_controller(clean_gevent):
+    clean_gevent["end-check"] = False
+    fake_cnts = {"bla": 1, "truc": 2}
+
+    class MyCounter(counter.CounterController):
+        def __init__(self):
+            super().__init__("test_cnt")
+
+        @property
+        def counters(self):
+            return counter.counter_namespace(fake_cnts)
+
+    container = MyCounter()
+    mg = measurementgroup.MeasurementGroup("local", {"counters": ["test_cnt:truc"]})
+    counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(counters) == set([2])
+
+    mg = measurementgroup.MeasurementGroup(
+        "local", {"counters": [f"test_cnt:{name}" for name in fake_cnts.keys()]}
+    )
+    counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(counters) == set(container.counters)
+
+    mg = measurementgroup.MeasurementGroup("local", {"counters": ["test_cnt"]})
+    counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(counters) == set(container.counters)
+
+
+def test_counters_with_register_counters(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    class MyCounter(counter.CounterController):
+        def __init__(self):
+            super().__init__("test_cnt")
+
+    class Cnt(Counter):
+        def __init__(self, name, controller):
+            super().__init__(name, controller)
+
+    container = MyCounter()
+    counters = {name: Cnt(name, container) for name in ["bla", "truc", "yo"]}
+    container._counters = counters
+
+    mg = measurementgroup.MeasurementGroup("local", {"counters": ["test_cnt"]})
+    selected_counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(selected_counters) == set(counters.values())
+
+    names = ["bla", "truc"]
+    mg = measurementgroup.MeasurementGroup("local", {"counters": names})
+    selected_counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(selected_counters) == set([counters[name] for name in names])
+
+    fullnames = [x.fullname for x in selected_counters]
+    mg = measurementgroup.MeasurementGroup("local", {"counters": fullnames})
+    selected_counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set(selected_counters) == set([counters[name] for name in names])
+
+
+names = ["bla", "truc", "yo"]
+
+
+@pytest.mark.parametrize(
+    "mg_counters, expected_counter_names",
+    [
+        (["test_cnt"], [f"test_cnt:{name}" for name in names]),
+        (["test_cnt:bla", "test_cnt:truc"], ["test_cnt:bla", "test_cnt:truc"]),
+    ],
+    ids=["all", "partial"],
+)
+def test_dynamic_counters_with_register_counters(
+    clean_gevent, mg_counters, expected_counter_names
+):
+    clean_gevent["end-check"] = False
+
+    class Cnt(Counter):
+        def __init__(self, name, controller):
+            super().__init__(name, controller)
+
+    class MyCounter(counter.CounterController):
+        def __init__(self):
+            super().__init__("test_cnt")
+
+        @property
+        def counters(self):
+            return counter.counter_namespace((Cnt(name, self) for name in names))
+
+    container = MyCounter()
+    mg = measurementgroup.MeasurementGroup("local", {"counters": mg_counters})
+    selected_counters = toolbox._get_counters_from_measurement_group(mg)
+    assert set([c.fullname for c in selected_counters]) == set(expected_counter_names)

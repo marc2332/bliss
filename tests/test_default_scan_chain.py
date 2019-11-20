@@ -6,8 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-from bliss.common.scans import DEFAULT_CHAIN
+import h5py
+import os
 
+from bliss.common.scans import DEFAULT_CHAIN, loopscan
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -384,3 +386,36 @@ def test_default_chain_with_mca_defaults_parameters(default_session, lima_simula
         assert nodes[2].trigger_mode == McaAcquisitionSlave.GATE
     finally:
         DEFAULT_CHAIN.set_settings([])
+
+
+# ~ def test_set_settings_with_ctrl_settings(session, lima_simulator, scan_tmpdir):
+# ~ lima_sim = session.config.get("lima_simulator")
+# ~ DEFAULT_CHAIN = session.env_dict["DEFAULT_CHAIN"]
+# ~ try:
+# ~ DEFAULT_CHAIN.set_settings(
+# ~ [
+# ~ {
+# ~ "device": lima_sim,
+# ~ "controller_settings": {
+# ~ "saving_format": "HDF5",
+# ~ "saving_suffix": ".h5",
+# ~ },
+# ~ }
+# ~ ]
+# ~ )
+
+# ~ # put scan file in a tmp directory
+# ~ session.scan_saving.base_path = str(scan_tmpdir)
+
+# ~ s = loopscan(1, 0.01, lima_sim)
+
+# ~ finally:
+# ~ DEFAULT_CHAIN.set_settings([])
+
+# ~ f = h5py.File(
+# ~ os.path.join(
+# ~ os.path.dirname(s.writer.filename), "scan0001", "lima_simulator_0000.h5"
+# ~ )
+# ~ )
+
+# ~ assert f["entry_0000"]

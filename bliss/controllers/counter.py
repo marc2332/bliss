@@ -28,7 +28,7 @@ class CounterController:
 
         # self._hw_controller = hw_ctrl
 
-        global_map.register(self, parents_list=["controllers"])
+        global_map.register(self, parents_list=["counters"])
 
     @property
     def name(self):

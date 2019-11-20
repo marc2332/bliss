@@ -238,6 +238,8 @@ def iter_counters():
     shape = ["0D", "1D", "2D"]
 
     for cnt in global_map.get_counters_iter():
+        if not hasattr(cnt, "shape"):  # should be change with protocol.
+            continue
         prefix, _, short_name = cnt.fullname.rpartition(":")
         counters_dict[cnt.fullname] = (
             shape[len(cnt.shape)],

@@ -303,14 +303,13 @@ class MapWithAliases(Map):
             yield mot
 
     def get_counters_iter(self):
-        for cnt in self.instance_iter("counters"):
-            yield cnt
-        for ctrl in self.instance_iter("controllers"):
+        yield from self.instance_iter("counters")
+        for cnt_container in self.instance_iter("counters"):
             try:
-                for cnt in ctrl.counters:
+                for cnt in cnt_container.counters:
                     yield cnt
             except AttributeError:
-                continue
+                pass
 
     @property
     def aliases(self):
@@ -353,23 +352,11 @@ class MapWithAliases(Map):
         except ValueError:
             raise AttributeError(fullname)
         else:
-            for cnt in self.instance_iter("counters"):
+            for cnt in self.get_counters_iter():
                 try:
                     if cnt.fullname == fullname:
                         return cnt
                 except AttributeError:
                     continue
-            # could not find counter in map, look for controllers counters
-            for ctrl in self.instance_iter("controllers"):
-                try:
-                    ctrl_name = ctrl.fullname
-                except AttributeError:
-                    try:
-                        ctrl_name = ctrl.name
-                    except AttributeError:
-                        continue
-                if ctrl_name == controller_fullname:
-                    for cnt in ctrl.counters:
-                        if cnt.fullname == fullname:
-                            return cnt
-            raise AttributeError(fullname)
+            else:
+                raise AttributeError(fullname)

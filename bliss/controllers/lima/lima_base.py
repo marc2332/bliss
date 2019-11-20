@@ -121,11 +121,11 @@ class Lima(CounterController):
                 raise RuntimeError("trying to set unkown saving mode")
 
         @property
-        def get_available_saving_modes(self):
+        def available_saving_modes(self):
             return list(self.SavingMode.__members__.keys())
 
         @property
-        def get_available_saving_formats(self):
+        def available_saving_formats(self):
             return self._proxy.getAttrStringValueList("saving_format")
 
         # used in ONE_FILE_PER_N_FRAMES mode   TODO: pass doc to property...
@@ -146,7 +146,7 @@ class Lima(CounterController):
 
         @file_format.setter
         def file_format(self, fileformat):
-            avail_ff = self.get_available_saving_formats
+            avail_ff = self.available_saving_formats
             if fileformat in avail_ff:
                 return fileformat
             else:
@@ -160,11 +160,6 @@ class Lima(CounterController):
             if saving_frame_per_file = -1 it has to be recalculated in the acq 
             dev and to be replaced by npoints of scan
             """
-
-            suffix_dict = {
-                k: "." + k.lower() for k in self.get_available_saving_formats
-            }
-            suffix_dict.update(self._suffix_conversion_dict)
 
             if self.mode == self.SavingMode.ONE_FILE_PER_N_FRAMES:
                 frames = self.frames_per_file
@@ -190,9 +185,15 @@ class Lima(CounterController):
             return {
                 "saving_format": self.settings["file_format"],
                 "saving_frame_per_file": frames,
-                "saving_suffix": suffix_dict[self.settings["file_format"]],
+                "saving_suffix": self.suffix_dict[self.settings["file_format"]],
                 "saving_max_writing_task": max_tasks,
             }
+
+        @property
+        def suffix_dict(self):
+            _suffix_dict = {k: "." + k.lower() for k in self.available_saving_formats}
+            _suffix_dict.update(self._suffix_conversion_dict)
+            return _suffix_dict
 
         def __info__(self):
             return (
@@ -238,6 +239,13 @@ class Lima(CounterController):
             assert value in ["NONE", "90", "180", "270"]
 
             return value
+
+        # further properties that could be here
+        # - mask
+        # - background
+        # - binning
+        # - flatfield
+        # - hardware roi?
 
         def to_dict(self):
             return {"image_rotation": self.rotation, "image_flip": self.flip}
@@ -325,6 +333,13 @@ class Lima(CounterController):
             )
 
     def apply_parameters_to_hw(self, ctrl_params):
+
+        if "saving_format" in ctrl_params:
+            assert ctrl_params["saving_format"] in self.saving.available_saving_formats
+            ctrl_params["saving_suffix"] = self.saving.suffix_dict[
+                ctrl_params["saving_format"]
+            ]
+
         for key, value in ctrl_params.items():
             setattr(self.proxy, key, value)
 
@@ -342,6 +357,12 @@ class Lima(CounterController):
         )
 
         lima_saving_parameters_dialog(self)
+
+    def configure_processing(self):
+        """shell dialog for processing related settings"""
+        from bliss.shell.dialog.controller.lima_dialogs import lima_processing_dialog
+
+        lima_processing_dialog(self)
 
     @autocomplete_property
     def saving(self):

@@ -156,5 +156,14 @@ def test_add(session, capsys):
         config_file.pprint()
         captured = capsys.readouterr()
         assert "diode2" not in captured.out
+        default_mg.add("diode2")
+        default_mg.disable("diode2")
+        assert default_mg.disabled == ["diode2"]
+        default_mg.remove("diode2")
+        assert default_mg.disabled == []
+        assert default_mg.available == ["diode"]
+        config_file.pprint()
+        captured = capsys.readouterr()
+        assert "diode2" not in captured.out
     finally:
         default_mg.remove("diode2")

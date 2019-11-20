@@ -613,9 +613,13 @@ class SpeedgoatChainNode(SamplingChainNode):
                 self.controller, npoints, ctrl_params=ctrl_params
             )
         else:
-            count_time = acq_params["count_time"]
+            params = {}
+
+            params["count_time"] = acq_params["count_time"]
+            params["npoints"] = acq_params["npoints"]
+
             return SamplingChainNode.get_acquisition_object(
-                self, acq_params, ctrl_params=ctrl_params
+                self, params, ctrl_params=ctrl_params
             )
 
 

@@ -8,6 +8,7 @@
 import re
 from collections import namedtuple
 from itertools import zip_longest
+import warnings
 
 from typing import Union
 import yaml
@@ -83,6 +84,7 @@ COMMANDS = {
     "ILCK_SETNAME": 0x0106,  # 262
     "ILCK_GETNAME": 0x0107,  # 263
     # 263,2 the answer is the ascii description given as an array of words
+    # the maximum size of description seems to be 32 chars (TODO: check this)
     "ILCK_GETSTAT": 0x0108,  # 264
     # first value & STMASK will result in status, second value is VALUE
     # Example: 264,1 asks for state of interlock 1
@@ -372,7 +374,7 @@ def beacon_interlock_parsing(yml, modules_config: ModulesConfig):
         logical_device = node["relay"]
         logical_device_channel = node.get("relay_channel", 0)
         flags = string_to_flags(node.get("flags", "") + " DIGITAL")
-        description = node.get("description", "")
+        description = node.get("description", "")[:32]  # trim size
 
         logical_device_key = modules_config.devname2key(logical_device)
 
@@ -516,7 +518,7 @@ def _interlock_relay_info(
     """
     info = {
         "num": num,
-        "description": description.strip("\0"),
+        "description": description.strip("\0")[:32],  # max size 32
         "logical_device": logical_device,
         "logical_device_key": logical_device_key,
         "logical_device_channel": logical_device_channel,
@@ -766,7 +768,7 @@ def interlock_compare(int_list_1, int_list_2):
             int_2["description"]
         ):
             messages.append(
-                f"Interlock n.{num} for name: {int_1['name']} != {int_2['name']}"
+                f"Interlock n.{num} for name: {int_1['description']} != {int_2['description']}"
             )
 
         if imask(int_1["flags"]) != imask(int_2["flags"]):
@@ -811,8 +813,6 @@ def interlock_download(
     Note: wago mapping should be set before calling this
     """
 
-    # log_info(wago, f"Checking interlock on Wago {wago.client.host}")
-
     free_inst, available_inst, _ = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
     )
@@ -832,6 +832,7 @@ def interlock_download(
         description = ""  # TODO: '\x00\x00 is not a proper response
         for word in word_name:
             description += word_to_2ch(word)
+        description = description.strip("\0").strip()
 
         # getting state of relay
         status_flags, value = wago.devwccomm((COMMANDS["ILCK_GETSTAT"], i))
@@ -894,7 +895,7 @@ def interlock_download(
 
 def interlock_purge(wago: Union[TangoWago, WagoController]):
     """Purges all interlocks available into a PLC"""
-    log_info(wago, f"Interlock: Uploading interlock on Wago {wago.client.host}")
+    log_info(wago, f"Interlock: Uploading interlock on Wago")
 
     free_inst, available_inst, imsk = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
@@ -929,11 +930,11 @@ def interlock_upload(wago: Union[TangoWago, WagoController], interlock_list: lis
         )
         response = wago.devwccomm((COMMANDS["ILCK_CREATE"], offset, interlock["flags"]))
         instance_number = response[0]
-        description = (
-            bytestring_to_wordarray(interlock["description"])
-            if interlock["description"] is not None
-            else []
-        )
+
+        # if size is less than 32 fill with spaces
+        _description = interlock["description"][:32].ljust(32)
+
+        description = bytestring_to_wordarray(_description)
 
         wago.devwccomm((COMMANDS["ILCK_SETNAME"], instance_number, *description))
         for channel in interlock["channels"]:

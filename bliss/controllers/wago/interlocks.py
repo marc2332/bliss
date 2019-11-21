@@ -8,7 +8,6 @@
 import re
 from collections import namedtuple
 from itertools import zip_longest
-import warnings
 
 from typing import Union
 import yaml
@@ -604,8 +603,8 @@ def _interlock_channel_info_from_plc(
             info["type"]["register_type"] = "IB"
 
     if len(get_conf_output) > 3:
-        info["low_limit"] = get_conf_output[2]
-        info["high_limit"] = get_conf_output[3]
+        info["low_limit"] = to_signed(get_conf_output[2])
+        info["high_limit"] = to_signed(get_conf_output[3])
         info["type"]["type"] = word_to_2ch(get_conf_output[-2])
     if len(get_conf_output) > 6:  # TODO: check order of a dac
         info["dac"] = get_conf_output[5]
@@ -768,7 +767,7 @@ def interlock_compare(int_list_1, int_list_2):
             int_2["description"]
         ):
             messages.append(
-                f"Interlock n.{num} for name: {int_1['description']} != {int_2['description']}"
+                f"Interlock n.{num} for description: {int_1['description']} != {int_2['description']}"
             )
 
         if imask(int_1["flags"]) != imask(int_2["flags"]):
@@ -812,6 +811,7 @@ def interlock_download(
 
     Note: wago mapping should be set before calling this
     """
+    log_info(wago, f"Checking interlock on Wago")
 
     free_inst, available_inst, _ = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])

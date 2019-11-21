@@ -234,9 +234,20 @@ class ScanManager:
         # An updated is needed when bliss provides a most recent frame
         return redis_frame_id > stored_frame_id
 
-    def __is_video_available(self, scan_info, channel_name) -> bool:
+    def __is_video_available(self, scan_info, image_view, channel_name) -> bool:
+        """True if the video format is readable (or not yet checked) and the
+        frame id have a meaning (or not yet checked)"""
         unique = self.__get_scan_id(scan_info)
-        return self._extra_scan_info[unique].get(channel_name, True)
+        info = self._extra_scan_info[unique].get(channel_name, None)
+        if info is None:
+            have_meaning = image_view.is_video_frame_have_meaning()
+            if have_meaning is not None:
+                self._extra_scan_info[unique][channel_name] = have_meaning
+                info = have_meaning
+            else:
+                # Default
+                info = True
+        return info
 
     def __disable_video(self, scan_info, channel_name):
         unique = self.__get_scan_id(scan_info)
@@ -260,10 +271,16 @@ class ScanManager:
             must_update = self.__is_image_must_be_read(channel_name, image_view)
             try:
                 if must_update:
-                    video_available = self.__is_video_available(scan_info, channel_name)
+                    video_available = self.__is_video_available(
+                        scan_info, image_view, channel_name
+                    )
                     if video_available:
                         try:
                             image_data, frame_id = image_view.get_last_live_image()
+                            if frame_id is None:
+                                # This should never be triggered, as we should
+                                # already new that frame have no meaning
+                                raise RuntimeError("None frame returned")
                         except ImageFormatNotSupported:
                             _logger.debug(
                                 "Error while reaching video. Reading data from the video is disabled for this scan.",

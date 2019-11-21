@@ -1471,8 +1471,7 @@ class WagoController:
                     f"devwccomm Phase 5: failed to read at address: {addr} words: {size}",
                 )
                 raise
-            # return [to_signed(n) for n in response]
-            return response
+            return [to_signed(n) for n in response]
         else:
             return []
 

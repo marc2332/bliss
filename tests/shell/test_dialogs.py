@@ -5,15 +5,12 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 from bliss.shell.cli.user_dialog import (
     UserMsg,
     UserInput,
     UserIntInput,
     UserFloatInput,
     UserFileInput,
-)
-from bliss.shell.cli.user_dialog import (
     UserChoice,
     UserCheckBox,
     Container,
@@ -25,10 +22,10 @@ from bliss.shell.cli.pt_widgets import BlissDialog
 
 def multi_dialog(title="Bliss dialog"):
 
-    from bliss.common.utils import get_axes_names_iter, get_axes_iter
+    from bliss import global_map
 
-    motor_names = list(get_axes_names_iter())
-    motor_obj = list(get_axes_iter())
+    motor_names = list(global_map.get_axes_names_iter())
+    motor_obj = list(global_map.get_axes_iter())
 
     ch_values = list(zip(motor_obj, motor_names))
 

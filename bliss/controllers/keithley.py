@@ -92,6 +92,8 @@ from bliss.comm.scpi import Cmd as SCPICmd
 from bliss.comm.scpi import Commands as SCPICommands
 from bliss.comm.scpi import BaseSCPIDevice
 
+from bliss.controllers.counter import SamplingCounterController
+
 from .keithley_scpi_mapping import COMMANDS as SCPI_COMMANDS
 from .keithley_scpi_mapping import MODEL_COMMANDS as SCPI_MODEL_COMMANDS
 
@@ -266,6 +268,19 @@ class SensorZeroCheckMixin:
         self.zero_check = zero_check  # restore zero check
 
 
+class KeithleyCounterController(SamplingCounterController):
+    def __init__(self, name, comm):
+        super().__init__(name)
+        self._comm = comm
+
+    def read_all(self, *counters):
+        values = self["READ"]
+        return [values[cnt.index] for cnt in counters]
+
+    def __getitem__(self, cmd):
+        return self._comm[cmd]
+
+
 class BaseMultimeter(KeithleySCPI, BeaconObject):
     def __init__(self, config, interface=None):
         kwargs = dict(config)
@@ -273,9 +288,14 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
             kwargs["interface"] = interface
         BeaconObject.__init__(self, config)
         KeithleySCPI.__init__(self, **kwargs)
+        self._controller = KeithleyCounterController(self.name, self.language)
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)
+
+    @property
+    def counters(self):
+        return self._controller.counters
 
     @property
     def name(self):
@@ -307,11 +327,6 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
     @auto_zero.setter
     def auto_zero(self, value):
         self["SYST:AZER"] = value
-
-    @BeaconObject.lazy_init
-    def read_all(self, *counters):
-        values = self["READ"]
-        return [values[cnt.index] for cnt in counters]
 
     @BeaconObject.lazy_init
     def abort(self):
@@ -432,9 +447,25 @@ class K2000(BaseMultimeter):
 
 
 class AmmeterDDC(BeaconObject):
+    class Language:
+        """Helper class that makes the counter reading code compatible with SCPI version"""
+
+        def __init__(self, interface):
+            self._interface = interface
+
+        def __getitem__(self, cmd):
+            svalue = self._interface.write_readline(b"X\r\n")
+            return [float(svalue)]
+
+        def write(self, bytes_cmd):
+            self._interface.write(bytes_cmd)
+
     def __init__(self, config):
-        self.interface = get_comm(config, eol="\r\n")
+        interface = get_comm(config, eol="\r\n")
         super().__init__(config)
+        self._controller = KeithleyCounterController(
+            self.name, AmmeterDDC.Language(interface)
+        )
 
     @property
     def name(self):
@@ -453,23 +484,16 @@ class AmmeterDDC(BeaconObject):
         def __init__(self, config, controller):
             BeaconObject.__init__(self, config)
             SamplingCounter.__init__(self, self.name, controller)
-            self.__controller = controller
 
         @property
-        def controller(self):
-            return self.__controller
-
-        @BeaconObject.lazy_init
-        def read(self):
-            interface = self.controller.interface
-            svalue = interface.write_readline(b"X\r\n")
-            return float(svalue)
+        def index(self):
+            return 0
 
         def _initialize_with_setting(self):
             if self._is_initialized:
                 return
 
-            interface = self.controller.interface
+            interface = self.controller._comm
             interface.write(b"F1X\r\n")  # Amp function
             interface.write(b"B0X\r\n")  # electrometer reading
             interface.write(b"G1X\r\n")  # Reading without prefix
@@ -519,22 +543,30 @@ def create_objects_from_config_node(config, node):
     if "sensors" in node:
         # controller node
         obj = Multimeter(node)
+        CTRL[name] = obj
+        for s_node in node["sensors"]:
+            create_sensor(s_node)
     else:
         # sensor node
-        obj = create_sensor(config, node)
+        obj = create_sensor(node)
     return {name: obj}
 
 
-def create_sensor(config, node):
+def create_sensor(node):
     ctrl_node = node.parent
     while ctrl_node and "sensors" not in ctrl_node:
         ctrl_node = ctrl_node.parent
 
-    ctrl = CTRL.get(node["name"])
-    if ctrl is None:
-        sensor_names = [sensor_node["name"] for sensor_node in ctrl_node["sensors"]]
-        ctrl = Multimeter(ctrl_node)
-        for s_name in sensor_names:
-            CTRL[s_name] = ctrl
-    obj = ctrl.Sensor(node, ctrl)
+    try:
+        name = ctrl_node["name"]
+    except KeyError:
+        name = node["name"]
+
+    ctrl = CTRL.setdefault(name, Multimeter(ctrl_node))
+
+    sensor_names = [sensor_node["name"] for sensor_node in ctrl_node["sensors"]]
+    for s_name in sensor_names:
+        CTRL[s_name] = ctrl
+    obj = ctrl.Sensor(node, ctrl._controller)
+    ctrl._controller.add_counter(obj)
     return obj

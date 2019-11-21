@@ -53,7 +53,7 @@ def data_from_bytes(data, shape=None, dtype=None):
 
     try:
         return pickle.loads(data)
-    except pickle.UnpicklingError:
+    except (pickle.UnpicklingError, KeyError):
         if dtype is not None:
             try:
                 t = numpy.dtype(dtype)

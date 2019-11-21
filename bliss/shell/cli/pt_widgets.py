@@ -823,6 +823,10 @@ class BlissDialog(Dialog):
             except KeyError:
                 wdlg.dlg.defval = results[wdlg.dlg]
 
+        # for UserChoice, store the index
+        if type(wdlg.dlg).__name__ == "UserChoice":
+            wdlg.dlg.defval = [i[0] for i in wdlg.dlg.values].index(wdlg.dlg.defval)
+
         self.return_and_close(results)
 
     def cancel_handler(self):

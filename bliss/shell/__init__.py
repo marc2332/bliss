@@ -32,7 +32,7 @@ from bliss.common import session
 from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
-
+import __main__
 
 _log = logging.getLogger("bliss.shell")
 
@@ -118,7 +118,7 @@ def initialize(session_name=None):
         session = config.get(session_name)
         print("%s: Executing setup..." % session.name)
 
-    env_dict = {}
+    env_dict = __main__.__dict__
 
     exec("from bliss.common.standard import *", env_dict)
     from bliss.scanning.scan import ScanDisplay

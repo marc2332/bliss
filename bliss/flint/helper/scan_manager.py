@@ -289,9 +289,7 @@ class ScanManager:
                             self.__disable_video(scan_info, channel_name)
 
                     if image_data is None:
-                        # FIXME: It would be good to havce an API returning the frame id together with the data
-                        image_data = image_view.get_image(-1)
-                        frame_id = None
+                        image_data, frame_id = image_view.get_last_image()
             except IndexError:
                 # The image could not be ready
                 _logger.error("Error while reaching the last image", exc_info=True)

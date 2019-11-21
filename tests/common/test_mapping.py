@@ -5,14 +5,16 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from networkx.readwrite.json_graph import node_link_data
+import networkx as nx
+import collections
+import logging
 import pytest
+import sys
 
 from bliss.common.mapping import Map
 from bliss.common.logtools import create_logger_name
 from bliss import global_map
-import networkx as nx
-import logging
-import sys
 
 
 class SimpleNode:
@@ -254,42 +256,63 @@ def test_global_map(beacon, s1hg, roby):
     m = global_map
     sr = beacon.get("sample_regulation")
     heater = beacon.get("heater")
+    hooked_m0 = beacon.get("hooked_m0")
     # m.draw_pygraphviz()
 
-    axes = list(m.find_children("axes"))
-    assert id(roby) in axes
-    assert id(s1hg) in axes
-    assert len(axes) == 9
-    counters = list(m.find_children("counters"))
-    assert id(heater.counters[0]) in counters
-    assert len(counters) == 2
-    slits_children = m.find_children(id(s1hg.controller))
-    for real_axis in s1hg.controller.reals:
-        assert id(real_axis) in slits_children
-    assert id(s1hg) in slits_children
-    s1hg_pred = m.find_predecessors(id(s1hg))
-    assert len(s1hg_pred) == 2
-    assert id(s1hg.controller) in s1hg_pred
-    sr_children = m.find_children(id(sr))
-    assert len(sr_children) == 2
-    inp, outp = sr.input, sr.output
-    assert outp is heater
-    assert id(inp) in sr_children
-    assert id(outp) in sr_children
-    inp_pred = m.find_predecessors(id(inp))
-    outp_pred = m.find_predecessors(id(outp))
-    assert set(outp_pred) == set(inp_pred)
-    hooked_m0 = beacon.get("hooked_m0")
-    hooked_m0_pred = m.find_predecessors(id(hooked_m0))
-    assert "axes" in hooked_m0_pred
-    assert "motion_hooks" in m.find_children("controllers")
-    motion_hooks_children = m.find_children("motion_hooks")
-    assert len(motion_hooks_children) == 1
-    hooked_m0_pred.remove("axes")
-    assert set([m.find_predecessors(hm_pred)[0] for hm_pred in hooked_m0_pred]) == set(
-        ["controllers", "motion_hooks"]
-    )
-    assert len(list(m.instance_iter("controllers"))) == 4
+    graph_data = node_link_data(m.G)
+
+    # process data to make a more human-friendly repr.
+    nodes = {}
+    for node_dict in graph_data["nodes"]:
+        node = node_dict["tag"]
+        if not node:
+            obj_ref = node_dict["instance"]
+            obj = obj_ref()
+            node = obj.name or obj
+        nodes[node_dict["id"]] = node
+    links = collections.defaultdict(set)
+    for link_dict in graph_data["links"]:
+        src = link_dict["source"]
+        target = link_dict["target"]
+        if isinstance(src, int):
+            src = nodes[src]
+        if isinstance(target, int):
+            target = nodes[target]
+        links[src].add(target)
+
+    # now check if expected links match the map
+    expected_links = {
+        roby.controller: {"s1f", "s1b", "s1u", "s1d", "roby", "hooked_m0"},
+        s1hg.controller: {"s1vg", "s1vo", "s1hg", "s1ho", "s1f", "s1d", "s1u", "s1b"},
+        heater.controller: {"thermo_sample", "heater", "sample_regulation"},
+        "axes": {
+            "s1f",
+            "s1b",
+            "s1u",
+            "s1d",
+            "s1vg",
+            "s1vo",
+            "s1hg",
+            "s1ho",
+            "roby",
+            "hooked_m0",
+        },
+        "hook0": {"hooked_m0"},
+        "controllers": {
+            s1hg.controller,
+            roby.controller,
+            heater.controller,
+            "motion_hooks",
+        },
+        "counters": {"thermo_sample", "heater"},
+        "global": {"controllers", "comms", "counters", "axes"},
+        "heater": {"heater"},
+        "motion_hooks": {"hook0"},
+        "sample_regulation": {"thermo_sample", "heater"},
+        "thermo_sample": {"thermo_sample"},
+    }
+
+    assert links == expected_links
 
 
 def test_create_submap_1(complex_beamline):

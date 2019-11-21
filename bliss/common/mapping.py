@@ -129,7 +129,7 @@ class Map:
     ):
         # check is `version` is not part of keyword
         if "version" in kwargs:
-            raise ValueError("'version` is an internal keyword that can be used")
+            raise ValueError("'version` is an internal keyword that cannot be used")
 
         if parents_list is None:
             parents_list = []

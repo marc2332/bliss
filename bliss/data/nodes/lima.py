@@ -88,10 +88,26 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = None
             return proxy
 
+        def is_video_frame_have_meaning(self, update=True):
+            """Returns True if the frame number reached from the header from
+            the Lima video have a meaning in the full scan.
+
+            Returns a boolean, else None if this information is not yet known.
+            """
+            if update:
+                self._update()
+            if self.acq_trigger_mode is None:
+                return None
+            # FIXME: This still can be wrong for a scan with many groups of MULTI images
+            return self.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI"
+
         def get_last_live_image(self, proxy=UNSET):
             """Returns the last image data from stream within it's frame number.
 
             If no data is available, the function returns tuple (None, None).
+
+            If camera device is not configured with INTERNAL_TRIGGER_MULTI, and
+            then the reached frame number have no meaning, a None is returned.
             """
             self._update()
 
@@ -155,10 +171,10 @@ class LimaImageChannelDataNode(DataNode):
             data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
             data.shape = image_height, image_width
 
-            # FIXME: Some detectors (like andor) which do not provide TRIGGER_SOFT_MULTI
-            # Will always returns frame_id = 0. In this case it would be better to return
-            # None as the frame_id
-
+            if not self.is_video_frame_have_meaning(update=False):
+                # In this case the reached frame have no meaning within the full
+                # scan. It is better not to provide it
+                image_frame_number = None
             return data, image_frame_number
 
         def get_last_image(self, proxy=UNSET):
@@ -249,6 +265,11 @@ class LimaImageChannelDataNode(DataNode):
             ):
                 if key in ref_status:
                     setattr(self, key, ref_status[key])
+            if len(self.ref_data) >= 1:
+                ref_data = self.ref_data[0]
+                for key in ("acq_trigger_mode",):
+                    if key in ref_data:
+                        setattr(self, key, ref_data[key])
 
         def _get_from_server_memory(self, proxy, image_nb):
             if (

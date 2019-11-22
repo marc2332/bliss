@@ -34,10 +34,9 @@ check_lint:
   # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
   allow_failure: true
 
-run_tests:source:
+.template_test_source:
   stage: tests
   image: continuumio/miniconda3:latest
-  parallel: 2
   script:
     - >
       if [ $CI_COMMIT_REF_NAME != 'master' ]; then
@@ -56,26 +55,56 @@ run_tests:source:
     - conda install pytest-profiling --yes
     - pip install .
     # run tests on source
-    - COVDIR="htmlcov$CI_NODE_INDEX"
-    - >
-      if [[ $CI_NODE_INDEX == 1 ]]; then
-        echo "Run all Bliss core tests"
-        python setup.py test --addopts "--cov bliss --cov-report html:$COVDIR --cov-report term --profile --durations=30"
-      elif [[ $CI_NODE_INDEX == 2 ]]; then
-        echo "Run all writer tests"
-        python setup.py test --addopts "--cov bliss --cov-report html:$COVDIR --cov-report term --profile --durations=30 -m writer --runwritertests"
-      else
-        echo "No tests in this group"
-      fi
+    - python setup.py test --addopts "$PYTEST_ARGS"
+  variables:
+    CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
+
+test_bliss_source:
+  # Run bliss tests without coverage for any branches except the master
+  extends: .template_test_source
+  except:
+    - master
+  variables:
+    PYTEST_ARGS: '--durations=30'
+
+test_writer_source:
+  # Run hdf5 writer tests without coverage for any branches except the master
+  extends: .template_test_source
+  except:
+    - master
+  variables:
+    PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
+
+test_bliss_source_cov:
+  # Run bliss tests with coverage for master only
+  extends: .template_test_source
+  only:
+    - master
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 7 days
   after_script:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
+  variables:
+    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov term --profile --durations=30'
+
+test_writer_source_cov:
+  # Run hdf5 writer tests with coverage for master only
+  extends: .template_test_source
+  only:
+    - master
   artifacts:
     paths:
-      - $COVDIR/
+      - htmlcov_writer/
     expire_in: 7 days
+  after_script:
+    - python scripts/profiling2txt.py
+    - sh scripts/print_test_profiling.sh
   variables:
-    CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
+    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov_writer term --profile --durations=30 -m writer --runwritertests'
+
 
 package:
   stage: build

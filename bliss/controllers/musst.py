@@ -325,12 +325,8 @@ class musst(CounterController):
             "one_line_programing", "serial_url" in config_tree
         )
 
-        self.sampling_counters = MusstSamplingCounterController(
-            "musst_sampling_counters", self
-        )
-        self.integrating_counters = MusstIntegratingCounterController(
-            "musst_integrating_counters", self
-        )
+        self.sampling_counters = MusstSamplingCounterController("samp", self)
+        self.integrating_counters = MusstIntegratingCounterController("integ", self)
 
         self._channels = None
         self._counter_init(config_tree)

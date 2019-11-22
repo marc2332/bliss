@@ -404,21 +404,23 @@ class ScanSaving(ParametersWardrobe):
         #       pprint.pprint(data_config['writer'].data_filename)
         #        pprint.pprint(data_config['writer'].file)
         #        pprint.pprint()
-
-        data_file = data_config["writer"].filename
-        #        data_file = data_config["data_path"]
-        if os.path.exists(data_file):
-            exists = "exists"
+        if isinstance(data_config["writer"], NullWriter):
+            info_table.append(("NO SAVING",))
         else:
-            exists = "does not exist"
-        info_table.append((exists, "filename", data_file))
+            data_file = data_config["writer"].filename
+            #        data_file = data_config["data_path"]
+            if os.path.exists(data_file):
+                exists = "exists"
+            else:
+                exists = "does not exist"
+            info_table.append((exists, "filename", data_file))
 
-        data_dir = data_config["root_path"]
-        if os.path.exists(data_dir):
-            exists = "exists"
-        else:
-            exists = "does not exist"
-        info_table.append((exists, "root_path", data_dir))
+            data_dir = data_config["root_path"]
+            if os.path.exists(data_dir):
+                exists = "exists"
+            else:
+                exists = "does not exist"
+            info_table.append((exists, "root_path", data_dir))
 
         return tabulate.tabulate(tuple(info_table))
 

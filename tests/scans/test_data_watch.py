@@ -91,6 +91,17 @@ does not exist  root_path  /tmp/toto
         scan_saving.session,
     )
 
+    no_saving_info_tail = """\
+  .last_accessed        = '{last_accessed}'
+---------
+NO SAVING
+---------""".format(
+        last_accessed=scan_saving.last_accessed
+    )
+
+    scan_saving.writer = "null"  # set no saving
+    assert info(scan_saving).endswith(no_saving_info_tail)
+
 
 def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
 

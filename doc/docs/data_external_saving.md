@@ -9,6 +9,13 @@ To start a session writer as a process inside an environment where BLISS is inst
    $ NexusSessionWriter test_session --log=info
 ```
 
+To allow for a proper Nexus structure, add these lines to the session's user script (strongly recommended but not absolutely necessary):
+
+```python
+    from nexus_writer_service import metadata
+    metadata.register_all_metadata_generators()
+```
+
 !!! warning
     Currently the external NeXus writer is in an experimental state and the protocol to ensure the completeness for the
     saved data still needs to be put in place.

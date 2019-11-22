@@ -39,8 +39,8 @@ def filename_templates():
     """
     return [
         "{sample}_{dataset}.h5",
-        "{experiment}_{sample}.h5",
-        "{experiment}_{beamline}.h5",
+        os.path.join("..", "{experiment}_{sample}.h5"),
+        os.path.join("..", "..", "{experiment}_{beamline}.h5"),
     ]
 
 
@@ -117,12 +117,24 @@ def initialize_scan_saving():
 
 
 def current_default_proposal():
+    """
+    Default proposal name based on beamline and month.
+    For example November 2019 and ID21 becomes "id211911".
+
+    :returns str:
+    """
     proposal = datetime.now().strftime("{beamline}%y%m")
     proposal = proposal.format(**config_utils.scan_saving_attrs(proposal))
     return proposal
 
 
 def current_inhouse_subdir():
+    """
+    Proposals in the inhouse directory are saved per month.
+    For example inhouse proposals during November 2019 will be saved in inhouse subdirectory "19nov".
+
+    :returns str:
+    """
     return datetime.now().strftime("%y%b").lower()
 
 

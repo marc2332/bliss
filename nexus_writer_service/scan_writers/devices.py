@@ -119,16 +119,30 @@ def update_device(devices, fullname, units=None):
     return device
 
 
-def parse_devices(devices, multivalue_positioners=False):
+def parse_devices(devices, short_names=True, multivalue_positioners=False):
     """
     Determine names and types based on device name and type
 
     :param dict devices:
+    :param bool short_names:
     :param bool multivalue_positioners:
     """
-    namemap = shortnamemap(list(devices.keys()))
+    # aliasmap: alias -> fullname
+    aliasmap = {
+        info.get("alias", fullname): fullname for fullname, info in devices.items()
+    }
+    if len(aliasmap) != len(devices):
+        aliasmap = {k: k for k in devices}
+    if short_names:
+        # namemap: alias -> shortname
+        namemap = shortnamemap(list(aliasmap.keys()))
+        # namemap: fullname -> shortname
+        namemap = {aliasmap[alias]: shortname for alias, shortname in namemap.items()}
+    else:
+        # namemap: fullname -> alias
+        namemap = {fullname: alias for alias, fullname in aliasmap.items()}
     for fullname, device in devices.items():
-        device["device_name"] = namemap[fullname]
+        device["device_name"] = namemap.get(fullname, fullname)
         if device["device_type"] == "mca":
             # 'xmap1:xxxxxx_det1'
             #   device_name = 'xmap1:det1'
@@ -210,13 +224,14 @@ def parse_devices(devices, multivalue_positioners=False):
             device["unique_name"] = device["device_name"] + ":" + device["data_name"]
 
 
-def device_info(devices, scan_info, multivalue_positioners=False):
+def device_info(devices, scan_info, short_names=True, multivalue_positioners=False):
     """
     Merge device information from `writer_config_publish.device_info`
     and from the scan info published by the Bliss core library.
 
     :param dict devices: as provided by `writer_config_publish.device_info`
     :param dict scan_info:
+    :param bool short_names:
     :param bool multivalue_positioners:
     :returns dict: subscanname:dict(fullname:dict)
     """
@@ -225,9 +240,10 @@ def device_info(devices, scan_info, multivalue_positioners=False):
         subdevices = ret[subscan] = {}
         # These are the "positioners"
         dic = subscaninfo["master"]
-        units = dic["scalars_units"]
+        units = dic.get("scalars_units", {})
+        aliasmap = dic.get("display_names", {})
         master_index = 0
-        for fullname in dic["scalars"]:
+        for fullname in dic.get("scalars", []):
             subdevices[fullname] = devices.get(fullname, {})
             device = update_device(subdevices, fullname, units)
             if fullname.startswith("timer"):
@@ -236,14 +252,36 @@ def device_info(devices, scan_info, multivalue_positioners=False):
                 device["device_type"] = "positioner"
             device["master_index"] = master_index
             master_index += 1
+            _add_display_name(device, fullname, aliasmap)
         # These are the 0D, 1D and 2D "detectors"
         dic = subscaninfo
+        aliasmap = dic.get("display_names", {})
         for key in "scalars", "spectra", "images":
             units = dic.get(key + "_units", {})
-            for fullname in dic[key]:
+            for fullname in dic.get(key, []):
                 subdevices[fullname] = devices.get(fullname, {})
                 device = update_device(subdevices, fullname, units)
                 if fullname.startswith("timer") and key == "scalars":
                     device["device_type"] = "positionergroup"
-        parse_devices(subdevices, multivalue_positioners=multivalue_positioners)
+                _add_display_name(device, fullname, aliasmap)
+        parse_devices(
+            subdevices,
+            short_names=short_names,
+            multivalue_positioners=multivalue_positioners,
+        )
     return ret
+
+
+def _add_display_name(device, fullname, display_names):
+    """
+    :param dict device:
+    :param str fullname:
+    :param dict display_names:
+    """
+    # REMARK: display_names contain node.name when alias is missing
+    #         while we want node.fullname to avoid collisions.
+    alias = display_names.get(fullname, None)
+    # TODO: this does not work if the alias is the same as node.name
+    missing_alias = fullname == alias or fullname.split(":")[-1] == alias
+    if not missing_alias:
+        device["alias"] = alias

@@ -20,6 +20,7 @@ import datetime
 from contextlib import contextmanager
 from . import writer_base
 from ..io import nexus
+from ..utils import scan_utils
 
 
 default_saveoptions = dict(writer_base.default_saveoptions)
@@ -54,16 +55,6 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         super(NexusScanWriterConfigurable, self).__init__(*args, **kwargs)
         self._applications = {"appxrf": self._save_application_xrf}
 
-    def _filename(self, level=0):
-        """
-        HDF5 file name
-        """
-        filenames = self.filenames
-        try:
-            return filenames[level]
-        except IndexError:
-            return ""
-
     @property
     def filenames(self):
         """
@@ -71,10 +62,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
                        and the others for the masters
         """
         if self.save:
-            lst = self.config_writer.get("filenames", None)
-            if not lst:
-                lst = [self._default_filename]
-            return lst
+            return scan_utils.scan_filenames(self.scan_node, config=True)
         else:
             return []
 
@@ -83,7 +71,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         """
         Writer information not published by the core Bliss library
         """
-        return self.scan_info_get("external", default={})
+        return self.scan_info_get("nxwriter", default={})
 
     @property
     def instrument_name(self):
@@ -582,7 +570,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
                         continue
                     if linkname in nxroot:
                         continue
-                    self.logger.debug(
+                    self.logger.info(
                         "Create link {} in master {}".format(
                             repr(linkname), repr(nxroot.file.filename)
                         )

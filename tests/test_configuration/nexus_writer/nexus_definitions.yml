@@ -46,11 +46,11 @@ technique:
     xrf:
       personal_name: xrf
       class: APPxrf
-      I0: simiodet
-      It: simidet
+      I0: diode2
+      It: diode3
       mca:
-      - simxmap1:det0
-      - simxmap2:det1
+      - simu1:det0
+      - simu2:det1
   plots:
     counters:
       personal_name: all_counters
@@ -64,26 +64,26 @@ technique:
     xas_counters:
       personal_name: xas_counters
       items:
-      - simabsorbance
-      - simfdetnorm
-      - simxmap1:deadtime_det0
-      - simxmap2:deadtime_det1
+      - diode2
+      - diode3
+      - simu1:deadtime_det0
+      - simu2:deadtime_det1
     xrf_counters:
       personal_name: xrf_counters
       items:
-      - simidetnorm
-      - simfdetnorm
-      - simxmap1:deadtime_det0
-      - simxmap2:deadtime_det1
+      - diode2
+      - diode3
+      - simu1:deadtime_det0
+      - simu2:deadtime_det1
     xrf_spectra:
       personal_name: xrf_spectra
       items:
-      - simxmap1:spectrum_det0
-      - simxmap2:spectrum_det1
+      - simu1:spectrum_det0
+      - simu2:spectrum_det1
     xrd:
       personal_name: xrd_patterns
       items:
-      - simfrelon:image
+      - lima_simulator:image
     counters_grid:
       personal_name: all_counters_grid
       ndim: 0
@@ -99,27 +99,27 @@ technique:
     xas_counters_grid:
       personal_name: xas_counters_grid
       items:
-      - simabsorbance
-      - simfdetnorm
-      - simxmap1:deadtime_det0
-      - simxmap2:deadtime_det1
+      - diode2
+      - diode3
+      - simu1:deadtime_det0
+      - simu2:deadtime_det1
       grid: true
     xrf_counters_grid:
       personal_name: xrf_counters_grid
       items:
-      - simidetnorm
-      - simfdetnorm
-      - simxmap1:deadtime_det0
-      - simxmap2:deadtime_det1
+      - diode2
+      - diode3
+      - simu1:deadtime_det0
+      - simu2:deadtime_det1
       grid: true
     xrf_spectra_grid:
       personal_name: xrf_spectra_grid
       items:
-      - simxmap1:spectrum_det0
-      - simxmap2:spectrum_det1
+      - simu1:spectrum_det0
+      - simu2:spectrum_det1
       grid: true
     xrd_grid:
       personal_name: xrd_patterns_grid
       items:
-      - simfrelon:image
+      - lima_simulator:image
       grid: true

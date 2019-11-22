@@ -18,5 +18,5 @@
     writer_config
     writer_config_publish
     devices
-    nx_dataset
+    dataset_proxy
 """

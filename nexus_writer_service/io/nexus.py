@@ -134,7 +134,9 @@ def hdf5_sep(func):
     def as_os_path(*args, sep="/"):
         args = [re.sub(r"[\/]+", os.sep, x) for x in args]
         ret = func(*args)
-        return ret.replace(os.sep, sep)
+        if isinstance(ret, str):
+            ret = ret.replace(os.sep, sep)
+        return ret
 
     return as_os_path
 
@@ -166,7 +168,7 @@ def hdf5_dirname(path):
 
 @hdf5_sep
 def hdf5_join(*args):
-    return os.path.join(args)
+    return os.path.join(*args)
 
 
 def splitUri(uri):
@@ -200,6 +202,59 @@ def normUri(uri):
     filename = os.path.normpath(filename)
     path = hdf5_normpath(path)
     return filename + "::" + path
+
+
+def dereference(node):
+    """
+    :param h5py.Dataset or h5py.Group:
+    :returns str: uri
+    """
+    if node.name == "/":
+        return getUri(node)
+    try:
+        lnk = node.parent.get(node.name, default=None, getlink=True)
+    except (KeyError, RuntimeError):
+        return getUri(node)
+    else:
+        if isinstance(lnk, h5py.SoftLink):
+            path = lnk.path
+            if not path.startswith("/"):
+                path = hdf5_join(node.parent.name, path)
+            return node.file.filename + "::" + hdf5_normpath(path)
+        elif isinstance(lnk, h5py.ExternalLink):
+            return lnk.filename + "::" + lnk.path
+        else:
+            return getUri(node)
+
+
+def dereferenceUri(uri):
+    """
+    Get full URI of dataset or group
+
+    :param h5py.Dataset or h5py.Group:
+    :returns str:
+    """
+    filename, path = splitUri(uri)
+    uri2 = uri
+    istart = 1
+    with h5open(filename, mode="r") as f:
+        while True:
+            parts = path.split("/")[1:]
+            for i in range(istart, len(parts) + 1):
+                path2 = hdf5_join(*parts[:i])
+                filename2, path2 = splitUri(dereference(f[path2]))
+                path2 = hdf5_join(path2, *parts[i:])
+                uri2 = filename2 + "::" + path2
+                if uri != uri2:
+                    if filename == filename2:
+                        path = path2
+                        istart = i + 1
+                        break
+                    else:
+                        return dereferenceUri(uri2)
+            else:
+                break
+    return uri2
 
 
 def getUri(node):
@@ -346,6 +401,41 @@ def h5Name(h5group):
     return h5group.name.split("/")[-1]
 
 
+def as_str(s):
+    """
+    :param str or bytes s:
+    :returns str:
+    """
+    try:
+        return s.decode()
+    except AttributeError:
+        return s
+
+
+def attr_as_str(node, attr, default):
+    """
+    Get attribute value (scalar or sequence) with type `str`.
+
+    :param h5py.Group or h5py.Dataset node:
+    :param str attr:
+    :param default:
+    :return str or sequence(str):
+    """
+    v = node.attrs.get(attr, default)
+    if isinstance(v, str):
+        return v
+    elif isinstance(v, bytes):
+        return v.encode()
+    elif isinstance(v, tuple):
+        return tuple(as_str(s) for s in v)
+    elif isinstance(v, list):
+        return list(as_str(s) for s in v)
+    elif isinstance(v, numpy.ndarray):
+        return numpy.array(list(as_str(s) for s in v))
+    else:
+        return v
+
+
 def nxClass(h5group):
     """
     Nexus class of existing h5py.Group (None when no Nexus instance)
@@ -353,7 +443,7 @@ def nxClass(h5group):
     :param h5py.Group h5group:
     :returns str or None:
     """
-    return h5group.attrs.get("NX_class", None)
+    return attr_as_str(h5group, "NX_class", None)
 
 
 def isNxClass(h5group, *classes):
@@ -890,8 +980,8 @@ def nxDataGetSignals(data):
     :param h5py.Group data:
     :returns list(str): signal names (default first)
     """
-    signal = data.attrs.get("signal", None)
-    auxsignals = data.attrs.get("auxiliary_signals", None)
+    signal = attr_as_str(data, "signal", None)
+    auxsignals = attr_as_str(data, "auxiliary_signals", None)
     if signal is None:
         lst = []
     else:
@@ -1266,7 +1356,7 @@ def nxDataAddAxes(data, axes, append=True):
     """
     raiseIsNotNxClass(data, u"NXdata")
     if append:
-        names = data.attrs.get("axes", [])
+        names = attr_as_str(data, "axes", [])
     else:
         names = []
     for name, value, attrs in axes:
@@ -1397,3 +1487,43 @@ def markDefault(h5node, nxentrylink=True):
                 break
         path = parent
         nxclass = parentnxclass
+
+
+def getDefault(node, signal=True):
+    """
+    :param h5py.Group or h5py.Dataset h5node:
+    :returns str: path of dataset or NXdata group
+    """
+    path = ""
+    default = attr_as_str(node, "default", "")
+    root = node.file
+    if default and not default.startswith("/"):
+        if node.name == "/":
+            default = "/" + default
+        else:
+            default = node.name + "/" + default
+    while default:
+        try:
+            node = root[default]
+        except KeyError:
+            break
+        nxclass = attr_as_str(node, "NX_class", "")
+        if nxclass == "NXdata":
+            if signal:
+                name = attr_as_str(node, "signal", "data")
+                try:
+                    path = node[name].name
+                except KeyError:
+                    pass
+            else:
+                path = node.name
+            break
+        else:
+            add = attr_as_str(node, "default", "")
+            if add.startswith("/"):
+                default = add
+            elif add:
+                default += "/" + add
+            else:
+                break
+    return path

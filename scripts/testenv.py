@@ -61,21 +61,24 @@ def beacon():
     env = {}
     env["BEACON_HOST"] = socket.gethostname() + ":{}".format(params["port"])
     env["TANGO_HOST"] = socket.gethostname() + ":{}".format(params["tango_port"])
+    prefix = " ".join(["{}={}".format(k, v) for k, v in env.items()])
     os.environ.update(env)
-    env = " ".join(["{}={}".format(k, v) for k, v in env.items()])
+    env["PATH"] = os.environ["PATH"]
 
     p = subprocess.Popen(cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     print("\nStart process (DONE):\n " + " ".join(cliargs))
     try:
-        yield env
+        yield env, prefix
     finally:
         p.terminate()
 
 
 @contextmanager
-def lima(name="simulator"):
+def lima(env=None, name="simulator"):
     cliargs = ["LimaCCDs", name]
-    p = subprocess.Popen(cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(
+        cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+    )
     print("\nStart process (DONE):\n " + " ".join(cliargs))
     try:
         yield
@@ -83,24 +86,25 @@ def lima(name="simulator"):
         p.terminate()
 
 
+def print_env_info(prefix):
+    print("\nAll session in the bliss test configuration:")
+    print(" " + "\n ".join(get_sessions_list()))
+    print("\nAttach basic external writer to session:")
+    print(
+        " {} NexusSessionWriter nexus_writer_base --noconfig --log=info".format(prefix)
+    )
+    print("\nStart CLI to session for basic writer testing:")
+    print(" {} bliss -s nexus_writer_base --no-tmux".format(prefix))
+    print("\nAttach configurable writer to session:")
+    print(" {} NexusSessionWriter nexus_writer_config --log=info".format(prefix))
+    print("\nStart CLI to session for configurable writer:")
+    print(" {} bliss -s nexus_writer_config --no-tmux".format(prefix))
+    input("\nPress any key to stop the servers")
+
+
 if __name__ == "__main__":
-    with beacon() as prefix:
+    with beacon() as (env, prefix):
         sleep(5)  # Do someting more intelligent
-        with lima(name="simulator"):
-            print("\nAll session in the bliss test configuration:")
-            print(" " + "\n ".join(get_sessions_list()))
-            print("\nAttach basic external writer to session:")
-            print(
-                " {} NexusSessionWriter nexus_writer_base --noconfig --log=info".format(
-                    prefix
-                )
-            )
-            print("\nStart CLI to session for basic writer testing:")
-            print(" {} bliss -s nexus_writer_base --no-tmux".format(prefix))
-            print("\nAttach configurable writer to session:")
-            print(
-                " {} NexusSessionWriter nexus_writer_config --log=info".format(prefix)
-            )
-            print("\nStart CLI to session for configurable writer:")
-            print(" {} bliss -s nexus_writer_config --no-tmux".format(prefix))
-            input("\nPress any key to stop the servers")
+        with lima(env, name="simulator"):
+            with lima(env, name="simulator2"):
+                print_env_info(prefix)

@@ -287,13 +287,63 @@ class LimaImageChannelDataNode(DataNode):
                 file_path = path_format % file_nb
                 if file_format == "HDF5":
                     returned_params.append(
-                        (file_path, "/entry_%04d" % 0, image_index_in_file, file_format)
+                        (
+                            file_path,
+                            self._path_in_hdf5(file_path),
+                            image_index_in_file,
+                            file_format,
+                        )
                     )
                 else:
                     returned_params.append(
                         (file_path, "", image_index_in_file, file_format)
                     )
             return returned_params
+
+        @staticmethod
+        def _path_in_hdf5(filename, signal=True):
+            # TODO:
+            # same as nexus_writer_service.io.nexus.getDefault
+            # handle OSError?
+
+            def strattr(node, attr, default):
+                v = node.attrs.get(attr, default)
+                try:
+                    v = v.decode()
+                except AttributeError:
+                    pass
+                return v
+
+            path = ""
+            with h5py.File(filename, mode="r") as f:
+                default = strattr(f, "default", "")
+                if default and not default.startswith("/"):
+                    default = "/" + default
+                while default:
+                    try:
+                        node = f[default]
+                    except KeyError:
+                        break
+                    nxclass = strattr(node, "NX_class", "")
+                    if nxclass == "NXdata":
+                        if signal:
+                            name = strattr(node, "signal", "data")
+                            try:
+                                path = node[name].name
+                            except KeyError:
+                                pass
+                        else:
+                            path = node.name
+                        break
+                    else:
+                        add = strattr(node, "default", "")
+                        if add.startswith("/"):
+                            default = add
+                        elif add:
+                            default += "/" + add
+                        else:
+                            break
+            return path
 
         def _get_from_file(self, image_nb):
             for ref_data in self.ref_data:

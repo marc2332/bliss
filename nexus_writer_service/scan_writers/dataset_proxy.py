@@ -14,8 +14,10 @@ import re
 import numpy
 from collections import OrderedDict
 from contextlib import contextmanager
+from fabio.edfimage import EdfImage
 from ..io import nexus
 from ..io import h5_external
+from ..io.io_utils import mkdir
 from ..utils import logging_utils
 
 
@@ -164,6 +166,10 @@ class DatasetProxy:
         """
         Like `current_shape` but with the original scan shape
         """
+        if self.variable_scan_shape and self.scan_ndim == 1:
+            scan_shape = self.current_scan_save_shape
+        else:
+            scan_shape = self.scan_shape
         return self.scan_shape + self.current_detector_shape
 
     @property
@@ -201,7 +207,7 @@ class DatasetProxy:
 
     @property
     def maxshape(self):
-        # TODO: currently detector_shape will not contains
+        # TODO: currently detector_shape does not contain
         #       zeros to indicate variable length so assume
         #       any dimension can have a variable length
         return (None,) * self.ndim
@@ -370,43 +376,42 @@ class DatasetProxy:
             value["maxshape"] = self.maxshape
             if nexus.HASVIRTUAL:
                 value["shape"] = self.current_shape
-                self.logger.debug("merged external HDF5 datasets (link using VDS)")
+                self.logger.info(
+                    "create as merged external HDF5 datasets (link using VDS)"
+                )
             else:
                 value["compression"] = self.compression
                 value["chunks"] = self.chunks
-                self.logger.debug(
-                    "merged external HDF5 datasets (copy because VDS not supported)"
+                self.logger.info(
+                    "create as merged external HDF5 datasets (copy because VDS not supported)"
                 )
         elif self._external_raw:
             value.update(self._external_raw)
-            nframes = shape_to_size(self.current_scan_shape)
+            nframes = shape_to_size(self.current_scan_save_shape)
             # Same number of external files as nframes
             filename = os.path.join(os.path.dirname(self.filename), self.linkname)
             nskip = h5_external.resize(value, nframes, filename, value["fillvalue"])
             if nskip > 0:
                 self.logger.warning("Skip {} files".format(nskip))
             elif nskip < 0:
-                self.logger.warning(
-                    "Missing {} files (added dummy files)".format(nskip)
-                )
+                self.logger.warning("Missing {} files".format(nskip))
             # Finalize arguments
             h5_external.finalize(
                 value, shape=self.current_scan_save_shape, order=self.order
             )
             # REMARK: no chunking or reshaping
-            #         compression not tested
             #         links are absolute paths
             value["shape"] = self.current_shape
-            value["compression"] = self.compression
+            value["chunks"] = None
             self.logger.debug(
-                "merged external non-HDF5 data (link using external dataset)"
+                "create as merged external non-HDF5 data (link using external dataset)"
             )
         else:
             value["shape"] = self.current_shape
             value["chunks"] = self.chunks
             value["maxshape"] = self.maxshape
             value["compression"] = self.compression
-            self.logger.debug("internal data (copy)")
+            self.logger.debug("create as internal data (copy)")
         return value
 
     def _external_uris(self):
@@ -447,12 +452,18 @@ class DatasetProxy:
         return uris, fill_generator
 
     @property
-    def has_external(self):
+    def is_external(self):
+        """
+        "External" means a virtual dataset or a raw external dataset (for example links to EDF files)
+        """
         return bool(self._external_datasets or self._external_raw)
 
     @property
-    def has_internal(self):
-        return self.exists and not self.has_external
+    def is_internal(self):
+        """
+        "Internal" mean a normal HDF5 dataset
+        """
+        return self.exists and not self.is_external
 
     @property
     def interpretation(self):
@@ -509,35 +520,60 @@ class DatasetProxy:
         """
         npoints_current = self.npoints
         datasize = format_bytes(self.current_bytes)
-        self.logger.debug(
-            "progress {}/{} ({})".format(npoints_current, npoints_expected, datasize)
-        )
-        if last and npoints_current < npoints_expected:
-            self.logger.warning(
-                "Only {}/{} points saved ({})".format(
+        if last:
+            if npoints_current < npoints_expected or not npoints_current:
+                progress = "Only {}/{} points published ({})".format(
                     npoints_current, npoints_expected, datasize
                 )
+                self.logger.warning(progress)
+            else:
+                progress = "{}/{} points published ({})".format(
+                    npoints_current, npoints_expected, datasize
+                )
+                self.logger.info(progress)
+        else:
+            progress = "progress {}/{} ({})".format(
+                npoints_current, npoints_expected, datasize
             )
+            self.logger.debug(progress)
 
-    def reshape(self, scan_save_shape, detector_shape):
+    def reshape(self, scan_save_shape, detector_shape=None):
+        """
+        Reshape dataset (must exist when internal, should not exist when external)
+
+        :param tuple or None scan_save_shape:
+        :param tuple or None detector_shape:
+        """
+        if scan_save_shape is None:
+            scan_save_shape = self.current_scan_save_shape
+        elif len(scan_save_shape) != self.scan_save_ndim:
+            raise ValueError("Number of scan dimensions should not change")
+        if detector_shape is None:
+            detector_shape = self.current_detector_shape
+        elif len(detector_shape) != self.detector_ndim:
+            raise ValueError("Number of detector dimensions should not change")
+        if self.is_external:
+            reshaped = self._reshape_external(scan_save_shape, detector_shape)
+        else:
+            reshaped = self._reshape_internal(scan_save_shape, detector_shape)
+        if reshaped:
+            self.current_scan_save_shape = scan_save_shape
+            self.current_detector_shape = detector_shape
+            self.npoints = shape_to_size(scan_save_shape)
+
+    def _reshape_internal(self, scan_save_shape, detector_shape):
         """
         Reshape HDF5 dataset if it exists
 
         :param tuple or None scan_save_shape:
         :param tuple or None detector_shape:
+        :return bool:
         """
         with self.open() as dset:
             if dset is None:
-                return
+                self.logger.warning("Cannot reshape internal dataset before creation")
+                return False
             shape = dset.shape
-            if scan_save_shape is None:
-                scan_save_shape = self.current_scan_save_shape
-            elif len(scan_save_shape) != self.scan_save_ndim:
-                raise ValueError("Scan dimensions must not change")
-            if detector_shape is None:
-                detector_shape = self.current_detector_shape
-            elif len(detector_shape) != self.detector_ndim:
-                raise ValueError("Detector dimensions must not change")
             newshape = scan_save_shape + detector_shape
             if dset.shape != newshape:
                 self.logger.info("reshape from {} to {}".format(shape, newshape))
@@ -546,5 +582,80 @@ class DatasetProxy:
                 except TypeError as e:
                     self.logger.warning("Cannot be reshaped because '{}'".format(e))
                 else:
-                    self.current_scan_save_shape = scan_save_shape
-                    self.current_detector_shape = detector_shape
+                    return True
+        return False
+
+    def _reshape_external(self, scan_save_shape, detector_shape):
+        """
+        Reshape HDF5 dataset if it exists
+
+        :param tuple or None scan_save_shape:
+        :param tuple or None detector_shape:
+        :return bool:
+        """
+        if self.exists:
+            self.logger.warning("Cannot reshape external dataset after creation")
+            return False
+        npoints = shape_to_size(scan_save_shape)
+        if self._external_datasets:
+            lst = self._external_datasets
+        else:
+            lst = self._external_raw["external"]
+        nlst = len(lst)
+        if npoints != nlst:
+            if npoints < nlst:
+                nremove = nlst - npoints
+                self.logger.info("remove {} points".format(nremove))
+                lst = lst[:npoints]
+            else:
+                nadd = npoints - nlst
+                self.logger.info("add {} dummy points".format(nadd))
+                lst += self._dummy_uris(nadd, hdf5=bool(self._external_datasets))
+            if self._external_datasets:
+                self._external_datasets = lst
+            else:
+                self._external_raw["external"] = lst
+            return True
+        return False
+
+    def _dummy_uris(self, npoints, hdf5=True):
+        """
+        URIs of dummy data (create when missing).
+
+        :param bool hdf5:
+        :returns lst(str, int): uri, index
+        """
+        filename = self._dummy_filename(hdf5=hdf5)
+        if not os.path.isfile(filename):
+            mkdir(os.path.dirname(filename))
+            fillvalue = self.fillvalue
+            dtype = self.dtype
+            if hdf5:
+                shape = (1,) + self.current_detector_shape
+                with nexus.h5open(filename, mode="w") as f:
+                    f.create_dataset(
+                        "data", shape=shape, dtype=dtype, fillvalue=fillvalue
+                    )
+            else:
+                shape = self.current_detector_shape
+                data = numpy.full(shape, fillvalue, dtype=dtype)
+                edf = EdfImage(data=data, header=None)
+                edf.write(filename)
+        if hdf5:
+            filename += "::/data"
+        return [(filename, 0) for _ in range(npoints)]
+
+    def _dummy_filename(self, hdf5=True):
+        """
+        :param bool hdf5:
+        :returns str:
+        """
+        dirname = os.path.dirname(self.filename)
+        name = (
+            "_".join(map(str, self.current_detector_shape)) + "_" + self.dtype.__name__
+        )
+        if hdf5:
+            name += ".h5"
+        else:
+            name += ".edf"
+        return os.path.join(dirname, "dummy", name)

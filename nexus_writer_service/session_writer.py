@@ -85,7 +85,9 @@ def session_writer(session_name, noconfig=False, **saveoptions):
         sessionlogger.info("Start listening to scans ...")
         for event_type, node in session_node.iterator.walk_on_new_events(filter="scan"):
             if event_type.name == "NEW_NODE":
-                sessionlogger.info("NEW_NODE received for scan {}".format(node.name))
+                sessionlogger.info(
+                    "NEW_NODE event received for scan {}".format(repr(node.name))
+                )
                 # Scan starts: launch separate writer thread
                 fd_read, fd_write = os.pipe()
                 writer = writerclass(
@@ -98,7 +100,7 @@ def session_writer(session_name, noconfig=False, **saveoptions):
                 writer, fd_read, fd_write = writers.get(node.db_name, default)
                 if fd_write is not None:
                     sessionlogger.info(
-                        "END_SCAN received for scan {}".format(node.name)
+                        "END_SCAN event received for scan {}".format(repr(node.name))
                     )
                     os.write(fd_write, b"END_SCAN received")
                 # Purge dead writers

@@ -15,8 +15,7 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.common.scans import ascan
-from bliss.controllers.counter import CalcCounterController
-from bliss.scanning.acquisition.calc import CalcHook
+from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 
 
 def scan_demo(motor, start, stop, npoints, count_time, *counters):
@@ -97,45 +96,6 @@ def test_continous_scan(default_session, lima_simulator, lima_simulator2):
 def test_default_scan(default_session, lima_simulator):
 
     # --- make calc counters ------------------------
-
-    # Mean caclulaion
-    class Mean(CalcHook):
-        def __init__(self, name="mean", cnt1_name="diode", cnt2_name="diode2"):
-            self.name = name
-            self.cnt1_name = cnt1_name
-            self.cnt2_name = cnt2_name
-
-        def prepare(self):
-            self.data = {}
-
-        def compute(self, sender, data_dict):
-            # Gathering all needed data to calculate the mean
-            # Datas of several counters are not emitted at the same time
-            nb_point_to_emit = numpy.inf
-            for cnt_name in (self.cnt1_name, self.cnt2_name):
-                cnt_data = data_dict.get(cnt_name, [])
-                data = self.data.get(cnt_name, [])
-                if len(cnt_data):
-                    data = numpy.append(data, cnt_data)
-                    self.data[cnt_name] = data
-                nb_point_to_emit = min(nb_point_to_emit, len(data))
-            # Maybe noting to do
-            if not nb_point_to_emit:
-                return
-
-            # Calculation
-            mean_data = (
-                self.data[self.cnt1_name][:nb_point_to_emit]
-                + self.data[self.cnt2_name][:nb_point_to_emit]
-            ) / 2.
-            # Removing already computed raw datas
-            self.data = {
-                key: data[nb_point_to_emit:] for key, data in self.data.items()
-            }
-            # Return name musst be the same as the counter name:
-            # **mean** in that case
-            return {self.name: mean_data}
-
     diode1 = default_session.config.get("diode")
     diode2 = default_session.config.get("diode2")
     diode3 = default_session.config.get("diode3")
@@ -144,19 +104,48 @@ def test_default_scan(default_session, lima_simulator):
     diode6 = default_session.config.get("diode6")
     diode7 = default_session.config.get("diode7")
 
-    cc6 = CalcCounterController("cc6", Mean("cc6", "diode", "diode2"), diode1, diode2)
-    cc5 = CalcCounterController("cc5", Mean("cc5", "diode4", "diode5"), diode4, diode5)
-    cc4 = CalcCounterController("cc4", Mean("cc4", "diode6", "diode7"), diode6, diode7)
-    cc3 = CalcCounterController(
-        "cc3", Mean("cc3", "cc6", "diode3"), cc6.counters[0], diode3
+    cc6 = MeanCalcCounterController(
+        "cc6",
+        {
+            "inputs": [{"counter": diode1}, {"counter": diode2}],
+            "outputs": [{"name": "cc6"}],
+        },
     )
-    cc2 = CalcCounterController(
-        "cc2", Mean("cc2", "cc5", "cc4"), cc5.counters[0], cc4.counters[0]
+    cc5 = MeanCalcCounterController(
+        "cc5",
+        {
+            "inputs": [{"counter": diode4}, {"counter": diode5}],
+            "outputs": [{"name": "cc5"}],
+        },
     )
-    cc1 = CalcCounterController(
-        "cc1", Mean("cc1", "cc3", "cc2"), cc3.counters[0], cc2.counters[0]
+    cc4 = MeanCalcCounterController(
+        "cc4",
+        {
+            "inputs": [{"counter": diode6}, {"counter": diode7}],
+            "outputs": [{"name": "cc4"}],
+        },
     )
-
+    cc3 = MeanCalcCounterController(
+        "cc3",
+        {
+            "inputs": [{"counter": cc6.counters[0]}, {"counter": diode3}],
+            "outputs": [{"name": "cc3"}],
+        },
+    )
+    cc2 = MeanCalcCounterController(
+        "cc2",
+        {
+            "inputs": [{"counter": cc5.counters[0]}, {"counter": cc4.counters[0]}],
+            "outputs": [{"name": "cc2"}],
+        },
+    )
+    cc1 = MeanCalcCounterController(
+        "cc1",
+        {
+            "inputs": [{"counter": cc3.counters[0]}, {"counter": cc2.counters[0]}],
+            "outputs": [{"name": "cc1"}],
+        },
+    )
     # ------- import lima_simulator ------------------
 
     simulator1 = default_session.config.get("lima_simulator")  # controller lima

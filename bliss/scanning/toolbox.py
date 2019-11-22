@@ -101,6 +101,7 @@ def _get_counters_from_object(arg, recursive=True):
     except AttributeError:
         try:
             counters = list(arg.counters)
+
         except AttributeError:
             pass
     if not counters:
@@ -228,11 +229,10 @@ class ChainBuilder:
 
             # --- add dependencies knowledge to calc_nodes -----------------------------
             if isinstance(controller, CalcCounterController):
-                for cnt in node.controller.counters[1:]:
+                for cnt in node.controller.inputs:
                     node._calc_dep_nodes[cnt.controller] = self._cached_nodes[
                         cnt.controller
                     ]
-
         else:
             node = self._cached_nodes.get(controller)
 
@@ -452,5 +452,8 @@ class DefaultAcquisitionChain:
             chain.add(top_master, timer)
 
         chain.timer = timer
+
+        # builder.print_tree(not_ready_only=False)
+        # print(chain._tree)
 
         return chain

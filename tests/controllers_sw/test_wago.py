@@ -320,3 +320,23 @@ def test_wago_info(capsys, default_session, wago_mockup):
     print(wago.__info__())
     captured = capsys.readouterr()
     assert "Given mapping DOES NOT match Wago attached modules" in captured.out
+
+
+def test_wago_emulator_close_on_exit(clean_gevent, capsys, beacon):
+    clean_gevent["end-check"] = False
+
+    # preparing a default session with mockup that works
+    from bliss.common.session import DefaultSession
+
+    default_session = DefaultSession()
+    default_session.setup()
+
+    def f():
+        # defining a wago inside a function without returning a reference to it
+        from bliss.config.static import get_config
+
+        conf = get_config()
+        conf.get("wago_simulator")
+
+    f()
+    default_session.close()

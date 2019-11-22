@@ -1,7 +1,7 @@
 default:
   before_script:
     # set pip cache to the Docker volume
-    - echo ${CI_PROJECT_DIR} 
+    - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - /opt/conda/bin/conda init && source /root/.bashrc
     - conda config --append channels conda-forge
@@ -173,7 +173,7 @@ pages:
   stage: deploy
   before_script:
     - ''
-  tags: 
+  tags:
     - conda
     - builder
     - linux
@@ -195,12 +195,12 @@ pages:
   only:
     - tags
     - master
-  
+
 deploy_bliss:
   stage: deploy
   before_script:
     - ''
-  tags: 
+  tags:
     - conda
     - builder
     - linux

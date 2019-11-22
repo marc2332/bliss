@@ -173,6 +173,23 @@ def get_config(base_path="", timeout=3.):
     return CONFIG
 
 
+def get_config_dict(fullname, node_name):
+    """Loads from file the node configuration
+    as a dictionary
+    """
+
+    with client.remote_open(fullname) as f:
+        d = yaml.safe_load(f.read())
+    if isinstance(d, dict):
+        d = _find_dict(node_name, d)
+    elif isinstance(d, list):
+        d = _find_list(node_name, d)
+    else:
+        d = None
+
+    return d
+
+
 class Node(dict):
     """
     Configuration Node. Do not instantiate this class directly.

@@ -14,6 +14,7 @@ from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
 from bliss.config.conductor.client import remote_open
 from bliss.config.static import Node
+from bliss.config.static import get_config_dict
 
 
 def _find_dict(name, d):
@@ -243,14 +244,7 @@ class BeaconObject:
                     f"to use apply_config of {self.name} a valid config with name has to be provied on init!"
                 )
 
-            with remote_open(self.config.filename) as f:
-                d = yaml.safe_load(f.read())
-            if isinstance(d, dict):
-                d = _find_dict(self._config_name, d)
-            elif isinstance(d, list):
-                d = _find_list(self._config_name, d)
-            else:
-                d = None
+            d = get_config_dict(self.config.filename, self._config_name)
 
             if d is None:
                 raise RuntimeError(

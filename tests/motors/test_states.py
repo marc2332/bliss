@@ -68,6 +68,11 @@ def test_from_current_states_str():
     assert u.current_states() == v.current_states()
 
 
+def test_current_states_names():
+    s = AxisState("READY", "LIMNEG")
+    assert s.current_states_names == ["READY", "LIMNEG"]
+
+
 def test_state_from_state():
     s = AxisState("READY")
     t = AxisState(s)

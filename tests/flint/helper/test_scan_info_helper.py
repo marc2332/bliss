@@ -1,5 +1,6 @@
 """Testing scan info helper module."""
 
+import numpy
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_item_model
@@ -196,3 +197,68 @@ def test_create_curve_plot_from_motor_scan():
         ("axis:roby", "simulation_diode_controller:diode2"),
     ]
     assert set(expected_curves) == set(curves)
+
+
+def test_progress_percent_curve():
+    scan_info = {
+        "npoints": 10,
+        "acquisition_chain": {"axis": {"master": {"scalars": ["axis:roby"]}}},
+    }
+    scan = scan_info_helper.create_scan_model(scan_info)
+    channel = scan.getChannelByName("axis:roby")
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.0
+
+    data = scan_model.Data(scan, numpy.arange(5))
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.5
+
+    data = scan_model.Data(scan, numpy.arange(10))
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 1.0
+
+
+def test_progress_percent_scatter():
+    scan_info = {
+        "npoints1": 2,
+        "npoints2": 5,
+        "acquisition_chain": {"axis": {"master": {"scalars": ["axis:roby"]}}},
+    }
+    scan = scan_info_helper.create_scan_model(scan_info)
+    channel = scan.getChannelByName("axis:roby")
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.0
+
+    data = scan_model.Data(scan, numpy.arange(5))
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.5
+
+    data = scan_model.Data(scan, numpy.arange(10))
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 1.0
+
+
+def test_progress_percent_image():
+    scan_info = {
+        "npoints": 10,
+        "acquisition_chain": {"axis": {"master": {"images": ["axis:roby"]}}},
+    }
+    scan = scan_info_helper.create_scan_model(scan_info)
+    channel = scan.getChannelByName("axis:roby")
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.0
+
+    image = numpy.arange(4).reshape(2, 2)
+    data = scan_model.Data(scan, image, frameId=0)
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 0.1
+
+    data = scan_model.Data(scan, image, frameId=9)
+    channel.setData(data)
+    res = scan_info_helper.get_scan_progress_percent(scan)
+    assert res == 1.0

@@ -159,10 +159,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
         scalars = channels.get("scalars", [])
         if len(scalars) > 0:
             have_scalar = True
-        if (
-            len(channels.get("master", {}).get("scalars", [])) >= 2
-            and scan_info.get("data_dim", 1) == 2
-        ):
+        if scan_info.get("data_dim", 1) == 2 or scan_info.get("dim", 1) == 2:
             have_scatter = True
 
     # Scalar plot
@@ -372,7 +369,20 @@ def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
         return None
 
     # FIXME: npoints do not distinguish many top masters, AFAIK
-    npoints = scan_info.get("npoints", None)
+
+    try:
+        npoints = scan_info.get("npoints", None)
+        if npoints is None:
+            # Mesh scans
+            npoints1 = scan_info.get("npoints1", 0)
+            npoints2 = scan_info.get("npoints2", 0)
+            npoints = int(npoints1) * int(npoints2)
+        else:
+            npoints = int(npoints)
+    except:
+        # It's about parsing user input, everything can happen
+        _logger.error("Error while reading scan_info", exc_info=True)
+
     if npoints == 0:
         return None
 
@@ -380,14 +390,21 @@ def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
         master_channels = []
         for _master_name, channel_info in scan_info["acquisition_chain"].items():
             master_channels.extend(channel_info.get("master", {}).get("scalars", []))
+            master_channels.extend(channel_info.get("master", {}).get("images", []))
 
         for master_channel in master_channels:
             channel = scan.getChannelByName(master_channel)
             if channel is None:
-                return None
+                continue
             data = channel.data()
             if data is None:
                 return 0.0
-            return len(data.array()) / npoints
+
+            if data.frameId() is not None:
+                size = data.frameId() + 1
+            else:
+                size = len(data.array())
+
+            return size / npoints
 
     return None

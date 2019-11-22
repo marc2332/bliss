@@ -122,6 +122,7 @@ nav:
                 - Editing Lima ROI counters: flint_roi_counters.md
                 - Scans plotting: flint_scan_plotting.md
                 - Interaction with plots: flint_interaction.md
+                - Debugging: flint_debugging.md
         - Data publishing:
                 - Data structure & access: data_structure.md
                 - "External saving": data_external_saving.md

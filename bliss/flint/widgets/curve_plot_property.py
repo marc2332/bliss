@@ -372,6 +372,32 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__treeView.openPersistentEditor(self.__xaxis.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
 
+    def data(self, role=qt.Qt.DisplayRole):
+        if role == qt.Qt.ToolTipRole:
+            return self.toolTip()
+        return _property_tree_helper.ScanRowItem.data(self, role)
+
+    def toolTip(self):
+        if self.__channel is not None:
+            data = self.__channel.data()
+            if data is not None:
+                array = data.array()
+            else:
+                array = None
+            if array is None:
+                shape = "No data"
+            elif array is tuple():
+                shape = "Scalar"
+            else:
+                shape = " × ".join([str(s) for s in array.shape])
+            name = self.__channel.name()
+            return f"""<html><ul>
+            <li><b>Channel name:</b> {name}</li>
+            <li><b>Data shape:</b> {shape}</li>
+            </ul></html>"""
+
+        return None
+
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 

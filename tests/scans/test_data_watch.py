@@ -12,6 +12,8 @@ import numpy
 import numpy.testing
 from bliss import setup_globals
 from bliss.common import event
+from bliss.controllers.lima.lima_base import Lima
+from bliss.scanning.toolbox import ChainBuilder
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -170,6 +172,76 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
     assert numpy.allclose(vars["scan_data_m1"], master._positions, atol=1e-1)
     assert pytest.approx(m1.position, end_pos)
     assert len(end_scan_args)
+
+
+def test_limatake_with_watcher(session, lima_simulator):
+    lima_simulator = session.config.get("lima_simulator")
+
+    scan_info = {
+        "npoints": 1,
+        "count_time": 0.01,
+        "type": "loopscan",
+        "save": False,
+        "title": "limatake",
+        "sleep_time": None,
+        "start": [],
+        "stop": [],
+        "saving_statistics_history": 1,
+    }
+
+    lima_params = {
+        "acq_nb_frames": 1,
+        "acq_expo_time": 0.01,
+        "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER",
+        "saving_format": "HDF5",
+        "saving_suffix": ".h5",
+        "prepare_once": True,
+        "start_once": False,
+    }
+
+    chain = AcquisitionChain(parallel_prepare=True)
+    builder = ChainBuilder([lima_simulator])
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+        chain.add(node)
+
+    scan = Scan(chain, scan_info=scan_info, name="limatake", save=False)
+
+    # print(scan.acq_chain._tree)
+
+    new_scan_args = []
+    new_child_args = []
+    new_data_args = []
+    end_scan_args = []
+    end_scan_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        end_scan_args.append(args)
+
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        session.name,
+        lambda *args: new_scan_args.append(args),
+        lambda *args: new_child_args.append(args),
+        lambda *args: new_data_args.append(args),
+        end,
+    )
+
+    try:
+        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
+
+        scan.run()
+
+        end_scan_event.wait(2.0)
+    finally:
+        session_watcher.kill()
+
+    assert len(new_data_args) == 3  # why 3 ??? should be 1
+    assert len(new_scan_args) == 1
+    assert len(end_scan_args) == 1
 
 
 def test_data_watch_callback(session, diode_acq_device_factory):

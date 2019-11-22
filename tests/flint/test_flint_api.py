@@ -12,6 +12,7 @@ from bliss.common import plot
 logger = logging.getLogger(__name__)
 
 
+@pytest.mark.skip(reason="This test often segfault the bcu-ci")
 @pytest.mark.usefixtures("flint_norpc")
 class TestFlint(TestCaseQt):
     def test_empty_plot(self):

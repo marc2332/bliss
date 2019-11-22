@@ -32,7 +32,7 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
-
+from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter
 
@@ -46,9 +46,10 @@ from bliss.common.scans import *
 
 from bliss.common import logtools
 from bliss.common.logtools import *
+from bliss.common.interlocks import interlock_state
 
 from bliss.shell.interlocks import interlock_show
-from bliss.common.interlocks import interlock_state
+from bliss.shell.cli import user_dialog, pt_widgets
 
 from tabulate import tabulate
 
@@ -688,3 +689,57 @@ def clear():
         os.system("cls")
     else:
         os.system("clear")
+
+
+def edit_mg(mg=None):
+    """
+    Edit the measurement group with a simple dialog.
+    mg -- a measurement group if left to None == default
+    measurement group.
+    """
+    active_mg = measurementgroup.ACTIVE_MG if mg is None else mg
+    try:
+        available = list(sorted(active_mg.available))
+    except AttributeError:
+        if mg is None:
+            raise RuntimeError("No active measurement group")
+        else:
+            raise RuntimeError(f"Object **{mg}** is not a measurement group")
+    enabled = active_mg.enabled
+
+    dlgs = [
+        user_dialog.UserCheckBox(label=name, defval=name in enabled)
+        for name in available
+    ]
+    nb_counter_per_column = 18
+    cnts = [
+        user_dialog.Container(dlgs[i : i + nb_counter_per_column], splitting="h")
+        for i in range(0, len(dlgs), nb_counter_per_column)
+    ]
+
+    print(len(cnts))
+    dialog = pt_widgets.BlissDialog(
+        [cnts],
+        title=f"Edition measurement group: **{active_mg.name}**  "
+        "enable/disable counters",
+    )
+    rval = dialog.show()
+    if rval:
+        selected = set(
+            [
+                cnt_name
+                for cnt_name, enable_flag in zip(available, rval.values())
+                if enable_flag
+            ]
+        )
+        available = set(available)
+        to_enable = selected - enabled
+
+        disabled = available - enabled
+        deselected = available - selected
+        to_disable = deselected - disabled
+
+        if to_enable:
+            active_mg.enable(*to_enable)
+        if to_disable:
+            active_mg.disable(*to_disable)

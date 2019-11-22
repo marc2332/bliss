@@ -409,6 +409,7 @@ class WagoMockup:
             target=Wago,
             args=((self.host, self.port),),
             kwargs={"modules": modules, "randomize_values": randomize_values},
+            daemon=True,
         )
 
         self.t.start()

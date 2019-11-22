@@ -1,4 +1,9 @@
-name: simu1
-module: mca
-class: SimulatedMCA
-plugin: bliss
+- name: simu1
+  module: mca
+  class: SimulatedMCA
+  plugin: bliss
+
+- name: simu2
+  module: mca
+  class: SimulatedMCA
+  plugin: bliss

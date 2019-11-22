@@ -92,11 +92,12 @@ def scan_saving_get(attr, default=None):
     return getattr(scan_saving(), attr, default)
 
 
-def scan_saving_attrs(template=None):
+def scan_saving_attrs(template=None, **overwrite):
     """
     SCAN_SAVING attributes from template
 
     :param str template: SCAN_SAVING.template when missing
+    :param overwrite: overwrite attribute values
     :returns str:
     """
     _scan_saving = scan_saving()
@@ -104,10 +105,13 @@ def scan_saving_attrs(template=None):
         template = _scan_saving.template
     params = {}
     for attr in re.findall(r"\{(.*?)\}", template):
-        try:
-            params[attr] = getattr(_scan_saving, attr)
-        except AttributeError:
-            pass
+        if attr in overwrite:
+            params[attr] = overwrite[attr]
+        else:
+            try:
+                params[attr] = getattr(_scan_saving, attr)
+            except AttributeError:
+                pass
     return params
 
 

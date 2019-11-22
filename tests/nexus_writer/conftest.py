@@ -7,24 +7,33 @@
 
 import pytest
 import os
+import sys
 import gevent
 from contextlib import contextmanager
 from nexus_writer_service.utils import data_policy
+from nexus_writer_service.scan_writers.writer_base import (
+    cli_saveoptions as base_options
+)
+from nexus_writer_service.scan_writers.writer_config import (
+    cli_saveoptions as config_options
+)
 from bliss.common import measurementgroup
-from bliss.controllers.lima.roi import Roi as LimaRoi
-from bliss.controllers.lima.lima_base import Lima
-from bliss.controllers.mca.base import BaseMCA
+
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
+import nxw_test_config
+
+
+config_writer_args = ("--log=info",)
+base_writer_args = config_writer_args + ("--noconfig",)
 
 
 def setup_writer_session(session):
     session.setup()
-    measurementgroup.set_active_name("alldet")
-    # lima_rois(session)
-    mca_rois(session)
 
 
 @pytest.fixture
-def nexus_base_session(beacon, lima_simulator):
+def nexus_base_session(beacon, lima_simulator, lima_simulator2):
     session = beacon.get("nexus_writer_base")
     setup_writer_session(session)
     yield session
@@ -32,83 +41,107 @@ def nexus_base_session(beacon, lima_simulator):
 
 
 @pytest.fixture
-def nexus_config_session(beacon, lima_simulator):
+def nexus_config_session(beacon, lima_simulator, lima_simulator2):
     session = beacon.get("nexus_writer_config")
     setup_writer_session(session)
     yield session
     session.close()
 
 
-def scan_saving_withoutpolicy(session, scan_tmpdir):
+def scan_saving_nopolicy(session, scan_tmpdir):
     scan_saving = session.scan_saving
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.data_filename = "dataset"
     scan_saving.writer = "hdf5"
+    measurementgroup.set_active_name(nxw_test_config.technique["withoutpolicy"] + "MG")
 
 
-def scan_saving_withpolicy(session, scan_tmpdir):
+def scan_saving_policy(session, scan_tmpdir):
     scan_saving = session.scan_saving
-    # scan_saving.writer = 'null'  # TODO: cannot be null!!!
+    scan_saving.writer = "null"
     data_policy.newlocalexperiment("prop123", root=str(scan_tmpdir))
     scan_saving.add("sample", "sample")
-    scan_saving.add("technique", "xrfxrd")
+    scan_saving.add("technique", nxw_test_config.technique["withpolicy"])
     scan_saving.add("dataset", "dataset")
+    measurementgroup.set_active_name(scan_saving.technique + "MG")
 
 
 @pytest.fixture
-def nexus_base_session_withpolicy(nexus_base_session, scan_tmpdir):
-    scan_saving_withpolicy(nexus_base_session, scan_tmpdir)
+def nexus_base_session_policy(nexus_base_session, scan_tmpdir):
+    scan_saving_policy(nexus_base_session, scan_tmpdir)
     yield nexus_base_session, scan_tmpdir
 
 
 @pytest.fixture
-def nexus_base_session_withoutpolicy(nexus_base_session, scan_tmpdir):
-    scan_saving_withoutpolicy(nexus_base_session, scan_tmpdir)
+def nexus_base_session_nopolicy(nexus_base_session, scan_tmpdir):
+    scan_saving_nopolicy(nexus_base_session, scan_tmpdir)
     yield nexus_base_session, scan_tmpdir
 
 
 @pytest.fixture
-def nexus_config_session_withpolicy(nexus_config_session, scan_tmpdir):
-    scan_saving_withpolicy(nexus_config_session, scan_tmpdir)
+def nexus_config_session_policy(nexus_config_session, scan_tmpdir):
+    scan_saving_policy(nexus_config_session, scan_tmpdir)
     yield nexus_config_session, scan_tmpdir
 
 
 @pytest.fixture
-def nexus_config_session_withoutpolicy(nexus_config_session, scan_tmpdir):
-    scan_saving_withoutpolicy(nexus_config_session, scan_tmpdir)
+def nexus_config_session_nopolicy(nexus_config_session, scan_tmpdir):
+    scan_saving_nopolicy(nexus_config_session, scan_tmpdir)
     yield nexus_config_session, scan_tmpdir
 
 
 @pytest.fixture
-def nexus_writer_base_withoutpolicy(nexus_base_session_withoutpolicy, wait_for_fixture):
-    session, tmpdir = nexus_base_session_withoutpolicy
-    cliargs = "NexusSessionWriter", session.name, "--noconfig", "--log=info"
+def nexus_writer_base(nexus_base_session_policy, wait_for_fixture):
+    session, tmpdir = nexus_base_session_policy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += base_writer_args
     with writer_process(wait_for_fixture, cliargs) as writer_stdout:
         yield session, tmpdir, writer_stdout
 
 
 @pytest.fixture
-def nexus_writer_base_withpolicy(nexus_base_session_withpolicy, wait_for_fixture):
-    session, tmpdir = nexus_base_session_withpolicy
-    cliargs = "NexusSessionWriter", session.name, "--noconfig", "--log=info"
+def nexus_writer_base_alt(nexus_base_session_policy, wait_for_fixture):
+    session, tmpdir = nexus_base_session_policy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += base_writer_args
+    cliargs += tuple("--" + k for k in base_options if "--" + k not in cliargs)
     with writer_process(wait_for_fixture, cliargs) as writer_stdout:
         yield session, tmpdir, writer_stdout
 
 
 @pytest.fixture
-def nexus_writer_config_withoutpolicy(
-    nexus_config_session_withoutpolicy, wait_for_fixture
-):
-    session, tmpdir = nexus_config_session_withoutpolicy
-    cliargs = "NexusSessionWriter", session.name, "--log=info"
+def nexus_writer_base_nopolicy(nexus_base_session_nopolicy, wait_for_fixture):
+    session, tmpdir = nexus_base_session_nopolicy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += base_writer_args
     with writer_process(wait_for_fixture, cliargs) as writer_stdout:
         yield session, tmpdir, writer_stdout
 
 
 @pytest.fixture
-def nexus_writer_config_withpolicy(nexus_config_session_withpolicy, wait_for_fixture):
-    session, tmpdir = nexus_config_session_withpolicy
-    cliargs = "NexusSessionWriter", session.name, "--log=info"
+def nexus_writer_config(nexus_config_session_policy, wait_for_fixture):
+    session, tmpdir = nexus_config_session_policy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += config_writer_args
+    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
+        yield session, tmpdir, writer_stdout
+
+
+@pytest.fixture
+def nexus_writer_config_nopolicy(nexus_config_session_nopolicy, wait_for_fixture):
+    session, tmpdir = nexus_config_session_nopolicy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += config_writer_args
+    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
+        yield session, tmpdir, writer_stdout
+
+
+@pytest.fixture
+def nexus_writer_config_alt(nexus_config_session_policy, wait_for_fixture):
+    session, tmpdir = nexus_config_session_policy
+    cliargs = "NexusSessionWriter", session.name
+    cliargs += config_writer_args
+    cliargs += tuple("--" + k for k in config_options if "--" + k not in cliargs)
     with writer_process(wait_for_fixture, cliargs) as writer_stdout:
         yield session, tmpdir, writer_stdout
 
@@ -135,33 +168,3 @@ def writer_process(wait_for_fixture, cliargs):
         # TODO: not captured
         # with gevent.Timeout(10, RuntimeError("Nexus Writer did not run its cleanup")):
         #    wait_for_fixture(p.stdout, "Listener exits")
-
-
-def objects_of_type(session, *classes):
-    ret = {}
-    for name in session.object_names:
-        try:
-            obj = session.env_dict[name]
-        except KeyError:
-            continue
-        if isinstance(obj, classes):
-            ret[name] = obj
-    return ret
-
-
-def lima_rois(session):
-    rois = {
-        "roi1": LimaRoi(0, 0, 100, 200),
-        "roi2": LimaRoi(10, 20, 200, 500),
-        "roi3": LimaRoi(20, 60, 500, 500),
-        "roi4": LimaRoi(60, 20, 50, 10),
-    }
-    for lima in objects_of_type(session, Lima).values():
-        lima.roi_counters.update(rois)
-
-
-def mca_rois(session):
-    rois = {"roi1": (500, 550), "roi2": (600, 650), "roi3": (700, 750)}
-    for mca in objects_of_type(session, BaseMCA).values():
-        for name, roi in rois.items():
-            mca.rois.set(name, *roi)

@@ -354,6 +354,10 @@ def default_session(beacon):
 
 
 def pytest_addoption(parser):
+    """
+    Add pytest options
+    """
+    parser.addoption("--runwritertests", action="store_true", help="run external tests")
     parser.addoption("--pepu", help="pepu host name")
     parser.addoption("--ct2", help="ct2 address")
     parser.addoption("--axis-name", help="axis name")
@@ -362,6 +366,57 @@ def pytest_addoption(parser):
         "--wago",
         help="connection information: tango_cpp_host:port,domani,wago_dns\nExample: --wago bibhelm:20000,ID31,wcid31c",
     )
+
+
+def pytest_configure(config):
+    """
+    Modify pytest.ini
+    """
+    # Define new test markers which allow to selecting specific tests
+    # from the CLI, for example "pytest -m nexuswriter"
+    config.addinivalue_line(
+        "markers", "writer: mark as a writer test (skipped default)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Add test markers dynamically based on pytest options
+    (see `pytest_addoption`)
+    """
+    mark_dir_tests(items, "nexus_writer", pytest.mark.writer)
+    skip_tests(config, items)
+
+
+def mark_dir_tests(items, dirname, marker):
+    """
+    Mark tests based on directory
+    """
+    for item in items:
+        if dirname == os.path.split(os.path.dirname(item.fspath))[-1]:
+            item.add_marker(marker)
+
+
+def skip_tests(config, items):
+    """
+    Skip marked tests when not enabled (see `pytest_addoption`)
+    """
+    skip_markers = ["writer"]
+    skip_markers = [
+        m for m in skip_markers if not config.getoption("--run{}tests".format(m))
+    ]
+    if not skip_markers:
+        # Do not skip any tests
+        return
+    skip_markers = {
+        m: pytest.mark.skip(reason="need --run{}tests option to run".format(m))
+        for m in skip_markers
+    }
+    for item in items:
+        for m, marker in skip_markers.items():
+            if m in item.keywords:
+                # Mark test as skipped
+                item.add_marker(marker)
 
 
 @pytest.fixture

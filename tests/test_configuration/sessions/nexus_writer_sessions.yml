@@ -1,48 +1,108 @@
--   class: Session
-    name: nexus_writer_config
-    setup-file: ./nexus_writer_config_setup.py
-    include-sessions:
-       - nexus_writer_base
-    config-objects: []
+- class: Session
+  name: nexus_writer_config
+  setup-file: ./nexus_writer_config_setup.py
+  include-sessions:
+  - nexus_writer_base
+  config-objects: []
 
--   class: Session
-    name: nexus_writer_base
-    setup-file: ./nexus_writer_base_setup.py
-    config-objects: 
-        - alldet
-        - diode2
-        - diode3
-        - diode4
-        - diode5
-        - diode6
-        - diode7
-        - diode8
-        - diode9
-        - simu1
-        - lima_simulator
-        - roby
-        - robz    
-        - m1
-        - sim_ct_gauss    
-        - sim_ct_gauss_noise
-    aliases:
-       - original_name: m1
-         alias_name: robx
-       - original_name: simulation_diode_controller:diode2
-         alias_name: diode1
+- class: Session
+  name: nexus_writer_base
+  setup-file: ./nexus_writer_base_setup.py
+  config-objects:
+  - m1
+  - roby
+  - robz    
+  - xrfxrdMG
+  - xrfMG
+  - xasMG
+  - noneMG
+  - diode2
+  - diode3
+  - diode4
+  - diode5
+  - diode6
+  - diode7
+  - diode8
+  - diode9
+  - sim_ct_gauss    
+  - sim_ct_gauss_noise
+  - thermo_sample
+  - simu1
+  - simu2
+  - lima_simulator
+  - lima_simulator2
+  aliases:
+  - original_name: m1
+    alias_name: robx
+  - original_name: simulation_diode_sampling_controller:diode2
+    alias_name: diode2alias
+  - original_name: simulation_diode_sampling_controller:diode9
+    alias_name: diode9alias
 
 - class: MeasurementGroup
-  name: alldet
+  name: xrfxrdMG
   counters:
-      - diode2
-      - diode3
-      - diode4
-      - diode5
-      - diode6
-      - diode7
-      - diode8
-      - diode9
-      - simu1
-      - lima_simulator
-      - sim_ct_gauss    
-      - sim_ct_gauss_noise
+  - diode2
+  - diode3
+  - diode4
+  - diode5
+  - diode6
+  - diode7
+  - diode8
+  - diode9
+  - sim_ct_gauss    
+  - sim_ct_gauss_noise
+  - thermo_sample
+  - simu1
+  - simu2
+  - lima_simulator
+  - lima_simulator2
+
+- class: MeasurementGroup
+  name: xrfMG
+  counters:
+  - diode2
+  - diode3
+  - diode4
+  - diode5
+  - diode6
+  - diode7
+  - diode8
+  - diode9
+  - sim_ct_gauss    
+  - sim_ct_gauss_noise
+  - thermo_sample
+  - simu1
+  - simu2
+
+- class: MeasurementGroup
+  name: xasMG
+  counters:
+  - diode2
+  - diode3
+  - diode4
+  - diode5
+  - diode6
+  - diode7
+  - diode8
+  - diode9
+  - sim_ct_gauss    
+  - sim_ct_gauss_noise
+  - thermo_sample
+  - simu1
+  - simu2
+
+- class: MeasurementGroup
+  name: noneMG
+  counters:
+  - diode2
+  - diode3
+  - diode4
+  - diode5
+  - diode6
+  - diode7
+  - diode8
+  - diode9
+  - sim_ct_gauss    
+  - sim_ct_gauss_noise
+  - thermo_sample

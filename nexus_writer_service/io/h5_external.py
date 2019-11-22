@@ -76,7 +76,7 @@ def add_edf_arguments(filenames, createkwargs=None):
             )
         if indices:
             img = fabio.open(filename)
-            # EdfImage.getframe returns an EdfImage, not a EdfFrame
+            # EdfImage.getframe returns an EdfImage, not an EdfFrame
 
             def getframe(img):
                 return img._frames[img.currentframe]

@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 from bliss.scanning.writer.file import FileWriter
 
 
@@ -37,4 +38,4 @@ class Writer(FileWriter):
 
     @property
     def filename(self):
-        return "<no saving>"
+        return os.path.join(self.root_path, self.data_filename + ".null")

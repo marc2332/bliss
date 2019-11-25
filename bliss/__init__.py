@@ -19,6 +19,7 @@
     scanning
     shell
     tango
+    flint
 """
 from . import release
 

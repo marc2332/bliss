@@ -4,9 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-"""
-This module provides abstract object to model a plot.
+"""This module provides abstract object to model a plot.
 
 A plot identify what we want to display.
 

@@ -4,8 +4,8 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-"""Access project's data and documentation files.
+"""Packaging containing both API to access to the embedded resource, and the
+resource itself. Most of it is images and Gt UI description scripts.
 """
 
 import os

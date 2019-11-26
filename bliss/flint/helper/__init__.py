@@ -4,3 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""
+Package containing complex classes which are usually not main part of the
+application.
+"""

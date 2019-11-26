@@ -5,7 +5,23 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Manage scan events to feed with the application model
+This module provides processing to listen scan events from Redis and to feed
+with it the flint modelization relative to scans.
+
+Here is a simplified sequence of events managed by the :class:`ScanManager`.
+But events are not yet managed this way.
+
+.. image:: _static/flint/receive-image-data.svg
+    :alt: Sequence of events to deal with a Lima detector
+    :align: center
+
+The :class:`ScanManager` is then responsible to:
+
+- Try to expose strict events of the life-cycle of the scans
+- Handle data events and reach data stored in Redis or in detectors (in case of
+  image data, for example)
+- Send update only when data are synchronized (to avoid extra computation on
+  the GUI side).
 """
 from __future__ import annotations
 from typing import Optional

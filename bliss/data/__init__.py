@@ -10,6 +10,6 @@
 .. autosummary::
     :toctree:
 
-    lima
+    nodes
     routines
 """

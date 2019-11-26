@@ -4,9 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-"""
-Contains implementation of concrete objects used to model plots.
+"""Contains implementation of concrete objects used to model plots.
 
 It exists 4 kinds of plots: curves, scatter, image, MCAs. Each plot contains
 specific items. But it is not a constraint from the architecture.

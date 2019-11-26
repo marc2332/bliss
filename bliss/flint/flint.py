@@ -4,6 +4,32 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+"""Main entry for Flint application.
+
+This module provide a `main``function which initialize all the main components.
+
+Here is a view of this architecture and the way it interact with it's
+environment.
+
+.. image:: _static/flint/flint_architecture.svg
+    :alt: Scan model
+    :align: center
+
+- A :class:`~bliss.flint.model.flint_model.FlintState` is created to provide all the
+  available process and data own by Flint.
+- Other objects from the package :class:`~bliss.flint.model` provides the modelization
+  of concepts Flint have to deal with (scans, plots, curves...)
+- A :class:`~bliss.flint.helper.manager.ManageMainBehaviours` have the responsibility
+  to react to events and update the model or dispatch it to other managers
+- A :class:`~bliss.flint.flint_window.FlintWindow` provides the user interaction on
+  top of the modelization (basically the view, in MVC design).
+- A :class:`~bliss.flint.helper.scan_manager.ScanManager` deaLS with events from Redis,
+  and feeds the modelization with the state of the scans acquired by BLISS.
+- Finally :class:`~bliss.flint.flint_api.FlintApi` provides a command line API to
+  interact with flint. It is served by a generic server. On client side (BLISS),
+  this server and it's API is reachable using :func:`bliss.common.plot.get_flint`.
+- A user can then interact with Flint using both command line API or GUI.
+"""
 
 import sys
 import logging

@@ -4,7 +4,8 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
+"""Module defining the main entry of the Flint modelization.
+"""
 from __future__ import annotations
 from typing import List
 

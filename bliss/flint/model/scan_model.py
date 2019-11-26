@@ -4,9 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
-"""
-This module provides object to model a scan acquisition process.
+"""This module provides object to model a scan acquisition process.
 
 This tree structure is supposed to be real-only when a scan was
 started. During the scan, only data of channels are updated.

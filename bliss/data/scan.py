@@ -118,12 +118,12 @@ def _watch_data_callback(
                             )
 
             elif event_type == _SCAN_EVENT.NEW_DATA:
-                zerod_nodes = list()
-                other_nodes = dict()
                 for (
                     scan_db_name,
                     (scan_info, data_channels_event),
                 ) in event_data.items():
+                    zerod_nodes = list()
+                    other_nodes = dict()
                     scan_dict = running_scans[scan_db_name]
                     nodes_info = scan_dict["nodes_info"]
                     nodes_data = scan_dict["nodes_data"]

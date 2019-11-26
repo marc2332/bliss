@@ -1821,6 +1821,13 @@ class AxisState(object):
         # Flags all states off.
         self._current_states = list()
 
+    @property
+    def current_states_names(self):
+        """
+        Return a list of the current states names
+        """
+        return self._current_states[:]
+
     def current_states(self):
         """
         Return a string of current states.

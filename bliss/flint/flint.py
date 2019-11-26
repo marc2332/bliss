@@ -206,6 +206,8 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 def initApplication(argv):
     qapp = qt.QApplication.instance()
     if qapp is None:
+        # Do not recreate OpenGL context when docking/undocking windows
+        qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
         qapp = qt.QApplication(argv)
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")

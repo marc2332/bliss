@@ -5,20 +5,27 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
 import weakref
 import os
-import gevent
 import hashlib
 import functools
+import numpy
+import gevent
+
 from bliss.comm import get_comm
+from bliss.common.utils import autocomplete_property
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.controllers.counter import CounterController
-from bliss.scanning.acquisition.musst import MusstChainNode
-from bliss.common.counter import SamplingCounter
+from bliss.scanning.acquisition.musst import MusstChainNode, MusstIntegratingChainNode
+from bliss.common.counter import SamplingCounter, IntegratingCounter
+from bliss.controllers.counter import (
+    IntegratingCounterController,
+    SamplingCounterController,
+    counter_namespace,
+)
 
 
 def _get_simple_property(command_name, doc_sring):
@@ -57,10 +64,42 @@ def lazy_init(func):
     return f
 
 
-class MusstCounter(SamplingCounter):
-    def __init__(self, name, musst, channel):
-        SamplingCounter.__init__(self, name, musst)
+class MusstSamplingCounter(SamplingCounter):
+    def __init__(self, controller, name, channel, channel_config):
+        SamplingCounter.__init__(self, name, controller)
         self.channel = channel
+        self.channel_config = channel_config
+
+
+class MusstIntegratingCounter(IntegratingCounter):
+    def __init__(self, controller, name, channel, channel_config):
+        IntegratingCounter.__init__(self, name, controller)
+        self.channel = channel
+        self.channel_config = channel_config
+
+
+class MusstSamplingCounterController(SamplingCounterController):
+    def __init__(self, name, master_controller):
+        super().__init__(name, master_controller=master_controller)
+
+    def read_all(self, *counters):
+        """ return the values of the given counters as a list.
+            If possible this method should optimize the reading of all counters at once.
+        """
+        return self.master_controller.read_all(*counters)
+
+
+class MusstIntegratingCounterController(IntegratingCounterController):
+    def __init__(self, name, master_controller):
+        IntegratingCounterController.__init__(
+            self,
+            name=name,
+            master_controller=master_controller,
+            chain_node_class=MusstIntegratingChainNode,
+        )
+
+    def get_values(self, from_index, *counters):
+        return self.master_controller.read_all(*counters)
 
 
 class musst(CounterController):
@@ -241,7 +280,6 @@ class musst(CounterController):
 
         super().__init__(name, chain_node_class=MusstChainNode)
 
-        # self.name = name
         gpib = config_tree.get("gpib")
         comm_opts = dict()
         if gpib:
@@ -286,6 +324,10 @@ class musst(CounterController):
         self.__one_line_programing = config_tree.get(
             "one_line_programing", "serial_url" in config_tree
         )
+
+        self.sampling_counters = MusstSamplingCounterController("samp", self)
+        self.integrating_counters = MusstIntegratingCounterController("integ", self)
+
         self._channels = None
         self._counter_init(config_tree)
 
@@ -297,68 +339,83 @@ class musst(CounterController):
         self._init = init
 
     def _counter_init(self, config_tree):
-        # Configured counters
-        cnt_list = list()
-        for cnt_config in config_tree.get("counters", list()):
-            cnt_name = cnt_config.get("name")
-            cnt_channel = cnt_config.get("channel")
+        """ Handle counters from config """
 
-            if cnt_channel.upper() not in (
-                "TIMER",
-                "CH1",
-                "CH2",
-                "CH3",
-                "CH4",
-                "CH5",
-                "CH6",
-            ):
-                raise ValueError(
-                    'Musst Counter: counter "%s" channel name (%s) must be [CH1/CH2/CH3/CH4/CH5/CH6]'
-                    % (cnt_name, cnt_channel)
-                )
+        channels_list = config_tree.get("channels", list())
+        for channel_config in channels_list:
+            cnt_name = channel_config.get("counter_name")
+            if cnt_name:
+                channel_type = channel_config.get("type")
+                channel_number = channel_config.get("channel")
+                if channel_number in range(1, 7):
+                    cnt_channel = "CH%d" % channel_number
+                elif channel_number in [0, "timer", "TIMER"]:
+                    cnt_channel = "TIMER"
+                else:
+                    raise ValueError(
+                        'Musst Counter: wrong channel "%s" for counter "%s". It should be in [timer, 1, 2, 3, 4, 5, 6]'
+                        % (cnt_channel, cnt_name)
+                    )
 
-            cnt_obj = MusstCounter(cnt_name, self, cnt_channel.upper())
-            cnt_list.append(cnt_obj)
-        self._counters = {cnt.name: cnt for cnt in cnt_list}
+                if channel_type in ("cnt",):
+                    cnt = MusstIntegratingCounter(
+                        self.integrating_counters, cnt_name, cnt_channel, channel_config
+                    )
+                    self.integrating_counters.add_counter(cnt)
+
+                elif channel_type in ("encoder", "ssi", "adc5", "adc10"):
+                    cnt = MusstSamplingCounter(
+                        self.sampling_counters, cnt_name, cnt_channel, channel_config
+                    )
+
+                    cnt_mode = channel_config.get("counter_mode")
+                    if cnt_mode:
+                        cnt.mode = cnt_mode
+
+                    self.sampling_counters.add_counter(cnt)
 
     def _channels_init(self, config_tree):
-        # Configured channels
+        """ Handle configured channels """
+
         self._channels = dict()
         channels_list = config_tree.get("channels", list())
         for channel_config in channels_list:
             channel_number = channel_config.get("channel")
+
             if channel_number is None:
                 raise RuntimeError("musst: channel in config must have a channel")
-
-            channel_type = channel_config.get("type")
-            if channel_type in ("cnt", "encoder", "ssi", "adc5", "adc10"):
-                channel_name = channel_config.get("label")
-                if channel_name is None:
-                    raise RuntimeError("musst: channel in config must have a label")
-                channels = self._channels.setdefault(channel_name.upper(), list())
-                channels.append(self.get_channel(channel_number, type=channel_type))
-            elif channel_type == "switch":
-                ext_switch = channel_config.get("name")
-                if not hasattr(ext_switch, "states_list"):
-                    raise RuntimeError(
-                        "musst: channels (%s) switch object must have states_list method"
-                        % channel_number
-                    )
-
-                for channel_name in ext_switch.states_list():
+            elif channel_number in range(1, 7):
+                channel_type = channel_config.get("type")
+                if channel_type in ("cnt", "encoder", "ssi", "adc5", "adc10"):
+                    channel_name = channel_config.get("label")
+                    if channel_name is None:
+                        raise RuntimeError("musst: channel in config must have a label")
                     channels = self._channels.setdefault(channel_name.upper(), list())
-                    channels.append(
-                        self.get_channel(
-                            channel_number,
-                            type=channel_type,
-                            switch=ext_switch,
-                            switch_name=channel_name,
+                    channels.append(self.get_channel(channel_number, type=channel_type))
+                elif channel_type == "switch":
+                    ext_switch = channel_config.get("name")
+                    if not hasattr(ext_switch, "states_list"):
+                        raise RuntimeError(
+                            "musst: channels (%s) switch object must have states_list method"
+                            % channel_number
                         )
+
+                    for channel_name in ext_switch.states_list():
+                        channels = self._channels.setdefault(
+                            channel_name.upper(), list()
+                        )
+                        channels.append(
+                            self.get_channel(
+                                channel_number,
+                                type=channel_type,
+                                switch=ext_switch,
+                                switch_name=channel_name,
+                            )
+                        )
+                else:
+                    raise ValueError(
+                        "musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)"
                     )
-            else:
-                raise ValueError(
-                    "musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)"
-                )
 
     def __info__(self):
         """Default method called by the 'BLISS shell default typing helper'
@@ -426,6 +483,7 @@ class musst(CounterController):
 
         time -- If specified, the counters run for that time (in s.)
         """
+
         if time is not None:
             time *= self.get_timer_factor()
             self.putget("#RUNCT %d" % time)
@@ -675,10 +733,7 @@ class musst(CounterController):
                     )
         return list(channels.values())
 
-    """
-    Add read_all function to make Musst object a counter controller
-    """
-
+    # Add a read_all method to read counters (also used by the sub integrating and sampling counter controllers)
     def read_all(self, *counters):
         if len(counters) > 0:
             read_cmd = ""
@@ -694,6 +749,14 @@ class musst(CounterController):
             val_float = [float(x) for x in val_str.split(" ")]
 
             return val_float
+
+    @autocomplete_property
+    def counters(self):
+        all_counters = {}
+        # all_counters.update(self._counters)
+        all_counters.update(self.integrating_counters._counters)
+        all_counters.update(self.sampling_counters._counters)
+        return counter_namespace(all_counters)
 
 
 # Musst switch

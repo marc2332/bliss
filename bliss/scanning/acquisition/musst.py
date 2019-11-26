@@ -5,33 +5,40 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
-from bliss.scanning.channel import AcquisitionChannel
-from bliss.scanning.chain import ChainNode
-
+import time
 import gevent
 from gevent import event
 import numpy
-import time
+
+from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
+from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
 
 class MusstChainNode(ChainNode):
     def _get_default_chain_parameters(self, scan_params, acq_params):
 
-        # Return required parameters
         params = {}
-        params["program"] = None
-        params["program_data"] = None
-        params["program_start_name"] = None
-        params["program_abort_name"] = None
-        params["vars"] = None
-        params["program_template_replacement"] = None
+        try:
+            params["count_time"] = acq_params["count_time"]
+        except KeyError:
+            params["count_time"] = scan_params["count_time"]
+
         return params
 
     def get_acquisition_object(self, acq_params, ctrl_params=None):
 
         # --- Warn user if an unexpected is found in acq_params
-        expected_keys = []
+        expected_keys = [
+            "program",
+            "program_data",
+            "program_start_name",
+            "program_abort_name",
+            "vars",
+            "program_template_replacement",
+            "count_time",
+        ]
         for key in acq_params.keys():
             if key not in expected_keys:
                 print(
@@ -39,23 +46,120 @@ class MusstChainNode(ChainNode):
                 )
 
         # --- MANDATORY PARAMETERS -------------------------------------
-        program = acq_params["program"]
-        program_data = acq_params["program_data"]
-        program_start_name = acq_params["program_start_name"]
-        program_abort_name = acq_params["program_abort_name"]
-        mvars = acq_params["vars"]
-        program_template_replacement = acq_params["program_template_replacement"]
+        program = acq_params.get("program")
+        program_data = acq_params.get("program_data")
 
-        return MusstAcquisitionMaster(
-            self.controller,
-            program=program,
-            program_data=program_data,
-            program_start_name=program_start_name,
-            program_abort_name=program_abort_name,
-            vars=mvars,
-            program_template_replacement=program_template_replacement,
-            ctrl_params=ctrl_params,
+        if program is None and program_data is None:
+            count_time = acq_params["count_time"]
+            return MusstDefaultAcquisitionMaster(
+                self.controller, count_time=count_time, ctrl_params=ctrl_params
+            )
+
+        else:
+
+            program_start_name = acq_params["program_start_name"]
+            program_abort_name = acq_params["program_abort_name"]
+            mvars = acq_params["vars"]
+            program_template_replacement = acq_params["program_template_replacement"]
+
+            return MusstAcquisitionMaster(
+                self.controller,
+                program=program,
+                program_data=program_data,
+                program_start_name=program_start_name,
+                program_abort_name=program_abort_name,
+                vars=mvars,
+                program_template_replacement=program_template_replacement,
+                ctrl_params=ctrl_params,
+            )
+
+
+class MusstIntegratingChainNode(ChainNode):
+    def _get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Return required parameters
+        params = {}
+        try:
+            params["count_time"] = acq_params["count_time"]
+        except KeyError:
+            params["count_time"] = scan_params["count_time"]
+
+        return params
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        # --- Warn user if an unexpected is found in acq_params
+        expected_keys = ["count_time"]
+        for key in acq_params.keys():
+            if key not in expected_keys:
+                print(
+                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for MusstIntegratingAcquisitionSlave({self.controller}) ==="
+                )
+
+        # --- MANDATORY PARAMETERS -------------------------------------
+        count_time = acq_params["count_time"]
+        return MusstIntegratingAcquisitionSlave(
+            *self.counters, count_time=count_time, ctrl_params=ctrl_params
         )
+
+
+class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def reading(self):
+
+        musst = self.device.master_controller
+
+        while not self._stop_flag and musst.STATE != musst.RUN_STATE:
+            gevent.sleep(0.01)
+
+        while musst.STATE == musst.RUN_STATE:
+            gevent.sleep(0.01)
+
+        counters = list(self._counters.keys())
+        data = self.device.get_values(0, *counters)
+        self._emit_new_data(data)
+
+
+class MusstDefaultAcquisitionMaster(AcquisitionMaster):
+    def __init__(self, controller, count_time=None, ctrl_params=None):
+
+        super().__init__(controller, ctrl_params=ctrl_params)
+
+        self._running_state = False
+        self._event = event.Event()
+        self.count_time = count_time
+
+    @property
+    def running_state(self):
+        return self._running_state
+
+    @property
+    def name(self):
+        return f"{self.device.name}_master"
+
+    def prepare(self):
+        self._running_state = False
+        self._event.set()
+
+    def start(self):
+        self._running_state = True
+        self._event.set()
+
+    def stop(self):
+        if self.device.STATE == self.device.RUN_STATE:
+            self.device.ABORT
+
+    def trigger(self):
+        self.device.ct(self.count_time, wait=False)
+        self.trigger_slaves()
+
+    def trigger_ready(self):
+        return self.device.STATE != self.device.RUN_STATE
+
+    def wait_ready(self):
+        while self.device.STATE == self.device.RUN_STATE:
+            gevent.idle()
+        self._running_state = False
+        self._event.set()
 
 
 class MusstAcquisitionMaster(AcquisitionMaster):

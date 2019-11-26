@@ -120,6 +120,15 @@ Usage:
 For more information, see the XXX documentation: XXX.
 
 
+## GUI doc
+
+examples:
+
+* Menu: `Help` ▶ `IPython`.
+
+* some symbols: 🗹 ✅ ❌ ❓ 🔴 🔶 □ 🗹 𝚫t µ → ⟶ 🡆 ← ↑ → ↓
+
+
 ## Markdown examples
 
 This page can be used as example of typical markdown usage.

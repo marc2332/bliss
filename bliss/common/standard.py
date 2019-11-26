@@ -110,6 +110,7 @@ def lslog(glob: str = None, debug_only=False) -> None:
     if glob is None:
         loggers = {
             **global_log._find_loggers("bliss*"),
+            **global_log._find_loggers("flint*"),
             **global_log._find_loggers("global*"),
         }
     else:
@@ -133,11 +134,10 @@ def lslog(glob: str = None, debug_only=False) -> None:
             output = True
             print("\n" + msgfmt.format("logger name", "level", width=maxlen))
             print(msgfmt.format("=" * maxlen, 8 * "=", width=maxlen))
-        print(
-            msgfmt.format(
-                name, logging.getLevelName(logger.getEffectiveLevel()), width=maxlen
-            )
-        )
+        level = logging.getLevelName(logger.getEffectiveLevel())
+        if logger.disabled:
+            level = "%s [DISABLED]" % level
+        print(msgfmt.format(name, level, width=maxlen))
     if output:
         print("")
     else:

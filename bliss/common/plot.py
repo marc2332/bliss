@@ -148,17 +148,30 @@ import os
 import sys
 import numpy
 import psutil
-import platform
 import subprocess
+from contextlib import contextmanager
+import gevent
+import socket
 
 from bliss.comm import rpc
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
+from bliss.flint.config import get_flint_key
 
 try:
     from bliss.flint import poll_patch
 except ImportError:
     poll_patch = None
+
+import logging
+
+
+FLINT_LOGGER = logging.getLogger("flint")
+FLINT_OUTPUT_LOGGER = logging.getLogger("flint.output")
+# Disable the flint output
+FLINT_OUTPUT_LOGGER.setLevel(logging.INFO)
+FLINT_OUTPUT_LOGGER.disabled = True
+
 
 __all__ = [
     "plot",
@@ -172,7 +185,7 @@ __all__ = [
 
 # Globals
 
-FLINT = {"process": None, "proxy": None}
+FLINT = {"process": None, "proxy": None, "greenlet": None}
 
 # Connection helpers
 
@@ -183,29 +196,111 @@ def get_beacon_config():
 
 
 def check_flint(session_name):
+    """Check if an existing Flint process is running and attached to session_name.
+
+    Returns:
+        The process object from psutil.
+    """
     pid = FLINT.get("process")
     if pid is not None and psutil.pid_exists(pid):
-        return pid
+        return psutil.Process(pid)
 
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
 
     # get existing flint, if any
-    for key in redis.scan_iter(
-        "flint:%s:%s:*" % (platform.node(), os.environ.get("USER"))
-    ):
+    pattern = get_flint_key(pid="*")
+    for key in redis.scan_iter(pattern):
         key = key.decode()
         pid = int(key.split(":")[-1])
         if psutil.pid_exists(pid):
             value = redis.lindex(key, 0).split()[0]
             if value.decode() == session_name:
-                return pid
+                return psutil.Process(pid)
         else:
             redis.delete(key)
     return None
 
 
+def log_process_output_to_logger(process, stream_name, logger, level):
+    """Log the stream output of a process into a logger until the stream is
+    closed.
+
+    Args:
+        process: A process object from subprocess or from psutil modules.
+        stream_name: One of "stdout" or "stderr".
+        logger: A logger from logging module
+        level: A value of logging
+    """
+    was_openned = False
+    if hasattr(process, stream_name):
+        # process come from subprocess, and was pipelined
+        stream = getattr(process, stream_name)
+    else:
+        # process output was not pipelined.
+        # Try to open a linux stream
+        stream_id = 1 if stream_name == "stdout" else 2
+        try:
+            path = f"/proc/{process.pid}/fd/{stream_id}"
+            stream = open(path, "r")
+            was_openned = True
+        except:
+            FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
+            FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
+            return
+    try:
+        while not stream.closed:
+            line = stream.readline()
+            try:
+                line = line.decode()
+            except:
+                pass
+            if not line:
+                break
+            if line[-1] == "\n":
+                line = line[:-1]
+            logger.log(level, "%s", line)
+    except RuntimeError:
+        # Process was terminated
+        pass
+    if stream is not None and was_openned and not stream.closed:
+        stream.close()
+
+
+def log_socket_output_to_logger(socket, logger, level):
+    """Log the socket content into a logger until the socket is
+    closed.
+
+    Args:
+        process: A process object from subprocess or from psutil modules.
+        stream_name: One of "stdout" or "stderr".
+        logger: A logger from logging module
+        level: A value of logging
+    """
+    conn = None
+    try:
+        while True:
+            conn, _address = socket.accept()
+            while True:
+                data = conn.recv(512)
+                if not data:
+                    break
+                line = data.decode("utf-8")
+                if len(line) >= 1 and line[-1] == "\n":
+                    line = line[:-1]
+                logger.log(level, "%s", line)
+    except RuntimeError:
+        pass
+    if conn is not None:
+        conn.close()
+
+
 def start_flint():
+    """ Start the flint application in a subprocess.
+
+    Returns:
+        The process object"""
+    FLINT_LOGGER.warning("Flint starting...")
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
     if poll_patch is not None:
@@ -217,10 +312,22 @@ def start_flint():
     scan_display = ScanDisplay()
     args = [sys.executable, "-m", "bliss.flint"]
     args.extend(scan_display.extra_args)
-    return subprocess.Popen(args, env=env, start_new_session=True).pid
+    process = subprocess.Popen(
+        args,
+        env=env,
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return process
 
 
-def attach_flint(pid):
+def _attach_flint(process):
+    """Attach a flint process, make a RPC proxy and bind Flint to the current
+    session and return the FLINT proxy.
+    """
+    pid = process.pid
+    FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
     beacon = get_default_connection()
     redis = beacon.get_redis_connection()
     try:
@@ -229,8 +336,11 @@ def attach_flint(pid):
         raise RuntimeError("No current session, cannot attach flint")
 
     # Current URL
-    key = "flint:{}:{}:{}".format(platform.node(), os.environ.get("USER"), pid)
-    value = redis.brpoplpush(key, key, timeout=30)
+    key = get_flint_key(pid)
+    for _ in range(3):
+        value = redis.brpoplpush(key, key, timeout=5)
+        if value is not None:
+            break
     if value is None:
         raise ValueError(
             f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
@@ -238,18 +348,71 @@ def attach_flint(pid):
     url = value.decode().split()[-1]
 
     # Return flint proxy
-    proxy = rpc.Client(url)
+    FLINT_LOGGER.debug("Creating flint proxy...")
+    proxy = rpc.Client(url, timeout=3)
     proxy.set_session(session_name)
     proxy._pid = pid
 
     FLINT.update({"proxy": proxy, "process": pid})
 
+    greenlets = FLINT["greenlet"]
+    if greenlets is not None:
+        gevent.killall(greenlets)
+
+    if hasattr(process, "stdout"):
+        # process which comes from subprocess, and was pipelined
+        g1 = gevent.spawn(
+            log_process_output_to_logger,
+            process,
+            "stdout",
+            FLINT_OUTPUT_LOGGER,
+            logging.INFO,
+        )
+        g2 = gevent.spawn(
+            log_process_output_to_logger,
+            process,
+            "stderr",
+            FLINT_OUTPUT_LOGGER,
+            logging.ERROR,
+        )
+    else:
+        # Else we can use a socket
+        # This way do not allow to receive the very first logs
+        stdout_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stdout_serv.bind(("", 0))
+        stdout_serv.setblocking(True)
+        stdout_serv.listen(0)
+        stderr_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stderr_serv.bind(("", 0))
+        stderr_serv.setblocking(True)
+        stderr_serv.listen(0)
+        proxy.add_output_listener(stdout_serv.getsockname(), stderr_serv.getsockname())
+        g1 = gevent.spawn(
+            log_socket_output_to_logger, stdout_serv, FLINT_OUTPUT_LOGGER, logging.INFO
+        )
+        g2 = gevent.spawn(
+            log_socket_output_to_logger, stderr_serv, FLINT_OUTPUT_LOGGER, logging.ERROR
+        )
+
+    greenlets = (g1, g2)
+    FLINT["greenlet"] = greenlets
+
+    return proxy
+
+
+def attach_flint(pid):
+    """ attach to an external flint process, make a RPC proxy and bind Flint to the current session and return the FLINT proxy """
+    process = psutil.Process(pid)
+    proxy = _attach_flint(process)
+    FLINT_LOGGER.debug("Flint proxy initialized")
     return proxy
 
 
 def get_flint(start_new=False):
-    old_pid = None
-    pid = None
+    """ get the running flint proxy or create one.
+        use 'start_new=True' to force starting a new flint subprocess (which will be the new current one)"""
+
+    process = None
 
     try:
         session_name = current_session.name
@@ -258,20 +421,20 @@ def get_flint(start_new=False):
 
     # Get redis connection
     if start_new:
-        pid = start_flint()
+        process = start_flint()
     else:
-        # did we run our flint ?
-        pid = check_flint(session_name)
-        if pid is None:
-            pid = start_flint()
+        # Did we run our flint?
+        process = check_flint(session_name)
+        if process is not None:
+            # Was it already connected?
+            if FLINT["process"] == process.pid:
+                return FLINT["proxy"]
         else:
-            old_pid = FLINT.get("process", pid)
+            process = start_flint()
 
-    if pid != old_pid:
-        proxy = attach_flint(pid)
-        return proxy
-    else:
-        return FLINT["proxy"]
+    proxy = _attach_flint(process)
+    FLINT_LOGGER.debug("Flint proxy initialized")
+    return proxy
 
 
 def reset_flint():
@@ -280,6 +443,10 @@ def reset_flint():
         proxy.close()
     FLINT["proxy"] = None
     FLINT["process"] = None
+    greenlets = FLINT["greenlet"]
+    if greenlets is not None:
+        gevent.killall(greenlets)
+    FLINT["greenlet"] = None
 
 
 # Simple Qt interface
@@ -328,11 +495,13 @@ class BasePlot(object):
             self._flint = attach_flint(flint_pid)
         else:
             self._flint = get_flint()
+
         # Create plot window
         if existing_id is None:
             self._plot_id = self._flint.add_plot(self.WIDGET, name)
         else:
             self._plot_id = existing_id
+
         # Create qt interface
         interface = self._flint.get_interface(self._plot_id)
         self.qt = QtInterface(interface, self.submit)
@@ -628,3 +797,20 @@ def default_plot(data=None, **kwargs):
 
 # Alias
 plot = default_plot
+
+
+# Plotting: multi curves draw context manager
+
+
+@contextmanager
+def draw_manager(plot):
+    try:
+        # disable the silx auto_replot to avoid refreshing the GUI for each curve plot (when calling plot.select_data(...) )
+        plot.submit("setAutoReplot", False)
+        yield
+    except AssertionError:
+        # ignore eventual AssertionError raised by the rpc com
+        pass
+    finally:
+        # re-enable the silx auto_replot
+        plot.submit("setAutoReplot", True)

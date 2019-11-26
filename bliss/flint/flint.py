@@ -216,10 +216,30 @@ def initApplication(argv):
     return qapp
 
 
-def main():
-    logging.basicConfig(level=logging.INFO)
+def config_logging():
+    # Basic default formatter
+    fs = logging.BASIC_FORMAT
+    dfs = None
+    formatter = logging.Formatter(fs, dfs)
+
+    # Logs level < ERROR to stdout and llevel >= ERROR to stderr
+    # As result bliss console will display a better result
+    handler_stdout = logging.StreamHandler(sys.stdout)
+    handler_stdout.setFormatter(formatter)
+    handler_stdout.setLevel(logging.DEBUG)
+    handler_stdout.addFilter(lambda record: record.levelno < logging.ERROR)
+    handler_stderr = logging.StreamHandler()
+    handler_stderr.setFormatter(formatter)
+    handler_stderr.setLevel(logging.ERROR)
+    ROOT_LOGGER.addHandler(handler_stdout)
+    ROOT_LOGGER.addHandler(handler_stderr)
+
     logging.captureWarnings(True)
     ROOT_LOGGER.level = logging.INFO
+
+
+def main():
+    config_logging()
 
     options = parse_options()
     if options.debug:
@@ -291,7 +311,12 @@ def main():
     # FIXME: why using a timer?
     single_shot = qt.QTimer()
     single_shot.setSingleShot(True)
-    single_shot.timeout.connect(flintWindow.show)
+
+    def start():
+        flintWindow.show()
+        flintModel.mainManager().setFlintStarted()
+
+    single_shot.timeout.connect(start)
     single_shot.start(0)
 
     try:

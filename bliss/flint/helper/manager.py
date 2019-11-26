@@ -14,6 +14,7 @@ from typing import Optional
 from typing import List
 from typing import ClassVar
 
+import gevent.event
 from bliss.config.conductor.client import get_default_connection
 from bliss.config.conductor.client import get_redis_connection
 from bliss.flint import config
@@ -38,6 +39,8 @@ class ManageMainBehaviours(qt.QObject):
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__activeDock = None
         self.__classMapping = {}
+        self.__flintStarted = gevent.event.Event()
+        self.__flintStarted.clear()
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -425,3 +428,9 @@ class ManageMainBehaviours(qt.QObject):
             else:
                 return title
         return title
+
+    def setFlintStarted(self):
+        self.__flintStarted.set()
+
+    def waitFlintStarted(self):
+        self.__flintStarted.wait()

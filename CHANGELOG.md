@@ -30,9 +30,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `--enable-gevent-poll` to use experimental patching of poll system function for a better cooperative between Qt and gevent (it should reduce CPU consumption but could be unstable)
     - `--matplotlib-dpi DPI` to custom the plot DPI (this setting will be stored in the local user preferences)
     - `--clear-settings` to allow to start with cleared previous local user settings
+  - Flint stdout/strerr are logged inside bliss `flint.output` logger
+    - This logger is disabled by default
+    - The output is retrived from both created or attched Flint process
+    - `SCAN_DIPSLAY.flint_output_enabled` allow to enable/disable this logger
   - 2 scripts was added to optimize and convert SVG to PNG
     - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
-  - Typing Helper
+- Typing Helper
   - pressing F7 will disable typing helper on Bliss Shell
   - avoid interpretation of multiline code and of properties
 

@@ -6,17 +6,6 @@
 
 """ Module providing dialogs to interact with the user """
 
-# try:
-from bliss.shell.cli.pt_widgets import BlissDialog
-
-# except:
-#    try:
-#        from bliss.shell.cli.qt_widgets import BlissDialog
-#    except:
-#        raise ImportError
-
-# =========================================================================================
-
 
 class _UserDlg:
     def __init__(

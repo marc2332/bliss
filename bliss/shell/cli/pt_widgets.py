@@ -6,9 +6,11 @@
 
 """ Module providing dialogs to interact with the user """
 
-
-from __future__ import unicode_literals
 import functools
+import subprocess
+import gevent
+import os
+
 from prompt_toolkit.application import Application
 from prompt_toolkit.application.current import get_app
 from prompt_toolkit.eventloop import run_in_executor
@@ -30,33 +32,16 @@ from prompt_toolkit.widgets import (
 
 from prompt_toolkit.mouse_events import MouseEventType
 
-from prompt_toolkit.widgets import MenuContainer, MenuItem
-from prompt_toolkit.layout.containers import (
-    Float,
-    Window,
-    FloatContainer,
-    ConditionalContainer,
-)
+from prompt_toolkit.layout.containers import Float, FloatContainer, ConditionalContainer
 from prompt_toolkit.layout.menus import CompletionsMenu
-from prompt_toolkit.layout.controls import FormattedTextControl
-from prompt_toolkit.filters import Condition
-from prompt_toolkit.styles import Style, ConditionalStyleTransformation, DynamicStyle
+from prompt_toolkit.filters import Condition, has_completions
+from prompt_toolkit.styles import Style
 
 from prompt_toolkit.completion import PathCompleter, WordCompleter
-from prompt_toolkit.filters import (
-    has_selection,
-    has_completions,
-    has_focus,
-    buffer_has_focus,
-    is_searching,
-)
-from prompt_toolkit.filters.utils import to_filter
 
 from prompt_toolkit.widgets import Checkbox as Checkbox_Orig
 from prompt_toolkit.widgets import RadioList  # as RadioList_Orig
 
-import subprocess
-import gevent
 
 __all__ = [
     "yes_no_dialog",
@@ -65,6 +50,7 @@ __all__ = [
     "message_dialog",
     "radiolist_dialog",
     "progress_dialog",
+    "BlissDialog",
 ]
 
 
@@ -139,45 +125,6 @@ if 0:
 
 
 # ===================== PROMPT TOOLKIT PATCHING ==================
-
-# Modify prompt_toolkit RadioList obj
-if 0:
-
-    class RadioList(RadioList_Orig):
-        def __init__(self, *args, **kwargs):
-
-            super().__init__(*args, **kwargs)
-
-            # Modify the beaviour of Up and Down keys while navigating between the radio list items
-            # so it move the focus to next/previous widget when reaching the top or the bottom of the items list
-            def _down(event):
-                if self._selected_index + 1 == len(self.values):
-                    try:
-                        event.app.layout.focus_next()
-                    except:
-                        pass
-
-                self._selected_index = min(
-                    len(self.values) - 1, self._selected_index + 1
-                )
-
-            def _up(event):
-                if self._selected_index - 1 < 0:
-                    try:
-                        event.app.layout.focus_previous()
-                    except:
-                        pass
-
-                self._selected_index = max(0, self._selected_index - 1)
-
-            for b in self.control.get_key_bindings().get_bindings_for_keys(("down",)):
-                if b.keys == ("down",):
-                    b.handler = _down
-
-            for b in self.control.get_key_bindings().get_bindings_for_keys(("up",)):
-                if b.keys == ("up",):
-                    b.handler = _up
-
 
 # Modify prompt_toolkit Checkbox obj
 # Add a mouse handler to check ON or OFF the checkbox
@@ -677,7 +624,7 @@ class DlgWidget:
 
             try:
                 self.wdata.checked = bool(self.dlg.defval)
-            except:
+            except Exception:
                 pass
 
             body = self.wdata
@@ -695,7 +642,7 @@ class DlgWidget:
 
                 try:
                     self.boss.clear_error(self)
-                except:
+                except Exception:
                     pass
 
                 return True
@@ -706,7 +653,7 @@ class DlgWidget:
                 try:
                     msg = f"!!! {type(e).__name__}: {e} !!!"  # {self.dlg.label}
                     self.boss.set_error(msg, self)
-                except:
+                except Exception:
                     pass
 
                 return False
@@ -771,7 +718,6 @@ class BlissDialog(Dialog):
             get_app().layout.focus(ok_but.window)
 
         def on_ctrl_c(event):
-            # event.app.exit(result=False)
             self.return_and_close(False)
 
         self.extra_bindings = KeyBindings()
@@ -780,17 +726,17 @@ class BlissDialog(Dialog):
         self.extra_bindings.add("down", filter=~has_completions)(focus_next)
         self.extra_bindings.add("up", filter=~has_completions)(focus_previous)
 
-        if self.disable_tmux_mouse:
+        if self.disable_tmux_mouse and "TMUX" in os.environ:
             try:
                 subprocess.run(["tmux", "set-option", "-g", "mouse", "off"])
-            except:
+            except Exception:
                 pass
 
     def return_and_close(self, results=False):
-        if self.disable_tmux_mouse:
+        if self.disable_tmux_mouse and "TMUX" in os.environ:
             try:
                 subprocess.run(["tmux", "set-option", "-g", "mouse", "on"])
-            except:
+            except Exception:
                 pass
 
         get_app().exit(result=results)
@@ -817,11 +763,15 @@ class BlissDialog(Dialog):
 
         # SECOND LOOP, NOW WE ARE SURE THAT ALL VALUES ARE OK
         # WE SET DEFVAL TO RES VALUE
-        for i, wdlg in enumerate(self.flatten_wdlg_list):
+        for wdlg in self.flatten_wdlg_list:
             try:
                 wdlg.dlg.defval = results[wdlg.dlg.name]
             except KeyError:
                 wdlg.dlg.defval = results[wdlg.dlg]
+
+        # for UserChoice, store the index
+        if type(wdlg.dlg).__name__ == "UserChoice":
+            wdlg.dlg.defval = [i[0] for i in wdlg.dlg.values].index(wdlg.dlg.defval)
 
         self.return_and_close(results)
 
@@ -844,7 +794,7 @@ class BlissDialog(Dialog):
         # === Add bindings helper ====
         if self.show_help:
             bh = Label(
-                text=" >>> Next/Prev: tab/s-tab | Completion: up/down | Validate: enter | Ok: end | Cancel: c-c <<< ",
+                text=" >>> Next/Prev: tab/s-tab | Completion: up/down | Validate: enter | OK: end | Cancel: c-c <<< ",
                 dont_extend_height=True,
                 dont_extend_width=True,
                 style="class:helper",

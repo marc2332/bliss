@@ -59,7 +59,7 @@ check_lint:
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 
-test_bliss_source:
+test_bliss:
   # Run bliss tests without coverage for any branches except the master
   extends: .template_test_source
   except:
@@ -67,7 +67,7 @@ test_bliss_source:
   variables:
     PYTEST_ARGS: '--durations=30'
 
-test_writer_source:
+test_writer:
   # Run hdf5 writer tests without coverage for any branches except the master
   extends: .template_test_source
   except:
@@ -75,7 +75,7 @@ test_writer_source:
   variables:
     PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
 
-test_bliss_source_cov:
+test_bliss_cov:
   # Run bliss tests with coverage for master only
   extends: .template_test_source
   only:
@@ -90,7 +90,7 @@ test_bliss_source_cov:
   variables:
     PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov term --profile --durations=30'
 
-test_writer_source_cov:
+test_writer_cov:
   # Run hdf5 writer tests with coverage for master only
   extends: .template_test_source
   only:
@@ -135,7 +135,7 @@ package:
   only:
     - tags
 
-create_doc:reference:
+create_reference_doc:
   stage: build
   image: continuumio/miniconda3:latest
   script:
@@ -152,7 +152,7 @@ create_doc:reference:
       - build/
     expire_in: 7 days
 
-create_doc:user:
+create_user_doc:
   stage: build
   image: continuumio/miniconda3:latest
   script:
@@ -169,7 +169,7 @@ create_doc:user:
       - doc/site
     expire_in: 7 days
 
-run_tests:package:
+test_package:
   stage: package_tests
   image: continuumio/miniconda3:latest
   parallel: 2

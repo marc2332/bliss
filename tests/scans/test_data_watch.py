@@ -34,7 +34,7 @@ def scan_saving():
 def test_scan_saving(session, scan_saving):
     scan_saving.base_path = "/tmp"
     scan_saving.template = "{session}/toto"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == "toto"
     assert parent_node.parent is not None
     assert parent_node.parent.parent.name == scan_saving.session
@@ -42,7 +42,7 @@ def test_scan_saving(session, scan_saving):
     assert parent_node.db_name == "%s:%s" % (parent_node.parent.db_name, "toto")
 
     scan_saving.template = "toto"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == "toto"
     assert parent_node.parent is not None
     assert parent_node.parent.parent.name == scan_saving.session
@@ -69,7 +69,10 @@ Parameters (default) -
   .writer               = 'hdf5'
   .creation_date        = '{creation_date}'
   .last_accessed        = '{last_accessed}'
-""".format(
+--------------  ---------  -----------------
+does not exist  filename   /tmp/toto/data.h5
+does not exist  root_path  /tmp/toto
+--------------  ---------  -----------------""".format(
         creation_date=scan_saving.creation_date,
         date=scan_saving.date,
         last_accessed=scan_saving.last_accessed,
@@ -80,7 +83,7 @@ Parameters (default) -
     assert info(scan_saving) == scan_saving_repr
 
     scan_saving.template = "toto/{session}"
-    parent_node = scan_saving.get()["parent"]
+    parent_node = scan_saving.get_parent_node()
     assert parent_node.name == scan_saving.session
     assert parent_node.parent is not None
     assert parent_node.parent.name == "toto"
@@ -89,6 +92,17 @@ Parameters (default) -
         parent_node.parent.db_name,
         scan_saving.session,
     )
+
+    no_saving_info_tail = """\
+  .last_accessed        = '{last_accessed}'
+---------
+NO SAVING
+---------""".format(
+        last_accessed=scan_saving.last_accessed
+    )
+
+    scan_saving.writer = "null"  # set no saving
+    assert info(scan_saving).endswith(no_saving_info_tail)
 
 
 def test_simple_continuous_scan_with_session_watcher(session, scan_saving):

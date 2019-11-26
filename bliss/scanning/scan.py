@@ -13,8 +13,9 @@ import weakref
 import sys
 import time
 import datetime
-import uuid
+import tabulate
 import collections
+import uuid
 from functools import wraps
 
 from bliss import setup_globals, current_session, is_bliss_shell
@@ -25,12 +26,11 @@ from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
 from bliss.common.utils import Statistics, Null
-from bliss.config.settings import ParametersWardrobe, _change_to_obj_marshalling
+from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.common import motor_group
-from .chain import AcquisitionSlave, AcquisitionMaster, AcquisitionChain, StopChain
+from .chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from .writer.null import Writer as NullWriter
 from .scan_math import peak, cen, com
 from . import writer
@@ -330,15 +330,21 @@ class ScanSaving(ParametersWardrobe):
         """
         This class hold the saving structure for a session.
 
-        This class generate the *root path* of scans and the *parent* node use to publish data.
+        This class generate the *root path* of scans and the *parent* node use
+        to publish data.
 
-        The *root path* is generate using *base path* argument as the first part and
-        use the *template* argument as the final part.
-        The *template* argument is basically a (python) string format use to generate the final part of the
-        root_path.
+        The *root path* is generate using *base path* argument as the first part
+        and use the *template* argument as the final part.
+
+        The *template* argument is basically a (python) string format use to
+        generate the final part of the root_path.
+
         i.e: a template like "{session}/{date}" will use the session and the date attribute
         of this class.
-        attribute use in this template can also be a function with one argument (scan_data) which return a string.
+
+        Attribute used in this template can also be a function with one argument
+        (scan_data) which return a string.
+
         i.e: date argument can point to this method
              def get_date(scan_data): datetime.datetime.now().strftime("%Y/%m/%d")
              scan_data.add('date',get_date)
@@ -384,7 +390,39 @@ class ScanSaving(ParametersWardrobe):
         d["scan_name"] = "scan name"
         d["scan_number"] = "scan number"
         d["img_acq_device"] = "<images_* only> acquisition device name"
-        return super()._repr(d)
+
+        info_str = super()._repr(d)
+        info_str += self.get_data_info()
+
+        return info_str
+
+    def get_data_info(self):
+
+        data_config = self.get()
+        info_table = list()
+        #        import pprint
+        #       pprint.pprint(data_config['writer'].data_filename)
+        #        pprint.pprint(data_config['writer'].file)
+        #        pprint.pprint()
+        if isinstance(data_config["writer"], NullWriter):
+            info_table.append(("NO SAVING",))
+        else:
+            data_file = data_config["writer"].filename
+            #        data_file = data_config["data_path"]
+            if os.path.exists(data_file):
+                exists = "exists"
+            else:
+                exists = "does not exist"
+            info_table.append((exists, "filename", data_file))
+
+            data_dir = data_config["root_path"]
+            if os.path.exists(data_dir):
+                exists = "exists"
+            else:
+                exists = "does not exist"
+            info_table.append((exists, "root_path", data_dir))
+
+        return tabulate.tabulate(tuple(info_table))
 
     @property
     def scan_name(self):
@@ -463,23 +501,22 @@ class ScanSaving(ParametersWardrobe):
             images_prefix = images_prefix.format(**cache_dict)
             data_filename = data_filename.format(**cache_dict)
 
-            parent = _get_or_create_node(self.session, "container")
-            base_path_items = [
-                x
-                for x in os.path.normpath(cache_dict.get("base_path")).split(
-                    os.path.sep
+            db_path_items = [(self.session, "container")]
+            base_path_items = list(
+                filter(
+                    None,
+                    os.path.normpath(cache_dict.get("base_path")).split(os.path.sep),
                 )
-                if x
-            ]
+            )
             sub_items = os.path.normpath(sub_path).split(os.path.sep)
             try:
-                if parent.name == sub_items[0]:
+                if db_path_items[0][0] == sub_items[0]:
                     del sub_items[0]
             except IndexError:
                 pass
             sub_items = base_path_items + sub_items
             for path_item in sub_items:
-                parent = _get_or_create_node(path_item, "container", parent=parent)
+                db_path_items.append((path_item, "container"))
         except KeyError as keyname:
             raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
         else:
@@ -493,7 +530,7 @@ class ScanSaving(ParametersWardrobe):
                 "root_path": path,
                 "data_path": os.path.join(path, data_filename),
                 "images_path": images_path,
-                "parent": parent,
+                "db_path_items": db_path_items,
                 "writer": self._get_writer_object(path, images_path, data_filename),
             }
 
@@ -509,7 +546,11 @@ class ScanSaving(ParametersWardrobe):
         """
         This method return the parent node which should be used to publish new data
         """
-        return self.get()["parent"]
+        db_path_items = self.get()["db_path_items"]
+        parent_node = _get_or_create_node(*db_path_items[0])
+        for item_name, node_type in db_path_items[1:]:
+            parent_node = _get_or_create_node(item_name, node_type, parent=parent_node)
+        return parent_node
 
     def _get_writer_class(self, writer_module):
         module_name = "%s.%s" % (self.WRITER_MODULE_PATH, writer_module)
@@ -761,6 +802,8 @@ class Scan:
         data_watch_callback -- a callback inherited from DataWatchCallback
         """
         self.__name = name
+        self.__scan_number = None
+        self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
@@ -769,8 +812,6 @@ class Scan:
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
-
-        self.root_node = scan_config["parent"]
 
         self._scan_info["save"] = save
         if save:
@@ -822,6 +863,8 @@ class Scan:
 
     def _prepare_node(self):
         if self.__node is None:
+            self.root_node = self.__scan_saving.get_parent_node()
+
             ### order is important in the next lines...
             self.writer.template.update(
                 {

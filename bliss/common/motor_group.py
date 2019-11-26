@@ -148,11 +148,14 @@ class _Group(object):
             for axis, target_pos in grouped(args, 2):
                 axis_pos_dict[axis] = target_pos
 
+        self._group_move = GroupMove(self)
+
         for axis, target_pos in axis_pos_dict.items():
             motion = axis.prepare_move(target_pos, relative=relative)
             # motion can be None if axis is not supposed to move
             if motion is not None:
                 motions_dict.setdefault(axis.controller, []).append(motion)
+                motion.axis._group_move = self._group_move
 
         self._group_move.move(
             motions_dict,

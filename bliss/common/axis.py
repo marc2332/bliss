@@ -1345,6 +1345,7 @@ class Axis:
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
 
+            self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
                 start_one,
@@ -1419,6 +1420,7 @@ class Axis:
             def stop_one(controller, motions):
                 controller.stop_jog(motions[0].axis)
 
+            self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
                 start_jog,
@@ -1537,6 +1539,7 @@ class Axis:
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
 
+            self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
                 start_one,
@@ -1575,6 +1578,7 @@ class Axis:
             def stop_one(controller, motions):
                 controller.stop(motions[0].axis)
 
+            self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
                 start_one,

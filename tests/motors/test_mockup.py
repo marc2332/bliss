@@ -7,7 +7,8 @@
 
 import pytest
 from math import sqrt
-
+import gevent
+from bliss.common.standard import move
 from bliss.config.conductor.client import get_default_connection
 from bliss.physics.trajectory import LinearTrajectory
 
@@ -219,3 +220,16 @@ def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
     m.config.save()
     m.apply_config(reload=True)
     assert m.velocity == 10
+
+
+def test_move_std_func_no_wait_motor_stop(beacon, roby, robz):
+    move(roby, 1e6, robz, 1e6, wait=False)  # move == mv
+
+    assert "MOVING" in roby.state
+    assert "MOVING" in robz.state
+
+    with gevent.Timeout(1):
+        roby.stop()
+
+    assert "READY" in roby.state
+    assert "READY" in robz.state

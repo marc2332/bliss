@@ -390,6 +390,37 @@ def test_lima_scan_get_last_live_image(session, lima_simulator):
     assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
 
 
+def test_lima_scan_get_last_live_image_using_internal_trigger_mode(
+    session, lima_simulator
+):
+    simulator = session.config.get("lima_simulator")
+
+    DEFAULT_CHAIN.set_settings(
+        [
+            {
+                "device": simulator,
+                "acquisition_settings": {"acq_trigger_mode": "INTERNAL_TRIGGER"},
+            }
+        ]
+    )
+
+    with gevent.Timeout(3, RuntimeError("Timeout waiting for end of scan")):
+        scan = loopscan(3, 0.1, simulator, save=False)
+
+    assert simulator.acquisition.trigger_mode == "INTERNAL_TRIGGER"
+
+    data = scan.get_data()
+
+    assert simulator.name + ":image" in data
+    view = data[simulator.name + ":image"]
+
+    view.from_stream = True
+    raw_image_data, frame_id = view.get_last_live_image()
+
+    assert frame_id is None
+    assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
+
+
 def test_scan_saving_flags_with_lima(default_session, lima_simulator):
     simulator = default_session.config.get("lima_simulator")
     loopscan(3, 0.1, simulator)

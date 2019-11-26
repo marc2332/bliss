@@ -6,19 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
 import gevent
 import numpy
-import numpy.testing
 from bliss import setup_globals
-from bliss.common import event
 from bliss.controllers.lima.lima_base import Lima
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
-from bliss.scanning.scan import Scan, ScanSaving, ScanState
-from bliss.data.scan import watch_session_scans, get_data
+from bliss.scanning.scan import Scan, ScanSaving
+from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.standard import info
 

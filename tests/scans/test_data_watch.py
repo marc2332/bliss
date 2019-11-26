@@ -18,6 +18,7 @@ from bliss.scanning.scan import Scan, ScanSaving
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.standard import info
+from bliss.common import scans
 
 
 @pytest.fixture
@@ -284,3 +285,75 @@ def test_data_watch_callback(session, diode_acq_device_factory):
     s = Scan(chain, save=False, data_watch_callback=cb)
     s.run()
     assert all([cb.SCAN_NEW, cb.SCAN_DATA, cb.SCAN_END])
+
+
+def test_parallel_scans(default_session, scan_tmpdir):
+    default_session.scan_saving.base_path = str(scan_tmpdir)
+
+    diode = default_session.config.get("diode")
+    sim_ct_gauss = default_session.config.get("sim_ct_gauss")
+    robz = default_session.config.get("robz")
+
+    s1 = scans.loopscan(20, .1, diode, run=False)
+    s2 = scans.ascan(robz, 0, 10, 25, .09, sim_ct_gauss, run=False)
+
+    g1 = gevent.spawn(s1.run)
+    g2 = gevent.spawn(s2.run)
+    gs = [g1, g2]
+
+    new_scan_args = []
+    new_child_args = []
+    new_data_args = []
+    end_scan_args = []
+    end_scan_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        end_scan_args.append(args)
+
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        default_session.name,
+        lambda *args: new_scan_args.append(args),
+        lambda *args: new_child_args.append(args),
+        lambda *args: new_data_args.append(args),
+        end,
+    )
+
+    try:
+        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
+
+        gevent.joinall(gs, raise_error=True)
+
+        end_scan_event.wait(2.0)
+    finally:
+        session_watcher.kill()
+
+    assert len(new_data_args) > 0
+
+    loopscan_data = [
+        i[2]["data"] for i in new_data_args if i[2]["scan_info"]["type"] == "loopscan"
+    ]
+    ascan_data = [
+        i[2]["data"] for i in new_data_args if i[2]["scan_info"]["type"] == "ascan"
+    ]
+
+    expected_keys = [
+        "timer:epoch",
+        "timer:elapsed_time",
+        "axis:robz",
+        "simulation_counter_controller:sim_ct_gauss",
+    ]
+    assert ascan_data[-1].keys() == set(expected_keys)
+
+    expected_keys = [
+        "timer:epoch",
+        "timer:elapsed_time",
+        "simulation_diode_sampling_controller:diode",
+    ]
+    assert loopscan_data[-1].keys() == set(expected_keys)
+
+    for array in ascan_data[-1].values():
+        assert len(array) == 26
+    for array in loopscan_data[-1].values():
+        assert len(array) == 20

@@ -229,7 +229,11 @@ class ScanManager:
             # FIXME: This have to be fixed in bliss
             return False
 
-        stored_data = self.__data_storage.get_data_else_none(channel_name)
+        stored_channel = self.__scan.getChannelByName(channel_name)
+        if stored_channel is None:
+            return True
+
+        stored_data = stored_channel.data()
         if stored_data is None:
             # Not yet data, then update is needed
             return True

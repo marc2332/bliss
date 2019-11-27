@@ -252,7 +252,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return
 
         if self._image_channel:
-
             self._image_channel.description.update(
                 {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
             )

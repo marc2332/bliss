@@ -99,7 +99,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name="my_master")
 
-        def fill_meta_at_scan_init(self, scan_meta):
+        def fill_meta_at_scan_start(self, scan_meta):
             scan_meta.instrument.set(self, master_dict)
 
     device_name = "my_slave"
@@ -118,7 +118,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def __init__(self):
             super().__init__(name=device_name)
 
-        def fill_meta_at_scan_init(self, scan_meta):
+        def fill_meta_at_scan_start(self, scan_meta):
             scan_meta.instrument.set(self, device_dict)
 
     master = DummyMaster()

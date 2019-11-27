@@ -1300,7 +1300,7 @@ class Scan:
                     gevent.killall(prepare_tasks)
 
             for dev in self.acq_chain.nodes_list:
-                tmp = dev.fill_meta_at_scan_init(self.user_scan_meta)
+                tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
                 if tmp:
                     update_node_info(self.nodes[dev], tmp)
 

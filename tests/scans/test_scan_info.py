@@ -102,12 +102,21 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def fill_meta_at_scan_start(self, scan_meta):
             scan_meta.instrument.set(self, master_dict)
 
+        def prepare(self):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
     device_name = "my_slave"
     device_dict = {
         "lima": {
             device_name: {
                 "threshold": 12000,
-                "rois counter": {"roi1", (0, 10, 100, 200)},
+                "rois counter": {"roi1": (0, 10, 100, 200)},
             }
         }
     }
@@ -121,14 +130,22 @@ def test_scan_meta_master_and_device(session, scan_meta):
         def fill_meta_at_scan_start(self, scan_meta):
             scan_meta.instrument.set(self, device_dict)
 
+        def prepare(self):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
     master = DummyMaster()
     slave = DummyDevice()
     chain = AcquisitionChain()
     chain.add(master, slave)
 
     s = Scan(chain, name="my_simple")
-    s._prepare_scan_meta()
-
+    s.run()
     assert s.scan_info["instrument"] == {**master_dict, **device_dict}
 
 

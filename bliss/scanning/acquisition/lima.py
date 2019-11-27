@@ -423,16 +423,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         return self._reading_task.get()
 
     def fill_meta_at_scan_end(self, scan_meta):
-        scan_meta.instrument.set(
-            self,
-            {
-                self.name: {
-                    "lima_parameters": self.acq_params,
-                    "NX_class": "NXdetector",
-                    "ctrl_parameters": self.ctrl_params,
-                }
-            },
-        )
+        return {"acq_parameters": self.acq_params, "ctrl_parameters": self.ctrl_params}
 
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):

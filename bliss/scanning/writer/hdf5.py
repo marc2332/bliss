@@ -14,6 +14,7 @@ import datetime
 from bliss.common.utils import dicttoh5
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
+import functools
 
 
 class Writer(FileWriter):
@@ -195,10 +196,27 @@ class Writer(FileWriter):
         instrument = self.file.create_group(f"{scan_name}/instrument")
         instrument.attrs["NX_class"] = "NXinstrument"
         instrument_meta = hdf5_scan_meta.pop("instrument")
-        dicttoh5(instrument_meta, self.file, h5path=f"{scan_name}/instrument")
 
         dicttoh5(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
         self.file[f"{scan_name}/scan_meta"].attrs["NX_class"] = "NXcollection"
+
+        def new_nx_collection(d, x):
+            return d.setdefault(x, {"NX_class": "NXcollection"})
+
+        instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+
+        base_db_name = scan.node.db_name
+        for dev in scan.acq_chain.nodes_list:
+            dev_node = scan.nodes[dev]
+            dev_info = dev_node.info.get_all()
+            if dev_info:
+                dev_path = dev_node.db_name.replace(base_db_name + ":", "").split(":")
+                d = functools.reduce(
+                    new_nx_collection, dev_path, instrument_meta["chain_meta"]
+                )
+                d.update(dev_info)
+
+        dicttoh5(instrument_meta, self.file, h5path=f"{scan_name}/instrument")
 
     def close(self):
         super(Writer, self).close()

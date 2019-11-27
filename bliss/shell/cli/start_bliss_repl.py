@@ -13,7 +13,7 @@ from bliss import logging_startup
 import logging
 
 
-def main():
+def main(global_map=global_map):
     session_name = sys.argv[1]
 
     # initialize logging

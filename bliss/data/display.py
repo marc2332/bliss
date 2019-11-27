@@ -15,7 +15,6 @@ import operator
 import termios
 import shutil
 import signal
-import subprocess
 import atexit
 import contextlib
 import gevent

@@ -284,7 +284,7 @@ def main():
                     ]
                 )
 
-                sub_cmd = f"python -m bliss.shell.cli.start_bliss_repl {session} {arguments['--log-level'][0]} 1"
+                sub_cmd = f"{sys.executable} -m bliss.shell.cli.start_bliss_repl {session} {arguments['--log-level'][0]} 1"
                 ans = subprocess.run(
                     ["tmux", "-S", tsock, "send-keys", "-t", win1, sub_cmd, "Enter"]
                 )
@@ -293,7 +293,7 @@ def main():
                     ["tmux", "-S", tsock, "new-window", "-d", "-n", win2]
                 )
 
-                sub_cmd = f"python -m bliss.data.start_listener {session}"
+                sub_cmd = f"{sys.executable} -m bliss.data.start_listener {session}"
                 ans = subprocess.run(
                     ["tmux", "-S", tsock, "send-keys", "-t", win2, sub_cmd, "Enter"]
                 )
@@ -312,7 +312,7 @@ def main():
                         session,
                         "-n",
                         win1,
-                        "python",
+                        sys.executable,
                         "-m",
                         "bliss.shell.cli.start_bliss_repl",
                         session,
@@ -329,7 +329,7 @@ def main():
                         "-d",
                         "-n",
                         win2,
-                        "python",
+                        sys.executable,
                         "-m",
                         "bliss.data.start_listener",
                         session,

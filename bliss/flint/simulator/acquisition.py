@@ -79,7 +79,7 @@ class AcquisitionSimulator(qt.QObject):
         self.__scan = scan
 
         if self.__flintModel is not None:
-            self.__flintModel.setCurrentScan(scan)
+            self.__flintModel.addAliveScan(scan)
             scan.scanStarted.emit()
 
         if self.__scan_manager is not None:

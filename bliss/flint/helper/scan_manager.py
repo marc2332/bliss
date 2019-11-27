@@ -159,10 +159,8 @@ class ScanManager:
             if channel.kind == "scalar":
                 self.__data_storage.create_channel(channel.name, channel.master)
 
-        plots = scan_info_helper.create_plot_model(scan_info)
         if self.__flintModel is not None:
-            manager = self.__flintModel.mainManager()
-            manager.updateScanAndPlots(scan, plots)
+            self.__flintModel.addAliveScan(scan)
         self.__scan = scan
 
         scan._setState(scan_model.ScanState.PROCESSING)
@@ -388,6 +386,8 @@ class ScanManager:
             scan._setState(scan_model.ScanState.FINISHED)
             scan.scanFinished.emit()
 
+            if self.__flintModel is not None:
+                self.__flintModel.removeAliveScan(scan)
             self.__scan = None
             self.__scan_id = None
             self._end_scan_event.set()

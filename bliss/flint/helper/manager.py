@@ -30,6 +30,8 @@ from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
+from . import scan_info_helper
+
 _logger = logging.getLogger(__name__)
 
 
@@ -46,10 +48,12 @@ class ManageMainBehaviours(qt.QObject):
         if self.__flintModel is not None:
             self.__flintModel.workspaceChanged.disconnect(self.__workspaceChanged)
             self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
+            self.__flintModel.aliveScanAdded.disconnect(self.__aliveScanDiscovered)
         self.__flintModel = flintModel
         if self.__flintModel is not None:
             self.__flintModel.workspaceChanged.connect(self.__workspaceChanged)
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
+            self.__flintModel.aliveScanAdded.connect(self.__aliveScanDiscovered)
 
     def initRedis(self):
         connection = get_default_connection()
@@ -267,6 +271,20 @@ class ManageMainBehaviours(qt.QObject):
 
             widget.setPlotModel(plotModel)
             workspace.addWidget(widget)
+
+    def __aliveScanDiscovered(self, scan):
+        currentScan = self.__flintModel.currentScan()
+        if (
+            currentScan is not None
+            and currentScan.state() != scan_model.ScanState.FINISHED
+        ):
+            return
+
+        # Update the current scan only if the previous one is finished
+        # FIXME: It should be managed in a better way, but for now it's fine
+        scanInfo = scan.scanInfo()
+        plots = scan_info_helper.create_plot_model(scanInfo)
+        self.updateScanAndPlots(scan, plots)
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flint = self.__flintModel

@@ -1,6 +1,9 @@
+import logging
+import subprocess
+
 import pytest
 
-from bliss.shell.standard import wa, wm, sta, stm
+from bliss.shell.standard import wa, wm, sta, stm, umvr, lprint, sync
 
 
 @pytest.fixture
@@ -179,3 +182,51 @@ def test_stm_exception(default_session, capsys):
 
     errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
     assert captured.err[-len(errmsg) :] == errmsg
+
+
+def execute_in_subprocess(command):
+    script = subprocess.Popen(
+        ["python", "-c", command], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+
+    output, err = script.communicate()
+    returncode = script.returncode
+    return output.decode(), err.decode(), returncode
+
+
+def test_umvr_lib_mode(capsys, default_session):
+    """lprint should not show anything"""
+
+    commands = (
+        "from bliss.shell.standard import umv",
+        "from bliss.config import static",
+        "config = static.get_config()",
+        "roby = config.get('roby')",
+        "umv(roby,10)",
+    )
+
+    output, err, returncode = execute_in_subprocess(";".join(commands))
+
+    assert "Moving," not in output
+    assert "MockupAxis" not in output
+
+    assert returncode == 0
+    assert len(err) == 0
+
+
+def test_sync_lib_mode(capsys, default_session):
+    """lprint should not show anything"""
+    commands = (
+        "from bliss.shell.standard import sync",
+        "from bliss.config import static",
+        "config = static.get_config()",
+        "roby = config.get('roby')",
+        "sync(roby)",
+    )
+
+    output, err, returncode = execute_in_subprocess(";".join(commands))
+
+    assert "Forcing axes synchronization with hardware" not in output
+
+    assert returncode == 0
+    assert len(err) == 0

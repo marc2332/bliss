@@ -127,7 +127,6 @@ def sync(*axes):
         axes: list of axis objects or names. If no axis is given, it syncs all
               all axes present in the session
     """
-    print("Forcing axes synchronization with hardware")
     std_sync(*axes)
 
 

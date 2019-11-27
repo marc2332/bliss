@@ -86,6 +86,7 @@ def sync(*axes):
         axes: list of axis objects or names. If no axis is given, it syncs all
               all axes present in the session
     """
+    lprint("Forcing axes synchronization with hardware")
     if axes:
         axes = global_map.get_axis_objects_iter(*axes)
     else:

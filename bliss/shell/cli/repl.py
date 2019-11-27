@@ -442,6 +442,11 @@ def cli(
 
     set_bliss_shell_mode(True)
 
+    # adding stdout print of lprint messages
+    from bliss.common.logtools import logbook_printer
+
+    logbook_printer.add_stdout_handler()
+
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report
 

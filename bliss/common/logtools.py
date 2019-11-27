@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import sys
 import logging
 import contextlib
 from logging import Logger, NullHandler, Formatter
@@ -30,6 +31,7 @@ __all__ = [
     "hexify",
     "asciify",
     "get_logger",
+    "lprint",
 ]
 
 
@@ -209,6 +211,85 @@ def set_log_format(instance, frmt):
     except AttributeError as exc:
         exc.message = "only 'ascii' and 'hex' are valid formats"
         raise
+
+
+from logging import LoggerAdapter
+from logging import StreamHandler
+
+
+class LogbookAdapter(LoggerAdapter):
+    def process(self, msg, extra):
+        end = extra.get("end", "\n")
+        flush = chr(extra.get("flush", True))
+        return msg + f",{end},{flush}", extra
+
+
+class LogbookStdoutHandler(StreamHandler):
+    def emit(self, record):
+        """
+        Emit a record.
+
+        If a formatter is specified, it is used to format the record.
+        The record is then written to the stream with a trailing newline.  If
+        exception information is present, it is formatted using
+        traceback.print_exception and appended to the stream.  If the stream
+        has an 'encoding' attribute, it is used to determine how to do the
+        output to the stream.
+        """
+        try:
+            msg = self.format(record)
+            stream = sys.stdout
+            msg, end, flush = msg.rsplit(",", maxsplit=2)
+            stream.write(msg)
+            if flush:
+                self.flush()
+            if end:
+                stream.write(end)
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except:
+            self.handleError(record)
+
+
+class LogbookPrint:
+    def __init__(self):
+        self.extra = {"flush": True, "end": "\n"}
+        self.logger = logging.getLogger("bliss.logbook_print")
+        self.adapter = LogbookAdapter(self.logger, self.extra)
+
+        self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
+
+        self.stdout_handler = LogbookStdoutHandler()
+        self.stdout_handler.setLevel(logging.INFO)
+
+    def add_stdout_handler(self):
+        """adding handler will prints to stdout lprint messages"""
+        if self.stdout_handler not in self.logger.handlers:
+            self.logger.addHandler(self.stdout_handler)
+
+    def remove_stdout_handler(self):
+        if self.stdout_handler in self.logger.handlers:
+            self.logger.removeHandler(self.stdout_handler)
+
+    def add_logbook_handler(self):
+        raise NotImplementedError
+
+    def remove_logbook_handler(self):
+        raise NotImplementedError
+
+    def lprint(self, *args, **kwargs):
+        sep = kwargs.pop("sep", " ")
+        self.extra["end"] = kwargs.pop("end", "\n")
+        self.extra["flush"] = kwargs.pop("flush", True)
+        if len(args) > 1:
+            self.adapter.info(sep.join((str(arg) for arg in args)))
+        else:
+            self.adapter.info(args[0])
+
+
+logbook_printer = LogbookPrint()
+lprint = logbook_printer.lprint
 
 
 @contextlib.contextmanager

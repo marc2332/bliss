@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typing Helper
   - pressing F7 will disable typing helper on Bliss Shell
   - avoid interpretation of multiline code and of properties
+- lprint: new function intended to replace print for printing to stdout and to logbook
 
 ### Changed
 

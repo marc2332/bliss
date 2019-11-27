@@ -412,8 +412,10 @@ class AcquisitionObject:
         """Load controller parameters into hardware controller at the beginning of each scan"""
         from bliss.controllers.counter import CounterController
 
+        if isinstance(self.device, CounterController):
+            self.device.apply_parameters(self._ctrl_params)
 
-    def fill_meta_at_scan_init(self, scan_meta):
+    def fill_meta_at_scan_start(self, scan_meta):
         """
         In this method, acquisition device should collect and meta data
         related to this device and prepare it for publishing. it is called 
@@ -440,11 +442,6 @@ class AcquisitionObject:
            node attached to this AcqObj
         """
         return None
-
-    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
-
-        if isinstance(self.device, CounterController):
-            self.device.apply_parameters(self._ctrl_params)
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
     def prepare(self):

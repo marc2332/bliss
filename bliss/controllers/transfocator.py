@@ -75,6 +75,8 @@ from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
+from bliss import current_session
+from bliss.scanning import scan_meta
 
 
 class TfWagoMapping:
@@ -201,6 +203,16 @@ class Transfocator:
             self.nb_pinhole = len(self.pinhole)
             if self.nb_pinhole > 2:
                 raise ValueError("%s: layout can only have 2 pinholes maximum" % name)
+
+        if current_session:
+            self._init_meta_data_publishing()
+
+    def _init_meta_data_publishing(self):
+        scan_meta_obj = scan_meta.get_user_scan_meta()
+        scan_meta_obj.instrument.set(
+            self,
+            lambda _: {self.name: {**self.status_dict(), "NX_class": "NXcollection"}},
+        )
 
     def connect(self):
         """ Connect to the WAGO module, if not already done """

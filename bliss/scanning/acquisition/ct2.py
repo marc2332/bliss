@@ -27,13 +27,13 @@ class CT2AcquisitionMaster(AcquisitionMaster):
     def __init__(
         self,
         device,
+        ctrl_params=None,
         npoints=1,
         acq_expo_time=1.,
         acq_point_period=None,
         acq_mode=AcqMode.IntTrigMulti,
         prepare_once=True,
         start_once=True,
-        ctrl_params=None,
     ):
         self._connected = False
         self.acq_expo_time = acq_expo_time
@@ -53,7 +53,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         kwargs = dict(
             npoints=npoints,
             prepare_once=prepare_once,
-            start_once=prepare_once,
+            start_once=start_once,
             trigger_type=trigger_type,
             ctrl_params=ctrl_params,
         )

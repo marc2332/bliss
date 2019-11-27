@@ -17,7 +17,6 @@ from gevent import event
 import numpy
 
 from bliss.common.utils import all_equal
-from bliss.scanning.chain import ChainNode
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.counter import SamplingMode
@@ -101,7 +100,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, *counters, ctrl_params=None, count_time=None, npoints=1):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -425,7 +424,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
 
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
-    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, *counters, ctrl_params=None, count_time=None, npoints=1):
 
         super().__init__(
             *counters,
@@ -479,72 +478,3 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 gevent.idle()
             else:
                 gevent.sleep(self.count_time / 2.0)
-
-
-class SamplingChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        try:
-            npoints = acq_params["npoints"]
-        except:
-            npoints = scan_params["npoints"]
-
-        params = {"count_time": count_time, "npoints": npoints}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time", "npoints"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
-
-        return SamplingCounterAcquisitionSlave(
-            *self.counters,
-            count_time=count_time,
-            npoints=npoints,
-            ctrl_params=ctrl_params,
-        )
-
-
-class IntegratingChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        params = {"count_time": count_time}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        count_time = acq_params["count_time"]
-
-        return IntegratingCounterAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
-        )

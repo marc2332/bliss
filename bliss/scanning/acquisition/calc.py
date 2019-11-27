@@ -200,6 +200,6 @@ class CalcCounterChainNode(ChainNode):
             else:
                 acq_devices.append(acq_obj)
 
-        return CalcCounterAcquisitionSlave(
-            self.controller, acq_devices, ctrl_params=ctrl_params
+        return self.controller.get_acquisition_object(
+            acq_params=acq_devices, ctrl_params=ctrl_params
         )

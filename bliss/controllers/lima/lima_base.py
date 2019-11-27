@@ -13,14 +13,13 @@ from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.config import settings
-from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
 
 from bliss.controllers.counter import CounterController, counter_namespace
-from bliss.scanning.acquisition.lima import LimaChainNode
 from bliss import current_session
 
 from bliss.config.channels import Cache, clear_cache
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
@@ -276,7 +275,7 @@ class Lima(CounterController):
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
 
-        super().__init__(name, chain_node_class=LimaChainNode)
+        super().__init__(name)
 
         self._directories_mapping = config_tree.get("directories_mapping", dict())
         self._active_dir_mapping = settings.SimpleSetting(
@@ -303,6 +302,73 @@ class Lima(CounterController):
         self._processing = self.LimaTools(
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
+
+    # def get_acquisition_object_class(self, acq_pars, ctrl_pars):
+    #    return LimaAcquisitionMaster
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+
+        npoints = acq_params.get("acq_nb_frames", scan_params.get("npoints", 1))
+
+        try:
+            acq_expo_time = acq_params["acq_expo_time"]
+        except KeyError:
+            acq_expo_time = scan_params["count_time"]
+
+        if "INTERNAL_TRIGGER_MULTI" in self.available_triggers:
+            default_trigger_mode = "INTERNAL_TRIGGER_MULTI"
+        else:
+            default_trigger_mode = "INTERNAL_TRIGGER"
+
+        acq_trigger_mode = acq_params.get("acq_trigger_mode", default_trigger_mode)
+
+        prepare_once = acq_trigger_mode in (
+            "INTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_GATE",
+            "EXTERNAL_TRIGGER_MULTI",
+        )
+        start_once = acq_trigger_mode not in (
+            "INTERNAL_TRIGGER",
+            "INTERNAL_TRIGGER_MULTI",
+        )
+
+        data_synchronisation = scan_params.get("data_synchronisation", False)
+        if data_synchronisation:
+            prepare_once = start_once = False
+
+        acq_nb_frames = npoints if prepare_once else 1
+
+        stat_history = npoints
+
+        # ---Temporary fix should be moved to controller parameters --------
+        saving_format = acq_params.get("saving_format", "EDF")
+        saving_frame_per_file = acq_params.get("saving_frame_per_file", 1)
+        saving_suffix = acq_params.get("saving_suffix", ".edf")
+
+        # Return required parameters
+        params = {}
+        params["acq_nb_frames"] = acq_nb_frames
+        params["acq_expo_time"] = acq_expo_time
+        params["acq_trigger_mode"] = acq_trigger_mode
+        params["acq_mode"] = acq_params.get("acq_mode", "SINGLE")
+        params["acc_max_expo_time"] = acq_params.get("acc_max_expo_time", 1.)
+        params["save_flag"] = acq_params.get(
+            "save", True
+        )  # => key != AcqObj keyword and location not well defined  !
+        params["wait_frame_id"] = range(acq_nb_frames)
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+        params["stat_history"] = stat_history
+
+        # ---Temporary fix should be moved to controller parameters --------
+        params["saving_format"] = saving_format
+        params["saving_frame_per_file"] = saving_frame_per_file
+        params["saving_suffix"] = saving_suffix
+
+        return params
 
     def apply_parameters(self, ctrl_params):
 

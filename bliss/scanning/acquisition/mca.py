@@ -57,7 +57,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
         *mca_or_mca_counters,
-        npoints,
+        npoints=1,
         trigger_mode=SOFT,
         preset_time=1.0,
         block_size=None,
@@ -275,10 +275,16 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
 
 class HWScaAcquisitionSlave(AcquisitionSlave):
-    def __init__(self, mca, npoints=0, prepare_once=True, start_once=True):
+    def __init__(
+        self, mca, npoints=0, prepare_once=True, start_once=True, ctrl_params=None
+    ):
         # Parent call
         super().__init__(
-            mca, npoints=npoints, prepare_once=prepare_once, start_once=start_once
+            mca,
+            npoints=npoints,
+            prepare_once=prepare_once,
+            start_once=start_once,
+            ctrl_params=ctrl_params,
         )
 
         self.mca = mca
@@ -301,9 +307,6 @@ class HWScaAcquisitionSlave(AcquisitionSlave):
 
     def trigger(self):
         pass
-
-    # def add_counter(self, counter):
-    #    counter.register_device(self)
 
     def _do_add_counter(self, counter):
         super()._do_add_counter(counter)

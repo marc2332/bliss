@@ -19,7 +19,8 @@ from bliss.config.channels import Cache
 from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.controllers.counter import CounterController
-from bliss.scanning.acquisition.musst import MusstChainNode, MusstIntegratingChainNode
+from bliss.scanning.acquisition.musst import MusstDefaultAcquisitionMaster
+from bliss.scanning.acquisition.musst import MusstIntegratingAcquisitionSlave
 from bliss.common.counter import SamplingCounter, IntegratingCounter
 from bliss.controllers.counter import (
     IntegratingCounterController,
@@ -92,10 +93,12 @@ class MusstSamplingCounterController(SamplingCounterController):
 class MusstIntegratingCounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
         IntegratingCounterController.__init__(
-            self,
-            name=name,
-            master_controller=master_controller,
-            chain_node_class=MusstIntegratingChainNode,
+            self, name=name, master_controller=master_controller
+        )
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return MusstIntegratingAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
         )
 
     def get_values(self, from_index, *counters):
@@ -278,7 +281,7 @@ class musst(CounterController):
           name:               -- use to reference an external switch
         """
 
-        super().__init__(name, chain_node_class=MusstChainNode)
+        super().__init__(name)
 
         gpib = config_tree.get("gpib")
         comm_opts = dict()
@@ -337,6 +340,20 @@ class musst(CounterController):
                 self._channels_init(config_tree)
 
         self._init = init
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return MusstDefaultAcquisitionMaster(
+            self, ctrl_params=ctrl_params, **acq_params
+        )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        params = {}
+        try:
+            params["count_time"] = acq_params["count_time"]
+        except KeyError:
+            params["count_time"] = scan_params["count_time"]
+
+        return params
 
     def _counter_init(self, config_tree):
         """ Handle counters from config """

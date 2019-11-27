@@ -258,10 +258,11 @@ class AcquisitionObject:
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-        if not isinstance(ctrl_params, ChainNode.ChainNodeDict):
-            self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
-        else:
+
+        if isinstance(ctrl_params, ChainNode.ChainNodeDict):
             self._ctrl_params = ctrl_params
+        else:
+            self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
 
     def _init(self, devices):
         self._device, counters = self.init(devices)
@@ -1127,11 +1128,10 @@ class ChainNode:
         self._is_top_level = True
         self._acquisition_obj = None
 
-        self._scan_params = None
         self._acq_obj_params = None
         self._ctrl_params = None
 
-        self._calc_dep_nodes = {}  # to store CalcCounter dependent nodes
+        self._calc_dep_nodes = {}  # to store CalcCounterController dependent nodes
 
     @property
     def controller(self):
@@ -1160,10 +1160,6 @@ class ChainNode:
     @property
     def acquisition_parameters(self):
         return self._acq_obj_params
-
-    @property
-    def scan_parameters(self):
-        return self._scan_params
 
     @property
     def controller_parameters(self):
@@ -1208,29 +1204,16 @@ class ChainNode:
         self._counters.append(counter)
 
     def _get_default_chain_parameters(self, scan_params, acq_params):
-        """ Modify or update the scan and acquisition object parameters in the context of the default chain """
+        """ Obtain the full acquisition parameters set from scan_params in the context of the default chain """
 
-        # ---- Should be implemented in the controller module ----------------------------------------
-        #
-        # -------------------------------------------------------------------------------------------
-        # acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
-        # return acq_params                       <== return the modified acquisition object parameters
-        # -------------------------------------------------------------------------------------------
-
-        return acq_params
+        return self.controller.get_default_chain_parameters(scan_params, acq_params)
 
     def get_acquisition_object(self, acq_params, ctrl_params=None):
-        """ return the acquisition object associated to this node """
+        """ Return the acquisition object associated to this node """
 
-        # ---- Must be implemented in the controller module ----------------------------------------
-        #
-        # -------------------------------------------------------------------------------------------
-        # obj_args = acq_params["arg_name"]             <== obtain args required for the acq obj init (or raise error)
-        # acq_obj = xxxAcqusiitionDevice( *obj_args )   <== instanciate the acquisition object
-        # return acq_obj                                <== return the acquisition object
-        # -------------------------------------------------------------------------------------------
-
-        raise NotImplementedError
+        return self.controller.get_acquisition_object(
+            acq_params, ctrl_params=ctrl_params
+        )
 
     def create_acquisition_object(self, force=False):
         """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
@@ -1254,13 +1237,8 @@ class ChainNode:
 
         if self._ctrl_params is None:
             ctrl_params = self.ChainNodeDict(update_ctrl_params(self.controller, {}))
-
         else:
-            ctrl_params = self.ChainNodeDict(
-                self._ctrl_params
-            )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
-
-            # --- transform scan specific ctrl_params into full set of ctrl_param
+            ctrl_params = self._ctrl_params
 
         # --- Create the acquisition object -------------------------------------------------------
         acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)

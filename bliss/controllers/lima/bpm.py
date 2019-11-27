@@ -10,8 +10,6 @@ import numpy
 from bliss.common.utils import grouped
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
-from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
-from bliss.scanning.chain import ChainNode
 
 
 class LimaBpmCounter(IntegratingCounter):
@@ -26,37 +24,9 @@ class LimaBpmCounter(IntegratingCounter):
         return self.__value_index
 
 
-class BpmChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        params = {"count_time": count_time}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for BPM IntegratingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        count_time = acq_params["count_time"]
-        return IntegratingCounterAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
-        )
-
-
 class Bpm(IntegratingCounterController):
     def __init__(self, name, bpm_proxy, acquisition_proxy):
-        super().__init__(
-            "bpm", master_controller=acquisition_proxy, chain_node_class=BpmChainNode
-        )
+        super().__init__("bpm", master_controller=acquisition_proxy)
         self._proxy = bpm_proxy
         self._counters.update(
             {

@@ -16,7 +16,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import ChainNode, AcquisitionObject
+from bliss.scanning.chain import AcquisitionObject
 from bliss.controllers.counter import CounterController
 
 
@@ -304,13 +304,15 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 
-    class FakeChainNode(ChainNode):
-        def get_acquisition_object(self, acq_params, ctrl_params=None):
-            return AcquisitionObject(self.controller, ctrl_params=ctrl_params)
-
     class FakeMaster(CounterController):
         def __init__(self, name):
-            super().__init__(name, chain_node_class=FakeChainNode)
+            super().__init__(name)
+
+        def get_acquisition_object(self, acq_params, ctrl_params=None):
+            return AcquisitionObject(self, ctrl_params=ctrl_params, **acq_params)
+
+        def get_default_chain_parameters(self, scan_params, acq_params):
+            return acq_params
 
     fake_master = FakeMaster("fake")
 

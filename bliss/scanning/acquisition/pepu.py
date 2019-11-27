@@ -100,7 +100,7 @@ class PepuAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
         *pepu_or_pepu_counters,
-        npoints,
+        npoints=1,
         start=Signal.SOFT,
         trigger=Signal.SOFT,
         frequency=None,
@@ -128,7 +128,7 @@ class PepuAcquisitionSlave(AcquisitionSlave):
 
         # Initialize
 
-        super(PepuAcquisitionSlave, self).__init__(
+        super().__init__(
             *pepu_or_pepu_counters,
             npoints=npoints,
             trigger_type=trigger_type,

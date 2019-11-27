@@ -9,9 +9,13 @@ from collections import namedtuple
 import numpy
 from bliss import global_map
 from bliss.common.counter import Counter, CalcCounter
-from bliss.scanning.acquisition.counter import SamplingChainNode
-from bliss.scanning.acquisition.counter import IntegratingChainNode
-from bliss.scanning.acquisition.calc import CalcCounterChainNode
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
+from bliss.scanning.acquisition.calc import (
+    CalcCounterChainNode,
+    CalcCounterAcquisitionSlave,
+)
 
 
 def counter_namespace(counters):
@@ -23,12 +27,9 @@ def counter_namespace(counters):
 
 
 class CounterController:
-    def __init__(
-        self, name, master_controller=None, chain_node_class=None
-    ):  # , hw_ctrl=None):
+    def __init__(self, name, master_controller=None):  # , hw_ctrl=None):
 
         self.__name = name
-        self._chain_node_class = chain_node_class
         self._master_controller = master_controller
         self._counters = {}
 
@@ -62,13 +63,15 @@ class CounterController:
     def add_counter(self, counter):
         self._counters[counter.name] = counter
 
-    def create_chain_node(self):
-        if self._chain_node_class is None:
-            raise NotImplementedError
-        else:
-            return self._chain_node_class(self)
-
     # ---------------------POTENTIALLY OVERLOAD METHODS  ------------------------------------
+    def create_chain_node(self):
+        return ChainNode(self)
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        raise NotImplementedError
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        raise NotImplementedError
 
     def get_current_parameters(self):
         """should return an exhaustive dict of parameters that will be send 
@@ -91,15 +94,29 @@ class CounterController:
 
 
 class SamplingCounterController(CounterController):
-    def __init__(
-        self,
-        name="sampling_counter_controller",
-        master_controller=None,
-        chain_node_class=SamplingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+    def __init__(self, name="samp_cc", master_controller=None):
+        super().__init__(name, master_controller=master_controller)
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return SamplingCounterAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
         )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params["npoints"]
+
+        params = {"count_time": count_time, "npoints": npoints}
+
+        return params
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
@@ -116,15 +133,23 @@ class SamplingCounterController(CounterController):
 
 
 class IntegratingCounterController(CounterController):
-    def __init__(
-        self,
-        name="integrating_counter_controller",
-        master_controller=None,
-        chain_node_class=IntegratingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+    def __init__(self, name="integ_cc", master_controller=None):
+        super().__init__(name, master_controller=master_controller)
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return IntegratingCounterAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
         )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return params
 
     def get_values(self, from_index, *counters):
         raise NotImplementedError
@@ -133,7 +158,7 @@ class IntegratingCounterController(CounterController):
 class CalcCounterController(CounterController):
     def __init__(self, name, config):
 
-        super().__init__(name, chain_node_class=CalcCounterChainNode)
+        super().__init__(name)
 
         self._input_counters = []
         self._output_counters = []
@@ -146,6 +171,15 @@ class CalcCounterController(CounterController):
         self.emitted_index = -1
 
         self.build_counters(config)
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return CalcCounterAcquisitionSlave(self, acq_params, ctrl_params=ctrl_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        return acq_params
+
+    def create_chain_node(self):
+        return CalcCounterChainNode(self)
 
     def build_counters(self, config):
         """ Build the CalcCounters from config. 

@@ -48,7 +48,7 @@ class SimulationDiodeController(SamplingCounterController):
         ]
 
 
-class SimulationIntegrationDiodeController(IntegratingCounterController):
+class SimulationDiodeIntegrationController(IntegratingCounterController):
     def __init__(self):
         super().__init__(name="simulation_diode_integrating_controller")
 
@@ -87,7 +87,7 @@ def simulation_diode(name, config):
         global DEFAULT_INTEGRATING_CONTROLLER
         if config.get("integration"):
             if DEFAULT_INTEGRATING_CONTROLLER is None:
-                DEFAULT_INTEGRATING_CONTROLLER = SimulationIntegrationDiodeController()
+                DEFAULT_INTEGRATING_CONTROLLER = SimulationDiodeIntegrationController()
             return SimulationDiodeIntegratingCounter(
                 name, DEFAULT_INTEGRATING_CONTROLLER
             )

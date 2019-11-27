@@ -43,7 +43,8 @@ from bliss.common.logtools import *
 
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CounterController
-from bliss.scanning.acquisition.counter import SamplingChainNode
+
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
 TRIGGER_INPUTS = {"DIO_1", "DIO_2", "DIO_3", "DIO_4"}
 TRIGGER_MODES = ("SOFTWARE", "HARDWARE", "AUTOTRIGGER")
@@ -79,60 +80,12 @@ class EmhCounter(SamplingCounter):
         return info_string
 
 
-class EmhChainNode(SamplingChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        try:
-            npoints = acq_params["npoints"]
-        except:
-            npoints = scan_params["npoints"]
-
-        trigger_type = acq_params.get("trigger_type", "AUTOTRIGGER")
-
-        params = {
-            "count_time": count_time,
-            "npoints": npoints,
-            "trigger_type": trigger_type,
-        }
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        trigger_type = acq_params["trigger_type"]
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
-
-        if trigger_type == "HARDWARE":
-            from bliss.scanning.acquisition.emh import EmhAcquisitionSlave
-
-            trigger = acq_params["trigger"]
-
-            return EmhAcquisitionSlave(
-                self.controller,
-                trigger,
-                count_time,
-                npoints,
-                self.counters,
-                ctrl_params=ctrl_params,
-            )
-        else:
-            acq_params.pop("trigger_type")
-            return SamplingChainNode.get_acquisition_object(
-                self, acq_params, ctrl_params=ctrl_params
-            )
-
-
 class EMH(CounterController):
     """ EMH controller
     """
 
     def __init__(self, name, config):
-        super().__init__(name, chain_node_class=EmhChainNode)
+        super().__init__(name)
 
         # self.name = name
         self.bliss_config = config
@@ -151,6 +104,54 @@ class EMH(CounterController):
             self._counters[counter.name] = counter
 
         self.bpm_values = {"bpmx": -1, "bpmy": -1, "bpmi": -1}
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+
+        trigger_type = acq_params["trigger_type"]
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
+        if trigger_type == "HARDWARE":
+            from bliss.scanning.acquisition.emh import EmhAcquisitionSlave
+
+            trigger = acq_params["trigger"]
+
+            return EmhAcquisitionSlave(
+                self,
+                trigger,
+                count_time,
+                npoints,
+                self.counters,
+                ctrl_params=ctrl_params,
+            )
+
+            # return EmhAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+        else:
+            acq_params.pop("trigger_type")
+            return SamplingCounterAcquisitionSlave(
+                self, ctrl_params=ctrl_params, **acq_params
+            )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params["npoints"]
+
+        trigger_type = acq_params.get("trigger_type", "AUTOTRIGGER")
+
+        params = {
+            "count_time": count_time,
+            "npoints": npoints,
+            "trigger_type": trigger_type,
+        }
+        return params
 
     def read_all(self, *counters):
         """Read all channel of the EMH controller and perform BPM calculations.

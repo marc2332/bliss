@@ -55,11 +55,12 @@ data = scans.get_data(scan)
 print(data['CALC2'])
 """
 
-from bliss.scanning.chain import AcquisitionSlave
+
 import gevent
 import numpy as np
 
 from bliss.controllers.emh import TRIGGER_INPUTS
+from bliss.scanning.chain import AcquisitionSlave
 
 
 class EmhAcquisitionSlave(AcquisitionSlave):
@@ -88,9 +89,6 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         self.int_time = int_time
 
         self.__stop_flag = False
-
-    # def add_counter(self, counter):
-    #    self.channels.append(AcquisitionChannel(counter.name, np.float, ()))
 
     def wait_ready(self):
         # return only when ready

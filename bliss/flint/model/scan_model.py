@@ -84,6 +84,8 @@ class ScanDataUpdateEvent:
     def isEverythingUpdated(self) -> bool:
         if self.__masterDevice is not None:
             return False
+        if self.__channel is not None:
+            return False
         return True
 
     def iterUpdatedDevices(self):

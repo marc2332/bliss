@@ -365,9 +365,6 @@ class ScanManager:
             _logger.debug("end_scan from %s ignored", unique)
             return
 
-        # Clean up cache
-        del self._extra_scan_info[unique]
-
         scan = self.__scan
         if scan is None:
             _logger.error(
@@ -380,6 +377,8 @@ class ScanManager:
             assert self.__scan is not None
             self._end_scan(scan_info)
         finally:
+            # Clean up cache
+            del self._extra_scan_info[unique]
             self.__data_storage.clear()
 
             scan._setState(scan_model.ScanState.FINISHED)

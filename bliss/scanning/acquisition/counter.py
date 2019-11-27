@@ -68,7 +68,7 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def _emit_new_data(self, data):
         self.channels.update_from_iterable(data)
 
-    def fill_meta_at_scan_init(self, scan_meta):
+    def fill_meta_at_scan_start(self, scan_meta):
         tmp_dict = {}
 
         for cnt in self._counters:

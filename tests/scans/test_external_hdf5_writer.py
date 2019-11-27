@@ -83,7 +83,6 @@ def alias_session_scans_listener(alias_session, scan_tmpdir):
     g.kill()
 
 
-@pytest.mark.writer
 def test_external_hdf5_writer(
     alias_session_scans_listener, alias_session, dummy_acq_device
 ):

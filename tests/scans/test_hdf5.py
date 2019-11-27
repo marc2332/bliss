@@ -30,7 +30,6 @@ def h5dict(scan_file):
         }
 
 
-@pytest.mark.writer
 def test_hdf5_metadata(session):
     all_motors = dict(
         [
@@ -61,7 +60,6 @@ def test_hdf5_metadata(session):
         assert len(all_motors) == 0
 
 
-@pytest.mark.writer
 def test_hdf5_file_items(session):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
@@ -97,7 +95,6 @@ def test_hdf5_file_items(session):
         assert val.items() <= scan_dict[key].items()
 
 
-@pytest.mark.writer
 def test_hdf5_values(session):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
@@ -111,7 +108,6 @@ def test_hdf5_values(session):
     assert list(dataset) == list(data)
 
 
-@pytest.mark.writer
 def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
@@ -142,7 +138,6 @@ def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_de
     assert f[subscan_name]["measurement"]["dummy2:nb"]
 
 
-@pytest.mark.writer
 def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
@@ -185,7 +180,6 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     )
 
 
-@pytest.mark.writer
 def test_lima_instrument_entry(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
@@ -204,7 +198,6 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
 
 
-@pytest.mark.writer
 def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
 
     # put scan file in a tmp directory

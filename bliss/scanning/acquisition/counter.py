@@ -7,16 +7,15 @@
 
 import time
 import functools
-
 from collections import namedtuple
 from datetime import datetime
-
 import gevent
 from gevent import event
-
 import numpy
 
-from bliss.common.utils import all_equal
+
+from bliss.common.utils import all_equal, deep_update
+from bliss.scanning.chain import ChainNode
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.counter import SamplingMode
@@ -72,17 +71,10 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     def fill_meta_at_scan_init(self, scan_meta):
         tmp_dict = {}
 
-        def new_nx_collection(d, x):
-            return d.setdefault(x, {"NX_class": "NXcollection"})
-
         for cnt in self._counters:
-            name, _, _ = cnt.fullname.rpartition(":")
-            det_name, _, name = name.partition(":")
-            d = tmp_dict.setdefault(det_name, {"NX_class": "NXdetector"})
-            if name:
-                d = functools.reduce(new_nx_collection, name.split(":"), d)
-            d.update(cnt.get_metadata())
-        scan_meta.instrument.set(self, tmp_dict)
+            deep_update(tmp_dict, cnt.get_metadata())
+
+        return tmp_dict
 
     def prepare_device(self):
         pass

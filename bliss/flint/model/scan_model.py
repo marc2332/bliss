@@ -66,6 +66,18 @@ class ScanDataUpdateEvent:
         masterDevice: Optional[Device] = None,
         channel: Optional[Channel] = None,
     ):
+        """Event emitted when data from a scan is updated.
+
+        `masterDevice` and `channel` can't be used both at the same time.
+
+        Args:
+            scan: The source scan of this event
+            masterDevice: The root device from the acquisition chain tree which
+                emit this event. In this case all the sub-channels have to be
+                updated (except image and MCA channels, which always have specific
+                event).
+            channel: The channel source of this event
+        """
         self.__masterDevice = masterDevice
         self.__channel = channel
         self.__scan = scan
@@ -106,7 +118,8 @@ class ScanDataUpdateEvent:
             return
         for device in self.iterUpdatedDevices():
             for channel in device.channels():
-                yield channel
+                if channel.type() not in set([ChannelType.IMAGE, ChannelType.SPECTRUM]):
+                    yield channel
 
 
 class ScanState(enum.Enum):

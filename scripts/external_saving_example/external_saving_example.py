@@ -13,6 +13,7 @@ import gevent
 import h5py
 import datetime
 import time
+import functools
 
 # import os.path
 import os
@@ -22,6 +23,9 @@ from bliss.data.node import get_session_node
 
 # derived from silx function, this could maybe enter into silx again
 from bliss.common.utils import dicttoh5
+
+from bliss.data.nodes.lima import LimaImageChannelDataNode
+from bliss.data.nodes.channel import ChannelDataNode
 
 
 class HDF5_Writer(object):
@@ -308,11 +312,30 @@ class HDF5_Writer(object):
         # instrument entry
         instrument = self.file.create_group(f"{self.scan_name}/instrument")
         instrument.attrs["NX_class"] = "NXinstrument"
-        dicttoh5(
-            self.scan_info_dict["instrument"],
-            self.file,
-            h5path=f"{self.scan_name}/instrument",
-        )
+
+        # add acq_chain meta
+        def new_nx_collection(d, x):
+            return d.setdefault(x, {"NX_class": "NXcollection"})
+
+        instrument_meta = self.scan_info_dict["instrument"]
+        instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+
+        base_db_name = self.scan_node.db_name
+        for node in self.scan_node.iterator.walk(wait=False):
+            if node.db_name == base_db_name:
+                continue
+            if not isinstance(node, ChannelDataNode) and not isinstance(
+                node, LimaImageChannelDataNode
+            ):
+                dev_info = node.info.get_all()
+                if dev_info:
+                    dev_path = node.db_name.replace(base_db_name + ":", "").split(":")
+                    d = functools.reduce(
+                        new_nx_collection, dev_path, instrument_meta["chain_meta"]
+                    )
+                    d.update(dev_info)
+
+        dicttoh5(instrument_meta, self.file, h5path=f"{self.scan_name}/instrument")
 
         # deal with meta-data
         meta_categories = self.scan_info_dict["scan_meta_categories"]

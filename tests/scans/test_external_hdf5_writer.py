@@ -92,6 +92,9 @@ def test_external_hdf5_writer(
 
     lima_sim = env_dict["lima_simulator"]
 
+    ## import transfocator to have a device that publishes meta data, but which is not part of the chain
+    transf = alias_session.config.get("transfocator_simulator")
+
     ## a simple scan
     s1 = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
 

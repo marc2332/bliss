@@ -78,8 +78,8 @@ class ScanDataUpdateEvent:
         return self.__channelNames
 
     def isUpdatedChannelName(self, channelName: str) -> bool:
-        foo = self.updatedChannelNames()
-        return channelName in foo
+        updatedChannels = self.updatedChannelNames()
+        return channelName in updatedChannels
 
     def isEverythingUpdated(self) -> bool:
         if self.__masterDevice is not None:

@@ -572,6 +572,19 @@ def deep_update(d, u):
                     stack.append((dv, v))
 
 
+def update_node_info(node, d):
+    """updates the BaseHashSetting of a DataNode and does a deep update if needed. 
+    parameters: node: DataNode or DataNodeContainer; d: dict"""
+    assert type(d) == dict
+    for key, value in d.items():
+        tmp = node.info.get(key)
+        if tmp and type(value) == dict and type(tmp) == dict:
+            deep_update(tmp, value)
+            node.info[key] = tmp
+        else:
+            node.info[key] = value
+
+
 def dicttoh5(
     treedict,
     h5file,

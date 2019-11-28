@@ -16,14 +16,7 @@ from bliss.scanning.acquisition.calc import (
     CalcCounterChainNode,
     CalcCounterAcquisitionSlave,
 )
-
-
-def counter_namespace(counters):
-    if isinstance(counters, dict):
-        dct = counters
-    else:
-        dct = {counter.name: counter for counter in counters}
-    return namedtuple("namespace", dct)(**dct)
+from bliss.common.protocols import counter_namespace
 
 
 class CounterController:

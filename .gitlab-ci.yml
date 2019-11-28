@@ -38,6 +38,8 @@ check_lint:
   stage: tests
   image: continuumio/miniconda3:latest
   script:
+    - echo ${PYTEST_ARGS}
+    - echo ${CHANGES}
     - >
       if [ $CI_COMMIT_REF_NAME != 'master' ]; then
         # Check for changes manually to circumvent gitlab-ci limitation (issue #1115)

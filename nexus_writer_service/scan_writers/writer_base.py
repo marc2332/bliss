@@ -109,7 +109,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         # Cache
         self._data_nodes = []  # list(bliss.data.node.DataNode)
         self._datasets = {}  # subscan:dict(bliss.data.node.DataNode.fullname:DatasetProxy)
-        self._nxroot = defaultdict(lambda: None)  # cache for recursive calling
+        self._nxroot = {}  # cache for recursive calling
         self._nxentry = None  # cache for recursive calling
         self._nxroot_locks = locks
         self._devices = {}  # subscan:dict(fullname:dict)
@@ -283,7 +283,8 @@ class NexusScanWriterBase(gevent.Greenlet):
         Yields the NXroot instance (h5py.File) or None
         when information is missing
         """
-        if self._nxroot[level] is None:
+        nxroot = self._nxroot.get(level, None)
+        if nxroot is None:
             filename = self._filename(level=level)
             if filename:
                 # REMARK: External readers could have opened
@@ -306,7 +307,7 @@ class NexusScanWriterBase(gevent.Greenlet):
                 self._nxroot[level] = None
                 yield None
         else:
-            yield self._nxroot[level]
+            yield nxroot
 
     @contextmanager
     def nxentry(self, subscan):
@@ -681,7 +682,7 @@ class NexusScanWriterBase(gevent.Greenlet):
             if nxentry is not None:
                 with self._nxroot_locks.acquire(nxentry.file.filename):
                     nexus.updated(nxentry, final=True, parents=True)
-                    self.logger.info("Scan marked as DONE in HDF5")
+                self.logger.info("Scan marked as DONE in HDF5")
 
     @property
     def instrument_name(self):

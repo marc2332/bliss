@@ -553,8 +553,8 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
         :param str subscan:
         """
         filenames = self.filenames
-        n = len(filenames) - 1
-        if n <= 0:
+        n = len(filenames)
+        if n <= 1:
             return
         filenames = filenames[1:]
         with self.nxentry(subscan) as nxentry:
@@ -564,7 +564,7 @@ class NexusScanWriterConfigurable(writer_base.NexusScanWriterBase):
             prefix, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
             link = h5py.ExternalLink(nxentry.file.filename, nxentry.name)
             linkname = prefix + ": " + nxentry.name[1:]
-            for level in range(1, n + 1):
+            for level in range(1, n):
                 with self.nxroot(level=level) as nxroot:
                     if nxroot is None:
                         continue

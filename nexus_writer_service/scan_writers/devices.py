@@ -236,6 +236,7 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
     :returns dict: subscanname:dict(fullname:dict)
     """
     ret = {}
+    config = bool(devices)
     for subscan, subscaninfo in scan_info["acquisition_chain"].items():
         subdevices = ret[subscan] = {}
         # These are the "positioners"
@@ -252,7 +253,8 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
                 device["device_type"] = "positioner"
             device["master_index"] = master_index
             master_index += 1
-            _add_display_name(device, fullname, aliasmap)
+            if _allow_alias(device, config):
+                _add_alias(device, fullname, aliasmap)
         # These are the 0D, 1D and 2D "detectors"
         dic = subscaninfo
         aliasmap = dic.get("display_names", {})
@@ -263,7 +265,8 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
                 device = update_device(subdevices, fullname, units)
                 if fullname.startswith("timer") and key == "scalars":
                     device["device_type"] = "positionergroup"
-                _add_display_name(device, fullname, aliasmap)
+                if _allow_alias(device, config):
+                    _add_alias(device, fullname, aliasmap)
         parse_devices(
             subdevices,
             short_names=short_names,
@@ -272,7 +275,14 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
     return ret
 
 
-def _add_display_name(device, fullname, display_names):
+def _allow_alias(device, config):
+    """
+    Allowing channel aliases without configuration creates a mess
+    """
+    return config or device["device_type"] in ["positioner", "positionergroup"]
+
+
+def _add_alias(device, fullname, display_names):
     """
     :param dict device:
     :param str fullname:

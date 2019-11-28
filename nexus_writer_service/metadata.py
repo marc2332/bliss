@@ -14,6 +14,7 @@ Register metadata generators for a configurable writer
 """
 
 import enum
+from bliss import current_session
 from bliss.scanning import scan_meta
 from .scan_writers import writer_config_publish
 
@@ -54,17 +55,16 @@ def register_metadata_generators(force=False, **kwargs):
         scan_meta.CATEGORIES = enum.Enum(
             scan_meta.CATEGORIES.__name__, list(categories)
         )
-        generators.clear()
-        scan_meta.USER_SCAN_META = None
-        generators = scan_meta.get_user_scan_meta()
-        # Generators are called at the start of the scan:
-        #   bliss.scanning.scan.Scan.__init__
-        # and at the end of the scan
-        #   run bliss.scanning.scan.Scan.run (cleanup section)
-        #
-        # The generator 'instrument.positioners' is an exception.
-        # It is only called at the beginning of the scan by
-        # removing it before calling the generators a second time.
-        for k, mod in GENERATORS.items():
-            if kwargs.get(k, False):
-                mod.register_metadata_generators(generators)
+        generators = scan_meta.create_user_scan_meta()
+        current_session.user_scan_meta = generators
+    # Generators are called at the start of the scan:
+    #   bliss.scanning.scan.Scan.__init__
+    # and at the end of the scan
+    #   run bliss.scanning.scan.Scan.run (cleanup section)
+    #
+    # The generator 'instrument.positioners' is an exception.
+    # It is only called at the beginning of the scan by
+    # removing it before calling the generators a second time.
+    for k, mod in GENERATORS.items():
+        if kwargs.get(k, False):
+            mod.register_metadata_generators(generators)

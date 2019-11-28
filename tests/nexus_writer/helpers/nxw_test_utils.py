@@ -38,7 +38,7 @@ class TimeOutError(Exception):
     pass
 
 
-def wait_scan_data_finished(scans, config=True, timeout=60, writer_stdout=None):
+def wait_scan_data_finished(scans, config=True, timeout=20, writer_stdout=None):
     """
     :param list(bliss.scanning.scan.Scan) scans:
     :param bool config: configurable writer
@@ -50,11 +50,25 @@ def wait_scan_data_finished(scans, config=True, timeout=60, writer_stdout=None):
         with gevent.Timeout(timeout, TimeOutError):
             while uris:
                 uris = [uri for uri in uris if not nexus.nxComplete(uri)]
-                gevent.sleep(1)
+                gevent.sleep(0.1)
     except TimeOutError:
+        # _terminate_writer()
         if writer_stdout is not None:
             print_output(writer_stdout)
         assert not uris, uris
+
+
+def _terminate_writer():
+    """
+    This is a temporary fix when HDF5 files appear not updated.
+    Not sure yet what causes this.
+    """
+    import psutil
+
+    for proc in psutil.process_iter():
+        if "nexus_writer_" in str(proc.cmdline()):
+            proc.kill()
+            # proc.wait()
 
 
 def wait_scan_data_exists(scans, config=True, timeout=120):

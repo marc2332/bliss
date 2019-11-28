@@ -122,13 +122,14 @@ def validate_master_links(scan, subscan=1, config=True):
     :param bool config: configurable writer
     """
     uri = scan_utils.scan_uri(scan, subscan=subscan, config=config)
+    uri = nexus.normUri(uri)
     for filename in scan_utils.scan_filenames(scan, config=config):
         with nexus.nxRoot(filename) as nxroot:
             for key in nxroot:
-                if uri == nexus.getUri(nxroot[key]):
+                if uri == nexus.normUri(nexus.getUri(nxroot[key])):
                     break
             else:
-                assert False, filename
+                assert False, uri
 
 
 def validate_nxentry(nxentry, config=True, withpolicy=True, technique=None):

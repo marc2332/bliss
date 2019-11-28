@@ -223,7 +223,7 @@ def update_ctrl_params(controller, scan_specific_ctrl_params):
     from bliss.controllers.counter import CounterController
 
     if isinstance(controller, CounterController):
-        parameters = controller.get_default_parameters()
+        parameters = controller.get_current_parameters()
         if parameters and type(parameters) == dict:
             parameters = parameters.copy()
             if not scan_specific_ctrl_params:

@@ -70,7 +70,7 @@ class CounterController:
 
     # ---------------------POTENTIALLY OVERLOAD METHODS  ------------------------------------
 
-    def get_default_parameters(self):
+    def get_current_parameters(self):
         """should return an exhaustive dict of parameters that will be send 
         to the hardware controller at the beginning of each scan.
         These parametes may be overwritten by scan specifc ctrl_params

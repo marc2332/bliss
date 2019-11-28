@@ -205,8 +205,8 @@ class Lima(CounterController):
                 f"\t.frames_per_file:\t\t{self.frames_per_file}\n"
                 f"for SPECIFY_MAX_FILE_SIZE mode:\n"
                 f"\t.max_file_size_in_MB:\t\t{self.max_file_size_in_MB}\n"
-                f"Available modes:\n{self.get_available_saving_modes}\n"
-                f"Available file formats:\n{self.get_available_saving_formats}\n"
+                f"Available modes:\n{self.available_saving_modes}\n"
+                f"Available file formats:\n{self.available_saving_formats}\n"
                 f"The follwoing parameters will be set in camera (if not overwritten by scan):\n"
                 f"{self.to_dict()}\n"
             )
@@ -319,7 +319,7 @@ class Lima(CounterController):
                 setattr(self.proxy, key, value)
                 self._cached_ctrl_params[key].value = value
 
-    def get_default_parameters(self):
+    def get_current_parameters(self):
         return {**self.saving.to_dict(), **self.processing.to_dict()}
 
     def clear_cache(self):

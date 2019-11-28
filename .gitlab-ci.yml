@@ -1,7 +1,7 @@
 default:
   before_script:
     # set pip cache to the Docker volume
-    - echo ${CI_PROJECT_DIR} 
+    - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"
     - /opt/conda/bin/conda init && source /root/.bashrc
     - conda config --append channels conda-forge
@@ -34,11 +34,12 @@ check_lint:
   # allow failure without impacting the rest of the CI (will show an orange warning in the UI)
   allow_failure: true
 
-run_tests:source:
+.template_test_source:
   stage: tests
   image: continuumio/miniconda3:latest
-  parallel: 2
   script:
+    - echo ${PYTEST_ARGS}
+    - echo ${CHANGES}
     - >
       if [ $CI_COMMIT_REF_NAME != 'master' ]; then
         # Check for changes manually to circumvent gitlab-ci limitation (issue #1115)
@@ -56,26 +57,58 @@ run_tests:source:
     - conda install pytest-profiling --yes
     - pip install .
     # run tests on source
-    - COVDIR="htmlcov$CI_NODE_INDEX"
-    - >
-      if [[ $CI_NODE_INDEX == 1 ]]; then
-        echo "Run all Bliss core tests"
-        python setup.py test --addopts "--cov bliss --cov-report html:$COVDIR --cov-report term --profile --durations=30"
-      elif [[ $CI_NODE_INDEX == 2 ]]; then
-        echo "Run all writer tests"
-        python setup.py test --addopts "--cov bliss --cov-report html:$COVDIR --cov-report term --profile --durations=30 -m writer --runwritertests"
-      else
-        echo "No tests in this group"
-      fi
+    - python setup.py test --addopts "$PYTEST_ARGS"
+  variables:
+    CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
+
+test_bliss:
+  # Run bliss tests without coverage for any branches except the master
+  extends: .template_test_source
+  except:
+    - master
+  variables:
+    PYTEST_ARGS: '--durations=30'
+
+test_writer:
+  # Run hdf5 writer tests without coverage for any branches except the master
+  extends: .template_test_source
+  except:
+    - master
+  variables:
+    PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
+  allow_failure: true
+
+test_bliss_cov:
+  # Run bliss tests with coverage for master only
+  extends: .template_test_source
+  only:
+    - master
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 7 days
   after_script:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
+  variables:
+    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov term --profile --durations=30'
+
+test_writer_cov:
+  # Run hdf5 writer tests with coverage for master only
+  extends: .template_test_source
+  only:
+    - master
   artifacts:
     paths:
-      - $COVDIR/
+      - htmlcov_writer/
     expire_in: 7 days
+  after_script:
+    - python scripts/profiling2txt.py
+    - sh scripts/print_test_profiling.sh
   variables:
-    CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
+    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov_writer term --profile --durations=30 -m writer --runwritertests'
+  allow_failure: true
+
 
 package:
   stage: build
@@ -106,7 +139,7 @@ package:
   only:
     - tags
 
-create_doc:reference:
+create_reference_doc:
   stage: build
   image: continuumio/miniconda3:latest
   script:
@@ -123,7 +156,7 @@ create_doc:reference:
       - build/
     expire_in: 7 days
 
-create_doc:user:
+create_user_doc:
   stage: build
   image: continuumio/miniconda3:latest
   script:
@@ -140,7 +173,7 @@ create_doc:user:
       - doc/site
     expire_in: 7 days
 
-run_tests:package:
+test_package:
   stage: package_tests
   image: continuumio/miniconda3:latest
   parallel: 2
@@ -173,7 +206,7 @@ pages:
   stage: deploy
   before_script:
     - ''
-  tags: 
+  tags:
     - conda
     - builder
     - linux
@@ -195,12 +228,12 @@ pages:
   only:
     - tags
     - master
-  
+
 deploy_bliss:
   stage: deploy
   before_script:
     - ''
-  tags: 
+  tags:
     - conda
     - builder
     - linux

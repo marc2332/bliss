@@ -232,7 +232,7 @@ def update_ctrl_params(controller, scan_specific_ctrl_params):
                 parameters.update(scan_specific_ctrl_params)
                 return parameters
 
-    return None
+    return {}
 
 
 class AcquisitionObject:
@@ -258,7 +258,7 @@ class AcquisitionObject:
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-        if ctrl_params is None:
+        if not isinstance(ctrl_params, ChainNode.ChainNodeDict):
             self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
         else:
             self._ctrl_params = ctrl_params
@@ -1110,6 +1110,13 @@ class AcquisitionChain:
 
 
 class ChainNode:
+    class ChainNodeDict(dict):
+        """subclass dict to convay the message to AcqObj 
+        that ctrl_params have already be treated
+        """
+
+        pass
+
     def __init__(self, controller):
         self._controller = controller
 
@@ -1187,7 +1194,9 @@ class ChainNode:
                 self._ctrl_params = ctrl_params
 
             # --- transform scan specific ctrl_params into full set of ctrl_param
-            self._ctrl_params = update_ctrl_params(self.controller, self._ctrl_params)
+            self._ctrl_params = self.ChainNodeDict(
+                update_ctrl_params(self.controller, self._ctrl_params)
+            )
 
     def add_child(self, chain_node):
         if chain_node not in self._child_nodes:
@@ -1244,11 +1253,14 @@ class ChainNode:
             )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
 
         if self._ctrl_params is None:
-            ctrl_params = {}
+            ctrl_params = self.ChainNodeDict(update_ctrl_params(self.controller, {}))
+
         else:
-            ctrl_params = (
-                self._ctrl_params.copy()
+            ctrl_params = self.ChainNodeDict(
+                self._ctrl_params
             )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
+
+            # --- transform scan specific ctrl_params into full set of ctrl_param
 
         # --- Create the acquisition object -------------------------------------------------------
         acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)

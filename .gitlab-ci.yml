@@ -91,7 +91,7 @@ test_bliss_cov:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   variables:
-    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov term --profile --durations=30'
+    PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term --profile --durations=30'
 
 test_writer_cov:
   # Run hdf5 writer tests with coverage for master only
@@ -106,7 +106,7 @@ test_writer_cov:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   variables:
-    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov_writer term --profile --durations=30 -m writer --runwritertests'
+    PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term --profile --durations=30 -m writer --runwritertests'
   allow_failure: true
 
 

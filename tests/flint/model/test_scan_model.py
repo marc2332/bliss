@@ -18,6 +18,7 @@ SCATTER_SCAN_INFO = {
                 "spectra": [],
             },
             "scalars": ["device3:channel1", "device4:channel1", "master_time1:index"],
+            "images": ["lima:image"],
             "scalars_units": {"master_time1:index": "s"},
         }
     },
@@ -44,6 +45,14 @@ def test_scan_data_update_single_channel():
     channel = scan.getChannelByName("device2:channel2")
     event = scan_model.ScanDataUpdateEvent(scan, channel=channel)
     expected = {"device2:channel2"}
+    assert event.updatedChannelNames() == expected
+
+
+def test_scan_data_update_single_image_channel():
+    scan = scan_info_helper.create_scan_model(SCATTER_SCAN_INFO)
+    channel = scan.getChannelByName("lima:image")
+    event = scan_model.ScanDataUpdateEvent(scan, channel=channel)
+    expected = {"lima:image"}
     assert event.updatedChannelNames() == expected
 
 

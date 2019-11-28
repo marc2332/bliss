@@ -219,6 +219,22 @@ class ChainIterationPreset:
         pass
 
 
+def update_ctrl_params(controller, scan_specific_ctrl_params):
+    from bliss.controllers.counter import CounterController
+
+    if isinstance(controller, CounterController):
+        parameters = controller.get_default_parameters()
+        if parameters and type(parameters) == dict:
+            parameters = parameters.copy()
+            if not scan_specific_ctrl_params:
+                return parameters
+            else:
+                parameters.update(scan_specific_ctrl_params)
+                return parameters
+
+    return None
+
+
 class AcquisitionObject:
     def __init__(
         self,
@@ -242,21 +258,10 @@ class AcquisitionObject:
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-        self._update_ctrl_params(ctrl_params)
-
-    def _update_ctrl_params(self, ctrl_params):
-        from bliss.controllers.counter import CounterController
-
-        if isinstance(self.device, CounterController):
-            parameters = self.device.get_default_parameters()
-            if parameters:
-                assert isinstance(parameters, dict)
-                if not ctrl_params:
-                    self._ctrl_params = parameters
-                else:
-                    parameters = parameters.copy()
-                    parameters.update(ctrl_params)
-                    self._ctrl_params = parameters
+        if ctrl_params is None:
+            self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
+        else:
+            self._ctrl_params = ctrl_params
 
     def _init(self, devices):
         self._device, counters = self.init(devices)
@@ -1180,6 +1185,9 @@ class ChainNode:
 
             if force or self._ctrl_params is None:
                 self._ctrl_params = ctrl_params
+
+            # --- transform scan specific ctrl_params into full set of ctrl_param
+            self._ctrl_params = update_ctrl_params(self.controller, self._ctrl_params)
 
     def add_child(self, chain_node):
         if chain_node not in self._child_nodes:

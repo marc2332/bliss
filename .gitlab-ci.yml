@@ -196,7 +196,7 @@ test_bliss_package:
       - htmlcov/
     expire_in: 7 days
   variables:
-    PYTEST_ARGS: '--cov=bliss --cov-report html:htmlcov --cov-report term'
+    PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term'
 
 test_writer_package:
   # Run HDF5 writer tests using the bliss conda package
@@ -208,7 +208,7 @@ test_writer_package:
       - htmlcov_writer/
     expire_in: 7 days
   variables:
-    PYTEST_ARGS: '--cov=bliss --cov-report html:htmlcov_writer --cov-report term -m writer --runwritertests'
+    PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term -m writer --runwritertests'
 
 pages:
   stage: deploy

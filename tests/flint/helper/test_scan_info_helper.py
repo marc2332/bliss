@@ -92,9 +92,9 @@ def test_create_scatter_plot_model():
                 "scalars": [
                     "timer:elapsed_time",
                     "timer:epoch",
-                    "simulation_diode_controller:diode",
-                    "simulation_diode_controller:diode2",
-                    "simulation_diode_controller:diode3",
+                    "simulation_diode_sampling_controller:diode",
+                    "simulation_diode_sampling_controller:diode2",
+                    "simulation_diode_sampling_controller:diode3",
                     "axis:roby",
                     "axis:robz",
                     "axis:roby",
@@ -103,18 +103,18 @@ def test_create_scatter_plot_model():
                 "scalars_units": {
                     "timer:elapsed_time": "s",
                     "timer:epoch": "s",
-                    "simulation_diode_controller:diode": None,
-                    "simulation_diode_controller:diode2": None,
-                    "simulation_diode_controller:diode3": None,
+                    "simulation_diode_sampling_controller:diode": None,
+                    "simulation_diode_sampling_controller:diode2": None,
+                    "simulation_diode_sampling_controller:diode3": None,
                 },
                 "spectra": [],
                 "images": [],
                 "display_names": {
                     "timer:elapsed_time": "elapsed_time",
                     "timer:epoch": "epoch",
-                    "simulation_diode_controller:diode": "diode",
-                    "simulation_diode_controller:diode2": "diode2",
-                    "simulation_diode_controller:diode3": "diode3",
+                    "simulation_diode_sampling_controller:diode": "diode",
+                    "simulation_diode_sampling_controller:diode2": "diode2",
+                    "simulation_diode_sampling_controller:diode3": "diode3",
                 },
             }
         },
@@ -132,7 +132,7 @@ def test_create_scatter_plot_model():
     assert type(item) == plot_item_model.ScatterItem
     assert item.xChannel().name() == "axis:roby"
     assert item.yChannel().name() == "axis:robz"
-    assert item.valueChannel().name() == "simulation_diode_controller:diode"
+    assert item.valueChannel().name() == "simulation_diode_sampling_controller:diode"
 
     plots = [
         plot for plot in result_plots if isinstance(plot, plot_item_model.CurvePlot)
@@ -144,7 +144,7 @@ def test_create_scatter_plot_model():
     assert type(item) == plot_item_model.CurveItem
     # The first channel should be the diode/time
     assert item.xChannel().name() == "timer:elapsed_time"
-    assert item.yChannel().name() == "simulation_diode_controller:diode"
+    assert item.yChannel().name() == "simulation_diode_sampling_controller:diode"
 
 
 def test_create_curve_plot_from_motor_scan():
@@ -162,22 +162,22 @@ def test_create_curve_plot_from_motor_scan():
                 "scalars": [
                     "timer:elapsed_time",
                     "timer:epoch",
-                    "simulation_diode_controller:diode",
-                    "simulation_diode_controller:diode2",
+                    "simulation_diode_sampling_controller:diode",
+                    "simulation_diode_sampling_controller:diode2",
                 ],
                 "scalars_units": {
                     "timer:elapsed_time": "s",
                     "timer:epoch": "s",
-                    "simulation_diode_controller:diode": None,
-                    "simulation_diode_controller:diode2": None,
+                    "simulation_diode_sampling_controller:diode": None,
+                    "simulation_diode_sampling_controller:diode2": None,
                 },
                 "spectra": [],
                 "images": [],
                 "display_names": {
                     "timer:elapsed_time": "elapsed_time",
                     "timer:epoch": "epoch",
-                    "simulation_diode_controller:diode": "diode",
-                    "simulation_diode_controller:diode2": "diode2",
+                    "simulation_diode_sampling_controller:diode": "diode",
+                    "simulation_diode_sampling_controller:diode2": "diode2",
                 },
             }
         }
@@ -193,8 +193,8 @@ def test_create_curve_plot_from_motor_scan():
     for item in plot.items():
         curves.append((item.xChannel().name(), item.yChannel().name()))
     expected_curves = [
-        ("axis:roby", "simulation_diode_controller:diode"),
-        ("axis:roby", "simulation_diode_controller:diode2"),
+        ("axis:roby", "simulation_diode_sampling_controller:diode"),
+        ("axis:roby", "simulation_diode_sampling_controller:diode2"),
     ]
     assert set(expected_curves) == set(curves)
 

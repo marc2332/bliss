@@ -38,7 +38,6 @@ check_lint:
   stage: tests
   image: continuumio/miniconda3:latest
   script:
-    - echo ${PYTEST_ARGS}
     - echo ${CHANGES}
     - >
       if [ $CI_COMMIT_REF_NAME != 'master' ]; then
@@ -57,6 +56,7 @@ check_lint:
     - conda install pytest-profiling --yes
     - pip install .
     # run tests on source
+    - echo ${PYTEST_ARGS}
     - python setup.py test --addopts "$PYTEST_ARGS"
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
@@ -91,7 +91,7 @@ test_bliss_cov:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   variables:
-    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov term --profile --durations=30'
+    PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term --profile --durations=30'
 
 test_writer_cov:
   # Run hdf5 writer tests with coverage for master only
@@ -106,7 +106,7 @@ test_writer_cov:
     - python scripts/profiling2txt.py
     - sh scripts/print_test_profiling.sh
   variables:
-    PYTEST_ARGS: '--cov bliss --cov nexus_writer_service --cov-report html --cov-report html:htmlcov_writer term --profile --durations=30 -m writer --runwritertests'
+    PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term --profile --durations=30 -m writer --runwritertests'
   allow_failure: true
 
 
@@ -173,10 +173,9 @@ create_user_doc:
       - doc/site
     expire_in: 7 days
 
-test_package:
+.template_test_package:
   stage: package_tests
   image: continuumio/miniconda3:latest
-  parallel: 2
   script:
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
@@ -184,23 +183,32 @@ test_package:
     - conda create -y --name testenv
     - source activate testenv
     - conda install bliss==$CI_COMMIT_TAG --file requirements-test-conda.txt --channel file://${CI_PROJECT_DIR}/conda-local-channel
-    - COVDIR="htmlcov$CI_NODE_INDEX"
-    - >
-      if [[ $CI_NODE_INDEX == 1 ]]; then
-        echo "Run all Bliss core tests"
-        pytest --cov=bliss --cov-report html:$COVDIR --cov-report term
-      elif [[ $CI_NODE_INDEX == 2 ]]; then
-        echo "Run all writer tests"
-        pytest --cov=bliss --cov-report html:$COVDIR --cov-report term -m writer --runwritertests
-      else
-        echo "No tests in this group"
-      fi
-  artifacts:
-    paths:
-      - $COVDIR/
-    expire_in: 7 days
+    - echo ${PYTEST_ARGS}
+    - pytest ${PYTEST_ARGS}
+
+test_bliss_package:
+  # Run bliss tests using the bliss conda package
+  extends: .template_test_package
   only:
     - tags
+  artifacts:
+    paths:
+      - htmlcov/
+    expire_in: 7 days
+  variables:
+    PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term'
+
+test_writer_package:
+  # Run HDF5 writer tests using the bliss conda package
+  extends: .template_test_package
+  only:
+    - tags
+  artifacts:
+    paths:
+      - htmlcov_writer/
+    expire_in: 7 days
+  variables:
+    PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term -m writer --runwritertests'
 
 pages:
   stage: deploy

@@ -178,23 +178,23 @@ def test_counter_group(beacon, session, lima_simulator):
 
 def test_counters_with_no_register_controller(clean_gevent):
     clean_gevent["end-check"] = False
-    fake_cnts = {"bla": 1, "truc": 2}
 
     class MyCounter(counter.CounterController):
         def __init__(self):
             super().__init__("test_cnt")
-
-        @property
-        def counters(self):
-            return counter.counter_namespace(fake_cnts)
+            self._counters = {
+                "bla": Counter("bla", self),
+                "truc": Counter("truc", self),
+            }
 
     container = MyCounter()
     mg = measurementgroup.MeasurementGroup("local", {"counters": ["test_cnt:truc"]})
     counters = toolbox._get_counters_from_measurement_group(mg)
-    assert set(counters) == set([2])
+    assert set(counters) == set([container._counters["truc"]])
 
     mg = measurementgroup.MeasurementGroup(
-        "local", {"counters": [f"test_cnt:{name}" for name in fake_cnts.keys()]}
+        "local",
+        {"counters": [f"test_cnt:{name}" for name in container._counters.keys()]},
     )
     counters = toolbox._get_counters_from_measurement_group(mg)
     assert set(counters) == set(container.counters)

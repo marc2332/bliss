@@ -1462,7 +1462,7 @@ class Scan:
 
         flint = get_flint()
         if wait:
-            flint.wait_end_of_scan()
+            flint.wait_end_of_scans()
         try:
             plot_id = flint.get_live_scan_plot(channel_item.fullname, plot_type)
         except IndexError:

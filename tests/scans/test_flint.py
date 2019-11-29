@@ -22,7 +22,7 @@ def test_get_plot(test_session_with_flint, lima_simulator):
     ascan(roby, 0, 5, 5, 0.001, diode, lima)
 
     # synchronize redis events with flint
-    flint.wait_end_of_scan()
+    flint.wait_end_of_scans()
 
     p1_data = flint.get_live_scan_data("axis:roby")
     p2_data = flint.get_live_scan_data(diode.fullname)

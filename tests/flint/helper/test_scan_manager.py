@@ -41,21 +41,33 @@ def test_interleaved_scans():
     # Disabled async consumption
     manager._set_absorb_events(False)
 
+    scans = manager.get_alive_scans()
+    assert len(scans) == 0
+
     manager.new_scan(scan_info_1)
+    scans = manager.get_alive_scans()
+    assert len(scans) == 1
+    assert scans[0].scanInfo() == scan_info_1
+
     manager.new_scan(scan_info_2)
     data1 = {"scan_info": scan_info_1, "data": {"axis:roby": numpy.arange(2)}}
     manager.new_scan_data("0d", "axis", data=data1)
     data2 = {"scan_info": scan_info_2, "data": {"axis:robz": numpy.arange(3)}}
     manager.new_scan_data("0d", "axis", data=data2)
-    scan = manager.get_scan()
-    assert scan is not None
+    scans = manager.get_alive_scans()
+    assert len(scans) == 2
+
     manager.end_scan(scan_info_1)
-    assert manager.get_scan() is None
+    scans = manager.get_alive_scans()
+    assert len(scans) == 1
+    assert scans[0].scanInfo() == scan_info_2
+
     manager.end_scan(scan_info_2)
-    assert scan.scanInfo() == scan_info_1
+    scans = manager.get_alive_scans()
+    assert len(scans) == 0
 
 
-def test_double_scans():
+def test_sequencial_scans():
     scan_info_1 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_1}
     scan_info_2 = {"node_name": "scan2", "acquisition_chain": ACQUISITION_CHAIN_2}
 
@@ -66,20 +78,20 @@ def test_double_scans():
     manager.new_scan(scan_info_1)
     data1 = {"scan_info": scan_info_1, "data": {"axis:roby": numpy.arange(2)}}
     manager.new_scan_data("0d", "axis", data=data1)
-    scan = manager.get_scan()
-    assert scan is not None
+    scans = manager.get_alive_scans()
+    assert len(scans) == 1
     manager.end_scan(scan_info_1)
-    assert manager.get_scan() is None
-    assert scan.scanInfo() == scan_info_1
+    assert manager.get_alive_scans() == []
+    assert scans[0].scanInfo() == scan_info_1
 
     manager.new_scan(scan_info_2)
     data2 = {"scan_info": scan_info_2, "data": {"axis:robz": numpy.arange(3)}}
     manager.new_scan_data("0d", "axis", data=data2)
-    scan = manager.get_scan()
-    assert scan is not None
+    scans = manager.get_alive_scans()
+    assert len(scans) == 1
     manager.end_scan(scan_info_2)
-    assert manager.get_scan() is None
-    assert scan.scanInfo() == scan_info_2
+    assert manager.get_alive_scans() == []
+    assert scans[0].scanInfo() == scan_info_2
 
 
 def test_bad_sequence__end_before_new():
@@ -144,7 +156,7 @@ def test_image__default():
     manager._set_absorb_events(False)
 
     manager.new_scan(scan_info_3)
-    scan = manager.get_scan()
+    scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
     data = {}
@@ -170,7 +182,7 @@ def test_image__disable_video():
     manager._set_absorb_events(False)
 
     manager.new_scan(scan_info_3)
-    scan = manager.get_scan()
+    scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
     data = {}
@@ -200,7 +212,7 @@ def test_image__decoding_error():
     manager._set_absorb_events(False)
 
     manager.new_scan(scan_info_3)
-    scan = manager.get_scan()
+    scan = manager.get_alive_scans()[0]
 
     image = numpy.arange(1).reshape(1, 1)
     data = {}

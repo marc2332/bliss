@@ -285,6 +285,13 @@ def main():
 
     sys.excepthook = handle_exception
 
+    def close_service(frame, signum):
+        # Try to close the GUI in the normal way
+        # This allows pytest-cov to read back the coverage information
+        qapp.quit()
+
+    signal.signal(signal.SIGTERM, close_service)
+
     # set up CTRL-C signal handler, that exits gracefully
     def sigint_handler(*args):
         qapp.quit()

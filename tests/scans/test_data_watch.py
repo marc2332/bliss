@@ -297,15 +297,12 @@ def test_parallel_scans(default_session, scan_tmpdir):
     s1 = scans.loopscan(20, .1, diode, run=False)
     s2 = scans.ascan(robz, 0, 10, 25, .09, sim_ct_gauss, run=False)
 
-    g1 = gevent.spawn(s1.run)
-    g2 = gevent.spawn(s2.run)
-    gs = [g1, g2]
-
     new_scan_args = []
     new_child_args = []
     new_data_args = []
     end_scan_args = []
     end_scan_event = gevent.event.Event()
+    ready_event = gevent.event.Event()
 
     def end(*args):
         end_scan_event.set()
@@ -318,13 +315,17 @@ def test_parallel_scans(default_session, scan_tmpdir):
         lambda *args: new_child_args.append(args),
         lambda *args: new_data_args.append(args),
         end,
+        ready_event=ready_event,
     )
 
+    ready_event.wait(timeout=3.)
+
+    g1 = gevent.spawn(s1.run)
+    g2 = gevent.spawn(s2.run)
+    gs = [g1, g2]
+
     try:
-        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
-
         gevent.joinall(gs, raise_error=True)
-
         end_scan_event.wait(2.0)
     finally:
         session_watcher.kill()

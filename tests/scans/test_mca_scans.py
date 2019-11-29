@@ -1,6 +1,7 @@
 """Test module for MCA scan."""
 
 import numpy as np
+import itertools
 import pytest
 
 from bliss.common import scans
@@ -152,7 +153,7 @@ def test_mca_default_chain_with_measurement_group(session):
     # Get controllers
     m0 = session.config.get("m0")
     # Add simu1 to globals
-    session.config.get("simu1")
+    simu1 = session.config.get("simu1")
 
     # Measurement group
     mg1 = MeasurementGroup("mygroup1", {"counters": ["simu1"]})
@@ -166,10 +167,13 @@ def test_mca_default_chain_with_measurement_group(session):
         "mygroup2",
         {
             "counters": [
-                "simu1.counter_groups.realtime",
-                "simu1.counter_groups.events",
-                "simu1.counter_groups.spectrum",
-                "simu1.counter_groups.det0",
+                cnt.fullname
+                for cnt in itertools.chain(
+                    simu1.counter_groups.realtime,
+                    simu1.counter_groups.events,
+                    simu1.counter_groups.spectrum,
+                    simu1.counter_groups.det0,
+                )
             ]
         },
     )

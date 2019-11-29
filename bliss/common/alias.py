@@ -195,7 +195,7 @@ class Aliases:
                             break
                     else:
                         raise TypeError(
-                            f"Cannot make an alias of object of type {type(obj)}"
+                            f"Could not find a counter with corresponding name: {fn}"
                         )
 
         # create alias object

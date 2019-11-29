@@ -24,31 +24,26 @@ def _get_counters_from_measurement_group(mg):
     counters_by_names = dict()
     all_counters_dict = dict()
 
-    for cnt in global_map.get_counters_iter():
-        try:
-            fname = cnt.fullname
-        except AttributeError:
-            pass
-        else:
-            all_counters_dict[fname] = cnt
-        try:
-            name = cnt.name
-        except AttributeError:
-            pass
-        else:
-            s = counters_by_names.setdefault(name, set())
-            s.add(cnt)
+    all_counters = set(global_map.get_counters_iter())
+    for cnt in all_counters:
+        all_counters_dict[cnt.fullname] = cnt
+        s = counters_by_names.setdefault(cnt.name, set())
+        s.add(cnt)
+    for container in set(global_map.instance_iter("counters")) - all_counters:
+        all_counters_dict[container.name] = container
 
     keys = SortedKeyList(all_counters_dict)
     for name in set(mg.enabled):
-        # check there is a unique counter with this name
         cnts = counters_by_names.get(name)
+        # get counter by name
         if cnts is not None:
+            # check there is a unique counter with this name
             if len(cnts) > 1:
                 raise RuntimeError(
                     f"Several counters may be selected with this {name}\n"
                     f" change for one of those: {cnts}, in measurement group {mg.name}"
                 )
+            # add counter and continue
             counters += _get_counters_from_object(cnts.pop(), recursive=False)
             continue
 
@@ -70,19 +65,18 @@ def _get_counters_from_measurement_group(mg):
             )
         else:  # match partial names
             counter_container_name = name.rstrip(":") + ":"
-            # counters container case
+            # counter container case
             if index_name.startswith(counter_container_name):
-                while True:
+                for i in range(index, len(keys)):
                     counters += _get_counters_from_object(
                         all_counters_dict[index_name], recursive=False
                     )
-                    index += 1
-                    index_name = keys[index]
+                    index_name = keys[i]
                     if not index_name.startswith(counter_container_name):
                         break
             else:
                 # counter case, finding controller
-                for counter_container_name, access_name in _get_counters_container_name(
+                for counter_container_name, access_name in _get_counter_container_name(
                     name
                 ):
                     try:
@@ -106,7 +100,7 @@ def _get_counters_from_measurement_group(mg):
     return counters
 
 
-def _get_counters_container_name(name):
+def _get_counter_container_name(name):
     names = name.split(":")
     for index in range(-1, -len(names), -1):
         counter_access_name = ".".join(names[index:])

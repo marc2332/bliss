@@ -303,13 +303,16 @@ class MapWithAliases(Map):
             yield mot
 
     def get_counters_iter(self):
-        yield from self.instance_iter("counters")
-        for cnt_container in self.instance_iter("counters"):
+        for counter_or_container in self.instance_iter("counters"):
             try:
-                for cnt in cnt_container.counters:
+                # let's see first if we have a counter container
+                # TODO: replace with proper 'CounterContainer' abc/protocol/whatever
+                # (anything, but needs to be **defined**)
+                for cnt in counter_or_container.counters:
                     yield cnt
             except AttributeError:
-                pass
+                # must be a Counter object
+                yield counter_or_container
 
     @property
     def aliases(self):

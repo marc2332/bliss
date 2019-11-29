@@ -38,7 +38,6 @@ check_lint:
   stage: tests
   image: continuumio/miniconda3:latest
   script:
-    - echo ${PYTEST_ARGS}
     - echo ${CHANGES}
     - >
       if [ $CI_COMMIT_REF_NAME != 'master' ]; then
@@ -57,6 +56,7 @@ check_lint:
     - conda install pytest-profiling --yes
     - pip install .
     # run tests on source
+    - echo ${PYTEST_ARGS}
     - python setup.py test --addopts "$PYTEST_ARGS"
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'

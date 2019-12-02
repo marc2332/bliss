@@ -343,3 +343,15 @@ def test_BeaconObject_name(beacon):
 
     ctrl = MyCtrl(cfg, path=["something", "something_else"])
     assert ctrl.name == "my_custom_ctrl_name"
+
+
+def test_beacon_object_2_processes(beacon):
+    cfg = beacon.get("controller_setting2")
+    ctrl = Ctrl8(cfg)
+
+    assert ctrl.mode
+
+    # simulate a second process
+    ctrl_from_another_process = Ctrl8(cfg)
+
+    assert ctrl_from_another_process.mode

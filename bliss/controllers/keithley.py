@@ -269,6 +269,8 @@ class KeithleyCounterController(SamplingCounterController):
         self._initialize_with_setting = hw_controller._initialize_with_setting
 
     def read_all(self, *counters):
+        for cnt in counters:
+            cnt._initialize_with_setting()
         values = self["READ"]
         return [values[cnt.index] for cnt in counters]
 

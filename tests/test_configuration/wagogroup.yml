@@ -1,0 +1,9 @@
+- name: wago_group
+  plugin: bliss
+  module: wago.wagogroup
+  class: WagoGroup
+  wago:
+    - name: $wago_simulator
+      logical_keys: foh2ctrl, foh2pos
+    - name: $wago_simulator
+      logical_keys: esTr1, esTr2, o10v1

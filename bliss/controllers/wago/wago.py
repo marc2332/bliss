@@ -1156,12 +1156,13 @@ class WagoController:
 
         return tuple(ret)
 
-    def get(self, *channel_names, convert_values=True):
+    def get(self, *channel_names, convert_values=True, flat=True):
         """
         Read one or more values from channels
         Args:
             *channel_names (list): list of channels to be read
             convert_values (bool): default=True converts from raw reading to meaningful values
+            flat (bool):           default=True, if false: return a list item per channel
 
         Returns:
             (list): channel values
@@ -1200,6 +1201,19 @@ class WagoController:
                 ret.append(values)
             else:
                 ret += values
+
+        # return a list of list per channel
+        if not flat:
+            result = flatten(ret)
+            ret = []
+            for channel in channel_names:
+                nval = len(self.modules_config.logical_mapping[channel])
+                if nval > 1:
+                    channel_values, result = result[:nval], result[nval:]
+                else:
+                    channel_values = result.pop(0)
+                ret.append(channel_values)
+            return ret
 
         # return a list with all the channels
         if not ret:
@@ -2058,6 +2072,10 @@ class Wago(SamplingCounterController):
             (list): channel values
         """
         return self.controller.get(*args, **kwargs)
+
+    @property
+    def logical_keys(self):
+        return list(self.modules_config.logical_keys.keys())
 
     @property
     def counters(self):

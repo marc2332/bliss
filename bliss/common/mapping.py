@@ -35,6 +35,9 @@ def map_id(node):
 
 class Map:
     def __init__(self):
+        self._init()
+
+    def _init(self):
         self.G = nx.DiGraph()
 
         self.G.find_children = self.find_children
@@ -50,9 +53,7 @@ class Map:
         self.register("axes", parents_list=["global"])
 
     def clear(self):
-        for node_id in list(self):
-            if not node_id in ("global", "controllers", "comms", "counters", "axes"):
-                self.delete(node_id)
+        self._init()
 
     def _create_node(self, instance):
         logger.debug(f"register: Creating node:{instance} id:{id(instance)}")

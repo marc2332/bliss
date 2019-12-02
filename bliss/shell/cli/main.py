@@ -7,7 +7,7 @@
 
 """
 
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux] [--tmux-debug]
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux] [--debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -23,7 +23,7 @@ Options:
     -d, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
     --no-tmux                     Deactivate Tmux usage
-    --tmux-debug                  Allow debugging keeping tmux alive after Bliss shell exits   
+    --debug                       Allow debugging with full exceptions and keeping tmux alive after Bliss shell exits
     --show-sessions               Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
@@ -267,7 +267,7 @@ def main():
             print(f"Starting new tmux session {session}...")
             ans = subprocess.run(["tmux", "-S", tsock, "start-server"])
 
-            if arguments["--tmux-debug"]:
+            if arguments["--debug"]:
                 ans = subprocess.run(
                     [
                         "tmux",

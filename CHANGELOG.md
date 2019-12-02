@@ -51,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Globals
   - `SCANS` is now available only in Bliss Shell. Refers to `current_session.scans`
   - `SCAN_SAVING` is now available only in Bliss Shell. Refers to `current_session.scan_saving`
+- Command line arguments
+  - `--tmux-debug` command line option changed to only `--debug`
 
 ### Fixed
 

@@ -66,7 +66,7 @@ then the setup file is executed. Finally the prompt returns to user.
 ```
 % bliss -h
 Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
-             [--no-tmux] [--tmux-debug]
+             [--no-tmux] [--debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
@@ -83,7 +83,7 @@ Options:
   -d, --delete=<session_name>   Delete the given session
   -h, --help                    Show help screen and exit
   --no-tmux                     Deactivate Tmux usage
-  --tmux-debug                  Allow debugging keeping tmux alive after
+  --debug                       Allow debugging keeping tmux alive after
                                 Bliss shell exits
   --show-sessions               Display sessions and tree of sub-sessions
   --show-sessions-only          Display available sessions names only

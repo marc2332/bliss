@@ -79,11 +79,12 @@ import weakref
 import functools
 import collections
 import functools
-
+from types import SimpleNamespace
 import numpy
 import gevent
 
 from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 from bliss.comm.util import get_interface, get_comm
 from bliss.config.beacon_object import BeaconObject
 from bliss.config.settings import pipeline
@@ -91,8 +92,6 @@ from bliss.comm.exceptions import CommunicationError
 from bliss.comm.scpi import Cmd as SCPICmd
 from bliss.comm.scpi import Commands as SCPICommands
 from bliss.comm.scpi import BaseSCPIDevice
-
-from bliss.controllers.counter import SamplingCounterController
 
 from .keithley_scpi_mapping import COMMANDS as SCPI_COMMANDS
 from .keithley_scpi_mapping import MODEL_COMMANDS as SCPI_MODEL_COMMANDS
@@ -135,16 +134,11 @@ class BaseSensor(SamplingCounter, BeaconObject):
     def __init__(self, config, controller):
         BeaconObject.__init__(self, config)
         SamplingCounter.__init__(self, self.name, controller)
-        self.__controller = controller
         self.__measure_range_cache = None
 
     @property
     def index(self):
         return self.address - 1
-
-    @property
-    def controller(self):
-        return self.__controller
 
     @BeaconObject.property(default="CURR:DC", priority=-1)
     def meas_func(self):
@@ -269,9 +263,10 @@ class SensorZeroCheckMixin:
 
 
 class KeithleyCounterController(SamplingCounterController):
-    def __init__(self, name, comm):
+    def __init__(self, name, hw_controller):
         super().__init__(name)
-        self._comm = comm
+        self._comm = hw_controller.language
+        self._initialize_with_setting = hw_controller._initialize_with_setting
 
     def read_all(self, *counters):
         values = self["READ"]
@@ -279,6 +274,12 @@ class KeithleyCounterController(SamplingCounterController):
 
     def __getitem__(self, cmd):
         return self._comm[cmd]
+
+    def __setitem__(self, cmd, value):
+        self._comm[cmd] = value
+
+    def __call__(self, *args, **kwargs):
+        return self._comm(*args, **kwargs)
 
 
 class BaseMultimeter(KeithleySCPI, BeaconObject):
@@ -288,14 +289,14 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
             kwargs["interface"] = interface
         BeaconObject.__init__(self, config)
         KeithleySCPI.__init__(self, **kwargs)
-        self._controller = KeithleyCounterController(self.name, self.language)
+        self._counter_controller = KeithleyCounterController(self.name, self)
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)
 
     @property
     def counters(self):
-        return self._controller.counters
+        return self._counter_controller.counters
 
     @property
     def name(self):
@@ -463,8 +464,12 @@ class AmmeterDDC(BeaconObject):
     def __init__(self, config):
         interface = get_comm(config, eol="\r\n")
         super().__init__(config)
-        self._controller = KeithleyCounterController(
-            self.name, AmmeterDDC.Language(interface)
+        self._counter_controller = KeithleyCounterController(
+            self.name,
+            SimpleNamespace(
+                language=AmmeterDDC.Language(interface),
+                _initialize_with_setting=self._initialize_with_setting,
+            ),
         )
 
     @property
@@ -567,6 +572,6 @@ def create_sensor(node):
     sensor_names = [sensor_node["name"] for sensor_node in ctrl_node["sensors"]]
     for s_name in sensor_names:
         CTRL[s_name] = ctrl
-    obj = ctrl.Sensor(node, ctrl._controller)
-    ctrl._controller.add_counter(obj)
+    obj = ctrl.Sensor(node, ctrl._counter_controller)
+    ctrl._counter_controller.add_counter(obj)
     return obj

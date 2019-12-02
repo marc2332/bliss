@@ -1245,6 +1245,10 @@ class Axis:
     @lazy_init
     def prepare_move(self, user_target_pos, relative=False, trajectory=False):
         """Prepare a motion. Internal usage only"""
+
+        # To accept both float or numpy array of 1 element
+        user_target_pos = float(user_target_pos)
+
         log_debug(
             self,
             "prepare_move: user_target_pos=%g, relative=%r"

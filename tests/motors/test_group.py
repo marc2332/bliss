@@ -7,6 +7,7 @@
 
 import pytest
 import gevent
+import numpy
 from bliss.common import event
 from bliss.common.standard import Group
 
@@ -21,7 +22,7 @@ def test_group_move(robz, roby):
     target_robz = robz_pos + 10
     target_roby = roby_pos + 10
 
-    grp.move(robz, target_robz, roby, target_roby, wait=False)
+    grp.move(robz, target_robz, roby, numpy.array([target_roby]), wait=False)
 
     assert grp.state.MOVING
     assert robz.state.MOVING

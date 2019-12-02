@@ -265,8 +265,8 @@ class SensorZeroCheckMixin:
 class KeithleyCounterController(SamplingCounterController):
     def __init__(self, name, hw_controller):
         super().__init__(name)
-        self._comm = hw_controller.language
         self._initialize_with_setting = hw_controller._initialize_with_setting
+        self._comm = self.keithley._keithley_comm
 
     def read_all(self, *counters):
         for cnt in counters:
@@ -284,14 +284,14 @@ class KeithleyCounterController(SamplingCounterController):
         return self._comm(*args, **kwargs)
 
 
-class BaseMultimeter(KeithleySCPI, BeaconObject):
+class BaseMultimeter(BeaconObject):
     def __init__(self, config, interface=None):
         self.__name = config.get("name", "keithley")
         kwargs = dict(config)
         if interface:
             kwargs["interface"] = interface
         BeaconObject.__init__(self, config)
-        KeithleySCPI.__init__(self, **kwargs)
+        self._keithley_comm = KeithleySCPI(**kwargs)
         self._counter_controller = KeithleyCounterController(self.name, self)
 
     def __str__(self):
@@ -309,35 +309,37 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
         if self._is_initialized:
             return
 
-        self("*RST", "*OPC?")
+        self._keithley_comm("*RST", "*OPC?")
         super()._initialize_with_setting()
-        self("*OPC?")
+        self._keithley_comm("*OPC?")
 
     @BeaconObject.property(default=True)
     def display_enable(self):
-        return self["DISP:ENAB"]
+        return self._keithley_comm["DISP:ENAB"]
 
     @display_enable.setter
     def display_enable(self, value):
-        self["DISP:ENAB"] = value
+        self._keithley_comm["DISP:ENAB"] = value
 
     @BeaconObject.property(default=False)
     def auto_zero(self):
-        return self["SYST:AZER"]
+        return self._keithley_comm["SYST:AZER"]
 
     @auto_zero.setter
     def auto_zero(self, value):
-        self["SYST:AZER"] = value
+        self._keithley_comm["SYST:AZER"] = value
 
     @BeaconObject.lazy_init
     def abort(self):
-        return self("ABOR", "OPC?")
+        return self._keithley_comm("ABOR", "OPC?")
 
     @BeaconObject.lazy_init
     def pprint(self):
         values = self.settings.get_all()
         settings = "\n".join(("    {0}={1}".format(k, v) for k, v in values.items()))
-        idn = "\n".join(("    {0}={1}".format(k, v) for k, v in self["*IDN"].items()))
+        idn = "\n".join(
+            ("    {0}={1}".format(k, v) for k, v in self._keithley_comm["*IDN"].items())
+        )
         print(
             (
                 "{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}".format(
@@ -355,11 +357,11 @@ class K6485(BaseMultimeter):
         if self._is_initialized:
             return
 
-        self["FORM:ELEM"] = [
+        self._keithley_comm["FORM:ELEM"] = [
             "READ"
         ]  # just get the current when you read (no timestamp)
-        self["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
-        self["TRAC:FEED"] = "SENS"  # source of reading is sensor
+        self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
+        self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
         super()._initialize_with_setting()
 
     class Sensor(BaseMultimeter.Sensor, SensorZeroCheckMixin):
@@ -377,8 +379,8 @@ class K6482(BaseMultimeter):
             return
 
         # should it not be FORM:ELEM instead of FORM:ELEM:TRAC ?
-        self["FORM:ELEM:TRAC"] = ["CURR1", "CURR2"]
-        self["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
+        self._keithley_comm["FORM:ELEM:TRAC"] = ["CURR1", "CURR2"]
+        self._keithley_comm["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
         super()._initialize_with_setting()
 
     class Sensor(BaseMultimeter.Sensor):
@@ -395,11 +397,11 @@ class K6514(BaseMultimeter):
         if self._is_initialized:
             return
 
-        self["FORM:ELEM"] = [
+        self._keithley_comm["FORM:ELEM"] = [
             "READ"
         ]  # just get the current when you read (no timestamp)
-        self["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
-        self["TRAC:FEED"] = "SENS"  # source of reading is sensor
+        self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
+        self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
         super()._initialize_with_setting()
 
     class Sensor(BaseSensor, SensorZeroCheckMixin):
@@ -468,7 +470,7 @@ class AmmeterDDC(BeaconObject):
         self._counter_controller = KeithleyCounterController(
             self.name,
             SimpleNamespace(
-                language=AmmeterDDC.Language(interface),
+                _keithley_comm=AmmeterDDC.Language(interface),
                 _initialize_with_setting=self._initialize_with_setting,
             ),
         )

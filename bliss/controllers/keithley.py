@@ -286,6 +286,7 @@ class KeithleyCounterController(SamplingCounterController):
 
 class BaseMultimeter(KeithleySCPI, BeaconObject):
     def __init__(self, config, interface=None):
+        self.__name = config.get("name", "keithley")
         kwargs = dict(config)
         if interface:
             kwargs["interface"] = interface
@@ -302,10 +303,7 @@ class BaseMultimeter(KeithleySCPI, BeaconObject):
 
     @property
     def name(self):
-        sensors_name = "/".join(
-            [sensor["name"] for sensor in self.config.get("sensors")]
-        )
-        return f"keithley:{sensors_name}"
+        return self.__name
 
     def _initialize_with_setting(self):
         if self._is_initialized:
@@ -464,6 +462,7 @@ class AmmeterDDC(BeaconObject):
             self._interface.write(bytes_cmd)
 
     def __init__(self, config):
+        self.__name = config.get("name", "keithley")
         interface = get_comm(config, eol="\r\n")
         super().__init__(config)
         self._counter_controller = KeithleyCounterController(
@@ -476,10 +475,7 @@ class AmmeterDDC(BeaconObject):
 
     @property
     def name(self):
-        sensors_name = "/".join(
-            [sensor["name"] for sensor in self.config.get("sensors")]
-        )
-        return f"keithley:{sensors_name}"
+        return self.__name
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)

@@ -154,6 +154,7 @@ class Mockup(Controller):
             self.start_one(motion, t0=t0)
 
     def start_one(self, motion, t0=None):
+        assert isinstance(motion.target_pos, float)
         axis = motion.axis
         log_debug(self, f"moving {axis.name} to {motion.target_pos}")
         if self._get_axis_motion(axis):

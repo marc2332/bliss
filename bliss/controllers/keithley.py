@@ -263,10 +263,15 @@ class SensorZeroCheckMixin:
 
 
 class KeithleyCounterController(SamplingCounterController):
-    def __init__(self, name, hw_controller):
+    def __init__(self, name, keithley):
         super().__init__(name)
-        self._initialize_with_setting = hw_controller._initialize_with_setting
+        self.__keithley = keithley
         self._comm = self.keithley._keithley_comm
+        self._initialize_with_setting = self.keithley._initialize_with_setting
+
+    @property
+    def keithley(self):
+        return self.__keithley
 
     def read_all(self, *counters):
         for cnt in counters:

@@ -66,20 +66,24 @@ from bliss.scanning.chain import AcquisitionSlave
 class EmhAcquisitionSlave(AcquisitionSlave):
     """ TO BE USED IN HARDWARE TRIGGERED MODE ONLY """
 
-    def __init__(self, emh, trigger, int_time, npoints, counter_list, ctrl_params=None):
+    def __init__(self, emh, trigger=None, int_time=None, npoints=1, ctrl_params=None):
         """ Acquisition device for EMH counters.
         """
+
+        validate_params(
+            {"trigger": trigger, "int_time": int_time, "npoints": npoints},
+            ctrl_params=ctrl_params,
+        )
+
         AcquisitionSlave.__init__(
             self,
-            *(counter_list if counter_list else (emh,)),
+            emh,
             name=emh.name,
             npoints=npoints,
             trigger_type=AcquisitionSlave.HARDWARE,
             ctrl_params=ctrl_params,
         )
 
-        if trigger not in TRIGGER_INPUTS:
-            raise ValueError("{!r} is not a valid trigger".format(trigger))
         self.trigger = trigger
         # print("TRIGGER %s" % self.trigger)
 
@@ -89,6 +93,17 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         self.int_time = int_time
 
         self.__stop_flag = False
+
+    @staticmethod
+    def get_param_validation_schema():
+        acq_params_schema = {
+            "trigger": {"type": "string", "allowed": TRIGGER_INPUTS},
+            "int_time": {"type": "number"},
+            "npoints": {"type": "number"},
+        }
+
+        schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}
+        return schema
 
     def wait_ready(self):
         # return only when ready

@@ -186,7 +186,9 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
 
 
 class CalcCounterChainNode(ChainNode):
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(
+        self, acq_params, ctrl_params=None, parent_acq_params=None
+    ):
 
         # Check if Acquisition Devices of dependant counters already exist
         acq_devices = []
@@ -200,5 +202,7 @@ class CalcCounterChainNode(ChainNode):
                 acq_devices.append(acq_obj)
 
         return self.controller.get_acquisition_object(
-            acq_params=acq_devices, ctrl_params=ctrl_params
+            acq_params=acq_devices,
+            ctrl_params=ctrl_params,
+            parent_acq_params=parent_acq_params,
         )

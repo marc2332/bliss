@@ -308,7 +308,9 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
         def __init__(self, name):
             super().__init__(name)
 
-        def get_acquisition_object(self, acq_params, ctrl_params=None):
+        def get_acquisition_object(
+            self, acq_params, ctrl_params=None, parent_acq_params=None
+        ):
             return AcquisitionObject(self, ctrl_params=ctrl_params, **acq_params)
 
         def get_default_chain_parameters(self, scan_params, acq_params):

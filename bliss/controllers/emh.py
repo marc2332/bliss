@@ -105,30 +105,16 @@ class EMH(CounterController):
 
         self.bpm_values = {"bpmx": -1, "bpmy": -1, "bpmi": -1}
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
-        trigger_type = acq_params["trigger_type"]
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
+        trigger_type = acq_params.pop("trigger_type")
 
         if trigger_type == "HARDWARE":
             from bliss.scanning.acquisition.emh import EmhAcquisitionSlave
 
-            trigger = acq_params["trigger"]
-
-            return EmhAcquisitionSlave(
-                self,
-                trigger,
-                count_time,
-                npoints,
-                self.counters,
-                ctrl_params=ctrl_params,
-            )
-
-            # return EmhAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+            return EmhAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
         else:
-            acq_params.pop("trigger_type")
             return SamplingCounterAcquisitionSlave(
                 self, ctrl_params=ctrl_params, **acq_params
             )

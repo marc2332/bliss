@@ -96,7 +96,13 @@ class MusstIntegratingCounterController(IntegratingCounterController):
             self, name=name, master_controller=master_controller
         )
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+
+        if "count_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["count_time"])
+        if "npoints" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["npoints"])
+
         return MusstIntegratingAcquisitionSlave(
             self, ctrl_params=ctrl_params, **acq_params
         )
@@ -341,7 +347,7 @@ class musst(CounterController):
 
         self._init = init
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return MusstDefaultAcquisitionMaster(
             self, ctrl_params=ctrl_params, **acq_params
         )

@@ -40,7 +40,12 @@ class Bpm(IntegratingCounterController):
             }
         )
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "acq_nb_frames" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
+
         return BpmAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     @property

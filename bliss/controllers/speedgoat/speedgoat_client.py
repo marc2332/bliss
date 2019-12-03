@@ -614,10 +614,9 @@ class SpeedgoatCountersController(CounterController):
                 self, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
-        trigger_type = acq_params["trigger_type"]
-        acq_params.pop("trigger_type")
+        trigger_type = acq_params.pop("trigger_type")
 
         if trigger_type == "HARDWARE":
 

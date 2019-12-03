@@ -96,7 +96,7 @@ class BaseMCA(CounterController):
         self._rois = RoiConfig(self)
         self.beacon_obj.init()
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
         from bliss.scanning.acquisition.mca import (
             McaAcquisitionSlave,
@@ -105,6 +105,7 @@ class BaseMCA(CounterController):
 
         # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
         acq_mode = self.acquisition_mode
+        ### should this move to ctrl_params mechansim?
         if acq_mode == AcquisitionMode.HWSCA:
 
             params = {

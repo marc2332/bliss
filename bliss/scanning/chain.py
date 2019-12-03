@@ -259,16 +259,16 @@ class AcquisitionObject:
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        #self._ctrl_params = None
-        
-        #workaround to be able to update lima ctrl params before init of base.
-        if not hasattr(self._ctrl_params):
-            self._init_ctrl_params(ctrl_params)
+        # self._ctrl_params = None
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-        
-    def _init_ctrl_params(self,ctrl_params)
+
+        # workaround to be able to update lima ctrl params before init of base.
+        if not hasattr(self, "_ctrl_params"):
+            self._init_ctrl_params(ctrl_params)
+
+    def _init_ctrl_params(self, ctrl_params):
         if isinstance(ctrl_params, ChainNode.ChainNodeDict):
             self._ctrl_params = ctrl_params
         else:
@@ -276,14 +276,16 @@ class AcquisitionObject:
 
     @staticmethod
     def get_param_validation_schema():
+        """returns a schema dict for validation"""
         raise NotImplementedError
 
     @classmethod
     def validate_params(cls, acq_params, ctrl_params=None):
-        if ctrl_params is None:
-            params = {"acq_params": acq_params}
-        else:
-            params = {"acq_params": acq_params, "ctrl_params": ctrl_params}
+
+        params = {"acq_params": acq_params}
+
+        if ctrl_params:
+            params.update({"ctrl_params": ctrl_params})
 
         validator = BlissValidator(cls.get_param_validation_schema())
 
@@ -1162,6 +1164,7 @@ class ChainNode:
 
         self._acq_obj_params = None
         self._ctrl_params = None
+        self._parent_acq_params = None
 
         self._calc_dep_nodes = {}  # to store CalcCounterController dependent nodes
 
@@ -1196,6 +1199,19 @@ class ChainNode:
     @property
     def controller_parameters(self):
         return self._ctrl_params
+
+    def set_parent_parameters(self, parent_acq_params, force=False):
+        if parent_acq_params is not None:
+            if (
+                self._parent_acq_params is not None
+                and self._parent_acq_params != parent_acq_params
+            ):
+                print(
+                    f"=== ChainNode WARNING: try to set PARENT_ACQ_PARAMS again: \n Current {self._parent_acq_params} \n New     {parent_acq_params} "
+                )
+
+            if force or self._parent_acq_params is None:
+                self._parent_acq_params = parent_acq_params
 
     def set_parameters(self, acq_params=None, ctrl_params=None, force=False):
         """ Store the scan and/or acquisition parameters into the node. 
@@ -1240,11 +1256,13 @@ class ChainNode:
 
         return self.controller.get_default_chain_parameters(scan_params, acq_params)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-        """ Return the acquisition object associated to this node """
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        """ Return the acquisition object associated to this node 
+            acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        """
 
         return self.controller.get_acquisition_object(
-            acq_params, ctrl_params=ctrl_params
+            acq_params, ctrl_params=ctrl_params, parent_acq_params=parent_acq_params
         )
 
     def create_acquisition_object(self, force=False):
@@ -1272,8 +1290,17 @@ class ChainNode:
         else:
             ctrl_params = self._ctrl_params
 
+        if self._parent_acq_params is None:
+            parent_acq_params = {}
+        else:
+            parent_acq_params = (
+                self._parent_acq_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
+
         # --- Create the acquisition object -------------------------------------------------------
-        acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)
+        acq_obj = self.get_acquisition_object(
+            acq_params, ctrl_params=ctrl_params, parent_acq_params=parent_acq_params
+        )
 
         if not isinstance(acq_obj, AcquisitionObject):
             raise TypeError(f"Object: {acq_obj} is not an AcquisitionObject")
@@ -1293,7 +1320,7 @@ class ChainNode:
         for node in self.children:
 
             if node._acq_obj_params is None:
-                node.set_parameters(acq_params=self._acq_obj_params)
+                node.set_parent_parameters(self._acq_obj_params)
 
             node.create_acquisition_object(force)
 

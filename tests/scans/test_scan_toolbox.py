@@ -65,6 +65,51 @@ def scan_demo(motor, start, stop, npoints, count_time, *counters):
     sc.run()
 
 
+def scan_demo_auto_handle_children(motor, start, stop, npoints, count_time, *counters):
+
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
+
+    chain = AcquisitionChain()
+    builder = ChainBuilder(counters)
+
+    lima_params = {
+        "acq_nb_frames": npoints,
+        "acq_expo_time": count_time * 0.5,
+        "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        #   "acc_max_expo_time": 1.,
+        "wait_frame_id": range(npoints),
+        "prepare_once": True,
+        "start_once": False,
+    }
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+
+        chain.add(acq_master, node)
+
+    builder.print_tree(not_ready_only=False)
+
+    scan_info = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "start": start,
+        "stop": stop,
+    }
+
+    sc = Scan(
+        chain,
+        name="my_scan",
+        scan_info=scan_info,
+        save=False,
+        save_images=False,
+        scan_saving=None,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    sc.run()
+
+
 def test_continous_scan(default_session, lima_simulator, lima_simulator2):
 
     # ScanDisplay().auto=True
@@ -92,6 +137,10 @@ def test_continous_scan(default_session, lima_simulator, lima_simulator2):
     # nodes = scan_demo(roby, 0, 10, 11, 1, simulator1.counter_groups.r1 )
 
     scan_demo(roby, 0, 1, 2, 0.1, simulator1, simulator2.counters.r2_sum)
+
+    scan_demo_auto_handle_children(
+        roby, 0, 1, 2, 0.1, simulator1, simulator2.counters.r2_sum
+    )
 
 
 def test_default_scan(default_session, lima_simulator):

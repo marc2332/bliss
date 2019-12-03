@@ -65,7 +65,7 @@ class Mythen(CounterController):
         self._apply_configuration()
         self._counters["spectrum"] = MythenCounter(self)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):

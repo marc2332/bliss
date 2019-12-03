@@ -326,7 +326,7 @@ class SimulationCounterController(CounterController):
     def __init__(self):
         super().__init__("simulation_counter_controller")
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return SimulationCounterAcquisitionSlave(
             self, ctrl_params=ctrl_params, **acq_params
         )

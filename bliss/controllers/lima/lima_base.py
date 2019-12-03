@@ -303,7 +303,7 @@ class Lima(CounterController):
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):

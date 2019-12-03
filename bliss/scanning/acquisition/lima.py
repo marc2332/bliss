@@ -41,10 +41,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         combine with one slow step motor. if you do 20 images per line,
         the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
         """
-        
-        #workaround to update ctrl params fefore validation
+
+        # workaround to update ctrl params fefore validation
         self._init_ctrl_params(ctrl_params)
-        
+
         params = self.validate_params(acq_params, ctrl_params)
 
         self.acq_params = params["acq_params"]

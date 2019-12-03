@@ -67,10 +67,28 @@ class CounterController:
     def create_chain_node(self):
         return ChainNode(self)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        """
+        retruns an Acquistion Object instance. 
+        Intended to be used through by the ChainNode. 
+        acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        
+        In case a incomplete set of acq_params is provided parent_acq_params may eventually
+        be used to complete acq_params before choosing which Acquistion Object needs to be
+        instiated or just to provide all nessessary acq_params to the Acquistion Object.
+        
+        parent_acq_params should be inserted into acq_params with low priority to not overwrite
+        explicitly provided acq_params i.e. by using setdefault
+        
+        e.g.
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        """
         raise NotImplementedError
 
     def get_default_chain_parameters(self, scan_params, acq_params):
+        """return completed acq_params with missing values guessed from scan_params
+        in the context of default chain i.e. step-by-step scans"""
         raise NotImplementedError
 
     def get_current_parameters(self):
@@ -88,7 +106,7 @@ class SamplingCounterController(CounterController):
     def __init__(self, name="samp_cc", master_controller=None):
         super().__init__(name, master_controller=master_controller)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return SamplingCounterAcquisitionSlave(
             self, ctrl_params=ctrl_params, **acq_params
         )
@@ -127,7 +145,7 @@ class IntegratingCounterController(CounterController):
     def __init__(self, name="integ_cc", master_controller=None):
         super().__init__(name, master_controller=master_controller)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return IntegratingCounterAcquisitionSlave(
             self, ctrl_params=ctrl_params, **acq_params
         )
@@ -162,7 +180,7 @@ class CalcCounterController(CounterController):
 
         self.build_counters(config)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return CalcCounterAcquisitionSlave(self, acq_params, ctrl_params=ctrl_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):

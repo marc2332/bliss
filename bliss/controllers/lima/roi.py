@@ -167,7 +167,13 @@ class RoiCounters(IntegratingCounterController):
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # in case `count_time` is missing in acq_params take it from parent_acq_params
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "acq_nb_frames" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
+
         return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):

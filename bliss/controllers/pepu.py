@@ -638,7 +638,7 @@ class PEPU(CounterController):
             stream_info = StreamInfo.fromstring(str_stream)
             self._create_stream(stream_info, write=False)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
 
         return PepuAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)

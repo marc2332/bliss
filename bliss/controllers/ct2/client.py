@@ -89,7 +89,7 @@ class CT2Controller(Proxy, CounterController):
 
         self._counters = slave._counters
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
         from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
 
@@ -127,9 +127,13 @@ class CT2CounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
         super().__init__(name=name, master_controller=master_controller)
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         from bliss.scanning.acquisition.ct2 import CT2CounterAcquisitionSlave
+
+        if "count_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "npoints" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["npoints"])
 
         return CT2CounterAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 

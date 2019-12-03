@@ -32,7 +32,7 @@ class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
 
 
 class MusstDefaultAcquisitionMaster(AcquisitionMaster):
-    def __init__(self, controller, count_time=None, ctrl_params=None):
+    def __init__(self, controller, count_time=None, npoints=1, ctrl_params=None):
 
         super().__init__(controller, ctrl_params=ctrl_params)
 

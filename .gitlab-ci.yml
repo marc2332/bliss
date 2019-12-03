@@ -219,7 +219,14 @@ pages:
     - builder
     - linux
   script:
-    # Publishing to intranet folders
+    # Preparing
+    - git fetch --tags
+    - mkdir -p public
+    # Make a copy of existing documentation on gitlab webpages
+    # Workaround as gitlab does not manage different versions of documentation
+    - conda install -y wget
+    - sh .gitlab-ci-docs-publish.sh master $(git tag)
+    # Publishing documentation for the actual version
     # if we have a tag it will be published under the intranet gitlab page under /tag/ otherwhise under /master/
     - if [[ ( $CI_COMMIT_REF_NAME == master && -z $CI_COMMIT_TAG ) ]]; then export DOC_DIR='master'; else export DOC_DIR=${CI_COMMIT_TAG}; fi
     #- rm -rf public/* # target dir should be cleaned at first time

@@ -30,7 +30,7 @@ class ShutterSwitch(BaseSwitch):
 
     def _states_list(self):
         """Return list of states"""
-        return [BaseShutterState.OPEN, BaseShutterState.CLOSED]
+        return [BaseShutterState.OPEN.name, BaseShutterState.CLOSED.name]
 
     def _set(self, state):
         """Set state"""
@@ -41,8 +41,8 @@ class ShutterSwitch(BaseSwitch):
     def _get(self):
         """Get the state"""
         if self._is_open():
-            return BaseShutterState.OPEN
-        return BaseShutterState.CLOSED
+            return BaseShutterState.OPEN.name
+        return BaseShutterState.CLOSED.name
 
 
 @unique
@@ -102,7 +102,7 @@ class BaseShutter:
         raise NotImplementedError
 
     def __repr__(self):
-        return f"{self.name}: {self.state_string[1]}"
+        return f"{self.name}: {self.state_string}"
 
     def __enter__(self):
         self.open()

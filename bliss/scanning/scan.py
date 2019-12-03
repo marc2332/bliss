@@ -147,7 +147,7 @@ class StepScanDataWatch(DataWatchCallback):
             for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
                     channel = data_node
-                    self._channel_name_2_channel[channel.fullname] = channel
+                    self._channel_name_2_channel[channel.name] = channel
             self._init_done = True
 
         min_nb_points = None

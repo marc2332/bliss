@@ -157,7 +157,7 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
         self._connected = False
 
     def prepare(self):
-        self.device.prepare()
+        self.device.reset_data_storage()
         self.connect()
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
@@ -179,11 +179,10 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
                     channel.emit(channel_data)
 
     def start(self):
-        self.device.start()
+        pass
 
     def stop(self):
         self.disconnect()
-        self.device.stop()
 
 
 class CalcCounterChainNode(ChainNode):

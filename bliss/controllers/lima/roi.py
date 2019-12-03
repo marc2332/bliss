@@ -14,6 +14,7 @@ from bliss.config import settings
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
+from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
 
 
 class Roi:
@@ -165,6 +166,9 @@ class RoiCounters(IntegratingCounterController):
         self._roi_ids = {}
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
+
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):
         if isinstance(roi_values, Roi):
@@ -353,9 +357,6 @@ class RoiCounters(IntegratingCounterController):
         else:
             lines.append("*** no ROIs defined ***")
         return "\n".join(lines)
-
-    def prepare(self, *counters):
-        self.upload_rois()
 
     def get_values(self, from_index, *counters):
         roi_counter_size = len(RoiStat)

@@ -189,7 +189,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        self.device.prepare()
 
         # check modes to see if sampling loop is needed or not
         if all(
@@ -203,11 +202,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._ready_event.set()
         self._event.clear()
 
-        self.device.start()
-
     def stop(self):
-        self.device.stop()
-
         self._stop_flag = True
         self._trig_time = None
         self._event.set()
@@ -445,13 +440,11 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     def prepare(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self.device.prepare(*self._counters)
 
     def start(self):
-        self.device.start(*self._counters)
+        pass
 
     def stop(self):
-        self.device.stop(*self._counters)
         self._stop_flag = True
 
     def trigger(self):

@@ -10,6 +10,7 @@ import numpy
 from bliss.common.utils import grouped
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
+from bliss.scanning.acquisition.lima import BpmAcquisitionSlave
 
 
 class LimaBpmCounter(IntegratingCounter):
@@ -39,14 +40,8 @@ class Bpm(IntegratingCounterController):
             }
         )
 
-    def prepare(self, *counters):
-        self.start()
-
-    def start(self, *counters):
-        self._proxy.Start()
-
-    def stop(self, *counters):
-        self._proxy.Stop()
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
+        return BpmAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     @property
     def acq_time(self):

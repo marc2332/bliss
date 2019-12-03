@@ -16,6 +16,7 @@ from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
 LIMA_DTYPE = {
     (0, 2): numpy.uint16,
@@ -364,3 +365,24 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 }
             },
         )
+
+
+class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare(self):
+        self._nb_acq_points = 0
+        self._stop_flag = False
+        self.device.upload_rois()
+
+
+class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare(self):
+        self._nb_acq_points = 0
+        self._stop_flag = False
+        self.device._proxy.Start()
+
+    def start(self):
+        self.device._proxy.Start()
+
+    def stop(self):
+        self.device._proxy.Stop()
+        self._stop_flag = True

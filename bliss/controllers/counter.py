@@ -83,15 +83,6 @@ class CounterController:
     def apply_parameters(self, parameters):
         pass
 
-    def prepare(self, *counters):
-        pass
-
-    def start(self, *counters):
-        pass
-
-    def stop(self, *counters):
-        pass
-
 
 class SamplingCounterController(CounterController):
     def __init__(self, name="samp_cc", master_controller=None):
@@ -165,7 +156,6 @@ class CalcCounterController(CounterController):
         self._counters = {}
         self.tags = {}
 
-        # === reset by self.prepare() ================
         self.data = {}
         self.data_index = {}
         self.emitted_index = -1
@@ -279,22 +269,16 @@ class CalcCounterController(CounterController):
 
         return output_data_dict
 
-    def prepare(self):
+    def calc_function(self, input_dict):
+        raise NotImplementedError
+
+    def reset_data_storage(self):
         # Store read input counter datas
         self.data = {}
         # last index of read input counter datas
         self.data_index = {}
         # index of last calculated counter datas
         self.emitted_index = -1
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-    def calc_function(self, input_dict):
-        raise NotImplementedError
 
 
 class SoftCounterController(SamplingCounterController):

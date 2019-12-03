@@ -12,6 +12,7 @@ import gevent
 from bliss.common import scans, event
 from bliss.scanning import scan
 from bliss.controllers.counter import CalcCounterController
+from bliss.scanning.acquisition.calc import CalcCounterAcquisitionSlave
 
 
 def test_ascan(session):
@@ -380,6 +381,19 @@ def test_calc_counter_callback(session):
     m1 = session.env_dict["m1"]
     cnt = session.env_dict["sim_ct_gauss"]
 
+    class CCAS(CalcCounterAcquisitionSlave):
+        def prepare(self):
+            super().prepare()
+            self.device.prepare_called += 1
+
+        def start(self):
+            super().start()
+            self.device.start_called += 1
+
+        def stop(self):
+            self.device.stop_called += 1
+            super().stop()
+
     class MyCCC(CalcCounterController):
         def __init__(self, name, config):
             super().__init__(name, config)
@@ -390,14 +404,8 @@ def test_calc_counter_callback(session):
         def calc_function(self, input_dict):
             return {"pow": input_dict["sim_ct_gauss"] ** 2}
 
-        def prepare(self):
-            self.prepare_called += 1
-
-        def start(self):
-            self.start_called += 1
-
-        def stop(self):
-            self.stop_called += 1
+        def get_acquisition_object(self, acq_params, ctrl_params=None):
+            return CCAS(self, acq_params, ctrl_params=ctrl_params)
 
     config = {
         "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],

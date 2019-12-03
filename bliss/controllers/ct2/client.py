@@ -127,32 +127,11 @@ class CT2CounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
         super().__init__(name=name, master_controller=master_controller)
 
-    def prepare(self, *counters):
-        channels = []
-        counter_indexes = {}
-        ctrl = self.master_controller
-        in_channels = ctrl.INPUT_CHANNELS
-        timer_counter = ctrl.internal_timer_counter
-        point_nb_counter = ctrl.internal_point_nb_counter
-        channel_counters = dict([(counter.channel, counter) for counter in counters])
+    def get_acquisition_object(self, acq_params, ctrl_params=None):
 
-        for i, channel in enumerate(sorted(channel_counters)):
-            counter = channel_counters[channel]
-            if channel in in_channels:
-                channels.append(channel)
-            elif channel == timer_counter:
-                i = -2
-                counter.timer_freq = ctrl.timer_freq
-            elif channel == point_nb_counter:
-                i = -1
-            counter_indexes[counter] = i
-        ctrl.acq_channels = channels
-        # counter_indexes dict<counter: index in data array>
-        self.counter_indexes = counter_indexes
-        # a hack here: since this prepare is called AFTER the
-        # CT2AcquisitionSlave prepare, we do a "second" prepare
-        # here after the acq_channels have been configured
-        ctrl.prepare_acq()
+        from bliss.scanning.acquisition.ct2 import CT2CounterAcquisitionSlave
+
+        return CT2CounterAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_values(self, from_index, *counters):
         data = self.master_controller.get_data(from_index).T

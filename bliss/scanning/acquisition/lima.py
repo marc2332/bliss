@@ -368,21 +368,16 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
-    def prepare(self):
-        self._nb_acq_points = 0
-        self._stop_flag = False
+    def prepare_device(self):
         self.device.upload_rois()
 
 
 class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
-    def prepare(self):
-        self._nb_acq_points = 0
-        self._stop_flag = False
+    def prepare_device(self):
         self.device._proxy.Start()
 
-    def start(self):
+    def start_device(self):
         self.device._proxy.Start()
 
-    def stop(self):
+    def stop_device(self):
         self.device._proxy.Stop()
-        self._stop_flag = True

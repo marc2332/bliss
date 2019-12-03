@@ -67,6 +67,15 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
             d.update(cnt.get_metadata())
         scan_meta.instrument.set(self, tmp_dict)
 
+    def prepare_device(self):
+        pass
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        pass
+
 
 class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
@@ -196,13 +205,22 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         ):
             self._SINGLE_COUNT = True
 
+        # --- call a hook that users can implement in order to prepare the associated device
+        self.prepare_device()
+
     def start(self):
         self._nb_acq_points = 0
         self._stop_flag = False
         self._ready_event.set()
         self._event.clear()
 
+        # --- call a hook that users can implement in order to start the associated device
+        self.start_device()
+
     def stop(self):
+        # --- call a hook that users can implement in order to stop the associated device
+        self.stop_device()
+
         self._stop_flag = True
         self._trig_time = None
         self._event.set()
@@ -441,10 +459,17 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         self._nb_acq_points = 0
         self._stop_flag = False
 
+        # --- call a hook that users can implement in order to prepare the associated device
+        self.prepare_device()
+
     def start(self):
-        pass
+        # --- call a hook that users can implement in order to start the associated device
+        self.start_device()
 
     def stop(self):
+        # --- call a hook that users can implement in order to stop the associated device
+        self.stop_device()
+
         self._stop_flag = True
 
     def trigger(self):

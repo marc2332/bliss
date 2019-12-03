@@ -75,6 +75,9 @@ def pepu():
         stream.idata.side_effect = idata
         pepu.software_trigger.side_effect = lambda: trigger.put(None)
         pepu.assert_data = assert_data
+
+        pepu.get_current_parameters = lambda: None
+
         yield pepu
         stream.start.assert_called_once_with()
         stream.stop.assert_called_once_with()

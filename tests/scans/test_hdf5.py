@@ -198,43 +198,10 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
 
     assert (
         "saving_frame_per_file"
-        in f["1_ascan/instrument/lima_simulator/lima_parameters"]
+        in f["1_ascan/instrument/lima_simulator/ctrl_parameters"]
     )
     assert "acq_mode" in f["1_ascan/instrument/lima_simulator/lima_parameters"]
     assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
-
-
-@pytest.mark.writer
-def test_scan_saving_parameters(session, lima_simulator, scan_tmpdir):
-    lima_sim = session.config.get("lima_simulator")
-    DEFAULT_CHAIN = session.env_dict["DEFAULT_CHAIN"]
-
-    try:
-        DEFAULT_CHAIN.set_settings(
-            [
-                {
-                    "device": lima_sim,
-                    "acquisition_settings": {
-                        "saving_format": "HDF5",
-                        "saving_suffix": ".h5",
-                    },
-                }
-            ]
-        )
-
-        # put scan file in a tmp directory
-        session.scan_saving.base_path = str(scan_tmpdir)
-
-        s = scans.loopscan(1, 0.01, lima_sim)
-    finally:
-        DEFAULT_CHAIN.set_settings([])
-
-    f = h5py.File(
-        os.path.join(
-            os.path.dirname(s.writer.filename), "scan0001", "lima_simulator_0000.h5"
-        )
-    )
-    assert f["entry_0000"]
 
 
 @pytest.mark.writer

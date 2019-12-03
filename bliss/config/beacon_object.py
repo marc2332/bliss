@@ -13,6 +13,7 @@ from bliss.config.channels import Cache, EventChannel
 from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
 from bliss.config.conductor.client import remote_open
+from bliss.config.static import Node
 
 
 def _find_dict(name, d):
@@ -40,6 +41,18 @@ def _find_list(name, l):
             continue
         if sub_dict is not None:
             return sub_dict
+
+
+def _find_subconfig(d, path):
+    _NotProvided = type("_NotProvided", (), {})()
+    path = path.copy()
+    key = path.pop(0)
+    sub = d.get(key, _NotProvided)
+    if sub == _NotProvided:
+        return Node()
+    if len(path) > 0:
+        return _find_subconfig(sub, path)
+    return sub
 
 
 class BeaconObject:
@@ -71,7 +84,6 @@ class BeaconObject:
 
                     def get(self):
                         self._initialize_with_setting()
-                        object_name = self.config["name"]
                         if self._disabled_settings.get(fget.__name__):
                             return fget(self)
 
@@ -120,27 +132,67 @@ class BeaconObject:
 
             else:
                 set = None
+
             super().__init__(get, set, fdel, doc)
             self.default = default
             self.must_be_in_config = must_be_in_config
             self.only_in_config = only_in_config
             self.priority = priority
 
-    def __init__(self, config):
-        self._config = config
-        try:
-            name = config["name"]
-        except KeyError:
-            # try to use name property instead
-            try:
-                name = self.name
-            except AttributeError:
-                raise RuntimeError("config object must have a name.")
-        else:
-            if not hasattr(self, "name"):
-                self.name = name
+    def __init__(self, config, name=None, path=None, share_hardware=True):
+        """
+        config -- a configuration node
+        share_hardware -- mean that several instances of bliss share the same hardware
+        and need to initialize it with the configuration if no other peer has done it.
+        if share_hardware is False initialization of parameters will be done ones per peer.
+        path (list) can be used to define a offset inside the config that is supposed to be used as
+        config for this object.
+        if name is supplied the config name is ignored and the provided name is used instead.
+        """
 
-        self.__initialized = Cache(self, "initialized", default_value=False)
+        self._path = path
+        self._config_name = config.get("name")
+
+        if path and type(path) != list:
+            raise RuntimeError("path has to be provided as list!")
+
+        if path:
+            self._config = _find_subconfig(config, path)
+        else:
+            self._config = config
+
+        if hasattr(self, "name"):
+            # check if name has already defined in subclass
+            pass
+        elif name:
+            # check if name is explicitly provided
+            self.name = name
+        elif config.get("name"):
+            # check if there is a name in config
+            if path:
+                self.name = config["name"] + "_" + "_".join(path)
+            else:
+                self.name = config["name"]
+        else:
+            raise RuntimeError("No name for beacon object defined!")
+
+        if share_hardware:
+            self.__initialized = Cache(self, "initialized", default_value=False)
+        else:
+
+            class Local:
+                def __init__(self):
+                    self.__value = False
+
+                @property
+                def value(self):
+                    return self.__value
+
+                @value.setter
+                def value(self, value):
+                    self.__value = value
+
+            self.__initialized = Local()
         self._in_initialize_with_setting = False
         self._event_channel = EventChannel(f"__EVENT__:{self.name}")
         self._event_channel.register_callback(self.__event_handler)
@@ -184,22 +236,35 @@ class BeaconObject:
         self._disabled_settings = HashObjSetting(f"{self.name}:disabled_settings")
 
     def apply_config(self, reload=False):
-        name = self.config["name"]
+
         if reload:
+            if not self._config_name:
+                raise RuntimeError(
+                    f"to use apply_config of {self.name} a valid config with name has to be provied on init!"
+                )
+
             with remote_open(self.config.filename) as f:
                 d = yaml.safe_load(f.read())
             if isinstance(d, dict):
-                d = _find_dict(name, d)
+                d = _find_dict(self._config_name, d)
             elif isinstance(d, list):
-                d = _find_list(name, d)
+                d = _find_list(self._config_name, d)
             else:
                 d = None
 
             if d is None:
                 raise RuntimeError(
-                    f"Can't find config node named:{name} "
+                    f"Can't find config node named:{self._config_name} "
                     f"in file:{self.config.filename}"
                 )
+
+            if self._path:
+                d = _find_subconfig(d, self._path)
+                if d is None:
+                    raise RuntimeError(
+                        f"Can't find config for beacon object:{self._config_name} with offset {str(self._path)} "
+                    )
+
             self.config.update(d)
         try:
             self._settings.remove(*self.__settings_properties().keys())
@@ -219,6 +284,14 @@ class BeaconObject:
         with pipeline(self._settings, self._disabled_settings):
             del self._disabled_settings[name]
             del self._settings[name]
+
+    def initialize(self):
+        """
+        Do the initialization of the object.
+
+        For now it is just calling _initialize_with_setting
+        """
+        self._initialize_with_setting()
 
     def _initialize_with_setting(self):
         if self._in_initialize_with_setting:
@@ -331,6 +404,18 @@ class BeaconObject:
         property = BeaconObject._config_getter(get)
         property.parameter_name = parameter_name
         return property
+
+    @staticmethod
+    def property_setting(name, default=None, doc=None):
+        def get(self):
+            return self.settings.get(name, default)
+
+        def set(self, value):
+            self.settings[name] = value
+
+        bop = BeaconObject._property(get, set, doc=doc)
+        bop.__doc__ = doc
+        return bop
 
     @staticmethod
     def lazy_init(func):

@@ -11,8 +11,12 @@
                     replace-with: /tmp/fancy
                   - path: /tmp/scans/test
                     replace-with: Z:\
+  saving:
+      mode: ONE_FILE_PER_FRAME
+      file_format: EDF
 
 - name: lima_simulator2
   plugin: bliss
   class: Lima
   tango_url: id00/limaccds/simulator2
+

@@ -274,3 +274,72 @@ def test_event(beacon):
     ctrl.mode = "Hello"
     wait()
     assert current_values == {"speed": 100, "velocity": .3, "mode": "Hello"}
+
+
+class Ctrl10(BeaconObject):
+    waittime = BeaconObject.property_setting("waittime", default=0.)
+    none_init = BeaconObject.property_setting("none_init")
+
+
+def test_property_settings(beacon):
+    cfg = beacon.get("controller_setting2")
+    ctrl = Ctrl10(cfg)
+    assert ctrl.waittime == 0.
+    ctrl.waittime = 12.2
+    assert ctrl.waittime == 12.2
+
+    assert ctrl.none_init is None
+
+
+class Ctrl11(BeaconObject):
+    position = BeaconObject.property_setting("position", default=0.)
+    speed = BeaconObject.property_setting("speed", default=0)
+    velocity = BeaconObject.property_setting("velocity")
+
+
+def test_BeaconObject_path(beacon):
+    cfg = beacon.get("hello_ctrl")
+    ctrl = Ctrl11(cfg, path=["something", "something_else"], share_hardware=False)
+    assert ctrl.speed == 10
+    assert ctrl.velocity == 1.2
+
+    ctrl.speed = 13
+    assert ctrl.speed == 13
+
+    ctrl.apply_config()
+    assert ctrl.speed == 10
+
+    ctrl.speed = 14
+    assert ctrl.speed == 14
+
+    ctrl.apply_config(reload=True)
+    assert ctrl.speed == 10
+
+    ctrl = Ctrl11(cfg, path=["something", "does_not_exist"], share_hardware=False)
+    assert ctrl.speed == 0
+
+
+def test_BeaconObject_name(beacon):
+    cfg = beacon.get("controller_setting1")
+    ctrl = Ctrl3(cfg)
+    assert ctrl.name == "controller_setting1"
+
+    cfg = beacon.get("hello_ctrl")
+    ctrl = Ctrl11(cfg, path=["something", "something_else"], share_hardware=False)
+    assert ctrl.name == "hello_ctrl_something_something_else"
+
+    ctrl = Ctrl11(
+        cfg,
+        name="my_custom_name",
+        path=["something", "something_else"],
+        share_hardware=False,
+    )
+    assert ctrl.name == "my_custom_name"
+
+    class MyCtrl(Ctrl11):
+        def __init__(self, config, path=None):
+            self.name = "my_custom_ctrl_name"
+            Ctrl11.__init__(self, config, path, share_hardware=False)
+
+    ctrl = MyCtrl(cfg, path=["something", "something_else"])
+    assert ctrl.name == "my_custom_ctrl_name"

@@ -8,5 +8,10 @@
       velocity: 1.9
       mode: fixed
       reading_speed: slow
-
-      
+- ctrl: hello2
+  name: hello_ctrl
+  something:
+    something_else:    
+         speed: 10
+         velocity: 1.2
+          

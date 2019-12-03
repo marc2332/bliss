@@ -20,7 +20,8 @@ def lima_data_view_test_helper(scan):
     lima_data_view = image_node.get(0)
     lima_data_view._update()
 
-    ref_data = scan.scan_info["instrument"]["lima_simulator"]["lima_parameters"]
+    ref_data = image_node.info.get_all()
+
     lima_files = numpy.array(
         lima_data_view._get_filenames(ref_data, *range(0, scan.scan_info["npoints"]))
     )
@@ -45,8 +46,9 @@ def test_LimaDataView_edf_1_frame_per_edf(session, lima_simulator):
 def test_LimaDataView_edf_2_frames_per_edf(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
-    sim_params = scan.acq_chain.nodes_list[1].parameters
+    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
     sim_params["saving_frame_per_file"] = 2
+    sim_params["saving_format"] = "EDF"
 
     lima_files, filesystem_files = lima_data_view_test_helper(scan)
     lima_data_view_test_assets(lima_files, filesystem_files)
@@ -56,7 +58,7 @@ def test_LimaDataView_edf_1_frame_per_hdf5(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
-    sim_params = scan.acq_chain.nodes_list[1].parameters
+    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
     sim_params["saving_format"] = "HDF5"
     sim_params["saving_suffix"] = ".h5"
 
@@ -67,7 +69,7 @@ def test_LimaDataView_edf_2_frames_per_hdf5(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
-    sim_params = scan.acq_chain.nodes_list[1].parameters
+    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
     sim_params["saving_format"] = "HDF5"
     sim_params["saving_frame_per_file"] = 2
     sim_params["saving_suffix"] = ".h5"

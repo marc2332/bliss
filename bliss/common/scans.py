@@ -995,6 +995,7 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         save (bool): save scan data to file [default: True]
         save_images (bool or None): save image files [default: None, means it follows 'save']
         return_scan (bool): True by default
+        run (bool): True by default
     """
     save_images = kwargs.pop("save_images", None)
 
@@ -1048,7 +1049,9 @@ def pointscan(motor, positions, count_time, *counter_args, **kwargs):
         data_watch_callback=StepScanDataWatch(),
     )
 
-    scan.run()
+    if kwargs.get("run", True):
+        scan.run()
+
     if kwargs.get("return_scan", True):
         return scan
 

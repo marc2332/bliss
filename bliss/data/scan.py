@@ -81,156 +81,131 @@ def _watch_data_callback(
         event.clear()
         local_events = events_dict.copy()
         events_dict.clear()
-        for event_type, event_data in local_events.items():
-            if event_type == _SCAN_EVENT.NEW:
-                for db_name, scan_info in event_data:
-                    try:
-                        scan_new_callback(scan_info)
-                    except:
-                        sys.excepthook(*sys.exc_info())
-                    running_scans.setdefault(db_name, dict())
-            elif event_type == _SCAN_EVENT.NEW_CHILD:
-                for (
-                    scan_db_name,
-                    (scan_info, data_channels_event),
-                ) in event_data.items():
-                    scan_dict = running_scans[scan_db_name]
-                    nodes_info = scan_dict.setdefault("nodes_info", dict())
-                    scan_dict.setdefault("nodes_data", dict())
-                    for (
-                        channel_db_name,
-                        channel_data_node,
-                    ) in data_channels_event.items():
+
+        event_data = local_events.pop(_SCAN_EVENT.NEW, [])
+        for db_name, scan_info in event_data:
+            try:
+                scan_new_callback(scan_info)
+            except:
+                sys.excepthook(*sys.exc_info())
+            running_scans.setdefault(db_name, dict())
+
+        event_data = local_events.pop(_SCAN_EVENT.NEW_CHILD, {})
+        for (scan_db_name, (scan_info, data_channels_event)) in event_data.items():
+            scan_dict = running_scans[scan_db_name]
+            nodes_info = scan_dict.setdefault("nodes_info", dict())
+            scan_dict.setdefault("nodes_data", dict())
+            for (channel_db_name, channel_data_node) in data_channels_event.items():
+                try:
+                    scan_new_child_callback(scan_info, channel_data_node)
+                except:
+                    sys.excepthook(*sys.exc_info())
+                try:
+                    fullname = channel_data_node.fullname
+                    nodes_info.setdefault(
+                        channel_db_name, (fullname, len(channel_data_node.shape), 0)
+                    )
+
+                except AttributeError:
+                    nodes_info.setdefault(
+                        channel_db_name, (channel_data_node.name, -1, 0)
+                    )
+
+        event_data = local_events.pop(_SCAN_EVENT.NEW_DATA, {})
+        for (scan_db_name, (scan_info, data_channels_event)) in event_data.items():
+            zerod_nodes = list()
+            other_nodes = dict()
+            scan_dict = running_scans[scan_db_name]
+            nodes_info = scan_dict["nodes_info"]
+            nodes_data = scan_dict["nodes_data"]
+            for (channel_db_name, channel_data_node) in data_channels_event.items():
+                fullname, dim, last_index = nodes_info.get(channel_db_name)
+                if dim == 0:
+                    zerod_nodes.append(
+                        (fullname, channel_db_name, channel_data_node, last_index)
+                    )
+                else:
+                    other_nodes[fullname] = (channel_db_name, dim, channel_data_node)
+            # fetching all zerod in one go
+            zerod_nodes_index = [
+                (channel_node, start_index)
+                for _, _, channel_node, start_index in zerod_nodes
+            ]
+            try:
+                connection = zerod_nodes_index[0][0].db_connection
+                pipeline = connection.pipeline()
+            except IndexError:
+                connection = pipeline = None
+            new_data_flags = False
+            for ((fullname, channel_db_name, _, last_index), (_, channel_data)) in zip(
+                zerod_nodes, get_data_from_nodes(pipeline, *zerod_nodes_index)
+            ):
+                new_data_flags = True if len(channel_data) > 0 else new_data_flags
+                prev_data = nodes_data.get(fullname, [])
+                nodes_data[fullname] = numpy.concatenate((prev_data, channel_data))
+                nodes_info[channel_db_name] = (
+                    fullname,
+                    0,
+                    last_index + len(channel_data),
+                )
+            if zerod_nodes and new_data_flags:
+                event_channels_full_name = set(
+                    (fullname for fullname, _, _, _ in zerod_nodes)
+                )
+                for master, channels in scan_info["acquisition_chain"].items():
+                    channels_set = set(
+                        channels["master"]["scalars"] + channels.get("scalars", [])
+                    )
+                    if event_channels_full_name.intersection(channels_set):
                         try:
-                            scan_new_child_callback(scan_info, channel_data_node)
+                            scan_data_callback(
+                                "0d",
+                                master,
+                                {"data": nodes_data, "scan_info": scan_info},
+                            )
                         except:
                             sys.excepthook(*sys.exc_info())
+                        gevent.idle()
+            elif zerod_nodes:
+                gevent.sleep(.1)  # relax a little bit
+
+            for master, channels in scan_info["acquisition_chain"].items():
+                other_names = channels.get("spectra", [])
+                other_names += channels.get("images", [])
+                other_names += channels.get("master", {}).get("images", [])
+                other_names += channels.get("master", {}).get("spectra", [])
+
+                for i, channel_name in enumerate(set(other_names)):
+                    channel_db_name, dim, channel_data_node = other_nodes.get(
+                        channel_name, (None, -1, None)
+                    )
+                    if channel_db_name:
                         try:
-                            fullname = channel_data_node.fullname
-                            nodes_info.setdefault(
-                                channel_db_name,
-                                (fullname, len(channel_data_node.shape), 0),
+                            scan_data_callback(
+                                f"{dim}d",
+                                master,
+                                {
+                                    "channel_index": i,
+                                    "channel_name": channel_name,
+                                    "channel_data_node": channel_data_node,
+                                    "scan_info": scan_info,
+                                },
                             )
-
-                        except AttributeError:
-                            nodes_info.setdefault(
-                                channel_db_name, (channel_data_node.name, -1, 0)
-                            )
-
-            elif event_type == _SCAN_EVENT.NEW_DATA:
-                for (
-                    scan_db_name,
-                    (scan_info, data_channels_event),
-                ) in event_data.items():
-                    zerod_nodes = list()
-                    other_nodes = dict()
-                    scan_dict = running_scans[scan_db_name]
-                    nodes_info = scan_dict["nodes_info"]
-                    nodes_data = scan_dict["nodes_data"]
-                    for (
-                        channel_db_name,
-                        channel_data_node,
-                    ) in data_channels_event.items():
-                        fullname, dim, last_index = nodes_info.get(channel_db_name)
-                        if dim == 0:
-                            zerod_nodes.append(
-                                (
-                                    fullname,
-                                    channel_db_name,
-                                    channel_data_node,
-                                    last_index,
-                                )
-                            )
-                        else:
-                            other_nodes[fullname] = (
-                                channel_db_name,
-                                dim,
-                                channel_data_node,
-                            )
-                    # fetching all zerod in one go
-                    zerod_nodes_index = [
-                        (channel_node, start_index)
-                        for _, _, channel_node, start_index in zerod_nodes
-                    ]
-                    try:
-                        connection = zerod_nodes_index[0][0].db_connection
-                        pipeline = connection.pipeline()
-                    except IndexError:
-                        connection = pipeline = None
-                    new_data_flags = False
-                    for (
-                        (fullname, channel_db_name, _, last_index),
-                        (_, channel_data),
-                    ) in zip(
-                        zerod_nodes, get_data_from_nodes(pipeline, *zerod_nodes_index)
-                    ):
-                        new_data_flags = (
-                            True if len(channel_data) > 0 else new_data_flags
-                        )
-                        prev_data = nodes_data.get(fullname, [])
-                        nodes_data[fullname] = numpy.concatenate(
-                            (prev_data, channel_data)
-                        )
-                        nodes_info[channel_db_name] = (
-                            fullname,
-                            0,
-                            last_index + len(channel_data),
-                        )
-                    if zerod_nodes and new_data_flags:
-                        event_channels_full_name = set(
-                            (fullname for fullname, _, _, _ in zerod_nodes)
-                        )
-                        for master, channels in scan_info["acquisition_chain"].items():
-                            channels_set = set(
-                                channels["master"]["scalars"]
-                                + channels.get("scalars", [])
-                            )
-                            if event_channels_full_name.intersection(channels_set):
-                                try:
-                                    scan_data_callback(
-                                        "0d",
-                                        master,
-                                        {"data": nodes_data, "scan_info": scan_info},
-                                    )
-                                except:
-                                    sys.excepthook(*sys.exc_info())
-                                gevent.idle()
-                    elif zerod_nodes:
-                        gevent.sleep(.1)  # relax a little bit
-
-                    for master, channels in scan_info["acquisition_chain"].items():
-                        other_names = channels.get("spectra", [])
-                        other_names += channels.get("images", [])
-                        other_names += channels.get("master", {}).get("images", [])
-                        other_names += channels.get("master", {}).get("spectra", [])
-
-                        for i, channel_name in enumerate(set(other_names)):
-                            channel_db_name, dim, channel_data_node = other_nodes.get(
-                                channel_name, (None, -1, None)
-                            )
-                            if channel_db_name:
-                                try:
-                                    scan_data_callback(
-                                        f"{dim}d",
-                                        master,
-                                        {
-                                            "channel_index": i,
-                                            "channel_name": channel_name,
-                                            "channel_data_node": channel_data_node,
-                                            "scan_info": scan_info,
-                                        },
-                                    )
-                                except:
-                                    sys.excepthook(*sys.exc_info())
-
-            elif event_type == _SCAN_EVENT.END:
-                for db_name, scan_info in event_data:
-                    if scan_end_callback:
-                        try:
-                            scan_end_callback(scan_info)
                         except:
                             sys.excepthook(*sys.exc_info())
-                    running_scans.pop(db_name, None)
+
+        event_data = local_events.pop(_SCAN_EVENT.END, [])
+        for db_name, scan_info in event_data:
+            if scan_end_callback:
+                try:
+                    scan_end_callback(scan_info)
+                except:
+                    sys.excepthook(*sys.exc_info())
+            running_scans.pop(db_name, None)
+
+        # All the events was processed
+        assert len(local_events) == 0
+
         gevent.idle()
 
 

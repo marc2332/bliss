@@ -138,46 +138,7 @@ class Wago(Device):
         """
         Tango Status informations
         """
-        out = ""
-        if not self.wago.coupler:
-            out += f"Controller series code    (INFO_SERIES)    : {self.wago.series}\n"
-            out += f"Controller order number    (INFO_ITEM)    : {self.wago.order_nu}\n"
-            out += f"Controller firmware revision (INFO_REVISION): {self.wago.firmware['version']}\n"
-            out += f"Controller date of firmware  (INFO_DATE)    : {self.wago.firmware['date']}\n"
-            out += f"time of firmware  (INFO_TIME)    : {self.wago.firmware['time']}\n"
-
-        out += f"Wago modules physically plugged and seen by the controller:\n"
-        try:
-            out += self.wago.plugged_modules_description()
-        except Exception as exc:
-            self.error_stream(f"Exception on dev_status: {exc}")
-
-        out += f"Wago modules known by the device server:\n"
-        for i, module in enumerate(self.wago.modules_config.mapping):
-            out += f"module{i}: {module['module']} ({MODULES_CONFIG[module['module']][DESCRIPTION]}) {' '.join(flatten(module['channels']))}\n"
-
-        out += "List of logical devices:\n"
-        for (
-            i,
-            (
-                logical_device,
-                physical_channel,
-                physical_module,
-                physical_module_type,
-                _,
-                _,
-            ),
-        ) in self.wago.physical_mapping.items():
-            out += f"{logical_device}:\nlogical_channel{i}: module: {physical_module} channel: {physical_channel}\n"
-        try:
-            self.wago.check_plugged_modules()
-        except RuntimeError as exc:
-            out += f"\nConfiguration error: {exc}"
-            out += "\nGiven mapping DOES NOT match Wago attached modules"
-        else:
-            out += "\nGiven mapping does match Wago attached modules"
-
-        return out
+        return self.wago.status()
 
     # --------
     # Commands

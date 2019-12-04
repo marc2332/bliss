@@ -89,6 +89,13 @@ _FLOAT_FORMAT = ".05f"
 _log = logging.getLogger("bliss.shell.standard")
 
 
+class ShellStr(str):
+    """Subclasses str to give a nice representation in the Bliss shell"""
+
+    def __info__(self):
+        return str(self)
+
+
 def _print_errors_with_traceback(errors, device_type="motor"):
     """ RE-raise caught errors with original traceback """
     for (label, error_with_traceback_obj) in errors:

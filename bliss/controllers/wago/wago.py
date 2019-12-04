@@ -1550,6 +1550,54 @@ class WagoController:
             else:
                 self.__modules.append(WagoController._describe_hardware_module(m))
 
+    def status(self):
+        """
+        Wago Status information
+        """
+        from bliss.shell.standard import ShellStr
+
+        out = ""
+        if not self.coupler:
+            out += f"Controller series code    (INFO_SERIES)    : {self.series}\n"
+            out += f"Controller order number    (INFO_ITEM)    : {self.order_nu}\n"
+            out += f"Controller firmware revision (INFO_REVISION): {self.firmware['version']}\n"
+            out += f"Controller date of firmware  (INFO_DATE)    : {self.firmware['date']}\n"
+            out += f"time of firmware  (INFO_TIME)    : {self.firmware['time']}\n"
+
+        out += f"\nWago modules physically plugged and seen by the controller:\n"
+        try:
+            out += self.plugged_modules_description()
+        except Exception:
+            log_exception(self, f"Exception on dev_status")
+            raise
+
+        out += f"\nWago modules known by the device server:\n"
+        for i, module in enumerate(self.modules_config.mapping):
+            out += f"module{i}: {module['module']} ({MODULES_CONFIG[module['module']][DESCRIPTION]}) {' '.join(flatten(module['channels']))}\n"
+
+        out += "\nList of logical devices:\n"
+        for (
+            i,
+            (
+                logical_device,
+                physical_channel,
+                physical_module,
+                physical_module_type,
+                _,
+                _,
+            ),
+        ) in self.physical_mapping.items():
+            out += f"{logical_device}:\nlogical_channel{i}: module: {physical_module} channel: {physical_channel}\n"
+        try:
+            self.check_plugged_modules()
+        except RuntimeError as exc:
+            out += f"\nConfiguration error: {exc}"
+            out += "\nGiven mapping DOES NOT match Wago attached modules"
+        else:
+            out += "\nGiven mapping does match Wago attached modules"
+
+        return ShellStr(out)
+
     @staticmethod
     def _describe_hardware_module(register):
         """Given the result of a Wago modbus reading for checking the type
@@ -1804,28 +1852,27 @@ class Wago(SamplingCounterController):
         mapping = [
             (k, len(ch)) for k, ch in self.modules_config.logical_mapping.items()
         ]
-        tab = [["logical device", "num of channel", "module_type", "description"]]
+        tab = [
+            ["logical device", "num of channel", "module_type", "module description"]
+        ]
         for k, l in mapping:
             module_type = self.modules_config.logical_mapping[k][0].module_type
             description = get_module_info(module_type).description
             tab.append([k, l, module_type, description])
         repr_ = tabulate(tab, headers="firstrow", stralign="center")
-        if hasattr(self.controller, "check_plugged_modules"):
-            try:
-                self.controller.check_plugged_modules()
-            except RuntimeError as exc:
-                log_error(self, f"Configuration Error: {exc}")
-                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
-            else:
-                repr_ += "\n\nGiven mapping does match Wago attached modules"
-        elif hasattr(self.controller, "status"):
-            # Wago device server
-            if "DOES NOT match Wago attached" in self.controller.status():
-                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
-            else:
-                repr_ += "\n\nGiven mapping does match Wago attached modules"
+        try:
+            status = self.controller.status()
+        except Exception as exc:
+            repr_ += f"\n\n** Could not retrieve hardware mapping ({exc})**"
+            log_error(self.controller, "Could not retrieve status")
         else:
-            repr_ += "\n\nCould not check matching beetween mapping and Wago attached modules"
+            if "DOES NOT match" in self.controller.status():
+                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
+                repr_ += (
+                    f"\n\nHINT: check {self.name}.status() to have debug information"
+                )
+            else:
+                repr_ += "\n\nGiven mapping does match Wago attached modules"
 
         return repr_
 
@@ -1840,6 +1887,8 @@ class Wago(SamplingCounterController):
     def __close__(self):
         self.close()
 
+    def status(self):
+        return self.controller.status()
     def interlock_show(self):
         from bliss.controllers.wago.interlocks import interlock_download as download
         from bliss.controllers.wago.interlocks import interlock_show as show

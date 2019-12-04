@@ -180,11 +180,6 @@ def lslog(glob: str = None, debug_only=False) -> None:
             output = True
             print("\n" + msgfmt.format("logger name", "level", width=maxlen))
             print(msgfmt.format("=" * maxlen, 8 * "=", width=maxlen))
-        print(
-            msgfmt.format(
-                name, logging.getLevelName(logger.getEffectiveLevel()), width=maxlen
-            )
-        )
         level = logging.getLevelName(logger.getEffectiveLevel())
         if logger.disabled:
             level = "%s [DISABLED]" % level

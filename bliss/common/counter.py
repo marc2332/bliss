@@ -256,6 +256,7 @@ class SoftCounter(SamplingCounter):
         apply=None,
         mode=SamplingMode.MEAN,
         unit=None,
+        conversion_function=None,
     ):
         if obj is None and inspect.ismethod(value):
             obj = value.__self__
@@ -274,7 +275,13 @@ class SoftCounter(SamplingCounter):
 
         from bliss.controllers.counter import SoftCounterController
 
-        super().__init__(name, SoftCounterController(ctrl_name), mode=mode, unit=unit)
+        super().__init__(
+            name,
+            SoftCounterController(ctrl_name),
+            mode=mode,
+            unit=unit,
+            conversion_function=conversion_function,
+        )
 
     @staticmethod
     def get_read_func(obj, value):

@@ -22,9 +22,22 @@ from bliss.common.counter import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import logtools
 from bliss.common.logtools import *
+from bliss.common.interlocks import interlock_state
 
 __all__ = (
-    ["wa", "wm", "sta", "stm", "mv", "mvr", "move", "sync", "debugon", "debugoff"]
+    [
+        "wa",
+        "wm",
+        "sta",
+        "stm",
+        "mv",
+        "mvr",
+        "move",
+        "sync",
+        "debugon",
+        "debugoff",
+        "interlock_state",
+    ]
     + scans.__all__
     + logtools.__all__
     + ["cleanup", "error_cleanup", "plot"]

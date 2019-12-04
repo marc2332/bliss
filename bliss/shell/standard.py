@@ -49,6 +49,9 @@ from bliss.common.scans import *
 from bliss.common import logtools
 from bliss.common.logtools import *
 
+from bliss.shell.interlocks import interlock_show
+from bliss.common.interlocks import interlock_state
+
 from tabulate import tabulate
 
 __all__ = (
@@ -70,6 +73,7 @@ __all__ = (
         "debugon",
         "debugoff",
         "interlock_show",
+        "interlock_state",
         "info",
         "bench",
     ]

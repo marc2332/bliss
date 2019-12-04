@@ -1835,6 +1835,8 @@ class Wago(SamplingCounterController):
         super().__init__(name=name)
 
         # parsing config_tree
+        self.__filename = config_tree.filename
+
         self.modules_config = ModulesConfig.from_config_tree(config_tree)
 
         self.cnt_dict = {}
@@ -1900,15 +1902,24 @@ class Wago(SamplingCounterController):
             tag=f"Wago({self.name})",
         )
 
-        from bliss.controllers.wago.interlocks import beacon_interlock_parsing
+        self.__interlock_load_config(config_tree)
 
+    def __interlock_load_config(self, config_tree):
         try:
-            self._interlocks_on_beacon = beacon_interlock_parsing(
-                config_tree["interlocks"], self.modules_config
-            )
+            config_tree["interlocks"]
         except KeyError:
             # no interlock is defined on beacon or configuration mistake
             pass
+        else:
+            try:
+                from bliss.controllers.wago.interlocks import beacon_interlock_parsing
+
+                self._interlocks_on_beacon = beacon_interlock_parsing(
+                    config_tree["interlocks"], self.modules_config
+                )
+            except Exception as exc:
+                msg = f"Interlock parsing error on Beacon config: {exc!r}"
+                log_error(self, msg)
 
     def __info__(self):
         mapping = [
@@ -1951,82 +1962,81 @@ class Wago(SamplingCounterController):
 
     def status(self):
         return self.controller.status()
-    def interlock_show(self):
-        from bliss.controllers.wago.interlocks import interlock_download as download
-        from bliss.controllers.wago.interlocks import interlock_show as show
-        from bliss.controllers.wago.interlocks import interlock_compare as compare
 
-        on_plc, on_beacon = False, False
-
-        print_formatted_text(HTML(f"Interlocks on <violet>{self.name}</violet>"))
-        try:
-            self._interlocks_on_plc = download(self.controller, self.modules_config)
-            on_plc = True
-        except (MissingFirmware, tango.DevFailed):
-            print("Interlock Firmware is not present in the PLC")
-
-        try:
-            self._interlocks_on_beacon
-            on_beacon = True
-        except AttributeError:
-            print("Interlock configuration is not present in Beacon")
-
-        if on_beacon and on_plc:
-            # if configuration is present on both beacon and plc
-            are_equal, messages = compare(
-                self._interlocks_on_beacon, self._interlocks_on_plc
-            )
-            if are_equal:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-            else:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
-                print(show(self.name, self._interlocks_on_beacon))
-                print("There are configuration differences:")
-                for line in messages:
-                    print(line)
-        else:
-            if on_plc:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-            if on_beacon:
-                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
-                print(show(self.name, self._interlocks_on_beacon))
-
-    def interlock_reset_relay(self, instance_num):
-        log_debug(self, f"Resetting instance num: {instance_num}")
+    def interlock_reset(self, instance_num, ask=True):
         from bliss.controllers.wago.interlocks import interlock_reset as reset
 
         reset(self.controller, instance_num)
 
-    def interlock_upload(self):
+    def interlock_show(self):
+        from bliss.shell.interlocks import interlock_show as show
+
+        show(self)
+
+    def interlock_upload(self, ask=True):
+        log_debug(self, f"Reloading Wago interlocks static config")
+        from bliss.config.static import get_config_dict
+
+        reloaded_config = get_config_dict(self.__filename, self.name)
+
+        self.__interlock_load_config(reloaded_config)
+
+        from bliss.shell.standard import ShellStr
+        from bliss.controllers.wago.interlocks import interlock_download as download
         from bliss.controllers.wago.interlocks import interlock_compare as compare
         from bliss.controllers.wago.interlocks import interlock_upload as upload
-        from bliss.controllers.wago.interlocks import interlock_download as download
 
-        self._interlocks_on_plc = download(self.controller, self.modules_config)
-        are_equal, messages = compare(
-            self._interlocks_on_beacon, self._interlocks_on_plc
-        )
-        if are_equal:
-            print("No need to upload the configuration")
+        repr_ = []
+        try:
+            self._interlocks_on_beacon
+        except AttributeError:
+            raise AttributeError("Interlock configuration is not present in Beacon")
+        try:
+            interlocks_on_plc = download(self.controller, self.modules_config)
+        except MissingFirmware:
+            raise MissingFirmware("No ISG Firmware loaded into wago")
         else:
-            yes_no = input(
-                "Are you sure that you want to upload a new configuration? (Answer YES to proceed)"
-            )
+            are_equal, messages = compare(self._interlocks_on_beacon, interlocks_on_plc)
+        if are_equal:
+            repr_.append("No need to upload the configuration")
+        else:
+            if ask:
+                yes_no = input(
+                    "Are you sure that you want to upload a new configuration? (Answer YES to proceed)"
+                )
+            else:
+                yes_no = "YES"
+
             if yes_no == "YES":
                 upload(self.controller, self._interlocks_on_beacon)
                 # double check
-                self._interlocks_on_plc = download(self.controller, self.modules_config)
+                interlocks_on_plc = download(self.controller, self.modules_config)
                 are_equal, messages = compare(
-                    self._interlocks_on_beacon, self._interlocks_on_plc
+                    self._interlocks_on_beacon, interlocks_on_plc
                 )
                 if are_equal:
-                    print("Configuration succesfully upload")
+                    repr_.append("Configuration succesfully upload")
                 else:
-                    print("Something gone wrong: configurations are not the same")
+                    repr_.append(
+                        "Something gone wrong: configurations are not the same"
+                    )
+
+        return ShellStr("\n".join(repr_))
+
+    def interlock_to_yml(self):
+        from bliss.common.standard import ShellStr
+        from bliss.controllers.wago.interlocks import interlock_to_yml as to_yml
+        from bliss.controllers.wago.interlocks import interlock_download as download
+
+        try:
+            return ShellStr(to_yml(download(self.controller, self.modules_config)))
+        except MissingFirmware:
+            raise MissingFirmware("No ISG Firmware loaded into wago")
+
+    def interlock_state(self):
+        from bliss.controllers.wago.interlocks import interlock_state as state
+
+        return state(self.controller)
 
     def _safety_check(self, *args):
         return True

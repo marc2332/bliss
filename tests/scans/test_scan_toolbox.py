@@ -18,7 +18,7 @@ from bliss.common.scans import ascan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 
 
-#---- TEST THE DEFAULT CHAIN -------------------------------
+# ---- TEST THE DEFAULT CHAIN -------------------------------
 def test_default_scan(default_session, lima_simulator):
 
     # --- make calc counters ------------------------
@@ -116,7 +116,7 @@ def test_default_scan(default_session, lima_simulator):
     )
 
 
-#---- TEST CONTINOUS SCANS AND USER DEFINED SCANS -------------------------------
+# ---- TEST CONTINOUS SCANS AND USER DEFINED SCANS -------------------------------
 def scan_demo_all_acq_pars(motor, start, stop, npoints, count_time, *counters):
     """ Case where all masters and slaves acq_params are provided """
 
@@ -140,7 +140,7 @@ def scan_demo_all_acq_pars(motor, start, stop, npoints, count_time, *counters):
 
     for node in builder.get_nodes_by_controller_type(Lima):
         node.set_parameters(acq_params=lima_params)
-        
+
         for cnode in node.children:
             cnode.set_parameters(acq_params=lima_children_params)
 
@@ -166,6 +166,7 @@ def scan_demo_all_acq_pars(motor, start, stop, npoints, count_time, *counters):
     )
 
     sc.run()
+
 
 def scan_demo_only_master_acq_pars(motor, start, stop, npoints, count_time, *counters):
     """ Case where all masters acq_params are provided but slaves acq_params are not given.
@@ -213,6 +214,7 @@ def scan_demo_only_master_acq_pars(motor, start, stop, npoints, count_time, *cou
 
     sc.run()
 
+
 def scan_demo_partial_acq_pars(motor, start, stop, npoints, count_time, *counters):
     """ Case where only some master acq_params are provided """
 
@@ -224,7 +226,7 @@ def scan_demo_partial_acq_pars(motor, start, stop, npoints, count_time, *counter
     lima_params = {
         "acq_nb_frames": npoints,
         "acq_expo_time": count_time * 0.5,
-        #"acq_mode": "SINGLE",
+        # "acq_mode": "SINGLE",
         "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
         "prepare_once": True,
         "start_once": False,
@@ -232,7 +234,7 @@ def scan_demo_partial_acq_pars(motor, start, stop, npoints, count_time, *counter
 
     for node in builder.get_nodes_by_controller_type(Lima):
         node.set_parameters(acq_params=lima_params)
-        
+
         chain.add(acq_master, node)
 
     builder.print_tree(not_ready_only=False)
@@ -256,6 +258,7 @@ def scan_demo_partial_acq_pars(motor, start, stop, npoints, count_time, *counter
 
     sc.run()
 
+
 def scan_demo_missing_acq_pars(motor, start, stop, npoints, count_time, *counters):
     """ Case where some mandatory master acq_params are missing """
 
@@ -266,16 +269,16 @@ def scan_demo_missing_acq_pars(motor, start, stop, npoints, count_time, *counter
 
     lima_params = {
         "acq_nb_frames": npoints,
-        "acq_expo_time": count_time * 0.5,
-        #"acq_mode": "SINGLE",
-        #"acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
-        #"prepare_once": True,
-        #"start_once": False,
+        # "acq_expo_time": count_time * 0.5,
+        # "acq_mode": "SINGLE",
+        # "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        # "prepare_once": True,
+        # "start_once": False,
     }
 
     for node in builder.get_nodes_by_controller_type(Lima):
         node.set_parameters(acq_params=lima_params)
-        
+
         chain.add(acq_master, node)
 
     builder.print_tree(not_ready_only=False)
@@ -343,3 +346,8 @@ def test_continous_scan(default_session, lima_simulator, lima_simulator2):
 
     except Exception as e:
         print("scan_demo_missing_acq_pars: " + str(e))
+
+        assert (
+            str(e).strip()
+            == "{'acq_params': [{'count_time': ['null value not allowed']}]}"
+        )

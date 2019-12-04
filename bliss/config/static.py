@@ -62,6 +62,45 @@ from bliss.config import channels
 CONFIG = None
 
 
+def _find_dict(name, d):
+    if d.get("name") == name:
+        return d
+    for key, value in d.items():
+        if isinstance(value, dict):
+            sub_dict = _find_dict(name, value)
+        elif isinstance(value, list):
+            sub_dict = _find_list(name, value)
+        else:
+            continue
+
+        if sub_dict is not None:
+            return sub_dict
+
+
+def _find_list(name, l):
+    for value in l:
+        if isinstance(value, dict):
+            sub_dict = _find_dict(name, value)
+        elif isinstance(value, list):
+            sub_dict = _find_list(name, value)
+        else:
+            continue
+        if sub_dict is not None:
+            return sub_dict
+
+
+def _find_subconfig(d, path):
+    _NotProvided = type("_NotProvided", (), {})()
+    path = path.copy()
+    key = path.pop(0)
+    sub = d.get(key, _NotProvided)
+    if sub == _NotProvided:
+        return Node()
+    if len(path) > 0:
+        return _find_subconfig(sub, path)
+    return sub
+
+
 class BlissYamlResolver(Resolver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

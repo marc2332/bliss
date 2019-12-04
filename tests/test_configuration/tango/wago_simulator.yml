@@ -14,6 +14,8 @@ device:
     - 750-469, esTr1, esTr2
     - 750-469, esTr3, esTr4
     - 750-517, intlckf1, intlckf2
+    - 750-554, o10v1, o10v2
+    - 750-517, double_out, double_out
     TCPTimeout: 1000
 personal_name: wago_tg_server
 server: Wago

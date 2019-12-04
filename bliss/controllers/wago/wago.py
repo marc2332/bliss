@@ -151,7 +151,9 @@ MODULES_CONFIG = {
     # ssi32: 32 bit SSI encoder
     # digital: digital IN or OUT
     # counter: counters
-    "750-842": [0, 0, 0, 0, 2, "none", "Wago PLC Ethernet/IP"],
+    "750-842": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-881": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-891": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
     "750-400": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
     "750-401": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
     "750-402": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
@@ -463,7 +465,7 @@ class ModulesConfig:
     @staticmethod
     def parse_mapping_str(mapping_str: str):
         """
-        Parse a configuration string and yields plc module informations
+        Parse a configuration string and yields plc module information
 
         args:
             mapping_str: string containing PLC's attached modules info
@@ -518,6 +520,15 @@ class ModulesConfig:
         config property"""
 
         return cls("\n".join(config), ignore_missing=True)
+
+    def update_cpu(self, module: str):
+        """Updates information about the CPU module
+        I.E. 750-842, 750-891
+        """
+        if module in MODULES_CONFIG and MODULES_CONFIG[module][READING_TYPE] == "cpu":
+            self.__modules[0] == module
+        else:
+            raise RuntimeError("Not known CPU module")
 
     def devkey2name(self, key):
         """
@@ -578,7 +589,6 @@ class ModulesConfig:
         device_key, logical_channel = array_in
         logical_device = self.devkey2name(device_key)
 
-        i = 0
         device = self.logical_mapping[logical_device][logical_channel]
         physical_channel = device.physical_channel
         physical_module = device.physical_module
@@ -937,10 +947,16 @@ class WagoController:
         """
         log_debug(self, "In connect")
         with self.lock:
-            # check if we have a coupler or a controller
-            self.series = self.client.read_input_registers(0x2011, "H")
+            try:
+                # check if we have a coupler or a controller
+                self.series = self.client.read_input_registers(0x2011, "H")
+            except Exception:
+                log_error(self, "Error connecting to Wago")
+                raise
 
             self.order_nu = self.client.read_input_registers(0x2012, "H")
+
+            self.modules_config.update_cpu(f"750-{self.order_nu}")
 
             self.coupler = self.order_nu < 800
             if not self.coupler:
@@ -1158,7 +1174,7 @@ class WagoController:
             self,
             f"In get channel_names={channel_names}, convert_values={convert_values}",
         )
-        MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
+        # MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
 
         ret = []
 
@@ -1246,8 +1262,47 @@ class WagoController:
             return self.write_phys(write_table)
 
     def devwritephys(self, array_in):
-        name = self.devkey2name(array_in[0])
-        self.set(flatten([name] + list(array_in[1:])))
+        """Writes one or more values to the PLC
+
+        array_in: 
+                  - first number is logical device
+                  - than pairs of logical channels and value to write
+        Example:
+            devwritephys(0, 0, 3.2, 1, 7.4)
+            # will write to logical device 0
+            # value 3.2 on logical channel 0 (of logical device 0)
+            # value 7.4 on logical channel 1 (of logical device 0)
+        """
+
+        # this is a standalone implementation of writing value
+        # that differs from `set` and is more suitable for a low
+        # level writing of only some values
+
+        array = [el for el in array_in]  # just copy it to later manipulate
+        key = int(array.pop(0))
+        write_table = collections.defaultdict(list)
+        while array:
+            ch, val, array = int(array[0]), array[1], array[2:]
+
+            """
+            [0] : offset in wago controller memory (ex: 0x16)
+            [1] : MSB=I/O LSB=Bit/Word (ex: 0x4957 = ('I'<<8)+'W')
+            [2] : module reference (ex: 469)
+            [3] : module number (1st is 0)
+            [4] : physical channel of the module (ex: 1 for the 2nd)
+            """
+            offset, register_type, _, module_index, phys_chann = self.devlog2hard(
+                (key, ch)
+            )
+            if register_type == register_type_to_int("OW"):
+                # output word
+                write_table[module_index].append((ANA_OUT, phys_chann, val))
+            elif register_type == register_type_to_int("OB"):
+                # output bit
+                write_table[module_index].append((DIGI_OUT, phys_chann, bool(val)))
+            else:
+                raise RuntimeError("Not an output module")
+        self.write_phys(write_table)
 
     def devwritedigi(self, array_in):
         self.devwritephys(array_in)
@@ -1289,11 +1344,7 @@ class WagoController:
             >>> DevKey2Name(3)
             b"gabsTf3"
         """
-        try:
-            inv_map = {v: k for k, v in self.modules_config.logical_keys.items()}
-            return inv_map[key]
-        except IndexError:
-            raise Exception("invalid logical channel key")
+        return self.modules_config.devkey2name(key)
 
     def devname2key(self, name):
         """From a logical device (name) to the key"""
@@ -1352,7 +1403,7 @@ class WagoController:
                     addr, "H" * size, timeout=self.timeout
                 )
 
-            except Exception as exc:
+            except Exception:
                 log_exception(self, f"failed to read at address: {addr} words: {size}")
                 raise
 
@@ -1421,7 +1472,7 @@ class WagoController:
             check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
                 addr, "H" * size, timeout=self.timeout
             )
-        except Exception as exc:
+        except Exception:
             log_debug(
                 self,
                 f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
@@ -1462,7 +1513,7 @@ class WagoController:
                 if isinstance(response, int):  # single number
                     response = [response]
                 log_debug(self, f"read registers response={response}")
-            except Exception as exc:
+            except Exception:
                 log_exception(
                     self,
                     f"devwccomm Phase 5: failed to read at address: {addr} words: {size}",
@@ -1539,7 +1590,7 @@ class WagoController:
         log_debug(self, "Retrieving attached modules configuration")
         try:
             modules = self.client.read_holding_registers(0x2030, "65H")
-        except Exception as exc:
+        except Exception:
             log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
             raise
 
@@ -1615,10 +1666,18 @@ class WagoController:
 
     @property
     def modules(self):
+        """Returns real detected modules (including CPU)
+        to retrieve given modules configuration use
+        .modules_config.modules
+        """
         return self.__modules
 
     @property
     def attached_modules(self):
+        """Returns real detected attached modules
+        to retrieve given modules configuration use
+        .modules_config.attached_modules
+        """
         return self.__modules[1:]
 
     @property
@@ -1678,6 +1737,9 @@ class WagoController:
         return False
 
     def check_plugged_modules(self):
+        """Check configuration between PLC and given config
+        and raises an exception if differences are found
+        """
         for i, (module1, module2) in enumerate(
             zip_longest(self.attached_modules, self.modules_config.attached_modules)
         ):
@@ -1805,7 +1867,7 @@ class Wago(SamplingCounterController):
                 pass
             try:
                 comm = get_comm(new_config_tree)
-            except Exception as exc:
+            except Exception:
                 log_exception(self, "Can't connect to tango host")
                 raise
             if not len(self.modules_config.attached_modules):

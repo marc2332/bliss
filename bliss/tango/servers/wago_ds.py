@@ -14,7 +14,7 @@ import sys
 import time
 import numpy
 
-import tango
+import bliss.common.tango as tango
 from tango import DebugIt, DevState, Attr, SpectrumAttr
 from tango.server import Device, device_property, attribute, command
 
@@ -206,7 +206,12 @@ class Wago(Device):
 
         if isinstance(value, numpy.ndarray):
             value = list(value)
-        value = self.DevWritePhys(flatten([self.DevName2Key(name)] + [value]))
+        else:
+            value = [value]
+        # writing attributes is allowed only if you write all values of the
+        # attribute, so logical channels will always start from 0
+        channel_and_values = tuple((ch, val) for (ch, val) in enumerate(value))
+        self.DevWritePhys(flatten([self.DevName2Key(name), channel_and_values]))
 
     def _attribute_factory(self):
         """
@@ -415,6 +420,7 @@ class Wago(Device):
         """
         """
         value = self.wago.get(self.wago.devkey2name(key), convert_values=False)
+
         try:
             len(value)
         except TypeError:

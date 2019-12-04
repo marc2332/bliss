@@ -19,12 +19,13 @@ from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
     interlock_show,
+    interlock_upload,
     register_type_to_int,
     beacon_interlock_parsing,
     specfile_to_yml,
     interlock_to_yml,
 )
-from bliss.controllers.wago.wago import ModulesConfig
+from bliss.controllers.wago.wago import ModulesConfig, MissingFirmware
 
 
 file_1 = """# Example:
@@ -545,3 +546,9 @@ def test_export_to_yml(default_session, wago_mockup):
     # doublecheck that two lists are equal
     for int1, int2 in zip_longest(interlock_list_from_beacon, interlock_list_from_yml):
         assert int1 == int2
+
+
+def test_interlock_upload(session, capsys):
+    sim = session.config.get("wago_simulator")
+    with pytest.raises(MissingFirmware):
+        interlock_upload(sim.controller, sim.modules_config)

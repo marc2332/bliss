@@ -8,6 +8,7 @@
 import re
 from collections import namedtuple
 from itertools import zip_longest
+import decimal
 
 from typing import Union
 import yaml
@@ -827,8 +828,10 @@ def interlock_compare(int_list_1, int_list_2):
                         val1 = to_signed(val1)
                     if isinstance(val2, (int, float)):
                         val2 = to_signed(val2)
+                    scale1 = ch1["type"]["scale"]
+                    scale2 = ch2["type"]["scale"]
                     messages.append(
-                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1} != {val2}"
+                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1/scale1} != {val2/scale2}"
                     )
             if wchmask(ch1["flags"]) != wchmask(ch2["flags"]):
                 messages.append(

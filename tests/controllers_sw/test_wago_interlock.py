@@ -1,3 +1,5 @@
+from itertools import zip_longest
+
 import pytest
 import random
 
@@ -20,6 +22,7 @@ from bliss.controllers.wago.interlocks import (
     register_type_to_int,
     beacon_interlock_parsing,
     specfile_to_yml,
+    interlock_to_yml,
 )
 from bliss.controllers.wago.wago import ModulesConfig
 
@@ -510,3 +513,35 @@ relay intlckf2 STICKY name Interlock 2
     yml = specfile_to_yml(specfile)
     dict_ = yaml.load(yml)
     beacon_interlock_parsing(dict_["interlocks"], modules_config)
+
+
+def test_export_to_yml(default_session, wago_mockup):
+    wago = default_session.config.get("wago_simulator")
+
+    wago_conf = default_session.config.get_config("wago_simulator")
+
+    modules_config = wago.controller.modules_config
+
+    # getting Beacon yml config into an interlock_list
+    interlock_conf = wago_conf["interlocks"]
+    interlock_list_from_beacon = beacon_interlock_parsing(
+        interlock_conf, modules_config
+    )
+    # converting interlock_list again to yml
+    yml = interlock_to_yml(interlock_list_from_beacon)
+
+    # some basic checks
+    for word in "flags: logical_name: interlocks: relay: relay_channel:".split():
+        assert word in yml
+    for word in "esTf1 esTf2 -10 10 50 50.5 TC".split():
+        assert word in yml
+    interlock_dict_from_yml = yaml.load(yml)["interlocks"]
+
+    # creating again a list of interlocks from yml
+    interlock_list_from_yml = beacon_interlock_parsing(
+        interlock_dict_from_yml, modules_config
+    )
+
+    # doublecheck that two lists are equal
+    for int1, int2 in zip_longest(interlock_list_from_beacon, interlock_list_from_yml):
+        assert int1 == int2

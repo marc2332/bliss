@@ -499,6 +499,44 @@ def specfile_to_yml(iterable):
     return yaml.dump(yml, default_flow_style=False, sort_keys=False)
 
 
+def interlock_to_yml(interlock_list):
+    """Converts a configuration to yml
+    Useful if you download a configuration from the PLC
+    and create from this a valid Beacon yaml file
+    """
+    d_i = {"interlocks": []}
+    for intrlck in interlock_list:
+        r_d = {
+            "relay": intrlck["logical_device"],
+            "relay_channel": intrlck["logical_device_channel"],
+            "flags": flags_to_string(imask(intrlck["flags"])),
+            "description": intrlck["description"],
+            "channels": [],
+        }
+        for ch in intrlck["channels"]:
+            c_d = {
+                "logical_name": ch["logical_device"],
+                "logical_channel": ch["logical_device_channel"],
+                "type": ch["type"]["type"],
+                "flags": flags_to_string(wchmask(ch["flags"])),
+            }
+            if ch["low_limit"] is not None:
+                c_d["min"] = float(
+                    round(decimal.Decimal(to_signed(ch["low_limit"])) / 10, 2)
+                )
+            if ch["high_limit"] is not None:
+                c_d["max"] = float(
+                    round(decimal.Decimal(to_signed(ch["high_limit"])) / 10, 2)
+                )
+            for name in "dac_scale dac_offset".split():
+                if ch[name] is not None:
+                    c_d[name] = ch[name]
+            r_d["channels"].append(c_d)
+        d_i["interlocks"].append(r_d)
+
+    return yaml.dump(d_i, default_flow_style=False, sort_keys=False)
+
+
 def _interlock_relay_info(
     num, description, flags, logical_device, logical_device_key, logical_device_channel
 ):

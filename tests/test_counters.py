@@ -300,11 +300,22 @@ def test_SampCnt_mode_SINGLE(session, scan_tmpdir):
     assert all(diode8_dat.astype(numpy.int) == diode8_dat)
     assert not all(diode2_dat.astype(numpy.int) == diode2_dat)
 
-    o = Timed_Diode()
-    ax = SoftAxis("test-sample-pos", o)
-    c = SoftCounter(o, "read_once", name="test", mode=SamplingMode.SINGLE)
 
-    s = ascan(ax, 1, 9, 9, .1, c)
+def test_SampCnt_mode_SINGLE_conv_func(session):
+    env_dict = session.env_dict
+
+    c = SoftCounter(
+        value=lambda: 5,
+        name="test",
+        mode=SamplingMode.SINGLE,
+        conversion_function=lambda n: 2 * n,
+    )
+
+    assert c.mode == SamplingMode.SINGLE
+
+    s = loopscan(1, 0.01, c, save=False)
+
+    assert s.get_data()[c] == 10
 
 
 def test_SampCnt_mode_LAST(session):

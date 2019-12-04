@@ -258,12 +258,12 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             # in SamplingMode.SINGLE: first sample
             # in SamplingMode.LAST: last sample
             samples = [[]] * len(self._counters)
+            counters = list(self._counters.keys())
 
             if not self._SINGLE_COUNT:
                 # Counter integration loop
                 while not self._stop_flag:
                     start_read = time.time()
-                    counters = list(self._counters.keys())
                     read_value = numpy.array(
                         [
                             counters[i].conversion_function(x)
@@ -299,7 +299,12 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             else:
                 # SINGLE_COUNT case
                 acc_value = numpy.array(
-                    self.device.read_all(*self._counters), dtype=numpy.double, ndmin=1
+                    [
+                        counters[i].conversion_function(x)
+                        for i, x in enumerate(self.device.read_all(*self._counters))
+                    ],
+                    dtype=numpy.double,
+                    ndmin=1,
                 )
                 samples = acc_value
 

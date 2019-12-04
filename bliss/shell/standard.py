@@ -32,6 +32,7 @@ from bliss.common.standard import wm as std_wm
 from bliss.common.standard import sync as std_sync
 from bliss.common.standard import debugon as std_debugon
 from bliss.common.standard import debugoff as std_debugoff
+from bliss.common.standard import info
 from bliss.common.standard import __move
 
 from bliss.common.soft_axis import SoftAxis
@@ -670,24 +671,6 @@ def interlock_show(wago_obj=None):
         )
         for wago in wago_instance_list:
             wago.interlock_show()
-
-
-def info(obj):
-    """
-    In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) 
-    to enquire information of the internal state of any object / controller in case it is 
-    available. this info function is to be seen as equivalent of str(obj) or repr(obj) in
-    this context.
-
-    if *obj* has `__info__` implemented this `__info__` function will be called. As a fallback 
-    option (`__info__` not implemented) repr(obj) is used. 
-    """
-    try:
-        tmp = obj.__info__()
-        assert type(tmp) is str
-        return tmp
-    except Exception:
-        return repr(obj)
 
 
 @contextlib.contextmanager

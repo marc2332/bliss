@@ -266,3 +266,30 @@ def lscnt():
         )
     for fullname, (shape, prefix, name, alias) in counters_dict.items():
         yield CountersList(fullname, shape, prefix, name, alias)
+
+
+def info(obj):
+    """
+    In Bliss `__info__` is used by the command line interface (Bliss shell or Bliss repl) 
+    to enquire information of the internal state of any object / controller in case it is 
+    available. this info function is to be seen as equivalent of str(obj) or repr(obj) in
+    this context.
+
+    if *obj* has `__info__` implemented this `__info__` function will be called. As a fallback 
+    option (`__info__` not implemented) repr(obj) is used. 
+    """
+    if hasattr(obj, "__info__"):
+        # this is not a violation of EAFP, this is to
+        # discriminate AttributeError raised *inside* __info__ ;
+        # TODO: clean with protocol
+        try:
+            info_str = obj.__info__()
+        except Exception:
+            raise
+        else:
+            if not isinstance(info_str, str):
+                raise TypeError("__info__ must return a string")
+    else:
+        info_str = repr(obj)
+
+    return info_str

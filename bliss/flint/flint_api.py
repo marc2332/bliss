@@ -151,9 +151,9 @@ class FlintApi:
         # FIXME: Here we could create a specific plot
         raise Exception("The channel '%s' is not part of any plots" % channel_name)
 
-    def wait_end_of_scan(self):
+    def wait_end_of_scans(self):
         scanManager = self.__flintModel.scanManager()
-        scanManager.wait_end_of_scan()
+        scanManager.wait_end_of_scans()
 
     def wait_started(self):
         """Wait for the end of the initialization at startup of the application.

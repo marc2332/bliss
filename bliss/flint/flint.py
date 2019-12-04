@@ -106,10 +106,6 @@ def create_flint_model(settings) -> flint_model.FlintState:
     flintModel.setPropertyWidget(propertyWidget)
     liveWindow.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
 
-    size = scanStatusWidget.sizeHint()
-    scanStatusWidget.widget().setFixedHeight(size.height())
-    scanStatusWidget.widget().setMinimumWidth(200)
-
     scanStatusWidget.widget().setSizePolicy(
         qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
     )

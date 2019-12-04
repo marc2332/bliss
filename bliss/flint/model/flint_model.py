@@ -65,7 +65,23 @@ class Workspace(qt.QObject):
 
 class FlintState(qt.QObject):
 
+    aliveScanAdded = qt.Signal(object)
+    """Emitted when an alive scan is discovered.
+
+    This event is emitted before the start event of this scan.
+    """
+
+    aliveScanRemoved = qt.Signal(object)
+    """Emitted when an alive scan is removed.
+
+    This event is emitted after the finished event of this scan.
+    """
+
     currentScanChanged = qt.Signal(object, object)
+    """Emitted when the scan considered as the current one, is updated
+
+    This event is emitted before the start of the scan.
+    """
 
     workspaceChanged = qt.Signal(object, object)
 
@@ -75,6 +91,7 @@ class FlintState(qt.QObject):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace: Workspace = None
         self.__currentScan: scan_model.Scan = None
+        self.__aliveScans: List[scan_model.Scan] = []
         # FIXME: widget should be weakref
         self.__liveWindow = None
         self.__propertyWidget = None
@@ -166,3 +183,14 @@ class FlintState(qt.QObject):
 
     def currentScan(self) -> scan_model.Scan:
         return self.__currentScan
+
+    def aliveScans(self) -> List[scan_model.Scan]:
+        return self.__aliveScans
+
+    def addAliveScan(self, scan: scan_model.Scan):
+        self.__aliveScans.append(scan)
+        self.aliveScanAdded.emit(scan)
+
+    def removeAliveScan(self, scan: scan_model.Scan):
+        self.__aliveScans.remove(scan)
+        self.aliveScanRemoved.emit(scan)

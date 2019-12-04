@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 from typing import Optional
+from typing import List
 
 import time
 import logging
@@ -21,10 +22,9 @@ from bliss.flint.utils import stringutils
 from bliss.flint.helper import scan_info_helper
 
 
-class ScanStatus(ExtendedDockWidget):
+class _SingleScanStatus(qt.QWidget):
     def __init__(self, parent=None):
-        super(ScanStatus, self).__init__(parent=parent)
-
+        super(_SingleScanStatus, self).__init__(parent=parent)
         filename = silx.resources.resource_filename("flint:gui/scan-status.ui")
 
         # FIXME: remove this catch of warning when it is possible
@@ -33,32 +33,19 @@ class ScanStatus(ExtendedDockWidget):
         widget = qt.loadUi(filename)
         log.disabled = False
 
+        layout = qt.QVBoxLayout(self)
+        layout.addWidget(widget)
         self.__widget = widget
-        self.setWidget(self.__widget)
-        self.__widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
 
-        self.__flintModel: Optional[flint_model.FlintState] = None
         self.__scan: Optional[scan_model.Scan] = None
-        self.__timer = qt.QTimer(self)
-        self.__timer.setInterval(1000)
-        self.__timer.timeout.connect(self.__updateRemaining)
-        self.__updateNoScan()
         self.__start: Optional(float) = None
         self.__end: Optional(float) = None
+        self.__updateNoScan()
 
-    def setFlintModel(self, flintModel: flint_model.FlintState = None):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
-        self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
+    def scan(self) -> Optional[scan_model.Scan]:
+        return self.__scan
 
-    def __currentScanChanged(self):
-        self.__setScan(self.__flintModel.currentScan())
-
-    def __setScan(self, scan: scan_model.Scan = None):
+    def setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
             return
         if self.__scan is not None:
@@ -80,9 +67,7 @@ class ScanStatus(ExtendedDockWidget):
                 self.__widget.noAcquisition.setVisible(False)
                 self.__widget.noAcquisition.setText("PROCESSING")
                 self.__updateScanInfo()
-                self.__updateRemaining()
-                if not self.__timer.isActive():
-                    self.__timer.start()
+                self.updateRemaining()
             elif scan.state() == scan_model.ScanState.FINISHED:
                 self.__widget.process.setVisible(False)
                 self.__widget.noAcquisition.setVisible(True)
@@ -94,18 +79,12 @@ class ScanStatus(ExtendedDockWidget):
                 self.__widget.noAcquisition.setText("INITIALIZING")
                 self.__widget.remainingTime.setText("")
 
-        if scan is None or scan.state() != scan_model.ScanState.PROCESSING:
-            if self.__timer.isActive():
-                self.__timer.stop()
-
     def __updateNoScan(self):
         self.__widget.scanInfo.setText("No scan available")
         self.__widget.process.setVisible(False)
         self.__widget.noAcquisition.setVisible(True)
         self.__widget.noAcquisition.setText("NO SCAN")
         self.__widget.remainingTime.setText("")
-        if self.__timer.isActive():
-            self.__timer.stop()
 
     def __updateScanInfo(self):
         scan = self.__scan
@@ -118,7 +97,7 @@ class ScanStatus(ExtendedDockWidget):
         self.__widget.process.setEnabled(False)
         self.__widget.remainingTime.setText("No estimation time")
 
-    def __updateRemaining(self):
+    def updateRemaining(self):
         scan = self.__scan
         if self.__end is not None:
             now = time.time()
@@ -140,3 +119,95 @@ class ScanStatus(ExtendedDockWidget):
         self.__start = None
         self.__end = None
         self.__updateScan()
+
+
+class ScanStatus(ExtendedDockWidget):
+    def __init__(self, parent=None):
+        super(ScanStatus, self).__init__(parent=parent)
+
+        self.__widget = qt.QWidget(self)
+        _ = qt.QVBoxLayout(self.__widget)
+
+        self.__scanWidgets: List[_SingleScanStatus] = []
+
+        self.setWidget(self.__widget)
+        self.__widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+
+        self.__flintModel: Optional[flint_model.FlintState] = None
+
+        self.__timer = qt.QTimer(self)
+        self.__timer.setInterval(1000)
+        self.__timer.timeout.connect(self.__updateWidgets)
+
+        holder = _SingleScanStatus(self)
+        self.__addScanWidget(holder)
+
+    def setFlintModel(self, flintModel: flint_model.FlintState = None):
+        if self.__flintModel is not None:
+            self.__flintModel.aliveScanAdded.disconnect(self.__aliveScanAdded)
+            self.__flintModel.aliveScanRemoved.disconnect(self.__aliveScanRemoved)
+            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
+        self.__flintModel = flintModel
+        if self.__flintModel is not None:
+            self.__flintModel.aliveScanAdded.connect(self.__aliveScanAdded)
+            self.__flintModel.aliveScanRemoved.connect(self.__aliveScanRemoved)
+            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
+
+    def __addScanWidget(self, widget):
+        layout = self.__widget.layout()
+
+        # Clear dead widgets
+        safeList = list(self.__scanWidgets)
+        for otherWidget in safeList:
+            scan = otherWidget.scan()
+            if scan is None or scan.state() == scan_model.ScanState.FINISHED:
+                self.__scanWidgets.remove(otherWidget)
+                otherWidget.deleteLater()
+
+        layout.addWidget(widget)
+        self.__scanWidgets.append(widget)
+        self.updateGeometry()
+
+        scan = widget.scan()
+        if scan is not None and scan.state() == scan_model.ScanState.PROCESSING:
+            if not self.__timer.isActive():
+                self.__timer.start()
+
+    def __updateWidgets(self):
+        for widget in self.__scanWidgets:
+            widget.updateRemaining()
+
+    def __removeWidgetFromScan(self, scan):
+        if len(self.__scanWidgets) == 1:
+            # Do not remove the last scan widget
+            if self.__timer.isActive():
+                self.__timer.stop()
+            return
+
+        if self.__flintModel.currentScan() is scan:
+            # Do not remove the current scan widget
+            # Right now it is the one displayed by the other widgets
+            return
+
+        widgets = [w for w in self.__scanWidgets if w.scan() is scan]
+        if len(widgets) == 0:
+            # No widget for this scan
+            return
+
+        assert len(widgets) == 1
+        widget = widgets[0]
+
+        self.__scanWidgets.remove(widget)
+        widget.deleteLater()
+
+    def __aliveScanAdded(self, scan):
+        widget = _SingleScanStatus(self)
+        widget.setScan(scan)
+        self.__addScanWidget(widget)
+
+    def __aliveScanRemoved(self, scan):
+        self.__removeWidgetFromScan(scan)
+
+    def __currentScanChanged(self):
+        # TODO: The current scan could be highlighted
+        pass

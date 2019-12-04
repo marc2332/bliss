@@ -24,6 +24,7 @@ from bliss.controllers.wago.helpers import (
     to_unsigned,
     to_signed,
     pretty_float,
+    register_type_to_int,
 )
 from bliss.controllers.wago.wago import (
     TangoWago,
@@ -273,14 +274,6 @@ def flags_to_string(flags: int):
         if flags & fl:
             current_states.append(st)
     return " ".join(current_states)
-
-
-def register_type_to_int(type_str: Union[str, bytes]):
-    if isinstance(type_str, str):
-        type_str = type_str.encode()
-    if type_str not in (b"IW", b"IB", b"OW", b"OB"):
-        raise TypeError("Given type should be one of these: 'IB' 'OB' 'IW' 'OW'")
-    return (type_str[0] << 8) + type_str[1]
 
 
 cfgarr = {"filename": None}

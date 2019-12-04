@@ -28,8 +28,7 @@ from bliss.comm.util import get_comm
 from bliss.common.logtools import *
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
-from bliss.controllers.wago.helpers import splitlines, to_signed
-
+from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
 
 """
 EXPLANATION AND NAMING CONVENTION
@@ -559,11 +558,9 @@ class ModulesConfig:
         Returns: (logical_device_key, logical_device_channel)
         """
         channel_type, offset = array_in
-        if channel_type not in (0x4942, 0x4f42, 0x4f57, 0x4957):
-            raise RuntimeError("Wrong I/O type: (ex: ('I'<<8 + 'W') )")
-        if isinstance(channel_type, str):
-            # converto to integer if receiving types like 'TC' or 'IB'
-            channel_type = (ord(channel_type[0]) << 8) + ord(channel_type[1])
+
+        # the following will check type/convert, raising if wrong
+        channel_type = register_type_to_int(channel_type)
         for logical_device_key, logical_channels in enumerate(
             self.logical_mapping.values()
         ):

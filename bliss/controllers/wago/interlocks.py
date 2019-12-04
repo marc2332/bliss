@@ -145,6 +145,9 @@ FLAGS = {
 }
 
 
+InterlockState = namedtuple("InterlockState", "tripped alarm cfgerr hdwerr")
+
+
 def is_digital(flags):
     return bool(flags & 0b1)
 
@@ -806,14 +809,7 @@ def interlock_download(
     """
     log_info(wago, f"Checking interlock on Wago")
 
-    free_inst, available_inst, _ = wago.devwccomm(
-        (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
-    )
-    registered_inst = available_inst - free_inst
-    log_debug(
-        wago,
-        f"Wago interlock instances: registered={registered_inst} free={free_inst}, available={available_inst}",
-    )
+    registered_inst, available_inst, free_inst = interlock_memory(wago)
 
     interlock_list = []  # list containing all interlock dictionaries
 
@@ -886,6 +882,26 @@ def interlock_download(
     return interlock_list
 
 
+def interlock_state(wago: Union[TangoWago, WagoController]):
+    log_info(wago, f"Checking interlock state on Wago")
+    registered_inst, available_inst, free_inst = interlock_memory(wago)
+
+    state_list = []
+
+    for i in range(1, registered_inst + 1):
+        # getting state of relay
+        state_flags, value = wago.devwccomm((COMMANDS["ILCK_GETSTAT"], i))
+        state = InterlockState(
+            is_tripped(state_flags),
+            is_alarm(state_flags),
+            is_cfgerr(state_flags),
+            is_hdwerr(state_flags),
+        )
+
+        state_list.append(state)
+    return state_list
+
+
 def interlock_purge(wago: Union[TangoWago, WagoController]):
     """Purges all interlocks available into a PLC"""
     log_info(wago, f"Interlock: Uploading interlock on Wago")
@@ -951,6 +967,19 @@ def interlock_upload(wago: Union[TangoWago, WagoController], interlock_list: lis
                 log_error(wago, f"ILCK_ADDCHAN {params} should give {offset+1}")
                 #raise RuntimeError(f"Wrong response from Wago Interlock {response}")
                 """
+
+
+def interlock_memory(wago):
+    free_inst, available_inst, _ = wago.devwccomm(
+        (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
+    )
+    registered_inst = available_inst - free_inst
+
+    log_debug(
+        wago,
+        f"Wago interlock instances: registered={registered_inst} free={free_inst}, available={available_inst}",
+    )
+    return registered_inst, available_inst, free_inst
 
 
 def interlock_reset(wago, instance_n):

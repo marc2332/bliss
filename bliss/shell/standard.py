@@ -13,6 +13,7 @@ import inspect
 import itertools
 import linecache
 import sys
+import os
 
 from gevent import sleep
 
@@ -72,6 +73,7 @@ __all__ = (
         "interlock_show",
         "info",
         "bench",
+        "clear",
     ]
     + scans.__all__
     + logtools.__all__
@@ -686,3 +688,11 @@ def bench():
     duration = time.time() - start_time
 
     print(f"Execution time: {timedisplay.duration_format(duration)}")
+
+
+def clear():
+    """Clear terminal screen"""
+    if sys.platform == "win32":
+        os.system("cls")
+    else:
+        os.system("clear")

@@ -1086,7 +1086,7 @@ class WagoController:
             ana_in_reading = self.client.read_input_registers(0, total_ana_in * "H")
         if total_ana_out > 0:
             ana_out_reading = self.client.read_input_registers(
-                0x200, total_ana_in * "H"
+                0x200, total_ana_out * "H"
             )
 
         for module_read_table in read_table:

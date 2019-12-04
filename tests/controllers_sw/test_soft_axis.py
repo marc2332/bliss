@@ -97,9 +97,7 @@ def test_soft_axis_scan(session):
     numpy.testing.assert_array_almost_equal(data["another_motor"], positions)
 
 
-def test_soft_axis_wa(session, capsys):
+def test_soft_axis_wa(session):
     o = Object()
     m0 = SoftAxis("bla", o)
-    wa()  # call where all
-    captured = capsys.readouterr()
-    assert "bla" in captured.out
+    assert any(whereall.axis_name == "bla" for whereall in wa())

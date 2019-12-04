@@ -120,7 +120,7 @@ def initialize(session_name=None):
 
     env_dict = __main__.__dict__
 
-    exec("from bliss.common.standard import *", env_dict)
+    exec("from bliss.shell.standard import *", env_dict)
     from bliss.scanning.scan import ScanDisplay
 
     env_dict["SCAN_DISPLAY"] = ScanDisplay(session.name)

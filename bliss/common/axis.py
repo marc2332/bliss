@@ -38,6 +38,7 @@ from bliss.common.encoder import Encoder
 from bliss.config.channels import Channel
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.common.logtools import *
+from bliss.common.utils import rounder
 import bliss
 
 import gevent
@@ -98,6 +99,14 @@ class GroupMove:
             polling_time,
         )
 
+        for _, ax in motions_dict.items():
+            for mot in ax:
+                start_ = rounder(mot.axis.tolerance, mot.axis.position)
+                end_ = rounder(
+                    mot.axis.tolerance,
+                    mot.axis.dial2user(mot.target_pos / mot.axis.steps_per_unit),
+                )
+                lprint(f"Moving {mot.axis.name} from {start_} to {end_}")
         try:
             # Wait for the move to be started (or finished)
             gevent.wait([started, self._move_task], count=1)

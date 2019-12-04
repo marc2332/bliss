@@ -13,7 +13,7 @@ from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
-from bliss.common.standard import plotselect
+from bliss.shell.standard import plotselect
 
 
 def test_pkcom_ascan_gauss(session):

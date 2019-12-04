@@ -1,6 +1,6 @@
 import pytest
 from bliss.common import scans
-from bliss.common.standard import wm
+from bliss.shell.standard import wm
 from bliss import global_map
 
 alias_dump = """Alias    Original fullname

@@ -7,7 +7,7 @@ from mock import Mock
 from bliss.common import scans
 from bliss.controllers.mca.mythen import Mythen
 from bliss.controllers.mca.mythen import lib as mythenlib
-from bliss.common.standard import info
+from bliss.shell.standard import info
 
 
 @pytest.fixture

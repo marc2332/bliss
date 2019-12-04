@@ -2,7 +2,7 @@
 import pytest
 import gevent
 
-from bliss.common.standard import lscnt, bench
+from bliss.shell.standard import lscnt, bench
 
 EXPECTED = """
 Fullname             Shape    Controller    Name           Alias

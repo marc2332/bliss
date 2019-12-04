@@ -17,7 +17,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.scan import Scan, ScanSaving
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
-from bliss.common.standard import info
+from bliss.shell.standard import info
 from bliss.common import scans
 
 

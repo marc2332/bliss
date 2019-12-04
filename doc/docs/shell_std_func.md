@@ -2,7 +2,7 @@
 
 use :
 
-` from bliss.common.standard import *`
+` from bliss.shell.standard import *`
 
 to get access to standard shell functions.
 
@@ -141,6 +141,18 @@ spec_m3  READY (Axis is READY)
 ```
 
 ## introspection, doc, logging
+
+
+### logbook print ###
+
+The `lprint` function is a replacement for python standard `print` function
+that sends what is given to both stdout and to the logbook.
+
+Everything that should be logged to the logbook for any reason should use this
+instead of the normal print.
+
+You can use `lprint` even when using Bliss in library mode: no output will
+be send to stdout, but messages will be forwarded to logbook.
 
 ### prdef (print definition)
 `prdef(<function>)`: Displays information about given function :

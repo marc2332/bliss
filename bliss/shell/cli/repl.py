@@ -45,7 +45,7 @@ from bliss.data.display import ScanPrinter, ScanEventHandler
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
-from bliss.common.standard import info
+from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
 logger = logging.getLogger(__name__)
@@ -441,6 +441,11 @@ def cli(
     from bliss import set_bliss_shell_mode
 
     set_bliss_shell_mode(True)
+
+    # adding stdout print of lprint messages
+    from bliss.common.logtools import logbook_printer
+
+    logbook_printer.add_stdout_handler()
 
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report

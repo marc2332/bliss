@@ -8,7 +8,6 @@
 import pytest
 import gevent
 from bliss.common.axis import Axis
-from bliss.common.standard import ascan
 
 
 def test_pseudo_axes_position(s1f, s1b, s1u, s1d, s1vg, s1vo, s1hg, s1ho):

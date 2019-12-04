@@ -1605,7 +1605,7 @@ class WagoController:
         or whenever is not possible a description like '4 Channel Digital Input'
         """
         if register & 0x8000:  # digital in/out
-            type_ = "Digital Input" if register & 0x1 else "Digital Output"
+            type_ = "Digital Output" if register & 0x2 else "Digital Input"
             mod_size = (register & 0xf00) >> 8
             return f"{mod_size} Channel {type_}"
             # resulting for example 4ID for a 4 input module

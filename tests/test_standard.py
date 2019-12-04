@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss import setup_globals
-from bliss.common.standard import wa, wm, sta, stm
+from bliss.common.standard import wa, wm, sta, stm, info
 from bliss.common.utils import deep_update, ErrorWithTraceback
 import pytest
 
@@ -61,6 +61,31 @@ def test_wm_exception(default_session, capsys):
     assert out.user_high_limit == inf == out.dial_high_limit
     assert out.user_low_limit == -inf == out.dial_low_limit
     assert out.offset == 0
+
+
+def test_info(default_session):
+    class TestInfoGood:
+        def __info__(self):
+            return "good info message"
+
+    class TestInfoBad:
+        def __info__(self):
+            return 5
+
+    class TestInfoException:
+        def __info__(self):
+            raise RuntimeError("exception")
+
+    class TestNoInfo:
+        pass
+
+    assert info(TestInfoGood()) == "good info message"
+    t = TestNoInfo()
+    assert info(t) == repr(t)
+    with pytest.raises(TypeError):
+        info(TestInfoBad())
+    with pytest.raises(RuntimeError):
+        info(TestInfoException())
 
 
 def test_deep_update():

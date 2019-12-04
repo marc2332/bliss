@@ -210,6 +210,8 @@ BLISS [3]: wago_simulator
                 o10v1                       1     750-554          2 Channel 4/20mA Output
                 o10v2                       1     750-554          2 Channel 4/20mA Output
 
+           Given mapping does match Wago attached modules
+
 BLISS [4]: wago_simulator.get("foh2ctrl")
   Out [4]: [1, 0, 1, 1]
 
@@ -224,8 +226,6 @@ BLISS [8]: wago_simulator.set("esTr1", 0)
 !!! === RuntimeError: Cannot write: 'esTr1' is not an output === !!! ( for more details type cmd 'last_error' )
 
 ```
-
-
 
 
 # Interlock Protocol #
@@ -363,7 +363,40 @@ For termocouple the precision can be given in decimal, E.G. 50.7 Celsius.
 
 ## Interlocks on Bliss shell ##
 
-`interlock_show()` can be used to obtain interlocks info concerning all Wagos already imported from yaml file or with `config.get`.
+
+`interlock_show()` will display interlocks info concerning all Wagos
+already imported from yaml file or with `config.get`. 
+During the execution of this command the configuration loaded into Wagos
+will be downloaded and compared with the existing in Beacon. If
+differences are found they will be printed in the shell.
+
+`interlock_show(*wagos)` will display interlocks info only for given Wagos.
+
+`interlock_state()` returns a tuple containing the actual state
+of the interlocks, useful also in scripts or status bar for monitoring.
+If you use it inside a script you have to import it with 
+`from bliss.common.standard import interlock_state`
+Without arguments it will return
+
+`interlock_state(*wagos)` will return states only for given Wagos.
+
+## Methods attached to Wago objects ##
+
+`wago_instance.interlock_reset(instance_num)` it will reset a specific
+relay instance.
+
+`wago_instance.interlock_upload()` will upload the configuration for the
+given `wago_instance` from beacon to the plc.
+
+`wago_instance.interlock_to_yml()` will download the actual configuration from
+the wago and give back as an YML string. Very useful on an existing plc
+that you wish to convert from spec to Bliss.
+
+`wago_instance.interlock_state()` will print the state of interlock relays for
+the given `wago_instance`.
+
+
+### interlock_show ##
 
 ```python
 BLISS [16]: wcid21hpps = config.get("wcid21hpps")
@@ -391,7 +424,7 @@ On PLC:
       #10  .... - pptc2  TC  Low:0.0000 High:50.0000  STICKY        [14.4]
 ```
 
-The same command can be used as a method of a single Wago.
+The same command can be used as a method of a the Wago.
 
 ```python
 BLISS [14]: wago_simulator = config.get("wago_simulator")
@@ -419,6 +452,3 @@ On Beacon:
 ```
 
 The interlock show will check both Beacon configuration and Hardware configuration and will make evidence of any difference.
-
-
-

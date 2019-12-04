@@ -340,3 +340,14 @@ def test_wago_emulator_close_on_exit(clean_gevent, capsys, beacon):
 
     f()
     default_session.close()
+
+
+def test_wago_status(capsys, default_session, wago_mockup):
+    wago = default_session.config.get("wago_simulator")
+    print(wago.status())
+    captured = capsys.readouterr()
+    for info in "INFO_SERIES INFO_ITEM INFO_DATE".split():
+        assert info in captured.out
+    for info in "module0 module1 module2 module3".split():
+        assert info in captured.out
+    assert "Given mapping does match Wago attached modules" in captured.out

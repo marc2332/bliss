@@ -14,45 +14,7 @@ from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
 from bliss.config.conductor.client import remote_open
 from bliss.config.static import Node
-
-
-def _find_dict(name, d):
-    if d.get("name") == name:
-        return d
-    for key, value in d.items():
-        if isinstance(value, dict):
-            sub_dict = _find_dict(name, value)
-        elif isinstance(value, list):
-            sub_dict = _find_list(name, value)
-        else:
-            continue
-
-        if sub_dict is not None:
-            return sub_dict
-
-
-def _find_list(name, l):
-    for value in l:
-        if isinstance(value, dict):
-            sub_dict = _find_dict(name, value)
-        elif isinstance(value, list):
-            sub_dict = _find_list(name, value)
-        else:
-            continue
-        if sub_dict is not None:
-            return sub_dict
-
-
-def _find_subconfig(d, path):
-    _NotProvided = type("_NotProvided", (), {})()
-    path = path.copy()
-    key = path.pop(0)
-    sub = d.get(key, _NotProvided)
-    if sub == _NotProvided:
-        return Node()
-    if len(path) > 0:
-        return _find_subconfig(sub, path)
-    return sub
+from bliss.config.static import get_config_dict, _find_list, _find_dict, _find_subconfig
 
 
 class BeaconObject:
@@ -243,14 +205,7 @@ class BeaconObject:
                     f"to use apply_config of {self.name} a valid config with name has to be provied on init!"
                 )
 
-            with remote_open(self.config.filename) as f:
-                d = yaml.safe_load(f.read())
-            if isinstance(d, dict):
-                d = _find_dict(self._config_name, d)
-            elif isinstance(d, list):
-                d = _find_list(self._config_name, d)
-            else:
-                d = None
+            d = get_config_dict(self.config.filename, self._config_name)
 
             if d is None:
                 raise RuntimeError(

@@ -28,8 +28,7 @@ from bliss.comm.util import get_comm
 from bliss.common.logtools import *
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
-from bliss.controllers.wago.helpers import splitlines, to_signed
-
+from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
 
 """
 EXPLANATION AND NAMING CONVENTION
@@ -152,7 +151,9 @@ MODULES_CONFIG = {
     # ssi32: 32 bit SSI encoder
     # digital: digital IN or OUT
     # counter: counters
-    "750-842": [0, 0, 0, 0, 2, "none", "Wago PLC Ethernet/IP"],
+    "750-842": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-881": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-891": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
     "750-400": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
     "750-401": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
     "750-402": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
@@ -464,7 +465,7 @@ class ModulesConfig:
     @staticmethod
     def parse_mapping_str(mapping_str: str):
         """
-        Parse a configuration string and yields plc module informations
+        Parse a configuration string and yields plc module information
 
         args:
             mapping_str: string containing PLC's attached modules info
@@ -520,6 +521,15 @@ class ModulesConfig:
 
         return cls("\n".join(config), ignore_missing=True)
 
+    def update_cpu(self, module: str):
+        """Updates information about the CPU module
+        I.E. 750-842, 750-891
+        """
+        if module in MODULES_CONFIG and MODULES_CONFIG[module][READING_TYPE] == "cpu":
+            self.__modules[0] == module
+        else:
+            raise RuntimeError("Not known CPU module")
+
     def devkey2name(self, key):
         """
         From a key (channel enumeration) to the assigned text name
@@ -559,11 +569,9 @@ class ModulesConfig:
         Returns: (logical_device_key, logical_device_channel)
         """
         channel_type, offset = array_in
-        if channel_type not in (0x4942, 0x4f42, 0x4f57, 0x4957):
-            raise RuntimeError("Wrong I/O type: (ex: ('I'<<8 + 'W') )")
-        if isinstance(channel_type, str):
-            # converto to integer if receiving types like 'TC' or 'IB'
-            channel_type = (ord(channel_type[0]) << 8) + ord(channel_type[1])
+
+        # the following will check type/convert, raising if wrong
+        channel_type = register_type_to_int(channel_type)
         for logical_device_key, logical_channels in enumerate(
             self.logical_mapping.values()
         ):
@@ -581,7 +589,6 @@ class ModulesConfig:
         device_key, logical_channel = array_in
         logical_device = self.devkey2name(device_key)
 
-        i = 0
         device = self.logical_mapping[logical_device][logical_channel]
         physical_channel = device.physical_channel
         physical_module = device.physical_module
@@ -940,10 +947,16 @@ class WagoController:
         """
         log_debug(self, "In connect")
         with self.lock:
-            # check if we have a coupler or a controller
-            self.series = self.client.read_input_registers(0x2011, "H")
+            try:
+                # check if we have a coupler or a controller
+                self.series = self.client.read_input_registers(0x2011, "H")
+            except Exception:
+                log_error(self, "Error connecting to Wago")
+                raise
 
             self.order_nu = self.client.read_input_registers(0x2012, "H")
+
+            self.modules_config.update_cpu(f"750-{self.order_nu}")
 
             self.coupler = self.order_nu < 800
             if not self.coupler:
@@ -1089,7 +1102,7 @@ class WagoController:
             ana_in_reading = self.client.read_input_registers(0, total_ana_in * "H")
         if total_ana_out > 0:
             ana_out_reading = self.client.read_input_registers(
-                0x200, total_ana_in * "H"
+                0x200, total_ana_out * "H"
             )
 
         for module_read_table in read_table:
@@ -1161,7 +1174,7 @@ class WagoController:
             self,
             f"In get channel_names={channel_names}, convert_values={convert_values}",
         )
-        MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
+        # MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
 
         ret = []
 
@@ -1249,8 +1262,47 @@ class WagoController:
             return self.write_phys(write_table)
 
     def devwritephys(self, array_in):
-        name = self.devkey2name(array_in[0])
-        self.set(flatten([name] + list(array_in[1:])))
+        """Writes one or more values to the PLC
+
+        array_in: 
+                  - first number is logical device
+                  - than pairs of logical channels and value to write
+        Example:
+            devwritephys(0, 0, 3.2, 1, 7.4)
+            # will write to logical device 0
+            # value 3.2 on logical channel 0 (of logical device 0)
+            # value 7.4 on logical channel 1 (of logical device 0)
+        """
+
+        # this is a standalone implementation of writing value
+        # that differs from `set` and is more suitable for a low
+        # level writing of only some values
+
+        array = [el for el in array_in]  # just copy it to later manipulate
+        key = int(array.pop(0))
+        write_table = collections.defaultdict(list)
+        while array:
+            ch, val, array = int(array[0]), array[1], array[2:]
+
+            """
+            [0] : offset in wago controller memory (ex: 0x16)
+            [1] : MSB=I/O LSB=Bit/Word (ex: 0x4957 = ('I'<<8)+'W')
+            [2] : module reference (ex: 469)
+            [3] : module number (1st is 0)
+            [4] : physical channel of the module (ex: 1 for the 2nd)
+            """
+            offset, register_type, _, module_index, phys_chann = self.devlog2hard(
+                (key, ch)
+            )
+            if register_type == register_type_to_int("OW"):
+                # output word
+                write_table[module_index].append((ANA_OUT, phys_chann, val))
+            elif register_type == register_type_to_int("OB"):
+                # output bit
+                write_table[module_index].append((DIGI_OUT, phys_chann, bool(val)))
+            else:
+                raise RuntimeError("Not an output module")
+        self.write_phys(write_table)
 
     def devwritedigi(self, array_in):
         self.devwritephys(array_in)
@@ -1292,11 +1344,7 @@ class WagoController:
             >>> DevKey2Name(3)
             b"gabsTf3"
         """
-        try:
-            inv_map = {v: k for k, v in self.modules_config.logical_keys.items()}
-            return inv_map[key]
-        except IndexError:
-            raise Exception("invalid logical channel key")
+        return self.modules_config.devkey2name(key)
 
     def devname2key(self, name):
         """From a logical device (name) to the key"""
@@ -1355,7 +1403,7 @@ class WagoController:
                     addr, "H" * size, timeout=self.timeout
                 )
 
-            except Exception as exc:
+            except Exception:
                 log_exception(self, f"failed to read at address: {addr} words: {size}")
                 raise
 
@@ -1424,7 +1472,7 @@ class WagoController:
             check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
                 addr, "H" * size, timeout=self.timeout
             )
-        except Exception as exc:
+        except Exception:
             log_debug(
                 self,
                 f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
@@ -1465,7 +1513,7 @@ class WagoController:
                 if isinstance(response, int):  # single number
                     response = [response]
                 log_debug(self, f"read registers response={response}")
-            except Exception as exc:
+            except Exception:
                 log_exception(
                     self,
                     f"devwccomm Phase 5: failed to read at address: {addr} words: {size}",
@@ -1542,7 +1590,7 @@ class WagoController:
         log_debug(self, "Retrieving attached modules configuration")
         try:
             modules = self.client.read_holding_registers(0x2030, "65H")
-        except Exception as exc:
+        except Exception:
             log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
             raise
 
@@ -1553,6 +1601,54 @@ class WagoController:
             else:
                 self.__modules.append(WagoController._describe_hardware_module(m))
 
+    def status(self):
+        """
+        Wago Status information
+        """
+        from bliss.shell.standard import ShellStr
+
+        out = ""
+        if not self.coupler:
+            out += f"Controller series code    (INFO_SERIES)    : {self.series}\n"
+            out += f"Controller order number    (INFO_ITEM)    : {self.order_nu}\n"
+            out += f"Controller firmware revision (INFO_REVISION): {self.firmware['version']}\n"
+            out += f"Controller date of firmware  (INFO_DATE)    : {self.firmware['date']}\n"
+            out += f"time of firmware  (INFO_TIME)    : {self.firmware['time']}\n"
+
+        out += f"\nWago modules physically plugged and seen by the controller:\n"
+        try:
+            out += self.plugged_modules_description()
+        except Exception:
+            log_exception(self, f"Exception on dev_status")
+            raise
+
+        out += f"\nWago modules known by the device server:\n"
+        for i, module in enumerate(self.modules_config.mapping):
+            out += f"module{i}: {module['module']} ({MODULES_CONFIG[module['module']][DESCRIPTION]}) {' '.join(flatten(module['channels']))}\n"
+
+        out += "\nList of logical devices:\n"
+        for (
+            i,
+            (
+                logical_device,
+                physical_channel,
+                physical_module,
+                physical_module_type,
+                _,
+                _,
+            ),
+        ) in self.physical_mapping.items():
+            out += f"{logical_device}:\nlogical_channel{i}: module: {physical_module} channel: {physical_channel}\n"
+        try:
+            self.check_plugged_modules()
+        except RuntimeError as exc:
+            out += f"\nConfiguration error: {exc}"
+            out += "\nGiven mapping DOES NOT match Wago attached modules"
+        else:
+            out += "\nGiven mapping does match Wago attached modules"
+
+        return ShellStr(out)
+
     @staticmethod
     def _describe_hardware_module(register):
         """Given the result of a Wago modbus reading for checking the type
@@ -1560,7 +1656,7 @@ class WagoController:
         or whenever is not possible a description like '4 Channel Digital Input'
         """
         if register & 0x8000:  # digital in/out
-            type_ = "Digital Input" if register & 0x1 else "Digital Output"
+            type_ = "Digital Output" if register & 0x2 else "Digital Input"
             mod_size = (register & 0xf00) >> 8
             return f"{mod_size} Channel {type_}"
             # resulting for example 4ID for a 4 input module
@@ -1570,10 +1666,18 @@ class WagoController:
 
     @property
     def modules(self):
+        """Returns real detected modules (including CPU)
+        to retrieve given modules configuration use
+        .modules_config.modules
+        """
         return self.__modules
 
     @property
     def attached_modules(self):
+        """Returns real detected attached modules
+        to retrieve given modules configuration use
+        .modules_config.attached_modules
+        """
         return self.__modules[1:]
 
     @property
@@ -1633,6 +1737,9 @@ class WagoController:
         return False
 
     def check_plugged_modules(self):
+        """Check configuration between PLC and given config
+        and raises an exception if differences are found
+        """
         for i, (module1, module2) in enumerate(
             zip_longest(self.attached_modules, self.modules_config.attached_modules)
         ):
@@ -1728,6 +1835,8 @@ class Wago(SamplingCounterController):
         super().__init__(name=name)
 
         # parsing config_tree
+        self.__filename = config_tree.filename
+
         self.modules_config = ModulesConfig.from_config_tree(config_tree)
 
         self.cnt_dict = {}
@@ -1760,7 +1869,7 @@ class Wago(SamplingCounterController):
                 pass
             try:
                 comm = get_comm(new_config_tree)
-            except Exception as exc:
+            except Exception:
                 log_exception(self, "Can't connect to tango host")
                 raise
             if not len(self.modules_config.attached_modules):
@@ -1793,42 +1902,50 @@ class Wago(SamplingCounterController):
             tag=f"Wago({self.name})",
         )
 
-        from bliss.controllers.wago.interlocks import beacon_interlock_parsing
+        self.__interlock_load_config(config_tree)
 
+    def __interlock_load_config(self, config_tree):
         try:
-            self._interlocks_on_beacon = beacon_interlock_parsing(
-                config_tree["interlocks"], self.modules_config
-            )
+            config_tree["interlocks"]
         except KeyError:
             # no interlock is defined on beacon or configuration mistake
             pass
+        else:
+            try:
+                from bliss.controllers.wago.interlocks import beacon_interlock_parsing
+
+                self._interlocks_on_beacon = beacon_interlock_parsing(
+                    config_tree["interlocks"], self.modules_config
+                )
+            except Exception as exc:
+                msg = f"Interlock parsing error on Beacon config: {exc!r}"
+                log_error(self, msg)
 
     def __info__(self):
         mapping = [
             (k, len(ch)) for k, ch in self.modules_config.logical_mapping.items()
         ]
-        tab = [["logical device", "num of channel", "module_type", "description"]]
+        tab = [
+            ["logical device", "num of channel", "module_type", "module description"]
+        ]
         for k, l in mapping:
             module_type = self.modules_config.logical_mapping[k][0].module_type
             description = get_module_info(module_type).description
             tab.append([k, l, module_type, description])
         repr_ = tabulate(tab, headers="firstrow", stralign="center")
-        if hasattr(self.controller, "check_plugged_modules"):
-            try:
-                self.controller.check_plugged_modules()
-            except RuntimeError as exc:
-                log_error(self, f"Configuration Error: {exc}")
-                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
-            else:
-                repr_ += "\n\nGiven mapping does match Wago attached modules"
-        elif hasattr(self.controller, "status"):
-            # Wago device server
-            if "DOES NOT match Wago attached" in self.controller.status():
-                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
-            else:
-                repr_ += "\n\nGiven mapping does match Wago attached modules"
+        try:
+            status = self.controller.status()
+        except Exception as exc:
+            repr_ += f"\n\n** Could not retrieve hardware mapping ({exc})**"
+            log_error(self.controller, "Could not retrieve status")
         else:
-            repr_ += "\n\nCould not check matching beetween mapping and Wago attached modules"
+            if "DOES NOT match" in self.controller.status():
+                repr_ += "\n\n** Given mapping DOES NOT match Wago attached modules **"
+                repr_ += (
+                    f"\n\nHINT: check {self.name}.status() to have debug information"
+                )
+            else:
+                repr_ += "\n\nGiven mapping does match Wago attached modules"
 
         return repr_
 
@@ -1843,82 +1960,83 @@ class Wago(SamplingCounterController):
     def __close__(self):
         self.close()
 
-    def interlock_show(self):
-        from bliss.controllers.wago.interlocks import interlock_download as download
-        from bliss.controllers.wago.interlocks import interlock_show as show
-        from bliss.controllers.wago.interlocks import interlock_compare as compare
+    def status(self):
+        return self.controller.status()
 
-        on_plc, on_beacon = False, False
-
-        print_formatted_text(HTML(f"Interlocks on <violet>{self.name}</violet>"))
-        try:
-            self._interlocks_on_plc = download(self.controller, self.modules_config)
-            on_plc = True
-        except (MissingFirmware, tango.DevFailed):
-            print("Interlock Firmware is not present in the PLC")
-
-        try:
-            self._interlocks_on_beacon
-            on_beacon = True
-        except AttributeError:
-            print("Interlock configuration is not present in Beacon")
-
-        if on_beacon and on_plc:
-            # if configuration is present on both beacon and plc
-            are_equal, messages = compare(
-                self._interlocks_on_beacon, self._interlocks_on_plc
-            )
-            if are_equal:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-            else:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
-                print(show(self.name, self._interlocks_on_beacon))
-                print("There are configuration differences:")
-                for line in messages:
-                    print(line)
-        else:
-            if on_plc:
-                print_formatted_text(HTML("<green>On PLC:</green>"))
-                print(show(self.name, self._interlocks_on_plc))
-            if on_beacon:
-                print_formatted_text(HTML("\n<green>On Beacon:</green>"))
-                print(show(self.name, self._interlocks_on_beacon))
-
-    def interlock_reset_relay(self, instance_num):
-        log_debug(self, f"Resetting instance num: {instance_num}")
+    def interlock_reset(self, instance_num, ask=True):
         from bliss.controllers.wago.interlocks import interlock_reset as reset
 
         reset(self.controller, instance_num)
 
-    def interlock_upload(self):
+    def interlock_show(self):
+        from bliss.shell.interlocks import interlock_show as show
+
+        show(self)
+
+    def interlock_upload(self, ask=True):
+        log_debug(self, f"Reloading Wago interlocks static config")
+        from bliss.config.static import get_config_dict
+
+        reloaded_config = get_config_dict(self.__filename, self.name)
+
+        self.__interlock_load_config(reloaded_config)
+
+        from bliss.shell.standard import ShellStr
+        from bliss.controllers.wago.interlocks import interlock_download as download
         from bliss.controllers.wago.interlocks import interlock_compare as compare
         from bliss.controllers.wago.interlocks import interlock_upload as upload
-        from bliss.controllers.wago.interlocks import interlock_download as download
 
-        self._interlocks_on_plc = download(self.controller, self.modules_config)
-        are_equal, messages = compare(
-            self._interlocks_on_beacon, self._interlocks_on_plc
-        )
-        if are_equal:
-            print("No need to upload the configuration")
+        repr_ = []
+        try:
+            self._interlocks_on_beacon
+        except AttributeError:
+            raise AttributeError("Interlock configuration is not present in Beacon")
+        try:
+            interlocks_on_plc = download(self.controller, self.modules_config)
+        except MissingFirmware:
+            raise MissingFirmware("No ISG Firmware loaded into wago")
         else:
-            yes_no = input(
-                "Are you sure that you want to upload a new configuration? (Answer YES to proceed)"
-            )
+            are_equal, messages = compare(self._interlocks_on_beacon, interlocks_on_plc)
+        if are_equal:
+            repr_.append("No need to upload the configuration")
+        else:
+            if ask:
+                yes_no = input(
+                    "Are you sure that you want to upload a new configuration? (Answer YES to proceed)"
+                )
+            else:
+                yes_no = "YES"
+
             if yes_no == "YES":
                 upload(self.controller, self._interlocks_on_beacon)
                 # double check
-                self._interlocks_on_plc = download(self.controller, self.modules_config)
+                interlocks_on_plc = download(self.controller, self.modules_config)
                 are_equal, messages = compare(
-                    self._interlocks_on_beacon, self._interlocks_on_plc
+                    self._interlocks_on_beacon, interlocks_on_plc
                 )
                 if are_equal:
-                    print("Configuration succesfully upload")
+                    repr_.append("Configuration succesfully upload")
                 else:
-                    print("Something gone wrong: configurations are not the same")
+                    repr_.append(
+                        "Something gone wrong: configurations are not the same"
+                    )
+
+        return ShellStr("\n".join(repr_))
+
+    def interlock_to_yml(self):
+        from bliss.common.standard import ShellStr
+        from bliss.controllers.wago.interlocks import interlock_to_yml as to_yml
+        from bliss.controllers.wago.interlocks import interlock_download as download
+
+        try:
+            return ShellStr(to_yml(download(self.controller, self.modules_config)))
+        except MissingFirmware:
+            raise MissingFirmware("No ISG Firmware loaded into wago")
+
+    def interlock_state(self):
+        from bliss.controllers.wago.interlocks import interlock_state as state
+
+        return state(self.controller)
 
     def _safety_check(self, *args):
         return True

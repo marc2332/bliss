@@ -80,3 +80,28 @@ def pretty_float(in_: Union[int, float]) -> Union[int, float]:
         return int(in_)
     else:
         return in_
+
+
+def register_type_to_int(type_str: Union[str, bytes, int]) -> int:
+    if isinstance(type_str, int):
+        return type_str
+    if isinstance(type_str, str):
+        type_str = type_str.encode()
+    if type_str not in (b"IW", b"IB", b"OW", b"OB"):
+        raise TypeError("Given type should be one of these: 'IB' 'OB' 'IW' 'OW'")
+    return (type_str[0] << 8) + type_str[1]
+
+
+def int_to_register_type(word: Union[str, int]) -> str:
+    if word == 0x4942:
+        return "IB"  # input binary
+    elif word == 0x4f42:
+        return "OB"  # output binary
+    elif word == 0x4f57:
+        return "OW"  # output word
+    elif word == 0x4957:
+        return "IW"  # input word
+    elif word in ("IB", "OB", "OW", "IW"):
+        return word
+    else:
+        raise RuntimeError("Wrong I/O type: (ex: ('I'<<8 + 'W') )")

@@ -50,6 +50,9 @@ from bliss.common.scans import *
 from bliss.common import logtools
 from bliss.common.logtools import *
 
+from bliss.shell.interlocks import interlock_show
+from bliss.common.interlocks import interlock_state
+
 from tabulate import tabulate
 
 __all__ = (
@@ -71,6 +74,7 @@ __all__ = (
         "debugon",
         "debugoff",
         "interlock_show",
+        "interlock_state",
         "info",
         "bench",
         "clear",
@@ -89,6 +93,13 @@ _MISSING_VAL = "-----"
 _FLOAT_FORMAT = ".05f"
 
 _log = logging.getLogger("bliss.shell.standard")
+
+
+class ShellStr(str):
+    """Subclasses str to give a nice representation in the Bliss shell"""
+
+    def __info__(self):
+        return str(self)
 
 
 def _print_errors_with_traceback(errors, device_type="motor"):

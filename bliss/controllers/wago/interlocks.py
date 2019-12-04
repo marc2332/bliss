@@ -8,6 +8,7 @@
 import re
 from collections import namedtuple
 from itertools import zip_longest
+import decimal
 
 from typing import Union
 import yaml
@@ -24,6 +25,7 @@ from bliss.controllers.wago.helpers import (
     to_unsigned,
     to_signed,
     pretty_float,
+    register_type_to_int,
 )
 from bliss.controllers.wago.wago import (
     TangoWago,
@@ -142,6 +144,9 @@ FLAGS = {
         "hdwerr": 0x0800,  # 2048
     },
 }
+
+
+InterlockState = namedtuple("InterlockState", "tripped alarm cfgerr hdwerr")
 
 
 def is_digital(flags):
@@ -273,14 +278,6 @@ def flags_to_string(flags: int):
         if flags & fl:
             current_states.append(st)
     return " ".join(current_states)
-
-
-def register_type_to_int(type_str: Union[str, bytes]):
-    if isinstance(type_str, str):
-        type_str = type_str.encode()
-    if type_str not in (b"IW", b"IB", b"OW", b"OB"):
-        raise TypeError("Given type should be one of these: 'IB' 'OB' 'IW' 'OW'")
-    return (type_str[0] << 8) + type_str[1]
 
 
 cfgarr = {"filename": None}
@@ -501,6 +498,44 @@ def specfile_to_yml(iterable):
             yml["interlocks"][-1]["channels"].append(c_y)
 
     return yaml.dump(yml, default_flow_style=False, sort_keys=False)
+
+
+def interlock_to_yml(interlock_list):
+    """Converts a configuration to yml
+    Useful if you download a configuration from the PLC
+    and create from this a valid Beacon yaml file
+    """
+    d_i = {"interlocks": []}
+    for intrlck in interlock_list:
+        r_d = {
+            "relay": intrlck["logical_device"],
+            "relay_channel": intrlck["logical_device_channel"],
+            "flags": flags_to_string(imask(intrlck["flags"])),
+            "description": intrlck["description"],
+            "channels": [],
+        }
+        for ch in intrlck["channels"]:
+            c_d = {
+                "logical_name": ch["logical_device"],
+                "logical_channel": ch["logical_device_channel"],
+                "type": ch["type"]["type"],
+                "flags": flags_to_string(wchmask(ch["flags"])),
+            }
+            if ch["low_limit"] is not None:
+                c_d["min"] = float(
+                    round(decimal.Decimal(to_signed(ch["low_limit"])) / 10, 2)
+                )
+            if ch["high_limit"] is not None:
+                c_d["max"] = float(
+                    round(decimal.Decimal(to_signed(ch["high_limit"])) / 10, 2)
+                )
+            for name in "dac_scale dac_offset".split():
+                if ch[name] is not None:
+                    c_d[name] = ch[name]
+            r_d["channels"].append(c_d)
+        d_i["interlocks"].append(r_d)
+
+    return yaml.dump(d_i, default_flow_style=False, sort_keys=False)
 
 
 def _interlock_relay_info(
@@ -793,8 +828,10 @@ def interlock_compare(int_list_1, int_list_2):
                         val1 = to_signed(val1)
                     if isinstance(val2, (int, float)):
                         val2 = to_signed(val2)
+                    scale1 = ch1["type"]["scale"]
+                    scale2 = ch2["type"]["scale"]
                     messages.append(
-                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1} != {val2}"
+                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1/scale1} != {val2/scale2}"
                     )
             if wchmask(ch1["flags"]) != wchmask(ch2["flags"]):
                 messages.append(
@@ -813,14 +850,7 @@ def interlock_download(
     """
     log_info(wago, f"Checking interlock on Wago")
 
-    free_inst, available_inst, _ = wago.devwccomm(
-        (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
-    )
-    registered_inst = available_inst - free_inst
-    log_debug(
-        wago,
-        f"Wago interlock instances: registered={registered_inst} free={free_inst}, available={available_inst}",
-    )
+    registered_inst, available_inst, free_inst = interlock_memory(wago)
 
     interlock_list = []  # list containing all interlock dictionaries
 
@@ -893,6 +923,26 @@ def interlock_download(
     return interlock_list
 
 
+def interlock_state(wago: Union[TangoWago, WagoController]):
+    log_info(wago, f"Checking interlock state on Wago")
+    registered_inst, available_inst, free_inst = interlock_memory(wago)
+
+    state_list = []
+
+    for i in range(1, registered_inst + 1):
+        # getting state of relay
+        state_flags, value = wago.devwccomm((COMMANDS["ILCK_GETSTAT"], i))
+        state = InterlockState(
+            is_tripped(state_flags),
+            is_alarm(state_flags),
+            is_cfgerr(state_flags),
+            is_hdwerr(state_flags),
+        )
+
+        state_list.append(state)
+    return state_list
+
+
 def interlock_purge(wago: Union[TangoWago, WagoController]):
     """Purges all interlocks available into a PLC"""
     log_info(wago, f"Interlock: Uploading interlock on Wago")
@@ -958,6 +1008,19 @@ def interlock_upload(wago: Union[TangoWago, WagoController], interlock_list: lis
                 log_error(wago, f"ILCK_ADDCHAN {params} should give {offset+1}")
                 #raise RuntimeError(f"Wrong response from Wago Interlock {response}")
                 """
+
+
+def interlock_memory(wago):
+    free_inst, available_inst, _ = wago.devwccomm(
+        (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])
+    )
+    registered_inst = available_inst - free_inst
+
+    log_debug(
+        wago,
+        f"Wago interlock instances: registered={registered_inst} free={free_inst}, available={available_inst}",
+    )
+    return registered_inst, available_inst, free_inst
 
 
 def interlock_reset(wago, instance_n):

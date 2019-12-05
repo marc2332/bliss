@@ -81,21 +81,20 @@ class PI_E517(PI_E51X):
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
                 _ch,
                 _ch,
-                self.low_limit,
+                self.__axis_low_limit[axis],
                 _ch,
-                self.high_limit,
+                self.__axis_high_limit[axis],
                 _ch,
             )
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
                 _ch,
                 _ch,
-                self.low_limit,
+                self.__axis_low_limit[axis],
                 _ch,
-                self.high_limit,
+                self.__axis_high_limit[axis],
                 _ch,
             )
 
         log_debug(self, "set_gate :  _cmd = %s" % _cmd)
-
         self.send_no_ans(axis, _cmd)

@@ -1,8 +1,12 @@
+import gevent
 import numpy
+import contextlib
+
+import bliss
 from bliss.common import plot
 from bliss.common.plot import get_flint
 from bliss.common.scans import plotselect
-from bliss.scanning.scan import Scan
+from bliss.scanning.scan import Scan, ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
@@ -52,3 +56,44 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
     scan.run()
     p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
     assert isinstance(p, plot.ImagePlot)
+
+
+@contextlib.contextmanager
+def use_shell_command_with_flint():
+    scan_display = ScanDisplay()
+    old_auto = scan_display.auto
+    old_motor_position = scan_display.motor_position
+    old_shell = bliss.is_bliss_shell()
+    bliss.set_bliss_shell_mode(True)
+    scan_display.auto = True
+    scan_display.motor_position = True
+    try:
+        yield
+    finally:
+        bliss.set_bliss_shell_mode(old_shell)
+        scan_display.auto = old_auto
+        scan_display.motor_position = old_motor_position
+
+
+def test_motor_position_in_plot(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    flint = get_flint()
+    import logging
+
+    l = logging.getLogger("flint.output")
+    l.disabled = False
+    l.setLevel(logging.INFO)
+
+    plotselect(diode)
+    scan = ascan(roby, 0, 5, 5, 0.001, diode)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    # display the motor destination to flint
+    with use_shell_command_with_flint():
+        scan.goto_cen(diode)
+    gevent.sleep(1)

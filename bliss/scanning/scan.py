@@ -22,9 +22,17 @@ from bliss import setup_globals, current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common.plot import get_flint, check_flint, CurvePlot, ImagePlot
+from bliss.common.plot import (
+    get_flint,
+    check_flint,
+    CurvePlot,
+    ImagePlot,
+    ScatterPlot,
+    McaPlot,
+)
 from bliss.common.utils import periodic_exec, deep_update
 from .scan_meta import get_user_scan_meta
+from bliss.common.axis import Axis
 from bliss.common.utils import Statistics, Null
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
@@ -112,7 +120,7 @@ class DataWatchCallback:
         """
         raise NotImplementedError
 
-    def on_scan_end(scan_info):
+    def on_scan_end(self, scan_info):
         """
         Called at the end of the scan.
         """
@@ -776,8 +784,23 @@ def display_motor(func):
             and scan_display_params.auto
             and scan_display_params.motor_position
         ):
-            p = self.get_plot(axis)
-            p.qt.addXMarker(axis.position, legend=axis.name, text=axis.name)
+            channel_name = self.get_channel_name(axis)
+            if channel_name is None:
+                print(
+                    "The object %s have no obvious channel. Plot marker skiped."
+                    % (axis,)
+                )
+            else:
+                plot = self.get_plot(axis, plot_type="curve", as_axes=True)
+                if plot is None:
+                    print(
+                        "There is no plot using %s as X-axes. Plot marker skiped."
+                        % (channel_name,)
+                    )
+                else:
+                    plot.update_motor_marker(
+                        channel_name, axis.position, text=axis.name
+                    )
 
     return f
 
@@ -1445,7 +1468,22 @@ class Scan:
 
         return None
 
-    def get_plot(self, channel_item, plot_type, wait=False):
+    def get_channel_name(self, channel_item):
+        """Return a channel name from a bliss object, else None
+
+        If you are lucky the result is what you expect.
+
+        Argument:
+            channel_item: A bliss object which could have a channel during a scan.
+
+        Return:
+            A channel name identifying this object in scan data acquisition
+        """
+        if isinstance(channel_item, Axis):
+            return "axis:%s" % channel_item.name
+        return channel_item.fullname
+
+    def get_plot(self, channel_item, plot_type, as_axes=False, wait=False):
         """Return the first plot object of type 'plot_type' showing the
         'channel_item' from Flint live scan view.
 
@@ -1454,25 +1492,38 @@ class Scan:
             plot_type: can be "image", "curve", "scatter", "mca"
 
         Keyword argument:
+            as_axes (defaults to False): If true, reach a plot with this channel as
+                X-axes (curves ans scatters), or Y-axes (scatter)
             wait (defaults to False): wait for plot to be shown
+
+        Return:
+            The expected plot, else None
         """
         # check that flint is running
         if not check_flint(current_session.name):
-            return
+            return None
 
         flint = get_flint()
         if wait:
             flint.wait_end_of_scans()
         try:
-            plot_id = flint.get_live_scan_plot(channel_item.fullname, plot_type)
-        except IndexError:
-            return
-        if plot_type == "0d":
+            channel_name = self.get_channel_name(channel_item)
+            if channel_name is None:
+                return None
+            plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
+        except Exception:
+            return None
+
+        if plot_type == "curve":
             return CurvePlot(existing_id=plot_id)
-        elif plot_type == "1d":
-            return CurvePlot(existing_id=plot_id)
-        else:
+        elif plot_type == "scatter":
+            return ScatterPlot(existing_id=plot_id)
+        elif plot_type == "mca":
+            return McaPlot(existing_id=plot_id)
+        elif plot_type == "image":
             return ImagePlot(existing_id=plot_id)
+        else:
+            assert False
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"

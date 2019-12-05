@@ -204,6 +204,13 @@ class ChannelRef(qt.QObject):
     def __setstate__(self, state):
         self.__channelName = state[0]
 
+    def channel(self, scan: Optional[scan_model.Scan]) -> Optional[scan_model.Channel]:
+        """Returns the referenced channel in this scan, else None."""
+        if scan is None:
+            return None
+        channel = scan.getChannelByName(self.__channelName)
+        return channel
+
     def displayName(self, scan: Optional[scan_model.Scan]) -> str:
         """Returns the best short name available."""
         if scan is not None:

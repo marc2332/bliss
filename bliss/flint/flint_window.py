@@ -120,6 +120,14 @@ class FlintWindow(qt.QMainWindow):
 
         About.about(self, "Flint")
 
+    def setFocusOnLiveScan(self):
+        self.__tabs.setCurrentIndex(0)
+
+    def setFocusOnPlot(self, plot: qt.QWidget):
+        i = self.__tabs.indexOf(plot)
+        if i >= 0:
+            self.__tabs.setCurrentIndex(i)
+
     def createTab(self, label, widgetClass=qt.QWidget):
         # FIXME: The parent have to be set
         widget = widgetClass()

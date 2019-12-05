@@ -286,7 +286,8 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
-    def _get_plot_widget(self, plot_id, expect_silx_api=True):
+    def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
+        # FIXME: Refactor it, it starts to be ugly
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
             workspace = self.__flintModel.workspace()
             try:
@@ -312,6 +313,8 @@ class FlintApi:
                 f"The widget associated to '{plot_id}' only provides a silx API"
             )
 
+        if custom_plot:
+            return self._custom_plots[plot_id]
         return self._custom_plots[plot_id].plot
 
     # User interaction
@@ -331,16 +334,25 @@ class FlintApi:
         Return:
             A list of shape describing the selection
         """
-        plot = self._get_plot_widget(plot_id)
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+        if isinstance(custom_plot, CustomPlot):
+            plot = custom_plot.plot
+            # Set the focus as an user input is requested
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnPlot(custom_plot.tab)
+        else:
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnLiveScan()
+            plot = custom_plot
+
         dock = self._create_roi_dock_widget(plot, initial_shapes)
-        roi_widget = dock.widget()
-        done_event = gevent.event.AsyncResult()
-
-        roi_widget.selectionFinished.connect(
-            functools.partial(self._selection_finished, done_event=done_event)
-        )
-
         try:
+            roi_widget = dock.widget()
+            done_event = gevent.event.AsyncResult()
+
+            roi_widget.selectionFinished.connect(
+                functools.partial(self._selection_finished, done_event=done_event)
+            )
             return done_event.get(timeout=timeout)
         finally:
             plot.removeDockWidget(dock)
@@ -379,8 +391,13 @@ class FlintApi:
 
     def _selection(self, plot_id, cls, *args):
         # Instanciate selector
-        plot = self._get_plot_widget(plot_id)
-        selector = cls(plot)
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+
+        # Set the focus as an user input is requested
+        window = self.__flintModel.mainWindow()
+        window.setFocusOnPlot(custom_plot.tab)
+
+        selector = cls(custom_plot.plot)
         # Save it for future cleanup
         self.selector_dict[plot_id].append(selector)
         # Run the selection

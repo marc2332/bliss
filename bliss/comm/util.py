@@ -33,6 +33,11 @@ TCP, SERIAL, GPIB, UDP, MODBUSTCP, TANGO = (
 )
 
 
+def check_tango_fqdn(fqdn):
+    fqdn_re = r"^((?P<protocol>tango)://)?((?P<host>[^:/ ]+)(:(?P<port>[0-9]+))/)?(?P<domain>[a-zA-Z0-9_-]+)/(?P<family>[a-zA-Z0-9_-]+)/(?P<member>[a-zA-Z0-9_-]+)$"
+    return re.match(fqdn_re, fqdn)
+
+
 def get_interface(*args, **kwargs):
     """
     Create a communication interface from args, kwargs.
@@ -234,14 +239,7 @@ def get_comm(config, ctype=None, **opts):
         timeout = config.get("timeout")
         if timeout is not None:
             opts["timeout"] = timeout
-        protocols_list = ["tango"]  # if needed add more protocols here
-        pr = "|".join(protocols_list)
-        m = re.match(
-            r"^((?P<protocol>"
-            + pr
-            + r")://)?(?P<host>[^:/ ]+)?(:(?P<port>[0-9]+)/)?(?P<domain>[a-z0-9_-]+)/(?P<family>[a-z0-9_-]+)/(?P<member>[a-z0-9_-]+)$",
-            url,
-        )
+        m = check_tango_fqdn(url)
         if not m:
             raise RuntimeError(
                 f"The given Tango url {url} is not compliant with Tango FQDN"

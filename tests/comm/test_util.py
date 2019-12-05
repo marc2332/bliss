@@ -7,7 +7,7 @@
 
 import pytest
 
-from bliss.comm.util import get_comm, get_comm_type, TCP, GPIB, SERIAL
+from bliss.comm.util import get_comm, get_comm_type, TCP, GPIB, SERIAL, check_tango_fqdn
 
 
 def test_get_comm_type():
@@ -76,3 +76,12 @@ def test_get_comm_gpib(server_port):
     gpib = get_comm(config)
     assert gpib.gpib_type == gpib.GpibType.PROLOGIX
     gpib.open()
+
+
+def test_tango_fqdn():
+    assert check_tango_fqdn("12/123/as") is not None
+    assert check_tango_fqdn("tango://lid21nano:20000/ID21/wcid21d/tg") is not None
+    assert check_tango_fqdn("tango://ID21/wcid21d/tg") is not None
+    assert check_tango_fqdn("tango://HOST/ID21/wcid21d/tg") is None
+    assert check_tango_fqdn("HOST/ID21/wcid21d/tg") is None
+    assert check_tango_fqdn("tango://20000/ID21/wcid21d/tg") is None

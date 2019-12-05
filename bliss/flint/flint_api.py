@@ -40,9 +40,9 @@ class MultiplexStreamToSocket(TextIO):
         self.__sockets = []
         self.__stream = stream_output
 
-    def write(self, message):
+    def write(self, s):
         if len(self.__sockets) > 0:
-            data = message.encode("utf-8")
+            data = s.encode("utf-8")
             sockets = list(self.__sockets)
             for socket in sockets:
                 try:
@@ -50,7 +50,7 @@ class MultiplexStreamToSocket(TextIO):
                 except:
                     _logger.debug("Error while sending output", exc_info=True)
                     self.__sockets.remove(socket)
-        self.__stream.write(message)
+        self.__stream.write(s)
 
     def flush(self):
         self.__stream.flush()

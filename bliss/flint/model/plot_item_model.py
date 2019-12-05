@@ -515,3 +515,46 @@ class ScatterItem(plot_model.Item):
             return None
         array = channel.array(scan)
         return array
+
+
+class MotorPositionMarker(plot_model.Item):
+    """Define a location of a motor in a plot.
+
+    This item is only displayable when the plot uses its motor
+    axis as the plot axis
+    """
+
+    def __init__(self, parent: plot_model.Plot = None):
+        super(MotorPositionMarker, self).__init__(parent=parent)
+        self.__motor: Optional[plot_model.ChannelRef] = None
+        self.__position: Optional[float] = None
+        self.__text: Optional[str] = None
+
+    def isValid(self):
+        return (
+            self.__motor is not None
+            and self.__position is not None
+            and self.__text is not None
+        )
+
+    def initProperties(self, ref: plot_model.ChannelRef, position: float, text: str):
+        """Define object properties just after construction
+
+        This object is not supposed to be mutable. This avoid to define boilerplat and events
+        """
+        assert self.__motor is None
+        self.__motor = ref
+        self.__position = position
+        self.__text = text
+
+    def motorChannel(self) -> Optional[plot_model.ChannelRef]:
+        """Returns the channel reference identifying this motor"""
+        return self.__motor
+
+    def position(self) -> Optional[float]:
+        """Returns the position of the y-axis in which the statistic have to be displayed"""
+        return self.__position
+
+    def text(self) -> Optional[str]:
+        """Returns the name of the y-axis in which the statistic have to be displayed"""
+        return self.__text

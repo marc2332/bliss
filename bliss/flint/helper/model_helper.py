@@ -341,6 +341,28 @@ def getChannelNamesDisplayedAsValue(plot: plot_model.Plot) -> List[str]:
     return names
 
 
+def isChannelUsedAsAxes(plot: plot_model.Plot, channel: scan_model.Channel):
+    channel_name = channel.name()
+    for item in plot.items():
+        if isinstance(item, plot_item_model.CurveItem):
+            channel = item.xChannel()
+            if channel is None:
+                continue
+            if channel.name() == channel_name:
+                return True
+        elif isinstance(item, plot_item_model.ScatterItem):
+            channel = item.xChannel()
+            if channel is not None:
+                if channel.name() == channel_name:
+                    return True
+            channel = item.yChannel()
+            if channel is not None:
+                if channel.name() == channel_name:
+                    return True
+
+    return False
+
+
 def isChannelDisplayedAsValue(plot: plot_model.Plot, channel: scan_model.Channel):
     channel_name = channel.name()
     for item in plot.items():
@@ -356,13 +378,13 @@ def isChannelDisplayedAsValue(plot: plot_model.Plot, channel: scan_model.Channel
                 continue
             if channel.name() == channel_name:
                 return True
-        if isinstance(item, plot_item_model.ScatterItem):
+        elif isinstance(item, plot_item_model.ScatterItem):
             channel = item.valueChannel()
             if channel is None:
                 continue
             if channel.name() == channel_name:
                 return True
-        if isinstance(item, plot_item_model.ImageItem):
+        elif isinstance(item, plot_item_model.ImageItem):
             channel = item.imageChannel()
             if channel is None:
                 continue

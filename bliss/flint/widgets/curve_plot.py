@@ -23,6 +23,7 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 
 
@@ -53,6 +54,8 @@ class CurvePlotWidget(ExtendedDockWidget):
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
+        self.__syncAxisItems = signalutils.InvalidatableSignal(self)
+        self.__syncAxisItems.triggered.connect(self.__updateAxesItems)
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -104,6 +107,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             self.__plotWasUpdated = False
             self.__plot.resetZoom()
         self.__syncAxisTitle.trigger()
+        self.__syncAxisItems.trigger()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -117,6 +121,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
+            self.__syncAxisItems.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
@@ -149,6 +154,19 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.getXAxis().setLabel(xLabel)
         self.__plot.getYAxis(axis="left").setLabel(y1Label)
         self.__plot.getYAxis(axis="right").setLabel(y2Label)
+
+    def __updateAxesItems(self):
+        """Update items which have relation with the X axis"""
+        scan = self.__scan
+        if scan is None:
+            return
+        plotModel = self.__plotModel
+        if plotModel is None:
+            return
+        for item in plotModel.items():
+            # FIXME: Use a better abstract concept for that
+            if isinstance(item, plot_item_model.MotorPositionMarker):
+                self.__updatePlotItem(item, scan)
 
     def __currentScanChanged(
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan
@@ -390,6 +408,23 @@ class CurvePlotWidget(ExtendedDockWidget):
                             color=style.lineColor,
                         )
                         plotItems.append((key, "marker"))
+                else:
+                    self.__cleanScanItem(item, scan)
+
+        elif isinstance(item, plot_item_model.MotorPositionMarker):
+            if item.isValid():
+                model = self.__plotModel
+                if model_helper.isChannelUsedAsAxes(
+                    model, item.motorChannel().channel(scan)
+                ):
+                    legend = str(item) + "/" + str(scan)
+                    key = plot.addXMarker(
+                        legend=legend + "_text",
+                        x=item.position(),
+                        text=item.text(),
+                        color="black",
+                    )
+                    plotItems.append((key, "marker"))
                 else:
                     self.__cleanScanItem(item, scan)
 

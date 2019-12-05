@@ -449,27 +449,6 @@ def reset_flint():
     FLINT["greenlet"] = None
 
 
-# Simple Qt interface
-
-
-class QtInterface(object):
-    """Isolate the qt interface of the plot windows
-    from the flint interface."""
-
-    def __init__(self, interface, submit):
-        for key in interface:
-            wrapper = self._make_wrapper(submit, key)
-            setattr(self, key, wrapper)
-
-    @staticmethod
-    def _make_wrapper(submit, key):
-        def wrapper(*args, **kwargs):
-            return submit(key, *args, **kwargs)
-
-        wrapper.__name__ = key
-        return wrapper
-
-
 # Base plot class
 
 
@@ -501,10 +480,6 @@ class BasePlot(object):
             self._plot_id = self._flint.add_plot(self.WIDGET, name)
         else:
             self._plot_id = existing_id
-
-        # Create qt interface
-        interface = self._flint.get_interface(self._plot_id)
-        self.qt = QtInterface(interface, self.submit)
 
     def __repr__(self):
         return "{}(plot_id={!r}, flint_pid={!r}, name={!r})".format(
@@ -655,6 +630,10 @@ class CurvePlot(BasePlot):
             if field != x_field:
                 self.select_data(x_field, field, **kwargs)
 
+    def update_motor_marker(self, channel_name, position: float, text: str):
+        """Mark the location of this motor in this plot"""
+        self._flint.update_motor_marker(self._plot_id, channel_name, position, text)
+
 
 class ScatterPlot(BasePlot):
 
@@ -672,6 +651,10 @@ class ScatterPlot(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 3
+
+
+class McaPlot(BasePlot):
+    pass
 
 
 class CurveListPlot(BasePlot):

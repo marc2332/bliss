@@ -25,6 +25,7 @@ from silx.gui.plot.items.roi import RectangleROI
 from bliss.flint.interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
+from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 
@@ -118,7 +119,7 @@ class FlintApi:
             return None
         return data.array()
 
-    def get_live_scan_plot(self, channel_name, plot_type):
+    def get_live_scan_plot(self, channel_name, plot_type, as_axes=False):
         assert plot_type in ["scatter", "image", "curve", "mca"]
 
         plot_class = {
@@ -145,7 +146,11 @@ class FlintApi:
                 continue
             if not isinstance(plot, plot_class):
                 continue
-            if model_helper.isChannelDisplayedAsValue(plot, channel):
+            if as_axes:
+                found = model_helper.isChannelUsedAsAxes(plot, channel)
+            else:
+                found = model_helper.isChannelDisplayedAsValue(plot, channel)
+            if found:
                 return f"live:{iwidget}"
 
         # FIXME: Here we could create a specific plot
@@ -220,6 +225,25 @@ class FlintApi:
 
     # Data management
 
+    def update_motor_marker(
+        self, plot_id, channel_name: str, position: float, text: str
+    ):
+        plot = self._get_plot_widget(plot_id, expect_silx_api=False)
+        model = plot.plotModel()
+        if model is None:
+            raise Exception("No model linked to this plot")
+
+        with model.transaction():
+            # Clean up previous items
+            for i in list(model.items()):
+                if isinstance(i, plot_item_model.MotorPositionMarker):
+                    model.removeItem(i)
+            # Create the new indicator
+            item = plot_item_model.MotorPositionMarker(model)
+            ref = plot_model.ChannelRef(item, channel_name)
+            item.initProperties(ref, position, text)
+            model.addItem(item)
+
     def update_data(self, plot_id, field, data):
         self.data_dict[plot_id][field] = data
 
@@ -253,7 +277,7 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
-    def _get_plot_widget(self, plot_id):
+    def _get_plot_widget(self, plot_id, expect_silx_api=True):
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
             workspace = self.__flintModel.workspace()
             try:
@@ -266,11 +290,18 @@ class FlintApi:
             if iwidget >= len(widgets):
                 raise ValueError(f"'{plot_id}' is not anymore available")
             widget = widgets[iwidget]
+            if not expect_silx_api:
+                return widget
             if not hasattr(widget, "_silxPlot"):
                 raise ValueError(
                     f"The widget associated to '{plot_id}' do not provide a silx API"
                 )
             return widget._silxPlot()
+
+        if not expect_silx_api:
+            raise ValueError(
+                f"The widget associated to '{plot_id}' only provides a silx API"
+            )
 
         return self.plot_dict[plot_id]
 

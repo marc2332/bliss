@@ -44,12 +44,12 @@ class MultiplexStreamToSocket(TextIO):
         if len(self.__sockets) > 0:
             data = s.encode("utf-8")
             sockets = list(self.__sockets)
-            for socket in sockets:
+            for sock in sockets:
                 try:
-                    socket.send(data)
+                    sock.send(data)
                 except:
                     _logger.debug("Error while sending output", exc_info=True)
-                    self.__sockets.remove(socket)
+                    self.__sockets.remove(sock)
         self.__stream.write(s)
 
     def flush(self):

@@ -66,28 +66,31 @@ from bliss.scanning.chain import AcquisitionSlave
 class EmhAcquisitionSlave(AcquisitionSlave):
     """ TO BE USED IN HARDWARE TRIGGERED MODE ONLY """
 
-    def __init__(self, emh, trigger=None, int_time=None, npoints=1, ctrl_params=None):
+    def __init__(
+        self, *devices, trigger=None, int_time=None, npoints=1, ctrl_params=None
+    ):
         """ Acquisition device for EMH counters.
+            *devices could be: the emh controller or the emh counters
         """
 
-        validate_params(
+        acq_params = self.validate_params(
             {"trigger": trigger, "int_time": int_time, "npoints": npoints},
             ctrl_params=ctrl_params,
         )
 
         AcquisitionSlave.__init__(
             self,
-            emh,
-            name=emh.name,
-            npoints=npoints,
+            *devices,
+            # name=emh.name,
+            npoints=acq_params["npoints"],
             trigger_type=AcquisitionSlave.HARDWARE,
             ctrl_params=ctrl_params,
         )
 
-        self.trigger = trigger
+        self.trigger = acq_params["trigger"]
         # print("TRIGGER %s" % self.trigger)
 
-        int_time = int_time - 0.4
+        int_time = acq_params["int_time"] - 0.4
         if int_time < 0.320:
             int_time = 0.320
         self.int_time = int_time

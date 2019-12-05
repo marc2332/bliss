@@ -45,13 +45,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         # workaround to update ctrl params fefore validation
         self._init_ctrl_params(ctrl_params)
 
-        params = self.validate_params(acq_params, ctrl_params)
-
-        self.acq_params = params["acq_params"]
-        ctrl_params = params["ctrl_params"]
+        self.acq_params = self.validate_params(acq_params, ctrl_params)
 
         # if acq_params.get("wait_frame_id") is None:
-        if self.acq_params.get("wait_frame_id") is None:
+        if self.acq_params["wait_frame_id"] is None:
             # acq_params["wait_frame_id"] = [self.acq_params["acq_nb_frames"] - 1]
             self.acq_params["wait_frame_id"] = range(self.acq_params["acq_nb_frames"])
 

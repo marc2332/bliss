@@ -290,7 +290,7 @@ class AcquisitionObject:
         validator = BlissValidator(cls.get_param_validation_schema())
 
         if validator(params):
-            return validator.normalized(params)
+            return validator.normalized(params)["acq_params"]
         else:
             raise RuntimeError(str(validator.errors))
 

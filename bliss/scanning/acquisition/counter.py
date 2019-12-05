@@ -33,6 +33,13 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
         ctrl_params=None,
     ):
 
+        acq_params = self.validate_params(
+            {"count_time": count_time, "npoints": npoints}
+        )
+
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
         super().__init__(
             *counters,
             npoints=npoints,
@@ -44,6 +51,16 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
 
         self.__count_time = count_time
         self._nb_acq_points = 0
+
+    @staticmethod
+    def get_param_validation_schema():
+        acq_params_schema = {
+            "count_time": {"type": "number"},
+            "npoints": {"type": "number"},
+        }
+
+        schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}
+        return schema
 
     @property
     def count_time(self):
@@ -439,11 +456,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     def __init__(self, *counters, ctrl_params=None, count_time=None, npoints=1):
 
-        params = self.validate_params({"count_time": count_time, "npoints": npoints})
-
-        count_time = params["acq_params"]["count_time"]
-        npoints = params["acq_params"]["npoints"]
-
         super().__init__(
             *counters,
             count_time=count_time,
@@ -452,16 +464,6 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             start_once=False,
             ctrl_params=ctrl_params,
         )
-
-    @staticmethod
-    def get_param_validation_schema():
-        acq_params_schema = {
-            "count_time": {"type": "number"},
-            "npoints": {"type": "number"},
-        }
-
-        schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}
-        return schema
 
     @AcquisitionObject.parent.setter
     def parent(self, p):

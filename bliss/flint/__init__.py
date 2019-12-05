@@ -29,8 +29,8 @@ scan processing.
         helper.style_helper
     resources
     simulator
-        acquisition
-        simulator_widget
+        simulator.acquisition
+        simulator.simulator_widget
     utils
         utils.mathutils
         utils.signalutils

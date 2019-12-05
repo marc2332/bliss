@@ -8,12 +8,11 @@
 
 import functools
 
-from bliss.common import measurementgroup
 from bliss.common.measurementgroup import (
+    get_active as get_active_mg,
     _get_counters_from_measurement_group,
     _get_counters_from_object,
 )
-
 from bliss.common.counter import CalcCounter, Counter
 from bliss.controllers.counter import CalcCounterController, CounterController
 from bliss.scanning.chain import AcquisitionChain
@@ -21,13 +20,6 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
 def get_all_counters(counter_args):
-    # Use active MG if no counter is provided
-    if not counter_args:
-        active = measurementgroup.get_active()
-        if active is None:
-            raise ValueError("No measurement group is currently active")
-        counter_args = [active]
-
     # Initialize
     all_counters, missing = [], []
 
@@ -83,7 +75,10 @@ class ChainBuilder:
             The list is sorted from the less dependent counter to the most dependent counter (see CalcCounters).
             Duplicated counters are removed.
         """
-
+        if not counters:
+            active_mg = get_active_mg()
+            if active_mg:
+                counters = [active_mg]
         # print(f"=== counters: {counters}")
 
         # --- counters = [MG, cnt, ctrl, cnt_grp]

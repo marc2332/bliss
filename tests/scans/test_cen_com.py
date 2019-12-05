@@ -13,6 +13,7 @@ from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 from bliss.shell.standard import plotselect
 
+
 def test_pkcom_ascan_gauss(session):
 
     roby = getattr(setup_globals, "roby")

@@ -15,6 +15,8 @@ from bliss.controllers.wago.interlocks import (
     interlock_parse_channel_line,
 )
 
+from bliss.common.scans import ct
+
 
 def test_parse_mapping_str():
     mapping_str = """
@@ -306,7 +308,9 @@ def test_wago_counters(default_session, wago_mockup):
     """
     wago = default_session.config.get("wago_simulator")
     assert len(wago.counters) == 2
-    assert type(wago.esTr1.read()) == type(0.0)
+    sc = ct(0.01, wago.esTr1)
+    value = float(sc.get_data()[wago.esTr1.name][0])
+    assert type(value) == type(0.0)
 
 
 def test_wago_info(capsys, default_session, wago_mockup):

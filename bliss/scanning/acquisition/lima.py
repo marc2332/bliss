@@ -256,13 +256,24 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return
 
         if self._image_channel:
+
             self._image_channel.description.update(
-                {
-                    "saving_format": self.ctrl_params["saving_format"],
-                    "saving_frame_per_file": self.ctrl_params["saving_frame_per_file"],
-                    "saving_suffix": self.ctrl_params["saving_suffix"],
-                }
+                {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
             )
+
+            if self.acq_params["saving_mode"] != "MANUAL":
+                self._image_channel.description.update(
+                    {
+                        "saving_format": self.ctrl_params["saving_format"],
+                        "saving_frame_per_file": self.ctrl_params[
+                            "saving_frame_per_file"
+                        ],
+                        "saving_suffix": self.ctrl_params["saving_suffix"],
+                        "saving_mode": self.acq_params["saving_mode"],
+                        "saving_directory": self.acq_params["saving_directory"],
+                        "saving_prefix": self.acq_params["saving_prefix"],
+                    }
+                )
 
         for param_name, param_value in self.acq_params.items():
             if not (param_value is None):

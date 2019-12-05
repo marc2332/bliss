@@ -279,7 +279,7 @@ def test_default_chain_with_lima_defaults_parameters(default_session, lima_simul
         assert nodes[3].parent == nodes[1]
         assert nodes[1].parent == timer
 
-        assert nodes[1].parameters.get("acq_trigger_mode") == "EXTERNAL_GATE"
+        assert nodes[1].acq_params.get("acq_trigger_mode") == "EXTERNAL_GATE"
     finally:
         lima_sim.roi_counters.clear()
         DEFAULT_CHAIN.set_settings([])

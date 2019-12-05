@@ -65,7 +65,10 @@ nav:
                       - Tango attribute counters: config_tac.md
                       - Nano-BPM: config_nano_bpm.md
                       - Shutters, FE and Valves: config_shutter.md
-                      - Wagos: config_wago.md
+                      - Wagos:
+                            - config_wago.md
+                            - config_wago_group.md
+                            - config_wago_interlock.md
                       - Transfocators: config_transfocator.md
                       - Actuators: config_actuator.md
                       - Undulators: config_undulator.md

@@ -12,6 +12,7 @@ from typing import Tuple
 from typing import Sequence
 from typing import List
 from typing import TextIO
+from typing import NamedTuple
 
 import sys
 import socket
@@ -35,6 +36,14 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
+
+
+class CustomPlot(NamedTuple):
+    """Store information to a plot created remotly and providing silx API."""
+
+    plot: qt.QWidget
+    tab: qt.QWidget
+    title: str
 
 
 class MultiplexStreamToSocket(TextIO):
@@ -72,9 +81,8 @@ class FlintApi:
 
     def __init__(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
-        # FIXME: plot_dict should be owned by flint model or window
-        self.plot_dict: Dict[object, qt.QWidget] = {}
-        self.plot_title: Dict[object, str] = {}
+        # FIXME: _custom_plots should be owned by flint model or window
+        self._custom_plots: Dict[object, CustomPlot] = {}
         self.data_event = collections.defaultdict(dict)
         self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
@@ -195,21 +203,19 @@ class FlintApi:
         qt.QVBoxLayout(new_tab_widget)
         cls = getattr(silx_plot, cls_name)
         plot = cls(new_tab_widget)
-        self.plot_dict[plot_id] = plot
-        self.plot_title[plot_id] = name
+        self._custom_plots[plot_id] = CustomPlot(plot, new_tab_widget, name)
         new_tab_widget.layout().addWidget(plot)
         plot.show()
         return plot_id
 
     def get_plot_name(self, plot_id):
-        return self.plot_title[plot_id]
+        return self._custom_plots[plot_id].title
 
     def remove_plot(self, plot_id):
-        plot = self.plot_dict.pop(plot_id)
-        plotParent = plot.parent()
+        custom_plot = self._custom_plots.pop(plot_id)
         window = self.__flintModel.mainWindow()
-        window.removeTab(plotParent)
-        plot.close()
+        window.removeTab(custom_plot.tab)
+        custom_plot.plot.close()
 
     def get_interface(self, plot_id):
         plot = self._get_plot_widget(plot_id)
@@ -306,7 +312,7 @@ class FlintApi:
                 f"The widget associated to '{plot_id}' only provides a silx API"
             )
 
-        return self.plot_dict[plot_id]
+        return self._custom_plots[plot_id].plot
 
     # User interaction
 

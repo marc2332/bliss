@@ -64,13 +64,11 @@ class MultiplexStreamToSocket(TextIO):
 class FlintApi:
     """Flint interface, meant to be exposed through an RPC server."""
 
-    # FIXME: Everything relative to GUI should be removed in order to only provide
-    # RPC functions
-
     _id_generator = itertools.count()
 
     def __init__(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
+        # FIXME: plot_dict should be owned by flint model or window
         self.plot_dict: Dict[object, qt.QWidget] = {}
         self.plot_title: Dict[object, str] = {}
         self.data_event = collections.defaultdict(dict)

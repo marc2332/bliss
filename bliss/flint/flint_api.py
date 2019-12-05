@@ -193,6 +193,26 @@ class FlintApi:
         stream.write("%s\n" % msg)
         stream.flush()
 
+    def click_on_plot(self, plot_id, relative_to_center=True, delta=None, delay=None):
+        """Debug purpose function to simulate a mouse click in the center of the
+        plot"""
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        from silx.gui.utils.testutils import QTest
+
+        def later():
+            widget = plot.getWidgetHandle()
+            assert relative_to_center == True
+            rect = qt.QRect(qt.QPoint(0, 0), widget.size())
+            pos = rect.center()
+            if delta is not None:
+                pos = pos + qt.QPoint(delta[0], delta[1])
+            modifier = qt.Qt.KeyboardModifiers()
+            QTest.mouseClick(widget, qt.Qt.LeftButton, modifier, pos)
+
+        if delay is None:
+            delay = 0
+        qt.QTimer.singleShot(delay, later)
+
     # Plot management
 
     def add_plot(self, cls_name, name=None):

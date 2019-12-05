@@ -10,7 +10,7 @@ Use `-h` flag to get help about bliss command line interface:
 
 ```
 % bliss -h
-Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] 
+Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
              [--no-tmux] [--debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
@@ -20,24 +20,24 @@ Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
        bliss --show-sessions-only
 
 Options:
-    -l, --log-level=<log_level>   Log level [default: WARN]
-                                  {CRITICAL; ERROR; INFO; DEBUG; NOTSET}
-    -s, --session=<session_name>  Start with the specified session
-    -v, --version                 Show version and exit
-    -c, --create=<session_name>   Create a new session with the given name
-    -d, --delete=<session_name>   Delete the given session
-    -h, --help                    Show help screen and exit
-    --no-tmux                     Deactivate Tmux usage
-    --debug                       Allow debugging keeping tmux alive after Bliss shell exits  
-    --show-sessions               Display sessions and tree of sub-sessions
-    --show-sessions-only          Display sessions names only
+  -l, --log-level=<log_level>   Log level [default: WARN]
+                                {CRITICAL; ERROR; INFO; DEBUG; NOTSET}
+  -s, --session=<session_name>  Start with the specified session
+  -v, --version                 Show version and exit
+  -c, --create=<session_name>   Create a new session with the given name
+  -d, --delete=<session_name>   Delete the given session
+  -h, --help                    Show help screen and exit
+  --no-tmux                     Deactivate Tmux usage
+  --debug                       Allow debugging: keep tmux alive after shell exit
+  --show-sessions               Display sessions and tree of sub-sessions
+  --show-sessions-only          Display sessions names only
 ```
 
 ### Version
 
 Use `-v` or `--version` option to get the current version of a BLISS installation:
 
-```
+```shell
 % bliss --version
 BLISS version 0.2
 ```
@@ -49,7 +49,7 @@ BLISS version 0.2
 ### Sessions
 Use `-s` to start an existing session:
 
-```
+```shell
 % bliss -s test_session
                    __         __   __
                   |__) |   | /__` /__`
@@ -63,7 +63,7 @@ Copyright (c) ESRF, 2015-2019
 
 Use `--show-sessions` option to get the list of available sessions:
 
-```
+```shell
 % bliss --show-sessions
 Available BLISS sessions are:
   flint
@@ -79,7 +79,7 @@ Other commands are also displaying the available sessions:
 
 Use `--create` or `-c` to create the skeleton of a new session:
 
-```
+```shell
 bliss -c eh1
 % bliss -c eh1
 creating 'eh1' session
@@ -90,14 +90,60 @@ Creating: /.../local/beamline_configuration/sessions/scripts/eh1.py
 
 #### Removing an existing session
 
-`--delete` or `-d` removes an existing session:
+To remove an existing session:
+
+```shell
+--delete or -d
+```
+this removes:
 
 * session YAML file
 * setup file
 * default session script (see above)
 
 
-## Multiple panels (Tmux)
+## Tmux
+
+*Tmux* is a "terminal multiplexer". It creates a server where a BLISS session is
+executed. If the client (graphical terminal for example) is closed or killed,
+the server keeps running. Another client can then reconnect later.
+
+This allows:
+
+* to have multiple *panels* in a terminal (to split inputs and scan outputs)
+* to share the view on a BLISS session (remote control)
+* to keep a session alive even after exiting the graphical terminal where it
+  runs.
+
+
+### To share a session
+
+If a session has been started with *Tmux*, another connection is possible. It must
+be the **same user** and the joining is done in the same way than to start it:
+
+```
+bliss -s <session_name>
+```
+
+If a session is already running but without *Tmux* activated (ie with `--no-tmux`
+flag), an error message is displayed:
+
+```
+********************
+demo is already running on host:pcsht,pid:12858 cmd: **bliss -s demo**
+********************
+```
+
+### To quit Tmux
+
+To close a connection to a BLISS session running with *Tmux* without quiting the
+session, use: `Ctrl-b d`
+
+That is to say: press `Ctrl` and `b` at the same time, then `d` alone.
+
+It should print: `[detached (from session demo)]`
+
+### Multiple panels
 
 The BLISS shell uses *Tmux* to handle multiple **panels**:
 
@@ -105,36 +151,36 @@ The BLISS shell uses *Tmux* to handle multiple **panels**:
   commands and to display majority of answers to commands.
 * The *Scan panel* is used to display output of scans.
 
-This behavior has been introduced in order to avoid the used to be
-flooded by scan outputs.
+This behavior has been introduced in order to avoid the user to be flooded by
+scan outputs.
 
 The `F5` key is used to switch between theses two panels.
 
 
-#### Deactivating Tmux (terminal multiplexer) usage
+### Deactivating Tmux
 
-Use `--no-tmux` to start a Bliss session without the Tmux terminal
-multiplexer. In a Bliss session without Tmux, the scans output won't
+Use `--no-tmux` to start a Bliss session without the *Tmux* terminal
+multiplexer. In a Bliss session without *Tmux*, the scans output won't
 be printed in a separated window and will be shown in the main command
 line window.
 
-```
+```shell
 % bliss -s test_session --no-tmux
 ```
 
-#### Debugging within a Tmux session
+### Debugging within a Tmux session
 
-By default, Tmux session is closed as soon as the Bliss shell exits.
+By default, *Tmux* session is closed as soon as the Bliss shell exits.
 In the case of an exception that forces Bliss shell to exit, the error information is lost.
-In order to force Tmux to remains alive after Bliss shell exits, use the option `--debug`.
+In order to force *Tmux* to stay alive after Bliss shell exits, use the option `--debug`.
 Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of the error and its traceback.
 
-```
+```shell
 % bliss -s test_session --debug
 ```
 
 
-### Mouse and Key bindings in Tmux
+### Mouse and Key bindings
 
 * `MouseButtonLeft`:
     * drag to select area.
@@ -142,6 +188,8 @@ Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of 
     * Paste current selection
 * `MouseButtonRight`:
     * exit copy-mode
+
+* `Ctrl-b d`: Closes the connection without exiting the running BLISS session.
 
 * `Up` or `Ctrl-p`: go one *line* up in history (line per line if multi-line command)
 * `Down` or `Ctrl-n`: go one *line* down in history (line per line if multi-line command)
@@ -184,4 +232,4 @@ Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of 
     * `F5`: switches between *BLISS commands shell* and *scan display panel*
     * `F6`: switches to *paste mode* to paste code from external
       application forcing no automatic indentation.
-
+    * `F7`: Disable typing helper (useful to copy/past code)

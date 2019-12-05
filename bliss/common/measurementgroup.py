@@ -11,22 +11,7 @@ import fnmatch
 from bliss.config import settings
 from bliss import current_session
 from bliss import global_map
-
-
-class _active_mg_proxy(object):
-    def __getattribute__(self, attr):
-        if attr == "__class__":
-            return MeasurementGroup
-        return getattr(get_active(), attr)
-
-    def __setattr__(self, name, value):
-        return setattr(get_active(), name, value)
-
-    def __repr__(self):
-        return repr(get_active())
-
-
-ACTIVE_MG = _active_mg_proxy()
+from bliss.common.proxy import Proxy
 
 
 def get_all():
@@ -34,9 +19,8 @@ def get_all():
     Return a list of all measurement groups found in the global environment.
     Exclude one instance of ACTIVE_MG to avoid to return duplicated ACTIVE_MG.
     """
-    all_mgs = global_map.instance_iter("measurement groups")
     try:
-        return [mg for mg in all_mgs if mg != ACTIVE_MG]
+        return list(global_map.instance_iter("measurement groups"))
     except KeyError:
         # no measurement group has been created yet there is nothing in map
         return []
@@ -85,6 +69,14 @@ def get_active_name():
     session_name = current_session.name
     active_mg_name = settings.SimpleSetting("%s:active_measurementgroup" % session_name)
     return active_mg_name.get()
+
+
+class ActiveMeasurementGroupProxy(Proxy):
+    def __init__(self):
+        super().__init__(get_active)
+
+
+ACTIVE_MG = ActiveMeasurementGroupProxy()
 
 
 def set_active_name(name):

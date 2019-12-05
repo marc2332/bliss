@@ -9,14 +9,10 @@
 Provide a RoiSelectionWidget
 """
 
-import warnings
-
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    from silx.gui import qt
-    from silx.gui.plot.tools.roi import RegionOfInterestManager
-    from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
-    from silx.gui.plot.items.roi import RectangleROI
+from silx.gui import qt
+from silx.gui.plot.tools.roi import RegionOfInterestManager
+from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
+from silx.gui.plot.items.roi import RectangleROI
 
 
 class RoiSelectionWidget(qt.QMainWindow):

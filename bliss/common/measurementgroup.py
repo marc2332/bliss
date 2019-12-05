@@ -59,19 +59,21 @@ def get_active():
     """
     all_mg = get_all()
     name = get_active_name()  # string or None
+
+    # return the MG corresponding to <name>.
+    for mg in all_mg:
+        if name == mg.name:
+            return mg
+    # no MG named <name> or no 'active_measurementgroup'
+    # found in redis: use the first MG found.
     try:
-        # return the MG corresponding to <name>.
-        for mg in all_mg:
-            if name == mg.name:
-                return mg
-        # no MG named <name> or no 'active_measurementgroup'
-        # found in redis: use the first MG found.
-        # nothing in all_mg -> IndexError -> None
         mg = all_mg[0]
+    except IndexError:
+        # nothing in all_mg -> IndexError -> None
+        return None
+    else:
         set_active_name(mg.name)
         return mg
-    except IndexError:
-        return None
 
 
 def get_active_name():

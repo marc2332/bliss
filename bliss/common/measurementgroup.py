@@ -294,7 +294,7 @@ class MeasurementGroup:
     @_check_counter_name
     def disable(self, *counter_pattern):
         valid_counters = self.available
-        counter_names = self._get_counter_name(counter_pattern, valid_counters)
+        counter_names = self._get_counter_names(counter_pattern, valid_counters)
         to_disable = set(counter_names)
         disabled = set(self.disabled)
 
@@ -314,7 +314,7 @@ class MeasurementGroup:
     @_check_counter_name
     def enable(self, *counter_pattern):
         valid_counters = self.available
-        counter_names = self._get_counter_name(counter_pattern, valid_counters)
+        counter_names = self._get_counter_names(counter_pattern, valid_counters)
         to_enable = set(counter_names)
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
@@ -376,7 +376,7 @@ class MeasurementGroup:
         self._all_states.set(states_list_new)
 
     @staticmethod
-    def _get_counter_name(counter_pattern, valid_counters):
+    def _get_counter_names(counter_pattern, valid_counters):
         counter_names = list()
         for cnt_pattern in counter_pattern:
             # if in valid_counters, not a pattern

@@ -169,19 +169,6 @@ class SamplingCounter(Counter):
     def statistics(self):
         return self._statistics
 
-    def read(self):
-        """ helper/shortcut to read the counter value outside
-        the context of a scan --> not called in a ct/scan.
-        """
-
-        self.controller.prepare(self)
-        self.controller.start(self)
-        try:
-            value = self.controller.read_all(self)[0]
-            return self.conversion_function(value)
-        finally:
-            self.controller.stop(self)
-
 
 class IntegratingCounter(Counter):
     def __init__(self, name, controller, conversion_function=None, unit=None):
@@ -189,17 +176,6 @@ class IntegratingCounter(Counter):
         super().__init__(
             name, controller, conversion_function=conversion_function, unit=unit
         )
-
-    def get_values(self, from_index=0):
-        """ helper/shortcut to read the counter values (from_index) outside the context of a scan """
-
-        self.controller.prepare(self)
-        self.controller.start(self)
-        try:
-            value = self.controller.get_values(from_index, self)[0]
-            return self.conversion_function(value)
-        finally:
-            self.controller.stop(self)
 
 
 class SoftCounter(SamplingCounter):

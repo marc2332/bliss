@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 from typing import Dict
+from typing import TextIO
 
 import sys
 import socket
@@ -32,7 +33,7 @@ from bliss.flint.model import flint_model
 _logger = logging.getLogger(__name__)
 
 
-class MultiplexStreamToSocket:
+class MultiplexStreamToSocket(TextIO):
     """Multiplex a stream to another stream and sockets"""
 
     def __init__(self, stream_output):

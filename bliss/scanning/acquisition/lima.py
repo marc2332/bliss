@@ -43,15 +43,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         """
 
         # ensure that ctrl-params have been completed
-        ctrl_params = self.init_ctrl_params(ctrl_params)
+        ctrl_params = self.init_ctrl_params(device, ctrl_params)
 
         # !!! warning: validate params requires a completed ctrl_params dict
         self.acq_params = self.validate_params(acq_params, ctrl_params)
-
-        # if acq_params.get("wait_frame_id") is None:
-        if self.acq_params["wait_frame_id"] is None:
-            # acq_params["wait_frame_id"] = [self.acq_params["acq_nb_frames"] - 1]
-            self.acq_params["wait_frame_id"] = range(self.acq_params["acq_nb_frames"])
 
         trigger_type = (
             AcquisitionMaster.SOFTWARE
@@ -59,35 +54,38 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             else AcquisitionMaster.HARDWARE
         )
 
-        # print("====== LIMA ACQ PARS" )
-        # [ print(f"{key}={value}") for key,value in self.acq_params.items() ]
-
         AcquisitionMaster.__init__(
             self,
             device,
             name=device.name,
             npoints=self.acq_params["acq_nb_frames"],
             trigger_type=trigger_type,
-            prepare_once=self.acq_params["prepare_once"],  # .pop("prepare_once"),
-            start_once=self.acq_params["start_once"],  # .pop("start_once"),
+            prepare_once=self.acq_params["prepare_once"],
+            start_once=self.acq_params["start_once"],
             ctrl_params=ctrl_params,
         )
 
         self._lima_controller = device
         self._reading_task = None
         self._image_channel = None
-        self._latency = self.acq_params[
-            "latency_time"
-        ]  # acq_params.get("latency_time")
+        self._latency = self.acq_params["latency_time"]
         self.__last_image_acquired = -1
         self.__sequence_index = 0
         self.__image_status = (False, -1)
         self.__lock = lock.Semaphore()
         self._ready_event = event.Event()
-        self.__wait_frame_id = self.acq_params[
-            "wait_frame_id"
-        ]  # self.acq_params.pop("wait_frame_id")
-        self.__current_wait_frame_id = -1
+
+        wait_frame_id = self.acq_params.pop("wait_frame_id", None)
+        if wait_frame_id is None:
+            tmp = self.acq_params["acq_nb_frames"]
+
+            def wait_frame_id_iter():
+                while True:
+                    yield tmp - 1
+
+            self.__wait_frame_id = wait_frame_id_iter()
+        else:
+            self.__wait_frame_id = wait_frame_id
 
     @staticmethod
     def get_param_validation_schema():

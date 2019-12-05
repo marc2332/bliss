@@ -5,148 +5,19 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import operator
-import functools
-from sortedcontainers import SortedKeyList
 
-from bliss import global_map
+import functools
+
 from bliss.common import measurementgroup
+from bliss.common.measurementgroup import (
+    _get_counters_from_measurement_group,
+    _get_counters_from_object,
+)
 
 from bliss.common.counter import CalcCounter, Counter
 from bliss.controllers.counter import CalcCounterController, CounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-
-
-def _get_counters_from_measurement_group(mg):
-    """Get the counters from a measurement group."""
-    counters, missing = [], []
-    counters_by_names = dict()
-    all_counters_dict = dict()
-
-    all_counters = set(global_map.get_counters_iter())
-    for cnt in all_counters:
-        all_counters_dict[cnt.fullname] = cnt
-        s = counters_by_names.setdefault(cnt.name, set())
-        s.add(cnt)
-    for container in set(global_map.instance_iter("counters")) - all_counters:
-        all_counters_dict[container.name] = container
-
-    keys = SortedKeyList(all_counters_dict)
-    for name in set(mg.enabled):
-        cnts = counters_by_names.get(name)
-        # get counter by name
-        if cnts is not None:
-            # check there is a unique counter with this name
-            if len(cnts) > 1:
-                raise RuntimeError(
-                    f"Several counters may be selected with this {name}\n"
-                    f" change for one of those: {cnts}, in measurement group {mg.name}"
-                )
-            # add counter and continue
-            counters += _get_counters_from_object(cnts.pop(), recursive=False)
-            continue
-
-        # otherwise get counters by their full name
-        index = keys.bisect_key_left(name)
-        try:
-            index_name = keys[index]
-        except IndexError:
-            index -= 1
-            try:
-                index_name = keys[index]
-            except IndexError:
-                missing.append(name)
-                continue
-
-        if index_name == name:
-            counters += _get_counters_from_object(
-                all_counters_dict[name], recursive=False
-            )
-        else:  # match partial names
-            counter_container_name = name.rstrip(":") + ":"
-            # counter container case
-            if index_name.startswith(counter_container_name):
-                for i in range(index, len(keys)):
-                    counters += _get_counters_from_object(
-                        all_counters_dict[index_name], recursive=False
-                    )
-                    index_name = keys[i]
-                    if not index_name.startswith(counter_container_name):
-                        break
-            else:
-                # counter case, finding controller
-                for counter_container_name, access_name in _get_counter_container_name(
-                    name
-                ):
-                    try:
-                        counter_container = all_counters_dict[counter_container_name]
-                    except KeyError:
-                        continue
-
-                    try:
-                        cnts = operator.attrgetter(access_name)(counter_container)
-                    except AttributeError:
-                        continue
-                    try:
-                        counters += cnts
-                    except TypeError:  # Simple counter
-                        counters.append(cnts)
-                    break
-                else:
-                    missing.append(name)
-    if missing:
-        raise AttributeError(*missing)
-    return counters
-
-
-def _get_counter_container_name(name):
-    names = name.split(":")
-    for index in range(-1, -len(names), -1):
-        counter_access_name = ".".join(names[index:])
-        counter_container_name = ":".join(names[:index])
-        # first try to access from `.counters'
-        yield counter_container_name, f"counters.{counter_access_name}"
-        # second, maybe it's a group
-        yield counter_container_name, f"counter_groups.{counter_access_name}"
-
-
-def _get_counters_from_object(arg, recursive=True):
-    """Get the counters from a bliss object (typically a scan function
-    positional counter argument).
-
-    According to issue #251, `arg` can be:
-    - a counter
-    - a counter namepace
-    - a controller, in which case:
-       - controller.groups.default namespace is used if it exists
-       - controller.counters namepace otherwise
-    - a measurementgroup
-    """
-    if isinstance(arg, measurementgroup.MeasurementGroup):
-        if not recursive:
-            raise ValueError("Measurement groups cannot point to other groups")
-        return _get_counters_from_measurement_group(arg)
-    counters = []
-    try:
-        counters = list(arg.counter_groups.default)
-    except AttributeError:
-        try:
-            counters = list(arg.counters)
-
-        except AttributeError:
-            pass
-    if not counters:
-        try:
-            counters = list(arg)
-        except TypeError:
-            counters = [arg]
-    # replace counters with their aliased counterpart, if any
-    for i, cnt in enumerate(counters):
-        alias = global_map.aliases.get_alias(cnt)
-        if alias:
-            counters[i] = global_map.aliases.get(alias)
-    return counters
 
 
 def get_all_counters(counter_args):

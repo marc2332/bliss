@@ -224,6 +224,14 @@ class ChainIterationPreset:
         pass
 
 
+class CompletedCtrlParamsDict(dict):
+    """subclass dict to convay the message to AcqObj 
+    that ctrl_params have already be treated
+    """
+
+    pass
+
+
 def update_ctrl_params(controller, scan_specific_ctrl_params):
     from bliss.controllers.counter import CounterController
 
@@ -232,12 +240,12 @@ def update_ctrl_params(controller, scan_specific_ctrl_params):
         if parameters and type(parameters) == dict:
             parameters = parameters.copy()
             if not scan_specific_ctrl_params:
-                return parameters
+                return CompletedCtrlParamsDict(parameters)
             else:
                 parameters.update(scan_specific_ctrl_params)
-                return parameters
+                return CompletedCtrlParamsDict(parameters)
 
-    return {}
+    return CompletedCtrlParamsDict({})
 
 
 class AcquisitionObject:
@@ -259,20 +267,21 @@ class AcquisitionObject:
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        # self._ctrl_params = None
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
 
-        # workaround to be able to update lima ctrl params before init of base.
-        if not hasattr(self, "_ctrl_params"):
-            self._init_ctrl_params(ctrl_params)
-
-    def _init_ctrl_params(self, ctrl_params):
-        if isinstance(ctrl_params, ChainNode.ChainNodeDict):
-            self._ctrl_params = ctrl_params
+        if not isinstance(ctrl_params, CompletedCtrlParamsDict):
+            self._ctrl_params = self.init_ctrl_params(self.device, ctrl_params)
         else:
-            self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
+            self._ctrl_params = ctrl_params
+
+    def init_ctrl_params(self, device, ctrl_params):
+        """ensure that ctrl-params have been completed"""
+        if isinstance(ctrl_params, CompletedCtrlParamsDict):
+            return ctrl_params
+        else:
+            return update_ctrl_params(device, ctrl_params)
 
     @staticmethod
     def get_param_validation_schema():
@@ -285,6 +294,7 @@ class AcquisitionObject:
         params = {"acq_params": acq_params}
 
         if ctrl_params:
+            assert isinstance(ctrl_params, CompletedCtrlParamsDict)
             params.update({"ctrl_params": ctrl_params})
 
         validator = BlissValidator(cls.get_param_validation_schema())
@@ -1145,13 +1155,6 @@ class AcquisitionChain:
 
 
 class ChainNode:
-    class ChainNodeDict(dict):
-        """subclass dict to convay the message to AcqObj 
-        that ctrl_params have already be treated
-        """
-
-        pass
-
     def __init__(self, controller):
         self._controller = controller
 
@@ -1238,9 +1241,7 @@ class ChainNode:
                 self._ctrl_params = ctrl_params
 
             # --- transform scan specific ctrl_params into full set of ctrl_param
-            self._ctrl_params = self.ChainNodeDict(
-                update_ctrl_params(self.controller, self._ctrl_params)
-            )
+            self._ctrl_params = update_ctrl_params(self.controller, self._ctrl_params)
 
     def add_child(self, chain_node):
         if chain_node not in self._child_nodes:
@@ -1286,7 +1287,7 @@ class ChainNode:
             )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
 
         if self._ctrl_params is None:
-            ctrl_params = self.ChainNodeDict(update_ctrl_params(self.controller, {}))
+            ctrl_params = update_ctrl_params(self.controller, {})
         else:
             ctrl_params = self._ctrl_params
 

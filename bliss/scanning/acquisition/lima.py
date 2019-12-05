@@ -42,9 +42,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
         """
 
-        # workaround to update ctrl params fefore validation
-        self._init_ctrl_params(ctrl_params)
+        # ensure that ctrl-params have been completed
+        ctrl_params = self.init_ctrl_params(ctrl_params)
 
+        # !!! warning: validate params requires a completed ctrl_params dict
         self.acq_params = self.validate_params(acq_params, ctrl_params)
 
         # if acq_params.get("wait_frame_id") is None:

@@ -114,8 +114,8 @@ def _get_counter_container_name(name):
         yield counter_container_name, f"counter_groups.{counter_access_name}"
 
 
-def _get_counters_from_measurement_group(mg):
-    """Get the counters from a measurement group."""
+def _get_counters_from_names(names_list):
+    """Get the counters from a names list"""
     counters, missing = [], []
     counters_by_names = dict()
     all_counters_dict = dict()
@@ -129,7 +129,7 @@ def _get_counters_from_measurement_group(mg):
         all_counters_dict[container.name] = container
 
     keys = SortedKeyList(all_counters_dict)
-    for name in set(mg.enabled):
+    for name in set(names_list):
         cnts = counters_by_names.get(name)
         # get counter by name
         if cnts is not None:
@@ -137,7 +137,7 @@ def _get_counters_from_measurement_group(mg):
             if len(cnts) > 1:
                 raise RuntimeError(
                     f"Several counters may be selected with this {name}\n"
-                    f" change for one of those: {cnts}, in measurement group {mg.name}"
+                    f" change for one of those: {cnts}"
                 )
             # add counter and continue
             counters += _get_counters_from_object(cnts.pop(), recursive=False)
@@ -194,6 +194,13 @@ def _get_counters_from_measurement_group(mg):
     if missing:
         raise AttributeError(*missing)
     return counters
+
+
+def _get_counters_from_measurement_group(mg):
+    try:
+        return _get_counters_from_names(mg.enabled)
+    except RuntimeError as e:
+        raise RuntimeError(f"{mg.name}: {e}")
 
 
 def _get_counters_from_object(arg, recursive=True):

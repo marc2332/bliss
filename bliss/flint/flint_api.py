@@ -8,6 +8,9 @@
 
 from __future__ import annotations
 from typing import Dict
+from typing import Tuple
+from typing import Sequence
+from typing import List
 from typing import TextIO
 
 import sys
@@ -22,6 +25,7 @@ import gevent.event
 from silx.gui import qt
 from silx.gui import plot as silx_plot
 from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import RegionOfInterest
 
 from bliss.flint.helper.plot_interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
@@ -306,7 +310,21 @@ class FlintApi:
 
     # User interaction
 
-    def select_shapes(self, plot_id, initial_shapes=(), timeout=None):
+    def select_shapes(
+        self, plot_id, initial_shapes: Sequence[Dict] = (), timeout=None
+    ) -> List[Dict]:
+        """
+        Request a shape selection in a specific plot and return the selection.
+
+        A shape is described by a dictionary containing "origin", "size", "kind" (which is "Rectangle), and "label".
+
+        Arguments:
+            plot_id: Identifier of the plot
+            initial_shapes: A list of shapes describing the current selection. Only Rectangle are supported.
+
+        Return:
+            A list of shape describing the selection
+        """
         plot = self._get_plot_widget(plot_id)
         dock = self._create_roi_dock_widget(plot, initial_shapes)
         roi_widget = dock.widget()
@@ -321,8 +339,8 @@ class FlintApi:
         finally:
             plot.removeDockWidget(dock)
 
-    def _selection_finished(self, selections, done_event=None):
-        shapes = []
+    def _selection_finished(self, selections: List[RegionOfInterest], done_event=None):
+        shapes: List[Dict] = []
         try:
             shapes = [
                 dict(
@@ -366,12 +384,46 @@ class FlintApi:
         positions = queue.get()
         return positions
 
-    def select_points(self, plot_id, nb):
-        return self._selection(plot_id, PointsSelector, nb)
+    def select_points(self, plot_id, nb: int) -> Sequence[Tuple[float, float]]:
+        """
+        Request the selection of points.
 
-    def select_shape(self, plot_id, shape):
-        return self._selection(plot_id, ShapeSelector, shape)
+        Arguments:
+            plot_id: Identifier of the plot
+            nb: Number of points requested
+
+        Return:
+            A list of points describing the selection. A point is defined by a
+            tuple of 2 floats (x, y). If nothing is selected an empty sequence
+            is returned.
+        """
+        points: Sequence[Tuple[float, float]] = self._selection(
+            plot_id, PointsSelector, nb
+        )
+        return points
+
+    def select_shape(self, plot_id, shape: str) -> Sequence[Tuple[float, float]]:
+        """
+        Request the selection of a single shape.
+
+        Arguments:
+            plot_id: Identifier of the plot
+            shape: The kind of shape requested ("rectangle", "line", "polygon",
+                "hline", "vline")
+
+        Return:
+            A list of points describing the selected shape. A point is defined by a
+            tuple of 2 floats (x, y). If nothing is selected an empty sequence
+            is returned.
+        """
+        points: Sequence[Tuple[float, float]] = self._selection(
+            plot_id, ShapeSelector, shape
+        )
+        return points
 
     def clear_selections(self, plot_id):
+        """
+        Clear the current selection.
+        """
         for selector in self.selector_dict.pop(plot_id):
             selector.reset()

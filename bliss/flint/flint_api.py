@@ -22,7 +22,7 @@ from silx.gui import qt
 from silx.gui import plot as silx_plot
 from silx.gui.plot.items.roi import RectangleROI
 
-from bliss.flint.interaction import PointsSelector, ShapeSelector
+from bliss.flint.helper.plot_interaction import PointsSelector, ShapeSelector
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model

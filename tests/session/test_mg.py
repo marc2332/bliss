@@ -28,6 +28,12 @@ def test_mg(session):
     assert current_mg.name == "test_mg"
 
 
+def test_empty_session_1st_mg_default(default_session):
+    assert measurementgroup.get_active() is None
+    mg = measurementgroup.MeasurementGroup("test_mg", {"counters": []})
+    assert measurementgroup.get_active() is mg
+
+
 def test_active_MG(session):
     measurementgroup.set_active_name("test_mg")
 

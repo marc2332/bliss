@@ -8,9 +8,9 @@ import itertools
 import functools
 import fnmatch
 
-from bliss import setup_globals
 from bliss.config import settings
 from bliss import current_session
+from bliss import global_map
 
 
 class _active_mg_proxy(object):
@@ -34,22 +34,19 @@ def get_all():
     Return a list of all measurement groups found in the global environment.
     Exclude one instance of ACTIVE_MG to avoid to return duplicated ACTIVE_MG.
     """
-    return [
-        x
-        for x in setup_globals.__dict__.values()
-        if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
-    ]
+    all_mgs = global_map.instance_iter("measurement groups")
+    try:
+        return [mg for mg in all_mgs if mg != ACTIVE_MG]
+    except KeyError:
+        # no measurement group has been created yet there is nothing in map
+        return []
 
 
 def get_all_names():
     """
     Return a list of all measurement groups NAMES found in the global environment.
     """
-    return [
-        x.name
-        for x in setup_globals.__dict__.values()
-        if isinstance(x, MeasurementGroup) and x != ACTIVE_MG
-    ]
+    return [mg.name for mg in get_all()]
 
 
 def get_active():
@@ -121,6 +118,8 @@ class MeasurementGroup(object):
         counters -- a name list of available counters
         default -- if True set as default measurement
         """
+        global_map.register(self, parents_list=["measurement groups"])
+
         self.__name = name
         self.__config = config_tree
 

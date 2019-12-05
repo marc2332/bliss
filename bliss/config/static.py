@@ -890,7 +890,7 @@ class Config:
                     parent[key] = value
 
     def _clear_instances(self):
-        self._name2instance = dict()
+        self._name2instance = weakref.WeakValueDictionary()
         self._name2cache = dict()
 
     def pprint(self, indent=1, depth=None):

@@ -122,6 +122,25 @@ class Controller:
         log_info(self, "Controller:get_object: %s" % (name))
         return self._objects.get(name)
 
+    @property
+    def inputs(self):
+        return self._object_filter(Input)
+
+    @property
+    def outputs(self):
+        return self._object_filter(Output)
+
+    @property
+    def loops(self):
+        return self._object_filter(Loop)
+
+    def _object_filter(self, class_type):
+        return {
+            name: obj
+            for name, obj in self._objects.items()
+            if isinstance(obj, class_type)
+        }
+
     # ------ init methods ------------------------
 
     def initialize(self):

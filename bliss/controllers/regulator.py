@@ -56,6 +56,7 @@ with the mandatory fields:
 from bliss.common.regulation import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import log_info
+from gevent import lock
 
 
 class Controller:
@@ -74,29 +75,72 @@ class Controller:
         self.__name = config.get("name")
         self._objects = {}
 
+        self.__lock = lock.RLock()
+        self.__initialized_obj = {}
+        self.__hw_controller_initialized = False
+
     def add_object(self, node_type_name, object_class, cfg):
-        """ creates an instance of the object and add it to the controller """
+        """ creates an instance of the object and add it to the controller.  Called by regulation plugin. """
 
         new_obj = object_class(self, cfg)
-
-        # --- initialize the new object
-        if isinstance(new_obj, Input):
-            new_obj.load_base_config()
-            self.initialize_input(new_obj)
-        elif isinstance(new_obj, Output):
-            new_obj.load_base_config()
-            self.initialize_output(new_obj)
-        elif isinstance(new_obj, Loop):
-            new_obj.load_base_config()
-            self.initialize_loop(new_obj)
 
         # --- store the new object
         self._objects[new_obj.name] = new_obj
 
         # --- For custom attributes and commands.
-        set_custom_members(self, new_obj)
+        # set_custom_members(self, new_obj, self.init_obj )       # really needed ???????
 
         return new_obj
+
+    def init_obj(self, obj):
+        """ Initialize objects under the controller. Called by @lazy_init. """
+
+        with self.__lock:
+
+            if self.__hw_controller_initialized:
+                return
+            else:
+                self.__hw_controller_initialized = True
+
+                self.initialize_controller()
+                print("============= controller_hw INITIALIZED")
+
+                for obj in self._objects.values():
+
+                    # --- initialize the object
+                    obj.load_base_config()
+                    if isinstance(obj, Input):
+                        self.initialize_input(obj)
+                    elif isinstance(obj, Output):
+                        self.initialize_output(obj)
+                    elif isinstance(obj, Loop):
+                        self.initialize_loop(obj)
+
+                    print(f"============= {obj.name} INITIALIZED")
+
+            # if self.__initialized_obj.get(obj):
+            #     return
+
+            # else:
+            #     self.__initialized_obj[obj] = True
+
+            # print("controller:init_obj",obj)
+
+            # if not self.__hw_controller_initialized:
+            #     self.initialize_controller()
+            #     self.__hw_controller_initialized = True
+            #     print("controller:init_controller_hw")
+
+            # # --- initialize the object
+            # obj.load_base_config()
+            # if isinstance(obj, Input):
+            #     self.initialize_input(obj)
+            # elif isinstance(obj, Output):
+            #     self.initialize_output(obj)
+            # elif isinstance(obj, Loop):
+            #     self.initialize_loop(obj)
+
+            # print("controller:obj_INITIALIZED",obj)
 
     @property
     def name(self):
@@ -143,9 +187,9 @@ class Controller:
 
     # ------ init methods ------------------------
 
-    def initialize(self):
+    def initialize_controller(self):
         """ 
-        Initializes the controller.
+        Initializes the controller (including hardware).
         """
         pass
 

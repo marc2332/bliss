@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.regulator import Controller
-from bliss.common.regulation import Input, Output
+from bliss.common.regulation import ExternalInput, ExternalOutput
 
 import time
 import gevent
@@ -37,22 +37,19 @@ class MyDevice:
         self.value = value
 
 
-class MyCustomInput(Input):
+class MyCustomInput(ExternalInput):
     """ Interface to handle an arbitrary device as a regulation Input """
 
     def __init__(self, name, config):
-        super().__init__(None, config)
-
-        self.device = MyDevice()
+        super().__init__(config)
 
     def read(self):
         """ returns the input device value (in input unit) """
 
         log_debug(self, "MyCustomInput:read")
-        # return self.device.get_value()
 
-        xmin, xmax = self.config["feedback"].limits
-        value = (self.config["feedback"].read() - xmin) / (xmax - xmin) * 100.
+        xmin, xmax = self.device.limits
+        value = (self.device.read() - xmin) / (xmax - xmin) * 100.
 
         return value
 
@@ -63,13 +60,11 @@ class MyCustomInput(Input):
         return "READY"
 
 
-class MyCustomOutput(Output):
+class MyCustomOutput(ExternalOutput):
     """ Interface to handle an arbitrary device as a regulation Output """
 
     def __init__(self, name, config):
-        super().__init__(None, config)
-
-        self.device = MyDevice()
+        super().__init__(config)
 
     def read(self):
         """ returns the output device value (in output unit) """
@@ -90,13 +85,6 @@ class MyCustomOutput(Output):
 
         self.device.set_value(value)
 
-    def set_in_safe_mode(self):
-        # if self.limits[0] is not None:
-        #     self.set_value(self.limits[0])
-        # else:
-        #     self.set_value(0)
-        pass
-
 
 class Mockup(Controller):
     """ Simulate a regulation controller. 
@@ -111,9 +99,9 @@ class Mockup(Controller):
 
     """
 
-    def __init__(self, config, *args):
+    def __init__(self, config):
 
-        super().__init__(config, *args)
+        super().__init__(config)
 
         # attributes to simulate the behaviour of the controller hardware
 
@@ -137,7 +125,7 @@ class Mockup(Controller):
         for sde in self._stop_cool_down_events.values():
             sde.set()
 
-    def initialize(self):
+    def initialize_controller(self):
         # host becomes mandatory
         log_debug(self, "mockup: initialize ")
         self.host = self.config.get("host", str)
@@ -175,11 +163,6 @@ class Mockup(Controller):
 
     def initialize_loop(self, tloop):
         log_debug(self, "mockup: initialize_loop: %s" % (tloop))
-
-        # self._stop_cool_down_events[tloop.name] = gevent.event.Event()
-
-        # if not self._cool_down_tasks.get(tloop.name):
-        #    self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
 
     def set_kp(self, tloop, kp):
         """

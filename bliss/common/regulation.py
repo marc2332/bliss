@@ -93,7 +93,7 @@ This module implements the classes allowing the control of regulation processes 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------
 
             -   
-                class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the Input class
+                class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the ExternalInput class
                 package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
@@ -101,7 +101,7 @@ This module implements the classes allowing the control of regulation processes 
                         
             
             -   
-                class: MyCustomOutput    # <-- a custom output defined by the user and inheriting from the Output class
+                class: MyCustomOutput    # <-- a custom output defined by the user and inheriting from the ExternalOutput class
                 package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_output
@@ -172,7 +172,7 @@ import functools
 def lazy_init(func):
     @functools.wraps(func)
     def func_wrapper(self, *args, **kwargs):
-        # self.controller._initialize_obj(self)
+        self.controller.init_obj(self)
         return func(self, *args, **kwargs)
 
     return func_wrapper
@@ -230,6 +230,8 @@ class Input:
     def load_base_config(self):
         """ Load from the config the values of the standard parameters """
 
+        # below the parameters that may requires communication with the controller
+
         pass
 
     @property
@@ -262,14 +264,16 @@ class Input:
 
         return counter_namespace([self.counter])
 
-    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS MUST CUSTOMIZE ------------------
 
+    @lazy_init
     def read(self):
         """ Return the input device value (in input unit) """
 
         log_debug(self, "Input:read")
         return self._controller.read_input(self)
 
+    @lazy_init
     def state(self):
         """ Return the input device state """
 
@@ -287,16 +291,10 @@ class ExternalInput(Input):
     def __init__(self, config):
         super().__init__(None, config)
 
-        self.device = config["device"]
-
-        if not isinstance(self.device, Axis, SamplingCounter):
-            raise TypeError(
-                "the associated device must be an 'Axis' or a 'SamplingCounter'"
-            )
-
+        self.device = config.get("device")
         self.load_base_config()
 
-    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
 
     def read(self):
         """ Return the input device value (in input unit) """
@@ -307,6 +305,10 @@ class ExternalInput(Input):
             return self.device.position
         elif isinstance(self.device, SamplingCounter):
             return self.device.read()
+        else:
+            raise TypeError(
+                "the associated device must be an 'Axis' or a 'SamplingCounter'"
+            )
 
     def state(self):
         """ Return the input device state """
@@ -317,6 +319,10 @@ class ExternalInput(Input):
             return self.device.state
         elif isinstance(self.device, SamplingCounter):
             return "READY"
+        else:
+            raise TypeError(
+                "the associated device must be an 'Axis' or a 'SamplingCounter'"
+            )
 
 
 @with_custom_members
@@ -339,6 +345,11 @@ class Output:
         self._ramp = SoftRamp(self.read, self._set_value)
         self._use_soft_ramp = None
 
+        self._limits = (
+            self._config.get("low_limit", None),
+            self._config.get("high_limit", None),
+        )
+
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
@@ -347,14 +358,10 @@ class Output:
     def load_base_config(self):
         """ Load from the config the value of the standard parameters """
 
-        self._limits = (
-            self._config.get("low_limit", None),
-            self._config.get("high_limit", None),
-        )
+        # below the parameters that may requires communication with the controller
 
-        self.ramprate = self._config.get("ramprate", 0.0)
-        # if self._config.get("ramprate") is not None:
-        #    self.ramprate = self._config.get("ramprate")
+        if self._config.get("ramprate") is not None:
+            self.ramprate = self._config.get("ramprate")
 
     @property
     def controller(self):
@@ -413,14 +420,22 @@ class Output:
 
         self._start_ramping(value)
 
-    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+    def _add_custom_method(self, method, name, types_info=(None, None)):
+        """ Necessary to add custom methods to this class """
 
+        setattr(self, name, method)
+        self.__custom_methods_list.append((name, types_info))
+
+    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+
+    @lazy_init
     def state(self):
         """ Return the state of the output device"""
 
         log_debug(self, "Output:state")
         return self._controller.state_output(self)
 
+    @lazy_init
     def read(self):
         """ Return the current value of the output device (in output unit) """
 
@@ -428,6 +443,7 @@ class Output:
         return self._controller.read_output(self)
 
     @property
+    @lazy_init
     def ramprate(self):
         """ Get ramprate (in output unit per second) """
 
@@ -439,6 +455,7 @@ class Output:
             return self._ramp.rate
 
     @ramprate.setter
+    @lazy_init
     def ramprate(self, value):
         """ Set ramprate (in output unit per second) """
 
@@ -450,6 +467,7 @@ class Output:
         except NotImplementedError:
             pass
 
+    @lazy_init
     def is_ramping(self):
         """
         Get the ramping status.
@@ -469,6 +487,7 @@ class Output:
         else:
             return self._controller.is_output_ramping(self)
 
+    @lazy_init
     def set_in_safe_mode(self):
         try:
             return self._controller.set_in_safe_mode(self)
@@ -482,17 +501,21 @@ class Output:
 
             pass
 
-    # ---------------- PRIVATE METHODS -----------------------------------------------
-
+    @lazy_init
     def _set_value(self, value):
         """ Set the value for the output. Value is expressed in output unit """
+
+        # lasy_init not required here because this method is called by a method with the @lasy_init
 
         log_debug(self, "Output:_set_value %s" % value)
 
         self._controller.set_output_value(self, value)
 
+    @lazy_init
     def _start_ramping(self, value):
         """ Start the ramping process to target_value """
+
+        # lasy_init not required here because this method is called by a method with the @lasy_init
 
         log_debug(self, "Output:_start_ramping %s" % value)
 
@@ -503,6 +526,7 @@ class Output:
             self._use_soft_ramp = True
             self._ramp.start(value)
 
+    @lazy_init
     def _stop_ramping(self):
         """ Stop the ramping process """
 
@@ -514,12 +538,6 @@ class Output:
             self._ramp.stop()
         else:
             self._controller.stop_output_ramp(self)
-
-    def _add_custom_method(self, method, name, types_info=(None, None)):
-        """ Necessary to add custom methods to this class """
-
-        setattr(self, name, method)
-        self.__custom_methods_list.append((name, types_info))
 
 
 class ExternalOutput(Output):
@@ -536,31 +554,11 @@ class ExternalOutput(Output):
     def __init__(self, config):
         super().__init__(None, config)
 
-        self.device = config["device"]
+        self.device = config.get("device")
         self.mode = config.get("mode", "relative")
-
-        if not isinstance(self.device, Axis):
-            raise TypeError("the associated device must be an 'Axis'")
-
         self.load_base_config()
 
-    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
-
-    def state(self):
-        """ Return the state of the output device"""
-
-        log_debug(self, "ExternalOutput:state")
-
-        if isinstance(self.device, Axis):
-            return self.device.state
-
-    def read(self):
-        """ Return the current value of the output device (in output unit) """
-
-        log_debug(self, "ExternalOutput:read")
-
-        if isinstance(self.device, Axis):
-            return self.device.position
+    # ----------- BASE METHODS -----------------------------------------
 
     @property
     def ramprate(self):
@@ -587,26 +585,6 @@ class ExternalOutput(Output):
 
         return self._ramp.is_ramping()
 
-    def set_in_safe_mode(self):
-        # if self.limits[0] is not None:
-        #     self.set_value(self.limits[0])
-        # else:
-        #     self.set_value(0)
-        pass
-
-    # ---------------- PRIVATE METHODS -----------------------------------------------
-
-    def _set_value(self, value):
-        """ Set the value for the output. Value is expressed in output unit """
-
-        log_debug(self, "ExternalOutput:_set_value %s" % value)
-
-        if isinstance(self.device, Axis):
-            if self.mode == "relative":
-                self.device.rmove(value)
-            elif self.mode == "absolute":
-                self.device.move(value)
-
     def _start_ramping(self, value):
         """ Start the ramping process to target_value """
 
@@ -620,6 +598,44 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:_stop_ramping")
 
         self._ramp.stop()
+
+    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+
+    def state(self):
+        """ Return the state of the output device"""
+
+        log_debug(self, "ExternalOutput:state")
+
+        if isinstance(self.device, Axis):
+            return self.device.state
+        else:
+            raise TypeError("the associated device must be an 'Axis'")
+
+    def read(self):
+        """ Return the current value of the output device (in output unit) """
+
+        log_debug(self, "ExternalOutput:read")
+
+        if isinstance(self.device, Axis):
+            return self.device.position
+        else:
+            raise TypeError("the associated device must be an 'Axis'")
+
+    def _set_value(self, value):
+        """ Set the value for the output. Value is expressed in output unit """
+
+        log_debug(self, "ExternalOutput:_set_value %s" % value)
+
+        if isinstance(self.device, Axis):
+            if self.mode == "relative":
+                self.device.rmove(value)
+            elif self.mode == "absolute":
+                self.device.move(value)
+        else:
+            raise TypeError("the associated device must be an 'Axis'")
+
+    def set_in_safe_mode(self):
+        pass
 
 
 @with_custom_members
@@ -668,7 +684,7 @@ class Loop:
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self._deadband = 0.001
+        self._deadband = 0.1
         self._deadband_time = 1.0
         self._deadband_idle_factor = 0.5
         self._in_deadband = False
@@ -687,6 +703,12 @@ class Loop:
     def load_base_config(self):
         """ Load from the config the values of the standard parameters """
 
+        self.deadband = self._config.get("deadband", 0.1)
+        self.deadband_time = self._config.get("deadband_time", 1.0)
+        self.wait_mode = self._config.get("wait_mode", "ramp")
+
+        # below the parameters that may requires communication with the controller
+
         if self._config.get("P") is not None:
             self.kp = self._config.get("P")
         if self._config.get("I") is not None:
@@ -694,25 +716,11 @@ class Loop:
         if self._config.get("D") is not None:
             self.kd = self._config.get("D")
 
-        self.deadband = self._config.get("deadband", 0.1)
-        # if self._config.get("deadband") is not None:
-        #    self.deadband = self._config.get("deadband")
-
-        self.deadband_time = self._config.get("deadband_time", 1.0)
-        # if self._config.get("deadband_time") is not None:
-        #    self.deadband_time = self._config.get("deadband_time")
-
-        # self.sampling_frequency = self._config.get("frequency", 50.)
         if self._config.get("frequency") is not None:
             self.sampling_frequency = self._config.get("frequency")
 
-        # self.ramprate = self._config.get("ramprate", 0.0)
         if self._config.get("ramprate") is not None:
             self.ramprate = self._config.get("ramprate")
-
-        self.wait_mode = self._config.get("wait_mode", "ramp")
-        # if self._config.get("wait_mode") is not None:
-        #    self.wait_mode = self._config.get("wait_mode")
 
         if (self._config.get("low_limit") is not None) and (
             self._config.get("low_limit") is not None
@@ -721,9 +729,6 @@ class Loop:
                 self._config.get("low_limit"),
                 self._config.get("high_limit"),
             )
-
-        # self.dwell = self._config.get("dwell",None)
-        # self.step = self._config.get("step",None)
 
     ##--- MAIN ATTRIBUTES
     @autocomplete_property
@@ -978,9 +983,6 @@ class Loop:
         """ Set the setpoint to the current input device value as if stopping a move on an axis """
 
         self._first_scan_move = True
-        # self.setpoint = self.input.read()  ?????
-        # breakpoint()
-        print("\n\n\n=========AXIS_STOP")
 
     def axis_state(self):
         """ Return the current state of the Loop as if it was an axis.
@@ -1068,9 +1070,25 @@ class Loop:
             else:
                 self._wait_mode = self.WaitMode(1)
 
-    # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
+    def _get_power2unit(self, value):
+        """ Convert a power value into a value expressed in output units.
+            The power value is the value returned by the PID algorithm.
+        """
+
+        xmin, xmax = self.pid_range
+        ymin, ymax = self.output.limits
+
+        if None in (ymin, ymax) or (ymin == ymax):
+            return value
+        else:
+            a = (ymax - ymin) / (xmax - xmin)
+            b = ymin - a * xmin
+            return value * a + b
+
+    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
 
     @property
+    @lazy_init
     def kp(self):
         """
         Get the P value (for PID)
@@ -1080,6 +1098,7 @@ class Loop:
         return self._controller.get_kp(self)
 
     @kp.setter
+    @lazy_init
     def kp(self, value):
         """
         Set the P value (for PID)
@@ -1089,6 +1108,7 @@ class Loop:
         self._controller.set_kp(self, value)
 
     @property
+    @lazy_init
     def ki(self):
         """
         Get the I value (for PID)
@@ -1098,6 +1118,7 @@ class Loop:
         return self._controller.get_ki(self)
 
     @ki.setter
+    @lazy_init
     def ki(self, value):
         """
         Set the I value (for PID)
@@ -1107,6 +1128,7 @@ class Loop:
         self._controller.set_ki(self, value)
 
     @property
+    @lazy_init
     def kd(self):
         """
         Get the D value (for PID)
@@ -1116,6 +1138,7 @@ class Loop:
         return self._controller.get_kd(self)
 
     @kd.setter
+    @lazy_init
     def kd(self, value):
         """
         Set the D value (for PID)
@@ -1125,6 +1148,7 @@ class Loop:
         self._controller.set_kd(self, value)
 
     @property
+    @lazy_init
     def sampling_frequency(self):
         """
         Get the sampling frequency (PID) [Hz]
@@ -1134,6 +1158,7 @@ class Loop:
         return self._controller.get_sampling_frequency(self)
 
     @sampling_frequency.setter
+    @lazy_init
     def sampling_frequency(self, value):
         """
         Set the sampling frequency (PID) [Hz]
@@ -1143,6 +1168,7 @@ class Loop:
         self._controller.set_sampling_frequency(self, value)
 
     @property
+    @lazy_init
     def pid_range(self):
         """
         Get the PID range (PID output value limits).
@@ -1158,6 +1184,7 @@ class Loop:
         return self._controller.get_pid_range(self)
 
     @pid_range.setter
+    @lazy_init
     def pid_range(self, value):
         """
         Set the PID range (PID output value limits).
@@ -1173,6 +1200,7 @@ class Loop:
         self._controller.set_pid_range(self, value)
 
     @property
+    @lazy_init
     def ramprate(self):
         """ Get ramprate (in input unit per second) """
 
@@ -1184,6 +1212,7 @@ class Loop:
             return self._ramp.rate
 
     @ramprate.setter
+    @lazy_init
     def ramprate(self, value):
         """ Set ramprate (in input unit per second) """
 
@@ -1195,6 +1224,7 @@ class Loop:
         except NotImplementedError:
             pass
 
+    @lazy_init
     def is_ramping(self):
         """
         Get the ramping status.
@@ -1214,8 +1244,7 @@ class Loop:
         else:
             return self._controller.is_ramping(self)
 
-    # ---------------- PRIVATE METHODS -----------------------------------------------
-
+    @lazy_init
     def _get_setpoint(self):
         """ get the current setpoint """
 
@@ -1223,12 +1252,14 @@ class Loop:
 
         return self._controller.get_setpoint(self)
 
+    @lazy_init
     def _set_setpoint(self, value):
         """ set the current setpoint """
 
         log_debug(self, "Loop:_set_setpoint %s" % value)
         self._controller.set_setpoint(self, value)
 
+    @lazy_init
     def _start_regulation(self):
         """ Start the regulation loop """
 
@@ -1236,6 +1267,7 @@ class Loop:
 
         self._controller.start_regulation(self)
 
+    @lazy_init
     def _stop_regulation(self):
         """ Stop the regulation loop """
 
@@ -1243,6 +1275,7 @@ class Loop:
 
         self._controller.stop_regulation(self)
 
+    @lazy_init
     def _start_ramping(self, value):
         """ Start the ramping to setpoint value """
 
@@ -1255,6 +1288,7 @@ class Loop:
             self._use_soft_ramp = True
             self._ramp.start(value)
 
+    @lazy_init
     def _stop_ramping(self):
         """ Stop the ramping """
 
@@ -1266,21 +1300,6 @@ class Loop:
             self._ramp.stop()
         else:
             self._controller.stop_ramp(self)
-
-    def _get_power2unit(self, value):
-        """ Convert a power value into a value expressed in output units.
-            The power value is the value returned by the PID algorithm.
-        """
-
-        xmin, xmax = self.pid_range
-        ymin, ymax = self.output.limits
-
-        if None in (ymin, ymax) or (ymin == ymax):
-            return value
-        else:
-            a = (ymax - ymin) / (xmax - xmin)
-            b = ymin - a * xmin
-            return value * a + b
 
 
 class SoftLoop(Loop):
@@ -1469,8 +1488,6 @@ class SoftLoop(Loop):
 
         log_debug(self, "SoftLoop:apply_proportional_on_measurement: %s" % (enable,))
         self.pid.proportional_on_measurement = bool(enable)
-
-    # ---------------- PRIVATE METHODS -----------------------------------------------
 
     def _get_setpoint(self):
         """

@@ -72,7 +72,7 @@ def create_objects_from_config_node(config, node):
     controller_name = node.get("name")  # usually is None
     controller_class = find_class(node, "bliss.controllers.temperature")
     controller = controller_class(node)
-    controller.initialize()
+    # controller.initialize_controller()  # removed for lasy_init
 
     # --- store in cache the sub-objects of the controller for a later instanciation
     # --- for each type of a controller sub-node (i.e. inputs, outputs, loops)

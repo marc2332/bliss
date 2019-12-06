@@ -26,7 +26,7 @@ _logger = logging.getLogger(__name__)
 def safe_rpc_server(obj):
     with tempfile.NamedTemporaryFile(delete=False) as f:
         url = "ipc://{}".format(f.name)
-        server = rpc.Server(obj)
+        server = rpc.Server(obj, stream=True)
         try:
             server.bind(url)
             task = gevent.spawn(server.run)

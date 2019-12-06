@@ -67,9 +67,7 @@ class Car(object):
 
     def buggy_call(self):
         """Calling this function will raise an exception"""
-        x = 50
-        x = x + "aaa"
-        return x
+        raise RuntimeError("Something goes wrong")  # context not part of the exception
 
     def returns_exception(self):
         e = RuntimeError("foo")
@@ -167,18 +165,17 @@ def test_exceptions():
 
         try:
             client_car.buggy_call()
-        except Exception as e:
+        except RuntimeError as e:
             tb = traceback.format_tb(e.__traceback__)
             assert "test_rpc" in tb[-1]
             assert "buggy_call" in tb[-1]
-            assert "x = x + " in tb[-1]
-
+            assert "# context not part of the exception" in tb[-1]
         else:
             assert False
 
-        e = client_car.returns_exception()
-        assert isinstance(e, RuntimeError)
-        assert e.args[0] == "foo"
+        e2 = client_car.returns_exception()
+        assert isinstance(e2, RuntimeError)
+        assert e2.args[0] == "foo"
 
     # close client
     client_car.close()

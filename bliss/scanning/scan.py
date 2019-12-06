@@ -779,11 +779,7 @@ def display_motor(func):
     def f(self, *args, **kwargs):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()
-        if (
-            is_bliss_shell()
-            and scan_display_params.auto
-            and scan_display_params.motor_position
-        ):
+        if is_bliss_shell() and scan_display_params.motor_position:
             channel_name = self.get_channel_name(axis)
             if channel_name is None:
                 print(

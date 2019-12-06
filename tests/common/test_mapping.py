@@ -179,26 +179,6 @@ def test_complex_map(complex_beamline):
     assert len(list(complex_beamline.find_children("comms"))) == 2
 
 
-def test_complex_map_remove_children(complex_beamline):
-    """find predecessors of Contr_1, should be devices"""
-    _pre = list(complex_beamline.find_predecessors("Contr_1"))
-    assert len(_pre) == 1
-    assert _pre.pop() == "controllers"
-    # finding children of Contr_1, should be Serial, Ax1, Ax2
-    _children = complex_beamline.find_children("Contr_1")
-    assert isinstance(_children, list)
-    list_children = list(_children)
-    assert len(list_children) == 3
-    assert "Axis_1" in list_children
-    assert "Axis_2" in list_children
-    assert "Serial_1" in list_children
-    # deleting devices node, now should be beamline
-    complex_beamline.delete(id_="controllers")
-    _pre = list(complex_beamline.find_predecessors("Contr_1"))
-    assert len(_pre) == 1
-    assert _pre.pop() == "global"
-
-
 def test_format_node_1(beamline):
     tn = SimpleNode(attr="1234")
     beamline.register(tn, tag="myname")  # under devices

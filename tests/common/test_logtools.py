@@ -10,7 +10,7 @@ import logging
 import re
 
 from bliss.common.logtools import *
-from bliss.common.logtools import Log
+from bliss.common.logtools import Log, logbook_printer, lprint_disable
 from bliss import logging_startup
 from bliss.shell.standard import *
 from bliss.common.mapping import Map, map_id
@@ -50,6 +50,13 @@ def params(beacon, map):
         logging.getLogger().handlers.extend(old_handlers)
         logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
         logging.getLogger().manager.loggerDict.update(old_logger_dict)
+
+
+@pytest.fixture
+def log_shell_mode():
+    logbook_printer.add_stdout_handler()
+    yield
+    logbook_printer.remove_stdout_handler()
 
 
 class MappedController:
@@ -340,3 +347,30 @@ def test_lslog(capsys, session, params):
     text = str(captured.out)
     assert "bliss " in text
     assert text.count("global.controllers ") == 1
+
+
+def test_lprint(capsys, log_shell_mode):
+    string = "this is a test"
+    lprint(string)
+    captured = capsys.readouterr().out
+    assert captured == string + "\n"
+
+
+def test_lprint_no_end(capsys, log_shell_mode):
+    lprint("my", end="", flush=False)
+    lprint("test")
+    captured = capsys.readouterr().out
+    assert captured == "mytest\n"
+
+
+def test_lprint_no_sep(capsys, log_shell_mode):
+    text_list = "this is a test".split()
+    lprint(*text_list, sep=":")
+    captured = capsys.readouterr().out
+    assert captured == ":".join(text_list) + "\n"
+
+
+def test_lprint_disable(capsys, log_shell_mode):
+    with lprint_disable():
+        lprint("something")
+    assert capsys.readouterr().out == ""

@@ -218,10 +218,8 @@ from logging import StreamHandler
 
 
 class LogbookAdapter(LoggerAdapter):
-    def process(self, msg, extra):
-        end = extra.get("end", "\n")
-        flush = chr(extra.get("flush", True))
-        return msg + f",{end},{flush}", extra
+    def process(self, msg, kwargs):
+        return msg + f",{self.extra['end']},{chr(self.extra['flush'])}", kwargs
 
 
 class LogbookStdoutHandler(StreamHandler):
@@ -290,6 +288,13 @@ class LogbookPrint:
 
 logbook_printer = LogbookPrint()
 lprint = logbook_printer.lprint
+
+
+@contextlib.contextmanager
+def lprint_disable():
+    logbook_printer.remove_stdout_handler()
+    yield
+    logbook_printer.add_stdout_handler()
 
 
 @contextlib.contextmanager

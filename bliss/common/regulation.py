@@ -642,6 +642,8 @@ class Loop(SamplingCounterController):
         self._history_size = 100
         self.clear_history_data()
 
+        self.reg_plot = None
+
         self.add_counter(
             SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
         )
@@ -1239,6 +1241,13 @@ class Loop(SamplingCounterController):
         else:
             self._controller.stop_ramp(self)
 
+    @autocomplete_property
+    def plot(self):
+        if not self.reg_plot:
+            self.reg_plot = RegPlot(self)
+        self.reg_plot.start()
+        return self.reg_plot
+
 
 class SoftLoop(Loop):
     """ Implements the software regulation loop.
@@ -1659,7 +1668,7 @@ class RegPlot:
                 plt.stop()
     """
 
-    def __init__(self, tloop, dpi=80):
+    def __init__(self, tloop):
 
         self.loop = tloop
 
@@ -1669,9 +1678,6 @@ class RegPlot:
 
         # Declare a CurvePlot (see bliss.common.plot)
         self.fig = plot(data=None, name=tloop.name)
-
-        self.fig._flint.set_plot_dpi(self.fig._plot_id, dpi)
-        self.fig.submit("adjustSize")
 
     def close(self):
         self.stop()

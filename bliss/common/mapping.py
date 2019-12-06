@@ -419,18 +419,12 @@ class Map:
             False: The node was not in the graph
         """
         logger.debug(f"Calling mapping.delete for {id_}")
-        if id_ in self.G:
-            logger.debug(f"mapping.delete: Removing node id:{id_}")
-            predecessors_id = self.find_predecessors(id_)
-            children_id = self.find_children(id_)
+        try:
             self.G.remove_node(id_)
-            # Remaps parents edges on children
-            if predecessors_id and children_id:
-                for pred in predecessors_id:
-                    for child in children_id:
-                        self.G.add_edge(pred, child)
-            return True
-        return False
+        except nx.NetworkXError:
+            return False
+        logger.debug(f"mapping.delete: Removing node id:{id_}")
+        return True
 
     def format_node(self, node, format_string):
         return format_node(self.G, node, format_string)

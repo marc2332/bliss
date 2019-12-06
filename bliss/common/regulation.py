@@ -156,9 +156,11 @@ import gevent
 import gevent.event
 import enum
 
+from bliss import global_map
 from bliss.common.logtools import log_debug
 from bliss.common.utils import with_custom_members, autocomplete_property
-from bliss.common.measurement import SamplingCounter, counter_namespace
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
 
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
@@ -178,52 +180,25 @@ def lazy_init(func):
     return func_wrapper
 
 
-class DeviceCounter(SamplingCounter):
-    """ Implements access to counter object for
-        Input and Output type objects
-    """
-
-    def __init__(self, name, parent):
-        SamplingCounter.__init__(
-            self, name, parent, unit=parent.config.get("unit", "N/A")
-        )
-        self.parent = parent
-
-    def read(self):
-        data = self.parent.read()
-        return data
-
-
-class RegulationCounter(SamplingCounter):
-    """ Implements access to counter object for
-        Loop type objects
-    """
-
-    def __init__(self, name, parent):
-        SamplingCounter.__init__(
-            self, name, parent, unit=parent.input.config.get("unit", "N/A")
-        )
-        self.parent = parent
-
-    def read(self):
-        data = self.parent.setpoint
-        return data
-
-
 @with_custom_members
-class Input:
+class Input(SamplingCounterController):
     """ Implements the access to an input device which is accessed via the regulation controller (like a sensor plugged on a channel of the controller)
     """
 
     def __init__(self, controller, config):
         """ Constructor """
 
+        super().__init__(name=config["name"])
+
         self._controller = controller
-        self._name = config["name"]
         self._config = config
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.add_counter(
+            SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
+        )
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -241,28 +216,10 @@ class Input:
         return self._controller
 
     @property
-    def name(self):
-        """ Return the Input name """
-
-        return self._name
-
-    @property
     def config(self):
         """ Return the Input config """
 
         return self._config
-
-    @property
-    def counter(self):
-        """ Return the counter object """
-
-        return DeviceCounter(self.name, self)
-
-    @property
-    def counters(self):
-        """ Standard counter namespace """
-
-        return counter_namespace([self.counter])
 
     # ----------- METHODS THAT A CHILD CLASS MUST CUSTOMIZE ------------------
 
@@ -326,7 +283,7 @@ class ExternalInput(Input):
 
 
 @with_custom_members
-class Output:
+class Output(SamplingCounterController):
     """ Implements the access to an output device which is accessed via the regulation controller (like an heater plugged on a channel of the controller)
     
         The Output has a ramp object. 
@@ -338,8 +295,9 @@ class Output:
     def __init__(self, controller, config):
         """ Constructor """
 
+        super().__init__(name=config["name"])
+
         self._controller = controller
-        self._name = config["name"]
         self._config = config
 
         self._ramp = SoftRamp(self.read, self._set_value)
@@ -352,6 +310,10 @@ class Output:
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        self.add_counter(
+            SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
+        )
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -370,28 +332,10 @@ class Output:
         return self._controller
 
     @property
-    def name(self):
-        """ Return the Output name """
-
-        return self._name
-
-    @property
     def config(self):
         """ Return the Output config """
 
         return self._config
-
-    @property
-    def counter(self):
-        """ Return the counter object """
-
-        return DeviceCounter(self.name, self)
-
-    @property
-    def counters(self):
-        """ Standard counter namespace """
-
-        return counter_namespace([self.counter])
 
     @property
     def limits(self):
@@ -639,7 +583,7 @@ class ExternalOutput(Output):
 
 
 @with_custom_members
-class Loop:
+class Loop(SamplingCounterController):
     """ Implements the access to the regulation loop 
 
         The regulation is the PID process that:
@@ -672,8 +616,9 @@ class Loop:
     def __init__(self, controller, config):
         """ Constructor """
 
+        super().__init__(name=config["name"])
+
         self._controller = controller
-        self._name = config["name"]
         self._config = config
         self._input = config.get("input")
         self._output = config.get("output")
@@ -696,6 +641,10 @@ class Loop:
 
         self._history_size = 100
         self.clear_history_data()
+
+        self.add_counter(
+            SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
+        )
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -738,29 +687,18 @@ class Loop:
         return self._controller
 
     @property
-    def name(self):
-        """ Return the loop name """
-
-        return self._name
-
-    @property
     def config(self):
         """ Return the loop config """
 
         return self._config
 
-    @property
-    def counter(self):
-        """ Return the counter object """
-
-        return RegulationCounter(self.name, self)
-
-    @property
+    # @property
+    @autocomplete_property
     def counters(self):
         """ Standard counter namespace """
 
         return counter_namespace(
-            [self.input.counter, self.output.counter, self.counter]
+            [self.input.counters, self.output.counters, self._counters[self.name]]
         )
 
     @autocomplete_property

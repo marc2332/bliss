@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-import pytest
 from contextlib import contextmanager
 import traceback
 
@@ -33,6 +32,7 @@ class Car(object):
         self.__position = 0
         self.null = null
         self.__extras = kwargs
+        self.__value = 0
 
     @property
     def position(self):
@@ -66,11 +66,21 @@ class Car(object):
             self.__position = value
         return self.__position
 
+    def request_task(self, value):
+        task_id = "request_task_0"
+        self.__value = value
+        return task_id
+
+    def execute_task(self, task_id):
+        def worker():
+            gevent.sleep(1)
+            event.send(self, task_id, self.__value * 2)
+
+        gevent.spawn(worker)
+
     def buggy_call(self):
         """Calling this function will raise an exception"""
-        x = 50
-        x = x + "aaa"
-        return x
+        raise RuntimeError("Something goes wrong")  # context not part of the exception
 
     def returns_exception(self):
         e = RuntimeError("foo")
@@ -164,22 +174,19 @@ def test_exceptions():
     with rpc_server(url) as (server, car):
         client_car = Client(url)
 
-        client_car.color
-
         try:
             client_car.buggy_call()
-        except Exception as e:
+        except RuntimeError as e:
             tb = traceback.format_tb(e.__traceback__)
             assert "test_rpc" in tb[-1]
             assert "buggy_call" in tb[-1]
-            assert "x = x + " in tb[-1]
-
+            assert "# context not part of the exception" in tb[-1]
         else:
             assert False
 
-        e = client_car.returns_exception()
-        assert isinstance(e, RuntimeError)
-        assert e.args[0] == "foo"
+        e2 = client_car.returns_exception()
+        assert isinstance(e2, RuntimeError)
+        assert e2.args[0] == "foo"
 
     # close client
     client_car.close()
@@ -207,6 +214,27 @@ def test_event():
 
         event.send(car, "test", 4)
         assert results.get() == (4,)
+
+    # close client
+    client_car.close()
+
+
+def test_remote_task():
+
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        client_car.connect()
+
+        task_id = car.request_task(3)
+        event.connect(client_car, task_id, callback)
+        car.execute_task(task_id)
+        assert results.get() == (6,)
 
     # close client
     client_car.close()

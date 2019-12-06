@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-import pytest
 from contextlib import contextmanager
 import traceback
 

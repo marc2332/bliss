@@ -157,6 +157,7 @@ from bliss.comm import rpc
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
+from bliss.common import event
 
 try:
     from bliss.flint import poll_patch
@@ -566,10 +567,20 @@ class BasePlot(object):
         return self._flint.select_shapes(self._plot_id, initial_selection, timeout=None)
 
     def select_points(self, nb):
-        return self._flint.select_points(self._plot_id, nb)
+        flint = self._flint
+        request_id = flint.request_select_points(self._plot_id, nb)
+        results = gevent.queue.Queue()
+        event.connect(flint, request_id, results.put)
+        result = results.get()
+        return result
 
     def select_shape(self, shape):
-        return self._flint.select_shape(self._plot_id, shape)
+        flint = self._flint
+        request_id = flint.request_select_shape(self._plot_id, shape)
+        results = gevent.queue.Queue()
+        event.connect(flint, request_id, results.put)
+        result = results.get()
+        return result
 
     # Instanciation
 

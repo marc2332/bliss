@@ -28,12 +28,13 @@ from silx.gui import plot as silx_plot
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.items.roi import RegionOfInterest
 
-from bliss.flint.helper.plot_interaction import PointsSelector, ShapeSelector
+from bliss.flint.helper import plot_interaction
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
+from bliss.common import event
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +45,14 @@ class CustomPlot(NamedTuple):
     plot: qt.QWidget
     tab: qt.QWidget
     title: str
+
+
+class Request(NamedTuple):
+    """Store information about a request."""
+
+    plot: qt.QWidget
+    request_id: str
+    selector: plot_interaction.Selector
 
 
 class MultiplexStreamToSocket(TextIO):
@@ -80,11 +89,16 @@ class FlintApi:
     _id_generator = itertools.count()
 
     def __init__(self, flintModel: flint_model.FlintState):
+        self.__requestCount = -1
+        """Number of requests already created"""
+
+        self.__requests: Dict[str, Request] = {}
+        """Store the current requests"""
+
         self.__flintModel = flintModel
         # FIXME: _custom_plots should be owned by flint model or window
         self._custom_plots: Dict[object, CustomPlot] = {}
         self.data_event = collections.defaultdict(dict)
-        self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
 
         self.stdout = MultiplexStreamToSocket(sys.stdout)
@@ -409,25 +423,11 @@ class FlintApi:
         dock.show()
         return dock
 
-    def _selection(self, plot_id, cls, *args):
-        # Instanciate selector
-        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+    def __create_request_id(self):
+        self.__requestCount += 1
+        return "flint_api_request_%d" % self.__requestCount
 
-        # Set the focus as an user input is requested
-        window = self.__flintModel.mainWindow()
-        window.setFocusOnPlot(custom_plot.tab)
-
-        selector = cls(custom_plot.plot)
-        # Save it for future cleanup
-        self.selector_dict[plot_id].append(selector)
-        # Run the selection
-        queue = gevent.queue.Queue()
-        selector.selectionFinished.connect(queue.put)
-        selector.start(*args)
-        positions = queue.get()
-        return positions
-
-    def select_points(self, plot_id, nb: int) -> Sequence[Tuple[float, float]]:
+    def request_select_points(self, plot_id, nb: int) -> str:
         """
         Request the selection of points.
 
@@ -436,16 +436,19 @@ class FlintApi:
             nb: Number of points requested
 
         Return:
-            A list of points describing the selection. A point is defined by a
-            tuple of 2 floats (x, y). If nothing is selected an empty sequence
-            is returned.
-        """
-        points: Sequence[Tuple[float, float]] = self._selection(
-            plot_id, PointsSelector, nb
-        )
-        return points
+            This method returns an event name which have to be registered to
+            reach the result.
 
-    def select_shape(self, plot_id, shape: str) -> Sequence[Tuple[float, float]]:
+            The event result is list of points describing the selection. A point
+            is defined by a tuple of 2 floats (x, y). If nothing is selected an
+            empty sequence is returned.
+        """
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+        selector = plot_interaction.PointsSelector(custom_plot.plot)
+        selector.setNbPoints(nb)
+        return self.__request_selector(plot_id, selector)
+
+    def request_select_shape(self, plot_id, shape: str) -> str:
         """
         Request the selection of a single shape.
 
@@ -455,18 +458,61 @@ class FlintApi:
                 "hline", "vline")
 
         Return:
-            A list of points describing the selected shape. A point is defined by a
-            tuple of 2 floats (x, y). If nothing is selected an empty sequence
-            is returned.
-        """
-        points: Sequence[Tuple[float, float]] = self._selection(
-            plot_id, ShapeSelector, shape
-        )
-        return points
+            This method returns an event name which have to be registered to
+            reach the result.
 
-    def clear_selections(self, plot_id):
+            The event result is a list of points describing the selected shape.
+            A point is defined by a tuple of 2 floats (x, y). If nothing is
+            selected an empty sequence is returned.
         """
-        Clear the current selection.
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+        selector = plot_interaction.ShapeSelector(custom_plot.plot)
+        selector.setShapeSelection(shape)
+        return self.__request_selector(plot_id, selector)
+
+    def __request_selector(self, plot_id, selector: plot_interaction.Selector) -> str:
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+        request_id = self.__create_request_id()
+
+        # Set the focus as an user input is requested
+        window = self.__flintModel.mainWindow()
+        window.setFocusOnPlot(custom_plot.tab)
+
+        request = Request(custom_plot.plot, request_id, selector)
+        self.__requests[request_id] = request
+
+        # Start the task
+        selector.selectionFinished.connect(
+            functools.partial(self.__request_validated, request_id)
+        )
+        selector.start()
+        return request_id
+
+    def cancel_request(self, request_id):
         """
-        for selector in self.selector_dict.pop(plot_id):
-            selector.reset()
+        Stop the `request_id` selection.
+
+        As result the selection is removed and the user can't have anymore
+        feedback.
+        """
+        request = self.__requests.pop(request_id, None)
+        if request is not None:
+            request.selector.stop()
+
+    def clear_request(self, request_id):
+        """
+        Clear the `request_id` selection.
+
+        This selection still have to be completed by the user.
+        """
+        request = self.__requests.get(request_id)
+        if request is not None:
+            request.selector.reset()
+
+    def __request_validated(self, request_id: str):
+        """Callback when the request is validaed"""
+        request = self.__requests.pop(request_id, None)
+        if request is not None:
+            selector = request.selector
+            event.send(self, request_id, selector.selection())
+            request.selector.stop()

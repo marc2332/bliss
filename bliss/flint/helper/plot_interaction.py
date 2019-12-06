@@ -106,30 +106,48 @@ class DrawModeAction(PlotAction):
         )
 
 
-class ShapeSelector(qt.QObject):
-    """Handles the selection of a single shape in a PlotWidget
+class Selector(qt.QObject):
+    """Handles the selection of things
 
     :param parent: QObject's parent
     """
 
-    selectionChanged = qt.Signal(tuple)
+    selectionChanged = qt.Signal()
     """Signal emitted whenever the selection has changed.
-
-    It provides the selection.
     """
 
-    selectionFinished = qt.Signal(tuple)
+    selectionFinished = qt.Signal()
     """Signal emitted when selection is terminated.
-
-    It provides the selection.
     """
 
+    def __init__(self, parent: qt.QObject = None):
+        super(Selector, self).__init__(parent=parent)
+
+    def selection(self):
+        """Returns the current selection
+        """
+        return None
+
+    def reset(self):
+        """Clear the current selection"""
+
+    def start(self):
+        """Start the selection"""
+
+    def stop(self):
+        """Stop the selection.
+
+        After that it should not be possible to start it again."""
+
+
+class ShapeSelector(Selector):
     def __init__(self, parent=None):
         assert isinstance(parent, PlotWidget)
         super(ShapeSelector, self).__init__(parent)
         self._isSelectionRunning = False
         self._selection = ()
         self._itemId = "%s-%s" % (self.__class__.__name__, id(self))
+        self._shape: str = ""
 
         # Add a toolbar to plot
         self._toolbar = qt.QToolBar("Selection")
@@ -141,9 +159,18 @@ class ShapeSelector(qt.QObject):
         toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
         self._toolbar.addWidget(toolButton)
 
+    def setShapeSelection(self, shape):
+        """
+        Set the kind of shape to use durig the selection.
+
+        :param str shape: The shape to select in:
+            'rectangle', 'line', 'polygon', 'hline', 'vline'
+        """
+        self._shape = shape
+
     # Style
 
-    def getColor(self):
+    def color(self):
         """Returns the color used for the selection shape
 
         :rtype: QColor
@@ -161,7 +188,7 @@ class ShapeSelector(qt.QObject):
 
     # Control selection
 
-    def getSelection(self):
+    def selection(self):
         """Returns selection control point coordinates
 
         Returns an empty tuple if there is no selection
@@ -182,20 +209,17 @@ class ShapeSelector(qt.QObject):
         if selection != self._selection:
             self._selection = selection
             self._updateShape()
-            self.selectionChanged.emit(self.getSelection())
+            self.selectionChanged.emit()
 
     def reset(self):
         """Clear the rectangle selection"""
         if self._selection:
             self._selection = ()
             self._updateShape()
-            self.selectionChanged.emit(self.getSelection())
+            self.selectionChanged.emit()
 
-    def start(self, shape):
-        """Start requiring user to select a rectangle
-
-        :param str shape: The shape to select in:
-            'rectangle', 'line', 'polygon', 'hline', 'vline'
+    def start(self):
+        """Start requiring user to select a shape
         """
         plot = self.parent()
         if plot is None:
@@ -204,9 +228,9 @@ class ShapeSelector(qt.QObject):
         self.stop()
         self.reset()
 
-        assert shape in ("rectangle", "line", "polygon", "hline", "vline")
+        assert self._shape in ("rectangle", "line", "polygon", "hline", "vline")
 
-        self._modeAction.setShape(shape)
+        self._modeAction.setShape(self._shape)
         self._modeAction.trigger()  # To set the interaction mode
 
         self._isSelectionRunning = True
@@ -234,7 +258,7 @@ class ShapeSelector(qt.QObject):
         plot.removeToolBar(self._toolbar)
 
         self._isSelectionRunning = False
-        self.selectionFinished.emit(self.getSelection())
+        self.selectionFinished.emit()
 
     def _handleDraw(self, event):
         """Handle shape drawing event"""
@@ -268,21 +292,7 @@ class ShapeSelector(qt.QObject):
                 )
 
 
-class PointsSelector(qt.QObject):
-    """Handle selection of points in a PlotWidget"""
-
-    selectionChanged = qt.Signal(tuple)
-    """Signal emitted whenever the selection has changed.
-
-    It provides the selection.
-    """
-
-    selectionFinished = qt.Signal(tuple)
-    """Signal emitted when selection is terminated.
-
-    It provides the selection.
-    """
-
+class PointsSelector(Selector):
     def __init__(self, parent):
         assert isinstance(parent, PlotWidget)
         super(PointsSelector, self).__init__(parent)
@@ -291,7 +301,15 @@ class PointsSelector(qt.QObject):
         self._markersAndPos = []
         self._totalPoints = 0
 
-    def getSelection(self):
+    def setNbPoints(self, nbPoints):
+        """
+        Set the number of points requested for the selection.
+
+        :param int nbPoints: Number of points to select
+        """
+        self._totalPoints = nbPoints
+
+    def selection(self):
         """Returns the selection"""
         return tuple(pos for _, pos in self._markersAndPos)
 
@@ -311,7 +329,7 @@ class PointsSelector(qt.QObject):
                         plot.remove(legend=legend, kind="marker")
 
                         self._updateStatusBar()
-                        self.selectionChanged.emit(self.getSelection())
+                        self.selectionChanged.emit()
                         return True  # Stop further handling of those keys
 
             elif event.key() == qt.Qt.Key_Return:
@@ -320,10 +338,8 @@ class PointsSelector(qt.QObject):
 
         return super(PointsSelector, self).eventFilter(obj, event)
 
-    def start(self, nbPoints=1):
+    def start(self):
         """Start interactive selection of points
-
-        :param int nbPoints: Number of points to select
         """
         self.stop()
         self.reset()
@@ -332,7 +348,6 @@ class PointsSelector(qt.QObject):
         if plot is None:
             raise RuntimeError("No plot to perform selection")
 
-        self._totalPoints = nbPoints
         self._isSelectionRunning = True
 
         plot.setInteractiveMode(mode="zoom")
@@ -362,7 +377,7 @@ class PointsSelector(qt.QObject):
 
         plot.statusBar().clearMessage()
         self._isSelectionRunning = False
-        self.selectionFinished.emit(self.getSelection())
+        self.selectionFinished.emit()
 
     def reset(self):
         """Reset selected points"""
@@ -373,7 +388,7 @@ class PointsSelector(qt.QObject):
         for legend, _ in self._markersAndPos:
             plot.remove(legend=legend, kind="marker")
         self._markersAndPos = []
-        self.selectionChanged.emit(self.getSelection())
+        self.selectionChanged.emit()
 
     def _updateStatusBar(self):
         """Update status bar message"""

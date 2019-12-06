@@ -913,6 +913,24 @@ class ModulesConfig:
             }
         return self.__physical_mapping
 
+    @property
+    def bit_output_mem_area(self):
+        """Returns the address of the first Word in plc Wago Memory
+        where digital outputs are mapped
+
+        Normally in Wago memory at first all analog outputs
+        are mapped starting on %QW0 up to the needed quantity,
+        than digital outputs are mapped one output per bit
+        starting from the LSB of the Word
+        """
+        # count OW
+        offset = 0
+        for logical_device in self.logical_mapping.values():
+            for logical_channel in logical_device:
+                if logical_channel.channel_base_address == 20311:
+                    offset += 1
+        return offset
+
 
 class MissingFirmware(RuntimeError):
     pass
@@ -1243,7 +1261,7 @@ class WagoController:
                         ]
                         + channel_index
                     )
-                    self.client.write_coil(addr, bool(value2write))
+                    self.client_write_coil(addr, bool(value2write))
                 elif type_index == ANA_OUT:
                     addr = (
                         self.modules_config.mapping[module_index]["writing_info"][
@@ -1258,7 +1276,9 @@ class WagoController:
                         )
                     else:
                         raise RuntimeError("Writing %r is not supported" % writing_type)
-                    self.client.write_register(addr, "H", write_value)
+                    self.client_write_registers(
+                        addr, "H", [write_value], timeout=self.timeout
+                    )
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
@@ -1383,7 +1403,7 @@ class WagoController:
         log_debug(
             self, f"devwccomm Phase 1: writing at address {addr:04X} value {data:04X}"
         )
-        response = self.client.write_register(addr, "H", data, timeout=self.timeout)
+        response = self.client_write_registers(addr, "H", [data], timeout=self.timeout)
 
         """
         PHASE 2: Handshake protocol: wait for OUTCMD==0
@@ -1456,7 +1476,7 @@ class WagoController:
             self, f"devwccomm Phase 3: writing at address: {addr:04X} values : {data}"
         )
 
-        self.client.write_registers(addr, "H" * len(data), data, timeout=self.timeout)
+        self.client_write_registers(addr, "H" * len(data), data, timeout=self.timeout)
 
         """
         PHASE 4: Handshake protocol: wait for end of command (OUTCMD==INCMD or ==0xffff)
@@ -1758,6 +1778,63 @@ class WagoController:
                 raise RuntimeError(
                     f"PLC module n.{i} (starting from zero) does not corresponds to mapping:{module1} != {module2}"
                 )
+
+    def client_write_registers(self, address, struct_format, values, timeout=None):
+        if self.order_nu == 891:
+            """For Wago CPU model 750-891
+
+            Protocol description:
+            -----------------------------------------------------------------
+            fcode (1 word) : Function Code (15 for write multiple coil,
+                             16 for multiple registers)
+            faddr (1 word) : Wago starting address (internal memory)
+            fnum_words (1 word) : Num of words to be written 
+                                  (For FC15 always 1)
+            fmask (1 word) : Bitmask used in FC15 for writing only some coils
+            ftable (n words) : Array of values (always 1 word for FC15)
+            """
+            payload = [16, address, len(struct_format), 0, *values]
+
+            # allow writing if previous request was ok
+            with gevent.Timeout(
+                timeout, RuntimeError("PLC is not ready to receive requests")
+            ):
+                while True:
+                    if self.client.read_holding_registers(12288, "H") == 0:
+                        # when the Function Code is set to 0 we can proceed
+                        break
+            return self.client.write_registers(
+                12288, "H" * len(payload), payload, timeout=self.timeout
+            )
+        else:
+            return self.client.write_registers(
+                address, struct_format, values, timeout=timeout
+            )
+
+    def client_write_coil(self, address, on_off, timeout=None):
+        if self.order_nu == 891:
+            word_address = address // 16 + self.modules_config.bit_output_mem_area
+            bit_n = address % 16
+            bit_mask = 1 << bit_n
+            lenght = 1
+            value = bit_mask if on_off else 0
+
+            payload = [15, word_address, lenght, bit_mask, value]
+            log_debug_data(self, "payload of client_write_coil", payload)
+
+            with gevent.Timeout(
+                timeout, RuntimeError("PLC is not ready to receive requests")
+            ):
+                while True:
+                    if self.client.read_holding_registers(12288, "H") == 0:
+                        # when the Function Code is set to 0 we can proceed
+                        break
+
+            return self.client.write_registers(
+                12288, "H" * len(payload), payload, timeout=self.timeout
+            )
+        else:
+            return self.client.write_coil(address, on_off, timeout=timeout)
 
 
 class WagoCounter(SamplingCounter):

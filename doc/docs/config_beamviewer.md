@@ -1,14 +1,14 @@
 # Standard beamviewer (EBV: ESRF Beam Viewer)
 
-![Screenshot](img/std_bpm.svg)
+![Screenshot](img/ebv.svg)
 
 see also: http://wikiserv.esrf.fr/bliss/index.php/Bvb
 
 These beamviewers visualise the various types of x-ray beam (white, pink and
-monochromatic) into the visible spectrum, using a scintillator, a camera and associated
-software to provide the beam shape and relative power intensities. The maximum
-accommodated beam size (or potential beam movement) is 10mm x 10mm for the standard
-beamviewers.
+monochromatic) into the visible spectrum, using a scintillator, a camera and
+associated software to provide the beam shape and relative power
+intensities. The maximum accommodated beam size (or potential beam movement) is
+10mm x 10mm for the standard beamviewers.
 
 ESRF "Standards" beamviewers (EBV) are composed by:
 
@@ -34,9 +34,10 @@ Usage of an EBV is described here: [Beamviewer Usage](using_beamviewer.md).
 Control is implemented using 2 bliss objects: 
 
 * **EBV** bliss object controls the wago box (screen, led, foil, diode)
-* **LIMA** bliss object controls the basler camera and the associated BPM counters computed on images 
+* **LIMA** bliss object controls the basler camera and the associated BPM
+  counters computed on images
 
-## Wagobox modules:
+## Wagobox modules
 
 Two type of wago box exist:
 
@@ -51,7 +52,8 @@ Two type of wago box exist:
     - *750-530* : 8-channel digital output; 24 VDC; 0.5 A
     - *750-479* : 2-channel analog input module (ADC)
 
-If the EBV has a foil to attenuate beam (MX case), two additionnal wago modules are added:
+If the EBV has a foil to attenuate beam (MX case), two additionnal wago modules
+are added:
 
 - *750-436* : 8-channel digital input; 24VDC
 - *750-504* : 4 Channel Digital Output
@@ -72,13 +74,16 @@ channel: 0
 counter_name: mydiode
 ```
 
-`modbustcp / url` defines the wago control box host as in standard wago controller.
+`modbustcp / url` defines the wago control box host as in standard wago
+controller.
 
 #### Configuration optionnal parameters
 
 * `single_model`
     - default value : `False`
-    - define which model of wago is used : if `single_model` is `True`, the wago box is a 1-EBV model otherwise it is 2-EBV model. Note that some 2-EVB models can be installed even if it controls only one BVB.
+    - define which model of wago is used : if `single_model` is `True`, the wago
+      box is a 1-EBV model otherwise it is 2-EBV model. Note that some 2-EVB
+      models can be installed even if it controls only one BVB.
 
 * `has_foil`
     - default value : `False`
@@ -86,10 +91,53 @@ counter_name: mydiode
 
 * `channel`
     - default value : `0`
-    - in case of a 2-EBV wago box model, defines which EBV is used : 1st one or 2nd one.
+    - in case of a 2-EBV wago box model, defines which EBV is used : 1st one or
+      2nd one.
 
 * `counter_name`
     - default value : `diode`
     - counter name of diode current reading when EBV is used in counts/scans
+
+
+## Lima BPM counters
+
+Recent Lima (⩾ 1.9.2) has a built-in BPM device server (no need for an extra
+Tango server).
+
+The BPM counter controller is integrated in BLISS as a Lima object.
+
+
+Example of configuration:
+```yaml
+name: lima_bv1
+plugin: bliss
+class: Lima
+tango_url: id42/limaccds/bv1
+bpmnames:
+ - x: bv1_x
+ - y: bv1_y
+ - fwhm_x: bv1_fx
+ - fwhm_y: bv1_fy
+ - intensity: bv1_i
+```
+
+
+The BPM counters are now available:
+
+```python
+SESSION_SXM [3]: ct(0.1, lima_bv1.counters)
+
+    Activated counters not shown: image
+
+    Wed Dec 04 17:04:18 2019
+     acq_time =   0.13225 ( 1.3225/s)
+       fwhm_x =   0.0
+       fwhm_y =  31.8288  ( 318.2882/s)
+    intensity =  26.8     ( 268.0/s)
+            x =  -1.0     ( -10.0/s)
+            y = 920.2379  ( 9202.3790/s)
+            Out [3]: Scan(number=67, name=ct,
+                     path=/data/id42/inhouse/session_sxm/data3.null)
+```
 
 

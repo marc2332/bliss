@@ -595,7 +595,7 @@ class Controller:
         log_info(self, "Controller:set_output_value: %s %s" % (toutput, value))
         raise NotImplementedError
 
-    def start_output_ramp(self, toutput, value, **kwargs):
+    def start_output_ramp(self, toutput, value, **kwargs):  # required by Output obj
         """
         Start ramping on the output
         Raises NotImplementedError if not defined by inheriting class
@@ -636,7 +636,7 @@ class Controller:
         log_info(self, "Controller:is_output_ramping: %s" % (toutput))
         raise NotImplementedError
 
-    def set_output_ramprate(self, toutput, rate):
+    def set_output_ramprate(self, toutput, rate):  # required by Output obj
         """
         Set the output ramp rate
         Raises NotImplementedError if not defined by inheriting class
@@ -648,7 +648,7 @@ class Controller:
         log_info(self, "Controller:set_output_ramprate: %s %s" % (toutput, rate))
         raise NotImplementedError
 
-    def get_output_ramprate(self, toutput):
+    def get_output_ramprate(self, toutput):  # required by Output obj
         """
         Get the output ramp rate
         Raises NotImplementedError if not defined by inheriting class

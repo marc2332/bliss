@@ -154,6 +154,7 @@ This module implements the classes allowing the control of regulation processes 
 import time
 import gevent
 import gevent.event
+import enum
 
 from bliss.common.logtools import log_debug
 from bliss.common.utils import with_custom_members, autocomplete_property
@@ -350,7 +351,10 @@ class Output:
             self._config.get("low_limit", None),
             self._config.get("high_limit", None),
         )
+
         self.ramprate = self._config.get("ramprate", 0.0)
+        # if self._config.get("ramprate") is not None:
+        #    self.ramprate = self._config.get("ramprate")
 
     @property
     def controller(self):
@@ -644,6 +648,11 @@ class Loop:
 
     """
 
+    @enum.unique
+    class WaitMode(enum.IntEnum):
+        RAMP = 1
+        DEADBAND = 2
+
     def __init__(self, controller, config):
         """ Constructor """
 
@@ -667,7 +676,7 @@ class Loop:
 
         self._first_scan_move = True
 
-        self._wait_mode = "ramp"  # "deadband"
+        self._wait_mode = self.WaitMode.RAMP
 
         self._history_size = 100
         self.clear_history_data()
@@ -678,21 +687,40 @@ class Loop:
     def load_base_config(self):
         """ Load from the config the values of the standard parameters """
 
-        self.kp = self._config.get("P", 1.0)
-        self.ki = self._config.get("I", 0.0)
-        self.kd = self._config.get("D", 0.0)
+        if self._config.get("P") is not None:
+            self.kp = self._config.get("P")
+        if self._config.get("I") is not None:
+            self.ki = self._config.get("I")
+        if self._config.get("D") is not None:
+            self.kd = self._config.get("D")
 
-        self.deadband = self._config.get("deadband", 1.e-3)
+        self.deadband = self._config.get("deadband", 0.1)
+        # if self._config.get("deadband") is not None:
+        #    self.deadband = self._config.get("deadband")
+
         self.deadband_time = self._config.get("deadband_time", 1.0)
-        self.sampling_frequency = self._config.get("frequency", 50.)
-        self.ramprate = self._config.get("ramprate", 0.0)
+        # if self._config.get("deadband_time") is not None:
+        #    self.deadband_time = self._config.get("deadband_time")
 
-        self._wait_mode = self._config.get("wait_mode", "ramp")
+        # self.sampling_frequency = self._config.get("frequency", 50.)
+        if self._config.get("frequency") is not None:
+            self.sampling_frequency = self._config.get("frequency")
 
-        self.pid_range = (
-            self._config.get("low_limit", 0.0),
-            self._config.get("high_limit", 1.0),
-        )
+        # self.ramprate = self._config.get("ramprate", 0.0)
+        if self._config.get("ramprate") is not None:
+            self.ramprate = self._config.get("ramprate")
+
+        self.wait_mode = self._config.get("wait_mode", "ramp")
+        # if self._config.get("wait_mode") is not None:
+        #    self.wait_mode = self._config.get("wait_mode")
+
+        if (self._config.get("low_limit") is not None) and (
+            self._config.get("low_limit") is not None
+        ):
+            self.pid_range = (
+                self._config.get("low_limit"),
+                self._config.get("high_limit"),
+            )
 
         # self.dwell = self._config.get("dwell",None)
         # self.step = self._config.get("step",None)
@@ -930,6 +958,7 @@ class Loop:
             state="axis_state",
             low_limit=float("-inf"),
             high_limit=float("+inf"),
+            tolerance=self.deadband,
         )
 
         return sa
@@ -949,7 +978,9 @@ class Loop:
         """ Set the setpoint to the current input device value as if stopping a move on an axis """
 
         self._first_scan_move = True
-        self.setpoint = self.input.read()
+        # self.setpoint = self.input.read()  ?????
+        # breakpoint()
+        print("\n\n\n=========AXIS_STOP")
 
     def axis_state(self):
         """ Return the current state of the Loop as if it was an axis.
@@ -973,7 +1004,7 @@ class Loop:
         # HOME   : 'Home signal active'
         # OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
 
-        if self._wait_mode in ["ramp", 0]:
+        if self._wait_mode == self.WaitMode.RAMP:
 
             if self.is_ramping():
                 return AxisState("MOVING")
@@ -1009,6 +1040,33 @@ class Loop:
                         return AxisState("READY")
                     else:
                         return AxisState("MOVING")
+
+    @property
+    def wait_mode(self):
+        """ Get the waiting mode used during a scan to determine if the regulation as reached a scan point (see scan 'READY' state).
+            <WaitMode.RAMP    : 1>  : READY when the loop has finished to ramp to the scan point.
+            <WaitMode.DEADBAND: 2>  : READY when the processed value is in the 'deadband' around the scan point for a time >= 'deadband_time'.
+        """
+
+        log_debug(self, "Loop:get_deadband")
+        return self._wait_mode
+
+    @wait_mode.setter
+    def wait_mode(self, value):
+        """ Set the waiting mode used during a scan to determine if the regulation as reached a scan point (see scan 'READY' state).
+            <WaitMode.RAMP    : 1>  : READY when the loop has finished to ramp to the scan point.
+            <WaitMode.DEADBAND: 2>  : READY when the processed value is in the 'deadband' around the scan point for a time >= 'deadband_time'.
+        """
+
+        log_debug(self, "Loop:set_deadband: %s" % (value))
+
+        if isinstance(value, int):
+            self._wait_mode = self.WaitMode(value)
+        elif isinstance(value, str):
+            if value.lower() in ["deadband", "2"]:
+                self._wait_mode = self.WaitMode(2)
+            else:
+                self._wait_mode = self.WaitMode(1)
 
     # ----------- METHODS THAT A CHILD CLASS COULD CUSTOMIZE ------------------
 
@@ -1169,7 +1227,6 @@ class Loop:
         """ set the current setpoint """
 
         log_debug(self, "Loop:_set_setpoint %s" % value)
-
         self._controller.set_setpoint(self, value)
 
     def _start_regulation(self):
@@ -1691,35 +1748,52 @@ class RegPlot:
 
         while not self._stop_event.is_set():
 
-            # update data history
-            self.loop._store_history_data()
+            # t0 = time.time()
 
-            self.fig.submit("setAutoReplot", False)
+            try:
+                # update data history
+                self.loop._store_history_data()
 
-            self.fig.add_data(self.loop.history_data["time"], field="time")
-            self.fig.add_data(self.loop.history_data["input"], field="Input")
-            self.fig.add_data(self.loop.history_data["output"], field="Output")
-            self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
+                self.fig.submit("setAutoReplot", False)
 
-            dbp = [x + self.loop.deadband for x in self.loop.history_data["setpoint"]]
-            dbm = [x - self.loop.deadband for x in self.loop.history_data["setpoint"]]
-            self.fig.add_data(dbp, field="Deadband_high")
-            self.fig.add_data(dbm, field="Deadband_low")
+                self.fig.add_data(self.loop.history_data["time"], field="time")
+                self.fig.add_data(self.loop.history_data["input"], field="Input")
+                self.fig.add_data(self.loop.history_data["output"], field="Output")
+                self.fig.add_data(self.loop.history_data["setpoint"], field="Setpoint")
 
-            # Update curves plot (refreshes the plot widget)
-            # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
-            self.fig.select_data("time", "Setpoint", color="blue", linestyle="-", z=2)
-            self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
-            self.fig.select_data(
-                "time", "Output", color="green", linestyle="-", yaxis="right", z=2
-            )
-            self.fig.select_data(
-                "time", "Deadband_high", color="blue", linestyle="--", z=2
-            )
-            self.fig.select_data(
-                "time", "Deadband_low", color="blue", linestyle="--", z=2
-            )
+                dbp = [
+                    x + self.loop.deadband for x in self.loop.history_data["setpoint"]
+                ]
+                dbm = [
+                    x - self.loop.deadband for x in self.loop.history_data["setpoint"]
+                ]
+                self.fig.add_data(dbp, field="Deadband_high")
+                self.fig.add_data(dbm, field="Deadband_low")
 
-            self.fig.submit("setAutoReplot", True)
+                # Update curves plot (refreshes the plot widget)
+                # select_data takes all kwargs of the associated plot methode (e.g. silx => addCurve(kwargs) )
+                self.fig.select_data(
+                    "time", "Setpoint", color="blue", linestyle="-", z=2
+                )
+                self.fig.select_data("time", "Input", color="red", linestyle="-", z=2)
+                self.fig.select_data(
+                    "time", "Output", color="green", linestyle="-", yaxis="right", z=2
+                )
+                self.fig.select_data(
+                    "time", "Deadband_high", color="blue", linestyle="--", z=2
+                )
+                self.fig.select_data(
+                    "time", "Deadband_low", color="blue", linestyle="--", z=2
+                )
+
+                self.fig.submit("setAutoReplot", True)
+
+            except:  # Exception as e:
+                # print(f"!!! In RegPlot.run: {type(e).__name__}: {e} !!!")
+                pass
+
+            # dt = time.time() - t0
+            # st = max(0.01, self.sleep_time - dt)
+            # gevent.sleep(st)
 
             gevent.sleep(self.sleep_time)
